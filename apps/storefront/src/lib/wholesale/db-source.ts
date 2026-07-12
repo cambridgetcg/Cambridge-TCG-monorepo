@@ -8,13 +8,9 @@
  * production Vercel already carries for admin reads (src/lib/admin/db.ts)
  * and stock reservations (src/lib/stock/reservations.ts).
  *
- * Pricing semantics are replicated from the HTTP API, not reinvented:
- *   - price_gbp        = cards.price (verbatim; NULL when never priced)
- *   - channel_price    = computePrice(cardrush_jpy, gbp_jpy_rate,
- *                        <channel_pricing row>, category) for non-wholesale
- *                        channels, falling back to price_gbp when the card
- *                        has no JPY observation — exactly what
- *                        apps/wholesale/src/app/api/v1/prices/route.ts does.
+ * Legacy price and image fields have no field-level rights receipt. They stay
+ * stored for review but this public-facing adapter does not select or emit
+ * them. Price and image fields are explicit nulls.
  *   - channel configs come from the wholesale channel_pricing table
  *     (runtime authoritative), degrading to @cambridge-tcg/pricing DEFAULTS
  *     only when that table itself is unreadable — mirroring
@@ -305,12 +301,8 @@ async function buildCardFilter(
 interface CardRow {
   sku: string;
   card_number: string;
-  price: string | null;
-  cardrush_jpy: number | null;
-  gbp_jpy_rate: number | null;
   stock: number;
   pending_stock: number;
-  image_url: string | null;
   name: string | null;
   name_en: string | null;
   set_code: string | null;
@@ -342,11 +334,8 @@ export async function dbFetchPrices(params?: {
 
   // Same sort vocabulary as the HTTP route; unknown sorts fall to
   // card_number, matching its default branch.
-  const orderBy =
-    params?.sort === "price_asc" ? "price ASC" :
-    params?.sort === "price_desc" ? "price DESC" :
-    params?.sort === "name_asc" ? "name_en ASC" :
-    "card_number ASC";
+  // Price ordering would reveal the relative values we are withholding.
+  const orderBy = params?.sort === "name_asc" ? "name_en ASC" : "card_number ASC";
 
   const countArgs = [...filter.args];
   const [{ rows: countRows }, { rows }] = await Promise.all([
@@ -355,8 +344,7 @@ export async function dbFetchPrices(params?: {
       countArgs,
     ),
     q<CardRow>(
-      `SELECT sku, card_number, price, cardrush_jpy, gbp_jpy_rate, stock,
-              pending_stock, image_url, name, name_en, set_code, set_name,
+      `SELECT sku, card_number, stock, pending_stock, name, name_en, set_code, set_name,
               rarity, category, last_synced_at
          FROM cards
         WHERE ${filter.where}
@@ -366,20 +354,15 @@ export async function dbFetchPrices(params?: {
     ),
   ]);
 
-  const needsChannelPrice = channel !== "wholesale";
-  const config = needsChannelPrice ? await channelConfigFor(channel) : null;
-
   const items = rows.map((r) => {
-    const priceGbp = r.price === null ? null : Number(r.price);
     const item: PriceItem = {
       sku: r.sku,
       card_number: r.card_number,
-      // NULL when the card has never been priced — the HTTP API returns
-      // null here too (drizzle passes NULL through the money type).
-      price_gbp: priceGbp as unknown as number,
+      price_gbp: null,
+      channel_price: null,
       stock: r.stock,
       pending_stock: r.pending_stock,
-      image_url: r.image_url,
+      image_url: null,
       name: r.name_en || r.name,
       name_en: r.name_en,
       set_code: r.set_code,
@@ -388,18 +371,6 @@ export async function dbFetchPrices(params?: {
       category: r.category,
       updated_at: r.last_synced_at ? new Date(r.last_synced_at).toISOString() : null,
     };
-    if (config) {
-      const cp = channelPriceForRow(
-        {
-          cardrush_jpy: r.cardrush_jpy,
-          gbp_jpy_rate: r.gbp_jpy_rate,
-          category: r.category,
-          price_gbp: priceGbp,
-        },
-        config,
-      );
-      item.channel_price = cp as unknown as number;
-    }
     return item;
   });
 
@@ -429,8 +400,7 @@ export async function dbFetchCard(
   channel = "cambridgetcg",
 ): Promise<PriceItem | null> {
   const { rows } = await q<CardRow>(
-    `SELECT sku, card_number, price, cardrush_jpy, gbp_jpy_rate, stock,
-            pending_stock, image_url, name, name_en, set_code, set_name,
+    `SELECT sku, card_number, stock, pending_stock, name, name_en, set_code, set_name,
             rarity, category, last_synced_at
        FROM cards
       WHERE sku = $1
@@ -440,14 +410,14 @@ export async function dbFetchCard(
   const r = rows[0];
   if (!r) return null;
 
-  const priceGbp = r.price === null ? null : Number(r.price);
   const item: PriceItem = {
     sku: r.sku,
     card_number: r.card_number,
-    price_gbp: priceGbp as unknown as number,
+    price_gbp: null,
+    channel_price: null,
     stock: r.stock,
     pending_stock: r.pending_stock,
-    image_url: r.image_url,
+    image_url: null,
     name: r.name_en || r.name,
     name_en: r.name_en,
     set_code: r.set_code,
@@ -456,19 +426,6 @@ export async function dbFetchCard(
     category: r.category,
     updated_at: r.last_synced_at ? new Date(r.last_synced_at).toISOString() : null,
   };
-
-  if (channel !== "wholesale") {
-    const config = await channelConfigFor(channel);
-    item.channel_price = channelPriceForRow(
-      {
-        cardrush_jpy: r.cardrush_jpy,
-        gbp_jpy_rate: r.gbp_jpy_rate,
-        category: r.category,
-        price_gbp: priceGbp,
-      },
-      config,
-    ) as unknown as number;
-  }
 
   return item;
 }

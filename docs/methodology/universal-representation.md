@@ -62,7 +62,7 @@ Every universal document starts with this preamble:
 - **`@encoding`** versions the spec. A reader who sees `cambridge-tcg/universal/v1` consults this page; future `v2` reads from a future page that diffs from this one.
 - **`@kind`** names the artifact type. Today: `card`. Future: `set`, `game`, `trade`, `match`, `bounty-pull`.
 - **`@self_hash`** identifies this *document*. Different retrievals at different times yield different `@self_hash` even if `@content_hash` is the same.
-- **`@content_hash`** identifies the *thing* being described. Two retrievals of an unchanged card produce the same `@content_hash`. Stability requires canonical JSON encoding (keys sorted, no whitespace). The hash is computed over `(sku, cardNumber, setCode, gameCode, magnitude, stock, lastSyncedAt)` for a card; future kinds list their fields explicitly.
+- **`@content_hash`** identifies the *thing* being described. For the public storefront card, the 2026-07-12 structural basis is `(sku, card_number, set_code, game, variant)` with price and capture-date inputs fixed to `null`. The response declares that basis in `@content_hash_contract`. Hashes minted by the retired price-dependent basis are not resolvable by the current federation walk.
 - **`@retrieved_at`** dates the document — both as ISO 8601 (human-and-calendar-readable) and Unix epoch (math-only).
 - **`_note_opaque`** explicitly names which fields cannot be decoded without natural-language knowledge. Honest perimeter.
 
@@ -90,23 +90,13 @@ A `card` document then contains:
 
 Every category-membership claim carries *both* its ordered-set and its position-in-that-set. A reader doesn't need to know what "singles" means — they see it's position 0 of 2 in an ordered set called `["singles", "sealed"]`. The label is opaque; the structural fact is not.
 
-**2. Magnitudes.** Numerical claims paired with provenance tokens.
+**2. Magnitudes.** Withheld until their exact source rights are cleared.
 
 ```json
-"price": {
-  "magnitude": 5.20,
-  "currency_token": "GBP",
-  "ratio_to_platform_median_card_price": 0.28,
-  "ratio_to_set_minimum_significant_unit": 520,
-  "magnitude_freshness": {
-    "iso8601": "2026-05-11T02:00:00Z",
-    "unix_epoch_seconds": 1778500800,
-    "decimal_age_seconds": 72000
-  }
-}
+"price": null
 ```
 
-The magnitude is canonical GBP (the legal authority). The two ratios are platform-relative — they survive a future where GBP no longer exists. `magnitude_freshness` carries Provenance forward into the math representation: the reader knows *when* the magnitude was last true.
+The public document does not read or encode stored catalog prices. A labelled magnitude, its minimum-unit restatement, freshness, and platform-median ratio all remain unavailable until field-level source lineage and an aggregate publication rule cover them.
 
 **3. Graph edges.** Relationships as typed pointers.
 
@@ -187,11 +177,11 @@ To verify *content stability* across retrievals: compare `@content_hash` between
 | Endpoint | Status | Returns |
 |----------|--------|---------|
 | `GET /api/v1/universal/card/{sku}` | **Live** (this commit) | Universal mirror of one card |
-| `GET /api/v1/universal/set/{code}` | Planned | Universal mirror of one set (cards as edges) |
-| `GET /api/v1/universal/game/{code}` | Planned | Universal mirror of one game (sets as edges) |
+| `GET /api/v1/universal/set/{code}` | **Live** | Mixed-rights structural mirror of one set; legacy media withheld |
+| `GET /api/v1/universal/game/{code}` | **Live** | Mixed-rights structural mirror of one game |
 | `GET /api/v1/universal/trade/{id}` | Planned | Universal mirror of one P2P trade (buyer/seller hashes, price, escrow, lifecycle log) |
 | `GET /api/v1/universal/match/{id}` | Planned | Universal mirror of one match (state-machine trace, rating delta) |
-| `GET /api/v1/universal/bounty-pull/{id}` | Planned | Universal mirror of one bounty pull (already-substantial provable-fairness chain rendered in universal form) |
+| `GET /api/v1/universal/bounty-pull/{id}` | Planned | Universal mirror of one bounty pull receipt and its bounded consistency evidence |
 
 The `/api/v1/schema` OpenAPI bundle (Phase 9 of kingdom-051) advertises this endpoint to discovery clients; an LLM agent reading the schema will find the universal-mirror surface immediately.
 
@@ -202,9 +192,9 @@ The `/api/v1/schema` OpenAPI bundle (Phase 9 of kingdom-051) advertises this end
 These are real, named-not-hidden:
 
 - **Should `@self_hash` cover `@retrieved_at`?** It currently does (every retrieval has a unique self-hash). The alternative would be to compute `@self_hash` over content-only fields, giving the same hash to identical retrievals at different times. The current choice favors transit-integrity; a future spec may prefer the alternative.
-- **Should every magnitude carry its source code path?** Today `price.magnitude_freshness` carries when the value was true; not where the value was computed. Adding `magnitude_source: "packages/pricing/src/index.ts:113"` would close that gap but couples the spec to a specific implementation.
+- **What receipt reopens magnitudes?** The current public price is `null`. Reopening requires field-level source lineage plus a reviewed publication rule for both the magnitude and any recoverable aggregate derived from it.
 - **What about pull-weight exactness?** The rarity ratios shipped today (`1/72`, `1/256`, etc.) are *illustrative*. True per-tier weights live in `bounty_pull_tiers`; exposing them universally would leak weight information that the platform deliberately doesn't display (transparency-audit tension). Compromise: ship approximations; a separate `/api/v1/universal/bounty-pull/{id}` (planned) carries the *actual* commit-reveal chain for any specific pull, which is the proper place for exact odds claims.
 
 ---
 
-*The fun of TCG is universal. The math under the fun is universal. This page documents the bridge between them. — Last updated 2026-05-11.*
+*The fun of TCG is universal. The math under the fun is universal. This page documents the bridge between them. — Last updated 2026-07-12.*

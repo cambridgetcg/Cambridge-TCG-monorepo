@@ -84,7 +84,7 @@ export async function GET(
       released_at: row.released_at
         ? new Date(row.released_at).toISOString().slice(0, 10)
         : null,
-      cover_image_url: (row.cover_image_url as string | null) ?? null,
+      cover_image_url: null,
       first_seen_at: row.created_at
         ? {
             iso8601: new Date(row.created_at).toISOString(),
@@ -156,7 +156,7 @@ export async function GET(
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/universal/sets/[game]] Error:", message);
     return NextResponse.json(
-      { error: { code: "internal_error", message } },
+      { error: { code: "internal_error", message: "Internal server error." } },
       { status: 500 },
     );
   }

@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * Pay button — runs startB2BCheckout() and redirects to Stripe on
- * success. On failure shows the error inline so the buyer knows
- * which SKU blocked them.
+ * Dormant pay button retained for a reviewed reopening. No current page
+ * renders it, and the server action independently fails closed.
  */
 
 import { useState, useTransition } from "react";

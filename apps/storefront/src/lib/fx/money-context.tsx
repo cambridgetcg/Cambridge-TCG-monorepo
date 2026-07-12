@@ -57,6 +57,7 @@ const DEFAULT_CONTEXT: MoneyContextValue = {
     base: DEFAULT_CURRENCY,
     rates: { ...FALLBACK_RATES },
     source: "fallback",
+    as_of: "1970-01-01T00:00:00.000Z",
     fetched_at: "1970-01-01T00:00:00.000Z",
     is_fallback: true,
   },

@@ -242,9 +242,10 @@ export default function CrossSourcePricingMethodology() {
           stated use policy remains the boundary.
         </li>
         <li>
-          <strong>internal-only</strong> (CardRush, eBay raw listings) —
-          personal-decision use only; not for bulk export, paid republication,
-          or public archives.
+          <strong>blocked proprietary sources</strong> (including CardRush and
+          unapproved marketplace feeds) are not exposed anonymously, through a
+          session, or through a bearer key. Authentication and transformation do
+          not create upstream rights.
         </li>
         <li>
           <strong>NOASSERTION</strong> marks a mixed export where Cambridge

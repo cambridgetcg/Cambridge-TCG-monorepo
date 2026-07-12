@@ -63,8 +63,6 @@ export async function GET(request: Request) {
   const sortMap: Record<string, string> = {
     name_asc: "name_asc",
     name_desc: "name_desc",
-    price_asc: "price_asc",
-    price_desc: "price_desc",
     number_asc: "number_asc",
   };
 
@@ -119,7 +117,7 @@ export async function GET(request: Request) {
     const spot = retailPrice(item.price_gbp, item.channel_price);
     const p2p = p2pData.get(item.sku);
     const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
-    const marketPrice = bestAsk && bestAsk < spot ? bestAsk : spot;
+    const marketPrice = bestAsk !== null && (spot === null || bestAsk < spot) ? bestAsk : spot;
 
     return {
       sku: item.sku,

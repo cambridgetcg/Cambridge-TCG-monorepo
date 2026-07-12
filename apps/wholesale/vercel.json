@@ -4,34 +4,6 @@
     {
       "path": "/api/cron/monthly-rollover",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/discover/cardrush?onlySubdomain=cardrush-op.jp",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/discover/cardrush?onlySubdomain=cardrush-pokemon.jp",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/discover/cardrush?onlySubdomain=cardrush-db.jp",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/cron/discover/cardrush?onlySubdomain=cardrush-digimon.jp",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/discover/cardrush?onlySubdomain=cardrush-digimon.jp",
-      "schedule": "0 19 * * *"
-    },
-    {
-      "path": "/api/cron/ingest/cardrush",
-      "schedule": "0 */2 * * *"
-    },
-    {
-      "path": "/api/cron/cardrush-hires",
-      "schedule": "*/5 * * * *"
     }
   ]
 }

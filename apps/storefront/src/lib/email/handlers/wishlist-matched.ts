@@ -17,11 +17,11 @@ interface Data {
   sku: string;
   cardName: string;
   cardNumber: string | null;
-  imageUrl: string | null;
+  imageUrl: null;
   maxPrice: number;
   conditionMin: string;
   source: "wholesale" | "p2p";
-  priceGbp: number;
+  priceGbp: null;
   condition: string;
   quantityAvailable: number;
   marketOrderId: string | null;
@@ -47,11 +47,12 @@ async function verifyStillAvailable(d: Data): Promise<{ ok: true; price: number;
   const card = await fetchCard(d.sku);
   if (!card || card.stock <= 0) return { ok: false };
   const price = retailPrice(card.price_gbp, card.channel_price);
+  if (price === null) return { ok: false };
   if (price > d.maxPrice) return { ok: false };
   return { ok: true, price, qty: card.stock };
 }
 
-async function handle(row: QueueRow): Promise<QueueHandlerResult> {
+export async function handleWishlistMatched(row: QueueRow): Promise<QueueHandlerResult> {
   const d = row.data as unknown as Data;
   if (!d.wishlistId || !d.sku) return { kind: "failed", error: "missing wishlistId/sku" };
 
@@ -78,13 +79,6 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
     ? `https://cambridgetcg.com/market/${encodeURIComponent(d.sku)}`
     : `https://cambridgetcg.com/product/${encodeURIComponent(d.sku)}`;
 
-  const imageBlock = d.imageUrl
-    ? `<div style="text-align:center;margin:16px 0;">
-         <img src="${escapeHtml(d.imageUrl)}" alt="${escapeHtml(d.cardName)}"
-              width="140" style="border-radius:10px;border:2px solid #34d399;max-width:140px;height:auto;" />
-       </div>`
-    : "";
-
   const subject = `Match: ${d.cardName} for £${verified.price.toFixed(2)}`;
 
   const html = renderLayout({
@@ -99,7 +93,6 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
         ${d.condition && d.condition !== "NM" ? `<span style="color:#a3a3a3;"> · ${escapeHtml(d.condition)}</span>` : ""}
         at a price under your target.
       </p>
-      ${imageBlock}
       <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
         <p style="margin:0 0 4px;font-size:13px;color:#a3a3a3;">Listed at</p>
         <p style="margin:0;font-size:22px;color:#34d399;font-weight:700;">
@@ -146,4 +139,4 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
   return { kind: "failed", error: result.error };
 }
 
-registerQueueHandler("wishlist_matched", handle);
+registerQueueHandler("wishlist_matched", handleWishlistMatched);

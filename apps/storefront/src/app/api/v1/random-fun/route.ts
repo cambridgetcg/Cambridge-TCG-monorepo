@@ -245,7 +245,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "the kingdom does not randomize. the date hashes (djb2 mod corpus-length); the choice is deterministic. same UTC date = same recommendation (cacheable). 'random' in the URL is the playful framing, not a substrate claim.",
       walking_past_is_honored: true,
       no_tracking:
-        "the kingdom does not record which roll you visited. you may follow today's pointer, ignore it, or roll again tomorrow.",
+        "The application creates no roll-history profile. Hosting, proxy, and security access logs may still exist.",
     },
   });
 }

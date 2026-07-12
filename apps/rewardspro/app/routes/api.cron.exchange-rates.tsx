@@ -10,38 +10,10 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { getExchangeRateService, monitorExchangeRates } from "~/services/exchange-rate.server";
-
-/**
- * Verify cron authorization
- */
-function verifyCronAuth(request: Request): boolean {
-  // Check for Vercel cron secret
-  const authHeader = request.headers.get('Authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-    return true;
-  }
-
-  // Also check for a custom header that Vercel sends
-  const vercelCron = request.headers.get('x-vercel-cron');
-  if (vercelCron === '1') {
-    return true;
-  }
-
-  // Development environment - require explicit bypass flag for safety
-  if (process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_CRON_BYPASS === 'true') {
-    console.warn('[ExchangeRate] Cron auth bypassed in development (ALLOW_DEV_CRON_BYPASS=true)');
-    return true;
-  }
-
-  return false;
-}
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  // Verify this is a legitimate cron request
   if (!verifyCronAuth(request)) {
-    console.error('[ExchangeRate] Unauthorized cron request');
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -118,27 +90,35 @@ export async function loader({ request }: LoaderFunctionArgs) {
   } catch (error) {
     // Log error but don't throw - cron should return 200 to avoid retries
     console.error('[ExchangeRate] Cron job failed:', error);
-    results.error = error instanceof Error ? error.message : 'Unknown error';
+    results.error = 'Exchange rate update failed';
     results.duration = Date.now() - startTime;
 
     // Still return 200 to prevent Vercel from retrying
     // The monitoring system will alert if rates become stale
   }
 
-  return json(results, {
-    headers: {
-      'Cache-Control': 'no-store, max-age=0',
+  return json(
+    {
+      success: results.success,
+      ratesUpdated: results.ratesUpdated,
+      provider: results.provider,
+      nextUpdate: results.nextUpdate,
+      monitoring: results.monitoring,
+      error: results.error,
+      duration: results.duration,
     },
-  });
+    {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    },
+  );
 }
 
-// Health check endpoint for manual testing
-export async function action({ request }: LoaderFunctionArgs) {
-  // Allow manual trigger in development
-  if (process.env.NODE_ENV !== 'development') {
-    return new Response('Method not allowed', { status: 405 });
-  }
-
-  console.log('[ExchangeRate] Manual trigger initiated');
-  return loader({ request } as LoaderFunctionArgs);
+// POST is deliberately non-mutating; Vercel invokes this cron with GET.
+export async function action() {
+  return new Response("Method not allowed", {
+    status: 405,
+    headers: { Allow: "GET", "Cache-Control": "no-store" },
+  });
 }

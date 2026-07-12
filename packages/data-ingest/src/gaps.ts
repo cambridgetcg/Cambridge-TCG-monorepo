@@ -321,7 +321,7 @@ export const GAPS: readonly Gap[] = [
     primitive:
       "Aggregate license=NOASSERTION plus a rights block separating Cambridge-authored structure from upstream-derived fields",
     audit:
-      "pnpm audit:redistribution — rejects blanket-CC0 catalog output and checks actual storage origins",
+      "pnpm audit:redistribution — rejects blanket CC0 claims, verifies catalog and sold-comps publication pauses, and limits CC0 exports to explicitly reviewed named origins",
     status: "wired",
     strength:
       "Collectors and builders get a safe bulk boundary now; future field-level lineage can narrow rights without changing the catalog format or inventing ownership from storage.",
@@ -332,10 +332,10 @@ export const GAPS: readonly Gap[] = [
 
   {
     id: "speculative-cardrush-subdomains",
-    name: "9 of 12 registered CardRush subdomains are speculative",
+    name: "6 of 12 CardRush subdomains are confirmed; 1 is a candidate and 5 are blocked",
     domain: "coverage",
     citation:
-      "packages/data-ingest/src/cardrush/index.ts:73-87 — CARDRUSH_SUBDOMAINS table; confirmed: false on 8 hosts (mtg/ygo/vng/wei/fab/lgr/bsr/dbs); digimon flipped 2026-07-05",
+      "packages/data-ingest/src/cardrush/index.ts — CARDRUSH_SUBDOMAINS table; op/pkm/dbf/dmw/vng/bsr confirmed, mtg unconfirmed price-only, and ygo/wei/fab/lgr/cardrush-fw blocked after DNS checks",
     primitive:
       "subdomain_confirmed boolean on each registry entry; CardRushRaw.error_reason carries 'subdomain_unconfirmed' on first failed scrape",
     audit: "pnpm audit:cardrush-coverage — surfaces uncovered subdomains explicitly",
@@ -360,6 +360,23 @@ export const GAPS: readonly Gap[] = [
     named_at: "2026-05-13",
     closed_at: "2026-05-13",
     closing_kingdom: "K1 (kingdom-082) + K6 (oracle-policies endpoint)",
+  },
+
+  // ── Coverage ──────────────────────────────────────────────────────
+
+  {
+    id: "digimon-cardrush-opaque-product-identity",
+    name: "Some Digimon CardRush product titles carry rarity but no grounded card id",
+    domain: "coverage",
+    citation:
+      "packages/data-ingest/src/cardrush/__tests__/parse-metadata-rarity.test.ts keeps '(01)...【U】' at null set_code/card_number; apps/wholesale/src/lib/cardrush-discovery.ts quarantines rows without both identity fields",
+    primitive:
+      "CardMetadata preserves the trailing Digimon rarity in quarantine; explicit unbraced BT10-112-style ids flow through, opaque listing numbers do not",
+    audit: "packages/data-ingest/src/cardrush/__tests__/parse-metadata-rarity.test.ts",
+    status: "partial",
+    strength:
+      "The parser never promotes a listing position such as '(01)' into a publisher card id. Operators can inspect the captured rarity in quarantine, while automation waits for a rights-cleared source or a grounded identity mapping instead of attaching data to the wrong card.",
+    named_at: "2026-07-12",
   },
 
   // ── Transparency ──────────────────────────────────────────────────
@@ -407,7 +424,7 @@ export const GAPS: readonly Gap[] = [
     audit: "none (future pnpm audit:artist-coverage)",
     status: "wired",
     strength:
-      "Every card is a duet — a designer and an artist — but the pipeline only ever recorded who sells a card, never who drew it. The canonical model now carries the illustrator's name as first-class credit (Pokémon + Scryfall sources), the foundation for browse-by-artist, 'the whole body of an illustrator's work', and honoring the artist-first heart of Japanese card culture. Persisting (a cards.artist column + ingest run) and surfacing with attribution are the named next steps; artist rides from redistribute:false sources so it is display-with-credit only, never bulk-republished on a CC0 surface.",
+      "The canonical model now carries the illustrator's name from Pokémon and Scryfall records, but the platform neither persists nor publishes it. That internal field is a foundation for future artist-aware tools only after field-specific source permission is recorded. Attribution is not permission: a value from a redistribute:false source stays out of every public response, including per-card displays and bulk CC0 surfaces.",
     named_at: "2026-07-12",
   },
 ];

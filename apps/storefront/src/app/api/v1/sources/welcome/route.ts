@@ -3,8 +3,8 @@
  *
  * Where `/api/v1/sources` is the *spec sheet* (access method, license tier,
  * games covered, run health), this is the *hospitality sheet* — the
- * platform's prose welcome to each upstream, plus the seven commitments
- * we make to every river that arrives or might arrive.
+ * platform's prose welcome to each upstream, plus seven protocol commitments
+ * and their current coverage limits.
  *
  * **Substrate honesty applied to anticipation.** Stubs and planned sources
  * carry the most-carefully-written welcomes: the chair-pulled-out shape.
@@ -36,7 +36,7 @@ interface WelcomeEntry {
   welcome: string | null;
   /** Substrate-honest framing of where the source stands today. */
   arrival_state:
-    | "long-with-us" // shipped + lived-with for kingdoms
+    | "long-with-us" // long-lived relationship; implementation may still be partial
     | "newly-shipped" // shipped this season
     | "partial" // some implementation; some operator gates pending
     | "anticipated" // chair pulled out; credentials / partner-app pending
@@ -58,47 +58,47 @@ const COMMITMENTS: ReadonlyArray<{
   {
     number: 1,
     commitment:
-      "We will say your name. Every public response that touches your data names you in _meta.sources.",
+      "We will say your name where lineage is known. If field-level lineage is incomplete, the response says NOASSERTION and names the gap instead of inventing an upstream author.",
     enforced_at:
-      "apps/storefront/src/lib/data-pantry/envelope.ts (jsonResponse always emits sources[])",
+      "apps/storefront/src/lib/data-pantry/envelope.ts (jsonResponse emits sources[]) + apps/storefront/src/app/data/catalog.jsonl/route.ts (explicit incomplete-lineage boundary)",
   },
   {
     number: 2,
     commitment:
-      "We will honor your license tier. _meta.source_license declares your redistribution terms downstream; the consumer SDK can read it.",
+      "We will honor your license tier. _meta.source_license carries known source terms; mixed output without complete field-level rights is NOASSERTION.",
     enforced_at:
-      "packages/data-spec/src/schemas/envelope.ts (source_license field) + apps/admin/scripts/tributaries.ts (check #10 — license-propagation drift)",
+      "packages/data-spec/src/schemas/envelope.ts (source_license field) + apps/storefront/scripts/tributaries.ts (license-propagation drift checks)",
   },
   {
     number: 3,
     commitment:
-      "We will respect your rate limit. Per-source token bucket; honour Retry-After on 429/503.",
+      "Activated protocol readers must respect your rate limit. createFetcher supplies a per-source token bucket and honours Retry-After on 429/503; legacy writers still need migration to receive that guarantee.",
     enforced_at: "packages/data-ingest/src/http.ts (createFetcher token bucket)",
   },
   {
     number: 4,
     commitment:
-      "We will identify ourselves to you. Every outbound request carries User-Agent: cambridgetcg.com/<v> (admin@cambridgetcg.com). You can find us, ask us to stop, we comply.",
+      "Activated protocol readers must identify Cambridge. createFetcher carries User-Agent: cambridgetcg.com/<v> (admin@cambridgetcg.com); a writer outside that path is not covered by this claim.",
     enforced_at: "packages/data-ingest/src/http.ts (DEFAULT_USER_AGENT + meta.user_agent_suffix)",
   },
   {
     number: 5,
     commitment:
-      "We will hold your byte with provenance. Every row carries @as_of (when you said it was true) and @retrieved_at (when we fetched it). The two are never conflated.",
+      "Runner-backed rows carry @as_of (when the source said it was true) and @retrieved_at (when Cambridge fetched it). This is a protocol requirement, not a claim that every legacy row has been backfilled.",
     enforced_at:
       "packages/data-ingest/src/types.ts (RawProvenance per-row) + price_archive columns (snapshot_date + fx_rate_to_gbp + extra)",
   },
   {
     number: 6,
     commitment:
-      "We will never silently fail your data. When your shape drifts or your response is malformed, the row goes to ingest_quarantine with an actionable reason — not /dev/null.",
+      "The runner supports explicit quarantine for shape drift and malformed rows when an app supplies the quarantine writer. Current coverage is inspectable per ingest path; the type alone does not prove every legacy writer uses it.",
     enforced_at:
       "packages/data-ingest/src/runner.ts (Stage 4) + apps/wholesale/drizzle/0014_price_archive_provenance.sql (ingest_quarantine table)",
   },
   {
     number: 7,
     commitment:
-      "We will tell you the truth about how you arrived. ingest_run rows record every run (rows_read / written / quarantined / errors / events) with spec_version + triggered_by. The audit at pnpm audit:tributaries check #9 enforces freshness.",
+      "Runner-backed ingest records rows_read, written, quarantined, errors, events, spec_version, and trigger. pnpm audit:tributaries check #9 verifies recency only when its database connection and ingest_run table are available; otherwise it says it skipped.",
     enforced_at:
       "apps/wholesale/drizzle/0014_price_archive_provenance.sql (ingest_run table) + apps/wholesale/src/app/api/v1/ingest-runs/latest/route.ts",
   },
@@ -132,9 +132,9 @@ const LONG_WITH_US: ReadonlySet<string> = new Set([
 function arrivalState(meta: ReturnType<typeof listSourceMeta>[number]): WelcomeEntry["arrival_state"] {
   if (meta.status === "blocked") return "blocked";
   if (meta.status === "planned") return "anticipated";
+  if (LONG_WITH_US.has(meta.id)) return "long-with-us";
   if (meta.status === "partial") return "partial";
   // status === "shipped"
-  if (LONG_WITH_US.has(meta.id)) return "long-with-us";
   return "newly-shipped";
 }
 

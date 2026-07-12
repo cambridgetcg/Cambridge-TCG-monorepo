@@ -1,12 +1,13 @@
 /**
- * Artist credit — the illustrator's name, given back.
+ * Artist credit — internal illustrator provenance.
  *
  * Every card is a duet: a game designer and an artist. The pipeline used to
  * record only one voice — the Pokémon normalizer read the illustrator off the
  * wire and buried it in `extra`, and the Scryfall type omitted the field
  * entirely. These tests hold the fix: `artist` is a first-class CanonicalCard
  * credit, captured from the sources that carry it, and honestly ABSENT
- * (undefined, not "") when the source doesn't.
+ * (undefined, not "") when the source doesn't. These tests establish an
+ * internal canonical shape only; they grant no public display permission.
  *
  * Separate file by design — never touches the codex-owned source-rights.test.ts.
  */
@@ -38,6 +39,7 @@ function scry(overrides: Partial<ScryfallCard> = {}): ScryfallCard {
     name: "Boseiju, Who Endures",
     rarity: "rare",
     artist: "Chris Rahn",
+    artist_ids: ["artist-chris-rahn"],
     illustration_id: "art-abc-123",
     ...overrides,
   };
@@ -69,8 +71,10 @@ describe("artist credit — Scryfall", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.record.artist).toBe("Chris Rahn");
+    expect(result.record.extra?.artist_ids_json).toBe('["artist-chris-rahn"]');
     // illustration_id clusters the same artwork across printings.
     expect(result.record.extra?.illustration_id).toBe("art-abc-123");
+    expect(result.record.extra?.scryfall_face_credits_json).toBeNull();
   });
 
   it("is honestly absent when Scryfall omits the artist", () => {
@@ -78,5 +82,93 @@ describe("artist credit — Scryfall", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.record.artist).toBeUndefined();
+  });
+
+  it("preserves ordered face-level artist and illustration identities", () => {
+    const result = normalizeScryfall(
+      scry({
+        name: "Fire // Ice",
+        artist: undefined,
+        artist_ids: undefined,
+        illustration_id: undefined,
+        card_faces: [
+          {
+            name: "Fire",
+            artist: "David Martin",
+            artist_id: "artist-fire",
+            illustration_id: "illustration-fire",
+          },
+          {
+            name: "Ice",
+            artist: "Franz Vohwinkel",
+            artist_id: "artist-ice",
+            illustration_id: "illustration-ice",
+          },
+        ],
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.record.artist).toBe("David Martin // Franz Vohwinkel");
+    expect(result.record.extra?.artist_ids_json).toBeNull();
+    expect(result.record.extra?.illustration_id).toBeNull();
+    expect(JSON.parse(String(result.record.extra?.scryfall_face_credits_json))).toEqual([
+      {
+        position: 0,
+        name: "Fire",
+        artist: "David Martin",
+        artist_id: "artist-fire",
+        illustration_id: "illustration-fire",
+      },
+      {
+        position: 1,
+        name: "Ice",
+        artist: "Franz Vohwinkel",
+        artist_id: "artist-ice",
+        illustration_id: "illustration-ice",
+      },
+    ]);
+  });
+
+  it("does not invent credits or ids when face fields are absent", () => {
+    const result = normalizeScryfall(
+      scry({
+        name: "Unknown Front // Unknown Back",
+        artist: undefined,
+        artist_ids: undefined,
+        illustration_id: undefined,
+        card_faces: [
+          { name: "Unknown Front" },
+          {
+            name: "Unknown Back",
+            artist: "   ",
+            artist_id: "",
+          },
+        ],
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.record.artist).toBeUndefined();
+    expect(result.record.extra?.artist_ids_json).toBeNull();
+    expect(result.record.extra?.illustration_id).toBeNull();
+    expect(JSON.parse(String(result.record.extra?.scryfall_face_credits_json))).toEqual([
+      {
+        position: 0,
+        name: "Unknown Front",
+        artist: null,
+        artist_id: null,
+        illustration_id: null,
+      },
+      {
+        position: 1,
+        name: "Unknown Back",
+        artist: null,
+        artist_id: null,
+        illustration_id: null,
+      },
+    ]);
   });
 });

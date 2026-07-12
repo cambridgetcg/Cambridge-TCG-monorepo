@@ -1,5 +1,16 @@
 # Wholesale App — Architecture Map
 
+> **Current source-rights status, 2026-07-12.** This architecture includes
+> legacy storage and operational pricing fields; their presence is not a
+> publication grant. CardRush automated acquisition is hard-blocked by its
+> official data policy and the absence of a formal partnership. TCGCollector
+> is hard-blocked pending written partner approval. Stored CardRush prices,
+> images, and history are withheld from public, signed-in, and bearer-token
+> source-history surfaces. No source price is currently cleared for wholesale
+> source publication. Authentication, storage, transformation, aggregation,
+> and downstream contracts do not create upstream rights. The ECB daily
+> reference-rate feed is the sole live FX input and must retain ECB attribution.
+
 **App:** `apps/wholesale` (tcg-wholesale v0.1.0)
 **Framework:** Next.js 15.1+ (App Router), React 19, Tailwind 3.4
 **Database:** PostgreSQL (AWS RDS, us-east-1) via Drizzle ORM + `postgres` driver
@@ -109,7 +120,9 @@
 | Route | Schedule | Purpose |
 |---|---|---|
 | `/api/cron/monthly-rollover` | Daily midnight | Recalculate 30-day rolling spend for volume discounts |
-| `/api/cron/price-snapshot` | Daily 2am | Scrape CardRush prices, update price_archive + price_history + cards |
+| `/api/cron/price-snapshot` | Not scheduled; policy-blocked | Returns policy status before CardRush network access; legacy archives are not refreshed or made publishable |
+| `/api/cron/ingest/cardrush` | Not scheduled; policy-blocked | HTTP 503 policy status; no CardRush network request |
+| `/api/cron/discover/tcgcollector` | Not scheduled; approval-blocked | HTTP 503 pending written partner approval; no TCGCollector network request |
 | `/api/cron/rebuild-buylist` | Daily 3am | Build trade-in buylist JSON, write to Cloudflare KV |
 | `/api/cron/shopify-sync` | Daily 4am | Full Shopify sync (prices + stock) |
 | `/api/cron/shopify-orders` | Every 30 min | Pull paid Shopify orders, create wholesale orders, decrement stock |
@@ -134,7 +147,7 @@
   - Domain gating between admin/storefront subdomains
   - `/admin/*` requires `role === "admin"`, else redirect to `/catalog`
   - `/api/admin/*` requires `role === "admin"`, else 403
-- **V1 API auth:** Separate system — Bearer token hashed with SHA-256, looked up in `channel_api_keys` table
+- **V1 API auth:** Separate system — Bearer token hashed with SHA-256, looked up in `channel_api_keys` table. Authentication controls who may call an endpoint; it does not create source acquisition or publication rights.
 
 ---
 
@@ -145,13 +158,13 @@
 | `clients` | Users (admin + client roles) | email (unique), password_hash, role, volume_discount_pct, order_prefix, order_sequence |
 | `games` | Game catalog (e.g. One Piece) | code (unique), name, slug, active |
 | `sets` | Card sets per game | game_id FK, code, name, release_date |
-| `cards` | Central card table | sku (unique), cardrush_jpy, gbp_jpy_rate, base_gbp, price, stock, pending_stock, shopify IDs |
+| `cards` | Central operational card table; legacy source-derived fields may be withheld | sku (unique), cardrush_jpy, gbp_jpy_rate, base_gbp, price, stock, pending_stock, shopify IDs |
 | `orders` | Customer orders | client_id FK, status (state machine), total, channel, external_order_id |
 | `order_items` | Line items per order | order_id FK, card_id FK, quantity, unit_price, stock_status |
 | `order_status_history` | Audit trail for order transitions | order_id, from/to_status, items_snapshot (JSONB) |
-| `price_history` | Daily price snapshots | card_id + date (unique), cardrush_jpy, gbp_jpy_rate |
-| `price_archive` | Richer daily snapshots | card_id + snapshot_date (unique), full price breakdown |
-| `condition_prices` | Per-condition prices from CardRush | card_number, name, condition, snapshot_date |
+| `price_history` | Legacy daily snapshot storage; not a publication entitlement | card_id + date (unique), cardrush_jpy, gbp_jpy_rate |
+| `price_archive` | Legacy richer snapshot storage; stored rows require source-specific publication clearance | card_id + snapshot_date (unique), full price breakdown |
+| `condition_prices` | Legacy per-condition CardRush storage; values withheld | card_number, name, condition, snapshot_date |
 | `notifications` | Email notification log | order_id, type, recipient, status |
 | `purchases` | Real-world purchases (CardRush/Remambo) | status (ordered/shipped/received), JPY costs |
 | `purchase_items` | Items per purchase | purchase_id, card_id, condition, jpy_unit_price |
@@ -170,17 +183,23 @@
 | Service | Purpose | Auth |
 |---|---|---|
 | **AWS S3** (eu-west-2) | Price feed Excel download (`pricedata-tcg` bucket) | IAM keys |
-| **AWS S3** (us-east-1) | Card images (`jp-op-photos` bucket) | Public URLs |
-| **CardRush** (cardrush-op.jp) | Price scraping — A- condition JPY prices | No auth, browser UA |
+| **AWS S3** (us-east-1) | Legacy source-derived card-image storage; not publicly licensed by storage location | IAM-controlled operational access; source-specific rights still apply |
+| **CardRush** (cardrush-op.jp) | Automated acquisition hard-blocked; formal partnership required by official policy | Disabled before network access |
+| **TCGCollector** (tcgcollector.com) | Discovery/acquisition hard-blocked pending written partner approval | Disabled before network access |
 | **Cloudflare KV** | Trade-in buylist JSON storage | Global API Key |
 | **Resend** | Order lifecycle emails | API key |
 | **Shopify** (6e824e-a9.myshopify.com) | Product sync, inventory, order ingestion | OAuth client_credentials / access token |
 | **eBay** (api.ebay.com) | Inventory sync, order import | OAuth refresh_token |
-| **FX Rate APIs** | GBP/JPY rate | Public (open.er-api.com, exchangerate.host fallback) |
+| **European Central Bank** | Daily reference rates, rebased from EUR to GBP with source attribution | Public ECB XML; reuse policy cited in emitted metadata |
 
 ---
 
 ## 5. Pricing Engine
+
+The formula below describes operational computation over inputs already held.
+It does not authorize collection or publication of a source magnitude. Where a
+price depends on uncleared CardRush lineage, source-price and derived-history
+surfaces withhold it.
 
 ```
 price = round((baseGbp × marginMultiplier + flatFee) × retailMultiplier × vatMultiplier, roundTo)
@@ -202,11 +221,11 @@ Channel configs overridable from DB (`channel_pricing` table) with 5-min in-memo
 
 ## 6. Data Flow
 
-### Price Pipeline (daily)
+### Legacy Price Pipeline (disabled at the acquisition step)
 ```
-02:00  price-snapshot → scrape CardRush → update price_archive, price_history, cards
-03:00  rebuild-buylist → read price_archive → compute cash/credit → write Cloudflare KV
-04:00  shopify-sync → compute shopify prices → update Shopify products + inventory
+price-snapshot → STOP: CardRush policy block before network access
+legacy price_archive / price_history / cards → retained operational storage, not a public source grant
+downstream computation → may run only for fields and uses with independently evidenced rights
 ```
 
 ### Order Flow
@@ -235,5 +254,5 @@ pending_stock = SUM(ordered + shipped purchases)
 - **next.config.ts:** Empty (defaults)
 - **drizzle.config.ts:** Schema at `src/lib/db/schema.ts`, output `./drizzle`
 - **tailwind.config.ts:** Dark mode: class, custom brand colors (blue/indigo)
-- **vercel.json:** 5 cron job definitions
+- **vercel.json:** one active cron definition (`monthly-rollover`); source acquisition jobs are not scheduled
 - **middleware.ts:** Auth + domain gating + role enforcement

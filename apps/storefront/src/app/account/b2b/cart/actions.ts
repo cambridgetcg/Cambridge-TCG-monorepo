@@ -14,8 +14,10 @@
 import { revalidatePath } from "next/cache";
 import { requireWholesalePage } from "@/lib/auth/realms";
 import * as cart from "@/lib/b2b/cart";
+import { B2B_PURCHASE_AVAILABILITY } from "@/lib/b2b/purchase-availability";
 
 export async function addB2BCartItem(sku: string): Promise<void> {
+  if (!B2B_PURCHASE_AVAILABILITY.new_cart_items_enabled) return;
   const user = await requireWholesalePage();
   await cart.addItem(user.id, sku, 1);
   revalidatePath("/account/b2b/cart");

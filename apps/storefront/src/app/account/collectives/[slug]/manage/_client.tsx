@@ -10,7 +10,7 @@ import {
 import { COLLECTIVE_KINDS } from "@/lib/collectives/types";
 import type {
   Collective,
-  CollectiveMemberWithUser,
+  StewardCollectiveMemberWithUser,
 } from "@/lib/collectives/types";
 
 const KIND_LABEL: Record<string, string> = {
@@ -27,7 +27,7 @@ export function ManageClient({
   members,
 }: {
   collective: Collective;
-  members: CollectiveMemberWithUser[];
+  members: StewardCollectiveMemberWithUser[];
 }) {
   const router = useRouter();
   const [editPending, startEdit] = useTransition();

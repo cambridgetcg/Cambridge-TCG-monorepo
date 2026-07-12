@@ -81,7 +81,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // sitemap stays bounded as the catalog grows past One-Piece.
   const productLists = await Promise.all(
     games.map((g) =>
-      fetchPrices({ game: g.slug, limit: 500, sort: "price_desc" }).catch(
+      fetchPrices({ game: g.slug, limit: 500, sort: "number_asc" }).catch(
         () => ({ items: [] }),
       ),
     ),

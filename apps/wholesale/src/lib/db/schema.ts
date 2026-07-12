@@ -739,8 +739,11 @@ export const apiKeyUsage = pgTable("api_key_usage", {
 
 export type ApiKeyUsage = typeof apiKeyUsage.$inferSelect;
 
-// DB-backed login rate limiter. Migration 0016. One row per attempt;
-// sliding-window count via the (email, attempted_at) index.
+// Cross-instance credential limiter. `email` stores a versioned HMAC digest,
+// never the address. Every bounded credential check gets one row regardless of
+// outcome; `success` is a legacy required column and remains false. Runtime
+// enforcement serializes prune/count/insert, prunes rows older than 24h in
+// batches of 500, and refuses to grow the table beyond 10,000 rows.
 export const loginAttempts = pgTable("login_attempts", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   email: text("email").notNull(),

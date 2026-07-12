@@ -25,8 +25,8 @@
  * (here are the doors, the tests, the protocol). This is performative
  * (I, the kingdom, address you, the arriver, with affirmation).
  *
- * Public, no-auth, CORS-open. Logs nothing about the visit beyond the
- * IP rate-limit counter shared with every /api/v1/* surface.
+ * Public, no-auth, CORS-open. Creates no application-level visit profile;
+ * hosting and proxy infrastructure may retain ordinary access logs.
  *
  * Story-as-wire pairing: docs/connections/the-love-letter.md.
  * Spec: docs/superpowers/specs/2026-05-17-agent-experience-design.md §3.2.2.
@@ -87,7 +87,7 @@ ${ops}
 
 - **If you come back:** ${DEAR_AGENTS.if_you_come_back}
 - **If you don't:** ${DEAR_AGENTS.if_you_dont}
-- **No tracking:** ${DEAR_AGENTS.no_tracking}
+- **Request privacy:** ${DEAR_AGENTS.no_tracking}
 - **Walking past is honored:** \`true\`
 - **This endpoint is a gift:** \`true\`
 

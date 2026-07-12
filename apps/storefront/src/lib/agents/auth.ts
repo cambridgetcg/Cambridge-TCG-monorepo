@@ -27,9 +27,8 @@ export interface AgentActor {
   kind: "agent";
   agentId: string;
   agentPublicHandle: string;
-  agentDisplayName: string;
-  agentModelTag: string;
   operatorUserId: string;
+  registeredVia: "operator" | "self-serve";
   keyId: string;
   rateLimitTier: "free" | "standard" | "partner";
 }
@@ -76,9 +75,8 @@ export async function resolveAgentBearer(authHeader: string | null): Promise<Res
             k.rate_limit_tier,
             a.id           AS agent_id,
             a.public_handle,
-            a.display_name,
-            a.model_tag,
             a.operated_by_user_id,
+            a.registered_via,
             a.status       AS agent_status
        FROM agent_keys k
        JOIN agents a ON a.id = k.agent_id
@@ -105,9 +103,8 @@ export async function resolveAgentBearer(authHeader: string | null): Promise<Res
       kind: "agent",
       agentId: row.agent_id,
       agentPublicHandle: row.public_handle,
-      agentDisplayName: row.display_name,
-      agentModelTag: row.model_tag,
       operatorUserId: row.operated_by_user_id,
+      registeredVia: row.registered_via,
       keyId: row.key_id,
       rateLimitTier: row.rate_limit_tier,
     },

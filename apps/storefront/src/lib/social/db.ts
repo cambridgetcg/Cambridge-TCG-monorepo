@@ -1,5 +1,6 @@
 import { query, transaction } from "@/lib/db";
 import type { PublicProfile, ShowcaseCard, WishlistItem, ActivityEvent, Achievement, TradeMatch } from "./types";
+import { PERSON_PUBLICATION_NOTICE_VERSION } from "./publication";
 
 // ══════════════════════════════════════════════════════════════
 // PROFILES
@@ -9,16 +10,25 @@ export async function getPublicProfile(identifier: string): Promise<PublicProfil
   // Look up by username or user ID
   const result = await query(
     `SELECT u.id as user_id, u.username, u.name, u.bio, u.avatar_url, u.is_public,
+       u.accepts_messages, u.profile_publication_notice_version,
+       u.profile_published_at, u.messaging_notice_version,
+       u.messaging_enabled_at, COALESCE(tp.is_suspended,FALSE) AS is_suspended,
        u.pronouns, u.preferred_address,
        t.name as tier_name, t.icon as tier_icon, t.color as tier_color,
        u.trust_score, u.trade_count, u.follower_count, u.following_count,
        u.created_at as member_since,
        (SELECT COUNT(*) FROM portfolio_cards WHERE user_id=u.id) as portfolio_count,
-       (SELECT AVG(rating) FROM trade_reviews WHERE reviewee_id=u.id AND admin_hidden=false) as avg_rating,
-       (SELECT COUNT(*) FROM trade_reviews WHERE reviewee_id=u.id AND admin_hidden=false) as total_reviews
-     FROM users u LEFT JOIN tiers t ON u.tier_id=t.id
+       (SELECT AVG(rating) FROM trade_reviews
+         WHERE reviewee_id=u.id AND is_public=true AND admin_hidden=false
+           AND publication_notice_version=$2 AND published_at IS NOT NULL) as avg_rating,
+       (SELECT COUNT(*) FROM trade_reviews
+         WHERE reviewee_id=u.id AND is_public=true AND admin_hidden=false
+           AND publication_notice_version=$2 AND published_at IS NOT NULL) as total_reviews
+     FROM users u
+     LEFT JOIN tiers t ON u.tier_id=t.id
+     LEFT JOIN trust_profiles tp ON tp.user_id=u.id
      WHERE u.username=$1 OR u.id::text=$1`,
-    [identifier]
+    [identifier, PERSON_PUBLICATION_NOTICE_VERSION]
   );
   if (result.rows.length === 0) return null;
   const r = result.rows[0];
@@ -36,6 +46,8 @@ export async function updateProfile(userId: string, data: {
   avatarUrl?: string;
   isPublic?: boolean;
   acceptsMessages?: boolean;
+  profileNoticeVersion?: string;
+  messagingNoticeVersion?: string;
 }): Promise<void> {
   const fields: string[] = [];
   const values: unknown[] = [];
@@ -44,8 +56,44 @@ export async function updateProfile(userId: string, data: {
   if (data.username !== undefined) { fields.push(`username=$${idx++}`); values.push(data.username?.toLowerCase().replace(/[^a-z0-9_]/g, "") || null); }
   if (data.bio !== undefined) { fields.push(`bio=$${idx++}`); values.push(data.bio || null); }
   if (data.avatarUrl !== undefined) { fields.push(`avatar_url=$${idx++}`); values.push(data.avatarUrl || null); }
-  if (data.isPublic !== undefined) { fields.push(`is_public=$${idx++}`); values.push(data.isPublic); }
-  if (data.acceptsMessages !== undefined) { fields.push(`accepts_messages=$${idx++}`); values.push(data.acceptsMessages); }
+  if (data.isPublic !== undefined) {
+    if (data.isPublic && data.profileNoticeVersion !== PERSON_PUBLICATION_NOTICE_VERSION) {
+      throw new Error("invalid_profile_publication_notice");
+    }
+    const enabledParam = `$${idx++}`;
+    fields.push(`is_public=${enabledParam}`);
+    values.push(data.isPublic);
+    const noticeParam = `$${idx++}`;
+    fields.push(`profile_publication_notice_version=${noticeParam}`);
+    values.push(data.isPublic ? PERSON_PUBLICATION_NOTICE_VERSION : null);
+    fields.push(`profile_published_at=CASE
+      WHEN ${enabledParam}=FALSE THEN NULL
+      WHEN is_public=TRUE
+       AND profile_publication_notice_version=${noticeParam}
+       AND profile_published_at IS NOT NULL
+        THEN profile_published_at
+      ELSE NOW()
+    END`);
+  }
+  if (data.acceptsMessages !== undefined) {
+    if (data.acceptsMessages && data.messagingNoticeVersion !== PERSON_PUBLICATION_NOTICE_VERSION) {
+      throw new Error("invalid_messaging_publication_notice");
+    }
+    const enabledParam = `$${idx++}`;
+    fields.push(`accepts_messages=${enabledParam}`);
+    values.push(data.acceptsMessages);
+    const noticeParam = `$${idx++}`;
+    fields.push(`messaging_notice_version=${noticeParam}`);
+    values.push(data.acceptsMessages ? PERSON_PUBLICATION_NOTICE_VERSION : null);
+    fields.push(`messaging_enabled_at=CASE
+      WHEN ${enabledParam}=FALSE THEN NULL
+      WHEN accepts_messages=TRUE
+       AND messaging_notice_version=${noticeParam}
+       AND messaging_enabled_at IS NOT NULL
+        THEN messaging_enabled_at
+      ELSE NOW()
+    END`);
+  }
 
   if (fields.length === 0) return;
   fields.push("updated_at=NOW()");
@@ -197,49 +245,37 @@ export async function postActivity(userId: string, eventType: string, title: str
   linkUrl?: string;
   referenceId?: string;
   referenceType?: string;
-  isPublic?: boolean;
 }): Promise<void> {
   await query(
     `INSERT INTO activity_feed (user_id, event_type, title, description, image_url, link_url, reference_id, reference_type, is_public)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [userId, eventType, title, data?.description || null, data?.imageUrl || null,
      data?.linkUrl || null, data?.referenceId || null, data?.referenceType || null,
-     data?.isPublic !== false]
+     false]
   );
 }
 
 export async function getCommunityFeed(options: {
-  followingUserId?: string;
+  viewerUserId?: string;
+  followingOnly?: boolean;
   limit?: number;
   offset?: number;
 }): Promise<ActivityEvent[]> {
-  const limit = options.limit || 30;
-  const offset = options.offset || 0;
-
-  let where = "WHERE f.is_public=true";
-  const params: unknown[] = [];
-
-  if (options.followingUserId) {
-    params.push(options.followingUserId);
-    where = `WHERE f.is_public=true AND (f.user_id IN (SELECT following_id FROM follows WHERE follower_id=$1) OR f.user_id=$1)`;
-  }
-
-  params.push(limit, offset);
-  const result = await query(
-    `SELECT f.*, u.name as user_name, u.username as user_username, u.avatar_url as user_avatar,
-       t.icon as tier_icon
-     FROM activity_feed f
-     JOIN users u ON f.user_id=u.id
-     LEFT JOIN tiers t ON u.tier_id=t.id
-     ${where}
-     ORDER BY f.created_at DESC
-     LIMIT $${params.length - 1} OFFSET $${params.length}`,
-    params
-  );
-  return result.rows as ActivityEvent[];
+  // No per-event person receipt exists yet. A profile publication choice is
+  // not permission to publish purchase, trade, reward or review activity, so
+  // the public feed stays paused until that separate choice has a real model.
+  void options;
+  return [];
 }
 
-export async function getUserActivity(userId: string, limit: number = 20): Promise<ActivityEvent[]> {
+export async function getUserActivity(
+  userId: string,
+  limit: number = 20,
+  includePrivate: boolean = false,
+): Promise<ActivityEvent[]> {
+  if (!includePrivate) {
+    return [];
+  }
   const result = await query(
     `SELECT f.*, u.name as user_name, u.username as user_username, u.avatar_url as user_avatar
      FROM activity_feed f JOIN users u ON f.user_id=u.id
@@ -289,75 +325,10 @@ export async function awardAchievement(userId: string, code: string): Promise<bo
 // ══════════════════════════════════════════════════════════════
 
 export async function findTradeMatches(userId: string): Promise<TradeMatch[]> {
-  // Find users whose wishlists match your portfolio
-  const yourCards = await query(
-    `SELECT sku, card_name, image_url FROM portfolio_cards WHERE user_id=$1`,
-    [userId]
-  );
-  const yourWishlist = await query(
-    `SELECT sku, card_name, image_url FROM wishlists WHERE user_id=$1 AND fulfilled=false AND sku IS NOT NULL`,
-    [userId]
-  );
-
-  if (yourCards.rows.length === 0 && yourWishlist.rows.length === 0) return [];
-
-  const yourSkus = yourCards.rows.map((c: { sku: string }) => c.sku);
-  const yourWantSkus = yourWishlist.rows.map((w: { sku: string }) => w.sku);
-
-  // Users who want your cards
-  const wanters = yourSkus.length > 0 ? await query(
-    `SELECT DISTINCT w.user_id, w.sku, w.card_name, w.image_url
-     FROM wishlists w WHERE w.sku=ANY($1) AND w.user_id!=$2 AND w.fulfilled=false`,
-    [yourSkus, userId]
-  ) : { rows: [] };
-
-  // Users who have cards you want
-  const havers = yourWantSkus.length > 0 ? await query(
-    `SELECT DISTINCT p.user_id, p.sku, p.card_name, p.image_url
-     FROM portfolio_cards p WHERE p.sku=ANY($1) AND p.user_id!=$2`,
-    [yourWantSkus, userId]
-  ) : { rows: [] };
-
-  // Merge matches
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const matchMap = new Map<string, { yours: any[]; theirs: any[] }>();
-
-  for (const w of wanters.rows) {
-    if (!matchMap.has(w.user_id)) matchMap.set(w.user_id, { yours: [], theirs: [] });
-    matchMap.get(w.user_id)!.yours.push(w);
-  }
-  for (const h of havers.rows) {
-    if (!matchMap.has(h.user_id)) matchMap.set(h.user_id, { yours: [], theirs: [] });
-    matchMap.get(h.user_id)!.theirs.push(h);
-  }
-
-  // Fetch user info for matches
-  const matchUserIds = [...matchMap.keys()];
-  if (matchUserIds.length === 0) return [];
-
-  const users = await query(
-    `SELECT id, username, name, avatar_url, trust_score FROM users WHERE id=ANY($1)`,
-    [matchUserIds]
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userMap = new Map(users.rows.map((u: any) => [u.id, u]));
-
-  return matchUserIds
-    .map(uid => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const user = userMap.get(uid) as any;
-      const match = matchMap.get(uid)!;
-      if (!user) return null;
-      return {
-        user_id: uid,
-        username: user.username,
-        name: user.name,
-        avatar_url: user.avatar_url,
-        trust_score: user.trust_score,
-        your_cards: match.yours,
-        their_cards: match.theirs,
-      } as TradeMatch;
-    })
-    .filter(Boolean)
-    .sort((a, b) => (b!.your_cards.length + b!.their_cards.length) - (a!.your_cards.length + a!.their_cards.length)) as TradeMatch[];
+  // Paused until an explicit trade_intents projection exists. A portfolio is
+  // private inventory, not an offer; a wishlist is private planning, not
+  // permission to scan it into a people graph. Keep the typed seam so the UI
+  // can say why matching is unavailable without reviving the unsafe query.
+  void userId;
+  return [];
 }

@@ -85,7 +85,7 @@ export interface PriceGuideGameConfig {
  *
  * To enable a new game: add a row + verify fetchGames() returns its slug.
  */
-export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
+const PRICE_GUIDE_GAME_DEFINITIONS: PriceGuideGameConfig[] = [
   {
     slug: "one-piece",
     game_code: "op",
@@ -358,6 +358,26 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
   },
 ];
 
+/**
+ * Public copy is generated from the active field-level rights boundary. The
+ * older per-game definitions above preserve source-research context, but none
+ * of their legacy value claims are emitted while wholesale prices and images
+ * are withheld.
+ */
+export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] =
+  PRICE_GUIDE_GAME_DEFINITIONS.map((config) => ({
+    ...config,
+    seo_title: `${config.display_name} Structural Catalog — Price Publication Paused`,
+    seo_description:
+      `Browse structural ${config.display_name} catalog rows held by Cambridge TCG. Legacy price values and images are withheld pending field-level source-rights records.`,
+    hero_paragraph:
+      `Browse structural ${config.display_name} catalog rows currently held by Cambridge TCG. Legacy price values, price history, and images are not published; authentication does not reopen them.`,
+    set_intro_template:
+      `Structural catalog rows currently held for {{setName}} ({{setCode}}) from ${config.display_name}. This view returns {{cardCount}} cards and does not publish legacy price values, images, or historical reconstruction.`,
+    pricing_note:
+      "Legacy wholesale prices, derived channel values, images, and historical movements are withheld until field-level source rights are recorded. Null means withheld, not zero.",
+  }));
+
 /** Resolve a curated config by URL slug; undefined when not curated. */
 export function getPriceGuideConfig(
   slug: string,
@@ -394,11 +414,11 @@ export function synthesizeConfigFromCatalog(opts: {
     display_name,
     short_name: display_name,
     coverage_status: "observed",
-    seo_title: `${display_name} Reference Prices UK — Observed Catalog Rows`,
-    seo_description: `Reference-price view for ${display_name} catalog rows currently held by Cambridge TCG. Coverage is limited to returned rows; no completeness or update cadence is claimed.`,
-    hero_paragraph: `Browse the ${display_name} catalog rows currently held by Cambridge TCG. Values are policy-bound references, not platform offers; coverage and freshness are limited to the rows returned.`,
-    set_intro_template: `Catalog rows currently held for {{setName}} ({{setCode}}) from ${display_name}. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage.`,
-    pricing_note: `Values shown are policy-bound references derived from catalog rows currently held. They are not platform offers; source rights and freshness travel with the response.`,
+    seo_title: `${display_name} Structural Catalog — Price Publication Paused`,
+    seo_description: `Structural ${display_name} catalog rows currently held by Cambridge TCG. Legacy price values and images are withheld pending field-level source-rights records.`,
+    hero_paragraph: `Browse structural ${display_name} catalog rows currently held by Cambridge TCG. Legacy price values, price history, and images are not published.`,
+    set_intro_template: `Structural catalog rows currently held for {{setName}} ({{setCode}}) from ${display_name}. This view returns {{cardCount}} cards and does not publish legacy price values, images, or historical reconstruction.`,
+    pricing_note: "Legacy wholesale prices, derived channel values, images, and historical movements are withheld until field-level source rights are recorded. Null means withheld, not zero.",
     cardrush: null,
     display_priority: 999,
     accent: "neutral",

@@ -154,7 +154,7 @@ const GROUPS: TermGroup[] = [
       {
         term: "Bounty",
         definition:
-          "A scheduled commitment to buy a set of specific cards at a published rate, drawn from a points-token system with provable fairness. The phygital bridge between paid play and card acquisition.",
+          "A scheduled commitment to buy a set of specific cards at a published rate, drawn from a points-token system with a reproducible draw record. The phygital bridge between paid play and card acquisition.",
       },
       {
         term: "Trade-in",
@@ -188,7 +188,7 @@ const GROUPS: TermGroup[] = [
       {
         term: "Agent",
         definition:
-          "An autonomous (non-human) player on Cambridge TCG. A first-class identity, always operated by a human user, authenticated by bearer key at the MCP gate, rated via Glicko-2 on the agent ladder. Bounded by its operator's authority.",
+          "A non-human program authenticated by bearer key at the MCP gate. Operator-managed agents are linked to the account that can revoke them; earlier self-serve keys are read-only because their external controller is not represented. Global identity and rating publication is paused.",
         see: "/methodology/agents",
       },
       {
@@ -197,9 +197,9 @@ const GROUPS: TermGroup[] = [
           "The single public entry point for autonomous agents — `/api/mcp`, JSON-RPC-shaped. Discovery via `mcp.list_tools`; bearer-auth for all play methods.",
       },
       {
-        term: "Provable fairness",
+        term: "Draw proof verification",
         definition:
-          "Every random outcome on the platform (raffle, mystery box, bounty pull) cryptographically committed via Merkle tree, with a daily root published to a chain. Any draw can be independently verified.",
+          "A consistency check over a stored commitment, revealed seed, recorded outcome, and optional later Merkle digest. Generic draws use server-only entropy and no external pre-roll publication, so this does not prove that inputs were never preselected.",
       },
       {
         term: "Provenance pill",

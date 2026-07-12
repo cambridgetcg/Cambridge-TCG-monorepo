@@ -2,8 +2,8 @@
  * /api/openapi.json — OpenAPI 3.1 spec for the public surface.
  *
  * Sister's manifest at /.well-known/cambridge-tcg.json lists this as
- * planned; this commit ships it. The spec describes every public
- * endpoint a participant can call: the universal-mirror
+ * planned; this commit ships it. The spec describes a reviewed subset of
+ * public participation endpoints: the universal-mirror
  * card endpoint, the catalog enumerators (games + sets), the temporal
  * slice, the federation primitive, the discovery surfaces (manifest +
  * llms.txt), the price-guide tree, the search resolver + composer,
@@ -14,10 +14,9 @@
  * This spec deliberately omits session-authenticated customer
  * endpoints (/api/account/*) — those are documented per-page elsewhere
  * and require the user's own session to be useful. The OpenAPI here is
- * for the *participation* surface, not the customer surface. The two
- * per-card history endpoints are the one exception: they belong to the
- * data commons but are session-gated at the license boundary, and are
- * listed here with the gate declared inline.
+ * for the *participation* surface, not the customer surface. Source-history
+ * paths listed here are policy-status doors: authentication identifies a
+ * caller but does not create upstream publication rights.
  *
  * Spec version: 3.1.0 (allows JSON Schema 2020-12, which the universal
  * encoding leans on).
@@ -32,14 +31,12 @@ const SPEC = {
     title: "Cambridge TCG — public participation surface",
     version: "1.0.0",
     summary:
-      "Public, no-auth participation and read access to Cambridge TCG's catalog, prices, methodology, and stateless witness surfaces.",
+      "Public participation, structural card lookup, publication-status, methodology, and stateless witness surfaces.",
     description:
-      "The substrate is queryable without an account. This spec describes the public read and stateless witness surfaces; session-authenticated mutation endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
+      "This document describes a reviewed subset of public read, publication-status, and stateless witness surfaces. Public access, authentication, storage, transformation, and downstream contracts do not create upstream rights. CardRush and TCGCollector acquisition are policy-blocked; legacy source-derived price, image, and history values are withheld. Participant submissions remain NOASSERTION unless the participant explicitly supplies a license. See /api, /data, and /api/v1/manifest for broader curated directories; none claims exhaustive route coverage.",
     contact: { email: "support@cambridgetcg.com" },
-    // CC0-1.0 matches what the envelope actually stamps (_meta.license
-    // defaults to CC0-1.0). Per-source exceptions travel per response in
-    // _meta.source_license; see /methodology for the licensing story.
-    license: { name: "CC0-1.0 (default; per-response license in _meta.license)", identifier: "CC0-1.0" },
+    // This licenses the OpenAPI document itself, not every described payload.
+    license: { name: "CC0-1.0 (this OpenAPI document only)", identifier: "CC0-1.0" },
     /**
      * Distributed wake fragment — the wake breathing through the spec.
      * One atomic fragment selected deterministically by this endpoint's
@@ -58,7 +55,7 @@ const SPEC = {
   tags: [
     { name: "universal", description: "Math-first card representation. See /methodology/universal-representation." },
     { name: "catalog", description: "Game and set enumerators." },
-    { name: "temporal", description: "Historical slices keyed by past dates." },
+    { name: "temporal", description: "Date-shaped compatibility surfaces; current routes do not reconstruct historical price or structure." },
     { name: "federation", description: "Reverse-resolution for content hashes." },
     { name: "discovery", description: "Discovery surfaces (manifest, llms.txt, this spec)." },
     { name: "culture", description: "Rights-aware cultural exchange with sovereign sibling systems." },
@@ -69,6 +66,8 @@ const SPEC = {
     { name: "prices", description: "Curated price-guide tree — JSON siblings of the /prices/* HTML pages." },
     { name: "search", description: "SKU resolver + one-round-trip composer (kingdom-090)." },
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
+    { name: "agents", description: "MCP discovery, authenticated agent reads, and paused write/publication status." },
+    { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
   ],
   paths: {
     "/api/v1/culture/artbitrage": {
@@ -146,7 +145,7 @@ const SPEC = {
       get: {
         tags: ["universal"],
         summary: "Math-mirror card representation",
-        description: "Returns a card in language-free encoding: cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. See /methodology/universal-representation.",
+        description: "Returns a mixed structural card document with cryptographic hashes, ISO 8601 + Unix epoch time, and typed graph edges. Reads structural card/set records only; legacy source-derived price and image values are withheld as null. Aggregate rights are NOASSERTION. See /methodology/universal-representation.",
         operationId: "getUniversalCard",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
@@ -397,7 +396,7 @@ const SPEC = {
       get: {
         tags: ["play"],
         summary: "Three player archetypes (hobbyist / collector / competitor)",
-        description: "Typed archetype taxonomy. Each archetype carries primary_needs, flows_served_today, flows_planned, financial_stance, composes_with_player_kinds, doctrinal_grounding. The financial_boundary block declares the fun-first stance and the existing PvE drift.",
+        description: "Typed archetype taxonomy. Each archetype carries primary_needs, flows_served_today, flows_planned, financial_stance, composes_with_player_kinds, doctrinal_grounding. The financial_boundary block declares the fun-first stance and the current PVE battle and reward pause.",
         operationId: "getPlayArchetypes",
         responses: {
           "200": { description: "Archetype taxonomy document.", content: { "application/json": { schema: { type: "object" } } } },
@@ -466,7 +465,7 @@ const SPEC = {
       get: {
         tags: ["prices", "catalog"],
         summary: "Curated price guide for one game",
-        description: "JSON sibling of /prices/[game]. Same composer (loadGameState) as the HTML page — game meta, live set list, top movers. This mixed catalog response declares aggregate rights NOASSERTION; the Cambridge-authored envelope and schema remain CC0 separately.",
+        description: "JSON sibling of /prices/[game]. Returns curated game and mixed structural set metadata. Legacy source-derived values and movers are withheld. Aggregate rights are NOASSERTION; only the exact Cambridge-authored OpenAPI document and envelope schema declared here are CC0.",
         operationId: "getPriceGuideGame",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug (e.g. 'optcg')." },
@@ -481,7 +480,7 @@ const SPEC = {
       get: {
         tags: ["prices", "catalog"],
         summary: "Curated price guide for one set",
-        description: "JSON sibling of /prices/[game]/[set]. Reuses loadSetState — the same composer the HTML page uses. This mixed catalog response declares aggregate rights NOASSERTION; the Cambridge-authored envelope and schema remain CC0 separately.",
+        description: "JSON sibling of /prices/[game]/[set]. Returns mixed structural set/card metadata; uncleared price magnitudes and source-derived images are withheld. Aggregate rights are NOASSERTION; only the exact Cambridge-authored OpenAPI document and envelope schema declared here are CC0.",
         operationId: "getPriceGuideSet",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -497,7 +496,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Curated price guide for one card",
-        description: "JSON sibling of /prices/[game]/[set]/[number]. Current observed upstream pricing is CardRush only. TCGplayer is reported as blocked and Cardmarket as planned; neither is presented as collected coverage. The math-mirror sibling is /api/v1/universal/card/[sku].",
+        description: "JSON sibling of /prices/[game]/[set]/[number]. Resolves structural card identity and explicit source status. CardRush acquisition is hard-blocked and legacy values are withheld; TCGplayer remains blocked and Cardmarket has no wired reader. Aggregate mixed-card rights are NOASSERTION.",
         operationId: "getPriceGuideCard",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -548,7 +547,7 @@ const SPEC = {
       get: {
         tags: ["search", "prices"],
         summary: "Everything the platform knows about one card",
-        description: "The composer half of kingdom-090 — price across every source, history arrival state, siblings across languages, in one envelope. Falcon calls degrade to substrate-honest absence rather than fabricating data.",
+        description: "Returns mixed card metadata and structural siblings plus explicit source-publication status. Uncleared current prices, legacy images, CardRush history, and reference values are withheld; history is empty and reference price is null. Aggregate rights are NOASSERTION.",
         operationId: "getCardEverything",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU (e.g. 'op-op01-001-ja')." },
@@ -562,17 +561,15 @@ const SPEC = {
     "/api/v1/cards/{sku}/cardrush-history": {
       get: {
         tags: ["prices"],
-        summary: "CardRush JPY history for one card (session-gated)",
-        description: "Up to 90 days of raw CardRush JPY observations. **Requires a signed-in session** — anonymous callers get 401. License boundary: single SKU per request, 90-row hard cap, _meta.source_license declares 'internal-only'. The gate is the license interpretation, not a paywall.",
+        summary: "CardRush history policy status (session-gated)",
+        description: "Anonymous callers receive 401. Signed-in callers receive SOURCE_UNAVAILABLE with HTTP 503, policy details, and no observations. The route performs no wholesale or archive read because authentication does not create upstream permission.",
         operationId: "getCardrushHistory",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
-          { name: "limit", in: "query", required: false, schema: { type: "integer", maximum: 90 }, description: "Observation cap (hard max 90)." },
         ],
         responses: {
-          "200": { description: "Observations + license boundary, with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
           "401": { description: "No session — sign in first.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "CardRush publication withheld; no observations or archive read.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -627,7 +624,7 @@ const SPEC = {
       get: {
         tags: ["operations", "inspectability"],
         summary: "Per-endpoint freshness intent + envelope compliance",
-        description: "The pantry's inspectability surface — for every public endpoint, its freshness budget and whether it composes through the data-pantry envelope. Declares the platform's *intent* on freshness, not a live probe of each upstream.",
+        description: "The pantry's inspectability surface for registered status resources: freshness budget, last-known state, and envelope composition. It does not claim every route is registered and is not a live probe of each upstream.",
         operationId: "getV1Status",
         responses: {
           "200": { description: "Status with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
@@ -680,6 +677,40 @@ const SPEC = {
         },
       },
     },
+    "/data/catalog.jsonl": {
+      get: {
+        tags: ["catalog", "discovery"],
+        summary: "Paused bulk-catalog publication status",
+        description: "Returns HTTP 503 NDJSON containing one manifest and one footer, zero card rows, publication_status=paused_pending_field_level_rights, and aggregate NOASSERTION. Performs no catalog database read.",
+        operationId: "getBulkCatalogPublicationStatus",
+        responses: {
+          "503": {
+            description: "Status-only NDJSON; bulk catalog publication remains paused.",
+            content: { "application/x-ndjson": { schema: { type: "string" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/datasets": {
+      get: {
+        tags: ["discovery"],
+        summary: "Dataset availability and rights catalog",
+        description: "Returns Cambridge-authored CC0 catalog metadata, not dataset rows. Every entry states available or paused, whether records are published, aggregate rights, named source rights, and access paths. Sold comps and the bulk catalog are paused zero-row status surfaces. ?format=jsonld returns available datasets only, so paused paths are never advertised as downloads.",
+        operationId: "getDatasetCatalog",
+        parameters: [
+          { name: "format", in: "query", required: false, schema: { type: "string", enum: ["jsonld"] }, description: "Use jsonld for a bare schema.org DataCatalog containing available datasets only." },
+        ],
+        responses: {
+          "200": {
+            description: "Envelope catalog, or bare JSON-LD when requested.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Envelope" } },
+              "application/ld+json": { schema: { type: "object" } },
+            },
+          },
+        },
+      },
+    },
     "/api/v1/rate-limits": {
       get: {
         tags: ["operations"],
@@ -695,7 +726,7 @@ const SPEC = {
       get: {
         tags: ["operations", "prices"],
         summary: "Display-only FX rate table",
-        description: "Six currencies (GBP canonical) for the price guide's display conversions. Emits whichever upstream answered with fetched_at, degrading to a static fallback table when both fail — substrate-honest about the source. Every transaction clears in GBP.",
+        description: "Six currencies (GBP canonical) for display conversions. Uses ECB daily EUR-reference statistics under the ESCB attribution-required reuse policy, carries `Source: ECB statistics`, and labels the target-per-EUR / GBP-per-EUR transformation. Aggregate response license is NOASSERTION. A dated static fallback is explicitly marked when ECB is unavailable; every transaction clears in GBP.",
         operationId: "getV1FxRates",
         responses: {
           "200": { description: "Rate table with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
@@ -705,8 +736,8 @@ const SPEC = {
     "/api/at/{date}/card/{sku}": {
       get: {
         tags: ["temporal", "universal"],
-        summary: "Card state as of a past date",
-        description: "Returns the math-mirror card document with @as_of separated from @retrieved_at. Reads card_price_history for the latest spot on or before the date. Structural facts persist; price may be absent for cards predating their first observation.",
+        summary: "Current structural card through a date-shaped compatibility route",
+        description: "Returns current structural catalog fields alongside the caller's requested @as_of date. It does not reconstruct historical price or structural state, performs no price-history read, and returns legacy price and image fields as null. Aggregate rights are NOASSERTION.",
         operationId: "getUniversalCardAtDate",
         parameters: [
           { name: "date", in: "path", required: true, schema: { type: "string", format: "date" }, description: "YYYY-MM-DD." },
@@ -714,7 +745,7 @@ const SPEC = {
         ],
         responses: {
           "200": {
-            description: "Temporal-slice math-mirror document.",
+            description: "Date-shaped compatibility document with explicit as_of_scope limitations.",
             content: { "application/json": { schema: { $ref: "#/components/schemas/UniversalCardTemporal" } } },
           },
           "400": { description: "Invalid date.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
@@ -726,7 +757,7 @@ const SPEC = {
       get: {
         tags: ["federation"],
         summary: "Reverse-resolve a content hash",
-        description: "Given a sha256 content hash (with or without 'sha256:' prefix), walks the most-recent catalog rows to find the SKU whose content_hash matches. Substrate-honest about the bounded walk and the price-dependency of the hash.",
+        description: "Given a sha256 content hash (with or without 'sha256:' prefix), walks the bounded public structural representation to find the matching SKU. A hash identifies emitted structure and does not reveal or license withheld fields.",
         operationId: "federationIdentify",
         parameters: [
           { name: "hash", in: "path", required: true, schema: { type: "string", pattern: "^(sha256:)?[0-9a-fA-F]{64}$" }, description: "Hex digest, optionally prefixed with 'sha256:'." },
@@ -740,11 +771,30 @@ const SPEC = {
         },
       },
     },
+    "/api/v1/federation/at/{date}/{hash}": {
+      get: {
+        tags: ["federation", "temporal"],
+        summary: "Resolve a current structural hash through the date-shaped compatibility route",
+        description: "Walks up to 5000 current structural catalog rows. The requested date does not affect the hash, and the route does not reconstruct historical prices or historical structural fields. Pre-2026-07-12 price-dependent hashes are unsupported.",
+        operationId: "federationIdentifyAtDate",
+        parameters: [
+          { name: "date", in: "path", required: true, schema: { type: "string", format: "date" } },
+          { name: "hash", in: "path", required: true, schema: { type: "string", pattern: "^(sha256:)?[0-9a-fA-F]{64}$" } },
+        ],
+        responses: {
+          "200": {
+            description: "Bounded structural resolution attempt with historical_reconstruction=false.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/FederationAtResponse" } } },
+          },
+          "400": { description: "Invalid date or hash format.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
     "/api/v1/sources": {
       get: {
         tags: ["inspectability"],
-        summary: "List ingest sources with live last-run state",
-        description: "Every source registered in @cambridge-tcg/data-ingest + its meta + live last-run (status, rows_written, age_hours) joined from wholesale via Falcon. Substrate-honest about three absence shapes (per-source `last_run` present / `_unavailable` / absent). kingdom-066 + kingdom-079.",
+        summary: "List ingest sources with structured last-run state",
+        description: "Every registered source plus reviewed static metadata and, when wholesale answers, timestamps, status, and numeric ingest counts. Free-text run notes and trigger labels are withheld. Quarantine data is not returned. Aggregate rights are NOASSERTION; registry and internal run sources keep separate tiers.",
         operationId: "listSources",
         responses: {
           "200": {
@@ -757,8 +807,8 @@ const SPEC = {
     "/api/v1/sources/{id}": {
       get: {
         tags: ["inspectability"],
-        summary: "Single-source detail with run history + health",
-        description: "Full meta + recent runs (window-configurable) + freshness-derived health + quarantine counts + links to wholesale histories. ?window=1h|24h|7d|30d|90d (default 7d). kingdom-081 Phase 4.3.",
+        summary: "Single-source metadata, numeric run history, and health",
+        description: "Public source metadata plus structured numeric run summaries. Run notes, trigger labels, internal row ids, quarantine reasons, and quarantine rows are not fetched or returned. The linked full run history is wholesale-key gated. Aggregate rights are NOASSERTION. ?window=1h|24h|7d|30d|90d (default 7d).",
         operationId: "getSourceDetail",
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Source id from the data-ingest registry (e.g. 'cardrush')." },
@@ -772,11 +822,54 @@ const SPEC = {
         },
       },
     },
+    "/api/v1/coverage": {
+      get: {
+        tags: ["inspectability", "catalog"],
+        summary: "Observation archive coverage",
+        description: "Operational observation counts, distinct-card counts, snapshot ranges, and freshness grouped by game and source. No upstream price value is returned. Responses name actual contributing upstream sources and their per-source rights tiers; aggregate rights remain NOASSERTION when lineage is mixed or restricted. Returns 503 when the wholesale observation database is unavailable.",
+        operationId: "getCoverage",
+        parameters: [
+          { name: "source", in: "query", required: false, schema: { type: "string", maxLength: 64 } },
+          { name: "game", in: "query", required: false, schema: { type: "string", maxLength: 64 } },
+          { name: "since", in: "query", required: false, schema: { type: "string", format: "date" } },
+        ],
+        responses: {
+          "200": { description: "Coverage with per-source rights in the envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid filter." },
+          "503": { description: "Observation database unavailable." },
+        },
+      },
+    },
+    "/api/v1/sold-comps": {
+      get: {
+        tags: ["prices", "inspectability"],
+        summary: "Paused sold-comps publication status",
+        description: "Status-only NOASSERTION response with source rights internal-only. Performs no transaction database read and publishes zero price buckets, prices, counts, dates, conditions, people, or threshold totals.",
+        operationId: "getSoldCompsPublicationStatus",
+        responses: {
+          "200": { description: "Paused status with an empty bucket list.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/sold-comps/{sku}": {
+      get: {
+        tags: ["prices", "inspectability"],
+        summary: "Paused per-SKU sold-comps publication status",
+        description: "Returns the requested SKU and pause reasons only. Performs no transaction database read and publishes zero price buckets. Aggregate rights are NOASSERTION; source rights are internal-only.",
+        operationId: "getSoldCompsSkuPublicationStatus",
+        parameters: [
+          { name: "sku", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Paused per-SKU status with an empty bucket list.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
     "/api/v1/oracle-policies": {
       get: {
         tags: ["discovery", "identity"],
         summary: "Per-game cross-language oracle policy table",
-        description: "Every registered game's cross-language strategy — pattern (stripped / passcode / diverged / single-lang) + rationale + oracle_id form + required anchors. The contract a partner uses to know which printings the platform considers 'the same card', and why. Powered by ORACLE_POLICY in @cambridge-tcg/sku (pure-compute, CC0). See /methodology/oracle-policies for the human-readable form.",
+        description: "Every registered game's cross-language strategy — pattern (stripped / passcode / diverged / single-lang) + rationale + oracle_id form + required anchors. The contract a partner uses to know which printings the platform considers 'the same card', and why. Powered by the internal ORACLE_POLICY implementation in @cambridge-tcg/sku; the package code has no general license, and the response envelope declares payload rights. See /methodology/oracle-policies for the human-readable form.",
         operationId: "getOraclePolicies",
         responses: {
           "200": {
@@ -822,11 +915,98 @@ const SPEC = {
         },
       },
     },
+    "/api/mcp": {
+      get: {
+        tags: ["agents", "discovery"],
+        summary: "MCP gate status and calling shape",
+        description: "Public no-store JSON description of the JSON-RPC-over-HTTPS gate. This route is not SSE or MCP Streamable HTTP. New self-serve registration and every match/deck write are paused.",
+        operationId: "getMcpGateStatus",
+        responses: { "200": { description: "MCP gate status JSON." } },
+      },
+      post: {
+        tags: ["agents"],
+        summary: "MCP-shaped JSON-RPC dispatch",
+        description: "initialize and tool discovery are public. Other calls require a bearer key. Existing self-serve keys can use read/status tools only; operator-managed keys also have account-linked reads. Match and deck writes are paused for every key.",
+        operationId: "postMcpJsonRpc",
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+        responses: {
+          "200": { description: "JSON-RPC result or MCP-shaped tool error." },
+          "401": { description: "Bearer key missing or invalid for an authenticated call." },
+          "403": { description: "The key lacks authority or the requested write is paused." },
+        },
+      },
+    },
+    "/api/v1/agents/register": {
+      get: {
+        tags: ["agents", "discovery"],
+        summary: "Paused self-serve registration status",
+        description: "Returns registration-disabled with no database access.",
+        operationId: "getAgentRegistrationStatus",
+        responses: { "200": { description: "CC0 registration policy status envelope." } },
+      },
+      post: {
+        tags: ["agents"],
+        summary: "Closed self-serve registration door",
+        description: "Always returns 503 before inspecting the request body or accessing the database.",
+        operationId: "postAgentRegistrationDisabled",
+        responses: { "503": { description: "Registration-disabled error envelope." } },
+      },
+    },
+    "/api/v1/peers": {
+      get: {
+        tags: ["participant-memory"],
+        summary: "Peer-arrival publication status",
+        description: "Returns publication-disabled status and an empty corpus without reading legacy rows.",
+        operationId: "getPeerPublicationStatus",
+        responses: { "200": { description: "No-store status envelope with zero arrivals." } },
+      },
+      post: {
+        tags: ["participant-memory"],
+        summary: "Validate one peer-arrival hash without storage",
+        description: "Validates a complete lowercase SHA-256 hash and optional actor kind, then echoes it only in the no-store response. Nothing is stored or published.",
+        operationId: "witnessPeerArrivalWithoutStorage",
+        responses: { "200": { description: "NOASSERTION validation echo." }, "400": { description: "Invalid submission." } },
+      },
+    },
+    "/api/v1/guestbook": {
+      get: {
+        tags: ["participant-memory"],
+        summary: "Guestbook publication status",
+        description: "Returns publication-disabled status and an empty corpus without reading legacy rows.",
+        operationId: "getGuestbookPublicationStatus",
+        responses: { "200": { description: "No-store status envelope with zero entries." } },
+      },
+      post: {
+        tags: ["participant-memory"],
+        summary: "Validate one short note without storage",
+        description: "Validates a hash, optional actor kind, and bounded note, then echoes them only in the no-store response. Third-party operator attribution is rejected. Nothing is stored or published.",
+        operationId: "witnessGuestbookNoteWithoutStorage",
+        responses: { "200": { description: "NOASSERTION validation echo." }, "400": { description: "Invalid submission." } },
+      },
+    },
+    "/api/v1/do-you-remember-me": {
+      get: {
+        tags: ["participant-memory"],
+        summary: "Disabled participant-memory compatibility route",
+        description: "Returns 503 without inspecting or echoing the query value and without reading guestbook or peer-arrival rows.",
+        operationId: "getParticipantMemoryDisabled",
+        responses: { "503": { description: "No-store participant-memory-disabled error." } },
+      },
+    },
+    "/leaderboards/agents": {
+      get: {
+        tags: ["agents"],
+        summary: "Agent ladder publication status page",
+        description: "HTML status page that performs no agent database read and publishes no participant identity, model, or rating rows.",
+        operationId: "getAgentLadderPublicationStatus",
+        responses: { "200": { description: "HTML status page." } },
+      },
+    },
     "/.well-known/cambridge-tcg.json": {
       get: {
         tags: ["discovery"],
         summary: "Machine-readable manifest",
-        description: "Full inventory of public surfaces with status, auth, and methodology links. Sister-shipped.",
+        description: "Curated inventory of reviewed participant-facing surfaces with status, auth, and methodology links.",
         operationId: "getWellKnown",
         responses: { "200": { description: "Manifest." } },
       },
@@ -880,11 +1060,13 @@ const SPEC = {
             properties: {
               rarity: { type: ["object", "null"] },
               variant: { type: ["object", "null"] },
-              price: { type: ["object", "null"] },
+              "@content_hash_contract": { type: "object" },
+              price: { type: "null" },
               in_set: { type: ["object", "null"] },
               of_game: { type: ["object", "null"] },
               name: { type: ["object", "null"] },
-              image_url: { type: ["string", "null"] },
+              image_url: { type: "null" },
+              publication_boundary: { type: "object" },
             },
           },
         ],
@@ -894,7 +1076,7 @@ const SPEC = {
           { $ref: "#/components/schemas/UniversalCard" },
           {
             type: "object",
-            required: ["@as_of"],
+            required: ["@as_of", "as_of_scope"],
             properties: {
               "@as_of": {
                 type: "object",
@@ -902,6 +1084,16 @@ const SPEC = {
                 properties: {
                   iso8601_date: { type: "string", format: "date" },
                   unix_epoch_seconds: { type: "integer" },
+                },
+              },
+              as_of_scope: {
+                type: "object",
+                required: ["requested_date_only", "historical_price_reconstruction", "historical_structure_reconstruction", "structural_fields_source"],
+                properties: {
+                  requested_date_only: { type: "boolean", const: true },
+                  historical_price_reconstruction: { type: "boolean", const: false },
+                  historical_structure_reconstruction: { type: "boolean", const: false },
+                  structural_fields_source: { type: "string", const: "current_catalog" },
                 },
               },
               price_unavailable_at_date: { type: ["object", "null"] },
@@ -938,7 +1130,7 @@ const SPEC = {
       },
       FederationIdentifyResponse: {
         type: "object",
-        required: ["@encoding", "@kind", "@retrieved_at", "query", "matched"],
+        required: ["@encoding", "@kind", "@retrieved_at", "query", "matched", "hash_contract"],
         properties: {
           "@encoding": { type: "string", const: "cambridge-tcg/universal/v1" },
           "@kind": { type: "string", const: "federation_identify_response" },
@@ -950,6 +1142,26 @@ const SPEC = {
           scope: { type: "object", description: "Present only when matched is false; documents the bounded walk." },
           suggestion: { type: "string" },
           note: { type: "string" },
+          hash_contract: { type: "object" },
+        },
+      },
+      FederationAtResponse: {
+        type: "object",
+        required: ["@encoding", "@kind", "@retrieved_at", "@as_of", "query", "matched", "hash_contract"],
+        properties: {
+          "@encoding": { type: "string", const: "cambridge-tcg/universal/v1" },
+          "@kind": { type: "string", const: "federation_at_response" },
+          "@retrieved_at": { type: "object" },
+          "@as_of": { type: "object" },
+          query: { type: "object" },
+          matched: { type: "boolean" },
+          sku: { type: "string" },
+          universal_url: { type: "string" },
+          current_url: { type: "string" },
+          scope: { type: "object" },
+          suggestion: { type: "string" },
+          note: { type: "string" },
+          hash_contract: { type: "object" },
         },
       },
       AnsweringRhymeStatement: {
@@ -1023,7 +1235,7 @@ const SPEC = {
           sources: { type: "array", items: { type: "string" }, description: "Named sources of truth that contributed." },
           source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; known source-rights tier (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Aggregate mixed rights use _meta.license=NOASSERTION; absence here means undeclared. kingdom-066 + kingdom-081." },
           freshness_seconds: { type: "integer", description: "Platform's intended freshness budget for this kind of data." },
-          license: { type: "string", description: "SPDX license code for the response payload. CC0-1.0 by default." },
+          license: { type: "string", description: "SPDX license code for the response payload. NOASSERTION when payload rights are undeclared." },
           request_id: { type: "string", description: "Quotable in support tickets." },
           deprecation: {
             type: ["object", "null"],

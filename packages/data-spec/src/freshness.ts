@@ -12,8 +12,8 @@
 /** Spec version. Bump on breaking changes; non-breaking additions don't. */
 export const SPEC_VERSION = "1" as const;
 
-/** Default SPDX license code for response payloads. */
-export const DEFAULT_LICENSE = "CC0-1.0" as const;
+/** Conservative default when response payload rights are not declared. */
+export const DEFAULT_LICENSE = "NOASSERTION" as const;
 
 /**
  * Per-kind freshness budgets in seconds. Names the platform's intent;

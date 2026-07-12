@@ -52,9 +52,9 @@ export default function MyProofsPage() {
       <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-ink mb-2">My Proofs</h1>
       <p className="text-sm text-ink-muted mb-6">
-        Every provably-fair draw you&apos;ve been part of. Each row links to the
-        public verifier — math runs in your browser; our server can&apos;t fake
-        the answer.{" "}
+        Draw receipts linked to your account. Each row opens a browser-side
+        consistency check. Server-only entropy means these receipts do not,
+        by themselves, prove the server never preselected an input.{" "}
         <Link href="/verify/how-it-works" className="text-accent hover:text-accent-strong underline">
           How it works
         </Link>
@@ -79,7 +79,7 @@ export default function MyProofsPage() {
         <p className="text-ink-faint">Loading…</p>
       ) : filtered.length === 0 ? (
         <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
-          No provably-fair draws yet. Opening a Bounty Pull or pack will add a proof here.
+          No draw proofs yet. Opening a Bounty Pull or pack will add one here.
         </div>
       ) : (
         <div className="space-y-2">

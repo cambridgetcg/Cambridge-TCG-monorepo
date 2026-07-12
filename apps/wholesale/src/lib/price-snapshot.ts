@@ -13,6 +13,10 @@ import { fetchGbpJpyRate } from "@/lib/fx";
 import { calculatePriceByCategory } from "@/lib/pricing";
 import { logPriceChange } from "@/lib/price-change-log";
 import { eq, inArray, isNotNull, and } from "drizzle-orm";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+} from "@cambridge-tcg/data-ingest";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -65,6 +69,9 @@ interface CardUpdate {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function runDailySnapshot(options?: SnapshotOptions): Promise<SnapshotResult> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   const startMs = Date.now();
   const snapshotDate = options?.date ?? new Date().toISOString().slice(0, 10);
 

@@ -1,25 +1,27 @@
 import { describe, expect, it } from "vitest";
 import {
   INTERNAL_ONLY_CACHE_CONTROL,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
   PUBLISHABLE_PRICE_SOURCES,
   WHOLESALE_STORAGE_PUBLICATION_POLICY,
   priceSourcePublicationPolicy,
 } from "./source-publication-policy";
 
 describe("price source publication policy", () => {
-  it("allows only the reviewed CardRush boundary", () => {
-    expect(PUBLISHABLE_PRICE_SOURCES).toEqual(["cardrush"]);
+  it("keeps every price source closed until an exact publication rule is reviewed", () => {
+    expect(LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED).toBe(false);
+    expect(PUBLISHABLE_PRICE_SOURCES).toEqual([]);
     expect(priceSourcePublicationPolicy("cardrush")).toMatchObject({
-      publish: true,
+      publish: false,
       license: "internal-only",
       redistribute: false,
     });
   });
 
-  it("keeps authenticated internal data out of shared caches", () => {
+  it("keeps authentication from becoming publication permission", () => {
     expect(INTERNAL_ONLY_CACHE_CONTROL).toBe("private, no-store");
     expect(WHOLESALE_STORAGE_PUBLICATION_POLICY).toMatchObject({
-      publish: true,
+      publish: false,
       license: "internal-only",
       redistribute: false,
     });

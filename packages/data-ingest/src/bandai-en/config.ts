@@ -1,15 +1,11 @@
 /**
  * Per-game configuration for the shared Bandai EN-cardlist skeleton.
  *
- * One Piece is implemented (DOM verified live 2026-07-11). The other
- * four ride the same fetch/parse core once their DOM is verified —
- * docs/EN-CARD-DATA.md §2 confirms all five share the Bandai cardlist
- * skeleton (server-rendered blocks, `.../card/{CARD_NO}.png|webp`
- * images, `_p1` parallel suffixes), but "same skeleton" is a claim
- * about the *family*, not a verified claim about each site's exact
- * selectors. Each stub's `notes` names what the first implementation
- * run must verify. Substrate honesty: `implemented: false` means
- * read() emits an actionable error and yields nothing.
+ * One Piece has a fixture captured from a DOM shape observed on 2026-07-11.
+ * The other four are unverified configuration sketches. `implemented` means
+ * the offline parser shape is represented; it does not mean a live reader is
+ * permitted or enabled. The SourceModule read path is blocked for every game
+ * until Cambridge records written collection permission.
  */
 
 import type { BandaiEnGameConfig, BandaiEnGameKey } from "./types";
@@ -24,11 +20,12 @@ export const BANDAI_EN_GAMES: Record<BandaiEnGameKey, BandaiEnGameConfig> = {
     attribution: "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD.",
     implemented: true,
     notes:
-      "Verified live 2026-07-11: no robots.txt (404); ?series=N renders every " +
+      "Observed once on 2026-07-11 and retained as a local fixture: ?series=N rendered every " +
       "card block server-side on one page (no pagination; OP-01 = 154 blocks " +
       "incl. parallels); ?series= (empty) renders the series <select> with " +
       "zero card blocks — used for discovery. Images 600×838 PNG under " +
-      "/images/cardlist/card/{CARD_NO}[_pN].png with a cache-version query.",
+      "/images/cardlist/card/{CARD_NO}[_pN].png with a cache-version query. " +
+      "No live fetch is allowed without written permission.",
   },
   dbf: {
     game: "dbf",
@@ -39,9 +36,9 @@ export const BANDAI_EN_GAMES: Record<BandaiEnGameKey, BandaiEnGameConfig> = {
     attribution: "©BIRD STUDIO/SHUEISHA, TOEI ANIMATION ©BANDAI CO., LTD.",
     implemented: false,
     notes:
-      "STUB — same Bandai skeleton per docs/EN-CARD-DATA.md §2 (600×838 WEBP). " +
-      "First implementation run must verify: robots.txt, series-param name, " +
-      "card-block selectors, and the exact cardlist URL shape.",
+      "STUB — the exact URL and selectors are unverified. If written collection " +
+      "permission is obtained, verify the series parameter, card blocks, and " +
+      "image shape before changing this configuration.",
   },
   dmw: {
     game: "dmw",
@@ -52,10 +49,8 @@ export const BANDAI_EN_GAMES: Record<BandaiEnGameKey, BandaiEnGameConfig> = {
     attribution: "©Akiyoshi Hongo, Toei Animation ©BANDAI CO., LTD.",
     implemented: false,
     notes:
-      "STUB — docs/EN-CARD-DATA.md §2 routes Digimon *text* through the " +
-      "digimoncard.io API and only the official PNGs through this scrape; " +
-      "decide API-vs-scrape split before implementing. Verify robots.txt " +
-      "and selectors on first run.",
+      "STUB — the source split, URL, and selectors are unverified. Resolve " +
+      "field-level permissions before choosing any API or publisher-site path.",
   },
   una: {
     game: "una",
@@ -66,10 +61,9 @@ export const BANDAI_EN_GAMES: Record<BandaiEnGameKey, BandaiEnGameConfig> = {
     attribution: "©BANDAI CO., LTD.",
     implemented: false,
     notes:
-      "STUB — official EN cardlist uses ?search=true&series=N per " +
-      "docs/EN-CARD-DATA.md §2 (600×837 PNG). Base URL unverified (NA vs " +
-      "APAC program split); per-title franchise copyright lines vary by " +
-      "card — resolve attribution granularity before implementing.",
+      "STUB — base URL and selectors are unverified (NA vs APAC program " +
+      "split); per-title franchise copyright lines vary by card. Resolve " +
+      "permission and attribution scope before implementing.",
   },
   bsr: {
     game: "bsr",
@@ -80,8 +74,8 @@ export const BANDAI_EN_GAMES: Record<BandaiEnGameKey, BandaiEnGameConfig> = {
     attribution: "©BANDAI CO., LTD.",
     implemented: false,
     notes:
-      "STUB — same Bandai skeleton per docs/EN-CARD-DATA.md §2, which also " +
-      "says: verify robots on first run. Base URL and selectors unverified.",
+      "STUB — base URL and selectors are unverified. Written permission must " +
+      "exist before any live verification or reader is enabled.",
   },
 };
 

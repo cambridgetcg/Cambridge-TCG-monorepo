@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-// Public hash-chain feed over fairness_digests. Returns prev_hash,
+// Public hash-chain feed over fairness_digests. These are batches of revealed
+// bounty_pulls and verifiable_draws collected by the digest job, not a complete
+// ledger of every random outcome. Returns prev_hash,
 // root, and chain_hash per digest so an external auditor can
 // recompute the chain forward and verify the latest chain_hash still
 // matches what they cached days/weeks ago.
@@ -9,7 +11,8 @@ import { query } from "@/lib/db";
 // Why this is stronger than the raw digest feed: if any single leaf
 // gets rewritten post-hoc, that digest's root changes, which changes
 // its chain_hash, which invalidates every subsequent chain_hash. A
-// cached-tip-vs-recomputed-tip comparison catches it in one check.
+// cached-tip-vs-recomputed-tip comparison catches it only when the prior tip
+// was retained outside our control.
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;

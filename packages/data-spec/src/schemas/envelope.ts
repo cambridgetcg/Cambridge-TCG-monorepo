@@ -71,9 +71,9 @@ export const META_SCHEMA = {
     },
     license: {
       description:
-        "SPDX license code for the response payload. CC0-1.0 by default.",
+        "SPDX license code for the response payload. NOASSERTION when payload rights are not declared; all-CC0 source declarations may resolve to CC0-1.0.",
       type: "string",
-      examples: ["CC0-1.0"],
+      examples: ["NOASSERTION", "CC0-1.0"],
     },
     request_id: {
       description:

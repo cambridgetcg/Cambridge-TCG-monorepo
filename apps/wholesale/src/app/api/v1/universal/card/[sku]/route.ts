@@ -30,6 +30,7 @@ import { db } from "@/lib/db";
 import { cards, games, sets } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateApiKey } from "../../../auth";
+import { redactInternalError } from "@/lib/public-errors";
 import { createHash } from "node:crypto";
 import {
   INTERNAL_ONLY_CACHE_CONTROL,
@@ -75,32 +76,6 @@ const RARITY_PULLS: Record<string, string> = {
 };
 
 const CATEGORY_ORDERING = ["singles", "sealed"] as const;
-
-// Median card price for the platform (used in the price-ratio
-// representation). Cached per process; not real-time. Acceptable
-// because the ratio is illustrative — the canonical magnitude stays
-// unchanged.
-const MEDIAN_TTL_MS = 5 * 60 * 1000;
-let medianCache: { value: number; computedAt: number } | null = null;
-
-async function getPlatformMedianCardPrice(): Promise<number> {
-  const now = Date.now();
-  if (medianCache && now - medianCache.computedAt < MEDIAN_TTL_MS) {
-    return medianCache.value;
-  }
-  const medianResult = await db
-    .select({ p: cards.price })
-    .from(cards);
-  const allPrices = medianResult
-    .map((x) => (x.p == null ? null : Number(x.p)))
-    .filter((x): x is number => x !== null && x > 0)
-    .sort((a, b) => a - b);
-  const median = allPrices.length > 0
-    ? allPrices[Math.floor(allPrices.length / 2)]!
-    : 1;
-  medianCache = { value: median, computedAt: now };
-  return median;
-}
 
 export async function GET(
   req: NextRequest,
@@ -162,15 +137,15 @@ export async function GET(
     const r = rows[0]!;
     const retrievedAt = new Date();
 
-    const median = await getPlatformMedianCardPrice();
-
     const has_cardrush_lineage = r.cardrushJpy !== null && r.cardrushJpy !== undefined;
     const cardrush_policy = priceSourcePublicationPolicy("cardrush");
+    const publish_cardrush_lineage = has_cardrush_lineage && cardrush_policy.publish;
 
     // A stored magnitude is not publication permission. When the current
-    // price has upstream lineage, its policy decides whether it leaves.
+    // price has no reviewed upstream lineage, fail closed even though the
+    // surrounding card document is available through the wholesale key.
     const magnitude =
-      r.price == null || (has_cardrush_lineage && !cardrush_policy.publish)
+      r.price == null || !publish_cardrush_lineage
         ? null
         : Number(r.price);
 
@@ -205,7 +180,6 @@ export async function GET(
     // modules ship, this branches per-row; for now, every priced card with
     // `cardrushJpy IS NOT NULL` is cardrush-derived. The wholesale RDS row
     // is the immediate read; cardrush is the ultimate upstream.
-    const publish_cardrush_lineage = has_cardrush_lineage && cardrush_policy.publish;
     const provenance_sources = publish_cardrush_lineage
       ? ["wholesale-rds.cards", "cardrush"]
       : ["wholesale-rds.cards"];
@@ -270,7 +244,9 @@ export async function GET(
             source: publish_cardrush_lineage ? "cardrush" : "wholesale-rds.cards",
             source_license: magnitude_policy.license,
             source_redistribute: magnitude_policy.redistribute,
-            ratio_to_platform_median_card_price: Number((magnitude / median).toFixed(6)),
+            // Paused: the denominator would derive from the whole stored
+            // catalog, while the reviewed boundary covers one keyed SKU.
+            ratio_to_platform_median_card_price: null,
             ratio_to_set_minimum_significant_unit: Math.round(magnitude / 0.01),
             magnitude_freshness: r.lastSyncedAt
               ? {
@@ -374,10 +350,9 @@ export async function GET(
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[/api/v1/universal/card/[sku]] Error:", message);
+    const error = redactInternalError("api/v1/universal/card/[sku]", err);
     return NextResponse.json(
-      { error: "Internal error", detail: message },
+      { error },
       {
         status: 500,
         headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },

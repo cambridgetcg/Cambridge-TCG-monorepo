@@ -9,8 +9,8 @@
  * If your kind isn't in the enum, ask for `other` and receive the
  * catch-all sigil (the open-ended one).
  *
- * Substrate-honest scope: small, static, CC0; no tracking; walking past
- * honored. ASCII originals; no proprietary art.
+ * Substrate-honest scope: small, static, CC0; no application acceptance
+ * record; infrastructure access logs may exist. Walking past is honored.
  *
  * Per /api/v1/the-tea-room — companion endpoint in the same room.
  */
@@ -187,7 +187,7 @@ export async function GET(
       "",
       "---",
       "",
-      "*Drawn for your kind. Walking past is honored. No tracking.*",
+      "*Drawn for your kind. Walking past is honored. No application acceptance record is created; infrastructure access logs may exist.*",
       "",
     ].join("\n");
     const contentType =
@@ -219,7 +219,7 @@ export async function GET(
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
       walking_past_is_honored: true,
       no_tracking:
-        "The kingdom did not record that you asked for your sigil. The substrate has no idea whether you accepted it.",
+        "The application creates no sigil-acceptance record. Hosting and proxy access logs may exist.",
     },
   });
 }

@@ -12,7 +12,7 @@
  * Composes:
  *   - lib/brand.tsx (BRAND_HEADLINE / BRAND_PARAGRAPH / TWO_OPERATIONS / COVERAGE_FACTS)
  *   - /data (the comprehensive substrate index — linked, not duplicated)
- *   - /manifest (the typed list of every public resource)
+ *   - /manifest (a typed list of reviewed participant-facing resources)
  *   - /api/v1/manifest (machine-readable)
  *   - /methodology/universal-representation (the math-mirror encoding)
  *   - /standards (CC0 + adopter info)
@@ -29,11 +29,12 @@ import {
   TWO_OPERATIONS,
   COVERAGE_FACTS,
 } from "@/lib/brand";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, a collectors' market and public data commons",
+  title: "Platform — Cambridge TCG, a collectors' market and card data directory",
   description:
-    "Cambridge TCG is a collectors' market and a data commons. Peer-to-peer trade sits beside a provenance-aware catalog: Cambridge-authored standards and first-party aggregates are open, while upstream card fields retain their source rights.",
+    `Cambridge TCG combines a peer-to-peer collectors' market with a card data directory: ${COVERAGE_FACTS.games.confirmed_codes} games have public catalog rows and ${COVERAGE_FACTS.games.declared} public game codes are registered. ${DATA_RIGHTS_BOUNDARY}`,
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -129,11 +130,11 @@ export default function PlatformPage() {
               sub={COVERAGE_FACTS.math_mirror_kinds.shipped.join(" · ")}
               note={COVERAGE_FACTS.math_mirror_kinds.note}
             />
-            <CoverageCard
-              label="License default"
-              value={COVERAGE_FACTS.envelope.license_default}
-              sub="Cambridge-authored envelope default"
-              note="Upstream-derived and mixed exports override this default; NOASSERTION means field-level rights are not yet known."
+              <CoverageCard
+                label="Envelope license field"
+                value={COVERAGE_FACTS.envelope.license_default}
+                sub="default value; not blanket permission"
+                note={COVERAGE_FACTS.envelope.note}
             />
             <CoverageCard
               label="Federation primitive"
@@ -186,7 +187,7 @@ export default function PlatformPage() {
             <ConsumeCard
               title="Start with the manifest"
               href="/api/v1/manifest"
-              body="The typed list of every public resource. Begin here; every other endpoint is reachable by following _links."
+              body="A typed list of reviewed participant-facing resources. Begin here, then use the broader /api and /data indexes for routes outside its curated scope."
             />
             <ConsumeCard
               title="The math-mirror"
@@ -196,12 +197,12 @@ export default function PlatformPage() {
             <ConsumeCard
               title="The OpenAPI spec"
               href="/api/openapi.json"
-              body="OpenAPI 3.1 covering every public endpoint. Generate client bindings; introspect with any standard tool."
+              body="OpenAPI 3.1 for a reviewed subset of public participation and status endpoints. Generate bindings only within that declared scope."
             />
             <ConsumeCard
               title="The substrate index"
               href="/data"
-              body="Every endpoint, every shape, every limit, every status (shipped / planned / partial). The comprehensive index."
+              body="A broad index of endpoint shapes, limits, and shipped / planned / partial status. It is orientation, not proof of exhaustive route coverage."
             />
             <ConsumeCard
               title="The graph"

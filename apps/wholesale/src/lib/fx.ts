@@ -1,63 +1,97 @@
 /**
- * Fetch live GBP/<currency> exchange rate.
+ * Fetch GBP-base exchange rates from the European Central Bank's daily
+ * reference-rate XML. ECB statistics permit commercial and non-commercial
+ * reuse with source attribution.
  *
- * Primary:  open.er-api.com/v6/latest/GBP
- * Fallback: api.exchangerate.host/latest?base=GBP
- *
- * `fetchGbpJpyRate()` and `fetchGbpUsdRate()` are typed wrappers; the
- * underlying `fetchGbpRate(code)` is generalized so TCGplayer (USD),
- * Cardmarket (EUR), and future sources slot in without per-currency
- * boilerplate. Closes Leak #8 of the-archive.md when used with the
- * `fx_rate_source` column.
- *
- * Returns the rate (units of `code` per 1 GBP, e.g. 211.26 for JPY,
- * 1.27 for USD). Throws if both sources fail.
+ * ECB quotes currencies per EUR. Cambridge transforms them to units per GBP:
+ * target_per_gbp = target_per_eur / gbp_per_eur.
  */
 
-interface ErApiResponse {
-  rates: Record<string, number>;
+import { XMLParser } from "fast-xml-parser";
+
+export const ECB_DAILY_RATES_URL =
+  "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
+export const ECB_REUSE_POLICY_URL =
+  "https://www.ecb.europa.eu/stats/ecb_statistics/governance_and_quality_framework/html/usage_policy.en.html";
+
+interface EcbQuote {
+  currency?: string;
+  rate?: string | number;
 }
 
-interface ExchangeRateHostResponse {
-  rates: Record<string, number>;
+interface EcbDailyCube {
+  time?: string;
+  Cube?: EcbQuote | EcbQuote[];
 }
 
-/**
- * Fetch GBP/<currency> exchange rate. `code` is the target currency
- * (USD / JPY / EUR / ...). Returns units of `code` per 1 GBP.
- */
+interface EcbDocument {
+  "gesmes:Envelope"?: {
+    Cube?: {
+      Cube?: EcbDailyCube;
+    };
+  };
+}
+
+export interface EcbGbpRate {
+  currency: string;
+  rate: number;
+  as_of: string;
+  source: "ecb.europa.eu";
+}
+
+/** Parse one target rate from ECB's EUR-base daily XML and rebase to GBP. */
+export function parseEcbGbpRate(xml: string, code: string): EcbGbpRate | null {
+  const currency = code.toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) return null;
+
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: "",
+  });
+  const document = parser.parse(xml) as EcbDocument;
+  const daily = document["gesmes:Envelope"]?.Cube?.Cube;
+  const quotes = daily?.Cube
+    ? Array.isArray(daily.Cube)
+      ? daily.Cube
+      : [daily.Cube]
+    : [];
+
+  const perEur: Record<string, number> = { EUR: 1 };
+  for (const quote of quotes) {
+    const quoteCurrency = quote.currency?.toUpperCase();
+    const quoteRate = Number(quote.rate);
+    if (quoteCurrency && Number.isFinite(quoteRate) && quoteRate > 0) {
+      perEur[quoteCurrency] = quoteRate;
+    }
+  }
+
+  const gbpPerEur = perEur.GBP;
+  const targetPerEur = currency === "GBP" ? gbpPerEur : perEur[currency];
+  if (!daily?.time || !gbpPerEur || !targetPerEur) return null;
+
+  return {
+    currency,
+    rate: currency === "GBP" ? 1 : Number((targetPerEur / gbpPerEur).toFixed(12)),
+    as_of: daily.time,
+    source: "ecb.europa.eu",
+  };
+}
+
+/** Fetch units of `code` per GBP from the ECB daily reference rates. */
 export async function fetchGbpRate(code: string): Promise<number> {
   const upper = code.toUpperCase();
-
-  // ── Primary: open.er-api.com ───────────────────────────────────────────────
-  try {
-    const res = await fetch("https://open.er-api.com/v6/latest/GBP", {
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (res.ok) {
-      const data: ErApiResponse = (await res.json()) as ErApiResponse;
-      const rate = data?.rates?.[upper];
-      if (typeof rate === "number" && rate > 0) return rate;
-    }
-  } catch {
-    // fall through to backup
+  const res = await fetch(ECB_DAILY_RATES_URL, {
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!res.ok) {
+    throw new Error(`ECB daily FX feed returned HTTP ${res.status}`);
   }
 
-  // ── Fallback: exchangerate.host ────────────────────────────────────────────
-  try {
-    const res = await fetch("https://api.exchangerate.host/latest?base=GBP", {
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (res.ok) {
-      const data: ExchangeRateHostResponse = (await res.json()) as ExchangeRateHostResponse;
-      const rate = data?.rates?.[upper];
-      if (typeof rate === "number" && rate > 0) return rate;
-    }
-  } catch {
-    // fall through
+  const parsed = parseEcbGbpRate(await res.text(), upper);
+  if (!parsed) {
+    throw new Error(`ECB daily FX feed has no valid GBP/${upper} rate`);
   }
-
-  throw new Error(`Failed to fetch GBP/${upper} rate from all sources`);
+  return parsed.rate;
 }
 
 export async function fetchGbpJpyRate(): Promise<number> {

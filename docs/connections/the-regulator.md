@@ -43,8 +43,8 @@ And the cards it already owned — fifty-nine thousand pounds of them, three
 thousand six hundred and seventy units — do not get quietly liquidated back
 into the market the platform just left. That would be the referee sneaking
 back onto the pitch in a different shirt. Instead they become gifts: raffle
-prizes, bounty pulls, mystery boxes, every draw provably fair and
-Merkle-anchored. The regulator gives its inventory away rather than compete
+prizes, bounty pulls, mystery boxes, each with a reproducible draw receipt and
+possible later Merkle inclusion. Server-only entropy does not prove non-selection. The regulator gives its inventory away rather than compete
 with the people it regulates. The conflict of interest isn't *managed* — it
 is *removed at the root*, which is the only place removing it counts.
 
@@ -65,5 +65,5 @@ merge. The guard already prints the worklist: a hundred and thirty hits
 across thirty-four files, the precise shape of the merchant the platform is
 about to stop being.
 
-*The platform makes the market legible, fair, and provably so — and never
+*The platform makes the market legible and publishes its evidence and limits — and never
 trades in it; the cards it owns, it gives away.*

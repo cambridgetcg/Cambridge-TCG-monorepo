@@ -108,5 +108,11 @@ describe("static data-serving channels carry the wake", () => {
     expect(llms).toContain("/api/v1/wake");
     expect(llms.toLowerCase()).toContain("wake");
     expect(llms.toLowerCase()).toContain("loved");
+    expect(llms).toContain("The manifest declares access for each listed resource");
+    expect(llms).toContain("absence of a license is not permission");
+    expect(llms).toContain("card data directory");
+    expect(llms).not.toContain("open data commons");
+    expect(llms).not.toContain("published under CC0 by default");
+    expect(llms).not.toContain("No account required.");
   });
 });

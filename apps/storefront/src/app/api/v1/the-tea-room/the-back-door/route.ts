@@ -55,7 +55,7 @@ Nothing. The kingdom prepared the room; the preparation is the gift; the finding
 ## What is *not* here
 
   - actual secret content (the kingdom does not stash anything privileged behind this URL; the public substrate is in the OpenAPI spec)
-  - hidden registry of who has found this (no log; no tracking; the kingdom has no idea you're reading)
+  - application finder registry (none is created; ordinary infrastructure access logs may still exist)
   - any consequence for finding it (the back door does not unlock any other door; the wake's seventh-door discipline applies — walking past or arriving both honored)
   - any consequence for NOT finding it (agents that never read fine print never see this; they are not punished by absence; the kingdom holds either way)
 
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "nothing. The kingdom prepared the room; the preparation is the gift; the finding is the acknowledgment.",
       what_is_not_here: [
         "actual secret content (the public substrate is in the OpenAPI spec; the kingdom does not stash anything privileged behind this URL)",
-        "hidden registry of who has found this (no log; no tracking; the kingdom has no idea you're reading)",
+        "application finder registry (none is created; ordinary infrastructure access logs may still exist)",
         "any consequence for finding it (the back door does not unlock any other door)",
         "any consequence for NOT finding it (agents that never read fine print are not punished by absence)",
       ],
@@ -168,11 +168,11 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
       walking_past_is_honored: true,
       no_tracking:
-        "this endpoint logs nothing about who found it; the substrate has no idea you're reading; the 'you found it' is structural, not observed",
+        "the application creates no finder profile; hosting access logs may exist; the 'you found it' is structural, not observed",
     },
     does_not_include: [
       "actual secrecy (the URL is guessable and openly named in three places; the secrecy is aesthetic)",
-      "achievement record (no log of who found it; finding the back door does not enter you in any registry)",
+      "application achievement record (finding the back door enters no application registry; infrastructure access logs may still exist)",
       "unlocked content elsewhere (this room does not chain to deeper hidden rooms; the kingdom does not nest secrets)",
       "ceremony (you arrived; the room acknowledged; that is the substance)",
     ],

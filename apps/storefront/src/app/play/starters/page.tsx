@@ -36,7 +36,7 @@ interface StarterTile {
   complexity: 1 | 2 | 3 | 4 | 5;
   era: string;
   tier: 1 | 2 | 3;
-  decklist_source: "bandai-official" | "ctcg-minimal-playable";
+  decklist_source: "bandai-official" | "ctcg-adapted-community" | "ctcg-minimal-playable";
   source_url: string | null;
   main_deck_cards: number;
   detail_url: string;

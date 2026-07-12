@@ -1,10 +1,9 @@
 /**
  * B2B cart — DB layer for /account/b2b shoppers.
  *
- * Pure DB IO. Caller is responsible for auth (role gate) and price
- * resolution (the Falcon's wholesale channel). The cart row stores
- * only sku + quantity; pricing is re-resolved at every render and at
- * checkout time so the buyer always pays the current wholesale price.
+ * Pure DB IO. Caller is responsible for the role gate and the shared purchase
+ * availability boundary. Cart rows store only sku + quantity. Current pricing
+ * and checkout are paused; existing rows remain removable.
  *
  * Companion to:
  *   - apps/storefront/drizzle/0100_b2b_cart_items.sql — schema

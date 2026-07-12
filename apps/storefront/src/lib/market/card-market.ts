@@ -25,40 +25,28 @@
  *
  * ── What this carries ───────────────────────────────────────────────────
  *
- *   1. CARD META — sku, name, set_code, set_name, image_url. From
- *      market_orders' first row carrying the SKU (denormalised cache) or
- *      card_set_cards if available.
+ *   1. CARD META — sku, name, set_code, set_name, first_seen_on. Legacy
+ *      catalog images are withheld.
  *
- *   2. PRICE HISTORY — daily spot_gbp from card_price_history over four
- *      windows (7d / 30d / 90d / 365d). Each window returns its own
- *      ordered array of {captured_on, spot_gbp, best_bid_gbp, best_ask_gbp}.
- *      Substrate-honest: if no observation exists in a window, the array
- *      is empty rather than fabricated.
+ *   2. PRICE HISTORY — paused. The existing table mixes legacy reference
+ *      observations with order-book snapshots and has no row-level receipt.
  *
  *   3. ORDER BOOK — top 10 bids (descending price) and top 10 asks
  *      (ascending price) aggregated by price (same shape as the existing
  *      interactive page's OrderBookEntry) PLUS per-row condition breakdown
  *      so the reader can see *which conditions are bidding at £5*.
  *
- *   4. THE TAPE — last 20 completed trades with counterparty trust tier
- *      joined from trust_profiles. Carries seller_trust_score and
- *      seller_trust_tier so the reader sees who they'd be buying from
- *      without needing to click through.
+ *   4. THE TAPE — paused. Completed-trade derivatives need a separate,
+ *      versioned publication choice and a delayed coarse projector.
  *
- *   5. AGGREGATE STATS — spread, 30-day VWAP, 30-day median, 30-day
- *      volume, last-trade-price, last-trade-at, trade_count_24h, fill
- *      rate (completed / total in 90d). Same formulas as the existing
- *      fair-value endpoint.
+ *   5. AGGREGATE STATS — paused for the same reason. The exact public spread
+ *      remains in the order book because bids and asks are public offers.
  *
  *   6. CONDITION BREAKDOWN — for each of NM/LP/MP/HP, count of open asks
  *      + best ask price. *The interactive page lets users filter when
  *      placing an order; this surfaces the distribution as a read.*
  *
- *   7. RECURRING PARTICIPANTS — anonymised stat: how many distinct
- *      buyers, distinct sellers, repeat-trader fraction over 90d.
- *      *Substrate-honest about anonymity: counts, not identities.*
- *
- *   8. _provenance — { kind: "live", queried_at, notes, methodology_url }.
+ *   7. _provenance — { kind: "live", queried_at, notes, methodology_url }.
  *      Same envelope shape as the trader-dashboard (kingdom-063).
  *
  * ── Graceful degradation ───────────────────────────────────────────────
@@ -71,8 +59,6 @@
 import { query } from "@/lib/db";
 import { getCardOrderBook } from "@/lib/market/db";
 import type { CardOrderBook } from "@/lib/market/types";
-import { anonId } from "@/lib/format";
-import { getTrustTier } from "@/lib/escrow/trust-engine";
 
 // ── Public shape ─────────────────────────────────────────────────────────
 
@@ -123,24 +109,16 @@ export interface CardMarketBook {
 }
 
 export interface TapeEntry {
-  trade_id: string;
-  price: number;
+  period_start: string;
+  trade_count: number;
   quantity: number;
-  completed_at: string | null;
-  created_at: string;
-  /** Tier label resolved from trust_profiles.trust_score at read time. */
-  seller_trust_score: number | null;
-  seller_trust_tier: string | null;
-  /** Anonymised seller surface — short user id prefix. The kingdom doesn't
-   *  expose seller identities publicly here; the methodology page names this. */
-  seller_anon_id: string;
+  low_price: number;
+  average_price: number;
+  high_price: number;
 }
 
 export interface CardMarketTape {
   entries: TapeEntry[];
-  trade_count_24h: number;
-  trade_count_7d: number;
-  trade_count_30d: number;
 }
 
 export interface CardMarketStats {
@@ -153,9 +131,6 @@ export interface CardMarketStats {
   /** Range (min, max), last 30 days. */
   price_min_30d: number | null;
   price_max_30d: number | null;
-  /** Last completed trade price + when. */
-  last_trade_price: number | null;
-  last_trade_at: string | null;
   /** completed / (completed + cancelled + refunded), last 90 days. */
   completion_rate_90d: number | null;
 }
@@ -166,14 +141,6 @@ export interface ConditionRow {
   best_ask_price: number | null;
 }
 
-export interface CardMarketParticipants {
-  distinct_buyers_90d: number;
-  distinct_sellers_90d: number;
-  /** Fraction of trades whose buyer-seller pair appears more than once in
-   *  90d. 0..1; null if too few trades. */
-  repeat_pair_fraction_90d: number | null;
-}
-
 export interface CardMarket {
   sku: string;
   meta: CardMarketMeta;
@@ -182,7 +149,6 @@ export interface CardMarket {
   tape: CardMarketTape;
   stats: CardMarketStats;
   conditions: ConditionRow[];
-  participants: CardMarketParticipants;
   _provenance: {
     kind: "live";
     queried_at: string;
@@ -210,18 +176,6 @@ function toNum(v: unknown): number | null {
   const n = typeof v === "number" ? v : parseFloat(String(v));
   return Number.isFinite(n) ? n : null;
 }
-
-// Tier-name resolution composes the canonical `getTrustTier` helper from
-// the trust engine (kingdom-071's trust composer routes through the same
-// function). Returns null for null scores so callers can render `—` for
-// missing-trust-profile rows without a separate branch.
-function tierForScore(score: number | null): string | null {
-  if (score === null) return null;
-  return getTrustTier(score).name;
-}
-
-// `anonId` is shared with auction/state.ts via `@/lib/format` — same
-// last-6-chars contract; one source of truth.
 
 // ── Section loaders ──────────────────────────────────────────────────────
 
@@ -268,46 +222,11 @@ async function loadMeta(
   );
 }
 
-async function loadHistoryWindow(
-  sku: string,
-  days: number,
-): Promise<PriceHistoryPoint[]> {
-  return safe(
-    async () => {
-      const r = await query(
-        `SELECT captured_on, spot_gbp, best_bid_gbp, best_ask_gbp
-         FROM card_price_history
-         WHERE sku = $1
-           AND captured_on > NOW() - INTERVAL '${days} days'
-         ORDER BY captured_on ASC`,
-        [sku],
-      );
-      return r.rows.map((row: any) => ({
-        captured_on:
-          row.captured_on instanceof Date
-            ? row.captured_on.toISOString().slice(0, 10)
-            : String(row.captured_on),
-        spot_gbp: toNum(row.spot_gbp),
-        best_bid_gbp: toNum(row.best_bid_gbp),
-        best_ask_gbp: toNum(row.best_ask_gbp),
-      }));
-    },
-    [],
-  );
-}
-
-/**
- * Exported for /api/v1/cards/[sku]/history — the public price-history
- * endpoint reads the same four windows this composer feeds to
- * /cards/[sku]/market. One substrate, two reading positions.
- */
-export async function loadPriceHistory(sku: string): Promise<CardMarketPriceHistory> {
-  const [window_7d, window_30d, window_90d, window_365d] = await Promise.all([
-    loadHistoryWindow(sku, 7),
-    loadHistoryWindow(sku, 30),
-    loadHistoryWindow(sku, 90),
-    loadHistoryWindow(sku, 365),
-  ]);
+async function loadPriceHistory(): Promise<CardMarketPriceHistory> {
+  const window_7d: PriceHistoryPoint[] = [];
+  const window_30d: PriceHistoryPoint[] = [];
+  const window_90d: PriceHistoryPoint[] = [];
+  const window_365d: PriceHistoryPoint[] = [];
   return {
     window_7d,
     window_30d,
@@ -413,136 +332,18 @@ async function loadBook(
   };
 }
 
-async function loadTape(sku: string): Promise<CardMarketTape> {
-  // Recent 20 completed trades with counterparty trust tier.
-  const entries = await safe(
-    async () => {
-      const r = await query(
-        `SELECT t.id, t.price::numeric AS price, t.quantity,
-                t.completed_at, t.created_at,
-                t.seller_id::text AS seller_id,
-                tp.trust_score AS seller_trust_score
-         FROM market_trades t
-         LEFT JOIN trust_profiles tp ON tp.user_id = t.seller_id
-         WHERE t.sku = $1
-           AND t.escrow_status = 'completed'
-         ORDER BY COALESCE(t.completed_at, t.created_at) DESC
-         LIMIT 20`,
-        [sku],
-      );
-      return r.rows;
-    },
-    [] as any[],
-  );
-
-  const entriesTyped: TapeEntry[] = entries.map((row: any) => {
-    const score = toNum(row.seller_trust_score);
-    return {
-      trade_id: row.id,
-      price: toNum(row.price) ?? 0,
-      quantity: row.quantity ?? 0,
-      completed_at: row.completed_at
-        ? new Date(row.completed_at).toISOString()
-        : null,
-      created_at: new Date(row.created_at).toISOString(),
-      seller_trust_score: score,
-      seller_trust_tier: tierForScore(score),
-      seller_anon_id: anonId(String(row.seller_id || "")),
-    };
-  });
-
-  const counts = await safe(
-    async () => {
-      const r = await query(
-        `SELECT
-           COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '1 day')::int AS c24,
-           COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '7 days')::int AS c7,
-           COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '30 days')::int AS c30
-         FROM market_trades
-         WHERE sku = $1 AND escrow_status = 'completed'`,
-        [sku],
-      );
-      return r.rows[0] ?? { c24: 0, c7: 0, c30: 0 };
-    },
-    { c24: 0, c7: 0, c30: 0 },
-  );
-
-  return {
-    entries: entriesTyped,
-    trade_count_24h: counts.c24 ?? 0,
-    trade_count_7d: counts.c7 ?? 0,
-    trade_count_30d: counts.c30 ?? 0,
-  };
+function loadTape(): CardMarketTape {
+  return { entries: [] };
 }
 
-async function loadStats(sku: string): Promise<CardMarketStats> {
-  const fair = await safe(
-    async () => {
-      const r = await query(
-        `WITH trades_30d AS (
-           SELECT price::numeric AS price, quantity
-           FROM market_trades
-           WHERE sku = $1 AND escrow_status = 'completed'
-             AND created_at > NOW() - INTERVAL '30 days'
-         )
-         SELECT
-           (SUM(price * quantity) / NULLIF(SUM(quantity), 0))::numeric AS vwap,
-           percentile_cont(0.5) WITHIN GROUP (ORDER BY price)::numeric AS median,
-           SUM(quantity)::int AS volume,
-           MIN(price)::numeric AS min_p,
-           MAX(price)::numeric AS max_p
-         FROM trades_30d`,
-        [sku],
-      );
-      return r.rows[0] ?? {};
-    },
-    {} as any,
-  );
-
-  const last = await safe(
-    async () => {
-      const r = await query(
-        `SELECT price::numeric AS price, COALESCE(completed_at, created_at) AS at
-         FROM market_trades
-         WHERE sku = $1 AND escrow_status = 'completed'
-         ORDER BY COALESCE(completed_at, created_at) DESC
-         LIMIT 1`,
-        [sku],
-      );
-      return r.rows[0] ?? {};
-    },
-    {} as any,
-  );
-
-  const completion = await safe(
-    async () => {
-      const r = await query(
-        `SELECT
-           COUNT(*) FILTER (WHERE escrow_status = 'completed')::int AS completed,
-           COUNT(*) FILTER (WHERE escrow_status IN ('cancelled','refunded'))::int AS failed
-         FROM market_trades
-         WHERE sku = $1
-           AND created_at > NOW() - INTERVAL '90 days'`,
-        [sku],
-      );
-      return r.rows[0] ?? { completed: 0, failed: 0 };
-    },
-    { completed: 0, failed: 0 },
-  );
-
-  const completedN = completion.completed ?? 0;
-  const failedN = completion.failed ?? 0;
-  const totalN = completedN + failedN;
-
+function loadStats(): CardMarketStats {
   return {
-    vwap_30d: toNum(fair.vwap),
-    median_30d: toNum(fair.median),
-    volume_30d: toNum(fair.volume),
-    price_min_30d: toNum(fair.min_p),
-    price_max_30d: toNum(fair.max_p),
-    last_trade_price: toNum(last.price),
-    last_trade_at: last.at ? new Date(last.at).toISOString() : null,
-    completion_rate_90d: totalN > 0 ? completedN / totalN : null,
+    vwap_30d: null,
+    median_30d: null,
+    volume_30d: null,
+    price_min_30d: null,
+    price_max_30d: null,
+    completion_rate_90d: null,
   };
 }
 
@@ -575,51 +376,12 @@ async function loadConditions(sku: string): Promise<ConditionRow[]> {
   return ordered;
 }
 
-async function loadParticipants(sku: string): Promise<CardMarketParticipants> {
-  const r = await safe(
-    async () => {
-      const result = await query(
-        `WITH trades_90d AS (
-           SELECT buyer_id, seller_id
-           FROM market_trades
-           WHERE sku = $1 AND escrow_status = 'completed'
-             AND created_at > NOW() - INTERVAL '90 days'
-         )
-         SELECT
-           COUNT(DISTINCT buyer_id)::int  AS db,
-           COUNT(DISTINCT seller_id)::int AS ds,
-           COUNT(*)::int                  AS total,
-           (
-             SELECT COUNT(*)::int FROM (
-               SELECT buyer_id, seller_id, COUNT(*) AS c
-               FROM trades_90d
-               GROUP BY buyer_id, seller_id
-               HAVING COUNT(*) > 1
-             ) AS rep
-           ) AS repeat_pairs
-         FROM trades_90d`,
-        [sku],
-      );
-      return result.rows[0] ?? { db: 0, ds: 0, total: 0, repeat_pairs: 0 };
-    },
-    { db: 0, ds: 0, total: 0, repeat_pairs: 0 },
-  );
-  const total = r.total ?? 0;
-  const repeat = r.repeat_pairs ?? 0;
-  return {
-    distinct_buyers_90d: r.db ?? 0,
-    distinct_sellers_90d: r.ds ?? 0,
-    repeat_pair_fraction_90d:
-      total > 0 ? Math.round((repeat / total) * 100) / 100 : null,
-  };
-}
-
 // ── Public surface ──────────────────────────────────────────────────────
 
 /**
  * Load the full card-market mirror for one SKU.
  *
- * Eight section queries run in parallel (Promise.all). Each is isolated
+ * Independent section queries run in parallel (Promise.all). Each is isolated
  * by safe() — one failure degrades that section to empty, never crashes
  * the page. Typical latency 80-300ms on warm RDS.
  */
@@ -637,22 +399,21 @@ export async function loadCardMarket(sku: string): Promise<CardMarket> {
       image_url: null,
       bids: [],
       asks: [],
-      recent_trades: [],
+      trade_aggregates: [],
       best_bid: null,
       best_ask: null,
     },
   );
 
-  const [meta, price_history, book, tape, stats, conditions, participants] =
+  const [meta, price_history, book, conditions] =
     await Promise.all([
       loadMeta(sku, canonical),
-      loadPriceHistory(sku),
+      loadPriceHistory(),
       loadBook(sku, canonical),
-      loadTape(sku),
-      loadStats(sku),
       loadConditions(sku),
-      loadParticipants(sku),
     ]);
+  const tape = loadTape();
+  const stats = loadStats();
 
   return {
     sku,
@@ -662,19 +423,13 @@ export async function loadCardMarket(sku: string): Promise<CardMarket> {
     tape,
     stats,
     conditions,
-    participants,
     _provenance: {
       kind: "live",
       queried_at: new Date().toISOString(),
       notes:
-        "Each section was queried at this moment against the live database. Price history reads from card_price_history (one row per UTC day); order book and tape from market_orders + market_trades; trust tier from trust_profiles. The page is as fresh as the database is. See /methodology/market for the canonical formula behind every metric here.",
+        "Legacy reference prices are withheld pending field-level source rights. The order book reads deliberate public bids and asks. Completed-trade tape and statistics remain paused pending purpose-specific publication receipts and a delayed coarse projector. See /methodology/market.",
       methodology_url: "/methodology/market",
-      sources: [
-        "market_orders",
-        "market_trades",
-        "trust_profiles",
-        "card_price_history",
-      ],
+      sources: ["market_orders"],
     },
   };
 }

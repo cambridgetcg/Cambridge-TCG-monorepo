@@ -29,6 +29,10 @@ import {
 } from "@aws-sdk/client-s3";
 import { REQUEST_DELAY_MS } from "./config";
 import type { WholesaleCard } from "./cardrush-mapper";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+} from "@cambridge-tcg/data-ingest";
 
 const DEFAULT_BUCKET = "jp-op-photos";
 const REGION = "us-east-1";
@@ -89,6 +93,9 @@ export async function uploadImagesToS3(
   cards: WholesaleCard[],
   bucket: string = DEFAULT_BUCKET
 ): Promise<{ uploaded: number; skipped: number; failed: number }> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   const s3 = getS3Client();
   let uploaded = 0;
   let skipped = 0;

@@ -84,12 +84,12 @@ export const MORE_NAV_GROUPS = [
     ],
   },
   {
-    heading: "Open & trusted",
+    heading: "Data & trust",
     items: [
       {
-        label: "Data access",
+        label: "Data directory",
         href: "/data",
-        description: "Catalog and API with explicit field-rights boundaries",
+        description: "API access and rights",
         activePrefixes: ["/data", "/api", "/agents", "/standards", "/scrapers"],
       },
       {
@@ -98,9 +98,9 @@ export const MORE_NAV_GROUPS = [
         description: "Prices, fees and decisions",
       },
       {
-        label: "Verify outcomes",
+        label: "Draw proof checks",
         href: "/verify",
-        description: "Check fair outcomes",
+        description: "Consistency evidence and stated limits",
       },
     ],
   },

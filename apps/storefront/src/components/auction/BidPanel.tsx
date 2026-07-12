@@ -1,14 +1,36 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { AuctionDetail } from "@/lib/auction/types";
-import { getCurrentDutchPrice, getMinNextBid, isReserveMet } from "@/lib/auction/lifecycle";
+import type { InteractiveAuctionDetail } from "@/lib/auction/public";
 import { formatPrice } from "@/lib/format";
 import AuctionCountdown from "./AuctionCountdown";
 
 interface BidPanelProps {
-  auction: AuctionDetail;
+  auction: InteractiveAuctionDetail & { id: string };
   sessionUserId?: string | null;
+}
+
+function currentDutchPrice(auction: InteractiveAuctionDetail): number {
+  if (auction.auction_type !== "dutch") return parseFloat(auction.current_price);
+  const startPrice = parseFloat(auction.dutch_start_price || auction.starting_price);
+  const endPrice = parseFloat(auction.dutch_end_price || "0");
+  const drop = parseFloat(auction.dutch_price_drop || "0");
+  const interval = auction.dutch_drop_interval_seconds || 60;
+  const elapsed = (Date.now() - new Date(auction.starts_at).getTime()) / 1000;
+  return Math.max(startPrice - Math.floor(elapsed / interval) * drop, endPrice);
+}
+
+function minNextBid(auction: InteractiveAuctionDetail): number {
+  const current = parseFloat(auction.current_price);
+  const increment = parseFloat(auction.bid_increment);
+  const starting = parseFloat(auction.starting_price);
+  return auction.bid_count > 0 ? current + increment : starting;
+}
+
+function reserveMet(auction: InteractiveAuctionDetail): boolean | null {
+  if ("reserve_met" in auction) return auction.reserve_met;
+  if (!auction.reserve_price) return null;
+  return parseFloat(auction.current_price) >= parseFloat(auction.reserve_price);
 }
 
 export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
@@ -17,17 +39,17 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [dutchPrice, setDutchPrice] = useState(() => getCurrentDutchPrice(auction));
+  const [dutchPrice, setDutchPrice] = useState(() => currentDutchPrice(auction));
 
   const isEnded = auction.status === "ended" || auction.status === "paid" || auction.status === "cancelled";
   const isLive = auction.status === "live";
-  const reserveStatus = isReserveMet(auction);
+  const reserveStatus = reserveMet(auction);
 
   // Update dutch price every second
   useEffect(() => {
     if (auction.auction_type !== "dutch" || !isLive) return;
     const interval = setInterval(() => {
-      setDutchPrice(getCurrentDutchPrice(auction));
+      setDutchPrice(currentDutchPrice(auction));
     }, 1000);
     return () => clearInterval(interval);
   }, [auction, isLive]);
@@ -35,15 +57,21 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
   // Set default bid amount
   useEffect(() => {
     if (auction.auction_type === "english") {
-      setBidAmount(getMinNextBid(auction).toFixed(2));
+      setBidAmount(minNextBid(auction).toFixed(2));
     }
   }, [auction]);
 
   // Check if current user is highest bidder
   const highestBid = auction.bids.length > 0 ? auction.bids[0] : null;
-  const isHighestBidder = sessionUserId && highestBid && highestBid.user_id === sessionUserId;
-  const isOutbid = sessionUserId && highestBid && highestBid.user_id !== sessionUserId &&
-    auction.bids.some((b) => b.user_id === sessionUserId);
+  const isOwnBid = (bid: (typeof auction.bids)[number]): boolean =>
+    "is_own" in bid && bid.is_own === true;
+  const isHighestBidder = Boolean(sessionUserId && highestBid && isOwnBid(highestBid));
+  const isOutbid = Boolean(
+    sessionUserId &&
+    highestBid &&
+    !isOwnBid(highestBid) &&
+    auction.bids.some(isOwnBid),
+  );
 
   const submitBid = useCallback(async (amount: number, isBestOffer = false) => {
     setSubmitting(true);
@@ -140,7 +168,7 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs text-ink-faint mb-1 block">
-                      Min bid: {formatPrice(getMinNextBid(auction))}
+                      Min bid: {formatPrice(minNextBid(auction))}
                     </label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -148,11 +176,11 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
                         <input
                           type="number"
                           step="0.01"
-                          min={getMinNextBid(auction)}
+                          min={minNextBid(auction)}
                           value={bidAmount}
                           onChange={(e) => setBidAmount(e.target.value)}
                           className="w-full pl-7 pr-3 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition"
-                          placeholder={getMinNextBid(auction).toFixed(2)}
+                          placeholder={minNextBid(auction).toFixed(2)}
                           disabled={submitting}
                         />
                       </div>

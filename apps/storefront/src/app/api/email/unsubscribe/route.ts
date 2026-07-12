@@ -17,9 +17,6 @@ export async function GET(request: Request) {
   await applyUnsubscribe({
     userId: verified.userId,
     category: verified.category,
-    source: "email_link",
-    ip: request.headers.get("x-forwarded-for") ?? null,
-    userAgent: request.headers.get("user-agent") ?? null,
   });
 
   const label = encodeURIComponent(CATEGORY_LABELS[verified.category]);
@@ -41,9 +38,6 @@ export async function POST(request: Request) {
   await applyUnsubscribe({
     userId: verified.userId,
     category: verified.category,
-    source: "list_unsubscribe",
-    ip: request.headers.get("x-forwarded-for") ?? null,
-    userAgent: request.headers.get("user-agent") ?? null,
   });
 
   return NextResponse.json({ unsubscribed: verified.category });

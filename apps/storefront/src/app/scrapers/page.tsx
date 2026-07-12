@@ -42,7 +42,8 @@ export default async function ScrapersWelcomePage() {
             HTML scraping is a bad contract for both of us: layout can change without
             notice, your parser breaks, our compute pays ~10× the cost of serving
             JSON. The JSON API at <span className="font-mono">/api/v1/*</span> is
-            versioned, stable, CC0, and machine-readable. Start there.
+            machine-readable, but each route has its own stability and rights boundary.
+            Public reach is not a blanket CC0 grant. Start with its response metadata.
           </p>
         </header>
 
@@ -53,7 +54,7 @@ export default async function ScrapersWelcomePage() {
           </h2>
           <div className="grid md:grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-ink-muted mb-2">Card prices (per SKU)</p>
+              <p className="text-ink-muted mb-2">Structural card lookup (prices withheld)</p>
               <p className="font-mono text-ink">
                 /api/v1/universal/card/[sku]
               </p>
@@ -65,11 +66,11 @@ export default async function ScrapersWelcomePage() {
               </p>
             </div>
             <div>
-              <p className="text-ink-muted mb-2">Bulk catalog (~12k cards)</p>
+              <p className="text-ink-muted mb-2">Bulk publication status (0 card rows)</p>
               <p className="font-mono text-ink">/data/catalog.jsonl</p>
             </div>
             <div>
-              <p className="text-ink-muted mb-2">Historical prices</p>
+              <p className="text-ink-muted mb-2">Date-shaped structural compatibility view</p>
               <p className="font-mono text-ink">
                 /api/at/[YYYY-MM-DD]/card/[sku]
               </p>
@@ -89,7 +90,8 @@ export default async function ScrapersWelcomePage() {
             All publicly reachable without auth. Reuse rights vary by response:
             Cambridge-authored structure may be CC0; mixed catalog data is{" "}
             <code>NOASSERTION</code>. Preserve <code>_meta.license</code> and{" "}
-            <code>_meta.source_license</code>. See{" "}
+            <code>_meta.source_license</code>; absence of a license is not
+            permission. See{" "}
             <Link
               href="/api/v1/welcome"
               className="text-accent hover:underline"
@@ -194,7 +196,8 @@ export default async function ScrapersWelcomePage() {
               <span className="font-mono">
                 &lt;project&gt;/&lt;version&gt; (&lt;contact-email&gt;)
               </span>
-              . We email identified bots before rate-limiting.
+              . A contact makes communication possible; it does not promise outreach
+              before an infrastructure or security control acts.
             </li>
             <li>
               •{" "}
@@ -211,19 +214,20 @@ export default async function ScrapersWelcomePage() {
               .
             </li>
             <li>
-              • <span className="font-semibold">Cache Cache-Control headers</span>:
-              every response declares max-age. Respect it.
+              • <span className="font-semibold">Cache when a response permits it</span>:
+              respect any Cache-Control and freshness metadata that is present.
             </li>
             <li>
               • <span className="font-semibold">Honour HTTP 429</span>: response body
-              declares <span className="font-mono">error.retry_after</span> seconds.
-              Exponential back-off on repeated.
+              may include a Retry-After header or retry detail. Back off on repeated
+              responses even when no machine-readable delay is present.
             </li>
             <li>
               • <span className="font-semibold">Don&rsquo;t bulk re-export</span> data
               tagged <span className="font-mono">internal-only</span> in{" "}
               <span className="font-mono">_meta.source_license</span>. License
-              boundary; we honour CardRush&rsquo;s ToS even if you don&rsquo;t.
+              boundary. Legacy CardRush-derived values are currently withheld rather
+              than exposed behind an authentication gate.
             </li>
           </ul>
         </section>

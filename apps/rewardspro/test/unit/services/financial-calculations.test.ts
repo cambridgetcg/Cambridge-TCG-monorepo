@@ -33,7 +33,7 @@ function calculateCashback(
   const decimals = CURRENCY_DECIMALS[currency] ?? 2;
   const multiplier = Math.pow(10, decimals);
 
-  // Use banker's rounding (round half to even)
+  // Round to the nearest unit supported by the currency.
   return Math.round(rawCashback * multiplier) / multiplier;
 }
 
@@ -120,7 +120,7 @@ describe('Financial Calculations', () => {
   });
 
   describe('Property-Based Testing for Cashback', () => {
-    it('cashback should always be between 0 and the net amount', () => {
+    it('cashback should stay between 0 and the net amount at currency precision', () => {
       fc.assert(
         fc.property(
           fc.float({ min: Math.fround(0), max: Math.fround(1000000), noNaN: true }),
@@ -128,8 +128,12 @@ describe('Financial Calculations', () => {
           fc.constantFrom('USD', 'EUR', 'JPY', 'GBP'),
           (amount, percent, currency) => {
             const cashback = calculateCashback(amount, percent, currency);
+            const decimals = CURRENCY_DECIMALS[currency] ?? 2;
+            const multiplier = Math.pow(10, decimals);
+            const roundedAmount = Math.round(amount * multiplier) / multiplier;
+
             expect(cashback).toBeGreaterThanOrEqual(0);
-            expect(cashback).toBeLessThanOrEqual(amount);
+            expect(cashback).toBeLessThanOrEqual(roundedAmount);
           }
         )
       );

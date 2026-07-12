@@ -50,8 +50,6 @@ export default function WishlistPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [showCsv, setShowCsv] = useState(false);
   const [suggestions, setSuggestions] = useState<Record<string, { value: number; explanation: string } | null>>({});
-  const [profile, setProfile] = useState<{ username: string | null; is_public: boolean } | null>(null);
-  const [copied, setCopied] = useState(false);
 
   async function fetchSuggestion(sku: string) {
     if (suggestions[sku] !== undefined) return;
@@ -71,10 +69,7 @@ export default function WishlistPage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [wishRes, profRes] = await Promise.all([
-        fetch("/api/social/wishlist?enrich=1"),
-        fetch("/api/social/profile").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      ]);
+      const wishRes = await fetch("/api/social/wishlist?enrich=1");
       if (!wishRes.ok) {
         if (wishRes.status === 401) setError("Sign in required.");
         else setError(`Failed (HTTP ${wishRes.status})`);
@@ -82,12 +77,6 @@ export default function WishlistPage() {
       }
       const d = await wishRes.json();
       setItems(d.wishlist ?? []);
-      if (profRes?.profile) {
-        setProfile({
-          username: profRes.profile.username ?? null,
-          is_public: Boolean(profRes.profile.is_public),
-        });
-      }
     } finally {
       setLoading(false);
     }
@@ -189,45 +178,16 @@ export default function WishlistPage() {
           </div>
         )}
 
-        {/* Gift-link share banner */}
-        {profile && items.length > 0 && (
-          <div className="mb-4 bg-surface border border-border-subtle rounded-lg px-4 py-3 flex items-center justify-between flex-wrap gap-3 text-sm">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-accent font-semibold">
-                Gift this wishlist
-              </p>
-              {profile.username && profile.is_public ? (
-                <p className="text-ink-muted mt-0.5 truncate">
-                  Share{" "}
-                  <Link href={`/u/${profile.username}`} className="text-accent underline hover:text-accent-strong">
-                    /u/{profile.username}
-                  </Link>{" "}
-                  — your wishlist is visible at the bottom of your public profile.
-                </p>
-              ) : (
-                <p className="text-xs text-ink-faint mt-0.5">
-                  Pick a username + make your profile public in{" "}
-                  <Link href="/account/profile" className="text-accent hover:text-accent-strong underline">
-                    settings
-                  </Link>{" "}
-                  to get a shareable URL.
-                </p>
-              )}
-            </div>
-            {profile.username && profile.is_public && (
-              <button
-                onClick={() => {
-                  const url = `${window.location.origin}/u/${profile.username}`;
-                  navigator.clipboard.writeText(url).then(
-                    () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
-                    () => {},
-                  );
-                }}
-                className="text-xs bg-ink text-page hover:opacity-90 font-semibold rounded px-3 py-1.5 transition-colors whitespace-nowrap"
-              >
-                {copied ? "Copied!" : "Copy gift link"}
-              </button>
-            )}
+        {/* Publication boundary */}
+        {items.length > 0 && (
+          <div className="mb-4 rounded-lg border border-border-subtle bg-surface px-4 py-3 text-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">
+              Private planning list
+            </p>
+            <p className="mt-0.5 text-ink-muted">
+              Your wishlist is visible in your account only. A future share or
+              trade-intent flow will ask separately which cards you want to publish.
+            </p>
           </div>
         )}
 

@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { runDailySnapshot, type SnapshotOptions } from "@/lib/price-snapshot";
+import { redactInternalError } from "@/lib/public-errors";
 
 export const maxDuration = 300; // 5 min Vercel function timeout
 
@@ -49,8 +50,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, startTs, endTs, ...result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[admin/snapshot] Failed:", msg);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const error = redactInternalError("admin/snapshot", err);
+    return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 }

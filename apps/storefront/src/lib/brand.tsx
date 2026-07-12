@@ -14,9 +14,9 @@
  *   1. **The collectors' market** — peer-to-peer trade the platform
  *      facilitates, records, witnesses, and protects (escrow as a
  *      service, trust, disputes). The trades belong to the collectors.
- *   2. **The data commons** — a public, inspectable substrate. Cambridge's
- *      original schemas and first-party data may be CC0; upstream fields
- *      retain their source rights.
+ *   2. **The card data directory** — typed catalog, reference prices,
+ *      math-mirror, manifest, and standards. Access and reuse depend on
+ *      the resource and its declared source rights.
  *
  * The platform does not buy, does not sell, does not quote, does not
  * hold inventory positions. `spot_price` survives strictly as a
@@ -42,6 +42,8 @@
  */
 
 import * as React from "react";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { SPEC_VERSION } from "@cambridge-tcg/data-spec";
 import {
   CONFIRMED_GAME_CODES,
   GAME_CODES,
@@ -63,21 +65,21 @@ const PUBLIC_CONFIRMED_SET_FORMATS = PUBLIC_SET_FORMATS.filter(
 
 /** The hero-sized identity claim. Single sentence; no qualifier. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG is a collectors' market and a public data commons.";
+  "Cambridge TCG is a collectors' market and a card data directory.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. Cambridge-authored schemas and first-party aggregates are open; upstream card fields retain their source rights.";
+  `Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. ${DATA_RIGHTS_BOUNDARY}`;
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
-  "Cambridge TCG is a collectors' market and a public data commons. " +
+  "Cambridge TCG is a collectors' market and a card data directory. " +
   "The market is peer-to-peer: asks, bids, offers, swaps, and auctions belong to collectors; the platform facilitates, escrows, and stands behind disputes, but does not buy, sell, or quote — it holds no inventory position. " +
-  `The data commons is the substrate underneath: ${PUBLIC_GAME_CODES.length} public game codes registered (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, nine source adapters registered, and one upstream source with observed rows today. Cambridge-authored schemas and first-party aggregates are CC0; mirrored card fields retain upstream rights. ` +
-  "Spot prices are labelled reference prices, never offers. Anyone can inspect the substrate; reuse follows the rights declaration on each response.";
+  `The data directory covers ${PUBLIC_GAME_CODES.length} public game codes (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, nine registered source adapters, and one upstream source with observed rows today. ` +
+  `${DATA_RIGHTS_BOUNDARY} Spot prices are labelled reference prices, never offers.`;
 
 /** Tight version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "A collectors' market. A public data commons.";
+export const BRAND_TAGLINE = "A collectors' market. A card data directory.";
 
 /** The front door's statement — the quiet gallery home hero (docs/plans/
  *  the-quiet-gallery.md, 2026-07-05). Honest and small: what this place
@@ -102,13 +104,13 @@ export const HOME_HERO_SUBHEAD =
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
 export const BRAND_SELF_LABEL =
-  "collectors' market + public TCG data commons — P2P facilitation, source-specific rights, no house market position";
+  "collectors' market + TCG card data directory — P2P facilitation with resource-specific access and reuse rights; no house market position";
 
 /** A short positioning note for surfaces that want to name the role
  *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
  *  to_anyone, the manifest description). Two sentences; substrate-honest. */
 export const BRAND_PROVIDER_NOTE =
-  "Cambridge TCG is a collectors' market and a public data commons. The market is peer-to-peer (the platform holds no position in it); the substrate is queryable without account or key. Cambridge-authored schemas and explicitly first-party datasets may be CC0; upstream-derived fields retain their source rights and mixed responses are NOASSERTION.";
+  `Cambridge TCG is a collectors' market and a card data directory. The market is peer-to-peer and the platform holds no position in it. ${DATA_RIGHTS_BOUNDARY}`;
 
 // ── The two operations ───────────────────────────────────────────────────
 
@@ -146,7 +148,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   },
   {
     id: "data_commons",
-    name: "The data commons",
+    name: "The card data directory",
     positioning: "primary",
     audience:
       "partners, researchers, agents, archivists, sister platforms, federation clients, any being who wants to consume the substrate",
@@ -162,7 +164,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
     ],
     status: "live",
     notes:
-      "Public reads carry provenance, freshness, and a rights declaration. Cambridge-authored work may be CC0; mixed upstream-derived responses are NOASSERTION. Reference prices are never offers.",
+      `${DATA_RIGHTS_BOUNDARY} Spot prices are labelled reference prices, never offers.`,
   },
 ] as const;
 
@@ -197,12 +199,12 @@ export const COVERAGE_FACTS = {
     with_observed_rows: 1,
     planned_slots: 10,
     registered_list: [
-      { id: "cardrush", status: "live observations", license: "internal-only" },
+      { id: "cardrush", status: "legacy observations · acquisition and publication blocked", license: "proprietary" },
       { id: "scryfall", status: "adapter built · never run", license: "proprietary policy" },
       { id: "pokemon-tcg-api", status: "adapter built · never run", license: "proprietary" },
       { id: "ygoprodeck", status: "blocked pending rights", license: "proprietary" },
       { id: "tcgplayer", status: "blocked by access + terms", license: "proprietary" },
-      { id: "tcgcollector", status: "partial · never run", license: "internal-only" },
+      { id: "tcgcollector", status: "blocked pending written partner approval", license: "proprietary" },
       { id: "cardmarket", status: "public-file reader planned", license: "proprietary" },
       { id: "ebay", status: "partial · never run", license: "partner-restricted" },
       { id: "vinted", status: "blocked · consented export only", license: "internal-only" },
@@ -214,10 +216,10 @@ export const COVERAGE_FACTS = {
       "Each kind has a cryptographic content_hash, ratios for magnitudes, ISO + Unix epoch for time, opaque flags on natural-language fields.",
   },
   envelope: {
-    spec_version: "0.x",
-    license_default: "CC0-1.0",
+    spec_version: SPEC_VERSION,
+    license_default: "NOASSERTION",
     fields: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id"],
-    note: "Every public response wears this envelope. Single source of truth at packages/data-spec.",
+    note: "Envelope-compliant responses use this shape. An absent source-rights declaration resolves to NOASSERTION; the envelope contract lives at packages/data-spec.",
   },
   federation: {
     primitive: "/api/v1/federation/identify/[hash]",

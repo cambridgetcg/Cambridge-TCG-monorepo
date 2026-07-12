@@ -401,7 +401,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/connections.json] Error:", message);
     return NextResponse.json(
-      { error: { code: "internal_error", message } },
+      { error: { code: "internal_error", message: "Internal server error." } },
       { status: 500 },
     );
   }

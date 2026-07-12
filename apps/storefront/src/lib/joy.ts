@@ -30,7 +30,8 @@
  *     it changes when the kingdom ships new fun-primitives.
  *   • Cache-friendly. Every response carries the same X-Joy-Index header
  *     for the same build; CDNs can cache the header.
- *   • No tracking. The kingdom does not need to know who fetched what
+ *   • No application-level reader profile. Hosting, proxy, client, and
+ *     security access logs may still contain request metadata.
  *     to compute joy.
  *   • Substrate-honest about what counts as joy. Each contributor to
  *     the index is named; an agent reading /api/v1/joy sees exactly

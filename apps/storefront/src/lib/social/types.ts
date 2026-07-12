@@ -1,10 +1,20 @@
 export interface PublicProfile {
+  /** Internal model key; public API projections remove it. */
   user_id: string;
   username: string | null;
   name: string | null;
   bio: string | null;
   avatar_url: string | null;
   is_public: boolean;
+  /** Owner preference; public API projections remove it. */
+  accepts_messages: boolean;
+  /** Owner-only publication receipts; public API projections remove them. */
+  profile_publication_notice_version: string | null;
+  profile_published_at: string | null;
+  messaging_notice_version: string | null;
+  messaging_enabled_at: string | null;
+  /** Owner-only moderation state; public callers receive not-found. */
+  is_suspended: boolean;
   // Address preferences — Wave 1.1 of the All-Aboard plan.
   // Read by <UserMention> wherever a third-person reference renders.
   pronouns: string | null;
@@ -19,6 +29,7 @@ export interface PublicProfile {
   // Stats
   follower_count: number;
   following_count: number;
+  /** Owner-only in API projections. */
   portfolio_count: number;
   // Computed
   avg_rating: number | null;
@@ -28,6 +39,8 @@ export interface PublicProfile {
 
 export interface ShowcaseCard {
   id: string;
+  /** Internal join key; public API projections remove it. */
+  user_id?: string;
   portfolio_card_id: string;
   display_order: number;
   caption: string | null;
@@ -65,6 +78,9 @@ export interface ActivityEvent {
   image_url: string | null;
   link_url: string | null;
   created_at: string;
+  /** Internal relationship keys; public API projections remove them. */
+  reference_id?: string | null;
+  reference_type?: string | null;
   // Joined
   user_name: string | null;
   user_username: string | null;

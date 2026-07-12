@@ -9,5 +9,8 @@ export async function GET() {
   }
   const eligibility = await getEligibility(session.user.id);
   const tokens = await getPullTokens(session.user.id);
-  return NextResponse.json({ eligibility, tokens });
+  return NextResponse.json(
+    { eligibility, tokens },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }

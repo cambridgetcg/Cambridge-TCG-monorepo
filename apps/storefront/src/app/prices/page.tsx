@@ -17,13 +17,13 @@ import {
 import { CardPriceSearchForm } from "@/app/prices/_components/CardPriceSearchForm";
 
 export const metadata: Metadata = {
-  title: "TCG Card Price Guide UK — Cambridge TCG",
+  title: "TCG Structural Catalog — Price Publication Paused — Cambridge TCG",
   description:
-    "Search and browse reference observations for One Piece, Pokémon, Dragon Ball, Magic, Yu-Gi-Oh! and more. Current upstream pricing is CardRush only; blocked and planned sources are labelled plainly.",
+    "Search structural catalog rows across supported games. Legacy price values, images, and historical movements are withheld pending field-level source-rights records.",
   openGraph: {
-    title: "TCG Card Price Guide UK — Cambridge TCG",
+    title: "TCG Structural Catalog — Price Publication Paused — Cambridge TCG",
     description:
-      "Find a card and inspect sourced reference observations across many TCG titles. Every source state and rights boundary is labelled.",
+      "Find structural card rows and inspect publication status. Legacy prices, images, and historical movements are not published.",
   },
 };
 
@@ -83,7 +83,7 @@ export default async function PricesLandingPage() {
       {
         "@type": "ListItem",
         position: 2,
-        name: "Price Guide",
+        name: "Price publication status",
         item: "https://cambridgetcg.com/prices",
       },
     ],
@@ -111,22 +111,23 @@ export default async function PricesLandingPage() {
 
         <header className="max-w-3xl">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-            Sourced card market data
+            Structural catalog and source-rights status
           </p>
           <h1 className="text-3xl font-bold text-ink sm:text-4xl">
-            Find a card price
+            Find a structural card record
           </h1>
           <p className="mt-4 text-base leading-relaxed text-ink-muted sm:text-lg">
-            Search by the number printed on the card to see current reference
-            prices, recorded history, available sources, and known print or
-            language variants.
+            Search by the number printed on the card to see structural catalog
+            fields and source status. This is reference data, not an offer.
+            Legacy prices, images, and historical movements are withheld; null
+            does not mean zero.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Provenance
               kind={observedTiles.length > 0 ? "synced" : "unavailable"}
               source="wholesale catalog"
             />
-            <WhyLink href="/methodology/pricing" label="how prices work" />
+              <WhyLink href="/methodology/pricing" label="price publication boundary" />
             <Link
               href="/prices/coverage"
               className="text-xs text-info hover:underline"
@@ -152,11 +153,11 @@ export default async function PricesLandingPage() {
               id="card-price-search-heading"
               className="text-lg font-semibold text-ink"
             >
-              Search the price guide
+              Search the structural catalog
             </h2>
             <p className="mt-1 text-sm text-ink-muted">
               Pick a game, enter the card number, and go straight to the
-              matching source data.
+              matching structural row and current publication status.
             </p>
           </div>
           <CardPriceSearchForm
@@ -267,11 +268,11 @@ export default async function PricesLandingPage() {
           <div className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-ink">
-                Choose a display currency
+                Currency tools
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-                Reference values are normalised in GBP. Changing currency only
-                converts what you see on screen.
+                FX rates remain available as standalone operational data. There
+                are no published legacy card-price values to convert today.
               </p>
             </div>
             <CurrencyWhyLink />
@@ -288,20 +289,19 @@ export default async function PricesLandingPage() {
 
         <section className="mt-14 border-t border-border-subtle pt-8">
           <h2 className="mb-3 text-lg font-semibold text-ink">
-            How reference prices work
+            Why price values are absent
           </h2>
           <p className="mb-4 max-w-3xl text-sm leading-relaxed text-ink-muted">
-            Values shown are policy-bound reference data, not an offer from
-            Cambridge TCG or a guaranteed sale value. They are computed from
-            catalog observations currently held. The platform retired its shop
-            and trade-in desk on 2026-07-06; collectors&apos; own bids and asks
-            remain the market.
+            Stored legacy wholesale prices, channel-derived values, images, and
+            historical movements are not published. Their rows predate field-level
+            source-rights receipts, and authentication or mathematical transformation
+            does not create publication permission.
           </p>
           <p className="max-w-3xl text-sm leading-relaxed text-ink-muted">
-            Current collected upstream price history is CardRush only. TCGplayer
-            is blocked, and Cardmarket&apos;s public-file reader is planned. A
-            card&rsquo;s detail page places each available observation beside
-            its source and rights label. Use the{" "}
+            Structural identity and set membership remain browseable. Collector
+            bids and asks, when explicitly published by their owners, are separate
+            market events and are not substituted for the withheld legacy guide.
+            Use the{" "}
             <Link href="/prices/coverage" className="text-info hover:underline">
               coverage map
             </Link>{" "}

@@ -17,8 +17,8 @@
  * suggestions computed by string distance over the manifest's real
  * storefront paths — "did you mean" grounded in doors that actually
  * open — and (b) host-qualified pointers at the orientation surfaces.
- * No tracking; the IP rate-limit counter every public surface shares
- * is the only artifact of the probe.
+ * No application-level probe profile is created. Hosting, proxy, client,
+ * and security access logs may still contain request metadata.
  *
  * Companion: `apps/storefront/src/lib/data-pantry/errors.ts` (the
  * `errorResponse()` helper that carries `_meta` envelope on errors,

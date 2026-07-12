@@ -11,8 +11,7 @@
  *      image URL resolution, Notes/remarks exclusion
  *   2. normalizeBandaiEn — SKU shape, policy quartet in extra,
  *      oracle_text = Effect + Trigger (rules only), quarantine paths
- *   3. read() — generator over an injected fetch; honest User-Agent;
- *      stubbed games yield nothing and emit an actionable error
+ *   3. read() — fail-closed before an injected fetch while rights are blocked
  */
 
 import { describe, it, expect } from "vitest";
@@ -21,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { parseCardlistPage, parseSeriesOptions } from "../bandai-en/parse";
 import { normalizeBandaiEn } from "../bandai-en/normalize";
-import { bandaiEn, BANDAI_EN_USER_AGENT, type BandaiEnContext } from "../bandai-en/index";
+import { bandaiEn, type BandaiEnContext } from "../bandai-en/index";
 import type { BandaiEnCard } from "../bandai-en/types";
 import type { IngestEvent } from "../types";
 
@@ -220,55 +219,33 @@ describe("normalizeBandaiEn", () => {
 // ── read() ───────────────────────────────────────────────────────────
 
 describe("bandaiEn.read", () => {
-  it("yields one RawRow per block with provenance, using the honest User-Agent", async () => {
-    const seenUserAgents: (string | null)[] = [];
-    const mockFetch: typeof fetch = async (_url, init) => {
-      seenUserAgents.push(new Headers(init?.headers).get("User-Agent"));
-      return new Response(FIXTURE, { status: 200 });
-    };
-
+  it("yields nothing and returns before network work", async () => {
+    const events: IngestEvent[] = [];
+    let fetchCalls = 0;
     const ctx: BandaiEnContext = {
-      fetch: mockFetch,
-      rate_limit: { rps: 1000, burst: 1000 }, // don't wait in tests
+      fetch: async () => {
+        fetchCalls += 1;
+        throw new Error("blocked reader must not fetch");
+      },
+      on_event: (event) => events.push(event),
       bandai_en: { game: "op", series: ["569101"] },
     };
 
     const rows = [];
     for await (const row of bandaiEn.read(ctx)) rows.push(row);
 
-    expect(rows).toHaveLength(4);
-    expect(rows[0].provenance.source).toBe("bandai-en");
-    expect(rows[0].provenance.retrieved_at).toBe(rows[0].provenance.as_of);
-    expect(rows[0].raw.card_id).toBe("OP01-001");
-    expect(seenUserAgents).toEqual([BANDAI_EN_USER_AGENT]);
-  });
-
-  it("stubbed games (dbf/dmw/una/bsr) yield nothing and emit an actionable error", async () => {
-    const events: IngestEvent[] = [];
-    const ctx: BandaiEnContext = {
-      fetch: async () => {
-        throw new Error("stub must not fetch");
-      },
-      on_event: (e) => {
-        events.push(e);
-      },
-      bandai_en: { game: "dbf" },
-    };
-
-    const rows = [];
-    for await (const row of bandaiEn.read(ctx)) rows.push(row);
-
     expect(rows).toHaveLength(0);
+    expect(fetchCalls).toBe(0);
     const error = events.find((e) => e.kind === "error");
     expect(error).toBeTruthy();
-    expect(String(error?.detail.reason)).toContain("stub");
-    expect(String(error?.detail.action)).toContain("config.ts");
+    expect(String(error?.detail.reason)).toContain("no documented source permission");
+    expect(String(error?.detail.action)).toContain("written permission");
   });
 
   it("declares the polite rate limit and non-redistributable license in meta", () => {
     expect(bandaiEn.meta.rate_limit).toEqual({ rps: 0.5, burst: 1 });
     expect(bandaiEn.meta.redistribute).toBe(false);
-    expect(bandaiEn.meta.status).toBe("partial");
+    expect(bandaiEn.meta.status).toBe("blocked");
     expect(bandaiEn.meta.games).toEqual(["op", "dbf", "dmw", "una", "bsr"]);
   });
 });

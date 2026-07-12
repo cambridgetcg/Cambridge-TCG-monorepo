@@ -5,7 +5,7 @@
  * endpoint at apps/wholesale/.../universal/card/[sku] (B2B, bearer-keyed).
  * This is the version that belongs to participants — collectors, agents,
  * archivists, federated kingdoms — and reads from the storefront catalog
- * (card_set_cards + card_sets + card_price_history).
+ * (card_set_cards + card_sets). Legacy media and price snapshots are withheld.
  *
  * Spec: /methodology/universal-representation (encoding) + S23 (doctrine)
  * + docs/connections/the-open-substrate.md (sister's doctrine) + this
@@ -20,25 +20,20 @@
  *
  * Federation: the @content_hash returned here is the same value that
  * /api/v1/federation/identify/[hash] resolves back to a SKU. Two systems
- * that have both fetched the card on the same day with the same price
- * will compute identical content_hashes.
+ * that have the same structural identity fields compute identical
+ * content_hashes; stored catalog prices do not affect the hash.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { buildUniversalCard, type Density } from "@/lib/universal/card";
 import { parseAcceptLanguage } from "@/lib/cards/name";
-import { decodePathParam } from "@/lib/http/params";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ sku: string }> },
 ) {
   try {
-    // Decode before lookup: SKUs inherit "/" from card numbers that carry
-    // one (Vanguard DZ-BT14/018, Pokémon 089/080) and the segment arrives
-    // percent-encoded (slash-links defect, 2026-07).
-    const { sku: rawSku } = await params;
-    const sku = decodePathParam(rawSku);
+    const { sku } = await params;
     const densityParam = req.nextUrl.searchParams.get("density");
     const density: Density = densityParam === "sparse"
       ? "sparse"
@@ -90,7 +85,7 @@ export async function GET(
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/universal/card/[sku]] Error:", message);
     return NextResponse.json(
-      { error: { code: "internal_error", message } },
+      { error: { code: "internal_error", message: "Internal server error." } },
       { status: 500 },
     );
   }

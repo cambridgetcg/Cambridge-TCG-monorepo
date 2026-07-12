@@ -4,6 +4,7 @@ import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
 import { authenticateApiKey } from "../auth";
+import { redactInternalError } from "@/lib/public-errors";
 
 interface SaleItem {
   sku: string;
@@ -101,8 +102,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[/api/v1/sales] Error:", message);
-    return NextResponse.json({ error: "Internal error", detail: message }, { status: 500 });
+    const error = redactInternalError("api/v1/sales", err);
+    return NextResponse.json({ error }, { status: 500 });
   }
 }

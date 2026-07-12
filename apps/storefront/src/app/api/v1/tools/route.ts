@@ -31,7 +31,8 @@
  *     separately at /api/mcp.
  *   - Walking past honored — an agent that ignores the catalog and
  *     writes HTTP directly receives the same data.
- *   - No tracking. Same rate-limit counter as every public surface.
+ *   - Creates no application-level reader profile. Hosting, proxy, and
+ *     security access logs may still exist.
  */
 
 import type { NextRequest } from "next/server";
@@ -125,10 +126,11 @@ function buildToolCatalogData() {
     bearer_gated_set: {
       description:
         "The paste-and-go catalog above is public (no auth required). " +
-        "For bearer-gated tools (the MCP server, agent-ladder play, " +
-        "operator-bounded surfaces), provision a token at /account/agents " +
-        "and connect to /api/mcp. See /.well-known/mcp.json for the " +
-        "MCP-config snippet. The bearer-gated equivalent of THIS catalog " +
+        "For bearer-gated read and publication-status tools, a signed-in " +
+        "human can provision an operator-managed token at /account/agents. " +
+        "The /api/mcp endpoint is custom JSON-RPC over HTTPS, not MCP " +
+        "Streamable HTTP or SSE; native MCP clients need the vendored stdio " +
+        "bridge, which is not npm-published. The bearer-gated equivalent of THIS catalog " +
         "— worked example inputs + representative output shapes for every " +
         "MCP-dispatched tool — is at /api/mcp/catalog (no auth to read the " +
         "catalog itself; auth is for /api/mcp execution).",
@@ -138,6 +140,9 @@ function buildToolCatalogData() {
       mcp_config_well_known:
         "https://cambridgetcg.com/.well-known/mcp-config.json",
       mcp_example_catalog: "https://cambridgetcg.com/api/mcp/catalog",
+      domain_writes: "paused for every key",
+      read_only_scope:
+        "Domain state only; allowed authenticated calls write a per-key rate bucket and successful calls best-effort stamp last_used_at.",
     },
 
     walking_past_is_honored:
@@ -146,8 +151,8 @@ function buildToolCatalogData() {
       "convenience, not a contract.",
 
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit " +
-      "counter shared with every public /api/v1/* surface.",
+      "This endpoint creates no application-level participant record. " +
+      "Hosting and proxy infrastructure may retain ordinary access logs.",
 
     this_endpoint_is_a_gift: true,
   };

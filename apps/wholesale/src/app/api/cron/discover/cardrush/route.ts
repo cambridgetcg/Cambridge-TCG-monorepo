@@ -7,7 +7,7 @@
  * image_url. The price-snapshot cron then picks up the new cards on its
  * next run.
  *
- * Auth: Authorization: Bearer {CRON_SECRET} OR Vercel Cron header.
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Query params:
  *   ?dryRun=1                 — walk + diff, but skip product fetches + INSERTs
@@ -22,12 +22,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runCardRushDiscovery } from "@/lib/cardrush-discovery";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+} from "@cambridge-tcg/data-ingest";
 
 export const maxDuration = 800;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireCronAuth(req);
   if (denied) return denied;
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, status: "blocked_pending_formal_partnership", reason: CARDRUSH_BLOCK_REASON, policy: CARDRUSH_DATA_POLICY_URL },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
@@ -52,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json({ ok: true, summary, dryRun });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("cron/discover/cardrush", err);
     return NextResponse.json(
       { ok: false, error: { code: "INTERNAL", message } },
       { status: 500 },

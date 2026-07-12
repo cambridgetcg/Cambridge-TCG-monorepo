@@ -40,18 +40,18 @@ That paragraph is the most important sentence in the codebase. It defines the bo
 
 **Surface today.** Invisible to user. The bounty UI doesn't say "this purchase counts toward tier." The membership UI doesn't say "bounty spend qualifies." The connection runs in the data and the integration test of the system, but never in any documented surface. *This document is the first place it's named.*
 
-### → Provable fairness — the public auditability layer
-**The thread.** Every bounty pull commits a server seed hash *before* the user's pull, then reveals after. The result is verifiable cryptographically: the user can reconstruct the pull from the published seed and confirm rarity-weights were applied correctly. `/verify/pull/[id]` is the public proof page; `/verify/fairness` shows the chain of digests; `/verify/health` shows chi-squared drift detection.
+### → Draw proof consistency — the public auditability layer
+**The thread.** Every bounty pull stores a server-seed hash before the application roll step, then reveals the seed after resolution. When a safe client seed is available, the reader can reconstruct the recorded roll and weighted pick. Legacy account-linked client seeds are owner-only. `/verify/pull/[id]` is the receipt page; `/verify/chain` shows later digest batches; `/verify/fairness` shows thresholded observed distributions.
 
-**The intention.** A gacha that isn't provably fair is a casino without regulation. The platform needs the user to trust that a Legendary pull *was* a Legendary pull, even — especially — when they don't get one. Provable fairness is bounty's regulatory layer; it's also the **gold standard transparency surface** the rest of the platform aspires to (see `transparency.md`, Ring 3).
+**The limit.** The server chooses the server seed, client seed, and nonce, and no external party witnesses generic bounty commitments before selection. The receipt proves consistency, not that the server never preselected a favorable tuple.
 
 **Code paths.**
 - `apps/storefront/src/lib/bounty/` — commit-reveal logic
 - `apps/storefront/src/app/verify/pull/[id]/page.tsx` — public verification
-- `apps/storefront/src/app/api/verify/fairness/route.ts` — digest chain
+- `apps/storefront/src/app/api/verify/fairness/route.ts` — thresholded observed distributions
 - `apps/storefront/src/lib/provable-draw/{self-audit,drift}.ts` — chi-squared tests
 
-**Surface today.** Exemplary. The user can verify any single pull, the global drift, and the integrity of the digest chain. Other modules (RNG-touching ones — raffles, mystery boxes, spin) compose the same primitive. This is the only domain on the platform where transparency is fully delivered.
+**Surface today.** Useful but bounded. A user can check a pull's available proof inputs, see observed drift, and compare later digest history against an externally saved tip. Raffles use a separate pre-entry commitment flow.
 
 ### → Notifications + email queue — the 90-day expiry chain
 **The thread.** Vault items have `expires_at` set to 90 days post-pull. Approaching expiry: the platform owes the user a reminder so they can redeem (ship), sell-back (77% spot → store credit), or trade. The reminder lands in `email_queue` via the maintenance cron sweep. The email is drained by another cron pass. The user opens it. They click redeem. Stock decrements. The vault item changes status. **A feature exists in `/system/email` because a feature exists in vault.**
@@ -78,23 +78,23 @@ That paragraph is the most important sentence in the codebase. It defines the bo
 
 **Surface today.** Credit balance is visible on `/account`. The ledger detail (provenance per entry) is partial — `/account/credit` shows it; admin `/money/membership` will when it ships.
 
-### → KYC — the pull-eligibility gate
-**The thread.** `user_bounty_eligibility` requires phone verification before pulls. KYC is gated upstream of bounty. A user reaching for the gacha must have crossed an identity threshold — this is anti-bot, anti-money-laundering for what is effectively a small-stakes gambling product.
+### → Identity verification — the currently closed pull-eligibility gate
+**The thread.** `user_bounty_eligibility` has a `phone_verified` gate before pulls. The old endpoint accepted a submitted phone number without verifying possession; that was not verification. The endpoint now records nothing as verified, and redemption stays closed until a real method records evidence.
 
-**The intention.** Regulatory caution. UK gambling regulation around skill/chance lines requires identity for chance-based reward systems. Bounty rides close to that line; KYC is the platform's cushion.
+**The intention.** Abuse prevention and regulatory caution. The implementation does not currently provide KYC or verified phone possession, so it must not claim either.
 
 **Code paths.**
 - `apps/storefront/drizzle/0032_bounty.sql` — `user_bounty_eligibility` table
 - `apps/storefront/src/lib/bounty/` — eligibility check before pull
-- `apps/storefront/src/lib/auth/` — phone verification flow
+- `apps/storefront/src/app/api/bounty/verify-phone/route.ts` — paused legacy submission endpoint
 
-**Surface today.** User: a "verify phone before pulling" flow on `/bounty`. Admin: KYC status visible at `/trust/kyc`. The connection — that bounty *requires* trust/kyc to function — isn't surfaced as a dependency in the trust admin views.
+**Surface today.** The user sees that phone verification is unavailable and bounty redemption remains closed. Any stored legacy phone flag lacks possession evidence and must not be treated as KYC.
 
 ---
 
 ## Recursion target
 
-I'll follow **provable fairness** next. It's the platform's transparency-archetype, and it secretly governs every other RNG-touching module (raffles, mystery boxes, spin wheel, draw, self-audit). The next file maps fairness as a **substrate layer that other modules compose against** rather than as a single domain.
+I'll follow **draw proof consistency** next. The next file maps the shared receipt layer, the separate raffle flow, and the limits of server-only entropy.
 
 → [`provable-fairness.md`](./provable-fairness.md)
 

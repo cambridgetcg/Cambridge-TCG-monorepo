@@ -1,8 +1,9 @@
-// Bounty Pull RNG — commit-reveal for provably fair draws.
+// Bounty Pull RNG — deterministic commit/reveal draw receipts.
 //
 // Flow per pull:
 //   1. Generate a fresh server_seed (32 random bytes).
-//   2. Publish commitment = sha256(server_seed) BEFORE the roll.
+//   2. Store commitment = sha256(server_seed) in our DB BEFORE the roll.
+//      This is not external pre-roll publication.
 //   3. Combine server_seed + client_seed + nonce to produce the deterministic
 //      roll result.
 //   4. Persist server_seed in `bounty_pulls.rng_server_seed` so anyone can

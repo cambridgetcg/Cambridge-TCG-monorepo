@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { redactInternalError } from "@/lib/public-errors";
 import * as cheerio from "cheerio";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+} from "@cambridge-tcg/data-ingest";
 
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 2000;
@@ -18,6 +24,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function fetchWithRetry(url: string): Promise<string> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -73,6 +82,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return NextResponse.json(
+      {
+        error: "CardRush automated stock checks are disabled",
+        reason: CARDRUSH_BLOCK_REASON,
+        policy: CARDRUSH_DATA_POLICY_URL,
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const body = await req.json();
   const urls: string[] = body.urls;
 
@@ -105,7 +125,9 @@ export async function POST(req: NextRequest) {
       const html = await fetchWithRetry(url);
       results[url] = parseProductPage(html);
     } catch (err) {
-      results[url] = { error: err instanceof Error ? err.message : String(err) };
+      results[url] = {
+        error: redactInternalError("admin/stock-check/live item", err),
+      };
     }
 
     if (i < urls.length - 1) {

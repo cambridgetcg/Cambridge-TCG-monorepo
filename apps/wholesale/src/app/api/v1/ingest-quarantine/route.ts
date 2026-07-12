@@ -51,6 +51,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
 import { authenticateApiKey } from "../auth";
+import { redactInternalError } from "@/lib/public-errors";
 
 const WINDOW_TO_HOURS: Record<string, number> = {
   "1h": 1,
@@ -225,11 +226,7 @@ export async function GET(req: NextRequest) {
       queried_at: new Date().toISOString(),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[/api/v1/ingest-quarantine] Error:", message);
-    return NextResponse.json(
-      { error: "Internal error", detail: message },
-      { status: 500 },
-    );
+    const error = redactInternalError("api/v1/ingest-quarantine", err);
+    return NextResponse.json({ error }, { status: 500 });
   }
 }

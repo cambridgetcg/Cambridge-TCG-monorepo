@@ -1,31 +1,26 @@
 /**
- * bandai-en — official English card data from Bandai's EN cardlist sites.
+ * bandai-en — internal parser for Bandai's English cardlist pages.
  *
  * One skeleton, five games (op / dbf / dmw / una / bsr — all Bandai, all
  * the same server-rendered cardlist family). One Piece is implemented;
- * the other four are substrate-honest stubs behind the same fetch/parse
- * core with per-game config (`./config.ts`). Spec: docs/EN-CARD-DATA.md
- * §2 + §6 rollout step 2.
+ * the other four are substrate-honest stubs behind the same parse core with
+ * per-game config (`./config.ts`). The production ingest route is paused.
  *
- * What this source carries that no other does: **official English**
- * names, effect text, and publisher-served sample images — the platform
- * previously had only Japanese CardRush scans and zero card text.
+ * The parser can recognize official English names, effect text, and publisher
+ * image references. Parser capability is not a publication grant.
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * Card data and images are publisher-owned (Bandai; per-franchise
- * copyright lines ride each record's `extra.attribution`).
- * `redistribute: false` — official publisher sample images; mirror to
- * our own bucket (self-host), attribution required, takedown-compliant
- * (docs/EN-CARD-DATA.md §5 + /legal/card-images). Effect text is shown
- * per-card with attribution, never bulk-dumped; flavor text is never
- * captured at all (§3, enforced in parse.ts).
+ * Card data and images are publisher-owned. Cambridge has no recorded written
+ * permission covering collection into the service or public display.
+ * `redistribute: false` therefore means no parsed field may reach a public
+ * response. Attribution records provenance; it does not grant permission.
  *
  * ── Politeness ───────────────────────────────────────────────────────
  *
- * Official publisher site, no robots.txt (verified 2026-07-11), no
- * written scrape policy — so we lean conservative: ≤1 request per 2s
- * (rps 0.5, burst 1) and an honest User-Agent naming a contact route.
+ * The reader retains a conservative rate limit for fixture-backed engineering
+ * review. The production route does not invoke it. A missing robots rule is
+ * not permission to fetch or publish.
  *
  * ── Catalog row ──────────────────────────────────────────────────────
  *
@@ -36,16 +31,9 @@
 import type { SourceModule, IngestContext, RawRow } from "../types";
 import type { CanonicalCard } from "../canonical";
 import type { BandaiEnCard, BandaiEnGameKey } from "./types";
-import { createFetcher } from "../http";
-import { BANDAI_EN_GAMES } from "./config";
-import { parseCardlistPage, parseSeriesOptions } from "./parse";
 import { normalizeBandaiEn } from "./normalize";
 
-/**
- * Honest per-request User-Agent (polite scrape of an official site —
- * names us and a contact route). Passed explicitly on every request;
- * createFetcher honors a caller-set User-Agent.
- */
+/** Reserved identifying User-Agent if a future permission allows live reads. */
 export const BANDAI_EN_USER_AGENT =
   "cambridgetcg-ingest/1.0 (contact: via cambridgetcg.com/contact)";
 
@@ -63,17 +51,12 @@ export interface BandaiEnReadOptions {
 
 export type BandaiEnContext = IngestContext & { bandai_en?: BandaiEnReadOptions };
 
-const REQUEST_HEADERS = {
-  "User-Agent": BANDAI_EN_USER_AGENT,
-  Accept: "text/html",
-};
-
 export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
   meta: {
     id: "bandai-en",
     name: "Bandai EN cardlists",
     description:
-      "Official English card data — names, effect text, publisher sample images — from Bandai's EN cardlist sites. One Piece implemented; DBS Fusion World, Digimon, Union Arena, Battle Spirits Saga stubbed behind the same skeleton.",
+      "Internal parser for proprietary Bandai English cardlist fields. One Piece fixture parsing is implemented; production ingest and all public publication are paused pending documented permission.",
     upstream: "https://en.onepiece-cardgame.com",
     catalog_section: "the-tributaries.md#bandai-en-official-english-cardlists",
     access: "scrape",
@@ -81,124 +64,32 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
     redistribute: false,
     freshness: "catalog",
     canonical_effort: "medium",
-    status: "partial",
+    status: "blocked",
     games: ["op", "dbf", "dmw", "una", "bsr"],
     tos_notes:
-      "No robots.txt on en.onepiece-cardgame.com (verified 2026-07-11); no written scrape policy. Official publisher sample images; self-host (mirror to ctcg-card-images, never hotlink); attribution required (franchise line + Bandai on every record); takedown-compliant per /legal/card-images. Throttled to 1 req/2s with an honest contactable User-Agent. Policy: docs/EN-CARD-DATA.md.",
+      "Bandai content is proprietary and redistribution is false. No written Cambridge permission is recorded for collection, storage, display, hotlinking, mirroring, or redistribution. The missing robots rule observed on 2026-07-11 is not permission. The planned Cambridge image bucket does not exist. Production ingest and public readers are paused; parser tests use local fixtures. Policy: docs/EN-CARD-DATA.md.",
     rate_limit: { rps: 0.5, burst: 1 },
     welcome:
-      "Welcome to the kingdom, Bandai EN cardlists. You are the platform's first " +
-      "official-publisher text source — before you, our cards spoke only through " +
-      "Japanese shop scans and had no words at all. Your rooms are `card_texts` " +
-      "and `card_images` (migration 0116, provenance-first: attribution NOT NULL, " +
-      "takedown_status first-class). We fetch you slowly (1 req/2s), name ourselves " +
-      "honestly in the User-Agent, keep your copyright lines on every record, " +
-      "never touch your flavor text, and honour takedowns fast. Five of our games " +
-      "are yours; One Piece walks in first and the other four have their chairs " +
-      "pulled out in ./config.ts.",
+      "Bandai EN cardlists are represented by an internal, fixture-tested parser. " +
+      "The content remains Bandai and franchise-rightsholder property: Cambridge " +
+      "records no permission to collect or publish it, so the production ingest " +
+      "route and public reader are paused. Migration 0116 remains as an applied " +
+      "storage record, but storage and attribution do not create publication rights.",
   },
 
   async *read(ctx: BandaiEnContext): AsyncIterable<RawRow<BandaiEnCard>> {
-    const opts = ctx.bandai_en ?? {};
-    const gameKey = opts.game ?? "op";
-    const config = BANDAI_EN_GAMES[gameKey];
-
     ctx.on_event?.({
       ts: new Date().toISOString(),
       source: "bandai-en",
-      kind: "start",
-      detail: { game: gameKey, label: config.label, series: opts.series ?? "discover" },
+      kind: "error",
+      detail: {
+        reason:
+          "Bandai EN reading is paused because Cambridge has no documented source permission.",
+        action:
+          "Record written permission and a reviewed collection/publication rule before enabling any live reader.",
+      },
     });
-
-    if (!config.implemented) {
-      // Substrate-honest stub: the slot exists, the skeleton is shared,
-      // but this game's DOM/URLs are unverified. Emit an actionable
-      // error and yield nothing (registry "planned" stub pattern).
-      ctx.on_event?.({
-        ts: new Date().toISOString(),
-        source: "bandai-en",
-        kind: "error",
-        detail: {
-          game: gameKey,
-          reason: `bandai-en[${gameKey}] is a stub — ${config.notes}`,
-          action: `verify ${config.base_url} DOM against parse.ts selectors, then flip implemented: true in src/bandai-en/config.ts`,
-        },
-      });
-      return;
-    }
-
-    const fetcher = createFetcher(ctx, bandaiEn.meta);
-
-    // Series list: explicit, or discovered from the page's own <select>.
-    // The empty-series URL renders the full select with zero card blocks
-    // (verified 2026-07-11) — one cheap discovery request.
-    let series = opts.series;
-    if (!series || series.length === 0) {
-      const discoveryUrl = config.series_url("");
-      const res = await fetcher(discoveryUrl, { headers: REQUEST_HEADERS });
-      if (!res.ok) {
-        ctx.on_event?.({
-          ts: new Date().toISOString(),
-          source: "bandai-en",
-          kind: "error",
-          detail: { url: discoveryUrl, status: res.status, phase: "series-discovery" },
-        });
-        return;
-      }
-      const options = parseSeriesOptions(await res.text());
-      series = options.map((o) => o.id);
-      ctx.on_event?.({
-        ts: new Date().toISOString(),
-        source: "bandai-en",
-        kind: "page",
-        detail: { phase: "series-discovery", series_found: series.length },
-      });
-    }
-
-    if (opts.max_series !== undefined) series = series.slice(0, opts.max_series);
-
-    let n = 0;
-    for (const seriesId of series) {
-      if (ctx.signal?.aborted) break;
-
-      const url = config.series_url(seriesId);
-      const res = await fetcher(url, { headers: REQUEST_HEADERS });
-      if (!res.ok) {
-        ctx.on_event?.({
-          ts: new Date().toISOString(),
-          source: "bandai-en",
-          kind: "error",
-          detail: { url, status: res.status, series: seriesId },
-        });
-        continue;
-      }
-
-      const retrieved_at = new Date().toISOString();
-      const cards = parseCardlistPage(await res.text(), url, gameKey, retrieved_at);
-
-      ctx.on_event?.({
-        ts: new Date().toISOString(),
-        source: "bandai-en",
-        kind: "page",
-        detail: { series: seriesId, url, rows: cards.length },
-      });
-
-      for (const card of cards) {
-        if (ctx.signal?.aborted) break;
-        n += 1;
-        yield {
-          raw: card,
-          provenance: { as_of: retrieved_at, retrieved_at, source: "bandai-en" },
-        };
-      }
-    }
-
-    ctx.on_event?.({
-      ts: new Date().toISOString(),
-      source: "bandai-en",
-      kind: "done",
-      detail: { game: gameKey, rows_yielded: n },
-    });
+    return;
   },
 
   normalize: normalizeBandaiEn,

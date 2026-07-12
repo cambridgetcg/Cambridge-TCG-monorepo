@@ -1,7 +1,7 @@
 /**
  * /api/v1/status — the pantry's inspectability surface.
  *
- * Substrate-honest answer to: *for every public endpoint, how stale is
+ * Substrate-honest answer to: *for each registered status resource, how stale is
  * the platform's intent on its freshness, what's its last-known state,
  * and is it composing through the data-pantry envelope?*
  *
@@ -10,7 +10,7 @@
  *
  * **Self-referential.** This endpoint reports its own status — when
  * `/api/v1/status` calls itself in the resources list, the response
- * contains the response.
+ * contains the response. Routes outside the registered resource list are not covered.
  *
  * Companion to:
  *   - apps/storefront/src/lib/data-pantry/ (the emission layer it inspects)
@@ -365,7 +365,7 @@ export async function GET(): Promise<NextResponse> {
     conventions: {
       versioning:
         "Every response carries _meta.spec_version. Breaking changes bump it; non-breaking additions don't. See data-pantry/envelope.ts.",
-      license: "CC0-1.0 by default. Per-response override possible via _meta.license. See docs/STANDARDS-LICENSE.md.",
+      license: "NOASSERTION when payload rights are undeclared. All-CC0 declared sources may resolve to CC0-1.0; mixed or restrictive source rights prevent a CC0 aggregate claim.",
       cors: "Access-Control-Allow-Origin: * on all public endpoints. Methods: GET, OPTIONS.",
       cache_control:
         "Cache-Control matches the freshness budget — max-age=min(freshness, 3600), s-maxage=min(freshness*3, 86400).",

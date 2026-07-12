@@ -7,6 +7,7 @@ import {
   MORE_NAV_GROUPS,
   PRIMARY_NAV_ITEMS,
 } from "./menu-config";
+import type { NavItem } from "./menu-config";
 
 describe("storefront navigation", () => {
   it("keeps the global header within a human-scannable link budget", () => {
@@ -39,5 +40,18 @@ describe("storefront navigation", () => {
     expect(navItemAriaCurrent(PRIMARY_NAV_ITEMS[0], "/market")).toBe("page");
     expect(navItemAriaCurrent(PRIMARY_NAV_ITEMS[0], "/market/list")).toBe("location");
     expect(navItemAriaCurrent(PRIMARY_NAV_ITEMS[0], "/community")).toBeUndefined();
+  });
+
+  it("names access, rights, and proof limits without broad promises", () => {
+    const items: NavItem[] = [];
+    for (const group of MORE_NAV_GROUPS) items.push(...group.items);
+    expect(items.find((item) => item.href === "/data")).toMatchObject({
+      label: "Data directory",
+      description: "API access and rights",
+    });
+    expect(items.find((item) => item.href === "/verify")).toMatchObject({
+      label: "Draw proof checks",
+      description: "Consistency evidence and stated limits",
+    });
   });
 });

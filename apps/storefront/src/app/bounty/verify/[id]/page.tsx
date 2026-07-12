@@ -13,7 +13,10 @@ interface Proof {
   rolled_spot_gbp: string | null;
   commitment: string;
   server_seed: string | null;
-  client_seed: string;
+  client_seed: string | null;
+  client_seed_display: string | null;
+  outcome_replay_available: boolean;
+  client_seed_withheld: boolean;
   nonce: number;
   rarity_weights: Record<string, number>;
   resolved_at: string;
@@ -51,7 +54,7 @@ function pickWeighted<T extends string>(weights: Record<T, number>, roll: number
 interface Verification {
   commitmentOk: boolean;
   computedCommit: string;
-  rarityRoll: number;
+  rarityRoll: number | null;
   predictedRarity: string | null;
   rarityOk: boolean | null;
 }
@@ -83,12 +86,16 @@ export default function VerifyPullPage() {
           const computedCommit = await sha256Hex(p.server_seed);
           const commitmentOk = computedCommit === p.commitment;
 
-          const rarityHash = await sha256Hex(`${p.server_seed}:${p.client_seed}:${p.nonce}`);
-          const rarityRoll = hexToFloat(rarityHash);
-          const predictedRarity = p.rarity_weights
+          const rarityHash = p.client_seed
+            ? await sha256Hex(`${p.server_seed}:${p.client_seed}:${p.nonce}`)
+            : null;
+          const rarityRoll = rarityHash ? hexToFloat(rarityHash) : null;
+          const predictedRarity = p.rarity_weights && rarityRoll !== null
             ? pickWeighted(p.rarity_weights, rarityRoll)
             : null;
-          const rarityOk = predictedRarity != null && predictedRarity === p.rolled_rarity;
+          const rarityOk = predictedRarity == null
+            ? null
+            : predictedRarity === p.rolled_rarity;
 
           if (!cancelled) {
             setVerification({
@@ -113,13 +120,13 @@ export default function VerifyPullPage() {
         <div className="mb-8">
           <Link href="/bounty" className="text-sm text-ink-faint hover:text-ink">&larr; Bounty Board</Link>
           <h1 className="text-2xl sm:text-3xl font-display font-semibold tracking-tight mt-3 mb-1">
-            Provably Fair Verification
+            Draw Proof Verification
           </h1>
           <p className="text-sm text-ink-muted">
-            Every Bounty Pull publishes a SHA-256 commitment *before* the roll and
-            the seed *after*. Anyone can verify the draw was not rigged — this
-            page runs the check in your browser using the Web Crypto API. No data
-            leaves your device.
+            Every Bounty Pull stores a SHA-256 commitment before its roll step and
+            reveals the seed afterward. Anyone can verify the public proof in their browser.
+            Legacy account-linked client seeds require owner sign-in for exact
+            outcome replay. No data leaves your device.
           </p>
         </div>
 
@@ -163,9 +170,9 @@ export default function VerifyPullPage() {
             <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-5">
               <h2 className="text-sm font-bold uppercase tracking-wider text-ink-faint mb-3">Proof values</h2>
               <div className="space-y-3 text-xs font-mono">
-                <KV label="commitment (published pre-roll)" value={proof.commitment} />
+                <KV label="commitment (stored before roll step)" value={proof.commitment} />
                 <KV label="server_seed (revealed post-roll)" value={proof.server_seed ?? "(not revealed)"} />
-                <KV label="client_seed" value={proof.client_seed} />
+                <KV label="client_seed" value={proof.client_seed_display ?? "(not set)"} />
                 <KV label="nonce" value={String(proof.nonce)} />
               </div>
               <div className="mt-4 text-xs text-ink-faint">
@@ -200,17 +207,28 @@ export default function VerifyPullPage() {
                     </p>
                   </Check>
                   <Check
-                    passed={verification.rarityOk === true}
+                    passed={verification.rarityOk}
                     label="Rarity pick from sha256(seed:client:nonce) matches the roll"
                   >
-                    <p className="text-[11px] font-mono text-ink-faint mt-1">
-                      roll = {verification.rarityRoll.toFixed(6)} → {verification.predictedRarity}
-                      {" (claimed: "}{proof.rolled_rarity}{")"}
-                    </p>
+                    {verification.rarityRoll === null ? (
+                      <p className="text-[11px] text-ink-faint mt-1">
+                        Legacy account-linked client seed withheld. Sign in as the owner to replay this outcome.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] font-mono text-ink-faint mt-1">
+                        roll = {verification.rarityRoll.toFixed(6)} → {verification.predictedRarity}
+                        {" (claimed: "}{proof.rolled_rarity}{")"}
+                      </p>
+                    )}
                   </Check>
                   {verification.commitmentOk && verification.rarityOk && (
                     <p className="text-ok text-sm font-semibold pt-2 border-t border-border-subtle">
-                      ✓ Both checks passed — this pull is provably fair.
+                      ✓ Both checks passed — the published proof is internally consistent.
+                    </p>
+                  )}
+                  {verification.commitmentOk && verification.rarityOk === null && (
+                    <p className="text-ink-muted text-sm font-semibold pt-2 border-t border-border-subtle">
+                      Partial public verification — the commitment passed; exact outcome replay is owner-only for this legacy pull.
                     </p>
                   )}
                   {(!verification.commitmentOk || verification.rarityOk === false) && (
@@ -234,7 +252,9 @@ export default function VerifyPullPage() {
               </div>
               <p className="mb-3">Should match the commitment above.</p>
               <div className="font-mono bg-surface rounded px-3 py-2 mb-2">
-                echo -n &quot;{proof.server_seed ?? "<seed>"}:{proof.client_seed}:{proof.nonce}&quot; | shasum -a 256
+                {proof.client_seed
+                  ? <>echo -n &quot;{proof.server_seed ?? "<seed>"}:{proof.client_seed}:{proof.nonce}&quot; | shasum -a 256</>
+                  : "Outcome replay requires the owner-visible legacy client seed."}
               </div>
               <p>
                 Take the first 13 hex characters, parse as an integer, divide by
@@ -263,14 +283,14 @@ function Check({
   label,
   children,
 }: {
-  passed: boolean;
+  passed: boolean | null;
   label: string;
   children?: React.ReactNode;
 }) {
   return (
-    <div className={`border-l-2 pl-3 ${passed ? "border-ok" : "border-danger"}`}>
-      <p className={`text-sm font-semibold ${passed ? "text-ok" : "text-danger"}`}>
-        {passed ? "✓" : "✗"} {label}
+    <div className={`border-l-2 pl-3 ${passed === true ? "border-ok" : passed === false ? "border-danger" : "border-border-subtle"}`}>
+      <p className={`text-sm font-semibold ${passed === true ? "text-ok" : passed === false ? "text-danger" : "text-ink-muted"}`}>
+        {passed === true ? "✓" : passed === false ? "✗" : "…"} {label}
       </p>
       {children}
     </div>

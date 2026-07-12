@@ -269,11 +269,11 @@ If/when this platform ships a real OPTCG engine, the choices to make:
 - Client sends intents; server validates against game state; server emits the canonical resulting event.
 - Validation must cover: zone legality, cost payment, color matching, summoning sickness, [Once Per Turn] tracking, target-legality, counter-stack ordering, blocker eligibility.
 
-### Choice 4: Shuffle — commit-reveal for ranked
+### Choice 4: Shuffle — witnessed multi-party randomness for ranked
 
 - For casual play: server-side `crypto.randomBytes`-seeded Fisher-Yates is fine.
-- For ranked / prize play: **commit-reveal protocol.** Both players commit to a shuffle seed hash before deck reveal; reveal seeds after the match; deck order is reconstructable post-game; cheating is provably absent. This aligns with the existing provable-fairness substrate (`/verify/chain`).
-- The Bounty module already uses commit-reveal for pull randomness; same primitives apply.
+- For ranked / prize play: **multi-party commit/reveal.** Each player commits to independently generated entropy before deck reveal; the server combines both values under a specified shuffle. Later reveal can reconstruct deck order, and one honest unpredictable contribution prevents the server or other player from choosing it alone. This does not prove all cheating absent; action validation and an externally retained transcript remain separate requirements.
+- The bounty receipt code supplies hashing and replay primitives, but its current server-only entropy is not the ranked threat model.
 
 ### Choice 5: The Counter step
 
@@ -374,7 +374,7 @@ For future research / engineering kingdoms:
 
 → **Effect DSL design.** Sketch a typed effect-token JSON shape that covers the OP01–OP08 effect surface. Validate against random sampled cards.
 
-→ **Commit-reveal shuffle protocol** for ranked. Reuse primitives from `apps/storefront/src/lib/provable-draw/`.
+→ **Witnessed multi-party shuffle protocol** for ranked. Reuse only the hashing/replay primitives from `apps/storefront/src/lib/provable-draw/`; add player entropy and externally retained match evidence.
 
 → **Async match engine** prototype. The Asynchronous's column `response_window_hours` becomes the per-turn deadline. The Counter step's priority-passing must be async-friendly.
 

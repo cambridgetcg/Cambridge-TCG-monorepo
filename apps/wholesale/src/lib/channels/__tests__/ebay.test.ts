@@ -92,34 +92,7 @@ describe("getAccessToken", () => {
 // ---------------------------------------------------------------------------
 
 describe("bulkPushListings", () => {
-  it("processes items in batches of 25", async () => {
-    // Track fetch calls to count batches
-    const callTimestamps: number[] = [];
-
-    mockFetch.mockImplementation(async (url: string) => {
-      callTimestamps.push(Date.now());
-      const u = typeof url === "string" ? url : (url as Request).url;
-
-      // Token request
-      if (u.includes("oauth2/token")) {
-        return mockTokenResponse();
-      }
-      // Inventory item PUT → 204
-      if (u.includes("inventory_item/")) {
-        return new Response(null, { status: 204 });
-      }
-      // Offer GET → no existing offers
-      if (u.includes("/offer?sku=")) {
-        return new Response(JSON.stringify({ offers: [] }), { status: 200 });
-      }
-      // Offer POST → created
-      if (u.includes("/offer") && !u.includes("?")) {
-        return new Response(JSON.stringify({ offerId: "off-1" }), { status: 201 });
-      }
-      return new Response("unexpected", { status: 500 });
-    });
-
-    // 30 items → should be 2 batches (25 + 5)
+  it("fails closed before any eBay request", async () => {
     const items: ListingInput[] = Array.from({ length: 30 }, (_, i) => ({
       sku: `SKU-${i}`,
       priceGbp: 5.99,
@@ -127,19 +100,9 @@ describe("bulkPushListings", () => {
     }));
 
     const result = await bulkPushListings(items);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data.pushed).toBe(30);
-      expect(result.data.errors).toHaveLength(0);
-    }
-
-    // Each item = 3 fetch calls (PUT inventory, GET offer, POST offer)
-    // + token calls: Promise.all in each batch means all items call
-    //   getAccessToken() concurrently — in batch 1 all 25 miss the cache.
-    // Batch 1: 25 token + 25*3 = 100 calls
-    // Batch 2: 0 token (cached) + 5*3 = 15 calls
-    // Total: 115
-    expect(mockFetch.mock.calls.length).toBe(115);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("blocked");
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });
 

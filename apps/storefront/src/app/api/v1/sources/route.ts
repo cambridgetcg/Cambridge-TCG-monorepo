@@ -17,9 +17,9 @@
  *   - docs/connections/the-cardrush-alignment.md §9 (the recursion target this fulfils)
  *
  * Future iteration: when `ingest_run` rows are queryable (post-Phase A
- * migration), this endpoint joins per-source last-known-good state +
- * recent run summaries. For now, ships the static meta + the registry's
- * sourcesByStatus() partition.
+ * migration), this endpoint joins per-source last-known-good structured
+ * status. Free-text run notes remain operator-only because they can contain
+ * upstream titles, queries, or exception text.
  */
 
 import type { NextResponse } from "next/server";
@@ -40,13 +40,11 @@ interface LastRunBlock {
   finished_at: string | null;
   status: string;
   spec_version: string;
-  triggered_by: string;
   rows_read: number;
   rows_normalized: number;
   rows_written: number;
   rows_quarantined: number;
   errors: number;
-  notes: string | null;
   /** Hours since `triggered_at`. Lets a reader judge "stale" without parsing. */
   age_hours: number;
 }
@@ -114,13 +112,11 @@ function buildLastRun(row: SourceRunRow, now: Date): LastRunBlock {
     finished_at: row.finished_at,
     status: row.status,
     spec_version: row.spec_version,
-    triggered_by: row.triggered_by,
     rows_read: row.rows_read,
     rows_normalized: row.rows_normalized,
     rows_written: row.rows_written,
     rows_quarantined: row.rows_quarantined,
     errors: row.errors,
-    notes: row.notes,
     age_hours: Math.round(age_hours * 10) / 10,
   };
 }
@@ -199,8 +195,18 @@ export async function GET(): Promise<NextResponse> {
   return jsonResponse({
     data,
     endpoint: "/api/v1/sources",
-    sources: ["ctcg-derived"],
+    sources: ingest_runs_available
+      ? ["ctcg-derived", "wholesale-rds.ingest_run"]
+      : ["ctcg-derived"],
+    source_license: ingest_runs_available
+      ? ["proprietary", "internal-only"]
+      : ["proprietary"],
+    license: "NOASSERTION",
     freshness: "status",
     contains_self: true,
+    does_not_include: [
+      "Ingest-run notes and trigger labels are operator-only and are not returned here.",
+      "Quarantine reasons, rows, payload keys, and payload bytes are not returned here.",
+    ],
   });
 }

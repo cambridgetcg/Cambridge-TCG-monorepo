@@ -2,12 +2,11 @@
 //
 // ── What this page is for ────────────────────────────────────────────────
 //
-// Every fairness commitment Cambridge TCG has ever made — every Bounty
-// Pull, every raffle draw, every pack opening — gets gathered by the
-// maintenance cron into a Merkle digest, and every digest links to the
+// The maintenance cron gathers undigested, revealed bounty_pulls and
+// verifiable_draws rows into Merkle batches, and every batch links to the
 // previous via chain_hash = SHA-256(prev_hash || root). The chain
-// extends across the whole life of the platform. Rewriting any prior
-// commitment breaks the link and is detectable from the latest tip.
+// covers only rows the digest job collected. Rewriting a prior batch is
+// detectable only relative to a tip an observer already stored elsewhere.
 //
 // The chain has had an API at /api/verify/chain for some time. It did
 // not have a public page until this commit — meaning a determined
@@ -32,11 +31,9 @@ import { query } from "@/lib/db";
 
 import { Audience } from "@/lib/ui";
 export const metadata = {
-  title: "Fairness chain | Cambridge TCG",
+  title: "Draw digest chain | Cambridge TCG",
   description:
-    "Every Bounty Pull and raffle draw, hashed into a Merkle digest, " +
-    "and every digest linked to the previous. The platform's tamper-evident " +
-    "autobiography in hashes.",
+    "Merkle batches over revealed bounty pulls and shared draw records, linked for rewrite detection relative to an externally saved tip.",
 };
 
 interface DigestRow {
@@ -90,14 +87,13 @@ export default async function ChainPage() {
           &larr; Back to Verify
         </Link>
 
-        <h1 className="text-3xl font-bold mb-3">The Fairness Chain</h1>
+        <h1 className="text-3xl font-bold mb-3">The Draw Digest Chain</h1>
         <p className="text-ink-muted mb-8 max-w-2xl">
-          Every Bounty Pull, raffle draw, and pack opening is hashed into
-          a Merkle digest. Every digest links to the previous one through
-          a chain hash. Cache the latest chain hash today; come back
-          tomorrow, next month, next year — if any prior commitment was
-          rewritten, the chain hash you cached won&apos;t match the chain
-          hash we publish. <strong className="text-ink">The chain&apos;s job is to make tampering visible.</strong>
+          The digest job batches revealed bounty pulls and shared draw records;
+          standalone raffle proofs are not in this chain. Each batch links to
+          the previous one. Save a tip outside our control, then use it to test
+          later continuity. Without that external copy, we control both the
+          database and the published feed.
         </p>
 
         {/* ── The tip ──────────────────────────────────────────────── */}
@@ -124,7 +120,7 @@ export default async function ChainPage() {
           ) : (
             <p className="text-sm text-ink-faint italic">
               No digests have been published yet. The chain begins with the
-              first fairness commitment ever made on the platform.
+              first batch of revealed draws collected by the digest job.
             </p>
           )}
         </section>
@@ -203,8 +199,8 @@ export default async function ChainPage() {
             <li>If your computed chain_hash for the digest you cached matches what we currently publish, no prior commitment has been altered. If it doesn&apos;t match — and you trust the SHA-256 standard — we have rewritten history.</li>
           </ol>
           <p className="text-xs text-ink-faint mt-4">
-            This is the same protection a blockchain offers, scoped to fairness commitments only.
-            We are not a chain in the consensus sense; we are a chain in the rewrite-detection sense.
+            This is a hash-linked log, not blockchain consensus or an external
+            timestamp. Its rewrite-detection value begins when someone stores a tip outside our control.
           </p>
         </section>
 
@@ -214,7 +210,7 @@ export default async function ChainPage() {
             href="/verify/fairness"
             className="bg-surface border border-border-subtle hover:border-border-strong rounded-lg p-4 transition-colors"
           >
-            <div className="font-semibold mb-1">Aggregate fairness →</div>
+            <div className="font-semibold mb-1">Observed distribution →</div>
             <div className="text-xs text-ink-faint">Chi-squared rarity distribution vs published weights.</div>
           </Link>
           <Link

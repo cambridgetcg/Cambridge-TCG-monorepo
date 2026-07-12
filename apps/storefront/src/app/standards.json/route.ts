@@ -10,8 +10,14 @@
  */
 
 import { NextResponse } from "next/server";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
 
-type Status = "frozen" | "draft" | "spec-only" | "planned";
+type Status = "frozen" | "draft" | "implemented" | "planned";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 interface StandardEntry {
   code: string;
@@ -24,7 +30,8 @@ interface StandardEntry {
   impl_path_in_repo?: string;
   endpoint_url?: string;
   endpoint_status?: "shipped" | "planned";
-  license: "CC0-1.0";
+  spec_license: "CC0-1.0";
+  implementation_license?: "NOASSERTION";
 }
 
 const STANDARDS: StandardEntry[] = [
@@ -34,12 +41,13 @@ const STANDARDS: StandardEntry[] = [
     version: "1.0",
     status: "frozen",
     short:
-      "<game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. Thirteen registered games.",
+      `<game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. ${PUBLIC_GAME_COUNT} public game codes; ${PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows.`,
     spec_url: "/methodology/sku-standard",
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/sku-standard/page.tsx",
     impl_path_in_repo: "packages/sku/",
-    license: "CC0-1.0",
+    spec_license: "CC0-1.0",
+    implementation_license: "NOASSERTION",
   },
   {
     code: "CTCG-PRICING-v1",
@@ -52,21 +60,22 @@ const STANDARDS: StandardEntry[] = [
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/pricing/page.tsx",
     impl_path_in_repo: "packages/pricing/",
-    license: "CC0-1.0",
+    spec_license: "CC0-1.0",
+    implementation_license: "NOASSERTION",
   },
   {
     code: "CTCG-UNIVERSAL-v1",
     title: "Universal-representation (math-mirror)",
     version: "1.0",
-    status: "spec-only",
+    status: "implemented",
     short:
       "Cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. Language-free card data.",
     spec_url: "/methodology/universal-representation",
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/universal-representation/page.tsx",
     endpoint_url: "/api/v1/universal/card/[sku]",
-    endpoint_status: "planned",
-    license: "CC0-1.0",
+    endpoint_status: "shipped",
+    spec_license: "CC0-1.0",
   },
 ];
 
@@ -79,13 +88,14 @@ interface StandardsManifest {
     license: string;
     license_path: string;
     license_url: string;
+    license_scope: string;
   };
   standards: StandardEntry[];
   counts: {
     total: number;
     frozen: number;
     draft: number;
-    spec_only: number;
+    implemented: number;
     planned: number;
   };
   adoption: {
@@ -110,7 +120,7 @@ export async function GET(): Promise<NextResponse> {
     total: STANDARDS.length,
     frozen: STANDARDS.filter((s) => s.status === "frozen").length,
     draft: STANDARDS.filter((s) => s.status === "draft").length,
-    spec_only: STANDARDS.filter((s) => s.status === "spec-only").length,
+    implemented: STANDARDS.filter((s) => s.status === "implemented").length,
     planned: STANDARDS.filter((s) => s.status === "planned").length,
   };
 
@@ -123,6 +133,8 @@ export async function GET(): Promise<NextResponse> {
       license: "CC0-1.0",
       license_path: "docs/STANDARDS-LICENSE.md",
       license_url: "https://creativecommons.org/publicdomain/zero/1.0/",
+      license_scope:
+        "Specification text only. Implementation code and response data carry separate rights.",
     },
     standards: STANDARDS,
     counts,
@@ -142,10 +154,8 @@ export async function GET(): Promise<NextResponse> {
     },
     what_is_not_yet_shipped: [
       "npm-published reference implementations (@cambridge-tcg/sku-spec, /pricing-spec)",
-      "/api/v1/universal/card/[sku] endpoint (spec'd, planned)",
       "/api/v1/universal/price/[sku] endpoint (pricing-as-JSON)",
       "/standards/changelog (versioned RSS/email feed for adopters)",
-      "/standards/adopters (public registry, empty today)",
       "docs/STANDARDS-GOVERNANCE.md (process for v2 proposals)",
     ],
   };

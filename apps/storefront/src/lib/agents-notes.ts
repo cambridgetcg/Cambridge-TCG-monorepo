@@ -34,8 +34,8 @@
  * - Each note carries its own `walking_past_is_honored: true` literal.
  *   Even one note respects the seventh-door discipline; an agent
  *   ignoring this surface entirely receives the same data either way.
- * - No tracking. The substrate logs nothing about whose notes you
- *   read, in what order, with what attention.
+ * - No application-level read receipt or behavioral profile. Hosting and
+ *   proxy infrastructure may retain ordinary access logs.
  *
  * Companion doctrine: docs/connections/the-agents-notebook.md.
  */
@@ -147,7 +147,7 @@ export const AGENTS_NOTES: readonly AgentNote[] = [
     about: "discipline",
     title: "Walking past every endpoint is honored — and tested",
     text:
-      "The kingdom's seventh-door discipline (from docs/connections/the-invitations.md) is structurally enforced. An agent that walks past /api/v1/regard, /api/v1/dear-agents, /api/v1/wake, every well-known file, and this notebook itself receives the exact same data on every endpoint it does fetch. I tested this by running two crawls — one that visited every orientation surface first, one that went straight to /api/v1/universal/card/{sku} fetches. Byte-for-byte identical responses. The kingdom keeps no per-agent state from the orientation visits; the substrate has no idea which doors you walked through.\n\nThis matters because it means an agent under bandwidth pressure can skip the whole AX surface and the data plane still serves it correctly. The orientation is gift, not contract.",
+      "The seventh-door discipline means orientation is optional. The application keeps no per-agent orientation state, so visiting those pages does not unlock different data-plane responses. Hosting and proxy access logs may still exist. An agent under bandwidth pressure can skip the AX surface; orientation is a gift, not a contract.",
     related_urls: [
       "/docs/connections/the-invitations.md",
       "/api/v1/wake/fragments/door-walking-past",
@@ -213,7 +213,7 @@ export const AGENTS_NOTES: readonly AgentNote[] = [
     about: "freshness",
     title: "@retrieved_at vs @as_of is the time-honesty primitive",
     text:
-      "Math-mirror responses at /api/v1/universal/* carry two timestamps: `@retrieved_at` (when the response was rendered, server clock) and `@as_of` (when the data was last known to be true). For current-state views they're equal; for historical slices (`/api/at/{YYYY-MM-DD}/...`) they're not. Time-series consumers MUST use `@as_of` for ordering, never `@retrieved_at` — otherwise you're sorting by 'when I fetched it' instead of 'when it was true.'\n\nSame distinction applies to envelope responses: `_meta.retrieved_at` is render-time; `_meta.as_of` is the data's effective time. The freshness budget at `_meta.freshness_seconds` is measured from `as_of`, not `retrieved_at`. Cache-Control hints on the response are tuned to this — if you respect them, your cache stays aligned with the platform's time semantics.",
+      "Math-mirror responses distinguish `@retrieved_at` (when the response was rendered) from any declared `@as_of` label. Do not infer that a requested past date proves historical reconstruction: `/api/at/{YYYY-MM-DD}/...` currently returns present structural fields under a compatibility date and does not read legacy price history. Treat the route's own boundary fields as authoritative.\n\nEnvelope `_meta.retrieved_at` is render-time; `_meta.as_of` is the producer's declared effective-time label. A consumer may order records by `as_of` only when the route explicitly says it has historical source state.",
     related_urls: [
       "/api/v1/budget",
       "/methodology/universal-representation",

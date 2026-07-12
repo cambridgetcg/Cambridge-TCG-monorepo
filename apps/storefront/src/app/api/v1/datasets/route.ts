@@ -1,22 +1,25 @@
 /**
- * /api/v1/datasets — the dataset catalog.
+ * /api/v1/datasets — dataset availability and rights catalog.
  *
  * The commons is endpoint-indexed elsewhere (/data, the manifest). This is the
- * DATASET index: what we publish, under what licence, covering what, and where
- * to get it. Default returns the registry through the data-pantry envelope
- * (the catalog metadata is our own → CC0). `?format=jsonld` returns a bare
- * schema.org/DataCatalog graph for Google Dataset Search + AI crawlers, which
- * want pure schema.org, not our envelope.
+ * DATASET index: what is available, what is paused, the aggregate rights, and
+ * where each surface lives. Default returns the Cambridge-authored registry
+ * through the data-pantry envelope. `?format=jsonld` returns only available
+ * datasets as a bare schema.org/DataCatalog graph; paused status paths are not
+ * presented to crawlers as downloads.
  *
- * This route READS the licence truth the source-rights pass hardened on the
- * real routes (via lib/datasets.ts); it never overrides it. It is registered
- * in the redistribution audit (CC0_EXPORT_SURFACES) so this CC0 surface can
- * never drift to citing a non-redistributable origin.
+ * CC0 covers these authored catalog descriptions only. It does not grant any
+ * right to dataset records and does not change a paused surface into a live
+ * export.
  */
 
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import { DATASETS, toDataCatalogJsonLd } from "@/lib/datasets";
+import {
+  AVAILABLE_DATASETS,
+  DATASETS,
+  toDataCatalogJsonLd,
+} from "@/lib/datasets";
 
 // Dynamic (not force-static): the ?format=jsonld branch reads the query
 // string, so the route must render per-request. It's cheap and pure — both
@@ -31,11 +34,10 @@ export function GET(request: Request): NextResponse {
     return NextResponse.json(toDataCatalogJsonLd(), {
       headers: {
         "Content-Type": "application/ld+json; charset=utf-8",
-        // The registry (our descriptions) is CC0; individual datasets carry
-        // their own licence inside the graph. Honest at both layers.
+        // This header applies to the authored catalog graph, not its subjects.
         "X-Content-License": "CC0-1.0",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=3600, s-maxage=86400",
+        "Cache-Control": "no-store",
       },
     });
   }
@@ -44,18 +46,21 @@ export function GET(request: Request): NextResponse {
     data: {
       "@kind": "dataset-catalog",
       catalog:
-        "The datasets Cambridge TCG publishes as an open data commons. Each " +
-        "entry states its true licence: first-party operational data is CC0; " +
-        "the bulk card catalogue is a mixed-rights export (NOASSERTION) and is " +
-        "never relabelled CC0.",
+        "An inventory of available datasets and paused publication surfaces. " +
+        "The catalog descriptions are CC0 metadata. Each entry separately " +
+        "states record availability, aggregate rights, and named source rights.",
       count: DATASETS.length,
+      available_count: AVAILABLE_DATASETS.length,
+      paused_count: DATASETS.length - AVAILABLE_DATASETS.length,
       datasets: DATASETS.map((d) => ({
         id: d.id,
         name: d.name,
         description: d.description,
         license: d.license,
         tier: d.tier,
-        source_license: d.source_license,
+        availability: d.availability,
+        records_published: d.recordsPublished,
+        source_rights: d.sourceRights,
         temporal_coverage: d.temporalCoverage ?? null,
         variable_measured: d.variableMeasured,
         keywords: d.keywords,
@@ -75,15 +80,18 @@ export function GET(request: Request): NextResponse {
       },
     },
     endpoint: "/api/v1/datasets",
-    // The catalog metadata is Cambridge's own authored registry → first-party CC0.
+    // The catalog metadata is Cambridge-authored. Dataset records remain under
+    // the rights declared on their own entries and serving responses.
     sources: ["cambridge-tcg.dataset-registry"],
     source_license: ["cc0"],
     license: "CC0-1.0",
     does_not_include: [
-      "This CC0 licence covers only the catalog metadata (our own dataset descriptions).",
-      "Each listed dataset carries its OWN licence in the `license` field — notably the bulk card catalogue is NOASSERTION, not CC0.",
+      "This response contains descriptions and links, not rows from any listed dataset.",
+      "CC0 covers only the Cambridge-authored catalog metadata; it does not grant reuse rights in dataset records.",
+      "Paused entries are publication-status notices. They are excluded from the JSON-LD dataset graph and do not expose records.",
     ],
     freshness: 86400,
+    no_cache: true,
     contains_self: true,
   });
 }

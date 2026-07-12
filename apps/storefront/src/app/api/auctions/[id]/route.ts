@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
-import { getAuction, updateAuction, deleteAuction, redactAuctionForPublic } from "@/lib/auction/db";
+import { getAuction, updateAuction, deleteAuction } from "@/lib/auction/db";
+import {
+  auctionRecordIsPublic,
+  projectAuctionForAdmin,
+  projectAuctionForParticipant,
+  projectAuctionForPublic,
+} from "@/lib/auction/public";
 
 export async function GET(
   _req: NextRequest,
@@ -10,23 +16,41 @@ export async function GET(
   const { id } = await params;
   const auction = await getAuction(id);
   if (!auction) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Not found" },
+      { status: 404, headers: { "Cache-Control": "private, no-store" } },
+    );
   }
 
-  // Card identity (sku/condition) is public — like a market listing. But
-  // getAuction() is SELECT *, so the winner's shipping_address (0114),
-  // seller payout financials, Stripe ids and fulfilment tracking all ride
-  // along. This GET is unauthenticated and public: anyone who isn't the
-  // seller, the winner, or an admin gets the participant-only fields
-  // stripped (redactAuctionForPublic), not just the address.
-  const session = await auth();
+  const session = await auth().catch(() => null);
   const uid = session?.user?.id ?? null;
-  const isParticipant =
-    !!uid && (uid === auction.seller_user_id || uid === auction.winner_user_id);
-  if (!isParticipant && !(await isAdmin().catch(() => false))) {
-    return NextResponse.json(redactAuctionForPublic(auction));
+  const admin = uid !== null && (await isAdmin().catch(() => false));
+  const role = admin
+    ? "admin"
+    : uid !== null && uid === auction.seller_user_id
+      ? "seller"
+      : uid !== null && uid === auction.winner_user_id
+        ? "winner"
+        : "public";
+
+  if (role === "public" && !auctionRecordIsPublic(auction)) {
+    return NextResponse.json(
+      { error: "Not found" },
+      { status: 404, headers: { "Cache-Control": "private, no-store" } },
+    );
   }
-  return NextResponse.json(auction);
+
+  const response = role === "admin"
+    ? projectAuctionForAdmin(auction)
+    : role === "seller" || role === "winner"
+      ? projectAuctionForParticipant(auction, role, uid!)
+      : projectAuctionForPublic(auction, {
+          includeAuctionId: uid !== null,
+          viewerUserId: uid,
+        });
+  return NextResponse.json(response, {
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }
 
 export async function PATCH(

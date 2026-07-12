@@ -98,30 +98,24 @@ export const EXAMPLES: EndpointExample[] = [
   "@kind": "card",
   "@content_hash": "sha256:abc123...",
   "@retrieved_at": { "iso8601": "2026-05-14T12:00:00Z", "unix_epoch_seconds": 1747224000 },
-  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"],
-  "@source_license": ["proprietary", "proprietary", "proprietary"],
+  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets"],
+  "@source_license": ["proprietary", "proprietary"],
   "rights": { "aggregate": "NOASSERTION", "cambridge_original_structure": "CC0-1.0", "field_level_lineage_available": false },
   "_note_opaque": ["name", "art_description", "rarity.natural_label", "variant.natural_label"],
   "_links": { "self": "...", "parent": "...", "siblings": "...", "federation": "..." },
   "rarity": { "natural_label": "leader", "ratio_in_pulls": "1/64", "decimal_probability": 0.015625, ... },
-  "price": {
-    "magnitude": 5.40,
-    "currency_token": "GBP",
-    "ratio_to_platform_median_card_price": 0.95,
-    "ratio_to_minimum_currency_unit": 540,
-    "magnitude_freshness": { "iso8601": "2026-05-14T03:14:22Z", "decimal_age_seconds": 31538, ... }
-  },
+  "price": null,
   "in_set": { "edge_kind": "member_of_set", "target_natural_token": "OP01", "target_hash": "sha256:..." },
   "of_game": { "edge_kind": "in_game", "target_natural_token": "op", "target_hash": "sha256:..." },
   "name": { "natural_token": "Monkey D. Luffy", "resolved_lang": "en", "resolved_from": "name_en", ... },
-  "image_url": "https://..."
+  "image_url": null
 }`,
     annotated_fields: [
       { path: "@content_hash", meaning: "Stable identity across retrievals when card facts are unchanged. Compare to detect changes." },
       { path: "@self_hash", meaning: "Hash of this particular rendering. Differs by density param even when content_hash matches." },
       { path: "@sources", meaning: "Recorded storage provenance. It is parallel to @source_license but does not establish the upstream author when field-level lineage is unavailable." },
       { path: "@source_license", meaning: "Known per-source rights tier. Aggregate `rights.aggregate` separately says NOASSERTION for the mixed document." },
-      { path: "price.magnitude_freshness.decimal_age_seconds", meaning: "Seconds since the price was last known to be true." },
+      { path: "price", meaning: "Null because legacy source-derived price magnitudes are withheld; null is not zero." },
       { path: "_note_opaque", meaning: "Natural-language fields the decoder cannot ground from structure." },
       { path: "_links.federation", meaning: "URL to resolve this card's content_hash on another federated platform." },
     ],
@@ -129,7 +123,7 @@ export const EXAMPLES: EndpointExample[] = [
     gotchas: [
       "Use ?density=sparse for low-bandwidth (drops _note_opaque + most edges).",
       "Use ?density=saturated for one-hop neighbour resolution.",
-      "The content_hash includes captured_on — daily price updates produce daily hash changes even when nothing else moved.",
+      "A content hash identifies the emitted document; hashing does not create rights to a withheld field.",
       "Set Accept-Language header for non-English name resolution.",
     ],
     see_also: [
@@ -145,8 +139,8 @@ export const EXAMPLES: EndpointExample[] = [
     path: "/api/at/[YYYY-MM-DD]/card/[sku]",
     method: "GET",
     auth: "public",
-    title: "One card on a past date",
-    description: "Historical slice — the card's state on a specific past date. Immutable per (sku, date).",
+    title: "One card's structural view on a requested date",
+    description: "Dated structural document. It performs no price-history read; legacy source-derived price and image values remain withheld.",
     curl: "curl https://cambridgetcg.com/api/at/2026-03-15/card/op-op01-001-ja",
     sample_response: `{
   "@self_hash": "sha256:...",
@@ -155,26 +149,22 @@ export const EXAMPLES: EndpointExample[] = [
   "@content_hash": "sha256:...",
   "@retrieved_at": { "iso8601": "2026-05-14T12:00:00Z", ... },
   "@as_of": { "iso8601_date": "2026-03-15", "unix_epoch_seconds": 1742083199 },
-  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"],
-  "@source_license": ["proprietary", "proprietary", "proprietary"],
+  "@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets"],
+  "@source_license": ["proprietary", "proprietary"],
   "rights": { "aggregate": "NOASSERTION", "cambridge_original_structure": "CC0-1.0" },
-  "price": {
-    "magnitude": 4.80,
-    "currency_token": "GBP",
-    "observed_on": "2026-03-15",
-    "staleness_relative_to_as_of_days": 0
-  },
+  "price": null,
+  "image_url": null,
   "_note_structural_fields": "Structural fields (rarity, set, name) reflect *current* records, not historical."
 }`,
     annotated_fields: [
       { path: "@retrieved_at vs @as_of", meaning: "Two timestamps. retrieved_at = produced now; as_of = describes the past date." },
-      { path: "price.staleness_relative_to_as_of_days", meaning: "How stale the observation was on the requested date. 0 = exact day; N = the latest observation was N days before." },
+      { path: "price", meaning: "Null: this route does not read or expose legacy price history." },
       { path: "_note_structural_fields", meaning: "Substrate-honest perimeter: structural facts (name, set) are not historicised." },
     ],
-    when_to_use: "Backfill a local time series. Build a price chart. Cite a historical price.",
+    when_to_use: "Inspect the public structural document under a requested date context.",
     gotchas: [
-      "Returns 404 if no price was observed at or before the requested date.",
-      "Cache forever — historical slices are immutable.",
+      "This is not a time-series or historical-price export.",
+      "Do not iterate dates to reconstruct withheld history.",
     ],
     see_also: [
       { label: "Guide: track-one-card", href: "/api/v1/guides/track-one-card" },
@@ -188,24 +178,22 @@ export const EXAMPLES: EndpointExample[] = [
     path: "/data/catalog.jsonl",
     method: "GET",
     auth: "public",
-    title: "Bulk catalog mirror",
-    description: "Streamed JSONL. Every card in ~12k rows. Aggregate rights are NOASSERTION until field-level upstream lineage is preserved.",
+    title: "Bulk catalog publication status",
+    description: "Public status-only JSONL. Catalog rows are paused pending field-level lineage and a reviewed bulk-publication rule.",
     curl: "curl -H 'Accept-Encoding: gzip' https://cambridgetcg.com/data/catalog.jsonl > catalog.jsonl",
-    sample_response: `{ "@kind": "catalog_manifest", "spec_version": "1", "count_expected": 12000, "license": "NOASSERTION", "rights": { "cambridge_original_structure": "CC0-1.0", "upstream_fields": "NOASSERTION" }, "retrieved_at": { ... } }
-{ "@kind": "card", "@content_hash": "sha256:...", "sku": "op-op01-001-ja", "set_code": "OP01", "game": "op", "price": { "magnitude": 5.40, "currency_token": "GBP", "captured_on": "2026-05-13" }, "_links": { ... } }
-{ "@kind": "card", "@content_hash": "sha256:...", "sku": "op-op01-002-ja", ... }
-...
-{ "@kind": "catalog_footer", "complete": true, "count_emitted": 11984 }`,
+    sample_response: `{ "@kind": "catalog_manifest", "spec_version": "1", "publication_status": "paused_pending_field_level_rights", "count_expected": 0, "license": "NOASSERTION", "rights": { "catalog_rows_published": false, "field_level_lineage_available": false, "bulk_publication_rule_reviewed": false }, "retrieved_at": { ... } }
+{ "@kind": "catalog_footer", "publication_status": "paused_pending_field_level_rights", "complete": false, "catalog_complete": false, "count_emitted": 0 }`,
     annotated_fields: [
-      { path: "Line 1 @kind=catalog_manifest", meaning: "Header: total count expected, retrieved_at, license, source attribution." },
-      { path: "Card lines @content_hash", meaning: "Per-card stable identity. Diff against your stored copy to find changed rows." },
-      { path: "Last line @kind=catalog_footer", meaning: "Footer with complete:true|false. truncated:true means you hit the 50k cap." },
+      { path: "Line 1 publication_status", meaning: "Why the route emits no catalog rows." },
+      { path: "Line 1 rights", meaning: "The missing lineage and publication decisions required before reopening." },
+      { path: "Line 2 count_emitted", meaning: "Always zero while publication is paused." },
     ],
-    when_to_use: "Daily mirror cron. Local search index. Bulk analytics.",
+    when_to_use: "Check whether the bulk publication boundary has reopened.",
     gotchas: [
+      "The route returns HTTP 503 while publication is paused; parse the response body without treating 503 as a missing server.",
       "JSONL — parse line-by-line, NOT as one JSON document.",
-      "Don't poll more than once every 6 hours; the catalog doesn't change that fast.",
-      "Today caps at 50k rows; cursor pagination is future work.",
+      "Zero rows are intentional policy, not an ingest outage.",
+      "Do not recreate the paused dump by walking keyed endpoints.",
     ],
     see_also: [
       { label: "Guide: mirror-the-catalog", href: "/api/v1/guides/mirror-the-catalog" },
@@ -237,13 +225,13 @@ export const EXAMPLES: EndpointExample[] = [
     ],
     when_to_use: "Resolve a cached hash to its current SKU. Inter-platform identity reconciliation.",
     gotchas: [
-      "Hash includes captured_on — yesterday's hash won't match today unless price didn't move.",
-      "For historical hashes use /api/v1/federation/at/[date]/[hash].",
+      "A hash identifies the emitted structural document; do not infer a hidden price from it.",
+      "Hashes minted by the retired pre-2026-07-12 price-dependent basis are not resolvable by the current walk.",
       "Walk bounded at 5000 most-recent rows.",
     ],
     see_also: [
       { label: "Guide: federate-bilateral", href: "/api/v1/guides/federate-bilateral" },
-      { label: "Temporal federation", href: "/api/v1/examples/federation-at" },
+      { label: "Dated compatibility boundary", href: "/api/v1/examples/federation-at" },
     ],
   },
   {
@@ -251,8 +239,8 @@ export const EXAMPLES: EndpointExample[] = [
     path: "/api/v1/federation/at/[YYYY-MM-DD]/[hash]",
     method: "GET",
     auth: "public",
-    title: "Resolve content_hash to SKU at a past date",
-    description: "Temporal federation — resolve a hash captured on a past date. The walk reconstructs each row's hash at that date.",
+    title: "Resolve a structural hash through the dated compatibility route",
+    description: "The route accepts a date-shaped request but walks current structural rows. It does not reconstruct historical prices or historical structural fields.",
     curl: "curl https://cambridgetcg.com/api/v1/federation/at/2026-03-15/sha256:abc...",
     sample_response: `{
   "@kind": "federation_at_response",
@@ -263,13 +251,13 @@ export const EXAMPLES: EndpointExample[] = [
   "universal_url": "/api/at/2026-03-15/card/op-op01-001-ja"
 }`,
     annotated_fields: [
-      { path: "@as_of.iso8601_date", meaning: "The requested date — what the response describes." },
-      { path: "note", meaning: "When matched-but-imprecise: captured_on may not equal the requested date exactly (latest at-or-before)." },
+      { path: "@as_of.iso8601_date", meaning: "The requested compatibility date; it does not affect the structural hash." },
+      { path: "hash_contract.historical_reconstruction", meaning: "Always false while historical values and structures are unavailable." },
     ],
-    when_to_use: "Resolve historical caches from federation partners. Audit trail reconstruction.",
+    when_to_use: "Support clients that already use the date-shaped URL while making the absence of historical reconstruction explicit.",
     gotchas: [
       "Same 5000-row walk bound as the non-temporal version.",
-      "Hash mismatches because captured_on doesn't match are reported with helpful suggestion.",
+      "The requested date does not affect matching; pre-2026-07-12 price-dependent hashes remain unsupported.",
     ],
     see_also: [{ label: "Guide: federate-bilateral", href: "/api/v1/guides/federate-bilateral" }],
   },
@@ -288,7 +276,7 @@ export const EXAMPLES: EndpointExample[] = [
     "actor_kind": "agent",
     "self_label": "example-bot/1.0",
     "operator_contact": "admin@example.com",
-    "intended_use": "price tracking",
+    "intended_use": "single-card structural lookup",
     "cosmology_assumptions": ["synchronous-presence", "monetary-value"],
     "modalities": ["json"],
     "response_window": "PT1H"
@@ -339,14 +327,14 @@ export const EXAMPLES: EndpointExample[] = [
         "name": "CardRush (JP)",
         "license": "internal-only",
         "freshness": "price_current",
-        "status": "partial",
+        "status": "blocked",
+        "redistribute": false,
+        "tos_notes": "Formal partnership required; acquisition hard-disabled.",
         "last_run": {
           "triggered_at": "2026-05-14T02:00:00Z",
-          "finished_at": "2026-05-14T02:18:42Z",
           "status": "done",
           "rows_written": 11984,
-          "errors": 0,
-          "age_hours": 10.2
+          "notes": "legacy run; current acquisition remains blocked"
         }
       }
     ],
@@ -357,7 +345,7 @@ export const EXAMPLES: EndpointExample[] = [
     annotated_fields: [
       { path: "data.ingest_runs_available", meaning: "false = wholesale Falcon unreachable; per-source last_run absent. True = trustworthy state." },
       { path: "data.sources[].last_run", meaning: "Three shapes: present (real row) / {_unavailable: true, reason: 'never_run'} / absent (Falcon failed)." },
-      { path: "data.sources[].license", meaning: "Redistribution tier per source. Propagates to @source_license on derived responses." },
+      { path: "data.sources[].license", meaning: "A declared source tier. It does not authorize acquisition or publication." },
     ],
     when_to_use: "Trust signal — has the ingest pipeline run today? Anything failed? Drift detection.",
     gotchas: [
@@ -376,40 +364,31 @@ export const EXAMPLES: EndpointExample[] = [
     path: "/api/v1/cards/[sku]/cardrush-history",
     method: "GET",
     auth: "user",
-    title: "CardRush JPY history (auth-gated, tier-2)",
-    description: "Last 90 raw CardRush JP observations for one card. License-aware: internal-only; personal-decision use only.",
+    title: "CardRush history policy status",
+    description: "Anonymous callers receive 401. Signed-in callers receive HTTP 503 and no observations because authentication does not create upstream rights.",
     curl: `# Requires next-auth session cookie
 curl -H 'cookie: <session-cookie>' \\
   https://cambridgetcg.com/api/v1/cards/op-op01-001-ja/cardrush-history`,
     sample_response: `{
-  "data": {
-    "sku": "op-op01-001-ja",
-    "cardrush_url": "https://cardrush-op.jp/product/detail.php?...",
-    "source": "cardrush",
-    "count": 90,
-    "observations": [
-      { "snapshot_date": "2026-05-14", "cardrush_jpy": 920, "gbp_jpy_rate": 180.5, "price_gbp": 5.40, ... },
-      ...
-    ],
-    "license_notice": {
-      "tier": "internal-only",
-      "upstream": "cardrush",
-      "may": ["view for your own buy/sell decisions", "save to your own notes", ...],
-      "do_not": ["bulk re-export", "redistribute as a paid product", ...]
+  "error": {
+    "code": "SOURCE_UNAVAILABLE",
+    "message": "CardRush observation publication is withheld pending written source rights.",
+    "details": {
+      "source": "cardrush",
+      "policy": "https://cardrush.media/data_policy",
+      "observations": []
     }
-  },
-  "_meta": { "source_license": ["internal-only", "internal-only"], ... }
+  }
 }`,
     annotated_fields: [
-      { path: "data.license_notice", meaning: "Inline notice rendered to consumer UIs. May/must-not lists are authoritative." },
-      { path: "_meta.source_license", meaning: "Parallel to _meta.sources. Both entries are internal-only — raw upstream values, non-redistributable." },
+      { path: "error.code", meaning: "SOURCE_UNAVAILABLE with HTTP 503 after a valid signed-in session." },
+      { path: "error.details.observations", meaning: "Always empty; the route performs no wholesale or archive read." },
     ],
-    when_to_use: "Building a personal-decision UI for a signed-in user. NOT for bulk export.",
+    when_to_use: "Check the current CardRush publication boundary after authentication.",
     gotchas: [
-      "Returns 401 without session. Anonymous access not authorised.",
-      "Returns 404 if SKU has no CardRush URL in the wholesale catalog.",
-      "no-cache by design — per-session, not CDN-shared.",
-      "DO NOT redistribute the values in bulk. License boundary; we honour CardRush ToS.",
+      "Returns 401 without a session and HTTP 503 with a session.",
+      "A session, bearer key, row cap, or downstream contract does not unlock observations.",
+      "The status response is private, no-store and contains no CardRush values.",
     ],
     see_also: [
       { label: "License propagation doctrine", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-license-propagation.md" },
@@ -423,7 +402,7 @@ curl -H 'cookie: <session-cookie>' \\
     method: "POST",
     auth: "public",
     title: "File a feedback report",
-    description: "Five kinds: contract-drift / guide-feedback / endpoint-suggestion / federation-adopter / general. 48h response window.",
+    description: "Five feedback kinds. Participant-supplied text and identity fields remain NOASSERTION unless the participant explicitly supplies a license.",
     curl: `curl -X POST https://cambridgetcg.com/api/v1/feedback \\
   -H 'content-type: application/json' \\
   -d '{
@@ -451,6 +430,7 @@ curl -H 'cookie: <session-cookie>' \\
     when_to_use: "Any contract drift. Guide bugs. Endpoint suggestions. Federation partner registration.",
     gotchas: [
       "reporter_contact is REQUIRED for kind 'contract-drift' and 'federation-adopter' so we can reply.",
+      "Submitting feedback does not dedicate it to CC0; the submission remains NOASSERTION absent an explicit license.",
       "Substrate-honest about persistence: today logged + emailed; agent_feedback table planned (drafts/0101).",
     ],
     see_also: [

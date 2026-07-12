@@ -42,11 +42,11 @@ The platform's commitment to *any being who wants to participate in the TCG econ
 
 **The intention.** Substrate-honest about the gap. The math-mirror is a real promise; the endpoints aren't shipped yet. The `/data` page marks them `planned` so callers know — and so the next builder knows the punch list.
 
-### → Provable fairness ([`/verify`](../../apps/storefront/src/app/verify/page.tsx))
+### → Draw proof verification ([`/verify`](../../apps/storefront/src/app/verify/page.tsx))
 
-**The thread.** The verify subsystem is the platform's oldest open surface — `/api/verify/chain`, `/api/verify/digests`, `/api/verify/pull/[id]`, `/api/verify/draw/[id]`, `/api/verify/fairness`. Anyone can re-run the commit-reveal math against any random outcome on the platform, *forever*, *without an account*. The `/data` page consolidates this — verify was always open; now it's named alongside the rest.
+**The thread.** The verify subsystem is one of the platform's oldest open surfaces — `/api/verify/chain`, `/api/verify/digests`, `/api/verify/pull/[id]`, `/api/verify/draw/[id]`, `/api/verify/fairness`. Public readers can check commitment and digest evidence; exact outcome replay depends on a safe client seed, and legacy account-linked seeds are owner-only. The digest chain covers rows collected by its job, not every random outcome.
 
-**The intention.** The fairness surface was the first open substrate. Every other open endpoint inherits its discipline: published spec, reproducible math, no-auth, machine-callable.
+**The intention.** The draw-proof surface established a useful discipline: reproducible math where inputs are public, machine-callable evidence, and explicit limits where privacy or the threat model prevents a full check.
 
 ---
 

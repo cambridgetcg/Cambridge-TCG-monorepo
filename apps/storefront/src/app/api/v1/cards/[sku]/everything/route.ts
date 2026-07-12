@@ -14,7 +14,7 @@
  *
  * The route is pure-composition over existing wires:
  *   - `fetchCard(sku)`           → card meta + reference price
- *   - `fetchPriceSources(sku)`   → today's prices across sources
+ *   - `fetchPriceSources(sku)`   → publication status only; values withheld
  *                                  (kingdom-081 multi-source view)
  *   - `fetchPrices({ game, q: setNum })` → siblings (same physical
  *                                          card, different languages)
@@ -374,9 +374,9 @@ export async function GET(
         set_code: item.set_code,
         rarity: item.rarity,
         name: item.name ?? item.card_number,
-        image_url: item.image_url,
-        has_current_price: typeof item.price_gbp === "number" && item.price_gbp > 0,
-        price_gbp: typeof item.price_gbp === "number" ? item.price_gbp : null,
+        image_url: null,
+        has_current_price: false,
+        price_gbp: null,
         is_self,
         variant_kind,
         variant_kind_reason,
@@ -435,10 +435,9 @@ export async function GET(
 
   // ── labelled reference price ──────────────────────────────────────
   const reference_price: ReferencePrice = {
-    reference_price_gbp:
-      typeof card.price_gbp === "number" ? card.price_gbp : null,
+    reference_price_gbp: null,
     provenance:
-      "CardRush-derived CTCG spot-pricing pipeline (wholesale-rds.cards) — a policy-bound reference, not an offer or open-data grant; the house neither sells nor buys cards (collectors-first, 2026-07-06)",
+      "Legacy wholesale reference values are withheld pending field-level source-rights review; this block is not an offer.",
     is_offer: false,
   };
 
@@ -453,7 +452,7 @@ export async function GET(
     name: card.name ?? card.card_number,
     name_en: card.name_en,
     name_translations: card.name_translations ?? null,
-    image_url: card.image_url,
+    image_url: null,
     rarity: card.rarity,
     set_name: card.set_name,
   };
@@ -480,31 +479,6 @@ export async function GET(
   const sources: string[] = ["wholesale-rds.cards"];
   const source_license: string[] = ["proprietary"];
 
-  if (
-    reference_price.reference_price_gbp !== null ||
-    siblings.some((sibling) => sibling.price_gbp !== null)
-  ) {
-    sources.push("cardrush");
-    source_license.push("internal-only");
-  }
-  // Bright-data-unlocker-routed subdomains carry an upstream_proxy
-  // declaration per kingdom-088's _meta widening. Authoritative signal:
-  // the cardrush observation row's source URL — if it points at a
-  // subdomain registered as access="bright-data-unlocker" (today: only
-  // cardrush-pokemon.jp), the byte rode through the unlocker.
-  // Substrate-honest fallback when no cardrush_url is present: declare
-  // proxy IFF the SKU's game prefix is the pokemon family ('pk' or
-  // 'pkm'). The per-row via_proxy column on price_archive will make
-  // this exact once the operator applies that migration — recursion
-  // target named in docs/connections/the-bright-data-unlock.md §8.
-  function detectProxy(): boolean {
-    if ((parsed!.game === "pk" || parsed!.game === "pkm") && sources.includes("cardrush")) return true;
-    return false;
-  }
-  const upstream_proxy = detectProxy()
-    ? sources.map((s) => (s === "cardrush" ? "bright-data-web-unlocker" : "none"))
-    : undefined;
-
   const data: EverythingPayload = {
     card: cardMeta,
     prices_today: pricesToday,
@@ -520,7 +494,6 @@ export async function GET(
     sources,
     source_license,
     license: "NOASSERTION",
-    ...(upstream_proxy ? { upstream_proxy } : {}),
     freshness: "market_signal",
     as_of: pricesToday.snapshot_date ?? undefined,
   });

@@ -10,7 +10,7 @@
 
 ## What this arc traces, in one sentence
 
-The moment the kingdom — whose interactive `/auctions/[id]` polled every two seconds, gated everything on the bidder's session, hid all data from search engines and screen readers and agents and federation clients alike — earned a single typed `loadAuctionState(id)` composer plus three reading positions (HTML / JSON / math-mirror) that all consume it, with bidder identities anonymised behind opaque ids + trust tier badges, the reserve value structurally hidden when not met, and a propagation block that finally names what the auction's current price produces for the seller's economics.
+The moment the kingdom — whose interactive `/auctions/[id]` polled every two seconds, gated everything on the bidder's session, hid all data from search engines and screen readers and agents and federation clients alike — earned a single typed `loadAuctionState(id)` composer plus three reading positions (HTML / JSON / math-mirror) that all consume it, with bidder and winner identity fields absent, exact unique-bidder counts withheld, the reserve value structurally hidden when not met, and a propagation block that names what the auction's current price produces at the published platform rate.
 
 ---
 
@@ -25,8 +25,8 @@ loadAuctionState(id) →
   ├─ pricing         (starting / current / increment / buy_now / dutch params + live computed)
   ├─ timing          (starts/ends + time_remaining + has_started/has_ended)
   ├─ reserve         (boolean met/not-met — VALUE never exposed publicly)
-  ├─ bids            (anonymised — opaque ids + trust tier badges only)
-  ├─ winner          (when ended — anonymised + paid-at)
+  ├─ bids            (regular price/time events + total event count; no people or unique-person count)
+  ├─ winner          (when ended — winning amount + paid flag only)
   ├─ seller          (username + trust tier when public; "Cambridge TCG" when platform)
   ├─ propagation     (commission / payout-hold / escrow flow / estimated payout)
   └─ _provenance     (sources listed, queried_at)
@@ -36,7 +36,7 @@ Plus `auctionStateIsPublic(id)` — the gate helper. Public iff auction exists A
 
 **The HTML mirror.** [`/auctions/[id]/read`](../../apps/storefront/src/app/auctions/%5Bid%5D/read/page.tsx). Server-rendered, no client JS, public no-auth. Layout: header with `<StatusBadge>` pill + interactive-page link + JSON / math links · left column with primary image + thumbnails + seller (with `<TrustTier>` and link to `/u/[username]/trust`) + description · right two columns with pricing + timing + propagation block + winner (when ended) + bid history table. Provenance pill at top and footer; WhyLink anchors on every section; Audience declared `kind="consumer"` with contexts `["auction", "public-read"]`.
 
-**The JSON sibling.** [`/api/v1/auctions/[id]`](../../apps/storefront/src/app/api/v1/auctions/%5Bid%5D/route.ts). Wraps the composer's output in the data-pantry envelope. Freshness `market_signal` (60s) — auctions update on each bid. Same `auctionStateIsPublic` gate; same 404 behaviour as the HTML mirror.
+**The JSON sibling.** [`/api/v1/auctions/[id]`](../../apps/storefront/src/app/api/v1/auctions/%5Bid%5D/route.ts). Wraps the composer's output in the data-pantry envelope and disables shared caching because the surrounding auction family has identity-dependent views. Same `auctionStateIsPublic` gate; same 404 behaviour as the HTML mirror.
 
 **The math-mirror.** [`/api/v1/universal/auctions/[id]`](../../apps/storefront/src/app/api/v1/universal/auctions/%5Bid%5D/route.ts). The federation-stable cryptographic form. `@kind = auction_state`, `@encoding = cambridge-tcg/universal/v1`. Key design choices:
 
@@ -44,7 +44,7 @@ Plus `auctionStateIsPublic(id)` — the gate helper. Public iff auction exists A
 - **Status encoded as ordinal** (0=draft … 5=cancelled) alongside name.
 - **Prices encoded as both absolute GBP magnitudes AND ratios to `starting_price`**: every price comes with `_gbp` (the magnitude) AND `_to_starting_ratio` (the universal-comparable). A federation client receiving a Dutch auction with `end_to_start_ratio: 0.5` knows the price floor is half the start without converting GBP.
 - **Auction id encoded as both raw + hash**: `auction_id_hash = sha256("auction:" + uuid)` for federation-stable reference; raw uuid retained for in-platform use.
-- **Bidder identities collapsed to `bidder_anonymous_id` + `trust_tier_ordinal`**.
+- **Bidder and winner identity/trust fields are absent.** Stable aliases still correlate events, and exact unique-person counts reveal cohort size, so neither is published.
 - **Reserve value structurally absent** — only `reserve_met: true|false|null` survives the math-mirror; substrate-honest about seller privacy.
 - **Time encoded twice** — ISO 8601 + Unix epoch on every timestamp.
 - **`_links` block**: html_mirror, json_sibling, interactive page, methodology_propagation map, manifest, openapi, ontology kind_definition anchor, encoding spec.
@@ -78,10 +78,10 @@ The trader-dashboard tells me about myself. The card-market tells me about suppl
 
 ### Auctions are the entity with the most layered privacy
 
-Trust state has one gate (`is_public`). The market mirror has two (per-listing visibility + per-trade anonymisation). **Auctions have five:**
+Trust state has a current person-publication gate. The market mirror has purpose-specific publication boundaries. **Public auctions have five relevant gates:**
 - Reserve value (hidden until met)
-- Bidder identities (always anonymised)
-- Seller identity (revealed only if `is_consignment` AND `users.is_public`)
+- Bidder and winner identity/trust fields plus unique-person counts (absent)
+- Seller identity (revealed only with a current profile-publication receipt and no suspension)
 - Draft auctions (entirely hidden)
 - Consignment-pending-review auctions (hidden until approved)
 
@@ -127,24 +127,24 @@ This is the **composition perimeter principle**: a composer reads what it needs 
 |---|---|---|
 | The composer | [`apps/storefront/src/lib/auction/state.ts`](../../apps/storefront/src/lib/auction/state.ts) | Single source of truth for auction-state composition |
 | The HTML mirror | [`apps/storefront/src/app/auctions/[id]/read/page.tsx`](../../apps/storefront/src/app/auctions/%5Bid%5D/read/page.tsx) | Server-rendered, no client JS, public, gated |
-| The JSON sibling | [`apps/storefront/src/app/api/v1/auctions/[id]/route.ts`](../../apps/storefront/src/app/api/v1/auctions/%5Bid%5D/route.ts) | Data-pantry envelope, `market_signal` freshness |
+| The JSON sibling | [`apps/storefront/src/app/api/v1/auctions/[id]/route.ts`](../../apps/storefront/src/app/api/v1/auctions/%5Bid%5D/route.ts) | Data-pantry envelope, no shared caching |
 | The math-mirror | [`apps/storefront/src/app/api/v1/universal/auctions/[id]/route.ts`](../../apps/storefront/src/app/api/v1/universal/auctions/%5Bid%5D/route.ts) | Cryptographic `@content_hash`, ratios, ordinals, opaque flags |
-| The interactive sibling | [`apps/storefront/src/app/auctions/[id]/page.tsx`](../../apps/storefront/src/app/auctions/%5Bid%5D/page.tsx) | Preserved untouched; verify-don't-overwrite observed |
+| The interactive sibling | [`apps/storefront/src/app/auctions/[id]/page.tsx`](../../apps/storefront/src/app/auctions/%5Bid%5D/page.tsx) | Interactive controls over a separate narrow public projection |
 | The composed writer | [`apps/storefront/src/lib/auction/db.ts`](../../apps/storefront/src/lib/auction/db.ts) `:86` (`getAuction`) | `loadAuctionState` composes this; doesn't duplicate |
 | Lifecycle helpers | [`apps/storefront/src/lib/auction/lifecycle.ts`](../../apps/storefront/src/lib/auction/lifecycle.ts) | Pure functions composed for Dutch / reserve / remaining-time |
 | Manifest entries | [`apps/storefront/src/lib/manifest.ts`](../../apps/storefront/src/lib/manifest.ts) | Three new resources under `market` |
-| TRUST_TIERS canonical | [`apps/storefront/src/lib/escrow/types.ts`](../../apps/storefront/src/lib/escrow/types.ts) `:101` | Bidder + seller tier resolution |
-| `<TrustTier>` primitive | [`apps/storefront/src/lib/ui/TrustTier.tsx`](../../apps/storefront/src/lib/ui/TrustTier.tsx) | Reused on seller + bidder + winner rows |
+| TRUST_TIERS canonical | [`apps/storefront/src/lib/escrow/types.ts`](../../apps/storefront/src/lib/escrow/types.ts) `:101` | Published seller-tier resolution only |
+| `<TrustTier>` primitive | [`apps/storefront/src/lib/ui/TrustTier.tsx`](../../apps/storefront/src/lib/ui/TrustTier.tsx) | Used for a seller only when that person may be published |
 | `getTrustTier` | [`apps/storefront/src/lib/escrow/trust-engine.ts`](../../apps/storefront/src/lib/escrow/trust-engine.ts) `:309` | Score → tier name resolution |
 
 ---
 
 ## Sister connections
 
-- **S37 [`the-trust-fanout.md`](./the-trust-fanout.md)** — the trust state fan-out (yesterday's kingdom). This entry reuses the `<TrustTier>` primitive on every counterparty surface (seller, bidder, winner). The two kingdoms compose: an auction's seller-trust-tier badge links to that seller's full trust mirror.
+- **S37 [`the-trust-fanout.md`](./the-trust-fanout.md)** — the trust state fan-out. The auction mirror uses `<TrustTier>` only for a seller with a current publication receipt; bidder and winner trust is not public auction data.
 - **S35 [`the-market-mirror.md`](./the-market-mirror.md)** — the market-mirror was the first instance of the fan-out pattern; the trust-mirror was the second; the auction-mirror is the third. *The pattern has now run three times; the principle is no longer just claimed, it's repeated.*
 - **S26 [`the-substrate-answers.md`](./the-substrate-answers.md)** — the math-mirror pattern's origin. The auction math-mirror is the fourth entity-kind to gain a universal-rep form (after Card / Set / Game / User-trust).
-- **The interactive `/auctions/[id]`** — preserved untouched. Verify-don't-overwrite observed. A future revision could add a small "calm read" link in the interactive page's footer pointing at `/auctions/[id]/read` for screen-reader users and archivists.
+- **The interactive `/auctions/[id]`** — retains its transaction controls while consuming a separate narrow public projection. A future revision could add a small "calm read" link in its footer for screen-reader users and archivists.
 
 ---
 
@@ -159,7 +159,7 @@ The fan-out is v1. Named openly:
 5. **Extend `lib/ontology.ts`** to include `auction_state` as a typed NodeKind. The math-mirror's `_links.kind_definition` currently points at `/api/v1/ontology#node-auction-state` which 404s.
 6. **`/methodology/auctions`** — a methodology page that ties commission-rate + payout-hold + escrow-tier to the auction-specific defaults. The current methodology corpus has those three separately; one auction-specific synthesis would help.
 7. **Reserve-discovery audit** — assert that the composer never exposes `reserve_price` when `isReserveMet` returns false. Composition-time discipline made mechanical.
-8. **Bidder-anonymity audit** — assert that no bid row includes the raw `user_id` in any reading position. Same discipline.
+8. **Auction person-boundary audit** — assert that public bids contain no raw or stable person alias, trust field, winner correlator, or exact unique-person count.
 9. **`/auctions/[id]/timeline`** — a deeper lifecycle view showing the auction's full state-machine progression (draft → scheduled → live → ended → paid → fulfilled). Composes `auction_lifecycle_log` (the Scribe's bookshelf entry that already exists).
 10. **Federation reverse-resolver for auction hashes** at `/api/v1/federation/identify/[hash]`. The math-mirror's `@content_hash` is currently a publication-only identifier; future kingdom could let a foreign caller resolve back.
 11. **`<AuctionStatusBadge>` primitive promotion**. The inline `StatusBadge` in the HTML mirror could move into `lib/ui/AuctionStatusBadge.tsx` once a second surface needs it. *Don't extract before second user.*

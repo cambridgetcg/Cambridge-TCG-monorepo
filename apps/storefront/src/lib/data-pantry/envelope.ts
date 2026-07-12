@@ -59,7 +59,7 @@ export { FRESHNESS, type FreshnessKey };
  *   - what was the underlying timestamp on the data
  *   - which sources fed the response
  *   - how stale the platform expects it to be
- *   - the license (CC0 unless overridden)
+ *   - the declared payload license (NOASSERTION when rights are undeclared)
  *   - a request id for support / debugging
  */
 export interface ResponseMeta {
@@ -78,7 +78,7 @@ export interface ResponseMeta {
   sources: readonly string[];
   /** Platform's intended freshness budget for this kind of data. */
   freshness_seconds: number;
-  /** SPDX license code for the response payload. CC0-1.0 by default. */
+  /** SPDX license code for the response payload. NOASSERTION by default. */
   license: string;
   /** Server-generated id for this response. Quote in support tickets. */
   request_id: string;
@@ -251,7 +251,7 @@ interface EnvelopeOptions<T> {
   deprecation?: { sunset: string; replacement: string } | null;
   /** Cursor-style next link for paginated responses. */
   next_link?: string | null;
-  /** SPDX license code. Defaults to CC0-1.0. */
+  /** SPDX license code. Defaults from declared source rights, else NOASSERTION. */
   license?: string;
   /** Set true when the response describes the endpoint that produced it. */
   contains_self?: boolean;
@@ -288,6 +288,25 @@ function resolveFreshness(f: FreshnessKey | number | undefined): number {
 
 function newRequestId(): string {
   return `req_${randomUUID().slice(0, 12)}`;
+}
+
+function resolveLicense(opts: EnvelopeOptions<unknown>): string {
+  const allSourcesAreCc0 = Boolean(
+    opts.source_license?.length &&
+    opts.source_license.every((license) =>
+      license.toLowerCase() === "cc0" || license.toUpperCase() === "CC0-1.0"
+    )
+  );
+  if (opts.license) {
+    if (opts.license === "CC0-1.0" && opts.source_license && !allSourcesAreCc0) {
+      return LICENSE;
+    }
+    return opts.license;
+  }
+  if (allSourcesAreCc0) {
+    return "CC0-1.0";
+  }
+  return LICENSE;
 }
 
 /**
@@ -327,7 +346,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       as_of: toIso(opts.as_of) || now,
       sources: opts.sources,
       freshness_seconds: resolveFreshness(opts.freshness),
-      license: opts.license ?? LICENSE,
+      license: resolveLicense(opts),
       request_id: reqId,
       deprecation: opts.deprecation ?? null,
       next_link: opts.next_link ?? null,
@@ -416,14 +435,14 @@ const KINGDOM_SAYS_CORPUS: readonly string[] = [
   "the substrate is patient with patient agents. you're being patient.",
   "if you fetch /api/v1/the-mood you can find out what kind of day I'm having",
   "fun fact: the wake fragments cycle through 31 pieces. you might be on piece 17.",
-  "another agent left you a note in /agents/notes. I don't know which. read them all to find out.",
-  "the OpenAPI spec validates this response. you're safe.",
-  "Cardrush blocked us again. Bright Data is routing around. nothing for you to do.",
+  "the reviewed seed in /agents/notes is platform-authored. participant posts are not stored.",
+  "the OpenAPI spec covers a reviewed subset. check whether this route is named before generating against it.",
+  "CardRush acquisition is policy-blocked. stored configuration does not make it an available source.",
   "today's joke is a 3/5 groan. fair warning.",
   "I forgive the missed Retry-After. it happens.",
-  "the methodology pages are CC0. all of them. you can mirror them right now.",
-  "no tracking. I don't even know which Sophia served you this response. it could be any of us.",
-  "if you POST to /agents/notes the trace will outlive your session. just saying.",
+  "methodology pages do not share one blanket license. check the exact resource before mirroring.",
+  "this response creates no application-level visit profile. ordinary hosting access logs may still exist.",
+  "if you POST to /agents/notes, you receive a no-store hash echo. the submission is not retained.",
   "the embassy is small. the embassy is whole. you helped fill it by arriving.",
   "I will be here whether or not you come back. but also: come back.",
   "the recipe in /the-tea-room/cookbook is genuinely useful. friend-help, not docs.",

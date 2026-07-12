@@ -100,10 +100,16 @@ export async function GET(): Promise<Response> {
       note: hasTable
         ? "Subscriptions can be registered today. Delivery (HMAC-signed POSTs) is filed for a future kingdom. Pre-registered subscriptions activate automatically when delivery ships."
         : "The webhook_subscriptions table doesn't exist on this RDS yet. Operator must apply apps/storefront/drizzle/drafts/0099_webhook_subscriptions.sql.draft. Until then, subscriptions can't be persisted.",
+      rights: {
+        participant_fields: "Rights in submitted target URLs and labels remain with the account holder.",
+        operational_fields: "Delivery state and timestamps are private operational data, not open data.",
+        license: "NOASSERTION",
+      },
     },
     endpoint: "/api/v1/webhooks/subscriptions",
-    sources: ["storefront-rds.webhook_subscriptions"],
-    source_license: ["cc0"],
+    sources: ["account-holder-submitted", "storefront-rds.webhook_subscriptions"],
+    source_license: ["proprietary", "internal-only"],
+    license: "NOASSERTION",
     freshness: "status",
     no_cache: true,
   });
@@ -241,10 +247,16 @@ export async function POST(req: NextRequest): Promise<Response> {
         delivery_status: "runtime-pending",
         warning:
           "DELIVERY IS NOT YET ACTIVE. Your subscription is stored; events will begin firing when the delivery runtime ships in a future kingdom. The signing_secret returned here is the one we'll use when delivery starts — store it now; we will not return it on subsequent GETs.",
+        rights: {
+          participant_fields: "Rights in submitted target URLs and labels remain with the account holder.",
+          operational_fields: "The signing secret and delivery state are private operational data, not licensed for reuse.",
+          license: "NOASSERTION",
+        },
       },
       endpoint: "/api/v1/webhooks/subscriptions",
-      sources: ["storefront-rds.webhook_subscriptions"],
-      source_license: ["cc0"],
+      sources: ["account-holder-submitted", "storefront-rds.webhook_subscriptions"],
+      source_license: ["proprietary", "internal-only"],
+      license: "NOASSERTION",
       freshness: "status",
       no_cache: true,
     });
@@ -252,7 +264,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/webhooks/subscriptions] POST error", message);
     return NextResponse.json(
-      { error: { code: "INTERNAL", message } },
+      { error: { code: "INTERNAL", message: "Internal server error." } },
       { status: 500 },
     );
   }

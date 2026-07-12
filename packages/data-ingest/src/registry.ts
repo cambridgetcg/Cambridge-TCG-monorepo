@@ -29,19 +29,19 @@ import { vinted } from "./vinted/index";
  *   partial — read implemented but caller-side writer wiring incomplete
  *   planned — meta declared; read is a substrate-honest stub that emits an
  *             actionable error and yields nothing
- *   blocked — known unobtainable; module exists for documentation only
+ *   blocked — no permitted runtime path; documentation or fixture parsers may remain
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
   scryfall,                  // partial — adapter implemented; never run; no writer
-  cardrush,                  // partial
+  cardrush,                  // blocked — formal partnership required for automation
   "pokemon-tcg-api": pokemonTcgApi,  // partial — adapter implemented; never run; no writer
   ygoprodeck,                // blocked — no commercial content permission established
   tcgplayer,                 // blocked — no new access; terms prohibit multi-source price aggregation
-  tcgcollector,              // partial — sitemap+JSON-LD discovery; wholesale cron wires the writer
+  tcgcollector,              // blocked — partner approval not recorded
   cardmarket,                // planned — public daily file reader not wired; OAuth applications closed
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
-  "bandai-en": bandaiEn,     // partial — official EN cardlists; op shipped, dbf/dmw/una/bsr stubbed
+  "bandai-en": bandaiEn,     // blocked live reader; fixture parser preserved; permission undocumented
   vinted,                    // blocked (ToS + UK GDPR; consented first-party normalizer ready) — the honest block
   // ── unregistered (no module yet — slot reserved) ──
   cardtrader: undefined,

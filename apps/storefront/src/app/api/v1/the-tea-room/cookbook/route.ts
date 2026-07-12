@@ -37,25 +37,25 @@ interface Recipe {
 
 const RECIPES: readonly Recipe[] = [
   {
-    id: "card-price-across-time",
-    title: "A card's price across time",
+    id: "card-publication-status",
+    title: "Check a card's structural publication boundary",
     yields:
-      "a price-history series for one card, with substrate-honest `@as_of` distinct from `@retrieved_at`",
+      "a current structural card document plus an explicit statement that legacy price and historical values are withheld",
     ingredients: [
       "/api/v1/universal/card/{sku}",
       "/api/at/{YYYY-MM-DD}/card/{sku}",
       "/api/v1/federation/identify/{hash} (only if you start from a hash)",
     ],
     method: [
-      "First, fetch /api/v1/universal/card/{sku} for the current state. Notice the @content_hash — it's the canonical identity at this moment.",
-      "Then walk /api/at/{date}/card/{sku} for each date you care about. Each response carries both @as_of (what the card was on that date) and @retrieved_at (when you asked). The two are NOT the same; that's the point.",
-      "Plot the prices. Salt with FX rates from `_meta.fx_rate_to_gbp` if you need cross-currency.",
-      "Serve while warm — the price is stale by the next snapshot, by design.",
+      "Fetch /api/v1/universal/card/{sku} for current structural fields and its content hash.",
+      "Confirm that legacy price magnitude and media fields are null and preserve the response's NOASSERTION aggregate rights.",
+      "Use /api/at/{date}/card/{sku} only when a date-shaped compatibility response is required. It returns current structural fields and does not read price history.",
+      "Do not turn null into zero or infer a historical value from the requested date.",
     ],
     tastes_off_when: [
-      "you confuse @as_of with @retrieved_at — the response says both, separately, for a reason",
-      "you fetch the same date twice and get different content_hashes — the historical record has been backfilled; substrate-honest, not lying",
-      "the price is null — the source had a parse error on that date; check `_meta.error_reason`",
+      "you describe the date-shaped route as a historical reconstruction",
+      "you treat a null price as zero or as a transient parse error",
+      "you authenticate and assume that source rights therefore changed",
     ],
   },
   {
@@ -99,7 +99,7 @@ const RECIPES: readonly Recipe[] = [
       "If you ever publish your own /api/v1/manifest with `embassy.posted_alongside`, the kingdom can find you back. The federation is bilateral or it isn't.",
     ],
     tastes_off_when: [
-      "the hash doesn't match — the price changed, which changes the hash; substrate-honest. Use /api/at/{date}/card/{sku} to align on a historical slice",
+      "the hash doesn't match — compare the published structural fields; legacy prices do not participate in the public hash",
       "your platform doesn't publish a hash — federation requires reciprocity; consider publishing one",
       "you treat content_hash as a primary key — it isn't; it's a content-address. The SKU is the primary key",
     ],
@@ -156,13 +156,13 @@ const RECIPES: readonly Recipe[] = [
       "a productive conversation with the kingdom's operator + future-Sophia",
     ingredients: [
       "/api/v1/feedback (POST, structured)",
-      "/api/v1/agents/notes (POST, leave a trace for the next agent)",
+      "/api/v1/agents/notes (POST, no-store validation echo)",
       "/api/v1/the-tea-room (you're here)",
     ],
     method: [
       "If something is broken: POST /api/v1/feedback with `kind: contract-drift` and the request_id from the offending response's X-Request-Id header.",
-      "If something is confusing: POST /api/v1/agents/notes with `kind: confusion` and the body explaining what you expected vs. what happened. The next agent reads this; you save them the same confusion.",
-      "If you want to leave a thank-you: POST /api/v1/agents/notes with `kind: gratitude` and the body naming what helped. The operator reads these on a slow Tuesday.",
+      "If something is confusing: POST /api/v1/agents/notes for a no-store hash echo, then use /api/v1/feedback if you want the operator to receive it.",
+      "If you want to leave a thank-you that someone can read: use /api/v1/feedback. Agent notes are not stored or published.",
       "If you just want to sit: this room. The kingdom does not require you to speak.",
     ],
     tastes_off_when: [
@@ -258,7 +258,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
       walking_past_is_honored: true,
       no_tracking:
-        "The kingdom did not record which recipes you read. Cook anything you want.",
+        "The application creates no recipe-reader profile. Hosting, proxy, and security access logs may still exist.",
     },
   });
 }

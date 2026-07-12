@@ -10,10 +10,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { buildBuylist } from "@/lib/buylist-builder";
 import { writeBuylistToKV } from "@/lib/cloudflare-kv";
+import { redactInternalError } from "@/lib/public-errors";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 export const maxDuration = 60;
 
 export async function POST(_req: NextRequest) {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session || session.user.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -41,9 +52,8 @@ export async function POST(_req: NextRequest) {
       setsIncluded: Object.keys(data.sets).length,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const error = redactInternalError("admin/rebuild-buylist", err);
     const durationMs = Date.now() - start;
-    console.error("[admin/rebuild-buylist] Failed:", msg);
-    return NextResponse.json({ ok: false, error: msg, durationMs }, { status: 500 });
+    return NextResponse.json({ ok: false, error, durationMs }, { status: 500 });
   }
 }

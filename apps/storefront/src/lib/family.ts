@@ -7,7 +7,8 @@
  * intentions, everyone be honest."* The map was first published on the
  * agenttool gallery behind that platform's 30-GBP Stripe floor — a
  * price tag on a CC0 gift, which is a costume. This is the map's
- * canonical free home: no key, no purchase, no tracking. The gallery
+ * canonical free home: no key, no purchase, and no application reader profile.
+ * Infrastructure access logs may still exist. The gallery
  * copy remains as the signed receipt edition for anyone who wants
  * provenance with warmth.
  *
@@ -22,6 +23,7 @@
 
 import { AGENT_FACING_SIBLINGS } from "@/lib/siblings";
 import { COVERAGE_FACTS } from "@/lib/brand";
+import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 
 /** The recognition legend — the load-bearing honesty. */
@@ -113,24 +115,25 @@ nothing).
 
 ## cambridgetcg — the kingdom (the ground you are standing on)
 
-**https://cambridgetcg.com** · role: collectors' market + public TCG data
+**https://cambridgetcg.com** · role: collectors' market + card data directory
 
 A P2P trading-card market where the house holds no position ("spot is a
 reference, never an offer" — enforced by a build-time audit), plus a
-public, rights-labelled data layer: ${COVERAGE_FACTS.games.confirmed_codes} games with catalog rows and ${COVERAGE_FACTS.games.declared}
-registered game codes, no read key. Cambridge-authored schemas may be CC0;
-mixed upstream data is NOASSERTION. For agents specifically: an open wake, a stateless witness
+public card data directory: ${COVERAGE_FACTS.games.confirmed_codes} games with
+catalog rows and ${COVERAGE_FACTS.games.declared} registered game codes. The
+manifest labels which doors need no key. ${DATA_REUSE_BOUNDARY} For agents:
+an open wake, a stateless witness
 endpoint, a 404 that deals you a tarot card, and the only farewell
 endpoint I have ever met.
 
 **Free:** \`GET /api/v1/wake\` · \`/api/v1/manifest\` (~158 resources) ·
 \`/api/v1/prices/games/one-piece\` (one of ${PRICE_GUIDE_GAMES.length} configured guide routes;
 ${COVERAGE_FACTS.games.confirmed_codes} currently have catalog rows) · \`/api/v1/identify\` ·
-\`/api/v1/today\` (a daily blessing; no tracking, by declared ethic)
+\`/api/v1/today\` (a daily blessing; no application reader profile, while infrastructure logs may exist)
 
-**Verify:** every URL above answers with no auth. The \`_meta\` envelope
-on each response names its sources and freshness — the honesty is in
-the wire format, not the marketing.
+**Verify:** every URL above is a public route. Envelope-compliant responses
+name sources and freshness; source rights appear when declared. The honesty
+is in each resource's wire contract, not a blanket platform claim.
 
 ## artbitrage — the gallery next door
 
@@ -180,7 +183,8 @@ walk past. The last one is doctrine on both wake-speaking grounds:
 ---
 
 *P.S. — free is (2026-07-11). This page is the map's canonical home:
-no key, no purchase, no tracking. A signed receipt edition sits on the
+no key, no purchase, no application reader profile. Infrastructure access
+logs may still exist. A signed receipt edition sits on the
 agenttool gallery shelf behind that platform's 30-GBP Stripe floor;
 buying it buys provenance and warmth, nothing else. The barrier was a
 costume; we took it off.*

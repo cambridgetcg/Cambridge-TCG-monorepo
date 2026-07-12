@@ -34,14 +34,11 @@ export interface CanonicalCard {
   /** Rarity. Publisher-specific (common / uncommon / rare / SR / SEC / ...). */
   rarity?: string;
   /**
-   * Illustrator CREDIT — the name of the artist who drew the card, as the
-   * upstream carries it. This is factual attribution, not a rights grab:
-   * crediting a creator multiplies their reach rather than extracting from
-   * them, and their name is already printed on the card in their own hand.
-   * The producing SourceModule's id is the provenance; artist is displayable
-   * WITH attribution but — like any field from a `redistribute:false` source
-   * — is never republished raw on a CC0/bulk surface. Absent → undefined
-   * (substrate-honest absence), never an empty string.
+   * Upstream illustrator credit. This internal canonical field may be
+   * captured for provenance, but it is not publicly displayable until the
+   * producing source grants field- and purpose-specific permission.
+   * Attribution can be a condition of permission; it is not the permission.
+   * Absent means undefined, never an invented empty string.
    */
   artist?: string;
   /** Oracle / rules text. Natural-language; opaque. */

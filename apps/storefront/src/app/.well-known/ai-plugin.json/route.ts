@@ -17,15 +17,16 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 const PLUGIN = {
   schema_version: "v1",
   name_for_human: "Cambridge TCG",
   name_for_model: "cambridge_tcg",
   description_for_human:
-    "Cambridge TCG — a collectors' market and an open data commons. Cambridge-authored schemas and first-party data may be CC0; mixed upstream-derived catalog responses are NOASSERTION.",
+    `Cambridge TCG is a peer-to-peer collectors' market and card data directory. ${DATA_RIGHTS_BOUNDARY}`,
   description_for_model:
-    "Cambridge TCG is a collectors' market and an open data commons — a P2P marketplace it facilitates without holding a position, plus a public data substrate. Prices are labelled reference prices, never platform offers. Use this plugin to look up cards, walk catalogs, inspect historical slices, and read the methodology. Cambridge-authored schemas and explicitly first-party datasets may be CC0. Upstream-derived fields retain their source rights; mixed responses say NOASSERTION and per-source boundaries ride in _meta.source_license. Read /api/v1/welcome first, then /api/v1/guides and /api/v1/rate-limits. Identify yourself in User-Agent.",
+    `Cambridge TCG facilitates a peer-to-peer collectors' market without holding a position and publishes a typed card data directory. Reference prices are never platform offers. Public tools include card math mirrors, game and set directories, dated card views, and content-hash resolution. ${DATA_RIGHTS_BOUNDARY} Read /api/v1/welcome and /api/v1/manifest before use; /standards licenses specification text only, not implementation code or every payload.`,
   auth: {
     type: "none",
   },

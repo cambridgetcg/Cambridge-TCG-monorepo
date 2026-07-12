@@ -1,39 +1,37 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { projectClientSeed } from "@/lib/privacy/proof-seed";
 
-// Public verification endpoint. NO AUTH required — only data that's safe
-// to expose to anyone. Specifically excluded:
-//   - user_id (the pull's owner shouldn't be discoverable from a pull_id).
-//     The client_seed embeds the owner's userId, so the full seed is
-//     revealed only to the authenticated owner; the public surface gets
-//     the anonymised suffix.
-//   - earned_from + tier are kept (they're just metadata)
-//
-// Everything else IS the proof. The server seed, the commitment, the
-// nonce, the result — all needed to verify, all defensible to publish
-// (the commit-reveal scheme assumes the seed becomes public after the
-// roll).
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
+
+// Public verification endpoint. user_id is never returned. Legacy client
+// seeds embed that id and are therefore owner-only; new opaque seeds are
+// public. Anonymous legacy proofs still expose commitment, revealed server
+// seed, nonce, outcome, timestamps, and digest placement, but exact outcome
+// replay is partial until the owner signs in.
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   // Validate UUID shape so we don't query with random user input
   if (!/^[0-9a-f-]{36}$/i.test(id)) {
-    return NextResponse.json({ error: "Invalid pull id." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid pull id." },
+      { status: 400, headers: PRIVATE_NO_STORE },
+    );
   }
 
   const r = await query(
     `SELECT p.id, p.user_id, p.tier, p.earned_from,
             p.rng_server_seed_hash, p.rng_server_seed,
             p.rng_client_seed, p.rng_nonce,
-            p.rolled_rarity, p.rolled_sku, p.rolled_spot_gbp,
+            p.rolled_rarity, p.rolled_sku,
             p.committed_at, p.revealed_at, p.resolved_at,
             p.merkle_digest_id, p.merkle_leaf_index,
             p.vault_item_id,
             v.card_name AS vault_card_name,
             v.card_number AS vault_card_number,
-            v.image_url AS vault_image_url,
             t.rarity_weights
        FROM bounty_pulls p
        LEFT JOIN vault_items v ON v.id = p.vault_item_id
@@ -43,25 +41,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   );
 
   if (r.rows.length === 0) {
-    return NextResponse.json({ error: "Pull not found." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Pull not found." },
+      { status: 404, headers: PRIVATE_NO_STORE },
+    );
   }
 
   const row = r.rows[0];
 
-  // Anonymise the client_seed: format is `${userId}:${suffix}`
-  // (post-Phase E hardening) or just `${userId}` (legacy). The userId is
-  // a UUID; the suffix is random hex. The full seed is the pull_id→user
-  // mapping this endpoint promises not to provide, so the public surface
-  // gets only the suffix-side; the FULL seed (needed for verification
-  // math) is revealed only to the pull's authenticated owner.
   const session = await auth();
   const isOwner = !!session?.user?.id && session.user.id === row.user_id;
-  const clientSeed: string | null = row.rng_client_seed;
-  const clientSeedDisplay = clientSeed
-    ? clientSeed.includes(":")
-      ? `…:${clientSeed.split(":")[1]}` // hide userId portion
-      : "…" // legacy: hide entirely
-    : null;
+  const clientSeed = projectClientSeed(row.rng_client_seed, isOwner);
 
   return NextResponse.json({
     pull_id: row.id,
@@ -69,14 +59,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     earned_from: row.earned_from,
 
     commitment: row.rng_server_seed_hash,
-    server_seed: row.rng_server_seed,
-    client_seed: isOwner ? clientSeed : null,
-    client_seed_display: clientSeedDisplay,
+    server_seed: row.revealed_at || row.resolved_at ? row.rng_server_seed : null,
+    client_seed: clientSeed.clientSeed,
+    client_seed_display: clientSeed.display,
+    outcome_replay_available: clientSeed.outcomeReplayAvailable,
+    client_seed_withheld: clientSeed.withheld,
     nonce: row.rng_nonce != null ? Number(row.rng_nonce) : null,
 
     rolled_rarity: row.rolled_rarity,
     rolled_sku: row.rolled_sku,
-    rolled_spot_gbp: row.rolled_spot_gbp,
+    rolled_spot_gbp: null,
     rarity_weights: row.rarity_weights,
 
     committed_at: row.committed_at,
@@ -85,12 +77,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     merkle_digest_id: row.merkle_digest_id,
     merkle_leaf_index: row.merkle_leaf_index,
 
-    // Slim public-safe vault item — proves the pull paid out.
+    // Slim public-safe result card. The internal vault row id stays private.
     vault_item: row.vault_item_id ? {
-      id: row.vault_item_id,
       card_name: row.vault_card_name,
       card_number: row.vault_card_number,
-      image_url: row.vault_image_url,
+      image_url: null,
     } : null,
-  });
+    publication_boundary: {
+      rolled_spot_gbp: "withheld_pending_field_level_source_rights",
+      image_url: "withheld_pending_field_level_source_rights",
+    },
+  }, { headers: PRIVATE_NO_STORE });
 }

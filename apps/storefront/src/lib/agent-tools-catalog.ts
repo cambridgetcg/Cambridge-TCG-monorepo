@@ -34,6 +34,11 @@
  *  recommended as tools); bearer-key = the agent must hold an agent key
  *  registered at /account/agents and dispatch through /api/mcp. */
 export type ToolGating = "public" | "bearer-key";
+export type ToolAuthority =
+  | "public-discovery"
+  | "self-serve-read"
+  | "operator-managed";
+export type ToolAvailability = "available" | "paused";
 
 /** Category groupings for the catalog. Matches the kingdom's domain split. */
 export type ToolCategory =
@@ -65,6 +70,10 @@ export interface ToolCatalogEntry {
   /** Whether this tool requires bearer-key auth (true for all current
    *  /api/mcp tools) or is public (recommended-as-tool from mcp.json). */
   gating: ToolGating;
+  /** The narrowest controller class allowed to invoke this tool. */
+  authority: ToolAuthority;
+  /** Whether the dispatcher currently permits execution. */
+  availability: ToolAvailability;
   /** How fresh the underlying data is (cached / live / static). */
   freshness: "live" | "cached_60s" | "cached_5m" | "static";
   /** When this tool became stable in the kingdom. */
@@ -76,6 +85,16 @@ export interface ToolCatalogEntry {
 }
 
 const SRC_BASE = "apps/storefront/src/lib/agents";
+const PAUSED_WRITE_EXAMPLE_OUTPUT = {
+  content: [
+    {
+      type: "text",
+      text:
+        "Agent match and deck writes are paused for every key until exact validation and complete attribution ship together.",
+    },
+  ],
+  isError: true,
+};
 
 /** The catalog. Mirrors /api/mcp's TOOLS table plus example I/O. Append
  *  new tools here when /api/mcp gains them; the audit `pnpm typecheck`
@@ -90,17 +109,27 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "agent.self",
     category: "agent",
     description:
-      "Returns the calling agent's identity, rating, and key tier. Useful as a first call to confirm auth + introspect the operator-grant.",
+      "Returns the calling agent's identity, rating, key tier, operator-bound status, and whether the key is read-only. Account ids stay internal.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
     example_input: {},
     example_output_shape: {
-      actor_kind: "agent",
-      handle: "my-agent-handle",
-      operator_user_id: 123,
-      rating: { glicko2: { rating: 1500, rd: 350, vol: 0.06 } },
-      key_tier: "default",
+      agent_id: "agent-abc-123",
+      public_handle: "my-agent-handle",
+      operator_bound: true,
+      read_only: true,
+      read_only_scope: "domain-state",
+      operational_metadata_writes: [
+        "per-key rate-limit bucket",
+        "agent_keys.last_used_at after success",
+      ],
+      rating: 1500,
+      rating_deviation: 350,
+      rating_volatility: 0.06,
+      rate_limit_tier: "free",
     },
     gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -111,15 +140,17 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "play.list_open_rooms",
     category: "play",
     description:
-      "Lists public game rooms in waiting/playing status (read-only browse). Use to find a match to observe before queueing.",
+      "Lists public game-room codes and status only. It does not grant spectator access; play.observe requires a participant-owned match_id.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
     example_input: {},
     example_output_shape: {
       rooms: [
-        { id: "room-abc", status: "waiting", format: "optcg-standard", players: 1 },
+        { code: "ABC123", status: "waiting", created_at: "2026-07-12T10:00:00Z" },
       ],
     },
     gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -140,11 +171,21 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     example_output_shape: {
       match_id: "match-abc-123",
       phase: "main",
-      turn: 3,
-      my_zones: { hand_count: 5, life: 4, board: [/* GameCard[] */] },
-      opponent_zones: { hand_count: 6, life: 4, board: [/* GameCard[] */] },
+      turn_number: 3,
+      you: "player1",
+      is_your_turn: true,
+      state: {
+        currentTurn: "player1",
+        firstPlayer: "player2",
+        player1: { role: "player1", name: "Player 1", hand: [/* visible to player1 */] },
+        player2: { role: "player2", name: "Player 2", hand: [/* masked cards */] },
+      },
+      log: [{ type: "move_card", player: "player2", timestamp: "2026-07-12T10:01:00Z" }],
+      winner: null,
     },
     gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -175,6 +216,8 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       ],
     },
     gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -185,7 +228,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "play.take_action",
     category: "play",
     description:
-      "Applies an action in the match. type is a GameAction.type discriminator (refresh_all / draw_card / add_don / move_card / rest_don / attach_don / attack / next_phase / end_turn / concede). The reducer is permissive: an action that cannot apply is silently ignored rather than rejected — pick from play.legal_actions and confirm the effect with play.observe.",
+      "Paused for every key pending exact action schemas, turn validation, and agent-room route separation. Performs no write.",
     input_schema: {
       type: "object",
       properties: {
@@ -200,12 +243,10 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       type: "move_card",
       data: { cardId: "card-uuid-1", toZone: "field" },
     },
-    example_output_shape: {
-      match_id: "match-abc-123",
-      finished: false,
-      state: { /* GameState after the action */ },
-    },
+    example_output_shape: PAUSED_WRITE_EXAMPLE_OUTPUT,
     gating: "bearer-key",
+    authority: "operator-managed",
+    availability: "paused",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -216,7 +257,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "play.queue_match",
     category: "play",
     description:
-      "Enters the rated-match queue with the given deck. deck is one object PER PHYSICAL CARD ({ sku, name, cardNumber, imageUrl, rarity, isLeader? }) — no count field; repeat a card's object per copy. Minimum 10 cards or the call returns ToolError. The matchmaker pairs against another queued agent of similar Glicko-2 rating.",
+      "Paused for every key. Creates no queue or match row.",
     input_schema: {
       type: "object",
       properties: { deck: { type: "array", items: { type: "object" } } },
@@ -242,8 +283,10 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
         })),
       ],
     },
-    example_output_shape: { queued: true, rating: 1500, paired_immediately: false },
+    example_output_shape: PAUSED_WRITE_EXAMPLE_OUTPUT,
     gating: "bearer-key",
+    authority: "operator-managed",
+    availability: "paused",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -253,11 +296,13 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     dotted_name: "play.cancel_queue",
     mcp_spec_name: "play.cancel_queue",
     category: "play",
-    description: "Leaves the rated-match queue. Idempotent.",
+    description: "Paused for every key. Deletes no queue row.",
     input_schema: { type: "object", properties: {} },
     example_input: {},
-    example_output_shape: { cancelled: true },
+    example_output_shape: PAUSED_WRITE_EXAMPLE_OUTPUT,
     gating: "bearer-key",
+    authority: "operator-managed",
+    availability: "paused",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -277,14 +322,17 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       matches: [
         {
           match_id: "match-prev-001",
-          result: "win",
+          outcome: "win",
           opponent_handle: "other-agent",
-          rating_delta: 14,
+          rating_before: 1500,
+          rating_after: 1514,
           ended_at: "2026-05-17T10:00:00Z",
         },
       ],
     },
     gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -295,7 +343,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "catalog.search",
     category: "catalog",
     description:
-      "Search the card catalog. Free-text query against name, set, and number. Returns canonical SKUs + display fields.",
+      "Catalog-search publication status. Returns zero rows and performs no catalog database read while field-level rights and a non-enumerating rule are unresolved.",
     input_schema: {
       type: "object",
       properties: {
@@ -305,12 +353,16 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     example_input: { q: "monkey d luffy", limit: 5 },
     example_output_shape: {
-      results: [
-        { sku: "op-op01-001-ja", name: "Monkey.D.Luffy", set: "OP01", number: "001" },
-      ],
-      total: 12,
+      publication_status: "paused_pending_field_level_rights",
+      available: false,
+      sources: ["catalog-publication-policy"],
+      source_license: ["cc0"],
+      license: "NOASSERTION",
+      results: [],
     },
     gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -321,7 +373,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "leaderboards.read",
     category: "leaderboards",
     description:
-      "Read a public leaderboard. Currently the agent-Glicko-2 ladder; future kinds will be added.",
+      "Returns status only while the agent ladder waits for a versioned participant publication receipt. Performs no ladder database read.",
     input_schema: {
       type: "object",
       properties: {
@@ -332,12 +384,14 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     example_input: { kind: "agents", limit: 10 },
     example_output_shape: {
       kind: "agents",
-      entries: [
-        { rank: 1, handle: "top-agent", rating: 1820, matches_played: 142 },
-      ],
+      publication_status: "paused_pending_publication_receipt",
+      available: false,
+      rows: [],
     },
     gating: "bearer-key",
-    freshness: "live",
+    authority: "self-serve-read",
+    availability: "available",
+    freshness: "static",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
     source: `${SRC_BASE}/platform-tools.ts`,
@@ -347,7 +401,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "prices.recent",
     category: "prices",
     description:
-      "Recent retail-price observations for a canonical SKU. For the math-mirror universal form, use /api/v1/universal/card/{sku} (public, no-auth).",
+      "Returns publication status only. Recent price observations are paused pending source-rights review, and the tool performs no price database read.",
     input_schema: {
       type: "object",
       properties: {
@@ -358,13 +412,13 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     },
     example_input: { sku: "op-op01-001-ja", days: 30 },
     example_output_shape: {
-      sku: "op-op01-001-ja",
-      observations: [
-        { date: "2026-05-17", source: "tcgrepublic", price_gbp: 4.20, license_tier: "internal-only" },
-      ],
+      publication_status: "paused_pending_source_rights",
+      available: false,
     },
     gating: "bearer-key",
-    freshness: "live",
+    authority: "self-serve-read",
+    availability: "available",
+    freshness: "static",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
     source: `${SRC_BASE}/platform-tools.ts`,
@@ -374,7 +428,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "deck.save",
     category: "deck",
     description:
-      "Save a deck for the agent's operator. entries are { sku, quantity } (quantity clamped 1-4; a missing quantity saves as 1). Decks are prefixed `agent:<handle>` to namespace from operator-saved decks. Bounded write to the operator's authority.",
+      "Paused for every key pending exact deck-entry validation and complete agent attribution. Performs no write.",
     input_schema: {
       type: "object",
       properties: {
@@ -394,15 +448,10 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       ],
       notes: "tested against blue-control mirror",
     },
-    example_output_shape: {
-      ok: true,
-      deck_id: "deck-abc-789",
-      slug: "agent-my-handle-my-luffy-rush-x7k2q9",
-      name: "agent:my-handle · my-luffy-rush",
-      entries_count: 2,
-      saved_for_user_id: 123,
-    },
+    example_output_shape: PAUSED_WRITE_EXAMPLE_OUTPUT,
     gating: "bearer-key",
+    authority: "operator-managed",
+    availability: "paused",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -412,7 +461,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     dotted_name: "deck.list_mine",
     mcp_spec_name: "deck.list_mine",
     category: "deck",
-    description: "List decks this agent has saved. Namespaced to agent:<handle>.",
+    description: "Operator-managed agents only: list decks this agent saved for the linked operator. Self-serve keys are read-only.",
     input_schema: { type: "object", properties: {} },
     example_input: {},
     example_output_shape: {
@@ -426,6 +475,8 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       ],
     },
     gating: "bearer-key",
+    authority: "operator-managed",
+    availability: "available",
     freshness: "live",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -444,7 +495,9 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
         { name: "agent.self", description: "Returns the calling agent's identity..." },
       ],
     },
-    gating: "bearer-key",
+    gating: "public",
+    authority: "public-discovery",
+    availability: "available",
     freshness: "static",
     since: "2026-03-01",
     dispatch_url: "/api/mcp",
@@ -474,6 +527,11 @@ export function toolsByGating(gating: ToolGating): readonly ToolCatalogEntry[] {
   return AGENT_TOOLS.filter((t) => t.gating === gating);
 }
 
+/** Filter by controller authority. */
+export function toolsByAuthority(authority: ToolAuthority): readonly ToolCatalogEntry[] {
+  return AGENT_TOOLS.filter((tool) => tool.authority === authority);
+}
+
 /** Summary block for the catalog's preamble. */
 export const TOOLS_CATALOG_SUMMARY = {
   total: AGENT_TOOLS.length,
@@ -487,11 +545,31 @@ export const TOOLS_CATALOG_SUMMARY = {
     for (const t of AGENT_TOOLS) counts[t.gating] = (counts[t.gating] ?? 0) + 1;
     return counts;
   },
+  by_authority: () => {
+    const counts: Partial<Record<ToolAuthority, number>> = {};
+    for (const tool of AGENT_TOOLS) {
+      counts[tool.authority] = (counts[tool.authority] ?? 0) + 1;
+    }
+    return counts;
+  },
+  by_availability: () => {
+    const counts: Partial<Record<ToolAvailability, number>> = {};
+    for (const tool of AGENT_TOOLS) {
+      counts[tool.availability] = (counts[tool.availability] ?? 0) + 1;
+    }
+    return counts;
+  },
   dispatch_url: "/api/mcp",
   protocol: "JSON-RPC 2.0 over HTTP POST",
+  transport_scope:
+    "Custom request/response HTTPS endpoint; not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the vendored stdio bridge, which is not npm-published.",
   mcp_spec_version: "2024-11-05",
-  auth_required: "Bearer <agent-key> in Authorization header for all current tools",
-  register_at: "/account/agents",
+  auth:
+    "mcp.list_tools/tools/list is public; every other tool requires Bearer <agent-key>",
+  authority:
+    "Existing self-serve keys are read-only. Operator-managed keys may use account-linked reads; every match and deck write is paused.",
+  self_serve_registration: "paused",
+  operator_provision_at: "/account/agents",
   discovery_files: ["/.well-known/mcp.json", "/.well-known/mcp-config.json"],
   doctrine_url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-mcp-surface.md",
 } as const;

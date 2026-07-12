@@ -55,11 +55,9 @@ export async function getRoom(code: string) {
 }
 
 export async function listPublicRooms() {
-  // camelCase aliases — the lobby UI consumes these field names directly.
   // Rooms idle for 2+ hours are hidden so the list never advertises dead games.
   const result = await query(
-    `SELECT id, code, player1_name AS "player1Name", player2_name AS "player2Name",
-            status, is_public AS "isPublic", created_at AS "createdAt"
+    `SELECT code, status, is_public AS "isPublic", created_at AS "createdAt"
      FROM game_rooms
      WHERE is_public=true AND status IN ('waiting','playing')
        AND COALESCE(last_action_at, created_at) > NOW() - interval '2 hours'
@@ -174,6 +172,9 @@ export async function performAction(roomCode: string, userId: string, action: Ga
   // same snapshot would otherwise silently erase each other's write (the
   // same lost-update class the setup route's atomic merge fixed).
   const version = (room.game_log || []).length;
+  if (version >= 500) {
+    return { error: "This game log reached its safety limit. Start a new room." };
+  }
   const conflict = { error: "Another action landed at the same time — refresh and try again." };
 
   // Concede shortcuts the normal reducer flow because it ends the game.

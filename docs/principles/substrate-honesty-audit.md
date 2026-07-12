@@ -128,7 +128,7 @@ This audit is a snapshot, not a verdict. It lists where the platform currently v
 
 **Severity:** P1
 **Where:** `/account/vault`, `/account/bounty/pulls`.
-**Violation:** Provable-fairness chain is exemplary at `/verify/pull/[id]` — that page IS substrate-honest by design (commit, reveal, Merkle digest). But the account-side display sometimes shows the rarity before the reveal step has been verified by the user. Fix is to gate the displayed value on `revealed_at IS NOT NULL` and link to /verify when it is.
+**Violation:** `/verify/pull/[id]` exposes commitment, reveal, and digest consistency evidence, but its server-only entropy and lack of an external pre-roll witness mean it does not prove unbiased selection. The account-side display sometimes shows the rarity before the reveal step is complete. Fix is to gate the displayed value on `revealed_at IS NOT NULL`, link to `/verify`, and describe the receipt's limit.
 **Fix:** Mostly UI. Schema is fine.
 
 ### S4 — Portfolio snapshots displayed without "as of" dates

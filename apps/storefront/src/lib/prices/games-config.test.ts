@@ -107,9 +107,11 @@ describe("cardrush coverage truth (spec 2026-07-07 §1)", () => {
     // never an inline object carrying its own confirmed. Scoped to the
     // array body: the interface's type annotation and prose copy may
     // legitimately carry the word "confirmed".
-    const arrayStart = source.indexOf("export const PRICE_GUIDE_GAMES");
+    const arrayStart = source.indexOf("const PRICE_GUIDE_GAME_DEFINITIONS");
     expect(arrayStart).toBeGreaterThan(-1);
-    const rows = source.slice(arrayStart);
+    const arrayEnd = source.indexOf("export const PRICE_GUIDE_GAMES", arrayStart);
+    expect(arrayEnd).toBeGreaterThan(arrayStart);
+    const rows = source.slice(arrayStart, arrayEnd);
     expect(rows).not.toMatch(/cardrush:\s*\{[^}]*confirmed:/s);
     expect(rows).toMatch(/cardrush:\s*cardrushCoverage\(/);
   });

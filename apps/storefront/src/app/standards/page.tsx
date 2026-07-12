@@ -18,15 +18,21 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
 
 export const metadata: Metadata = {
   title: "Cambridge TCG Standards — the data distributor",
   description:
-    "Cambridge TCG maintains three open standards for the TCG economy: CTCG-SKU-v1 (canonical card identifiers), CTCG-PRICING-v1 (channel-aware pricing math), CTCG-UNIVERSAL-v1 (language-free machine-readable card data). CC0-licensed specs. Reference implementations open. Adopt freely.",
+    "Cambridge TCG maintains three CC0 specification texts for the TCG economy: CTCG-SKU-v1, CTCG-PRICING-v1, and CTCG-UNIVERSAL-v1. Implementation code has separate rights and no general code license is implied.",
   other: audienceMetadata("public-documentation", ["standards", "distributor", "spec"]),
 };
 
-type Status = "frozen" | "draft" | "spec-only" | "planned";
+type Status = "frozen" | "draft" | "implemented" | "planned";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 interface Standard {
   code: string;
@@ -47,7 +53,7 @@ const STANDARDS: Standard[] = [
     version: "1.0",
     status: "frozen",
     short:
-      "One canonical SKU format for every card in every TCG. <game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. Thirteen registered games.",
+      `One canonical SKU format for every card in every TCG. <game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. ${PUBLIC_GAME_COUNT} public game codes; ${PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows.`,
     spec_url: "/methodology/sku-standard",
     impl_url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/sku",
   },
@@ -65,12 +71,12 @@ const STANDARDS: Standard[] = [
     code: "CTCG-UNIVERSAL-v1",
     title: "Universal-representation (math-mirror)",
     version: "1.0",
-    status: "spec-only",
+    status: "implemented",
     short:
       "The math-first sibling of every artifact the platform exposes. Cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. For LLM agents, archivists, hyperliteral readers, and any computing intelligence.",
     spec_url: "/methodology/universal-representation",
     endpoint_url: "/api/v1/universal/card/[sku]",
-    endpoint_status: "planned",
+    endpoint_status: "shipped",
   },
 ];
 
@@ -78,7 +84,7 @@ function StatusPill({ s }: { s: Status }) {
   const colors: Record<Status, string> = {
     frozen: "bg-ok/10 text-ok border-ok/30",
     draft: "bg-accent-wash text-accent-strong border-accent/30",
-    "spec-only": "bg-info/10 text-info border-info/30",
+    implemented: "bg-info/10 text-info border-info/30",
     planned: "bg-surface-subtle text-ink-muted border-border-subtle",
   };
   return (
@@ -96,11 +102,10 @@ export default function StandardsPage() {
       <h1>Cambridge TCG Standards</h1>
 
       <p className="text-lg">
-        Cambridge TCG maintains <strong>three open standards</strong> for the
-        TCG economy. They are <strong>CC0-licensed</strong>. Reference
-        implementations are open. <strong>Adopt freely</strong> — no
-        attribution required, no commercial entanglement, no covenant beyond
-        the spec's own version policy.
+        Cambridge TCG maintains <strong>three CC0 specification texts</strong> for
+        the TCG economy. You may adopt those texts without attribution. Linked
+        implementation source is publicly inspectable, but the repository has no
+        general code license; the specification dedication does not license code.
       </p>
 
       <p>
@@ -175,9 +180,9 @@ export default function StandardsPage() {
           possible before frozen.
         </li>
         <li>
-          <strong>spec-only</strong> — the standard is defined; the platform's
-          serving endpoint is still planned. Adopters can implement against the
-          spec today; the canonical reference response will follow.
+          <strong>implemented</strong> — the specification has a shipped
+          platform endpoint. Individual fields may still be withheld by their
+          own publication-rights boundary.
         </li>
         <li>
           <strong>planned</strong> — named but not yet shipped.
@@ -186,9 +191,9 @@ export default function StandardsPage() {
 
       <p>
         <strong>Substrate honesty:</strong> the platform doesn't claim more
-        than it has. CTCG-UNIVERSAL-v1's endpoint isn't shipped yet; we say
-        so. Adopters can read the spec and implement; the platform's reference
-        response arrives when the endpoint does.
+        than it has. CTCG-UNIVERSAL-v1 has a shipped reference endpoint; its
+        legacy price and image fields are currently null pending field-level
+        source-rights review.
       </p>
 
       <hr />
@@ -202,8 +207,8 @@ export default function StandardsPage() {
         </li>
         <li>
           <strong>Implement</strong> in your language of choice, or import the
-          reference TypeScript packages directly from the monorepo
-          (or wait for the npm-published releases — recursion target).
+          CC0 specification text. The linked TypeScript package is inspectable,
+          but it has no general code reuse license and is not a public npm grant.
         </li>
         <li>
           <strong>Emit</strong> canonical SKUs (lowercase, hyphen-separated,
@@ -226,10 +231,10 @@ export default function StandardsPage() {
       </ol>
 
       <p>
-        The protocol is <strong>light by design</strong>. CC0 removes legal
-        ceremony. The reference impl removes parser-rewrite burden. The
-        version-stable contract removes drift fear. The discoverability surface
-        gives partners somewhere to point their own users at.
+        The protocol is <strong>light by design</strong>. CC0 removes ceremony for
+        the specification text, while the version-stable contract limits drift.
+        Implementation source can be inspected as an example but not assumed
+        reusable without its own license.
       </p>
 
       <hr />
@@ -243,13 +248,9 @@ export default function StandardsPage() {
       <ul>
         <li>
           <strong>npm packages</strong> — reference implementations are
-          monorepo-internal today. Future publication path:{" "}
+          publicly inspectable in the monorepo but are not npm-published and
+          carry no general code reuse license. A possible future path is{" "}
           <code>@cambridge-tcg/sku-spec</code>, <code>@cambridge-tcg/pricing-spec</code>.
-        </li>
-        <li>
-          <strong>Universal endpoint</strong> — the spec is published but{" "}
-          <code>/api/v1/universal/card/[sku]</code> isn&apos;t live yet (see{" "}
-          <Link href="/data"><code>/data</code></Link>).
         </li>
         <li>
           <strong>Pricing-as-JSON endpoint</strong> — methodology exists; a
@@ -259,12 +260,6 @@ export default function StandardsPage() {
         <li>
           <strong>Standards changelog feed</strong> — versioned RSS / email
           for adopters to subscribe to.
-        </li>
-        <li>
-          <strong>Adopter registry</strong> — public list of platforms using
-          CTCG standards.{" "}
-          <Link href="/standards/adopters">/standards/adopters</Link> ships
-          this commit, currently empty; grows by self-declaration.
         </li>
         <li>
           <strong>Standards governance doc</strong> — who decides v2; how
@@ -288,8 +283,8 @@ export default function StandardsPage() {
       </p>
 
       <p>
-        Reference implementation code is separately licensed (currently
-        monorepo-internal; future npm releases will carry MIT or equivalent).
+        Reference implementation code is publicly visible but currently carries
+        no general reuse license; future npm releases may carry MIT or equivalent.
         Platform application code, operational data, trade marks, and visual
         identity remain Cambridge TCG&apos;s and are not granted by this
         declaration.

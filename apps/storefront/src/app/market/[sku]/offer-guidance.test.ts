@@ -13,25 +13,14 @@ process.env.DATABASE_URL ||= "postgres://localhost:5432/placeholder_never_connec
 const { acceptedOfferEconomics } = await import("@/lib/market/offers");
 
 describe("pickOfferAnchor", () => {
-  it("prefers own-tape VWAP over everything", () => {
-    expect(pickOfferAnchor({ vwap: 18.5, median: 17, tradeCount: 4 }, 25))
-      .toEqual({ kind: "own-tape", basis: "vwap", value: 18.5 });
+  it("uses the labelled catalogue reference", () => {
+    expect(pickOfferAnchor(25))
+      .toEqual({ kind: "catalogue-reference", value: 25 });
   });
 
-  it("falls back to own-tape median when VWAP is null", () => {
-    expect(pickOfferAnchor({ vwap: null, median: 17, tradeCount: 4 }, 25))
-      .toEqual({ kind: "own-tape", basis: "median", value: 17 });
-  });
-
-  it("uses CTCG spot only when the tape is cold", () => {
-    expect(pickOfferAnchor({ vwap: null, median: null, tradeCount: 0 }, 25))
-      .toEqual({ kind: "ctcg-spot", value: 25 });
-    expect(pickOfferAnchor(null, 25)).toEqual({ kind: "ctcg-spot", value: 25 });
-  });
-
-  it("returns null when neither source exists", () => {
-    expect(pickOfferAnchor(null, null)).toBeNull();
-    expect(pickOfferAnchor({ vwap: null, median: null, tradeCount: 0 }, 0)).toBeNull();
+  it("returns null without a usable catalogue reference", () => {
+    expect(pickOfferAnchor(null)).toBeNull();
+    expect(pickOfferAnchor(0)).toBeNull();
   });
 });
 

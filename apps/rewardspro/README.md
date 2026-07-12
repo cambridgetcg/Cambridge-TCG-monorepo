@@ -84,21 +84,25 @@ extensions/
 ## Critical Rules
 
 ```typescript
-// EVERY route must authenticate
+// EVERY account-data route must authenticate or fail closed
 const { admin, session } = await authenticate.admin(request);
 
 // EVERY database query must scope to shop
 const data = await db.model.findMany({ where: { shop: session.shop } });
 
-// EVERY webhook must verify HMAC
+// EVERY webhook must verify its provider signature before persistence or fail closed
 const verified = await verifyHmac(rawBody, hmacHeader, secret);
 ```
 
 ## Deployment
 
-- **Production**: Direct database connection via Vercel
-- **Preview**: Aurora Data API (zero connections)
-- **Local**: Direct connection or Data API
+- **Deployed runtime**: Aurora Data API through the legacy compatibility client
+  or the Prisma driver adapter, selected by `USE_PRISMA_DRIVER_ADAPTER`
+- **Public health**: `/api/health` proves process liveness only
+- **Operator readiness**: `/api/operator/readiness` performs one authenticated,
+  read-only database probe using the exact `CRON_SECRET` Bearer credential
+- **Local**: uses the same Data API clients when their Aurora and AWS settings
+  are configured
 
 See [Deployment Guide](./docs/03-deployment/deployment-guide.md) for details.
 

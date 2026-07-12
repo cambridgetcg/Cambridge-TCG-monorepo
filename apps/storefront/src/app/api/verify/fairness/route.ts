@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import {
+  aliasDistributionRows,
+  hasPublicDistributionSample,
+} from "@/lib/privacy/draw-proof";
 
-// Public aggregate fairness data. Reports, per tier, the last-30-day
+// Public observed-distribution data. Reports, per tier, the last-30-day
 // rolled-rarity distribution alongside the configured rarity_weights
 // so anyone can eyeball "are actual pulls matching the stated odds?"
 //
-// No user data exposed — only aggregate counts per tier+rarity. A
-// single weekly rarity outcome already leaks ~0 about any individual.
+// Low-volume groups are withheld rather than returning exact activity counts.
+// Generic-draw option keys are receipt internals, so public rows use labels
+// that cannot be joined back to reward-pool records.
 
 const WINDOW_DAYS = 30;
 const MIN_SAMPLES = 30; // hide tiers with too few pulls to signal anything
@@ -58,7 +63,7 @@ export async function GET() {
     });
 
     // Chi-square-ish deviation: sum((observed - expected_count)^2 /
-    // expected_count) — a crude fairness signal. High numbers with
+    // expected_count) — a crude distribution signal. High numbers with
     // low samples are meaningless; the UI hides the metric below the
     // sample threshold.
     let chiSquare = 0;
@@ -69,6 +74,19 @@ export async function GET() {
       }
     }
 
+    const enoughSamples = hasPublicDistributionSample(total, total, MIN_SAMPLES);
+    if (!enoughSamples) {
+      return {
+        tier: t.tier,
+        display_name: t.display_name,
+        enabled: t.enabled,
+        total_pulls: null,
+        rarities: [],
+        chi_square: null,
+        enough_samples: false,
+      };
+    }
+
     return {
       tier: t.tier,
       display_name: t.display_name,
@@ -76,7 +94,7 @@ export async function GET() {
       total_pulls: total,
       rarities: rarityRows,
       chi_square: chiSquare,
-      enough_samples: total >= MIN_SAMPLES,
+      enough_samples: true,
     };
   });
 
@@ -135,10 +153,8 @@ export async function GET() {
   }
 
   const perDrawKind = Array.from(perKindAgg.entries()).map(([kind, agg]) => {
-    // Union of outcome keys seen in either expected or observed. For
-    // weight keys that are opaque ids (pool row ids, segment indices),
-    // the UI can show them as-is; surfaces wanting human labels
-    // should derive them at render time from their own lookups.
+    // Union of outcome keys seen in either expected or observed. These keys
+    // can be reward-pool row ids and must never leave this route unchanged.
     const keys = new Set([...Object.keys(agg.expected), ...Object.keys(agg.observed)]);
     const totalObs = Object.values(agg.observed).reduce((s, n) => s + n, 0);
 
@@ -166,13 +182,25 @@ export async function GET() {
     // the long tail of opaque keys isn't visually informative.
     rows.sort((a, b) => b.observed_count - a.observed_count);
 
+    const enoughSamples = hasPublicDistributionSample(agg.draws, agg.slotTotal, MIN_SAMPLES);
+    if (!enoughSamples) {
+      return {
+        kind,
+        draw_count: null,
+        slot_total: null,
+        rows: [],
+        chi_square: null,
+        enough_samples: false,
+      };
+    }
+
     return {
       kind,
       draw_count: agg.draws,
       slot_total: agg.slotTotal,
-      rows: rows.slice(0, 12), // cap the tail so the UI stays readable
+      rows: aliasDistributionRows(rows.slice(0, 12)),
       chi_square: chiSquare,
-      enough_samples: agg.slotTotal >= MIN_SAMPLES,
+      enough_samples: true,
     };
   });
 

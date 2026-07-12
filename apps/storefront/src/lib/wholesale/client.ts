@@ -38,6 +38,10 @@ import {
   dbFetchPrices,
   dbFetchSets,
 } from './db-source';
+import {
+  publicCatalogSort,
+  withholdUnreviewedWholesaleFields,
+} from '@/lib/public-wholesale-fields';
 
 /**
  * Which substrate served a catalog response.
@@ -114,8 +118,8 @@ async function wholesaleFetch(
 export interface PriceItem {
   sku: string;
   card_number: string;
-  price_gbp: number;
-  channel_price?: number;
+  price_gbp: number | null;
+  channel_price?: number | null;
   stock: number;
   pending_stock: number;
   image_url: string | null;
@@ -219,6 +223,7 @@ export async function fetchPrices(params?: {
   channel?: string;
 }): Promise<PricesResponse> {
   const url = new URL(WHOLESALE_URL + '/api/v1/prices');
+  const safeSort = publicCatalogSort(params?.sort);
   // After wholesale fix #2 the API ignores ?channel= and uses the key's
   // own channel. We still send it for log clarity, and we swap the key
   // for the wholesale channel.
@@ -227,7 +232,7 @@ export async function fetchPrices(params?: {
   if (params?.game) url.searchParams.set('game', params.game);
   if (params?.set) url.searchParams.set('set', params.set);
   if (params?.q) url.searchParams.set('q', params.q);
-  if (params?.sort) url.searchParams.set('sort', params.sort);
+  url.searchParams.set('sort', safeSort);
   if (params?.in_stock) url.searchParams.set('in_stock', 'true');
   if (params?.limit) url.searchParams.set('limit', String(params.limit));
   if (params?.offset) url.searchParams.set('offset', String(params.offset));
@@ -240,8 +245,12 @@ export async function fetchPrices(params?: {
         next: { revalidate: 300 },
       });
       if (res.ok) {
-        const data = await res.json();
-        return { ...data, source: 'wholesale-api' };
+        const data = await res.json() as PricesResponse;
+        return {
+          ...data,
+          items: data.items.map(withholdUnreviewedWholesaleFields),
+          source: 'wholesale-api',
+        };
       }
       console.error('[wholesale] prices error', res.status, await res.text().catch(() => ''));
     } catch (err) {
@@ -250,7 +259,7 @@ export async function fetchPrices(params?: {
   }
 
   try {
-    return await dbFetchPrices(params);
+    return await dbFetchPrices({ ...params, sort: safeSort });
   } catch (err) {
     console.error('[wholesale] prices db-source error', err);
     return { count: 0, total: 0, channel: '', items: [], source: 'unavailable' };
@@ -271,7 +280,10 @@ export async function fetchCard(sku: string, channel = 'cambridgetcg'): Promise<
         next: { revalidate: 300 },
       });
       if (res.status === 404) return null;
-      if (res.ok) return res.json();
+      if (res.ok) {
+        const item = await res.json() as PriceItem;
+        return withholdUnreviewedWholesaleFields(item);
+      }
       console.error('[wholesale] card error', res.status);
     } catch (err) {
       console.error('[wholesale] card fetch error', err);
@@ -297,7 +309,8 @@ export async function fetchCardFresh(sku: string, channel = 'cambridgetcg'): Pro
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('wholesale_unavailable: ' + res.status);
-  return res.json();
+  const item = await res.json() as PriceItem;
+  return withholdUnreviewedWholesaleFields(item);
 }
 
 export interface GamesResult {
@@ -590,43 +603,14 @@ export interface CardrushHistoryResponse {
 }
 
 /**
- * Fetch CardRush observation history for one card. License-sensitive:
- * the returned values are raw JPY observations under cardrush's
- * internal-only license. Storefront callers must enforce a session gate
- * before exposing.
+ * Legacy compatibility function. Authentication does not create upstream
+ * publication permission, so it returns null without making a request.
  */
-export async function fetchCardrushHistory(opts: {
+export async function fetchCardrushHistory(_opts: {
   sku: string;
   limit?: number;
 }): Promise<CardrushHistoryResponse | null> {
-  const u = new URL(
-    WHOLESALE_URL + "/api/v1/cardrush/history/" + encodeURIComponent(opts.sku),
-  );
-  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
-  let res: Response;
-  try {
-    res = await wholesaleFetch(
-      u.toString(),
-      {
-        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-        next: { revalidate: 300 },
-      },
-    );
-  } catch (err) {
-    console.error("[wholesale] cardrush-history fetch error", err);
-    return null;
-  }
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    console.error("[wholesale] cardrush-history error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as CardrushHistoryResponse;
-  } catch (err) {
-    console.error("[wholesale] cardrush-history parse error", err);
-    return null;
-  }
+  return null;
 }
 
 // ── Multi-source latest snapshot (kingdom-081 Phase 5.2) ─────────────
@@ -966,6 +950,9 @@ export interface MoversResponse {
   min_price_floor: number;
   source: "cardrush";
   source_license: "internal-only";
+  publication_status: "blocked";
+  policy_url: "https://cardrush.media/data_policy";
+  reason: string;
   channel: string;
   game_code: string;
   computed_at: string | null;
@@ -981,6 +968,10 @@ function emptyMovers(game: string): MoversResponse {
     min_price_floor: 10,
     source: "cardrush",
     source_license: "internal-only",
+    publication_status: "blocked",
+    policy_url: "https://cardrush.media/data_policy",
+    reason:
+      "CardRush-derived movements are withheld because no written collection or downstream publication permission is recorded.",
     channel: "cambridgetcg",
     game_code: game,
     computed_at: null,
@@ -996,35 +987,7 @@ export async function fetchMovers(opts: {
   limit?: number;
   category?: "singles" | "sealed";
 }): Promise<MoversResponse> {
-  const url = new URL(WHOLESALE_URL + "/api/v1/prices/movers");
-  url.searchParams.set("game", opts.game);
-  if (opts.window) url.searchParams.set("window", opts.window);
-  if (opts.min_price !== undefined)
-    url.searchParams.set("min_price", String(opts.min_price));
-  if (opts.limit !== undefined)
-    url.searchParams.set("limit", String(opts.limit));
-  if (opts.category) url.searchParams.set("category", opts.category);
-
-  let res: Response;
-  try {
-    res = await wholesaleFetch(url.toString(), {
-      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-      next: { revalidate: 300 },
-    });
-  } catch (err) {
-    console.error("[wholesale] movers fetch error", err);
-    return emptyMovers(opts.game);
-  }
-  if (!res.ok) {
-    console.error("[wholesale] movers error", res.status);
-    return emptyMovers(opts.game);
-  }
-  try {
-    return (await res.json()) as MoversResponse;
-  } catch (err) {
-    console.error("[wholesale] movers parse error", err);
-    return emptyMovers(opts.game);
-  }
+  return emptyMovers(opts.game);
 }
 
 export async function reportSale(sale: {

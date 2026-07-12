@@ -136,7 +136,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return jsonResponse({
     data,
     endpoint: "/api/v1/gaps",
-    sources: ["ctcg-derived"],
+    sources: ["cambridge-tcg.known-gaps-registry"],
+    source_license: ["cc0"],
+    license: "CC0-1.0",
     freshness: "methodology",
     contains_self: true,
   });

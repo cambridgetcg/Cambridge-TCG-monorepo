@@ -8,6 +8,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 export const metadata: Metadata = {
   title: "Methodology",
@@ -157,7 +163,7 @@ const TOPICS: Topic[] = [
   {
     slug: "market",
     title: "Market mirror",
-    blurb: "What each section on /cards/[sku]/market is, how it's computed, what counterparty trust means, why conditions are not collapsed. Seven sections: card-meta, order book (top-10 with condition breakdown), aggregate stats (VWAP/median/spread/last/completion), the tape (last 20 trades with trust tier inline), price history (7/30/90/365d), condition breakdown, anonymised 90d participants. Sibling to the interactive /market/[sku] surface.",
+    blurb: "How /cards/[sku]/market, /market/[sku], and the public market APIs separate deliberate open-order intent and non-person reference observations from private activity. Completed-trade analytics, watch and alert counts, co-watch recommendations, demand signals, and transaction rankings are paused until purpose-specific publication receipts and a delayed, coarse release process exist.",
     status: "published",
   },
   {
@@ -193,7 +199,7 @@ const TOPICS: Topic[] = [
   {
     slug: "sku-standard",
     title: "SKU standard (v1)",
-    blurb: "One canonical SKU format for every card in every TCG the platform catalogues. <game>-<set>-<number>-<lang>[-<variant>] — lowercase, hyphen-separated, machine-parseable, language-aware. Thirteen registered games. The substrate the math-mirror hashes for cryptographic identity.",
+    blurb: `One canonical SKU format for every card in every TCG the platform catalogues. <game>-<set>-<number>-<lang>[-<variant>] — lowercase, hyphen-separated, machine-parseable, language-aware. ${PUBLIC_GAME_COUNT} public game codes are registered; ${PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows. The substrate the math-mirror hashes for cryptographic identity.`,
     status: "published",
   },
   {

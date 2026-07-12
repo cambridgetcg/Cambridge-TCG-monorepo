@@ -7,7 +7,6 @@ import { formatPrice, formatDateTime } from "@/lib/format";
 import { Money } from "@/lib/fx/Money";
 import { EmptyState } from "@/lib/ui/EmptyState";
 import { Icon, type IconName } from "@/lib/ui/Icon";
-import { TrustTier } from "@/lib/ui/TrustTier";
 import { WhyLink } from "@/lib/ui/WhyLink";
 import { Badge, TONE_COLOR } from "@/lib/ui/Badge";
 import { RarityPalette } from "@/lib/ui/status-palettes";
@@ -210,81 +209,6 @@ function BidAskRow({
   );
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) +
-    " " +
-    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-}
-
-/** Inline SVG sparkline — no chart lib, no deps.
- *  Height 28px, width scales to container. Stroke is the theme accent;
- *  the 24h change pill alongside carries the trend reading. */
-function Sparkline({ points, width = 120, height = 28 }: {
-  points: number[]; width?: number; height?: number;
-}) {
-  if (!points.length) return null;
-  if (points.length === 1) {
-    return (
-      <svg width={width} height={height} className="block">
-        <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="var(--color-ink-faint)" strokeWidth={1} />
-      </svg>
-    );
-  }
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = max - min || 1;
-  const stepX = width / (points.length - 1);
-  const path = points
-    .map((p, i) => {
-      const x = i * stepX;
-      const y = height - ((p - min) / range) * (height - 4) - 2;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg width={width} height={height} className="block" aria-hidden="true">
-      <path d={path} fill="none" stroke="var(--color-accent)" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/** Price history tile — sparkline + 24h change pill. */
-function PriceHistoryTile({ analytics }: {
-  analytics: { sparkline: number[]; lastPrice: number | null; change24hPct: number | null };
-}) {
-  const v = useVoice();
-  const { sparkline, lastPrice, change24hPct } = analytics;
-  if (!sparkline?.length || lastPrice === null) {
-    return (
-      <div className="wardrobe-mat rounded-lg p-3 mb-4">
-        <span className="text-xs text-ink-faint">{v("market.card.history.empty")}</span>
-      </div>
-    );
-  }
-  const changeColor =
-    change24hPct === null ? "text-ink-faint" :
-    change24hPct > 0 ? "text-bid" :
-    change24hPct < 0 ? "text-ask" : "text-ink-muted";
-  const changeSign = change24hPct === null ? "" : change24hPct > 0 ? "+" : "";
-  return (
-    <div className="wardrobe-mat rounded-lg p-3 mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-ink-faint uppercase tracking-wide">30-day price</span>
-        {change24hPct !== null && (
-          <span className={`text-xs font-mono tabular-nums ${changeColor}`}>
-            {changeSign}{change24hPct.toFixed(1)}% 24h
-          </span>
-        )}
-      </div>
-      <Sparkline points={sparkline} width={200} height={32} />
-      <p className="text-[10px] text-ink-faint mt-1">
-        <span className="font-mono tabular-nums">{sparkline.length}</span> day{sparkline.length !== 1 ? "s" : ""} of trades
-      </p>
-    </div>
-  );
-}
-
 /** Reference price + market price info panel.
  *  Collectors-first (2026-07-06): the two-sided CTCG spread block and the
  *  trade-in rows died with the we-buy desk. The catalogue price survives
@@ -476,8 +400,8 @@ export default function CardMarketClient({
     reference_price: identity.reference_price,
     bids: [],
     asks: [],
-    recent_trades: [],
-    best_ask_seller: null,
+    trade_aggregates: [],
+    trade_publication: undefined,
     best_bid: null,
     best_ask: null,
     market_price: null,
@@ -486,11 +410,6 @@ export default function CardMarketClient({
   };
 
   const [book, setBook] = useState<UnifiedMarketView | null>(seed);
-  const [analytics, setAnalytics] = useState<{
-    sparkline: number[];
-    lastPrice: number | null;
-    change24hPct: number | null;
-  } | null>(null);
   // Not "loading" from a blank slate — identity is already seeded, so the
   // page renders immediately and the order book fills in.
   const [loading, setLoading] = useState(false);
@@ -523,20 +442,6 @@ export default function CardMarketClient({
   // Watchlist
   const [watching, setWatching] = useState<boolean | null>(null);
   const [watchToggling, setWatchToggling] = useState(false);
-  const [related, setRelated] = useState<Array<{
-    sku: string; cardName: string | null; imageUrl: string | null;
-    bestAsk: number | null; coWatchCount: number;
-  }>>([]);
-  const [fairValue, setFairValue] = useState<{
-    vwap: number | null; median: number | null;
-    tradeCount: number; totalVolume: number;
-    priceRange: { min: number | null; max: number | null };
-  } | null>(null);
-  const [bidAnalysis, setBidAnalysis] = useState<{
-    fillProbabilityPct: number | null;
-    expectedDaysToFill: number | null;
-  } | null>(null);
-
   // Price alert form
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertPrice, setAlertPrice] = useState("");
@@ -615,46 +520,6 @@ export default function CardMarketClient({
     document.title = `${book.card_name} ${book.card_number ?? sku} — Cambridge TCG`;
     return () => { document.title = prev; };
   }, [book?.card_name, book?.card_number, sku]);
-
-  // Analytics fetched once per SKU — trades are infrequent, no need to poll.
-  useEffect(() => {
-    fetch(`/api/market/${sku}/candles?interval=1d&limit=30`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setAnalytics({ sparkline: d.sparkline, lastPrice: d.lastPrice, change24hPct: d.change24hPct }); })
-      .catch(() => {});
-  }, [sku]);
-
-  // Co-watch recommendations — also fetched once.
-  useEffect(() => {
-    fetch(`/api/market/${sku}/related?limit=8`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setRelated(d.related || []); })
-      .catch(() => {});
-  }, [sku]);
-
-  // Fair value (fresh per SKU). Bid analysis re-fetches when the price
-  // input changes; debounced so typing doesn't hammer the endpoint.
-  useEffect(() => {
-    fetch(`/api/market/${sku}/fair-value`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setFairValue(d.fairValue); })
-      .catch(() => {});
-  }, [sku]);
-
-  useEffect(() => {
-    const parsed = parseFloat(price);
-    if (!parsed || parsed <= 0 || tab !== "buy") {
-      setBidAnalysis(null);
-      return;
-    }
-    const handle = setTimeout(() => {
-      fetch(`/api/market/${sku}/fair-value?bidPrice=${parsed}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (d?.bidAnalysis) setBidAnalysis(d.bidAnalysis); })
-        .catch(() => {});
-    }, 400);
-    return () => clearTimeout(handle);
-  }, [sku, price, tab]);
 
   // Watchlist state — derived from listing the user's full watchlist once
   // (cheaper than a per-sku check endpoint).
@@ -824,16 +689,6 @@ export default function CardMarketClient({
     );
   }
 
-  // Card image: the official EN sample (takedown-clear, server-resolved
-  // into the identity seed) wins over the JP shop scan — EN-CARD-DATA
-  // rollout step 4. Reading it from `identity` (not `book`) means the
-  // live order-book poll can never swap the preferred image back out.
-  const cardImage = identity.en_image?.url ?? book.image_url;
-  // Publisher copyright line — schema-enforced NOT NULL on every EN row;
-  // rendered near the image whenever EN data is on the page.
-  const cardAttribution =
-    identity.en_image?.attribution ?? identity.effect_text?.attribution ?? null;
-
   return (
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -849,7 +704,7 @@ export default function CardMarketClient({
         <div className={`grid md:grid-cols-[240px_1fr_320px] gap-6 ${weatherClass(gameFromSku(sku))}`}>
           {/* Left: Card image + spot info */}
           <div>
-            {cardImage ? (
+            {book.image_url ? (
               <div
                 className="wardrobe-aura"
                 style={
@@ -860,7 +715,7 @@ export default function CardMarketClient({
               >
                 <div className="wardrobe-panel p-2">
                   <img
-                    src={cardImage}
+                    src={book.image_url}
                     alt={book.card_name || sku}
                     className="w-full rounded"
                   />
@@ -870,17 +725,6 @@ export default function CardMarketClient({
               <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center">
                 <span className="text-ink-faint">No Image</span>
               </div>
-            )}
-            {/* Publisher credit — the fairness commitment (EN-CARD-DATA
-                §7): attribution always, and the policy one tap away. */}
-            {cardAttribution && (
-              <p className="mt-1.5 text-[10px] leading-snug text-ink-faint">
-                {cardAttribution}
-                {" · "}
-                <Link href="/legal/card-images" className="underline hover:text-accent transition">
-                  image &amp; text use
-                </Link>
-              </p>
             )}
             <div className="flex items-start justify-between gap-2 mt-4">
               <div className="min-w-0">
@@ -909,22 +753,6 @@ export default function CardMarketClient({
                 </button>
               )}
             </div>
-            {/* Official EN rules text — shown per-card with its credit
-                line, never bulk-dumped (EN-CARD-DATA §3). whitespace-pre-
-                line keeps the publisher's own effect/trigger line breaks. */}
-            {identity.effect_text && (
-              <div className="wardrobe-mat rounded-lg p-3 mt-4">
-                <p className="text-[10px] text-ink-faint uppercase tracking-wide mb-1.5">
-                  Card text
-                  {identity.effect_text.card_type && (
-                    <span className="normal-case"> · {identity.effect_text.card_type}</span>
-                  )}
-                </p>
-                <p className="text-xs text-ink leading-relaxed whitespace-pre-line">
-                  {identity.effect_text.text}
-                </p>
-              </div>
-            )}
             {loggedIn && (
               <div className="mt-3">
                 <button
@@ -979,57 +807,6 @@ export default function CardMarketClient({
             <div className="mt-4">
               <AlsoAtAuctionStrip auctions={alsoAtAuction} />
               <ReferencePricePanel view={book} />
-              {analytics && <PriceHistoryTile analytics={analytics} />}
-              {fairValue && fairValue.tradeCount > 0 && (
-                <div className="wardrobe-mat rounded-lg p-3 mb-4 space-y-1.5">
-                  <p className="text-[10px] text-ink-faint uppercase tracking-wide">Fair value (30d)</p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-ink-muted">VWAP</span>
-                    <span className="font-mono tabular-nums text-ink">
-                      {fairValue.vwap !== null ? <Money value={fairValue.vwap} /> : "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-ink-muted">Median</span>
-                    <span className="font-mono tabular-nums text-ink-muted">
-                      {fairValue.median !== null ? <Money value={fairValue.median} /> : "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-ink-faint">Range</span>
-                    <span className="font-mono tabular-nums text-ink-faint">
-                      {fairValue.priceRange.min !== null && fairValue.priceRange.max !== null
-                        ? `${formatPrice(fairValue.priceRange.min)}–${formatPrice(fairValue.priceRange.max)}`
-                        : "—"}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-ink-faint pt-1">
-                    Based on <span className="font-mono tabular-nums">{fairValue.tradeCount}</span> trade{fairValue.tradeCount !== 1 ? "s" : ""} &middot; <span className="font-mono tabular-nums">{fairValue.totalVolume}</span> unit{fairValue.totalVolume !== 1 ? "s" : ""}
-                  </p>
-                </div>
-              )}
-              {/* Cold tape: no own trades to compute a fair value from, so
-                  the catalogue reference price stands in — labelled, because
-                  it is a different kind of fact (a catalogue number, not a
-                  P2P clearing price, and nobody's offer). */}
-              {fairValue && fairValue.tradeCount === 0 && book.reference_price != null && (
-                <div className="wardrobe-mat rounded-lg p-3 mb-4 space-y-1.5">
-                  <p className="text-[10px] text-ink-faint uppercase tracking-wide">Fair value (30d)</p>
-                  <p className="text-xs text-ink-muted">
-                    No P2P trades in the last 30 days — nothing to compute a fair value from.
-                  </p>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-ink-muted">Reference price</span>
-                    <span className="font-mono tabular-nums text-ink"><Money value={book.reference_price} /></span>
-                  </div>
-                  <p
-                    className="text-[10px] uppercase tracking-wider text-ink-faint"
-                    title="The policy-bound catalogue reference price, shown as a reference only. It is a different source than what peers paid each other, not an offer or an open-data grant."
-                  >
-                    reference · catalogue, not p2p tape
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -1081,7 +858,6 @@ export default function CardMarketClient({
             sku={sku}
             loggedIn={loggedIn}
             bestBid={book.best_bid !== null ? Number(book.best_bid) : null}
-            fairValue={fairValue}
             spotPrice={book.reference_price}
             limits={limits}
             onBuy={prefillBuy}
@@ -1234,29 +1010,6 @@ export default function CardMarketClient({
                   </div>
                 )}
 
-                {/* Fill probability — only meaningful for bids */}
-                {tab === "buy" && bidAnalysis && bidAnalysis.fillProbabilityPct !== null && (
-                  <div className={`text-xs rounded-lg px-3 py-2 border ${
-                    bidAnalysis.fillProbabilityPct >= 50 ? "bg-bid/10 border-bid/20 text-bid"
-                    : bidAnalysis.fillProbabilityPct >= 20 ? "bg-accent-wash border-accent/20 text-accent"
-                    : "bg-surface-elevated border-border-strong text-ink-muted"
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <span>Historical fill odds</span>
-                      <span className="font-mono tabular-nums font-bold">{bidAnalysis.fillProbabilityPct}%</span>
-                    </div>
-                    {bidAnalysis.expectedDaysToFill !== null && (
-                      <div className="flex items-center justify-between mt-0.5 text-[10px] opacity-80">
-                        <span>Expected time to fill</span>
-                        <span className="font-mono tabular-nums">~{bidAnalysis.expectedDaysToFill}d</span>
-                      </div>
-                    )}
-                    <p className="text-[10px] text-ink-faint mt-1">
-                      % of last 30d trades at or below this price.
-                    </p>
-                  </div>
-                )}
-
                 {/* Pre-submit trust hint — mirrors the canTrade() gate the
                     server enforces, so a limit rejection is announced here
                     instead of arriving as a 403 after submit. */}
@@ -1351,43 +1104,13 @@ export default function CardMarketClient({
               <EscrowRoutingPreview orderValue={parseFloat(price) * parseInt(quantity, 10) || 0} />
             )}
 
-            {/* Reputation checker (global free trade, 2026-06-10): the
-                verification wall came down; what stands in its place is
-                visibility — who is on the other side of the best ask, and
-                how the room remembers them. */}
             <div className="mt-4 pt-4 border-t border-border-subtle space-y-2">
-              {book.best_ask_seller?.username && (
-                <div className="flex items-center gap-2 flex-wrap text-xs">
-                  <span className="text-ink-faint">Best ask from</span>
-                  <Link
-                    href={`/u/${book.best_ask_seller.username}`}
-                    className="text-accent hover:underline font-medium"
-                  >
-                    @{book.best_ask_seller.username}
-                  </Link>
-                  {book.best_ask_seller.tier && (
-                    <TrustTier
-                      name={book.best_ask_seller.tier}
-                      score={book.best_ask_seller.trust_score}
-                    />
-                  )}
-                  <Link
-                    href={`/u/${book.best_ask_seller.username}/trust`}
-                    className="text-ink-muted hover:text-accent hover:underline"
-                  >
-                    <span className="font-mono tabular-nums">{book.best_ask_seller.review_count}</span> review{book.best_ask_seller.review_count !== 1 ? "s" : ""}
-                    {book.best_ask_seller.avg_rating != null && book.best_ask_seller.review_count > 0 && (
-                      <> &middot; <span className="font-mono tabular-nums">{book.best_ask_seller.avg_rating.toFixed(1)}</span>★</>
-                    )}
-                  </Link>
-                </div>
-              )}
               <p className="text-[11px] text-ink-faint leading-relaxed">
                 Trades are protected by escrow routing and the{" "}
                 <Link href="/methodology/trust-score" className="text-accent hover:underline">
                   reputation system
                 </Link>
-                {" "}&mdash; check any counterparty before you trade.
+                {" "}&mdash; counterparty details stay inside the relevant signed-in trade flow.
               </p>
             </div>
 
@@ -1396,92 +1119,19 @@ export default function CardMarketClient({
           </div>
         </div>
 
-        {/* Recent trades */}
+        {/* Person and transaction derivatives stay paused at the public edge. */}
         <div className="mt-8 wardrobe-mat rounded-lg p-4">
-          <h2 className="text-sm font-bold font-display tracking-tight text-ink mb-4">Recent Trades</h2>
-          {book.recent_trades.length === 0 ? (
-            <p className="text-ink-faint text-sm py-4 text-center">{v("market.card.trades.empty")}</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-ink-faint text-xs uppercase tracking-wide border-b border-border-subtle">
-                    <th className="text-left py-2 font-medium">Price</th>
-                    <th className="text-left py-2 font-medium">Quantity</th>
-                    <th className="text-left py-2 font-medium">Seller</th>
-                    <th className="text-right py-2 font-medium">Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {book.recent_trades.map((trade) => (
-                    <tr key={trade.id} className="border-b border-border-subtle/50">
-                      <td className="py-2 text-ink font-mono tabular-nums">
-                        <Money value={Number(trade.price)} />
-                      </td>
-                      <td className="py-2 text-ink-muted font-mono tabular-nums">{trade.quantity}</td>
-                      <td className="py-2 text-ink-muted text-xs">
-                        {trade.seller_username ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Link
-                              href={`/u/${trade.seller_username}`}
-                              className="text-accent hover:underline"
-                            >
-                              {trade.seller_name || trade.seller_username}
-                            </Link>
-                            {trade.seller_tier && (
-                              <TrustTier name={trade.seller_tier} score={null} showScore={false} />
-                            )}
-                          </span>
-                        ) : (
-                          <span className="text-ink-faint">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 text-ink-faint text-right text-xs font-mono tabular-nums">
-                        {formatTime(trade.created_at)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <h2 className="text-sm font-bold font-display tracking-tight text-ink mb-1">
+            Public market analytics paused
+          </h2>
+          <p className="text-xs text-ink-muted leading-relaxed max-w-3xl">
+            Completed-trade statistics and co-watch intelligence are not
+            published here. They can return after they have a separate
+            publication choice and one delayed, coarse release process that
+            resists reconstruction. Your own watchlist and alerts remain
+            private account tools.
+          </p>
         </div>
-
-        {related.length > 0 && (
-          <div className="mt-8 wardrobe-mat rounded-lg p-4">
-            <h2 className="text-sm font-bold font-display tracking-tight text-ink mb-4">
-              Also watched by buyers of this card
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-              {related.map((r) => (
-                <Link
-                  key={r.sku}
-                  href={`/market/${r.sku}`}
-                  className="group block"
-                >
-                  <div className="aspect-[2.5/3.5] bg-surface-subtle border border-border-subtle rounded-lg overflow-hidden mb-2">
-                    {r.imageUrl ? (
-                      <img src={r.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-ink-faint text-xs">
-                        No image
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-ink truncate group-hover:text-accent transition">
-                    {r.cardName || r.sku}
-                  </p>
-                  <div className="flex items-center justify-between text-[10px] text-ink-faint mt-0.5">
-                    <span><span className="font-mono tabular-nums">{r.coWatchCount}</span> watchers</span>
-                    {r.bestAsk !== null && (
-                      <span className="text-ask font-mono tabular-nums"><Money value={r.bestAsk} /></span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

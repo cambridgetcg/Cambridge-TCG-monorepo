@@ -18,8 +18,8 @@ import { usePathname } from "next/navigation";
 /** Player path only. Welcome/Casual/Compete/Spec stay reachable by URL and
  *  in-page links — just not in the primary nav. */
 const NAV_LINKS = [
-  { href: "/play", label: "Play", note: "Pick a deck, start a battle" },
-  { href: "/play/adventure", label: "Adventure", note: "Solo PvE" },
+  { href: "/play", label: "Play", note: "Decks and play status" },
+  { href: "/play/adventure", label: "Adventure", note: "PVE level status; battles paused" },
   { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
   { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
   { href: "/play/deck-check", label: "Deck Check", note: "Validate a deck" },

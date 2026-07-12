@@ -104,8 +104,11 @@ describe("GET /api/v1/cards/[sku]/everything", () => {
     );
     expect(body.data.history).toEqual([]);
     expect(body.data.composition.falcon_calls.cardrush_history).toBe("blocked");
-    expect(body._meta.sources).toEqual(["wholesale-rds.cards", "cardrush"]);
-    expect(body._meta.source_license).toEqual(["proprietary", "internal-only"]);
+    expect(body.data.card.image_url).toBeNull();
+    expect(body.data.reference_price.reference_price_gbp).toBeNull();
+    expect(body._meta.sources).toEqual(["wholesale-rds.cards"]);
+    expect(body._meta.source_license).toEqual(["proprietary"]);
+    expect(JSON.stringify(body)).not.toContain("12.34");
   });
 
   it("still withholds CardRush when a stored row is falsely marked CC0", async () => {
@@ -154,6 +157,7 @@ describe("GET /api/v1/cards/[sku]/everything", () => {
     expect(JSON.stringify(body.data.prices_today)).not.toMatch(
       /cardrush_jpy|base_gbp|gbp_jpy_rate|source_url|1234/,
     );
-    expect(body._meta.source_license).toEqual(["proprietary", "internal-only"]);
+    expect(body.data.reference_price.reference_price_gbp).toBeNull();
+    expect(body._meta.source_license).toEqual(["proprietary"]);
   });
 });

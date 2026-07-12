@@ -834,7 +834,7 @@ export default function PacksPage() {
                             rel="noopener noreferrer"
                             className="text-ok hover:text-ok underline"
                           >
-                            ✓ Verify this pack was rolled fairly ↗
+                            Inspect draw receipt ↗
                           </a>
                         </p>
                       )}

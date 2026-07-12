@@ -167,8 +167,9 @@ export default function PlayModuleSpec() {
           wall every hobbyist sim has died on. <em>Planned.</em>
         </li>
         <li>
-          <strong>L7 — Tournament substrate + commit-reveal.</strong> Ranked
-          play with provable RNG integrity. <em>Planned.</em>
+          <strong>L7 — Tournament substrate + witnessed randomness.</strong> Ranked
+          play with participant or external entropy and commitments witnessed
+          outside the match server before selection. <em>Planned.</em>
         </li>
         <li>
           <strong>L8 — Play-to-earn opt-in.</strong> Prize pools attach to

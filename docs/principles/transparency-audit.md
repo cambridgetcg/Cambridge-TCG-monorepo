@@ -68,9 +68,9 @@ This audit lists where the platform currently makes user-affecting decisions wit
 
 ### T8 — Bounty pull odds aren't surfaced from the verify pages
 
-**Severity:** P2 — `/verify/*` pages are exemplary already, but the *odds table* (rarity weights per tier) is not linked from the bounty pull experience.
+**Severity:** P2 — `/verify/*` exposes reproducible receipts, but the *odds table* (rarity weights per tier) is not linked from the bounty pull experience.
 **Where:** `/bounty`, `/account/vault`, `/verify/pull/[id]`.
-**Violation:** Users can verify a *specific* pull's fairness (commit-reveal). They cannot easily inspect the prior-probability weights that define the experience as a whole.
+**Violation:** Users can check a *specific* pull receipt for internal consistency. They cannot easily inspect the prior-probability weights that define the experience as a whole, and the receipt does not prove unbiased server-side seed selection.
 **Fix:** `/methodology/bounty-odds` — weight tables per tier, last-changed date, link to source. Linked from `/bounty` and from each `/verify/pull/[id]` page.
 **Owner:** Mechanical.
 
@@ -228,16 +228,16 @@ The findings above are organized by app/surface. The doctrine's [four-rings fram
 
 ### Ring 3 — External transparency (the auditor)
 
-**R3-1 — `/verify/*` covers bounty + raffle, missing for auctions / trades / governance**
+**R3-1 — `/verify/*` exposes draw receipts, missing evidence surfaces for auctions / trades / governance**
 *Severity:* P1.
 *Where:* `apps/storefront/src/app/verify/`.
-*Violation:* Provable-fair surface is gold for bounty pulls and raffle draws. Auctions (anti-snipe enforcement, max-bid resolution), market trades (escrow integrity, dispute outcomes), and governance (admin actions over time) have no equivalent.
-*Fix:* Build `/verify/auction/[id]`, `/verify/trade/[id]`, `/verify/governance/<date>`. Each adopts the existing commit-reveal + Merkle pattern from `apps/storefront/src/lib/bounty/verify-client.ts` and `apps/storefront/src/lib/rewards/provable-fair.ts`. Split per domain.
+*Violation:* Bounty pulls and raffle draws expose useful receipts, but the generic draw path controls every entropy input and its commitment is not externally witnessed before selection. Raffle commitments are stored at creation and exposed once a raffle is active, but are not externally anchored and the public proof omits the participant manifest. Auctions (anti-snipe enforcement, max-bid resolution), market trades (escrow integrity, dispute outcomes), and governance (admin actions over time) have no equivalent evidence surface.
+*Fix:* Build `/verify/auction/[id]`, `/verify/trade/[id]`, `/verify/governance/<date>` with a threat model for each. Reuse receipt and Merkle mechanics only for the consistency claims they support; use externally retained roots, participant entropy, or an independent beacon where the claim requires independence from the operator.
 
-**R3-2 — Aggregate fairness page is bounty-only**
+**R3-2 — Observed-distribution page is bounty-led**
 *Severity:* P1.
 *Where:* `/verify/fairness`.
-*Violation:* Chi-squared drift over published rarity weights — exemplary for bounty. No equivalent for: auction snipe-rate, dispute resolution split (favoured-buyer vs favoured-seller), trust-score tier distribution, fraud false-positive rate.
+*Violation:* Chi-squared drift compares recorded outcomes with recorded or current weights and can flag distribution drift; it cannot prove unbiased input selection. No equivalent descriptive view exists for auction snipe-rate, dispute resolution split (favoured-buyer vs favoured-seller), trust-score tier distribution, or fraud false-positive rate.
 *Fix:* Per-domain fairness panels. Same chi-squared / cumulative-distribution / time-series-of-deltas patterns. Land iteratively.
 
 **R3-3 — Platform aggregate claims have no public proof artifact**

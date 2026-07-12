@@ -47,7 +47,7 @@ const TIER_COLOR: Record<PullTier, string> = {
 
 interface Eligibility {
   phone_verified: boolean;
-  phone_number: string | null;
+  phone_verification_available: boolean;
   first_order_paid: boolean;
   eligible: boolean;
   reasons: string[];
@@ -61,7 +61,7 @@ interface VaultItem {
   set_code: string | null;
   rarity: string | null;
   image_url: string | null;
-  spot_price_gbp: string;
+  spot_price_gbp: string | null;
   source: string;
   status: "reserved" | "redeemed" | "sold_back" | "traded" | "gifted" | "expired";
   acquired_at: string;
@@ -94,8 +94,6 @@ export default function BountyBoard() {
   const [error, setError] = useState<string | null>(null);
   const [authError, setAuthError] = useState(false);
   const [pullResult, setPullResult] = useState<PullResult | null>(null);
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [phoneInput, setPhoneInput] = useState("");
   const [showRedeemModal, setShowRedeemModal] = useState<VaultItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -230,31 +228,6 @@ export default function BountyBoard() {
     }
   }
 
-  async function handleVerifyPhone() {
-    if (!phoneInput.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/bounty/verify-phone", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phoneInput.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Verification failed.");
-        return;
-      }
-      setShowPhoneModal(false);
-      setPhoneInput("");
-      await refresh();
-    } catch {
-      setError("Network error.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   /* ================================================================ */
   /*  Render                                                          */
   /* ================================================================ */
@@ -272,12 +245,12 @@ export default function BountyBoard() {
                 Bounty <span className="text-accent">Board</span>
               </h1>
               <p className="text-ink-muted max-w-xl">
-                Win phygital cards in Adventure Mode. Keep them in your Vault, sell back for store credit, or redeem for a physical copy shipped to you.
+                Manage pull tokens and Vault items already on your account. New PVE milestone and daily grants are paused.
               </p>
             </div>
             <div className="flex gap-3">
               <Link href="/play/adventure" className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-5 py-2.5 text-sm transition-colors">
-                Play Adventure
+                Adventure Status
               </Link>
               <Link href="/account" className="bg-surface hover:bg-surface border border-border-subtle rounded-lg px-5 py-2.5 text-sm transition-colors">
                 Account
@@ -306,9 +279,9 @@ export default function BountyBoard() {
           <section className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="bg-surface border border-border-subtle rounded-lg p-5">
-                <p className="text-xs uppercase tracking-wider text-accent font-semibold mb-2">1 · Earn pull tokens</p>
+                <p className="text-xs uppercase tracking-wider text-accent font-semibold mb-2">1 · Check token status</p>
                 <p className="text-sm text-ink-muted">
-                  Clear Adventure Mode levels to earn milestone pulls, from Common up to Legendary. Spare tokens can be merged up a tier.
+                  New PVE milestone and daily token grants are paused. Existing tokens remain visible on signed-in accounts.
                 </p>
               </div>
               <div className="bg-surface border border-border-subtle rounded-lg p-5">
@@ -339,20 +312,21 @@ export default function BountyBoard() {
         {/* Eligibility gate */}
         {eligibility && !eligibility.eligible && (
           <div className="bg-accent-wash border border-accent/50 rounded-lg p-5">
-            <h2 className="font-bold text-accent mb-2">Finish setup to open pulls</h2>
+            <h2 className="font-bold text-accent mb-2">
+              {eligibility.reasons.includes("phone_verification_unavailable")
+                ? "Pulls and redemptions are temporarily closed"
+                : "Finish setup to open pulls"}
+            </h2>
             <p className="text-ink-muted text-sm mb-4">
-              Bounty Board needs a verified phone and a prior paid order before you can redeem or resolve pulls.
+              {eligibility.reasons.includes("phone_verification_unavailable")
+                ? "Phone verification is paused while real code verification is being built. No submitted number is treated as verified."
+                : "Bounty Board requires a prior paid order before you can redeem or resolve pulls."}
             </p>
             <ul className="text-sm space-y-1.5 mb-4">
-              {eligibility.reasons.includes("phone_not_verified") && (
+              {eligibility.reasons.includes("phone_verification_unavailable") && (
                 <li className="flex items-center justify-between gap-3">
-                  <span className="text-ink-muted">Verified phone number</span>
-                  <button
-                    onClick={() => setShowPhoneModal(true)}
-                    className="text-xs bg-ink hover:bg-ink/85 text-page font-bold rounded px-3 py-1.5 transition-colors"
-                  >
-                    Verify phone
-                  </button>
+                  <span className="text-ink-muted">Phone code verification</span>
+                  <span className="text-xs text-ink-faint">Unavailable</span>
                 </li>
               )}
               {eligibility.reasons.includes("no_paid_order") && (
@@ -373,7 +347,7 @@ export default function BountyBoard() {
           <h2 className="text-lg font-bold mb-3">Pull Tokens {totalTokens > 0 && <span className="text-accent">· {totalTokens}</span>}</h2>
           {totalTokens === 0 ? (
             <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
-              No tokens yet. Clear <Link href="/play/adventure" className="text-accent hover:underline">Adventure levels</Link> to earn milestone pulls.
+              No tokens on this account. New PVE milestone and daily grants are paused; the <Link href="/play/adventure" className="text-accent hover:underline">Adventure status page</Link> is read-only.
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">
@@ -453,6 +427,7 @@ export default function BountyBoard() {
                   key={item.id}
                   item={item}
                   busy={busy}
+                  releaseAvailable={Boolean(eligibility?.eligible)}
                   selected={selectedIds.has(item.id)}
                   onToggleSelect={() => setSelectedIds(prev => {
                     const next = new Set(prev);
@@ -476,36 +451,6 @@ export default function BountyBoard() {
           result={pullResult}
           onClose={() => setPullResult(null)}
         />
-      )}
-
-      {/* Phone verify modal */}
-      {showPhoneModal && (
-        <Modal onClose={() => setShowPhoneModal(false)} title="Verify phone">
-          <p className="text-ink-muted text-sm mb-3">
-            Enter your phone number. (MVP: no SMS yet — submission marks verified for now.)
-          </p>
-          <input
-            value={phoneInput}
-            onChange={e => setPhoneInput(e.target.value)}
-            placeholder="+44 7..."
-            className="w-full bg-surface-subtle border border-border-subtle rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-accent mb-3"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleVerifyPhone}
-              disabled={busy}
-              className="flex-1 bg-ink hover:bg-ink/85 disabled:opacity-50 text-page font-bold rounded-lg py-2 text-sm transition-colors"
-            >
-              {busy ? "Verifying..." : "Verify"}
-            </button>
-            <button
-              onClick={() => setShowPhoneModal(false)}
-              className="bg-surface hover:bg-surface border border-border-subtle rounded-lg px-4 py-2 text-sm transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </Modal>
       )}
 
       {/* Redemption modal */}
@@ -608,17 +553,18 @@ function BulkRedeemModal({
 /* ------------------------------------------------------------------ */
 
 function VaultCard({
-  item, busy, selected, onToggleSelect, onSellBack, onRedeem,
+  item, busy, releaseAvailable, selected, onToggleSelect, onSellBack, onRedeem,
 }: {
   item: VaultItem;
   busy: boolean;
+  releaseAvailable: boolean;
   selected: boolean;
   onToggleSelect: () => void;
   onSellBack: () => void;
   onRedeem: () => void;
 }) {
-  const spot = parseFloat(item.spot_price_gbp);
-  const sellBack = spot * TRADEIN_CREDIT_MULT;
+  const spot = item.spot_price_gbp === null ? null : parseFloat(item.spot_price_gbp);
+  const sellBack = spot === null ? null : spot * TRADEIN_CREDIT_MULT;
   const holdUntil = new Date(item.p2p_hold_until).getTime();
   const expires = new Date(item.expires_at).getTime();
 
@@ -628,7 +574,7 @@ function VaultCard({
   useEffect(() => { setNow(Date.now()); }, []);
   const onHold = now > 0 && now < holdUntil && item.status === "reserved";
   const daysLeft = now > 0 ? Math.max(0, Math.floor((expires - now) / 86400000)) : 0;
-  const selectable = item.status === "reserved" && !item.redemption_order_id && !onHold;
+  const selectable = releaseAvailable && item.status === "reserved" && !item.redemption_order_id && !onHold;
 
   return (
     <div className={`bg-surface border rounded-lg overflow-hidden transition-colors ${selected ? "border-accent" : "border-border-subtle"}`}>
@@ -662,7 +608,7 @@ function VaultCard({
         <div>
           <p className="font-semibold text-sm truncate">{item.card_name}</p>
           <p className="text-xs text-ink-faint">
-            {item.card_number} · {item.rarity} · £{spot.toFixed(2)}
+            {item.card_number} · {item.rarity} · Price unavailable
           </p>
         </div>
         {item.status === "reserved" && (
@@ -686,17 +632,23 @@ function VaultCard({
           <div className="flex gap-1.5 pt-1">
             <button
               onClick={onSellBack}
-              disabled={busy}
+              disabled={busy || !releaseAvailable}
               className="flex-1 text-[11px] bg-surface hover:bg-surface border border-border-subtle rounded px-2 py-1.5 transition-colors disabled:opacity-50"
-              title="77% of spot → store credit"
+              title={releaseAvailable
+                ? "77% of spot to store credit"
+                : "Unavailable while phone verification is paused"}
             >
-              Sell £{sellBack.toFixed(2)}
+              {sellBack === null ? "Sell-back unavailable" : `Sell £${sellBack.toFixed(2)}`}
             </button>
             <button
               onClick={onRedeem}
-              disabled={busy || onHold}
+              disabled={busy || onHold || !releaseAvailable}
               className="flex-1 text-[11px] bg-accent-wash hover:bg-accent/20 text-accent rounded px-2 py-1.5 transition-colors disabled:opacity-50"
-              title={onHold ? "In 48h hold period" : "Request a physical shipment"}
+              title={!releaseAvailable
+                ? "Unavailable while phone verification is paused"
+                : onHold
+                  ? "In 48h hold period"
+                  : "Request a physical shipment"}
             >
               Redeem
             </button>
@@ -722,7 +674,7 @@ function PullResultModal({ result, onClose }: { result: PullResult; onClose: () 
           )}
         </div>
         <p className="mt-3 font-bold">{v.card_name}</p>
-        <p className="text-xs text-ink-faint">{v.card_number} · {v.rarity} · £{parseFloat(v.spot_price_gbp).toFixed(2)}</p>
+        <p className="text-xs text-ink-faint">{v.card_number} · {v.rarity} · Price unavailable</p>
         <p className="mt-4 text-[10px] text-ink-faint font-mono break-all">
           RNG commit: {result.rng_commitment.slice(0, 32)}...
         </p>

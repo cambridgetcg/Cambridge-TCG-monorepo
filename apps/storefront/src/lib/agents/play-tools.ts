@@ -15,12 +15,21 @@
  *   reducer; one game_rooms row. Match lifecycle log captures both
  *   actor kinds uniformly.
  *
+ * Match writes remain implemented behind an immutable release gate so their
+ * data flow can be reviewed, but no current key can invoke them.
+ *
  * See docs/connections/the-agent-surface.md.
  */
 
 import { query, transaction } from "@/lib/db";
+import {
+  projectGameLog,
+  projectGameState,
+  type GameRoomForProjection,
+  type PublicGameState,
+} from "@/lib/game/public";
 import { applyAction } from "@/lib/game/reducer";
-import type { GameAction, GameCard, GameState } from "@/lib/game/types";
+import type { GameAction, GameState } from "@/lib/game/types";
 import type { AgentActor } from "./auth";
 import { tickMatchmaker, finalizeMatch } from "./matchmaker";
 
@@ -30,45 +39,66 @@ export class ToolError extends Error {
   }
 }
 
-function redactOpponent(state: GameState, mySide: "player1" | "player2"): GameState {
-  const oppKey = mySide === "player1" ? "player2" : "player1";
-  const opp = state[oppKey];
-  if (!opp) return state;
-  // Deep enough — JSON-clone then strip
-  const cloned: GameState = JSON.parse(JSON.stringify(state));
-  const oppCloned = cloned[oppKey];
-  if (oppCloned) {
-    // Whitelist, never spread: any card field not named here (rarity — which
-    // alone identifies the Leader/archetype — and anything added later) must
-    // stay hidden. Mirrors the human path in app/api/game/[code]/state/route.ts.
-    const maskCard = (c: GameCard): GameCard => ({
-      id: c.id, sku: "", name: "?", cardNumber: "?", imageUrl: null, rarity: null,
-      isRested: false, attachedDon: 0, zone: c.zone, position: c.position, faceDown: true,
-    });
-    oppCloned.hand = (oppCloned.hand || []).map(maskCard);
-    oppCloned.deck = (oppCloned.deck || []).map(maskCard);
-    oppCloned.life = (oppCloned.life || []).map(maskCard);
-  }
-  return cloned;
+export const AGENT_MATCH_WRITES_ENABLED = false as const;
+
+function matchWritesPaused(): never {
+  throw new ToolError(
+    "Agent match writes are paused for every key until exact action schemas, turn validation, and a route boundary that cannot be bypassed by the linked human account ship together.",
+    503,
+  );
+}
+
+function roomForProjection(
+  state: GameState,
+  gameLog: GameAction[] | null = null,
+): GameRoomForProjection {
+  return {
+    code: "",
+    status: state.phase === "finished" ? "finished" : "playing",
+    player1_id: state.player1.userId,
+    player2_id: state.player2.userId,
+    player1_name: null,
+    player2_name: null,
+    turn_number: state.turnNumber,
+    phase: state.phase,
+    is_public: false,
+    last_action_at: "",
+    game_state: state,
+    game_log: gameLog,
+  };
+}
+
+function projectAgentState(
+  state: GameState,
+  mySide: "player1" | "player2",
+): PublicGameState {
+  const projected = projectGameState(state, roomForProjection(state), mySide);
+  if (!projected) throw new ToolError("game state not initialised", 409);
+
+  // The shared participant projection keeps private zones correctly scoped,
+  // but its names are account-derived. Agent tools need only stable roles.
+  return {
+    ...projected,
+    player1: { ...projected.player1, name: "Player 1" },
+    player2: { ...projected.player2, name: "Player 2" },
+  };
+}
+
+function projectAgentLog(state: GameState, gameLog: GameAction[] | null) {
+  // Use the spectator log projection even for an authenticated player: it maps
+  // account ids to roles and omits chat and arbitrary action-data payloads.
+  return projectGameLog(gameLog, roomForProjection(state, gameLog), "spectator");
 }
 
 async function loadAgentMatch(actor: AgentActor, matchId: string) {
   const result = await query(
     `SELECT am.id              AS match_id,
-            am.game_room_id,
             am.agent_a_id,
             am.agent_b_id,
-            am.result,
             gr.code            AS room_code,
             gr.status          AS room_status,
             gr.game_state,
-            gr.game_log,
-            gr.turn_number,
-            gr.phase,
-            gr.player1_id,
-            gr.player2_id,
-            gr.last_action_at,
-            gr.id              AS room_id
+            gr.game_log
        FROM agent_matches am
        JOIN game_rooms gr ON gr.id = am.game_room_id
       WHERE am.id = $1`,
@@ -111,7 +141,13 @@ export async function agentSelf(actor: AgentActor) {
     matches_played: row.matches_played,
     matches_won: row.matches_won,
     status: row.status,
-    operator_user_id: actor.operatorUserId,
+    operator_bound: actor.registeredVia === "operator",
+    read_only: true,
+    read_only_scope: "domain-state",
+    operational_metadata_writes: [
+      "one per-key rate-limit bucket for each permitted authenticated call",
+      "agent_keys.last_used_at after a successful call",
+    ],
     rate_limit_tier: actor.rateLimitTier,
     created_at: row.created_at,
   };
@@ -121,7 +157,7 @@ export async function agentSelf(actor: AgentActor) {
 
 export async function playObserve(actor: AgentActor, params: { match_id: string }) {
   const { row, state, mySide } = await loadAgentMatch(actor, params.match_id);
-  const redacted = redactOpponent(state, mySide);
+  const projected = projectAgentState(state, mySide);
   const isMyTurn = state.currentTurn === actor.operatorUserId;
   return {
     match_id: row.match_id,
@@ -132,10 +168,10 @@ export async function playObserve(actor: AgentActor, params: { match_id: string 
     is_your_turn: isMyTurn,
     turn_number: state.turnNumber,
     phase: state.phase,
-    state: redacted,
-    log: (row.game_log || []).slice(-30),
+    state: projected,
+    log: projectAgentLog(state, Array.isArray(row.game_log) ? row.game_log : []),
     finished: state.phase === "finished",
-    winner_userId: state.winner ?? null,
+    winner: projected.winner ?? null,
   };
 }
 
@@ -144,9 +180,8 @@ export async function playObserve(actor: AgentActor, params: { match_id: string 
 /**
  * Enumerate the agent's legal actions. Deliberately conservative — the
  * reducer is permissive (it'll silently ignore an action that can't
- * apply), so we list only the actions the agent can profitably attempt
- * on its current turn. Callers can still send anything; the reducer is
- * the final authority.
+ * apply), so we list only the actions an agent could profitably attempt
+ * on its current turn. Action writes are currently paused for every key.
  */
 export async function playLegalActions(actor: AgentActor, params: { match_id: string }) {
   const { state, mySide } = await loadAgentMatch(actor, params.match_id);
@@ -229,7 +264,8 @@ export async function playLegalActions(actor: AgentActor, params: { match_id: st
 export async function playTakeAction(
   actor: AgentActor,
   params: { match_id: string; type: string; data?: Record<string, unknown> },
-): Promise<{ state: GameState; finished: boolean; match_id: string }> {
+): Promise<{ state: PublicGameState; finished: boolean; match_id: string }> {
+  matchWritesPaused();
   if (!params.type) throw new ToolError("action.type required");
 
   const out = await transaction(async (q) => {
@@ -285,7 +321,7 @@ export async function playTakeAction(
           newState.turnNumber,
         ],
       );
-      return { state: redactOpponent(newState, mySide), finished: true, match_id: params.match_id };
+      return { state: projectAgentState(newState, mySide), finished: true, match_id: params.match_id };
     }
 
     const newState = applyAction(state, mySide, params.type, params.data ?? {});
@@ -337,7 +373,7 @@ export async function playTakeAction(
       ],
     );
 
-    return { state: redactOpponent(newState, mySide), finished: isFinished, match_id: params.match_id };
+    return { state: projectAgentState(newState, mySide), finished: isFinished, match_id: params.match_id };
   });
 
   // Finalise outside the transaction — Glicko-2 update touches both
@@ -358,6 +394,7 @@ export async function playQueueMatch(
   actor: AgentActor,
   params: { deck: unknown[] },
 ) {
+  matchWritesPaused();
   if (!Array.isArray(params.deck) || params.deck.length < 10) {
     throw new ToolError("deck must have at least 10 cards");
   }
@@ -390,6 +427,7 @@ export async function playQueueMatch(
 }
 
 export async function playCancelQueue(actor: AgentActor) {
+  matchWritesPaused();
   await query(`DELETE FROM agent_match_queue WHERE agent_id = $1`, [actor.agentId]);
   return { cancelled: true };
 }
@@ -405,9 +443,7 @@ export async function playMatchHistory(actor: AgentActor, params: { limit?: numb
             am.agent_b_rating_before, am.agent_b_rating_after,
             am.created_at, am.ended_at,
             gr.code AS room_code, gr.status,
-            (CASE WHEN am.agent_a_id = $1 THEN am.agent_b_id ELSE am.agent_a_id END) AS opponent_id,
-            opp.public_handle AS opponent_handle,
-            opp.model_tag     AS opponent_model_tag
+            opp.public_handle AS opponent_handle
        FROM agent_matches am
        JOIN game_rooms gr ON gr.id = am.game_room_id
        JOIN agents opp ON opp.id = CASE WHEN am.agent_a_id = $1 THEN am.agent_b_id ELSE am.agent_a_id END
@@ -429,7 +465,6 @@ export async function playMatchHistory(actor: AgentActor, params: { limit?: numb
         match_id: row.match_id,
         room_code: row.room_code,
         opponent_handle: row.opponent_handle,
-        opponent_model_tag: row.opponent_model_tag,
         outcome,
         rating_before: isA ? Number(row.agent_a_rating_before ?? 0) : Number(row.agent_b_rating_before ?? 0),
         rating_after:  isA ? Number(row.agent_a_rating_after  ?? 0) : Number(row.agent_b_rating_after  ?? 0),
@@ -445,10 +480,16 @@ export async function playMatchHistory(actor: AgentActor, params: { limit?: numb
 
 export async function playListOpenRooms() {
   const r = await query(
-    `SELECT code, player1_name, status, created_at
+    `SELECT code, status, created_at
        FROM game_rooms
       WHERE is_public = true AND status IN ('waiting','playing')
       ORDER BY created_at DESC LIMIT 20`,
   );
-  return { rooms: r.rows };
+  return {
+    rooms: r.rows.map((row: Record<string, unknown>) => ({
+      code: row.code,
+      status: row.status,
+      created_at: row.created_at,
+    })),
+  };
 }

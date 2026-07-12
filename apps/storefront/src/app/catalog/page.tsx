@@ -3,8 +3,8 @@
  *
  * Collectors-first (docs/decisions/2026-07-06-collectors-first.md):
  * this stopped being a shop. It keeps the browsing value — every card,
- * every set, searchable, with labelled reference prices — and points
- * at the collectors' market and the price guide, which is where value
+ * every set, searchable, while legacy prices and images are withheld — and points
+ * at the collectors' market, which is where value
  * actually changes hands. Cart affordances and house-stock filters
  * died with the shop.
  */
@@ -17,6 +17,7 @@ import SetSidebar from "@/components/catalog/SetSidebar";
 import Pagination from "@/components/catalog/Pagination";
 import { Provenance, WhyLink, Audience, ErrorAlert } from "@/lib/ui";
 import Link from "next/link";
+import { publicCatalogSort } from "@/lib/public-wholesale-fields";
 
 interface CatalogParams {
   game?: string;
@@ -46,7 +47,7 @@ export default async function CatalogPage({
           game: params.game,
           set: params.set,
           q: params.q,
-          sort: params.sort,
+          sort: publicCatalogSort(params.sort),
           limit: PER_PAGE,
           offset: (page - 1) * PER_PAGE,
         }).catch((): { count: number; total: number; channel: string; items: PriceItem[] } => {
@@ -84,7 +85,7 @@ export default async function CatalogPage({
           each, cross-linked, keeps both doors legible. */}
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
         <p className="text-ink-muted">
-          The catalog — browse every card, with reference prices.
+          The structural catalog — legacy prices and images are withheld pending field-level source rights.
         </p>
         <Link
           href="/market"
@@ -112,7 +113,7 @@ export default async function CatalogPage({
               3,000+ Japanese One Piece Cards.
             </h1>
             <p className="text-lg text-ink-muted">
-              Every card catalogued with a daily reference price — trade them with collectors on the market.
+              Structural catalog rows are browseable. Legacy price values and images are not published.
             </p>
           </div>
 
@@ -186,8 +187,8 @@ export default async function CatalogPage({
             {pricesFailed ? (
               <div className="mt-6">
                 <ErrorAlert
-                  title="Prices are temporarily unreachable"
-                  description="Try again in a minute — the cards are still here, our price feed just didn't answer."
+                  title="Catalog rows are temporarily unreachable"
+                  description="Try again in a minute. This page does not publish legacy price or image fields even when structural rows are available."
                 />
               </div>
             ) : (

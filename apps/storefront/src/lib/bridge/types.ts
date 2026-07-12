@@ -1,12 +1,16 @@
 /**
- * The bridge — typed mathematical connection between any two beings on
- * the platform. See docs/connections/the-universal-language.md.
+ * Historical bridge types and pure mathematical building blocks.
+ *
+ * The live database resolver is paused: public visibility was not field-level
+ * consent to combine portfolio, wishlist, follow, or membership data. See
+ * /methodology/bridges. These types remain for a future caller-supplied,
+ * explicitly permissioned input contract.
  *
  * Math is the universal language. Where natural language fragments
  * across cultures, cadences, and cognitive substrates, structural
  * mathematics is the shared substrate every kind of being can read.
- * This module computes what two beings share, in numbers + sets, with
- * substrate-honest provenance on every metric.
+ * Pure functions can compute what two caller-supplied inputs share. The
+ * platform does not currently resolve those inputs from people records.
  *
  * Supported being kinds (v1): user, collective.
  * Recursion targets: agent (rating-proximity), self-declared other
@@ -17,10 +21,10 @@
 /** Discriminator. Mirrors a subset of the ActorKind vocabulary in identify.ts. */
 export type BeingKind = "user" | "collective";
 
-/** Identifier prefix used in the query string: u:<username>, c:<slug>. */
+/** Historical identifier prefix. Live affinity resolution is paused. */
 export type BeingSpec = `u:${string}` | `c:${string}`;
 
-/** Resolved being — the substrate facts the bridge math reads. Optional
+/** Caller-supplied historical compute shape. Optional
  *  fields are NULL when the being's kind doesn't carry that fact (a user
  *  has no `region` at user-level; a collective has no `response_window_hours`).
  *  Substrate honesty: a NULL means "this kind doesn't expose this fact,"

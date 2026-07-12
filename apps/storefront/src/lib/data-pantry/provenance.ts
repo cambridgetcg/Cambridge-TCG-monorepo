@@ -31,7 +31,7 @@ export type SourceName =
   | "ctcg-market"
   /** Cambridge TCG auction book. */
   | "ctcg-auctions"
-  /** Cambridge TCG provable-fairness chain. */
+  /** Cambridge TCG draw-receipt digest chain (legacy source id). */
   | "ctcg-fairness-chain"
   /** Platform internal computation (no upstream source). */
   | "ctcg-derived";

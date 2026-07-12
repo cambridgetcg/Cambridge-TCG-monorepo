@@ -17,10 +17,9 @@
 export type BandaiEnGameKey = "op" | "dbf" | "dmw" | "una" | "bsr";
 
 /**
- * Per-game configuration for the shared fetch/parse skeleton. One
- * scraper covers all five Bandai EN sites (identical
- * `.../card/{CARD_NO}.png|webp` convention, `_p1` suffixes for
- * parallels — docs/EN-CARD-DATA.md §2).
+ * Per-game configuration retained for the offline parse skeleton. One Piece
+ * has a local fixture; the other sites and their exact image conventions are
+ * unverified. The live SourceModule reader is blocked for every game.
  */
 export interface BandaiEnGameConfig {
   /** Registered game code (doubles as the config key). */
@@ -29,15 +28,14 @@ export interface BandaiEnGameConfig {
   label: string;
   /** Site root — documentation + URL resolution base. */
   base_url: string;
-  /** Series page URL for a given series id (empty id = discovery page). */
+  /** Candidate series page URL, inert until written permission exists. */
   series_url: (series_id: string) => string;
   /**
-   * Copyright/attribution line stamped into every card's `extra` —
-   * policy requirement (docs/EN-CARD-DATA.md §7: attribution always,
-   * schema-enforced downstream). Franchise line + Bandai.
+   * Copyright/attribution line preserved in fixture-normalized provenance.
+   * Attribution does not grant collection or publication permission.
    */
   attribution: string;
-  /** Whether read() actually fetches this game yet. */
+  /** Whether an offline parser shape has been fixture-verified. */
   implemented: boolean;
   /**
    * Substrate-honest status note. For stubs: what is verified, what

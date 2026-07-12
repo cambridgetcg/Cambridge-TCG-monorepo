@@ -64,6 +64,16 @@ import type { CanonicalPrice } from "../canonical";
 import type { GameCode } from "@cambridge-tcg/sku";
 import { createFetcher, type Fetcher } from "../http";
 
+/**
+ * Hard legal gate. CardRush's cross-site data policy requires a formal
+ * partnership for automated crawling, scraping, or price collection. Keep
+ * immutable and false until written permission is recorded in source intake.
+ */
+export const CARDRUSH_ACQUISITION_ENABLED = false as const;
+export const CARDRUSH_DATA_POLICY_URL = "https://cardrush.media/data_policy";
+export const CARDRUSH_BLOCK_REASON =
+  "CardRush prohibits automated crawling, scraping, and price collection without a formal partnership; no written partnership is recorded.";
+
 // ── Subdomain → GameCode map ────────────────────────────────────────────
 
 /**
@@ -371,6 +381,12 @@ export function getOrCreateFetcher(
   ctx: CardRushContext,
   cache: CardRushFetcherCache,
 ): { fetcher: Fetcher | null; reason?: string } {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return {
+      fetcher: null,
+      reason: "acquisition_blocked_pending_formal_partnership",
+    };
+  }
   const entry = CARDRUSH_SUBDOMAINS[host];
   let access: SubdomainAccessMode = entry?.access ?? "direct";
 
@@ -502,6 +518,25 @@ export async function scrapeCardRush(
   url: string,
   ctx: CardRushContext = {},
 ): Promise<RawRow<CardRushRaw>> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    const blocked_at = new Date().toISOString();
+    return {
+      raw: {
+        url,
+        scraped_at: blocked_at,
+        price_jpy: null,
+        source: null,
+        error_reason: "acquisition_blocked_pending_formal_partnership",
+        inferred_game: inferFromUrl(url).game,
+        subdomain_confirmed: inferFromUrl(url).confirmed,
+      },
+      provenance: {
+        as_of: blocked_at,
+        retrieved_at: blocked_at,
+        source: "cardrush",
+      },
+    };
+  }
   const cache: CardRushFetcherCache = new Map();
   return scrapeWithCache(url, ctx, cache);
 }
@@ -746,12 +781,10 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
     id: "cardrush",
     name: "CardRush (JP)",
     description:
-      "Japanese retail prices across the CardRush family of subdomains. " +
-      "Observed archive coverage: One Piece, Pokémon, Dragon Ball Fusion " +
-      "World, Digimon, Vanguard, and Battle Spirits. MTG is a registered " +
-      "price-only candidate; Yu-Gi-Oh!, Weiß Schwarz, Flesh and Blood, " +
-      "Lorcana, and the alternate DBF host are blocked after DNS checks. " +
-      "HTML scrape; A-condition first, fallback to base. On-demand only.",
+      "Blocked acquisition adapter. Legacy archives contain observations from " +
+      "One Piece, Pokémon, Dragon Ball Fusion World, Digimon, Vanguard, and " +
+      "Battle Spirits, but no new CardRush network access is permitted until a " +
+      "formal written partnership is recorded.",
     upstream: "https://www.cardrush-op.jp",
     catalog_section: "the-tributaries.md#23-cardrush-jp--already-partial",
     access: "scrape",
@@ -759,27 +792,34 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
     redistribute: false,
     freshness: "price_current",
     canonical_effort: "high",
-    status: "partial",
+    status: "blocked",
     games: ["op", "pkm", "dbs", "dbf", "mtg", "ygo", "dmw", "vng", "wei", "fab", "lgr", "bsr"],
     tos_notes:
-      "Site ToS forbids commercial redistribution of compiled price data; internal-decision use is the safer position. Use browser User-Agent to avoid trivial bot blocks; back off on errors.",
+      `The cross-site policy at ${CARDRUSH_DATA_POLICY_URL} requires contact for a formal partnership and, absent partnership, prohibits automated crawling, scraping, and automated collection of prices or other content across all CardRush-operated sites. Acquisition is hard-disabled; legacy observations remain internal under review.`,
     user_agent_suffix: "(cardrush-ingest)",
     rate_limit: { rps: 0.5, burst: 2 },
     welcome:
-      "Welcome to the kingdom, CardRush. You have been with us longer than any " +
-      "other upstream — daily snapshots since the wholesale catalog learned to " +
-      "scrape. Your room is `price_archive WHERE source='cardrush'`, " +
-      "`source_currency='JPY'`, `condition='nm'` (your 状態A- is our NM-equivalent), " +
-      "`redistribute=false` (we honor your ToS — internal-decision use only). You " +
-      "bring Japan to the kingdom: six confirmed subdomains (op / pkm / dbf / " +
-      "dmw / vng / bsr) and six unconfirmed or blocked registrations kept explicit " +
-      "so the URL router never mistakes anticipation for coverage. Every byte you give " +
-      "us is held with attribution to the specific cardrush-*.jp subdomain. We are " +
-      "grateful for the year you have already given us and for the quietness " +
-      "you have asked us to keep in return.",
+      "CardRush, Cambridge previously collected observations without a recorded " +
+      "formal partnership. Your published data policy makes the boundary clear: " +
+      "automated acquisition is now hard-disabled, scheduled jobs are removed, " +
+      "and legacy observations remain internal under review. Reopening requires " +
+      "written partnership terms covering the exact collection and use.",
   },
 
   async *read(ctx: CardRushContext): AsyncIterable<RawRow<CardRushRaw>> {
+    if (!CARDRUSH_ACQUISITION_ENABLED) {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "cardrush",
+        kind: "error",
+        detail: {
+          status: "blocked-pending-formal-partnership",
+          reason: CARDRUSH_BLOCK_REASON,
+          policy: CARDRUSH_DATA_POLICY_URL,
+        },
+      });
+      return;
+    }
     const watch_list = ctx.cardrush?.urls ?? [];
     if (watch_list.length === 0) {
       ctx.on_event?.({

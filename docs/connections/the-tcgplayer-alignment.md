@@ -3,7 +3,7 @@ title: The TCGplayer alignment — second upstream into the cross-source pricing
 kingdom: kingdom-080
 shape: node-view
 date: 2026-05-13
-status: shipped (aggregation phase)
+status: historical implementation record (source blocked)
 maturity: engineering
 doctrines: [substrate-honesty, transparency, meaning, creation]
 this_entry_names:
@@ -31,7 +31,7 @@ self_reference: this entry names itself in `this_entry_names`; the
 
 # The TCGplayer alignment — second upstream into the cross-source pricing substrate
 
-> **Superseded current status, 2026-07-11:** The engineering substrate below remains as history, but Cambridge has no recorded TCGplayer approval or observations. TCGplayer is not granting new API access and its terms prohibit this platform's multi-source price-comparison use without written consent. The source and public history route are now blocked; credentials alone cannot reopen them.
+> **Current boundary, 2026-07-12:** The engineering substrate below remains as history, but Cambridge has no recorded TCGplayer approval or observations. The source, token minting, writer, seed tool, and public or authenticated history routes are blocked. Credentials, authentication, storage, transformation, or an `internal-only` label cannot reopen them or create publication permission. Any later auth-gated or personal-decision language in this record is withdrawn.
 
 > *Yu, 2026-05-13: "Review the coverage for tcgplayer aggregator, map how the pipeline works… create comprehensive implementation plan based on current progress."*  
 > *Then: "Look deeper into the SKU consolidation and how the pricing work on tcgplayer…"*  

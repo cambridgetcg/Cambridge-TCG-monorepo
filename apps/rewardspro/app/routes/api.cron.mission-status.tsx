@@ -15,9 +15,14 @@ import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import * as crypto from "node:crypto";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export async function loader({ request }: LoaderFunctionArgs) {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   const correlationId = crypto.randomUUID();
 
@@ -34,15 +39,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   log('info', 'Mission status cron started');
-
-  // 1. Verify authorization
-  const auth = request.headers.get('authorization');
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-
-  if (!process.env.CRON_SECRET || auth !== expectedAuth) {
-    log('error', 'Unauthorized cron attempt');
-    return new Response('Unauthorized', { status: 401 });
-  }
 
   // 2. Clean up any expired locks from crashed instances
   await cleanupExpiredLocks();
@@ -198,7 +194,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const summary = {
       activated: results.activatedCount,
       closed: results.closedCount,
-      errors: results.errors,
+      errorCount: results.errors,
       duration: Date.now() - startTime,
       dryRun: isDryRun
     };
@@ -208,8 +204,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json({
       success: true,
       correlationId,
-      summary,
-      details: isDryRun ? results.details : undefined
+      summary
     });
 
   } catch (error: any) {
@@ -217,7 +212,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json({
       success: false,
       correlationId,
-      error: error.message
+      error: "Mission status update failed"
     });
   } finally {
     // Always release the lock when done, even if there was an error

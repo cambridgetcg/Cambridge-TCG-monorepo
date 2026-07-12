@@ -4,6 +4,15 @@
 // --game takes the kingdom GameCode (games.code post-migration-0022): op | pkm | dbf
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "../src/lib/source-publication-policy";
+
+if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+  console.error(`eBay catalog export is blocked. ${LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON}`);
+  process.exit(1);
+}
 
 // Load .env.local (overrides shell env — .env.local is the source of truth)
 if (existsSync(".env.local")) {

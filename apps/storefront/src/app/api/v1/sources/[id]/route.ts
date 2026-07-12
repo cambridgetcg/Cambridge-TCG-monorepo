@@ -1,32 +1,19 @@
 /**
- * /api/v1/sources/[id] — single-source detail with run history, freshness
- * status, and quarantine counts.
+ * /api/v1/sources/[id] -- public source metadata and numeric ingest health.
  *
- * Where `/api/v1/sources` lists every source's meta + last-run row (kingdom-079),
- * this endpoint zooms into one source: full meta + the last 7 runs (or
- * configurable window via ?window=) + quarantine counts in the same window +
- * health-status derived from staleness vs the source's freshness budget.
- *
- * Public, no-auth — but the run + quarantine data is operational metadata
- * (timestamps, counts, status), not upstream-derived prices. The CC0 license
- * applies to the data the storefront owns (operational state, the registry
- * meta). For source-attributed historical prices, see the wholesale B2B
- * endpoint /api/v1/universal/card/[sku]/at/[date].
- *
- * Designed in `docs/connections/the-license-propagation.md` (kingdom-081
- * Phase 4.3).
+ * Wholesale run notes and quarantine reasons are operator data. They can
+ * contain upstream titles, search terms, or exception text, so this public
+ * projection never fetches quarantine and strips all free-text run fields.
  */
 
-import { NextRequest } from "next/server";
-import type { NextResponse } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { getSource, listSourceMeta } from "@cambridge-tcg/data-ingest";
 import {
   fetchSourceLastRuns,
   fetchSourceRunHistory,
-  fetchQuarantine,
   type SourceRunHistoryRow,
-  type QuarantineRow,
+  type SourceRunRow,
 } from "@/lib/wholesale/client";
 
 const VALID_WINDOWS = ["1h", "24h", "7d", "30d", "90d"] as const;
@@ -40,8 +27,6 @@ const WINDOW_HOURS: Record<Window, number> = {
   "90d": 90 * 24,
 };
 
-// FreshnessKey → seconds (mirrors packages/data-spec/src/freshness.ts).
-// Used to derive health-status pills without depending on data-spec at runtime.
 const FRESHNESS_SECONDS: Record<string, number> = {
   catalog: 86400,
   price_current: 300,
@@ -53,33 +38,68 @@ const FRESHNESS_SECONDS: Record<string, number> = {
   adopters: 86400,
 };
 
-type Health = "healthy" | "stale" | "very_stale" | "failing" | "never_run" | "unknown";
+type Health =
+  | "healthy"
+  | "stale"
+  | "very_stale"
+  | "failing"
+  | "never_run"
+  | "unknown";
+
+interface PublicRunRow {
+  triggered_at: string;
+  finished_at: string | null;
+  status: string;
+  spec_version: string;
+  rows_read: number;
+  rows_normalized: number;
+  rows_written: number;
+  rows_quarantined: number;
+  errors: number;
+}
+
+function publicRun(row: SourceRunRow): PublicRunRow {
+  return {
+    triggered_at: row.triggered_at,
+    finished_at: row.finished_at,
+    status: row.status,
+    spec_version: row.spec_version,
+    rows_read: row.rows_read,
+    rows_normalized: row.rows_normalized,
+    rows_written: row.rows_written,
+    rows_quarantined: row.rows_quarantined,
+    errors: row.errors,
+  };
+}
 
 function deriveHealth(opts: {
-  last_run: SourceRunHistoryRow | null;
+  last_run: SourceRunRow | null;
   freshness_seconds: number;
   ingest_runs_available: boolean;
 }): { health: Health; reason: string } {
   if (!opts.ingest_runs_available) {
-    return { health: "unknown", reason: "wholesale ingest-runs endpoint unreachable" };
+    return { health: "unknown", reason: "wholesale ingest status is unavailable" };
   }
   if (!opts.last_run) {
-    return { health: "never_run", reason: "no ingest_run rows for this source" };
+    return { health: "never_run", reason: "no ingest run was returned for this source" };
   }
   if (opts.last_run.status === "failed" || opts.last_run.errors > 0) {
-    return { health: "failing", reason: `last run status=${opts.last_run.status}, errors=${opts.last_run.errors}` };
+    return {
+      health: "failing",
+      reason: `last run status=${opts.last_run.status}, errors=${opts.last_run.errors}`,
+    };
   }
   const finished = opts.last_run.finished_at
     ? new Date(opts.last_run.finished_at).getTime()
     : null;
   if (finished === null) {
-    return { health: "stale", reason: "last run never finished (status remains 'running')" };
+    return { health: "stale", reason: "last run has not finished" };
   }
   const ageSec = (Date.now() - finished) / 1000;
   if (ageSec > 2 * opts.freshness_seconds) {
     return {
       health: "very_stale",
-      reason: `last finished ${(ageSec / 3600).toFixed(1)}h ago; freshness budget ${(opts.freshness_seconds / 3600).toFixed(1)}h (2× exceeded)`,
+      reason: `last finished ${(ageSec / 3600).toFixed(1)}h ago; freshness budget ${(opts.freshness_seconds / 3600).toFixed(1)}h (2x exceeded)`,
     };
   }
   if (ageSec > opts.freshness_seconds) {
@@ -94,17 +114,14 @@ function deriveHealth(opts: {
 interface SourceDetailBody {
   id: string;
   meta: ReturnType<typeof listSourceMeta>[number] | null;
-  /** Registered but not yet implemented? (no module = planned slot). */
   is_planned_only: boolean;
-  /** Source-license tier from registry. */
   license: string;
-  /** Whether the registry says this is redistributable. */
   redistributable: boolean;
-  /** Substrate-honest about the wholesale Falcon's reachability. */
   ingest_runs_available: boolean;
+  run_history_available: boolean;
   health: { state: Health; reason: string };
-  last_run: SourceRunHistoryRow | null;
-  recent_runs: SourceRunHistoryRow[];
+  last_run: PublicRunRow | null;
+  recent_runs: PublicRunRow[];
   run_summary: {
     window_hours: number;
     total_runs: number;
@@ -114,18 +131,15 @@ interface SourceDetailBody {
     rows_quarantined_total: number;
     errors_total: number;
   };
-  quarantine: {
-    window_total: number;
-    unresolved: number;
-    by_reason: Record<string, number>;
-    recent: Pick<
-      QuarantineRow,
-      "id" | "ingest_run_id" | "reason" | "quarantined_at"
-    >[];
+  quarantine_publication: {
+    available: false;
+    reason: string;
   };
   links: {
-    runs_full_history: string;
-    quarantine_window: string;
+    operator_runs_full_history: {
+      url: string;
+      auth: "wholesale-key";
+    };
     methodology: string;
     catalog: string;
   };
@@ -140,38 +154,30 @@ export async function GET(
   const windowParam = (url.searchParams.get("window") ?? "7d") as Window;
   const window = VALID_WINDOWS.includes(windowParam) ? windowParam : "7d";
 
-  // Resolve meta from the registry. Even planned slots can be queried —
-  // the response shape stays consistent; absent module means is_planned_only.
   const mod = getSource(id as never);
   const allMeta = listSourceMeta();
-  const meta = allMeta.find((m) => m.id === id) ?? null;
+  const meta = allMeta.find((candidate) => candidate.id === id) ?? null;
   const is_planned_only = mod === undefined;
 
-  // Fetch live data in parallel.
-  const [lastRuns, runHistory, quarantine] = await Promise.all([
+  const [lastRuns, runHistory] = await Promise.all([
     fetchSourceLastRuns(),
     fetchSourceRunHistory({ source: id, window, limit: 50 }),
-    fetchQuarantine({ source: id, window, unresolved: false, limit: 20 }),
   ]);
 
   const ingest_runs_available = lastRuns !== null;
-  const last_run_short = lastRuns?.find((r) => r.source_id === id) ?? null;
-  // Materialize last_run as a SourceRunHistoryRow-shaped (fill id=0 when absent)
-  const last_run: SourceRunHistoryRow | null = last_run_short
-    ? { id: 0, ...last_run_short }
-    : null;
+  const run_history_available = runHistory !== null;
+  const last_run_internal = lastRuns?.find((row) => row.source_id === id) ?? null;
+  const recent_runs_internal: SourceRunHistoryRow[] = runHistory?.runs ?? [];
 
-  const recent_runs: SourceRunHistoryRow[] = runHistory?.runs ?? [];
-
-  const run_summary = recent_runs.reduce(
-    (acc, r) => ({
+  const run_summary = recent_runs_internal.reduce(
+    (acc, row) => ({
       ...acc,
       total_runs: acc.total_runs + 1,
-      successful_runs: acc.successful_runs + (r.status === "done" ? 1 : 0),
-      failed_runs: acc.failed_runs + (r.status === "failed" ? 1 : 0),
-      rows_written_total: acc.rows_written_total + r.rows_written,
-      rows_quarantined_total: acc.rows_quarantined_total + r.rows_quarantined,
-      errors_total: acc.errors_total + r.errors,
+      successful_runs: acc.successful_runs + (row.status === "done" ? 1 : 0),
+      failed_runs: acc.failed_runs + (row.status === "failed" ? 1 : 0),
+      rows_written_total: acc.rows_written_total + row.rows_written,
+      rows_quarantined_total: acc.rows_quarantined_total + row.rows_quarantined,
+      errors_total: acc.errors_total + row.errors,
     }),
     {
       window_hours: WINDOW_HOURS[window],
@@ -186,7 +192,7 @@ export async function GET(
 
   const freshness_seconds = meta ? FRESHNESS_SECONDS[meta.freshness] ?? 0 : 0;
   const { health, reason } = deriveHealth({
-    last_run,
+    last_run: last_run_internal,
     freshness_seconds,
     ingest_runs_available,
   });
@@ -198,36 +204,45 @@ export async function GET(
     license: meta?.license ?? "unknown",
     redistributable: meta?.redistribute ?? false,
     ingest_runs_available,
+    run_history_available,
     health: { state: health, reason },
-    last_run,
-    recent_runs,
+    last_run: last_run_internal ? publicRun(last_run_internal) : null,
+    recent_runs: recent_runs_internal.map(publicRun),
     run_summary,
-    quarantine: {
-      window_total: quarantine?.counts.window_total ?? 0,
-      unresolved: quarantine?.counts.unresolved ?? 0,
-      by_reason: quarantine?.counts.by_reason ?? {},
-      recent: (quarantine?.quarantine ?? []).slice(0, 10).map((q) => ({
-        id: q.id,
-        ingest_run_id: q.ingest_run_id,
-        reason: q.reason,
-        quarantined_at: q.quarantined_at,
-      })),
+    quarantine_publication: {
+      available: false,
+      reason:
+        "Quarantine reasons and rows are operator-only because they may contain upstream or exception text.",
     },
     links: {
-      runs_full_history: `https://wholesaletcgdirect.com/api/v1/ingest-runs?source=${encodeURIComponent(id)}&window=${window}`,
-      quarantine_window: `https://wholesaletcgdirect.com/api/v1/ingest-quarantine?source=${encodeURIComponent(id)}&window=${window}`,
+      operator_runs_full_history: {
+        url: `https://wholesaletcgdirect.com/api/v1/ingest-runs?source=${encodeURIComponent(id)}&window=${window}`,
+        auth: "wholesale-key",
+      },
       methodology: meta?.catalog_section
         ? `https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/${meta.catalog_section}`
         : "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tributaries.md",
-      catalog: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tributaries.md",
+      catalog:
+        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tributaries.md",
     },
   };
+
+  const operationalDataIncluded = ingest_runs_available || run_history_available;
 
   return jsonResponse({
     data,
     endpoint: "/api/v1/sources/[id]",
-    sources: ["ctcg-derived", "wholesale-rds.ingest_run", "wholesale-rds.ingest_quarantine"],
-    source_license: ["cc0", "cc0", "cc0"],
+    sources: operationalDataIncluded
+      ? ["ctcg-derived", "wholesale-rds.ingest_run"]
+      : ["ctcg-derived"],
+    source_license: operationalDataIncluded
+      ? ["proprietary", "internal-only"]
+      : ["proprietary"],
+    license: "NOASSERTION",
     freshness: "status",
+    does_not_include: [
+      "Run notes, trigger labels, and internal row identifiers are not returned.",
+      "Quarantine reasons, rows, payload keys, and payload bytes are not fetched or returned.",
+    ],
   });
 }

@@ -1,6 +1,6 @@
-// GBP/JPY exchange rate fetcher
+// GBP/JPY exchange rate fetcher. The live path uses ECB statistics.
 
-const RATE_API_URL = "https://open.er-api.com/v6/latest/GBP";
+import { fetchGbpJpyRate as fetchEcbGbpJpyRate } from "../../src/lib/fx";
 const MIN_RATE = 100;
 const MAX_RATE = 300;
 
@@ -15,21 +15,13 @@ export async function fetchGbpJpyRate(): Promise<number> {
   }
 
   try {
-    const res = await fetch(RATE_API_URL);
-    if (!res.ok) {
-      throw new Error(`FX API returned ${res.status}`);
-    }
-    const data = await res.json();
-    const rate = data.rates?.JPY;
-    if (typeof rate !== "number") {
-      throw new Error("JPY rate not found in API response");
-    }
+    const rate = await fetchEcbGbpJpyRate();
     validateRate(rate);
-    console.log(`  GBP/JPY rate from API: ${rate}`);
+    console.log(`  GBP/JPY rate from ECB statistics: ${rate}`);
     return rate;
   } catch (err) {
     throw new Error(
-      `Failed to fetch GBP/JPY rate: ${err}. Set GBP_JPY_RATE env var as fallback.`
+      `Failed to fetch ECB GBP/JPY rate: ${err}. Set GBP_JPY_RATE env var as an explicit operator fallback.`
     );
   }
 }

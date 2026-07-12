@@ -142,7 +142,7 @@ If any answer is "I don't know," that is the answer to surface. "Source: unknown
 - **Storefront** (`apps/storefront`) — applies in full. Highest stakes: customer-facing claims about money and trust.
 - **Wholesale** (`apps/wholesale`) — applies to pricing, inventory, B2B order state. Cross-channel sync timestamps matter most.
 - **Admin** (`apps/admin`) — applies in full. The hub that aggregates the others must be the most rigorous about provenance.
-- **Public verification surfaces** (`/verify/*` on storefront) — already exemplary (commit-reveal, Merkle digests, chi-squared drift). Treat as the gold standard.
+- **Public draw-receipt surfaces** (`/verify/*` on storefront) — useful examples of exposing inputs, output replay, digest consistency, and limits. They do not prove unbiased seed selection because generic draws use server-only entropy without an external pre-roll witness.
 
 ---
 

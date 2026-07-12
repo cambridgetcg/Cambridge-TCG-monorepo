@@ -21,12 +21,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { query } from "@/lib/db";
 import { buildLinks } from "@/lib/universal/links";
-import { decodePathParam } from "@/lib/http/params";
 
 /** Page ceiling for the inline card list. Requests may ask for less via
  *  ?limit; never more. Pagination is honest: `cards_pagination` names the
  *  slice and `next` walks to the rest (silent-truncation defect, 2026-07). */
 const MAX_CARDS_PER_PAGE = 500;
+const MAX_CARD_OFFSET = 50_000;
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -45,14 +45,14 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> },
 ) {
   try {
-    // Decode before lookup — the segment arrives percent-encoded
-    // (slash-links defect, 2026-07).
-    const { code: rawCode } = await params;
-    const setCode = decodePathParam(rawCode);
+    const { code: setCode } = await params;
 
     const offsetParam = parseInt(req.nextUrl.searchParams.get("offset") ?? "", 10);
     const limitParam = parseInt(req.nextUrl.searchParams.get("limit") ?? "", 10);
-    const offset = Number.isFinite(offsetParam) && offsetParam > 0 ? offsetParam : 0;
+    const offset =
+      Number.isFinite(offsetParam) && offsetParam > 0
+        ? Math.min(offsetParam, MAX_CARD_OFFSET)
+        : 0;
     const limit =
       Number.isFinite(limitParam) && limitParam > 0
         ? Math.min(limitParam, MAX_CARDS_PER_PAGE)
@@ -90,12 +90,10 @@ export async function GET(
     // arrives as declared pages instead of a silently-truncated list
     // whose next-link lies null (silent-truncation defect, 2026-07).
     const cards = await query(
-      `SELECT csc.sku, csc.card_number, csc.card_name, csc.rarity, csc.variant,
-              (SELECT spot_gbp FROM card_price_history
-                 WHERE sku = csc.sku ORDER BY captured_on DESC LIMIT 1) AS spot_gbp
+      `SELECT csc.sku, csc.card_number, csc.card_name, csc.rarity, csc.variant
        FROM card_set_cards csc
        WHERE csc.set_code = $1
-       ORDER BY csc.card_number, csc.variant
+       ORDER BY csc.card_number, csc.variant, csc.sku
        LIMIT $2 OFFSET $3`,
       [setCode, limit, offset],
     );
@@ -125,7 +123,7 @@ export async function GET(
       card_number: c.card_number as string,
       variant: (c.variant as string) || "",
       rarity: c.rarity as string | null,
-      latest_price_gbp: c.spot_gbp == null ? null : Number(c.spot_gbp),
+      latest_price_gbp: null,
       _links: {
         canonical: `/api/v1/universal/card/${encodeURIComponent(c.sku)}`,
       },
@@ -160,9 +158,8 @@ export async function GET(
       "@sources": [
         "storefront-rds.card_sets",
         "storefront-rds.card_set_cards",
-        "storefront-rds.card_price_history",
       ],
-      "@source_license": ["proprietary", "proprietary", "proprietary"],
+      "@source_license": ["proprietary", "proprietary"],
       rights: {
         aggregate: "NOASSERTION",
         cambridge_original_structure: "CC0-1.0",
@@ -185,7 +182,11 @@ export async function GET(
       released_at: set.released_at
         ? new Date(set.released_at).toISOString().slice(0, 10)
         : null,
-      cover_image_url: (set.cover_image_url as string | null) ?? null,
+      cover_image_url: null,
+      publication_boundary: {
+        prices: "withheld_pending_field_level_source_rights",
+        cover_image: "withheld_pending_field_level_source_rights",
+      },
       first_seen_at: set.created_at
         ? {
             iso8601: new Date(set.created_at).toISOString(),
@@ -235,7 +236,7 @@ export async function GET(
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/universal/set/[code]] Error:", message);
     return NextResponse.json(
-      { error: { code: "internal_error", message } },
+      { error: { code: "internal_error", message: "Internal server error." } },
       { status: 500 },
     );
   }

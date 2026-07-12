@@ -2,7 +2,7 @@
  * POST /api/cron/shopify-orders
  *
  * Pull recent Shopify orders, create wholesale order records, and decrement stock.
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  Vercel Cron header
+ * Auth: Authorization: Bearer {CRON_SECRET}
  *
  * Query params:
  *   ?order_numbers=1186,1185  — process specific orders only
@@ -18,6 +18,7 @@ import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
 import { ShopifyClient } from "@/lib/shopify-client";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
 
@@ -204,7 +205,10 @@ export async function POST(req: NextRequest) {
             details.push({ sku, prev: prevStock, new: newStock, delta });
           });
         } catch (err) {
-          errors.push({ sku, error: err instanceof Error ? err.message : String(err) });
+          errors.push({
+            sku,
+            error: redactInternalError("cron/shopify-orders item", err),
+          });
         }
       }
 

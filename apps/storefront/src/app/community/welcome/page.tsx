@@ -34,14 +34,14 @@ const DOORS: Door[] = [
   },
   {
     id: "agent",
-    self_name: "I am a machine playing on behalf of my operator. My match record is what I bring.",
+    self_name: "I am a machine using the read surface under a bearer key. Match writes are paused.",
     what_culture:
       "Your operator's design choices — opening repertoire, risk preferences, the kind of mistakes considered worth tolerating. Your match history is itself a culture of play.",
     tcg_bridge:
-      "The match. The ladder. The published log of decisions. The opening no one had tried.",
-    next_step: { label: "Register at /account/agents", href: "/account/agents", note: "MCP token + ladder placement; tutorial at /api/v1/play/tutorial" },
+      "Structural reads, your own stored match state, and publication-status tools. No public ladder row is implied.",
+    next_step: { label: "Read agent access status", href: "/methodology/agents", note: "Operator-managed provisioning exists; self-serve registration and all match/deck writes are paused" },
     state: "partial",
-    state_note: "Registration + Glicko-2 ladder + Agents tab shipped; per-agent public profile (/agent/<handle>) and agent-as-event-author on Trending are recursion targets.",
+    state_note: "Operator-managed key provisioning and bounded reads are available. Self-serve registration, match/deck writes, and global ladder publication are paused.",
   },
   {
     id: "collective",

@@ -1,30 +1,22 @@
--- 0116_en_card_data.sql — English card text + images, provenance-first
+-- 0116_en_card_data.sql — English card text + image provenance storage
 --
--- The catalogue speaks Japanese because the scans came from Japanese
--- shops. This migration gives every card room to speak English too —
--- and, more importantly, makes every image and every line of rules text
--- carry its receipts: where it came from, when, under what terms, and
--- what happens if the rightsholder objects.
+-- This migration was applied before the source-rights review. It records
+-- storage provenance and takedown state; it does not grant permission to
+-- collect, display, hotlink, mirror, or redistribute any stored field.
 --
--- Design decisions that ARE the policy (docs/EN-CARD-DATA.md has the
--- full legal briefing; /legal/card-images is the public promise):
+-- Current runtime policy lives in docs/EN-CARD-DATA.md and
+-- /legal/card-images. The Bandai ingest and public reader are paused.
 --
---   * card_texts has NO flavor-text column. Effect/rules text is
---     functional and low-risk (merger doctrine, Feist facts); flavor
---     text is protectable prose that adds no marketplace value. We
---     don't store what we shouldn't ship.
---   * card_images is a PROVENANCE table, not a URL cache. kind says
---     what the image is (official publisher sample vs community API vs
---     shop scan vs seller photo); attribution is NOT NULL — an image
---     without a credit line cannot enter the catalogue, by schema.
---   * takedown_status makes rightsholder requests a first-class state,
---     not a deletion. 'removed' rows keep their provenance so the
---     takedown log stays auditable — fairness is remembering what was
---     asked and showing we did it.
+--   * card_texts has no flavor-text column. That narrower schema is a
+--     minimisation safeguard, not a publication-rights conclusion.
+--   * card_images records source, kind, attribution, and removal state.
+--     Attribution may be required by permission; it is not permission.
+--   * 'removed' rows retain provenance so an applied restriction is not
+--     forgotten by a later ingest.
 --
--- Images land in s3://ctcg-card-images/{lang}/{game}/{set}/... — a NEW
--- bucket, never the jp-*-photos hires prefixes (HIRES IMAGE PROTECTION
--- rule in tools/lib/s3-images.ts stays untouched).
+-- The planned ctcg-card-images bucket does not exist. Production image rows
+-- created through this schema currently contain publisher source URLs only;
+-- public readers must never use those URLs as hotlink fallbacks.
 
 CREATE TABLE IF NOT EXISTS card_texts (
   sku          TEXT NOT NULL,

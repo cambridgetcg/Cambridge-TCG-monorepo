@@ -1,71 +1,26 @@
 #!/usr/bin/env tsx
 /**
- * redistribution.ts — CC0 export-surface ← origin-license coherence audit
+ * Audits the publication and reuse-right boundaries that are easiest to
+ * reopen accidentally.
  *
- * The sibling `tributaries.ts` audit (check 7) enforces license-coherence
- * at the *registry*: a `SourceModule` may declare `redistribute: true` only
- * when its `license` tier is `cc0` / `cc-by` / `cc-by-sa` / `mit`. That is
- * the SUPPLY side — "no source lies about what it is."
- *
- * This audit enforces the missing half: the SURFACE / EXPORT boundary.
- * `source-intake.md` Gate B says "declaration = SourceMeta"; the risk it
- * leaves open is a *downstream* surface that publishes itself as CC0 while
- * drawing, even partly, from a non-redistributable origin. A CC0 promise on
- * `/api/v1/sold-comps` or a bulk snapshot is only honest if
- * every byte behind it is either first-party CC0 or a redistributable
- * upstream. This turns "declaration = SourceMeta" into a build-failing test
- * for the export side, not just the intake side.
- *
- * ── What it checks ───────────────────────────────────────────────────────
- *
- *   1. Surface→origin coherence. For every CC0 export surface in the
- *      explicit, reviewed map below, every origin is one of:
- *        - an explicitly reviewed first-party table containing Cambridge-
- *          owned data, OR
- *        - a data-ingest `SourceId` whose `SourceMeta` in
- *          `packages/data-ingest/src/registry.ts` has BOTH
- *          `redistribute: true` AND `license ∈ {cc0,cc-by,cc-by-sa,mit}`.
- *      Any other origin (non-redistributable source, planned/undefined
- *      registry slot, or an id not in the registry at all) fails the build.
- *
- *   2. Envelope structural parity. References the runtime envelope schema
- *      (`packages/data-spec/src/schemas/envelope.ts`, the single source of
- *      truth — NOT reimplemented here) to confirm the machinery a CC0
- *      declaration must ride on still exists: `_meta.sources` is a required
- *      field, `_meta.source_license` is a defined parallel-array property,
- *      and its enum still carries the redistributable tiers a CC0 surface
- *      needs to name. If the schema ever drops that channel, a CC0 surface
- *      could no longer honestly declare per-origin rights — that is drift,
- *      and this catches it.
- *
- *   3. Mixed catalog boundary. `/data/catalog.jsonl` must remain
- *      `NOASSERTION`: its RDS tables store fields whose upstream rights are
- *      not preserved per row. Storage location is never treated as ownership.
- *
- * ── Why an explicit map, not a route scan ───────────────────────────────
- *
- * The reviewed `CC0_EXPORT_SURFACES` table below IS the written standard
- * the intake framework calls for: a human decided, in one reviewed place,
- * which surfaces claim CC0 and what feeds them. A brittle regex over every
- * route file would be guessing; this is a declaration. When a new CC0
- * surface ships, it is added here (reviewed) and its origins are then
- * mechanically held to the coherence rule.
- *
- * Exit non-zero on any violation.
+ * Source metadata governs upstream rights. Public storage is not ownership,
+ * and first-party storage is not participant consent. Unknown aggregate
+ * rights stay NOASSERTION.
  *
  * Usage:
  *   pnpm --filter cambridgetcg-storefront redistribution
- *   pnpm audit:redistribution        (from repo root)
+ *   pnpm audit:redistribution
  */
 
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const STOREFRONT_DIR = dirname(SCRIPTS_DIR);
 const REPO_ROOT = resolve(STOREFRONT_DIR, "..", "..");
 const INGEST_SRC = resolve(REPO_ROOT, "packages", "data-ingest", "src");
+const ACTIVE_SOURCE_ROOT = resolve(STOREFRONT_DIR, "src");
 const ENVELOPE_SCHEMA_PATH = resolve(
   REPO_ROOT,
   "packages",
@@ -74,32 +29,18 @@ const ENVELOPE_SCHEMA_PATH = resolve(
   "schemas",
   "envelope.ts",
 );
-const CATALOG_EXPORT_PATH = resolve(
-  REPO_ROOT,
-  "apps",
-  "storefront",
-  "src",
-  "app",
-  "data",
-  "catalog.jsonl",
-  "route.ts",
-);
 
-// The four licence tiers that permit downstream redistribution. Mirrors
-// `REDISTRIBUTABLE_LICENSES` in tributaries.ts (check 7) and Gate C of
-// source-intake.md — kept as a literal, tiny set so the two audits agree.
 const REDISTRIBUTABLE_LICENSES = new Set(["cc0", "cc-by", "cc-by-sa", "mit"]);
 
-// Only reviewed tables containing data Cambridge can actually dedicate are
-// trusted. A broad `storefront-rds.*` prefix would mistake storage location
-// for ownership and would wrongly bless mirrored catalog fields.
+// An origin enters this set only after Cambridge has evidenced both ownership
+// and publication permission. Storage location alone is never evidence.
 const FIRST_PARTY_CC0_ORIGINS = new Set([
-  "storefront-rds.market_trades",
-  "storefront-rds.auctions",
-  // Cambridge's own authored registry of dataset descriptions (lib/datasets.ts).
-  // It DESCRIBES datasets of varying licences but the descriptions themselves
-  // are our own → CC0. It carries no upstream bytes.
+  // Cambridge-authored descriptions of datasets. This origin carries no
+  // records from the datasets it describes and does not change their rights.
   "cambridge-tcg.dataset-registry",
+  // Cambridge-authored typed gap ledger with an explicit CC0 dedication in
+  // both packages/data-ingest/src/gaps.ts and docs/principles/known-gaps.md.
+  "cambridge-tcg.known-gaps-registry",
 ]);
 
 // ── The reviewed standard: CC0 export surfaces → their origins ───────────
@@ -110,31 +51,27 @@ const FIRST_PARTY_CC0_ORIGINS = new Set([
 // asks to be written down, not inferred.
 
 interface Cc0Surface {
-  /** The public path (or path family) that declares itself CC0. */
   surface: string;
-  /** Named origins that feed it. Reviewed first-party table or a data-ingest SourceId. */
   origins: string[];
-  /** Why this surface is CC0 — the reviewer's note. */
   note: string;
 }
 
 const CC0_EXPORT_SURFACES: Cc0Surface[] = [
-  {
-    surface: "/api/v1/sold-comps",
-    origins: ["storefront-rds.market_trades", "storefront-rds.auctions"],
-    note:
-      "Realised peer-to-peer sold comps: our own users' completed trades + " +
-      "auction finals on our own platform. First-party CC0 — no upstream " +
-      "licence to honour. eBay/partner comps are NOT admitted to this surface.",
-  },
   {
     surface: "/api/v1/datasets",
     origins: ["cambridge-tcg.dataset-registry"],
     note:
       "The dataset catalog. Its CC0 envelope covers only our own authored " +
       "dataset descriptions (lib/datasets.ts); each listed dataset carries its " +
-      "own licence in-band (notably the card catalogue stays NOASSERTION). The " +
-      "catalog cites no upstream bytes, so CC0 is honest for the metadata.",
+      "own licence and availability in-band. The catalog carries no records " +
+      "from those datasets, so CC0 applies only to its authored metadata.",
+  },
+  {
+    surface: "/api/v1/gaps",
+    origins: ["cambridge-tcg.known-gaps-registry"],
+    note:
+      "The authored gap ledger and doctrine explicitly dedicate the corpus " +
+      "to CC0; it contains platform gaps, not upstream catalog records.",
   },
 ];
 
@@ -142,24 +79,76 @@ const CC0_EXPORT_SURFACES: Cc0Surface[] = [
 
 interface Finding {
   check: number;
-  surface: string;
-  origin: string;
+  boundary: string;
   message: string;
 }
 
-const failures: Finding[] = [];
+const findings: Finding[] = [];
 
-function fail(check: number, surface: string, origin: string, message: string): void {
-  failures.push({ check, surface, origin, message });
+function fail(check: number, boundary: string, message: string): void {
+  findings.push({ check, boundary, message });
 }
 
-// ── Registry load (same idiom as tributaries.ts) ─────────────────────────
+function source(relativePath: string): string {
+  return readFileSync(resolve(REPO_ROOT, relativePath), "utf8");
+}
+
+function requireText(
+  check: number,
+  boundary: string,
+  body: string,
+  expected: string,
+  message: string,
+): void {
+  if (!body.includes(expected)) fail(check, boundary, message);
+}
+
+function forbidText(
+  check: number,
+  boundary: string,
+  body: string,
+  forbidden: string,
+  message: string,
+): void {
+  if (body.includes(forbidden)) fail(check, boundary, message);
+}
+
+function requireBefore(
+  check: number,
+  boundary: string,
+  body: string,
+  guard: string,
+  work: string,
+  message: string,
+): void {
+  const guardAt = body.indexOf(guard);
+  const workAt = body.indexOf(work);
+  if (guardAt < 0 || workAt < 0 || guardAt > workAt) {
+    fail(check, boundary, message);
+  }
+}
+
+function activeSourceFiles(directory: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...activeSourceFiles(path));
+    } else if (
+      /\.(ts|tsx|md)$/.test(entry.name) &&
+      !entry.name.includes(".test.") &&
+      !entry.name.includes(".generated.")
+    ) {
+      files.push(path);
+    }
+  }
+  return files;
+}
 
 interface SourceMetaShape {
   id: string;
   license: string;
   redistribute: boolean;
-  status: string;
 }
 
 interface ModuleShape {
@@ -180,153 +169,497 @@ async function loadMetaSchema(): Promise<Record<string, unknown>> {
   return mod.META_SCHEMA;
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────
-
-async function main(): Promise<void> {
-  const sources = await loadRegistry();
-  const meta_schema = await loadMetaSchema();
-
+function auditCc0Surfaces(
+  sources: Record<string, ModuleShape | undefined>,
+): number {
   let originsChecked = 0;
 
-  // ── Check 1: surface → origin coherence ──────────────────────────────
   for (const { surface, origins } of CC0_EXPORT_SURFACES) {
     for (const origin of origins) {
       originsChecked += 1;
 
-      // Explicitly reviewed first-party CC0 — no registry lookup needed.
       if (FIRST_PARTY_CC0_ORIGINS.has(origin)) continue;
 
-      // Otherwise the origin must be a redistributable data-ingest source.
       if (!(origin in sources)) {
         fail(
           1,
-          surface,
-          origin,
-          "origin is neither an explicitly reviewed first-party CC0 table nor a registered data-ingest SourceId — a CC0 surface cannot draw from an unknown origin",
+          `${surface} <- ${origin}`,
+          "origin is neither an explicitly reviewed first-party CC0 origin nor a registered source",
         );
         continue;
       }
 
-      const mod = sources[origin];
-      if (!mod) {
+      const sourceModule = sources[origin];
+      if (!sourceModule) {
         fail(
           1,
-          surface,
-          origin,
-          `origin is a reserved/planned registry slot with no declared SourceMeta — it cannot be a CC0 export origin until it ships with a redistributable licence`,
+          `${surface} <- ${origin}`,
+          "origin is only a reserved registry slot and has no rights declaration",
         );
         continue;
       }
 
-      const { license, redistribute } = mod.meta;
-      if (redistribute !== true) {
+      const { license, redistribute } = sourceModule.meta;
+      if (!redistribute || !REDISTRIBUTABLE_LICENSES.has(license)) {
         fail(
           1,
-          surface,
-          origin,
-          `origin declares redistribute:false (licence '${license}') — it must not feed a CC0 export surface. Aggregate/derive downstream, or drop it from this surface.`,
-        );
-        continue;
-      }
-      if (!REDISTRIBUTABLE_LICENSES.has(license)) {
-        fail(
-          1,
-          surface,
-          origin,
-          `origin declares redistribute:true but licence '${license}' is not in {cc0,cc-by,cc-by-sa,mit} — incoherent (tributaries check 7 should have caught this upstream)`,
+          `${surface} <- ${origin}`,
+          `source declares license '${license}' and redistribute:${redistribute}; it cannot feed a CC0 export`,
         );
       }
     }
   }
 
-  // ── Check 3: the bulk catalog does not mistake storage for ownership ──
-  const catalogRoute = readFileSync(CATALOG_EXPORT_PATH, "utf8");
-  if (!catalogRoute.includes('"X-Content-License": "NOASSERTION"')) {
-    fail(
-      3,
-      "/data/catalog.jsonl",
-      "storefront-rds.card_set_cards",
-      "bulk catalog must emit X-Content-License: NOASSERTION until field-level upstream rights are preserved",
-    );
-  }
-  if (!catalogRoute.includes('license: "NOASSERTION"')) {
-    fail(
-      3,
-      "/data/catalog.jsonl",
-      "storefront-rds.card_set_cards",
-      "bulk catalog manifest must declare aggregate license NOASSERTION",
-    );
-  }
-
-  // ── Check 2: envelope structural parity (reference, don't reimplement) ─
-  const required = Array.isArray(meta_schema.required)
-    ? (meta_schema.required as string[])
-    : [];
-  const properties = (meta_schema.properties ?? {}) as Record<string, unknown>;
-
-  if (!required.includes("sources")) {
-    fail(
-      2,
-      "(envelope schema)",
-      "sources",
-      "_meta.sources is no longer a required field — the origin declaration a CC0 claim rests on has gone optional. Restore it in packages/data-spec/src/schemas/envelope.ts.",
-    );
-  }
-
-  const sourceLicenseProp = properties.source_license as
-    | { oneOf?: Array<{ items?: { enum?: string[] } }> }
-    | undefined;
-  if (!sourceLicenseProp) {
-    fail(
-      2,
-      "(envelope schema)",
-      "source_license",
-      "_meta.source_license property is gone — a CC0 surface can no longer declare per-origin redistribution rights through the envelope. Restore it in envelope.ts.",
-    );
-  } else {
-    // The enum lives on the array branch of the oneOf. Pull whichever branch
-    // carries `items.enum` and confirm the redistributable tiers survive.
-    const enumValues =
-      sourceLicenseProp.oneOf?.find((b) => b.items?.enum)?.items?.enum ?? [];
-    const enumSet = new Set(enumValues);
-    for (const tier of REDISTRIBUTABLE_LICENSES) {
-      if (!enumSet.has(tier)) {
-        fail(
-          2,
-          "(envelope schema)",
-          "source_license",
-          `redistributable tier '${tier}' is missing from the _meta.source_license enum — a CC0 surface could no longer name it. Restore it in envelope.ts.`,
-        );
-      }
-    }
-  }
-
-  // ── Report ───────────────────────────────────────────────────────────
-  console.log("");
-  console.log("◆ redistribution audit — CC0 export surface ← origin licence coherence");
-  console.log("");
-  console.log(`  CC0 surfaces reviewed:  ${CC0_EXPORT_SURFACES.length}`);
-  console.log(`  origins checked:        ${originsChecked}`);
-  console.log(`  registry sources:       ${Object.keys(sources).length}`);
-  console.log("");
-
-  if (failures.length === 0) {
-    console.log("✓ all CC0 export surfaces draw only from redistributable / first-party-CC0 origins");
-    console.log("✓ envelope carries the source_license parity a CC0 declaration rides on");
-    console.log("✓ mixed catalog export remains NOASSERTION rather than blanket CC0");
-    console.log("");
-    process.exit(0);
-  }
-
-  console.log(`✗ ${failures.length} violation${failures.length === 1 ? "" : "s"}:`);
-  for (const f of failures) {
-    console.log(`    [check ${f.check}] ${f.surface} ← ${f.origin}: ${f.message}`);
-  }
-  console.log("");
-  process.exit(1);
+  return originsChecked;
 }
 
-main().catch((err) => {
-  console.error("Audit crashed:", err);
+function auditEnvelopeSchema(metaSchema: Record<string, unknown>): void {
+  const required = Array.isArray(metaSchema.required)
+    ? (metaSchema.required as string[])
+    : [];
+  const properties = (metaSchema.properties ?? {}) as Record<string, unknown>;
+
+  if (!required.includes("sources")) {
+    fail(2, "envelope schema", "_meta.sources must remain required");
+  }
+
+  const sourceLicense = properties.source_license as
+    | { oneOf?: Array<{ items?: { enum?: string[] } }> }
+    | undefined;
+  if (!sourceLicense) {
+    fail(
+      2,
+      "envelope schema",
+      "_meta.source_license must remain available for per-source rights",
+    );
+    return;
+  }
+
+  const enumValues =
+    sourceLicense.oneOf?.find((branch) => branch.items?.enum)?.items?.enum ?? [];
+  const enumSet = new Set(enumValues);
+  for (const license of REDISTRIBUTABLE_LICENSES) {
+    if (!enumSet.has(license)) {
+      fail(
+        2,
+        "envelope schema",
+        `source_license is missing redistributable tier '${license}'`,
+      );
+    }
+  }
+}
+
+function auditCatalog(): void {
+  const catalog = source("apps/storefront/src/app/data/catalog.jsonl/route.ts");
+
+  requireText(
+    3,
+    "/data/catalog.jsonl",
+    catalog,
+    '"X-Content-License": "NOASSERTION"',
+    "response header must declare aggregate rights NOASSERTION",
+  );
+  requireText(
+    3,
+    "/data/catalog.jsonl",
+    catalog,
+    'license: "NOASSERTION"',
+    "manifest must declare aggregate rights NOASSERTION",
+  );
+  requireText(
+    3,
+    "/data/catalog.jsonl",
+    catalog,
+    'publication_status: "paused_pending_field_level_rights"',
+    "bulk publication must remain visibly paused",
+  );
+  requireText(
+    3,
+    "/data/catalog.jsonl",
+    catalog,
+    "count_expected: 0",
+    "paused bulk publication must promise zero card rows",
+  );
+  requireText(
+    3,
+    "/data/catalog.jsonl",
+    catalog,
+    "complete: false",
+    "legacy clients must not treat the status response as a complete empty catalog",
+  );
+  requireText(
+    3,
+    "/data/catalog.jsonl",
+    catalog,
+    "status: 503",
+    "paused bulk publication must use an unavailable HTTP status",
+  );
+  forbidText(
+    3,
+    "/data/catalog.jsonl",
+    catalog,
+    "mirror freely",
+    "public access must not be described as blanket redistribution permission",
+  );
+  for (const forbidden of ["@/lib/db", "FROM card_set_cards", '"@kind": "card"', "price_gbp:"]) {
+    forbidText(
+      3,
+      "/data/catalog.jsonl",
+      catalog,
+      forbidden,
+      `paused route must not contain '${forbidden}'`,
+    );
+  }
+}
+
+function auditAcquisitionLocks(): void {
+  const cardrush = source("packages/data-ingest/src/cardrush/index.ts");
+  requireText(7, "CardRush acquisition", cardrush, "CARDRUSH_ACQUISITION_ENABLED = false as const", "CardRush immutable acquisition lock must remain false");
+  requireText(7, "CardRush acquisition", cardrush, "https://cardrush.media/data_policy", "CardRush lock must name the official cross-site policy");
+  requireText(7, "CardRush registry", cardrush, 'status: "blocked"', "CardRush source status must remain blocked");
+
+  const tcgcollectorPolicy = source("packages/data-ingest/src/tcgcollector/policy.ts");
+  const tcgcollector = source("packages/data-ingest/src/tcgcollector/index.ts");
+  requireText(7, "TCGCollector acquisition", tcgcollectorPolicy, "TCGCOLLECTOR_ACQUISITION_ENABLED = false as const", "TCGCollector immutable acquisition lock must remain false");
+  requireText(7, "TCGCollector acquisition", tcgcollectorPolicy, "https://www.tcgcollector.com/legal/terms-of-service", "TCGCollector lock must name the official terms");
+  requireText(7, "TCGCollector registry", tcgcollector, 'status: "blocked"', "TCGCollector source status must remain blocked");
+
+  const vercel = source("apps/wholesale/vercel.json");
+  for (const route of ["ingest/cardrush", "discover/cardrush", "cardrush-hires", "price-snapshot", "discover/tcgcollector"]) {
+    forbidText(7, "apps/wholesale/vercel.json", vercel, route, `scheduled acquisition route '${route}' must remain absent`);
+  }
+
+  for (const path of [
+    "apps/wholesale/tools/lib/cardrush-client.ts",
+    "apps/wholesale/tools/lib/s3-images.ts",
+    "apps/wholesale/src/app/api/admin/stock-check/live/route.ts",
+    "apps/storefront/scripts/cardrush-probe.ts",
+    "apps/storefront/scripts/cardrush-discovery-health.ts",
+  ]) {
+    requireText(7, path, source(path), "CARDRUSH_ACQUISITION_ENABLED", "direct CardRush network path must consult the immutable lock");
+  }
+
+  const cli = source("apps/wholesale/tools/scrape-cardrush.ts");
+  const gateAt = cli.indexOf("if (!CARDRUSH_ACQUISITION_ENABLED)");
+  const envAt = cli.indexOf('existsSync(".env.local")');
+  if (gateAt < 0 || envAt < 0 || gateAt > envAt) {
+    fail(7, "apps/wholesale/tools/scrape-cardrush.ts", "CLI must stop before reading environment secrets or starting acquisition");
+  }
+
+  const discovery = source("packages/data-ingest/src/cardrush/discovery.ts");
+  for (const helper of ["fetchSitemap", "fetchAndParseProduct", "createDiscoveryFetcher"]) {
+    const start = discovery.indexOf(`function ${helper}`);
+    const nextExport = discovery.indexOf("\nexport ", start + 1);
+    const block = discovery.slice(start, nextExport < 0 ? undefined : nextExport);
+    requireText(7, `CardRush discovery.${helper}`, block, "CARDRUSH_ACQUISITION_ENABLED", `${helper} must consult the immutable acquisition lock`);
+  }
+}
+
+function auditLegacyPublicationLocks(): void {
+  const policy = source("apps/storefront/src/lib/public-wholesale-fields.ts");
+  requireText(8, "legacy wholesale fields", policy, "LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED = false as const", "legacy field publication lock must remain false");
+  for (const projection of ["price_gbp: null", "channel_price: null", "image_url: null"]) {
+    requireText(8, "legacy wholesale fields", policy, projection, `public projection must keep '${projection}'`);
+  }
+
+  const client = source("apps/storefront/src/lib/wholesale/client.ts");
+  requireText(8, "wholesale HTTP client", client, "withholdUnreviewedWholesaleFields", "HTTP responses must pass through the public-field projector");
+
+  const dbSource = source("apps/storefront/src/lib/wholesale/db-source.ts");
+  requireText(8, "wholesale DB client", dbSource, "price_gbp: null", "direct DB responses must emit null price");
+  requireText(8, "wholesale DB client", dbSource, "image_url: null", "direct DB responses must emit null image");
+  forbidText(8, "wholesale DB client", dbSource, "SELECT sku, card_number, price, cardrush_jpy", "public DB query must not select legacy price lineage");
+
+  const publicationPolicy = source("apps/wholesale/src/lib/source-publication-policy.ts");
+  requireText(8, "wholesale price sources", publicationPolicy, "Object.freeze([] as const)", "price-source publication allowlist must remain empty");
+  requireText(8, "wholesale external publication", publicationPolicy, "LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED = false as const", "external legacy catalog publication lock must remain false");
+
+  for (const path of [
+    "apps/storefront/src/app/api/v1/cards/[sku]/cardrush-history/route.ts",
+    "apps/wholesale/src/app/api/v1/cardrush/history/[sku]/route.ts",
+  ]) {
+    const body = source(path);
+    requireText(8, path, body, "503", "legacy history route must remain unavailable");
+    for (const forbidden of ["price_archive", "priceArchive", "fetchCardrushHistory"]) {
+      forbidText(8, path, body, forbidden, `legacy history route must not contain '${forbidden}'`);
+    }
+  }
+
+  for (const path of [
+    "apps/wholesale/src/app/api/v1/prices/route.ts",
+    "apps/wholesale/src/app/api/v1/prices/[sku]/route.ts",
+    "apps/wholesale/src/app/api/v1/prices/movers/route.ts",
+  ]) {
+    const body = source(path);
+    requireText(8, path, body, "status: 503", "legacy catalog route must remain unavailable");
+    for (const forbidden of ["authenticateApiKey", 'from "@/lib/db"', "price_archive", "cards.price"]) {
+      forbidText(8, path, body, forbidden, `status-only route must not contain '${forbidden}'`);
+    }
+  }
+
+  const quarantine = source("apps/wholesale/src/app/api/v1/ingest-quarantine/[id]/route.ts");
+  requireText(8, "quarantine detail", quarantine, "status: 503", "raw quarantine detail must remain unavailable");
+  for (const forbidden of ["authenticateApiKey", 'from "@/lib/db"', "raw_payload"]) {
+    forbidText(8, "quarantine detail", quarantine, forbidden, `status-only quarantine route must not contain '${forbidden}'`);
+  }
+
+  for (const [path, firstWork] of [
+    ["apps/wholesale/src/app/api/cards/route.ts", "const session = await auth()"],
+    ["apps/wholesale/src/app/api/cart/route.ts", "const session = await auth()"],
+    ["apps/wholesale/src/app/api/cart/refresh/route.ts", "const session = await auth()"],
+    ["apps/wholesale/src/app/api/orders/route.ts", "const session = await auth()"],
+    ["apps/wholesale/src/app/api/cron/shopify-sync/route.ts", "requireCronAuth(req)"],
+    ["apps/wholesale/src/app/api/admin/shopify-sync/route.ts", "const session = await auth()"],
+    ["apps/wholesale/src/app/api/cron/rebuild-buylist/route.ts", "requireCronAuth(req)"],
+    ["apps/wholesale/src/app/api/admin/rebuild-buylist/route.ts", "const session = await auth()"],
+    ["apps/wholesale/src/app/api/cron/ebay-sync/route.ts", "requireCronAuth(req)"],
+    ["apps/wholesale/src/app/api/admin/channels/ebay/sync/route.ts", "const session = await auth()"],
+  ] as const) {
+    requireBefore(
+      8,
+      path,
+      source(path),
+      "if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED)",
+      firstWork,
+      "legacy catalog guard must run before auth, database, or external work",
+    );
+  }
+
+  for (const [path, firstWork] of [
+    ["apps/wholesale/src/lib/shopify-sync.ts", "const client = new ShopifyClient()"],
+    ["apps/wholesale/src/lib/buylist-builder.ts", "const [opGame] = await db"],
+    ["apps/wholesale/src/lib/cloudflare-kv.ts", "const accountId = process.env.CF_ACCOUNT_ID"],
+    ["apps/wholesale/src/lib/channels/ebay.ts", "const tokenResult = await getAccessToken()"],
+  ] as const) {
+    requireBefore(
+      8,
+      path,
+      source(path),
+      "if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED)",
+      firstWork,
+      "shared external-publication helper must fail before secrets, database, or network work",
+    );
+  }
+
+  const ebayCli = source("apps/wholesale/tools/ebay-sync.ts");
+  requireBefore(8, "eBay catalog CLI", ebayCli, "if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED)", 'existsSync(".env.local")', "eBay CLI must stop before reading environment secrets");
+
+  const bountyVault = source("apps/storefront/src/app/api/bounty/vault/route.ts");
+  requireText(8, "bounty vault", bountyVault, "spot_price_gbp: null", "signed-in vault must withhold legacy spot price");
+  requireText(8, "bounty vault", bountyVault, "image_url: null", "signed-in vault must withhold legacy image");
+
+  const everything = source("apps/storefront/src/app/api/v1/cards/[sku]/everything/route.ts");
+  requireText(8, "everything composer", everything, "reference_price_gbp: null", "composer must independently null the legacy reference price");
+  requireText(8, "everything composer", everything, "image_url: null", "composer must independently null legacy images");
+
+  const marketHistory = source("apps/storefront/src/lib/market/card-market.ts");
+  forbidText(8, "market history", marketHistory, "FROM card_price_history", "mixed legacy history table must not be queried by the public composer");
+}
+
+function auditParticipantNoteBoundary(): void {
+  for (const path of [
+    "apps/storefront/src/app/api/v1/agents/notes/route.ts",
+    "apps/storefront/src/app/api/v1/agents/notes/[id]/route.ts",
+  ]) {
+    const body = source(path);
+    requireText(10, path, body, "PARTICIPANT_NOTE_STORAGE_ENABLED = false as const", "participant-note storage off-switch must remain false");
+    requireText(10, path, body, "PARTICIPANT_NOTE_PUBLICATION_ENABLED = false as const", "participant-note publication off-switch must remain false");
+  }
+  const collection = source("apps/storefront/src/app/api/v1/agents/notes/route.ts");
+  requireText(10, "agent note witness", collection, 'visibility: "receipt_echo_only"', "participant POST must remain witness-only");
+  requireText(10, "agent note witness", collection, 'const PARTICIPANT_RIGHTS_LICENSE = "NOASSERTION"', "participant rights must remain unasserted");
+  requireText(10, "agent note witness", collection, 'const PARTICIPANT_SOURCE_LICENSE = "proprietary"', "participant source tier must remain conservative and envelope-valid");
+  requireText(10, "agent note witness", collection, 'license: PARTICIPANT_RIGHTS_LICENSE', "participant echo must remain NOASSERTION-governed");
+}
+
+function auditFxSources(): void {
+  for (const path of [
+    "apps/storefront/src/lib/fx/rates.ts",
+    "apps/wholesale/src/lib/fx.ts",
+    "apps/wholesale/tools/lib/fx-rate.ts",
+  ]) {
+    const body = source(path);
+    forbidText(9, path, body, "open.er-api", "retired FX provider must not remain callable");
+    forbidText(9, path, body, "exchangerate.host", "retired FX provider must not remain callable");
+  }
+  requireText(9, "storefront FX", source("apps/storefront/src/lib/fx/rates.ts"), "ecb.europa.eu", "storefront FX must name ECB");
+  requireText(9, "wholesale FX", source("apps/wholesale/src/lib/fx.ts"), "ECB_REUSE_POLICY_URL", "wholesale FX must carry ECB attribution policy");
+}
+
+function auditConservativeEnvelope(): void {
+  const spec = source("packages/data-spec/src/freshness.ts");
+  const envelope = source("apps/storefront/src/lib/data-pantry/envelope.ts");
+
+  requireText(
+    4,
+    "envelope default",
+    spec,
+    'DEFAULT_LICENSE = "NOASSERTION"',
+    "undeclared aggregate rights must default to NOASSERTION",
+  );
+  requireText(
+    4,
+    "envelope default",
+    envelope,
+    "license: resolveLicense(opts)",
+    "the runtime envelope must resolve rights instead of copying a blanket default",
+  );
+  requireText(
+    4,
+    "envelope CC0 guard",
+    envelope,
+    'opts.license === "CC0-1.0"',
+    "an explicit CC0 claim must be checked against declared source rights",
+  );
+  requireText(
+    4,
+    "envelope CC0 guard",
+    envelope,
+    "!allSourcesAreCc0",
+    "mixed or restrictive declared sources must prevent a CC0 aggregate claim",
+  );
+}
+
+function auditSoldComps(): void {
+  const routePaths = [
+    "apps/storefront/src/app/api/v1/sold-comps/route.ts",
+    "apps/storefront/src/app/api/v1/sold-comps/[sku]/route.ts",
+  ];
+
+  for (const routePath of routePaths) {
+    const route = source(routePath);
+    requireText(
+      5,
+      routePath,
+      route,
+      'license: "NOASSERTION"',
+      "paused sold comps must not claim a reusable aggregate license",
+    );
+    requireText(
+      5,
+      routePath,
+      route,
+      'source_license: ["internal-only"]',
+      "paused sold comps must retain the internal-only source boundary",
+    );
+    requireText(
+      5,
+      routePath,
+      route,
+      "soldCompsPausedData",
+      "route must return only the paused policy projection",
+    );
+    for (const forbidden of [
+      "@/lib/db",
+      "market_trades",
+      "p2p_sold_comps",
+      "CC0-1.0",
+    ]) {
+      forbidText(
+        5,
+        routePath,
+        route,
+        forbidden,
+        `paused route must not contain '${forbidden}'`,
+      );
+    }
+  }
+
+  const queryPath = "apps/storefront/src/lib/sold-comps/query.ts";
+  const query = source(queryPath);
+  requireText(
+    5,
+    queryPath,
+    query,
+    'status: "paused"',
+    "sold-comps projection must remain visibly paused",
+  );
+  for (const forbidden of [
+    "@/lib/db",
+    "query(",
+    "market_trades",
+    "p2p_sold_comps",
+    "PERCENTILE_CONT",
+  ]) {
+    forbidText(
+      5,
+      queryPath,
+      query,
+      forbidden,
+      `paused projection must not contain '${forbidden}'`,
+    );
+  }
+}
+
+function auditGlobalCopy(): void {
+  const retiredBlanketClaims = [
+    "CC0 by default",
+    "CC0-1.0 by default",
+    "published under CC0 by default",
+    "Most data is CC0",
+    "absence means CC0",
+    "train on it freely",
+  ];
+
+  for (const file of activeSourceFiles(ACTIVE_SOURCE_ROOT)) {
+    const body = readFileSync(file, "utf8");
+    for (const claim of retiredBlanketClaims) {
+      forbidText(
+        6,
+        file.slice(REPO_ROOT.length + 1),
+        body,
+        claim,
+        `restores retired blanket claim '${claim}'`,
+      );
+    }
+  }
+}
+
+async function main(): Promise<void> {
+  const sources = await loadRegistry();
+  const metaSchema = await loadMetaSchema();
+  const originsChecked = auditCc0Surfaces(sources);
+
+  auditEnvelopeSchema(metaSchema);
+  auditCatalog();
+  auditConservativeEnvelope();
+  auditSoldComps();
+  auditGlobalCopy();
+  auditAcquisitionLocks();
+  auditLegacyPublicationLocks();
+  auditFxSources();
+  auditParticipantNoteBoundary();
+
+  console.log("");
+  console.log("redistribution audit - publication and reuse-right boundaries");
+  console.log("");
+  console.log(`  CC0 data surfaces declared: ${CC0_EXPORT_SURFACES.length}`);
+  console.log(`  CC0 origins checked:        ${originsChecked}`);
+  console.log(`  registry sources:           ${Object.keys(sources).length}`);
+  console.log(`  findings:                   ${findings.length}`);
+  console.log("");
+
+  if (findings.length === 0) {
+    console.log("ok - source rights remain registry-governed");
+    console.log("ok - unknown aggregate rights resolve to NOASSERTION");
+    console.log("ok - sold comps remain paused and off participant data");
+    console.log("ok - the bulk catalog does not mistake storage for ownership");
+    console.log("ok - blocked acquisition paths cannot reopen through tools or audits");
+    console.log("ok - legacy prices and images remain withheld from public projections");
+    console.log("ok - live FX paths use attributed ECB statistics");
+    console.log("ok - participant note storage and publication remain disabled");
+    return;
+  }
+
+  for (const finding of findings) {
+    console.error(
+      `fail - [check ${finding.check}] ${finding.boundary}: ${finding.message}`,
+    );
+  }
+  process.exitCode = 1;
+}
+
+main().catch((error) => {
+  console.error("Audit crashed:", error);
   process.exit(2);
 });

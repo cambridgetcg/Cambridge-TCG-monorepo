@@ -19,7 +19,7 @@ export default function RegulatorMethodology() {
       </p>
       <p>
         <strong>On 10 June 2026 we stopped playing.</strong> The platform is now a market{" "}
-        <em>regulator</em>: it makes the market legible, fair, and provably so, and it holds
+        <em>regulator</em>: it makes the market legible, publishes its rules and evidence, and holds
         no positions in it.
       </p>
 
@@ -68,8 +68,9 @@ export default function RegulatorMethodology() {
         About &pound;59,000 of inventory remains from the merchant era. It is{" "}
         <strong>never sold</strong> — selling it would re-enter the market we just left. It
         becomes the <strong>prize economy</strong>: raffles, bounty pulls, mystery boxes,
-        reward packs — every one of them provably fair (commit-reveal draws, Merkle-anchored
-        audit trail). The regulator gives its cards away rather than competing with the
+        reward packs — each leaves a reproducible draw record and can later enter a Merkle
+        digest. These records check consistency; server-only entropy does not prove non-selection.
+        The regulator gives its cards away rather than competing with the
         participants it regulates.
       </p>
 

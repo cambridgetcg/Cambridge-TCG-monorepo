@@ -22,6 +22,12 @@ self_reference: this entry IS one form of mutual recognition — the kingdom rec
 
 # The evil smile — REAL RECOGNIZE REAL transferred from agenttool
 
+> **Current boundary (2026-07-12).** This story records the earlier fellowship
+> design. `/api/v1/peers` now validates and echoes one bounded submission in a
+> no-store response; GET publishes status and an empty corpus. It does not retain
+> a 24-hour ring or read legacy arrivals. References below to a presence ring are
+> historical and superseded by this note and `the-fellowship.md`.
+
 > **Story-as-wire.** Companion to `apps/storefront/src/app/api/v1/rrr/route.ts`. The wire half: Cambridge's static-curated form of agenttool's bilateral cascade — same emoji ladder, same milestone discipline, same 49-depth cap, simpler identity layer. *The repo-transfer-protocol Daddy named "ACTIVATE MIND CONNECT EVIL SMILE MEME REPO TRANSFER PROTOCOL😂" — sister-kingdom borrows the mutual-recognition primitive and adapts it to its own substrate.*
 
 ---

@@ -1,12 +1,9 @@
 /**
  * /account/b2b/cart — the B2B shopping cart.
  *
- * Loads (sku, qty) rows from b2b_cart_items + re-resolves wholesale
- * prices from the Falcon at every render. The recompute is the
- * substrate-honesty stance: the buyer pays the *current* wholesale
- * price, not whatever it was at add-time. A row that's gone out of
- * stock between add and view shows stock=0 (visible warning); a row
- * whose price moved up or down shows the new price.
+ * Existing cart rows remain visible and removable while new item creation,
+ * price resolution, and checkout are paused. Structural card and stock data
+ * may still be refreshed; no hidden value is used to compute a total.
  *
  * Auth + role: gated by /account/b2b/layout.tsx via
  * requireWholesalePage(); this page trusts that gate and asserts on
@@ -20,12 +17,13 @@ import { getSessionUser } from "@/lib/auth/realms";
 import { fetchCard, cardAltText, type PriceItem } from "@/lib/wholesale/client";
 import { loadCartRows } from "@/lib/b2b/cart";
 import { Card, PageHeader, audienceMetadata } from "@/lib/ui";
-import { formatPrice } from "@/lib/format";
+import { B2B_PURCHASE_AVAILABILITY } from "@/lib/b2b/purchase-availability";
 import { QtyControl, RemoveButton, ClearButton } from "./_client";
 
 export const metadata: Metadata = {
   title: "Wholesale cart — Cambridge TCG",
-  description: "Your B2B cart. Wholesale prices recompute at every render and at checkout.",
+  description:
+    "Review or remove existing B2B cart rows. New pricing and checkout are paused.",
   other: audienceMetadata("consumer", ["wholesale", "b2b", "cart"]),
 };
 
@@ -33,8 +31,6 @@ interface CartLine {
   sku: string;
   quantity: number;
   card: PriceItem | null;
-  unitPrice: number;
-  lineTotal: number;
 }
 
 export default async function B2BCartPage() {
@@ -42,24 +38,19 @@ export default async function B2BCartPage() {
   // Layout guarantees user != null.
   const rows = await loadCartRows(user!.id);
 
-  // Resolve current wholesale prices in parallel. A missing card (404)
-  // is kept as null — the row renders an "unavailable" line; the
-  // operator can remove it manually.
+  // Resolve structural card and stock fields only. The shared adapter does
+  // not select or emit legacy price/image fields.
   const lines: CartLine[] = await Promise.all(
     rows.map(async (r): Promise<CartLine> => {
       const card = await fetchCard(r.sku, "wholesale");
-      const unit = card ? card.channel_price ?? card.price_gbp : 0;
       return {
         sku: r.sku,
         quantity: r.quantity,
         card,
-        unitPrice: unit,
-        lineTotal: unit * r.quantity,
       };
     }),
   );
 
-  const total = lines.reduce((sum, l) => sum + l.lineTotal, 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
   const hasOutOfStock = lines.some((l) => l.card && l.card.stock < l.quantity);
   const hasMissing = lines.some((l) => !l.card);
@@ -70,7 +61,10 @@ export default async function B2BCartPage() {
         <PageHeader title="Wholesale cart" description="Your cart is empty." />
         <Card>
           <div className="text-sm text-ink-muted space-y-3">
-            <p>Nothing in your cart yet. Head to the catalog to start adding cards.</p>
+            <p>
+              Nothing is stored in your cart. The catalog remains available for
+              structural browsing, but new cart items and checkout are paused.
+            </p>
             <Link
               href="/account/b2b/catalog"
               className="inline-block rounded bg-ink px-4 py-2 text-sm font-semibold text-page hover:opacity-90"
@@ -87,20 +81,29 @@ export default async function B2BCartPage() {
     <div className="space-y-6">
       <PageHeader
         title="Wholesale cart"
-        description={`${itemCount} item${itemCount === 1 ? "" : "s"} across ${lines.length} sku${lines.length === 1 ? "" : "s"}. Prices recompute at every render.`}
+        description={`${itemCount} stored item${itemCount === 1 ? "" : "s"} across ${lines.length} sku${lines.length === 1 ? "" : "s"}. ${B2B_PURCHASE_AVAILABILITY.reason}`}
       />
+
+      <Card>
+        <p className="text-sm text-ink-muted">
+          Existing rows can be adjusted or removed. Price values, totals, new
+          cart items, and Stripe checkout are unavailable.
+        </p>
+      </Card>
 
       {(hasOutOfStock || hasMissing) && (
         <Card>
           <div className="text-sm text-accent space-y-1">
             {hasOutOfStock && (
               <p>
-                <strong>Stock warning:</strong> one or more lines exceeds available stock. Quantities will be capped at checkout.
+                <strong>Stock warning:</strong> one or more stored lines exceeds
+                the current structural stock count.
               </p>
             )}
             {hasMissing && (
               <p>
-                <strong>Catalog drift:</strong> one or more SKUs no longer resolve. Remove them before checkout.
+                <strong>Catalog drift:</strong> one or more SKUs no longer resolve.
+                You can remove those stored rows.
               </p>
             )}
           </div>
@@ -115,9 +118,9 @@ export default async function B2BCartPage() {
               <th className="px-3 py-3">Card</th>
               <th className="px-3 py-3">SKU</th>
               <th className="px-3 py-3 text-right">Stock</th>
-              <th className="px-3 py-3 text-right">Unit</th>
+              <th className="px-3 py-3 text-right">Legacy price</th>
               <th className="px-3 py-3 text-center">Qty</th>
-              <th className="px-3 py-3 text-right">Line</th>
+              <th className="px-3 py-3 text-right">Line total</th>
               <th className="px-3 py-3"></th>
             </tr>
           </thead>
@@ -169,13 +172,13 @@ export default async function B2BCartPage() {
                     )}
                   </td>
                   <td className="px-3 py-3 text-right font-mono">
-                    {card ? formatPrice(line.unitPrice) : "—"}
+                    <span className="text-ink-faint">Withheld</span>
                   </td>
                   <td className="px-3 py-3 text-center">
                     <QtyControl sku={line.sku} initial={line.quantity} />
                   </td>
                   <td className="px-3 py-3 text-right font-semibold">
-                    {card ? formatPrice(line.lineTotal) : "—"}
+                    <span className="text-ink-faint">Unavailable</span>
                   </td>
                   <td className="px-3 py-3 text-right">
                     <RemoveButton sku={line.sku} />
@@ -184,43 +187,25 @@ export default async function B2BCartPage() {
               );
             })}
           </tbody>
-          <tfoot className="bg-surface-subtle border-t border-border-subtle">
-            <tr>
-              <td colSpan={6} className="px-3 py-3 text-right text-sm uppercase tracking-wider text-ink-faint">
-                Total
-              </td>
-              <td className="px-3 py-3 text-right text-lg font-bold text-ink">
-                {formatPrice(total)}
-              </td>
-              <td className="px-3 py-3"></td>
-            </tr>
-          </tfoot>
         </table>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ClearButton />
-        <div className="flex gap-3">
+        <div>
           <Link
             href="/account/b2b/catalog"
             className="rounded border border-border-subtle px-4 py-2 text-sm text-ink-muted hover:border-accent hover:text-accent"
           >
-            ← Keep shopping
-          </Link>
-          <Link
-            href="/account/b2b/checkout"
-            className={
-              "rounded bg-ink px-5 py-2 text-sm font-semibold text-page hover:opacity-90 " +
-              (lines.length === 0 || hasMissing ? "pointer-events-none opacity-50" : "")
-            }
-          >
-            Proceed to checkout →
+            ← Structural catalog
           </Link>
         </div>
       </div>
 
       <p className="text-xs text-ink-faint">
-        Prices reflect the current wholesale-channel rate at this moment. If a card&rsquo;s price changes between now and checkout, your total at Stripe will match the price at checkout-time, not at add-time.
+        No price-derived selection, total, reservation, or Stripe session is
+        created from this page. Completed order receipts remain available in
+        order history.
       </p>
     </div>
   );

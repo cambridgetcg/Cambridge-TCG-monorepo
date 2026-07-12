@@ -167,7 +167,7 @@ const TOOL_GROUPS: ToolGroup[] = [
       {
         href: "/account/proofs",
         label: "My proofs",
-        description: "Provably-fair draw receipts you can verify in your own browser.",
+        description: "Draw receipts with browser-side consistency checks.",
       },
       {
         href: "/account/watchlist",

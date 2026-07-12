@@ -10,6 +10,8 @@ import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users
 // vitest tripwire in cookies.test.ts asserts they can't drift.
 import { SESSION_COOKIE_OVERRIDE } from "./cookies";
 
+const MAGIC_LINK_TOKEN_SECRET = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
 export const authConfig: NextAuthConfig = {
   adapter: PgAdapter(),
   // Pass the override through if defined; otherwise let Auth.js v5 pick
@@ -24,6 +26,9 @@ export const authConfig: NextAuthConfig = {
       // nodemailer's createTransport is never actually called.
       server: { host: "localhost", port: 587, auth: { user: "x", pass: "x" } },
       from: "noreply@cambridgetcg.com",
+      // Pin the provider to the same secret that NextAuth infers. The sender
+      // needs this exact value to reserve the same hashed token before mail.
+      ...(MAGIC_LINK_TOKEN_SECRET ? { secret: MAGIC_LINK_TOKEN_SECRET } : {}),
       sendVerificationRequest,
     }),
   ],

@@ -16,16 +16,20 @@ export async function GET(request: Request) {
   const mode = url.searchParams.get("mode") === "following" ? "following" : "followers";
   const session = await auth();
 
-  const targetId = identifier || session?.user?.id;
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  }
+
+  const targetId = identifier || session.user.id;
   if (!targetId) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
   const profile = await getPublicProfile(targetId);
   if (!profile) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
-  const isOwn = session?.user?.id === profile.user_id;
-  // Private profiles: only the owner sees their own social graph.
-  if (!profile.is_public && !isOwn) {
-    return NextResponse.json({ private: true, users: [] });
+  const isOwn = session.user.id === profile.user_id;
+  // Following relationships are account data, not a public people graph.
+  if (!isOwn) {
+    return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
 
   const users = mode === "following"
@@ -34,20 +38,18 @@ export async function GET(request: Request) {
 
   // Attach "am I following them?" so the UI can paint the button state.
   let enriched = users;
-  if (session?.user?.id) {
-    const me = session.user.id;
-    enriched = await Promise.all(
-      users.map(async (u) => ({
-        ...u,
-        follows_back: u.user_id === me ? null : await isFollowing(me, u.user_id),
-      })),
-    );
-  }
+  const me = session.user.id;
+  enriched = await Promise.all(
+    users.map(async (u) => ({
+      ...u,
+      follows_back: u.user_id === me ? null : await isFollowing(me, u.user_id),
+    })),
+  );
 
   return NextResponse.json({
     mode,
     target: { user_id: profile.user_id, username: profile.username, name: profile.name },
     users: enriched,
     isOwn,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }

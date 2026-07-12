@@ -13,7 +13,7 @@
  *   - ordinals for status enums (0=draft … 5=cancelled) and types (0=english,
  *     1=dutch, 2=buy_now)
  *   - ISO 8601 + Unix epoch for every timestamp
- *   - bid identities collapsed to opaque hashes
+ *   - bid and winner person identifiers structurally absent
  *   - natural-language fields (title, description) retained with
  *     `_note_opaque` so decoders don't ground meaning on them
  *
@@ -198,20 +198,16 @@ export async function GET(
       // null when no reserve; true/false when reserve set.
       reserve_met: state.reserve.reserve_met,
       _note_opaque:
-        "reserve value is intentionally absent — sellers retain price-discovery privacy until met",
+        "reserve value is always absent; only the met/not-met result is published",
     },
 
     bidding: {
       bid_count: state.bids.bid_count,
-      unique_bidders_count: state.bids.unique_bidders_count,
       recent: state.bids.recent.map((b) => ({
-        bidder_anonymous_id: b.anonymous_bidder_id,
         amount_gbp: b.amount,
         amount_to_starting_ratio: b.amount / anchor,
         is_best_offer: b.is_best_offer,
-        trust_tier_name: b.trust_tier,
-        trust_tier_ordinal: tierOrdinal(b.trust_tier),
-        trust_score_ratio: b.trust_score !== null ? b.trust_score / 100 : null,
+        status_name: b.status,
         at: {
           iso: b.created_at,
           epoch: epoch(b.created_at),
@@ -221,15 +217,9 @@ export async function GET(
 
     winner: state.winner
       ? {
-          winner_anonymous_id: state.winner.anonymous_winner_id,
-          trust_tier_name: state.winner.trust_tier,
-          trust_tier_ordinal: tierOrdinal(state.winner.trust_tier),
-          trust_score_ratio:
-            state.winner.trust_score !== null ? state.winner.trust_score / 100 : null,
           winning_bid_gbp: state.winner.winning_bid,
           winning_to_starting_ratio: state.winner.winning_bid / anchor,
-          paid: state.winner.paid_at !== null,
-          paid_at_epoch: epoch(state.winner.paid_at),
+          paid: state.winner.paid,
         }
       : null,
 
@@ -255,6 +245,8 @@ export async function GET(
       escrow_flow: state.propagation.escrow_flow,
       estimated_seller_payout_gbp: state.propagation.estimated_seller_payout_gbp,
       estimated_commission_gbp: state.propagation.estimated_commission_gbp,
+      _note_opaque:
+        "estimates use the published platform rate; seller-specific terms and actual settlement are absent",
     },
 
     images: state.images.map((img) => ({
@@ -311,7 +303,7 @@ export async function GET(
   return NextResponse.json(final, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "public, max-age=60, s-maxage=60",
+      "Cache-Control": "private, no-store",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
     },

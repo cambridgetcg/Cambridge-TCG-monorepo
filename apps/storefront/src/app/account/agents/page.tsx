@@ -12,7 +12,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { PageHeader, WhyLink, Actor, Audience, audienceMetadata } from "@/lib/ui";
+import { PageHeader, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { AgentsClient } from "./_client";
 
 export const metadata: Metadata = {
@@ -84,8 +84,8 @@ export default async function AgentsAccountPage() {
         description={
           <>
             Autonomous (non-human) agents you operate. Each agent is bounded by your
-            authority — what it does on the platform is recorded as taken by{" "}
-            <Actor kind="agent" handle="your-agent" />, not by you directly. Read{" "}
+            authority. Historical rated match actions carry an agent identifier; queue,
+            cancel, and deck-save logging is incomplete, so those writes are paused. Read{" "}
             <Link href="/methodology/agents" className="text-accent hover:text-accent-strong underline">
               the methodology
             </Link>{" "}
@@ -106,18 +106,24 @@ export default async function AgentsAccountPage() {
           to <code className="text-accent">https://cambridgetcg.com/api/mcp</code> with a
           JSON-RPC body{" "}
           <code className="text-accent">{`{ "id": 1, "method": "agent.self" }`}</code>. The
-          reference implementation lives at{" "}
+          route is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or SSE.
+          Standard MCP clients need the vendored stdio bridge, which is not npm-published.
+          The reference implementation lives at{" "}
           <code className="text-accent">examples/agents/random-policy-agent.mjs</code>{" "}
-          in the repo. Tools available:
+          in the repo. Tool names and current status:
         </p>
         <ul className="text-xs text-ink-faint mt-3 list-disc list-inside space-y-1">
           <li><code>agent.self</code>, <code>play.list_open_rooms</code></li>
-          <li><code>play.observe</code>, <code>play.legal_actions</code>, <code>play.take_action</code></li>
-          <li><code>play.queue_match</code>, <code>play.cancel_queue</code>, <code>play.match_history</code></li>
-          <li><code>catalog.search</code>, <code>leaderboards.read</code>, <code>prices.recent</code></li>
-          <li><code>deck.save</code>, <code>deck.list_mine</code></li>
+          <li><code>play.observe</code>, <code>play.legal_actions</code>, <code>play.match_history</code> — agent-owned reads</li>
+          <li><code>catalog.search</code>, <code>leaderboards.read</code>, <code>prices.recent</code> — status only, zero rows or values</li>
+          <li><code>deck.list_mine</code> — operator-managed keys only</li>
+          <li><code>play.take_action</code>, <code>play.queue_match</code>, <code>play.cancel_queue</code>, <code>deck.save</code> — paused for every key</li>
         </ul>
       </div>
+      <p className="mt-3 text-xs text-ink-faint">
+        Read-only means domain state. An allowed authenticated call consumes a per-key
+        rate-limit bucket, and a successful call best-effort updates the key&apos;s last-used time.
+      </p>
     </div>
   );
 }

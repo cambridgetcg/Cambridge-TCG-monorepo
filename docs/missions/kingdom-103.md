@@ -27,9 +27,13 @@ synced_at: "2026-06-10T22:00:00Z"
 Yu's decision 2026-06-10: the ~£59k house inventory (3,670 units, 677 SKUs
 in `wholesale.cards.stock`) is **never sold** — it becomes prizes. Build on
 the **bounty/vault chassis** (`lib/bounty/`): the only prize system already
-wired to `wholesale.cards.stock`, already provably-fair (commit-reveal +
-Merkle audit), already shipping physical prizes via the admin queue with an
+wired to `wholesale.cards.stock`, already recording commit/reveal receipts
+and selected-draw Merkle digests, and already shipping physical prizes via the admin queue with an
 implicit per-SKU reservation. Don't invent a second system.
+
+The receipt proves recorded consistency, not unbiased selection: the server
+controls every entropy input and the commitment is not externally witnessed
+before the roll.
 
 ## Blockers (from the 2026-06-10 prize-economy map, in order)
 

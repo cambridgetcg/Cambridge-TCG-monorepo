@@ -25,6 +25,24 @@ export async function listRaffles(status?: string): Promise<Raffle[]> {
   return result.rows as Raffle[];
 }
 
+export async function listPublicRaffles(): Promise<Raffle[]> {
+  await query(
+    `UPDATE raffles
+        SET status='active', updated_at=NOW()
+      WHERE status='draft' AND starts_at<=NOW() AND ends_at>NOW()`,
+  );
+  const result = await query(
+    `SELECT id, title, description, image_url, status, entry_cost_points,
+            max_entries_per_user, prize_description, prize_value, prize_type,
+            prize_image_url, starts_at, ends_at, draw_at, total_entries,
+            winner_drawn_at, prize_fulfilled, created_at, seed_commitment
+       FROM raffles
+      WHERE status='active' AND ends_at>NOW()
+      ORDER BY ends_at ASC`,
+  );
+  return result.rows as Raffle[];
+}
+
 export async function getRaffle(raffleId: string, userId?: string): Promise<Raffle | null> {
   const result = await query(
     `SELECT r.*, u.name as winner_name, u.email as winner_email FROM raffles r
@@ -57,10 +75,9 @@ export async function createRaffle(data: Partial<Raffle>): Promise<Raffle> {
   );
   const raffle = result.rows[0] as Raffle;
 
-  // Pre-commit the seed at raffle creation so the commitment precedes
-  // every entry. Without this the sweep falls back to committing at
-  // draw time, which is safer than nothing but doesn't let entrants
-  // see the hash before they paid in.
+  // Store the seed commitment at raffle creation. The active-raffle public
+  // list later returns the hash, so entrants can retain it before entry.
+  // This is a database write, not an external timestamp or anchor.
   try {
     const { commitSeed } = await import("./provable-fair");
     await commitSeed(raffle.id);
@@ -78,6 +95,9 @@ export async function enterRaffle(raffleId: string, userId: string, entries: num
   if (!raffle) return { success: false, error: "Raffle not found." };
   if (raffle.status !== "active") return { success: false, error: "Raffle is not active." };
   if (new Date(raffle.ends_at) <= new Date()) return { success: false, error: "Raffle has ended." };
+  if (!raffle.seed_commitment) {
+    return { success: false, error: "Raffle entry is paused until its draw commitment is available." };
+  }
 
   const currentEntries = raffle.user_entries || 0;
   if (currentEntries + entries > raffle.max_entries_per_user) {
@@ -116,7 +136,7 @@ export async function enterRaffle(raffleId: string, userId: string, entries: num
 // drawRaffleWinner (legacy Math.random() draw) has been removed. All
 // draws now go through @/lib/rewards/provable-fair.provablyFairDraw,
 // which writes a commit-reveal audit row to raffle_draw_proofs and
-// produces a verifiable outcome. The admin draw endpoint and the
+// produces a reproducible draw record. The admin draw endpoint and the
 // raffle-sweep cron were the only callers.
 
 export async function getRaffleEntries(raffleId: string): Promise<RaffleEntry[]> {
@@ -214,8 +234,8 @@ export async function openMysteryBox(boxId: string, userId: string): Promise<{
       referenceId: boxId,
     },
     async () => {
-      // Provable-fair selection through the shared commit-reveal primitive.
-      // Reward row id is the weight key so the verifier reproduces the
+      // Reproducible selection through the shared draw-receipt primitive.
+      // Reward row id is the weight key so the consistency checker reproduces the
       // pick deterministically from (seed, client, nonce, weights).
       const { commitDraw, rollSlot, revealDraw } = await import("@/lib/provable-draw");
       const totalProb = available.reduce((s, r) => s + parseFloat(r.probability), 0);

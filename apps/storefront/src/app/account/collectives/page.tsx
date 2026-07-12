@@ -143,7 +143,7 @@ export default async function CollectivesAccountPage() {
                 <div className="flex items-baseline gap-3 text-xs text-ink-muted flex-wrap">
                   {collective.region && <span>{collective.region}</span>}
                   <span>
-                    {collective.active_member_count} member
+                    {collective.active_member_count ?? 0} member
                     {collective.active_member_count === 1 ? "" : "s"}
                   </span>
                   {role === "steward" && (

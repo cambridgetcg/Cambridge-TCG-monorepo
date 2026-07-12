@@ -3,9 +3,8 @@
  *
  * The action half of the starter catalog: /api/v1/play/starters/[id] is
  * the read view; this endpoint returns the same starter flattened into
- * the exact card list POST /api/game/pve/[levelId] (action:"start") and
- * POST /api/game/[code]/setup accept. One GET, one start — no deck
- * builder required.
+ * the card-list shape the game engines use. PVE and multiplayer writes are
+ * currently paused; this endpoint is a read-only deck preparation surface.
  *
  *   GET /api/play/load-starter            → default rookie starter (ST-15)
  *   GET /api/play/load-starter?id=<id>    → a specific starter
@@ -16,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { resolveStarter } from "@/lib/play/starter-resolve";
 import { getDefaultRookieDeck } from "@/lib/play/starter-decks";
+import { PVE_AVAILABILITY } from "@/lib/game/pve-availability";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -71,7 +71,8 @@ export async function GET(request: Request) {
     deck_size: deck.length,
     cards_unresolved: resolved.cards.filter((c) => !c.resolved).length,
     deck,
-    start_pve: "POST /api/game/pve/{levelId} with {\"action\":\"start\",\"deck\":<deck>}",
+    start_pve: null,
+    pve: PVE_AVAILABILITY,
     catalog_url: "/api/v1/play/starters",
   });
 }

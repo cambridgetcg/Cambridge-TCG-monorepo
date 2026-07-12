@@ -18,6 +18,7 @@ import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { getAuroraClient } from "~/utils/aurora-data-api";
 import { createDataAPIPrismaClient } from "~/utils/prisma-data-api-adapter";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const CONFIG = {
   // If a shop has no WebhookProcessed entry in this many days, flag it
@@ -37,14 +38,11 @@ interface ShopHealthStatus {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const startTime = Date.now();
-
-  const cronSecret = request.headers.get("X-Cron-Secret");
-  if (cronSecret !== process.env.CRON_SECRET) {
-    console.warn("[SessionHealthCron] Unauthorized request");
-    return json({ error: "Unauthorized" }, { status: 401 });
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
+  const startTime = Date.now();
   const aurora = getAuroraClient();
   const db = createDataAPIPrismaClient();
   const results: ShopHealthStatus[] = [];
@@ -252,7 +250,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: "Session health check failed",
         durationMs: Date.now() - startTime,
       },
       { status: 500 }

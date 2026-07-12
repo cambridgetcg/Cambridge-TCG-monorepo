@@ -45,9 +45,9 @@ export interface Collective {
   is_public: boolean;
   created_at: string;
   updated_at: string;
-  /** Derived: active-member count (consent_at IS NOT NULL AND left_at IS NULL).
-   *  Always populated by the read helpers. */
-  active_member_count: number;
+  /** Derived active-member count. Present only on private account or steward
+   *  reads; null on the public collective projection. */
+  active_member_count: number | null;
 }
 
 export interface CollectiveMember {
@@ -60,11 +60,19 @@ export interface CollectiveMember {
   left_at: string | null;
 }
 
-/** Joined membership row — used by /c/<slug> roster + /account/collectives. */
-export interface CollectiveMemberWithUser extends CollectiveMember {
+/** Public roster rows do not carry raw account ids. */
+export interface CollectiveMemberWithUser
+  extends Omit<CollectiveMember, "user_id"> {
+  user_id: string | null;
   username: string | null;
   name: string | null;
   avatar_url: string | null;
+}
+
+/** Steward-only roster row used by the authenticated management surface. */
+export interface StewardCollectiveMemberWithUser
+  extends CollectiveMemberWithUser {
+  user_id: string;
 }
 
 /** A user's view of one of their collective relationships. */

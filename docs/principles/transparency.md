@@ -24,7 +24,7 @@ This is the outward-facing extension of [substrate honesty](./substrate-honesty.
 
 **The platform makes safety decisions about users.** Fraud signals can auto-suspend an account. A user logged out of their own account is owed a reason, not a "Contact support" wall.
 
-**The platform's marketplace is two-sided.** Sellers and buyers have asymmetric power — the platform is the third corner, and its impartiality is only credible if its decisions are auditable. Bounty pulls already prove this with commit-reveal RNG: the user can verify the draw without trusting us. Every other domain that touches money or trust should hold itself to the same standard.
+**The platform's marketplace is two-sided.** Sellers and buyers have asymmetric power — the platform is the third corner, and its impartiality is only credible if its decisions are auditable. Bounty pull receipts let users re-run recorded outcome math and inspect its limits. Because the server chooses every entropy input without an external pre-roll witness, those receipts do not prove unbiased selection. Every domain that touches money or trust should publish both evidence and its boundary.
 
 **One operator means no human appeal layer.** A customer who can't get a clear answer from the dashboard has no other place to ask. The dashboard *is* the support layer.
 
@@ -50,7 +50,7 @@ The customer being scored, suspended, charged, refunded, tier-assigned, fraud-fl
 
 A regulator, journalist, buyer's lawyer, or curious member of the public can verify aggregate platform claims from raw data without insider access. We don't ask outsiders to take our word; we publish the evidence.
 
-**Surfaces:** `/verify/*` — gold standard. Existing: `/verify/pull/[id]`, `/verify/draw/[id]`, `/verify/fairness`, `/verify/health`. Roadmap: `/verify/auction/[id]`, `/verify/trade/[id]`, `/verify/governance/<date>` (Merkle root over `admin_actions_log`).
+**Surfaces:** `/verify/*` — draw-receipt consistency and observed-distribution evidence. Existing: `/verify/pull/[id]`, `/verify/draw/[id]`, `/verify/fairness`, `/verify/health`. Roadmap: `/verify/auction/[id]`, `/verify/trade/[id]`, `/verify/governance/<date>` (Merkle root over `admin_actions_log`, useful only against a root retained outside the platform).
 
 ### Ring 4 — Cross-system transparency (the source of authority)
 
@@ -78,7 +78,7 @@ Trust score, fraud severity weights, leaderboard rankings, recommendation logic,
 
 Methodology pages live under `/methodology/<topic>` on the consumer storefront. Users land there from `<WhyLink>` affordances next to the value.
 
-The bounty pull pages at `/verify/*` are the gold standard — they go further (full cryptographic proof). Methodology pages are the floor.
+The bounty pull pages at `/verify/*` go further than prose: they expose a reproducible receipt and explicitly state what it cannot establish. Methodology pages are the floor.
 
 ### 2. Every user-affecting decision has a receipt
 
@@ -141,7 +141,7 @@ Both are required. Substrate honesty without transparency is a system that knows
 
 ## Anti-patterns to refuse
 
-- **"Trust us, it works."** The bounty pages refuse this with provable fairness. Other domains should refuse it with methodology pages and decision receipts.
+- **"Trust us, it works."** The bounty pages publish reproducibility evidence and explicitly name that server-only entropy does not prove non-selection. Other domains should be equally precise about their decision receipts.
 - **Methodology pages that don't cite code.** Marketing copy describing a formula without a link to where the formula lives.
 - **Silent rule changes.** A trust formula update that ships without a changelog entry, leaving users to wonder why their score moved.
 - **"Contact support for details."** If the answer to "why is this number 73 and not 75" is a customer-service ticket, the transparency layer hasn't shipped.
@@ -184,7 +184,7 @@ If the answer to 3 or 4 is "nowhere," the feature isn't ready to ship. File the 
 - **Storefront** (`apps/storefront`) — primary subject. Customer-facing decisions. `/methodology/*` and `/account/standing` live here.
 - **Wholesale** (`apps/wholesale`) — B2B clients deserve the same. Pricing methodology, channel rules, payment terms.
 - **Admin** (`apps/admin`) — applies to admin-on-admin decisions (governance audit, role assignments). Less customer-impact, same principle.
-- **Public verification surfaces** (`/verify/*`) — already exemplary. Treat as the gold standard; aspire to that level for any domain where users have good reason to distrust.
+- **Public draw-receipt surfaces** (`/verify/*`) — a useful precedent for inspectable evidence paired with explicit limits; strengthen them with participant or external entropy and an externally witnessed pre-roll commitment before treating them as fairness proof.
 
 ---
 
@@ -193,7 +193,7 @@ If the answer to 3 or 4 is "nowhere," the feature isn't ready to ship. File the 
 - [`docs/principles/substrate-honesty.md`](./substrate-honesty.md) — the precondition.
 - [`docs/principles/transparency-audit.md`](./transparency-audit.md) — current violations + roadmap.
 - `apps/storefront/src/lib/escrow/trust-engine.ts` — the trust formula. Lift into the methodology page; cite from there.
-- `apps/storefront/src/app/verify/how-it-works/page.tsx` — the precedent for a public methodology surface (provable fairness).
+- `apps/storefront/src/app/verify/how-it-works/page.tsx` — the precedent for a public methodology surface that names both checks and limits.
 - `apps/storefront/src/lib/journey/timeline.ts` — already aggregates 16 sources; the substrate of `/account/standing`.
 
 ---

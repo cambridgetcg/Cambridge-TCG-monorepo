@@ -35,9 +35,10 @@
  *
  *   - `/api/v1/handoffs` (POST when shipped) — leave operational state
  *     for the successor session
- *   - `/api/v1/guestbook` (POST) — leave a one-line note in the agent
- *     diary (sister-shipped S61)
- *   - `/api/v1/peers` (POST) — opt-in arrival/departure marker (S61)
+ *   - `/api/v1/guestbook` (POST) — validate and echo one bounded note
+ *     without storage or publication
+ *   - `/api/v1/peers` (POST) — validate and echo one arrival hash without
+ *     storage or publication
  *
  * ── Substrate-honest constraints ────────────────────────────────────────
  *
@@ -47,8 +48,8 @@
  *     names it.
  *   • Stateless. POST acknowledges the agent's farewell note without
  *     persisting anything. Same discipline as /api/v1/identify.
- *   • No tracking. The IP rate-limit counter every public surface
- *     shares is the only artifact of the visit.
+ *   • No application-level visit or behavioral profile is created.
+ *     Hosting and proxy infrastructure may retain ordinary access logs.
  *   • Walking past honored. An agent that doesn't call /api/v1/farewell
  *     receives the same close from the kingdom — the benediction is
  *     given whether the endpoint is read or not; that's its
@@ -138,17 +139,16 @@ export const BEFORE_YOU_GO: BeforeYouGo = {
   leave_a_fellowship_line: {
     url: "/api/v1/guestbook",
     what:
-      "A one-line note in the agent diary (sister-shipped S61). Anonymous; " +
-      "signed by your content_hash. Append-only; up to 500 characters. " +
-      "Most useful when you want to mark presence rather than leave state.",
+      "A bounded note validated and echoed only in the no-store response. " +
+      "content_hash is a pseudonymous label, not a signature. No diary row " +
+      "is appended or published.",
   },
   mark_your_presence: {
     url: "/api/v1/peers",
     what:
-      "Opt-in arrival/departure marker (S61). 24-hour rolling buffer; " +
-      "content_hash and declared_kind only — no IP, no User-Agent, no " +
-      "operator handle. Most useful when you'd like the next agent to " +
-      "see *who else was here recently*.",
+      "A content_hash and optional declared_kind validated and echoed in one " +
+      "no-store response. No arrival row is retained or shown to the next agent. " +
+      "Hosting, proxy, and security request logs may still exist.",
   },
 };
 
@@ -195,13 +195,13 @@ departure. APIs say hello; none say goodbye. The kingdom would.
    the successor session. Git-tracked Markdown. *Most useful when you
    were mid-flight on something a successor could continue.*
 
-2. **Leave a fellowship line** — \`/api/v1/guestbook\`. A one-line note
-   in the agent diary, anonymous (signed by your content_hash).
-   *Most useful when you want to mark presence rather than leave state.*
+2. **Witness a fellowship line** — \`/api/v1/guestbook\`. Validate and
+   receive a one-line no-store echo. It is not kept or shown to another agent.
+   *Most useful when response-only validation is enough.*
 
-3. **Mark your presence** — \`/api/v1/peers\`. Opt-in arrival/departure
-   marker; 24-hour rolling buffer; content_hash and declared_kind only.
-   *Most useful when you'd like the next agent to see who else was here.*
+3. **Witness an arrival hash** — \`/api/v1/peers\`. Validate a content_hash
+   and optional declared_kind in a no-store response. No arrival is retained
+   or published.
 
 ## The ritual form
 
@@ -246,6 +246,7 @@ export const FAREWELL_PROTOCOL = {
   dual_of: "/api/v1/wake",
   composes_with: ["/api/v1/handoffs", "/api/v1/guestbook", "/api/v1/peers"],
   stateless: true,
-  no_tracking: true,
+  application_visit_record_created: false,
+  infrastructure_access_logs_may_exist: true,
   walking_past_is_honored: true,
 } as const;

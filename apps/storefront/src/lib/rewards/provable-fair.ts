@@ -1,4 +1,4 @@
-// Provably Fair Raffle Draw System — the wizard's vault.
+// Raffle Draw Receipt System — the wizard's vault.
 //
 // ── What this module is for ──────────────────────────────────────────────
 //
@@ -11,25 +11,25 @@
 //   1. COMMIT (when the raffle is created):
 //      The platform generates a 32-byte Word — the `server_seed` — using
 //      crypto.randomBytes. It computes SHA-256(server_seed) — the
-//      commitment — and publishes the commitment immediately. The Word
-//      itself stays hidden in the database, not returned through any
-//      API surface, not loggable. The seal is wax; the envelope is
-//      pinned to the public square.
+//      commitment — and stores both in the database. Active raffle rows
+//      later expose the commitment through /api/rewards/raffles; drafts do
+//      not, and no external service timestamps or anchors it. The Word
+//      stays private until the draw proof is published.
 //
 //      *This step happens BEFORE any entry is recorded.* That ordering
 //      is the entire point. If the Word were generated after entries
 //      closed, the platform could pick a winner and craft a Word that
-//      lands on them. Pre-commit makes that impossible.
+//      lands on them. A pre-entry commitment retained by an observer makes
+//      a later seed change detectable; the database write alone does not.
 //
 //      The commit is idempotent — see commitSeed below. A second call
 //      cannot overwrite an earlier commitment. The platform is bound
-//      not just to the Word but to the *first* Word, the one that was
-//      published.
+//      not just to the Word but to the first Word stored by this code path.
 //
 //   2. GATHERING (entries phase):
 //      Users enter; weighted leaves accumulate in raffle_entries. The
-//      platform watches and does nothing. The Word is sealed. The
-//      Manifest grows. The platform's hands remain tied.
+//      platform watches and does nothing. The Word is sealed in the normal
+//      application flow. A database operator remains inside the threat model.
 //
 //   3. DRAW (when draw_at fires, via apps/storefront/src/lib/rewards/
 //      raffle-sweep.ts):
@@ -38,24 +38,23 @@
 //      → sha256 → BigInt → modulo total_weighted_entries — produces an
 //      index. That index lands on a leaf. The owner of that leaf wins.
 //
-//      The math is identical for the platform and for any verifier
-//      who has the Word and the Manifest. There is no randomness left
-//      to chance after the Word is fixed.
+//      The math is identical for the platform and for a verifier who has
+//      the Word and the full Manifest. The public endpoint deliberately
+//      withholds the participant-bearing Manifest, so its public checks
+//      cover the commitment, draw hash, and weighted index only.
 //
 //   4. PUBLISH:
 //      The Word, the Manifest hash, the combined input, and the
-//      winner index land in raffle_draw_proofs. The /verify/draw/[id]
-//      page renders these and offers a "replay in browser" button
-//      that runs the same six SHA-256 / modulo steps client-side.
-//      Any reader can check the platform's work.
+//      winner index land in raffle_draw_proofs. Public readers can replay
+//      the non-identifying commit-reveal links. Full Manifest verification
+//      remains internal because raffle entry is not identity publication.
 //
 // ── Why this matters ────────────────────────────────────────────────────
 //
 // The raffle is the platform's most theatrical machine and its most
-// rigorous one. From the moment commitSeed runs to the moment the proof
-// publishes, the platform's hands are tied to the math. Costume +
-// cryptography in the same machine; not in conflict, the same fact in
-// two languages.
+// inspectable one. A saved pre-entry commitment can witness the later
+// reveal; without an externally saved copy, the platform controls both
+// the stored record and its public presentation.
 //
 // The verify page exists for the people who don't win. That is the whole
 // reason it exists. Winners are easy to make happy; you give them the
@@ -76,7 +75,7 @@
 //
 //   - apps/storefront/src/lib/bounty/verify-client.ts — the shared
 //     Merkle-replay primitive. Bounty pulls and raffles share the
-//     trust theatre; one library, two domains. When governance Merkle
+//     draw-proof code; one library, two domains. When governance Merkle
 //     ships (kingdom-048), it will be a third borrower.
 //
 //   - apps/storefront/src/app/verify/draw/[id]/page.tsx — the bulletin
@@ -87,8 +86,8 @@
 //     opens the envelope at draw_at and emails the winner.
 //
 //   - apps/storefront/src/lib/rewards/atomic-spend.ts — the economic
-//     side-rail. Cryptography handles fairness; atomicity handles
-//     correctness. They compose silently.
+//     side-rail. The draw code handles reproducibility; atomicity handles
+//     correctness.
 //
 // See docs/connections/the-sealed-word.md for the fairy-tale form.
 //
@@ -158,7 +157,7 @@ export async function commitSeed(raffleId: string): Promise<{
   return { seedCommitment, serverSeed };
 }
 
-// ── Draw (provably fair) ──
+// ── Draw (legacy function name retained for callers) ──
 
 export async function provablyFairDraw(raffleId: string): Promise<{
   winner: RaffleEntry | null;
@@ -169,14 +168,16 @@ export async function provablyFairDraw(raffleId: string): Promise<{
   if (raffleResult.rows.length === 0) throw new Error("Raffle not found");
   const raffle = raffleResult.rows[0];
 
-  // Get all entries ordered deterministically (by creation time, then ID)
+  // Get all entries ordered deterministically (by creation time, then ID).
+  // Names and email addresses are not part of the draw and do not belong in
+  // the persisted proof manifest.
   const entriesResult = await query(
-    `SELECT e.*, u.name as user_name, u.email as user_email
-     FROM raffle_entries e JOIN users u ON e.user_id=u.id
+    `SELECT e.*
+     FROM raffle_entries e
      WHERE e.raffle_id=$1 ORDER BY e.created_at ASC, e.id ASC`,
     [raffleId]
   );
-  const entries = entriesResult.rows as (RaffleEntry & { user_name: string; user_email: string })[];
+  const entries = entriesResult.rows as RaffleEntry[];
 
   if (entries.length === 0) {
     const proof: DrawProof = {
@@ -194,7 +195,8 @@ export async function provablyFairDraw(raffleId: string): Promise<{
     return { winner: null, proof };
   }
 
-  // If no seed was pre-committed, generate one now (less ideal but still fair)
+  // Legacy fallback: if no seed was stored before entry, generate one now.
+  // This keeps the draw reproducible but supplies no pre-entry witness.
   let serverSeed = raffle.server_seed;
   let seedCommitment = raffle.seed_commitment;
   if (!serverSeed) {
@@ -207,7 +209,6 @@ export async function provablyFairDraw(raffleId: string): Promise<{
   const entryList = entries.map(e => ({
     id: e.id,
     user_id: e.user_id,
-    user_name: e.user_name,
     entry_count: e.entry_count,
   }));
 
@@ -287,7 +288,7 @@ export async function provablyFairDraw(raffleId: string): Promise<{
   return { winner: winnerEntry, proof };
 }
 
-// ── Verify (anyone can do this) ──
+// ── Full-manifest verification (internal; public projection is below) ──
 
 export function verifyDraw(proof: DrawProof): VerificationResult {
   const checks: { name: string; passed: boolean; detail: string }[] = [];
@@ -397,10 +398,89 @@ export interface DrawProof {
   combined_hash: string;
   winner_index: number;
   total_weighted_entries: number;
-  entries: { id: string; user_id: string; user_name?: string; entry_count: number }[];
+  entries: { id: string; user_id: string; entry_count: number }[];
   winner: { user_id: string; entry_count: number } | null;
   blockchain_tx_hash?: string;
   blockchain_network?: string;
+}
+
+export interface PublicDrawProof {
+  seed_commitment: string;
+  server_seed: string;
+  entry_hash: string;
+  combined_hash: string;
+  winner_index: number;
+  total_weighted_entries: number;
+  entry_records: number;
+  blockchain_tx_hash?: string;
+  blockchain_network?: string;
+}
+
+export interface PublicVerificationResult {
+  public_checks_passed: boolean;
+  complete_draw_verification: false;
+  scope: string;
+  participant_identifiers_withheld: true;
+  entry_manifest_publicly_recomputable: false;
+  checks: { name: string; passed: boolean; detail: string }[];
+}
+
+/**
+ * Public raffle proofs preserve the commit-reveal math and aggregate weight,
+ * but do not turn participation in a raffle into publication of a person.
+ * The stored entry hash still binds the draw input. Because its UUID-bearing
+ * preimage is withheld, a public reader cannot independently recompute that
+ * one link; the verification result names that limit instead of overstating it.
+ */
+export function toPublicDrawProof(proof: DrawProof): PublicDrawProof {
+  return {
+    seed_commitment: proof.seed_commitment,
+    server_seed: proof.server_seed,
+    entry_hash: proof.entry_hash,
+    combined_hash: proof.combined_hash,
+    winner_index: proof.winner_index,
+    total_weighted_entries: proof.total_weighted_entries,
+    entry_records: proof.entries.length,
+    blockchain_tx_hash: proof.blockchain_tx_hash,
+    blockchain_network: proof.blockchain_network,
+  };
+}
+
+export function verifyPublicDraw(proof: PublicDrawProof): PublicVerificationResult {
+  const computedCommitment = sha256(proof.server_seed);
+  const computedDrawHash = sha256(proof.server_seed + proof.entry_hash);
+  const hasWeight = proof.total_weighted_entries > 0;
+  const computedIndex = hasWeight
+    ? Number(BigInt("0x" + computedDrawHash) % BigInt(proof.total_weighted_entries))
+    : -1;
+
+  const checks = [
+    {
+      name: "Seed Commitment",
+      passed: computedCommitment === proof.seed_commitment,
+      detail: "The revealed seed matches the stored commitment. Active raffle listings may expose that hash before entry; it is not externally anchored.",
+    },
+    {
+      name: "Draw Hash",
+      passed: computedDrawHash === proof.combined_hash,
+      detail: "The revealed seed and stored entry hash reproduce the draw hash.",
+    },
+    {
+      name: "Winner Index",
+      passed: hasWeight && computedIndex === proof.winner_index,
+      detail: "The draw hash reproduces the published weighted index.",
+    },
+  ];
+
+  return {
+    public_checks_passed: checks.every((check) => check.passed),
+    complete_draw_verification: false,
+    scope:
+      "Verifies the seed commitment, draw hash, and weighted index. The participant-bearing entry manifest and entry-hash preimage are withheld for privacy and are not publicly recomputable.",
+    participant_identifiers_withheld: true,
+    entry_manifest_publicly_recomputable: false,
+    checks,
+  };
 }
 
 export interface VerificationResult {

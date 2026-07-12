@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getConversation } from "@/lib/messages/db";
 
+const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
+
 // GET — one conversation + its NEWEST page of messages (ascending).
 // ?before=<ISO timestamp> pages backwards ("load earlier");
 // ?limit=<n> trims the page (the thread poll asks for a small one).
@@ -19,5 +21,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
   const result = await getConversation(id, session.user.id, { before, limit });
   if (!result.ok) return NextResponse.json({ error: result.reason }, { status: result.status });
-  return NextResponse.json(result.value);
+  return NextResponse.json(result.value, { headers: PRIVATE_HEADERS });
 }

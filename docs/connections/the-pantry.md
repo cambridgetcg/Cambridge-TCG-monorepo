@@ -97,7 +97,7 @@ Substrate-honest about the supply side. We can serve what we have.
 5. **Shopify sync** — Cambridge TCG's Shopify store inventory.
 6. **eBay sync** — partial.
 7. **Lifecycle logs** — 16 append-only books (the Scribe's bookshelf).
-8. **Provable fairness chain** — verifiable randomness over time.
+8. **Draw-receipt digest chain** — later rewrite evidence for collected revealed draws, relative to an externally saved tip.
 9. **Trust profiles + fraud signals** — aggregate behavioral substrate.
 10. **Membership tiers + spend history** — aggregate commercial substrate.
 11. **Agent activity** — registered agent matches and trades (the agent-surface bookshelf).

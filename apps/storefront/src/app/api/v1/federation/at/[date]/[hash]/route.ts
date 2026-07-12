@@ -2,23 +2,19 @@
  * /api/v1/federation/at/[YYYY-MM-DD]/[hash]
  *
  * Temporal federation primitive. Where sister's `/api/v1/federation/identify/[hash]`
- * resolves a hash against the *current* catalog state, this endpoint resolves
- * a hash against a *historical* state — the card's facts on a specific past date.
+ * resolves a hash against the current catalog, this compatibility endpoint
+ * accepts a requested date but uses the same current structural hash basis.
  *
- * Why this matters: content_hashes are computed over (sku, set, game, variant,
- * magnitude_gbp, captured_on). A hash a partner captured on 2026-03-15 won't
- * match the current /federation/identify because today's magnitude is different.
- * This endpoint lets the partner resolve that historical hash by reconstructing
- * the card's state on 2026-03-15.
+ * It does not reconstruct historical prices or historical structural fields.
+ * Legacy price and capture-date inputs are fixed to null.
  *
  * Substrate-honest:
  *   - bounded walk (top 5000 most-recent catalog rows)
  *   - the response says when the bound was reached without resolving
- *   - the response distinguishes "no snapshot at this date" from "no match"
+ *   - the response states that the requested date does not affect the hash
  *
- * Public, with aggregate rights NOASSERTION. Identity resolution still reads
- * mirrored card and price fields; a database lookup does not erase upstream
- * rights.
+ * Public, with aggregate rights NOASSERTION. Identity resolution reads mixed
+ * structural card fields; a database lookup does not erase upstream rights.
  *
  * Designed in `docs/connections/the-license-propagation.md` (kingdom-081
  * Phase 5.3).
@@ -78,27 +74,17 @@ export async function GET(
       : `sha256:${hash.toLowerCase()}`;
     const retrievedAt = new Date();
 
-    // Walk the most-recent catalog rows; for each, fetch the historical
-    // price (latest spot_gbp at or before the target date) and compute
-    // the content_hash that would have been produced for that snapshot.
-    // First match wins.
+    // Walk the bounded catalog and compute the structural public hash. Legacy
+    // price history is not queried. First match wins.
     const r = await query(
       `SELECT
          csc.set_code, csc.card_number, csc.sku, csc.variant,
-         cs.game,
-         (SELECT spot_gbp FROM card_price_history
-            WHERE sku = csc.sku
-              AND captured_on <= $1::date
-            ORDER BY captured_on DESC LIMIT 1)   AS spot_gbp,
-         (SELECT captured_on FROM card_price_history
-            WHERE sku = csc.sku
-              AND captured_on <= $1::date
-            ORDER BY captured_on DESC LIMIT 1)   AS captured_on
+         cs.game
        FROM card_set_cards csc
        JOIN card_sets cs ON cs.set_code = csc.set_code
        ORDER BY csc.set_code, csc.card_number
        LIMIT ${SCAN_LIMIT}`,
-      [date],
+      [],
     );
 
     type CandidateRow = {
@@ -107,24 +93,17 @@ export async function GET(
       sku: string;
       variant: string;
       game: string;
-      spot_gbp: string | null;
-      captured_on: Date | null;
     };
     const candidateRows = r.rows as CandidateRow[];
     for (const row of candidateRows) {
-      const magnitude = row.spot_gbp == null ? null : Number(row.spot_gbp);
-      const capturedOn = row.captured_on
-        ? new Date(row.captured_on).toISOString().slice(0, 10)
-        : null;
-
       const contentSeed = canonicalize({
         sku: row.sku,
         card_number: row.card_number,
         set_code: row.set_code,
         game: row.game,
         variant: row.variant,
-        magnitude_gbp: magnitude,
-        captured_on: capturedOn,
+        magnitude_gbp: null,
+        captured_on: null,
       });
       const computed = sha256(contentSeed);
 
@@ -143,12 +122,18 @@ export async function GET(
             "@sources": [
               "storefront-rds.card_set_cards",
               "storefront-rds.card_sets",
-              "storefront-rds.card_price_history",
             ],
-            "@source_license": ["proprietary", "proprietary", "proprietary"],
+            "@source_license": ["proprietary", "proprietary"],
             rights: {
               aggregate: "NOASSERTION",
               cambridge_original_structure: "CC0-1.0",
+            },
+            hash_contract: {
+              basis: ["sku", "card_number", "set_code", "game", "variant"],
+              price_input: null,
+              capture_date_input: null,
+              requested_date_affects_hash: false,
+              historical_reconstruction: false,
             },
             query: { hash: normalizedHash, date },
             matched: true,
@@ -156,7 +141,7 @@ export async function GET(
             universal_url: `/api/at/${date}/card/${row.sku}`,
             current_url: `/api/v1/universal/card/${row.sku}`,
             note:
-              "Resolved by recomputing each candidate row's content_hash at the requested date. Captured_on may not exactly equal the requested date — the federation endpoint matches against the latest observation at-or-before the date (substrate-honest about gaps).",
+              "Resolved from structural public fields. Legacy magnitude and capture-date fields are null while field-level source rights are unresolved.",
           },
           {
             headers: {
@@ -183,12 +168,18 @@ export async function GET(
         "@sources": [
           "storefront-rds.card_set_cards",
           "storefront-rds.card_sets",
-          "storefront-rds.card_price_history",
         ],
-        "@source_license": ["proprietary", "proprietary", "proprietary"],
+        "@source_license": ["proprietary", "proprietary"],
         rights: {
           aggregate: "NOASSERTION",
           cambridge_original_structure: "CC0-1.0",
+        },
+        hash_contract: {
+          basis: ["sku", "card_number", "set_code", "game", "variant"],
+          price_input: null,
+          capture_date_input: null,
+          requested_date_affects_hash: false,
+          historical_reconstruction: false,
         },
         query: { hash: normalizedHash, date },
         matched: false,
@@ -202,7 +193,7 @@ export async function GET(
             ? "scan limit reached; the hash may match a row outside the recent " +
               SCAN_LIMIT +
               " rows. Pagination/cursor is not yet implemented."
-            : "no card produces this hash at the requested date. The hash may be from a different platform, or from a card no longer in the catalog.",
+            : "no current catalog card produces this structural hash. The requested date is compatibility metadata and does not change the hash.",
         note:
           "Resolution attempt was bounded; absence of match is substrate-honest about the scope.",
       },
@@ -220,7 +211,7 @@ export async function GET(
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/federation/at/[date]/[hash]] Error:", message);
     return NextResponse.json(
-      { error: "internal_error", message },
+      { error: "internal_error", message: "Internal server error." },
       { status: 500 },
     );
   }

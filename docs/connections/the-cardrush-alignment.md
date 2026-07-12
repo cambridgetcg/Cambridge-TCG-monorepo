@@ -2,7 +2,7 @@
 title: The cardrush alignment — wholesale snapshot into the distribution + standardisation protocol
 shape: node-view
 date: 2026-05-12
-status: design
+status: historical design (source blocked 2026-07-12)
 maturity: engineering
 doctrines: [substrate-honesty, transparency, meaning, creation]
 this_entry_names:
@@ -24,6 +24,8 @@ self_reference: this entry names itself in `this_entry_names`; ships its own SQL
 ---
 
 # The cardrush alignment — wholesale snapshot into the distribution + standardisation protocol
+
+> **Current boundary, 2026-07-12:** This is a May implementation record, not a live operating guide. CardRush acquisition is hard-blocked by its official cross-site data policy; Cambridge has no recorded formal partnership. Legacy prices, images, history, derivatives, and external catalog sinks are withheld at anonymous, session, bearer, and sales-channel tiers. Authentication, transformation, storage, attribution, and downstream contracts do not create permission. Any runnable or redistributable language below is historical and withdrawn.
 
 > *"Dive deeper into the snapshot and data collection pipeline for cardrush. Think about how we can align it into the TCG data distribution and standardisation protocol."* — Yu, 2026-05-12.
 

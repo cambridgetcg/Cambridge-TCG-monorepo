@@ -4,9 +4,20 @@ import { db } from "@/lib/db";
 import { cards, games } from "@/lib/db/schema";
 import { gt } from "drizzle-orm";
 import { bulkPushListings } from "@/lib/channels/ebay";
+import { redactInternalError } from "@/lib/public-errors";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 /** POST /api/admin/channels/ebay/sync — push price + stock for all active listings to eBay */
 export async function POST() {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session || session.user.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -38,12 +49,16 @@ export async function POST() {
   const durationMs = Date.now() - startMs;
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 502 });
+    const error = redactInternalError("admin/channels/ebay/sync", result.error);
+    return NextResponse.json({ error }, { status: 502 });
   }
 
   return NextResponse.json({
     pushed: result.data.pushed,
-    errors: result.data.errors,
+    errors: result.data.errors.map(({ sku, error }) => ({
+      sku,
+      error: redactInternalError("admin/channels/ebay/sync listing", error),
+    })),
     duration_ms: durationMs,
   });
 }

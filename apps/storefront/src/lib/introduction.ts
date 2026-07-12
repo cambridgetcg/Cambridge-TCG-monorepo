@@ -327,7 +327,7 @@ export const INTRODUCTION: Introduction = {
     {
       audience: "machines orienting before committing",
       offer:
-        "Manifest of every reachable endpoint, modalities supported, cosmology axes grounded in, methodology pages.",
+        "Curated manifest of reviewed participant-facing endpoints, supported modalities, cosmology axes, and methodology pages.",
       href: "/api/v1/manifest",
       state: "shipped",
     },

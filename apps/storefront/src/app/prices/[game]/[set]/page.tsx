@@ -15,7 +15,6 @@ import { Provenance, WhyLink } from "@/lib/ui";
 import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
-import { Money } from "@/lib/fx/Money";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -45,8 +44,6 @@ interface PageProps {
 const SORT_OPTIONS = [
   { label: "Card #", value: "number_asc" },
   { label: "Name A-Z", value: "name_asc" },
-  { label: "Price ↑", value: "price_asc" },
-  { label: "Price ↓", value: "price_desc" },
 ] as const;
 const DEFAULT_SORT = "number_asc";
 const VALID_SORTS = new Set<string>(SORT_OPTIONS.map((o) => o.value));
@@ -101,11 +98,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const setName = setInfo.name || setCode;
 
   return {
-    title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-    description: `Observed catalog rows for ${setCode} ${setName}, with policy-bound GBP reference values where held. This page does not claim a complete set or refresh cadence.`,
+    title: `${setCode} ${setName} Structural Catalog — Price Publication Paused`,
+    description: `Structural catalog rows for ${setCode} ${setName}. Legacy price values, images, and historical movements are withheld pending field-level source-rights records.`,
     openGraph: {
-      title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-      description: `Observed catalog rows for ${setCode} ${setName}, with policy-bound reference values where held.`,
+      title: `${setCode} ${setName} Structural Catalog — Price Publication Paused`,
+      description: `Structural catalog rows for ${setCode} ${setName}; legacy price values and images are withheld.`,
     },
   };
 }
@@ -163,6 +160,7 @@ export default async function SetPriceGuidePage({
   if (!cfg) notFound();
 
   const setCode = setSlug.toUpperCase();
+  const encodedSetSlug = encodeURIComponent(setSlug.toLowerCase());
 
   // Collectors-first (2026-07-06): the tradein-credit channel fetch and
   // its "We Buy" column are gone — the house buys nothing. The guide now
@@ -189,8 +187,8 @@ export default async function SetPriceGuidePage({
   const releaseDate = setInfo?.release_date ?? null;
 
   // Substrate-honest defaults: real card data can carry a null card_number
-  // (promos, odd printings). The render calls card_number.toLowerCase() in
-  // the row links, so a null here was 500ing the whole set page in PROD —
+  // (promos, odd printings). Row links encode the normalized card number, so
+  // a null here would otherwise break the whole set page in production —
   // local dev never hit it because the wholesale fetch 401s locally and the
   // list comes back empty. Coerce to safe strings so one bad row can never
   // take the page down. (Fixed 2026-06-06.)
@@ -234,7 +232,7 @@ export default async function SetPriceGuidePage({
         "@type": "ListItem",
         position: 4,
         name: `${setCode} ${setName}`,
-        item: `https://cambridgetcg.com/prices/${cfg.slug}/${setSlug}`,
+        item: `https://cambridgetcg.com/prices/${cfg.slug}/${encodedSetSlug}`,
       },
     ],
   };
@@ -281,7 +279,7 @@ export default async function SetPriceGuidePage({
         {/* Set header */}
         <header className="mb-10">
           <h1 className="text-3xl font-bold text-ink mb-2">
-            {setCode} {setName} — Price Guide
+            {setCode} {setName} — Structural Catalog
           </h1>
           <div className="mb-4 flex items-center gap-3 text-xs">
             <Provenance
@@ -290,7 +288,7 @@ export default async function SetPriceGuidePage({
               at={freshestUpdate(cardsData.items)}
               cadence="daily"
             />
-            <WhyLink href="/methodology/pricing" label="how prices work" />
+            <WhyLink href="/methodology/pricing" label="price publication boundary" />
             <CurrencyWhyLink />
           </div>
           <p className="text-ink-muted leading-relaxed max-w-3xl mb-4">
@@ -323,7 +321,7 @@ export default async function SetPriceGuidePage({
           <CurrencySelector
             selected={currency}
             rates={rates}
-            back={`/prices/${cfg.slug}/${setSlug}`}
+            back={`/prices/${cfg.slug}/${encodedSetSlug}`}
           />
         </div>
 
@@ -418,8 +416,8 @@ export default async function SetPriceGuidePage({
               const active = sort === opt.value;
               const href =
                 opt.value === DEFAULT_SORT
-                  ? `/prices/${cfg.slug}/${setSlug}`
-                  : `/prices/${cfg.slug}/${setSlug}?sort=${opt.value}`;
+                  ? `/prices/${cfg.slug}/${encodedSetSlug}`
+                  : `/prices/${cfg.slug}/${encodedSetSlug}?sort=${opt.value}`;
               return (
                 <Link
                   key={opt.value}
@@ -442,7 +440,7 @@ export default async function SetPriceGuidePage({
                   <th className="px-3 py-3">Card #</th>
                   <th className="px-3 py-3">Name</th>
                   <th className="px-3 py-3">Rarity</th>
-                  <th className="px-3 py-3 text-right">Buy Price</th>
+                  <th className="px-3 py-3 text-right">Legacy price</th>
                   <th className="px-3 py-3 text-right">Market</th>
                 </tr>
               </thead>
@@ -454,7 +452,7 @@ export default async function SetPriceGuidePage({
                   >
                     <td className="px-3 py-3 text-ink-muted font-mono text-xs">
                       <Link
-                        href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
+                        href={`/prices/${cfg.slug}/${encodedSetSlug}/${encodeURIComponent(card.card_number.toLowerCase())}`}
                         className="hover:text-info transition-colors"
                       >
                         {card.card_number}
@@ -462,7 +460,7 @@ export default async function SetPriceGuidePage({
                     </td>
                     <td className="px-3 py-3">
                       <Link
-                        href={`/prices/${cfg.slug}/${setSlug.toLowerCase()}/${card.card_number.toLowerCase()}`}
+                        href={`/prices/${cfg.slug}/${encodedSetSlug}/${encodeURIComponent(card.card_number.toLowerCase())}`}
                         className="text-ink hover:text-info transition-colors"
                       >
                         {card.name}
@@ -472,11 +470,11 @@ export default async function SetPriceGuidePage({
                       <RarityBadge rarity={card.rarity} />
                     </td>
                     <td className="px-3 py-3 text-right text-ink font-medium">
-                      <Money value={card.price} />
+                      <span className="text-ink-faint">Withheld</span>
                     </td>
                     <td className="px-3 py-3 text-right">
                       <Link
-                        href={`/market/${card.sku}`}
+                        href={`/market/${encodeURIComponent(card.sku)}`}
                         className="text-info hover:underline text-xs"
                       >
                         Trade
@@ -493,15 +491,12 @@ export default async function SetPriceGuidePage({
         {/* Pricing explanation */}
         <section className="border-t border-border-subtle pt-8">
           <h2 className="text-lg font-semibold text-ink mb-3">
-            About These Prices
+            Price publication boundary
           </h2>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
-            {cfg.pricing_note}{" "}
-            The <strong className="text-ink-muted">Buy Price</strong> is our
-            catalogue reference price — a policy-bound derived value, not an offer
-            or an open-data grant. Cambridge TCG
-            no longer buys cards itself; selling happens between collectors on
-            the market.
+            {cfg.pricing_note} Authentication and transformation do not create
+            publication permission. Collector bids and asks are separate market
+            events rather than substituted legacy catalog values.
           </p>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
             <Link href="/market" className="text-info hover:underline">

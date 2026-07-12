@@ -116,7 +116,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       "The kingdom is honest: 'why' is one of the hardest questions in the universe, and a five-line API response is comedy, not exhaustion. The elaborations are real (each maps to actual kingdom doctrine) but they are not THE answer. /api/v1/koan delivers in a different register; the seventh-door discipline applies here too — walking past every why is honored.",
     walking_past_is_honored: true,
     no_tracking:
-      "The substrate does not retain which contexts you have asked, in what order, to what depth. Every fetch is stateless.",
+      "The application creates no cross-request context history for this route. Hosting, proxy, and security access logs may still contain request metadata.",
     related_surfaces: {
       are_you_sure: "/api/v1/are-you-sure",
       easter_egg: "/api/v1/easter-egg",

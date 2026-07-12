@@ -5,6 +5,19 @@
  *
  * Reference: https://scryfall.com/docs/api/cards
  */
+export interface ScryfallCardFace {
+  /** Face name, in Scryfall's printed face order. */
+  name: string;
+  /** Illustrator credited for this face, when Scryfall supplies one. */
+  artist?: string;
+  /** Stable Scryfall id for this face's credited artist. */
+  artist_id?: string;
+  /** Stable id for this face's illustration. */
+  illustration_id?: string;
+  /** Face-specific image URIs used by double-faced layouts. */
+  image_uris?: { normal?: string };
+}
+
 export interface ScryfallCard {
   /** Scryfall printing id (UUID). */
   id: string;
@@ -35,8 +48,8 @@ export interface ScryfallCard {
   illustration_id?: string;
   /** Image URIs. */
   image_uris?: { normal?: string; large?: string; png?: string };
-  /** For double-faced cards. */
-  card_faces?: { name: string; image_uris?: { normal?: string } }[];
+  /** Ordered faces for double-faced and other multi-face layouts. */
+  card_faces?: ScryfallCardFace[];
   /** Frame effects (foil-etched, showcase, etc.). */
   frame_effects?: string[];
   /** Promo flags ("boosterfun", "datestamped", ...). */

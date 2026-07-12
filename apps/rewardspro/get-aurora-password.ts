@@ -1,13 +1,20 @@
-/**
- * Get Aurora database password from Secrets Manager
- */
+/** Check that the configured Aurora secret exists without printing it. */
 
-import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from "@aws-sdk/client-secrets-manager";
 import { config } from "dotenv";
 
 config();
 
-async function getAuroraPassword() {
+async function checkAuroraSecret() {
+  if (!process.env.AURORA_SECRET_ARN) {
+    console.error("AURORA_SECRET_ARN is required.");
+    process.exitCode = 1;
+    return;
+  }
+
   const client = new SecretsManagerClient({
     region: process.env.AWS_REGION || "eu-north-1",
   });
@@ -18,25 +25,21 @@ async function getAuroraPassword() {
     });
 
     const response = await client.send(command);
-    
-    if (response.SecretString) {
-      const secret = JSON.parse(response.SecretString);
-      
-      console.log("🔐 Aurora Database Credentials:");
-      console.log("================================");
-      console.log(`Username: ${secret.username}`);
-      console.log(`Password: ${secret.password}`);
-      console.log(`Host: rewardspro-dev.cluster-cj06ko4ko87d.eu-north-1.rds.amazonaws.com`);
-      console.log(`Database: rewardspro`);
-      console.log(`Port: 5432`);
-      console.log("\n📝 Connection String for Prisma:");
-      console.log(`DATABASE_URL=postgresql://${secret.username}:${secret.password}@rewardspro-dev.cluster-cj06ko4ko87d.eu-north-1.rds.amazonaws.com:5432/rewardspro`);
-      
-      return secret;
-    }
-  } catch (error) {
-    console.error("❌ Failed to retrieve secret:", error);
+
+    if (!response.SecretString) throw new Error("secret has no string value");
+
+    const secret = JSON.parse(response.SecretString) as Record<string, unknown>;
+    const requiredFields = ["username", "password"];
+    const complete = requiredFields.every(
+      (field) => typeof secret[field] === "string" && secret[field] !== "",
+    );
+    if (!complete) throw new Error("secret is missing required fields");
+
+    console.log("Aurora secret is available and has the required fields.");
+  } catch {
+    console.error("Aurora secret check failed. No secret value was printed.");
+    process.exitCode = 1;
   }
 }
 
-getAuroraPassword();
+void checkAuroraSecret();

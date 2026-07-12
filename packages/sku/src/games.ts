@@ -19,26 +19,24 @@
  * flip `confirmed: true` in the same commit. See
  * `docs/connections/the-stress-test.md` §3.
  *
- * Reconciled against the production wholesale DB 2026-07-05: only
- * op (3,438 cards), pkm (6,370) and dbf (1,622) hold cards. Nine codes
- * previously claimed `confirmed: true` with zero production cards —
- * substrate-honesty drift, now corrected. The `tst` code is internal
- * (never in prod by design) and exempt from the definition.
+ * Reconciled against public production evidence 2026-07-11: op, pkm, dbf,
+ * dmw, vng, and bsr hold catalog rows. The `tst` code is internal (never in
+ * production by design) and exempt from the definition.
  */
 
 export type GameCode =
-  // ── Confirmed (cards exist in the production wholesale DB) ─────────
+  // ── Confirmed (public production evidence contains catalog rows) ───
   | "op"   // One Piece TCG (Bandai)
   | "pkm"  // Pokémon TCG
   | "dbf"  // Dragon Ball Super Fusion World (Bandai's dbs successor)
+  | "vng"  // Cardfight!! Vanguard (Bushiroad)
+  | "dmw"  // Digimon Card Game (Bandai)
+  | "bsr"  // Battle Spirits Saga (Bandai)
   // ── Registered, no production cards yet ────────────────────────────
   | "mtg"  // Magic: The Gathering (Wizards)
   | "ygo"  // Yu-Gi-Oh! (Konami)
   | "dbs"  // Dragon Ball Super CCG (Bandai; superseded by dbf)
   | "wei"  // Weiß Schwarz (Bushiroad)
-  | "vng"  // Cardfight!! Vanguard (Bushiroad)
-  | "dmw"  // Digimon Card Game (Bandai)
-  | "bsr"  // Battle Spirits Saga (Bandai)
   | "lcg"  // Living Card Game — Marvel Champions / LOTR LCG / etc.
   | "fab"  // Flesh and Blood (LSS)
   | "lgr"  // Lorcana (Ravensburger)

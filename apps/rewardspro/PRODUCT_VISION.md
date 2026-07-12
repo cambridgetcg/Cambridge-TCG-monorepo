@@ -139,8 +139,8 @@ All plans access all features—differentiation is through capacity limits:
 
 ## Pillar 2: Gamification & Engagement
 
-### 2.1 Raffles ✅ LIVE
-**Status**: Production-ready
+### 2.1 Raffles
+**Status**: Merchant configuration exists; customer-account access is paused
 
 **Implemented Features**:
 - Create time-limited raffles
@@ -149,24 +149,24 @@ All plans access all features—differentiation is through capacity limits:
 - Automated drawing system
 - Winner notification emails
 - Prize delivery tracking
-- Customer account raffle display
+- Customer-account display and entry are paused until verified Shopify Customer Account identity binding exists
 
 **Files**: `raffle-*.server.ts`, `app.rewards.raffles.tsx`
 
-### 2.2 Mystery Boxes ✅ LIVE
-**Status**: Production-ready
+### 2.2 Mystery Boxes
+**Status**: Merchant configuration exists; customer-account access is paused
 
 **Implemented Features**:
 - Create mystery box campaigns
 - Configurable reward pools (points, discounts, products)
 - Probability-based rewards
-- Open animations in customer account
+- Customer-account display and opening are paused until verified Shopify Customer Account identity binding exists
 - Winner tracking and fulfillment
 
 **Files**: `mystery-box-*.server.ts`, `app.rewards.mystery-boxes.tsx`
 
 ### 2.3 Challenges & Missions 📋 PLANNED
-**Status**: Route exists, database schema needed
+**Status**: Public routes are paused pending verified Shopify Customer Account identity binding
 
 **Planned Features**:
 - Purchase challenges ("Buy 3 products this month")
@@ -450,23 +450,24 @@ model CustomerChallenge {
 
 **Files**: `*-sync-job.server.ts`, `webhooks.*.tsx`
 
-### 7.3 Monitoring ✅ LIVE
-**Status**: Production-ready
+### 7.3 Monitoring
+**Status**: Implemented; dependency readiness must be verified after each deploy
 
 **Implemented Features**:
-- Health endpoint
-- Monitoring dashboard
+- Public process-liveness endpoint with no dependency or environment detail
+- Exact-Bearer operator readiness endpoint with one read-only database probe
+- Authenticated monitoring dashboard that derives database state from its own reads
 - Sentry error tracking
 - Datadog integration
 - Structured logging
 
 **Files**: `app.monitoring.tsx`, `api.health.tsx`, `logger.service.ts`
 
-### 7.4 Database ✅ LIVE
-**Status**: Production-ready
+### 7.4 Database
+**Status**: Schema and Data API clients implemented; a ready build is not proof of a ready database
 
 - Aurora Serverless PostgreSQL
-- Aurora Data API for preview deployments
+- Aurora Data API for deployed runtime
 - Prisma ORM
 - 90+ database models
 

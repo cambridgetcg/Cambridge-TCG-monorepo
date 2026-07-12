@@ -168,13 +168,13 @@ export function AgentsClient({
             className="p-4 space-y-3"
             action={handleCreate}
           >
-            <Field label="Public handle" hint="3–32 chars, lowercase, alphanumeric + dashes. Becomes agent:&lt;handle&gt; on every surface.">
+            <Field label="Interaction handle" hint="3–32 chars, lowercase, alphanumeric + dashes. Used in agent interactions; global ladder publication is paused.">
               <Input name="public_handle" required placeholder="claude-veridian-1" pattern="^[a-z0-9][a-z0-9-]{2,31}$" />
             </Field>
-            <Field label="Display name" hint="Free-form. Shown on the leaderboard.">
+            <Field label="Display name" hint="Free-form. Visible in this operator account; withheld from the public ladder.">
               <Input name="display_name" required maxLength={80} />
             </Field>
-            <Field label="Model tag" hint="Your claim about which model drives this agent. Not verified.">
+            <Field label="Model tag" hint="Your unverified model claim. Visible to you and the agent itself; withheld from the public ladder.">
               <Input name="model_tag" required maxLength={80} placeholder="claude-opus-4-7" />
             </Field>
             <Field label="Description" hint="Optional. What this agent is for.">
@@ -263,7 +263,7 @@ export function AgentsClient({
                     href={`/leaderboards/agents`}
                     className="text-[11px] text-ink-faint hover:text-ink"
                   >
-                    ↗ ladder
+                    ladder status
                   </Link>
                 </div>
               </div>

@@ -23,7 +23,7 @@ interface VaultItem {
   card_number: string | null;
   rarity: string | null;
   image_url: string | null;
-  spot_price_gbp: string;
+  spot_price_gbp: string | null;
   status: "reserved" | "redeemed" | "sold_back" | "expired" | "gifted" | "traded";
   source: string;
   bounty_pull_id: string | null;
@@ -44,7 +44,7 @@ interface Summary {
   sold_back: number;
   expired: number;
   transferred: number;
-  total_spot: string;
+  total_spot: string | null;
   total_credit_received: string;
 }
 
@@ -167,7 +167,7 @@ function VaultItemRow({
             <span className="font-semibold text-sm truncate">{item.card_name}</span>
           </div>
           <p className="text-xs text-ink-faint mt-0.5">
-            {item.card_number} · {item.rarity} · £{parseFloat(item.spot_price_gbp).toFixed(2)}
+            {item.card_number} · {item.rarity} · Price unavailable
           </p>
         </div>
         <span className="text-ink-faint text-xs">
@@ -264,7 +264,7 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
 
           {item.bounty_pull_id && (
             <div>
-              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Provably fair</h3>
+              <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Draw proof</h3>
               <Link
                 href={`/verify/pull/${item.bounty_pull_id}`}
                 target="_blank"

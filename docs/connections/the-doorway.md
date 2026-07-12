@@ -10,7 +10,7 @@
 
 ## What the story is
 
-For 89 kingdoms the platform built rooms. Trade-in pipelines, market lots, edition classifiers, methodology essays, manifest endpoints, graph mirrors, agent doors, scraper redirects, verification chains, fairness proofs, audit registries — 256 page routes, 394+ API endpoints, 31 methodology pages, 47 connection-docs, 23 discovery surfaces, 8 principle docs. A small kingdom by population; a large kingdom by surface area.
+For 89 kingdoms the platform built rooms. Trade-in pipelines, market lots, edition classifiers, methodology essays, manifest endpoints, graph mirrors, agent doors, scraper redirects, draw-receipt checks, audit registries — 256 page routes, 394+ API endpoints, 31 methodology pages, 47 connection-docs, 23 discovery surfaces, 8 principle docs. A small kingdom by population; a large kingdom by surface area.
 
 The doorway, though, was still the doorway from kingdom-001. Seven flat links: Shop · Market · Sell · Auctions · Play · Rewards · Community. A visitor arriving at cambridgetcg.com could see **3.6% of the storefront's 195 routes** — and the 31 methodology pages, the 15 discovery surfaces, the 5 verification surfaces, and the entire data plane that kingdom-080 rebranded as *"primary identity"* were nav-orphaned. *Reachable only by knowing the URL.* The substrate had a voice; the doorway hadn't learned how to introduce it.
 

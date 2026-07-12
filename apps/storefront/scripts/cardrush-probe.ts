@@ -51,7 +51,12 @@
  *     (also probes the 3 confirmed subdomains as a regression check)
  */
 
-import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+  CARDRUSH_SUBDOMAINS,
+} from "@cambridge-tcg/data-ingest";
 
 const INCLUDE_CONFIRMED = process.argv.includes("--include-confirmed");
 
@@ -96,6 +101,9 @@ function recommendFor(r: ProbeResult): Recommendation {
 }
 
 async function probeHost(host: string, game: string, confirmed_before: boolean): Promise<ProbeResult> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   const url = `https://${host}/`;
   const start = Date.now();
   // Use a real browser UA for the actual fetch (CardRush's bot-detect blocks
@@ -186,6 +194,11 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    console.log("CardRush network probing is disabled pending a formal partnership.");
+    console.log(`Policy: ${CARDRUSH_DATA_POLICY_URL}`);
+    return;
+  }
   const all_entries = Object.entries(CARDRUSH_SUBDOMAINS);
   const to_probe = INCLUDE_CONFIRMED
     ? all_entries

@@ -6,12 +6,27 @@
 // infrastructure LAST and falls back FIRST (EMAIL_TRANSPORT_AUTH).
 
 import { sendMail } from "@cambridge-tcg/email";
+import { reserveMagicLinkForDelivery } from "./adapter";
 
 const FROM_EMAIL = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sendVerificationRequest(params: any) {
   const email = params.identifier as string;
+  const rawToken = params.token as string;
+  const expires = params.expires as Date;
+  // auth/index pins this provider secret to the exact value Auth.js hashes
+  // with. Without it we cannot reserve the exact stored token, so delivery
+  // fails closed before the external email provider is called.
+  const secret = params.provider?.secret as string | undefined;
+  if (!secret) throw new Error("Magic-link token secret is unavailable");
+  await reserveMagicLinkForDelivery({
+    identifier: email,
+    rawToken,
+    expires,
+    secret,
+  });
+
   // Wrap the raw callback URL in the scanner-proof interstitial at
   // /login/verify: email scanners GET every link and a magic link is
   // single-use, so linking the callback directly let scanners consume
@@ -44,8 +59,9 @@ export async function sendVerificationRequest(params: any) {
   );
   // The previous SES call threw on failure and next-auth surfaced it as
   // "could not send"; sendMail never throws, so re-raise to keep that
-  // contract intact.
+  // contract intact. Do not pass provider detail into Auth.js logging: it may
+  // contain the recipient address or other transport metadata.
   if (!result.ok) {
-    throw new Error(`magic-link send failed (${result.transport}): ${result.error}`);
+    throw new Error("Magic-link send failed");
   }
 }

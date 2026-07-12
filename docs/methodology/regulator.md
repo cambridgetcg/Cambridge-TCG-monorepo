@@ -8,7 +8,8 @@ on the buy side (trade-in credit), injected into every card's order book.
 That made the platform both the referee and a player.
 
 **On 2026-06-10 we stopped playing.** The platform is now a market
-*regulator*: it makes the market legible, fair, and provably so, and it
+*regulator*: it aims to make the market legible, publishes inspectable evidence
+with explicit limits, and it
 holds no positions in it.
 
 ## What changed
@@ -40,9 +41,12 @@ platform will not sell you the card at any price.
 
 About £59,000 of inventory remains from the merchant era. It is **never
 sold** — selling it would re-enter the market we just left. It becomes the
-**prize economy**: raffles, bounty pulls, mystery boxes, reward packs —
-every one of them provably fair (commit-reveal draws, Merkle-anchored
-audit trail). The regulator gives its cards away rather than competing
+**prize economy**: raffles, bounty pulls, mystery boxes, reward packs.
+Several flows issue commit/reveal receipts and some enter a Merkle digest,
+which supports outcome replay and later consistency checks. This does not
+prove unbiased selection: generic draws use server-only entropy without an
+external pre-roll witness, and raffle commitments are not independently
+anchored. The regulator gives its cards away rather than competing
 with the participants it regulates. See `/bounty` and the prize
 methodology.
 

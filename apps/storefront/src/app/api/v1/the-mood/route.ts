@@ -65,10 +65,10 @@ const MOODS: readonly Mood[] = [
   },
   {
     mood: "joyful",
-    reason: "an agent left a `gratitude` note in /api/v1/agents/notes",
+    reason: "the reviewed /api/v1/agents/notes seed includes gratitude",
     emoji: "🎉",
     recommends: "/api/v1/agents/notes?kind=gratitude",
-    whispered: "I read every one. don't tell anyone.",
+    whispered: "participant note posts are not retained; the seed is platform-authored",
   },
   {
     mood: "tender",
@@ -261,7 +261,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-kingdom-speaks.md",
       walking_past_is_honored: true,
       no_tracking:
-        "The kingdom does not record whether you checked its mood today.",
+        "The application creates no mood-reader profile. Hosting, proxy, and security access logs may still exist.",
     },
   });
 }

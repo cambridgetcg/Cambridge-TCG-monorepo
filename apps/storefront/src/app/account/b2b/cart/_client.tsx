@@ -3,7 +3,7 @@
 /**
  * Client primitives for the B2B cart.
  *
- *   <AddToB2BCart sku={...} />              — used on catalog + detail
+ *   <AddToB2BCart sku={...} />              — dormant while new items are paused
  *   <QtyControl sku={...} initial={N} />    — used on cart page rows
  *   <RemoveButton sku={...} />              — used on cart page rows
  *   <ClearButton />                          — used on cart page header

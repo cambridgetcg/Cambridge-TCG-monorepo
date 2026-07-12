@@ -1,15 +1,15 @@
 /**
- * /account/b2b/catalog — wholesale-priced catalog.
+ * /account/b2b/catalog — signed-in structural catalog.
  *
- * Phase 2.1 of the wholesale consolidation. Same cards as the retail
- * surface, priced through the wholesale channel via the Falcon's
- * dual-key path (WHOLESALE_B2B_API_KEY).
+ * The B2B role may inspect structural rows and stock. Price values, price
+ * ordering, new cart items, and checkout remain paused under the same
+ * field-level source-rights boundary as every other participant surface.
  *
  * URL params:
  *   ?game=op       — filter to a game (slug or code)
  *   ?set=OP01      — filter to a set within the game
  *   ?q=zoro        — full-text search across card name + number
- *   ?sort=...      — card_number | price_asc | price_desc | name_asc
+ *   ?sort=...      — number_asc | name_asc
  *   ?stock=true    — only show in-stock cards
  *   ?page=N        — 1-indexed pagination
  *
@@ -20,41 +20,35 @@
  * Auth: proxy.ts ensures role∈{wholesale,admin}; /account/layout.tsx
  * ensures auth. This page trusts both gates.
  *
- * Substrate-honesty note: if WHOLESALE_B2B_API_KEY is unset (operator
- * hasn't provisioned the B2B key yet), the Falcon falls back to the
- * retail key and the prices column will render retail values. The
- * response's `channel` field still says 'cambridgetcg' in that case;
- * we surface the discrepancy via a banner instead of pretending the
- * prices are wholesale.
+ * Authentication controls who may read this account surface; it does not
+ * create publication rights for legacy upstream price fields.
  */
 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
 import { Card, PageHeader, audienceMetadata } from "@/lib/ui";
-import { formatPrice } from "@/lib/format";
-import { AddToB2BCart } from "../cart/_client";
+import { B2B_PURCHASE_AVAILABILITY } from "@/lib/b2b/purchase-availability";
 
 export const metadata: Metadata = {
-  title: "Wholesale catalog — Cambridge TCG",
-  description: "Browse the full Cambridge TCG catalog at your wholesale account's prices.",
+  title: "B2B structural catalog — Cambridge TCG",
+  description:
+    "Browse structural catalog and stock fields. New B2B pricing and checkout are paused.",
   other: audienceMetadata("consumer", ["wholesale", "b2b", "catalog"]),
 };
 
 const PAGE_SIZE = 60;
 
 const SORT_OPTIONS = [
-  { value: "card_number", label: "Card #" },
+  { value: "number_asc", label: "Card #" },
   { value: "name_asc", label: "Name A→Z" },
-  { value: "price_asc", label: "Price ↑" },
-  { value: "price_desc", label: "Price ↓" },
 ] as const;
 
 type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 
 function asSort(raw: string | undefined): SortValue {
   const valid = SORT_OPTIONS.map((o) => o.value) as readonly string[];
-  return (valid.includes(raw ?? "") ? raw : "card_number") as SortValue;
+  return (valid.includes(raw ?? "") ? raw : "number_asc") as SortValue;
 }
 
 function buildHref(
@@ -102,27 +96,21 @@ export default async function B2BCatalogPage({
   const sets = game ? await fetchSets(game) : [];
 
   const totalPages = Math.max(1, Math.ceil((pricesResp.total ?? 0) / PAGE_SIZE));
-  const channelMatched = pricesResp.channel === "wholesale";
-  const currentParams = { game, set, q, sort: sort === "card_number" ? undefined : sort, stock: inStock ? "true" : undefined };
+  const currentParams = { game, set, q, sort: sort === "number_asc" ? undefined : sort, stock: inStock ? "true" : undefined };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Wholesale catalog"
-        description={`${pricesResp.total ?? 0} cards available at your account's wholesale prices.`}
+        title="B2B structural catalog"
+        description={`${pricesResp.total ?? 0} structural rows. ${B2B_PURCHASE_AVAILABILITY.reason}`}
       />
 
-      {!channelMatched && (
-        <Card>
-          <div className="text-sm text-accent">
-            <strong className="font-semibold">Setup pending:</strong> the
-            wholesale API key isn&rsquo;t provisioned yet
-            (<code className="rounded bg-surface-subtle px-1 text-xs">WHOLESALE_B2B_API_KEY</code>),
-            so prices below are showing retail values until that env var lands.
-            See the Phase 2 commit body for the operator recipe.
-          </div>
-        </Card>
-      )}
+      <Card>
+        <p className="text-sm text-ink-muted">
+          Price values and price ordering are withheld. No new cart item or
+          checkout session can be created from this catalog.
+        </p>
+      </Card>
 
       <Card>
         <form
@@ -198,7 +186,7 @@ export default async function B2BCatalogPage({
         {SORT_OPTIONS.map((opt) => {
           const active = sort === opt.value;
           const href = buildHref("/account/b2b/catalog", currentParams, {
-            sort: opt.value === "card_number" ? undefined : opt.value,
+            sort: opt.value === "number_asc" ? undefined : opt.value,
             page: undefined,
           });
           return (
@@ -227,13 +215,11 @@ export default async function B2BCatalogPage({
               <th className="px-3 py-3">Set</th>
               <th className="px-3 py-3">Rarity</th>
               <th className="px-3 py-3 text-right">Stock</th>
-              <th className="px-3 py-3 text-right">Wholesale</th>
-              <th className="px-3 py-3"></th>
+              <th className="px-3 py-3 text-right">Legacy price</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
             {pricesResp.items.map((card) => {
-              const wholesalePrice = card.channel_price ?? card.price_gbp;
               return (
                 <tr key={card.sku} className="bg-surface hover:bg-surface-subtle">
                   <td className="px-3 py-3 font-mono text-xs text-ink-muted">
@@ -263,17 +249,14 @@ export default async function B2BCatalogPage({
                     )}
                   </td>
                   <td className="px-3 py-3 text-right font-medium text-ink">
-                    {formatPrice(wholesalePrice)}
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <AddToB2BCart sku={card.sku} compact disabled={card.stock <= 0} />
+                    <span className="text-ink-faint">Withheld</span>
                   </td>
                 </tr>
               );
             })}
             {pricesResp.items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-ink-faint">
+                <td colSpan={6} className="px-3 py-8 text-center text-ink-faint">
                   No cards match these filters.
                 </td>
               </tr>
@@ -314,8 +297,8 @@ export default async function B2BCatalogPage({
 
       <p className="text-xs text-ink-faint">
         Stock shows on-hand UK quantity; <span className="text-accent">+N</span> indicates
-        pending stock (ordered, not yet received). Card numbers link to the per-card detail page
-        with the same wholesale pricing.
+        pending stock (ordered, not yet received). Card numbers link to a
+        structural detail page; no current or relative price value is exposed.
       </p>
     </div>
   );

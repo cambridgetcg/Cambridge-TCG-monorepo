@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { EmptyState, Icon, Money, TrustTier } from "@/lib/ui";
+import { EmptyState, Icon, Money } from "@/lib/ui";
 import { useVoice } from "@/lib/wardrobe/context";
 
 interface LotRow {
@@ -11,12 +11,6 @@ interface LotRow {
   price: string;
   image_url: string | null;
   status: string;
-  seller_username: string | null;
-  seller_name: string | null;
-  // Seller reputation (global free trade, 2026-06-10): tier + review
-  // count replace identity verification at the point of trade.
-  seller_tier: string | null;
-  seller_review_count: number | null;
   item_count: number;
   total_quantity: number;
   created_at: string;
@@ -63,9 +57,6 @@ export default function MarketLotsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {lots.map((lot) => (
-            // The seller line is its own link (to the profile, not the lot),
-            // so the card is a div with two sibling anchors — nested <a>s
-            // are invalid HTML.
             <div
               key={lot.id}
               className="wardrobe-mat rounded-lg overflow-hidden hover:ring-2 hover:ring-accent/40 transition"
@@ -90,24 +81,9 @@ export default function MarketLotsPage() {
                   </p>
                 </div>
               </Link>
-              <div className="px-3 pb-3 pt-1">
-                {lot.seller_username && (
-                  <Link
-                    href={`/u/${lot.seller_username}`}
-                    className="inline-flex items-center gap-1.5 text-[11px] text-ink-muted hover:text-accent transition"
-                  >
-                    @{lot.seller_username}
-                    {lot.seller_tier && (
-                      <TrustTier name={lot.seller_tier} score={null} showScore={false} />
-                    )}
-                    {lot.seller_review_count != null && (
-                      <span className="font-mono tabular-nums text-ink-faint">
-                        {lot.seller_review_count} review{lot.seller_review_count !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </Link>
-                )}
-              </div>
+              <p className="px-3 pb-3 pt-1 text-[11px] text-ink-faint">
+                Seller identity withheld
+              </p>
             </div>
           ))}
         </div>

@@ -1,235 +1,46 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
 
-type ClaimStep = "form" | "submitting" | "success" | "error";
+export const metadata = {
+  title: "OG status - Cambridge TCG",
+  description: "Current status of Cambridge TCG OG membership claims.",
+};
 
 export default function OGClaimPage() {
-  const [step, setStep] = useState<ClaimStep>("form");
-  const [email, setEmail] = useState("");
-  const [platform, setPlatform] = useState("");
-  const [orderRef, setOrderRef] = useState("");
-  const [username, setUsername] = useState("");
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState("");
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    if (!email.trim() || !email.includes("@")) { setError("Valid email required."); return; }
-    if (!platform) { setError("Select which platform you purchased from."); return; }
-    if (!orderRef.trim() && !username.trim()) { setError("Provide an order reference or your username on the platform."); return; }
-
-    setStep("submitting");
-
-    try {
-      const res = await fetch("/api/og/claim", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          platform,
-          orderRef: orderRef.trim(),
-          username: username.trim(),
-          notes: notes.trim(),
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Submission failed.");
-        setStep("form");
-        return;
-      }
-
-      setStep("success");
-    } catch {
-      setError("Network error. Please try again.");
-      setStep("form");
-    }
-  }
-
-  if (step === "success") {
-    return (
-      <main className="min-h-screen bg-page flex items-center justify-center">
-        <div className="max-w-md px-4 text-center">
-          <h1 className="text-2xl font-bold text-ink mb-3">Thank You, OG</h1>
-          <p className="text-ink-muted mb-4">
-            Your claim has been submitted. We&apos;ll verify your purchase history and activate your OG status within 1-2 business days.
-          </p>
-          <p className="text-ink-muted mb-6">
-            You&apos;ll receive an email at <span className="text-ink font-medium">{email}</span> once confirmed — with all your perks ready to go.
-          </p>
-          <p className="text-sm text-ink-faint mb-8">
-            You were here before the hype. That means everything to us.
-          </p>
-          <Link
-            href="/"
-            className="px-6 py-3 bg-ink text-page font-bold rounded-lg hover:bg-ink/85 transition inline-block"
-          >
-            Back to Shop
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen bg-page">
-      <div className="max-w-xl mx-auto px-4 py-12">
-        {/* Hero */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-display font-semibold text-ink">
-            Claim Your <span className="text-accent">OG Status</span>
-          </h1>
-          <p className="text-ink-muted mt-4 max-w-lg mx-auto leading-relaxed">
-            You were here at the very start of the journey. When no one was paying attention to One Piece TCG. Before the hype, before the prices, before the mainstream caught on.
+      <div className="max-w-2xl mx-auto px-4 py-12">
+        <p className="text-sm font-semibold text-accent mb-3">OG membership</p>
+        <h1 className="text-3xl md:text-4xl font-display font-semibold text-ink mb-5">
+          New claims are paused
+        </h1>
+        <div className="space-y-4 text-ink-muted leading-relaxed">
+          <p>
+            The old form accepted an email, an order reference, or a marketplace
+            username without proving that the person submitting it owned the
+            account or purchase. We have closed that form while we build a
+            signed-in ownership check.
           </p>
-          <p className="text-ink-muted mt-3 max-w-lg mx-auto leading-relaxed">
-            You are the true fans. The true collectors. The ones who stayed through the highs and lows — not for the money, but for the cards, the art, the community.
+          <p>
+            A visit to this page now sends and stores no claim details. Existing
+            claims remain available only to authorised staff for review. You can
+            ask us to correct or delete an old claim through the contact page.
           </p>
-          <p className="text-ink mt-3 max-w-lg mx-auto leading-relaxed font-medium">
-            We are grateful to have had you from the beginning. You deserve the best, and this is our way of saying thank you.
+          <p>
+            Existing OG membership remains in place. This pause only affects new
+            self-submitted claims.
           </p>
         </div>
-
-        {/* Letter */}
-        <div className="bg-surface border border-border-subtle rounded-lg p-6 mb-8 text-sm text-ink-muted leading-relaxed">
-          <p>If you&apos;ve ever purchased from Cambridge TCG — on eBay, Cardmarket, our Shopify store, in person, or anywhere else — you qualify for <strong className="text-accent">permanent OG membership</strong>.</p>
-          <p className="mt-3">OG status cannot be bought. It cannot be earned through spending. It is reserved exclusively for those who believed in us and in the One Piece TCG community before anyone else did.</p>
-          <p className="mt-3">This is forever. No subscriptions. No renewals. Just our gratitude, built into your account.</p>
+        <div className="mt-8 flex flex-wrap gap-4 text-sm">
+          <Link href="/contact" className="text-accent underline">
+            Contact Cambridge TCG
+          </Link>
+          <Link href="/login" className="text-accent underline">
+            Sign in
+          </Link>
+          <Link href="/" className="text-ink-muted underline">
+            Back to shop
+          </Link>
         </div>
-
-        {/* What you get */}
-        <div className="bg-accent-wash border border-accent/20 rounded-lg p-5 mb-8">
-          <h2 className="text-ink font-bold mb-3 flex items-center gap-2">
-            OG Member Perks
-          </h2>
-          <div className="grid gap-2 sm:grid-cols-2 text-sm">
-            <div className="flex items-center gap-2 text-ink-muted">
-              <span className="text-ok">&#10003;</span> 7% store discount
-            </div>
-            <div className="flex items-center gap-2 text-ink-muted">
-              <span className="text-ok">&#10003;</span> 7% cashback on cash
-            </div>
-            <div className="flex items-center gap-2 text-ink-muted">
-              <span className="text-ok">&#10003;</span> 7x Berries multiplier
-            </div>
-            <div className="flex items-center gap-2 text-ink-muted">
-              <span className="text-ok">&#10003;</span> 0% P2P commission
-            </div>
-            <div className="flex items-center gap-2 text-ink-muted">
-              <span className="text-ok">&#10003;</span> 0% auction fees
-            </div>
-            <div className="flex items-center gap-2 text-ink-muted">
-              <span className="text-ok">&#10003;</span> Priority everything
-            </div>
-          </div>
-          <p className="text-xs text-accent/70 mt-3">Free forever. Cannot be purchased. Exclusive to original customers.</p>
-        </div>
-
-        {/* Claim form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-bold text-ink mb-2">Your email *</label>
-            <p className="text-xs text-ink-faint mb-2">Use the same email you&apos;ll sign in with on Cambridge TCG. If you don&apos;t have an account yet, one will be created.</p>
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-ink mb-2">Where did you buy from us? *</label>
-            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
-              {[
-                { value: "ebay", label: "eBay" },
-                { value: "cardmarket", label: "Cardmarket" },
-                { value: "shopify", label: "Shopify Store" },
-                { value: "etsy", label: "Etsy" },
-                { value: "instore", label: "In-Store" },
-                { value: "other", label: "Other" },
-              ].map((p) => (
-                <label
-                  key={p.value}
-                  className={`cursor-pointer rounded-lg border-2 p-3 text-center transition ${
-                    platform === p.value
-                      ? "border-accent bg-accent-wash"
-                      : "border-border-subtle hover:border-border-strong"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="platform"
-                    value={p.value}
-                    checked={platform === p.value}
-                    onChange={() => setPlatform(p.value)}
-                    className="sr-only"
-                  />
-                  <span className="text-xs text-ink font-medium">{p.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-ink mb-2">Order reference or transaction ID</label>
-            <p className="text-xs text-ink-faint mb-2">Any order number, eBay transaction ID, or Cardmarket order reference. Helps us verify faster.</p>
-            <input
-              type="text"
-              placeholder="e.g. eBay order #12-34567-89012"
-              value={orderRef}
-              onChange={(e) => setOrderRef(e.target.value)}
-              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-ink mb-2">Your username on that platform</label>
-            <p className="text-xs text-ink-faint mb-2">Your eBay username, Cardmarket handle, etc. We can look up your purchase history.</p>
-            <input
-              type="text"
-              placeholder="e.g. card_collector_2024"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-ink mb-2">Anything else (optional)</label>
-            <textarea
-              placeholder="Approximate date of purchase, what you bought, your name on the order..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="w-full px-4 py-3 bg-surface border border-border-subtle rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50 resize-none"
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-danger bg-danger/10 rounded-lg px-4 py-3">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={step === "submitting"}
-            className="w-full py-3 bg-ink text-page font-bold rounded-lg hover:bg-ink/85 transition disabled:opacity-50"
-          >
-            {step === "submitting" ? "Submitting..." : "Claim OG Status"}
-          </button>
-
-          <p className="text-xs text-ink-faint text-center">
-            We&apos;ll verify your purchase history and activate OG status within 1-2 business days.
-            One claim per person. Fraudulent claims will be rejected.
-          </p>
-        </form>
       </div>
     </main>
   );

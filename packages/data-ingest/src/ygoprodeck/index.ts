@@ -32,6 +32,7 @@ import { createFetcher } from "../http";
 import { normalizeYgo } from "./normalize";
 
 const CARDINFO_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
+const YGOPRODECK_ACQUISITION_ENABLED = false;
 
 export interface YgoReadOptions {
   /** Optional filter by archetype, set, etc. — full query-string params. */
@@ -70,7 +71,7 @@ export const ygoprodeck: SourceModule<YgoCard, CanonicalCard> = {
   },
 
   async *read(ctx: YgoContext): AsyncIterable<RawRow<YgoCard>> {
-    if (ygoprodeck.meta.status === "blocked") {
+    if (!YGOPRODECK_ACQUISITION_ENABLED || ygoprodeck.meta.status === "blocked") {
       ctx.on_event?.({
         ts: new Date().toISOString(),
         source: "ygoprodeck",

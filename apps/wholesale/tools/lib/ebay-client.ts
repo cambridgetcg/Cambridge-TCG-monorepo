@@ -1,6 +1,17 @@
 // eBay REST API client — OAuth, Inventory API, Offer API
 // Docs: https://developer.ebay.com/api-docs/sell/inventory/overview.html
 
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "../../src/lib/source-publication-policy";
+
+function assertCatalogPublicationEnabled(): void {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    throw new Error(`eBay catalog publication is blocked. ${LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON}`);
+  }
+}
+
 const PROD_BASE = "https://api.ebay.com";
 const SANDBOX_BASE = "https://api.sandbox.ebay.com";
 
@@ -103,6 +114,7 @@ export async function createOrReplaceInventoryItem(
   sandbox: boolean,
   payload: InventoryItemPayload
 ): Promise<void> {
+  assertCatalogPublicationEnabled();
   const base = getBaseUrl(sandbox);
   const url = `${base}/sell/inventory/v1/inventory_item/${encodeURIComponent(payload.sku)}`;
 
@@ -156,6 +168,7 @@ export async function createOffer(
   sandbox: boolean,
   payload: CreateOfferPayload
 ): Promise<string> {
+  assertCatalogPublicationEnabled();
   const base = getBaseUrl(sandbox);
   const url = `${base}/sell/inventory/v1/offer`;
 
@@ -204,6 +217,7 @@ export async function publishOffer(
   sandbox: boolean,
   offerId: string
 ): Promise<string> {
+  assertCatalogPublicationEnabled();
   const base = getBaseUrl(sandbox);
   const url = `${base}/sell/inventory/v1/offer/${encodeURIComponent(offerId)}/publish`;
 

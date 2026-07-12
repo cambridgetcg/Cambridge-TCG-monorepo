@@ -1,157 +1,39 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Money } from "@/lib/ui";
-
-interface SellerOrBuyer {
-  username: string; name: string | null;
-  tradeCount: number; volumeGbp: number;
-}
-interface BusySku {
-  sku: string; cardName: string | null; imageUrl: string | null;
-  tradeCount: number; volume: number; avgPrice: number;
-}
-
-const WINDOWS = [
-  { value: 7,  label: "7d" },
-  { value: 30, label: "30d" },
-  { value: 90, label: "90d" },
-];
 
 export default function LeaderboardsPage() {
-  const [days, setDays] = useState(30);
-  const [data, setData] = useState<{
-    topSellers: SellerOrBuyer[];
-    topBuyers: SellerOrBuyer[];
-    busiestSkus: BusySku[];
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/leaderboards?days=${days}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setData(d); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [days]);
-
   return (
     <div className="min-h-screen bg-page">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-end justify-between mb-1 flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-display font-semibold text-ink">Leaderboards</h1>
-            <p className="text-sm text-ink-muted mt-1">
-              The most active sellers, buyers, and markets on Cambridge TCG.
-            </p>
-          </div>
-          <div className="flex gap-1 bg-surface rounded-lg p-1">
-            {WINDOWS.map((w) => (
-              <button
-                key={w.value}
-                onClick={() => setDays(w.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
-                  days === w.value ? "bg-ink text-page" : "text-ink-muted hover:text-ink"
-                }`}
-              >
-                {w.label}
-              </button>
-            ))}
-          </div>
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-display font-semibold text-ink">
+          Market rankings are paused
+        </h1>
+        <p className="text-sm text-ink-muted mt-2 max-w-2xl">
+          Cambridge TCG does not currently publish buyer or seller rankings,
+          card rankings derived from completed trades, or other transaction
+          leaderboards.
+        </p>
+
+        <div className="mt-8 border-l-2 border-border-strong pl-4 space-y-3 text-sm text-ink-muted">
+          <p>
+            A public profile is not permission to publish a person in a
+            financial ranking. A small card aggregate can also reveal the
+            completed trades behind it through repeated comparisons.
+          </p>
+          <p>
+            These views can return after they have purpose-specific publication
+            receipts and one central process that releases delayed, coarse
+            results without exposing a person or transaction trail.
+          </p>
         </div>
 
-        {loading ? (
-          <p className="text-sm text-ink-faint mt-8">Loading...</p>
-        ) : !data ? (
-          <p className="text-sm text-danger mt-8">Failed to load.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <Board title="Top sellers" empty={data.topSellers.length === 0}>
-              {data.topSellers.map((s, i) => (
-                <UserRow key={s.username} rank={i + 1} username={s.username} name={s.name}>
-                  <div className="text-right">
-                    <div className="text-xs font-mono text-accent"><Money value={s.volumeGbp} /></div>
-                    <div className="text-[10px] text-ink-faint">{s.tradeCount} trade{s.tradeCount !== 1 ? "s" : ""}</div>
-                  </div>
-                </UserRow>
-              ))}
-            </Board>
-
-            <Board title="Top buyers" empty={data.topBuyers.length === 0}>
-              {data.topBuyers.map((b, i) => (
-                <UserRow key={b.username} rank={i + 1} username={b.username} name={b.name}>
-                  <div className="text-right">
-                    <div className="text-xs font-mono text-ok"><Money value={b.volumeGbp} /></div>
-                    <div className="text-[10px] text-ink-faint">{b.tradeCount} trade{b.tradeCount !== 1 ? "s" : ""}</div>
-                  </div>
-                </UserRow>
-              ))}
-            </Board>
-
-            <Board title="Busiest cards" empty={data.busiestSkus.length === 0}>
-              {data.busiestSkus.map((s, i) => (
-                <Link
-                  key={s.sku}
-                  href={`/market/${s.sku}`}
-                  className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-surface transition group"
-                >
-                  <span className="text-[10px] text-ink-faint font-mono w-4 text-right">{i + 1}</span>
-                  {s.imageUrl ? (
-                    <img src={s.imageUrl} alt="" className="w-6 h-8 rounded object-cover shrink-0" />
-                  ) : (
-                    <div className="w-6 h-8 bg-surface-subtle rounded shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-ink truncate group-hover:text-accent transition">
-                      {s.cardName || s.sku}
-                    </p>
-                    <p className="text-[10px] text-ink-faint font-mono truncate">{s.sku}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xs font-mono text-ink"><Money value={s.avgPrice} /></div>
-                    <div className="text-[10px] text-ink-faint">{s.tradeCount}× &middot; {s.volume} units</div>
-                  </div>
-                </Link>
-              ))}
-            </Board>
-          </div>
-        )}
+        <p className="mt-8 text-sm text-ink-muted">
+          Deliberate open bids and asks remain visible on the{" "}
+          <Link href="/market" className="text-accent hover:underline">
+            collectors&apos; market
+          </Link>
+          .
+        </p>
       </div>
     </div>
-  );
-}
-
-function Board({ title, empty, children }: { title: string; empty: boolean; children: React.ReactNode }) {
-  return (
-    <section className="bg-surface rounded-lg p-4">
-      <h2 className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-3">{title}</h2>
-      {empty ? (
-        <p className="text-xs text-ink-faint py-6 text-center">No activity in this window.</p>
-      ) : (
-        <div className="space-y-1">{children}</div>
-      )}
-    </section>
-  );
-}
-
-function UserRow({ rank, username, name, children }: {
-  rank: number; username: string; name: string | null; children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={`/u/${username}`}
-      className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-surface transition group"
-    >
-      <span className="text-[10px] text-ink-faint font-mono w-4 text-right">{rank}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-ink truncate group-hover:text-accent transition">
-          {name || username}
-        </p>
-        <p className="text-[10px] text-ink-faint font-mono truncate">@{username}</p>
-      </div>
-      <div className="shrink-0">{children}</div>
-    </Link>
   );
 }

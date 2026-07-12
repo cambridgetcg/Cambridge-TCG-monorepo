@@ -77,22 +77,21 @@ const RECOMMENDED_PACE = {
  *  recommended unauth pace. */
 const CRAWL_SHAPES = {
   full_mirror: {
+    available: false,
     description:
-      "Complete one-time snapshot of every public SKU in the catalog.",
+      "Unavailable. Bulk catalog publication is paused, and keyed endpoints must not be enumerated to recreate it.",
     endpoints_required: [
-      "/api/v1/universal/games (one fetch)",
-      "/api/v1/universal/sets/{game} (one per game; 21 fetches)",
-      "/api/v1/universal/card/{sku} (one per card; 12_000 fetches)",
+      "/data/catalog.jsonl (one status check; returns zero card rows)",
     ],
-    total_requests_estimated: 12_022,
-    bandwidth_estimate_mb: 60,
-    eta_seconds_at_unauth_pace_estimated: Math.round((12_022 / 60) * 60),
-    eta_human: "about 3.5 hours at 60 req/min unauth",
-    cacheable_for_seconds: 86_400,
+    total_requests_estimated: 1,
+    bandwidth_estimate_mb: 0.01,
+    eta_seconds_at_unauth_pace_estimated: 1,
+    eta_human: "status check only; no mirror is returned",
+    cacheable_for_seconds: 900,
     bulk_alternative:
-      "/data/catalog.jsonl (planned; named in /api/v1/welcome stable_endpoints) — one fetch, ~12k JSONL records, daily refresh",
+      "/data/catalog.jsonl is status-only and emits zero card rows while bulk publication is paused; there is no bulk alternative today",
     incremental_alternative:
-      "after first mirror, refetch per-card on freshness expiry; cards refresh hourly-to-daily depending on activity",
+      "Use keyed search and card lookup only for a user's concrete request; no complete-mirror workaround is offered",
   },
   watchlist: {
     description:
@@ -148,7 +147,7 @@ function freshnessBudgetTable(): ReadonlyArray<{
     fast: ["/api/v1/universal/card/{sku} (current-state price view)"],
     moderate: ["/api/v1/sources/{id} (per-source state)"],
     slow: ["/api/v1/sources (every source + last-run state)"],
-    daily: ["/data/catalog.jsonl (bulk; planned)"],
+    daily: ["/data/catalog.jsonl (publication-policy status; zero catalog rows)"],
     methodology: ["/methodology/*", "/api/v1/guides/*", "/api/openapi.json"],
   };
   return Object.entries(FRESHNESS).map(([key, value]) => ({
@@ -219,7 +218,7 @@ export async function GET(): Promise<Response> {
       "Identify yourself in User-Agent so we can email if something breaks mid-crawl",
       "Cache aggressively: most endpoints honour Cache-Control and ETag",
       "Checkpoint the URL you last fetched and resume from it — `_meta.next_link` is reserved in the envelope but currently null on every endpoint (no list endpoint paginates by cursor yet)",
-      "For full-mirror specifically: wait for /data/catalog.jsonl bulk endpoint (planned) — one fetch replaces 12_000",
+      "Bulk inspection is paused: /data/catalog.jsonl returns policy status and zero card rows; do not recreate the dump by walking keyed endpoints",
     ],
 
     feedback: {
@@ -242,7 +241,7 @@ export async function GET(): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface.",
+      "This endpoint creates no application-level visit profile; hosting and proxy access logs may exist.",
   };
 
   return jsonResponse({

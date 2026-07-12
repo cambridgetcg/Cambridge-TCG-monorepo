@@ -5,7 +5,7 @@ import type { GameItem } from "@/lib/wholesale/client";
 
 // Collectors-first: the in-stock toggle died with the shop — the
 // platform holds no stock, so there is nothing of ours to be "in".
-// Game tabs + sort remain: pure browsing value.
+// Game tabs + structural sort remain: pure browsing value.
 interface CatalogFiltersProps {
   games: GameItem[];
   current: {
@@ -66,8 +66,7 @@ export default function CatalogFilters({
           <span className="text-xs text-ink-faint uppercase tracking-wider">Sort:</span>
           {[
             { label: "Card #", value: undefined },
-            { label: "Price ↑", value: "price_asc" },
-            { label: "Price ↓", value: "price_desc" },
+            { label: "Name A-Z", value: "name_asc" },
           ].map((opt) => {
             const active =
               (!opt.value && !current.sort) || current.sort === opt.value;

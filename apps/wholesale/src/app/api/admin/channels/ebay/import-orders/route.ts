@@ -5,6 +5,7 @@ import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
 import { pullOrders, type EbayOrder } from "@/lib/channels/ebay";
+import { redactInternalError } from "@/lib/public-errors";
 
 /**
  * POST /api/admin/channels/ebay/import-orders
@@ -35,7 +36,11 @@ export async function POST(req: NextRequest) {
 
   const result = await pullOrders(since);
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 502 });
+    const error = redactInternalError(
+      "admin/channels/ebay/import-orders",
+      result.error,
+    );
+    return NextResponse.json({ error }, { status: 502 });
   }
 
   const ebayOrders = result.data;
@@ -96,7 +101,10 @@ export async function POST(req: NextRequest) {
         errors.push({
           ebayOrderId: order.ebayOrderId,
           sku: li.sku,
-          error: String(err),
+          error: redactInternalError(
+            "admin/channels/ebay/import-orders item",
+            err,
+          ),
         });
       }
     }

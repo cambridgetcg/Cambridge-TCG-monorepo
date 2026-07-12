@@ -4,15 +4,49 @@ import { toggleFollow } from "@/lib/social/db";
 import { isBlockedEither } from "@/lib/messages/db";
 import { notify } from "@/lib/notifications/db";
 import { query } from "@/lib/db";
+import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
-  const { userId } = await request.json();
-  if (!userId) return NextResponse.json({ error: "User ID required." }, { status: 400 });
+  const body = (await request.json().catch(() => ({}))) as {
+    userId?: string;
+    username?: string;
+  };
+  const identifier = body.userId ?? body.username?.trim().toLowerCase();
+  if (!identifier) {
+    return NextResponse.json({ error: "Username or user ID required." }, { status: 400 });
+  }
+  const target = await query(
+    `SELECT u.id
+       FROM users u
+       LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+      WHERE (u.id::text=$1 OR LOWER(u.username)=$1)
+        AND u.is_public=TRUE
+        AND u.profile_publication_notice_version=$2
+        AND u.profile_published_at IS NOT NULL
+        AND COALESCE(tp.is_suspended,FALSE)=FALSE
+      LIMIT 1`,
+    [identifier, PERSON_PUBLICATION_NOTICE_VERSION],
+  );
+  if (target.rows.length === 0) {
+    return NextResponse.json({ error: "User not found." }, { status: 404 });
+  }
+  const userId = target.rows[0].id as string;
   if (userId === session.user.id) {
     return NextResponse.json({ error: "You cannot follow yourself." }, { status: 400 });
+  }
+
+  const actor = await query(
+    `SELECT 1
+       FROM users u
+       LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+      WHERE u.id=$1 AND COALESCE(tp.is_suspended,FALSE)=FALSE`,
+    [session.user.id],
+  );
+  if (actor.rows.length === 0) {
+    return NextResponse.json({ error: "Following is unavailable." }, { status: 403 });
   }
 
   // Same bidirectional gate as messaging (assertCanMessage): a block in
@@ -36,7 +70,10 @@ export async function POST(request: Request) {
     );
     const row = me.rows[0];
     const label = row?.username ? `@${row.username}` : (row?.name || "Someone");
-    const linkUrl = row?.username ? `/u/${row.username}` : `/u/${session.user.id}`;
+    // Never place an internal user UUID in a notification link. A user
+    // without a public handle is still visible to the followed account in
+    // its private follower list, which is the correct destination.
+    const linkUrl = row?.username ? `/u/${row.username}` : "/account/followers";
     await notify({
       userId,
       kind: "follow.new",

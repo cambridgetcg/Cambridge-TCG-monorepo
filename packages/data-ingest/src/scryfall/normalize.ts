@@ -49,6 +49,32 @@ function pickImage(card: ScryfallCard): string | undefined {
   return undefined;
 }
 
+function nonEmpty(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/**
+ * CanonicalCard has one artist field. Prefer Scryfall's card-level credit;
+ * otherwise join unique face credits in printed face order. The face mapping
+ * itself stays explicit in `extra.scryfall_face_credits_json` below.
+ */
+function canonicalArtist(card: ScryfallCard): string | undefined {
+  const cardArtist = nonEmpty(card.artist);
+  if (cardArtist) return cardArtist;
+
+  const artists: string[] = [];
+  const seen = new Set<string>();
+  for (const face of card.card_faces ?? []) {
+    const artist = nonEmpty(face.artist);
+    if (artist && !seen.has(artist)) {
+      artists.push(artist);
+      seen.add(artist);
+    }
+  }
+  return artists.length > 0 ? artists.join(" // ") : undefined;
+}
+
 export function normalizeScryfall(raw: ScryfallCard): NormalizeResult<CanonicalCard> {
   if (raw.digital === true) {
     return { ok: false, reason: "digital-only printing (MTGO/MTGA); paper-catalog only" };
@@ -77,10 +103,9 @@ export function normalizeScryfall(raw: ScryfallCard): NormalizeResult<CanonicalC
     name: raw.printed_name ?? raw.name,
     type: raw.type_line,
     rarity: raw.rarity,
-    // Illustrator credit — Scryfall ships it on nearly every card. Attribution:
-    // source is scryfall; displayable-with-credit, never republished raw on a
-    // CC0 surface (Scryfall permits value-added display, not bulk repackaging).
-    artist: raw.artist ?? undefined,
+    // Internal provenance only. Scryfall is redistribute:false; neither this
+    // credit nor the face-level credits below imply public display permission.
+    artist: canonicalArtist(raw),
     oracle_text: raw.oracle_text,
     image_url: pickImage(raw),
     upstream_id: raw.id,
@@ -90,9 +115,33 @@ export function normalizeScryfall(raw: ScryfallCard): NormalizeResult<CanonicalC
       scryfall_set: raw.set,
       scryfall_number: raw.collector_number,
       scryfall_lang: raw.lang,
+      // CanonicalCard.extra is scalar-valued. JSON keeps ordered ids and face
+      // records structured without widening that shared contract. The `_json`
+      // suffix makes the decoding requirement explicit.
+      artist_ids_json: raw.artist_ids
+        ? JSON.stringify(
+            raw.artist_ids
+              .map((id) => nonEmpty(id))
+              .filter((id): id is string => id !== undefined),
+          )
+        : null,
       // Same artwork across printings shares one illustration_id → "same art"
       // clustering (the alt-art treasure-hunt axis) without any new upstream call.
       illustration_id: raw.illustration_id ?? null,
+      // One CanonicalCard represents the whole printing, so retain the ordered
+      // face mapping here. Explicit nulls distinguish missing upstream fields
+      // from a fabricated card-level attribution.
+      scryfall_face_credits_json: raw.card_faces
+        ? JSON.stringify(
+            raw.card_faces.map((face, position) => ({
+              position,
+              name: face.name,
+              artist: nonEmpty(face.artist) ?? null,
+              artist_id: nonEmpty(face.artist_id) ?? null,
+              illustration_id: nonEmpty(face.illustration_id) ?? null,
+            })),
+          )
+        : null,
     },
   };
   if (variant) record.variant = variant;

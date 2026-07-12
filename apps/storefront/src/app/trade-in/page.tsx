@@ -84,7 +84,8 @@ export default function TradeInPage() {
           <Link href="/market" className="text-accent hover:text-accent-strong transition">
             market
           </Link>{" "}
-          shows what collectors are actually paying.
+          shows current collector bids and asks. Reuse of reference data follows
+          the source rights declared by its API response.
         </p>
       </div>
     </main>

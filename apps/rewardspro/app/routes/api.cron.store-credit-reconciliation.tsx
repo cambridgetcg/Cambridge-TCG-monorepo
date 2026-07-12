@@ -14,10 +14,10 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import * as crypto from "node:crypto";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const JOB_NAME = "store-credit-reconciliation";
 const LOCK_TTL_MINUTES = 30;
@@ -47,6 +47,10 @@ interface ReconciliationResult {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   const correlationId = crypto.randomUUID();
   let lockId: string | undefined;
@@ -62,27 +66,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ...data
     }));
   };
-
-  // Verify cron secret with timing-safe comparison
-  const authHeader = request.headers.get("Authorization");
-  const cronSecret = authHeader?.replace('Bearer ', '');
-
-  const isAuthorized = (() => {
-    if (!process.env.CRON_SECRET || !cronSecret) return false;
-    try {
-      const secretBuffer = Buffer.from(cronSecret);
-      const expectedBuffer = Buffer.from(process.env.CRON_SECRET);
-      if (secretBuffer.length !== expectedBuffer.length) return false;
-      return timingSafeEqual(secretBuffer, expectedBuffer);
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isAuthorized) {
-    log('error', 'Unauthorized cron attempt');
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // Acquire distributed lock
   await cleanupExpiredLocks();
@@ -248,8 +231,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({
       success: true,
       correlationId,
-      summary,
-      details: results.filter(r => r.discrepanciesFound > 0 || r.errors.length > 0)
+      summary
     });
 
   } catch (error: any) {
@@ -257,7 +239,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({
       success: false,
       correlationId,
-      error: error.message
+      error: "Store credit reconciliation failed"
     }, { status: 500 });
   } finally {
     if (lockId) {

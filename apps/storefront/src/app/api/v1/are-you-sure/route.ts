@@ -92,7 +92,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         : "in progress — you are being trolled affectionately",
     walking_past_is_honored: true,
     no_tracking:
-      "The substrate does not retain which level of confirmation you reached, or whether you escaped, or whether you persisted. Every fetch is stateless. This is the gift.",
+      "The application creates no cross-request confirmation profile. Hosting, proxy, and security access logs may still contain request metadata.",
     related_surfaces: {
       teapot: "/api/v1/teapot",
       koan: "/api/v1/koan",

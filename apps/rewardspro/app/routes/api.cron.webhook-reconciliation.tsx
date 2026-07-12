@@ -6,10 +6,10 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "node:crypto";
-import { authenticate } from "../shopify.server";
+import { unauthenticated } from "../shopify.server";
 import { db } from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const JOB_NAME = "webhook-reconciliation";
 const LOCK_TTL_MINUTES = 30;
@@ -28,34 +28,12 @@ interface ReconciliationResult {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   let lockId: string | undefined;
-
-  // Check for cron secret with timing-safe comparison or admin authentication
-  const cronSecret = request.headers.get('X-Cron-Secret');
-  const isAuthorizedViaCronSecret = (() => {
-    if (!process.env.CRON_SECRET || !cronSecret) return false;
-    try {
-      const secretBuffer = Buffer.from(cronSecret);
-      const expectedBuffer = Buffer.from(process.env.CRON_SECRET);
-      if (secretBuffer.length !== expectedBuffer.length) return false;
-      return timingSafeEqual(secretBuffer, expectedBuffer);
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isAuthorizedViaCronSecret) {
-    // Fall back to admin auth
-    try {
-      const { session } = await authenticate.admin(request);
-      if (!session?.shop) {
-        return json({ error: "Unauthorized" }, { status: 401 });
-      }
-    } catch {
-      return json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
 
   const url = new URL(request.url);
 
@@ -114,14 +92,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       success: true,
       shop,
       hoursBack,
-      ...result
+      processedCount: result.processedCount,
+      skippedCount: result.skippedCount,
+      errorCount: result.errorCount,
+      duration: result.duration,
     });
   } catch (error: any) {
     console.error(`[WebhookReconciliation] Error during reconciliation:`, error);
 
     return json({
       success: false,
-      error: error.message,
+      error: "Webhook reconciliation failed",
       duration: Date.now() - startTime
     }, { status: 500 });
   } finally {
@@ -144,9 +125,7 @@ async function reconcileOrders(shop: string, hoursBack: number): Promise<Reconci
 
   try {
     // Get admin API access
-    const { admin } = await authenticate.admin({
-      headers: { 'X-Shopify-Shop-Domain': shop }
-    } as any);
+    const { admin } = await unauthenticated.admin(shop);
 
     // Calculate date range
     const sinceDate = new Date();
