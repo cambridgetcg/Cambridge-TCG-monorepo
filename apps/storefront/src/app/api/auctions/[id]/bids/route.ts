@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
 import { getAuction, placeBid, getBidHistory } from "@/lib/auction/db";
+import { isAuctionId } from "@/lib/auction/id";
 import {
   auctionRecordIsPublic,
   projectAuctionBidsForPublic,
@@ -12,19 +13,23 @@ import { sendOutbidEmail } from "@/lib/auction/email";
 import { query } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 
+function notFoundResponse() {
+  return NextResponse.json(
+    { error: "Not found" },
+    { status: 404, headers: { "Cache-Control": "private, no-store" } },
+  );
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isAuctionId(id)) return notFoundResponse();
+
   const [session, auction, bids] = await Promise.all([
     auth().catch(() => null),
     getAuction(id),
     getBidHistory(id),
   ]);
-  if (!auction) {
-    return NextResponse.json(
-      { error: "Not found" },
-      { status: 404, headers: { "Cache-Control": "private, no-store" } },
-    );
-  }
+  if (!auction) return notFoundResponse();
   const uid = session?.user?.id ?? null;
   const admin = uid !== null && (await isAdmin().catch(() => false));
   const seller = !!uid && uid === auction.seller_user_id;
@@ -56,6 +61,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
+  if (!isAuctionId(id)) return notFoundResponse();
+
   const { amount, is_best_offer } = await request.json();
   const isBestOffer = !!is_best_offer;
 

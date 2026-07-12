@@ -31,7 +31,11 @@ vi.mock("@/lib/auction/email", () => ({ sendOutbidEmail: vi.fn() }));
 vi.mock("@/lib/db", () => ({ query: mocks.query }));
 vi.mock("@/lib/format", () => ({ formatPrice: (value: number) => `£${value}` }));
 
-import { GET as getAuctionRoute } from "@/app/api/auctions/[id]/route";
+import {
+  DELETE as deleteAuctionRoute,
+  GET as getAuctionRoute,
+  PATCH as updateAuctionRoute,
+} from "@/app/api/auctions/[id]/route";
 import {
   GET as getBidsRoute,
   POST as placeBidRoute,
@@ -174,6 +178,95 @@ describe("auction route privacy", () => {
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "Not found" });
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("rejects malformed auction IDs before auth or database work on public reads", async () => {
+    const malformedContext = { params: Promise.resolve({ id: "1" }) };
+
+    const [detailResponse, bidsResponse] = await Promise.all([
+      getAuctionRoute(
+        new Request("https://example.test/api/auctions/1") as never,
+        malformedContext,
+      ),
+      getBidsRoute(
+        new Request("https://example.test/api/auctions/1/bids"),
+        malformedContext,
+      ),
+    ]);
+
+    for (const response of [detailResponse, bidsResponse]) {
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: "Not found" });
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
+    expect(mocks.auth).not.toHaveBeenCalled();
+    expect(mocks.getAuction).not.toHaveBeenCalled();
+    expect(mocks.getBidHistory).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed mutation IDs after authorization and before input or database work", async () => {
+    mocks.auth.mockResolvedValue({
+      user: { id: "88888888-8888-4888-8888-888888888888" },
+    });
+    mocks.isAdmin.mockResolvedValue(true);
+    const malformedContext = { params: Promise.resolve({ id: "1" }) };
+    const invalidJson = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{",
+    };
+
+    const [bidResponse, updateResponse, deleteResponse] = await Promise.all([
+      placeBidRoute(
+        new Request("https://example.test/api/auctions/1/bids", invalidJson),
+        malformedContext,
+      ),
+      updateAuctionRoute(
+        new NextRequest("https://example.test/api/auctions/1", {
+          ...invalidJson,
+          method: "PATCH",
+        }),
+        malformedContext,
+      ),
+      deleteAuctionRoute(
+        new NextRequest("https://example.test/api/auctions/1", { method: "DELETE" }),
+        malformedContext,
+      ),
+    ]);
+
+    for (const response of [bidResponse, updateResponse, deleteResponse]) {
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: "Not found" });
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
+    expect(mocks.getAuction).not.toHaveBeenCalled();
+    expect(mocks.placeBid).not.toHaveBeenCalled();
+    expect(mocks.updateAuction).not.toHaveBeenCalled();
+    expect(mocks.deleteAuction).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
+  });
+
+  it("redacts auction update failures from the client response", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.isAdmin.mockResolvedValue(true);
+    mocks.updateAuction.mockRejectedValue(
+      new Error("invalid input syntax for type uuid: internal-database-detail"),
+    );
+
+    const response = await updateAuctionRoute(
+      new NextRequest(`https://example.test/api/auctions/${AUCTION_ID}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Updated" }),
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to update auction" });
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(errorLog).toHaveBeenCalledWith("[auction] Update failed:", expect.any(Error));
+    errorLog.mockRestore();
   });
 
   it("gives the seller operational events without raw person or payment fields", async () => {
