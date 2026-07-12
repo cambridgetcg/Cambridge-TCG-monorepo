@@ -823,6 +823,16 @@ export default function CardMarketClient({
     );
   }
 
+  // Card image: the official EN sample (takedown-clear, server-resolved
+  // into the identity seed) wins over the JP shop scan — EN-CARD-DATA
+  // rollout step 4. Reading it from `identity` (not `book`) means the
+  // live order-book poll can never swap the preferred image back out.
+  const cardImage = identity.en_image?.url ?? book.image_url;
+  // Publisher copyright line — schema-enforced NOT NULL on every EN row;
+  // rendered near the image whenever EN data is on the page.
+  const cardAttribution =
+    identity.en_image?.attribution ?? identity.effect_text?.attribution ?? null;
+
   return (
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -838,7 +848,7 @@ export default function CardMarketClient({
         <div className={`grid md:grid-cols-[240px_1fr_320px] gap-6 ${weatherClass(gameFromSku(sku))}`}>
           {/* Left: Card image + spot info */}
           <div>
-            {book.image_url ? (
+            {cardImage ? (
               <div
                 className="wardrobe-aura"
                 style={
@@ -849,7 +859,7 @@ export default function CardMarketClient({
               >
                 <div className="wardrobe-panel p-2">
                   <img
-                    src={book.image_url}
+                    src={cardImage}
                     alt={book.card_name || sku}
                     className="w-full rounded"
                   />
@@ -859,6 +869,17 @@ export default function CardMarketClient({
               <div className="aspect-[2.5/3.5] w-full wardrobe-mat rounded-lg flex items-center justify-center">
                 <span className="text-ink-faint">No Image</span>
               </div>
+            )}
+            {/* Publisher credit — the fairness commitment (EN-CARD-DATA
+                §7): attribution always, and the policy one tap away. */}
+            {cardAttribution && (
+              <p className="mt-1.5 text-[10px] leading-snug text-ink-faint">
+                {cardAttribution}
+                {" · "}
+                <Link href="/legal/card-images" className="underline hover:text-accent transition">
+                  image &amp; text use
+                </Link>
+              </p>
             )}
             <div className="flex items-start justify-between gap-2 mt-4">
               <div className="min-w-0">
@@ -887,6 +908,22 @@ export default function CardMarketClient({
                 </button>
               )}
             </div>
+            {/* Official EN rules text — shown per-card with its credit
+                line, never bulk-dumped (EN-CARD-DATA §3). whitespace-pre-
+                line keeps the publisher's own effect/trigger line breaks. */}
+            {identity.effect_text && (
+              <div className="wardrobe-mat rounded-lg p-3 mt-4">
+                <p className="text-[10px] text-ink-faint uppercase tracking-wide mb-1.5">
+                  Card text
+                  {identity.effect_text.card_type && (
+                    <span className="normal-case"> · {identity.effect_text.card_type}</span>
+                  )}
+                </p>
+                <p className="text-xs text-ink leading-relaxed whitespace-pre-line">
+                  {identity.effect_text.text}
+                </p>
+              </div>
+            )}
             {loggedIn && (
               <div className="mt-3">
                 <button

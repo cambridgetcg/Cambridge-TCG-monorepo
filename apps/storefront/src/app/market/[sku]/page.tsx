@@ -92,13 +92,16 @@ export async function generateMetadata({
   const description = card.set_name
     ? `Live collector order book for ${card.card_name} (${card.card_number}, ${card.set_name}). Buy and sell directly with other collectors.`
     : `Live collector order book for ${card.card_name} (${card.card_number}).`;
+  // Link previews prefer the official EN sample (takedown-clear) over the
+  // JP shop scan, mirroring the on-page preference in CardMarketClient.
+  const previewImage = card.en_image?.url ?? card.image_url;
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      ...(card.image_url ? { images: [{ url: card.image_url }] } : {}),
+      ...(previewImage ? { images: [{ url: previewImage }] } : {}),
     },
   };
 }

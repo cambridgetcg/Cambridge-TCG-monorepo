@@ -33,6 +33,7 @@ import { createHash } from "node:crypto";
 import { query } from "@/lib/db";
 import { buildLinks } from "@/lib/universal/links";
 import { resolveCardName } from "@/lib/cards/name";
+import { getEnCardData } from "@/lib/cards/en-card-data";
 
 export type Density = "sparse" | "normal" | "saturated";
 
@@ -56,7 +57,9 @@ export interface UniversalCardRow {
   total_cards: number;
   cover_image_url: string | null;
   spot_gbp: string | null;
-  captured_on: Date | null;
+  // The pg driver returns timestamps as strings on some paths — never call
+  // Date methods on this without new Date() first (it 500'd in prod).
+  captured_on: Date | string | null;
 }
 
 export interface UniversalCardResult {
@@ -172,6 +175,12 @@ export async function buildUniversalCard(
   const row = await fetchCardRow(sku);
   if (!row) return null;
 
+  // Official EN rules text + best clear EN image (card_texts /
+  // card_images, migration 0116) — joined via the EN card key derived
+  // from this row's sku (join-key decision: @/lib/cards/en-card-data.ts).
+  // Degrades to nulls pre-migration / pre-ingest.
+  const en = await getEnCardData(row.sku);
+
   const retrievedAt = new Date();
   const median = await platformMedianPrice();
   const magnitude = row.spot_gbp == null ? null : Number(row.spot_gbp);
@@ -199,7 +208,9 @@ export async function buildUniversalCard(
     game: row.game,
     variant: row.variant,
     magnitude_gbp: magnitude,
-    captured_on: row.captured_on?.toISOString().slice(0, 10) ?? null,
+    captured_on: row.captured_on
+      ? new Date(row.captured_on).toISOString().slice(0, 10)
+      : null,
   });
   const contentHash = sha256(contentSeed);
 
@@ -209,6 +220,32 @@ export async function buildUniversalCard(
     parent_id: row.set_code,
     content_hash: contentHash,
   });
+
+  // Source + license declarations run parallel (data-pantry convention:
+  // source_license[i] declares sources[i]; values from SourceMeta.license
+  // tiers). The EN entries appear only when EN data actually rides this
+  // response — Bandai's rules text + official samples are `proprietary`
+  // (redistribute: false; attribution required; /legal/card-images).
+  const sources: string[] = ["storefront-rds.card_price_history"];
+  const sourceLicense: string[] = ["CC0-1.0"];
+  if (en.effect_text) {
+    sources.push("storefront-rds.card_texts (bandai-en)");
+    sourceLicense.push("proprietary");
+  }
+  if (en.en_image) {
+    sources.push("storefront-rds.card_images (bandai-en)");
+    sourceLicense.push("proprietary");
+  }
+
+  const noteOpaque = [
+    "name",
+    "art_description",
+    "rarity.natural_label",
+    "variant.natural_label",
+    // Effect text is publisher prose — a decoder must not ground
+    // meaning on it. Flagged even pre-ingest so the perimeter is stable.
+    "effect_text.text",
+  ];
 
   const fullDocument: Record<string, unknown> = {
     "@encoding": "cambridge-tcg/universal/v1",
@@ -227,14 +264,9 @@ export async function buildUniversalCard(
     // B2B endpoint at /api/v1/universal/card/[sku] (Bearer-gated) declares
     // that lineage per-snapshot. This endpoint reports only what *this RDS*
     // owns. See docs/connections/the-license-propagation.md.
-    "@sources": ["storefront-rds.card_price_history"],
-    "@source_license": ["CC0-1.0"],
-    "_note_opaque": [
-      "name",
-      "art_description",
-      "rarity.natural_label",
-      "variant.natural_label",
-    ],
+    "@sources": sources,
+    "@source_license": sourceLicense,
+    "_note_opaque": noteOpaque,
     _links,
 
     // ── Structural facts (universal) ──────────────────────────────────
@@ -320,7 +352,28 @@ export async function buildUniversalCard(
           };
         })()
       : null,
+    // JP catalogue scan — unchanged; the EN surfaces below are additive.
     image_url: row.image_url,
+
+    // ── Official EN card data (card_texts / card_images, 0116) ────────
+    // Provenance rides every field: attribution is NOT NULL by schema,
+    // retrieved_at says when we fetched, source_url names the publisher
+    // page. Null when the card has no EN data yet — a normal state.
+    effect_text: en.effect_text
+      ? {
+          text: en.effect_text.text,
+          attribution: en.effect_text.attribution,
+          source_url: en.effect_text.source_url,
+          retrieved_at: en.effect_text.retrieved_at,
+        }
+      : null,
+    en_image: en.en_image
+      ? {
+          url: en.en_image.url,
+          attribution: en.en_image.attribution,
+          kind: en.en_image.kind,
+        }
+      : null,
   };
 
   // Density-dimension projection (sister's Shape-of-the-Room work, S24).

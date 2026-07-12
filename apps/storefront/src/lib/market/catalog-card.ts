@@ -23,6 +23,11 @@
 
 import { cache } from "react";
 import { query } from "@/lib/db";
+import {
+  getEnCardData,
+  type EnCardText,
+  type EnCardImage,
+} from "@/lib/cards/en-card-data";
 
 export interface CatalogIdentity {
   sku: string;
@@ -31,7 +36,16 @@ export interface CatalogIdentity {
   set_code: string;
   set_name: string | null;
   rarity: string | null;
+  /** JP catalogue scan — unchanged; the EN preference is additive. */
   image_url: string | null;
+  /** Official EN rules text (card_texts, lang='en') — joined via the EN
+   *  card key derived from this row's sku (the join-key decision lives
+   *  in @/lib/cards/en-card-data.ts). Null pre-0116 / pre-ingest. */
+  effect_text: EnCardText | null;
+  /** Best clear EN image (card_images, takedown_status='clear',
+   *  official_sample first). Surfaces prefer this over the JP scan when
+   *  present; attribution must render near the image. */
+  en_image: EnCardImage | null;
 }
 
 export type IdentityResolution =
@@ -65,6 +79,8 @@ function rowToIdentity(row: {
     set_name: row.set_name ?? null,
     rarity: row.rarity ?? null,
     image_url: row.image_url && row.image_url.trim() !== "" ? row.image_url : null,
+    effect_text: null,
+    en_image: null,
   };
 }
 
@@ -83,12 +99,19 @@ async function _resolveCardIdentity(
   const raw = (skuOrNumber || "").trim();
   if (!raw) return { kind: "notfound" };
 
-  // Exact SKU match first (the canonical address).
+  // Exact SKU match first (the canonical address). EN text + image are
+  // an additive second read keyed by the card's EN key (see
+  // @/lib/cards/en-card-data.ts) — a card without EN data, or a DB
+  // without migration 0116, degrades to the JP-only identity unchanged.
   const bySku = await query(
     `${SELECT_IDENTITY} WHERE csc.sku = $1 LIMIT 1`,
     [raw],
   );
-  if (bySku.rows[0]) return { kind: "ok", card: rowToIdentity(bySku.rows[0]) };
+  if (bySku.rows[0]) {
+    const card = rowToIdentity(bySku.rows[0]);
+    const en = await getEnCardData(card.sku);
+    return { kind: "ok", card: { ...card, ...en } };
+  }
 
   // Card-number-shaped URL (case-insensitive) → canonical SKU. Order by
   // the base variant first so the plain printing wins over parallels.
