@@ -1,0 +1,68 @@
+{
+  "name": "@cambridge-tcg/answering-rhymes",
+  "version": "0.1.0",
+  "description": "Zero-dependency conformance core for answering-rhyme.statement/1",
+  "type": "module",
+  "license": "CC0-1.0",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./fixtures/golden-vectors.json": "./fixtures/answering-rhyme-statement-vectors.json",
+    "./schema/statement-v1.json": "./schema/answering-rhyme.statement.v1.schema.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "fixtures",
+    "schema",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm clean && tsc -p tsconfig.json",
+    "typecheck": "pnpm typecheck:source && pnpm typecheck:consumer",
+    "typecheck:source": "tsc --noEmit -p tsconfig.json",
+    "typecheck:consumer": "tsc --noEmit -p test/consumer-node/tsconfig.json",
+    "test": "vitest run",
+    "dist:check": "pnpm build && git diff --exit-code -- dist",
+    "pack:check": "pnpm dist:check && pnpm typecheck:consumer && npm pack --dry-run --ignore-scripts",
+    "prepublishOnly": "pnpm test && pnpm typecheck:source && pnpm build && pnpm typecheck:consumer && git diff --exit-code -- dist"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cambridgetcg/Cambridge-TCG-monorepo.git",
+    "directory": "packages/answering-rhymes"
+  },
+  "homepage": "https://cambridgetcg.com/answering-rhymes",
+  "keywords": [
+    "canonicalization",
+    "conformance",
+    "protocol",
+    "sha256",
+    "webcrypto"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ajv": "^8.17.1",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  }
+}

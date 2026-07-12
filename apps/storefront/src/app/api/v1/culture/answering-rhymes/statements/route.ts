@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from "next/server";
+import normalizedStatementSchema from "@cambridge-tcg/answering-rhymes/schema/statement-v1.json";
 import { errorResponse, jsonResponse } from "@/lib/data-pantry";
 import { getAnsweringRhyme } from "@/lib/culture/answering-rhymes";
 import {
@@ -102,7 +103,7 @@ export async function GET(): Promise<Response> {
       sources: ["answering-rhyme.statement/1 portable contract"],
       source_license: ["cc0"],
       freshness: "identity",
-      as_of: "2026-07-11",
+      as_of: "2026-07-12",
       contains_self: true,
       does_not_include: [
         "This contract does not authenticate or verify a statement author or their claimed role.",
@@ -112,6 +113,7 @@ export async function GET(): Promise<Response> {
       data: {
         "@kind": "answering-rhyme-reciprocity-statement-contract",
         statement_schema: ANSWERING_RHYME_STATEMENT_SCHEMA,
+        normalized_statement_json_schema_url: normalizedStatementSchema.$id,
         canonicalization: ANSWERING_RHYME_CANONICALIZATION,
         cambridge_witness_schema: CAMBRIDGE_ANSWERING_RHYME_WITNESS_SCHEMA,
         statement_kinds: ANSWERING_RHYME_STATEMENT_KINDS,
@@ -131,21 +133,22 @@ export async function GET(): Promise<Response> {
           "authority_evidence_urls",
         ],
         normalization: {
-          strings: "trim, then Unicode NFC",
-          body:
-            "normalize CRLF and lone CR to LF, then trim and Unicode NFC; internal whitespace is preserved",
+          strings:
+            "reject unpaired UTF-16 surrogates, then trim and Unicode NFC; character limits count Unicode scalar values",
+          body: "reject unpaired UTF-16 surrogates; normalize CRLF and lone CR to LF, then trim and Unicode NFC; internal whitespace is preserved",
           kind_and_claimed_role: "trim, Unicode NFC, then lowercase",
           language: "trim, Unicode NFC, then lowercase; defaults to und",
-          declared_at: "required RFC 3339, serialized as UTC ISO 8601",
+          declared_at:
+            "required RFC 3339, serialized as UTC ISO 8601 milliseconds; normalized UTC year must remain within 0001-9999",
           in_response_to:
             "null when absent; otherwise a full sha256:<64 hex> normalized to lowercase",
-          urls:
-            "trim + Unicode NFC, parse and serialize as credential-free HTTPS, then dedupe and code-point sort each list",
+          urls: "reject unpaired UTF-16 surrogates; trim + Unicode NFC, parse and serialize as credential-free HTTPS, then dedupe and lexically sort each list",
           optional_values:
             "language defaults to und; canonical_url and in_response_to normalize to null; URL lists normalize to []",
         },
         canonical_bytes:
           "UTF-8 JSON with object keys sorted lexically at every depth; normalized arrays retain their normalized order; no insignificant whitespace.",
+        normalized_statement_json_schema: normalizedStatementSchema,
         content_hash: "sha256:<64 lowercase hex> over the canonical bytes",
         replay_detection: false,
         uniqueness_not_asserted: true,
@@ -153,8 +156,7 @@ export async function GET(): Promise<Response> {
           signed: false,
           independently_verifiable: false,
           witnessed_at_is_unattested_observation: true,
-          note:
-            "The POST receipt is unsigned. Its witnessed_at value is a server observation, not durable proof that Cambridge issued the receipt.",
+          note: "The POST receipt is unsigned. Its witnessed_at value is a server observation, not durable proof that Cambridge issued the receipt.",
         },
         limits: ANSWERING_RHYME_STATEMENT_LIMITS,
         authority_boundary: {
@@ -195,7 +197,7 @@ export async function GET(): Promise<Response> {
             claimed_role: "viewer",
             canonical_url: null,
           },
-          declared_at: "2026-07-11T20:00:00Z",
+          declared_at: "2026-07-11T20:00:00.000Z",
           in_response_to: null,
           evidence_urls: [],
           authority_evidence_urls: [],
@@ -262,10 +264,13 @@ export async function POST(request: Request): Promise<Response> {
 
   const validation = validateAnsweringRhymeStatement(input);
   if (!validation.ok) {
-    return inputError("The reciprocity statement did not match the portable contract.", {
-      statement_schema: ANSWERING_RHYME_STATEMENT_SCHEMA,
-      issues: validation.issues,
-    });
+    return inputError(
+      "The reciprocity statement did not match the portable contract.",
+      {
+        statement_schema: ANSWERING_RHYME_STATEMENT_SCHEMA,
+        issues: validation.issues,
+      },
+    );
   }
 
   const relation = getAnsweringRhyme(validation.value.relation_key);
@@ -273,7 +278,7 @@ export async function POST(request: Request): Promise<Response> {
     relation?.revision === validation.value.target_revision
       ? "known-current"
       : "not-current";
-  const receipt = witnessAnsweringRhymeStatement(
+  const receipt = await witnessAnsweringRhymeStatement(
     validation.value,
     validation.warnings,
     targetStatus,

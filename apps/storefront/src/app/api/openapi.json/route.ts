@@ -109,7 +109,7 @@ const SPEC = {
       post: {
         tags: ["culture"],
         summary: "Validate and statelessly witness a reciprocity statement",
-        description: "Strictly validates, normalizes, and SHA-256 hashes one portable bless, contextualize, correct, or withdraw statement. Returns a Cambridge-specific unsigned receipt with authenticated=false, identity_verified=false, persisted=false, replay_detection=false, uniqueness_not_asserted=true, and authoritative_effect=none. A known-current target means only that key+revision match the static corpus. Corrections still require curator review; withdrawals still require a future real server-only authenticated authority verifier, trusted-issuer/signature policy, and replay policy. POST is no-store.",
+        description: "Strictly validates, normalizes, and SHA-256 hashes one portable bless, contextualize, correct, or withdraw statement. Unpaired UTF-16 surrogates and UTC-normalized years outside 0001-9999 are rejected. Returns a Cambridge-specific unsigned receipt with authenticated=false, identity_verified=false, persisted=false, replay_detection=false, uniqueness_not_asserted=true, and authoritative_effect=none. A known-current target means only that key+revision match the static corpus. Corrections still require curator review; withdrawals still require a future real server-only authenticated authority verifier, trusted-issuer/signature policy, and replay policy. POST is no-store.",
         operationId: "witnessCultureAnsweringRhymeStatement",
         "x-max-request-bytes": 16384,
         requestBody: {
@@ -971,7 +971,7 @@ const SPEC = {
           relation_key: { type: "string", minLength: 1, maxLength: 256, description: "Opaque stable relation key." },
           target_revision: { type: "string", minLength: 1, maxLength: 100, description: "Required content-derived relation revision; hash-covered to prevent replay across edits." },
           kind: { type: "string", enum: ["bless", "contextualize", "correct", "withdraw"] },
-          body: { type: "string", minLength: 1, maxLength: 2000, description: "CRLF and CR normalize to LF; surrounding whitespace trims; internal whitespace remains." },
+          body: { type: "string", minLength: 1, maxLength: 2000, description: "Unpaired UTF-16 surrogates are rejected. CRLF and CR normalize to LF; surrounding whitespace trims; internal whitespace remains." },
           language: { type: "string", maxLength: 35, default: "und", description: "Simple BCP 47 tag, normalized lowercase; und means undeclared." },
           declared_by: {
             type: "object",
@@ -983,8 +983,8 @@ const SPEC = {
               canonical_url: { type: ["string", "null"], format: "uri", maxLength: 1000, pattern: "^https://", default: null },
             },
           },
-          declared_at: { type: "string", format: "date-time", maxLength: 40, description: "Required RFC 3339 with explicit timezone; normalized to UTC ISO 8601 before hashing." },
-          in_response_to: { type: ["string", "null"], pattern: "^sha256:[0-9a-fA-F]{64}$", default: null, description: "Optional prior statement. A relation-level withdrawal may be null." },
+          declared_at: { type: "string", format: "date-time", maxLength: 40, description: "Required RFC 3339 with explicit timezone; normalized to UTC ISO 8601 milliseconds before hashing. The normalized UTC year must remain within 0001-9999." },
+          in_response_to: { type: ["string", "null"], pattern: "^[sS][hH][aA]256:[0-9a-fA-F]{64}$", default: null, description: "Optional prior statement; trimmed and normalized lowercase. A relation-level withdrawal may be null." },
           evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" } },
           authority_evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" }, description: "Pointers carried as unverified claims; the witness never fetches them." },
         },

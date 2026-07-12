@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   // 1e1c83daaf80). Listing every workspace dep here so future deps
   // don't fail the same way.
   transpilePackages: [
+    "@cambridge-tcg/answering-rhymes",
     "@cambridge-tcg/aws",
     "@cambridge-tcg/data-ingest",
     "@cambridge-tcg/data-spec",

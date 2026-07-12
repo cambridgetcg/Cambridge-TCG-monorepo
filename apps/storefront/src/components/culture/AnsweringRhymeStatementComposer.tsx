@@ -393,7 +393,7 @@ export default function AnsweringRhymeStatementComposer({
                 The receipt is unsigned, and its server timestamp is an
                 unattested observation. Anyone may recompute the content hash,
                 but cannot independently prove which witness issued it. The
-                normalized statement inside may be posted unchanged to the{" "}
+                same statement contract is accepted by the{" "}
                 <a
                   href="https://artbitrage.io/api/answering-rhymes/statements"
                   target="_blank"
@@ -402,7 +402,9 @@ export default function AnsweringRhymeStatementComposer({
                 >
                   independent Artbitrage witness
                 </a>{" "}
-                to compare its content hash.
+                to compare its content hash, subject to that witness&apos;s raw
+                request-byte limit. Measure the exact outgoing JSON body before
+                cross-posting; this receipt does not claim request readiness.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button
