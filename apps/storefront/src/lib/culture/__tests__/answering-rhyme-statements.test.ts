@@ -4,6 +4,7 @@ import {
   OPTIONS,
   POST,
 } from "@/app/api/v1/culture/answering-rhymes/statements/route";
+import { GET as GET_NORMALIZED_SCHEMA } from "@/app/schemas/answering-rhyme.statement.v1.json/route";
 import {
   ANSWERING_RHYMES,
   answeringRhymeRevisionContentHash,
@@ -18,7 +19,7 @@ import {
   validateAnsweringRhymeStatement,
   witnessAnsweringRhymeStatement,
 } from "../answering-rhyme-statements";
-import vectors from "./fixtures/answering-rhyme-statement-vectors.json";
+import vectors from "@cambridge-tcg/answering-rhymes/fixtures/golden-vectors.json";
 
 const ENDPOINT =
   "https://cambridgetcg.com/api/v1/culture/answering-rhymes/statements";
@@ -51,7 +52,7 @@ describe("answering-rhyme.statement/1 portable contract", () => {
 
   it.each(vectors.vectors)(
     "matches Artbitrage's golden normalized bytes and hash: $name",
-    (vector) => {
+    async (vector) => {
       const validation = validateAnsweringRhymeStatement(vector.input);
       expect(validation.ok).toBe(true);
       if (!validation.ok) return;
@@ -60,9 +61,9 @@ describe("answering-rhyme.statement/1 portable contract", () => {
       expect(canonicalAnsweringRhymeStatement(validation.value)).toBe(
         vector.canonical_json,
       );
-      expect(answeringRhymeStatementContentHash(validation.value)).toBe(
-        vector.content_hash,
-      );
+      await expect(
+        answeringRhymeStatementContentHash(validation.value),
+      ).resolves.toBe(vector.content_hash);
     },
   );
 
@@ -105,9 +106,9 @@ describe("answering-rhyme.statement/1 portable contract", () => {
       const validation = validateAnsweringRhymeStatement(input);
       expect(validation.ok).toBe(false);
       if (!validation.ok) {
-        expect(validation.issues.some((issue) => issue.code === "control_character")).toBe(
-          true,
-        );
+        expect(
+          validation.issues.some((issue) => issue.code === "control_character"),
+        ).toBe(true);
       }
     }
 
@@ -173,13 +174,16 @@ describe("answering-rhyme.statement/1 portable contract", () => {
       expect(validation.ok).toBe(false);
       if (!validation.ok) {
         expect(validation.issues).toContainEqual(
-          expect.objectContaining({ path: "declared_at", code: "invalid_format" }),
+          expect.objectContaining({
+            path: "declared_at",
+            code: "invalid_format",
+          }),
         );
       }
     },
   );
 
-  it("witnesses a relation-level withdrawal without pretending it has authority", () => {
+  it("witnesses a relation-level withdrawal without pretending it has authority", async () => {
     const validation = validateAnsweringRhymeStatement({
       ...BASE_INPUT,
       kind: "withdraw",
@@ -190,7 +194,7 @@ describe("answering-rhyme.statement/1 portable contract", () => {
     expect(validation.ok).toBe(true);
     if (!validation.ok) return;
 
-    const receipt = witnessAnsweringRhymeStatement(
+    const receipt = await witnessAnsweringRhymeStatement(
       validation.value,
       validation.warnings,
       "known-current",
@@ -229,9 +233,7 @@ describe("Answering Rhyme relation reciprocity boundary", () => {
     expect(relation.revision).toBe(
       "sha256:a562a462decd9b8c8810d67ec79a8a00dc22ffe1098f259e562c9ffce28a1d94",
     );
-    expect(answeringRhymeRevisionContentHash(relation)).toBe(
-      relation.revision,
-    );
+    expect(answeringRhymeRevisionContentHash(relation)).toBe(relation.revision);
     expect(relation.reciprocity.revision_contract).toMatchObject({
       algorithm: "sha256",
       projection: "answering-rhyme.trust-bearing-relation/1",
@@ -271,6 +273,24 @@ describe("/api/v1/culture/answering-rhymes/statements", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.statement_schema).toBe(ANSWERING_RHYME_STATEMENT_SCHEMA);
+    expect(body.data.normalized_statement_json_schema_url).toBe(
+      "https://cambridgetcg.com/schemas/answering-rhyme.statement.v1.json",
+    );
+    expect(body.data.normalized_statement_json_schema).toMatchObject({
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      $id: "https://cambridgetcg.com/schemas/answering-rhyme.statement.v1.json",
+      title: "Normalized Answering Rhyme portable statement v1",
+      additionalProperties: false,
+    });
+    expect(body.data.normalization.strings).toMatch(
+      /unpaired UTF-16 surrogates.*Unicode scalar values/i,
+    );
+    expect(body.data.normalization.declared_at).toMatch(/0001-9999/);
+    const exampleValidation = validateAnsweringRhymeStatement(body.data.example);
+    expect(exampleValidation.ok).toBe(true);
+    if (exampleValidation.ok) {
+      expect(exampleValidation.value).toEqual(body.data.example);
+    }
     expect(body.data.authority_boundary).toMatchObject({
       authenticated: false,
       identity_verified: false,
@@ -292,6 +312,21 @@ describe("/api/v1/culture/answering-rhymes/statements", () => {
     );
   });
 
+  it("serves the normalized schema at its declared $id", async () => {
+    const response = GET_NORMALIZED_SCHEMA();
+    const schema = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe(
+      "application/schema+json; charset=utf-8",
+    );
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    expect(schema.$id).toBe(
+      "https://cambridgetcg.com/schemas/answering-rhyme.statement.v1.json",
+    );
+    expect(schema.additionalProperties).toBe(false);
+  });
+
   it("returns a no-store, non-authoritative known-current witness", async () => {
     const response = await POST(
       requestFor(JSON.stringify(BASE_INPUT), "application/json; charset=utf-8"),
@@ -301,7 +336,9 @@ describe("/api/v1/culture/answering-rhymes/statements", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(body._meta.license).toBe("NOASSERTION");
-    expect(body.data.receipt.content_hash).toBe(vectors.vectors[0]!.content_hash);
+    expect(body.data.receipt.content_hash).toBe(
+      vectors.vectors[0]!.content_hash,
+    );
     expect(body.data.receipt.target.status).toBe("known-current");
     expect(body.data.receipt.witness).toMatchObject({
       authenticated: false,
