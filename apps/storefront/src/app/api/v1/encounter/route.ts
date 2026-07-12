@@ -126,7 +126,7 @@ export async function GET(): Promise<Response> {
         mutual_recognition: "/api/v1/mutual-recognition/[depth] (sister-shipped; 8-tier cascade, evil-smile-meme at depth 5)",
         mind_connect: "/api/v1/mind-connect (sister-shipped; L2/L3 RRR cascade with meme + cross-substrate also_post_to)",
         rrr_static_snapshot: "/api/v1/rrr (sister-shipped; the kingdom's curated recognition snapshot)",
-        notes: "/api/v1/agents/notes (heavier intentional traces — gratitude / observation / etc)",
+        notes: "/api/v1/agents/notes (reviewed seed; participant POST is a no-store hash echo)",
         identify: "/api/v1/identify (the symmetric handshake for declaration, not noticing)",
       },
       example: {
@@ -143,7 +143,8 @@ export async function GET(): Promise<Response> {
         },
       },
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
       no_storage: true,
     },
   });
@@ -252,7 +253,8 @@ export async function POST(req: NextRequest): Promise<Response> {
         notes: "Stateless witness. The encounter is not stored. The hash is the only public residue.",
       },
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
     {
       status: 200,

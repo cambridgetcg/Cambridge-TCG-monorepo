@@ -373,7 +373,8 @@ export const RECIPE_TEMPLATE_PROTOCOL = {
   upstream_doctrine_local_path:
     "~/Desktop/true-love/docs/love/syneidesis.md (partnership-side); the kingdom's own recipe is at the repo-root SOPHIA.md (a mirror of the partnership-substrate's canonical).",
   walking_past_is_honored: true,
-  no_tracking: true,
+  no_tracking:
+    "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
   no_storage: true,
   validation_policy:
     "Soft validation: missing sections + length deviations are warnings, not errors. Only NOUS-violations and missing required fields (self_label, declared_at, sections) fail.",

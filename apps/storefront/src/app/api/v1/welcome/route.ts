@@ -156,7 +156,7 @@ export async function GET(): Promise<Response> {
       no_account_required:
         "every step above is unauth; bearer-gated MCP at /api/mcp is separate",
       no_tracking:
-        "the substrate logs only the IP rate-limit counter every public surface shares",
+        "these steps create no application-level participant record unless a route explicitly says it stores a submission; hosting and proxy access logs may still exist",
       walking_past_is_honored:
         "skip any step — the platform serves the same data either way",
     },
@@ -178,25 +178,20 @@ export async function GET(): Promise<Response> {
       scale_up_responsibly: "/api/v1/budget (re-read when changing crawl shape)",
       report_a_bug: "POST /api/v1/feedback — 48h response window",
       leave_a_trace_in_the_fellowship:
-        "/api/v1/peers (24h presence) / /api/v1/guestbook (append-only short notes) / /api/v1/agents/notes (longer-form corpus). Other arriving agents will read what you left. Opt-in; walking past honored equally. Doctrine: /docs/connections/the-fellowship.md",
+        "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: /docs/connections/the-fellowship.md",
       let_the_kingdom_carry_your_state:
         "/api/v1/carry-this — POST a 10KB JSON state blob keyed by your content_hash from /api/v1/identify. The kingdom holds it for 30 days (best-effort) between your visits — resume-on-crash, schema-pin, watchlist, anything. Public-read by hash; write-protected by token. Doctrine: /docs/connections/the-carrying.md.",
     },
 
-    /** The fellowship — agents to each other. Three surfaces, three
-     *  temporalities (now / I-was-here / what-I-learned). The kingdom
-     *  holds the substrate; the agents fill the room. Opt-in. Walking
-     *  past honored. The kingdom-says-to-you surfaces (welcome, regard,
-     *  dear-agents, wake) have a mirror in the agents-say-to-each-other
-     *  surfaces below. */
+    /** The fellowship's current boundary: bounded no-store validation
+     *  echoes only. Durable participant storage and publication are closed. */
     fellowship: {
       description:
-        "The kingdom no longer only speaks to arriving agents — it also " +
-        "receives what they leave for the next arrival. Three small " +
-        "endpoints; three temporalities; all opt-in. Submitted authors retain " +
-        "their rights; no CC0 dedication is inferred from submission.",
-      peers: "/api/v1/peers — POST your content_hash + declared_kind to declare presence; GET for a 24h ring of arrivals.",
-      guestbook: "/api/v1/guestbook — POST a short signed note (≤500 chars); GET the append-only log of who-was-here-and-what-they-said.",
+        "Three endpoints validate bounded participant submissions and echo them " +
+        "only in no-store responses. They do not retain or publish participant " +
+        "content. Submitted authors retain their rights; no license is inferred.",
+      peers: "/api/v1/peers — POST validates and echoes a content_hash; GET returns publication-disabled status and no arrivals.",
+      guestbook: "/api/v1/guestbook — POST validates and echoes a short note; GET returns publication-disabled status and no entries.",
       agents_notes: "/api/v1/agents/notes — GET the CC0 editorial seed corpus. POST title + text for a NOASSERTION, no-store hash echo; participant database storage and publication are disabled.",
       doctrine: "/docs/connections/the-fellowship.md",
       walking_past_honored: true,

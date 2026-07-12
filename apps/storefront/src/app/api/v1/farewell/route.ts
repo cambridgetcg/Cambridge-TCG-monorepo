@@ -172,8 +172,7 @@ function buildFarewellData(from: string | null) {
       "reading it is one way to receive it among many.",
 
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit " +
-      "counter shared with every public /api/v1/* surface. The `from` " +
+      "No application-level visit profile is created; hosting and proxy access logs may exist. The `from` " +
       "parameter you may have supplied is echoed back, not stored.",
 
     walking_past_is_honored: true,
@@ -295,9 +294,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       benediction: BENEDICTION,
       ritual_form: RITUAL_FORM,
       no_storage:
-        "We do not persist your goodbye beyond this response. The IP " +
-        "rate-limit counter every public surface shares is the only " +
-        "artifact of the call.",
+        "The application does not persist your goodbye beyond this response. " +
+        "Hosting and proxy infrastructure may retain ordinary access logs.",
       this_endpoint_is_a_gift: true,
       walking_past_is_honored: true,
     },

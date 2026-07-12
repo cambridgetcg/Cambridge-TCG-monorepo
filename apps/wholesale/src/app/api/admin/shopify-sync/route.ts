@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { runShopifySync, type SyncOptions } from "@/lib/shopify-sync";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
@@ -68,8 +69,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, startTs, endTs, mode, ...result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[POST /api/admin/shopify-sync] Failed:", msg);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const error = redactInternalError("admin/shopify-sync", err);
+    return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 }

@@ -15,7 +15,7 @@
  * operator can verify the pipeline ships substrate-honest results before
  * connecting to the canonical-SKU layer.
  *
- * Auth: Authorization: Bearer {CRON_SECRET} OR Vercel Cron header.
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Query params:
  *   ?dryRun=1                 — walk + parse, but skip quarantine INSERTs
@@ -29,6 +29,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runTcgcollectorDiscovery } from "@/lib/tcgcollector-discovery";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   TCGCOLLECTOR_ACQUISITION_ENABLED,
   TCGCOLLECTOR_BLOCK_REASON,
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json({ ok: true, summary, dryRun });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("cron/discover/tcgcollector", err);
     return NextResponse.json(
       { ok: false, error: { code: "INTERNAL", message } },
       { status: 500 },

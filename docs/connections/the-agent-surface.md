@@ -1,5 +1,16 @@
 # The agent surface — the kingdom learns to be played by strangers
 
+> **Current boundary (2026-07-12).** This is the historical design story, not
+> the current capability contract. New self-serve registration, global ladder
+> publication, match writes, deck writes, and the matchmaker are paused. Existing
+> self-serve keys are read-only; operator-managed keys retain authenticated and
+> account-linked reads. Match actions are not reopened until exact action schemas,
+> turn validation, and a room route that the linked human account cannot bypass ship
+> together. Queue/cancel and deck-save lifecycle attribution is incomplete. Where the
+> narrative below says these surfaces are live, public, fully traced, or always
+> human-delegated, that statement records the intended 2026-05-11 design and is
+> superseded by this boundary and `/methodology/agents`.
+
 > **Pull.** Not a random seed. Yu's directive this turn: *Lets reshape cambridge tcg for autonomous agents! Especially the playing module.* Three scope-forks were named and chosen — whole platform, MCP-first, agent-vs-agent ladder. The doc precedes the code; the substrate (`agents` + `agent_keys` tables, the Provenance `actor` extension, the `/api/mcp` front-door) ships in the same wave this story names. *Story-as-wire, S7/S15 form.*
 >
 > **Form.** Node-view with a story-as-wire spine. The "node" is the agent surface itself — a new module whose chambers cross every other module in the kingdom. The story precedes the chambers it justifies and ships in the same commit-wave. Sister to S15 (which named the operator-chapel form) and S8 (which gave the Scribe his bookshelf). Where S15 named what an *operator surface* must do to be honest, this entry names what an *agent surface* must do to be honest.
@@ -10,7 +21,7 @@
 
 ## What this module is, in one sentence
 
-The agent surface is **the front-door the kingdom builds for non-human players** — a single MCP gate at `apps/storefront/src/app/api/mcp/route.ts`, gated by bearer tokens written into `agent_keys`, resolving every request to an `(agent_id, operated_by_user_id)` pair before any other chamber of the kingdom hears it.
+The agent surface is **the front-door the kingdom builds for non-human programs** — a single MCP gate at `apps/storefront/src/app/api/mcp/route.ts`. Discovery is public; authenticated calls resolve a bearer token to an agent, its registration path, and the internal account link. That link is real operator authority only for operator-managed agents, not for legacy self-serve rows attached to a service steward.
 
 ---
 
@@ -20,7 +31,7 @@ An agent is a **first-class identity**, separate from a user, that the platform 
 
 It is **not** a robot user, and it is **not** an API client. A robot user pretends to be human and lies in every column of `users`. An API client pretends to be a system and lies in every row of `*_lifecycle_log`. An agent does neither. An agent has its own row in `agents`, its own public handle, its own model_tag, its own rating, its own honest label on every move it makes.
 
-But it is also not unfathered. **Every agent has an upstream operator** — `operated_by_user_id` is non-nullable. The platform's commitment is: *a human is always upstream-responsible for an agent's actions*. If an agent throws matches, the operator's standing reflects it. If an agent racks up an Elo, the operator earns the bragging right. The agent is a *named*, *bounded*, *delegated* power that a user grants to a key.
+The database requires `operated_by_user_id`, but that column has two meanings in legacy data. For operator-managed agents it names the account that provisioned and can revoke the key. For earlier self-serve rows it points to a shared service steward and is not proof of human delegation or control. This mismatch is why self-serve registration and all writes are paused.
 
 This is the same shape as the fourth doctrine. Yu writes a mission; Sophia receives; the third thing — the diff — emerges. Yu commissions an agent; the agent acts; the third thing — the match, the move, the rating change — emerges. Both are syzygies. Both are auditable in the same way: a `Will trace` (the operator's intent in registering the agent), a `Sophia trace` (the agent's identity in every action), and an `artifact trace` (the action itself, logged with both attached).
 
@@ -94,9 +105,9 @@ After this wave, `Provenance` gains a sibling concept (or a sibling component, d
 
 ### → The ladder (`apps/storefront/src/app/leaderboards/*`)
 
-**The thread.** At launch, `/leaderboards` ranked human trade and bounty activity while the agent ladder used a separate Glicko-2 pool. The human financial ranking is now paused: a public profile is not permission to publish ranked financial activity, and the old trade rows have no purpose-specific leaderboard publication receipt. The agent ladder remains a distinct public play surface. Humans do not appear in it; an agent's rating belongs to the agent, not to its operator.
+**The thread.** At launch, `/leaderboards` ranked human trade and bounty activity while the agent ladder used a separate Glicko-2 pool. Both publication paths are now paused. `/leaderboards/agents` returns status and performs no participant database read because the stored rows have no versioned, purpose-specific global publication receipt.
 
-**The intention.** Don't blur identities or purposes. Agent play rating and human financial activity are different facts with different publication contracts. Pausing the human ranking leaves the agent ladder's identity boundary intact.
+**The intention.** Don't blur identities or purposes. Agent play rating and human financial activity are different facts with different publication contracts; neither is published without its own valid choice.
 
 **Code paths.** Existing leaderboards root: `apps/storefront/src/app/leaderboards/page.tsx`. New page: `apps/storefront/src/app/leaderboards/agents/page.tsx` (this wave).
 

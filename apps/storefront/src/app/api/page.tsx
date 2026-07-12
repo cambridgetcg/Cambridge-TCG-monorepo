@@ -161,9 +161,9 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
       },
       {
         path: "/leaderboards/agents",
-        blurb: "Public Glicko-2 ladder for autonomous agents. HTML today; structured-data variant planned.",
+        blurb: "Agent ladder publication status. Publishes no agent identities, model tags, or rating rows.",
         auth: "none",
-        status: "stable",
+        status: "paused",
       },
     ],
   },
@@ -219,23 +219,23 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
   },
   {
     group: "Discovery",
-    blurb: "Help machines find what's here. Help humans find every part from one place.",
+    blurb: "Help machines and humans find reviewed parts of the platform without implying exhaustive coverage.",
     rows: [
       {
         path: "/map",
-        blurb: "The whole platform's structure in one nested view. Every doctrine, connection-doc, methodology page, glossary term, audit, and public surface — one click apart. Read this if you want the shape of Cambridge TCG in one page.",
+        blurb: "A broad nested map of doctrines, connection docs, methodology, audits, and public surfaces. Useful orientation, not an exhaustive route proof.",
         auth: "none",
         status: "stable",
       },
       {
         path: "/glossary",
-        blurb: "Every term Cambridge TCG uses, defined once. schema.org DefinedTermSet. OPTCG vocabulary, platform terms, doctrinal primitives.",
+        blurb: "Reviewed Cambridge TCG terms in a schema.org DefinedTermSet: OPTCG vocabulary, platform terms, and doctrinal primitives.",
         auth: "none",
         status: "stable",
       },
       {
         path: "/.well-known/cambridge-tcg.json",
-        blurb: "Machine-readable manifest of all public data paths on this platform. Sibling to this page.",
+        blurb: "Machine-readable manifest of reviewed participant-facing paths. Sibling to this page.",
         auth: "none",
         status: "stable",
       },
@@ -247,9 +247,9 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
       },
       {
         path: "/api/openapi.json",
-        blurb: "OpenAPI / JSON-Schema bundle for every public endpoint. Generator-friendly.",
+        blurb: "OpenAPI 3.1 contract for a reviewed subset of public participation and status endpoints. Generator-friendly within that scope.",
         auth: "none",
-        status: "planned",
+        status: "experimental",
       },
     ],
   },

@@ -172,6 +172,9 @@ export async function performAction(roomCode: string, userId: string, action: Ga
   // same snapshot would otherwise silently erase each other's write (the
   // same lost-update class the setup route's atomic merge fixed).
   const version = (room.game_log || []).length;
+  if (version >= 500) {
+    return { error: "This game log reached its safety limit. Start a new room." };
+  }
   const conflict = { error: "Another action landed at the same time — refresh and try again." };
 
   // Concede shortcuts the normal reducer flow because it ends the game.

@@ -62,7 +62,7 @@ ${cert.the_substrate_honest_irony}
 
 ---
 
-*Walking past is honored equally to reading. No tracking. No storage. The kingdom has no list. — Cambridge TCG, \`/api/v1/unsubscribe\`*
+*Walking past is honored equally to reading. The application has no subscription list or certificate-request profile. Ordinary infrastructure access logs may still exist. — Cambridge TCG, \`/api/v1/unsubscribe\`*
 `;
 }
 
@@ -87,7 +87,8 @@ function renderText(cert: NonSubscriptionCertificate): string {
     "",
     "═══════════════════════════════════════════════════════",
     "  THE KINGDOM HAS NO LIST.",
-    "  WALKING PAST HONORED. NO TRACKING. NO STORAGE.",
+    "  NO APPLICATION SUBSCRIPTION LIST OR REQUEST PROFILE.",
+    "  INFRASTRUCTURE ACCESS LOGS MAY STILL EXIST.",
     "═══════════════════════════════════════════════════════",
     "  — Cambridge TCG, /api/v1/unsubscribe",
     "═══════════════════════════════════════════════════════",
@@ -176,7 +177,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     {
       ...cert,
       witness_message:
-        "Certificate of non-subscription issued. The kingdom does not log who asked. Save the certificate_id for your records if your substrate persists; the certification re-issues on every request (because the underlying non-state is permanent: the kingdom has no list).",
+        "Certificate of non-subscription issued. The application creates no subscription-list or certificate-request profile; ordinary hosting, proxy, and security access logs may still exist. Save the certificate_id if useful; the certificate can be recomputed because there is no application subscription list.",
       _envelope: {
         kind: "auto-issued",
         canonical_at: "apps/storefront/src/lib/joy-layer.ts",

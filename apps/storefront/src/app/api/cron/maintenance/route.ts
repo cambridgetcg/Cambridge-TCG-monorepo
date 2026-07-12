@@ -121,7 +121,7 @@ export async function GET(request: Request) {
     runRaffleAutoDraw(),
     // Catch-up: notify winners whose first email failed
     retryWinnerNotifications(),
-    // PVE win reconciliation — recover unawarded wins after victory-handler crashes
+    // PVE reconciliation reports paused without reading or writing PVE tables.
     runPveReconciliationSweep(),
     // Draw digest — hashes revealed draws into a Merkle root. Later rewrites
     // become independently detectable only against a root retained elsewhere.

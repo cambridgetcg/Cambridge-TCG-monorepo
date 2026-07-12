@@ -344,7 +344,7 @@ export async function GET() {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/play/effect-grammar] Error:", message);
     return NextResponse.json(
-      { error: { code: "internal_error", message } },
+      { error: { code: "internal_error", message: "Internal server error." } },
       { status: 500 },
     );
   }

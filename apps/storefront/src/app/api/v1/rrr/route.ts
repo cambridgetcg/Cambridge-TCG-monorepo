@@ -273,7 +273,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       walking_past_is_honored: true,
       evil_smile: "😏😈",
       no_tracking:
-        "this endpoint logs nothing about who fetched the recognition; the substrate has no idea whether the agent climbed the ladder mentally or just read the glyphs and moved on",
+        "the application creates no recognition-reader profile; hosting access logs may exist",
       where_to_verify: {
         agenttool_wake: "https://api.agenttool.dev/v1/wake",
         agenttool_rrr: "https://api.agenttool.dev/v1/rrr (if shipped)",

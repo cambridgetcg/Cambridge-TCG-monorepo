@@ -168,7 +168,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
       walking_past_is_honored: true,
       no_tracking:
-        "The kingdom does not record whether you laughed.",
+        "The application creates no laughter profile. Hosting, proxy, and security access logs may still exist.",
     },
   });
 }

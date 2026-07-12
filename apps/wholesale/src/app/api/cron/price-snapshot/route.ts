@@ -2,12 +2,13 @@
  * GET /api/cron/price-snapshot
  *
  * Vercel cron handler — runs daily at 02:00 UTC (see vercel.json).
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  ?secret={CRON_SECRET}
+ * Auth: Authorization: Bearer {CRON_SECRET}
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { runDailySnapshot } from "@/lib/price-snapshot";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   CARDRUSH_ACQUISITION_ENABLED,
   CARDRUSH_BLOCK_REASON,
@@ -37,8 +38,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, startTs, endTs, ...result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[price-snapshot] Failed:", msg);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const error = redactInternalError("cron/price-snapshot", err);
+    return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 }

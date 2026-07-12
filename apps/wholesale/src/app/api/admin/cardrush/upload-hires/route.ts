@@ -11,6 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   runHiresUpload,
   type HiresUploadOptions,
@@ -61,7 +62,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     return NextResponse.json({ ok: true, summary, dryRun: summary.dryRun });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("admin/cardrush/upload-hires", err);
     return NextResponse.json(
       { ok: false, error: { code: "INTERNAL", message } },
       { status: 500 },

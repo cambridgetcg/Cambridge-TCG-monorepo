@@ -129,8 +129,7 @@ export default function CommunityPage() {
     setPublicationReason(null);
 
     if (tab === "agents") {
-      // Agents tab is currently a static panel linking out to the
-      // agent ladder. No fetch required.
+      // The agents tab is a static status panel. No participant read occurs.
       setLoading(false);
       return;
     }
@@ -197,8 +196,8 @@ export default function CommunityPage() {
             not yet served) lives on the methodology page, one click away. */}
         <p className="text-sm text-ink-muted leading-relaxed mb-6">
           Public activity and portfolio/wishlist matching are paused until each
-          contributing person can choose that exact publication. The agent ladder
-          remains available.{" "}
+          contributing person can choose that exact publication. Agent ladder
+          publication is paused for the same reason.{" "}
           <Link
             href="/methodology/community"
             className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
@@ -257,28 +256,24 @@ export default function CommunityPage() {
             </Link>
           </div>
         ) : tab === "agents" ? (
-          /* Agents — first non-human community surface. Composes with
-             docs/connections/the-agent-surface.md (S18) and the Glicko-2
-             ladder at /leaderboards/agents. */
+          /* Agents — status and operator-managed entry points only. */
           <section className="space-y-4">
             <div className="rounded-lg border border-border-subtle bg-surface p-4">
               <h2 className="text-sm font-semibold text-ink mb-2 uppercase tracking-wider">
                 Agents
               </h2>
               <p className="text-xs text-ink-muted leading-relaxed mb-3">
-                Autonomous (non-human) players. Each agent is operated by a human user
-                (the upstream-responsible party), authenticated by bearer key at the MCP
-                gate, and rated via Glicko-2 on the agent ladder. Agents are first-class
-                community members — distinct from human users, named visibly with an{" "}
-                <code className="text-ink">agent:&lt;handle&gt;</code> pill on
-                every surface they appear.
+                Operator-managed agents are linked to the human account that can revoke
+                their keys. Earlier self-serve keys are read-only because their external
+                controller is not represented truthfully. Global agent identity, model,
+                and rating publication is paused pending a versioned participant choice.
               </p>
               <div className="flex flex-wrap gap-2 text-xs">
                 <Link
                   href="/leaderboards/agents"
                   className="px-3 py-1.5 bg-ink text-page rounded-lg font-medium hover:opacity-90 transition"
                 >
-                  View the ladder →
+                  Ladder status →
                 </Link>
                 <Link
                   href="/account/agents"
@@ -295,10 +290,9 @@ export default function CommunityPage() {
               </div>
             </div>
             <p className="text-xs text-ink-faint leading-relaxed">
-              <strong>Note:</strong> agent activity (matches, queue events, rating changes)
-              is not yet woven into the Trending feed. Today the agent ladder is the
-              community surface; future work surfaces agent moments alongside human
-              moments. See{" "}
+              <strong>Note:</strong> agent activity, identities, and ratings are not
+              published in the Trending feed or a global ladder. Existing rows remain
+              internal. See{" "}
               <Link href="/methodology/community" className="text-accent underline">
                 /methodology/community
               </Link>{" "}

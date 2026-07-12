@@ -122,16 +122,16 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/v1/universal/card/[sku]",
     title: "Universal card (math-mirror)",
     blurb:
-      "Public math-first card representation using content hashes, ratios, ISO 8601 + Unix epoch time, typed edges, density controls, and declared source rights. Returns 404 when a SKU has not reached the storefront mirror.",
+      "Public math-first structural card representation using content hashes, ISO 8601 + Unix epoch time, typed edges, density controls, and declared source rights. Legacy price magnitudes and media are null. Returns 404 when a SKU has not reached the storefront mirror.",
     status: "shipped",
     auth: "none",
     shape: "JSON: { id, hash, magnitudes: {...}, edges: [...], retrieved_at, as_of }",
   },
   {
     path: "/api/at/[YYYY-MM-DD]/card/[sku]",
-    title: "Universal card — temporal slice",
+    title: "Universal card — date-shaped compatibility view",
     blurb:
-      "The math-mirror card as it was at a past date. Reads storefront card price history; @retrieved_at is distinct from the requested @as_of date.",
+      "Compatibility route that returns current structural fields under the requested date label. It does not read price history or reconstruct historical card state; legacy price magnitudes and media are null.",
     status: "shipped",
     auth: "none",
   },
@@ -171,7 +171,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/mcp",
     title: "MCP gateway",
     blurb:
-      "Model Context Protocol entry point for autonomous agents. Bearer-token auth resolves to (agent_id, operated_by_user_id). Agents register at /account/agents; the operator's authority bounds what the agent can do. See /methodology/agents.",
+      "Model Context Protocol entry point for agents. Bearer auth resolves the agent and registration path. Existing self-serve keys are read-only; operator-managed agents are linked to the account that can revoke them. New self-serve registration is paused.",
     status: "shipped",
     auth: "bearer",
     rateLimit: "per-agent token bucket; see methodology/agents",
@@ -227,6 +227,25 @@ const ENDPOINTS: Endpoint[] = [
     status: "shipped",
     auth: "none",
     shape: "JSON: { spec_version, generated_at, doctrine, conventions, self_reference, counts, endpoints }",
+  },
+
+  // ── The commons as datasets (not just endpoints) ────────────────────
+  {
+    path: "/datasets",
+    title: "Dataset status catalog (human-readable)",
+    blurb:
+      "Available datasets and paused publication surfaces, with aggregate rights, named source rights, fields, and access paths. Paused zero-row paths are excluded from the schema.org crawler graph.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/datasets",
+    title: "Dataset status catalog (machine-readable)",
+    blurb:
+      "CC0-authored catalog metadata in a data-pantry envelope. Each entry separately states availability, aggregate rights, and named source rights. ?format=jsonld includes available datasets only.",
+    status: "shipped",
+    auth: "none",
+    shape: "JSON: { data: { datasets: [{ id, name, availability, records_published, license, source_rights, distributions, ... }], discovery }, _meta }",
   },
 
   // ── Self-identification ─────────────────────────────────────────────
@@ -325,17 +344,17 @@ export default function OpenDataIndex() {
 
       <ul>
         <li>
-          <strong>Collectors</strong> who want to track prices, inspect draw
-          receipts, or check a pull they were sceptical of.
+          <strong>Collectors</strong> who want structural card lookup, draw
+          receipts, or a publication-status check. Legacy price values are withheld.
         </li>
         <li>
-          <strong>Agents</strong> (LLM or otherwise) participating on behalf of
-          a human operator. See <Link href="/methodology/agents">/methodology/agents</Link>.
+          <strong>Agents</strong> (LLM or otherwise). Operator-managed keys act
+          within their account authority; earlier self-serve keys are read-only. See{" "}
+          <Link href="/methodology/agents">/methodology/agents</Link>.
         </li>
         <li>
-          <strong>Archivists</strong> preserving the market&apos;s history. The{" "}
-          <code>/api/v1/universal/card/[sku]/at/[date]</code> endpoint exists
-          for this.
+          <strong>Archivists</strong> checking today&apos;s publication boundary. The
+          date-shaped card route is compatibility-only and does not reconstruct history.
         </li>
         <li>
           <strong>Other platforms</strong> wanting to interoperate. They can
@@ -464,8 +483,10 @@ export default function OpenDataIndex() {
           Open an issue on the public repo with the use case.
         </li>
         <li>
-          For agent-flavoured access, register via <Link href="/account/agents">/account/agents</Link>{" "}
-          (see <Link href="/methodology/agents">methodology/agents</Link>).
+          For agent access, a signed-in human can provision an operator-managed
+          key at <Link href="/account/agents">/account/agents</Link>. New
+          self-serve registration is paused (see{" "}
+          <Link href="/methodology/agents">methodology/agents</Link>).
         </li>
       </ol>
 

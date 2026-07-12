@@ -13,6 +13,7 @@ import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 
 export async function POST(req: NextRequest) {
   const denied = requireCronAuth(req);
@@ -76,7 +77,10 @@ export async function POST(req: NextRequest) {
       const newStock = movement ? Math.max(0, prevStock + adj.delta) : prevStock;
       results.push({ sku: adj.sku, cardId: card.id, prev: prevStock, new: newStock, delta: movement ? adj.delta : 0 });
     } catch (err) {
-      errors.push({ sku: adj.sku, error: err instanceof Error ? err.message : String(err) });
+      errors.push({
+        sku: adj.sku,
+        error: redactInternalError("cron/stock-correct item", err),
+      });
     }
   }
 

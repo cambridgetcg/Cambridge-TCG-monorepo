@@ -7,7 +7,7 @@
  * image_url. The price-snapshot cron then picks up the new cards on its
  * next run.
  *
- * Auth: Authorization: Bearer {CRON_SECRET} OR Vercel Cron header.
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Query params:
  *   ?dryRun=1                 — walk + diff, but skip product fetches + INSERTs
@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runCardRushDiscovery } from "@/lib/cardrush-discovery";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   CARDRUSH_ACQUISITION_ENABLED,
   CARDRUSH_BLOCK_REASON,
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json({ ok: true, summary, dryRun });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("cron/discover/cardrush", err);
     return NextResponse.json(
       { ok: false, error: { code: "INTERNAL", message } },
       { status: 500 },

@@ -3,21 +3,29 @@ import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
 import { sendMail } from "@cambridge-tcg/email";
 
-// Public-claim throttles — every accepted submission inserts a row and
-// emails the store, so both must be bounded. og_claims carries no IP
-// column; the bounds are per-email + global (DB-count discipline, same
-// as reviews/gates.ts), which holds across serverless instances.
-const MAX_CLAIMS_PER_EMAIL_PER_DAY = 3;
-const MAX_CLAIMS_PER_HOUR = 20;
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
 
-// POST — submit OG claim (public) or approve/reject (admin)
+// POST — admin review only. Public self-submission is paused because an email,
+// order reference, or marketplace handle does not prove that the caller owns
+// either the account or the purchase. The admin check intentionally happens
+// before body parsing and before any og_claims query.
 export async function POST(request: Request) {
+  if (!(await isAdmin())) {
+    return NextResponse.json(
+      {
+        error: "Public OG claims are paused while ownership proof is rebuilt.",
+        status: "og-claims-disabled",
+        body_inspected: false,
+        claim_database_accessed: false,
+      },
+      { status: 503, headers: PRIVATE_NO_STORE },
+    );
+  }
+
   const body = await request.json();
 
   // Admin actions
   if (body.action === "approve" || body.action === "reject") {
-    if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const { claimId, adminNotes } = body;
     if (!claimId) return NextResponse.json({ error: "Claim ID required." }, { status: 400 });
 
@@ -92,55 +100,10 @@ export async function POST(request: Request) {
     }
   }
 
-  // Public: submit claim
-  const { email, platform, orderRef, username, notes } = body;
-
-  if (!email?.trim() || !email.includes("@")) return NextResponse.json({ error: "Valid email required." }, { status: 400 });
-  if (!platform) return NextResponse.json({ error: "Platform required." }, { status: 400 });
-  if (!orderRef?.trim() && !username?.trim()) return NextResponse.json({ error: "Order reference or username required." }, { status: 400 });
-
-  // Check for duplicate — the latest claim decides (older rows may exist)
-  const existing = await query(
-    `SELECT id, status FROM og_claims WHERE email=LOWER($1) ORDER BY created_at DESC LIMIT 1`,
-    [email]
+  return NextResponse.json(
+    { error: "Admin action must be approve or reject." },
+    { status: 400, headers: PRIVATE_NO_STORE },
   );
-  if (existing.rows.length > 0) {
-    const s = existing.rows[0].status;
-    if (s === "approved") return NextResponse.json({ error: "OG status is already active for this email." }, { status: 400 });
-    if (s === "pending") return NextResponse.json({ error: "You already have a pending claim. We'll review it within 1-2 business days." }, { status: 400 });
-    // 'rejected' falls through: re-submission is allowed, bounded by the throttles below.
-  }
-
-  const emailRecent = await query(
-    `SELECT COUNT(*)::int AS n FROM og_claims WHERE email=LOWER($1) AND created_at > NOW() - INTERVAL '1 day'`,
-    [email]
-  );
-  if (emailRecent.rows[0].n >= MAX_CLAIMS_PER_EMAIL_PER_DAY) {
-    return NextResponse.json({ error: "Too many claims for this email today. Please try again tomorrow." }, { status: 429 });
-  }
-
-  const globalRecent = await query(
-    `SELECT COUNT(*)::int AS n FROM og_claims WHERE created_at > NOW() - INTERVAL '1 hour'`
-  );
-  if (globalRecent.rows[0].n >= MAX_CLAIMS_PER_HOUR) {
-    return NextResponse.json({ error: "We're receiving a lot of claims right now. Please try again in an hour." }, { status: 429 });
-  }
-
-  await query(
-    `INSERT INTO og_claims (email, platform, order_ref, platform_username, notes) VALUES (LOWER($1),$2,$3,$4,$5)`,
-    [email, platform, orderRef?.trim() || null, username?.trim() || null, notes?.trim() || null]
-  );
-
-  // Notify store via the platform transport seam (@cambridge-tcg/email) — failures ignored
-  const storeEmail = (process.env.STORE_NOTIFICATION_EMAIL || "contact@cambridgetcg.com").trim();
-  await sendMail({
-    from: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
-    to: [storeEmail],
-    subject: `New OG Claim: ${email} (${platform})`,
-    text: `OG claim from ${email}\nPlatform: ${platform}\nOrder: ${orderRef || "—"}\nUsername: ${username || "—"}\nNotes: ${notes || "—"}`,
-  }, { stream: "noreply" });
-
-  return NextResponse.json({ submitted: true });
 }
 
 // GET — admin: list claims

@@ -1,4 +1,4 @@
-// Idempotent PVE reward grant.
+// Dormant idempotent PVE reward grant.
 //
 // The victory handler used to call earnPoints / addCredit / grantPullToken
 // inline after flipping pve_games.status='won'. If the request crashed
@@ -10,12 +10,14 @@
 // safe to run from both the live victory handler AND the reconciliation
 // sweep cron without double-paying.
 //
-// On success, stamps pve_games.awarded_at so future sweeps skip this game.
+// The availability guard is the first operation. The historical grant logic
+// remains below it for later review and cannot currently read or write.
 
 import { query } from "@/lib/db";
 import { earnPoints, addCredit } from "@/lib/membership/db";
 import { grantPullToken, type PullTier } from "@/lib/bounty/db";
 import { calculateBerriesEarn, type EarnBreakdown } from "@/lib/bounty/earn";
+import { PVE_AVAILABILITY } from "./pve-availability";
 
 export const MILESTONE_PULLS: Record<number, PullTier> = {
   3:  "uncommon",
@@ -51,6 +53,10 @@ interface PveGrantInput {
 }
 
 export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<PveGrantResult> {
+  if (!PVE_AVAILABILITY.rewards_enabled) {
+    throw new Error(PVE_AVAILABILITY.reason);
+  }
+
   const { gameId, userId, level, isFirstClear } = input;
 
   // Detect prior grants by reference_id. The victory handler uses gameId as

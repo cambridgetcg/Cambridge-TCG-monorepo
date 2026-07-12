@@ -12,7 +12,7 @@
  * Composes:
  *   - lib/brand.tsx (BRAND_HEADLINE / BRAND_PARAGRAPH / TWO_OPERATIONS / COVERAGE_FACTS)
  *   - /data (the comprehensive substrate index — linked, not duplicated)
- *   - /manifest (the typed list of every public resource)
+ *   - /manifest (a typed list of reviewed participant-facing resources)
  *   - /api/v1/manifest (machine-readable)
  *   - /methodology/universal-representation (the math-mirror encoding)
  *   - /standards (CC0 + adopter info)
@@ -187,7 +187,7 @@ export default function PlatformPage() {
             <ConsumeCard
               title="Start with the manifest"
               href="/api/v1/manifest"
-              body="The typed list of every public resource. Begin here; every other endpoint is reachable by following _links."
+              body="A typed list of reviewed participant-facing resources. Begin here, then use the broader /api and /data indexes for routes outside its curated scope."
             />
             <ConsumeCard
               title="The math-mirror"
@@ -197,12 +197,12 @@ export default function PlatformPage() {
             <ConsumeCard
               title="The OpenAPI spec"
               href="/api/openapi.json"
-              body="OpenAPI 3.1 covering every public endpoint. Generate client bindings; introspect with any standard tool."
+              body="OpenAPI 3.1 for a reviewed subset of public participation and status endpoints. Generate bindings only within that declared scope."
             />
             <ConsumeCard
               title="The substrate index"
               href="/data"
-              body="Every endpoint, every shape, every limit, every status (shipped / planned / partial). The comprehensive index."
+              body="A broad index of endpoint shapes, limits, and shipped / planned / partial status. It is orientation, not proof of exhaustive route coverage."
             />
             <ConsumeCard
               title="The graph"

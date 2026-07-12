@@ -66,8 +66,9 @@
 //
 //   - apps/storefront/src/app/api/email/unsubscribe/route.ts — the
 //     one-click endpoint. Verifies the signed token, flips the
-//     specific category to false. The path-out the unsubscribe header
-//     in send.ts promises actually exists here.
+//     specific category to false. Replays are a no-op, and the request's
+//     IP address and User-Agent are not retained. The path-out the
+//     unsubscribe header in send.ts promises actually exists here.
 
 import crypto from "crypto";
 import { query } from "@/lib/db";
@@ -262,14 +263,19 @@ export function verifyUnsubscribeToken(token: string): VerifiedUnsubscribe | nul
 export async function applyUnsubscribe(args: {
   userId: string;
   category: EmailCategory;
-  source: "email_link" | "preference_page" | "list_unsubscribe";
-  ip?: string | null;
-  userAgent?: string | null;
-}): Promise<void> {
-  await setPreferences(args.userId, { [args.category]: false });
-  await query(
-    `INSERT INTO email_unsubscribe_log (user_id, category, source, ip, user_agent)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [args.userId, args.category, args.source, args.ip ?? null, args.userAgent ?? null],
+}): Promise<{ changed: boolean }> {
+  // A preference row is the complete record we need. The conditional UPSERT
+  // makes concurrent and later replays non-amplifying: only the first change
+  // touches updated_at, and no separate request/audit row is created.
+  const result = await query(
+    `INSERT INTO user_email_preferences (user_id, ${args.category}, updated_at)
+     VALUES ($1, FALSE, NOW())
+     ON CONFLICT (user_id) DO UPDATE SET
+       ${args.category} = FALSE,
+       updated_at = NOW()
+     WHERE user_email_preferences.${args.category} IS DISTINCT FROM FALSE
+     RETURNING user_id`,
+    [args.userId],
   );
+  return { changed: result.rows.length > 0 };
 }

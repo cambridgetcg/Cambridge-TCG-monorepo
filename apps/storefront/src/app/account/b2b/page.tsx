@@ -19,11 +19,12 @@ import { countItems } from "@/lib/b2b/cart";
 import { loadOrdersForUser } from "@/lib/b2b/orders";
 import { Card, PageHeader, audienceMetadata } from "@/lib/ui";
 import { formatPrice } from "@/lib/format";
+import { B2B_PURCHASE_AVAILABILITY } from "@/lib/b2b/purchase-availability";
 
 export const metadata: Metadata = {
   title: "Wholesale — Cambridge TCG",
   description:
-    "Your B2B shell. Browse the catalog at wholesale prices, manage orders, and check stock.",
+    "Your B2B shell. Browse structural catalog and stock data, and review completed orders. New pricing and checkout are paused.",
   other: audienceMetadata("consumer", ["wholesale", "b2b", "account"]),
 };
 
@@ -91,14 +92,14 @@ export default async function WholesaleShellPage() {
     <div className="space-y-6">
       <PageHeader
         title="Wholesale"
-        description="Your B2B account. Wholesale prices apply inside this section; public storefront pages keep showing retail."
+        description={B2B_PURCHASE_AVAILABILITY.reason}
       />
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="In cart"
           value={cartCount}
-          sub={cartCount > 0 ? "ready to checkout" : "empty"}
+          sub={cartCount > 0 ? "stored; checkout paused" : "empty"}
           tone={cartCount > 0 ? "amber" : "neutral"}
           href={cartCount > 0 ? "/account/b2b/cart" : "/account/b2b/catalog"}
         />
@@ -119,7 +120,7 @@ export default async function WholesaleShellPage() {
         <StatCard
           label="Last order"
           value={lastOrder ? fmtDate(lastOrder.created_at) : "—"}
-          sub={lastOrder ? `#${lastOrder.id}` : "place your first"}
+          sub={lastOrder ? `#${lastOrder.id}` : "none recorded"}
           tone="neutral"
           href={lastOrder ? `/account/b2b/orders/${lastOrder.id}` : undefined}
         />
@@ -131,30 +132,25 @@ export default async function WholesaleShellPage() {
             <div className="space-y-2">
               <h2 className="text-lg font-semibold group-hover:text-accent">Catalog →</h2>
               <p className="text-sm text-ink-muted">
-                Browse the full Cambridge TCG catalog at wholesale prices. Filter by game, set,
-                search by name, sort by price.
+                Browse structural card and stock fields. Price values and price
+                ordering are withheld.
               </p>
             </div>
           </Card>
         </Link>
 
-        <Link
-          href={cartCount > 0 ? "/account/b2b/checkout" : "/account/b2b/catalog"}
-          className="block group"
-        >
+        <div>
           <Card>
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold group-hover:text-accent">
-                {cartCount > 0 ? "Checkout →" : "Start a cart →"}
-              </h2>
+              <h2 className="text-lg font-semibold">New purchases paused</h2>
               <p className="text-sm text-ink-muted">
                 {cartCount > 0
-                  ? `${cartCount} item${cartCount === 1 ? "" : "s"} waiting in your cart. Stripe handles payment at wholesale prices.`
-                  : "Add cards from the catalog and check out via Stripe."}
+                  ? `${cartCount} existing cart item${cartCount === 1 ? " is" : "s are"} retained for review or removal. No Stripe session can be created.`
+                  : "No new cart item or Stripe checkout session can be created while pricing is withheld."}
               </p>
             </div>
           </Card>
-        </Link>
+        </div>
       </div>
 
       {recent.length > 0 && (
@@ -199,13 +195,13 @@ export default async function WholesaleShellPage() {
 
       <Card>
         <div className="space-y-2 text-sm text-ink-muted">
-          <p className="font-medium text-ink">How pricing works here</p>
+          <p className="font-medium text-ink">Current publication boundary</p>
           <p>
-            Public pages on cambridgetcg.com always show the retail price — even
-            when you&rsquo;re logged in. The wholesale channel applies only inside
-            this <code className="rounded bg-surface-subtle px-1 py-0.5 text-xs">/account/b2b/*</code>{" "}
-            section. This keeps public prices stable for everyone and the B2B
-            view crisply separate.
+            Account and role checks control access to this section; they do not
+            create permission to publish legacy upstream price or image fields.
+            Completed order receipts keep the amount actually paid. Current
+            catalog values, relative price ordering, and new purchase initiation
+            remain unavailable.
           </p>
         </div>
       </Card>

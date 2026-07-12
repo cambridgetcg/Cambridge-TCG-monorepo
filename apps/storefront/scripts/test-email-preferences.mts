@@ -57,19 +57,14 @@ try {
   assert(verifyUnsubscribeToken(tampered) === null, "tampered token rejected");
   assert(verifyUnsubscribeToken("garbage.notvalid") === null, "gibberish token rejected");
 
-  // 6) applyUnsubscribe + audit log
-  await applyUnsubscribe({ userId, category: "pull_resolved", source: "email_link", ip: "1.2.3.4", userAgent: "test/1.0" });
-  const logRow = await pool.query(
-    `SELECT category, source, ip, user_agent FROM email_unsubscribe_log WHERE user_id = $1`,
-    [userId],
-  );
-  assert(logRow.rows.length === 1, "audit row written");
-  assert(logRow.rows[0].category === "pull_resolved", "audit row has right category");
-  assert(logRow.rows[0].source === "email_link", "audit row has right source");
+  // 6) applyUnsubscribe changes the preference once; replay adds no record.
+  const firstUnsubscribe = await applyUnsubscribe({ userId, category: "pull_resolved" });
+  assert(firstUnsubscribe.changed, "first unsubscribe changes the preference");
   assert(!(await canSendEvent(userId, "pull_resolved")), "user is now opted out of pull_resolved");
+  const replay = await applyUnsubscribe({ userId, category: "pull_resolved" });
+  assert(!replay.changed, "unsubscribe replay is a no-op");
 
   // Cleanup
-  await pool.query(`DELETE FROM email_unsubscribe_log WHERE user_id=$1`, [userId]);
   await pool.query(`DELETE FROM user_email_preferences WHERE user_id=$1`, [userId]);
   await pool.query(`DELETE FROM users WHERE id=$1`, [userId]);
 

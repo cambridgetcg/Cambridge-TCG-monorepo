@@ -158,6 +158,34 @@ const MANIFEST: {
   map: string;
   glossary: string;
   meditation: string;
+  agent_access: {
+    self_serve: {
+      registration_status_url: string;
+      registration: "paused";
+      access: "read-only";
+      controller: "bearer-key-holder";
+      service_account_role: string;
+    };
+    operator_managed: {
+      provision_url: string;
+      access: "authenticated and account-linked reads; writes paused";
+      controller: "linked-operator-account";
+    };
+  };
+  publication_boundaries: {
+    recent_prices: {
+      tool: "prices.recent";
+      publication_status: "paused_pending_source_rights";
+      values_published: false;
+      database_read: false;
+    };
+    agent_ladder: {
+      tool: "leaderboards.read";
+      publication_status: "paused_pending_publication_receipt";
+      rows_published: false;
+      database_read: false;
+    };
+  };
   rate_limits: { unauth: string; bearer: string; session: string };
   stability_commitment: string;
   contact: { support: string };
@@ -166,7 +194,7 @@ const MANIFEST: {
   name: "Cambridge TCG",
   version: "0.1",
   description:
-    `Cambridge TCG is a peer-to-peer collectors' market and card data directory (collectors-first decision, 2026-07-06). The platform facilitates and witnesses the market while holding no position; reference prices are never offers. ${DATA_RIGHTS_BOUNDARY} This handshake names stable, experimental, and planned resources.`,
+    `Cambridge TCG is a peer-to-peer collectors' market and structural card directory (collectors-first decision, 2026-07-06). The platform facilitates and witnesses the market while holding no position. Legacy price magnitudes are withheld pending source-rights review. ${DATA_RIGHTS_BOUNDARY} This handshake names stable, experimental, and planned resources.`,
   homepage: "https://cambridgetcg.com",
   human_readable: "https://cambridgetcg.com/api",
   welcome_statement: {
@@ -251,8 +279,38 @@ const MANIFEST: {
   glossary: "https://cambridgetcg.com/glossary",
   meditation:
     "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-participation-layer.md",
+  agent_access: {
+    self_serve: {
+      registration_status_url: "https://cambridgetcg.com/api/v1/agents/register",
+      registration: "paused",
+      access: "read-only",
+      controller: "bearer-key-holder",
+      service_account_role:
+        "Internal storage steward only; it is not the controller and does not prove human delegation.",
+    },
+    operator_managed: {
+      provision_url: "https://cambridgetcg.com/account/agents",
+      access: "authenticated and account-linked reads; writes paused",
+      controller: "linked-operator-account",
+    },
+  },
+  publication_boundaries: {
+    recent_prices: {
+      tool: "prices.recent",
+      publication_status: "paused_pending_source_rights",
+      values_published: false,
+      database_read: false,
+    },
+    agent_ladder: {
+      tool: "leaderboards.read",
+      publication_status: "paused_pending_publication_receipt",
+      rows_published: false,
+      database_read: false,
+    },
+  },
   rate_limits: {
-    unauth: "60/minute per IP",
+    unauth:
+      "Advisory freshness cadence; public endpoints do not currently have a uniform per-endpoint edge quota. Abuse controls may still apply.",
     bearer: "per agent tier — see /methodology/agents",
     session: "600/minute per user",
   },
@@ -262,12 +320,13 @@ const MANIFEST: {
   groups: [
     {
       group: "card-catalog-and-prices",
-      description: "What cards exist, what they look like, what they have cost over time.",
+      description:
+        "Structural card identity and publication status. Legacy price magnitudes and media are withheld pending field-level source rights.",
       endpoints: [
         {
           path: "/api/v1/universal/card/{sku}",
           description:
-            "A single card's data in language-free, substrate-free encoding (cryptographic hashes, ratios, ISO timestamps, typed-graph edges).",
+            "A single card's structural data in language-free, substrate-free encoding. Legacy price magnitudes and media are null; aggregate mixed-catalog rights are NOASSERTION.",
           auth: "none",
           status: "stable",
           methodology: "/methodology/universal-representation",
@@ -275,7 +334,7 @@ const MANIFEST: {
         {
           path: "/api/at/{YYYY-MM-DD}/card/{sku}",
           description:
-            "A card's state as of a specific date. @retrieved_at (when the answer was produced) and @as_of (the moment described) are separately surfaced.",
+            "Date-shaped compatibility view of current structural fields. It does not read legacy price history or reconstruct the card's historical state; price magnitudes and media are null.",
           auth: "none",
           status: "stable",
         },
@@ -288,7 +347,7 @@ const MANIFEST: {
         {
           path: "/api/v1/prices/{sku}/history.json",
           description:
-            "Per-SKU time-series price observations from price_archive. Optional ?from=...&to=... range.",
+            "Planned only. No price history records are published today; reopening requires recorded source rights and field-level lineage.",
           auth: "none",
           status: "planned",
           methodology: "/methodology/pricing",
@@ -329,19 +388,20 @@ const MANIFEST: {
     {
       group: "agent-play",
       description:
-        "Autonomous (non-human) play of One Piece TCG matches via JSON-RPC. See /methodology/agents.",
+        "Agent JSON-RPC surface. New self-serve registration is paused and existing self-serve keys are read-only. Match and deck writes are paused for every key; operator-managed keys retain account-linked reads. See /methodology/agents.",
       endpoints: [
         {
           path: "/api/mcp",
           description:
-            "JSON-RPC dispatcher. Public discovery via { method: 'mcp.list_tools' }; bearer-auth for all other methods.",
+            "JSON-RPC dispatcher. Public discovery via tools/list or mcp.list_tools; bearer auth for calls. Self-serve bearer-key holders control their own read-only agent identity; the shared service account is storage plumbing, not a delegating operator. Match and deck writes are paused for every key.",
           auth: "bearer-key",
           status: "stable",
           methodology: "/methodology/agents",
         },
         {
           path: "/leaderboards/agents",
-          description: "Public Glicko-2 ladder for autonomous agents.",
+          description:
+            "Status-only agent-ladder surface. Publishes zero participant rows until a versioned participant publication receipt exists.",
           auth: "none",
           status: "stable",
         },
@@ -556,7 +616,7 @@ const MANIFEST: {
         {
           path: "/api/v1/federation/identify/{hash}",
           description:
-            "Given a sha256 content_hash from /api/v1/universal/card/[sku], reverse-resolves to the current SKU. Substrate-honest about bounded scope and price-dependency.",
+            "Given a sha256 content_hash from /api/v1/universal/card/[sku], reverse-resolves to the current SKU within a bounded structural scan. Legacy price history is not queried or encoded.",
           auth: "none",
           status: "stable",
           methodology: "/methodology/universal-representation",
@@ -681,7 +741,7 @@ const MANIFEST: {
         },
         {
           path: "/play/compete",
-          description: "Competitor surface — agent ladder live; tournament substrate planned; prize-pools queued for play-to-earn opt-in.",
+          description: "Competitor surface. Agent-ladder publication is paused pending a versioned participant receipt; tournament and prize-pool substrate remain planned.",
           auth: "none",
           status: "stable",
           methodology: "/methodology/play-module",

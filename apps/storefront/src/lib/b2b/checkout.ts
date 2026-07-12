@@ -1,9 +1,10 @@
 /**
- * B2B checkout — Stripe Checkout Session builder.
+ * Dormant B2B Stripe Checkout Session builder.
  *
- * Phase 2.2b of the wholesale consolidation. Loads the buyer's cart
- * from b2b_cart_items, resolves CURRENT wholesale prices via the
- * Falcon, reserves stock, and creates a Stripe Checkout Session.
+ * The exported entry point first checks the shared purchase-availability
+ * boundary and currently returns before cart, price, stock, or Stripe work.
+ * The reviewed implementation remains below for a future reopening; keeping
+ * code is not a claim that checkout is available.
  *
  * Substrate-honesty:
  *   - The session is created with line items priced at the moment of
@@ -36,12 +37,14 @@ import {
   reserveCartItems,
   holderForStripeSession,
 } from "@/lib/stock/reservations";
+import { B2B_PURCHASE_AVAILABILITY } from "./purchase-availability";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000")
   .trim()
   .replace(/\/+$/, "");
 
 export type CheckoutFailure =
+  | { ok: false; reason: "purchases_paused"; message: string }
   | { ok: false; reason: "empty_cart"; message: string }
   | { ok: false; reason: "unknown_sku"; sku?: string; message: string }
   | { ok: false; reason: "out_of_stock"; sku?: string; message: string }
@@ -68,6 +71,14 @@ export async function startCheckout(
   userId: string,
   userEmail: string | null,
 ): Promise<CheckoutSuccess | CheckoutFailure> {
+  if (!B2B_PURCHASE_AVAILABILITY.checkout_enabled) {
+    return {
+      ok: false,
+      reason: "purchases_paused",
+      message: B2B_PURCHASE_AVAILABILITY.reason,
+    };
+  }
+
   const rows = await loadCartRows(userId);
   if (rows.length === 0) {
     return { ok: false, reason: "empty_cart", message: "Your cart is empty." };

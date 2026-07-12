@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cambridgetcg.com/schemas/answering-rhyme.statement.v1.json",
+  "title": "Normalized Answering Rhyme portable statement v1",
+  "description": "Normalized shape of a self-declared, non-authoritative portable statement. Accepted pre-normalization inputs are broader. Normalization and canonical bytes are defined by answering-rhyme.canonical-json/1 and its normative vectors, not JSON Schema alone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "canonicalization",
+    "relation_key",
+    "target_revision",
+    "kind",
+    "body",
+    "language",
+    "declared_by",
+    "declared_at",
+    "in_response_to",
+    "evidence_urls",
+    "authority_evidence_urls"
+  ],
+  "properties": {
+    "schema": {
+      "const": "answering-rhyme.statement/1"
+    },
+    "canonicalization": {
+      "const": "answering-rhyme.canonical-json/1"
+    },
+    "relation_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "target_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "kind": {
+      "enum": ["bless", "contextualize", "correct", "withdraw"]
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "language": {
+      "type": "string",
+      "maxLength": 35,
+      "pattern": "^(?:und|[a-z]{2,8}(?:-[a-z0-9]{1,8})*)$"
+    },
+    "declared_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "claimed_role", "canonical_url"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "claimed_role": {
+          "enum": [
+            "viewer",
+            "relation-curator",
+            "card-rights-holder",
+            "artwork-rights-holder",
+            "source-institution",
+            "other"
+          ]
+        },
+        "canonical_url": {
+          "type": ["string", "null"],
+          "maxLength": 1000,
+          "pattern": "^https://"
+        }
+      }
+    },
+    "declared_at": {
+      "type": "string",
+      "pattern": "^(?!0000-)[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "in_response_to": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "evidence_urls": {
+      "$ref": "#/$defs/url_list"
+    },
+    "authority_evidence_urls": {
+      "$ref": "#/$defs/url_list"
+    }
+  },
+  "$defs": {
+    "url_list": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 1000,
+        "pattern": "^https://"
+      }
+    }
+  }
+}

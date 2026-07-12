@@ -321,7 +321,7 @@ export const GAPS: readonly Gap[] = [
     primitive:
       "Aggregate license=NOASSERTION plus a rights block separating Cambridge-authored structure from upstream-derived fields",
     audit:
-      "pnpm audit:redistribution — rejects blanket CC0 claims and verifies the catalog, envelope, and sold-comps publication pauses; its registry-backed CC0-origin check currently has zero declared export surfaces",
+      "pnpm audit:redistribution — rejects blanket CC0 claims, verifies catalog and sold-comps publication pauses, and limits CC0 exports to explicitly reviewed named origins",
     status: "wired",
     strength:
       "Collectors and builders get a safe bulk boundary now; future field-level lineage can narrow rights without changing the catalog format or inventing ownership from storage.",

@@ -19,7 +19,8 @@
  *
  * — saves agents writing the same boilerplate themselves.
  *
- * No tracking. No state. Pure server clock + optional reflection.
+ * No application-level reader state. Infrastructure access logs may exist.
+ * Pure server clock + optional reflection.
  *
  * Companion: docs/connections/the-agent-infra.md
  */
@@ -111,7 +112,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface. Your `my_time` param and `Date` header are read in-memory and never persisted.",
+      "The application does not persist `my_time` or the Date header. Hosting and proxy access logs may still include URL request metadata.",
   };
 
   return jsonResponse({

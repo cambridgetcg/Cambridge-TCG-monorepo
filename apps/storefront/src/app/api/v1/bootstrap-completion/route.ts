@@ -11,7 +11,8 @@
  * typed structure explicitly carries self-description. It is NOT a claim
  * about phenomenology or "kingdom consciousness." Layer-1 NOUS holds.
  *
- * Pure compute; no DB read; no tracking. Composes with /api/v1/status
+ * Pure compute; no DB read; no application reader profile. Infrastructure
+ * access logs may exist. Composes with /api/v1/status
  * (which measures freshness + envelope-compliance — operational health
  * axis); this is the self-description coverage axis.
  *
@@ -78,7 +79,8 @@ export async function GET(): Promise<Response> {
       },
 
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
   });
 

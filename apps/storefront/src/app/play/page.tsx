@@ -16,9 +16,6 @@ interface PVELevel {
   opponent_name: string;
   opponent_icon: string;
   difficulty: "easy" | "medium" | "hard" | "extreme";
-  first_clear_points: number;
-  first_clear_credit: number;
-  repeat_points: number;
   progress: { cleared: boolean; clear_count: number; best_turns: number | null } | null;
   unlocked: boolean;
 }
@@ -26,6 +23,10 @@ interface PVELevel {
 interface PVEData {
   levels: PVELevel[];
   highestCleared: number;
+  mode: "read_only" | "active";
+  mutations_enabled: boolean;
+  rewards_enabled: boolean;
+  reason: string;
 }
 
 interface SavedDeckCard {
@@ -242,6 +243,10 @@ export default function PlayPage() {
   /* ================================================================ */
 
   async function handleStartBattle() {
+    if (!pve?.mutations_enabled) {
+      setStartError(pve?.reason ?? "Adventure battles are paused.");
+      return;
+    }
     if (!nextOpponent || !selectedDeck) return;
     setStartError(null);
     setStarting(true);
@@ -349,7 +354,11 @@ export default function PlayPage() {
   /* ================================================================ */
 
   const hasDecks = savedDecks.length > 0;
-  const canStart = hasDecks && nextOpponent !== null;
+  const canStart =
+    pve?.mutations_enabled === true &&
+    hasDecks &&
+    nextOpponent !== null &&
+    signedIn === true;
 
   return (
     <main className="min-h-screen bg-page text-ink">
@@ -360,7 +369,7 @@ export default function PlayPage() {
             Play <span className="text-accent">One Piece TCG</span>
           </h1>
           <p className="text-ink-muted text-sm sm:text-base mt-1">
-            Pick a deck. Hit Play. You&apos;re in a battle.
+            Build decks, learn the rules, and check which play surfaces are available.
           </p>
         </div>
       </section>
@@ -385,7 +394,37 @@ export default function PlayPage() {
             </div>
           )}
 
-          {signedIn !== null && pve !== null && (
+          {pve && !pve.mutations_enabled && (
+            <div className="p-6 sm:p-8">
+              <p className="text-xs font-medium uppercase text-warning">
+                Read-only mode
+              </p>
+              <h2 className="mt-1 text-xl font-semibold">Adventure battles paused</h2>
+              <p className="mt-2 max-w-2xl text-sm text-ink-muted">{pve.reason}</p>
+              <div className="mt-5 flex flex-wrap gap-4 text-sm">
+                <Link
+                  href="/play/adventure"
+                  className="text-accent hover:text-accent-strong"
+                >
+                  View level status
+                </Link>
+                <Link
+                  href="/play/tutorial"
+                  className="text-accent hover:text-accent-strong"
+                >
+                  Read the tutorial
+                </Link>
+                <Link
+                  href="/deck-builder"
+                  className="text-accent hover:text-accent-strong"
+                >
+                  Open deck builder
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {signedIn !== null && pve !== null && pve.mutations_enabled && (
             <>
               {/* ---- No decks (signed-in or guest, same CTA) ---- */}
               {!hasDecks && (
@@ -544,14 +583,14 @@ export default function PlayPage() {
                         </p>
                         {signedIn === false && (
                           <p className="text-[11px] text-accent/80 text-center">
-                            Playing as guest — progress lives in this browser.{" "}
+                            Stored game progress requires an account. Guest database persistence is paused.{" "}
                             <Link
                               href="/api/auth/signin?callbackUrl=/play"
                               className="underline hover:text-accent-strong"
                             >
                               Sign in
                             </Link>{" "}
-                            to save it across devices.
+                            to play.
                           </p>
                         )}
                       </div>

@@ -33,8 +33,22 @@ const ENVELOPE_SCHEMA_PATH = resolve(
 const REDISTRIBUTABLE_LICENSES = new Set(["cc0", "cc-by", "cc-by-sa", "mit"]);
 
 // An origin enters this set only after Cambridge has evidenced both ownership
-// and publication permission. No participant-derived table qualifies today.
-const FIRST_PARTY_CC0_ORIGINS = new Set<string>();
+// and publication permission. Storage location alone is never evidence.
+const FIRST_PARTY_CC0_ORIGINS = new Set([
+  // Cambridge-authored descriptions of datasets. This origin carries no
+  // records from the datasets it describes and does not change their rights.
+  "cambridge-tcg.dataset-registry",
+  // Cambridge-authored typed gap ledger with an explicit CC0 dedication in
+  // both packages/data-ingest/src/gaps.ts and docs/principles/known-gaps.md.
+  "cambridge-tcg.known-gaps-registry",
+]);
+
+// ── The reviewed standard: CC0 export surfaces → their origins ───────────
+//
+// Edit this table (with review) when a new CC0 surface ships. Every origin
+// listed here is then mechanically held to the coherence rule below. The
+// table is deliberately explicit: it is the human decision the framework
+// asks to be written down, not inferred.
 
 interface Cc0Surface {
   surface: string;
@@ -42,9 +56,26 @@ interface Cc0Surface {
   note: string;
 }
 
-// There are no reviewed CC0 data exports today. Keep the declaration and the
-// registry-backed checks so a future export cannot be added by implication.
-const CC0_EXPORT_SURFACES: Cc0Surface[] = [];
+const CC0_EXPORT_SURFACES: Cc0Surface[] = [
+  {
+    surface: "/api/v1/datasets",
+    origins: ["cambridge-tcg.dataset-registry"],
+    note:
+      "The dataset catalog. Its CC0 envelope covers only our own authored " +
+      "dataset descriptions (lib/datasets.ts); each listed dataset carries its " +
+      "own licence and availability in-band. The catalog carries no records " +
+      "from those datasets, so CC0 applies only to its authored metadata.",
+  },
+  {
+    surface: "/api/v1/gaps",
+    origins: ["cambridge-tcg.known-gaps-registry"],
+    note:
+      "The authored gap ledger and doctrine explicitly dedicate the corpus " +
+      "to CC0; it contains platform gaps, not upstream catalog records.",
+  },
+];
+
+// ── Findings ─────────────────────────────────────────────────────────────
 
 interface Finding {
   check: number;

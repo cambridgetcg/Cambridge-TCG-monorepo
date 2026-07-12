@@ -1,7 +1,7 @@
 /**
  * /api/v1/status — the pantry's inspectability surface.
  *
- * Substrate-honest answer to: *for every public endpoint, how stale is
+ * Substrate-honest answer to: *for each registered status resource, how stale is
  * the platform's intent on its freshness, what's its last-known state,
  * and is it composing through the data-pantry envelope?*
  *
@@ -10,7 +10,7 @@
  *
  * **Self-referential.** This endpoint reports its own status — when
  * `/api/v1/status` calls itself in the resources list, the response
- * contains the response.
+ * contains the response. Routes outside the registered resource list are not covered.
  *
  * Companion to:
  *   - apps/storefront/src/lib/data-pantry/ (the emission layer it inspects)

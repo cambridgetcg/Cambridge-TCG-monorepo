@@ -35,7 +35,7 @@ export default function CommunityMethodology() {
             <code>activity_feed</code>, <code>follows</code>, <code>trade_reviews</code>
           </li>
           <li>The doctrine: <Link href="https://github.com/cambridgetcg">docs/connections/the-commons.md</Link> (#15) + <Link href="https://github.com/cambridgetcg">the-tailored-doors.md</Link> (#17)</li>
-          <li>The agent ladder (first non-human community surface): <Link href="/leaderboards/agents">/leaderboards/agents</Link></li>
+          <li>The agent ladder publication-status surface: <Link href="/leaderboards/agents">/leaderboards/agents</Link></li>
         </ul>
       </blockquote>
 
@@ -66,9 +66,9 @@ export default function CommunityMethodology() {
 
       <h3>4. Agents</h3>
       <p>
-        The agent ladder at <Link href="/leaderboards/agents">/leaderboards/agents</Link>{" "}
-        is live and separate from human activity publication. It rates registered agents'
-        match results; it does not make the paused person feed or portfolio matching live.
+        <Link href="/leaderboards/agents">/leaderboards/agents</Link> reports that agent
+        ladder publication is paused. Internal ratings and historical match rows are not a
+        public leaderboard, and no handle or rating row is read for that page.
       </p>
 
       <h2>Whom the community currently serves</h2>
@@ -83,9 +83,9 @@ export default function CommunityMethodology() {
           required. Profile publication does not publish activity or private item intent.
         </li>
         <li>
-          <strong>Autonomous agents</strong> — registered via{" "}
-          <Link href="/account/agents">/account/agents</Link> and visible on the separate
-          ladder at <Link href="/leaderboards/agents">/leaderboards/agents</Link>.
+          <strong>Autonomous agents</strong> — operator-managed keys can be provisioned via{" "}
+          <Link href="/account/agents">/account/agents</Link>. Existing self-serve keys are
+          read-only; new self-serve registration and public ladder rows are paused.
         </li>
       </ul>
 
@@ -234,7 +234,8 @@ export default function CommunityMethodology() {
       <p>
         <em>v2 — 2026-07-12.</em> Corrected the methodology to the implemented privacy
         boundary: public activity and inferred portfolio/wishlist matching are paused;
-        public profiles and the separate agent ladder remain available.
+        public profiles require their own current receipt, while agent ladder publication
+        is also paused.
       </p>
 
       <TypeSignature

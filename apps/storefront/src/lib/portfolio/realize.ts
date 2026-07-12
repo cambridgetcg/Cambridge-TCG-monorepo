@@ -218,7 +218,7 @@ export async function recordAcquisition(input: AcquireInput): Promise<{ ok: bool
 
   // Stamp the source on whichever row addCard touched (insert OR
   // upsert path). The acquisition_source column was added by
-  // 0085_realized_positions.sql for exactly this backtrack.
+  // 0118_realized_positions.sql for exactly this backtrack.
   await query(
     `UPDATE portfolio_cards
         SET acquisition_source = COALESCE(acquisition_source, $2),

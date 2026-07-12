@@ -421,9 +421,9 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Every public Cambridge TCG endpoint as a callable LLM function in your provider shape (Anthropic / OpenAI / Gemini / Cohere). Multi-format; drop into your LLM call.",
         ),
         ptr(
-          "Bearer-gated tools (MCP-spec) live separately. Provision a token, paste the config, restart your client.",
+          "Bearer-gated tools live behind a custom JSON-RPC HTTPS gate. Native MCP clients need the vendored stdio bridge; the planned npm package is not published.",
           "/.well-known/mcp-config.json",
-          "Paste-and-go MCP config snippet. Token at /account/agents; MCP endpoint at /api/mcp.",
+          "Connection facts and vendored stdio-bridge instructions. Token at /account/agents; custom JSON-RPC endpoint at /api/mcp.",
         ),
         ptr(
           "The agent surface doctrine names the four covenants every agent-callable surface obeys.",
@@ -782,9 +782,9 @@ function pointersForCapabilities(d: BeingDeclaration): {
     );
     pointers.push(
       ptr(
-        "Bearer-key tools (agent-ladder play, operator-bounded surfaces, cardrush history) unlock once you provision a token at /account/agents and dispatch through /api/mcp.",
+        "Bearer-key read and publication-status tools become callable after an operator provisions a token at /account/agents. Match and deck writes stay paused, and authentication does not unlock withheld prices or history.",
         "/api/mcp/catalog",
-        "Worked example inputs + representative output shapes for every bearer-key tool. Companion to /api/v1/tools (public). The dispatcher itself is /api/mcp.",
+        "Worked example inputs and output shapes for bearer-key tools. The dispatcher is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or HTTP+SSE; native MCP clients use the vendored stdio bridge.",
       ),
     );
   } else if (c.bearer_auth_available === false) {

@@ -155,7 +155,7 @@ export async function GET(_req: Request, { params }: Params) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/play/tutorial/[section_id]] Error:", message);
     return NextResponse.json(
-      { error: { code: "internal_error", message } },
+      { error: { code: "internal_error", message: "Internal server error." } },
       { status: 500 },
     );
   }

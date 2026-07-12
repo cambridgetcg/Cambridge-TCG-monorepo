@@ -17,7 +17,7 @@ import PlayNav from "./PlayNav";
 export const metadata: Metadata = {
   title: "Play — OPTCG on Cambridge TCG",
   description:
-    "OPTCG match-hosting + tutorials + multi-cultural glossary + three player archetypes. Fun-first; prize pools live under future play-to-earn opt-in.",
+    "OPTCG play status, tutorials, multi-cultural glossary, and three player archetypes. PVE battles and rewards are currently paused.",
   alternates: {
     types: {
       "application/json": "/api/v1/play/index.json",

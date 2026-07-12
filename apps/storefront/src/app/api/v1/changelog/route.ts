@@ -312,7 +312,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface.",
+      "This endpoint creates no application-level visit profile; hosting and proxy access logs may exist.",
   };
 
   return jsonResponse({

@@ -8,7 +8,7 @@
  * how it became true. This script checks two places where that claim
  * could be a lie.
  *
- * Two checks, exits non-zero if any drift is found:
+ * Three checks, exits non-zero if any drift is found:
  *
  *   1. Schema drift — every drizzle/*.sql ADD COLUMN / CREATE TABLE in
  *      apps/storefront/drizzle/ should exist in the deployed schema. If
@@ -20,6 +20,10 @@
  *      touching apps/admin (or the relevant repo path) since some prior
  *      reference point. A "done" mission with zero touching commits is
  *      a ledger-vs-substrate lie.
+ *
+ *   3. Absolute public claims — runtime source must not promise that hosted
+ *      infrastructure logs nothing, that a curated contract covers every
+ *      public endpoint, or that paused agent capabilities are live.
  *
  * Usage:
  *   pnpm --filter @cambridge-tcg/admin honesty
@@ -46,6 +50,7 @@ import { homedir } from "node:os";
 const ADMIN_DIR = join(fileURLToPath(import.meta.url), "../../");
 const REPO_ROOT = join(ADMIN_DIR, "../..");
 const DRIZZLE_DIR = join(REPO_ROOT, "apps/storefront/drizzle");
+const RUNTIME_SOURCE_DIR = join(REPO_ROOT, "apps/storefront/src");
 const DEV_STATE = join(homedir(), "Love/memory/dev-state.json");
 
 // ── Env loading ─────────────────────────────────────────────────────────
@@ -65,7 +70,10 @@ function loadEnvFile(path: string): Record<string, string> {
     if (eq < 0) continue;
     const k = trimmed.slice(0, eq).trim();
     let v = trimmed.slice(eq + 1).trim();
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    if (
+      (v.startsWith('"') && v.endsWith('"')) ||
+      (v.startsWith("'") && v.endsWith("'"))
+    ) {
       v = v.slice(1, -1);
     }
     out[k] = v;
@@ -90,14 +98,18 @@ interface SchemaClaim {
   column?: string;
 }
 
-const ADD_COLUMN_RE = /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)/gi;
-const CREATE_TABLE_RE = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/gi;
+const ADD_COLUMN_RE =
+  /ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)/gi;
+const CREATE_TABLE_RE =
+  /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/gi;
 
 function parseDrizzleClaims(): SchemaClaim[] {
   const claims: SchemaClaim[] = [];
   let files: string[] = [];
   try {
-    files = readdirSync(DRIZZLE_DIR).filter((f) => f.endsWith(".sql")).sort();
+    files = readdirSync(DRIZZLE_DIR)
+      .filter((f) => f.endsWith(".sql"))
+      .sort();
   } catch (err) {
     console.error(`[honesty] cannot read ${DRIZZLE_DIR}:`, err);
     return claims;
@@ -140,12 +152,12 @@ interface DriftRow {
   column?: string;
 }
 
-async function checkSchemaDrift(): Promise<DriftRow[]> {
+async function checkSchemaDrift(): Promise<DriftRow[] | null> {
   if (!STOREFRONT_DATABASE_URL) {
     console.error(
       "[honesty] STOREFRONT_DATABASE_URL not set — skipping schema drift check.",
     );
-    return [];
+    return null;
   }
 
   // Use the same DB client the admin app uses, via @cambridge-tcg/db.
@@ -163,9 +175,10 @@ async function checkSchemaDrift(): Promise<DriftRow[]> {
   `;
   const tableSet = new Set(tables.map((r) => r.table_name));
 
-  const cols = tableNames.length === 0
-    ? []
-    : await client<{ table_name: string; column_name: string }[]>`
+  const cols =
+    tableNames.length === 0
+      ? []
+      : await client<{ table_name: string; column_name: string }[]>`
         SELECT table_name, column_name FROM information_schema.columns
          WHERE table_schema = 'public'
            AND table_name = ANY(${tableNames})
@@ -187,7 +200,10 @@ async function checkSchemaDrift(): Promise<DriftRow[]> {
         // table-level drift already covers it.
         if (tableSet.has(c.table)) {
           drifts.push({
-            file: c.file, kind: "column", table: c.table, column: c.column,
+            file: c.file,
+            kind: "column",
+            table: c.table,
+            column: c.column,
           });
         }
       }
@@ -233,7 +249,9 @@ function gitLog(args: string[]): string {
 function inferPathForMission(t: DevStateTask): string {
   // Mission-id → admin-route mapping by convention. New rule: titles like
   // "TCG admin /foo/bar — …" prefer apps/admin/src/app/(dashboard)/foo/bar.
-  const m = t.title.match(/\/(system|trust|money|catalog|commerce|ops)\/([a-z-]+)/i);
+  const m = t.title.match(
+    /\/(system|trust|money|catalog|commerce|ops)\/([a-z-]+)/i,
+  );
   if (m) {
     return `apps/admin/src/app/(dashboard)/${m[1]}/${m[2]}`;
   }
@@ -242,13 +260,15 @@ function inferPathForMission(t: DevStateTask): string {
   return "";
 }
 
-function checkMissionDrift(): MissionDriftRow[] {
+function checkMissionDrift(): MissionDriftRow[] | null {
   let raw: string;
   try {
     raw = readFileSync(DEV_STATE, "utf8");
   } catch (err) {
-    console.error(`[honesty] cannot read ${DEV_STATE}: ${(err as Error).message}`);
-    return [];
+    console.error(
+      `[honesty] cannot read ${DEV_STATE}: ${(err as Error).message}`,
+    );
+    return null;
   }
   const state: DevState = JSON.parse(raw);
   const drifts: MissionDriftRow[] = [];
@@ -281,10 +301,83 @@ function checkMissionDrift(): MissionDriftRow[] {
   return drifts;
 }
 
+// ── Absolute public-claim check ─────────────────────────────────────────
+
+interface PublicClaimDrift {
+  file: string;
+  line: number;
+  claim: string;
+}
+
+const FORBIDDEN_PUBLIC_CLAIMS: Array<{ label: string; pattern: RegExp }> = [
+  {
+    label: "hosted substrate logs nothing",
+    pattern: /(?:substrate|platform|kingdom|endpoint) logs nothing/i,
+  },
+  {
+    label: "hosted substrate has no request knowledge",
+    pattern: /substrate has no idea/i,
+  },
+  {
+    label: "IP counter claimed as the only request artifact",
+    pattern: /beyond the IP rate-limit counter/i,
+  },
+  {
+    label: "exhaustive public endpoint contract",
+    pattern: /every public endpoint/i,
+  },
+  {
+    label: "paused agent ladder described as live",
+    pattern: /agent ladder live/i,
+  },
+  {
+    label: "paused agent ladder described as public data",
+    pattern: /public Glicko-2 ladder/i,
+  },
+];
+
+function runtimeFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...runtimeFiles(path));
+    else if (
+      /\.(?:ts|tsx|md)$/.test(entry.name) &&
+      !/\.test\.[^.]+$/.test(entry.name)
+    ) {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
+function checkPublicClaimDrift(): PublicClaimDrift[] {
+  const findings: PublicClaimDrift[] = [];
+  for (const file of runtimeFiles(RUNTIME_SOURCE_DIR)) {
+    const lines = readFileSync(file, "utf8").split("\n");
+    lines.forEach((line, index) => {
+      for (const forbidden of FORBIDDEN_PUBLIC_CLAIMS) {
+        if (forbidden.pattern.test(line)) {
+          findings.push({
+            file: file.slice(REPO_ROOT.length + 1),
+            line: index + 1,
+            claim: forbidden.label,
+          });
+        }
+      }
+    });
+  }
+  return findings;
+}
+
 // ── Report ──────────────────────────────────────────────────────────────
 
-function fmtSchemaDrift(drifts: DriftRow[]): string {
-  if (drifts.length === 0) return "✅ No schema drift — every drizzle claim has a deployed counterpart.\n";
+function fmtSchemaDrift(drifts: DriftRow[] | null): string {
+  if (drifts === null) {
+    return "⏭️  Schema drift check skipped — production database credentials were unavailable.\n";
+  }
+  if (drifts.length === 0)
+    return "✅ No schema drift — every drizzle claim has a deployed counterpart.\n";
   const lines = ["⚠️  Schema drift — recipe vs deployed memory:"];
   lines.push("");
   lines.push("| Migration | Kind | Target |");
@@ -297,8 +390,12 @@ function fmtSchemaDrift(drifts: DriftRow[]): string {
   return lines.join("\n");
 }
 
-function fmtMissionDrift(drifts: MissionDriftRow[]): string {
-  if (drifts.length === 0) return "✅ No mission drift — every done TCG mission has shipped commits.\n";
+function fmtMissionDrift(drifts: MissionDriftRow[] | null): string {
+  if (drifts === null) {
+    return "⏭️  Mission drift check skipped — the local mission ledger was unavailable.\n";
+  }
+  if (drifts.length === 0)
+    return "✅ No mission drift — every done TCG mission has shipped commits.\n";
   const lines = ["⚠️  Mission drift — ledger vs git:"];
   lines.push("");
   lines.push("| Mission | Title | Completed at | Reason |");
@@ -312,17 +409,35 @@ function fmtMissionDrift(drifts: MissionDriftRow[]): string {
   return lines.join("\n");
 }
 
+function fmtPublicClaimDrift(drifts: PublicClaimDrift[]): string {
+  if (drifts.length === 0) {
+    return "✅ No absolute public-claim drift — runtime wording preserves hosted logging, contract-scope, and paused-agent boundaries.\n";
+  }
+  const lines = [
+    "⚠️  Absolute public-claim drift:",
+    "",
+    "| File | Line | Claim |",
+    "|------|------|-------|",
+  ];
+  for (const drift of drifts) {
+    lines.push(`| ${drift.file} | ${drift.line} | ${drift.claim} |`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
 async function main(): Promise<void> {
   console.log("# Cambridge TCG — substrate honesty report\n");
   console.log(`Generated: ${new Date().toISOString()}\n`);
   console.log("---\n");
 
   console.log("## Schema drift\n");
-  let schemaDrifts: DriftRow[] = [];
+  let schemaDrifts: DriftRow[] | null = null;
   try {
     schemaDrifts = await checkSchemaDrift();
   } catch (err) {
     console.error("[honesty] schema drift check failed:", err);
+    schemaDrifts = null;
   }
   console.log(fmtSchemaDrift(schemaDrifts));
 
@@ -330,7 +445,14 @@ async function main(): Promise<void> {
   const missionDrifts = checkMissionDrift();
   console.log(fmtMissionDrift(missionDrifts));
 
-  const total = schemaDrifts.length + missionDrifts.length;
+  console.log("## Absolute public claims\n");
+  const publicClaimDrifts = checkPublicClaimDrift();
+  console.log(fmtPublicClaimDrift(publicClaimDrifts));
+
+  const total =
+    (schemaDrifts?.length ?? 0) +
+    (missionDrifts?.length ?? 0) +
+    publicClaimDrifts.length;
   console.log(`---\n\n**Total drift findings: ${total}**\n`);
 
   process.exit(total > 0 ? 1 : 0);

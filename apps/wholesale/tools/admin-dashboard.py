@@ -12,7 +12,9 @@ import psycopg2.extras
 import streamlit as st
 from fpdf import FPDF
 
-DATABASE_URL = "postgresql://postgres:Rzqku6Og7qqogZkzb1gPSVvn@tcg-wholesale.cn4c2su0o42n.us-east-1.rds.amazonaws.com:5432/wholesale?sslmode=require"
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required.")
 
 ALL_STATUSES = ["submitted", "quoted", "confirmed", "paid", "ordered", "shipped", "delivered", "cancelled"]
 

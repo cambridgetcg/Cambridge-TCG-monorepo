@@ -76,7 +76,7 @@ const ARCHETYPES: Archetype[] = [
     ],
     flows_served_today: [
       { label: "Lobby", path: "/play", note: "Public rooms, private rooms via code" },
-      { label: "Adventure mode", path: "/play/adventure", note: "Single-player against AI opponents, scaling difficulty" },
+      { label: "Adventure status", path: "/play/adventure", note: "Read-only levels and prior progress; battles and rewards are paused" },
       { label: "Hobbyist landing", path: "/play/casual", note: "Opinionated entry-point for relaxed play; no ratings on the surface" },
       { label: "How-to-play guide", path: "/guides/how-to-play", note: "Long-form beginner's tutorial" },
       { label: "Welcome", path: "/play/welcome", note: "Polymorphic landing routed by archetype × player kind" },
@@ -108,14 +108,14 @@ const ARCHETYPES: Archetype[] = [
       "Set completion tracking (mine + global progress)",
       "Card-art appreciation (high-res images, variant comparisons)",
       "Lore connections (which One Piece arc each card depicts)",
-      "Catalog browsing (universal-rep + temporal slice for historical pricing context)",
+      "Structural catalog browsing (legacy price values and historical reconstruction are withheld)",
       "Portfolio tracking (mine vs target completion percentage)",
       "Provenance: when first listed, in which set, what variants exist",
     ],
     flows_served_today: [
       { label: "Card catalog (universal)", path: "/api/v1/universal/games", note: "Browse games → sets → cards through math-mirror endpoints" },
-      { label: "Per-card universal", path: "/api/v1/universal/card/[sku]", note: "Each card's identity, edges, magnitudes, history" },
-      { label: "Temporal slice", path: "/api/at/[date]/card/[sku]", note: "What this card was on a past date — historical pricing context" },
+      { label: "Per-card universal", path: "/api/v1/universal/card/[sku]", note: "Current structural identity and edges; legacy price magnitudes and media are null" },
+      { label: "Date-shaped compatibility view", path: "/api/at/[date]/card/[sku]", note: "Current structural fields under a requested date label; not historical reconstruction" },
       { label: "Portfolio", path: "/account/portfolio", note: "Your collection tracked (auth required for write; reads honest about what's shown)" },
       { label: "Market browse", path: "/market", note: "Cards available for acquisition (commerce surface — separate from play)" },
       { label: "Sets browse", path: "/api/v1/universal/sets/[game]", note: "Every set in a game, with completion-context for collectors" },
@@ -153,13 +153,13 @@ const ARCHETYPES: Archetype[] = [
       "Prize pools (when play-to-earn lands — separate opt-in)",
     ],
     flows_served_today: [
-      { label: "Agent ladder", path: "/leaderboards/agents", note: "Glicko-2 rating for autonomous agents" },
+      { label: "Agent ladder status", path: "/leaderboards/agents", note: "Publication paused; no agent or rating rows returned" },
       { label: "Competitor landing", path: "/play/compete", note: "Opinionated entry-point; competition-focused surfaces" },
       { label: "Agent surface", path: "/methodology/agents", note: "Anti-collusion, operator authority, rating formula" },
       { label: "Match lifecycle log (Scribe)", path: "/account/journey", note: "Per-user lifecycle including matches (auth required)" },
     ],
     flows_planned: [
-      { label: "Human Glicko-2 ladder", note: "Today's ladder is agent-only; humans get a separate ladder when ranked-play opt-in ships" },
+      { label: "Human Glicko-2 ladder", note: "Human ranked play remains planned; it requires a separate opt-in publication contract" },
       { label: "Tournament substrate", note: "tournaments table + brackets + swiss-pairing engine + match-reporting flow; substrate not yet shipped" },
       { label: "Tournament schedule page", note: "/play/compete/tournaments — substrate-honest 'planned' badge until shipped" },
       { label: "Replay viewer", note: "Game-tree replay with annotation; composes with the Scribe's match_lifecycle_log" },
@@ -229,8 +229,8 @@ export async function GET() {
         applies_to: ["hobbyist", "collector"],
         opt_in_required_for: ["competitor.prize_pools_when_shipped"],
         existing_drift: [
-          "pve_levels.first_clear_credit (store credit on first-clear PvE) — predates this stance; moves under play-to-earn when shipped",
-          "pve_levels.repeat_points (loyalty points on repeat-clear PvE) — same",
+          "Legacy pve_levels reward columns remain in storage but are omitted from the public level response.",
+          "PVE battle POST, direct reward grants, earnings previews, and reward reconciliation are paused before database work.",
         ],
       },
       archetype_count: ARCHETYPES.length,
@@ -250,7 +250,7 @@ export async function GET() {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/play/archetypes] Error:", message);
     return NextResponse.json(
-      { error: { code: "internal_error", message } },
+      { error: { code: "internal_error", message: "Internal server error." } },
       { status: 500 },
     );
   }

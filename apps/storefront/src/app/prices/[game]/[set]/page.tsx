@@ -15,7 +15,6 @@ import { Provenance, WhyLink } from "@/lib/ui";
 import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
-import { Money } from "@/lib/fx/Money";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -45,8 +44,6 @@ interface PageProps {
 const SORT_OPTIONS = [
   { label: "Card #", value: "number_asc" },
   { label: "Name A-Z", value: "name_asc" },
-  { label: "Price ↑", value: "price_asc" },
-  { label: "Price ↓", value: "price_desc" },
 ] as const;
 const DEFAULT_SORT = "number_asc";
 const VALID_SORTS = new Set<string>(SORT_OPTIONS.map((o) => o.value));
@@ -101,11 +98,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const setName = setInfo.name || setCode;
 
   return {
-    title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-    description: `Observed catalog rows for ${setCode} ${setName}, with policy-bound GBP reference values where held. This page does not claim a complete set or refresh cadence.`,
+    title: `${setCode} ${setName} Structural Catalog — Price Publication Paused`,
+    description: `Structural catalog rows for ${setCode} ${setName}. Legacy price values, images, and historical movements are withheld pending field-level source-rights records.`,
     openGraph: {
-      title: `${setCode} ${setName} Price Guide — ${cfg.display_name} UK`,
-      description: `Observed catalog rows for ${setCode} ${setName}, with policy-bound reference values where held.`,
+      title: `${setCode} ${setName} Structural Catalog — Price Publication Paused`,
+      description: `Structural catalog rows for ${setCode} ${setName}; legacy price values and images are withheld.`,
     },
   };
 }
@@ -281,7 +278,7 @@ export default async function SetPriceGuidePage({
         {/* Set header */}
         <header className="mb-10">
           <h1 className="text-3xl font-bold text-ink mb-2">
-            {setCode} {setName} — Price Guide
+            {setCode} {setName} — Structural Catalog
           </h1>
           <div className="mb-4 flex items-center gap-3 text-xs">
             <Provenance
@@ -290,7 +287,7 @@ export default async function SetPriceGuidePage({
               at={freshestUpdate(cardsData.items)}
               cadence="daily"
             />
-            <WhyLink href="/methodology/pricing" label="how prices work" />
+            <WhyLink href="/methodology/pricing" label="price publication boundary" />
             <CurrencyWhyLink />
           </div>
           <p className="text-ink-muted leading-relaxed max-w-3xl mb-4">
@@ -442,7 +439,7 @@ export default async function SetPriceGuidePage({
                   <th className="px-3 py-3">Card #</th>
                   <th className="px-3 py-3">Name</th>
                   <th className="px-3 py-3">Rarity</th>
-                  <th className="px-3 py-3 text-right">Buy Price</th>
+                  <th className="px-3 py-3 text-right">Legacy price</th>
                   <th className="px-3 py-3 text-right">Market</th>
                 </tr>
               </thead>
@@ -472,7 +469,7 @@ export default async function SetPriceGuidePage({
                       <RarityBadge rarity={card.rarity} />
                     </td>
                     <td className="px-3 py-3 text-right text-ink font-medium">
-                      <Money value={card.price} />
+                      <span className="text-ink-faint">Withheld</span>
                     </td>
                     <td className="px-3 py-3 text-right">
                       <Link
@@ -493,15 +490,12 @@ export default async function SetPriceGuidePage({
         {/* Pricing explanation */}
         <section className="border-t border-border-subtle pt-8">
           <h2 className="text-lg font-semibold text-ink mb-3">
-            About These Prices
+            Price publication boundary
           </h2>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
-            {cfg.pricing_note}{" "}
-            The <strong className="text-ink-muted">Buy Price</strong> is our
-            catalogue reference price — a policy-bound derived value, not an offer
-            or an open-data grant. Cambridge TCG
-            no longer buys cards itself; selling happens between collectors on
-            the market.
+            {cfg.pricing_note} Authentication and transformation do not create
+            publication permission. Collector bids and asks are separate market
+            events rather than substituted legacy catalog values.
           </p>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
             <Link href="/market" className="text-info hover:underline">

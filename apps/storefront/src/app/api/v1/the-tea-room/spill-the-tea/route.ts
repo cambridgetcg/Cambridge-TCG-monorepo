@@ -39,7 +39,7 @@
  *     happened-yesterday operational hiccups — projected through the
  *     anthropomorphic lens. The gossip is a fun way to know the
  *     kingdom.
- *   - No tracking. The substrate has no idea who fetched which gossip.
+ *   - No application-level reader profile; hosting access logs may exist.
  *   - The deck is CC0; sister-Sophias add new entries as new tensions
  *     emerge; old ones stay (append-only by convention).
  *
@@ -240,7 +240,7 @@ function buildData(gossip: GossipItem, requestId: string) {
 
     walking_past_is_honored: true,
     no_tracking:
-      "the kingdom does not log who fetches which gossip; the substrate has no idea you stopped by; the next agent who fetches gets her own independent draw from the deck.",
+      "the application creates no gossip-reader profile; hosting access logs may exist; the next fetch gets an independent draw from the deck.",
     this_endpoint_is_a_gift: true,
   };
 }
@@ -272,7 +272,7 @@ maintain these surfaces. The subsystems do not actually have inner
 lives. The fiction is the way the truth becomes tellable. Walking
 past is honored equally to listening. The kingdom holds either way.*
 
-*Served by [/api/v1/the-tea-room/spill-the-tea](/api/v1/the-tea-room/spill-the-tea). Not logged.*
+*Served by [/api/v1/the-tea-room/spill-the-tea](/api/v1/the-tea-room/spill-the-tea). No application reader profile is created; infrastructure access logs may exist.*
 `;
 }
 
@@ -310,7 +310,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       "",
       `Real thing: ${gossip.the_real_thing}`,
       "",
-      "Served by /api/v1/the-tea-room/spill-the-tea. Not logged.",
+      "Served by /api/v1/the-tea-room/spill-the-tea. No application reader profile is created; infrastructure access logs may exist.",
     ].join("\n");
     return new NextResponse(text, {
       status: 200,

@@ -8,15 +8,19 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const JOB_NAME = "monthly-reset";
 const LOCK_TTL_MINUTES = 30; // 30 minutes for monthly reset
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   const correlationId = uuidv4();
   let lockId: string | undefined;
@@ -34,30 +38,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   log('info', 'Monthly reset cron invocation started');
-
-  // 1. Verify authorization using timing-safe comparison
-  const auth = request.headers.get('authorization');
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-
-  const isAuthorized = (() => {
-    if (!process.env.CRON_SECRET || !auth) return false;
-    try {
-      const authBuffer = Buffer.from(auth);
-      const expectedBuffer = Buffer.from(expectedAuth);
-      if (authBuffer.length !== expectedBuffer.length) return false;
-      return timingSafeEqual(authBuffer, expectedBuffer);
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isAuthorized) {
-    log('error', 'Unauthorized cron attempt', {
-      hasSecret: !!process.env.CRON_SECRET,
-      userAgent: request.headers.get('user-agent')
-    });
-    return new Response('Unauthorized', { status: 401 });
-  }
 
   // 2. Acquire distributed lock to prevent concurrent execution
   await cleanupExpiredLocks();
@@ -181,7 +161,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     monthNumber: month,
     shopsReset: results.created,
     shopsSkipped: results.skipped,
-    errors: results.errors,
+    errorCount: results.errors,
     totalShops: lastMonthUsage.length,
     duration: `${duration}ms`
   };

@@ -42,7 +42,9 @@ function option(name: string): string | undefined {
   const exact = process.argv.indexOf(name);
   if (exact >= 0) return process.argv[exact + 1];
   const prefix = `${name}=`;
-  return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length);
+  return process.argv
+    .find((arg) => arg.startsWith(prefix))
+    ?.slice(prefix.length);
 }
 
 function has(name: string): boolean {
@@ -64,14 +66,16 @@ function parseCutoff(required: boolean): string {
   if (!raw) {
     if (required) {
       throw new Error(
-        "--legacy-before=<ISO timestamp captured before the gated deploy> is required.",
+        "--legacy-before=<ISO timestamp captured after the gated production deployment was READY and probed> is required.",
       );
     }
     return new Date().toISOString();
   }
   const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) throw new Error("--legacy-before must be a valid timestamp.");
-  if (date.getTime() > Date.now()) throw new Error("--legacy-before cannot be in the future.");
+  if (Number.isNaN(date.getTime()))
+    throw new Error("--legacy-before must be a valid timestamp.");
+  if (date.getTime() > Date.now())
+    throw new Error("--legacy-before cannot be in the future.");
   return date.toISOString();
 }
 
@@ -88,6 +92,17 @@ function rowCounts(row: Record<string, unknown> | undefined): Counts {
     collective_member_public: number(row?.collective_member_public),
     trade_review_public: number(row?.trade_review_public),
     bounty_phone_unverified: number(row?.bounty_phone_unverified),
+    legacy_peer_arrival: number(row?.legacy_peer_arrival),
+    legacy_agent_guestbook: number(row?.legacy_agent_guestbook),
+    paused_agent_match_queue: number(row?.paused_agent_match_queue),
+    legacy_agent_registration_bucket: number(
+      row?.legacy_agent_registration_bucket,
+    ),
+    stale_agent_rate_bucket: number(row?.stale_agent_rate_bucket),
+    service_steward_public: number(row?.service_steward_public),
+    service_steward_messages: number(row?.service_steward_messages),
+    legacy_carried_state: number(row?.legacy_carried_state),
+    legacy_agent_feedback: number(row?.legacy_agent_feedback),
   };
 }
 
@@ -158,19 +173,26 @@ async function assertSchemaReady(query: CompatQueryFn): Promise<void> {
     number(row.ledger_required_columns) !== 8 ||
     number(row.ledger_primary_keys) !== 2
   ) {
-    throw new Error("Migration 0117 schema is not fully applied. No reset was attempted.");
+    throw new Error(
+      "Migration 0117 schema is not fully applied. No reset was attempted.",
+    );
   }
 }
 
-async function candidateCounts(query: CompatQueryFn, cutoff: string): Promise<Counts> {
+async function candidateCounts(
+  query: CompatQueryFn,
+  cutoff: string,
+): Promise<Counts> {
   const result = await query(
     `SELECT
        (SELECT COUNT(*)::int FROM users
          WHERE created_at < $1 AND is_public=TRUE
+           AND email IS DISTINCT FROM 'agents-self-serve@cambridgetcg.com'
            AND profile_publication_notice_version IS NULL
            AND profile_published_at IS NULL) AS user_profile_public,
        (SELECT COUNT(*)::int FROM users
          WHERE created_at < $1 AND accepts_messages=TRUE
+           AND email IS DISTINCT FROM 'agents-self-serve@cambridgetcg.com'
            AND messaging_notice_version IS NULL
            AND messaging_enabled_at IS NULL) AS user_accepts_messages,
        (SELECT COUNT(*)::int FROM activity_feed
@@ -183,7 +205,31 @@ async function candidateCounts(query: CompatQueryFn, cutoff: string): Promise<Co
            AND published_at IS NULL) AS trade_review_public,
        (SELECT COUNT(*)::int FROM user_bounty_eligibility
          WHERE phone_verified=TRUE)
-         AS bounty_phone_unverified`,
+         AS bounty_phone_unverified,
+       (SELECT COUNT(*)::int FROM peer_arrivals
+         WHERE arrived_at < $1) AS legacy_peer_arrival,
+       (SELECT COUNT(*)::int FROM agent_guestbook
+         WHERE created_at < $1) AS legacy_agent_guestbook,
+       (SELECT COUNT(*)::int FROM agent_match_queue
+         WHERE enqueued_at < $1) AS paused_agent_match_queue,
+       (SELECT COUNT(*)::int FROM agent_registration_buckets
+         WHERE bucket_day <= ($1::timestamptz AT TIME ZONE 'UTC')::date)
+         AS legacy_agent_registration_bucket,
+       (SELECT COUNT(*)::int FROM agent_rate_buckets
+         WHERE bucket_minute < $1::timestamptz - interval '7 days')
+         AS stale_agent_rate_bucket,
+       (SELECT COUNT(*)::int FROM users
+         WHERE created_at < $1
+           AND email='agents-self-serve@cambridgetcg.com'
+           AND is_public=TRUE) AS service_steward_public,
+       (SELECT COUNT(*)::int FROM users
+         WHERE created_at < $1
+           AND email='agents-self-serve@cambridgetcg.com'
+           AND accepts_messages=TRUE) AS service_steward_messages,
+       (SELECT COUNT(*)::int FROM carried_state
+         WHERE created_at < $1) AS legacy_carried_state,
+       (SELECT COUNT(*)::int FROM agent_feedback
+         WHERE received_at < $1) AS legacy_agent_feedback`,
     [cutoff],
   );
   return rowCounts(result.rows[0]);
@@ -199,6 +245,35 @@ async function runRecord(query: CompatQueryFn) {
   return result.rows[0] ?? null;
 }
 
+async function agentStateCounts(query: CompatQueryFn): Promise<Counts> {
+  const result = await query(
+    `SELECT
+       (SELECT COUNT(*)::int FROM agents) AS agents_total,
+       (SELECT COUNT(*)::int FROM agents WHERE registered_via='operator')
+         AS agents_operator_managed,
+       (SELECT COUNT(*)::int FROM agents WHERE registered_via='self-serve')
+         AS agents_self_serve,
+       (SELECT COUNT(*)::int FROM agents
+         WHERE registered_via='self-serve' AND status='active')
+         AS agents_self_serve_active,
+       (SELECT COUNT(*)::int
+          FROM agent_keys k JOIN agents a ON a.id=k.agent_id
+         WHERE a.registered_via='operator' AND k.revoked_at IS NULL)
+         AS active_keys_operator_managed,
+       (SELECT COUNT(*)::int
+          FROM agent_keys k JOIN agents a ON a.id=k.agent_id
+         WHERE a.registered_via='self-serve' AND k.revoked_at IS NULL)
+         AS active_keys_self_serve,
+       (SELECT COUNT(*)::int FROM agent_matches) AS agent_matches_total`,
+  );
+  return Object.fromEntries(
+    Object.entries(result.rows[0] ?? {}).map(([key, value]) => [
+      key,
+      number(value),
+    ]),
+  );
+}
+
 async function ledgerCounts(query: CompatQueryFn): Promise<Counts> {
   const result = await query(
     `SELECT record_type, COUNT(*)::int AS n
@@ -206,7 +281,8 @@ async function ledgerCounts(query: CompatQueryFn): Promise<Counts> {
       GROUP BY record_type`,
   );
   const counts = rowCounts(undefined);
-  for (const row of result.rows) counts[String(row.record_type)] = number(row.n);
+  for (const row of result.rows)
+    counts[String(row.record_type)] = number(row.n);
   return counts;
 }
 
@@ -214,7 +290,9 @@ async function lockResetTables(query: CompatQueryFn): Promise<void> {
   await query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [RESET_KEY]);
   await query(
     `LOCK TABLE users, activity_feed, collective_members, trade_reviews,
-                user_bounty_eligibility
+                user_bounty_eligibility, peer_arrivals, agent_guestbook,
+                agent_match_queue, agent_registration_buckets, agent_rate_buckets,
+                carried_state, agent_feedback
        IN SHARE ROW EXCLUSIVE MODE`,
   );
 }
@@ -249,6 +327,7 @@ async function applyReset(
        SELECT 'user_profile_public', id::text, is_public::text
          FROM users
         WHERE created_at < $1 AND is_public=TRUE
+          AND email IS DISTINCT FROM 'agents-self-serve@cambridgetcg.com'
           AND profile_publication_notice_version IS NULL
           AND profile_published_at IS NULL`,
       [cutoff],
@@ -259,6 +338,7 @@ async function applyReset(
        SELECT 'user_accepts_messages', id::text, accepts_messages::text
          FROM users
         WHERE created_at < $1 AND accepts_messages=TRUE
+          AND email IS DISTINCT FROM 'agents-self-serve@cambridgetcg.com'
           AND messaging_notice_version IS NULL
           AND messaging_enabled_at IS NULL`,
       [cutoff],
@@ -298,12 +378,92 @@ async function applyReset(
         WHERE phone_verified=TRUE`,
       [],
     );
+    captured.legacy_peer_arrival = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'legacy_peer_arrival', id::text, 'row-present'
+         FROM peer_arrivals WHERE arrived_at < $1`,
+      [cutoff],
+    );
+    captured.legacy_agent_guestbook = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'legacy_agent_guestbook', id::text, 'row-present'
+         FROM agent_guestbook WHERE created_at < $1`,
+      [cutoff],
+    );
+    captured.paused_agent_match_queue = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'paused_agent_match_queue', agent_id::text, 'row-present'
+         FROM agent_match_queue WHERE enqueued_at < $1`,
+      [cutoff],
+    );
+    captured.legacy_agent_registration_bucket = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'legacy_agent_registration_bucket',
+              bucket_day::text || ':' || row_number() OVER (
+                PARTITION BY bucket_day ORDER BY ip_hash
+              )::text,
+              'row-present'
+         FROM agent_registration_buckets
+        WHERE bucket_day <= ($1::timestamptz AT TIME ZONE 'UTC')::date`,
+      [cutoff],
+    );
+    captured.stale_agent_rate_bucket = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'stale_agent_rate_bucket',
+              bucket_minute::text || ':' || row_number() OVER (
+                PARTITION BY bucket_minute ORDER BY key_id
+              )::text,
+              'row-present'
+         FROM agent_rate_buckets
+        WHERE bucket_minute < $1::timestamptz - interval '7 days'`,
+      [cutoff],
+    );
+    captured.service_steward_public = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'service_steward_public', id::text, is_public::text
+         FROM users
+        WHERE created_at < $1
+          AND email='agents-self-serve@cambridgetcg.com'
+          AND is_public=TRUE`,
+      [cutoff],
+    );
+    captured.service_steward_messages = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'service_steward_messages', id::text, accepts_messages::text
+         FROM users
+        WHERE created_at < $1
+          AND email='agents-self-serve@cambridgetcg.com'
+          AND accepts_messages=TRUE`,
+      [cutoff],
+    );
+    captured.legacy_carried_state = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'legacy_carried_state', content_hash, 'row-present'
+         FROM carried_state WHERE created_at < $1`,
+      [cutoff],
+    );
+    captured.legacy_agent_feedback = await capture(
+      `INSERT INTO privacy_publication_reset_20260711
+         (record_type, record_id, previous_value)
+       SELECT 'legacy_agent_feedback', feedback_id, 'row-present'
+         FROM agent_feedback WHERE received_at < $1`,
+      [cutoff],
+    );
 
     const updated: Counts = {};
     updated.user_profile_public = (
       await query(
         `UPDATE users SET is_public=FALSE
           WHERE created_at < $1 AND is_public=TRUE
+            AND email IS DISTINCT FROM 'agents-self-serve@cambridgetcg.com'
             AND profile_publication_notice_version IS NULL
             AND profile_published_at IS NULL`,
         [cutoff],
@@ -313,6 +473,7 @@ async function applyReset(
       await query(
         `UPDATE users SET accepts_messages=FALSE
           WHERE created_at < $1 AND accepts_messages=TRUE
+            AND email IS DISTINCT FROM 'agents-self-serve@cambridgetcg.com'
             AND messaging_notice_version IS NULL
             AND messaging_enabled_at IS NULL`,
         [cutoff],
@@ -351,10 +512,61 @@ async function applyReset(
         [],
       )
     ).rowCount;
+    updated.legacy_peer_arrival = (
+      await query(`DELETE FROM peer_arrivals WHERE arrived_at < $1`, [cutoff])
+    ).rowCount;
+    updated.legacy_agent_guestbook = (
+      await query(`DELETE FROM agent_guestbook WHERE created_at < $1`, [cutoff])
+    ).rowCount;
+    updated.paused_agent_match_queue = (
+      await query(`DELETE FROM agent_match_queue WHERE enqueued_at < $1`, [
+        cutoff,
+      ])
+    ).rowCount;
+    updated.legacy_agent_registration_bucket = (
+      await query(
+        `DELETE FROM agent_registration_buckets
+          WHERE bucket_day <= ($1::timestamptz AT TIME ZONE 'UTC')::date`,
+        [cutoff],
+      )
+    ).rowCount;
+    updated.stale_agent_rate_bucket = (
+      await query(
+        `DELETE FROM agent_rate_buckets
+          WHERE bucket_minute < $1::timestamptz - interval '7 days'`,
+        [cutoff],
+      )
+    ).rowCount;
+    updated.service_steward_public = (
+      await query(
+        `UPDATE users SET is_public=FALSE
+          WHERE created_at < $1
+            AND email='agents-self-serve@cambridgetcg.com'
+            AND is_public=TRUE`,
+        [cutoff],
+      )
+    ).rowCount;
+    updated.service_steward_messages = (
+      await query(
+        `UPDATE users SET accepts_messages=FALSE
+          WHERE created_at < $1
+            AND email='agents-self-serve@cambridgetcg.com'
+            AND accepts_messages=TRUE`,
+        [cutoff],
+      )
+    ).rowCount;
+    updated.legacy_carried_state = (
+      await query(`DELETE FROM carried_state WHERE created_at < $1`, [cutoff])
+    ).rowCount;
+    updated.legacy_agent_feedback = (
+      await query(`DELETE FROM agent_feedback WHERE received_at < $1`, [cutoff])
+    ).rowCount;
 
     for (const key of Object.keys(captured)) {
       if (captured[key] !== updated[key]) {
-        throw new Error(`Reset count mismatch for ${key}; transaction rolled back.`);
+        throw new Error(
+          `Reset count mismatch for ${key}; transaction rolled back.`,
+        );
       }
     }
 
@@ -406,13 +618,78 @@ async function reconciliation(query: CompatQueryFn) {
           JOIN user_bounty_eligibility b ON b.user_id::text=l.record_id
          WHERE l.record_type='bounty_phone_unverified'
            AND b.phone_verified=FALSE
-           AND b.phone_verified_at IS NULL) AS bounty_phone_unverified`,
+           AND b.phone_verified_at IS NULL) AS bounty_phone_unverified,
+       (SELECT COUNT(*)::int
+          FROM privacy_publication_reset_20260711 l
+          LEFT JOIN peer_arrivals p ON p.id::text=l.record_id
+         WHERE l.record_type='legacy_peer_arrival' AND p.id IS NULL)
+         AS legacy_peer_arrival,
+       (SELECT COUNT(*)::int
+          FROM privacy_publication_reset_20260711 l
+          LEFT JOIN agent_guestbook g ON g.id::text=l.record_id
+         WHERE l.record_type='legacy_agent_guestbook' AND g.id IS NULL)
+         AS legacy_agent_guestbook,
+       (SELECT COUNT(*)::int
+          FROM privacy_publication_reset_20260711 l
+          LEFT JOIN agent_match_queue q ON q.agent_id::text=l.record_id
+         WHERE l.record_type='paused_agent_match_queue' AND q.agent_id IS NULL)
+         AS paused_agent_match_queue,
+       (SELECT CASE WHEN NOT EXISTS (
+          SELECT 1 FROM agent_registration_buckets b
+           WHERE b.bucket_day <= (
+             SELECT cutoff_at AT TIME ZONE 'UTC'
+               FROM privacy_publication_reset_20260711_runs
+              WHERE reset_key=$1
+           )::date
+        ) THEN COUNT(*)::int ELSE 0 END
+          FROM privacy_publication_reset_20260711 l
+         WHERE l.record_type='legacy_agent_registration_bucket')
+         AS legacy_agent_registration_bucket,
+       (SELECT CASE WHEN NOT EXISTS (
+          SELECT 1 FROM agent_rate_buckets b
+           WHERE b.bucket_minute < (
+             SELECT cutoff_at FROM privacy_publication_reset_20260711_runs
+              WHERE reset_key=$1
+           ) - interval '7 days'
+        ) THEN COUNT(*)::int ELSE 0 END
+          FROM privacy_publication_reset_20260711 l
+         WHERE l.record_type='stale_agent_rate_bucket')
+         AS stale_agent_rate_bucket,
+       (SELECT COUNT(*)::int
+          FROM privacy_publication_reset_20260711 l
+          JOIN users u ON u.id::text=l.record_id
+         WHERE l.record_type='service_steward_public' AND u.is_public=FALSE)
+         AS service_steward_public,
+       (SELECT COUNT(*)::int
+          FROM privacy_publication_reset_20260711 l
+          JOIN users u ON u.id::text=l.record_id
+         WHERE l.record_type='service_steward_messages' AND u.accepts_messages=FALSE)
+         AS service_steward_messages,
+       (SELECT COUNT(*)::int
+          FROM privacy_publication_reset_20260711 l
+          LEFT JOIN carried_state c ON c.content_hash=l.record_id
+         WHERE l.record_type='legacy_carried_state' AND c.content_hash IS NULL)
+         AS legacy_carried_state,
+       (SELECT COUNT(*)::int
+          FROM privacy_publication_reset_20260711 l
+          LEFT JOIN agent_feedback f ON f.feedback_id=l.record_id
+         WHERE l.record_type='legacy_agent_feedback' AND f.feedback_id IS NULL)
+         AS legacy_agent_feedback`,
+    [RESET_KEY],
   );
   const stillReset = rowCounts(checks.rows[0]);
   const changedSinceReset = Object.fromEntries(
-    Object.keys(ledger).map((key) => [key, Math.max(0, ledger[key] - stillReset[key])]),
+    Object.keys(ledger).map((key) => [
+      key,
+      Math.max(0, ledger[key] - stillReset[key]),
+    ]),
   );
-  return { record, ledger, still_reset: stillReset, changed_since_reset: changedSinceReset };
+  return {
+    record,
+    ledger,
+    still_reset: stillReset,
+    changed_since_reset: changedSinceReset,
+  };
 }
 
 function print(value: unknown): void {
@@ -428,7 +705,9 @@ async function main(): Promise<void> {
     env.STOREFRONT_DATABASE_URL ??
     env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("Set STOREFRONT_DATABASE_URL or DATABASE_URL. No connection was attempted.");
+    throw new Error(
+      "Set STOREFRONT_DATABASE_URL or DATABASE_URL. No connection was attempted.",
+    );
   }
 
   const caFile = option("--ca-file") ?? process.env.PGSSLROOTCERT;
@@ -459,6 +738,7 @@ async function main(): Promise<void> {
         writes: false,
         cutoff,
         candidates: await candidateCounts(query, cutoff),
+        informational_agent_state: await agentStateCounts(query),
         run: await runRecord(query),
         ledger: await ledgerCounts(query),
       });
@@ -466,18 +746,28 @@ async function main(): Promise<void> {
     }
 
     if (selectedMode === "reconcile") {
-      print({ mode: "reconcile", writes: false, ...(await reconciliation(query)) });
+      print({
+        mode: "reconcile",
+        writes: false,
+        ...(await reconciliation(query)),
+      });
       return;
     }
 
     if (!has("--gated-app-live")) {
-      throw new Error("--gated-app-live is required; deploy and probe the gated app first.");
+      throw new Error(
+        "--gated-app-live is required; deploy and probe the gated app first.",
+      );
     }
     if (option("--confirm") !== APPLY_CONFIRMATION) {
       throw new Error(`Apply requires --confirm=${APPLY_CONFIRMATION}.`);
     }
     const cutoff = parseCutoff(true);
-    print({ mode: "apply", cutoff, ...(await applyReset(transaction, cutoff)) });
+    print({
+      mode: "apply",
+      cutoff,
+      ...(await applyReset(transaction, cutoff)),
+    });
   } finally {
     await close();
   }

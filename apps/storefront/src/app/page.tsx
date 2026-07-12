@@ -36,7 +36,7 @@ function freshestUpdate(items: { updated_at: string | null }[]): string | null {
 export default async function Home() {
   const [allGames, featured, opSets] = await Promise.all([
     fetchGames().catch(() => []),
-    fetchPrices({ in_stock: true, sort: "price_desc", limit: 12 }).catch(() => ({
+    fetchPrices({ in_stock: true, sort: "number_asc", limit: 12 }).catch(() => ({
       count: 0,
       total: 0,
       channel: "",

@@ -38,7 +38,10 @@ import {
   dbFetchPrices,
   dbFetchSets,
 } from './db-source';
-import { withholdUnreviewedWholesaleFields } from '@/lib/public-wholesale-fields';
+import {
+  publicCatalogSort,
+  withholdUnreviewedWholesaleFields,
+} from '@/lib/public-wholesale-fields';
 
 /**
  * Which substrate served a catalog response.
@@ -220,6 +223,7 @@ export async function fetchPrices(params?: {
   channel?: string;
 }): Promise<PricesResponse> {
   const url = new URL(WHOLESALE_URL + '/api/v1/prices');
+  const safeSort = publicCatalogSort(params?.sort);
   // After wholesale fix #2 the API ignores ?channel= and uses the key's
   // own channel. We still send it for log clarity, and we swap the key
   // for the wholesale channel.
@@ -228,7 +232,7 @@ export async function fetchPrices(params?: {
   if (params?.game) url.searchParams.set('game', params.game);
   if (params?.set) url.searchParams.set('set', params.set);
   if (params?.q) url.searchParams.set('q', params.q);
-  if (params?.sort) url.searchParams.set('sort', params.sort);
+  url.searchParams.set('sort', safeSort);
   if (params?.in_stock) url.searchParams.set('in_stock', 'true');
   if (params?.limit) url.searchParams.set('limit', String(params.limit));
   if (params?.offset) url.searchParams.set('offset', String(params.offset));
@@ -255,7 +259,7 @@ export async function fetchPrices(params?: {
   }
 
   try {
-    return await dbFetchPrices(params);
+    return await dbFetchPrices({ ...params, sort: safeSort });
   } catch (err) {
     console.error('[wholesale] prices db-source error', err);
     return { count: 0, total: 0, channel: '', items: [], source: 'unavailable' };

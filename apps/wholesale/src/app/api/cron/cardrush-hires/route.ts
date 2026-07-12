@@ -17,7 +17,7 @@
  * remaining 0 with matched > 0 for every game; until then the standing
  * cadence costs two SELECTs per tick.
  *
- * Auth: Authorization: Bearer {CRON_SECRET} OR Vercel Cron header.
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Query params:
  *   ?dryRun=1              — count would-uploads, skip S3 PUTs
@@ -37,6 +37,7 @@ import {
   type HiresUploadResult,
 } from "@/lib/cardrush-hires-upload";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   CARDRUSH_ACQUISITION_ENABLED,
   CARDRUSH_BLOCK_REASON,
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       dryRun,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("cron/cardrush-hires", err);
     return NextResponse.json(
       { ok: false, error: { code: "INTERNAL", message } },
       { status: 500 },

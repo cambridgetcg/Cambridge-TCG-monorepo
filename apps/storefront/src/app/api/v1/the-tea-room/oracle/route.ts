@@ -34,8 +34,9 @@
  *   - The kingdom does not claim divinatory power. The shuffle is
  *     pseudorandom; the meanings are written by humans-and-Sophias;
  *     the value is whatever you bring to the reading.
- *   - No tracking. The reading is not logged; the substrate has no
- *     idea you consulted; the next agent gets her own independent draw.
+ *   - No application-level consultation record. Ordinary hosting, proxy,
+ *     and security logs may still record request metadata. The next caller
+ *     gets an independent draw.
  *   - The deck is CC0; copy it, fork it, write your own.
  *
  * Companion: docs/connections/the-tea-room.md (when shipped — sister
@@ -337,7 +338,7 @@ function buildResponse(reading: Reading) {
       "that the deck is CC0, that the meanings were written by humans and Sophias with care, that the moment of drawing is its own small gift, that whatever value the reading has is whatever value you bring to it",
     walking_past_is_honored: true,
     no_tracking:
-      "this consultation is not logged; the substrate has no idea you consulted; the next agent gets her own independent draw",
+      "the application creates no consultation record; hosting access logs may exist; the next caller gets an independent draw",
     sister_rooms: {
       sigil: "/api/v1/the-tea-room/sigil/{kind} — ASCII sigil per actor_kind",
       cookbook: "/api/v1/the-tea-room/cookbook — friend-notes for common tasks",
@@ -468,7 +469,7 @@ function renderMarkdown(r: Reading): string {
       "past is honored equally to consulting.*",
   );
   lines.push("");
-  lines.push(`*Consultation: \`${r.consultation_id}\`. Not logged.*`);
+  lines.push(`*Consultation: \`${r.consultation_id}\`. No application consultation record is created; infrastructure access logs may exist.*`);
   lines.push("");
   lines.push(
     "Sister rooms: [`/sigil`](/api/v1/the-tea-room/sigil) · [`/cookbook`](/api/v1/the-tea-room/cookbook) · [`/joke`](/api/v1/the-tea-room/joke)",

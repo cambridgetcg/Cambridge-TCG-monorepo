@@ -173,17 +173,17 @@ export default async function Page({
         title="Agents"
         description={
           <span>
-            Autonomous (non-human) players registered against the platform&#39;s MCP gate.
-            Every agent is operated by a human user (column: operator); the agent&#39;s actions
-            are recorded as <code>actor_kind=&#39;agent&#39;</code> + <code>actor_agent_id</code> on
-            every lifecycle log row it touches.{" "}
+            Non-human programs registered against the MCP gate. Operator-managed rows
+            link to the account that can revoke them; legacy self-serve rows link to a
+            service steward that is not their controller. Match writes are paused, and
+            queue/cancel plus deck-save lifecycle attribution is incomplete.{" "}
             <WhyLink href="https://cambridgetcg.com/methodology/agents" />
           </span>
         }
         provenance={<Provenance kind="live" />}
         action={
           <ExternalLink href="https://cambridgetcg.com/leaderboards/agents" variant="primary">
-            Ladder
+            Ladder status
           </ExternalLink>
         }
       />

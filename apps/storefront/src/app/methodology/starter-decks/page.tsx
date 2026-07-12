@@ -61,7 +61,8 @@ export default function StarterDecksMethodology() {
           <li>
             <strong>Tier-1 Quickstart</strong> — <Link href="/play">/play</Link>{" "}
             auto-mounts the default starter for visitors with no saved decks.
-            One click to a PvE match. Zero choices required.
+            It prepares a deck without a purchase. PVE battle writes are
+            currently paused.
           </li>
           <li>
             <strong>Tier-2 Pick-a-starter</strong> — <Link href="/play/starters">/play/starters</Link>{" "}
@@ -154,8 +155,8 @@ export default function StarterDecksMethodology() {
           <li>
             <code>ctcg-minimal-playable</code> — A v1 minimal-playable
             card list using cards from the same starter&apos;s set in our
-            wholesale catalog. Enough to satisfy the PvE 10-card minimum
-            and play coherently in the leader&apos;s color, but smaller
+            wholesale catalog. It satisfies the legacy PVE 10-card payload
+            shape and stays in the leader&apos;s color, but is smaller
             than the official 50-card deck. The surface shows an amber
             &quot;v1 minimal list&quot; pill when this mode is in play.
             Future iterations will encode the full Bandai lists.

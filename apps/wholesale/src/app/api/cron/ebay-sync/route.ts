@@ -5,7 +5,7 @@
  * `/api/cron/ebay-sync` entry in apps/wholesale/vercel.json, so nothing
  * invokes this on a cadence today. It runs only when called manually (with
  * cron auth) or the day an operator adds a schedule to vercel.json.
- * Auth: requireCronAuth (x-vercel-cron header, Bearer CRON_SECRET, or ?secret=).
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Pulls recent eBay orders, then pushes price + stock for all active
  * listings to eBay.
@@ -21,6 +21,7 @@ import { cards, games } from "@/lib/db/schema";
 import { gt } from "drizzle-orm";
 import { pullOrders, bulkPushListings } from "@/lib/channels/ebay";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
@@ -47,9 +48,12 @@ export async function GET(req: NextRequest) {
     const ordersResult = await pullOrders(since);
 
     if (!ordersResult.ok) {
-      console.error("[cron/ebay-sync] Failed to pull orders:", ordersResult.error);
+      const error = redactInternalError(
+        "cron/ebay-sync pull orders",
+        ordersResult.error,
+      );
       return NextResponse.json(
-        { ok: false, error: ordersResult.error },
+        { ok: false, error },
         { status: 502 },
       );
     }
@@ -82,9 +86,12 @@ export async function GET(req: NextRequest) {
     const endTs = new Date().toISOString();
 
     if (!pushResult.ok) {
-      console.error("[cron/ebay-sync] Failed to push listings:", pushResult.error);
+      const error = redactInternalError(
+        "cron/ebay-sync push listings",
+        pushResult.error,
+      );
       return NextResponse.json(
-        { ok: false, error: pushResult.error },
+        { ok: false, error },
         { status: 502 },
       );
     }
@@ -99,11 +106,13 @@ export async function GET(req: NextRequest) {
       endTs,
       ordersPulled: ordersResult.data.length,
       listingsPushed: pushResult.data.pushed,
-      pushErrors: pushResult.data.errors,
+      pushErrors: pushResult.data.errors.map(({ sku, error }) => ({
+        sku,
+        error: redactInternalError("cron/ebay-sync listing", error),
+      })),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[cron/ebay-sync] Failed:", msg);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const error = redactInternalError("cron/ebay-sync", err);
+    return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 }

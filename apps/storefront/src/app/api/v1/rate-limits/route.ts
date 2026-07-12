@@ -33,14 +33,14 @@ const POLICY: PolicyEntry[] = [
   },
   {
     freshness_key: "price_current",
-    budget_seconds: 300,
-    recommended_poll_seconds: 300,
+    budget_seconds: 86400,
+    recommended_poll_seconds: 86400,
     example_endpoints: [
       "/api/v1/universal/card/[sku]",
       "/cards/[sku]/market",
       "/market/[sku]",
     ],
-    rationale: "Card prices update via 5-minute snapshot cycles upstream.",
+    rationale: "Publication-status checks are enough once per day; legacy price values are withheld.",
   },
   {
     freshness_key: "price_historical",
@@ -154,7 +154,7 @@ const ANTI_PATTERNS = [
   {
     pattern: "Bulk re-exporting CardRush JPY values",
     consequence:
-      "License violation. The /api/v1/cards/[sku]/cardrush-history endpoint declares `_meta.source_license: ['internal-only']` — non-bulk, non-redistributable. We honour CardRush's ToS; if you don't, we'll close access.",
+      "The values are unavailable through public or authenticated participant routes. Enumerating alternate paths does not create publication permission and may trigger infrastructure abuse controls.",
   },
 ];
 

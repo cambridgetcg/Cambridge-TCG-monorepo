@@ -245,12 +245,12 @@ export default function BountyBoard() {
                 Bounty <span className="text-accent">Board</span>
               </h1>
               <p className="text-ink-muted max-w-xl">
-                Win phygital cards in Adventure Mode. Keep them in your Vault, sell back for store credit, or redeem for a physical copy shipped to you.
+                Manage pull tokens and Vault items already on your account. New PVE milestone and daily grants are paused.
               </p>
             </div>
             <div className="flex gap-3">
               <Link href="/play/adventure" className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-5 py-2.5 text-sm transition-colors">
-                Play Adventure
+                Adventure Status
               </Link>
               <Link href="/account" className="bg-surface hover:bg-surface border border-border-subtle rounded-lg px-5 py-2.5 text-sm transition-colors">
                 Account
@@ -279,9 +279,9 @@ export default function BountyBoard() {
           <section className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="bg-surface border border-border-subtle rounded-lg p-5">
-                <p className="text-xs uppercase tracking-wider text-accent font-semibold mb-2">1 · Earn pull tokens</p>
+                <p className="text-xs uppercase tracking-wider text-accent font-semibold mb-2">1 · Check token status</p>
                 <p className="text-sm text-ink-muted">
-                  Clear Adventure Mode levels to earn milestone pulls, from Common up to Legendary. Spare tokens can be merged up a tier.
+                  New PVE milestone and daily token grants are paused. Existing tokens remain visible on signed-in accounts.
                 </p>
               </div>
               <div className="bg-surface border border-border-subtle rounded-lg p-5">
@@ -347,7 +347,7 @@ export default function BountyBoard() {
           <h2 className="text-lg font-bold mb-3">Pull Tokens {totalTokens > 0 && <span className="text-accent">· {totalTokens}</span>}</h2>
           {totalTokens === 0 ? (
             <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
-              No tokens yet. Clear <Link href="/play/adventure" className="text-accent hover:underline">Adventure levels</Link> to earn milestone pulls.
+              No tokens on this account. New PVE milestone and daily grants are paused; the <Link href="/play/adventure" className="text-accent hover:underline">Adventure status page</Link> is read-only.
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">

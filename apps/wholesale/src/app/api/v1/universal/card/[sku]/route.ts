@@ -30,6 +30,7 @@ import { db } from "@/lib/db";
 import { cards, games, sets } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { authenticateApiKey } from "../../../auth";
+import { redactInternalError } from "@/lib/public-errors";
 import { createHash } from "node:crypto";
 import {
   INTERNAL_ONLY_CACHE_CONTROL,
@@ -349,10 +350,9 @@ export async function GET(
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[/api/v1/universal/card/[sku]] Error:", message);
+    const error = redactInternalError("api/v1/universal/card/[sku]", err);
     return NextResponse.json(
-      { error: "Internal error", detail: message },
+      { error },
       {
         status: 500,
         headers: { "Cache-Control": INTERNAL_ONLY_CACHE_CONTROL },

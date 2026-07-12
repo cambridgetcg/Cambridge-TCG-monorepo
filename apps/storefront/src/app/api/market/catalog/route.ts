@@ -63,8 +63,6 @@ export async function GET(request: Request) {
   const sortMap: Record<string, string> = {
     name_asc: "name_asc",
     name_desc: "name_desc",
-    price_asc: "price_asc",
-    price_desc: "price_desc",
     number_asc: "number_asc",
   };
 

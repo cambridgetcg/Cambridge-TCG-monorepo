@@ -15,11 +15,11 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { unauthenticated } from "~/shopify.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import * as crypto from "node:crypto";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const JOB_NAME = "cashback-reconciliation";
 const LOCK_TTL_MINUTES = 15;
@@ -30,6 +30,10 @@ const MIN_AGE_MINUTES = 2;
 const MAX_AGE_DAYS = 7;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   const correlationId = crypto.randomUUID();
   let lockId: string | undefined;
@@ -44,27 +48,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       ...data
     }));
   };
-
-  // Verify cron secret
-  const authHeader = request.headers.get("Authorization");
-  const cronSecret = authHeader?.replace('Bearer ', '');
-
-  const isAuthorized = (() => {
-    if (!process.env.CRON_SECRET || !cronSecret) return false;
-    try {
-      const secretBuffer = new Uint8Array(Buffer.from(cronSecret));
-      const expectedBuffer = new Uint8Array(Buffer.from(process.env.CRON_SECRET));
-      if (secretBuffer.length !== expectedBuffer.length) return false;
-      return timingSafeEqual(secretBuffer, expectedBuffer);
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isAuthorized) {
-    log('error', 'Unauthorized cron attempt');
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // Acquire distributed lock
   await cleanupExpiredLocks();
@@ -229,7 +212,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   } catch (error: any) {
     log('error', 'Cashback reconciliation failed', { error: error.message, stack: error.stack });
-    return json({ success: false, correlationId, error: error.message }, { status: 500 });
+    return json(
+      { success: false, correlationId, error: "Cashback reconciliation failed" },
+      { status: 500 },
+    );
   } finally {
     if (lockId) {
       await releaseCronLock(lockId);

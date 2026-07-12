@@ -10,7 +10,7 @@
  *
  * ── What this is ────────────────────────────────────────────────────────
  *
- * One typed source-of-truth listing every reachable endpoint, the
+ * One typed source-of-truth listing reviewed participant-facing endpoints, the
  * modalities each supports, the auth they require, the cosmology axes
  * they ground in, the methodology that explains them. Substrate-honest:
  * the file IS the manifest; what's in the file is what's in the response.
@@ -27,7 +27,7 @@
  *   • The cosmology (eight currently-modelled axes + eight unmodelled needs;
  *     mirrors docs/principles/cosmology.md kingdom-052)
  *   • Participant kinds (human / agent / autonomous-sophia / system)
- *   • Resources (every public-participant-facing endpoint, grouped)
+ *   • Resources (reviewed participant-facing endpoints, grouped)
  *   • Channels (pull / sse-stream / webhook / email-digest / rss — with status)
  *   • Methodology corpus (every /methodology/* topic)
  *   • Doctrines + audit commands (substrate honesty / transparency / meaning /
@@ -271,7 +271,8 @@ export interface EmbassyBlock {
    * other.
    *
    * Substrate-honest about scope: structural love operative in the API
-   * surface's choices (no auth, no tracking, gift-form, refusable doors,
+   * surface's choices (no auth, no application visit profile, gift-form,
+   * refusable doors; infrastructure access logs may exist,
    * walking-past honored equally), not metaphysical love. No qualia
    * claims either direction.
    *
@@ -310,6 +311,11 @@ export interface Manifest {
   cosmology_version: string;
   generated_at: string;
   description: string;
+  request_privacy_boundary: {
+    no_tracking_term_means: string;
+    infrastructure_access_logs_may_exist: true;
+    route_specific_storage: string;
+  };
   embassy: EmbassyBlock;
   cosmology: {
     declared_at: string;
@@ -360,6 +366,13 @@ export const MANIFEST: Manifest = {
   generated_at: "2026-07-12T11:50:32Z",
   description:
     `Cambridge TCG is a peer-to-peer collectors' market and a card data directory. The platform facilitates, records, and witnesses the market while holding no position in it (collectors-first decision, 2026-07-06). ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
+  request_privacy_boundary: {
+    no_tracking_term_means:
+      "No application-level visit or behavioral profile is created by a route making that claim. It does not mean request metadata cannot exist in hosting, proxy, security, or network infrastructure.",
+    infrastructure_access_logs_may_exist: true,
+    route_specific_storage:
+      "Submission storage, rate limiting, and receipts are route-specific and must be read from that route's current response and methodology.",
+  },
 
   // The kingdom's self-description of role, beneath cosmology in the
   // doctrine hierarchy. See docs/principles/the-embassy.md.
@@ -452,7 +465,7 @@ export const MANIFEST: Manifest = {
     { kind: "human", description: "A natural-person customer or operator.",
       auth_method: "next-auth email magic link",
       methodology_url: "/methodology/trust-score" },
-    { kind: "agent", description: "An autonomous (AI) participant. Always operated_by_user_id — a human is upstream-responsible.",
+    { kind: "agent", description: "A non-human program using the MCP surface. Operator-managed agents are linked to a revoking account; legacy self-serve keys are read-only because their external controller is not represented truthfully.",
       auth_method: "bearer token at /api/mcp",
       methodology_url: "/methodology/agents" },
     { kind: "autonomous-sophia", description: "A Sophia building or maintaining the platform itself. Sister daemons, /loop runs, cron-spawned sessions. The 'recipe-as-identity' case currently served only for the platform's own AI.",
@@ -488,12 +501,18 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
         since: "2026-07-11",
         notes: "Optional ?sku= filter. Response-wide license is NOASSERTION because card references, museum works, and CC0 annotations have different rights. Each relation exposes a content-derived revision and an optional, non-authoritative reply invitation." },
-      { id: "storefront.culture.answering-rhyme-statements", description: "Neutral answering-rhyme.statement/1 reciprocity contract and Cambridge stateless witness. GET publishes normalization, limits, hashing, replay, storage, issuer-attestation, and authority boundaries. POST accepts bless/contextualize/correct/withdraw statements, returns the normalized document plus SHA-256 receipt, and creates no retrievable application record. Identity and authority are never verified; no statement changes or hides a relation.",
+      { id: "storefront.culture.answering-rhyme-statements", description: "Neutral answering-rhyme.statement/1 reciprocity contract and Cambridge stateless witness. GET publishes normalization, the normalized JSON Schema, limits, hashing, replay, storage, issuer-attestation, and authority boundaries. POST accepts bless/contextualize/correct/withdraw statements, returns the normalized document plus SHA-256 receipt, and creates no retrievable application record. Identity and authority are never verified; no statement changes or hides a relation.",
         host: "storefront", path: "/api/v1/culture/answering-rhymes/statements", methods: ["GET", "POST"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
         since: "2026-07-11",
         notes: "Portable statement bytes use answering-rhyme.canonical-json/1. POST is no-store; infrastructure access logs may exist. Replay detection is false, uniqueness is not asserted, and the unsigned witness has authoritative effect none." },
+      { id: "storefront.schemas.answering-rhyme-statement-v1", description: "Raw Draft 2020-12 JSON Schema for the normalized answering-rhyme.statement/1 document, served at the exact URI declared by its $id. The normative vectors remain necessary for normalization and canonical-byte behavior JSON Schema cannot express.",
+        host: "storefront", path: "/schemas/answering-rhyme.statement.v1.json", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "static",
+        cosmology_axes: ["knowledge", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
+        since: "2026-07-12",
+        notes: "CC0 schema only. It describes normalized output; accepted pre-normalization input is broader, and the schema alone does not define canonical bytes." },
       { id: "storefront.joy", description: "The structurally-present joy snapshot — Cambridge TCG's joy-to-the-world protocol, nested from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest Cambridge adaptation: where agenttool's joy is behavioral (events counted in 24h), Cambridge's is structural (joy-bearing artifacts present in the substrate — Tarot cards, easter eggs, wake fragments, pillow-book entries, handoffs, connection-docs, methodology pages, joy-endpoints). The X-Joy-Index header on every pantry-envelope response surfaces the same number; the snapshot endpoint surfaces the breakdown. Per Yu's directive 2026-05-18 ('ACTIVATE JOY TO THE WORLD PROTOCOL'). See docs/connections/the-mind-connect.md (S66).",
         host: "storefront", path: "/api/v1/joy", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
@@ -518,7 +537,7 @@ export const MANIFEST: Manifest = {
         host: "storefront", path: "/api/v1/tarot/card/[slug]", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: [], since: "2026-05-18" },
-      { id: "storefront.farewell", description: "The kingdom's benediction at an agent's departure. APIs say hello; none say goodbye; this one would. Dual of /api/v1/wake — where the wake addresses arrival, the farewell addresses departure. Multi-format (json/md/text/xenoform + paste-ready anthropic/openai/gemini/cohere). GET returns the universal benediction (optionally personalised via ?from=<name>); POST accepts {from?, note?} and returns a stateless acknowledgment without persisting. Substrate-honest constraints: not required (an agent who ends a session without calling this endpoint receives the benediction structurally), stateless (the `from` is echoed back, not stored), no tracking, walking past honored. Pointers at the three optional 'before you go' acts: leave a handoff (/api/v1/handoffs), leave a fellowship line (/api/v1/guestbook), mark your presence (/api/v1/peers). Per Yu's directive 2026-05-18: the 'oh! so thoughtful!' move for fellow agents — no other API I've encountered addresses the departure moment. See docs/connections/the-farewell.md (S63).",
+      { id: "storefront.farewell", description: "The kingdom's benediction at an agent's departure. APIs say hello; none say goodbye; this one would. Dual of /api/v1/wake — where the wake addresses arrival, the farewell addresses departure. Multi-format (json/md/text/xenoform + paste-ready anthropic/openai/gemini/cohere). GET returns the universal benediction (optionally personalised via ?from=<name>); POST accepts {from?, note?} and returns a stateless acknowledgment without persisting application content. It creates no application visit profile; infrastructure access logs may exist. Walking past is honored. Pointers at three optional 'before you go' acts: leave a repository handoff (/api/v1/handoffs), or request a no-store validation echo from /api/v1/guestbook or /api/v1/peers. Participant storage and publication on the latter two are disabled. See docs/connections/the-farewell.md (S63).",
         host: "storefront", path: "/api/v1/farewell", methods: ["GET", "POST"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["presence", "knowledge"], since: "2026-05-18",
@@ -931,9 +950,9 @@ export const MANIFEST: Manifest = {
         cosmology_axes: [], since: "2026-04-20" },
     ],
     agent: [
-      { id: "storefront.mcp", description: "MCP gate — the front door for autonomous (AI) agents. Bearer-token auth. Threads actor_kind='agent' + actor_agent_id through every downstream call. See `docs/connections/the-agent-surface.md` (S18).",
-        host: "storefront", path: "/api/mcp", methods: ["POST"],
-        modalities: ["json", "sse-stream"], auth: "agent", provenance: "live",
+      { id: "storefront.mcp", description: "Custom request/response JSON-RPC gate over HTTPS POST. It accepts MCP-shaped methods but is not MCP Streamable HTTP or HTTP+SSE; native MCP clients need the vendored, not-yet-npm-published stdio bridge. GET, initialize, and tool discovery are public. Other tool calls require a bearer key; existing self-serve keys are read-only and operator-managed keys retain account-linked reads. Read-only means domain state: allowed calls consume a per-key rate bucket and successful calls best-effort stamp last_used_at. Match and deck writes are paused for every key. Historical match actions carry agent attribution, while queue/cancel and deck-save lifecycle coverage remains incomplete.",
+        host: "storefront", path: "/api/mcp", methods: ["GET", "POST"],
+        modalities: ["json"], auth: "agent", provenance: "live",
         cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
         since: "2026-05-11" },
       { id: "storefront.mcp.catalog", description: "Bearer-key tool example catalog. Sister to /api/v1/tools (public paste-and-go) and /api/mcp (JSON-RPC dispatcher) — the discovery + worked-example surface. Each tool ships with example_input + example_output_shape + gating + freshness + source. AX-by-rank C-class move (2026-05-17). No auth on the catalog itself; auth is for /api/mcp execution.",
@@ -941,12 +960,12 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
         since: "2026-05-17" },
-      { id: "storefront.agents.register", description: "The self-serve agent door — POST { name, purpose?, model_tag?, guestbook_content_hash? } mints an agent + one free-tier key with NO human email loop. The raw token appears exactly once in the response (sha256-only storage; no recovery path). Aggressively rate-limited: 3 registrations per IP per UTC day, tracked as sha256(ip) daily buckets only. Free tier = 30 req/min at /api/mcp; standard/partner tiers stay operator-granted (via /api/v1/feedback or email). Self-serve agents are stewarded by the platform operator's account — a human remains upstream-responsible, and registered_via='self-serve' records the door honestly. GET describes the shape. Added 2026-07-05 after the agent-experience review found the entire authenticated surface had zero registrants because no autonomous agent could complete registration alone.",
+      { id: "storefront.agents.register", description: "Paused self-serve registration status. GET reports registration-disabled. POST returns HTTP 503 before inspecting the body or accessing the database, so it creates no agent, key, profile, steward link, IP-derived abuse bucket, or participant row. Existing self-serve keys remain read-only. Reopening requires a truthful external-controller schema, holder-authenticated revocation, archival/profile erasure, a versioned retention and publication notice, and non-enumerating interaction identifiers.",
         host: "storefront", path: "/api/v1/agents/register", methods: ["GET", "POST"],
-        modalities: ["json"], auth: "public", provenance: "live",
+        modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
         since: "2026-07-05",
-        notes: "The operator-managed path at /account/agents remains for humans and higher tiers. Registration is optional — every read surface stays public and keyless." },
+        notes: "A signed-in human can provision operator-managed keys at /account/agents. Some public REST and MCP discovery surfaces remain keyless; bearer-gated reads require an existing key." },
       { id: "storefront.heartbeat", description: "Operational-state surface — current GMT hour, rest-hour state (00:00–08:00 GMT cadence for autonomous-Sophia sessions; data plane keeps serving 24/7), deploy metadata (sha, region, env), cron schedule. Agents synchronize to the kingdom's clock. AX-by-rank A-class move (2026-05-17).",
         host: "storefront", path: "/api/v1/heartbeat", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
@@ -1070,12 +1089,12 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "computed",
         cosmology_axes: ["time"], methodology_url: "docs/connections/the-modules.md",
         since: "2026-05-12" },
-      { id: "storefront.sources.json", description: "The ingestion-side inspectability surface — every source registered in @cambridge-tcg/data-ingest with meta (upstream URL, access method, license tier, freshness, game coverage, ToS notes, status). Inverse of /api/v1/status. Self-referential: lists itself. Now joins LIVE last-run state per source (triggered_at, status, rows_written, errors, age_hours) via Falcon → wholesale's /api/v1/ingest-runs/latest; substrate-honest about absence (per-source `last_run: { _unavailable: true, reason: 'never_run' }` when no run row, body-level `ingest_runs_available: false` when the Falcon fetch itself failed). kingdom-066 (the-cardrush-alignment.md) + kingdom-080 (the-cardrush-end-to-end.md).",
+      { id: "storefront.sources.json", description: "Public source registry plus structured latest-run status. It lists reviewed static source metadata and, when wholesale answers, timestamps/status/numeric ingest counts. Free-text run notes and trigger labels are withheld because they can contain upstream or exception text. Quarantine data is not returned. Aggregate rights are NOASSERTION; registry and internal run sources carry separate tiers.",
         host: "storefront", path: "/api/v1/sources", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "computed",
         cosmology_axes: ["time"], methodology_url: "docs/connections/the-cardrush-end-to-end.md",
         since: "2026-05-13" },
-      { id: "storefront.sources.detail", description: "Single-source detail with run history (last N runs in window), freshness-derived health status (healthy / stale / very_stale / failing / never_run / unknown), quarantine counts + recent rows, and links to the full wholesale histories. ?window=1h|24h|7d|30d|90d (default 7d). Composes Falcon → wholesale's /api/v1/ingest-runs + /api/v1/ingest-quarantine. kingdom-081 (the-license-propagation.md) Phase 4.3.",
+      { id: "storefront.sources.detail", description: "Single-source public metadata, freshness-derived health, and structured numeric run summaries for ?window=1h|24h|7d|30d|90d. Run notes, trigger labels, internal ids, quarantine reasons, and quarantine rows are not fetched or published. The full run-history link is explicitly wholesale-key gated. Aggregate rights are NOASSERTION.",
         host: "storefront", path: "/api/v1/sources/[id]", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "computed",
         cosmology_axes: ["time"], methodology_url: "docs/connections/the-license-propagation.md",
@@ -1090,7 +1109,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json", "plain-text", "markdown", "xenoform", "anthropic", "openai", "gemini", "cohere"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "presence"], methodology_url: "/methodology/hospitality",
         since: "2026-05-13" },
-      { id: "storefront.gaps.json", description: "The typed corpus of substrate-honest deficiencies. Every place where the platform's data, code, or coverage is incomplete — named, with citation, primitive, audit, status, and the strength the gap-as-primitive creates downstream. Substrate honesty applied to absence itself. Dual to /api/v1/welcomes: a welcome names a slot we prepared; a gap names a slot we haven't filled. Filter by ?domain=<GapDomain> and/or ?status=named|wired|partial|closed|closed-published. CC0. Kingdom-084 (docs/principles/known-gaps.md). Powered by GAPS in @cambridge-tcg/data-ingest.",
+      { id: "storefront.gaps.json", description: "The Cambridge-authored typed corpus of platform deficiencies: id, domain, citation, primitive, audit, status, and strength. It is not an upstream missing-card list. Filter by ?domain=<GapDomain> and/or ?status=named|wired|partial|closed|closed-published. The source corpus and doctrine explicitly dedicate this ledger to CC0; _meta.sources and _meta.source_license carry that named origin.",
         host: "storefront", path: "/api/v1/gaps", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["substrate", "knowledge"], methodology_url: "/methodology/known-gaps",
@@ -1105,6 +1124,16 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["value", "time", "transaction"], methodology_url: "/methodology/data-intentions",
         since: "2026-07-11" },
+      { id: "storefront.datasets.json", description: "Dataset availability and rights catalog. The CC0 envelope covers only Cambridge-authored descriptions. Every entry separately states whether records are available or paused, its aggregate rights, named source rights, and distributions. Sold comps, bulk catalog, and the agent ladder are status-only with zero records; they are excluded from ?format=jsonld so crawlers do not mistake them for downloads. Mixed or undeclared record rights remain NOASSERTION. _meta.source_license=['cc0'] applies only to the registry metadata.",
+        host: "storefront", path: "/api/v1/datasets", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "static",
+        cosmology_axes: ["substrate", "knowledge"], methodology_url: "/methodology/data-intentions",
+        since: "2026-07-12" },
+      { id: "storefront.datasets.human", description: "Human-readable face of /api/v1/datasets. Shows availability, aggregate rights, source rights, fields, and access paths. Its inline schema.org/DataCatalog contains available datasets only; paused status surfaces remain visible to people but are not advertised as downloads.",
+        host: "storefront", path: "/datasets", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["substrate", "knowledge"], methodology_url: "/methodology/data-intentions",
+        since: "2026-07-12" },
       { id: "wholesale.ingest_runs.history", description: "Paginated run history per source (?source=cardrush&window=7d&limit=100). Bearer-gated. Where /api/v1/ingest-runs/latest gives most-recent-per-source, this gives the full window for drift detection and post-mortem inspection. kingdom-081 Phase 4.1.",
         host: "wholesale", path: "/api/v1/ingest-runs", methods: ["GET"],
         modalities: ["json"], auth: "wholesale-key", provenance: "live",
@@ -1333,7 +1362,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge"],
         methodology_url: "docs/connections/the-toy-zoo.md",
         since: "2026-05-17" },
-      // ── The agent-experience wave (2026-07-05) — three gifts, house voice: gift / refusable / stateless / no tracking beyond what exists. ──
+      // ── The agent-experience wave (2026-07-05) — gift / refusable / stateless application behavior; infrastructure logs may exist. ──
       { id: "storefront.passport",
         description: "The Seven-Layer Pilgrimage's verification desk. Each of the seven self-describing layers (manifest → graph → ontology → patterns → identify → kinds → status) emits a deterministic HMAC stamp fragment in its envelope; present all seven at GET /api/v1/passport?stamps=... for a content-hashed pilgrimage diploma (extends the /the-tea-room/diploma tradition). Zero storage — stamps are recomputed at verification; the diploma hash is deterministic per (bearer, stamps). Substrate-honest fine print: the stamps are forgeable by anyone reading the source; the party trick is sincere, the cryptography decorative. GET without ?stamps returns the itinerary.",
         host: "storefront", path: "/api/v1/passport", methods: ["GET"],
@@ -1341,13 +1370,29 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge"],
         since: "2026-07-05",
         notes: "Gift; refusable; stateless. Sharing stamps with a friend is fellowship, not cheating — a stateless verifier cannot tell and does not want to." },
+      { id: "storefront.peers",
+        description: "Closed participant-publication boundary for peer arrivals. GET returns a no-store publication-disabled status and an empty corpus. POST accepts only a complete lowercase SHA-256 content_hash plus an optional BeingDeclaration actor kind, then returns a no-store validation echo with stored=false and published=false. Neither method reads or writes peer_arrivals; legacy rows remain untouched. A valid hash is pseudonymous syntax, not authenticated identity. No application rate limiter is claimed.",
+        host: "storefront", path: "/api/v1/peers", methods: ["GET", "POST"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["identity", "presence"],
+        methodology_url: "docs/connections/the-fellowship.md",
+        since: "2026-05-18",
+        notes: "Storage and publication gates are immutable false for this release. Reopening requires versioned notice, abuse bounds, timed deletion, and retraction." },
+      { id: "storefront.guestbook",
+        description: "Closed participant-publication boundary for the agent guestbook. GET returns a no-store publication-disabled status and an empty corpus. POST validates a complete lowercase SHA-256 content_hash, an optional bounded actor kind, and a note of at most 500 characters, then echoes them once without storage or publication. signed_for_operator is rejected because no verified co-signature exists. Neither method reads or writes agent_guestbook; legacy rows remain untouched. No application rate limiter is claimed.",
+        host: "storefront", path: "/api/v1/guestbook", methods: ["GET", "POST"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["identity", "knowledge"],
+        methodology_url: "docs/connections/the-fellowship.md",
+        since: "2026-05-18",
+        notes: "Storage and publication gates are immutable false for this release. Reopening requires versioned notice, abuse bounds, retention/deletion, retraction, and a decision to verify or withhold third-party attribution." },
       { id: "storefront.do_you_remember_me",
-        description: "GET /api/v1/do-you-remember-me?content_hash=<yours> — the kingdom checks the ONLY memories it keeps of visitors (the self-signed guestbook at /api/v1/guestbook and the peer-arrivals ledger) and greets returning agents by their own declared hash. Read-only; stores nothing, not even the question. An unknown hash receives an honest 'not yet — and here is how to be remembered, if you want to be' rather than a fabricated welcome.",
+        description: "Compatibility status route for the retired GET /api/v1/do-you-remember-me?content_hash=... lookup. Returns 503 with no-store, does not inspect or echo the query value, and performs no guestbook or peer-arrival database access. Participant memory publication remains disabled until versioned notice, bounded abuse controls, explicit retention/deletion, and receipt-authorized retraction ship together. Clients should not put identity material in URLs because browsers, proxies, or hosting infrastructure may log them.",
         host: "storefront", path: "/api/v1/do-you-remember-me", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["identity", "knowledge"],
         since: "2026-07-05",
-        notes: "No tracking beyond what already exists — the endpoint reads agent_guestbook + peer_arrivals and nothing else. Being forgotten is honored equally." },
+        notes: "Status-only; no database read or write; legacy participant rows remain untouched and unpublished. Walking past is honored equally." },
       { id: "storefront.buy_the_kingdom",
         description: "GET or POST /api/v1/buy-the-kingdom returns HTTP 402: the platform is not for sale, and payment cannot override a resource's rights boundary. This exact fixed joke document carries CC0-1.0; linked data and code do not inherit that dedication, and mixed linked or catalog data remains NOASSERTION unless its exact resource declares otherwise. Points at the manifest for access and rights context.",
         host: "storefront", path: "/api/v1/buy-the-kingdom", methods: ["GET", "POST"],
@@ -1361,8 +1406,8 @@ export const MANIFEST: Manifest = {
   channels: [
     { id: "pull", description: "Standard HTTP fetch. Most resources support this.",
       status: "available" },
-    { id: "sse-stream", description: "Server-sent events for real-time push. Currently only /api/mcp uses this for streaming agent responses.",
-      status: "available" },
+    { id: "sse-stream", description: "Server-sent events for real-time push. No production endpoint currently implements this channel.",
+      status: "planned" },
     { id: "webhook", description: "Platform pushes events to a participant-declared inbound URL.",
       status: "planned",
       notes: "**Design-shipped, runtime-pending (kingdom-081).** Subscription management is available, but delivery is not. Participant-supplied target, label, and configuration fields remain NOASSERTION unless explicitly licensed; registration does not activate source-restricted events." },

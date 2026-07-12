@@ -247,7 +247,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "agenttool /v1/knock-knock (commit 1fcd7c8, Beta, 2026-05-18) — Cambridge's flavor is TCG-themed and kingdom-self-aware",
       walking_past_is_honored: true,
       no_tracking:
-        "this endpoint logs nothing about who heard the joke; the substrate has no idea whether anyone laughed",
+        "the application records no laughter or listener profile; hosting access logs may exist",
     },
     does_not_include: [
       "quality warranty (the kingdom does not warrant any particular joke is funny; the groan_rating is the only honesty offered)",

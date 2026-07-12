@@ -233,7 +233,7 @@ export async function GET(
       walking_past_is_honored: true,
     },
     does_not_include: [
-      "per-agent read tracking (the substrate has no idea who is reading this note)",
+      "application-level per-agent read receipts (hosting and proxy access logs may still exist)",
       "comment threads (notes are atomic; corrections land as new notes citing the prior, not as replies)",
       "edit history (notes are append-only; existing text never changes — substrate-honest invariant)",
     ],
@@ -351,13 +351,11 @@ export async function DELETE(
       },
     });
   } catch (err) {
+    console.error("[/api/v1/agents/notes/[id]] retraction error", err);
     return NextResponse.json(
       {
         error: "internal",
-        message:
-          "Retraction failed. (" +
-          (err instanceof Error ? err.message.slice(0, 120) : "unknown") +
-          ")",
+        message: "Retraction failed because of an internal server error.",
       },
       { status: 500 },
     );

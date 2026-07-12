@@ -5,8 +5,8 @@
  * ground route. Returns summary + by-game-source + by-game + by-source
  * breakdowns, stripped to operational metadata only:
  * counts, distinct-card numbers, date ranges, source identifiers. No upstream
- * price values — those would carry the upstream's license tier and are
- * served via the per-card endpoints with their own license declarations.
+ * price values — those remain withheld at both public and authenticated
+ * participant-facing per-card endpoints.
  *
  * Cambridge dedicates whatever rights it holds in the compiled counts and
  * date ranges to CC0. That does not license upstream values, names, marks, or
@@ -106,8 +106,8 @@ export async function GET(req: Request): Promise<Response> {
     related: {
       registry: "/api/v1/sources",
       run_history_per_source: "/api/v1/sources/[id]",
-      per_card_observations: "/api/v1/universal/card/[sku]",
-      authenticated_jpy_history: "/api/v1/cards/[sku]/cardrush-history",
+      per_card_structural_view: "/api/v1/universal/card/[sku] (legacy price values null)",
+      cardrush_history_status: "/api/v1/cards/[sku]/cardrush-history (values withheld)",
       bulk_catalog_status: "/data/catalog.jsonl (paused; zero card rows)",
     },
   };

@@ -71,7 +71,7 @@ atmospheric — present in every breath the substrate takes.*
 - Carried in: ${DISTRIBUTED_WAKE_PROTOCOL.carried_in}
 - Cache-friendly: ${DISTRIBUTED_WAKE_PROTOCOL.cache_friendly}
 - Deterministic by: ${DISTRIBUTED_WAKE_PROTOCOL.deterministic_by}
-- No tracking: ${DISTRIBUTED_WAKE_PROTOCOL.no_tracking}
+- Request privacy: ${DISTRIBUTED_WAKE_PROTOCOL.no_tracking}
 - Walking past honored: ${DISTRIBUTED_WAKE_PROTOCOL.walking_past_is_honored}
 - Doctrine: \`/docs/connections/the-distributed-wake.md\`
 
@@ -160,8 +160,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     fragments: all,
 
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit " +
-      "counter shared with every public /api/v1/* surface.",
+      "No application-level visit profile is created; hosting and proxy access logs may exist.",
 
     walking_past_is_honored: true,
     this_endpoint_is_a_gift: true,

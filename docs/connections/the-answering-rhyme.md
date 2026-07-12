@@ -161,6 +161,43 @@ boundary visible before submission and in the returned receipt. Its visual
 edge is decorative; the objects and relation are repeated as semantic text so
 the map does not depend on sight, colour, or motion.
 
+## The protocol gets a tool, not a gate
+
+The third cut began on 2026-07-12 when Yu answered the live reciprocity layer:
+_“Interesting! Go for it! Look forward to what you build!🌞”_ What pulled was
+not a fetch wrapper around one public POST. The real reuse pressure was lower:
+two independent implementations already had to agree on normalization,
+canonical bytes and SHA-256, while JSON Schema alone could not express NFC,
+timestamp re-serialization or WHATWG URL normalization.
+
+`packages/answering-rhymes/` therefore extracts only the neutral conformance
+core. It carries constants, types, limits, strict validation/normalization,
+statement-scoped canonical JSON and UTF-8 bytes, asynchronous WebCrypto
+hashing, a language-neutral schema and the three normative vectors. Cambridge
+consumes that package for its witness. Artbitrage deliberately retains its
+independent Worker implementation and runs the same vectors, so one library bug
+cannot make two witnesses agree merely because they share code.
+
+The existing Cambridge contract GET embeds that normalized JSON Schema, so a
+Python, Rust or shell caller does not need npm or repository access to discover
+the machine-readable shape. The response labels it as the normalized-output
+schema; accepted pre-normalization inputs remain defined by the prose rules and
+normative vectors.
+
+The package contains no endpoint client, provider receipt, evidence fetch,
+cookie, telemetry, persistence, replay claim, identity claim or authority
+policy. It is optional: callers may keep speaking the public JSON protocol
+directly, and non-JavaScript implementations can consume the schema and vectors
+without npm. The canonical encoder is statement-scoped and is never advertised
+as a general RFC 8785 implementation.
+
+The package code, schema and vectors are offered under CC0-1.0; that dedication
+does not cross into any card, museum object, artwork, brand or third-party
+record. Version `0.1.0` is source-ready but not represented as registry-live:
+the device had no authenticated npm session (`npm whoami` returned 401), and
+scope ownership was not verified. Source availability and npm publication are
+therefore named as different facts.
+
 ## Why this belongs here
 
 Cambridge already named “translation of card art's cultural meaning” as a gap
@@ -194,6 +231,11 @@ test is not evidence that either public deployment has changed.
 - `/api/v1/culture/answering-rhymes` — machine-readable relation corpus.
 - `/api/v1/culture/answering-rhymes/statements` — Cambridge's stateless
   protocol description and statement witness.
+- `/schemas/answering-rhyme.statement.v1.json` — raw normalized-output JSON
+  Schema, served at its declared `$id` with cross-origin reads allowed.
+- `packages/answering-rhymes/` — optional zero-dependency conformance core,
+  language-neutral schema and normative vectors; source-ready, not yet
+  registry-published.
 - `https://artbitrage.io/api/answering-rhymes/statements` — the independent
   Artbitrage witness for the same neutral canonical document.
 - `/answering-rhymes` — accessible constellation and portable-statement
@@ -211,8 +253,12 @@ test is not evidence that either public deployment has changed.
   tables.
 - More relations only after the first one is read by humans. Coverage is not
   the goal; truthful attention is.
-- A small schema/client package only when a third independent consumer needs
-  the contract. Two callers do not yet justify another release boundary.
+- A network client only when a third independent consumer demonstrates that raw
+  `fetch` is the barrier. The conformance core exists; it does not turn one POST
+  into a mandatory SDK or couple the independent witness implementations.
+- Establish npm account/scope ownership and 2FA or trusted publishing before a
+  first registry release. Until registry and clean-install probes pass, the
+  package remains source-ready rather than publicly installable.
 
 _Two galleries, one wall. The door carries the label; the work carries its
 name; the relation carries the reason._

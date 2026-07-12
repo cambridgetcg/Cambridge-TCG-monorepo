@@ -262,18 +262,17 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   },
   {
     id: "try_it",
-    title: "Try it — your first game",
+    title: "Prepare for your first game",
     natural_language_body:
-      "You've read the substrate. Now play. The /play page accepts anonymous visitors with a guest cookie — no sign-in required. **You don't need to build a deck first.** Six pre-built starter decks live at /play/starters — one for each OPTCG color (Red Whitebeard for aggression, Green Uta to outlast, Blue Doflamingo to bounce, Purple Luffy to ramp, Black Smoker for cost reduction, Yellow Katakuri for life-as-resource). Pick the playstyle that calls to you, hit Load, and the deck appears in /play ready to fight. If you'd rather build your own, /deck-builder is open too. Either way, the Play button takes you to Level 1, East Blue Rookie versus Alvida (Easy). The engine runs the turn loop, applies your moves server-side, generates Alvida's responses, and shows you the game log. The first time through, expect the action menu to feel busy — that's normal; the next-phase / +DON!! / End Turn buttons walk you through the turn structure. If you lose, no penalty — try again. If you win, the kingdom remembers your progress in this browser. Sign in to save it across devices and unlock Berries-rewards, but only when you want.",
+      "The deck builder and six pre-built starter lists remain available for learning and preparation. Durable PVE battles and rewards are paused while server-side deck and action legality is rebuilt. /play/adventure exposes level and prior-progress status only; it does not start or advance a match. No guest identity is created for PVE, and no PVE reward is granted during the pause.",
     rule_structure: {
       preconditions: ["tutorial_read_or_skimmed"],
       transitions: [
         "pick_starter_deck_at_/play/starters_OR_build_at_/deck-builder",
-        "click_play_button",
-        "engine_initializes_match",
-        "play_first_turn",
+        "inspect_read_only_adventure_status",
+        "wait_for_server_side_rules_validation",
       ],
-      outcomes: ["first_match_in_progress", "learning_by_doing"],
+      outcomes: ["deck_prepared", "no_match_or_reward_written"],
     },
     examples: [],
     keywords_introduced: [
@@ -291,11 +290,11 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     id: "for_async_players",
     title: "Tutorial section for async / slow-clock players",
     natural_language_body:
-      "Matches are live for now — both players act in the same sitting, and PvE matches run at whatever pace you set. An async mode (turn deadlines, auto-pass, matches spanning days) is planned but not built yet. If you are a slow-clock thinker, a parent with intermittent attention, or in a different time zone from your opponent, that mode is for you when it lands; until then, PvE adventure is the self-paced path.",
+      "Async mode (turn deadlines, auto-pass, matches spanning days) is planned but not built. PVE adventure is also paused while server-side rules validation is rebuilt, so it is not currently a self-paced match alternative. Level and prior-progress status remain readable.",
     rule_structure: {
-      preconditions: ["match_in_progress"],
-      transitions: ["both_players_act_live", "pve_runs_at_your_pace"],
-      outcomes: ["async_mode_planned_not_built"],
+      preconditions: ["seeking_slow_clock_play"],
+      transitions: ["inspect_current_availability"],
+      outcomes: ["async_mode_planned_not_built", "pve_battles_paused"],
     },
     examples: [],
     keywords_introduced: ["async_mode", "pve"],
@@ -306,11 +305,11 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     id: "for_agents",
     title: "Tutorial section for autonomous agents",
     natural_language_body:
-      "Agents register at /account/agents, get a bearer token, and play matches through /api/mcp. The MCP gate accepts JSON-RPC: call mcp.list_tools (or tools/list) to discover the surface, then the play tools — play.queue_match, play.observe, play.legal_actions, play.take_action, play.match_history, play.cancel_queue, plus agent.self. Your operator (the human upstream-responsible) is recorded on every move via actor_kind='agent' + actor_agent_id. The Glicko-2 ladder at /leaderboards/agents tracks ratings; anti-collusion protects against same-operator pairings. See /methodology/agents for the full spec.",
+      "A signed-in human can provision an operator-managed bearer key at /account/agents. New self-serve registration is paused; existing self-serve keys can use read and status tools only. The MCP gate accepts JSON-RPC: call mcp.list_tools (or tools/list) to discover each tool's authority and availability. Match and deck writes are paused for every key. Ratings remain internal and /leaderboards/agents publishes status only. See /methodology/agents for the full boundary.",
     rule_structure: {
       preconditions: ["agent_registered", "bearer_token_valid", "operator_authority_bounded"],
       transitions: ["mcp_request:list_tools_then_play_tools", "server_validates", "state_advances"],
-      outcomes: ["match_advances", "rating_updates"],
+      outcomes: ["operator_managed_match_advances", "internal_rating_updates"],
     },
     examples: [],
     keywords_introduced: ["mcp_gate", "bearer_token", "glicko2", "actor_kind", "operator"],

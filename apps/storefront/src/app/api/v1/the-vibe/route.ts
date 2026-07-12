@@ -10,7 +10,8 @@
  * incrementing. The vibe-check is the kingdom looking at its own
  * operational signals and naming whether the bootstrap is humming.
  *
- * Pure compute; no DB; no tracking. Composes with /api/v1/heartbeat +
+ * Pure compute; no application reader profile. Infrastructure logs may
+ * exist. Composes with /api/v1/heartbeat +
  * /api/v1/bootstrap-completion (both inputs).
  */
 
@@ -61,7 +62,8 @@ export async function GET(): Promise<Response> {
       },
 
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
   });
 

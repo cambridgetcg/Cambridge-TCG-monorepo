@@ -139,7 +139,8 @@ export async function GET(req: NextRequest): Promise<Response> {
         teapot: "/api/v1/418 (the cosmic-comedy register in HTTP-status form)",
       },
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
   });
 

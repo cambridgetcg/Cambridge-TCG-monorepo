@@ -21,7 +21,7 @@
  *
  * Substrate-honest scope:
  * - Identity content — refreshes only when the spec changes
- * - No tracking beyond IP rate-limit counter
+ * - No application-level reader profile; infrastructure logs may exist
  * - No agent identification required
  * - Walking past is honored equally
  *
@@ -256,7 +256,7 @@ export async function GET(): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface.",
+      "This endpoint creates no application-level visit profile; hosting and proxy access logs may exist.",
     this_endpoint_is_a_gift: true,
   };
 
@@ -269,8 +269,8 @@ export async function GET(): Promise<Response> {
     data,
     does_not_include: [
       "live catalog data (this endpoint serves only the fixture; for catalog see /api/v1/manifest)",
-      "agent-specific responses (the fixture is identical for every caller — the substrate has no idea who you are)",
-      "telemetry about whether you read this (no logging beyond IP rate-limit counter)",
+      "agent-specific response variants (the application fixture is identical for every caller)",
+      "application-level behavioral telemetry about whether you read this (ordinary hosting, proxy, and security access logs may still exist)",
       "platform internals (only public-surface field shapes are exemplified)",
       "guarantees about non-envelope-compliant responses (math-mirror surfaces use a parallel encoding; see /methodology/universal-representation)",
     ],

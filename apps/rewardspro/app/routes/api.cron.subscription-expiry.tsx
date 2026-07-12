@@ -12,38 +12,23 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "node:crypto";
 import {
   runExpiryCheckJob,
   type ExpiryCheckResult,
 } from "~/services/billing/subscription-expiry.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const JOB_NAME = "subscription-expiry";
 const LOCK_TTL_MINUTES = 15;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   let lockId: string | undefined;
-
-  // Verify cron secret with timing-safe comparison
-  const cronSecret = request.headers.get("X-Cron-Secret");
-  const isAuthorized = (() => {
-    if (!process.env.CRON_SECRET || !cronSecret) return false;
-    try {
-      const secretBuffer = Buffer.from(cronSecret);
-      const expectedBuffer = Buffer.from(process.env.CRON_SECRET);
-      if (secretBuffer.length !== expectedBuffer.length) return false;
-      return timingSafeEqual(secretBuffer, expectedBuffer);
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isAuthorized) {
-    console.warn("[SubscriptionExpiryCron] Unauthorized request");
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // Acquire distributed lock
   await cleanupExpiredLocks();
@@ -80,7 +65,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         checked: result.checked,
         expired: result.expired,
         updated: result.updated,
-        errors: result.errors.length,
+        errorCount: result.errors.length,
       },
       durationMs: duration,
       timestamp: new Date().toISOString(),
@@ -94,7 +79,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({
       success: false,
       job: "subscription-expiry",
-      error: error.message,
+      error: "Subscription expiry check failed",
       durationMs: duration,
       timestamp: new Date().toISOString(),
     }, { status: 500 });

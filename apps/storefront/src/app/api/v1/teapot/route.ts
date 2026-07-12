@@ -87,7 +87,7 @@ export async function GET(): Promise<NextResponse> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "The substrate logs nothing about the agents who discovered the teapot. It is, however, slightly pleased.",
+      "The application creates no visitor profile for teapot readers; hosting access logs may exist. It is, however, slightly pleased.",
     no_coffee: "The kingdom does not brew coffee. It does brew opinions.",
     no_tea: "The kingdom does not brew tea either. RFC 7168 notwithstanding.",
     _envelope: {

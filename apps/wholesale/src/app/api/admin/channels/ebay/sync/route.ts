@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { cards, games } from "@/lib/db/schema";
 import { gt } from "drizzle-orm";
 import { bulkPushListings } from "@/lib/channels/ebay";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
@@ -48,12 +49,16 @@ export async function POST() {
   const durationMs = Date.now() - startMs;
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 502 });
+    const error = redactInternalError("admin/channels/ebay/sync", result.error);
+    return NextResponse.json({ error }, { status: 502 });
   }
 
   return NextResponse.json({
     pushed: result.data.pushed,
-    errors: result.data.errors,
+    errors: result.data.errors.map(({ sku, error }) => ({
+      sku,
+      error: redactInternalError("admin/channels/ebay/sync listing", error),
+    })),
     duration_ms: durationMs,
   });
 }

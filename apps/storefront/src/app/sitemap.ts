@@ -33,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/platform`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${baseUrl}/intro`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${baseUrl}/data`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
+    { url: `${baseUrl}/datasets`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.85 },
     { url: `${baseUrl}/api`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
     // Contact-surface spec W1/W6 — the human front door + trust pages.
     { url: `${baseUrl}/start`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
@@ -80,7 +81,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // sitemap stays bounded as the catalog grows past One-Piece.
   const productLists = await Promise.all(
     games.map((g) =>
-      fetchPrices({ game: g.slug, limit: 500, sort: "price_desc" }).catch(
+      fetchPrices({ game: g.slug, limit: 500, sort: "number_asc" }).catch(
         () => ({ items: [] }),
       ),
     ),

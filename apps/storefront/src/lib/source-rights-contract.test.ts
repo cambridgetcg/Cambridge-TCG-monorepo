@@ -37,6 +37,12 @@ describe("public source-rights contracts", () => {
       .toContain("does not reconstruct historical price or structural state");
     expect(spec.paths["/api/v1/federation/at/{date}/{hash}"].get.description)
       .toContain("requested date does not affect the hash");
+    expect(spec.paths["/api/v1/datasets"].get.description)
+      .toContain("paused paths are never advertised as downloads");
+    expect(spec.paths["/api/v1/coverage"].get.description)
+      .toContain("aggregate rights remain NOASSERTION");
+    expect(spec.paths["/api/v1/sold-comps"].get.description)
+      .toContain("no transaction database read");
   });
 
   it("does not advertise catalog-backed manifest resources as CC0 payloads", () => {
@@ -58,6 +64,22 @@ describe("public source-rights contracts", () => {
     expect(detail).toContain("HTTP 503");
     expect(detail).toContain("before authentication or database access");
     expect(detail).not.toContain("GET returns the row");
+  });
+
+  it("keeps public source inspectability free of operational text", async () => {
+    for (const id of ["storefront.sources.json", "storefront.sources.detail"]) {
+      const description = manifestDescription(id);
+      expect(description).toContain("NOASSERTION");
+      expect(description).toMatch(/notes|Run notes/);
+      expect(description).toMatch(/withheld|not fetched or published/);
+    }
+
+    const response = await getOpenApi();
+    const spec = (await response.json()) as {
+      paths: Record<string, { get: { description: string } }>;
+    };
+    expect(spec.paths["/api/v1/sources/{id}"].get.description)
+      .toContain("quarantine rows are not fetched or returned");
   });
 
   it("describes wholesale price routes as public status-only boundaries", () => {
@@ -117,5 +139,18 @@ describe("public source-rights contracts", () => {
       expect(source).not.toMatch(/priceArchive|price_archive|fetchCardrushHistory/);
       expect(source).toMatch(/503|SOURCE_UNAVAILABLE/);
     }
+  });
+
+  it("keeps the agent ladder status-only without a participant read", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/app/leaderboards/agents/page.tsx"),
+      "utf8",
+    );
+    expect(source).not.toContain("@/lib/db");
+    expect(source).not.toMatch(/\bquery\s*\(/);
+    expect(source).not.toContain("next/script");
+    expect(source).not.toContain("application/ld+json");
+    expect(source).toContain('dynamic = "force-dynamic"');
+    expect(source).toContain("No agent handle, display name, model tag, operator identity");
   });
 });

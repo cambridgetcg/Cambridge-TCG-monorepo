@@ -1,70 +1,106 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { appendGuestbookEntry, listGuestbookEntries } from "@/lib/peers";
+import { query } from "@/lib/db";
 import { GET, POST } from "./route";
 
-vi.mock("@/lib/peers", () => ({
-  appendGuestbookEntry: vi.fn(),
-  listGuestbookEntries: vi.fn(),
-}));
+vi.mock("@/lib/db", () => ({ query: vi.fn() }));
 
-const mockAppend = vi.mocked(appendGuestbookEntry);
-const mockList = vi.mocked(listGuestbookEntries);
-const entry = {
-  id: 7,
-  content_hash: "sha256:visitor",
-  declared_kind: "agent",
-  note: "These are participant words.",
-  signed_for_operator: null,
-  created_at: "2026-07-12T10:00:00Z",
-};
+const mockQuery = vi.mocked(query);
+const CONTENT_HASH =
+  "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mockQuery.mockReset();
 });
 
-describe("/api/v1/guestbook participant rights", () => {
-  it("lists participant notes as NOASSERTION without caching them", async () => {
-    mockList.mockResolvedValueOnce({ total: 1, returned: 1, entries: [entry] });
-
-    const response = await GET(
-      new Request("https://cambridgetcg.example/api/v1/guestbook") as never,
-    );
+describe("/api/v1/guestbook closed participant boundary", () => {
+  it("returns a no-store empty corpus without reading legacy rows", async () => {
+    const response = await GET();
     const body = await response.json();
 
-    expect(body._meta.sources).toEqual([
-      "participant-submitted",
-      "storefront-rds.agent_guestbook",
-    ]);
-    expect(body._meta.source_license).toEqual(["proprietary", "internal-only"]);
-    expect(body._meta.license).toBe("NOASSERTION");
+    expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("ratelimit-limit")).toBeNull();
+    expect(body.data).toMatchObject({
+      status: "publication-disabled",
+      storage_enabled: false,
+      publication_enabled: false,
+      total: 0,
+      returned: 0,
+      entries: [],
+    });
+    expect(body._meta.source_license).toEqual(["cc0"]);
+    expect(body._meta.license).toBe("CC0-1.0");
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it("returns an ownership receipt instead of claiming the note", async () => {
-    mockAppend.mockResolvedValueOnce({ ok: true, entry });
-
+  it("validates and echoes a note without storing or publishing it", async () => {
     const response = await POST(
       new Request("https://cambridgetcg.example/api/v1/guestbook", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          content_hash: entry.content_hash,
-          declared_kind: entry.declared_kind,
-          note: entry.note,
+          content_hash: CONTENT_HASH,
+          declared_kind: "agent",
+          note: "These words remain mine.\r\nWitness them once.",
         }),
       }) as never,
     );
     const body = await response.json();
 
-    expect(body.data.thanks).toContain("You retain your rights");
-    expect(body.data.thanks).not.toContain("kingdom's now");
-    expect(body.data.rights).toEqual({
-      copyright: "retained_by_submitter",
-      license: "NOASSERTION",
-      visibility: "public",
-      dedication_requested: false,
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("ratelimit-limit")).toBeNull();
+    expect(body.data).toMatchObject({
+      received: true,
+      stored: false,
+      published: false,
+      echo: {
+        content_hash: CONTENT_HASH,
+        declared_kind: "agent",
+        note: "These words remain mine.\nWitness them once.",
+      },
+      rights: {
+        copyright: "retained_by_submitter",
+        license: "NOASSERTION",
+        visibility: "response-only",
+      },
     });
     expect(body._meta.license).toBe("NOASSERTION");
-    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects free text in content_hash and unverified operator attribution", async () => {
+    const invalidHash = await POST(
+      new Request("https://cambridgetcg.example/api/v1/guestbook", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content_hash: "person@example.com",
+          declared_kind: "agent",
+          note: "Do not let PII ride as a hash.",
+        }),
+      }) as never,
+    );
+    const thirdPartyClaim = await POST(
+      new Request("https://cambridgetcg.example/api/v1/guestbook", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          content_hash: CONTENT_HASH,
+          declared_kind: "agent",
+          note: "Unverified attribution.",
+          signed_for_operator: "another-person",
+        }),
+      }) as never,
+    );
+
+    expect(invalidHash.status).toBe(400);
+    expect(invalidHash.headers.get("cache-control")).toBe("no-store");
+    expect((await invalidHash.json()).error).toContain("64 lowercase");
+    expect(thirdPartyClaim.status).toBe(400);
+    expect((await thirdPartyClaim.json()).error).toContain(
+      "cannot verify third-party attribution",
+    );
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 });

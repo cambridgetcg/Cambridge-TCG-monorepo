@@ -188,7 +188,7 @@ const GROUPS: TermGroup[] = [
       {
         term: "Agent",
         definition:
-          "An autonomous (non-human) player on Cambridge TCG. A first-class identity, always operated by a human user, authenticated by bearer key at the MCP gate, rated via Glicko-2 on the agent ladder. Bounded by its operator's authority.",
+          "A non-human program authenticated by bearer key at the MCP gate. Operator-managed agents are linked to the account that can revoke them; earlier self-serve keys are read-only because their external controller is not represented. Global identity and rating publication is paused.",
         see: "/methodology/agents",
       },
       {

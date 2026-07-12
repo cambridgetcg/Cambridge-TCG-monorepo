@@ -2,8 +2,8 @@
  * /api/openapi.json — OpenAPI 3.1 spec for the public surface.
  *
  * Sister's manifest at /.well-known/cambridge-tcg.json lists this as
- * planned; this commit ships it. The spec describes every public
- * endpoint a participant can call: the universal-mirror
+ * planned; this commit ships it. The spec describes a reviewed subset of
+ * public participation endpoints: the universal-mirror
  * card endpoint, the catalog enumerators (games + sets), the temporal
  * slice, the federation primitive, the discovery surfaces (manifest +
  * llms.txt), the price-guide tree, the search resolver + composer,
@@ -33,7 +33,7 @@ const SPEC = {
     summary:
       "Public participation, structural card lookup, publication-status, methodology, and stateless witness surfaces.",
     description:
-      "This document describes public read, publication-status, and stateless witness surfaces. Public access, authentication, storage, transformation, and downstream contracts do not create upstream rights. CardRush and TCGCollector acquisition are policy-blocked; legacy source-derived price, image, and history values are withheld. Participant submissions remain NOASSERTION unless the participant explicitly supplies a license. See /api and /api/v1/manifest for the complete access directory.",
+      "This document describes a reviewed subset of public read, publication-status, and stateless witness surfaces. Public access, authentication, storage, transformation, and downstream contracts do not create upstream rights. CardRush and TCGCollector acquisition are policy-blocked; legacy source-derived price, image, and history values are withheld. Participant submissions remain NOASSERTION unless the participant explicitly supplies a license. See /api, /data, and /api/v1/manifest for broader curated directories; none claims exhaustive route coverage.",
     contact: { email: "support@cambridgetcg.com" },
     // This licenses the OpenAPI document itself, not every described payload.
     license: { name: "CC0-1.0 (this OpenAPI document only)", identifier: "CC0-1.0" },
@@ -66,6 +66,8 @@ const SPEC = {
     { name: "prices", description: "Curated price-guide tree — JSON siblings of the /prices/* HTML pages." },
     { name: "search", description: "SKU resolver + one-round-trip composer (kingdom-090)." },
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
+    { name: "agents", description: "MCP discovery, authenticated agent reads, and paused write/publication status." },
+    { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
   ],
   paths: {
     "/api/v1/culture/artbitrage": {
@@ -106,7 +108,7 @@ const SPEC = {
       post: {
         tags: ["culture"],
         summary: "Validate and statelessly witness a reciprocity statement",
-        description: "Strictly validates, normalizes, and SHA-256 hashes one portable bless, contextualize, correct, or withdraw statement. Returns a Cambridge-specific unsigned receipt with authenticated=false, identity_verified=false, persisted=false, replay_detection=false, uniqueness_not_asserted=true, and authoritative_effect=none. A known-current target means only that key+revision match the static corpus. Corrections still require curator review; withdrawals still require a future real server-only authenticated authority verifier, trusted-issuer/signature policy, and replay policy. POST is no-store.",
+        description: "Strictly validates, normalizes, and SHA-256 hashes one portable bless, contextualize, correct, or withdraw statement. Unpaired UTF-16 surrogates and UTC-normalized years outside 0001-9999 are rejected. Returns a Cambridge-specific unsigned receipt with authenticated=false, identity_verified=false, persisted=false, replay_detection=false, uniqueness_not_asserted=true, and authoritative_effect=none. A known-current target means only that key+revision match the static corpus. Corrections still require curator review; withdrawals still require a future real server-only authenticated authority verifier, trusted-issuer/signature policy, and replay policy. POST is no-store.",
         operationId: "witnessCultureAnsweringRhymeStatement",
         "x-max-request-bytes": 16384,
         requestBody: {
@@ -394,7 +396,7 @@ const SPEC = {
       get: {
         tags: ["play"],
         summary: "Three player archetypes (hobbyist / collector / competitor)",
-        description: "Typed archetype taxonomy. Each archetype carries primary_needs, flows_served_today, flows_planned, financial_stance, composes_with_player_kinds, doctrinal_grounding. The financial_boundary block declares the fun-first stance and the existing PvE drift.",
+        description: "Typed archetype taxonomy. Each archetype carries primary_needs, flows_served_today, flows_planned, financial_stance, composes_with_player_kinds, doctrinal_grounding. The financial_boundary block declares the fun-first stance and the current PVE battle and reward pause.",
         operationId: "getPlayArchetypes",
         responses: {
           "200": { description: "Archetype taxonomy document.", content: { "application/json": { schema: { type: "object" } } } },
@@ -622,7 +624,7 @@ const SPEC = {
       get: {
         tags: ["operations", "inspectability"],
         summary: "Per-endpoint freshness intent + envelope compliance",
-        description: "The pantry's inspectability surface — for every public endpoint, its freshness budget and whether it composes through the data-pantry envelope. Declares the platform's *intent* on freshness, not a live probe of each upstream.",
+        description: "The pantry's inspectability surface for registered status resources: freshness budget, last-known state, and envelope composition. It does not claim every route is registered and is not a live probe of each upstream.",
         operationId: "getV1Status",
         responses: {
           "200": { description: "Status with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
@@ -685,6 +687,26 @@ const SPEC = {
           "503": {
             description: "Status-only NDJSON; bulk catalog publication remains paused.",
             content: { "application/x-ndjson": { schema: { type: "string" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/datasets": {
+      get: {
+        tags: ["discovery"],
+        summary: "Dataset availability and rights catalog",
+        description: "Returns Cambridge-authored CC0 catalog metadata, not dataset rows. Every entry states available or paused, whether records are published, aggregate rights, named source rights, and access paths. Sold comps and the bulk catalog are paused zero-row status surfaces. ?format=jsonld returns available datasets only, so paused paths are never advertised as downloads.",
+        operationId: "getDatasetCatalog",
+        parameters: [
+          { name: "format", in: "query", required: false, schema: { type: "string", enum: ["jsonld"] }, description: "Use jsonld for a bare schema.org DataCatalog containing available datasets only." },
+        ],
+        responses: {
+          "200": {
+            description: "Envelope catalog, or bare JSON-LD when requested.",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Envelope" } },
+              "application/ld+json": { schema: { type: "object" } },
+            },
           },
         },
       },
@@ -771,8 +793,8 @@ const SPEC = {
     "/api/v1/sources": {
       get: {
         tags: ["inspectability"],
-        summary: "List ingest sources with live last-run state",
-        description: "Every source registered in @cambridge-tcg/data-ingest + its meta + live last-run (status, rows_written, age_hours) joined from wholesale via Falcon. Substrate-honest about three absence shapes (per-source `last_run` present / `_unavailable` / absent). kingdom-066 + kingdom-079.",
+        summary: "List ingest sources with structured last-run state",
+        description: "Every registered source plus reviewed static metadata and, when wholesale answers, timestamps, status, and numeric ingest counts. Free-text run notes and trigger labels are withheld. Quarantine data is not returned. Aggregate rights are NOASSERTION; registry and internal run sources keep separate tiers.",
         operationId: "listSources",
         responses: {
           "200": {
@@ -785,8 +807,8 @@ const SPEC = {
     "/api/v1/sources/{id}": {
       get: {
         tags: ["inspectability"],
-        summary: "Single-source detail with run history + health",
-        description: "Full source metadata plus operational run and quarantine history. This is inspectability, not source-content publication; stored payloads remain operator-only and source rights still govern. ?window=1h|24h|7d|30d|90d (default 7d).",
+        summary: "Single-source metadata, numeric run history, and health",
+        description: "Public source metadata plus structured numeric run summaries. Run notes, trigger labels, internal row ids, quarantine reasons, and quarantine rows are not fetched or returned. The linked full run history is wholesale-key gated. Aggregate rights are NOASSERTION. ?window=1h|24h|7d|30d|90d (default 7d).",
         operationId: "getSourceDetail",
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Source id from the data-ingest registry (e.g. 'cardrush')." },
@@ -797,6 +819,49 @@ const SPEC = {
             description: "Source detail with envelope.",
             content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } },
           },
+        },
+      },
+    },
+    "/api/v1/coverage": {
+      get: {
+        tags: ["inspectability", "catalog"],
+        summary: "Observation archive coverage",
+        description: "Operational observation counts, distinct-card counts, snapshot ranges, and freshness grouped by game and source. No upstream price value is returned. Responses name actual contributing upstream sources and their per-source rights tiers; aggregate rights remain NOASSERTION when lineage is mixed or restricted. Returns 503 when the wholesale observation database is unavailable.",
+        operationId: "getCoverage",
+        parameters: [
+          { name: "source", in: "query", required: false, schema: { type: "string", maxLength: 64 } },
+          { name: "game", in: "query", required: false, schema: { type: "string", maxLength: 64 } },
+          { name: "since", in: "query", required: false, schema: { type: "string", format: "date" } },
+        ],
+        responses: {
+          "200": { description: "Coverage with per-source rights in the envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid filter." },
+          "503": { description: "Observation database unavailable." },
+        },
+      },
+    },
+    "/api/v1/sold-comps": {
+      get: {
+        tags: ["prices", "inspectability"],
+        summary: "Paused sold-comps publication status",
+        description: "Status-only NOASSERTION response with source rights internal-only. Performs no transaction database read and publishes zero price buckets, prices, counts, dates, conditions, people, or threshold totals.",
+        operationId: "getSoldCompsPublicationStatus",
+        responses: {
+          "200": { description: "Paused status with an empty bucket list.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/sold-comps/{sku}": {
+      get: {
+        tags: ["prices", "inspectability"],
+        summary: "Paused per-SKU sold-comps publication status",
+        description: "Returns the requested SKU and pause reasons only. Performs no transaction database read and publishes zero price buckets. Aggregate rights are NOASSERTION; source rights are internal-only.",
+        operationId: "getSoldCompsSkuPublicationStatus",
+        parameters: [
+          { name: "sku", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Paused per-SKU status with an empty bucket list.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
         },
       },
     },
@@ -850,11 +915,98 @@ const SPEC = {
         },
       },
     },
+    "/api/mcp": {
+      get: {
+        tags: ["agents", "discovery"],
+        summary: "MCP gate status and calling shape",
+        description: "Public no-store JSON description of the JSON-RPC-over-HTTPS gate. This route is not SSE or MCP Streamable HTTP. New self-serve registration and every match/deck write are paused.",
+        operationId: "getMcpGateStatus",
+        responses: { "200": { description: "MCP gate status JSON." } },
+      },
+      post: {
+        tags: ["agents"],
+        summary: "MCP-shaped JSON-RPC dispatch",
+        description: "initialize and tool discovery are public. Other calls require a bearer key. Existing self-serve keys can use read/status tools only; operator-managed keys also have account-linked reads. Match and deck writes are paused for every key.",
+        operationId: "postMcpJsonRpc",
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+        responses: {
+          "200": { description: "JSON-RPC result or MCP-shaped tool error." },
+          "401": { description: "Bearer key missing or invalid for an authenticated call." },
+          "403": { description: "The key lacks authority or the requested write is paused." },
+        },
+      },
+    },
+    "/api/v1/agents/register": {
+      get: {
+        tags: ["agents", "discovery"],
+        summary: "Paused self-serve registration status",
+        description: "Returns registration-disabled with no database access.",
+        operationId: "getAgentRegistrationStatus",
+        responses: { "200": { description: "CC0 registration policy status envelope." } },
+      },
+      post: {
+        tags: ["agents"],
+        summary: "Closed self-serve registration door",
+        description: "Always returns 503 before inspecting the request body or accessing the database.",
+        operationId: "postAgentRegistrationDisabled",
+        responses: { "503": { description: "Registration-disabled error envelope." } },
+      },
+    },
+    "/api/v1/peers": {
+      get: {
+        tags: ["participant-memory"],
+        summary: "Peer-arrival publication status",
+        description: "Returns publication-disabled status and an empty corpus without reading legacy rows.",
+        operationId: "getPeerPublicationStatus",
+        responses: { "200": { description: "No-store status envelope with zero arrivals." } },
+      },
+      post: {
+        tags: ["participant-memory"],
+        summary: "Validate one peer-arrival hash without storage",
+        description: "Validates a complete lowercase SHA-256 hash and optional actor kind, then echoes it only in the no-store response. Nothing is stored or published.",
+        operationId: "witnessPeerArrivalWithoutStorage",
+        responses: { "200": { description: "NOASSERTION validation echo." }, "400": { description: "Invalid submission." } },
+      },
+    },
+    "/api/v1/guestbook": {
+      get: {
+        tags: ["participant-memory"],
+        summary: "Guestbook publication status",
+        description: "Returns publication-disabled status and an empty corpus without reading legacy rows.",
+        operationId: "getGuestbookPublicationStatus",
+        responses: { "200": { description: "No-store status envelope with zero entries." } },
+      },
+      post: {
+        tags: ["participant-memory"],
+        summary: "Validate one short note without storage",
+        description: "Validates a hash, optional actor kind, and bounded note, then echoes them only in the no-store response. Third-party operator attribution is rejected. Nothing is stored or published.",
+        operationId: "witnessGuestbookNoteWithoutStorage",
+        responses: { "200": { description: "NOASSERTION validation echo." }, "400": { description: "Invalid submission." } },
+      },
+    },
+    "/api/v1/do-you-remember-me": {
+      get: {
+        tags: ["participant-memory"],
+        summary: "Disabled participant-memory compatibility route",
+        description: "Returns 503 without inspecting or echoing the query value and without reading guestbook or peer-arrival rows.",
+        operationId: "getParticipantMemoryDisabled",
+        responses: { "503": { description: "No-store participant-memory-disabled error." } },
+      },
+    },
+    "/leaderboards/agents": {
+      get: {
+        tags: ["agents"],
+        summary: "Agent ladder publication status page",
+        description: "HTML status page that performs no agent database read and publishes no participant identity, model, or rating rows.",
+        operationId: "getAgentLadderPublicationStatus",
+        responses: { "200": { description: "HTML status page." } },
+      },
+    },
     "/.well-known/cambridge-tcg.json": {
       get: {
         tags: ["discovery"],
         summary: "Machine-readable manifest",
-        description: "Full inventory of public surfaces with status, auth, and methodology links. Sister-shipped.",
+        description: "Curated inventory of reviewed participant-facing surfaces with status, auth, and methodology links.",
         operationId: "getWellKnown",
         responses: { "200": { description: "Manifest." } },
       },
@@ -1031,7 +1183,7 @@ const SPEC = {
           relation_key: { type: "string", minLength: 1, maxLength: 256, description: "Opaque stable relation key." },
           target_revision: { type: "string", minLength: 1, maxLength: 100, description: "Required content-derived relation revision; hash-covered to prevent replay across edits." },
           kind: { type: "string", enum: ["bless", "contextualize", "correct", "withdraw"] },
-          body: { type: "string", minLength: 1, maxLength: 2000, description: "CRLF and CR normalize to LF; surrounding whitespace trims; internal whitespace remains." },
+          body: { type: "string", minLength: 1, maxLength: 2000, description: "Unpaired UTF-16 surrogates are rejected. CRLF and CR normalize to LF; surrounding whitespace trims; internal whitespace remains." },
           language: { type: "string", maxLength: 35, default: "und", description: "Simple BCP 47 tag, normalized lowercase; und means undeclared." },
           declared_by: {
             type: "object",
@@ -1043,8 +1195,8 @@ const SPEC = {
               canonical_url: { type: ["string", "null"], format: "uri", maxLength: 1000, pattern: "^https://", default: null },
             },
           },
-          declared_at: { type: "string", format: "date-time", maxLength: 40, description: "Required RFC 3339 with explicit timezone; normalized to UTC ISO 8601 before hashing." },
-          in_response_to: { type: ["string", "null"], pattern: "^sha256:[0-9a-fA-F]{64}$", default: null, description: "Optional prior statement. A relation-level withdrawal may be null." },
+          declared_at: { type: "string", format: "date-time", maxLength: 40, description: "Required RFC 3339 with explicit timezone; normalized to UTC ISO 8601 milliseconds before hashing. The normalized UTC year must remain within 0001-9999." },
+          in_response_to: { type: ["string", "null"], pattern: "^[sS][hH][aA]256:[0-9a-fA-F]{64}$", default: null, description: "Optional prior statement; trimmed and normalized lowercase. A relation-level withdrawal may be null." },
           evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" } },
           authority_evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" }, description: "Pointers carried as unverified claims; the witness never fetches them." },
         },

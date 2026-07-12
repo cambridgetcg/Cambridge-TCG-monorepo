@@ -13,11 +13,12 @@
 
 import { NextResponse } from "next/server";
 import { LANG_MODE_COOKIE } from "@/lib/lang-mode";
+import { safeRelativeRedirectPath } from "@/lib/safe-redirect";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "";
-  const back = url.searchParams.get("back") || "/";
+  const back = safeRelativeRedirectPath(url.searchParams.get("back"), "/");
 
   const res = NextResponse.redirect(new URL(back, url.origin));
   if (mode === "math") {

@@ -43,7 +43,7 @@ const ARCHETYPES: Archetype[] = [
           "First-time player. No prior TCG experience required. Pace yourself; the platform won't rush you.",
         recommended_steps: [
           { label: "Read the beginner guide", href: "/guides/how-to-play", note: "~15 minute read" },
-          { label: "Try adventure mode", href: "/play/adventure", note: "AI opponents, scaling difficulty" },
+          { label: "Check adventure status", href: "/play/adventure", note: "Battles and rewards are paused" },
           { label: "Drop into the lobby", href: "/play", note: "When ready, find a real opponent" },
         ],
       },
@@ -93,8 +93,8 @@ const ARCHETYPES: Archetype[] = [
         title: "I want to watch first, play later",
         for_whom: "Anyone who learns by observation.",
         recommended_steps: [
-          { label: "Browse the leaderboards", href: "/leaderboards/agents", note: "See agent matches in progress" },
-          { label: "Adventure mode for solo practice", href: "/play/adventure" },
+          { label: "Read agent ladder status", href: "/leaderboards/agents", note: "No match or rating rows are published while consent is unresolved" },
+          { label: "Adventure level status", href: "/play/adventure", note: "Read-only while battles are paused" },
         ],
       },
     ],
@@ -125,7 +125,7 @@ const ARCHETYPES: Archetype[] = [
         for_whom: "Established collector. Wants the catalog, the history, the variants, the lore.",
         recommended_steps: [
           { label: "Fetch a single card (universal)", href: "/api/v1/universal/card/OP01-001", note: "Math-mirror representation" },
-          { label: "Temporal slice", href: "/api/at/2026-01-01/card/OP01-001", note: "What this card was on a past date" },
+          { label: "Date-shaped compatibility view", href: "/api/at/2026-01-01/card/OP01-001", note: "Current structural fields under a requested date label; not historical reconstruction" },
           { label: "Set browse", href: "/api/v1/universal/set/OP01", note: "Cards inline; full completion context" },
           { label: "Portfolio with completion tracking", href: "/account/portfolio", note: "% of each set you own" },
         ],
@@ -164,9 +164,9 @@ const ARCHETYPES: Archetype[] = [
       {
         id: "competitor-ranked",
         title: "I want ranked play",
-        for_whom: "Human player ready for a ladder. The agent ladder is live; human ranked is queued.",
+        for_whom: "Human player ready for ranked play. Human ranked is planned, and agent ladder publication is paused.",
         recommended_steps: [
-          { label: "See the agent ladder", href: "/leaderboards/agents", note: "Public Glicko-2 rating" },
+          { label: "See agent ladder status", href: "/leaderboards/agents", note: "Publication paused pending versioned consent" },
           { label: "Open /play/compete", href: "/play/compete", note: "What's shipped + what's planned" },
           { label: "Read the agent methodology", href: "/methodology/agents", note: "How the rating works; identical formula will apply to human ranked when shipped" },
         ],
@@ -185,12 +185,12 @@ const ARCHETYPES: Archetype[] = [
         id: "agent-builder",
         title: "I'm building an autonomous agent",
         for_whom:
-          "Researchers, hobbyists, engineers building AI. The platform hosts you as a first-class competitor.",
+          "Researchers, hobbyists, and engineers building AI. Discovery and authenticated reads are available; match and deck writes are paused.",
         recommended_steps: [
           { label: "Fetch the machine-readable tutorial", href: "/api/v1/play/tutorial" },
           { label: "Fetch the glossary", href: "/api/v1/play/glossary" },
           { label: "Read /methodology/agents", href: "/methodology/agents" },
-          { label: "Register at /account/agents", href: "/account/agents", note: "Get a bearer token; MCP gate at /api/mcp" },
+          { label: "Provision an operator-managed key", href: "/account/agents", note: "Signed-in humans only; self-serve registration and all match/deck writes are paused" },
         ],
       },
       {
@@ -201,7 +201,7 @@ const ARCHETYPES: Archetype[] = [
         recommended_steps: [
           { label: "Set your response window", href: "/account/profile" },
           { label: "Read /methodology/response-windows", href: "/methodology/response-windows" },
-          { label: "Open /play/compete", href: "/play/compete", note: "Async-tournament substrate is planned; rated async play tracked on the agent ladder today" },
+          { label: "Open /play/compete", href: "/play/compete", note: "Async tournaments and human ranked play are planned; agent rating publication is paused" },
         ],
       },
     ],

@@ -113,7 +113,7 @@ const ENDPOINTS: EndpointEntry[] = [
   {
     path: "/api/v1/universal/card/[sku]",
     title: "Universal card (math-mirror)",
-    blurb: "Public math-first card representation with content hashes, ratios, typed edges, density controls, and declared source rights. Returns 404 when the SKU is absent from the storefront mirror.",
+    blurb: "Public math-first structural card representation with content hashes, typed edges, density controls, and declared source rights. Legacy price magnitudes and media are null. Returns 404 when the SKU is absent from the storefront mirror.",
     status: "shipped",
     auth: "none",
     methodology_page: "/methodology/universal-representation",
@@ -121,8 +121,8 @@ const ENDPOINTS: EndpointEntry[] = [
   },
   {
     path: "/api/at/[YYYY-MM-DD]/card/[sku]",
-    title: "Universal card — temporal slice",
-    blurb: "Math-mirror card as it was at a past date. @retrieved_at distinct from @as_of.",
+    title: "Universal card — date-shaped compatibility view",
+    blurb: "Returns current structural fields under the requested date label. It does not read price history or reconstruct historical card state; legacy price magnitudes and media are null.",
     status: "shipped",
     auth: "none",
     methodology_page: "/methodology/universal-representation",
@@ -205,7 +205,7 @@ const ENDPOINTS: EndpointEntry[] = [
   {
     path: "/api/v1/status",
     title: "Pantry status",
-    blurb: "Joins every public endpoint in the manifest with its freshness budget, envelope-compliance, and last-known state. The platform's substrate-honest declaration of its own emission layer.",
+    blurb: "Joins registered status resources with freshness budgets, envelope-compliance, and last-known state. It does not claim coverage of every route.",
     status: "shipped",
     auth: "none",
   },
@@ -229,6 +229,23 @@ const ENDPOINTS: EndpointEntry[] = [
     path: "/data",
     title: "Data directory (human-readable)",
     blurb: "Public HTML guide to resource status, access requirements, and known limits. The manifest remains the canonical access inventory.",
+    status: "shipped",
+    auth: "none",
+  },
+
+  // ── The commons as datasets ─────────────────────────────────────────
+  {
+    path: "/api/v1/datasets",
+    title: "Dataset status catalog (machine-readable)",
+    blurb:
+      "Available datasets and paused publication surfaces, each with aggregate rights and named source rights. The CC0 envelope covers authored catalog descriptions only; ?format=jsonld excludes paused zero-row paths.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/datasets",
+    title: "Dataset status catalog (human-readable)",
+    blurb: "Human-readable availability and rights inventory. Its inline schema.org graph contains available datasets only.",
     status: "shipped",
     auth: "none",
   },

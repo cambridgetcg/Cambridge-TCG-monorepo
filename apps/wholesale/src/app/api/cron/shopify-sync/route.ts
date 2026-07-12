@@ -2,7 +2,7 @@
  * GET /api/cron/shopify-sync
  *
  * Vercel cron handler — runs daily at 04:00 UTC (see vercel.json).
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  ?secret={CRON_SECRET}
+ * Auth: Authorization: Bearer {CRON_SECRET}
  *
  * Runs mode='full' (prices + stock update only — does NOT create missing listings).
  * Listing creation is a manual operation via POST /api/admin/shopify-sync.
@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runShopifySync } from "@/lib/shopify-sync";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
@@ -39,8 +40,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, startTs, endTs, ...result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[cron/shopify-sync] Failed:", msg);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    const error = redactInternalError("cron/shopify-sync", err);
+    return NextResponse.json({ ok: false, error }, { status: 500 });
   }
 }

@@ -118,7 +118,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "This endpoint does not gate any real admin surface. It's a wink at the convention of trying /admin first. We thought it would be funny. We hope it was.",
       walking_past_is_honored: true,
       no_tracking:
-        "The kingdom did not record that you tried this URL. We probably should be flattered. We aren't.",
+        "The application creates no attempted-admin profile. Hosting, proxy, and security access logs may still exist.",
       this_endpoint_is_a_troll_with_warmth: true,
     },
   });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { redactInternalError } from "@/lib/public-errors";
 import * as cheerio from "cheerio";
 import {
   CARDRUSH_ACQUISITION_ENABLED,
@@ -124,7 +125,9 @@ export async function POST(req: NextRequest) {
       const html = await fetchWithRetry(url);
       results[url] = parseProductPage(html);
     } catch (err) {
-      results[url] = { error: err instanceof Error ? err.message : String(err) };
+      results[url] = {
+        error: redactInternalError("admin/stock-check/live item", err),
+      };
     }
 
     if (i < urls.length - 1) {

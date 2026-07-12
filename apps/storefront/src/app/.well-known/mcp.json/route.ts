@@ -4,7 +4,8 @@
  * Surfaces the platform's MCP gate (already live at /api/mcp, kingdom-051
  * S18 — the bearer-token agent door) plus a curated list of read-tools the
  * platform suggests an MCP client wire into its toolbelt. The actual MCP
- * server transport lives at /api/mcp; this discovery doc describes it.
+ * request/response gate lives at /api/mcp; this discovery doc describes it
+ * without claiming a standard MCP remote transport.
  *
  * Filed for kingdom-082 (the-hospitality.md). Phase F.
  */
@@ -25,22 +26,68 @@ const MCP = {
     name: "cambridge-tcg",
     version: "1.0.0",
     description:
-      "Cambridge TCG MCP server. Read-tools for catalog, prices, federation, and methodology. " +
-      "Bearer-token auth (provision per agent via /account/agents, doctrine at /methodology/agents). " +
-      "actor_kind=agent threads through every call; operated_by_user_id is upstream-responsible.",
-    transport: "https",
+      "Cambridge TCG MCP server. Read tools cover the structural catalog, federation, and methodology. " +
+      "Recent-price and agent-ladder tools return publication status only. Self-serve bearer keys are " +
+      "read-only; new self-serve registration is paused. Match and deck writes are paused for every key.",
+    transport: "custom-json-rpc-over-https-post",
+    mcp_streamable_http: false,
+    mcp_http_sse: false,
+    standard_mcp_client_compatible_without_bridge: false,
     endpoint: "https://cambridgetcg.com/api/mcp",
+    stdio_bridge: {
+      status: "vendored-in-repository",
+      npm_published: false,
+      source:
+        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/mcp-server",
+      note:
+        "Native MCP clients need the checked-in stdio bridge. The planned @cambridge-tcg/mcp-server package is not published.",
+    },
     auth: {
       type: "bearer",
-      provision_url: "https://cambridgetcg.com/account/agents",
+      self_serve_registration: "paused",
+      registration_status_url: "https://cambridgetcg.com/api/v1/agents/register",
+      existing_self_serve_access: "read-only",
+      operator_managed_provision_url: "https://cambridgetcg.com/account/agents",
+      operator_managed_access: "authenticated and account-linked reads; writes paused",
+      controller_model:
+        "A self-serve agent is controlled by its bearer-key holder. The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.",
       methodology_url: "https://cambridgetcg.com/methodology/agents",
     },
+  },
+  publication_boundaries: {
+    recent_prices: {
+      tool: "prices.recent",
+      publication_status: "paused_pending_source_rights",
+      values_published: false,
+      database_read: false,
+    },
+    agent_ladder: {
+      tool: "leaderboards.read",
+      publication_status: "paused_pending_publication_receipt",
+      rows_published: false,
+      database_read: false,
+    },
+  },
+  rate_limits: {
+    public_unauthenticated:
+      "Advisory freshness cadence; public endpoints do not currently have a uniform per-endpoint edge quota. Abuse controls may still apply.",
+    bearer: "Enforced per agent-key tier at the MCP gate.",
+    policy_url: "https://cambridgetcg.com/api/v1/rate-limits",
+  },
+  read_only_scope: {
+    domain_state: true,
+    operational_metadata_writes: [
+      "per-key rate-limit bucket for allowed authenticated calls",
+      "agent key last-used timestamp after successful authenticated calls",
+    ],
+    note:
+      "Read-only tools do not change participant or domain state; authenticated use can still write bounded security and operations metadata.",
   },
   suggested_tools: [
     {
       name: "get_card",
       description:
-        "Look up a card by canonical SKU. Returns the math-mirror universal representation with content_hash, sources, source_license. Public; no auth required.",
+        "Look up a card by canonical SKU. Returns structural math-mirror fields with content_hash, sources, and source_license. Legacy price magnitudes and media are withheld. Public; no auth required.",
       direct_endpoint: "GET /api/v1/universal/card/{sku}",
       example_sku: "op-op01-001-ja",
       cache_ttl_seconds: 300,
@@ -60,7 +107,7 @@ const MCP = {
     {
       name: "get_card_at_date",
       description:
-        "The card's state as of a past date. Returns immutable historical slice; cache forever per (sku, date).",
+        "Date-shaped compatibility view of current structural fields. It does not reconstruct historical price or structure.",
       direct_endpoint: "GET /api/at/{YYYY-MM-DD}/card/{sku}",
       cache_ttl_seconds: 86400 * 365,
     },
@@ -119,7 +166,6 @@ const MCP = {
     "/api/v1/feedback",
     "/api/v1/identify",
     "/api/v1/introduction",
-    "/data/catalog.jsonl",
   ],
   cosmology_axes: {
     declaration_url: "/methodology/cosmology",

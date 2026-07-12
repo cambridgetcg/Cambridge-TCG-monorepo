@@ -26,6 +26,7 @@ import { getMemberProfile } from "@/lib/membership/db";
 import { isThemeId, SYSTEM_THEME, THEME_COOKIE, TONE_COOKIE, THEMES } from "@/lib/wardrobe/themes";
 import { canWear } from "@/lib/wardrobe/entitlements";
 import { isToneId } from "@/lib/wardrobe/voice";
+import { safeRelativeRedirectPath } from "@/lib/safe-redirect";
 
 const COOKIE_OPTS = {
   httpOnly: false, // readable client-side so settings UI reflects state
@@ -36,7 +37,7 @@ const COOKIE_OPTS = {
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const back = url.searchParams.get("back") || "/";
+  const back = safeRelativeRedirectPath(url.searchParams.get("back"), "/");
   const themeRaw = url.searchParams.get("theme");
   const toneRaw = url.searchParams.get("tone");
 

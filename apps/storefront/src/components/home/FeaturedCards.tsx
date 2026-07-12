@@ -1,15 +1,13 @@
-import { formatRetailPrice } from "@/lib/pricing";
 import Link from "next/link";
 import Image from "next/image";
 import { type PriceItem, cardAltText } from "@/lib/wholesale/client";
 import { PlateHeader } from "@/lib/ui";
 
 /**
- * FeaturedCards — the gallery's actual art. Hairline mounts around real
- * card images; number + reference price in mono beneath. No rings, no
+ * FeaturedCards — structural catalog rows selected without price ordering.
+ * Hairline mounts around rights-approved card images when available. No rings, no
  * zoom — the card is enough (quiet gallery, prefers-reduced-motion
- * friendly). Collectors first (2026-07-06): each card links to its
- * market page; the price shown is the labelled reference, not an offer.
+ * friendly). Each row links to its market page; legacy values stay withheld.
  */
 export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
   return (
@@ -18,7 +16,7 @@ export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
         title="Featured Cards"
         plate={4}
         rule
-        action={<span className="font-mono text-xs text-ink-faint">reference prices</span>}
+        action={<span className="font-mono text-xs text-ink-faint">structural catalog</span>}
       />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {cards.map(card => (
@@ -38,7 +36,7 @@ export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
             <div className="p-2 border-t border-border-subtle">
               <p className="text-xs text-ink-faint font-mono truncate">{card.card_number}</p>
               <p className="text-sm font-semibold text-ink font-mono tabular-nums">
-                {formatRetailPrice(card.price_gbp, card.channel_price)}
+                Legacy value withheld
               </p>
             </div>
           </Link>

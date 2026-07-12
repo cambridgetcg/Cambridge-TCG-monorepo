@@ -18,17 +18,14 @@ import {
   getDeletedTierProducts,
 } from "~/services/tier-products/tier-product-deletion.server";
 import prisma from "~/db.server";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const startTime = Date.now();
-
-  // Verify cron secret
-  const cronSecret = request.headers.get("X-Cron-Secret");
-  if (cronSecret !== process.env.CRON_SECRET) {
-    console.warn("[TierProductCleanupCron] Unauthorized request");
-    return json({ error: "Unauthorized" }, { status: 401 });
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
+  const startTime = Date.now();
   const url = new URL(request.url);
   const statsOnly = url.searchParams.get("stats") === "true";
   const dryRun = url.searchParams.get("dry-run") === "true";
@@ -136,7 +133,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       {
         success: false,
         job: "tier-product-cleanup",
-        error: error.message,
+        error: "Tier product cleanup failed",
         durationMs: duration,
         timestamp: new Date().toISOString(),
       },

@@ -21,7 +21,7 @@ import { fetchRates, CURRENCY_META, SUPPORTED_CURRENCIES } from "@/lib/fx/rates"
 export const metadata: Metadata = {
   title: "Display Currency & FX Rates — Methodology",
   description:
-    "How the Cambridge TCG price guide converts GBP prices to USD, EUR, JPY, HKD, and CHF for display. Substrate-honest about source, freshness, and the GBP-only transaction boundary.",
+    "How Cambridge TCG obtains display FX rates while public per-card price values remain withheld. Substrate-honest about source, freshness, and scope.",
   other: audienceMetadata("public-documentation", ["fx-rates", "methodology"]),
 };
 
@@ -33,12 +33,12 @@ export default async function FxRatesMethodology() {
       <main className="max-w-3xl mx-auto px-4 py-12 prose">
         <h1>Display Currency &amp; FX Rates</h1>
         <p>
-          The Cambridge TCG price guide carries a canonical GBP price for every
-          card. The currency selector on the price guide pages converts that
-          GBP value into one of six display currencies. <strong>It is a display
-          transform only.</strong> Every transaction on cambridgetcg.com — buy,
-          trade-in, marketplace fill, payout — clears in GBP regardless of the
-          currency you happen to be reading the page in.
+          Public per-card GBP values are currently withheld. The FX service
+          still maintains rates for six display currencies, but those rates do
+          not reveal or reconstruct a withheld card value. Where an active
+          transaction surface supplies a GBP amount, currency conversion is a
+          display transform only; this page does not claim that every commerce
+          flow is currently available.
         </p>
 
         <h2>The six currencies</h2>
@@ -109,7 +109,8 @@ export default async function FxRatesMethodology() {
           </li>
         </ol>
         <p>
-          Today the price guide is reading from{" "}
+          Independently of the withheld card values, the FX-rate service is
+          currently reading from{" "}
           <code>{table.source}</code>
           {table.is_fallback ? " (ECB daily rates unavailable right now)" : ""},
           observed as of <code>{table.as_of}</code> and fetched at{" "}

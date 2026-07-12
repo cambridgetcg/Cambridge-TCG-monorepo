@@ -180,7 +180,8 @@ export async function GET(req: NextRequest): Promise<Response> {
         identify: "/api/v1/identify (the symmetric handshake — declare yourself for real)",
       },
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
   });
 

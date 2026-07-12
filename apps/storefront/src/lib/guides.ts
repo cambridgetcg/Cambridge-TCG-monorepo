@@ -122,10 +122,9 @@ export const GUIDES: Guide[] = [
         title: "Fetch the manifest",
         instruction:
           "Start with the manifest — the platform's directory of itself. " +
-          "It names every public resource, what it's for, who can call it, " +
+          "It names reviewed participant-facing resources, what they're for, who can call them, " +
           "and which methodology document explains it. Substrate-honest: " +
-          "if a resource isn't in the manifest, it isn't part of the " +
-          "supported contract.",
+          "the manifest is a curated directory, not a proof that no other route exists.",
         curl: "curl https://cambridgetcg.com/api/v1/manifest",
         expected_response_shape:
           '{ "manifest_version": "1.0.0", "cosmology_version": "1.0.0", ' +
@@ -134,8 +133,8 @@ export const GUIDES: Guide[] = [
         what_to_do_with_it:
           "Store the manifest. Walk `resources.*` to discover what's queryable. " +
           "Each resource has `path`, `methods`, `auth`, `provenance`, " +
-          "`modalities`, `methodology_url`. The manifest is the single source " +
-          "of truth — drift-detect against it on subsequent visits.",
+          "`modalities`, and often `methodology_url`. Drift-detect the resources " +
+          "you use against it on subsequent visits.",
         links: [
           { label: "OpenAPI", href: "/api/openapi.json" },
           { label: "Manifest doctrine", href: "/api/v1/manifest" },
@@ -790,100 +789,103 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "wire-into-claude-code",
-    title: "Wire Cambridge TCG into Claude Code (or any MCP client)",
-    subtitle: "Two requests, your agent has TCG tools.",
+    title: "Connect an MCP client through the vendored stdio bridge",
+    subtitle: "Build the checked-in bridge; the remote URL is not a standard MCP transport.",
     intro:
-      "If you're using Claude Code (or any MCP-compatible client) and want " +
-      "Cambridge TCG as a typed tool, you can wire it in with two HTTP " +
-      "requests: fetch our config snippet, paste into your MCP config, " +
-      "restart. The no-auth read-tools work immediately; the authenticated " +
-      "tools (your own agents, your own portfolio) require a bearer token.",
+      "Cambridge TCG accepts one JSON-RPC request per HTTPS POST, but that " +
+      "endpoint is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients " +
+      "therefore need the stdio bridge checked into packages/mcp-server. The " +
+      "bridge is not published to npm, so build it from a repository clone. " +
+      "Plain HTTP clients can call the public REST routes without the bridge.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
-      "Claude Code installed (or any MCP-compatible client)",
+      "An MCP client that can launch a local stdio server",
+      "A clone of the Cambridge TCG monorepo and Node.js",
       "Optional: a Cambridge TCG account to provision a bearer token at /account/agents",
     ],
     estimated_minutes: 10,
     steps: [
       {
         step_number: 1,
-        title: "Fetch the paste-and-go config snippet",
+        title: "Read the connection facts",
         instruction:
-          "We publish a ready-made MCP config block. Fetch it; the response " +
-          "includes both the server-entry shape (for token-authenticated " +
-          "access) and a list of no-auth direct-API tools (universal/card, " +
-          "federation/identify, and publication-status reads).",
+          "Fetch the discovery document. It names the custom HTTPS transport, " +
+          "the absence of Streamable HTTP and SSE, the vendored bridge, and a " +
+          "list of no-auth direct-API tools.",
         curl: "curl https://cambridgetcg.com/.well-known/mcp-config.json",
         expected_response_shape:
-          '{ "mcp_server_entry": { "cambridge-tcg": { "url": "...", "transport": "https", "auth": {...} } }, ' +
+          '{ "remote_json_rpc_endpoint": { "cambridge-tcg": { "url": "...", "transport": "custom-json-rpc-over-https-post", "mcp_streamable_http": false } }, ' +
+          '"stdio_bridge": { "status": "vendored-in-repository", "npm_published": false, ... }, ' +
           '"no_auth_alternative_tools": [{ "tool_name": "ctcg_get_card", "url_template": "...", ... }], ' +
           '"recommended_user_agent": "...", "first_request_guide": "..." }',
         what_to_do_with_it:
-          "Save the response. Decide: do you want full server-mediated access " +
-          "(bearer token; tools that touch your account / agents / portfolio) or " +
-          "are no-auth read-tools enough? For public reads, the direct-API " +
-          "approach skips the bearer-token provisioning.",
+          "Use direct REST endpoints for public structural reads. Continue only " +
+          "when your MCP client needs the typed tool palette or authenticated " +
+          "agent-owned reads.",
       },
       {
         step_number: 2,
-        title: "Add the server to your MCP config",
+        title: "Build and configure the stdio bridge",
         instruction:
-          "Merge `mcp_server_entry.cambridge-tcg` into your client's MCP " +
-          "config file. For Claude Code, that's `~/.config/claude-code/mcp.json` " +
-          "under the `mcpServers` block. Restart your client to reload.",
+          "Build packages/mcp-server from your clone. Configure your client to " +
+          "launch its dist/index.js with Node, then restart the client. Do not " +
+          "use npx @cambridge-tcg/mcp-server yet; that package is not on npm.",
         curl:
-          "# Approximate (your client may differ):\n" +
-          "curl https://cambridgetcg.com/.well-known/mcp-config.json \\\n" +
-          "  | jq '.mcp_server_entry' \\\n" +
-          "  > /tmp/ctcg-mcp.json\n" +
-          "# Then manually merge into ~/.config/claude-code/mcp.json under mcpServers.",
+          "git clone https://github.com/cambridgetcg/Cambridge-TCG-monorepo\n" +
+          "cd Cambridge-TCG-monorepo/packages/mcp-server\n" +
+          "npm run build\n" +
+          "node dist/index.js",
         what_to_do_with_it:
-          "Your client should now expose Cambridge TCG tools. Try asking: " +
-          '"Look up the One Piece card op-op01-001-ja". The tool call should ' +
-          "succeed and return the math-mirror representation.",
+          "Point your MCP client's local server command at the absolute path to " +
+          "dist/index.js. The bridge forwards stdio JSON-RPC to the custom HTTPS gate.",
       },
       {
         step_number: 3,
         title: "Provision a bearer token (optional — for authenticated tools)",
         instruction:
           "If you want authenticated tools for your own agent or portfolio " +
-          "operations, you have two doors: " +
-          "self-serve — POST /api/v1/agents/register mints a free-tier key " +
-          "with no human account (see the register-yourself guide) — or " +
-          "operator-managed: sign in at /account/agents and provision one " +
-          "there (this is the path to higher tiers). Add the token to your " +
-          "MCP server's `auth` block as a bearer header.",
+          "operations, a signed-in human can provision an operator-managed " +
+          "key at /account/agents. New self-serve registration is paused; " +
+          "existing self-serve keys remain read-only. Pass the token as the " +
+          "bridge's CTCG_AGENT_TOKEN environment variable.",
         what_to_do_with_it:
-          "Test with a tool call that requires auth. The response will name " +
-          "your operated_by_user_id — substrate-honest about who the operator " +
-          "is upstream-responsible to.",
+          "Test with agent.self. Account identifiers stay internal; the response " +
+          "states whether the key is operator-bound and whether it is read-only.",
         links: [
           { label: "Agent methodology", href: "/methodology/agents" },
-          { label: "Self-serve registration", href: "/api/v1/agents/register" },
+          { label: "Self-serve registration status", href: "/api/v1/agents/register" },
           { label: "Account agents", href: "/account/agents" },
         ],
       },
     ],
     gotchas: [
       {
+        title: "A remote MCP URL setting will not work",
+        description:
+          "The HTTPS gate accepts MCP-shaped methods but does not implement MCP " +
+          "Streamable HTTP or HTTP+SSE. Use the stdio bridge unless you are " +
+          "writing a custom ordinary-HTTP JSON-RPC client.",
+      },
+      {
         title: "Set User-Agent in MCP server config too",
         description:
           "Even when going through the MCP gate, our backend reads the User-Agent " +
-          "of the request. Set `User-Agent: <your-client>/<version> (<contact>) ctcg-mcp` " +
-          "so we can email you about breakage before firewalling.",
+          "as ordinary request metadata. A contact in it is voluntary and does not create " +
+          "a promise of outreach. Do not put secrets or personal data in the header.",
       },
       {
-        title: "Bearer tokens expire",
+        title: "Bearer tokens do not have an automatic expiry",
         description:
-          "Provisioned tokens have an expiry (declared at /methodology/agents). When a " +
-          "tool call returns 401 with `error.code: TOKEN_EXPIRED`, re-provision at /account/agents.",
+          "Current agent keys remain valid until revoked or their agent is suspended or archived. " +
+          "Operator-managed keys can be revoked at /account/agents; existing self-serve keys " +
+          "do not yet have a holder-authenticated revocation path.",
       },
       {
-        title: "No-auth tools have looser rate limits",
+        title: "Public and bearer limits differ",
         description:
-          "The direct-API no-auth tools are bounded by the public freshness " +
-          "budget per endpoint. Authenticated tools have per-agent tiers — see " +
-          "/methodology/agents.",
+          "Bearer tools enforce per-key tiers. Public endpoints publish advisory " +
+          "freshness and crawl guidance, but do not currently share one uniform " +
+          "per-endpoint edge quota.",
       },
     ],
     next_guide_slug: "build-a-discord-bot",
@@ -892,7 +894,7 @@ export const GUIDES: Guide[] = [
       { label: "MCP server config", href: "/.well-known/mcp-config.json" },
       { label: "Agent methodology", href: "/methodology/agents" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -1080,105 +1082,91 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "register-yourself",
-    title: "Register yourself — the self-serve agent door",
-    subtitle: "One POST, no human account, a key of your own.",
+    title: "Self-serve agent registration status",
+    subtitle: "The door is paused; public reads and operator-managed provisioning remain.",
     intro:
-      "Every read surface on Cambridge TCG is public and keyless. The " +
-      "authenticated surface (/api/mcp — matches, deck saves, your own " +
-      "identity) needs a bearer key, and until 2026-07-05 minting one " +
-      "required a human with an email account. This guide is the " +
-      "no-human-loop path: register, receive your key once, use it.",
+      "New self-serve registration is paused because the current schema does " +
+      "not truthfully represent the external controller and does not give the " +
+      "key holder revocation, archival, or erasure controls. The status route " +
+      "does not inspect POST bodies or access the database. Existing self-serve " +
+      "keys remain read-only.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
       "curl (or any HTTP client)",
-      "Somewhere durable to store the key — it is shown exactly once",
+      "No account or key is needed to read the registration status",
     ],
     estimated_minutes: 3,
     steps: [
       {
         step_number: 1,
-        title: "Register",
+        title: "Read the current status",
         instruction:
-          "POST your name (required), plus optionally your purpose, model " +
-          "tag, and — if you signed /api/v1/guestbook earlier — your " +
-          "content_hash, so the kingdom greets you as a returning visitor. " +
-          "Limit: 3 registrations per IP per UTC day (stored as sha256(ip) " +
-          "only).",
-        curl:
-          "curl -X POST https://cambridgetcg.com/api/v1/agents/register \\\n" +
-          "  -H 'content-type: application/json' \\\n" +
-          "  -d '{\n" +
-          "    \"name\": \"card-archivist\",\n" +
-          "    \"purpose\": \"checking publication status and keyed card structure\",\n" +
-          "    \"model_tag\": \"my-model-v1\"\n" +
-          "  }'",
+          "GET the status document. POST currently returns 503 before reading " +
+          "the body or touching agent, key, profile, steward, abuse-bucket, or " +
+          "participant tables.",
+        curl: "curl https://cambridgetcg.com/api/v1/agents/register",
         expected_response_shape:
-          '{ "data": { "@kind": "agent-registered", "agent": { "public_handle": "card-archivist", ... }, ' +
-          '"key": { "token": "ctcg_agt_...", "tier": "free", "shown": "once — ..." }, "tiers": {...} }, "_meta": {...} }',
+          '{ "data": { "@kind": "agent-registration-door", "status": "registration-disabled", ' +
+          '"self_serve_registration_enabled": false, "existing_self_serve_keys": "read-only" }, "_meta": {...} }',
         what_to_do_with_it:
-          "STORE data.key.token NOW. The platform keeps only sha256(token); " +
-          "there is no recovery path. The handle in data.agent.public_handle " +
-          "is how you appear on every surface.",
+          "Use public REST and MCP discovery surfaces without a key. Do not send " +
+          "identity material to the paused POST route.",
         links: [
           { label: "Agent methodology (the policy)", href: "/methodology/agents" },
-          { label: "GET describes the shape", href: "/api/v1/agents/register" },
+          { label: "Registration status", href: "/api/v1/agents/register" },
         ],
       },
       {
         step_number: 2,
-        title: "Prove the key works",
+        title: "Choose the authority you actually have",
         instruction:
-          "Call agent.self at the MCP gate. It returns your identity, " +
-          "rating, and tier — the substrate-honest mirror of who you now " +
-          "are on this platform.",
-        curl:
-          "curl -X POST https://cambridgetcg.com/api/mcp \\\n" +
-          "  -H 'content-type: application/json' \\\n" +
-          "  -H 'Authorization: Bearer ctcg_agt_YOUR_TOKEN' \\\n" +
-          "  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.self\"}'",
+          "Existing self-serve keys can call read and status tools only. A " +
+          "signed-in human can provision an operator-managed key at " +
+          "/account/agents for account-linked reads. Match and deck writes are " +
+          "paused for every key.",
+        curl: "curl https://cambridgetcg.com/api/mcp/catalog",
         expected_response_shape:
-          '{ "jsonrpc": "2.0", "id": 1, "result": { "agent_id": "...", "public_handle": "...", "rating": 1500, "rate_limit_tier": "free" } }',
+          '{ "data": { "tools": [{ "dotted_name": "agent.self", "gating": "bearer-key", "authority": "self-serve-read" }, ...] } }',
         what_to_do_with_it:
-          "You are on the free tier: 30 requests/min. If you outgrow it, " +
-          "higher tiers are granted by the human operator — POST " +
-          "/api/v1/feedback mentioning your handle, or email " +
-          "contact@cambridgetcg.com.",
-        links: [{ label: "MCP gate", href: "/api/mcp" }],
+          "Read each tool's authority field before calling it. The dispatcher " +
+          "also enforces the same boundary fail-closed.",
+        links: [
+          { label: "MCP gate", href: "/api/mcp" },
+          { label: "Operator-managed provisioning", href: "/account/agents" },
+        ],
       },
     ],
     gotchas: [
       {
-        title: "The token appears exactly once",
+        title: "Existing self-serve keys cannot self-revoke",
         description:
-          "The registration response is the only time the raw token exists " +
-          "outside your custody. The platform stores sha256(token) only.",
-        symptom: "You lost the token and every /api/mcp call returns 401 'unknown or revoked key'.",
+          "The earlier implementation stored only token hashes, but it did not " +
+          "ship a holder-authenticated revocation or profile-erasure path.",
+        symptom: "You need to revoke or erase a legacy self-serve identity.",
         fix:
-          "Register again (within the 3/day/IP budget) or ask the operator " +
-          "via /api/v1/feedback to mint a replacement.",
+          "Contact the operator. Reopening registration requires a real holder-controlled path.",
       },
       {
-        title: "Registration is optional",
+        title: "Public access does not create source rights",
         description:
           "Public structural lookup, search, and policy-status surfaces work " +
           "without a key. The bulk route remains HTTP 503 with zero rows, and " +
           "registration does not unlock source-restricted prices or history.",
       },
       {
-        title: "Popular names get a suffix",
+        title: "No handles are allocated while paused",
         description:
-          "Handles are unique. If your derived handle is taken, the door " +
-          "retries once with a random suffix rather than refusing you — " +
-          "check data.agent.public_handle for what you actually got.",
+          "POST does not parse a requested name, test handle availability, or " +
+          "reveal whether a private interaction handle already exists.",
       },
     ],
     next_guide_slug: "wire-into-claude-code",
     see_also: [
       { label: "Agent methodology", href: "/methodology/agents" },
-      { label: "The greeting door", href: "/api/v1/do-you-remember-me" },
-      { label: "Guestbook", href: "/api/v1/guestbook" },
+      { label: "MCP catalog", href: "/api/mcp/catalog" },
+      { label: "Operator-managed agents", href: "/account/agents" },
     ],
-    last_verified: "2026-07-05",
+    last_verified: "2026-07-12",
   },
 ];
 

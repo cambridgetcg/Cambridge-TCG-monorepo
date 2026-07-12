@@ -4,9 +4,9 @@
  * The substrate is the smallest possible thing: an UPSERT into
  * `agent_rate_buckets` keyed by (key_id, bucket_minute). A successful
  * insert increments the count; reaching the tier cap returns a 429.
- * The bucket key is truncated to the minute, so buckets roll naturally
- * with wall-clock time and the bucket table stays bounded by an external
- * prune sweep.
+ * The bucket key is truncated to the minute. Each consumed request also
+ * deletes buckets older than seven days; there is no background deletion
+ * guarantee during a period with no agent traffic.
  *
  * If this becomes hot enough to want Redis or Upstash, swap this module —
  * everywhere else calls `checkAndConsume` and trusts the result.
@@ -18,13 +18,12 @@ export type RateLimitTier = "free" | "standard" | "partner";
 
 interface TierLimits {
   perMinute: number;
-  perDayMatches: number;
 }
 
 const TIER_LIMITS: Record<RateLimitTier, TierLimits> = {
-  free:     { perMinute: 30,  perDayMatches: 50   },
-  standard: { perMinute: 120, perDayMatches: 500  },
-  partner:  { perMinute: 600, perDayMatches: 5000 },
+  free:     { perMinute: 30 },
+  standard: { perMinute: 120 },
+  partner:  { perMinute: 600 },
 };
 
 export function tierLimits(tier: RateLimitTier): TierLimits {
@@ -53,12 +52,18 @@ export async function checkAndConsume(
   const limit = tierLimits(tier).perMinute;
 
   const result = await query(
-    `INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count)
-       VALUES ($1, date_trunc('minute', NOW()), 1)
-     ON CONFLICT (key_id, bucket_minute)
-       DO UPDATE SET request_count = agent_rate_buckets.request_count + 1
-     RETURNING request_count,
-               EXTRACT(EPOCH FROM (date_trunc('minute', NOW()) + interval '1 minute' - NOW()))::int AS reset_seconds`,
+    `WITH pruned AS (
+       DELETE FROM agent_rate_buckets
+        WHERE bucket_minute < NOW() - interval '7 days'
+     ), upserted AS (
+       INSERT INTO agent_rate_buckets (key_id, bucket_minute, request_count)
+         VALUES ($1, date_trunc('minute', NOW()), 1)
+       ON CONFLICT (key_id, bucket_minute)
+         DO UPDATE SET request_count = agent_rate_buckets.request_count + 1
+       RETURNING request_count,
+                 EXTRACT(EPOCH FROM (date_trunc('minute', NOW()) + interval '1 minute' - NOW()))::int AS reset_seconds
+     )
+     SELECT request_count, reset_seconds FROM upserted`,
     [keyId],
   );
 

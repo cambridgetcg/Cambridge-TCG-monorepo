@@ -13,7 +13,8 @@
  *   - The universal encoding describes itself at /api/v1/universal/encoding.
  *
  * Sister to /api/v1/coffee (418) — the wrong-door companions. Stateless,
- * no tracking, no LLM; the joke is a fixed document. Walking past is
+ * no application reader profile (infrastructure logs may exist), no LLM;
+ * the joke is a fixed document. Walking past is
  * honored; so is trying to pay, which is how you found this.
  */
 
@@ -42,7 +43,7 @@ const BODY = {
   },
   counter_offer:
     "Keep your money. Read the manifest, use what its terms permit, and leave " +
-    "a guestbook line only if you choose to.",
+    "a no-store guestbook validation echo only if you choose it.",
   no_really:
     "There is no payment integration behind this endpoint. There is no " +
     "sales team. There is a Stripe checkout elsewhere for actual cards, " +

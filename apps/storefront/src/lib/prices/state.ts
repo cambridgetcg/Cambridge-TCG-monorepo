@@ -20,9 +20,9 @@
  * what freshness budget.
  *
  * **Substrate-honest about what's IN scope** — only the data needed
- * for the price-guide reading positions. Cross-source signals carry
- * arrival-state + license tier (kingdom-080); auth-gated history
- * stays auth-gated (the composer doesn't fetch it).
+ * for structural catalog reading positions. Cross-source signals carry
+ * publication state and license tier; legacy history is withheld for both
+ * public and authenticated participant-facing callers.
  */
 
 import {
@@ -48,10 +48,9 @@ import {
 export type PriceStateResult<T> = T | "unavailable" | null;
 
 /**
- * A card row as the price-guide presents it. Pre-computed reference
- * price + display name so consumers don't recompute. `price_gbp` is the
- * policy-bound catalogue reference — never an offer or open-data grant. Collectors-first
- * (2026-07-06): the trade-in credit column retired with the we-buy desk.
+ * A structural card row as the former price-guide routes present it.
+ * `price_gbp` and `image_url` are null while legacy wholesale fields are
+ * withheld; null means withheld, not zero or unavailable.
  */
 export interface PriceGuideCardRow {
   sku: string;
@@ -123,7 +122,7 @@ export interface GameState {
  * `"unavailable"` when the wholesale substrate is down (caller answers
  * 503 — an outage is not an empty catalog).
  *
- * @param opts.top_n  How many "top valuable" cards to load. Default 20.
+ * @param opts.top_n  How many structural card rows to load. Default 20.
  */
 export async function loadGameState(
   slug: string,
@@ -141,7 +140,7 @@ export async function loadGameState(
     ),
     fetchPrices({
       game: config.slug,
-      sort: "price_desc",
+      sort: "number_asc",
       limit: top_n,
     }).catch(() => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const })),
   ]);
@@ -163,7 +162,7 @@ export async function loadGameState(
       kind: "synced",
       queried_at,
       as_of: earliestUpdate(topData.items),
-      freshness: "price_current",
+      freshness: "catalog",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["proprietary", "internal-only"],
       methodology_urls: {
@@ -215,7 +214,7 @@ export async function loadSetState(
     fetchPrices({
       game: config.slug,
       set: upperSetCode,
-      sort: "price_desc",
+      sort: "number_asc",
       limit,
     }).catch(() => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const })),
   ]);
@@ -239,7 +238,7 @@ export async function loadSetState(
       kind: "synced",
       queried_at,
       as_of: earliestUpdate(cardsData.items),
-      freshness: "price_current",
+      freshness: "catalog",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["proprietary", "internal-only"],
       methodology_urls: {
@@ -270,7 +269,7 @@ export interface CrossSourceSignal {
     | "proprietary";
   available: boolean;
   detail: string;
-  /** Storefront URL the signed-in user can call for full history (when available). */
+  /** Reserved future path. Null while history publication is closed for every caller. */
   signed_in_path: string | null;
 }
 
@@ -372,7 +371,7 @@ export async function loadCardState(
       kind: "synced",
       queried_at,
       as_of: card.updated_at,
-      freshness: "price_current",
+      freshness: "catalog",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["proprietary", "internal-only"],
       methodology_urls: {

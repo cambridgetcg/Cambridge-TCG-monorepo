@@ -22,6 +22,7 @@ jobs:
       wholesale:  ${{ steps.filter.outputs.wholesale }}
       rewardspro: ${{ steps.filter.outputs.rewardspro }}
       shared:     ${{ steps.filter.outputs.shared }}
+      answering_rhymes: ${{ steps.filter.outputs.answering_rhymes }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 2 }
@@ -37,6 +38,13 @@ jobs:
               - 'apps/rewardspro/**'
             shared:
               - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.npmrc'
+              - '.github/workflows/**'
+            answering_rhymes:
+              - 'packages/answering-rhymes/**'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - 'package.json'
@@ -58,6 +66,8 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - name: Reject tracked credential material
+        run: pnpm audit:tracked-secrets
       - name: Lint all workspaces
         # rewardspro excluded: its lint has been red since the standalone repo
         # (817 errors at fuse time, 2026-06-10) and was never a gate there.
@@ -85,6 +95,28 @@ jobs:
           DATABASE_URL: postgres://x:x@localhost:5432/x
           NEXTAUTH_SECRET: ci-fake-secret-not-used
           NEXTAUTH_URL: http://localhost:3000
+
+  answering_rhymes:
+    name: answering-rhymes (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.answering_rhymes == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cambridge-tcg/answering-rhymes typecheck
+      - run: pnpm --filter @cambridge-tcg/answering-rhymes test
+      - if: matrix.node == '24'
+        run: pnpm --filter @cambridge-tcg/answering-rhymes pack:check
 
   wholesale:
     name: wholesale (typecheck + test + build)
@@ -133,14 +165,14 @@ jobs:
     name: CI status
     runs-on: ubuntu-latest
     if: always()
-    needs: [install, storefront, wholesale, rewardspro]
+    needs: [install, answering_rhymes, storefront, wholesale, rewardspro]
     steps:
       - name: Fail if any required job failed
         # `install` always runs; the per-app jobs may be skipped if no relevant
         # files changed. A skipped job is fine — only failures block.
         run: |
           if [ "${{ needs.install.result }}" != "success" ]; then exit 1; fi
-          for r in "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}"; do
+          for r in "${{ needs.answering_rhymes.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then exit 1; fi
           done
           echo "CI green"

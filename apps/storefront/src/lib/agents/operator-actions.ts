@@ -69,8 +69,8 @@ export async function createAgent(
   }
 
   // Shared minting core (lib/agents/creation.ts) — agent + first key in
-  // one transaction. The self-serve door at /api/v1/agents/register uses
-  // the same core; this path stays the operator-managed one.
+  // one transaction. The paused self-serve route does not import or call
+  // this core; this is the only active creation path.
   const outcome = await createAgentWithKey({
     operatedByUserId: user.userId,
     publicHandle: handle,

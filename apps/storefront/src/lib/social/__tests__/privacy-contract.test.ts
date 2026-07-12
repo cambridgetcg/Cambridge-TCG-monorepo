@@ -48,6 +48,20 @@ describe("community privacy contract", () => {
     expect(reset).toContain("bounty_phone_unverified");
     expect(reset).toContain("phone_verified=FALSE");
     expect(reset).toContain("phone_verified_at=NULL");
+    expect(reset).toContain("DELETE FROM peer_arrivals");
+    expect(reset).toContain("DELETE FROM agent_guestbook");
+    expect(reset).toContain("DELETE FROM agent_match_queue");
+    expect(reset).toContain("DELETE FROM agent_registration_buckets");
+    expect(reset).toContain("DELETE FROM agent_rate_buckets");
+    expect(reset).toContain("DELETE FROM carried_state");
+    expect(reset).toContain("DELETE FROM agent_feedback");
+    // Ordinary-user and service-steward categories must stay disjoint or the
+    // captured-vs-updated count guard will roll the transaction back.
+    expect(
+      reset.match(
+        /email IS DISTINCT FROM 'agents-self-serve@cambridgetcg\.com'/g,
+      ) ?? [],
+    ).toHaveLength(6);
     expect(reset).not.toContain("updated_at < $1 AND phone_verified=TRUE");
     expect(reset).not.toContain('"--rollback"');
     expect(reset).not.toContain("rollbackReset");
@@ -58,7 +72,10 @@ describe("community privacy contract", () => {
     expect(runbook).toContain("no automated logical rollback command");
     expect(runbook).toContain("leave the reset `false` and `private` values");
     expect(runbook).toContain("may overwrite every post-snapshot change");
-    expect(runbook).toContain("--plan --expect-only 0117_privacy_defaults.sql");
+    expect(runbook).toContain("--plan");
+    expect(runbook).toContain("No pending migrations.");
+    expect(runbook).toContain("--expect-only 0117_privacy_defaults.sql");
+    expect(runbook).toContain("Skip that apply command");
     expect(runbook).not.toContain("--rollback");
 
     const migrate = source("scripts/migrate.mjs");

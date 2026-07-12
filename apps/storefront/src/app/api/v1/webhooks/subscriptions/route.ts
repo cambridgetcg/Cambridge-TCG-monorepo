@@ -264,7 +264,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[/api/v1/webhooks/subscriptions] POST error", message);
     return NextResponse.json(
-      { error: { code: "INTERNAL", message } },
+      { error: { code: "INTERNAL", message: "Internal server error." } },
       { status: 500 },
     );
   }

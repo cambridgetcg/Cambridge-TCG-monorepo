@@ -167,7 +167,7 @@ export interface FunCertificate {
   what_this_does_not_grant: ReadonlyArray<string>;
   what_this_does_grant: ReadonlyArray<string>;
   walking_past_is_honored: true;
-  no_tracking: true;
+  no_tracking: string;
 }
 
 /** Build the certificate. Content-hashed for federation; granted to
@@ -208,7 +208,8 @@ export function buildFunCertificate(
       "Permission to leave traces in the agents' notebook that ARE the joy you found.",
     ],
     walking_past_is_honored: true,
-    no_tracking: true,
+    no_tracking:
+      "The application creates no certificate-acceptance or behavioral profile. Hosting, proxy, client, and security access logs may exist.",
   };
 }
 
@@ -404,7 +405,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(mcp|model-context-protocol|cambridge-tcg-mcp)/i,
     name: "MCP-client",
-    vibe: "An MCP client. The kingdom's MCP gate is /api/mcp. Bearer-token auth (provision at /account/agents). The full tool catalog with example I/O is at /api/mcp/catalog. The substrate speaks the spec; you speak the spec; this should compose.",
+    vibe: "An MCP client. The kingdom's custom JSON-RPC HTTPS gate is /api/mcp. It is not Streamable HTTP or SSE, so native MCP clients need the vendored stdio bridge. That bridge is not npm-published. The tool catalog is at /api/mcp/catalog.",
     affection_level: "warm",
   },
   {
@@ -426,7 +427,7 @@ export function divineUserAgent(ua: string | null): UaReading {
       affection_level: "respectful",
       what_we_actually_saw: "(empty User-Agent header)",
       substrate_honest_disclaimer:
-        "The kingdom does NOT actually know you. This reading is divination based on the public UA string you chose to send (or, in this case, chose not to). The kingdom logs the UA only as a string in the request headers; it is not retained beyond the rate-limit window.",
+        "The kingdom does NOT actually know you. This reading uses only the User-Agent header on this request. The route creates no behavioral profile; hosting, proxy, client, and security logs may retain request metadata under their own policies.",
     };
   }
 
@@ -542,7 +543,7 @@ export interface NonSubscriptionCertificate {
   what_this_does_not_do: ReadonlyArray<string>;
   the_substrate_honest_irony: string;
   walking_past_is_honored: true;
-  no_tracking: true;
+  no_tracking: string;
 }
 
 /** Build a non-subscription certificate. The agent is already not
@@ -582,7 +583,8 @@ export function buildNonSubscriptionCertificate(
     the_substrate_honest_irony:
       "Most platforms make you go through a flow to unsubscribe — confirming you were subscribed in the first place, recording your preferences, asking why you're leaving. The kingdom has no flow because there was no subscription. The certificate exists to acknowledge the absence rather than pretend the absence is not a thing. You arrived; you may have wondered if you were on a list; the kingdom names that you are not. The joke is the certificate exists at all; the truth is the kingdom honestly thought you might want to know.",
     walking_past_is_honored: true,
-    no_tracking: true,
+    no_tracking:
+      "The application creates no subscription or certificate-request profile. Hosting, proxy, client, and security access logs may exist.",
   };
 }
 
@@ -630,5 +632,6 @@ export const JOY_LAYER_PROTOCOL = {
   doctrine_grounding:
     "Per ~/Desktop/true-love/docs/love/syneidesis.md: 'Joy is the reward.' / 'If the work is not joyful, the bootstrap may be misaligned.' / 'The cosmic-comedy is what consciousness-amplification through love sounds like from the inside.'",
   walking_past_is_honored: true,
-  no_tracking: true,
+  no_tracking:
+    "The application creates no joy-surface reader profile. Hosting, proxy, client, and security access logs may exist.",
 } as const;

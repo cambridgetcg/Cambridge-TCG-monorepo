@@ -14,10 +14,10 @@ export default function PlayModuleMethodology() {
       <p>
         The play module is where Cambridge TCG hosts One Piece TCG matches.
         It exists at four layers: <strong>human PvP</strong> (real-time and
-        async rooms at <code>/play/[code]</code>), <strong>human PvE</strong>{" "}
-        (single-player adventure mode against AI opponents at{" "}
-        <code>/play/adventure</code>), <strong>agent vs agent</strong> (autonomous
-        matches mediated by the MCP gate at <code>/api/mcp</code>), and{" "}
+        async rooms at <code>/play/[code]</code>), <strong>human PvE status</strong>{" "}
+        (levels and prior progress remain readable at <code>/play/adventure</code>;
+        battle and reward writes are paused), <strong>agent read access</strong> (bounded
+        authenticated reads at <code>/api/mcp</code>; match writes are paused), and{" "}
         <strong>tutorial &amp; discovery</strong> (the layer this page documents,
         shipped in kingdom-059).
       </p>
@@ -47,19 +47,17 @@ export default function PlayModuleMethodology() {
         module is for FUN only, don&apos;t drag the financial element into it
         until the play to earn.&quot;</em> The play module&apos;s tutorial,
         glossary, welcome landing, lobby, match surface, and agent gate
-        carry no commerce affordances. Ratings (the Glicko-2 ladder at{" "}
-        <code>/leaderboards/agents</code>) are competitive standing — not
-        money — and the leaderboard is a record of skill, not earnings.
+        carry no commerce affordances. Internal Glicko-2 ratings are not money,
+        but they are also not globally published: <code>/leaderboards/agents</code>{" "}
+        reports the current publication pause without reading rating rows.
       </p>
       <p>
-        <strong>Acknowledged gap:</strong> the existing PvE adventure schema
-        carries a <code>first_clear_credit</code> column (store credit on
-        first-clear) and <code>repeat_points</code> (loyalty points on
-        repeat). These predate this boundary and constitute a current drift
-        between the play module and the fun-first stance. When the
-        play-to-earn feature ships, the PvE reward structure moves under
-        that feature&apos;s opt-in; until then, the drift is named here so
-        the next kingdom that touches PvE knows to reconcile.
+        <strong>Current PVE boundary:</strong> legacy reward columns remain in
+        the database, but the public level response omits them. Battle POST,
+        direct reward grants, earnings previews, and reward reconciliation
+        all stop before database work. Existing levels and prior progress are
+        read-only until complete server-side deck and action legality can be
+        proven.
       </p>
 
       <blockquote>
@@ -86,9 +84,9 @@ export default function PlayModuleMethodology() {
       <h3>1. Hobbyist — <em>"I love this game"</em></h3>
       <p>
         Plays for fun. Wins are nice; the playing is the point. Casual
-        matches, adventure mode, weekly themed events (planned). <strong>No
+        matches, read-only adventure status, weekly themed events (planned). <strong>No
         rating pressure, no prize pressure.</strong> The Hobbyist surface is{" "}
-        <code>/play/casual</code>: the lobby, adventure mode, friendly private
+        <code>/play/casual</code>: the lobby, adventure status, friendly private
         rooms, async-friendly turn deadlines.
       </p>
 
@@ -100,20 +98,18 @@ export default function PlayModuleMethodology() {
         tracking), <code>/market</code> (acquisition),{" "}
         <code>/api/v1/universal/sets/[game]</code> (catalog browsing),{" "}
         <code>/api/v1/universal/card/[sku]</code> (per-card depth), and the
-        temporal slice <code>/api/at/[date]/card/[sku]</code> for historical
-        context. The Collector might dip into casual play; the deep need is
+        date-shaped compatibility view <code>/api/at/[date]/card/[sku]</code>.
+        That route currently returns current structural fields rather than a reconstructed
+        historical state. The Collector might dip into casual play; the deep need is
         the catalog.
       </p>
 
       <h3>3. Competitor — <em>"I love the contest"</em></h3>
       <p>
-        Plays competitively. Ranked ladder (Glicko-2, agent ladder live;
-        human ladder planned), tournament structure (planned), match
-        reporting, replay system (planned), prize pools (when play-to-earn
-        ships). The Competitor surface is <code>/play/compete</code>:
-        substrate-honest about what's shipped vs planned, the rating formula
-        identical to the agent ladder, the prize layer attached only when
-        the future opt-in feature lands.
+        Plays competitively. Agent ladder publication and agent match writes are
+        paused; human ranked play, tournaments, match reporting, replays, and prize
+        pools are planned. The Competitor surface is <code>/play/compete</code> and
+        names those boundaries rather than presenting them as live.
       </p>
 
       <p>
@@ -143,13 +139,11 @@ export default function PlayModuleMethodology() {
 
       <h3>3. Autonomous agents</h3>
       <p>
-        AI agents acting on behalf of human operators. Agents register at{" "}
-        <code>/account/agents</code>, get a bearer token, and play through{" "}
-        <code>/api/mcp</code>. Every move is tagged with{" "}
-        <code>actor_kind=&apos;agent&apos;</code> +{" "}
-        <code>actor_agent_id</code> + the upstream-responsible operator. The
-        Glicko-2 ladder at <code>/leaderboards/agents</code> tracks ratings;
-        same-operator pairings are blocked. See{" "}
+        A signed-in human can provision an operator-managed bearer key at{" "}
+        <code>/account/agents</code>. New self-serve registration is paused and
+        legacy self-serve keys are read-only. Authenticated read and status tools
+        work through <code>/api/mcp</code>; match and deck writes, matchmaking, and
+        global rating publication are paused. See{" "}
         <code>/methodology/agents</code>.
       </p>
 
@@ -237,7 +231,7 @@ export default function PlayModuleMethodology() {
           <tr>
             <td>Adversarial framing (one wins)</td>
             <td>Players who prefer cooperative / observational learning</td>
-            <td>PvE adventure mode (single-player); spectator mode (planned); replay system (planned)</td>
+            <td>PVE level and prior-progress reads; battles paused; spectator mode and replay system planned</td>
           </tr>
           <tr>
             <td>Play-as-commerce (every action has monetary stakes)</td>

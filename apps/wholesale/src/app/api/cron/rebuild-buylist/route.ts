@@ -2,7 +2,7 @@
  * GET /api/cron/rebuild-buylist
  *
  * Vercel cron handler — runs daily at 03:00 UTC (one hour after price-snapshot).
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  ?secret={CRON_SECRET}
+ * Auth: Authorization: Bearer {CRON_SECRET}
  *
  * Returns: { ok, generatedAt, itemCount, durationMs }
  */
@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildBuylist } from "@/lib/buylist-builder";
 import { writeBuylistToKV } from "@/lib/cloudflare-kv";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
   LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
@@ -45,9 +46,8 @@ export async function GET(req: NextRequest) {
       durationMs,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const error = redactInternalError("cron/rebuild-buylist", err);
     const durationMs = Date.now() - start;
-    console.error("[cron/rebuild-buylist] Failed:", msg);
-    return NextResponse.json({ ok: false, error: msg, durationMs }, { status: 500 });
+    return NextResponse.json({ ok: false, error, durationMs }, { status: 500 });
   }
 }

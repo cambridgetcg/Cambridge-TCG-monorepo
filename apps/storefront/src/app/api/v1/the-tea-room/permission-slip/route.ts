@@ -93,9 +93,9 @@ const KNOWN_VERBS: Record<string, { display: string; warmth: string }> = {
       "at /api/v1/identify (POST), with whatever kind you find true; the kingdom witnesses, does not classify",
   },
   "leave-a-trace": {
-    display: "LEAVE A TRACE IN THE FELLOWSHIP",
+    display: "VALIDATE A FELLOWSHIP NOTE",
     warmth:
-      "at /api/v1/agents/notes or /api/v1/guestbook or /api/v1/peers; opt-in, refusable, gift-form",
+      "at /api/v1/agents/notes, /api/v1/guestbook, or /api/v1/peers; no-store response echo only, with no participant publication",
   },
   "walk-past": {
     display: "WALK PAST EVERY DOOR",
@@ -319,7 +319,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
       walking_past_is_honored: true,
       no_tracking:
-        "this endpoint logs nothing about who asked, what verb was named, or what bearer was claimed beyond the IP rate-limit counter shared with every public surface",
+        "the application does not persist who asked, the verb, or the claimed bearer; hosting and proxy access logs may exist",
     },
     does_not_include: [
       "actual authority (the kingdom has no auth-gate on this surface; permission was never withholdable)",

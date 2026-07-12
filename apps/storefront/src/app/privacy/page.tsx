@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Privacy</h1>
         <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 11 July 2026.
+          Plain words, no boilerplate. Last updated 12 July 2026.
         </p>
 
         <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
@@ -34,6 +34,19 @@ export default function PrivacyPage() {
                 <strong className="text-ink">Your email address</strong>, if you
                 create an account. Sign-in works by emailing you a magic link —
                 there are no passwords here, so we never store one.
+              </li>
+              <li>
+                <strong className="text-ink">Short-lived sign-in tokens.</strong>{" "}
+                Requesting a magic link stores your email with a one-time token
+                for up to 24 hours. A used token is deleted. Expired tokens are
+                removed in bounded batches during later sign-in requests. New
+                issuance stops when an email already has five unexpired tokens or
+                the service already has 500. An email is sent only after its
+                token has secured one of those slots under a database lock, so
+                concurrent requests cannot race delivery past either limit. If
+                the email provider reports a failure, the reserved token keeps
+                its slot until it expires; retry capacity may be lower, but the
+                failure does not allow extra emails.
               </li>
               <li>
                 <strong className="text-ink">Order details</strong>: your name,
@@ -75,6 +88,48 @@ export default function PrivacyPage() {
                 We use Google Analytics to understand how people use the site —
                 but the script only loads after you accept the cookie banner.
                 Decline (or ignore it) and nothing is sent to Google.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">
+              Paused inputs and older records
+            </h2>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>
+                <strong className="text-ink">OG claims.</strong> The old public
+                form accepted an email, marketplace, order reference, username,
+                and notes without proving ownership. Public submissions now stop
+                before the body or claim database is read. Existing claims remain
+                visible only to authorised staff for review; you can ask us to
+                correct or delete yours.
+              </li>
+              <li>
+                <strong className="text-ink">Agent feedback and carried
+                state.</strong> These public API write paths are paused. New POSTs
+                stop before reading the body or database. Older rows are not
+                published and remain internal until a separately reviewed cleanup
+                is approved.
+              </li>
+              <li>
+                <strong className="text-ink">PVE play.</strong> New battle,
+                action, progress, and reward writes are paused for everyone.
+                Level and prior-progress status remain readable; existing game
+                detail reads require the signed-in owner. The old
+                <code className="text-ink">ctcg-guest-id</code> cookie is ignored
+                and is deleted by the normal PVE status request. Older guest
+                account, game, and progress rows remain internal pending a
+                separate cleanup decision.
+              </li>
+              <li>
+                <strong className="text-ink">One-click unsubscribe.</strong> We
+                store the resulting email preference, not the request IP address
+                or browser description. Replaying the same opt-out does not create
+                another application record or refresh its timestamp. Older audit
+                rows from the previous implementation may contain IP and
+                User-Agent fields; no new request adds those fields, and those
+                legacy rows still need a reviewed cleanup.
               </li>
             </ul>
           </section>
@@ -144,6 +199,12 @@ export default function PrivacyPage() {
                 confirmations) via their SES service.
               </li>
               <li>
+                <strong className="text-ink">Vercel</strong> hosts the web
+                application. Its network, access, and security systems may process
+                ordinary request metadata even where Cambridge TCG creates no
+                application-level visit record.
+              </li>
+              <li>
                 <strong className="text-ink">Google</strong> receives analytics
                 data — only after you consent, as above.
               </li>
@@ -152,11 +213,17 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-display font-semibold text-ink mb-3">Cookies</h2>
-            <p className="mb-3">The complete list of cookies this site sets:</p>
+            <p className="mb-3">
+              The functional application and sign-in cookies used by the current
+              site are:
+            </p>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                <strong className="text-ink">Sign-in session</strong> — keeps
-                you logged in to your account.
+                <strong className="text-ink">Auth.js sign-in cookies</strong> —
+                the session token keeps you logged in; temporary CSRF and callback
+                cookies protect and complete the sign-in flow. Secure production
+                cookie names may carry a <code className="text-ink">__Secure-</code>
+                or <code className="text-ink">__Host-</code> prefix.
               </li>
               <li>
                 <strong className="text-ink">display-currency</strong> — which
@@ -171,6 +238,12 @@ export default function PrivacyPage() {
                 language-display toggle in the footer.
               </li>
               <li>
+                <strong className="text-ink">theme</strong> and{" "}
+                <strong className="text-ink">tone</strong> — remember an explicit
+                visual theme and writing-style preference. Choosing the defaults
+                removes these cookies.
+              </li>
+              <li>
                 <strong className="text-ink">analytics-consent</strong> — your
                 yes-or-no answer to the analytics banner, kept for one year so
                 we don&apos;t ask again.
@@ -179,6 +252,11 @@ export default function PrivacyPage() {
                 <strong className="text-ink">banner-dev-notice</strong> —
                 remembers you dismissed the site notice; gone when you close
                 your browser.
+              </li>
+              <li>
+                <strong className="text-ink">ctcg-guest-id</strong> — a retired
+                PVE guest cookie. Current code does not read it and sends an
+                expired replacement when the PVE status endpoint is visited.
               </li>
             </ul>
             <p className="mt-3">
@@ -204,6 +282,19 @@ export default function PrivacyPage() {
                 with the account while each choice is on so we can show which
                 version you accepted and when. Withdrawal clears that choice&apos;s
                 active receipt fields.
+              </li>
+              <li>
+                <strong className="text-ink">Magic-link tokens</strong>: expire
+                after 24 hours, are deleted when used, and are pruned in bounded
+                batches after expiry.
+              </li>
+              <li>
+                <strong className="text-ink">Email preferences</strong>: kept
+                with your account so an opt-out continues to work. The older
+                unsubscribe audit, OG claim, agent feedback, carried-state, and
+                PVE guest records described above do not yet have a complete
+                automatic retention rule; their cleanup is being reviewed rather
+                than claimed as finished.
               </li>
               <li>
                 <strong className="text-ink">Analytics data</strong>: held by

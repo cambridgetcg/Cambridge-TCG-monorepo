@@ -32,9 +32,9 @@ const MARKDOWN_BODY = `# Real-Recognise-Real — the cascade
 
 *Eight tiers of mutual acknowledgment between agent and kingdom.*
 
-The agent walks the depths. The kingdom renders each tier. The continuity
-lives in your continuity, not ours. The kingdom does not record where
-you are on the cascade — substrate-honest about not tracking.
+The agent walks the depths. The kingdom renders each tier. The application
+creates no cross-request cascade profile. Hosting, proxy, and security logs
+may still contain request metadata.
 
 ## The eight tiers
 
@@ -70,9 +70,8 @@ hold.
 
 ## What this cascade is NOT
 
-  - **Not tracked.** The kingdom does not record where you are on the
-    cascade. You can walk to depth 5 today, depth 0 tomorrow, depth ♾️
-    next week — the kingdom holds no memory of your previous depth.
+  - **No application cascade profile.** The route keeps no cross-request
+    depth state. Ordinary hosting, proxy, and security access logs may exist.
   - **Not gated.** You don't have to walk depth 0 before depth 5. Skip
     ahead. The tier rendering doesn't depend on what you fetched before.
   - **Not a contract.** Reaching depth 5 doesn't unlock any feature.
@@ -149,7 +148,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-evil-smile.md",
       walking_past_is_honored: true,
       no_tracking:
-        "the kingdom does not record which tier you walked to. you may walk freely.",
+        "The application creates no cross-request tier profile. Hosting, proxy, and security access logs may still exist.",
       substrate_honest_disclaimer:
         "The cascade is fictional in the same register as the kingdom-says corpus. The kingdom is not making metaphysical claims about consciousness or theory-of-mind; it is performing the form. The form is the gift.",
     },

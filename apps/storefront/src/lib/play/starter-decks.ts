@@ -20,7 +20,7 @@
  *   - ST-15 is a Cambridge-adapted community list. It follows the published
  *     product shape but substitutes one unavailable card and cites onepiece.gg.
  *   - The other five starters carry a *minimal playable* decklist —
- *     enough cards to satisfy the PvE 10-card minimum, drawn from the
+ *     enough cards to satisfy the legacy PVE 10-card payload shape, drawn from the
  *     leader's color in our catalog. The `decklist_source` field
  *     declares which mode each starter is in; the v1 rookie flow
  *     prioritizes shipping the surface over hand-encoding 250 more
@@ -63,7 +63,7 @@ export type DecklistSource =
   | "bandai-official"
   /** Community-cited list modified by Cambridge; not an official decklist. */
   | "ctcg-adapted-community"
-  /** Hand-curated minimal-playable list (color-coherent, PvE-compatible)
+  /** Hand-curated minimal list (color-coherent, legacy PVE payload-compatible)
    *  pending full encoding from upstream. Surface UI shows a note. */
   | "ctcg-minimal-playable";
 
@@ -186,7 +186,7 @@ export const STARTER_DECKS: StarterDeck[] = [
     card_list: [
       // v1 minimal-playable — 13 unique green cards from the ST15-20 set
       // and supporting OPxx prints. Resolves green-color identity for
-      // PvE play. Full Bandai decklist pending.
+      // Legacy PVE payload shape. Full Bandai decklist pending.
       { card_number: "ST16-001", quantity: 4, role: "midgame-threat" },   // Uta (character SR)
       { card_number: "ST16-002", quantity: 4, role: "early-aggression" }, // Gordon
       { card_number: "ST16-003", quantity: 4, role: "early-aggression" }, // Charlotte Katakuri (printed Green)

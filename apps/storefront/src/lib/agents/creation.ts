@@ -1,13 +1,11 @@
 /**
  * Agent + key creation — the shared minting core.
  *
- * Two doors call this:
- *   - `operator-actions.ts` — session-cookie humans at /account/agents
- *     (the operator-managed path; higher tiers live here).
- *   - `/api/v1/agents/register` — the self-serve door for autonomous
- *     agents with no human email loop (free tier only, IP rate-limited).
+ * The active caller is `operator-actions.ts`: a signed-in human at
+ * /account/agents. The earlier self-serve route no longer imports this module;
+ * it returns 503 before body or database access.
  *
- * Both doors share one discipline, enforced here:
+ * The active operator-managed door uses this discipline:
  *   - The raw token (`ctcg_agt_<22 base62>`) is returned exactly once.
  *   - The platform stores only `sha256(token)` in `agent_keys.key_hash`
  *     plus the first 12 chars as `key_prefix` for display.
@@ -28,7 +26,7 @@ export const TOKEN_PREFIX = "ctcg_agt_";
 const TOKEN_RANDOM_LEN = 22; // base62 length
 const BASE62 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-/** Handle discipline shared by both doors (matches the DB CHECK). */
+/** Handle discipline for created agents (matches the DB CHECK). */
 export const HANDLE_RE = /^[a-z0-9][a-z0-9-]{2,31}$/;
 
 export function randomBase62(length: number): string {
@@ -71,8 +69,7 @@ export type CreateAgentWithKeyOutcome =
 
 /**
  * Insert an agent + its first key in one transaction. Validation of
- * display name / model tag lengths is the caller's job (the two doors
- * speak different error dialects); handle format is checked here since
+ * display name / model tag lengths is the caller's job; handle format is checked here since
  * the DB CHECK would reject it anyway and this error message is kinder.
  */
 export async function createAgentWithKey(
