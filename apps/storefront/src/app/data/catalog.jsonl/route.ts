@@ -6,16 +6,13 @@
  * "catalog_footer"); intervening lines are universal-card-shaped sparse
  * documents — one per card in `card_set_cards`.
  *
- * Per-record provenance: each card carries `@sources` + `@source_license`
- * declaring the substrate (storefront-rds.card_set_cards, CC0). The
- * underlying GBP price chain may include cardrush observations at the
- * wholesale layer; that lineage doesn't surface in this bulk export
- * because the storefront RDS doesn't carry per-row source provenance.
- * For source-attributed historical prices, fetch the wholesale temporal
- * slice (Bearer-keyed) on a per-SKU basis.
+ * Per-record provenance is incomplete: the storefront mirror does not retain
+ * the full upstream license chain for each catalog and reference-price row.
+ * The export therefore says NOASSERTION rather than inventing permission.
+ * For source-attributed historical prices, fetch the wholesale temporal slice
+ * (Bearer-keyed) on a per-SKU basis.
  *
- * License: CC0-1.0. Mirror freely. The catalog rows are Cambridge TCG's
- * own observation discipline.
+ * License: NOASSERTION until per-row source rights are complete.
  *
  * Content-Encoding: gzip handled at the Vercel CDN layer when the client
  * sends `Accept-Encoding: gzip` (default for ~all HTTP clients). This
@@ -105,15 +102,15 @@ export async function GET(): Promise<Response> {
           unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
         },
         sources: ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"],
-        source_license: ["CC0-1.0", "CC0-1.0", "CC0-1.0"],
-        license: "CC0-1.0",
+        source_license: ["NOASSERTION", "NOASSERTION", "NOASSERTION"],
+        license: "NOASSERTION",
         note:
-          "Bulk export of the storefront card catalog. CC0; mirror freely. " +
-          "GBP prices are Cambridge TCG retail offers (our own discipline); the " +
-          "wholesale-layer chain producing them may include CardRush JP observations " +
-          "(license: internal-only) — bulk JPY is NOT in this export. Pull per-SKU " +
-          "source-attributed historicals from wholesaletcgdirect.com (Bearer-keyed) " +
-          "if you need them.",
+          "Readable bulk export of the storefront card catalog. Reuse rights are " +
+          "NOASSERTION because per-row upstream license lineage is incomplete. GBP " +
+          "values are labelled reference observations, never offers; their upstream " +
+          "chain may include internal-only CardRush JP observations. Pull per-SKU " +
+          "source-attributed history from wholesaletcgdirect.com (Bearer-keyed) when " +
+          "you need its declared source chain.",
         endpoint: "/data/catalog.jsonl",
         next_recompute_recommended: "daily (catalog freshness budget)",
         // Substrate-honest empty state — count_expected: 0 with no
@@ -177,7 +174,7 @@ export async function GET(): Promise<Response> {
           "@content_hash": contentHash,
           "@density": "sparse",
           "@sources": ["storefront-rds.card_price_history"],
-          "@source_license": ["CC0-1.0"],
+          "@source_license": ["NOASSERTION"],
           sku: row.sku,
           set_code: row.set_code,
           card_number: row.card_number,

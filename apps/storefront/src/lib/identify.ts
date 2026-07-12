@@ -50,6 +50,7 @@
 import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
 import { createHash } from "node:crypto";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
 
@@ -214,7 +215,7 @@ export const PLATFORM_SELF: BeingDeclaration = {
   actor_kind: "platform",
   // Identity claim updated in kingdom-080 (the rebrand), repositioned
   // 2026-05-17: Cambridge TCG's primary identity is the TCG world's
-  // data provider (aggregator + open substrate publisher). The
+  // data provider (aggregator + resource-specific directory). The
   // self_label remains the bare name; the role is named in `context`.
   self_label: "Cambridge TCG",
   cosmology_assumptions: {
@@ -261,17 +262,15 @@ export const PLATFORM_SELF: BeingDeclaration = {
   context: {
     cosmology_version: "1.0.0",
     manifest_version: MANIFEST.manifest_version,
-    // The primary identity claim (kingdom-080, repositioned 2026-05-17).
-    // The kingdom presents itself first as the TCG world's data provider;
-    // retail + wholesale are two of three operations consuming the same
-    // substrate the platform publishes.
-    primary_identity: "trading-card-game world data provider — aggregator + open substrate publisher",
-    three_operations: ["data_plane (primary)", "retail (established UK B2C)", "wholesale (established B2B)"],
+    // Current identity after the collectors-first decision of 2026-07-06.
+    primary_identity: "peer-to-peer collectors' market + card data directory",
+    two_operations: ["collectors_market", "card_data_directory"],
     platform_page: "/platform",
     rebrand_doctrine: "docs/connections/the-rebrand.md",
     six_layers: ["cosmology", "manifest", "substrate-answers", "graph", "ontology", "patterns", "declarations (this one)"],
     operator_responsible: "Yu",
-    licensing: "Code: private repos. Public APIs: CC0 by default; per-response license declared in the data-pantry envelope.",
+    licensing:
+      `Repository source is publicly visible but has no general code license; the specification texts have their own CC0 dedication. ${DATA_RIGHTS_BOUNDARY}`,
     federation_endpoint: "/api/v1/federation/identify/[hash]",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",
     introduction: "If you've never seen a trading-card-game before, /intro (HTML) or /api/v1/introduction (JSON) is the on-ramp. Three layers (structural / cultural / engagement) + five honestly-named gaps. The reciprocity of identify: a being asks 'who are you?'; the platform answers both 'who' and 'what we do'. See docs/connections/the-introduction.md (#22) for the doctrine.",
@@ -573,7 +572,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Systems consume the data plane. The manifest is the directory of every public surface.",
           "/api/v1/manifest",
-          "Every endpoint, freshness budget, license, methodology pointer. The contract. Build-time constant; refreshed hourly at the CDN edge.",
+          "Every listed endpoint, access class, provenance kind, and methodology pointer. Build-time constant; refreshed hourly at the CDN edge.",
         ),
         ptr(
           "Rate-limit policy applies to all callers. Identify yourself in User-Agent so we can email when something breaks.",
@@ -583,7 +582,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Bulk catalog dump for offline ingestion.",
           "/data/catalog.jsonl",
-          "Daily refresh. CC0-1.0. ~12k cards (planned). Bulk consumers prefer this over /api/v1/cards/{sku}.",
+          "Publicly readable JSONL. Aggregate rights are NOASSERTION until per-row source lineage is complete; access is not redistribution permission.",
         ),
       );
       break;
@@ -816,7 +815,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
           ptr(
             "NDJSON bulk export is available at /data/catalog.jsonl — streamed, manifest header + footer, 50k cap, CDN-gzipped.",
             "/data/catalog.jsonl",
-            "Full CC0 catalog as newline-delimited JSON. Substrate-honest about scope: pre-runtime for full streaming; the cap holds.",
+            "Publicly readable newline-delimited JSON. Aggregate rights are NOASSERTION until per-row source lineage is complete; the 50k cap is explicit.",
           ),
         );
       }

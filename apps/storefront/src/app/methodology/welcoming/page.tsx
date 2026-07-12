@@ -177,8 +177,8 @@ export default function WelcomingMethodology() {
         <li>
           If the gap is technical (an API field, a missing endpoint, a curation
           that should expose substrate), open an issue on the public repo or
-          mention it to support — the platform's substrate is open even when the
-          surfaces aren't yet.
+          mention it to support. The repository is publicly inspectable even
+          when a requested surface is not implemented or licensed for reuse.
         </li>
       </ol>
 

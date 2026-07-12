@@ -21,7 +21,7 @@ import DevBannerDismiss from "./DevBannerDismiss";
 // whose whole pitch is "post an ask — it can fill the moment you post". The
 // house sells nothing now; every listing is a collector's. Honest + calm.
 export const BANNER_COPY =
-  "Cambridge TCG is a peer-to-peer collectors' market, still in active development. You trade directly with other collectors; reference prices are open data — a guide, not an offer. Tell us if anything looks off.";
+  "Cambridge TCG is a peer-to-peer collectors' market, still in active development. You trade directly with other collectors; publicly viewable reference prices are a guide, not an offer. Reuse rights remain source-specific. Tell us if anything looks off.";
 
 // Must match the cookie name used in DevBannerDismiss.
 export const BANNER_COOKIE = "banner-dev-notice";

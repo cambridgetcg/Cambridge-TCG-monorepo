@@ -212,17 +212,17 @@ function BidAskRow({
 /** Reference price + market price info panel.
  *  Collectors-first (2026-07-06): the two-sided CTCG spread block and the
  *  trade-in rows died with the we-buy desk. The catalogue price survives
- *  strictly as a labelled reference — open data, nobody's offer. */
+ *  strictly as a publicly viewable reference, nobody's offer. */
 function ReferencePricePanel({ view }: { view: UnifiedMarketView }) {
   const { reference_price, market_price, p2p_discount } = view;
 
   return (
     <div className="wardrobe-mat rounded-lg p-3 mb-4 space-y-2">
-      {/* Reference price (open data, not an offer) */}
+      {/* Publicly viewable reference price, not an offer. */}
       <div className="flex items-center justify-between">
         <span
           className="text-xs text-ink-muted"
-          title="The catalogue reference price — open data, not anyone's offer. Nothing sells at it; the collector book below is the market."
+          title="The publicly viewable catalogue reference is not anyone's offer. Reuse follows its declared source rights; the collector book below is the market."
         >
           Reference price <span className="text-ink-faint">(ref)</span>
         </span>
@@ -240,7 +240,7 @@ function ReferencePricePanel({ view }: { view: UnifiedMarketView }) {
         )}
       </div>
       <p className="font-mono text-[10px] text-ink-faint mt-0.5">
-        reference · open data, not anyone&rsquo;s offer
+        publicly viewable reference · source rights apply · not an offer
       </p>
 
       {/* Market Price */}
@@ -904,7 +904,7 @@ export default function CardMarketClient({
                   : (book.best_bid ? formatPrice(Number(book.best_bid)) : "—")}
               </span>
               {tab === "buy" && book.reference_price != null && (
-                <span className="ml-2 text-ink-faint" title="Catalogue reference price — open data, not an offer.">
+                <span className="ml-2 text-ink-faint" title="Publicly viewable catalogue reference; source rights apply; not an offer.">
                   (ref: <Money value={book.reference_price} className="font-mono tabular-nums" />)
                 </span>
               )}

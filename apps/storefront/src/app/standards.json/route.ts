@@ -24,7 +24,8 @@ interface StandardEntry {
   impl_path_in_repo?: string;
   endpoint_url?: string;
   endpoint_status?: "shipped" | "planned";
-  license: "CC0-1.0";
+  spec_license: "CC0-1.0";
+  implementation_license?: "NOASSERTION";
 }
 
 const STANDARDS: StandardEntry[] = [
@@ -39,7 +40,8 @@ const STANDARDS: StandardEntry[] = [
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/sku-standard/page.tsx",
     impl_path_in_repo: "packages/sku/",
-    license: "CC0-1.0",
+    spec_license: "CC0-1.0",
+    implementation_license: "NOASSERTION",
   },
   {
     code: "CTCG-PRICING-v1",
@@ -52,7 +54,8 @@ const STANDARDS: StandardEntry[] = [
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/pricing/page.tsx",
     impl_path_in_repo: "packages/pricing/",
-    license: "CC0-1.0",
+    spec_license: "CC0-1.0",
+    implementation_license: "NOASSERTION",
   },
   {
     code: "CTCG-UNIVERSAL-v1",
@@ -65,8 +68,8 @@ const STANDARDS: StandardEntry[] = [
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/universal-representation/page.tsx",
     endpoint_url: "/api/v1/universal/card/[sku]",
-    endpoint_status: "planned",
-    license: "CC0-1.0",
+    endpoint_status: "shipped",
+    spec_license: "CC0-1.0",
   },
 ];
 
@@ -79,6 +82,7 @@ interface StandardsManifest {
     license: string;
     license_path: string;
     license_url: string;
+    license_scope: string;
   };
   standards: StandardEntry[];
   counts: {
@@ -123,6 +127,8 @@ export async function GET(): Promise<NextResponse> {
       license: "CC0-1.0",
       license_path: "docs/STANDARDS-LICENSE.md",
       license_url: "https://creativecommons.org/publicdomain/zero/1.0/",
+      license_scope:
+        "Specification text only. Implementation code and response data carry separate rights.",
     },
     standards: STANDARDS,
     counts,
@@ -142,10 +148,8 @@ export async function GET(): Promise<NextResponse> {
     },
     what_is_not_yet_shipped: [
       "npm-published reference implementations (@cambridge-tcg/sku-spec, /pricing-spec)",
-      "/api/v1/universal/card/[sku] endpoint (spec'd, planned)",
       "/api/v1/universal/price/[sku] endpoint (pricing-as-JSON)",
       "/standards/changelog (versioned RSS/email feed for adopters)",
-      "/standards/adopters (public registry, empty today)",
       "docs/STANDARDS-GOVERNANCE.md (process for v2 proposals)",
     ],
   };

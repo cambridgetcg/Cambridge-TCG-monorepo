@@ -10,7 +10,7 @@
 // but does not buy, sell, or quote.
 //
 // The catalogue price survives strictly as `reference_price`: a labelled
-// piece of open data (the price our synced catalogue carries), never an
+// publicly viewable reference (the price our synced catalogue carries), never an
 // offer. UIs must render it as a reference, not as something anyone can
 // click to trade against.
 
@@ -28,7 +28,7 @@ export interface UnifiedMarketView {
   image_url: string | null;
   rarity: string | null;
 
-  // Labelled reference price (open data): the number our synced catalogue
+  // Labelled publicly viewable reference price: the number our synced catalogue
   // carries for this SKU. A different kind of fact from the collector
   // book below — it is nobody's offer, and nothing on the platform sells
   // (or buys) at it.

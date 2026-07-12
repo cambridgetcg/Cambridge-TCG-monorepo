@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Fraunces, Inter, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import Script from "next/script";
 import { cookies, headers } from "next/headers";
@@ -6,6 +7,7 @@ import "./globals.css";
 import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
+import { StorefrontBreadcrumbs } from "@/components/layout/StorefrontBreadcrumbs";
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
 import CookieConsent, { ANALYTICS_CONSENT_COOKIE } from "@/components/CookieConsent";
 import { fetchRates } from "@/lib/fx/rates";
@@ -39,24 +41,24 @@ export const metadata: Metadata = {
   // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
   // games" count is COVERAGE_FACTS.games.declared. Collectors first
   // (2026-07-06): the shop-and-wholesale framing retired with the shop.
-  title: "Cambridge TCG — the collectors' market and open TCG data",
-  description: "Cambridge TCG is a collectors' market for trading cards — buy, sell, and swap directly with other collectors — plus a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+  title: "Cambridge TCG — collectors' market and TCG card data",
+  description: "A peer-to-peer trading-card market and card data directory covering 21 declared games. Public resources and credential requirements are listed in the manifest; reuse rights depend on each endpoint and source.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — the collectors' market and open TCG data",
-    description: "A peer-to-peer trading-card market based in Cambridge, UK, and a free open data layer covering 21 games. Prices with sources shown, fair fees, and an open API anyone can build on.",
+    title: "Cambridge TCG — collectors' market and TCG card data",
+    description: "A peer-to-peer trading-card market based in Cambridge, UK, plus a card data directory covering 21 declared games. Access and reuse terms are resource-specific.",
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — the collectors' market and open TCG data",
-    description: "A peer-to-peer trading-card market and free open TCG data covering 21 games. Prices with sources shown, and an open API anyone can build on.",
+    title: "Cambridge TCG — collectors' market and TCG card data",
+    description: "A peer-to-peer trading-card market and card data directory covering 21 declared games. Access and reuse terms are resource-specific.",
     images: ["/images/twitter-image.png"],
   },
   // Agent navigation hints — naive crawlers and LLM agents arriving at any
@@ -228,7 +230,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             at all. */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-ink focus:text-page focus:px-3 focus:py-1.5 focus:rounded-lg focus:text-sm focus:font-bold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:bg-ink focus:text-page focus:px-3 focus:py-1.5 focus:rounded-lg focus:text-sm focus:font-bold"
         >
           Skip to content
         </a>
@@ -238,7 +240,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               glyph to show and which bundle to target — same server-read,
               threaded-down pattern as Providers → MoneyContext above. */}
           <Nav theme={themeAttr(appearance.theme)} initialLoggedIn={initialLoggedIn} />
-          <div id="main-content">{children}</div>
+          <div id="main-content">
+            <Suspense fallback={null}>
+              <StorefrontBreadcrumbs />
+            </Suspense>
+            {children}
+          </div>
           <Footer />
           {/* Always mounted; renders nothing once a consent cookie exists. */}
           <CookieConsent />

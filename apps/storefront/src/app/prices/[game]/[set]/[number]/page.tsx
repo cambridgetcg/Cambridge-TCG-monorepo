@@ -263,7 +263,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
 
             {/* Headline price. Collectors-first (2026-07-06): the "Buy from
                 us" / "We buy (credit)" pair retired with the shop — the
-                number that remains is the catalogue reference, open data
+                number that remains is the publicly viewable catalogue reference
                 and nobody's offer. Trading happens on the market. */}
             <div className="rounded-lg border border-border-subtle bg-surface p-5 mb-4">
               <div className="grid gap-4 sm:grid-cols-2">

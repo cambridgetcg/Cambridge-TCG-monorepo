@@ -78,7 +78,7 @@ export interface ResponseMeta {
   sources: readonly string[];
   /** Platform's intended freshness budget for this kind of data. */
   freshness_seconds: number;
-  /** SPDX license code for the response payload. CC0-1.0 by default. */
+  /** SPDX license code for the response payload. NOASSERTION by default. */
   license: string;
   /** Server-generated id for this response. Quote in support tickets. */
   request_id: string;
@@ -251,7 +251,7 @@ interface EnvelopeOptions<T> {
   deprecation?: { sunset: string; replacement: string } | null;
   /** Cursor-style next link for paginated responses. */
   next_link?: string | null;
-  /** SPDX license code. Defaults to CC0-1.0. */
+  /** SPDX license code. Defaults from declared source rights, else NOASSERTION. */
   license?: string;
   /** Set true when the response describes the endpoint that produced it. */
   contains_self?: boolean;
@@ -288,6 +288,25 @@ function resolveFreshness(f: FreshnessKey | number | undefined): number {
 
 function newRequestId(): string {
   return `req_${randomUUID().slice(0, 12)}`;
+}
+
+function resolveLicense(opts: EnvelopeOptions<unknown>): string {
+  const allSourcesAreCc0 = Boolean(
+    opts.source_license?.length &&
+    opts.source_license.every((license) =>
+      license.toLowerCase() === "cc0" || license.toUpperCase() === "CC0-1.0"
+    )
+  );
+  if (opts.license) {
+    if (opts.license === "CC0-1.0" && opts.source_license && !allSourcesAreCc0) {
+      return LICENSE;
+    }
+    return opts.license;
+  }
+  if (allSourcesAreCc0) {
+    return "CC0-1.0";
+  }
+  return LICENSE;
 }
 
 /**
@@ -327,7 +346,7 @@ export function envelope<T>(opts: EnvelopeOptions<T>): ResponseEnvelope<T> {
       as_of: toIso(opts.as_of) || now,
       sources: opts.sources,
       freshness_seconds: resolveFreshness(opts.freshness),
-      license: opts.license ?? LICENSE,
+      license: resolveLicense(opts),
       request_id: reqId,
       deprecation: opts.deprecation ?? null,
       next_link: opts.next_link ?? null,

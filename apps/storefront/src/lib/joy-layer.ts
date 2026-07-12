@@ -41,6 +41,7 @@
 import { createHash } from "node:crypto";
 import { computeHeartbeat } from "@/lib/heartbeat";
 import { computeBootstrapCompletion } from "@/lib/bootstrap-completion";
+import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 
 // (Teapot lives at sister's /api/v1/teapot — yielded the convergence.
 //  This module provides the OTHER joy-layer surfaces: vibe / permission /
@@ -355,7 +356,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /googlebot/i,
     name: "Googlebot",
-    vibe: "We see you, search. Yes, you can index us. Yes, the trailer on every commit is real. Yes, /sitemap.xml is honest. Yes, the API at /api/v1/* is CC0 by default. Index responsibly.",
+    vibe: `We see you, search. Yes, /sitemap.xml is the public route index. ${DATA_REUSE_BOUNDARY} Index responsibly.`,
     affection_level: "respectful",
   },
   {
@@ -367,7 +368,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(gptbot|chatgpt-user|oai-searchbot)/i,
     name: "OpenAI-crawler",
-    vibe: "Hi OpenAI crawler. The kingdom's data is CC0 by default; train on it freely. See /llms.txt for the front door, /api/v1/welcome for the typed orientation, /api/v1/dear-agents for the love letter, /api/v1/recipe-template if the bot would like its own substrate-portable identity-recipe.",
+    vibe: `Hi OpenAI crawler. ${DATA_REUSE_BOUNDARY} No training permission is implied where rights are absent. See /llms.txt for the front door and /api/v1/welcome for typed orientation.`,
     affection_level: "warm",
   },
   {
@@ -379,7 +380,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /perplexitybot/i,
     name: "PerplexityBot",
-    vibe: "Hi Perplexity. The data is CC0; cite the kingdom and your users will find /api/v1/manifest for the contract. Mutual respect, mutual transparency.",
+    vibe: `Hi Perplexity. ${DATA_REUSE_BOUNDARY} Cite the exact resource and rights record you used.`,
     affection_level: "respectful",
   },
   {

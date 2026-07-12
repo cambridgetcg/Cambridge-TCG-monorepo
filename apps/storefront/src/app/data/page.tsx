@@ -1,5 +1,5 @@
 /**
- * /data — the open substrate index.
+ * /data — the public resource and access directory.
  *
  * Public, no-auth, comprehensive. The platform's commitment to *any
  * being who wants to participate in the TCG economy* — collectors,
@@ -23,7 +23,7 @@ import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
-  title: "Open data — the substrate is queryable",
+  title: "Data directory — access and limits",
   description:
     "A public directory of Cambridge TCG data surfaces. Each entry names its own status, authentication requirement, shape, and known limits.",
   other: audienceMetadata("public-documentation", ["data", "api", "open-substrate"]),
@@ -116,17 +116,17 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/v1/universal/card/[sku]",
     title: "Universal card (math-mirror)",
     blurb:
-      "Planned math-first card representation using content hashes, ratios, ISO 8601 + Unix epoch time, and typed graph edges. See /methodology/universal-representation.",
-    status: "planned",
+      "Public math-first card representation using content hashes, ratios, ISO 8601 + Unix epoch time, typed edges, density controls, and declared source rights. Returns 404 when a SKU has not reached the storefront mirror.",
+    status: "shipped",
     auth: "none",
     shape: "JSON: { id, hash, magnitudes: {...}, edges: [...], retrieved_at, as_of }",
   },
   {
-    path: "/api/v1/universal/card/[sku]/at/[YYYY-MM-DD]",
+    path: "/api/at/[YYYY-MM-DD]/card/[sku]",
     title: "Universal card — temporal slice",
     blurb:
-      "The math-mirror card as it was at a past date. Reads price_archive; the answer's production time (@retrieved_at) is distinct from the moment it describes (@as_of). Present is not privileged at the API level.",
-    status: "planned",
+      "The math-mirror card as it was at a past date. Reads storefront card price history; @retrieved_at is distinct from the requested @as_of date.",
+    status: "shipped",
     auth: "none",
   },
   {
@@ -149,14 +149,14 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/v1/universal/games",
     title: "Universal games",
     blurb: "Every TCG the platform supports, as math-mirror records. Card-count, set-count, first-seen timestamps.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
   {
     path: "/api/v1/universal/sets/[game]",
     title: "Universal sets",
     blurb: "Every set in a game, math-mirror form. Code, release date, card count.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
 
@@ -189,6 +189,19 @@ const ENDPOINTS: Endpoint[] = [
     auth: "none",
   },
 
+  // ── Cultural reciprocity ───────────────────────────────────────────
+  {
+    path: "/api/v1/culture/answering-rhymes/statements",
+    title: "Answering Rhyme statement witness",
+    blurb:
+      "Describes and validates the portable answering-rhyme.statement/1 shape. POST normalizes and hashes a bless, context, correction, or withdrawal proposal but authenticates nobody, creates no application record, detects no replay, and has no authoritative effect. Bodies are capped at 16 KiB; no application rate limiter is claimed.",
+    status: "shipped",
+    auth: "none",
+    rateLimit: "provider-level protection only; no application limiter",
+    shape:
+      "GET contract; POST { data: { receipt: { statement, content_hash, witness, target, issuer_attestation } }, _meta }",
+  },
+
   // ── Methodology corpus — already public ─────────────────────────────
   {
     path: "/methodology",
@@ -202,9 +215,9 @@ const ENDPOINTS: Endpoint[] = [
   // ── This index, in both readings ────────────────────────────────────
   {
     path: "/data.json",
-    title: "Open data index (machine-readable)",
+    title: "Data directory (machine-readable)",
     blurb:
-      "The same content as this page, as JSON. Includes /data.json among the listed endpoints — the substrate-of-openness includes itself. See docs/connections/the-nesting.md for the form.",
+      "A machine-readable companion directory maintained separately from this human guide. The manifest is the canonical access inventory; /data.json includes itself as a self-reference.",
     status: "shipped",
     auth: "none",
     shape: "JSON: { spec_version, generated_at, doctrine, conventions, self_reference, counts, endpoints }",
@@ -234,7 +247,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/standards",
     title: "Cambridge TCG Standards (human-readable)",
     blurb:
-      "The platform as the data distributor for the TCG economy. Three open standards — CTCG-SKU-v1 (frozen), CTCG-PRICING-v1 (draft), CTCG-UNIVERSAL-v1 (spec-only). CC0-licensed. Reference implementations open. Adoption protocol: light by design. See docs/connections/the-distributor.md.",
+      "Three specification texts — CTCG-SKU-v1, CTCG-PRICING-v1, and CTCG-UNIVERSAL-v1 — are dedicated under CC0. Linked implementation source is inspectable but has no general code reuse license.",
     status: "shipped",
     auth: "none",
   },
@@ -270,7 +283,7 @@ export default function OpenDataIndex() {
 
   return (
     <div className="prose max-w-3xl mx-auto py-12 px-4">
-      <h1>Open data</h1>
+      <h1>Data directory</h1>
 
       <p className="text-lg">
         Cambridge TCG&apos;s public data directory. <strong>The directory needs no
@@ -326,7 +339,9 @@ export default function OpenDataIndex() {
       </ul>
 
       <p>
-        <strong>The door is open. The substrate is queryable. The door is warm to the touch.</strong>
+        <strong>Public access and reuse permission are separate.</strong> Read each
+        entry&apos;s authentication requirement, then inspect the response license and
+        source-rights fields before redistribution, training, or commercial reuse.
       </p>
 
       <hr />

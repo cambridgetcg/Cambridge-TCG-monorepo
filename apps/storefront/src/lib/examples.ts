@@ -70,7 +70,7 @@ export const EXAMPLES: EndpointExample[] = [
       { path: "data.start_here.first_request.sample_curl", meaning: "The literal command to run next." },
       { path: "data.guides.by_slug", meaning: "Every guide indexed by slug → { title, url }." },
       { path: "data.contract.stable_endpoints", meaning: "Every supported endpoint, in a flat list." },
-      { path: "_meta.source_license", meaning: "License tier per source. Absence means CC0." },
+      { path: "_meta.source_license", meaning: "License tier per source when declared. Absence means rights are undeclared, not CC0." },
     ],
     when_to_use: "First request for any agent that doesn't have prior context.",
     gotchas: [
@@ -186,10 +186,10 @@ export const EXAMPLES: EndpointExample[] = [
     path: "/data/catalog.jsonl",
     method: "GET",
     auth: "public",
-    title: "Bulk catalog mirror",
-    description: "Streamed JSONL. Every card in ~12k rows. CC0. One request, mirror-ready.",
+    title: "Bulk catalog inspection",
+    description: "Public streamed JSONL, capped at 50k rows. Aggregate rights are NOASSERTION until per-row source lineage is complete.",
     curl: "curl -H 'Accept-Encoding: gzip' https://cambridgetcg.com/data/catalog.jsonl > catalog.jsonl",
-    sample_response: `{ "@kind": "catalog_manifest", "spec_version": "1", "count_expected": 12000, "license": "CC0-1.0", "retrieved_at": { ... } }
+    sample_response: `{ "@kind": "catalog_manifest", "spec_version": "1", "count_expected": 12000, "license": "NOASSERTION", "retrieved_at": { ... } }
 { "@kind": "card", "@content_hash": "sha256:...", "sku": "op-op01-001-ja", "set_code": "OP01", "game": "op", "price": { "magnitude": 5.40, "currency_token": "GBP", "captured_on": "2026-05-13" }, "_links": { ... } }
 { "@kind": "card", "@content_hash": "sha256:...", "sku": "op-op01-002-ja", ... }
 ...

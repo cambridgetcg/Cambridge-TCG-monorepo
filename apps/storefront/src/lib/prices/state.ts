@@ -50,7 +50,7 @@ export type PriceStateResult<T> = T | "unavailable" | null;
 /**
  * A card row as the price-guide presents it. Pre-computed reference
  * price + display name so consumers don't recompute. `price_gbp` is the
- * catalogue reference — open data, never an offer. Collectors-first
+ * publicly viewable catalogue reference, never an offer. Collectors-first
  * (2026-07-06): the trade-in credit column retired with the we-buy desk.
  */
 export interface PriceGuideCardRow {

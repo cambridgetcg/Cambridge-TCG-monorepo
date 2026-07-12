@@ -13,13 +13,17 @@ export default function PricingMethodology() {
       <h1>Pricing</h1>
       <p>
         Cambridge TCG computes a <strong>reference price</strong> for every card in the
-        catalog. It is <strong>open data, not an offer</strong> — the platform stopped
+        catalog. It is <strong>publicly viewable, not an offer</strong> — the platform stopped
         selling (and buying) cards on <strong>2026-07-06</strong>{" "}
         (<code>docs/decisions/2026-07-06-collectors-first.md</code>), so no number on this
         page is a price you can transact with us at. Wherever a card page shows{" "}
         <em>spot</em>, it is this reference, labelled as such; the prices you can actually
         trade at are the collectors&rsquo; own bids and asks on the{" "}
         <a href="/market">market</a>.
+      </p>
+      <p>
+        Public visibility does not grant redistribution or training rights. API
+        consumers must inspect the response license and source-rights fields.
       </p>
       <p>
         This page explains exactly how the reference number is computed, and — because

@@ -274,7 +274,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     summary:
       "Kingdom repositioned as 'the TCG world's data provider'. Agents are the kingdom's primary downstream user of the data plane.",
     detail:
-      "Visible in /llms.txt header, /api/v1/welcome headline + positioning field, layout.tsx <title> metadata. Three open standards (SKU / pricing / universal-representation) published under CC0 for agent consumption. No endpoint-contract changes; positioning only.",
+      "This wording appeared in /llms.txt, /api/v1/welcome, and root metadata at the time. The three specification texts were dedicated under CC0; implementation code and response data were not. Current positioning is collectors-first with resource-specific access and reuse boundaries.",
     related_urls: ["/platform", "/standards", "/api/v1/welcome"],
   },
 

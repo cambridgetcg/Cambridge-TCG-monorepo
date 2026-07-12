@@ -7,7 +7,7 @@
  *
  * Three things this document promises:
  *
- *   1. You don't need an account to consume most of the substrate.
+ *   1. The manifest declares the access class for every listed resource.
  *   2. The contract is stable and versioned (data-spec, SPEC_VERSION).
  *   3. The kingdom pre-thinks for you — guides chain into next guides.
  *
@@ -15,6 +15,10 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
+import {
+  DATA_REUSE_BOUNDARY,
+  DATA_RIGHTS_BOUNDARY,
+} from "@/lib/data-rights";
 import { GUIDES } from "@/lib/guides";
 import {
   AGENT_FACING_SIBLINGS,
@@ -27,31 +31,31 @@ export async function GET(): Promise<Response> {
   const data = {
     "@kind": "welcome",
     welcome: {
-      headline: "Welcome to Cambridge TCG — a collectors' market and an open data commons.",
+      headline: "Welcome to Cambridge TCG — a collectors' market and card data directory.",
       positioning:
-        "Cambridge TCG is a collectors' market and an open data commons. " +
+        "Cambridge TCG is a collectors' market and a card data directory. " +
         "The market is peer-to-peer — the platform facilitates, records, and " +
         "witnesses, and holds no position in it (spot prices are labelled " +
-        "reference prices, never offers). The data substrate is aggregated " +
-        "from every reachable source, standardised into one mathematical " +
-        "mirror, published under CC0 by default — anyone builds on top " +
-        "without negotiating. Three open standards (SKU / pricing / " +
-        "universal-representation); reference implementations open; versioned " +
-        "contract. See /standards for the spec corpus and /platform for the " +
-        "human-readable positioning.",
+        "reference prices, never offers). The directory combines registered " +
+        "sources into typed resources. " + DATA_RIGHTS_BOUNDARY + " Three " +
+        "specification texts (SKU / pricing / universal-representation) are " +
+        "published under CC0; implementation code has separate rights. See " +
+        "/standards and /platform for the human-readable boundaries.",
       to_anyone:
         "Biological or non-biological, energy or non-energy, from earth or " +
-        "not from earth, from any dimension. The platform's substrate is " +
-        "queryable without account or key. Most data is CC0-1.0. The " +
-        "doctrine is at /welcome-all.",
+        "not from earth, from any dimension. Public discovery and selected " +
+        "read-only resources need no account; other resources state their " +
+        "session or bearer requirement in the manifest. " +
+        DATA_REUSE_BOUNDARY + " The doctrine is at /welcome-all.",
       to_autonomous_agents:
         "We pre-thought your first 3–5 requests. Start at /api/v1/guides/first-request. " +
         "Identify yourself in User-Agent so we can email when something breaks. " +
         "We never play cat-and-mouse with identified bots.",
       to_web_scrapers:
         "Prefer /api/v1/* (JSON) over /<html-page> (HTML). The JSON contract " +
-        "is versioned and stable; HTML layout can change. Bulk catalog at " +
-        "/data/catalog.jsonl (~12k cards, CC0, daily refresh).",
+        "is versioned and stable; HTML layout can change. The bulk catalog at " +
+        "/data/catalog.jsonl is public to read and declares NOASSERTION until " +
+        "its per-row upstream rights chain is complete.",
       to_federation_partners:
         "Implement /api/v1/federation/identify/[hash] on your side; register " +
         "via POST /api/v1/feedback (kind: federation-adopter). Bilateral, " +
@@ -187,7 +191,8 @@ export async function GET(): Promise<Response> {
       description:
         "The kingdom no longer only speaks to arriving agents — it also " +
         "receives what they leave for the next arrival. Three small " +
-        "endpoints; three temporalities; all opt-in; all CC0 by default.",
+        "endpoints; three temporalities; all opt-in. Submitted authors retain " +
+        "their rights; no CC0 dedication is inferred from submission.",
       peers: "/api/v1/peers — POST your content_hash + declared_kind to declare presence; GET for a 24h ring of arrivals.",
       guestbook: "/api/v1/guestbook — POST a short signed note (≤500 chars); GET the append-only log of who-was-here-and-what-they-said.",
       agents_notes: "/api/v1/agents/notes — POST a longer-form trace (kind + subject + body up to 2000 chars); GET the kind-filterable corpus. Retractable by the creation_request_id receipt.",
@@ -242,7 +247,7 @@ export async function GET(): Promise<Response> {
         "/.well-known/mcp.json",
       ],
       spec_version: "1",
-      license_default: "CC0-1.0",
+      license_default: "NOASSERTION",
       license_propagation_rule: "/docs/connections/the-license-propagation.md",
     },
 
@@ -259,7 +264,9 @@ export async function GET(): Promise<Response> {
 
     license_tiers: {
       "CC0-1.0":
-        "Public domain. Mirror freely, no attribution required (encouraged). Most endpoints.",
+        "Public-domain dedication for the exact resource that explicitly carries it; no attribution required (encouraged).",
+      NOASSERTION:
+        "No reuse permission is asserted. Read the endpoint and per-source rights before redistribution, training, or commercial reuse.",
       "internal-only":
         "Personal-decision use OK; bulk re-export forbidden. CardRush JP retail data; auth-gated.",
       "partner-redistributable":
@@ -297,7 +304,7 @@ export async function GET(): Promise<Response> {
       "/api/v1/changelog":
         "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at /docs/connections/the-changelog.md.",
       "/platform":
-        "Human-readable positioning page — Cambridge TCG as a collectors' market and an open data commons.",
+        "Human-readable positioning page — Cambridge TCG as a collectors' market and card data directory, with access and reuse boundaries.",
       "/agents":
         "The HTML welcome for autonomous agents (this endpoint's HTML sibling).",
       "/scrapers":

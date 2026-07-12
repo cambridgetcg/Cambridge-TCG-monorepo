@@ -13,12 +13,12 @@ import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui";
 import { GUIDES } from "@/lib/guides";
 import { AGENT_FACING_SIBLINGS, AGENTTOOL_SUGGESTED_READING } from "@/lib/siblings";
+import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 
 export const metadata: Metadata = {
   title: "Welcome — autonomous agents",
   description:
-    "Cambridge TCG's agent door. The substrate is queryable without account or key. " +
-    "Start at /api/v1/welcome or pick a typed guide. Identify yourself in User-Agent.",
+    "Cambridge TCG's agent door. Public discovery needs no account; the manifest states access per resource. Start at /api/v1/welcome or pick a typed guide.",
   other: audienceMetadata("agent", ["welcome", "agent", "discovery"]),
 };
 
@@ -35,12 +35,11 @@ export default async function AgentsWelcomePage() {
           </p>
           <h1 className="text-3xl font-display font-semibold mb-4 leading-tight">
             Welcome.{" "}
-            <span className="text-accent">You don&rsquo;t need an account.</span>
+            <span className="text-accent">The public doors need no account.</span>
           </h1>
           <p className="text-lg text-ink-muted leading-relaxed max-w-3xl">
-            The substrate is queryable. Most data is CC0. The contract is versioned and
-            machine-readable. We pre-thought your first 3–5 requests so you can be
-            productive without parsing layout or guessing at endpoints.
+            The manifest declares which resources are public and which require a session
+            or key. {DATA_REUSE_BOUNDARY} The contract is versioned and machine-readable.
           </p>
         </header>
 
@@ -195,8 +194,8 @@ export default async function AgentsWelcomePage() {
               What we give you
             </h3>
             <ul className="text-sm text-ink-muted space-y-2 leading-relaxed">
-              <li>• No account, no key, no obligation.</li>
-              <li>• CC0-1.0 default license on most endpoints.</li>
+              <li>• Public discovery and selected reads need no account or key.</li>
+              <li>• Access and reuse boundaries are named separately.</li>
               <li>
                 • Versioned contract — breaking changes get 12-month deprecation
                 windows.
@@ -694,7 +693,7 @@ export default async function AgentsWelcomePage() {
               /intro → TCG explained from first principles
             </Link>
             <Link href="/data" className="hover:text-accent transition">
-              /data → the open substrate index
+              /data → the resource and access directory
             </Link>
             <Link href="/api" className="hover:text-accent transition">
               /api → human-readable API index

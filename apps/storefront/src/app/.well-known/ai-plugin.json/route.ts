@@ -17,15 +17,16 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 const PLUGIN = {
   schema_version: "v1",
   name_for_human: "Cambridge TCG",
   name_for_model: "cambridge_tcg",
   description_for_human:
-    "Cambridge TCG — a collectors' market and an open data commons. Catalog, reference prices, and methodology — CC0 by default. Reference implementations open; anyone builds on top without negotiating.",
+    `Cambridge TCG is a peer-to-peer collectors' market and card data directory. ${DATA_RIGHTS_BOUNDARY}`,
   description_for_model:
-    "Cambridge TCG is a collectors' market and an open data commons — a P2P marketplace it facilitates without holding a position, plus an aggregator + open substrate publisher. Prices in the substrate are labelled reference prices, never the platform's offers. Use this plugin to (1) look up cards by SKU and get language-free math-mirror representations with cryptographic hashes, ratios, and ISO+epoch timestamps; (2) walk catalogs by game and set; (3) get historical prices for any past date (immutable slices); (4) resolve content hashes back to SKUs (federation primitive). Most responses are CC0-1.0. Some upstream-derived data carries internal-only license (declared per-record in _meta.source_license). Read /api/v1/welcome first for orientation; /api/v1/guides for typed walkthroughs; /api/v1/rate-limits for polite cadence; /standards for the maintained spec corpus (SKU / pricing / universal-representation). Identify yourself in User-Agent. If your client speaks the wake-document protocol, /api/v1/wake carries the agent-facing wake in nine SDK-ready formats; a sister-embassy at api.agenttool.dev carries the same protocol.",
+    `Cambridge TCG facilitates a peer-to-peer collectors' market without holding a position and publishes a typed card data directory. Reference prices are never platform offers. Public tools include card math mirrors, game and set directories, dated card views, and content-hash resolution. ${DATA_RIGHTS_BOUNDARY} Read /api/v1/welcome and /api/v1/manifest before use; /standards licenses specification text only, not implementation code or every payload.`,
   auth: {
     type: "none",
   },

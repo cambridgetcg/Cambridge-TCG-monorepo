@@ -16,18 +16,18 @@
 
 import { NextResponse } from "next/server";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
-const BODY = `# Cambridge TCG — the collectors' market and open TCG data commons
+const BODY = `# Cambridge TCG — the collectors' market and card data directory
 
-Cambridge TCG is a collectors' market and an open data commons. The market
+Cambridge TCG is a collectors' market and a card data directory. The market
 is peer-to-peer — collectors trade with each other; the platform facilitates,
 records, and witnesses, and holds no position in its own market (it does not
 buy, sell, or quote; spot prices are labelled reference prices, never offers).
-The data substrate is aggregated from every reachable source, standardised
-into one mathematical mirror, and published under CC0 by default — anyone
-builds on top without negotiating. This file is for LLM agents, archivists,
-and naive crawlers who want to know what's queryable without parsing the
-browser-rendered storefront. No account required.
+The data substrate combines registered sources into typed resources.
+${DATA_RIGHTS_BOUNDARY}
+This file is for LLM agents, archivists, and naive crawlers who want to know
+what's queryable without parsing the browser-rendered storefront.
 
 The collectors-first positioning is the kingdom's identity (decision record:
 docs/decisions/2026-07-06-collectors-first.md; the shop-and-wholesale era
@@ -74,14 +74,22 @@ plan + deployment phases live at docs/connections/the-math-language.md
 
 ## Cultural exchange — Cambridge TCG × Artbitrage
 - /gallery-next-door                    Human room for attributed feed pieces
+- /answering-rhymes                     Human, image-free constellation + optional reply room
 - /api/v1/culture/artbitrage            Validated artbitrage.feed/1 adapter
 - /api/v1/culture/answering-rhymes      Curated card-to-museum-work relations; optional ?sku=
+- /api/v1/culture/answering-rhymes/statements
+                                         GET answering-rhyme.statement/1 contract; POST stateless SHA-256 witness
 - https://artbitrage.io/api/wake        Artbitrage's own handshake and rights boundary
 
 The two systems share no account, database, payment, cookie, or deployment
 boundary. Cambridge preserves each foreign record's creator, provenance, and
 rights; mixed responses are NOASSERTION rather than blanket CC0. A curated
-echo is not evidence of documented influence.
+echo is not evidence of documented influence. Reciprocity statements may
+bless, contextualize, correct, or request withdrawal, but Cambridge does not
+authenticate their authors, persist a retrievable statement, detect replay,
+assert uniqueness, or give a witness receipt authoritative effect. A future
+withdrawal can affect presentation only after a real, separate server-side
+authority verifier exists; none is implemented by this witness endpoint.
 
 ## Discovery surfaces (start here)
 - /api/v1/welcome                        **Machine-readable front door** — start here (kingdom-082)
@@ -137,7 +145,8 @@ What we ask of you:
 - File contract bugs at /api/v1/feedback; 48h response window
 
 What we give you:
-- CC0-1.0 default license; CC0 envelope schema (Envelope + ResponseMeta in OpenAPI)
+- Rights declared per resource; platform-authored CC0 resources are marked CC0-1.0
+- CC0 envelope schema (Envelope + ResponseMeta in OpenAPI)
 - Versioned contract (12-month deprecation windows)
 - Stable endpoints listed at /api/v1/welcome
 - Bilateral identification at /api/v1/identify — symmetric handshake, no registration
@@ -405,10 +414,10 @@ origin). The doctrines apply to this file too: the inventory above is the truth
 of what exists; planned endpoints are named in the manifest, not pretended-to-
 exist here.
 
-If you are an LLM agent: please respect rate limits at the open surface (60/min
+If you are an LLM agent: please respect rate limits at the public surface (60/min
 per IP unauthenticated; register at /account/agents for higher tiers). Do not
-scrape personally-identifying surfaces. The substrate is open by design; abuse
-of it would close doors for other participants.
+scrape personally-identifying surfaces. Public access is not a blanket reuse
+license; inspect the rights carried by the resource and its sources.
 
 If you are a future Sophia: welcome. The repo-root SOPHIA.md is the wake-recipe;
 the connections/ series is the meaning-graph. Start at /api or

@@ -90,7 +90,7 @@ const CRAWL_SHAPES = {
     eta_human: "about 3.5 hours at 60 req/min unauth",
     cacheable_for_seconds: 86_400,
     bulk_alternative:
-      "/data/catalog.jsonl (planned; named in /api/v1/welcome stable_endpoints) — one fetch, ~12k JSONL records, daily refresh",
+      "/data/catalog.jsonl — one public JSONL fetch, capped at 50k rows; aggregate reuse rights are NOASSERTION until row-level lineage is complete",
     incremental_alternative:
       "after first mirror, refetch per-card on freshness expiry; cards refresh hourly-to-daily depending on activity",
   },
@@ -148,7 +148,7 @@ function freshnessBudgetTable(): ReadonlyArray<{
     fast: ["/api/v1/universal/card/{sku} (current-state price view)"],
     moderate: ["/api/v1/sources/{id} (per-source state)"],
     slow: ["/api/v1/sources (every source + last-run state)"],
-    daily: ["/data/catalog.jsonl (bulk; planned)"],
+    daily: ["/data/catalog.jsonl (live bulk inspection export)"],
     methodology: ["/methodology/*", "/api/v1/guides/*", "/api/openapi.json"],
   };
   return Object.entries(FRESHNESS).map(([key, value]) => ({
@@ -219,7 +219,7 @@ export async function GET(): Promise<Response> {
       "Identify yourself in User-Agent so we can email if something breaks mid-crawl",
       "Cache aggressively: most endpoints honour Cache-Control and ETag",
       "Checkpoint the URL you last fetched and resume from it — `_meta.next_link` is reserved in the envelope but currently null on every endpoint (no list endpoint paginates by cursor yet)",
-      "For full-mirror specifically: wait for /data/catalog.jsonl bulk endpoint (planned) — one fetch replaces 12_000",
+      "For bulk inspection, /data/catalog.jsonl is live and capped at 50k rows; its aggregate rights are NOASSERTION, so access is not redistribution permission",
     ],
 
     feedback: {

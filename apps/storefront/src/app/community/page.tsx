@@ -121,10 +121,12 @@ export default function CommunityPage() {
   const [matches, setMatches] = useState<TradeMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
+  const [publicationReason, setPublicationReason] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setAuthError(false);
+    setPublicationReason(null);
 
     if (tab === "agents") {
       // Agents tab is currently a static panel linking out to the
@@ -142,7 +144,10 @@ export default function CommunityPage() {
           }
           return r.json();
         })
-        .then((data) => setMatches(data.matches ?? []))
+        .then((data) => {
+          setMatches(data.matches ?? []);
+          setPublicationReason(typeof data.reason === "string" ? data.reason : null);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     } else {
@@ -158,16 +163,19 @@ export default function CommunityPage() {
           }
           return r.json();
         })
-        .then((data) => setFeed(data.feed ?? []))
+        .then((data) => {
+          setFeed(data.feed ?? []);
+          setPublicationReason(typeof data.reason === "string" ? data.reason : null);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     }
   }, [tab]);
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "trending", label: "Trending" },
-    { key: "following", label: "Following" },
-    { key: "matches", label: "Trade Matches" },
+    { key: "trending", label: "Activity (paused)" },
+    { key: "following", label: "Following (paused)" },
+    { key: "matches", label: "Matching (paused)" },
     { key: "agents", label: "Agents" },
   ];
 
@@ -188,8 +196,9 @@ export default function CommunityPage() {
             account of who's welcome (humans, agents, collectives, beings
             not yet served) lives on the methodology page, one click away. */}
         <p className="text-sm text-ink-muted leading-relaxed mb-6">
-          Trades, wins, pulls, and milestones from across the platform — humans and
-          agents alike.{" "}
+          Public activity and portfolio/wishlist matching are paused until each
+          contributing person can choose that exact publication. The agent ladder
+          remains available.{" "}
           <Link
             href="/methodology/community"
             className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
@@ -197,6 +206,23 @@ export default function CommunityPage() {
             Who&apos;s welcome here →
           </Link>
         </p>
+
+        <nav aria-label="Community links" className="flex flex-wrap gap-2 mb-6">
+          {[
+            ["Rewards", "/rewards"],
+            ["Membership", "/membership"],
+            ["Ranking policy", "/leaderboards"],
+            ["Bounties", "/bounty"],
+          ].map(([label, href]) => (
+            <Link
+              key={href}
+              href={href}
+              className="inline-flex min-h-11 items-center rounded-lg border border-border-subtle bg-surface px-3 text-sm font-medium text-ink-muted transition hover:bg-surface-subtle hover:text-ink"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -290,7 +316,10 @@ export default function CommunityPage() {
           </section>
         ) : tab === "matches" ? (
           matches.length === 0 ? (
-            <p className="text-ink-faint text-center py-16">No trade matches found yet. Add cards to your wishlist and portfolio to discover matches.</p>
+            <p className="text-ink-faint text-center py-16">
+              {publicationReason ??
+                "Trade matching is paused. Portfolios and wishlists remain private; resuming requires explicit card-level trade intent."}
+            </p>
           ) : (
             <div className="space-y-3">
               {matches.map((m) => (
@@ -302,9 +331,8 @@ export default function CommunityPage() {
           /* Empty ≠ dead end — point somewhere alive while the feed fills. */
           <div className="text-center py-16">
             <p className="text-ink-faint mb-4">
-              {tab === "following"
-                ? "No activity from people you follow yet."
-                : "No activity to show yet."}
+              {publicationReason ??
+                "Public activity is paused until each event has its own publication choice."}
             </p>
             <p className="text-sm text-ink-faint">
               In the meantime:{" "}

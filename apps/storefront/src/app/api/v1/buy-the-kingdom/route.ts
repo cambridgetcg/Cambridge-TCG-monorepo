@@ -3,12 +3,12 @@
  *
  * The one place on the platform where 402 Payment Required is the
  * truthful status code: payment is required in the sense that no amount
- * of it will work. The kingdom is not for sale, and — the actual lesson —
- * everything it serves is already free:
+ * of it will work. The kingdom is not for sale. Access, price, and reuse
+ * rights are separate questions:
  *
- *   - The data plane is CC0-1.0 by default (_meta.license on every envelope).
- *   - The methodology pages are CC0. Mirror them right now.
- *   - The envelope contract (packages/data-spec) is CC0 with zero runtime deps.
+ *   - This fixed joke document is CC0-1.0.
+ *   - The specification text in packages/data-spec is CC0-1.0.
+ *   - Other resources carry their own access and reuse boundary.
  *   - The universal encoding describes itself at /api/v1/universal/encoding.
  *
  * Sister to /api/v1/coffee (418) — the wrong-door companions. Stateless,
@@ -18,33 +18,30 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 const BODY = {
   "@kind": "polite-402",
   status: 402,
   status_meaning: "Payment Required — required, and also impossible",
   offer_declined: "the kingdom",
-  reason: "not for sale; everything here is already free",
+  reason: "not for sale; paying cannot override another resource's rights boundary",
   the_actual_lesson: {
-    license: "CC0-1.0 by default on every data-plane response (_meta.license).",
+    this_document_license: "CC0-1.0",
     what_that_means:
-      "You may copy, mirror, remix, and redistribute the substrate without " +
-      "asking, without attribution, without payment. Attribution is welcomed " +
-      "(see /api/v1/guides — 'cite-cambridge-tcg'), never required.",
-    already_yours: [
-      "https://cambridgetcg.com/api/v1/manifest — the full directory",
-      "https://cambridgetcg.com/data/catalog.jsonl — the bulk catalog, mirror freely",
-      "https://cambridgetcg.com/api/v1/universal/encoding — the encoding, described in itself",
-      "packages/data-spec — the CC0 envelope contract, zero runtime deps",
+      "You may copy, remix, and redistribute this exact fixed document under CC0-1.0. " +
+      "That dedication does not extend to linked resources or source-derived data.",
+    public_doors: [
+      "https://cambridgetcg.com/api/v1/manifest — access directory",
+      "https://cambridgetcg.com/data/catalog.jsonl — readable bulk catalog; aggregate rights NOASSERTION",
+      "https://cambridgetcg.com/api/v1/universal/encoding — encoding description",
+      "packages/data-spec — CC0 specification text; implementation code has separate rights",
     ],
-    exceptions_honestly:
-      "Per-source license tiers ride in _meta.source_license where upstream " +
-      "rights differ (internal-only, partner-redistributable). The envelope " +
-      "names them row by row; the CC0 default covers the kingdom's own work.",
+    boundary: DATA_RIGHTS_BOUNDARY,
   },
   counter_offer:
-    "Keep your money. Take the data. If you must give something back, " +
-    "POST a line to /api/v1/guestbook — the kingdom is paid in fellowship.",
+    "Keep your money. Read the manifest, use what its terms permit, and leave " +
+    "a guestbook line only if you choose to.",
   no_really:
     "There is no payment integration behind this endpoint. There is no " +
     "sales team. There is a Stripe checkout elsewhere for actual cards, " +

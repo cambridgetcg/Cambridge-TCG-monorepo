@@ -134,6 +134,15 @@ describe("community privacy contract", () => {
     expect(route).toContain("Historical bulk activity paging is unavailable");
     expect(route).toContain('status: "paused"');
     expect(route).toContain('"Cache-Control": "private, no-store"');
+
+    const page = source("src/app/community/page.tsx");
+    expect(page).toContain("Public activity and portfolio/wishlist matching are paused");
+    expect(page).toContain("setPublicationReason");
+    expect(page).toContain("Public activity is paused until each event has its own publication choice.");
+    expect(page).toContain("Trade matching is paused. Portfolios and wishlists remain private");
+    expect(page).toContain('["Ranking policy", "/leaderboards"]');
+    expect(page).not.toContain("Trades, wins, pulls, and milestones");
+    expect(page).not.toContain("Add cards to your wishlist and portfolio to discover matches");
   });
 
   it("keeps generated activity private and owner-readable", () => {

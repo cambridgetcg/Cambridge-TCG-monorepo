@@ -13,6 +13,16 @@
  * Chicago. The bridge annotation is separately offered under CC0.
  */
 
+import { createHash } from "node:crypto";
+import {
+  ANSWERING_RHYME_CANONICALIZATION,
+  ANSWERING_RHYME_STATEMENT_KINDS,
+  ANSWERING_RHYME_STATEMENT_SCHEMA,
+  ANSWERING_RHYME_STATEMENTS_ENDPOINT,
+  type AnsweringRhymeStatementKind,
+  type Sha256ContentHash,
+} from "./answering-rhyme-statements";
+
 export const ANSWERING_RHYME_KINDS = [
   "answering-rhyme",
   "visual-echo",
@@ -54,6 +64,8 @@ export type InfluenceAssessment =
 export interface AnsweringRhymeRelation {
   /** Stable composite key: Cambridge SKU + Artbitrage source + museum id. */
   key: `${string}::${ArtbitrageMuseumSource}:${string}`;
+  /** Opaque content revision; reciprocity statements bind to this value. */
+  revision: Sha256ContentHash;
   card: {
     sku: string;
     name: string;
@@ -110,6 +122,59 @@ export interface AnsweringRhymeRelation {
     applies_to: "interpretive-relation";
     reason: string;
   };
+  reciprocity: {
+    revision_contract: {
+      algorithm: "sha256";
+      projection: "answering-rhyme.trust-bearing-relation/1";
+      includes: readonly [
+        "key",
+        "card",
+        "artwork",
+        "relation",
+        "evidence",
+        "curation",
+        "confidence",
+        "as_of",
+        "rights",
+        "provenance",
+      ];
+      excludes: readonly ["revision", "reciprocity"];
+    };
+    reply_invitation: {
+      invited: true;
+      endpoint: typeof ANSWERING_RHYME_STATEMENTS_ENDPOINT;
+      statement_schema: typeof ANSWERING_RHYME_STATEMENT_SCHEMA;
+      canonicalization: typeof ANSWERING_RHYME_CANONICALIZATION;
+      kinds: readonly AnsweringRhymeStatementKind[];
+      target_revision_required: true;
+      walking_past_is_honored: true;
+    };
+    authority_boundary: {
+      statements_are_self_declared: true;
+      witness_authenticated: false;
+      witness_identity_verified: false;
+      witness_persisted: false;
+      witness_authoritative_effect: "none";
+      correction_application: "separate-curator-review-required";
+      withdrawal_application: "separate-authority-verification-required";
+      authority_verifier_status: "not-implemented";
+      requirements_before_activation: readonly [
+        "server-only-authenticated-verifier",
+        "trusted-issuer-allowlist-or-signature-policy",
+        "target-revision-and-replay-policy",
+      ];
+    };
+    presentation_policy: {
+      current_default: "present";
+      unverified_statement_effect: "none";
+      authority_verifier_status: "not-implemented";
+      future_after_authority_verifier: {
+        verified_withdrawal: "withhold";
+        indeterminate_after_verified_withdrawal_signal: "withhold";
+        fail_closed: true;
+      };
+    };
+  };
   as_of: string;
   rights: {
     annotation_license: "CC0-1.0";
@@ -123,6 +188,56 @@ export interface AnsweringRhymeRelation {
     museum_record_url: string;
     artbitrage_room_url: string;
   };
+}
+
+/**
+ * Version 1 trust-bearing revision projection. It deliberately excludes the
+ * `revision` field itself and reciprocity protocol metadata: the former would
+ * be circular, while the latter can evolve without pretending the curatorial
+ * claim, evidence, rights, or provenance changed.
+ */
+export function answeringRhymeRevisionProjection(
+  relation: AnsweringRhymeRelation,
+) {
+  return {
+    key: relation.key,
+    card: relation.card,
+    artwork: relation.artwork,
+    relation: relation.relation,
+    evidence: relation.evidence,
+    curation: relation.curation,
+    confidence: relation.confidence,
+    as_of: relation.as_of,
+    rights: relation.rights,
+    provenance: relation.provenance,
+  };
+}
+
+function canonicalRevisionJson(value: unknown): string {
+  if (value === null || typeof value === "boolean" || typeof value === "number") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalRevisionJson).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalRevisionJson(record[key])}`)
+      .join(",")}}`;
+  }
+  throw new TypeError("Relation revision projection must contain JSON values only.");
+}
+
+export function answeringRhymeRevisionContentHash(
+  relation: AnsweringRhymeRelation,
+): Sha256ContentHash {
+  const digest = createHash("sha256")
+    .update(canonicalRevisionJson(answeringRhymeRevisionProjection(relation)), "utf8")
+    .digest("hex");
+  return `sha256:${digest}`;
 }
 
 const LUFFY_CARD_SEARCH_URL =
@@ -139,6 +254,8 @@ const GREAT_WAVE_MUSEUM_URL = "https://www.artic.edu/artworks/77333";
 export const ANSWERING_RHYMES = [
   {
     key: "OP-OP05-119-JP-V11F7::artic:77333",
+    revision:
+      "sha256:a562a462decd9b8c8810d67ec79a8a00dc22ffe1098f259e562c9ffce28a1d94",
     card: {
       sku: "OP-OP05-119-JP-V11F7",
       name: "モンキー・D・ルフィ(/漫画背景/漫画絵)",
@@ -240,6 +357,59 @@ export const ANSWERING_RHYMES = [
       reason:
         "Object identity, medium, and rights are source-backed; the cross-object rhyme " +
         "is an explicitly labelled curatorial interpretation rather than causation.",
+    },
+    reciprocity: {
+      revision_contract: {
+        algorithm: "sha256",
+        projection: "answering-rhyme.trust-bearing-relation/1",
+        includes: [
+          "key",
+          "card",
+          "artwork",
+          "relation",
+          "evidence",
+          "curation",
+          "confidence",
+          "as_of",
+          "rights",
+          "provenance",
+        ],
+        excludes: ["revision", "reciprocity"],
+      },
+      reply_invitation: {
+        invited: true,
+        endpoint: ANSWERING_RHYME_STATEMENTS_ENDPOINT,
+        statement_schema: ANSWERING_RHYME_STATEMENT_SCHEMA,
+        canonicalization: ANSWERING_RHYME_CANONICALIZATION,
+        kinds: ANSWERING_RHYME_STATEMENT_KINDS,
+        target_revision_required: true,
+        walking_past_is_honored: true,
+      },
+      authority_boundary: {
+        statements_are_self_declared: true,
+        witness_authenticated: false,
+        witness_identity_verified: false,
+        witness_persisted: false,
+        witness_authoritative_effect: "none",
+        correction_application: "separate-curator-review-required",
+        withdrawal_application: "separate-authority-verification-required",
+        authority_verifier_status: "not-implemented",
+        requirements_before_activation: [
+          "server-only-authenticated-verifier",
+          "trusted-issuer-allowlist-or-signature-policy",
+          "target-revision-and-replay-policy",
+        ],
+      },
+      presentation_policy: {
+        current_default: "present",
+        unverified_statement_effect: "none",
+        authority_verifier_status: "not-implemented",
+        future_after_authority_verifier: {
+          verified_withdrawal: "withhold",
+          indeterminate_after_verified_withdrawal_signal: "withhold",
+          fail_closed: true,
+        },
+      },
     },
     as_of: "2026-07-11",
     rights: {

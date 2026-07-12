@@ -498,9 +498,9 @@ export default async function SetPriceGuidePage({
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
             The <strong className="text-ink-muted">Buy Price</strong> is our
-            catalogue reference price — open data, not an offer. Cambridge TCG
-            no longer buys cards itself; selling happens between collectors on
-            the market.
+            publicly viewable catalogue reference, not an offer. Reuse follows
+            the source rights declared by the API response. Cambridge TCG no
+            longer buys cards itself; collectors trade on the market.
           </p>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
             <Link href="/market" className="text-info hover:underline">

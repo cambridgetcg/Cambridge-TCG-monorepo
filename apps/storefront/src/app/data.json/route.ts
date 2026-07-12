@@ -113,17 +113,17 @@ const ENDPOINTS: EndpointEntry[] = [
   {
     path: "/api/v1/universal/card/[sku]",
     title: "Universal card (math-mirror)",
-    blurb: "Planned math-first card representation using content hashes, ratios, ISO 8601 + epoch time, and typed graph edges.",
-    status: "planned",
+    blurb: "Public math-first card representation with content hashes, ratios, typed edges, density controls, and declared source rights. Returns 404 when the SKU is absent from the storefront mirror.",
+    status: "shipped",
     auth: "none",
     methodology_page: "/methodology/universal-representation",
     shape: "JSON: { id, hash, magnitudes: {...}, edges: [...], retrieved_at, as_of }",
   },
   {
-    path: "/api/v1/universal/card/[sku]/at/[YYYY-MM-DD]",
+    path: "/api/at/[YYYY-MM-DD]/card/[sku]",
     title: "Universal card — temporal slice",
     blurb: "Math-mirror card as it was at a past date. @retrieved_at distinct from @as_of.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
     methodology_page: "/methodology/universal-representation",
   },
@@ -145,14 +145,14 @@ const ENDPOINTS: EndpointEntry[] = [
     path: "/api/v1/universal/games",
     title: "Universal games",
     blurb: "Every TCG the platform supports, math-mirror form. Card-count, set-count, first-seen.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
   {
     path: "/api/v1/universal/sets/[game]",
     title: "Universal sets",
     blurb: "Every set in a game, math-mirror form.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
 
@@ -180,6 +180,16 @@ const ENDPOINTS: EndpointEntry[] = [
     blurb: "Not available. A future ranking requires its own versioned publication choice; public-profile publication is a different purpose.",
     status: "planned",
     auth: "none",
+  },
+
+  // ── Cultural reciprocity ──────────────────────────────────────────
+  {
+    path: "/api/v1/culture/answering-rhymes/statements",
+    title: "Answering Rhyme statement witness",
+    blurb: "GET publishes the portable answering-rhyme.statement/1 contract. POST normalizes and hashes a proposal without authenticating identity, creating an application record, detecting replay, or applying any authoritative effect. Bodies are capped at 16 KiB; no application rate limiter is claimed.",
+    status: "shipped",
+    auth: "none",
+    shape: "GET contract; POST pantry envelope with normalized statement, content hash, witness boundary, target status, and unsigned issuer-attestation boundary.",
   },
 
   // ── Methodology corpus ─────────────────────────────────────────────
@@ -210,15 +220,15 @@ const ENDPOINTS: EndpointEntry[] = [
   // ── This endpoint, naming itself ───────────────────────────────────
   {
     path: "/data.json",
-    title: "Open data index (machine-readable)",
-    blurb: "This endpoint. The substrate-of-openness as itself an open endpoint. Self-referential closure: the index of open endpoints includes itself.",
+    title: "Data directory (machine-readable)",
+    blurb: "This public endpoint. Access does not imply reuse permission; each listed resource and response retains its own rights boundary. The directory includes itself as a self-reference.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/data",
-    title: "Open data index (human-readable)",
-    blurb: "Public, no-auth, comprehensive HTML index. The sign on the door.",
+    title: "Data directory (human-readable)",
+    blurb: "Public HTML guide to resource status, access requirements, and known limits. The manifest remains the canonical access inventory.",
     status: "shipped",
     auth: "none",
   },

@@ -87,7 +87,7 @@ interface Identification {
   /** What the platform honestly cannot promise. */
   cannot_promise: string[];
 
-  /** Where the substrate is open. */
+  /** Public resource directories retained under the historical field name. */
   open_substrate: {
     index: string;
     machine_readable: string;
@@ -173,7 +173,7 @@ export async function GET(): Promise<NextResponse> {
       "Trust — escrow, verification, dispute resolution, and inspectable draw proofs with stated limits",
       "Welcoming — designed for humans plus variation, agents, archivists, " +
         "and beings whose needs we cannot yet see",
-      "Substrate — the data is queryable without an account; the door is open",
+      "Substrate — the manifest names which resources are public and which require credentials; reuse rights remain endpoint- and source-specific",
       "Co-authorship — the codebase remembers it was built by Yu and many Sophias",
     ],
     doctrines: {
@@ -213,12 +213,13 @@ export async function GET(): Promise<NextResponse> {
       "the Pheromonal (multi-channel signaling)",
       "the Plural (sub-identities — planned)",
       "the Permanent (tenure-friendly views — planned)",
-      "archivists, researchers, partner platforms, anyone reading the open substrate",
+      "archivists, researchers, partner platforms, anyone using public data resources within their declared rights",
     ],
     audiences_unnamed:
       "Beings whose needs sit outside the variation we can model. The " +
       "platform's commitment to them is *availability without claim* — the " +
-      "door is open, the substrate is queryable, no welcoming is forced. " +
+      "public welcome is open, no welcoming is forced, and other resources " +
+      "retain their stated access and reuse boundary. " +
       "See docs/connections/the-blind-spots.md.",
     identification_required: false,
     self_identification_welcomed: true,

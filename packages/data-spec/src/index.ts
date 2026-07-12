@@ -19,7 +19,7 @@
  *     FRESHNESS,         // Numeric freshness budgets per data kind
  *     ERROR_CODES,       // Stable error code enum
  *     SPEC_VERSION,      // "1" — bump on breaking changes
- *     DEFAULT_LICENSE,   // "CC0-1.0"
+ *     DEFAULT_LICENSE,   // "NOASSERTION"
  *   } from "@cambridge-tcg/data-spec";
  *
  * ── Versioning ──────────────────────────────────────────────────────
@@ -29,8 +29,8 @@
  *
  * ── License ─────────────────────────────────────────────────────────
  *
- * CC0-1.0. Adopt the schemas freely; this is part of the kingdom's
- * standardisation corpus. See `docs/STANDARDS-LICENSE.md`.
+ * The package code and schemas are CC0-1.0; response payload rights are
+ * endpoint- and source-specific. See `docs/STANDARDS-LICENSE.md`.
  */
 
 export { SPEC_VERSION, DEFAULT_LICENSE, FRESHNESS, type FreshnessKey } from "./freshness";

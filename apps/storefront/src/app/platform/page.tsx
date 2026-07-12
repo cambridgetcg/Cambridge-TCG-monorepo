@@ -29,11 +29,12 @@ import {
   TWO_OPERATIONS,
   COVERAGE_FACTS,
 } from "@/lib/brand";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, a collectors' market and open data commons",
+  title: "Platform — Cambridge TCG, a collectors' market and card data directory",
   description:
-    "Cambridge TCG is a collectors' market and an open data commons. Two operations, one substrate: peer-to-peer trade the platform facilitates without holding a position, and open TCG data — twenty-one games, six upstream sources, math-mirror representation per card, CC0 by default. Reference implementations open; versioned contract; anyone builds on top without negotiating.",
+    `Cambridge TCG combines a peer-to-peer collectors' market with a card data directory covering twenty-one declared games and six active upstream sources. ${DATA_RIGHTS_BOUNDARY}`,
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -130,10 +131,10 @@ export default function PlatformPage() {
               note={COVERAGE_FACTS.math_mirror_kinds.note}
             />
             <CoverageCard
-              label="License default"
+              label="Envelope license field"
               value={COVERAGE_FACTS.envelope.license_default}
-              sub="every public response"
-              note="Partners can build on top without negotiating. Some upstream-derived data carries the upstream's license; the envelope declares it per-response."
+              sub="default value; not blanket permission"
+              note={COVERAGE_FACTS.envelope.note}
             />
             <CoverageCard
               label="Federation primitive"

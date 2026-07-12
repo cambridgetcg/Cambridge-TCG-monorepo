@@ -17,6 +17,7 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 const CONFIG = {
   /**
@@ -33,7 +34,7 @@ const CONFIG = {
       url: "https://cambridgetcg.com/api/mcp",
       transport: "https",
       description:
-        "Cambridge TCG — a collectors' market and an open data commons. Read-tools for catalog, reference prices, federation, and methodology. CC0 by default; reference implementations open.",
+        `Cambridge TCG peer-to-peer market and card data directory. Read tools cover catalog, reference prices, federation, and methodology. ${DATA_RIGHTS_BOUNDARY}`,
       auth: {
         type: "bearer",
         provision_url: "https://cambridgetcg.com/account/agents",

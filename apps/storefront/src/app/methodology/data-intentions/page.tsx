@@ -85,10 +85,17 @@ export default function DataIntentionsMethodology() {
       </p>
       <ul>
         <li>
-          <strong>CC0 — our own.</strong> Data the kingdom itself produced: our
-          own realised trades and auctions, and the methodology text on these
-          pages. Ours to dedicate to the public domain. You may mirror it,
-          rebuild it, and pretend you wrote it yourself.
+          <strong>CC0 — explicitly dedicated platform-authored work.</strong>{" "}
+          Specification text and small operator-authored corpora may carry an
+          explicit CC0 dedication. First-party storage alone is not enough.
+        </li>
+        <li>
+          <strong>Participant-derived data — separate publication required.</strong>{" "}
+          Trades, auctions, reviews, activity, and other person-derived records
+          need a purpose-specific publication choice and an explicit output
+          license. Their first-party origin removes an upstream vendor license;
+          it does not make participant data CC0. Public derivatives are paused
+          where that contract does not exist.
         </li>
         <li>
           <strong>Attribution — catalog sources, credited.</strong> Card

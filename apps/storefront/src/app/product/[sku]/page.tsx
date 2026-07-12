@@ -3,7 +3,7 @@
  *
  * Collectors-first (docs/decisions/2026-07-06-collectors-first.md): the
  * platform no longer sells. This page keeps the card's identity — art,
- * set, rarity, a LABELLED reference price (open data, never an offer) —
+ * set, rarity, a labelled publicly viewable reference price (never an offer) —
  * and points the one strong CTA at the collectors' market, where the
  * card actually trades. Add-to-cart, stock counts, and the we-buy desk
  * died with the shop; portfolio tracking and browsing survive.
@@ -172,7 +172,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             <p className="text-ink-muted mt-1">{card.card_number}</p>
           </div>
 
-          {/* Reference price — open data, labelled, never an offer */}
+          {/* Publicly viewable reference price, labelled, never an offer. */}
           <div className="flex flex-col gap-1">
             <span className="text-xs text-ink-muted uppercase tracking-wider">Reference price</span>
             <div className="text-4xl font-display font-semibold text-ink">{formatRetailPrice(card.price_gbp, card.channel_price)}</div>

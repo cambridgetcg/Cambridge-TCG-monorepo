@@ -86,7 +86,8 @@ export default async function ScrapersWelcomePage() {
             </div>
           </div>
           <p className="text-xs text-ink-faint mt-4 leading-relaxed">
-            All public. No auth. CC0. See{" "}
+            The routes above are public to read. Reuse rights remain endpoint-
+            and source-specific; absence of a license is not permission. See{" "}
             <Link
               href="/api/v1/welcome"
               className="text-accent hover:underline"

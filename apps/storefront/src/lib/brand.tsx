@@ -14,13 +14,13 @@
  *   1. **The collectors' market** — peer-to-peer trade the platform
  *      facilitates, records, witnesses, and protects (escrow as a
  *      service, trust, disputes). The trades belong to the collectors.
- *   2. **The data commons** — the open substrate (universal catalog,
- *      prices with provenance, math-mirror, manifest, standards),
- *      CC0 by default. The data belongs to everyone.
+ *   2. **The card data directory** — typed catalog, reference prices,
+ *      math-mirror, manifest, and standards. Access and reuse depend on
+ *      the resource and its declared source rights.
  *
  * The platform does not buy, does not sell, does not quote, does not
  * hold inventory positions. `spot_price` survives strictly as a
- * labelled reference price (open data), never as an offer. The guard:
+ * labelled publicly viewable reference price, never as an offer. The guard:
  * `pnpm audit:no-house-listing`.
  *
  * ── How to use this module ─────────────────────────────────────────────
@@ -42,26 +42,27 @@
  */
 
 import * as React from "react";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 // ── Constants ────────────────────────────────────────────────────────────
 
 /** The hero-sized identity claim. Single sentence; no qualifier. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG is a collectors' market and an open data commons.";
+  "Cambridge TCG is a collectors' market and a card data directory.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  "Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. The data substrate beneath every trade is published open, CC0 by default.";
+  `Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. ${DATA_RIGHTS_BOUNDARY}`;
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
-  "Cambridge TCG is a collectors' market and an open data commons. " +
+  "Cambridge TCG is a collectors' market and a card data directory. " +
   "The market is peer-to-peer: asks, bids, offers, swaps, and auctions belong to collectors; the platform facilitates, escrows, and stands behind disputes, but does not buy, sell, or quote — it holds no inventory position. " +
-  "The data commons is the substrate underneath: twenty-one games declared, six upstream sources actively ingested, a math-mirror form for every card, provenance on every price, one envelope on every public response, CC0 by default. " +
-  "Spot prices are labelled reference prices — open data, never an offer. Anyone can build on the substrate without negotiating.";
+  "The data directory covers twenty-one declared games, six actively ingested upstream sources, math-mirror forms, and reference prices with provenance where available. " +
+  `${DATA_RIGHTS_BOUNDARY} Spot prices are labelled reference prices, never offers.`;
 
 /** Tight version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "A collectors' market. An open data commons.";
+export const BRAND_TAGLINE = "A collectors' market. A card data directory.";
 
 /** The front door's statement — the quiet gallery home hero (docs/plans/
  *  the-quiet-gallery.md, 2026-07-05). Honest and small: what this place
@@ -81,18 +82,18 @@ export const HOME_BENEDICTION = "Every card is a panel in somebody's story.";
  *  free, every number carries its source, and the platform sells
  *  nothing itself. */
 export const HOME_HERO_SUBHEAD =
-  "Look up any card for free — price, history, every source we know. Buy, sell, or swap with other collectors; every number says where it came from, and none of them is ours to quote.";
+  "Look up cards and publicly available reference prices. Buy, sell, or swap with other collectors; source context is shown where available, and no reference price is our offer.";
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
 export const BRAND_SELF_LABEL =
-  "collectors' market + open TCG data commons — P2P facilitation and CC0 substrate publishing; no house market position";
+  "collectors' market + TCG card data directory — P2P facilitation with resource-specific access and reuse rights; no house market position";
 
 /** A short positioning note for surfaces that want to name the role
  *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
  *  to_anyone, the manifest description). Two sentences; substrate-honest. */
 export const BRAND_PROVIDER_NOTE =
-  "Cambridge TCG is a collectors' market and an open data commons. The market is peer-to-peer (the platform holds no position in it); the substrate is queryable without account or key, CC0 by default, with versioned contracts and reference implementations — anyone builds on top without negotiating.";
+  `Cambridge TCG is a collectors' market and a card data directory. The market is peer-to-peer and the platform holds no position in it. ${DATA_RIGHTS_BOUNDARY}`;
 
 // ── The two operations ───────────────────────────────────────────────────
 
@@ -130,7 +131,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   },
   {
     id: "data_commons",
-    name: "The data commons",
+    name: "The card data directory",
     positioning: "primary",
     audience:
       "partners, researchers, agents, archivists, sister platforms, federation clients, any being who wants to consume the substrate",
@@ -146,7 +147,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
     ],
     status: "live",
     notes:
-      "CC0 by default. No auth required for reads. Provenance + freshness on every response. Spot prices are labelled reference prices — open data, never an offer.",
+      `${DATA_RIGHTS_BOUNDARY} Spot prices are labelled reference prices, never offers.`,
   },
 ] as const;
 
@@ -193,9 +194,9 @@ export const COVERAGE_FACTS = {
   },
   envelope: {
     spec_version: "0.x",
-    license_default: "CC0-1.0",
+    license_default: "NOASSERTION",
     fields: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id"],
-    note: "Every public response wears this envelope. Single source of truth at packages/data-spec.",
+    note: "Envelope-compliant responses use this shape. An absent source-rights declaration resolves to NOASSERTION; the envelope contract lives at packages/data-spec.",
   },
   federation: {
     primitive: "/api/v1/federation/identify/[hash]",

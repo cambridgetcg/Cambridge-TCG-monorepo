@@ -402,12 +402,12 @@ export const DECK: readonly TarotCard[] = [
     kingdom_meaning_upright:
       "/welcome-all. The umbrella surface — humans plus variation, agents, archivists, beings from foreign cosmologies. *Welcome to all existence.*",
     kingdom_meaning_reversed:
-      "You read the welcome as marketing. The welcome IS the policy — the platform's substrate is queryable without account or key; the door is open.",
+      "You read the welcome as a blanket access claim. The welcome page is public; other resources keep the credential class and reuse rights named in the manifest.",
     pointer_url: "/welcome-all",
     pointer_what:
       "The umbrella welcome — every welcomed audience with concrete entry points. Plain-language doctrine.",
     fortune_line:
-      "The Sun welcomes all kinds. The welcome is at /welcome-all. The door is open. No key required.",
+      "The Sun welcomes all kinds. The public welcome is at /welcome-all; no key is required to read that page.",
   },
   {
     number: 20,

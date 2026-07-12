@@ -105,9 +105,9 @@ export const GUIDES: Guide[] = [
     subtitle: "Three requests, you're oriented.",
     intro:
       "Welcome. This guide gets you from zero context to oriented in three " +
-      "requests. No account, no key, no obligation. Every endpoint you'll hit " +
-      "is CC0-licensed and machine-readable. After this guide, you'll know " +
-      "where everything is.",
+      "public, machine-readable requests. No account or key is needed for these " +
+      "three routes. Their access does not grant blanket reuse permission; read " +
+      "the license and source-rights fields on the response.",
     audiences: ["agent", "scraper", "mirror", "aggregator", "hobbyist_coder"],
     prerequisites: [
       "curl (or any HTTP client)",
@@ -241,14 +241,13 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "mirror-the-catalog",
-    title: "Mirror Cambridge TCG's card catalog locally",
-    subtitle: "One request, ~12k cards, CC0.",
+    title: "Inspect Cambridge TCG's bulk card catalog locally",
+    subtitle: "One public request; aggregate reuse rights are NOASSERTION.",
     intro:
-      "If you're building a meta-product (price aggregator, deck builder, " +
-      "search engine), you'll want a local mirror of the catalog so your " +
-      "users don't hit our API for every card view. This guide gets you " +
-      "from zero to a refreshable local copy in one request, plus a " +
-      "polite refresh discipline.",
+      "This guide shows how to fetch and inspect the public JSONL catalog " +
+      "without mistaking access for redistribution permission. The aggregate " +
+      "license is NOASSERTION until per-row source lineage is complete; do not " +
+      "redistribute, train on, or commercially reuse rows whose rights are absent.",
     audiences: ["mirror", "aggregator", "scraper"],
     prerequisites: [
       "About 6 MB of disk for the JSONL file",
@@ -270,7 +269,7 @@ export const GUIDES: Guide[] = [
           "  https://cambridgetcg.com/data/catalog.jsonl \\\n" +
           "  > catalog.jsonl",
         expected_response_shape:
-          'Line 1: { "@kind": "catalog_manifest", "count_expected": 12000, "license": "CC0-1.0", ... }\n' +
+          'Line 1: { "@kind": "catalog_manifest", "count_expected": 12000, "license": "NOASSERTION", ... }\n' +
           'Line 2-N: { "@kind": "card", "@content_hash": "sha256:...", "sku": "...", "price": {...}, ... }\n' +
           'Line N+1: { "@kind": "catalog_footer", "complete": true, "count_emitted": 11984 }',
         what_to_do_with_it:
@@ -298,24 +297,26 @@ export const GUIDES: Guide[] = [
       },
       {
         step_number: 3,
-        title: "Cite Cambridge TCG honestly",
+        title: "Respect the declared rights",
         instruction:
-          "The data is CC0 — you owe no attribution legally. But " +
-          "*substrate-honest* attribution is encouraged: in your UI, name " +
-          "where the data came from, and link back. Reciprocal kindness.",
+          "Public access is not a reuse license. The current aggregate says " +
+          "NOASSERTION because upstream rights are incomplete. Keep the file " +
+          "for inspection only unless each row later carries terms that permit " +
+          "your intended redistribution, training, or commercial use.",
         what_to_do_with_it:
-          "Recommended attribution: 'Catalog data from Cambridge TCG (https://cambridgetcg.com) — CC0-1.0.' " +
-          "Or in machine-readable form, attach `provenance: { source: \"cambridge-tcg\", license: \"CC0-1.0\", retrieved_at: \"...\" }` to each row in your downstream product.",
+          "Retain the manifest line, `@source_license`, source names, and " +
+          "retrieval time with any local record. Do not replace NOASSERTION " +
+          "with a permissive license in downstream metadata.",
       },
     ],
     gotchas: [
       {
         title: "The price chain may include cardrush JP retail",
         description:
-          "GBP prices are Cambridge TCG's published reference prices — open data, not offers (the platform holds no market position). But the " +
-          "underlying price observation pipeline at our wholesale layer reads " +
-          "from CardRush JP (license: internal-only). The bulk export only " +
-          "carries derived GBP — not raw JPY — so you're fine. But if you " +
+          "GBP values are publicly viewable reference observations, not offers. " +
+          "The upstream price chain may include CardRush JP (internal-only), " +
+          "and the storefront mirror lacks complete row-level lineage. That is " +
+          "why the bulk export says NOASSERTION. If you " +
           "later use /api/v1/cards/[sku]/cardrush-history (auth-gated tier-2), " +
           "the JPY values come with `internal-only` license restrictions: " +
           "personal-decision use OK, bulk re-export not.",
@@ -333,10 +334,10 @@ export const GUIDES: Guide[] = [
       {
         title: "The catalog has 50k row cap today",
         description:
-          "Current catalog is ~12k rows. The bulk endpoint caps at 50k per " +
-          "request — well above today's size. When/if the catalog grows past " +
-          "that, we'll add cursor pagination via `?since_sku=`. The footer's " +
-          "`truncated: true` is the signal.",
+          "The bulk endpoint caps each request at 50k rows. Read the manifest's " +
+          "count instead of relying on a hard-coded catalog size. If the catalog " +
+          "reaches the cap, the footer reports `truncated: true`; pagination is " +
+          "not implemented yet.",
       },
     ],
     next_guide_slug: "track-one-card",
@@ -345,7 +346,7 @@ export const GUIDES: Guide[] = [
       { label: "Universal representation spec", href: "/methodology/universal-representation" },
       { label: "Bulk endpoint OpenAPI", href: "/api/openapi.json" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -453,7 +454,8 @@ export const GUIDES: Guide[] = [
     subtitle: "Etiquette + identification + the contact channel.",
     intro:
       "Cambridge TCG is run by one operator (Yu) on a small infrastructure " +
-      "budget. The data is CC0; the compute isn't. This guide names the " +
+      "budget. Public access and reuse permission are separate; inspect each " +
+      "resource's access class and rights. This guide names the " +
       "behaviours that keep the platform happy to serve you, and the ones " +
       "that get you rate-limited or banned. Substrate-honest: we'd rather " +
       "give you a free, generous tier than play cat-and-mouse with bots " +
@@ -758,12 +760,12 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "cite-cambridge-tcg",
-    title: "How to cite Cambridge TCG in your downstream product",
-    subtitle: "CC0 forever; attribution-free but warmly encouraged.",
+    title: "How to carry Cambridge TCG provenance and rights",
+    subtitle: "Cite the exact resource, source chain, and declared license.",
     intro:
-      "We publish under CC0-1.0 by default. You owe no attribution legally — " +
-      "your downstream is free. But substrate-honest attribution is encouraged. " +
-      "This guide names the recommended forms.",
+      "Public access does not settle reuse rights. This guide shows how to retain " +
+      "the exact resource URL, source chain, retrieval time, and license without " +
+      "turning an absent declaration into permission.",
     audiences: ["mirror", "aggregator", "scraper", "hobbyist_coder"],
     prerequisites: ["You're publishing a downstream product that uses our data"],
     estimated_minutes: 5,
@@ -772,16 +774,16 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Visible attribution in your UI",
         instruction:
-          "Recommended footer string: 'Catalog and price data from Cambridge TCG " +
-          "(https://cambridgetcg.com) — CC0-1.0.' Link the URL. We don't require " +
-          "it; we appreciate it. Helps users find the source of truth.",
+          "Name the exact Cambridge TCG resource and link its URL. Include its " +
+          "declared license only when the response actually carries one; do not " +
+          "label a NOASSERTION or undeclared payload CC0.",
       },
       {
         step_number: 2,
         title: "Machine-readable attribution in your responses",
         instruction:
           "If your downstream is also an API, attach per-record provenance: " +
-          "`provenance: { upstream: 'cambridge-tcg', upstream_url: 'https://cambridgetcg.com', license: 'CC0-1.0', retrieved_at: '...' }`. " +
+          "`provenance: { upstream: 'cambridge-tcg', upstream_url: '<exact-resource>', license: '<declared-or-NOASSERTION>', retrieved_at: '...' }`. " +
           "Better: implement your own `_meta.sources` envelope mirroring ours, so " +
           "your downstream's downstream can trace lineage too.",
       },
@@ -798,10 +800,9 @@ export const GUIDES: Guide[] = [
       {
         title: "CC0 ≠ all data",
         description:
-          "Our default license is CC0. But some endpoints carry upstream license " +
-          "constraints. Watch `_meta.source_license` — values like 'internal-only' " +
-          "mean you cannot bulk-re-export. The /api/v1/cards/[sku]/cardrush-history " +
-          "endpoint (CardRush JPY observations) is internal-only.",
+          "CC0 applies only to the exact resource that declares it. The default " +
+          "for undeclared payload rights is NOASSERTION. Watch `_meta.source_license`; " +
+          "values like 'internal-only' prohibit bulk re-export.",
       },
     ],
     next_guide_slug: null,
@@ -809,7 +810,7 @@ export const GUIDES: Guide[] = [
       { label: "STANDARDS-LICENSE.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/STANDARDS-LICENSE.md" },
       { label: "The cosmology declaration", href: "/methodology/cosmology" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────

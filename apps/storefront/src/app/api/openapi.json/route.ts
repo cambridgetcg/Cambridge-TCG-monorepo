@@ -32,14 +32,12 @@ const SPEC = {
     title: "Cambridge TCG — public participation surface",
     version: "1.0.0",
     summary:
-      "Public, no-auth read access to Cambridge TCG's catalog, prices, and methodology — for participants who want in via data.",
+      "Public, no-auth participation and read access to Cambridge TCG's catalog, prices, methodology, and stateless witness surfaces.",
     description:
-      "The substrate is queryable without an account. This spec describes the public read surface only; session-authenticated endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. See /api for the human-readable index; see /.well-known/cambridge-tcg.json for the machine-readable manifest; see docs/connections/the-open-substrate.md (doctrine) and docs/connections/the-substrate-answers.md (wire) for the meaning.",
+      "This document describes public read and stateless witness surfaces. Session-authenticated mutation endpoints (/api/account/*) and bearer-authenticated agent endpoints (/api/mcp) are documented separately. Public access does not imply reuse permission; inspect each response's license and declared source rights. See /api and /api/v1/manifest for the complete access directory.",
     contact: { email: "support@cambridgetcg.com" },
-    // CC0-1.0 matches what the envelope actually stamps (_meta.license
-    // defaults to CC0-1.0). Per-source exceptions travel per response in
-    // _meta.source_license; see /methodology for the licensing story.
-    license: { name: "CC0-1.0 (default; per-response license in _meta.license)", identifier: "CC0-1.0" },
+    // This licenses the OpenAPI document itself, not every described payload.
+    license: { name: "CC0-1.0 (this OpenAPI document only)", identifier: "CC0-1.0" },
     /**
      * Distributed wake fragment — the wake breathing through the spec.
      * One atomic fragment selected deterministically by this endpoint's
@@ -93,6 +91,38 @@ const SPEC = {
         ],
         responses: {
           "200": { description: "NOASSERTION pantry envelope containing the matching relations.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/culture/answering-rhymes/statements": {
+      get: {
+        tags: ["culture", "discovery"],
+        summary: "Portable Answering Rhyme reciprocity-statement contract",
+        description: "Publishes answering-rhyme.statement/1, answering-rhyme.canonical-json/1, strict normalization and size limits, the four statement kinds, and Cambridge's negative-space boundaries. The contract authenticates nobody, persists no application record, detects no replay, asserts no uniqueness, and gives statements no authoritative effect.",
+        operationId: "getCultureAnsweringRhymeStatementContract",
+        responses: {
+          "200": { description: "CC0 pantry envelope containing the portable contract and Cambridge witness boundary.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+      post: {
+        tags: ["culture"],
+        summary: "Validate and statelessly witness a reciprocity statement",
+        description: "Strictly validates, normalizes, and SHA-256 hashes one portable bless, contextualize, correct, or withdraw statement. Returns a Cambridge-specific unsigned receipt with authenticated=false, identity_verified=false, persisted=false, replay_detection=false, uniqueness_not_asserted=true, and authoritative_effect=none. A known-current target means only that key+revision match the static corpus. Corrections still require curator review; withdrawals still require a future real server-only authenticated authority verifier, trusted-issuer/signature policy, and replay policy. POST is no-store.",
+        operationId: "witnessCultureAnsweringRhymeStatement",
+        "x-max-request-bytes": 16384,
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AnsweringRhymeStatement" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing normalized statement and unsigned, non-authoritative Cambridge witness receipt.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid JSON, UTF-8, or statement contract.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "413": { description: "Request body exceeds 16,384 bytes.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "415": { description: "Content-Type is not application/json (optional UTF-8 charset accepted).", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -925,6 +955,43 @@ const SPEC = {
           note: { type: "string" },
         },
       },
+      AnsweringRhymeStatement: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "schema",
+          "canonicalization",
+          "relation_key",
+          "target_revision",
+          "kind",
+          "body",
+          "declared_by",
+          "declared_at",
+        ],
+        properties: {
+          schema: { type: "string", const: "answering-rhyme.statement/1" },
+          canonicalization: { type: "string", const: "answering-rhyme.canonical-json/1" },
+          relation_key: { type: "string", minLength: 1, maxLength: 256, description: "Opaque stable relation key." },
+          target_revision: { type: "string", minLength: 1, maxLength: 100, description: "Required content-derived relation revision; hash-covered to prevent replay across edits." },
+          kind: { type: "string", enum: ["bless", "contextualize", "correct", "withdraw"] },
+          body: { type: "string", minLength: 1, maxLength: 2000, description: "CRLF and CR normalize to LF; surrounding whitespace trims; internal whitespace remains." },
+          language: { type: "string", maxLength: 35, default: "und", description: "Simple BCP 47 tag, normalized lowercase; und means undeclared." },
+          declared_by: {
+            type: "object",
+            additionalProperties: false,
+            required: ["label", "claimed_role"],
+            properties: {
+              label: { type: "string", minLength: 1, maxLength: 160 },
+              claimed_role: { type: "string", enum: ["viewer", "relation-curator", "card-rights-holder", "artwork-rights-holder", "source-institution", "other"], description: "Self-declared only; never authenticated or authority-verified by the witness." },
+              canonical_url: { type: ["string", "null"], format: "uri", maxLength: 1000, pattern: "^https://", default: null },
+            },
+          },
+          declared_at: { type: "string", format: "date-time", maxLength: 40, description: "Required RFC 3339 with explicit timezone; normalized to UTC ISO 8601 before hashing." },
+          in_response_to: { type: ["string", "null"], pattern: "^sha256:[0-9a-fA-F]{64}$", default: null, description: "Optional prior statement. A relation-level withdrawal may be null." },
+          evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" } },
+          authority_evidence_urls: { type: "array", maxItems: 12, default: [], items: { type: "string", format: "uri", maxLength: 1000, pattern: "^https://" }, description: "Pointers carried as unverified claims; the witness never fetches them." },
+        },
+      },
       Error: {
         type: "object",
         required: ["error"],
@@ -959,7 +1026,7 @@ const SPEC = {
           sources: { type: "array", items: { type: "string" }, description: "Named sources of truth that contributed." },
           source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; redistribution license tier per source (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Absence is substrate-honest about un-declared rights. kingdom-066 + kingdom-081." },
           freshness_seconds: { type: "integer", description: "Platform's intended freshness budget for this kind of data." },
-          license: { type: "string", description: "SPDX license code for the response payload. CC0-1.0 by default." },
+          license: { type: "string", description: "SPDX license code for the response payload. NOASSERTION when payload rights are undeclared." },
           request_id: { type: "string", description: "Quotable in support tickets." },
           deprecation: {
             type: ["object", "null"],

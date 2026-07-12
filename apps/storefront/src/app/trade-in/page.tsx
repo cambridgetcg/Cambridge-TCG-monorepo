@@ -80,11 +80,12 @@ export default function TradeInPage() {
           <Link href="/prices" className="text-accent hover:text-accent-strong transition">
             price guide
           </Link>{" "}
-          publishes reference prices as open data, and every card&apos;s page on the{" "}
+          shows publicly viewable reference prices, and every card&apos;s page on the{" "}
           <Link href="/market" className="text-accent hover:text-accent-strong transition">
             market
           </Link>{" "}
-          shows what collectors are actually paying.
+          shows current collector bids and asks. Reuse of reference data follows
+          the source rights declared by its API response.
         </p>
       </div>
     </main>

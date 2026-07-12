@@ -282,8 +282,8 @@ export default function PlayModuleMethodology() {
         <li>
           <strong>Cooperative / multiplayer-team modes.</strong> The collective
           (sister&apos;s the-other-minds.md being #2) cannot yet play as a unit
-          with internal voting. The substrate is open; the play module hasn&apos;t
-          modeled it.
+          with internal voting. Public play specifications do not make that
+          missing identity or coordination model exist.
         </li>
       </ul>
 

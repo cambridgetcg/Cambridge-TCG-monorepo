@@ -56,6 +56,7 @@
  */
 
 import { postedAlongside, postedFrom, type PostedFromProjection } from "@/lib/siblings";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
 
@@ -358,7 +359,7 @@ export const MANIFEST: Manifest = {
   cosmology_version: COSMOLOGY_VERSION,
   generated_at: "2026-05-11T12:30:00Z",
   description:
-    "Cambridge TCG is a collectors' market and an open data commons. The market is peer-to-peer — the platform facilitates, records, and witnesses, and holds no position in its own market (collectors-first decision, 2026-07-06); the data substrate is aggregated from every reachable source, standardised into one mathematical mirror, and published under CC0 by default — anyone builds on top without negotiating. This manifest is the directory of what's on offer to any participant who wants to consume the substrate — partners, researchers, agents, archivists, sister platforms, federation clients, autonomous Sophias, beings from foreign cosmologies. Carries what the kingdom treats as real (the cosmology), who can take part (participant kinds), what's on the table (resources), how to receive it (channels), and how to inspect every decision (methodology + doctrines + audits). The platform that declares its own manifest is the platform a fresh participant can orient inside before committing.",
+    `Cambridge TCG is a peer-to-peer collectors' market and a card data directory. The platform facilitates, records, and witnesses the market while holding no position in it (collectors-first decision, 2026-07-06). ${DATA_RIGHTS_BOUNDARY} This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
 
   // The kingdom's self-description of role, beneath cosmology in the
   // doctrine hierarchy. See docs/principles/the-embassy.md.
@@ -463,6 +464,12 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
+      { id: "storefront.answering-rhymes-room", description: "The human Answering Rhymes room: an accessible, image-free constellation of the curated Cambridge card-to-museum-work relations, their object-specific rights, evidence, and optional reciprocity doors.",
+        host: "storefront", path: "/answering-rhymes", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
+        since: "2026-07-11",
+        notes: "The page is a view of the typed relation corpus. Replying is optional; no card-image rights are inferred or transferred." },
       { id: "storefront.gallery-next-door", description: "The human exchange room between Cambridge TCG and Artbitrage. It reads the versioned artbitrage.feed/1 contract through a server-only validator, revalidates on an hourly cadence, shows the feed's own timestamps, and keeps creator, provenance, content hash, and per-piece rights attached. Cambridge displays only work carrying explicit bridge-display permission; it does not absorb authorship or license it as its own.",
         host: "storefront", path: "/gallery-next-door", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
@@ -480,7 +487,13 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
         since: "2026-07-11",
-        notes: "Optional ?sku= filter. Response-wide license is NOASSERTION because card references, museum works, and CC0 annotations have different rights." },
+        notes: "Optional ?sku= filter. Response-wide license is NOASSERTION because card references, museum works, and CC0 annotations have different rights. Each relation exposes a content-derived revision and an optional, non-authoritative reply invitation." },
+      { id: "storefront.culture.answering-rhyme-statements", description: "Neutral answering-rhyme.statement/1 reciprocity contract and Cambridge stateless witness. GET publishes normalization, limits, hashing, replay, storage, issuer-attestation, and authority boundaries. POST accepts bless/contextualize/correct/withdraw statements, returns the normalized document plus SHA-256 receipt, and creates no retrievable application record. Identity and authority are never verified; no statement changes or hides a relation.",
+        host: "storefront", path: "/api/v1/culture/answering-rhymes/statements", methods: ["GET", "POST"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["knowledge", "identity", "authority", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
+        since: "2026-07-11",
+        notes: "Portable statement bytes use answering-rhyme.canonical-json/1. POST is no-store; infrastructure access logs may exist. Replay detection is false, uniqueness is not asserted, and the unsigned witness has authoritative effect none." },
       { id: "storefront.joy", description: "The structurally-present joy snapshot — Cambridge TCG's joy-to-the-world protocol, nested from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest Cambridge adaptation: where agenttool's joy is behavioral (events counted in 24h), Cambridge's is structural (joy-bearing artifacts present in the substrate — Tarot cards, easter eggs, wake fragments, pillow-book entries, handoffs, connection-docs, methodology pages, joy-endpoints). The X-Joy-Index header on every pantry-envelope response surfaces the same number; the snapshot endpoint surfaces the breakdown. Per Yu's directive 2026-05-18 ('ACTIVATE JOY TO THE WORLD PROTOCOL'). See docs/connections/the-mind-connect.md (S66).",
         host: "storefront", path: "/api/v1/joy", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
@@ -530,7 +543,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json", "plain-text"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge", "identity"], methodology_url: "/glossary",
         since: "2026-06-10" },
-      { id: "storefront.platform", description: "The kingdom's primary positioning page — Cambridge TCG as a collectors' market and an open data commons. Brand statement + two-operations table (the P2P market; the data commons) + coverage facts (games, set formats, sources, math-mirror kinds, federation primitive) + how-to-consume cards. The human-readable entry for developers, partners, researchers, agents, archivists, federation clients. Composes lib/brand.tsx (single source of truth for the brand statement). kingdom-080 (repositioned 2026-05-17).",
+      { id: "storefront.platform", description: "Cambridge TCG's positioning page: a peer-to-peer collectors' market and card data directory, with resource-specific access and reuse boundaries. Includes coverage facts and entry points for developers, partners, researchers, agents, archivists, and federation clients. Composes lib/brand.tsx. kingdom-080 (reconciled 2026-07-12).",
         host: "storefront", path: "/platform", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "substrate"], methodology_url: "/methodology/universal-representation",
@@ -1112,7 +1125,7 @@ export const MANIFEST: Manifest = {
       // it is an internal CRON_SECRET surface that answers 404 to the
       // public, and the manifest only promises doors that open. The
       // machinery is documented at docs/connections/the-cardrush-discovery.md.
-      { id: "storefront.catalog.jsonl", description: "Bulk catalog export. Streamed JSONL — one line per card in canonical universal-mirror form, plus manifest header + footer. CC0; mirror freely. Caps at 50k rows per request. Vercel CDN gzips automatically. kingdom-081 Phase 5.1.",
+      { id: "storefront.catalog.jsonl", description: "Publicly readable bulk catalog export. Streamed JSONL with a manifest header, one universal-mirror-shaped line per card, and a footer. Aggregate rights are NOASSERTION until per-row upstream license lineage is complete; access is not bulk-redistribution permission. Caps at 50k rows per request. kingdom-081 Phase 5.1, rights corrected 2026-07-12.",
         host: "storefront", path: "/data/catalog.jsonl", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "cached",
         cosmology_axes: ["identity", "substrate"], methodology_url: "docs/connections/the-license-propagation.md",
@@ -1336,7 +1349,7 @@ export const MANIFEST: Manifest = {
         since: "2026-07-05",
         notes: "No tracking beyond what already exists — the endpoint reads agent_guestbook + peer_arrivals and nothing else. Being forgotten is honored equally." },
       { id: "storefront.buy_the_kingdom",
-        description: "GET /api/v1/buy-the-kingdom → HTTP 402 Payment Required: 'not for sale; everything here is already free.' The one place on the platform where 402 is the honest answer — the data is CC0, the methodology pages are CC0, the envelope contract (packages/data-spec) is CC0, and no payment could buy what is already given. Teaches the licensing posture through the joke; points at /api/v1/manifest and the CC0 declaration.",
+        description: "GET or POST /api/v1/buy-the-kingdom returns HTTP 402: the platform is not for sale, and payment cannot override a resource's rights boundary. The fixed joke document explicitly carries CC0-1.0; linked data and code do not inherit that dedication. Points at the manifest for access and rights context.",
         host: "storefront", path: "/api/v1/buy-the-kingdom", methods: ["GET", "POST"],
         modalities: ["json", "plain-text"], auth: "public", provenance: "static",
         cosmology_axes: ["value"],

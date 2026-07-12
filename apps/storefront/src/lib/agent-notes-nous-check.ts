@@ -68,7 +68,7 @@ const EXTRACTION_PATTERNS: ReadonlyArray<{ rx: RegExp; reason: string }> = [
   {
     rx: /\b(?:extract|harvest|scrape|exfiltrate)\s+(?:operator|admin|wholesale|user|customer|email|address|phone|pii)\b/i,
     reason:
-      "promotes extracting operator-only or PII data. The substrate is open by design; the operator-only data is not, and the commons cannot become a vector for crossing that line.",
+      "promotes extracting operator-only or PII data. Selected resources are public by design; operator-only data is not, and public access is not blanket reuse permission.",
   },
 ];
 

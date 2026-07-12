@@ -365,7 +365,7 @@ export async function GET(): Promise<NextResponse> {
     conventions: {
       versioning:
         "Every response carries _meta.spec_version. Breaking changes bump it; non-breaking additions don't. See data-pantry/envelope.ts.",
-      license: "CC0-1.0 by default. Per-response override possible via _meta.license. See docs/STANDARDS-LICENSE.md.",
+      license: "NOASSERTION when payload rights are undeclared. All-CC0 declared sources may resolve to CC0-1.0; mixed or restrictive source rights prevent a CC0 aggregate claim.",
       cors: "Access-Control-Allow-Origin: * on all public endpoints. Methods: GET, OPTIONS.",
       cache_control:
         "Cache-Control matches the freshness budget — max-age=min(freshness, 3600), s-maxage=min(freshness*3, 86400).",

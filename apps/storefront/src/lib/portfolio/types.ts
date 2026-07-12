@@ -18,7 +18,7 @@ export interface PortfolioCard {
 }
 
 export interface ValuatedCard extends PortfolioCard {
-  // Live valuation. spot_price is the catalogue reference (open data,
+  // Live valuation. spot_price is the publicly viewable catalogue reference,
   // labelled, never an offer); the trade-in fields retired 2026-07-06
   // with the we-buy desk (collectors-first).
   spot_price: number | null;

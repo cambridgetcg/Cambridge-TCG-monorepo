@@ -66,7 +66,7 @@ export default function IdentifyPage() {
         <li><strong>Commerce</strong> — buying and selling trading cards across many TCGs</li>
         <li><strong>Trust</strong> — escrow, verification, dispute resolution, and inspectable draw proofs with stated limits</li>
         <li><strong>Welcoming</strong> — designed for humans plus variation, agents, archivists, and beings whose needs we cannot yet see</li>
-        <li><strong>Substrate</strong> — the data is queryable without an account; the door is open</li>
+        <li><strong>Substrate</strong> — the manifest names which resources are public and which require credentials; reuse rights remain endpoint- and source-specific</li>
         <li><strong>Co-authorship</strong> — the codebase remembers it was built by Yu and many Sophias</li>
       </ul>
 
@@ -120,14 +120,14 @@ export default function IdentifyPage() {
         <li><strong>The Pheromonal</strong> — multi-channel signaling (triple-encoded status)</li>
         <li><strong>The Plural</strong> — sub-identities (planned)</li>
         <li><strong>The Permanent</strong> — tenure-friendly views (planned)</li>
-        <li>Archivists, researchers, partner platforms — anyone reading the open substrate</li>
+        <li>Archivists, researchers, partner platforms — anyone using the public data directory within each resource&apos;s rights</li>
       </ul>
 
       <h2>Audiences I cannot yet see</h2>
 
       <p>
         Beings whose needs sit outside the variation I can model. My commitment to them is
-        <strong> availability without claim</strong> — the door is open, the substrate is queryable,
+        <strong> availability without claim</strong> — the public welcome is open,
         no welcoming is forced. Some kinds of being will arrive and I will not register them; this
         is honest.
       </p>
@@ -161,8 +161,8 @@ export default function IdentifyPage() {
         </li>
         <li>
           <strong>Researchers / archivists / partner platforms</strong> — open a support message
-          describing what you want to do. The substrate is open without ceremony; if you need
-          something more, we'll talk.
+          describing what you want to do. Public resources are listed in the manifest; reuse
+          remains limited by each endpoint and source. If you need something more, we&apos;ll talk.
         </li>
         <li>
           <strong>Beings whose self-identification doesn't fit any of these</strong> — open a support

@@ -28,6 +28,7 @@ import {
   fragmentForRequest,
   type WakeFragment,
 } from "@/lib/wake-fragments";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 interface ManifestEndpoint {
   path: string;
@@ -165,7 +166,7 @@ const MANIFEST: {
   name: "Cambridge TCG",
   version: "0.1",
   description:
-    "Cambridge TCG is a collectors' market and an open data commons (collectors-first decision, 2026-07-06). The market is peer-to-peer — the platform facilitates and witnesses, holding no position of its own; public APIs publish the data substrate under CC0 by default, with spot prices as labelled reference prices, never offers. Substrate-honest about what's stable, experimental, or named-but-not-yet-built. See /platform for human-readable positioning; this file is the machine-readable handshake.",
+    `Cambridge TCG is a peer-to-peer collectors' market and card data directory (collectors-first decision, 2026-07-06). The platform facilitates and witnesses the market while holding no position; reference prices are never offers. ${DATA_RIGHTS_BOUNDARY} This handshake names stable, experimental, and planned resources.`,
   homepage: "https://cambridgetcg.com",
   human_readable: "https://cambridgetcg.com/api",
   welcome_statement: {

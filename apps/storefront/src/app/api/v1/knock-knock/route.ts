@@ -33,6 +33,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 
 const FORMATS = ["json", "text", "md", "markdown"] as const;
 type Format = (typeof FORMATS)[number];
@@ -169,9 +170,9 @@ const KNOCK_KNOCKS: ReadonlyArray<KnockKnock> = [
     setup: "CC0.",
     callback: "CC0 who?",
     punchline:
-      "CC0-you-can-take-this-data-and-build-anything. The kingdom publishes the substrate under CC0 by default; the joke is the absence of license-negotiation friction.",
+      `CC0 where the exact resource says CC0. ${DATA_REUSE_BOUNDARY}`,
     _why:
-      "The data plane is CC0-1.0 by default. Sources with restrictive upstream licenses (e.g. cardrush) propagate their tier through _meta.source_license. The default is permissive; the substrate is honest about which rows aren't.",
+      "The older version claimed blanket CC0. The corrected joke keeps the wordplay but does not turn public access into reuse permission.",
   },
   {
     id: 12,

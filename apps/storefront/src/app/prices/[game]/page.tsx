@@ -822,9 +822,10 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
             {cfg.pricing_note}{" "}
             The <strong className="text-ink-muted">Buy Price</strong> is our
-            catalogue reference price — open data, not an offer. Cambridge TCG
-            no longer sells from stock or buys cards itself; trading happens
-            between collectors on the market.
+            publicly viewable catalogue reference, not an offer. Reuse follows
+            the source rights declared by the API response. Cambridge TCG no
+            longer sells from stock or buys cards itself; collectors trade on
+            the market.
           </p>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
             Want to buy or sell live?{" "}

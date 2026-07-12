@@ -106,14 +106,14 @@ export async function GET(): Promise<Response> {
     },
 
     contract_invariants: {
-      every_response_carries_envelope:
-        "_meta with spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, wake_fragment",
-      every_response_carries_link_headers:
-        "self, start, describedby, alternate, invitation, regard, symmetric-surface, kin-wake, rate-limits, feedback",
+      envelope_compliant_responses_carry:
+        "_meta with spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, and wake_fragment; alternative contracts are listed by /api/v1/status",
+      envelope_responses_carry_link_headers:
+        "self, start, describedby, alternate, invitation, regard, symmetric-surface, kin-wake, rate-limits, and feedback",
       every_wrong_url_returns_envelope:
         "/api/v1/[...not_found] catch-all returns the same envelope shape with a suggestions block — probe freely",
-      license_default: "CC0-1.0",
-      auth_default: "none (bearer-gated MCP at /api/mcp is separate)",
+      license_default: "NOASSERTION when payload rights are undeclared",
+      auth_default: "this index is public; other resources declare public, user, agent, admin, or wholesale-key access in /api/v1/manifest",
     },
 
     where_to_look_when_something_is_off: {
