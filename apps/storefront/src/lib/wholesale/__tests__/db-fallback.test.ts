@@ -60,7 +60,27 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-const httpPrices = { count: 1, total: 1, channel: "cambridgetcg", items: [{ sku: "OP-OP01-001-JP" }] };
+const httpPrices = {
+  count: 1,
+  total: 1,
+  channel: "cambridgetcg",
+  items: [{
+    sku: "OP-OP01-001-JP",
+    card_number: "OP01-001",
+    price_gbp: 1234.56,
+    channel_price: 2345.67,
+    stock: 1,
+    pending_stock: 0,
+    image_url: "https://www.cardrush-op.jp/legacy-image.jpg",
+    name: "sentinel",
+    name_en: "sentinel",
+    set_code: "OP01",
+    set_name: "sentinel",
+    rarity: "sentinel",
+    category: "singles",
+    updated_at: "2026-07-01T00:00:00.000Z",
+  }],
+};
 const dbPrices = {
   count: 1,
   total: 1,
@@ -127,6 +147,11 @@ describe("fetchPrices source fallback", () => {
     const res = await fetchPrices({ game: "one-piece" });
     expect(res.source).toBe("wholesale-api");
     expect(res.items).toHaveLength(1);
+    expect(res.items[0].price_gbp).toBeNull();
+    expect(res.items[0].channel_price).toBeNull();
+    expect(res.items[0].image_url).toBeNull();
+    expect(JSON.stringify(res)).not.toContain("1234.56");
+    expect(JSON.stringify(res)).not.toContain("cardrush-op.jp");
     expect(mockDbPrices).not.toHaveBeenCalled();
   });
 

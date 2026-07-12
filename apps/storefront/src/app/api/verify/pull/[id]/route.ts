@@ -26,13 +26,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     `SELECT p.id, p.user_id, p.tier, p.earned_from,
             p.rng_server_seed_hash, p.rng_server_seed,
             p.rng_client_seed, p.rng_nonce,
-            p.rolled_rarity, p.rolled_sku, p.rolled_spot_gbp,
+            p.rolled_rarity, p.rolled_sku,
             p.committed_at, p.revealed_at, p.resolved_at,
             p.merkle_digest_id, p.merkle_leaf_index,
             p.vault_item_id,
             v.card_name AS vault_card_name,
             v.card_number AS vault_card_number,
-            v.image_url AS vault_image_url,
             t.rarity_weights
        FROM bounty_pulls p
        LEFT JOIN vault_items v ON v.id = p.vault_item_id
@@ -69,7 +68,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     rolled_rarity: row.rolled_rarity,
     rolled_sku: row.rolled_sku,
-    rolled_spot_gbp: row.rolled_spot_gbp,
+    rolled_spot_gbp: null,
     rarity_weights: row.rarity_weights,
 
     committed_at: row.committed_at,
@@ -82,7 +81,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     vault_item: row.vault_item_id ? {
       card_name: row.vault_card_name,
       card_number: row.vault_card_number,
-      image_url: row.vault_image_url,
+      image_url: null,
     } : null,
+    publication_boundary: {
+      rolled_spot_gbp: "withheld_pending_field_level_source_rights",
+      image_url: "withheld_pending_field_level_source_rights",
+    },
   }, { headers: PRIVATE_NO_STORE });
 }

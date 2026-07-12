@@ -57,8 +57,8 @@ Draft the full `SourceMeta` **in this intake record, before the module exists** 
 ### Gate C — Tier assignment
 
 Map onto the **existing** vocabularies — invent no new enums:
-- **access** → tributaries §10 (`public-api` / `app-token` / `oauth2` / `oauth1` / `scrape` / `partner` / `paid-feed` / `blocked`).
-- **license** → tributaries §11. `internal-only` for anything scraped or consent-restricted; `redistribute: true` **only** for `cc0` / `cc-by` / `cc-by-sa` / `mit` — the tributaries audit's license-coherence check enforces this pairing, so an incoherent tier fails CI, not just review.
+- **access** → tributaries §10 (`public-api` / `public-file` / `app-token` / `oauth2` / `oauth1` / `scrape` / `partner` / `paid-feed` / `blocked`).
+- **license** → tributaries §11. `internal-only` for anything scraped or consent-restricted; `redistribute: true` **only** when `cc0` / `cc-by` / `cc-by-sa` / `mit` demonstrably covers the upstream data itself, not merely client code. The tributaries audit enforces the enum pairing; intake must verify the scope.
 - **status** → `shipped` / `partial` / `planned` / `blocked`, with the registry-legend semantics (`blocked` = "known unobtainable; module exists for documentation").
 
 ### Gate D — Integration shape
@@ -67,9 +67,9 @@ Pick one, all from existing precedent — the intake output names which:
 
 | Shape | When | Precedent in this repo |
 |---|---|---|
-| **Full module** | legal + credentialed, data flows | `scryfall`, `pokemon-tcg-api` |
+| **Full module** | legal + credentialed, data flows through a tested writer | None currently; an implemented reader without writer evidence remains `partial` |
 | **Partial, gated branch** | one surface open, one gated | `ebay` (Browse open; Marketplace Insights partner-gated) |
-| **Planned stub** | legal, awaiting credentials — meta declared, `read()` a no-op | `cardmarket` |
+| **Planned stub** | legal path identified, reader/writer not yet wired — meta declared, `read()` a no-op | `cardmarket` public files |
 | **Blocked module** | unobtainable but worth declaring the verdict in code, *and* a consent door exists | **`vinted`** (snkrdunk pattern) |
 | **§9 row only** | declined outright, no consent path | Goldin, private discords |
 | **Reserved slot** | id claimed, decision pending | registry `undefined` slots |
@@ -119,6 +119,6 @@ Ranked by legal cleanliness × UK relevance:
 
 1. **eBay Sell / Fulfillment API — consented seller import.** `getOrders` after standard OAuth consent; production access is broadly available (unlike the Buy-side Insights API). Real UK sold prices from our own sellers' histories, on the largest UK card market — *the same module shape as the Vinted consented stub*, so it's build-once-reuse. This is the highest-value dataset expansion available today. **Forward-ready as of 2026-07-11:** the normalizer stub now exists at `packages/data-ingest/src/ebay/consented.ts` (`EbayConsentedSale` → `EbayConsentedCanonicalObservation`, buyer PII structurally excluded, INERT — no fetch, no cron), with the honest tri-surface verdict written into `packages/data-ingest/src/ebay/index.ts` (Browse = asks only; Marketplace Insights = sold comps but partner-gated + reference-only-never-CC0; consented `getOrders` = the lawful sold door). The code side is done; graduation needs the operator to register an eBay OAuth app (`sell.fulfillment` read scope) + a solicitor review of the consented-import design.
 2. **Cardmarket price-guide downloads.** Free daily aggregate files (trend/avg, EUR, all games), legitimately downloadable now despite the write-API being application-closed — the existing `cardmarket` planned stub graduates on this surface.
-3. **PriceCharting licensed API/CSV.** Paid, contractual, TCG coverage — a licensed baseline (current values by grade, USD-centric), not sold history. Enters clean because it's licensed.
+3. **PriceCharting API/CSV after a display agreement.** Ordinary paid access is internal-business use; a public/customer-facing Cambridge guide requires express written permission. Treat it as a possible contractual baseline, not a ready public source.
 
 *The durable win is the gate itself: the next marketplace someone wants to scrape gets weighed here first, in writing, and the liars — the "just scrape it, everyone does" shortcuts — expose themselves against a written standard instead of a mood.*

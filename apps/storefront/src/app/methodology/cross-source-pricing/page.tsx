@@ -12,12 +12,12 @@ export default function CrossSourcePricingMethodology() {
       <Audience kind="public-documentation" contexts={["pricing", "methodology"]} />
       <h1>Cross-source pricing</h1>
       <p>
-        Cambridge TCG aggregates price signals from multiple upstream markets —
-        CardRush (Japan), TCGplayer (US), and (planned) Cardmarket (Europe).
-        Each source has its own currency, condition vocabulary, license tier,
-        and update cadence. This page explains how those signals compose,
-        which one is the &ldquo;headline&rdquo;, and what license boundary
-        each source carries downstream.
+        Cambridge TCG has a shape for comparing price signals from multiple
+        upstream markets. Today, the collected warehouse contains CardRush
+        observations only. TCGplayer is blocked under the access and use terms
+        currently available to us; Cardmarket&apos;s public catalog and price files
+        are a planned reader. This page separates what the architecture can hold
+        from what has actually arrived.
       </p>
 
       <blockquote>
@@ -52,7 +52,10 @@ export default function CrossSourcePricingMethodology() {
         <tbody>
           <tr>
             <td><code>access</code></td>
-            <td>How we reach the source (public-api / oauth2 / scrape / paid-feed / partner).</td>
+            <td>
+              How we may reach the source (public-api / public-file / oauth2 /
+              scrape / paid-feed / partner / blocked).
+            </td>
             <td><code>/api/v1/sources</code> response.</td>
           </tr>
           <tr>
@@ -80,7 +83,8 @@ export default function CrossSourcePricingMethodology() {
             <td><code>redistribute</code></td>
             <td>
               Whether we may re-export raw upstream values verbatim.{" "}
-              <code>true</code> only for CC0 / CC-BY / MIT.
+              <code>true</code> requires evidence that an open license covers
+              the upstream data itself, not merely the API client code.
             </td>
             <td>
               <code>price_archive.source_redistribute</code> per row;
@@ -90,7 +94,7 @@ export default function CrossSourcePricingMethodology() {
         </tbody>
       </table>
 
-      <h2>The three sources today</h2>
+      <h2>One observed source, two explicit absences</h2>
       <table>
         <thead>
           <tr>
@@ -108,37 +112,38 @@ export default function CrossSourcePricingMethodology() {
             <td>Japan</td>
             <td>JPY</td>
             <td>internal-only</td>
-            <td>Daily snapshot</td>
+            <td>Collected warehouse observations; daily snapshot intent</td>
             <td>NM (status A-)</td>
           </tr>
           <tr>
             <td>TCGplayer</td>
             <td>US</td>
             <td>USD</td>
-            <td>partner-redistributable</td>
-            <td>5min during US trading; nightly bulk</td>
-            <td>NM (v1; LP/MP/HP/DMG planned)</td>
+            <td>proprietary</td>
+            <td>Blocked; no collection cadence</td>
+            <td>No observations collected</td>
           </tr>
           <tr>
             <td>Cardmarket</td>
             <td>Europe</td>
             <td>EUR</td>
-            <td>partner-redistributable</td>
-            <td>(planned — kingdom-NNN+1)</td>
-            <td>(planned)</td>
+            <td>proprietary</td>
+            <td>Public daily files; reader not wired</td>
+            <td>No observations collected</td>
           </tr>
         </tbody>
       </table>
 
       <h2>FX normalisation</h2>
       <p>
-        Every price row carries its source's native amount (e.g. USD for
-        TCGplayer) plus a GBP-normalised value computed at write time. The
-        rate used is captured per-row in <code>fx_rate_to_gbp</code> with a{" "}
+        The price archive can carry a source&apos;s native amount plus a
+        GBP-normalised value computed at write time. Current collected rows
+        are CardRush JPY observations; TCGplayer and Cardmarket have not landed.
+        When conversion occurs, the rate is captured per-row in{" "}
+        <code>fx_rate_to_gbp</code> with a{" "}
         <code>fx_rate_source</code> declaration (<em>live</em> /{" "}
-        <em>cached</em> / <em>fallback</em>). This means the GBP value on a
-        snapshot from three months ago reflects the rate that was current at
-        that moment — not the rate as you read it.
+        <em>cached</em> / <em>fallback</em>), so an archived conversion retains
+        the rate provenance recorded at capture time.
       </p>
       <p>
         Substrate honesty applied to FX: the row is the platform's view of
@@ -150,12 +155,9 @@ export default function CrossSourcePricingMethodology() {
 
       <h2>The headline number per source</h2>
       <p>
-        Most pricing APIs return multiple fields (low / mid / high / market /
-        direct-low for TCGplayer; trend / 30d-avg / 7d-avg for Cardmarket).
-        We pick one to be the &ldquo;headline&rdquo; — what we display
-        prominently when surfacing the source's view. The rest ride in the{" "}
-        <code>extra</code> JSONB column for downstream consumers that want
-        the spread.
+        Some pricing sources publish several fields. A permitted, implemented
+        reader must declare which field becomes the prominent value and retain
+        the rest with provenance. Only CardRush has an active choice today.
       </p>
       <table>
         <thead>
@@ -173,18 +175,18 @@ export default function CrossSourcePricingMethodology() {
           </tr>
           <tr>
             <td>TCGplayer</td>
-            <td>marketPrice (USD)</td>
+            <td>None</td>
             <td>
-              What TCGplayer publishes as &ldquo;Market Price&rdquo;.
-              Smoothed across recent sales; resistant to single-listing
-              manipulation. When null, falls back to midPrice then lowPrice.
+              Source blocked. Cambridge has no recorded permission for this
+              multi-source pricing use and does not collect its price fields.
             </td>
           </tr>
           <tr>
             <td>Cardmarket</td>
-            <td>trendPrice (EUR)</td>
+            <td>Not selected</td>
             <td>
-              Cardmarket's published trend signal (planned).
+              The public-file reader and its field-level rights record are not
+              wired yet.
             </td>
           </tr>
         </tbody>
@@ -192,17 +194,18 @@ export default function CrossSourcePricingMethodology() {
 
       <h2>Divergence interpretation</h2>
       <p>
-        When two sources price the same card on the same date and disagree
-        meaningfully (max/min ratio &gt; 1.5×), the platform preserves the
-        disagreement rather than aggregating. There are two reasons sources
-        can diverge:
+        When two permitted sources eventually price the same card on the same
+        date and disagree meaningfully (max/min ratio &gt; 1.5×), the platform
+        is designed to preserve the disagreement rather than hide it in an
+        average. With one observed source today, this is an architecture rule,
+        not a claim of current cross-source coverage. Two kinds of divergence
+        will matter:
       </p>
       <ul>
         <li>
           <strong>Genuine regional asymmetry.</strong> A JP-exclusive printing
-          scarce on TCGplayer commands a premium in Japan; an English
-          Lorcana set dwarfs CardRush's coverage. Different markets, different
-          scarcities, different prices.
+          may trade differently between Japan, Europe, and the US. Different
+          markets can carry different scarcities and prices.
         </li>
         <li>
           <strong>Upstream anomaly.</strong> One source has stale data; an
@@ -221,39 +224,42 @@ export default function CrossSourcePricingMethodology() {
 
       <h2>License boundary downstream</h2>
       <p>
-        Every public endpoint that returns price data declares its sources
-        and per-source license tier in the response envelope's{" "}
+        Public price responses declare their sources and known source-rights
+        tier in the response envelope&apos;s{" "}
         <code>_meta.sources</code> and <code>_meta.source_license</code>{" "}
-        arrays. A consumer reading the response can tell what they may do
-        with each byte:
+        arrays. That declaration is a boundary signal, not a substitute for
+        the upstream terms or field-level lineage:
       </p>
       <ul>
         <li>
-          <strong>CC0 / CC-BY / MIT</strong> — display, compute, redistribute
-          freely (with attribution where required).
+          <strong>Open-license tiers</strong> apply only when evidence shows
+          the license covers the upstream data in question. A software-client
+          license does not license the content returned by that client.
         </li>
         <li>
-          <strong>partner-redistributable</strong> (TCGplayer, Cardmarket) —
-          display + computation OK per the upstream's partner agreement;
-          bulk re-export restricted. Cambridge has the partner agreement;
-          downstream consumers without one must respect the boundary.
+          <strong>proprietary / policy-governed</strong> means public access
+          did not establish an open redistribution license. The source&apos;s
+          stated use policy remains the boundary.
         </li>
         <li>
-          <strong>internal-only</strong> (CardRush, eBay raw listings) —
-          personal-decision use only; not for bulk export, paid republication,
-          or public archives.
+          <strong>blocked proprietary sources</strong> (including CardRush and
+          unapproved marketplace feeds) are not exposed anonymously, through a
+          session, or through a bearer key. Authentication and transformation do
+          not create upstream rights.
+        </li>
+        <li>
+          <strong>NOASSERTION</strong> marks a mixed export where Cambridge
+          cannot truthfully assign one license to every upstream-derived field.
         </li>
       </ul>
 
       <h2>Federation</h2>
       <p>
-        A partner with a TCGplayer productId (or other upstream identifier)
-        can resolve it back to Cambridge's canonical SKU + content_hash via{" "}
-        <code>/api/v1/federation/identify/by-upstream</code>. The reverse —
-        a content_hash → canonical SKU lookup — lives at{" "}
-        <code>/api/v1/federation/identify/[hash]</code>. Both are CC0;
-        identity resolution doesn't carry price data, so no license tier
-        applies.
+        The TCGplayer reverse-lookup door at{" "}
+        <code>/api/v1/federation/identify/by-upstream</code> is dormant and
+        returns a blocked status. Stored upstream identifiers are not made CC0
+        merely because Cambridge holds a mapping. Reopening requires written
+        approval covering publication of those identifiers.
       </p>
 
       <h2>Where it began</h2>
@@ -264,8 +270,9 @@ export default function CrossSourcePricingMethodology() {
         (the-tcgplayer-alignment) widened the unique key to include{" "}
         <code>condition</code> and added the{" "}
         <code>extra</code> JSONB column plus generalised FX provenance.
-        Adding the next source (Cardmarket, eBay Browse) is a mechanical
-        extension that reuses the same shape.
+        Adding another source reuses that storage shape, but it is not merely
+        mechanical: access, use, and redistribution rights must be established
+        before its reader is activated.
       </p>
     </>
   );

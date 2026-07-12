@@ -80,7 +80,7 @@ export default function TradeInPage() {
           <Link href="/prices" className="text-accent hover:text-accent-strong transition">
             price guide
           </Link>{" "}
-          shows publicly viewable reference prices, and every card&apos;s page on the{" "}
+          publishes policy-bound reference prices—not offers or open-data grants—and every card&apos;s page on the{" "}
           <Link href="/market" className="text-accent hover:text-accent-strong transition">
             market
           </Link>{" "}

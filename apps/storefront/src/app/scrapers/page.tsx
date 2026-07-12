@@ -65,7 +65,7 @@ export default async function ScrapersWelcomePage() {
               </p>
             </div>
             <div>
-              <p className="text-ink-muted mb-2">Bulk catalog (~12k cards)</p>
+              <p className="text-ink-muted mb-2">Bulk publication status (0 card rows)</p>
               <p className="font-mono text-ink">/data/catalog.jsonl</p>
             </div>
             <div>
@@ -86,8 +86,11 @@ export default async function ScrapersWelcomePage() {
             </div>
           </div>
           <p className="text-xs text-ink-faint mt-4 leading-relaxed">
-            The routes above are public to read. Reuse rights remain endpoint-
-            and source-specific; absence of a license is not permission. See{" "}
+            All publicly reachable without auth. Reuse rights vary by response:
+            Cambridge-authored structure may be CC0; mixed catalog data is{" "}
+            <code>NOASSERTION</code>. Preserve <code>_meta.license</code> and{" "}
+            <code>_meta.source_license</code>; absence of a license is not
+            permission. See{" "}
             <Link
               href="/api/v1/welcome"
               className="text-accent hover:underline"

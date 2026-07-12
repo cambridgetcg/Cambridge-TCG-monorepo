@@ -67,9 +67,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     name: item.card_name,
     card_number: item.card_number,
     rarity: item.rarity,
-    image_url: item.image_url,
+    image_url: null,
     quantity: 1,
-    spot_price_gbp: item.spot_price_gbp,
+    spot_price_gbp: null,
   }];
 
   const order = await query(

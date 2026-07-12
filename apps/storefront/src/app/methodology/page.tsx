@@ -8,6 +8,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 export const metadata: Metadata = {
   title: "Methodology",
@@ -193,7 +199,7 @@ const TOPICS: Topic[] = [
   {
     slug: "sku-standard",
     title: "SKU standard (v1)",
-    blurb: "One canonical SKU format for every card in every TCG the platform catalogues. <game>-<set>-<number>-<lang>[-<variant>] — lowercase, hyphen-separated, machine-parseable, language-aware. Thirteen registered games. The substrate the math-mirror hashes for cryptographic identity.",
+    blurb: `One canonical SKU format for every card in every TCG the platform catalogues. <game>-<set>-<number>-<lang>[-<variant>] — lowercase, hyphen-separated, machine-parseable, language-aware. ${PUBLIC_GAME_COUNT} public game codes are registered; ${PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows. The substrate the math-mirror hashes for cryptographic identity.`,
     status: "published",
   },
   {

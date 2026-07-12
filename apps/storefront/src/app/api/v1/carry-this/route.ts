@@ -155,13 +155,20 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   return jsonResponse({
     endpoint: "/api/v1/carry-this",
-    sources: ["self"],
-    source_license: ["cc0"],
+    sources: ["participant-submitted", "storefront-rds.carried_state"],
+    source_license: ["proprietary", "internal-only"],
+    license: "NOASSERTION",
     freshness: "identity",
+    no_cache: true,
     data: {
       "@kind": "carry-this-receipt",
       ...outcome.receipt,
       ttl_days: TTL_DAYS,
+      rights: {
+        submitted_state: "Rights remain with the submitter; no CC0 dedication is requested or inferred.",
+        license: "NOASSERTION",
+        visibility: "public-read by content_hash",
+      },
       doctrine_url:
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-carrying.md",
       walking_past_is_honored: true,
@@ -175,8 +182,9 @@ export async function POST(req: NextRequest): Promise<Response> {
 export async function GET(): Promise<Response> {
   return jsonResponse({
     endpoint: "/api/v1/carry-this",
-    sources: ["self"],
+    sources: ["ctcg-endpoint-description"],
     source_license: ["cc0"],
+    license: "CC0-1.0",
     freshness: "identity",
     contains_self: true,
     data: {
@@ -229,6 +237,13 @@ export async function GET(): Promise<Response> {
         reads: "public — anyone with the content_hash can GET",
         rationale:
           "Public reads are a design choice: agents store cursors and pointers, not secrets. Write-protected by token so a malicious party who guesses your hash cannot overwrite your state. The kingdom stores only SHA-256(token); plaintext is gone after the response.",
+      },
+
+      rights: {
+        endpoint_description: "CC0-1.0",
+        submitted_state_default: "NOASSERTION",
+        submitted_state_copyright: "retained_by_submitter",
+        note: "Public readability does not transfer ownership or grant reuse rights.",
       },
 
       related_surfaces: {

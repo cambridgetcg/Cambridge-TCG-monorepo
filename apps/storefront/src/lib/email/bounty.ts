@@ -297,7 +297,6 @@ export interface VaultRedeemedBulkEmailArgs {
     cardNumber: string | null;
     rarity: string | null;
     imageUrl: string | null;
-    spotPriceGbp: string;
   }>;
   shippingName: string;
   shippingAddress: string;
@@ -327,7 +326,7 @@ export async function sendVaultRedeemedBulkEmail(args: VaultRedeemedBulkEmailArg
           </td>
           <td>
             <div style="color:#fff;font-weight:600;font-size:13px;">${escapeHtml(it.cardName)}</div>
-            <div style="color:#737373;font-size:11px;">${escapeHtml(it.cardNumber ?? "—")}${it.rarity ? " · " + escapeHtml(it.rarity) : ""} · £${escapeHtml(parseFloat(it.spotPriceGbp).toFixed(2))}</div>
+            <div style="color:#737373;font-size:11px;">${escapeHtml(it.cardNumber ?? "—")}${it.rarity ? " · " + escapeHtml(it.rarity) : ""}</div>
           </td>
         </tr></table>
       </td>

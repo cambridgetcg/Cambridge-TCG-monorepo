@@ -29,12 +29,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runTcgcollectorDiscovery } from "@/lib/tcgcollector-discovery";
 import { requireCronAuth } from "@/lib/cron-auth";
+import {
+  TCGCOLLECTOR_ACQUISITION_ENABLED,
+  TCGCOLLECTOR_BLOCK_REASON,
+  TCGCOLLECTOR_TERMS_URL,
+} from "@cambridge-tcg/data-ingest";
 
 export const maxDuration = 800;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireCronAuth(req);
   if (denied) return denied;
+  if (!TCGCOLLECTOR_ACQUISITION_ENABLED) {
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "blocked_pending_partner_approval",
+        reason: TCGCOLLECTOR_BLOCK_REASON,
+        terms: TCGCOLLECTOR_TERMS_URL,
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dryRun") === "1";

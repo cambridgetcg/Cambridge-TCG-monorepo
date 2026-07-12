@@ -44,7 +44,7 @@ export type IdentityResolution =
 
 const SELECT_IDENTITY = `
   SELECT csc.sku, csc.card_number, csc.card_name, csc.set_code,
-         cs.set_name, csc.rarity, csc.image_url
+         cs.set_name, csc.rarity, NULL::text AS image_url
     FROM card_set_cards csc
     LEFT JOIN card_sets cs ON cs.set_code = csc.set_code`;
 
@@ -64,7 +64,7 @@ function rowToIdentity(row: {
     set_code: row.set_code,
     set_name: row.set_name ?? null,
     rarity: row.rarity ?? null,
-    image_url: row.image_url && row.image_url.trim() !== "" ? row.image_url : null,
+    image_url: null,
   };
 }
 

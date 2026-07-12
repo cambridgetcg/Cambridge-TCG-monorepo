@@ -19,5 +19,18 @@ export async function GET(request: Request) {
   ];
   const status = allowed.find((s) => s === statusParam);
   const items = await listVault(session.user.id, status);
-  return NextResponse.json({ items }, { headers: PRIVATE_NO_STORE });
+  return NextResponse.json(
+    {
+      items: items.map((item) => ({
+        ...item,
+        image_url: null,
+        spot_price_gbp: null,
+      })),
+      publication_boundary: {
+        spot_price_gbp: "withheld_pending_field_level_source_rights",
+        image_url: "withheld_pending_field_level_source_rights",
+      },
+    },
+    { headers: PRIVATE_NO_STORE },
+  );
 }

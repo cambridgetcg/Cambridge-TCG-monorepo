@@ -34,7 +34,7 @@ import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 export const metadata: Metadata = {
   title: "Platform — Cambridge TCG, a collectors' market and card data directory",
   description:
-    `Cambridge TCG combines a peer-to-peer collectors' market with a card data directory covering twenty-one declared games and six active upstream sources. ${DATA_RIGHTS_BOUNDARY}`,
+    `Cambridge TCG combines a peer-to-peer collectors' market with a card data directory: ${COVERAGE_FACTS.games.confirmed_codes} games have public catalog rows and ${COVERAGE_FACTS.games.declared} public game codes are registered. ${DATA_RIGHTS_BOUNDARY}`,
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -109,20 +109,20 @@ export default function PlatformPage() {
             <CoverageCard
               label="Games declared"
               value={String(COVERAGE_FACTS.games.declared)}
-              sub={`${COVERAGE_FACTS.games.confirmed_codes} confirmed · ${COVERAGE_FACTS.games.catch_all_codes} anticipated`}
+              sub={`${COVERAGE_FACTS.games.confirmed_codes} confirmed · ${COVERAGE_FACTS.games.anticipated_codes} anticipated`}
               note={COVERAGE_FACTS.games.note}
             />
             <CoverageCard
               label="Set formats"
               value={String(COVERAGE_FACTS.set_formats.total)}
-              sub={`${COVERAGE_FACTS.set_formats.confirmed} confirmed · ${COVERAGE_FACTS.set_formats.catch_all} catch-all`}
+              sub={`${COVERAGE_FACTS.set_formats.confirmed} confirmed · ${COVERAGE_FACTS.set_formats.unconfirmed} unconfirmed`}
               note={COVERAGE_FACTS.set_formats.note}
             />
             <CoverageCard
               label="Upstream sources"
-              value={`${COVERAGE_FACTS.sources.shipped} shipped`}
-              sub={`+ ${COVERAGE_FACTS.sources.planned} planned in registry`}
-              note="Each source: typed SourceModule contract, rate-limited fetcher, lineage in every record."
+              value={`${COVERAGE_FACTS.sources.with_observed_rows} live source`}
+              sub={`${COVERAGE_FACTS.sources.registered} adapters registered · ${COVERAGE_FACTS.sources.planned_slots} open slots`}
+              note="Nine registered modules share the typed SourceModule contract. Active readers use the shared rate limiter; observed rows, publication rights, and field-level lineage are separate facts."
             />
             <CoverageCard
               label="Math-mirror kinds"
@@ -130,11 +130,11 @@ export default function PlatformPage() {
               sub={COVERAGE_FACTS.math_mirror_kinds.shipped.join(" · ")}
               note={COVERAGE_FACTS.math_mirror_kinds.note}
             />
-            <CoverageCard
-              label="Envelope license field"
-              value={COVERAGE_FACTS.envelope.license_default}
-              sub="default value; not blanket permission"
-              note={COVERAGE_FACTS.envelope.note}
+              <CoverageCard
+                label="Envelope license field"
+                value={COVERAGE_FACTS.envelope.license_default}
+                sub="default value; not blanket permission"
+                note={COVERAGE_FACTS.envelope.note}
             />
             <CoverageCard
               label="Federation primitive"
@@ -154,7 +154,7 @@ export default function PlatformPage() {
         {/* Upstream sources list */}
         <section className="mt-12">
           <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
-            Upstream sources · shipped
+            Upstream sources · registered
           </h2>
           <div className="rounded-lg border border-border-subtle bg-surface overflow-x-auto">
             <table className="w-full text-sm">
@@ -166,7 +166,7 @@ export default function PlatformPage() {
                 </tr>
               </thead>
               <tbody>
-                {COVERAGE_FACTS.sources.shipped_list.map((s) => (
+                {COVERAGE_FACTS.sources.registered_list.map((s) => (
                   <tr key={s.id} className="border-b border-border-subtle">
                     <td className="px-4 py-2 font-mono text-ink">{s.id}</td>
                     <td className="px-4 py-2 text-ink-muted text-xs">{s.status}</td>

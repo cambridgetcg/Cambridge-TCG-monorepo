@@ -61,7 +61,7 @@ interface VaultItem {
   set_code: string | null;
   rarity: string | null;
   image_url: string | null;
-  spot_price_gbp: string;
+  spot_price_gbp: string | null;
   source: string;
   status: "reserved" | "redeemed" | "sold_back" | "traded" | "gifted" | "expired";
   acquired_at: string;
@@ -563,8 +563,8 @@ function VaultCard({
   onSellBack: () => void;
   onRedeem: () => void;
 }) {
-  const spot = parseFloat(item.spot_price_gbp);
-  const sellBack = spot * TRADEIN_CREDIT_MULT;
+  const spot = item.spot_price_gbp === null ? null : parseFloat(item.spot_price_gbp);
+  const sellBack = spot === null ? null : spot * TRADEIN_CREDIT_MULT;
   const holdUntil = new Date(item.p2p_hold_until).getTime();
   const expires = new Date(item.expires_at).getTime();
 
@@ -608,7 +608,7 @@ function VaultCard({
         <div>
           <p className="font-semibold text-sm truncate">{item.card_name}</p>
           <p className="text-xs text-ink-faint">
-            {item.card_number} · {item.rarity} · £{spot.toFixed(2)}
+            {item.card_number} · {item.rarity} · Price unavailable
           </p>
         </div>
         {item.status === "reserved" && (
@@ -638,7 +638,7 @@ function VaultCard({
                 ? "77% of spot to store credit"
                 : "Unavailable while phone verification is paused"}
             >
-              Sell £{sellBack.toFixed(2)}
+              {sellBack === null ? "Sell-back unavailable" : `Sell £${sellBack.toFixed(2)}`}
             </button>
             <button
               onClick={onRedeem}
@@ -674,7 +674,7 @@ function PullResultModal({ result, onClose }: { result: PullResult; onClose: () 
           )}
         </div>
         <p className="mt-3 font-bold">{v.card_name}</p>
-        <p className="text-xs text-ink-faint">{v.card_number} · {v.rarity} · £{parseFloat(v.spot_price_gbp).toFixed(2)}</p>
+        <p className="text-xs text-ink-faint">{v.card_number} · {v.rarity} · Price unavailable</p>
         <p className="mt-4 text-[10px] text-ink-faint font-mono break-all">
           RNG commit: {result.rng_commitment.slice(0, 32)}...
         </p>

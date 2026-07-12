@@ -33,8 +33,8 @@ interface DataPath {
   blurb: string;
   /** none | session-cookie | bearer-key */
   auth: "none" | "session" | "bearer-key";
-  /** stable | experimental | planned (not-yet-built but named) */
-  status: "stable" | "experimental" | "planned";
+  /** stable | experimental | paused | planned (not-yet-built but named) */
+  status: "stable" | "experimental" | "paused" | "planned";
   /** Methodology page that documents the rule, if any. */
   methodology?: string;
 }
@@ -59,10 +59,10 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
         status: "stable",
       },
       {
-        path: "/api/v1/cards.ndjson",
-        blurb: "Bulk catalog dump as newline-delimited JSON. Streamable; daily refresh. One card per line.",
+        path: "/data/catalog.jsonl",
+        blurb: "Bulk-catalog publication status as JSONL. Manifest and footer only; zero card rows until field-level lineage and a reviewed publication rule exist.",
         auth: "none",
-        status: "planned",
+        status: "paused",
       },
       {
         path: "/api/v1/prices/[sku]/history.json",
@@ -282,6 +282,7 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
 const STATUS_TONE: Record<DataPath["status"], string> = {
   stable: "text-ok",
   experimental: "text-warning",
+  paused: "text-warning",
   planned: "text-ink-faint",
 };
 

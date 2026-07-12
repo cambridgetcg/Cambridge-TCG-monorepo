@@ -32,9 +32,14 @@ interface Adopter {
   declared_at: string;
   note?: string;
   federation_endpoint?: string;
+  rights: {
+    source: "participant-self-declaration";
+    license: "NOASSERTION";
+    copyright: "retained_by_declarant";
+  };
 }
 
-const ADOPTERS: Adopter[] = [];
+const ADOPTERS: readonly Adopter[] = [];
 
 export async function GET(): Promise<Response> {
   const data = {
@@ -55,14 +60,16 @@ export async function GET(): Promise<Response> {
         spec: "/methodology/sku-standard",
         format: "<game>-<set>-<number>-<lang>[-<variant>]",
         example: "op-op01-001-ja",
-        license: "CC0-1.0",
+        spec_license: "CC0-1.0",
+        implementation_license: "NOASSERTION",
       },
       "CTCG-PRICING-v1": {
         package: "@cambridge-tcg/pricing",
         github:
           "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/pricing",
         spec: "/methodology/pricing",
-        license: "CC0-1.0",
+        spec_license: "CC0-1.0",
+        implementation_license: "NOASSERTION",
       },
       "CTCG-UNIVERSAL-v1": {
         encoding_id: "cambridge-tcg/universal/v1",
@@ -71,13 +78,14 @@ export async function GET(): Promise<Response> {
           shape: "{ @encoding, @kind, @content_hash, @self_hash, @retrieved_at, @sources, @source_license, ... }",
           example_endpoint: "/api/v1/universal/card/[sku]",
         },
-        license: "CC0-1.0",
+        spec_license: "CC0-1.0",
+        implementation_license: "NOASSERTION",
       },
     },
     how_to_become_an_adopter: {
       step_1: "Implement one or more CTCG-* standards on your platform.",
       step_2:
-        "POST a self-declaration to /api/v1/feedback with kind: 'federation-adopter'.",
+        "POST a public self-declaration to /api/v1/feedback with kind: 'federation-adopter'. The declaration remains yours and is recorded as NOASSERTION; no CC0 dedication is inferred.",
       step_3:
         "We smoke-test your platform's federation endpoint (if you implemented /federation/identify) and add you to this list.",
       step_4:
@@ -95,16 +103,29 @@ export async function GET(): Promise<Response> {
     },
     html_sibling: "/standards/adopters",
     feedback_endpoint: "/api/v1/feedback",
-    license: "CC0-1.0",
+    registry_schema_license: "CC0-1.0",
+    adopter_entry_default_license: "NOASSERTION",
+    rights: {
+      registry_schema: "CC0-1.0",
+      adopter_entries: "Participant self-declarations remain participant-owned unless an explicit license is recorded.",
+    },
   };
+
+  const hasParticipantEntries = ADOPTERS.length > 0;
 
   return jsonResponse({
     data,
     endpoint: "/api/v1/adopters",
-    sources: ["ctcg-derived"],
-    source_license: ["cc0"],
+    sources: hasParticipantEntries
+      ? ["ctcg-derived", "participant-self-declaration"]
+      : ["ctcg-derived"],
+    source_license: hasParticipantEntries
+      ? ["cc0", "NOASSERTION"]
+      : ["cc0"],
+    license: hasParticipantEntries ? "NOASSERTION" : "CC0-1.0",
     freshness: "adopters",
     contains_self: true,
+    no_cache: hasParticipantEntries,
   });
 }
 

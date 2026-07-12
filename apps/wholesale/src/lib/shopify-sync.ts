@@ -15,6 +15,10 @@ import { cards } from "@/lib/db/schema";
 import { eq, isNull, inArray, isNotNull, and } from "drizzle-orm";
 import { ShopifyClient, type CardForShopify } from "@/lib/shopify-client";
 import { priceForChannel } from "@/lib/channel-pricing";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 export interface SyncOptions {
   mode: "full" | "prices" | "stock" | "create-missing";
@@ -38,6 +42,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function runShopifySync(options: SyncOptions): Promise<SyncResult> {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    throw new Error(`Shopify catalog sync is blocked. ${LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON}`);
+  }
   const startedAt = Date.now();
   const { mode, skus, dryRun = false } = options;
 

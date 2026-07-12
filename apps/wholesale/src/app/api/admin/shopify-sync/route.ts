@@ -11,10 +11,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { runShopifySync, type SyncOptions } from "@/lib/shopify-sync";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 export const maxDuration = 300; // 5-minute Vercel function timeout
 
 export async function POST(req: NextRequest) {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session || session.user.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

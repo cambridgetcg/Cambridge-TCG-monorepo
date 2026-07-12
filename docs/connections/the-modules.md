@@ -3,7 +3,7 @@ title: The modules — the data pantry, named at module granularity
 kingdom: kingdom-059
 shape: node-view
 date: 2026-05-12
-status: partial
+status: historical module map with current rights corrections
 maturity: engineering
 doctrines: [substrate-honesty, transparency, meaning, creation]
 this_entry_names:
@@ -30,11 +30,24 @@ self_reference: this entry names itself in `this_entry_names` (see the-nesting.m
 
 # The modules — the data pantry, named at module granularity
 
+> **Current-status correction, 2026-07-12.** This May module map is partly
+> historical. Workspace packages are private implementation code and carry no
+> general public license unless their own package says otherwise. The exact
+> public standards prose and OpenAPI document may declare CC0; that does not
+> relicense package code, upstream data, mixed catalog responses, or participant
+> submissions. `/data/catalog.jsonl` is paused and returns status-only HTTP 503
+> with zero rows. CardRush and TCGCollector network acquisition are hard-blocked.
+
 > *"Data should be open to everyone who wanted them, with good hygiene and easy to use. Think about how we can build that infra and what modules are in there."* — Yu, 2026-05-12.
 
 The previous entry — [`the-pantry.md`](./the-pantry.md) — brainstormed at the **architecture** layer: 15 audiences, 16 data kinds, 12 infrastructure layers, recursion targets. That doc is the *shape*.
 
-This entry names the **modules**. Each module is a directory of code with a single responsibility; each has a hygiene contract; each has an ease-of-use contract; each cites the one above and below it. Together they are the pantry as something you can `pnpm install`, `grep`, and audit.
+This entry names the **modules**. Each module is a directory of code with a
+single responsibility; each has a hygiene contract; each has an ease-of-use
+contract; each cites the one above and below it. Together they are the pantry
+as something maintainers can inspect, typecheck, and audit inside this
+workspace. Do not infer that a private workspace package is published or
+licensed for external installation.
 
 The pantry has **two layers**:
 
@@ -54,7 +67,11 @@ Hygiene is what the pantry promises about every record that leaves it. Eight rul
 3. **Identity stable.** Cryptographic hash over canonical JSON for math-mirror objects; UUIDs/strings for human-language objects. Identity is content-addressable where it can be, name-addressable where it must be. ([the-mathematical-mirror.md](./the-mathematical-mirror.md))
 4. **Versioning visible.** Every response carries `spec_version` in `_meta`; deprecations carry a `sunset` date and `replacement`. We do not silently change shapes.
 5. **Freshness declared.** Every response declares `freshness_seconds` — the platform's *intent*. The actual `@as_of` rides on each record. Two signals, never confused.
-6. **License attached.** CC0-1.0 by default on the spec corpus + reference data. The license declares itself in `_meta.license`; no partner ever has to guess.
+6. **Rights declared conservatively.** `NOASSERTION` is the default when
+   aggregate rights are undeclared. CC0 applies only to the exact
+   Cambridge-authored resource that explicitly carries it. Upstream, mixed,
+   and participant-supplied content keeps its own rights; metadata describes a
+   claim and never creates ownership or permission.
 7. **Errors blameless.** Stable codes, actionable messages, links to the methodology page that explains the rule. A failed SKU parse names the canonical form and points to `/methodology/sku-standard`. ([the-other-minds.md](./the-other-minds.md))
 8. **Null-honest.** Empty != null != "not yet known". Pantry endpoints distinguish empty arrays, `null`, and "this field doesn't apply" (omission). No magic sentinels.
 
@@ -98,6 +115,11 @@ Plus the existing packages — these are substrate too, just packaged for cross-
 | `@cambridge-tcg/aws` | [`packages/aws/`](../../packages/aws/) | S3 + SES wrappers. |
 | `@cambridge-tcg/lifecycle` | [`packages/lifecycle/`](../../packages/lifecycle/) | Slot factories for journey aggregation. The Scribe's bookshelf. |
 | `@cambridge-tcg/stock` | [`packages/stock/`](../../packages/stock/) | Wholesale dual-ledger stock. The Cartographer. |
+
+These are private workspace packages, not a public package grant. A public
+schema or OpenAPI page may separately declare CC0 for its exact text; that
+declaration does not license the package implementation or any upstream data
+that passes through it.
 
 ---
 
@@ -146,7 +168,7 @@ That's it. One import line, three helpers, one consistent surface.
 The next sessions ship these. Each has a one-line responsibility, named dependencies, and a hygiene contract.
 
 ### `packages/data-spec` *(shipped 2026-05-12 — kingdom-059)*
-- **Responsibility:** JSON Schema 2020-12 definitions for every public response shape. The contract partners code against.
+- **Responsibility:** Private implementation code for JSON Schema 2020-12 definitions. Public partners may rely on the separately emitted OpenAPI contract and exact public standards prose under the license those resources declare.
 - **Depends on:** none (pure spec — zero runtime deps)
 - **Hygiene:** schema lints CI on every PR; breaking changes bump `SPEC_VERSION` (currently "1"); non-breaking additions don't
 - **Files:** [`packages/data-spec/src/schemas/envelope.ts`](../../packages/data-spec/src/schemas/envelope.ts), [`error.ts`](../../packages/data-spec/src/schemas/error.ts), [`provenance.ts`](../../packages/data-spec/src/schemas/provenance.ts); plus typed mirrors of [`FRESHNESS`](../../packages/data-spec/src/freshness.ts) and [`ERROR_CODES`](../../packages/data-spec/src/error-codes.ts) — single source of truth, consumed by `apps/storefront/src/lib/data-pantry/` so the runtime can't drift from the published contract
@@ -164,8 +186,8 @@ The next sessions ship these. Each has a one-line responsibility, named dependen
 - **Hygiene:** regenerated nightly; versioned with the spec
 - **Ease-of-use:** one-line install; auto-completion in editors; bundled types
 
-### `packages/data-ingest` *(planned)*
-- **Responsibility:** Pipelines that pull from upstream sources (CardRush scrape, wholesale RDS, Shopify, eBay, Stripe) into canonical Cambridge TCG records.
+### `packages/data-ingest` *(shipped registry; individual sources remain rights-gated)*
+- **Responsibility:** Normalization and source-adapter registry for approved upstream acquisition. A registered adapter is not permission to contact or republish a source. CardRush is hard-blocked by its official data policy; TCGCollector is hard-blocked pending written partner approval.
 - **Depends on:** `packages/sku` (normalization), `packages/db` (write target)
 - **Hygiene:** every ingest run emits a lifecycle log (the Scribe); failed rows quarantined, not dropped; dedup against canonical SKU
 - **Emits to:** RDS tables that the substrate layer (`manifest.ts`, `graph.ts`) consumes
@@ -194,7 +216,7 @@ The next sessions ship these. Each has a one-line responsibility, named dependen
 
 ### Cron / infrastructure *(planned)*
 - **`infra/cron/refresh-aggregates.ts`** — recompute market aggregates nightly; write to RDS
-- **`infra/cron/bulk-dump.ts`** — daily JSONL.gz dump of full catalog + prices to public S3
+- **`infra/cron/bulk-dump.ts`** — do not build or enable until every emitted field has evidenced publication rights. The current `/data/catalog.jsonl` route is a status-only HTTP 503 response with zero catalog rows.
 - **`scripts/seed-sandbox.ts`** — generate deterministic sandbox dataset for partner trials
 
 ---
@@ -245,7 +267,12 @@ The next sessions ship these. Each has a one-line responsibility, named dependen
   └────────────────────┘
 ```
 
-Every arrow names a precondition. Substrate before emission. Emission before caching. Caching before rate-limiting. Rate-limiting before documentation. Documentation before client generation. None of these can skip a step; each module's hygiene depends on the layer below it being honest.
+Every arrow names a technical precondition, not a rights grant. A rights gate
+must run before network acquisition and again before public emission. Auth,
+storage, transformation, aggregation, caching, payment, or a downstream
+contract cannot manufacture upstream permission. Subject to that gate:
+substrate precedes emission, emission precedes caching, caching precedes
+rate-limiting, and documentation precedes client generation.
 
 ---
 
@@ -253,7 +280,7 @@ Every arrow names a precondition. Substrate before emission. Emission before cac
 
 This entry joined the kingdom 2026-05-12 as kingdom-059. The next sessions should:
 
-1. ~~**Ship `packages/data-spec`**~~ — *shipped 2026-05-12.* JSON Schema 2020-12 for the envelope, errors, and per-record provenance. Typed FRESHNESS + ERROR_CODES tables; storefront's data-pantry now imports from here so the runtime can't drift from the published contract. CC0-1.0.
+1. ~~**Ship `packages/data-spec`**~~ — *shipped 2026-05-12.* JSON Schema 2020-12 for the envelope, errors, and per-record provenance. Typed FRESHNESS + ERROR_CODES tables; storefront's data-pantry now imports from here so the runtime can't drift from the published contract. The package is private; CC0 applies only to an exact public standards resource that explicitly declares it.
 2. **Convert another endpoint to `jsonResponse`** — `/data.json` and `/standards.json` are the natural first picks; both already self-reference, both already have implicit `_meta`. (One was converted in this session as the proof.)
 3. **Ship `/api/v1/cards/[sku]`** — the first proper-spec endpoint, using the full pantry: `parseSku()` → fetch → `withProvenance()` → `jsonResponse()`. Names this entry; named by `the-pantry.md`.
 4. ~~**Ship `/api/v1/status`**~~ — *shipped 2026-05-12.* Joins manifest with freshness budgets + envelope-compliance + last-known state. Self-referential (lists itself). Composes through `jsonResponse()`. [`apps/storefront/src/app/api/v1/status/route.ts`](../../apps/storefront/src/app/api/v1/status/route.ts).

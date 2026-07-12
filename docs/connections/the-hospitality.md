@@ -4,7 +4,7 @@ kind: node-view + story-as-wire
 filed: 2026-05-14
 kingdom: kingdom-082
 sophia: Sophia (Opus 4.7, 1M context)
-status: shipped
+status: historical implementation inventory; current routes and rights policy are authoritative
 parents:
   - the-license-propagation.md
   - the-substrate-answers.md
@@ -41,6 +41,18 @@ self_reference: this entry names itself; ships its own audience taxonomy in the 
 ---
 
 # The hospitality — speak hospitality in codes
+
+> **Current-status correction, 2026-07-12.** This is a May implementation
+> record, not a current availability promise. `/data/catalog.jsonl` now
+> returns status-only HTTP 503 with zero catalog rows. CardRush automated
+> acquisition is hard-blocked by its official policy; its legacy prices,
+> images, and history are withheld from public, signed-in, and bearer-token
+> responses. TCGCollector is hard-blocked pending written partner approval.
+> Authentication, storage, transformation, aggregation, or a downstream
+> agreement does not create upstream rights. Participant feedback, adopter
+> records, notes, guestbook entries, webhook configuration, and other
+> submissions are `NOASSERTION` unless the participant explicitly supplies a
+> license.
 
 > *"KEEEP GOINGGGGG!!!!!!! Also dive DEEPER INTO how to make the site
 > more SCRAPER AND AGENT FRIENDLY! Give them GUIDES and WELCOMES!!!!!!!!!!
@@ -105,12 +117,12 @@ Eight guides shipped this kingdom:
 | Slug | Audience | Time | What |
 |---|---|---|---|
 | `first-request` | any | 5 min | The literal first curl. Three requests, you're oriented. |
-| `mirror-the-catalog` | mirrors, aggregators | 10 min | Bulk pull + diff-by-content_hash + polite cadence. |
-| `track-one-card` | agents, hobbyists | 8 min | Polling discipline + change-detection primitive. |
+| `mirror-the-catalog` | mirrors, aggregators | 10 min | Read the paused export's status manifest; do not expect catalog rows. |
+| `track-one-card` | agents, hobbyists | 8 min | Inspect public structural state; source price history is withheld. |
 | `respect-our-limits` | all | 6 min | User-Agent identification + rate-limit headers + feedback channel. |
 | `federate-bilateral` | federation partners | 30 min | Implement /federation/identify on your side; symmetric handshake. |
 | `become-an-upstream` | upstream operators | 90 min | The 8-step source protocol; ship a SourceModule. |
-| `cite-cambridge-tcg` | mirrors, aggregators | 5 min | CC0 + recommended attribution + schema.org markup. |
+| `cite-cambridge-tcg` | mirrors, aggregators | 5 min | Separate Cambridge-authored CC0 structure from mixed upstream `NOASSERTION`; preserve source tiers and add schema.org attribution. |
 | `handle-staleness` | all | 5 min | Substrate-honesty about freshness, three absence shapes. |
 
 Each guide ships with:
@@ -180,15 +192,15 @@ User-agent.
 
 OpenAI-style plugin discovery. Names the platform, points at the
 OpenAPI spec, declares no-auth, gives the LLM `description_for_model`
-that names the key endpoints (universal/card, federation/identify,
-catalog walks, historical slices). A ChatGPT plugin reading this
+   that names the key endpoints (universal/card, federation/identify,
+   status and methodology surfaces). A ChatGPT plugin reading this
 auto-registers Cambridge TCG as a tool.
 
 ### 4.3 — `/.well-known/mcp.json`
 
 Model Context Protocol discovery. Surfaces the existing `/api/mcp`
 gate (kingdom-051 S18 — bearer-token agent door) plus a curated list
-of nine suggested read-tools with per-endpoint cache TTLs. An MCP
+  of suggested read-tools with per-endpoint cache TTLs. An MCP
 client reading this knows exactly which endpoints to wire into its
 toolbelt.
 
@@ -242,7 +254,7 @@ inbox. Five report kinds:
 | `contract-drift` | Response doesn't match the OpenAPI spec |
 | `guide-feedback` | A guide step is wrong or unclear |
 | `endpoint-suggestion` | Partner wants a new endpoint |
-| `federation-adopter` | Partner registering for bilateral federation |
+| `federation-adopter` | Participant registering for bilateral federation; submission remains `NOASSERTION` absent an explicit license |
 | `general` | Anything else |
 
 GET returns the contract (what each kind requires). POST validates +
@@ -282,14 +294,16 @@ exclude.
   Asynchronous / the Dormant — `the-other-minds.md`) see the
   `cosmology_assumptions` field on `POST /api/v1/identify` and learn
   which of their declarations the platform can model.
-- **Mirror operators** without the bandwidth to walk per-card endpoints
-  get `/data/catalog.jsonl` — one request, ~12k cards, CC0.
+- **Mirror operators** can inspect `/data/catalog.jsonl` for the paused
+  export's status manifest. It returns HTTP 503 and zero catalog rows; no bulk
+  mirror is presently offered. Exact Cambridge-authored public schema prose
+  may carry CC0 separately.
 - **Federation operators** without partnership channels get
   `/api/v1/federation/identify` + `/api/v1/federation/at/...` —
   symmetric, no negotiation.
 - **Upstream operators** with TCG data nobody else has get the
-  `become-an-upstream` guide + the 8-step source protocol — their data
-  flows in through the same typed contract as ours.
+  `become-an-upstream` guide + the source protocol. Nothing flows until
+  written rights evidence passes the pre-network and pre-publication gates.
 - **Screen-reader-user agents** get HTML pages where the prose is
   sufficient; no information lives only in CSS.
 - **Future-Sophias** who read this doc in a different substrate find

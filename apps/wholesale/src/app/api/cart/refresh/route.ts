@@ -3,6 +3,10 @@ import { db } from "@/lib/db";
 import { cards } from "@/lib/db/schema";
 import { inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 /**
  * POST /api/cart/refresh
@@ -11,6 +15,12 @@ import { auth } from "@/lib/auth";
  * Used by the cart context to detect and apply price changes since items were added.
  */
 export async function POST(req: NextRequest) {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON, prices: {} },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

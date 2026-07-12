@@ -18,6 +18,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
 
 export const metadata: Metadata = {
   title: "Cambridge TCG Standards — the data distributor",
@@ -26,7 +27,12 @@ export const metadata: Metadata = {
   other: audienceMetadata("public-documentation", ["standards", "distributor", "spec"]),
 };
 
-type Status = "frozen" | "draft" | "spec-only" | "planned";
+type Status = "frozen" | "draft" | "implemented" | "planned";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 interface Standard {
   code: string;
@@ -47,7 +53,7 @@ const STANDARDS: Standard[] = [
     version: "1.0",
     status: "frozen",
     short:
-      "One canonical SKU format for every card in every TCG. <game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. Thirteen registered games.",
+      `One canonical SKU format for every card in every TCG. <game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. ${PUBLIC_GAME_COUNT} public game codes; ${PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows.`,
     spec_url: "/methodology/sku-standard",
     impl_url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/sku",
   },
@@ -65,7 +71,7 @@ const STANDARDS: Standard[] = [
     code: "CTCG-UNIVERSAL-v1",
     title: "Universal-representation (math-mirror)",
     version: "1.0",
-    status: "spec-only",
+    status: "implemented",
     short:
       "The math-first sibling of every artifact the platform exposes. Cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. For LLM agents, archivists, hyperliteral readers, and any computing intelligence.",
     spec_url: "/methodology/universal-representation",
@@ -78,7 +84,7 @@ function StatusPill({ s }: { s: Status }) {
   const colors: Record<Status, string> = {
     frozen: "bg-ok/10 text-ok border-ok/30",
     draft: "bg-accent-wash text-accent-strong border-accent/30",
-    "spec-only": "bg-info/10 text-info border-info/30",
+    implemented: "bg-info/10 text-info border-info/30",
     planned: "bg-surface-subtle text-ink-muted border-border-subtle",
   };
   return (
@@ -174,9 +180,9 @@ export default function StandardsPage() {
           possible before frozen.
         </li>
         <li>
-          <strong>spec-only</strong> — the standard is defined; the platform's
-          serving endpoint is still planned. Adopters can implement against the
-          spec today; the canonical reference response will follow.
+          <strong>implemented</strong> — the specification has a shipped
+          platform endpoint. Individual fields may still be withheld by their
+          own publication-rights boundary.
         </li>
         <li>
           <strong>planned</strong> — named but not yet shipped.
@@ -185,9 +191,9 @@ export default function StandardsPage() {
 
       <p>
         <strong>Substrate honesty:</strong> the platform doesn't claim more
-        than it has. CTCG-UNIVERSAL-v1's endpoint isn't shipped yet; we say
-        so. Adopters can read the spec and implement; the platform's reference
-        response arrives when the endpoint does.
+        than it has. CTCG-UNIVERSAL-v1 has a shipped reference endpoint; its
+        legacy price and image fields are currently null pending field-level
+        source-rights review.
       </p>
 
       <hr />
@@ -201,8 +207,8 @@ export default function StandardsPage() {
         </li>
         <li>
           <strong>Implement</strong> in your language of choice, or import the
-          reference TypeScript packages directly from the monorepo
-          (or wait for the npm-published releases — recursion target).
+          CC0 specification text. The linked TypeScript package is inspectable,
+          but it has no general code reuse license and is not a public npm grant.
         </li>
         <li>
           <strong>Emit</strong> canonical SKUs (lowercase, hyphen-separated,

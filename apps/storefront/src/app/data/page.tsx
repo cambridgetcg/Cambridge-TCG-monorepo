@@ -21,11 +21,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 export const metadata: Metadata = {
   title: "Data directory — access and limits",
   description:
-    "A public directory of Cambridge TCG data surfaces. Each entry names its own status, authentication requirement, shape, and known limits.",
+    "Cambridge TCG's public data directory. Every entry names its status, access requirement, shape, limit, and rights boundary. Public reach does not imply an open license.",
   other: audienceMetadata("public-documentation", ["data", "api", "open-substrate"]),
 };
 
@@ -291,6 +297,13 @@ export default function OpenDataIndex() {
       </p>
 
       <p>
+        Public reachability is not an open-data license. Only an exact resource
+        that explicitly declares <code>CC0-1.0</code> is CC0; mixed upstream
+        responses are <code>NOASSERTION</code>, with known source tiers carried
+        alongside their lineage.
+      </p>
+
+      <p>
         The platform exists for the TCG economy — collectors, traders, agents,
         archivists, anyone who wants to read or participate. Not every
         participant needs an account. Not every observer wants to transact.
@@ -409,10 +422,9 @@ export default function OpenDataIndex() {
       <p>
         Versioned card interfaces accept and emit the canonical SKU format:{" "}
         <code>{`<game>-<set>-<number>-<lang>[-<variant>]`}</code>. Lowercase,
-        hyphen-separated, machine-parseable, language-aware. Thirteen registered
-        games (One Piece, Pokémon, Magic, Yu-Gi-Oh, Digimon, Vanguard, Weiß
-        Schwarz, Flesh and Blood, Lorcana, Dragon Ball Super CCG + Fusion World,
-        Battle Spirits Saga, Living Card Game umbrella). Legacy stored and input
+        hyphen-separated, machine-parseable, language-aware. {PUBLIC_GAME_COUNT} public
+        game codes are registered; {PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows.
+        Legacy stored and input
         forms still exist. Interfaces normalise them only where their documented
         resolver supports that form; do not assume every stored row conforms. See{" "}
         <Link href="/methodology/sku-standard">/methodology/sku-standard</Link>{" "}

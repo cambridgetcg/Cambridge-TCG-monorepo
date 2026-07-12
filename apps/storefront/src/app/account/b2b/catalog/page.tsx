@@ -263,10 +263,10 @@ export default async function B2BCatalogPage({
                     )}
                   </td>
                   <td className="px-3 py-3 text-right font-medium text-ink">
-                    {formatPrice(wholesalePrice)}
+                    {wholesalePrice === null ? "Unavailable" : formatPrice(wholesalePrice)}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <AddToB2BCart sku={card.sku} compact disabled={card.stock <= 0} />
+                    <AddToB2BCart sku={card.sku} compact disabled={card.stock <= 0 || wholesalePrice === null} />
                   </td>
                 </tr>
               );

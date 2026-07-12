@@ -29,8 +29,9 @@
  *
  * ── License ─────────────────────────────────────────────────────────
  *
- * The package code and schemas are CC0-1.0; response payload rights are
- * endpoint- and source-specific. See `docs/STANDARDS-LICENSE.md`.
+ * This internal package has no general code license. The specification text
+ * it implements is CC0-1.0; response payload rights are endpoint- and
+ * source-specific. See `docs/STANDARDS-LICENSE.md`.
  */
 
 export { SPEC_VERSION, DEFAULT_LICENSE, FRESHNESS, type FreshnessKey } from "./freshness";

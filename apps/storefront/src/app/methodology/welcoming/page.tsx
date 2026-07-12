@@ -215,8 +215,9 @@ export default function WelcomingMethodology() {
 
       <ol>
         <li>
-          <strong>Upstream sources</strong> — rivers we drink from, or are
-          ready to. Scryfall, TCGplayer, Cardmarket, CardRush, eBay,
+          <strong>Upstream sources</strong> — sources considered by the
+          registry; each row separately says live, planned, or blocked.
+          Scryfall, TCGplayer, Cardmarket, CardRush, eBay,
           YGOPRODeck, Pokémon TCG API, the wholesale RDS, the storefront RDS,
           + planned slots for CardTrader, Limitless, EDHRec, PSA, Beckett.
         </li>

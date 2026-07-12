@@ -3,8 +3,18 @@ import { db } from "@/lib/db";
 import { cartItems, cards } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 export async function GET() {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON, items: [] },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -31,6 +41,12 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

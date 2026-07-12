@@ -182,6 +182,11 @@ export async function resolvePull(
     const idx = Math.floor(pickRoll * pool.length);
     const picked = pool[idx];
     const spot = retailPrice(picked.price_gbp, picked.channel_price);
+    if (spot === null) {
+      pool.splice(idx, 1);
+      attempt++;
+      continue;
+    }
     try {
       vault = await createVaultItemIfStockAvailable(
         {

@@ -10,13 +10,17 @@
  *
  * ── To add a new source ─────────────────────────────────────────────
  *
- *   1. Read `docs/methodology/source-protocol.md` end to end.
- *   2. Confirm a row in `the-tributaries.md`. (If missing, write it first.)
- *   3. Create `packages/data-ingest/src/<id>/index.ts` exporting a
+ *   1. Read `docs/methodology/source-intake.md` and record its legal, rights,
+ *      intention, and shape decisions before writing ingestion code.
+ *   2. Read `docs/methodology/source-protocol.md` end to end.
+ *   3. Add or correct the source's row in `the-tributaries.md` only after the
+ *      intake decision names what may be fetched, stored, and published.
+ *   4. Create `packages/data-ingest/src/<id>/index.ts` exporting a
  *      `SourceModule<R, C>` named after the id (`export const myId: SourceModule<...> = { ... }`).
- *   4. Register the export in `./registry.ts` SOURCES.
- *   5. Use `createFetcher(ctx, meta)` from `./http.ts` for outbound calls.
- *   6. Run `pnpm audit:tributaries` to verify conformance.
+ *   5. Register the export in `./registry.ts` SOURCES.
+ *   6. Use `createFetcher(ctx, meta)` from `./http.ts` for outbound calls.
+ *   7. Run `pnpm audit:tributaries` to verify structural conformance. The
+ *      audit does not replace the recorded intake review.
  *
  * ── To run a source ─────────────────────────────────────────────────
  *
@@ -37,9 +41,10 @@
  *
  * ── License ─────────────────────────────────────────────────────────
  *
- * CC0-1.0 for the package code + protocol. Per-source modules respect
- * the upstream's license, declared in `SourceMeta.license` (and propagated
- * downstream via `_meta.source_license` on the data-pantry envelope).
+ * This internal package has no general code license. Published specification
+ * text carries its own explicit license. Per-source modules declare the
+ * upstream policy in `SourceMeta.license`; known rights can propagate through
+ * `_meta.source_license`, while incomplete field-level lineage is NOASSERTION.
  */
 
 export * from "./types";
@@ -138,11 +143,14 @@ export {
   type GapStatus,
 } from "./gaps";
 
-// Re-export each shipped source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
+// Re-export each registered source so callers can `import { scryfall } from "@cambridge-tcg/data-ingest"`.
 export { scryfall } from "./scryfall/index";
 export {
   cardrush,
   scrapeCardRush,
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
   CARDRUSH_SUBDOMAINS,
   getOrCreateFetcher,
   resolveEgress,
@@ -171,6 +179,7 @@ export { ygoprodeck } from "./ygoprodeck/index";
 export {
   tcgplayer,
   mintTcgplayerToken,
+  TCGPLAYER_ACCESS_BLOCKED_MESSAGE,
   readTcgplayerCredentialsFromEnv,
   tokenIsFresh,
   TCGPLAYER_CATEGORIES,
@@ -217,6 +226,9 @@ export {
 // Doctrine: docs/connections/the-sitemap-discovery.md.
 export {
   tcgcollector,
+  TCGCOLLECTOR_ACQUISITION_ENABLED,
+  TCGCOLLECTOR_BLOCK_REASON,
+  TCGCOLLECTOR_TERMS_URL,
   scrapeOne,
   getOrCreateFetcher as getOrCreateTcgcollectorFetcher,
   resetFetcher as resetTcgcollectorFetcher,

@@ -172,7 +172,7 @@ const KNOCK_KNOCKS: ReadonlyArray<KnockKnock> = [
     punchline:
       `CC0 where the exact resource says CC0. ${DATA_REUSE_BOUNDARY}`,
     _why:
-      "The older version claimed blanket CC0. The corrected joke keeps the wordplay but does not turn public access into reuse permission.",
+      "The older version claimed blanket CC0. Cambridge-authored structure can declare CC0, mixed upstream responses use NOASSERTION, and public access does not become reuse permission.",
   },
   {
     id: 12,

@@ -11,10 +11,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runShopifySync } from "@/lib/shopify-sync";
 import { requireCronAuth } from "@/lib/cron-auth";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 export const maxDuration = 300; // 5-minute Vercel function timeout
 
 export async function GET(req: NextRequest) {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON },
+      { status: 503 },
+    );
+  }
   const denied = requireCronAuth(req);
   if (denied) return denied;
 

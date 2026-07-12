@@ -3,7 +3,7 @@
  *
  * The natural next stop after the per-set table. Where /product/[sku] is
  * the marketplace transactional surface (buy / sell / list), this is the
- * price-guide-native surface: just the data — UK retail, cross-source
+ * price-guide-native surface: UK reference pricing and source-state
  * signal, license tier per source, history teaser.
  *
  * URL shape uses (game, set, number) rather than SKU because:
@@ -11,10 +11,8 @@
  *   - human-readable breadcrumbs compose naturally
  *   - the price-guide reader rarely has a SKU in hand
  *
- * Substrate-honest about authentication boundaries: cross-source history
- * is auth-gated (CardRush ToS + TCGplayer partner agreement); anonymous
- * readers see the current snapshot + an invitation to sign in for full
- * cross-source history.
+ * Substrate-honest about source boundaries: CardRush history is auth-gated;
+ * TCGplayer is blocked and Cardmarket ingestion is planned.
  *
  * **Refactor (kingdom-080 follow-up):** the page now reads from
  * `loadCardState(...)` in `@/lib/prices/state` — one composer feeds the
@@ -65,10 +63,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const setCode = state.set.code.toUpperCase();
   return {
     title: `${cardName} ${setCode} ${state.card.card_number} — ${state.config.short_name} Price UK`,
-    description: `UK price for ${cardName} (${setCode} ${state.card.card_number}) from ${state.config.display_name}. Cross-source pricing from Cambridge TCG marketplace plus international upstream signals. Updated daily.`,
+    description: `Latest held UK reference value for ${cardName} (${setCode} ${state.card.card_number}) from ${state.config.display_name}. Current collected upstream pricing is CardRush-only; collector bids and asks are separate.`,
     openGraph: {
       title: `${cardName} ${setCode} ${state.card.card_number} — ${state.config.short_name} Price UK`,
-      description: `UK price for ${cardName} from ${state.config.display_name}. Updated daily.`,
+      description: `Latest held UK reference value for ${cardName} from ${state.config.display_name}.`,
       images: state.card.image_url ? [{ url: state.card.image_url }] : undefined,
     },
   };
@@ -263,8 +261,8 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
 
             {/* Headline price. Collectors-first (2026-07-06): the "Buy from
                 us" / "We buy (credit)" pair retired with the shop — the
-                number that remains is the publicly viewable catalogue reference
-                and nobody's offer. Trading happens on the market. */}
+                number that remains is a policy-bound catalogue reference,
+                not an offer or an open-data grant. */}
             <div className="rounded-lg border border-border-subtle bg-surface p-5 mb-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -318,10 +316,9 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             Cross-source price signals
           </h2>
           <p className="text-sm text-ink-muted mb-5 max-w-2xl">
-            The Cambridge TCG aggregator holds price data from multiple
-            upstream markets. Per-source license tier is declared honestly;
-            full history (USD per-condition for TCGplayer, JPY daily for
-            CardRush) is signed-in-only per upstream terms.
+            Current collected upstream price history is CardRush only.
+            TCGplayer is blocked under the access and use terms available to
+            Cambridge; Cardmarket&apos;s public-file reader is planned.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             {signals.map((sig) => (
@@ -337,10 +334,16 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                     className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${
                       sig.available
                         ? "bg-ok/10 text-ok border-ok/30"
-                        : "bg-surface-subtle text-ink-muted border-border-subtle"
+                        : sig.source_id === "tcgplayer"
+                          ? "bg-danger/10 text-danger border-danger/30"
+                          : "bg-surface-subtle text-ink-muted border-border-subtle"
                     }`}
                   >
-                    {sig.available ? "available" : "pending"}
+                    {sig.available
+                      ? "available"
+                      : sig.source_id === "tcgplayer"
+                        ? "blocked"
+                        : "planned"}
                   </span>
                 </div>
                 <p className="text-xs text-ink-muted mb-3">{sig.detail}</p>
@@ -362,12 +365,10 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
           </div>
 
           <p className="text-[11px] text-ink-faint mt-5 max-w-2xl">
-            Why signed-in for history? CardRush&apos;s ToS restricts compiled
-            price-data redistribution; TCGplayer&apos;s partner agreement
-            permits display + computation but not bulk re-export. Cambridge
-            TCG honours both upstream terms — anonymous readers see the
-            current snapshot; signed-in users see the per-card history
-            within the license boundary.
+            CardRush&apos;s current boundary restricts compiled price-data
+            redistribution, so its history remains signed-in and bounded.
+            Cambridge has no recorded TCGplayer partner agreement; no
+            TCGplayer observations or history are served.
           </p>
         </section>
 
@@ -427,7 +428,8 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             >
               /api/v1/universal/card/{card.sku}
             </Link>{" "}
-            for the math-mirror representation (CC0). Cross-source
+            for the mixed-rights math-mirror representation (aggregate
+            NOASSERTION). Cross-source
             comparison and federation reverse-lookup are documented in{" "}
             <Link
               href="/methodology/cross-source-pricing"

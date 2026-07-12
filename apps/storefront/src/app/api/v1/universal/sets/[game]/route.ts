@@ -84,7 +84,7 @@ export async function GET(
       released_at: row.released_at
         ? new Date(row.released_at).toISOString().slice(0, 10)
         : null,
-      cover_image_url: (row.cover_image_url as string | null) ?? null,
+      cover_image_url: null,
       first_seen_at: row.created_at
         ? {
             iso8601: new Date(row.created_at).toISOString(),
@@ -121,6 +121,13 @@ export async function GET(
         iso8601: retrievedAt.toISOString(),
         unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
       },
+      "@sources": ["storefront-rds.card_sets"],
+      "@source_license": ["proprietary"],
+      rights: {
+        aggregate: "NOASSERTION",
+        cambridge_original_structure: "CC0-1.0",
+        field_level_lineage_available: false,
+      },
       "_note_opaque": [
         "sets[].set_name",
         "sets[].cover_image_url",
@@ -142,6 +149,7 @@ export async function GET(
         "Cache-Control": "public, max-age=300, s-maxage=300",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "X-Content-License": "NOASSERTION",
       },
     });
   } catch (err) {

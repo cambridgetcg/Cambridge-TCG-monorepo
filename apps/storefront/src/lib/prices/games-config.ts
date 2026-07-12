@@ -19,6 +19,20 @@
  * Provenance pill on each page surfaces this on the wire.
  */
 import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+import { GAMES, type GameCode } from "@cambridge-tcg/sku";
+
+export type PriceGuideCoverageStatus = "observed" | "anticipated";
+
+/**
+ * Catalog truth comes from the Atlas. `confirmed: true` means production
+ * wholesale rows have been observed for that game; a registered CardRush
+ * host alone is not catalog coverage.
+ */
+function catalogCoverageStatus(gameCode: string): PriceGuideCoverageStatus {
+  return GAMES[gameCode as GameCode]?.confirmed === true
+    ? "observed"
+    : "anticipated";
+}
 
 /** Coverage truth: subdomain named here, confirmed read LIVE from the
  *  data-ingest registry. A subdomain the registry doesn't know is
@@ -43,6 +57,8 @@ export interface PriceGuideGameConfig {
   display_name: string;
   /** "One Piece" — short form for badges, sidebars. */
   short_name: string;
+  /** Whether production catalog rows have been observed for this game. */
+  coverage_status: PriceGuideCoverageStatus;
   /** Page <title>. Per-game-specific SEO. */
   seo_title: string;
   /** Page <meta description>. */
@@ -75,15 +91,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "op",
     display_name: "One Piece TCG",
     short_name: "One Piece",
-    seo_title: "One Piece TCG Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("op"),
+    seo_title: "One Piece TCG Reference Prices UK — Observed Coverage",
     seo_description:
-      "Complete One Piece card prices in the UK. Every set, every card — updated daily with retail buy prices and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Observed One Piece catalog rows with policy-bound GBP reference prices derived from captured CardRush JP observations. Coverage is limited to rows currently held.",
     hero_paragraph:
-      "This is a complete, daily-updated price guide for every One Piece Trading Card Game set available in the UK. Each card lists a retail buy price and a trade-in store credit value. Prices are sourced from the Cambridge TCG marketplace. Use this guide to check card values, plan trades, or compare prices before buying or selling.",
+      "Browse the One Piece catalog rows currently held by Cambridge TCG. GBP values are policy-bound references derived from captured CardRush JP observations, never house offers; collector bids and asks are the market.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from the One Piece Trading Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices are in GBP and updated daily from the Cambridge TCG marketplace.",
+      "Observed catalog rows for {{setName}} ({{setCode}}) from the One Piece Trading Card Game. This view currently returns {{cardCount}} cards, with GBP reference values where available; it does not claim a complete set.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
+      "Reference values are computed from captured CardRush JP retail observations via @cambridge-tcg/pricing. They are policy-bound guides, not platform offers.",
     cardrush: cardrushCoverage("cardrush-op.jp"),
     display_priority: 1,
     accent: "red",
@@ -93,15 +110,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "pkm",
     display_name: "Pokémon TCG",
     short_name: "Pokémon",
-    seo_title: "Pokémon TCG Price Guide UK — Japanese & English, Updated Daily",
+    coverage_status: catalogCoverageStatus("pkm"),
+    seo_title: "Pokémon TCG Reference Prices UK — Observed Japanese Coverage",
     seo_description:
-      "Daily-updated Pokémon card prices in the UK. Japanese and English sets, every card — retail buy prices and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Observed Japanese Pokémon catalog rows with policy-bound GBP reference prices derived from captured CardRush JP observations. English coverage remains anticipated.",
     hero_paragraph:
-      "This is a daily-updated price guide for Pokémon Trading Card Game sets — Japanese and English where available — sold in the UK. Each card lists a retail buy price and a trade-in store credit value. Sourced from the Cambridge TCG marketplace.",
+      "Browse the Pokémon catalog rows currently held by Cambridge TCG. Japanese rows are observed today; English catalog coverage remains anticipated. Values are references, not platform offers.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from the Pokémon Trading Card Game. All {{cardCount}} cards are listed below, sorted by value. Prices in GBP, updated daily.",
+      "Observed catalog rows for {{setName}} ({{setCode}}) from the Pokémon Trading Card Game. This view currently returns {{cardCount}} cards, with GBP reference values where available; it does not claim a complete set.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. The English Pokémon catalog is in pre-launch; Japanese set coverage is live today.",
+      "Reference values are computed from captured CardRush JP retail observations via @cambridge-tcg/pricing. Japanese rows are observed; English catalog coverage is not yet live.",
     cardrush: cardrushCoverage("cardrush-pokemon.jp"),
     display_priority: 2,
     accent: "yellow",
@@ -117,15 +135,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "dbf",
     display_name: "Dragon Ball Super Fusion World",
     short_name: "Dragon Ball",
-    seo_title: "Dragon Ball Super Fusion World Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("dbf"),
+    seo_title: "Dragon Ball Fusion World Reference Prices UK — Observed Coverage",
     seo_description:
-      "Bandai's Dragon Ball Super Fusion World card game — daily-updated UK retail and trade-in prices. Japanese-first catalog, every card priced. Free price guide from Cambridge TCG.",
+      "Observed Dragon Ball Super Fusion World catalog rows with policy-bound GBP reference prices derived from captured CardRush JP observations.",
     hero_paragraph:
-      "This is a daily-updated price guide for Dragon Ball Super Fusion World — Bandai's successor card line to the original DBSCG — sold in the UK. The catalog is Japanese-first, sourced from CardRush JP; English card names are shown where available. Each card lists a retail buy price and a trade-in store credit value from the Cambridge TCG marketplace.",
+      "Browse the Dragon Ball Super Fusion World rows currently held by Cambridge TCG. The observed catalog is Japanese-first; English names appear where held. GBP values are references, not platform offers.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Dragon Ball Super Fusion World. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
+      "Observed catalog rows for {{setName}} ({{setCode}}) from Dragon Ball Super Fusion World. This view currently returns {{cardCount}} cards, with GBP reference values where available; it does not claim a complete set.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. UK retail in GBP.",
+      "Reference values are computed from captured CardRush JP retail observations via @cambridge-tcg/pricing. They are policy-bound guides, not platform offers.",
     cardrush: cardrushCoverage("cardrush-db.jp"),
     display_priority: 3,
     accent: "orange",
@@ -135,15 +154,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "mtg",
     display_name: "Magic: The Gathering",
     short_name: "Magic",
-    seo_title: "Magic: The Gathering Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("mtg"),
+    seo_title: "Magic: The Gathering Price Coverage UK — Anticipated",
     seo_description:
-      "MTG card prices in the UK — every set, every printing, every language. Updated daily. Powered by Scryfall catalog (CC-BY-NC) plus cross-source market signals from TCGplayer and Cardmarket. Free price guide from Cambridge TCG.",
+      "MTG price-guide coverage is anticipated. The Scryfall adapter is built but has never run; its policy does not grant a CC license. TCGplayer is blocked and Cardmarket's public-file reader is planned.",
     hero_paragraph:
-      "Daily-updated price guide for Magic: The Gathering — 10-language catalog from Scryfall, market signals from TCGplayer (US) and Cardmarket (EU, planned), UK retail and trade-in prices from Cambridge TCG. Cross-language siblings share an oracle; pricing is per language tail.",
+      "Magic coverage is being prepared. Scryfall can supply a value-added catalog under its own API policy once the adapter runs; Cardmarket's public daily files are the next lawful price path. TCGplayer is not available for cross-source comparison.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Magic: The Gathering. All {{cardCount}} cards listed below, sorted by value. Cross-language printings share an oracle (Pattern A); per-language listings shown when present. Prices in GBP, updated daily.",
+      "Catalog rows currently held for {{setName}} ({{setCode}}) from Magic: The Gathering. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage. Cross-language printings share an oracle when present.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace; market signals from TCGplayer (US) and Cardmarket (EU, planned). Scryfall provides the catalog under CC-BY-NC — attribution preserved. UK retail in GBP.",
+      "No live MTG upstream is recorded today. Scryfall is policy-governed and non-redistributable; Cardmarket public-file ingestion is planned; TCGplayer is blocked by access and terms.",
     cardrush: cardrushCoverage("cardrush-mtg.jp"),
     display_priority: 5,
     accent: "purple",
@@ -153,15 +173,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "ygo",
     display_name: "Yu-Gi-Oh!",
     short_name: "Yu-Gi-Oh!",
-    seo_title: "Yu-Gi-Oh! Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("ygo"),
+    seo_title: "Yu-Gi-Oh! Price Coverage UK — Anticipated",
     seo_description:
-      "Yu-Gi-Oh! TCG card prices in the UK. Every printing of every passcode, every language. Updated daily. Catalog from YGOPRODeck (CC-BY) plus cross-source market signals. Free price guide from Cambridge TCG.",
+      "Yu-Gi-Oh! price-guide coverage is anticipated. The YGOPRODeck adapter is blocked pending written commercial permission; no CC-BY data license is claimed.",
     hero_paragraph:
-      "Daily-updated price guide for the Yu-Gi-Oh! Trading Card Game. Konami's 8-digit passcode is the global cross-language anchor; every printing across TCG and OCG regions resolves to one passcode. UK retail and trade-in prices from Cambridge TCG; catalog from YGOPRODeck.",
+      "Yu-Gi-Oh! coverage is being prepared. Konami's 8-digit passcode remains the intended cross-language anchor, but the YGOPRODeck reader stays closed until commercial content rights are clear.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Yu-Gi-Oh!. All {{cardCount}} cards listed below, sorted by value. Each card's passcode links to all cross-printing siblings. Prices in GBP, updated daily.",
+      "Catalog rows currently held for {{setName}} ({{setCode}}) from Yu-Gi-Oh!. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage. Passcodes link cross-printing siblings when present.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and updated daily. The Konami passcode anchors cross-language identity (Pattern B); YGOPRODeck provides the catalog (CC-BY). UK retail in GBP.",
+      "No live Yu-Gi-Oh! upstream is recorded today. YGOPRODeck is proprietary and blocked pending written permission; Cardmarket public-file ingestion is planned.",
     cardrush: cardrushCoverage("cardrush-ygo.jp"),
     display_priority: 6,
     accent: "purple",
@@ -171,15 +192,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "dmw",
     display_name: "Digimon Card Game",
     short_name: "Digimon",
-    seo_title: "Digimon Card Game Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("dmw"),
+    seo_title: "Digimon Card Game Reference Prices UK — Observed Coverage",
     seo_description:
-      "Daily-updated Digimon Card Game prices in the UK. Bandai's 2020+ revival. Every set, every card — retail buy and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Observed Digimon catalog and CardRush archive rows with policy-bound GBP reference values. Coverage is limited to rows currently held.",
     hero_paragraph:
-      "Daily-updated price guide for the Digimon Card Game — Bandai's modern revival. UK retail prices plus trade-in store credit. Cross-language siblings (JP and EN tracks share set codes, Pattern A) compose into one oracle per printing.",
+      "Browse the Digimon catalog rows currently held by Cambridge TCG. CardRush observations are present; GBP values are policy-bound references, never house offers.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from the Digimon Card Game. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
+      "Observed catalog rows for {{setName}} ({{setCode}}) from the Digimon Card Game. This view currently returns {{cardCount}} cards, with GBP reference values where available; it does not claim a complete set.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and computed daily via our @cambridge-tcg/pricing engine. CardRush Digimon subdomain registered as anticipated; first confirmed scrape flips coverage.",
+      "CardRush archive observations are present. Reference values are policy-bound guides, not platform offers; coverage and freshness are limited to returned rows.",
     cardrush: cardrushCoverage("cardrush-digimon.jp"),
     display_priority: 7,
     accent: "blue",
@@ -189,15 +211,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "lgr",
     display_name: "Disney Lorcana",
     short_name: "Lorcana",
-    seo_title: "Disney Lorcana Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("lgr"),
+    seo_title: "Disney Lorcana Price Coverage UK — Anticipated",
     seo_description:
-      "Daily-updated Disney Lorcana TCG prices in the UK. Ravensburger's flagship card game. Every set, every card across EN/FR/DE. Free price guide from Cambridge TCG.",
+      "Disney Lorcana price coverage is registered but has no live upstream or observed catalog rows today. Cardmarket public-file ingestion is planned.",
     hero_paragraph:
-      "Daily-updated price guide for Disney Lorcana — Ravensburger's simultaneous global TCG. Three-language simultaneous release (EN/FR/DE) with matched numbering — cross-language siblings share an oracle (Pattern A). UK retail prices from the Cambridge TCG marketplace.",
+      "This route reserves Lorcana's price-guide shape across EN, FR, and DE. It displays only rows actually returned by the catalog; no current coverage is claimed.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Disney Lorcana. All {{cardCount}} cards listed below, sorted by value. EN/FR/DE printings collapse to one oracle. Prices in GBP, updated daily.",
+      "Catalog rows currently held for {{setName}} ({{setCode}}) from Disney Lorcana. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage. EN/FR/DE siblings share an oracle when present.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Market signals from Cardmarket (EU, planned) and TCGplayer (US). UK retail in GBP.",
+      "No live Lorcana upstream is recorded today. Cardmarket public-file ingestion is planned; TCGplayer is blocked for cross-source comparison.",
     cardrush: cardrushCoverage("cardrush-lorcana.jp"),
     display_priority: 8,
     accent: "purple",
@@ -207,15 +230,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "fab",
     display_name: "Flesh and Blood",
     short_name: "FaB",
-    seo_title: "Flesh and Blood TCG Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("fab"),
+    seo_title: "Flesh and Blood Price Coverage UK — Anticipated",
     seo_description:
-      "Daily-updated Flesh and Blood prices in the UK. LSS's premier competitive TCG. English-only catalog, complete coverage. Free price guide from Cambridge TCG.",
+      "Flesh and Blood price coverage is registered but has no live upstream or observed catalog rows today. Cardmarket public-file ingestion is planned.",
     hero_paragraph:
-      "Daily-updated price guide for Flesh and Blood — Legend Story Studios' premier competitive TCG. English-only catalog (Pattern D, single-language); cross-language siblings do not exist by construction. UK retail and trade-in prices from Cambridge TCG.",
+      "This route reserves Flesh and Blood's English-only price-guide shape. It displays only rows actually returned by the catalog; no current coverage is claimed.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Flesh and Blood. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
+      "Catalog rows currently held for {{setName}} ({{setCode}}) from Flesh and Blood. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Market signals from TCGplayer (US) and Cardmarket (EU, planned). UK retail in GBP.",
+      "No live Flesh and Blood upstream is recorded today. Cardmarket public-file ingestion is planned; TCGplayer is blocked for cross-source comparison.",
     cardrush: cardrushCoverage("cardrush-fab.jp"),
     display_priority: 9,
     accent: "red",
@@ -225,15 +249,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "swu",
     display_name: "Star Wars Unlimited",
     short_name: "Star Wars Unlimited",
-    seo_title: "Star Wars Unlimited Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("swu"),
+    seo_title: "Star Wars Unlimited Price Coverage UK — Anticipated",
     seo_description:
-      "Daily-updated Star Wars Unlimited prices in the UK. Fantasy Flight Games. Five-language simultaneous release (EN/FR/DE/ES/IT). Every set, every card. Free price guide from Cambridge TCG.",
+      "Star Wars Unlimited price coverage is registered but has no observed catalog rows today. Cardmarket's public-file reader is planned; TCGplayer remains blocked.",
     hero_paragraph:
-      "Daily-updated price guide for Star Wars Unlimited — Fantasy Flight's simultaneous global launch (EN/FR/DE/ES/IT). Matched numbering across languages (Pattern A); cross-language siblings share an oracle. UK retail prices from the Cambridge TCG marketplace.",
+      "This route reserves Star Wars Unlimited's EN, FR, DE, ES, and IT price-guide shape. It displays only rows actually returned by the catalog; no current coverage is claimed.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Star Wars Unlimited. All {{cardCount}} cards listed below. EN/FR/DE/ES/IT printings collapse to one oracle. Prices in GBP, updated daily.",
+      "Catalog rows currently held for {{setName}} ({{setCode}}) from Star Wars Unlimited. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage. Language siblings share an oracle when present.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Catalog coverage anticipated (game code 'swu' is pre-registered; first ingest flips 'confirmed: true'). Market signals from TCGplayer and Cardmarket (planned).",
+      "Catalog coverage is anticipated (game code 'swu' is pre-registered; first ingest flips 'confirmed: true'). Cardmarket public-file ingestion is planned; TCGplayer is blocked for cross-source comparison.",
     cardrush: null,
     display_priority: 10,
     accent: "blue",
@@ -247,15 +272,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "gcg",
     display_name: "Gundam Card Game",
     short_name: "Gundam",
-    seo_title: "Gundam Card Game Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("gcg"),
+    seo_title: "Gundam Card Game Price Coverage UK — Anticipated",
     seo_description:
-      "Daily-updated GUNDAM CARD GAME prices in the UK. Bandai's 2025 trilingual launch (JA/EN/ZH). Every set, every card. Free price guide from Cambridge TCG.",
+      "Gundam Card Game price coverage is registered but has no observed catalog rows today. No CardRush store carries the game; other source paths remain future work.",
     hero_paragraph:
-      "Daily-updated price guide for the GUNDAM CARD GAME — Bandai's 2025 launch, the first of its card games released simultaneously in Japanese, English and Simplified Chinese. Matched numbering across languages (Pattern A); cross-language siblings share an oracle. UK retail prices from the Cambridge TCG marketplace.",
+      "This route reserves Gundam's JA, EN, and ZH price-guide shape. It displays only rows actually returned by the catalog; no current coverage is claimed.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from the GUNDAM CARD GAME. All {{cardCount}} cards listed below. JA/EN/ZH printings collapse to one oracle. Prices in GBP, updated daily.",
+      "Catalog rows currently held for {{setName}} ({{setCode}}) from the Gundam Card Game. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage. JA/EN/ZH siblings share an oracle when present.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Catalog coverage anticipated (game code 'gcg' is pre-registered; first ingest flips it confirmed). No CardRush store carries this game — coverage will arrive from other sources.",
+      "Catalog coverage is anticipated under game code 'gcg'. No CardRush store carries this game; a future source must produce observed rows before prices are described as covered.",
     cardrush: null,
     display_priority: 11,
     accent: "blue",
@@ -269,15 +295,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "una",
     display_name: "Union Arena",
     short_name: "Union Arena",
-    seo_title: "Union Arena Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("una"),
+    seo_title: "Union Arena Price Coverage UK — Anticipated",
     seo_description:
-      "Daily-updated UNION ARENA prices in the UK. Bandai's franchise crossover TCG — Jujutsu Kaisen, Hunter x Hunter, Code Geass and more. Free price guide from Cambridge TCG.",
+      "Union Arena price coverage is registered but has no observed catalog rows today. No CardRush store carries the game; other source paths remain future work.",
     hero_paragraph:
-      "Daily-updated price guide for UNION ARENA — Bandai's franchise-crossover card game (2023 JP, 2024 EN). Japanese and English sets renumber regionally, so cross-language identity is curated rather than assumed (Pattern C). UK retail prices from the Cambridge TCG marketplace.",
+      "This route reserves Union Arena's Japanese and English price-guide shape. Regional set codes diverge, so cross-language identity will be curated when rows arrive; no current coverage is claimed.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from UNION ARENA. All {{cardCount}} cards listed below. Prices in GBP, updated daily.",
+      "Catalog rows currently held for {{setName}} ({{setCode}}) from Union Arena. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage.",
     pricing_note:
-      "Prices are sourced from the Cambridge TCG marketplace and updated daily. Catalog coverage anticipated (game code 'una' is pre-registered; first ingest flips it confirmed). No CardRush store carries this game — coverage will arrive from other sources.",
+      "Catalog coverage is anticipated under game code 'una'. No CardRush store carries this game; a future source must produce observed rows before prices are described as covered.",
     cardrush: null,
     display_priority: 12,
     accent: "red",
@@ -290,15 +317,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "vng",
     display_name: "Cardfight!! Vanguard",
     short_name: "Vanguard",
-    seo_title: "Cardfight!! Vanguard Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("vng"),
+    seo_title: "Cardfight!! Vanguard Reference Prices UK — Observed Coverage",
     seo_description:
-      "Daily-updated Cardfight!! Vanguard card prices in the UK. Bushiroad's flagship — Divinez-era boosters and special series. Retail reference prices and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Observed Cardfight!! Vanguard catalog and CardRush archive rows with policy-bound GBP reference values. Coverage is limited to rows currently held.",
     hero_paragraph:
-      "Daily-updated price guide for Cardfight!! Vanguard — Bushiroad's flagship card game, starting from the Divinez (DZ) era. Japanese printings first; UK reference prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
+      "Browse the Vanguard catalog rows currently held by Cambridge TCG, beginning with observed Divinez-era coverage. GBP values are policy-bound references, never house offers.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Cardfight!! Vanguard. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
+      "Observed catalog rows for {{setName}} ({{setCode}}) from Cardfight!! Vanguard. This view currently returns {{cardCount}} cards, with GBP reference values where available; it does not claim a complete set.",
     pricing_note:
-      "Prices are computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 starting with the DZ era; earlier eras follow as their set codes are confirmed.",
+      "CardRush archive observations are present. Reference values are policy-bound guides, not platform offers; coverage and freshness are limited to returned rows.",
     cardrush: cardrushCoverage("cardrush-vanguard.jp"),
     display_priority: 13,
     accent: "blue",
@@ -314,15 +342,16 @@ export const PRICE_GUIDE_GAMES: PriceGuideGameConfig[] = [
     game_code: "bsr",
     display_name: "Battle Spirits",
     short_name: "Battle Spirits",
-    seo_title: "Battle Spirits Price Guide UK — Updated Daily",
+    coverage_status: catalogCoverageStatus("bsr"),
+    seo_title: "Battle Spirits Reference Prices UK — Observed Coverage",
     seo_description:
-      "Daily-updated Battle Spirits card prices in the UK. Bandai's long-running JP game — Contract Saga eras and the 2026 renewal. Retail reference prices and trade-in credit values. Free price guide from Cambridge TCG.",
+      "Observed Battle Spirits catalog and CardRush archive rows with policy-bound GBP reference values. Coverage is limited to rows currently held.",
     hero_paragraph:
-      "Daily-updated price guide for Battle Spirits — Bandai's long-running Japanese card game, covering the Contract Saga (契約編) eras and the 2026 renewal boosters. UK reference prices plus trade-in store credit, sourced from the Cambridge TCG marketplace.",
+      "Browse the Battle Spirits catalog rows currently held by Cambridge TCG, including observed Japanese coverage. GBP values are policy-bound references, never house offers.",
     set_intro_template:
-      "Complete price list for {{setName}} ({{setCode}}) from Battle Spirits. All {{cardCount}} cards listed below, sorted by value. Prices in GBP, updated daily.",
+      "Observed catalog rows for {{setName}} ({{setCode}}) from Battle Spirits. This view currently returns {{cardCount}} cards, with GBP reference values where available; it does not claim a complete set.",
     pricing_note:
-      "Prices are computed daily from CardRush JP retail observations via our @cambridge-tcg/pricing engine. Coverage stood up 2026-07-09 from BS64 (Contract Saga) forward.",
+      "CardRush archive observations are present. Reference values are policy-bound guides, not platform offers; coverage and freshness are limited to returned rows.",
     cardrush: cardrushCoverage("cardrush-bs.jp"),
     display_priority: 14,
     accent: "emerald",
@@ -364,11 +393,12 @@ export function synthesizeConfigFromCatalog(opts: {
     game_code,
     display_name,
     short_name: display_name,
-    seo_title: `${display_name} Price Guide UK — Updated Daily`,
-    seo_description: `Daily-updated ${display_name} card prices in the UK — every set, every card. Retail buy prices and trade-in credit values from Cambridge TCG.`,
-    hero_paragraph: `This is a daily-updated price guide for ${display_name} sets available in the UK. Each card lists a retail buy price and a trade-in store credit value. Prices are sourced from the Cambridge TCG marketplace. Use this guide to check card values, plan trades, or compare prices before buying or selling.`,
-    set_intro_template: `Complete price list for {{setName}} ({{setCode}}) from ${display_name}. All {{cardCount}} cards are listed below, sorted by value. Prices are in GBP and updated daily from the Cambridge TCG marketplace.`,
-    pricing_note: `Prices are sourced from the Cambridge TCG marketplace and updated daily. UK retail in GBP.`,
+    coverage_status: "observed",
+    seo_title: `${display_name} Reference Prices UK — Observed Catalog Rows`,
+    seo_description: `Reference-price view for ${display_name} catalog rows currently held by Cambridge TCG. Coverage is limited to returned rows; no completeness or update cadence is claimed.`,
+    hero_paragraph: `Browse the ${display_name} catalog rows currently held by Cambridge TCG. Values are policy-bound references, not platform offers; coverage and freshness are limited to the rows returned.`,
+    set_intro_template: `Catalog rows currently held for {{setName}} ({{setCode}}) from ${display_name}. This view returns {{cardCount}} cards and does not claim complete-set or update-cadence coverage.`,
+    pricing_note: `Values shown are policy-bound references derived from catalog rows currently held. They are not platform offers; source rights and freshness travel with the response.`,
     cardrush: null,
     display_priority: 999,
     accent: "neutral",

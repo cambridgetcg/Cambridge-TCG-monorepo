@@ -3,8 +3,9 @@
  *
  * The composer half of kingdom-090 — given a canonical SKU, return
  * everything the platform knows about that card in one envelope:
- * price across every source, history (cardrush + tcgplayer), siblings
- * across languages, and the platform's labelled reference price.
+ * reviewed publishable price rows, siblings across languages, and the
+ * platform's labelled reference price. Restricted source histories are
+ * named as blocked rather than summarized onto an anonymous route.
  *
  * Yu's directive: *"POOF!!!! PRICE, TRANSACTION HISTORIES, AVAILABLE
  * SOURCES, DIFFERENT LANGUAGE ALL POPS UP!"* This route is the POOF.
@@ -13,26 +14,22 @@
  *
  * The route is pure-composition over existing wires:
  *   - `fetchCard(sku)`           → card meta + reference price
- *   - `fetchPriceSources(sku)`   → today's prices across sources
+ *   - `fetchPriceSources(sku)`   → publication status only; values withheld
  *                                  (kingdom-081 multi-source view)
- *   - `fetchCardrushHistory(sku)` (license-aware; degrades silently)
- *   - `fetchTcgplayerHistory(sku)` (license-aware; degrades silently)
  *   - `fetchPrices({ game, q: setNum })` → siblings (same physical
  *                                          card, different languages)
  *
- * All Falcon calls fire in parallel. Each degrades to null on failure;
- * the envelope surfaces the absence with a substrate-honest message
- * rather than fabricating data.
+ * Independent reads run in parallel where their inputs are already known.
+ * Each degrades to null on failure; the envelope surfaces the absence with
+ * a substrate-honest message rather than fabricating data.
  *
  * ── License & freshness ────────────────────────────────────────────
  *
  * Returns mixed-license data:
- *   - card meta + reference price: CC0
- *   - cardrush observations: internal-only (skipped unless auth-gated;
- *     this Phase 1 route returns only sparkline-summary stats from
- *     cardrush — no raw upstream values)
- *   - tcgplayer observations: partner-redistributable (same treatment
- *     in Phase 1)
+ *   - mixed card meta: NOASSERTION (storage is not ownership)
+ *   - CardRush observations/history: internal-only and completely withheld;
+ *     the derived reference price retains CardRush lineage and tier
+ *   - TCGplayer: blocked and never fetched or emitted
  *
  * `_meta.source_license` declares per-source tier so a downstream
  * caller can decide what it may redistribute. Phase 2 will add an
@@ -45,8 +42,6 @@ import { NextRequest } from "next/server";
 import {
   fetchCard,
   fetchPriceSources,
-  fetchCardrushHistory,
-  fetchTcgplayerHistory,
   fetchPrices,
   fetchGames,
   fetchSets,
@@ -107,8 +102,8 @@ interface HistorySummary {
    *  public tier returns summary stats only when the source's license
    *  doesn't permit raw redistribution). */
   points_included: boolean;
-  /** Aggregate stats over the observation series. Always safe to
-   *  publish — derived statistics don't carry the upstream's terms. */
+  /** Aggregate stats over a publishable observation series. Restricted
+   *  source history is omitted rather than treated as safe by derivation. */
   summary: {
     earliest: string | null;
     latest: string | null;
@@ -185,42 +180,8 @@ interface EverythingPayload {
    *  completed without data (for siblings, a successful call with zero
    *  rows is 'ok'). UI can render this in a debug panel. */
   composition: {
-    falcon_calls: Record<string, "ok" | "absent" | "error">;
+    falcon_calls: Record<string, "ok" | "absent" | "error" | "blocked">;
   };
-}
-
-// ── Pure summary helpers ────────────────────────────────────────────
-
-function median(nums: number[]): number | null {
-  if (nums.length === 0) return null;
-  const sorted = [...nums].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) return (sorted[mid - 1]! + sorted[mid]!) / 2;
-  return sorted[mid]!;
-}
-
-function summarizeCardrush(
-  obs: Array<{ snapshot_date: string; price_gbp: number | null }>,
-): HistorySummary["summary"] {
-  const prices = obs
-    .map((o) => o.price_gbp)
-    .filter((v): v is number => v !== null && Number.isFinite(v));
-  const dates = obs.map((o) => o.snapshot_date).sort();
-  return {
-    earliest: dates[0] ?? null,
-    latest: dates[dates.length - 1] ?? null,
-    median_gbp: median(prices),
-    min_gbp: prices.length > 0 ? Math.min(...prices) : null,
-    max_gbp: prices.length > 0 ? Math.max(...prices) : null,
-    observations: prices.length,
-  };
-}
-
-function summarizeTcgplayer(
-  obs: Array<{ snapshot_date: string; price_gbp: number | null }>,
-): HistorySummary["summary"] {
-  // Same shape; reuse the cardrush summary.
-  return summarizeCardrush(obs);
 }
 
 function priceRowFromSource(r: SourcePriceRow): PriceTodayRow {
@@ -240,6 +201,15 @@ function priceRowFromSource(r: SourcePriceRow): PriceTodayRow {
     ingest_run_id: r.ingest_run_id,
     error_reason: r.error_reason,
   };
+}
+
+const PUBLIC_REUSE_TIERS = new Set(["cc0", "cc-by", "cc-by-sa", "mit"]);
+
+function isAnonymousPublishableRow(r: SourcePriceRow): boolean {
+  // These two sources are closed on this anonymous route regardless of a
+  // stale/mistagged row returned by another service.
+  if (r.source === "cardrush" || r.source === "tcgplayer") return false;
+  return r.source_redistribute === true && PUBLIC_REUSE_TIERS.has(r.source_license_tier);
 }
 
 // ── Route ───────────────────────────────────────────────────────────
@@ -270,11 +240,9 @@ export async function GET(
   // primary SKU returns 404, retry once with case-swap (covers the
   // case where the caller normalized to lowercase but data is legacy
   // uppercase, or vice versa) — substrate-honest tolerance.
-  let [card, priceSources, cardrushRes, tcgplayerRes] = await Promise.all([
+  let [card, priceSources] = await Promise.all([
     fetchCard(sku),
     fetchPriceSources({ sku }),
-    fetchCardrushHistory({ sku, limit: 365 }).catch(() => "error" as const),
-    fetchTcgplayerHistory({ sku, limit: 365 }).catch(() => "error" as const),
   ]);
 
   if (!card) {
@@ -286,14 +254,7 @@ export async function GET(
       if (altCard) {
         card = altCard;
         // Re-fire the dependents with the corrected casing.
-        const [ps, ch, th] = await Promise.all([
-          fetchPriceSources({ sku: altSku }),
-          fetchCardrushHistory({ sku: altSku, limit: 365 }).catch(() => "error" as const),
-          fetchTcgplayerHistory({ sku: altSku, limit: 365 }).catch(() => "error" as const),
-        ]);
-        priceSources = ps;
-        cardrushRes = ch;
-        tcgplayerRes = th;
+        priceSources = await fetchPriceSources({ sku: altSku });
       }
     }
   }
@@ -305,9 +266,6 @@ export async function GET(
       details: { sku },
     });
   }
-
-  const cardrushHist = cardrushRes === "error" ? null : cardrushRes;
-  const tcgplayerHist = tcgplayerRes === "error" ? null : tcgplayerRes;
 
   // ── Siblings: same physical card, different language/variant. ────
   // Query the wholesale prices route for SET-NUMBER without lang;
@@ -416,9 +374,9 @@ export async function GET(
         set_code: item.set_code,
         rarity: item.rarity,
         name: item.name ?? item.card_number,
-        image_url: item.image_url,
-        has_current_price: typeof item.price_gbp === "number" && item.price_gbp > 0,
-        price_gbp: typeof item.price_gbp === "number" ? item.price_gbp : null,
+        image_url: null,
+        has_current_price: false,
+        price_gbp: null,
         is_self,
         variant_kind,
         variant_kind_reason,
@@ -434,59 +392,52 @@ export async function GET(
     });
 
   // ── prices_today block ────────────────────────────────────────────
-  const pricesTodayRows = priceSources?.prices.map(priceRowFromSource) ?? [];
+  const sourcePriceRows = priceSources?.prices ?? [];
+  const blockedTcgplayerRows =
+    sourcePriceRows.filter((row) => row.source === "tcgplayer").length;
+  const withheldRightsRows = sourcePriceRows.filter(
+    (row) => row.source !== "tcgplayer" && !isAnonymousPublishableRow(row),
+  ).length;
+  const withheldSourceRows = blockedTcgplayerRows + withheldRightsRows;
+  const pricesTodayRows = sourcePriceRows
+    .filter(isAnonymousPublishableRow)
+    .map(priceRowFromSource);
+  const withholdingNotes = [
+    ...(withheldRightsRows > 0
+      ? [
+          "Internal-only, proprietary, or otherwise nonredistributable source rows were withheld from this anonymous response.",
+        ]
+      : []),
+    ...(blockedTcgplayerRows > 0
+      ? [
+          "Stored TCGplayer rows were withheld. Cambridge has no recorded written approval for this multi-source use.",
+        ]
+      : []),
+  ];
   const pricesToday = {
     snapshot_date: priceSources?.snapshot_date ?? null,
     rows: pricesTodayRows,
-    agreement: priceSources?.agreement ?? null,
-    note: priceSources?.note ?? (
-      pricesTodayRows.length === 0
+    // Agreement values are computed from the source rows. Withhold them too
+    // whenever any contributing row is not publishable on this anonymous door.
+    agreement: withheldSourceRows > 0 ? null : (priceSources?.agreement ?? null),
+    note: withholdingNotes.length > 0
+      ? withholdingNotes.join(" ")
+      : (priceSources?.note ?? (
+        pricesTodayRows.length === 0
         ? "No source rows yet. Either this card hasn't been scraped, or no source has reported a price for it on any snapshot date."
         : ""
-    ),
+      )),
   };
 
-  // ── history block (sparkline summaries only on Phase 1 public) ────
+  // Restricted source history is never summarized onto this anonymous
+  // route: a one-row min/median/max would reproduce the protected value.
   const history: HistorySummary[] = [];
-
-  if (cardrushHist && cardrushHist.observations.length > 0) {
-    history.push({
-      source: "cardrush",
-      source_license_tier: "internal-only",
-      count: cardrushHist.observations.length,
-      points_included: false,
-      summary: summarizeCardrush(
-        cardrushHist.observations.map((o) => ({
-          snapshot_date: o.snapshot_date,
-          price_gbp: o.price_gbp,
-        })),
-      ),
-      points: null,
-    });
-  }
-
-  if (tcgplayerHist && tcgplayerHist.observations.length > 0) {
-    history.push({
-      source: "tcgplayer",
-      source_license_tier: "partner-redistributable",
-      count: tcgplayerHist.observations.length,
-      points_included: false,
-      summary: summarizeTcgplayer(
-        tcgplayerHist.observations.map((o) => ({
-          snapshot_date: o.snapshot_date,
-          price_gbp: o.price_gbp,
-        })),
-      ),
-      points: null,
-    });
-  }
 
   // ── labelled reference price ──────────────────────────────────────
   const reference_price: ReferencePrice = {
-    reference_price_gbp:
-      typeof card.price_gbp === "number" ? card.price_gbp : null,
+    reference_price_gbp: null,
     provenance:
-      "ctcg spot-pricing pipeline (wholesale-rds.cards) — a labelled reference price, not an offer; the house neither sells nor buys cards (collectors-first, 2026-07-06)",
+      "Legacy wholesale reference values are withheld pending field-level source-rights review; this block is not an offer.",
     is_offer: false,
   };
 
@@ -501,26 +452,23 @@ export async function GET(
     name: card.name ?? card.card_number,
     name_en: card.name_en,
     name_translations: card.name_translations ?? null,
-    image_url: card.image_url,
+    image_url: null,
     rarity: card.rarity,
     set_name: card.set_name,
   };
 
   // ── composition trace (operator visibility) ───────────────────────
   // Reachability constraint: the wholesale client degrades transport
-  // failures to null for price_sources and the two history calls, so
-  // those keys read 'absent' during an upstream outage — 'error' fires
-  // only for rejections that escape the client. Siblings is exact (the
+  // failures to null for price_sources, so that key reads 'absent' during
+  // an upstream outage. Siblings is exact (the
   // client stamps source='unavailable'). Full error-vs-absent needs an
   // error sentinel in lib/wholesale/client.ts.
   const composition: EverythingPayload["composition"] = {
     falcon_calls: {
       card: "ok",
       price_sources: priceSources ? "ok" : "absent",
-      cardrush_history:
-        cardrushRes === "error" ? "error" : cardrushHist ? "ok" : "absent",
-      tcgplayer_history:
-        tcgplayerRes === "error" ? "error" : tcgplayerHist ? "ok" : "absent",
+      cardrush_history: "blocked",
+      tcgplayer_history: "blocked",
       // A successful sibling query with zero rows is 'ok', not 'absent'.
       siblings: siblingsErrored && siblings.length === 0 ? "error" : "ok",
     },
@@ -529,51 +477,7 @@ export async function GET(
   // Build the `_meta.sources` + `_meta.source_license` parallel arrays
   // declaring per-source rights.
   const sources: string[] = ["wholesale-rds.cards"];
-  const source_license: string[] = ["cc0"];
-
-  if (pricesTodayRows.some((r) => r.source === "cardrush")) {
-    sources.push("cardrush");
-    source_license.push("internal-only");
-  }
-  if (pricesTodayRows.some((r) => r.source === "tcgplayer")) {
-    sources.push("tcgplayer");
-    source_license.push("partner-redistributable");
-  }
-  if (
-    cardrushHist &&
-    cardrushHist.observations.length > 0 &&
-    !sources.includes("cardrush")
-  ) {
-    sources.push("cardrush");
-    source_license.push("internal-only");
-  }
-  if (
-    tcgplayerHist &&
-    tcgplayerHist.observations.length > 0 &&
-    !sources.includes("tcgplayer")
-  ) {
-    sources.push("tcgplayer");
-    source_license.push("partner-redistributable");
-  }
-
-  // Bright-data-unlocker-routed subdomains carry an upstream_proxy
-  // declaration per kingdom-088's _meta widening. Authoritative signal:
-  // the cardrush observation row's source URL — if it points at a
-  // subdomain registered as access="bright-data-unlocker" (today: only
-  // cardrush-pokemon.jp), the byte rode through the unlocker.
-  // Substrate-honest fallback when no cardrush_url is present: declare
-  // proxy IFF the SKU's game prefix is the pokemon family ('pk' or
-  // 'pkm'). The per-row via_proxy column on price_archive will make
-  // this exact once the operator applies that migration — recursion
-  // target named in docs/connections/the-bright-data-unlock.md §8.
-  function detectProxy(): boolean {
-    if (cardrushHist?.cardrush_url?.includes("cardrush-pokemon.jp")) return true;
-    if ((parsed!.game === "pk" || parsed!.game === "pkm") && sources.includes("cardrush")) return true;
-    return false;
-  }
-  const upstream_proxy = detectProxy()
-    ? sources.map((s) => (s === "cardrush" ? "bright-data-web-unlocker" : "none"))
-    : undefined;
+  const source_license: string[] = ["proprietary"];
 
   const data: EverythingPayload = {
     card: cardMeta,
@@ -589,7 +493,7 @@ export async function GET(
     data,
     sources,
     source_license,
-    ...(upstream_proxy ? { upstream_proxy } : {}),
+    license: "NOASSERTION",
     freshness: "market_signal",
     as_of: pricesToday.snapshot_date ?? undefined,
   });

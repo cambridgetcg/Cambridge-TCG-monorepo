@@ -31,7 +31,14 @@ export const PRIMARY_NAV_ITEMS = [
   {
     label: "Prices",
     href: "/prices",
-    activePrefixes: ["/prices", "/find", "/catalog", "/cards", "/product", "/glossary"],
+    activePrefixes: [
+      "/prices",
+      "/find",
+      "/catalog",
+      "/cards",
+      "/product",
+      "/glossary",
+    ],
   },
   {
     label: "Play",

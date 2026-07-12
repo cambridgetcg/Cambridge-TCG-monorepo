@@ -51,7 +51,7 @@ export async function GET() {
     tightSpreads: result.rows.map((row) => ({
       sku: row.sku,
       cardName: row.card_name,
-      imageUrl: row.image_url,
+      imageUrl: null,
       bestBid: row.best_bid !== null ? parseFloat(String(row.best_bid)) : null,
       bestAsk: row.best_ask !== null ? parseFloat(String(row.best_ask)) : null,
     })),

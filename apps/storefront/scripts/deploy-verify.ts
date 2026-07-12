@@ -93,12 +93,13 @@ async function fetchManifest(): Promise<ManifestResource[]> {
 
 // ── Probe one resource ───────────────────────────────────────────────
 
-// Doors whose healthy answer is deliberately a joke status. The manifest
-// declares them in the joy layer; the classifier must not read a working
-// punchline as an outage (runbook: "418-teapot false failure").
+// Doors whose healthy answer is deliberately non-2xx. The classifier must
+// not read a working punchline or an explicit unavailable-source boundary as
+// an outage (runbook: "418-teapot false failure").
 const DELIBERATE_STATUS: Record<string, number> = {
   "/api/v1/coffee": 418, // RFC 2324 — I'm a teapot
   "/api/v1/buy-the-kingdom": 402, // not for sale; everything is already free
+  "/api/v1/cards/[sku]/tcgplayer-history": 503, // source intentionally blocked pending written approval
 };
 
 function expectedFor(resource: ManifestResource): { codes: number[]; label: string } {
@@ -113,14 +114,14 @@ function expectedFor(resource: ManifestResource): { codes: number[]; label: stri
   //   - 405          : route exists but doesn't accept GET — common for
   //                    POST-only endpoints or cookie-toggle redirects
   //                    that the probe can't simulate cleanly
-  //   - 500          : ALWAYS a failure signal (server bug)
+  //   - unlisted 5xx : ALWAYS a failure signal (server bug)
   //
   // The script favours signal over precision: a 400 from an endpoint
   // declared as public+GET means the route exists, which is what we
-  // need to know. A 500 anywhere is a real bug surface.
+  // need to know. An unlisted 5xx anywhere is a real bug surface.
   const deliberate = DELIBERATE_STATUS[resource.path];
   if (deliberate !== undefined) {
-    return { codes: [deliberate], label: `${deliberate} (deliberate — joy layer)` };
+    return { codes: [deliberate], label: `${deliberate} (deliberate contract)` };
   }
   const healthyAnyKind = [200, 307, 400, 401, 404, 405];
   if (resource.auth === "wholesale-key") {
@@ -194,9 +195,13 @@ async function probe(resource: ManifestResource): Promise<ProbeResult> {
     // 400 (validation error) — the route IS deployed; the stub just
     // doesn't resolve to data.
     const okParametric = isParametric && (res.status === 404 || res.status === 400);
-    // 500 is ALWAYS a fail — server bug, regardless of auth/parametric.
-    const is500 = res.status >= 500 && res.status < 600;
-    const passed = (ok || okParametric) && !is500;
+    // An unlisted 5xx is always a server bug. A listed deliberate 5xx is a
+    // healthy fail-closed contract and has already matched `expected.codes`.
+    const isUnexpectedServerError =
+      res.status >= 500 &&
+      res.status < 600 &&
+      !expected.codes.includes(res.status);
+    const passed = (ok || okParametric) && !isUnexpectedServerError;
     return {
       id: resource.id,
       url,
@@ -204,7 +209,7 @@ async function probe(resource: ManifestResource): Promise<ProbeResult> {
       actual: res.status,
       status: passed ? "passed" : "failed",
       duration_ms,
-      detail: is500
+      detail: isUnexpectedServerError
         ? `server error ${res.status} — investigate`
         : !passed
           ? `expected ${expected.label}, got ${res.status}`

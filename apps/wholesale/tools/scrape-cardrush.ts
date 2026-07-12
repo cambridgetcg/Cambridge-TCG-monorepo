@@ -13,15 +13,12 @@
 // tool only — scheduled removal, if wanted, is a Wave 3 concern.
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs";
-
-// Load .env.local (overrides shell env — .env.local is the source of truth)
-if (existsSync(".env.local")) {
-  for (const line of readFileSync(".env.local", "utf-8").split("\n")) {
-    const m = line.match(/^([A-Z_]+)="?(.*?)"?\s*$/);
-    if (m) process.env[m[1]] = m[2];
-  }
-}
 import { join } from "path";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+} from "@cambridge-tcg/data-ingest";
 import { getSetConfig, getAllSetCodes, getGameConfig, SET_CONFIGS, GAME_CONFIGS, type GameConfig } from "./lib/config";
 import { fetchGbpJpyRate } from "./lib/fx-rate";
 import { fetchProductGroupPages, fetchProductListPages, fetchDiscoveryPage } from "./lib/cardrush-client";
@@ -45,6 +42,21 @@ import {
 
 // DB imports — only used when not --dry-run
 import postgres from "postgres";
+
+if (!CARDRUSH_ACQUISITION_ENABLED) {
+  console.error("CardRush acquisition is disabled pending a formal partnership.");
+  console.error(CARDRUSH_BLOCK_REASON);
+  console.error(`Policy: ${CARDRUSH_DATA_POLICY_URL}`);
+  process.exit(2);
+}
+
+// Load .env.local only after the immutable acquisition gate passes.
+if (existsSync(".env.local")) {
+  for (const line of readFileSync(".env.local", "utf-8").split("\n")) {
+    const m = line.match(/^([A-Z_]+)="?(.*?)"?\s*$/);
+    if (m) process.env[m[1]] = m[2];
+  }
+}
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing

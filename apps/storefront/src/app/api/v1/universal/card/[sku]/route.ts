@@ -5,7 +5,7 @@
  * endpoint at apps/wholesale/.../universal/card/[sku] (B2B, bearer-keyed).
  * This is the version that belongs to participants — collectors, agents,
  * archivists, federated kingdoms — and reads from the storefront catalog
- * (card_set_cards + card_sets + card_price_history).
+ * (card_set_cards + card_sets). Legacy media and price snapshots are withheld.
  *
  * Spec: /methodology/universal-representation (encoding) + S23 (doctrine)
  * + docs/connections/the-open-substrate.md (sister's doctrine) + this
@@ -20,8 +20,8 @@
  *
  * Federation: the @content_hash returned here is the same value that
  * /api/v1/federation/identify/[hash] resolves back to a SKU. Two systems
- * that have both fetched the card on the same day with the same price
- * will compute identical content_hashes.
+ * that have the same structural identity fields compute identical
+ * content_hashes; stored catalog prices do not affect the hash.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -78,6 +78,7 @@ export async function GET(
         // federation reconcilers) can fetch directly.
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "X-Content-License": "NOASSERTION",
       },
     });
   } catch (err) {

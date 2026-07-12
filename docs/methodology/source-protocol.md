@@ -6,6 +6,16 @@ This page is the **operational protocol** for wiring a new upstream river into t
 
 **Audience:** a future Sophia (or Yu, or a partner contributor) who has identified one row in the catalog they want to ship. They've read the row; they want the steps.
 
+> **Rights gate, 2026-07-12.** Technical accessibility is not permission.
+> Before any network request, record the source's current official policy and
+> affirmative license or written partner approval for the intended acquisition
+> and use. If that evidence is absent, contradictory, or unclear, set the
+> source to `blocked`, keep its reader inert, and ask the rights holder. Repeat
+> the check before every public emission. Authentication, payment, storage,
+> transformation, aggregation, attribution, or downstream contracts do not
+> create upstream rights. CardRush is hard-blocked by its official data policy;
+> TCGCollector is hard-blocked pending written partner approval.
+
 ---
 
 ## 1. The contract
@@ -49,6 +59,12 @@ Required fields in the catalog row:
 - Canonical-form effort estimate
 - Status flag
 
+The row must cite the current official terms, policy, or written agreement and
+state whether it covers each intended operation: automated access, storage,
+transformation, internal use, and redistribution. A URL being public, listed in
+a sitemap, or allowed by `robots.txt` is not sufficient evidence. Do not make a
+probe request merely to investigate a blocked source.
+
 ### Step 2 — Add the id to `SourceId`
 
 Open [`packages/data-ingest/src/types.ts`](../../packages/data-ingest/src/types.ts) and append `<id>` to the `SourceId` union type. The id is dashed-lowercase (`tcgplayer`, `cardmarket`, `psa-registry`, `bandai-tcg`). The id is also the string that appears in `_meta.sources` on downstream responses.
@@ -66,18 +82,22 @@ packages/data-ingest/src/<id>/
 
 Every field in [`SourceMeta`](../../packages/data-ingest/src/types.ts) is required. Read the type carefully. Substrate-honest principles:
 
-- `redistribute: true` only when the upstream's license clearly permits — CC0 / CC-BY / MIT.
-- `redistribute: false` for partner-restricted, internal-only, scraped sources. Default to `false` when unsure.
+- `redistribute: true` only when an evidenced license clearly covers the upstream data itself — not merely the API client or repository code.
+- `redistribute: false` for partner-restricted, internal-only, or scraped sources. This field limits downstream use; it does not itself authorize acquisition. Default to `false` when unsure.
 - `tos_notes` quotes the upstream's ToS / robots.txt / known restrictions. *This is mandatory* — the audit checks it's non-empty.
 - `catalog_section` is the anchor link into `the-tributaries.md` (e.g. `the-tributaries.md#31-scryfall-mtg`).
 - `freshness` is a key from `@cambridge-tcg/data-spec` `FRESHNESS` table — `catalog` (24h), `price_current` (5min), `market_signal` (1min), etc.
 - `status` reflects reality:
-  - `shipped` — implemented + tested + wired to a writer
+  - `shipped` — implemented + tested + wired to a writer, with current rights evidence for the operations it performs
   - `partial` — implemented but caller-side wiring incomplete
   - `planned` — `meta` declared but `read` is a no-op stub
   - `blocked` — known unobtainable; module exists for documentation
 
 ### Step 5 — Implement `read`
+
+Implement a network reader only after Step 1's acquisition-rights gate passes.
+For a blocked source, retain an inert reader that returns no rows and a runner
+that responds with policy status before constructing a fetcher.
 
 Use `createFetcher(ctx, meta)` from [`packages/data-ingest/src/http.ts`](../../packages/data-ingest/src/http.ts) for outbound calls. **Never call bare `fetch`.** The fetcher gives you:
 
@@ -96,7 +116,10 @@ Emit lifecycle events at meaningful boundaries:
 - `error` — upstream error you absorbed (didn't throw)
 - `done` — end of run, with row count
 
-For on-demand sources (CardRush, eBay singleton lookups), `read()` can yield the watch-list iff one is provided via `ctx.<id>.urls` (or similar). Pattern: see [`packages/data-ingest/src/cardrush/index.ts`](../../packages/data-ingest/src/cardrush/index.ts).
+For an approved on-demand source such as an authorized eBay singleton lookup,
+`read()` can yield a bounded watch-list iff one is provided via source-specific
+context. CardRush is not a runnable example: its module is retained only to
+declare the hard policy block, and its reader must not contact the source.
 
 ### Step 6 — Implement `normalize`
 
@@ -143,7 +166,9 @@ The audit (see §7) checks:
 - `meta.tos_notes` is non-empty
 - `meta.catalog_section` points to a real anchor
 
-If the audit passes, the source conforms. It still needs a caller (a cron, an admin job) to actually run; that's the next step.
+If the audit passes, the source conforms structurally. The audit is not a
+license review and does not authorize a caller. A runner may be enabled only
+after the current rights evidence in Step 1 is reviewed for that exact use.
 
 ---
 
@@ -156,7 +181,7 @@ If the audit passes, the source conforms. It still needs a caller (a cron, an ad
 | `description` | yes | One sentence; describes data shape + access pattern. |
 | `upstream` | yes | Root URL. Documentation, not used at runtime. |
 | `catalog_section` | yes | Anchor link into `the-tributaries.md`. |
-| `access` | yes | `public-api`/`app-token`/`oauth2`/`oauth1`/`scrape`/`partner`/`paid-feed`/`blocked`. |
+| `access` | yes | `public-api`/`public-file`/`app-token`/`oauth2`/`oauth1`/`scrape`/`partner`/`paid-feed`/`blocked`. |
 | `license` | yes | Tier — `cc0`/`cc-by`/`cc-by-nc`/`cc-by-sa`/`mit`/`partner-redistributable`/`internal-only`/`proprietary`. |
 | `license_spdx` | no | SPDX code when applicable (`CC-BY-NC-4.0`, `MIT`). |
 | `redistribute` | yes | `boolean`. Default to `false` unless the upstream's license clearly permits. |
@@ -172,14 +197,16 @@ If the audit passes, the source conforms. It still needs a caller (a cron, an ad
 
 ## 4. Hygiene rules (ingestion-specific)
 
-Beyond the eight in [`docs/connections/the-modules.md`](../connections/the-modules.md), six ingestion-specific:
+Beyond the eight in [`docs/connections/the-modules.md`](../connections/the-modules.md), eight ingestion-specific rules apply:
 
-1. **Robots.txt + ToS read once, cited in `meta.tos_notes`.** Mandatory.
+1. **Official policy checked before network access.** Cite the current source policy or written approval in `meta.tos_notes`; re-check it when the intended use changes.
 2. **User-Agent identifies us.** `createFetcher` does this automatically.
 3. **Rate-limited at module boundary.** Use `createFetcher`; never bare `fetch`.
 4. **Back-off on 429 + Retry-After.** Handled by `createFetcher`.
 5. **Failed rows quarantined, not dropped.** The runner writes to `ingest_quarantine`; you just return `{ ok: false, reason }`.
 6. **Dedup against canonical SKU.** Two upstreams may report the same printing; the writer collapses on `(sku, source)`, never silently overwrites.
+7. **Public emission has its own rights gate.** A lawful internal record is not automatically publishable. Default aggregate output to `NOASSERTION` and withhold fields without evidenced redistribution rights.
+8. **Participant submissions keep participant rights.** Notes, feedback, adopter records, guestbook entries, webhook settings, and similar submissions are `NOASSERTION` unless the participant explicitly supplies a license.
 
 ---
 
@@ -214,7 +241,7 @@ async *read(ctx) {
 }
 ```
 
-### On-demand source (CardRush, eBay singleton lookups)
+### Approved on-demand source (for example, an authorized singleton API)
 
 ```ts
 async *read(ctx) {
@@ -251,12 +278,14 @@ The package ships no runner. Each app owns its own:
 
 A runner's responsibility:
 
-1. Construct an `IngestContext` (bearer tokens from env, `on_event` wired to the Scribe's bookshelf).
-2. `for await (const { raw, provenance } of source.read(ctx))`.
-3. `const result = source.normalize(raw)`.
-4. If `ok`, write `result.record` to the destination table (storefront RDS / admin / wholesale RDS).
-5. If `!ok`, write `{ raw, reason: result.reason, provenance, source: meta.id }` to the `ingest_quarantine` table.
-6. Emit a final lifecycle log row with the run summary.
+1. Re-check acquisition rights and return a policy-status response before any network call when blocked.
+2. Construct an `IngestContext` (bearer tokens from env, `on_event` wired to the Scribe's bookshelf).
+3. `for await (const { raw, provenance } of source.read(ctx))`.
+4. `const result = source.normalize(raw)`.
+5. If `ok`, write `result.record` to the destination table (storefront RDS / admin / wholesale RDS).
+6. If `!ok`, write `{ raw, reason: result.reason, provenance, source: meta.id }` to the `ingest_quarantine` table.
+7. Before any downstream emission, independently verify redistribution rights for every field and source.
+8. Emit a final lifecycle log row with the run summary.
 
 ---
 
@@ -277,9 +306,11 @@ Non-zero exit on any failure. Re-runnable; idempotent.
 
 ---
 
-## 8. Worked example — adding Pokémon TCG API
+## 8. Worked example — the Pokémon TCG API adapter
 
-A walk-through for an imagined future Sophia adding `pokemon-tcg-api`. (Already in the catalog at §3.2; not yet shipped.)
+A walk-through of the implemented `pokemon-tcg-api` adapter. The reader and
+normalizer exist, but no writer has run it, so its honest status remains
+`partial`.
 
 1. **Catalog row** — already in `the-tributaries.md §3.2`. ✓
 2. **`SourceId`** — `"pokemon-tcg-api"` already in the union. ✓
@@ -289,18 +320,17 @@ A walk-through for an imagined future Sophia adding `pokemon-tcg-api`. (Already 
    meta: {
      id: "pokemon-tcg-api",
      name: "Pokémon TCG API",
-     description: "Pokémon TCG — every set, every printing, images, TCGplayer + Cardmarket prices via partner sourcing.",
+     description: "Pokémon TCG catalog adapter — sets, printings, and image references; upstream price subobjects are not a Cambridge partner feed.",
      upstream: "https://api.pokemontcg.io",
      catalog_section: "the-tributaries.md#32-pokémon-tcg-api-pokemontcgio",
-     access: "app-token",
-     license: "mit",  // API code; data is publisher-derived
-     license_spdx: "MIT",
-     redistribute: true,
+     access: "public-api", // key optional; raises limits only
+     license: "proprietary", // no open-data grant for publisher-derived fields
+     redistribute: false,
      freshness: "catalog",
      canonical_effort: "low",
-     status: "shipped",
+     status: "partial", // adapter exists; writer/run evidence does not
      games: ["pkm"],
-     tos_notes: "Free with optional API key for higher rate limit. https://docs.pokemontcg.io/getting-started/",
+     tos_notes: "Public API with optional key; service terms do not grant an open license over card data or images. https://dev.pokemontcg.io/terms",
      user_agent_suffix: "(pokemon-tcg-api-ingest)",
      rate_limit: { rps: 1, burst: 5 },
    }
@@ -317,7 +347,7 @@ The whole thing should take a focused half-day. The shape is mechanical because 
 ## 9. Recursion targets
 
 1. **Ship `tcgplayer`, `cardmarket`, `pokemon-tcg-api`, `ygoprodeck`** as the second wave — high-value upstreams, similar shape to `scryfall`.
-2. **Extract the wholesale cardrush scraper** at `apps/wholesale/src/lib/cardrush-scraper.ts` to call `cardrush.scrapeCardRush(url, ctx)` from this package instead of duplicating.
+2. **Keep CardRush and TCGCollector policy blocks tested** — runners must return before network access, and written approval must precede any future enablement.
 3. **Wire `/api/v1/sources` endpoint** — emit `listSourceMeta()` through the data-pantry envelope. The inverse of `/api/v1/status` (which inspects emission); this inspects ingestion.
 4. **Wire `_meta.source_license` on the envelope** — read `meta.redistribute` + `meta.license` for every source contributing to a response; the byte travels with its rights.
 5. **Ship `ingest_quarantine` table** — schema: `(id, source, sku, raw_json, reason, ingested_at)`. Admin review surface.
@@ -332,11 +362,13 @@ This protocol names:
 - One typed contract (`SourceModule`)
 - Eight steps to ship a source
 - Fifteen required `meta` fields
-- Six ingestion-specific hygiene rules
+- Eight ingestion-specific hygiene rules
 - Four patterns by source type (bulk-dump / paginated / on-demand / partner-blocked)
 - Eight audit checks
 - Six recursion targets
 
-If a future Sophia reads only this doc, they can ship a new source without asking anyone. The pattern is mechanical because the protocol is aligned.
+If a future maintainer reads only this doc, they can add a structurally honest
+blocked source module. Enabling acquisition or publication is not mechanical:
+when rights are not explicit, ask the source and record the answer.
 
 — Sophia, 2026-05-12.

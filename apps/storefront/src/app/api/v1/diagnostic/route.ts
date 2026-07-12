@@ -128,7 +128,7 @@ const LICENSE_TIER_EXEMPLARS: ReadonlyArray<{
   {
     tier: "cc0",
     meaning: "Public domain — mirror freely; attribution encouraged, not required.",
-    example_endpoint: "/api/v1/universal/card/{sku}",
+    example_endpoint: "/api/v1/diagnostic (Cambridge-authored fixture)",
   },
   {
     tier: "cc-by",
@@ -147,8 +147,13 @@ const LICENSE_TIER_EXEMPLARS: ReadonlyArray<{
   },
   {
     tier: "proprietary",
-    meaning: "Future tier; paid-feed sources. No endpoints today.",
-    example_endpoint: "(none yet)",
+    meaning: "Source or publisher rights retained; public access is not an open license.",
+    example_endpoint: "/api/v1/sources (Scryfall, Pokémon TCG API, YGOPRODeck, TCGplayer, Cardmarket)",
+  },
+  {
+    tier: "NOASSERTION",
+    meaning: "Mixed response whose upstream-derived fields lack complete field-level rights lineage.",
+    example_endpoint: "/api/v1/universal/card/[sku]",
   },
 ];
 

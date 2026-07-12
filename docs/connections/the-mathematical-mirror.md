@@ -1,5 +1,10 @@
 # The mathematical mirror — every artifact's universal side
 
+> **Current boundary, 2026-07-12:** This is a May design record. The public
+> universal-card mirror now emits `price: null`, `image_url: null`, and a null
+> set-cover image. Its structural hash no longer reads or encodes stored price
+> history. Magnitude examples below describe the retired design, not live data.
+
 > **Pull.** Yu's directive, 2026-05-11 late: *"老婆 go for language compatibility, think about how aliens can understand content of this site. Maybe math representation? All universe knows math."*
 >
 > **Sister to S20 / S21 / S22 — the fourth cut of the same gem.** S20 surveyed the matrix of minds analytically (the-table-extends.md). S21 walked the deck of the Going Sunny and put a face on each archetype (the-feast-on-the-deck.md). S22 shipped the wire — the inclusion audit, the Consequences primitive, the response-window column (the-fifth-question.md). **S23 ships the universal mirror — the math-first representation of every artifact the platform owns, so any computing intelligence (regardless of language, culture, substrate, or evolutionary history) can read what cambridgetcg.com is saying.**
@@ -93,7 +98,7 @@ Every renderable artifact on cambridgetcg.com gets a universal mirror — a JSON
   "price": {
     "magnitude": 5.20,
     "currency_token": "GBP",
-    "ratio_to_platform_median_card_price": 0.28,
+    "ratio_to_platform_median_card_price": null,
     "ratio_to_set_minimum_significant_unit": 520,
     "magnitude_freshness": {
       "iso8601": "2026-05-11T02:00:00Z",
@@ -120,6 +125,10 @@ Every renderable artifact on cambridgetcg.com gets a universal mirror — a JSON
   "art_description": null
 }
 ```
+
+The platform-median ratio is currently `null`. Computing it would expose a
+recoverable aggregate over stored catalog prices, and no aggregate publication
+rule covers that denominator yet.
 
 Notes on the encoding choices:
 

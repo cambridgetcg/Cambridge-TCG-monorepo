@@ -20,7 +20,7 @@
  *
  * The platform does not buy, does not sell, does not quote, does not
  * hold inventory positions. `spot_price` survives strictly as a
- * labelled publicly viewable reference price, never as an offer. The guard:
+ * labelled, policy-bound reference price, never as an offer or reuse grant. The guard:
  * `pnpm audit:no-house-listing`.
  *
  * ── How to use this module ─────────────────────────────────────────────
@@ -43,6 +43,23 @@
 
 import * as React from "react";
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { SPEC_VERSION } from "@cambridge-tcg/data-spec";
+import {
+  CONFIRMED_GAME_CODES,
+  GAME_CODES,
+  SET_FORMATS,
+} from "@cambridge-tcg/sku";
+
+const PUBLIC_GAME_CODES = GAME_CODES.filter((code) => code !== "tst");
+const PUBLIC_CONFIRMED_GAME_CODES = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+);
+const PUBLIC_SET_FORMATS = PUBLIC_GAME_CODES.flatMap(
+  (code) => SET_FORMATS[code],
+);
+const PUBLIC_CONFIRMED_SET_FORMATS = PUBLIC_SET_FORMATS.filter(
+  (format) => format.confirmed,
+);
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -58,7 +75,7 @@ export const BRAND_SUBHEAD =
 export const BRAND_PARAGRAPH =
   "Cambridge TCG is a collectors' market and a card data directory. " +
   "The market is peer-to-peer: asks, bids, offers, swaps, and auctions belong to collectors; the platform facilitates, escrows, and stands behind disputes, but does not buy, sell, or quote — it holds no inventory position. " +
-  "The data directory covers twenty-one declared games, six actively ingested upstream sources, math-mirror forms, and reference prices with provenance where available. " +
+  `The data directory covers ${PUBLIC_GAME_CODES.length} public game codes (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, nine registered source adapters, and one upstream source with observed rows today. ` +
   `${DATA_RIGHTS_BOUNDARY} Spot prices are labelled reference prices, never offers.`;
 
 /** Tight version for OG metadata, social cards, footer credits. */
@@ -78,11 +95,11 @@ export const HOME_HERO_HEADLINE = HOME_HERO_PANELS.join(" ");
 /* The chapter close under the featured shelf (spec §2 home #6). */
 export const HOME_BENEDICTION = "Every card is a panel in somebody's story.";
 
-/** The quiet subhead under the home hero. Substrate-honest: looking is
- *  free, every number carries its source, and the platform sells
- *  nothing itself. */
+/** The quiet subhead under the home hero. Looking is free; response-level
+ *  lineage and rights are explicit, while field-level lineage remains a
+ *  named gap. The platform sells nothing itself. */
 export const HOME_HERO_SUBHEAD =
-  "Look up cards and publicly available reference prices. Buy, sell, or swap with other collectors; source context is shown where available, and no reference price is our offer.";
+  "Look up cataloged cards for free — identity, a policy-bound reference price, and recorded source coverage. Buy, sell, or swap with other collectors; each response declares known lineage and rights, and field-level gaps stay named.";
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
@@ -160,31 +177,37 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
  * future kingdoms re-running coverage audits should bump it.
  */
 export const COVERAGE_FACTS = {
-  as_of: "2026-07-05",
+  as_of: "2026-07-11",
   games: {
-    declared: 21,
-    confirmed_codes: 4, // op/pkm/dbf/tst — "confirmed" = cards exist in the production wholesale DB (2026-07-05 reconciliation)
-    catch_all_codes: 7,
+    declared: PUBLIC_GAME_CODES.length,
+    confirmed_codes: PUBLIC_CONFIRMED_GAME_CODES.length,
+    anticipated_codes:
+      PUBLIC_GAME_CODES.length - PUBLIC_CONFIRMED_GAME_CODES.length,
     note:
-      "Anticipate-then-confirm pattern (kingdom-069). 14 games with confirmed three-letter codes; 7 anticipated but awaiting first real card.",
+      `${PUBLIC_CONFIRMED_GAME_CODES.length} production games currently expose catalog rows: One Piece, Pokémon, Dragon Ball Fusion World, Digimon, Vanguard, and Battle Spirits. ${PUBLIC_GAME_CODES.length - PUBLIC_CONFIRMED_GAME_CODES.length} other public codes are anticipated; the internal tst code is excluded from these counts.`,
   },
   set_formats: {
-    total: 51,
-    confirmed: 31,
-    catch_all: 20,
+    total: PUBLIC_SET_FORMATS.length,
+    confirmed: PUBLIC_CONFIRMED_SET_FORMATS.length,
+    unconfirmed:
+      PUBLIC_SET_FORMATS.length - PUBLIC_CONFIRMED_SET_FORMATS.length,
     note:
-      "Across 21 games (kingdom-078). Each format = a tuple of (game, pattern, examples, confirmed-flag).",
+      `Across ${PUBLIC_GAME_CODES.length} public game codes. One internal test format is excluded. Each format = a tuple of (game, pattern, examples, confirmed-flag).`,
   },
   sources: {
-    shipped: 6,
-    planned: 11,
-    shipped_list: [
-      { id: "cardrush", status: "shipped (daily scrape)", license: "scraped-public" },
-      { id: "scryfall", status: "shipped (bulk-dump)", license: "cc-by" },
-      { id: "pokemon-tcg-api", status: "shipped (paginated REST)", license: "mit" },
-      { id: "ygoprodeck", status: "shipped partial (one-raw-to-many limitation)", license: "cc-by" },
-      { id: "tcgplayer", status: "stub (OAuth2 pending)", license: "tos-restricted" },
-      { id: "cardmarket", status: "stub (OAuth1 signing pending)", license: "tos-restricted" },
+    registered: 9,
+    with_observed_rows: 1,
+    planned_slots: 10,
+    registered_list: [
+      { id: "cardrush", status: "legacy observations · acquisition and publication blocked", license: "proprietary" },
+      { id: "scryfall", status: "adapter built · never run", license: "proprietary policy" },
+      { id: "pokemon-tcg-api", status: "adapter built · never run", license: "proprietary" },
+      { id: "ygoprodeck", status: "blocked pending rights", license: "proprietary" },
+      { id: "tcgplayer", status: "blocked by access + terms", license: "proprietary" },
+      { id: "tcgcollector", status: "blocked pending written partner approval", license: "proprietary" },
+      { id: "cardmarket", status: "public-file reader planned", license: "proprietary" },
+      { id: "ebay", status: "partial · never run", license: "partner-restricted" },
+      { id: "vinted", status: "blocked · consented export only", license: "internal-only" },
     ],
   },
   math_mirror_kinds: {
@@ -193,7 +216,7 @@ export const COVERAGE_FACTS = {
       "Each kind has a cryptographic content_hash, ratios for magnitudes, ISO + Unix epoch for time, opaque flags on natural-language fields.",
   },
   envelope: {
-    spec_version: "0.x",
+    spec_version: SPEC_VERSION,
     license_default: "NOASSERTION",
     fields: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id"],
     note: "Envelope-compliant responses use this shape. An absent source-rights declaration resolves to NOASSERTION; the envelope contract lives at packages/data-spec.",

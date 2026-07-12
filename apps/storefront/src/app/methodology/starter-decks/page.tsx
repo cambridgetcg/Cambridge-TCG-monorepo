@@ -147,6 +147,11 @@ export default function StarterDecksMethodology() {
             TCGplayer, and the official Bandai product pages).
           </li>
           <li>
+            <code>ctcg-adapted-community</code> — A community-cited teaching
+            list modified by Cambridge. It is not represented as the official
+            Bandai product composition.
+          </li>
+          <li>
             <code>ctcg-minimal-playable</code> — A v1 minimal-playable
             card list using cards from the same starter&apos;s set in our
             wholesale catalog. Enough to satisfy the PvE 10-card minimum

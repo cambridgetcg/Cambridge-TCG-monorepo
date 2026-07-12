@@ -122,9 +122,9 @@ const POLITE_BEHAVIOURS = [
     severity: "required",
   },
   {
-    behaviour: "Bulk endpoints get bulk treatment",
+    behaviour: "Do not poll paused bulk status",
     detail:
-      "Don't pull /data/catalog.jsonl more than once every 6 hours. The catalog doesn't change that fast.",
+      "/data/catalog.jsonl emits policy status and zero card rows. Its CDN status cache is 15 minutes; checking once a day is enough until the manifest announces a reopen.",
     severity: "strong recommendation",
   },
   {
@@ -178,7 +178,7 @@ export async function GET(): Promise<Response> {
     headers_expected_from_clients: {
       "User-Agent":
         "Project name + version + contact email. Format: `<project>/<version> (<email>)`.",
-      "Accept": "application/json (or application/x-ndjson for /data/catalog.jsonl).",
+      "Accept": "application/json (or application/x-ndjson for the status-only /data/catalog.jsonl route).",
       "Accept-Encoding": "gzip (we serve gzipped responses; saves bandwidth).",
     },
     contact_on_block: "contact@cambridgetcg.com",

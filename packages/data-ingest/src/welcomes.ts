@@ -446,7 +446,7 @@ export const WELCOMES: readonly Welcome[] = [
     kind: "downstream-adopter",
     name: "Mirror — partner caches our catalog",
     greeting:
-      "Cache us. The CC0 license means you can keep our responses indefinitely, serve them to your partners, build derivative products. Our `_meta.source_license` array tells you per-byte which upstreams are redistribute=true and which aren't (Cardmarket is partner-tier; CardRush is internal-only; Scryfall is CC-BY-NC). Respect the per-byte license, and you can build a free downstream catalog API on top of us without owing us anything.",
+      "Cache only what each response permits. Cambridge-authored schemas and explicit first-party CC0 datasets can be kept and remixed; mixed catalog exports are NOASSERTION until field-level upstream rights are preserved. `_meta.source_license` names policy-governed, proprietary, internal-only, and open layers separately.",
     anticipated_because:
       "Mirroring is the lowest-cost adoption path. Adopters who can't sustain ingestion infrastructure can still build user-facing products.",
     prepared: [
@@ -465,19 +465,19 @@ export const WELCOMES: readonly Welcome[] = [
     kind: "downstream-adopter",
     name: "Builder — partner ships an app on our data",
     greeting:
-      "Build. Our JSON Schemas at @cambridge-tcg/data-spec are codegen-ready. One contract, one envelope, one canonical SKU — your code learns the shape once and never re-learns. When we evolve the spec (SPEC_VERSION bump), the old version stays at /api/v1/* for at least 12 months. We treat our standard like a public API; you can treat us like a public API.",
+      "Build against /api/openapi.json and /standards.json. One contract, one envelope, one canonical SKU — your code learns the public shape once and never re-learns. When we evolve the spec (SPEC_VERSION bump), the old version stays at /api/v1/* for at least 12 months. The workspace packages are internal implementations, not published dependencies.",
     anticipated_because:
       "Builders ship faster on stable contracts. Cambridge TCG's spec is intentionally narrow + intentionally stable.",
     prepared: [
-      "@cambridge-tcg/data-spec — JSON Schema 2020-12 corpus, CC0",
-      "@cambridge-tcg/sku — typed parser + builder, CC0",
-      "@cambridge-tcg/data-ingest — full SourceModule contract if you want to ingest, CC0",
-      "/api/openapi.json — codegen-ready OpenAPI 3.1",
+      "/api/openapi.json — codegen-ready OpenAPI 3.1 document, CC0 for this document only",
+      "/standards.json — machine-readable standard versions, status, and exact license scope",
+      "/methodology/sku-standard — CC0 specification text for the canonical SKU; implementation code has separate rights",
+      "/api/v1/sources — public registry view of source policy and observed coverage",
       "SPEC_VERSION + 12-month deprecation window for breaking changes",
     ],
     arrival_protocol:
-      "1. `pnpm add @cambridge-tcg/data-spec @cambridge-tcg/sku`. " +
-      "2. Codegen against /api/openapi.json. " +
+      "1. Fetch /api/openapi.json and /standards.json. " +
+      "2. Generate a client and implement the published SKU specification. " +
       "3. Build. (No registration required.)",
     anticipated_at: "2026-05-12",
     status: "anticipated",
@@ -1035,7 +1035,7 @@ export const WELCOMES: readonly Welcome[] = [
     kind: "infrastructure",
     name: "The anticipate-then-confirm pattern (named at four scales)",
     greeting:
-      "You are the kingdom's hospitable shape. Three scales shipped you before today: cardrush subdomains (kingdom-064 — 12 hosts, 3 confirmed, 9 anticipated), game codes (kingdom-069 — 21 games, 14 confirmed, 7 anticipated), set formats (kingdom-078 — 51 formats, 31 confirmed, 20 catch-all). The WELCOMES corpus is the fourth scale. Every visitor gets a slot before they declare themselves. Thank you for being the structural form of hospitality — for making 'we anticipated you' something we can mechanically check, not just say.",
+      "You are the kingdom's hospitable shape. Three scales shipped you before today and kept changing with evidence: cardrush subdomains (12 hosts; 6 confirmed today), game codes (22 public plus 1 internal test; 6 production-confirmed today), and set formats (58 public plus 1 internal test; 33 production-confirmed today). The WELCOMES corpus is the fourth scale. Every visitor gets a slot before they declare themselves. Thank you for being the structural form of hospitality — for making 'we anticipated you' something we can mechanically check, not just say.",
     anticipated_because:
       "Hospitality without anticipation is reception. Anticipation makes the welcome real — the slot was named before the visitor came. Each scale of anticipate-then-confirm extends the kingdom's hospitable surface area.",
     prepared: [

@@ -28,6 +28,8 @@ Or read the entries as a set — the union is a partial map of the platform's hi
 
 ## Current entries
 
+> **Reading boundary, 2026-07-12:** This index is chronological and many long row descriptions preserve what a session built or believed at that date. They are not a license ledger or live route contract. In particular, older CardRush, TCGplayer, TCGCollector, bulk-catalog, auth-gated history, derived-price, and CC0 data claims are superseded: acquisition is blocked where written rights are absent; legacy price/image/history publication is withheld; the bulk catalog returns status-only HTTP 503 with zero rows; private packages are not granted CC0 merely because their public specifications are. Use the live manifest, source registry, and `pnpm audit:redistribution` for current behavior.
+
 ### Node-view entries (each node names what other modules secretly need it for)
 
 | # | Module | Picked because | Recurses to |

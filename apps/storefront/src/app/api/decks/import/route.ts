@@ -276,8 +276,9 @@ export async function POST(req: Request): Promise<Response> {
     },
     endpoint: "/api/decks/import",
     sources: ["wholesale-rds.cards"],
-    source_license: ["cc0"],
+    source_license: ["proprietary"],
     freshness: "catalog",
+    license: "NOASSERTION",
     no_cache: true,
   });
 }

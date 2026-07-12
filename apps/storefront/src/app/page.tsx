@@ -158,7 +158,7 @@ export default async function Home() {
       </nav>
 
       {/* THE PRIMARY IDENTITY — a collectors' market and card data
-          commons (docs/decisions/2026-07-06-collectors-first.md). The home
+           directory (docs/decisions/2026-07-06-collectors-first.md). The home
           hero speaks to collectors first (the quiet gallery); the identity
           claim keeps its place directly beneath, medium-sized. */}
       <BrandStatement size="medium" />

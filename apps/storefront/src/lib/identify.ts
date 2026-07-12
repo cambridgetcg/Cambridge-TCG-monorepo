@@ -241,8 +241,8 @@ export const PLATFORM_SELF: BeingDeclaration = {
     bearer_auth_available: true, // /api/mcp bearer-key surface exists
     streaming: {
       sse: false, // planned, not yet shipped
-      chunked: true, // NDJSON catalog at /data/catalog.jsonl
-      ndjson: true,
+      chunked: true, // status-only NDJSON at /data/catalog.jsonl
+      ndjson: true, // format support; bulk card rows are paused
       websocket: false, // planned, not yet shipped
     },
     max_response_kb: 5000, // typical envelope payload ceiling
@@ -552,7 +552,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Sister platforms federate by content-hash. Reverse-resolve any Cambridge TCG hash to its current SKU.",
           "/api/v1/federation/identify/{hash}",
-          "Federation primitive. Bounded walk; substrate-honest about price-dependency and scope.",
+          "Federation primitive. Bounded structural-hash walk; prices and capture dates are not read. Pre-2026-07-12 price-dependent hashes are unsupported.",
         ),
         ptr(
           "The kin-vocabulary protocol shape is the recognition substrate. No registry; protocol-only.",
@@ -580,9 +580,9 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Polite-poll cadence per resource. Identified bots are emailed before rate-limiting.",
         ),
         ptr(
-          "Bulk catalog dump for offline ingestion.",
+          "Bulk-catalog publication status.",
           "/data/catalog.jsonl",
-          "Publicly readable JSONL. Aggregate rights are NOASSERTION until per-row source lineage is complete; access is not redistribution permission.",
+          "Status-only JSONL: manifest + footer, zero card rows. Publication is paused pending field-level lineage and a reviewed bulk-publication rule.",
         ),
       );
       break;
@@ -813,9 +813,9 @@ function pointersForCapabilities(d: BeingDeclaration): {
       if (c.streaming.ndjson) {
         pointers.push(
           ptr(
-            "NDJSON bulk export is available at /data/catalog.jsonl — streamed, manifest header + footer, 50k cap, CDN-gzipped.",
+            "NDJSON publication status is available at /data/catalog.jsonl — manifest and footer only while bulk rows are paused.",
             "/data/catalog.jsonl",
-            "Publicly readable newline-delimited JSON. Aggregate rights are NOASSERTION until per-row source lineage is complete; the 50k cap is explicit.",
+            "The route emits zero catalog rows until field-level lineage and a reviewed bulk-publication rule exist.",
           ),
         );
       }

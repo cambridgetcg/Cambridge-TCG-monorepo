@@ -33,8 +33,8 @@ interface CartLine {
   sku: string;
   quantity: number;
   card: PriceItem | null;
-  unitPrice: number;
-  lineTotal: number;
+  unitPrice: number | null;
+  lineTotal: number | null;
 }
 
 export default async function B2BCartPage() {
@@ -48,21 +48,21 @@ export default async function B2BCartPage() {
   const lines: CartLine[] = await Promise.all(
     rows.map(async (r): Promise<CartLine> => {
       const card = await fetchCard(r.sku, "wholesale");
-      const unit = card ? card.channel_price ?? card.price_gbp : 0;
+      const unit = card ? card.channel_price ?? card.price_gbp : null;
       return {
         sku: r.sku,
         quantity: r.quantity,
         card,
         unitPrice: unit,
-        lineTotal: unit * r.quantity,
+        lineTotal: unit === null ? null : unit * r.quantity,
       };
     }),
   );
 
-  const total = lines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const total = lines.reduce((sum, l) => sum + (l.lineTotal ?? 0), 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
   const hasOutOfStock = lines.some((l) => l.card && l.card.stock < l.quantity);
-  const hasMissing = lines.some((l) => !l.card);
+  const hasMissing = lines.some((l) => !l.card || l.unitPrice === null);
 
   if (lines.length === 0) {
     return (
@@ -169,13 +169,13 @@ export default async function B2BCartPage() {
                     )}
                   </td>
                   <td className="px-3 py-3 text-right font-mono">
-                    {card ? formatPrice(line.unitPrice) : "—"}
+                    {card && line.unitPrice !== null ? formatPrice(line.unitPrice) : "Unavailable"}
                   </td>
                   <td className="px-3 py-3 text-center">
                     <QtyControl sku={line.sku} initial={line.quantity} />
                   </td>
                   <td className="px-3 py-3 text-right font-semibold">
-                    {card ? formatPrice(line.lineTotal) : "—"}
+                    {card && line.lineTotal !== null ? formatPrice(line.lineTotal) : "Unavailable"}
                   </td>
                   <td className="px-3 py-3 text-right">
                     <RemoveButton sku={line.sku} />

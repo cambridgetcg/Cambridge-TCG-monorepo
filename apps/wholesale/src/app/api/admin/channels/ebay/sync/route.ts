@@ -4,9 +4,19 @@ import { db } from "@/lib/db";
 import { cards, games } from "@/lib/db/schema";
 import { gt } from "drizzle-orm";
 import { bulkPushListings } from "@/lib/channels/ebay";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 /** POST /api/admin/channels/ebay/sync — push price + stock for all active listings to eBay */
 export async function POST() {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, publication_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session || session.user.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

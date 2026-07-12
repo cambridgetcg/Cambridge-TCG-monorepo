@@ -114,12 +114,12 @@ export async function GET(request: Request) {
   // Collectors-first (2026-07-06): the tradein-credit channel enrichment
   // (the house's standing we-buy bids) is gone — one less price channel
   // to compute. Every bid/ask below is a collector's; spot_price survives
-  // as a labelled publicly viewable reference, never as an offer.
+  // as a labelled, policy-bound reference, never as an offer or reuse grant.
   const cards = data.items.map(item => {
     const spot = retailPrice(item.price_gbp, item.channel_price);
     const p2p = p2pData.get(item.sku);
     const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
-    const marketPrice = bestAsk && bestAsk < spot ? bestAsk : spot;
+    const marketPrice = bestAsk !== null && (spot === null || bestAsk < spot) ? bestAsk : spot;
 
     return {
       sku: item.sku,

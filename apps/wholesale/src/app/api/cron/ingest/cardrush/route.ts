@@ -28,12 +28,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runDailySnapshotV2 } from "@/lib/price-snapshot-v2";
 import { requireCronAuth } from "@/lib/cron-auth";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+} from "@cambridge-tcg/data-ingest";
 
 export const maxDuration = 800; // seconds — Vercel limit for fluid functions
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireCronAuth(req);
   if (denied) return denied;
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, status: "blocked_pending_formal_partnership", reason: CARDRUSH_BLOCK_REASON, policy: CARDRUSH_DATA_POLICY_URL },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dryRun") === "1";

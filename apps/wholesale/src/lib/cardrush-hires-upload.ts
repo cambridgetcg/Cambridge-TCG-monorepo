@@ -42,7 +42,13 @@ import {
   HeadObjectCommand,
   PutObjectCommand,
 } from "@cambridge-tcg/aws/s3";
-import { cardrush, createFetcher, type Fetcher } from "@cambridge-tcg/data-ingest";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  cardrush,
+  createFetcher,
+  type Fetcher,
+} from "@cambridge-tcg/data-ingest";
 
 const DEFAULT_MAX_BATCH = 100;
 
@@ -162,6 +168,9 @@ type Event = { ts: string; kind: string } & Record<string, unknown>;
 export async function runHiresUpload(
   opts: HiresUploadOptions,
 ): Promise<HiresUploadResult> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   const startMs = Date.now();
   const triggeredBy = opts.triggeredBy ?? "cron";
   const dryRun = opts.dryRun ?? false;

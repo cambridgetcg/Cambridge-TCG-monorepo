@@ -1,5 +1,5 @@
 /**
- * TCGplayer wholesale writer — three modes.
+ * Dormant TCGplayer wholesale writer.
  *
  *   runTcgplayerCatalog()   — operator-driven seed-set walk; writes
  *                             cards.tcgplayer_product_id + card_tcgplayer_sku_ids.
@@ -15,29 +15,11 @@
  *
  * Designed in `docs/connections/the-tcgplayer-alignment.md` (kingdom-NNN).
  *
- * ── Operator preconditions ──────────────────────────────────────────────
- *
- *   1. `pnpm db:migrate` applied (migration 0015).
- *   2. Env: TCGPLAYER_CLIENT_ID + TCGPLAYER_CLIENT_SECRET set (apply at
- *      https://developer.tcgplayer.com if not yet).
- *   3. For pricing mode: at least one card has `cards.tcgplayer_product_id`
- *      set (run the catalog mode / seed-set CLI first).
- *
- * ── Activation status (honest, 2026-07-05 investigation) ────────────────
- *
- * Code-complete but INERT in production: migration 0015 IS applied (the
- * tables/columns exist), but 0 cards are mapped, card_tcgplayer_sku_ids
- * is empty, no vercel.json cron entry references
- * `/api/cron/ingest/tcgplayer`, and the credentials are unset. Activation
- * is the operator's call (credentials); the full list is:
- *
- *   1. Set TCGPLAYER_CLIENT_ID + TCGPLAYER_CLIENT_SECRET in the wholesale
- *      deployment env.
- *   2. One manual catalog seed:
- *      `/api/cron/ingest/tcgplayer?mode=catalog&dryRun=1`, then the real run.
- *   3. Add two vercel.json cron entries: mode=bulk-pricing nightly and
- *      mode=live-pricing every 5 minutes during US trading hours.
- *   4. Confirm price_archive gains source='tcgplayer' rows.
+ * The implementation is retained for historical engineering context, but
+ * every exported entrypoint refuses before DB, FX, credential, or network
+ * work. TCGplayer is not granting new API access and Cambridge has no written
+ * approval for its multi-source comparison use. Credentials are not an
+ * activation switch.
  */
 
 import { db } from "@/lib/db";
@@ -54,6 +36,7 @@ import {
   tcgplayer,
   runSource,
   mintTcgplayerToken,
+  TCGPLAYER_ACCESS_BLOCKED_MESSAGE,
   readTcgplayerCredentialsFromEnv,
   tokenIsFresh,
   type TcgplayerToken,
@@ -67,6 +50,10 @@ import { fetchGbpUsdRate } from "@/lib/fx";
 import { createFetcher } from "@cambridge-tcg/data-ingest";
 
 const BATCH_SIZE = 100;
+
+function refuseTcgplayerAccess(): void {
+  throw new Error(TCGPLAYER_ACCESS_BLOCKED_MESSAGE);
+}
 
 export interface TcgplayerCatalogOptions {
   /** Restrict to specific category ids; else walks every registered category. */
@@ -108,7 +95,7 @@ export interface TcgplayerPricingResult {
   rowsQuarantined: number;
   errors: number;
   fxRateUsd: number;
-  fxRateSource: "live" | "cached" | "fallback";
+  fxRateSource: "ecb.europa.eu" | "cached" | "fallback";
   durationMs: number;
 }
 
@@ -124,6 +111,8 @@ export interface TcgplayerPricingResult {
 export async function ensureTcgplayerToken(opts?: {
   force?: boolean;
 }): Promise<{ token: string; rotated: boolean }> {
+  refuseTcgplayerAccess();
+
   if (!opts?.force) {
     const cached = await db
       .select()
@@ -145,10 +134,7 @@ export async function ensureTcgplayerToken(opts?: {
 
   const creds = readTcgplayerCredentialsFromEnv();
   if (!creds) {
-    throw new Error(
-      "TCGplayer credentials missing. Set TCGPLAYER_CLIENT_ID + TCGPLAYER_CLIENT_SECRET (trim whitespace). " +
-        "Apply for partner access at https://developer.tcgplayer.com.",
-    );
+    throw new Error(TCGPLAYER_ACCESS_BLOCKED_MESSAGE);
   }
 
   // Use the package's createFetcher for rate-limit + UA on the token mint too.
@@ -181,6 +167,8 @@ export async function ensureTcgplayerToken(opts?: {
 export async function runTcgplayerCatalog(
   options?: TcgplayerCatalogOptions,
 ): Promise<TcgplayerCatalogResult> {
+  refuseTcgplayerAccess();
+
   const startMs = Date.now();
   const triggeredBy = options?.triggeredBy ?? "cron";
 
@@ -400,6 +388,8 @@ async function writeMapping(
 export async function runTcgplayerPricing(
   options?: TcgplayerPricingOptions,
 ): Promise<TcgplayerPricingResult> {
+  refuseTcgplayerAccess();
+
   const startMs = Date.now();
   const snapshotDate = options?.date ?? new Date().toISOString().slice(0, 10);
   const triggeredBy = options?.triggeredBy ?? "cron";
@@ -418,7 +408,7 @@ export async function runTcgplayerPricing(
   const ingestRunId = runRow.id;
 
   let fxRate: number;
-  const fxRateSource: "live" | "cached" | "fallback" = "live";
+  const fxRateSource: "ecb.europa.eu" | "cached" | "fallback" = "ecb.europa.eu";
   try {
     fxRate = await fetchGbpUsdRate();
   } catch (err) {
@@ -660,7 +650,7 @@ async function writePricingBatch(
   snapshotDate: string,
   batch: Array<CanonicalPrice & { extra?: Record<string, unknown> }>,
   fxRate: number,
-  fxRateSource: "live" | "cached" | "fallback",
+  fxRateSource: "ecb.europa.eu" | "cached" | "fallback",
 ): Promise<PricingBatchResult> {
   let written = 0;
   let quarantined = 0;

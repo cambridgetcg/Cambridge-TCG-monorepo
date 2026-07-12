@@ -1,5 +1,12 @@
 # Pricing methodology
 
+> **Current boundary, 2026-07-12:** The formulas below document the retired
+> legacy channel-pricing design. CardRush acquisition is hard-blocked pending a
+> formal partnership, and stored CardRush-derived prices, images, histories,
+> movements, and external channel publication are withheld. Shopify, eBay, and
+> buylist/KV writers stop before database, secret, or network work. No formula,
+> stored row, authentication layer, or sales channel creates source rights.
+
 Cambridge TCG sets a price for every card we stock and every channel we sell on. The same card has up to **seven different customer-facing prices** at any moment — one for our own storefront, one for Shopify, one for eBay, one for Cardmarket, one for trade-in cash, one for trade-in store credit — plus an internal **wholesale base** that the others derive from. This page explains exactly how each number is computed.
 
 > **Where this lives in code.**

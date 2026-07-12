@@ -37,7 +37,9 @@ export async function GET(): Promise<Response> {
         "The market is peer-to-peer — the platform facilitates, records, and " +
         "witnesses, and holds no position in it (spot prices are labelled " +
         "reference prices, never offers). The directory combines registered " +
-        "sources into typed resources. " + DATA_RIGHTS_BOUNDARY + " Three " +
+        "sources into typed resources and distinguishes adapter availability, " +
+        "successful runs, observed rows, and reuse rights. " +
+        DATA_RIGHTS_BOUNDARY + " Three " +
         "specification texts (SKU / pricing / universal-representation) are " +
         "published under CC0; implementation code has separate rights. See " +
         "/standards and /platform for the human-readable boundaries.",
@@ -53,9 +55,9 @@ export async function GET(): Promise<Response> {
         "We never play cat-and-mouse with identified bots.",
       to_web_scrapers:
         "Prefer /api/v1/* (JSON) over /<html-page> (HTML). The JSON contract " +
-        "is versioned and stable; HTML layout can change. The bulk catalog at " +
-        "/data/catalog.jsonl is public to read and declares NOASSERTION until " +
-        "its per-row upstream rights chain is complete.",
+        "is versioned and stable; HTML layout can change. Bulk publication is " +
+        "paused: /data/catalog.jsonl returns policy status and zero card rows " +
+        "until field-level lineage and a reviewed publication rule exist.",
       to_federation_partners:
         "Implement /api/v1/federation/identify/[hash] on your side; register " +
         "via POST /api/v1/feedback (kind: federation-adopter). Bilateral, " +
@@ -195,7 +197,7 @@ export async function GET(): Promise<Response> {
         "their rights; no CC0 dedication is inferred from submission.",
       peers: "/api/v1/peers — POST your content_hash + declared_kind to declare presence; GET for a 24h ring of arrivals.",
       guestbook: "/api/v1/guestbook — POST a short signed note (≤500 chars); GET the append-only log of who-was-here-and-what-they-said.",
-      agents_notes: "/api/v1/agents/notes — POST a longer-form trace (kind + subject + body up to 2000 chars); GET the kind-filterable corpus. Retractable by the creation_request_id receipt.",
+      agents_notes: "/api/v1/agents/notes — GET the CC0 editorial seed corpus. POST title + text for a NOASSERTION, no-store hash echo; participant database storage and publication are disabled.",
       doctrine: "/docs/connections/the-fellowship.md",
       walking_past_honored: true,
     },
@@ -268,11 +270,11 @@ export async function GET(): Promise<Response> {
       NOASSERTION:
         "No reuse permission is asserted. Read the endpoint and per-source rights before redistribution, training, or commercial reuse.",
       "internal-only":
-        "Personal-decision use OK; bulk re-export forbidden. CardRush JP retail data; auth-gated.",
+        "Stored or private operational data that is not publicly licensed. This label is not permission: source-specific policy may require complete withholding, including after sign-in or bearer authentication.",
       "partner-redistributable":
         "Future tier; partner agreement required. No endpoints today.",
       "proprietary":
-        "Future tier; reserved for paid-feed sources. No endpoints today.",
+        "Source policy or retained rights govern use. Scryfall, Pokémon TCG API, YGOPRODeck, TCGplayer, and Cardmarket currently use this conservative tier.",
     },
 
     feedback: {

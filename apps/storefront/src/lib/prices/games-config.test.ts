@@ -10,7 +10,10 @@ import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
 import { GAMES, isGameCode } from "@cambridge-tcg/sku";
-import { PRICE_GUIDE_GAMES } from "./games-config";
+import {
+  PRICE_GUIDE_GAMES,
+  synthesizeConfigFromCatalog,
+} from "./games-config";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, "games-config.ts"), "utf8");
@@ -57,7 +60,46 @@ describe("cardrush coverage truth (spec 2026-07-07 §1)", () => {
         GAMES[g.game_code as keyof typeof GAMES].slug,
         `${g.slug}: Atlas pairs ${g.game_code} with a different slug`,
       ).toBe(g.slug);
+      expect(g.coverage_status).toBe(
+        GAMES[g.game_code as keyof typeof GAMES].confirmed
+          ? "observed"
+          : "anticipated",
+      );
     }
+  });
+
+  it("public config copy makes no completeness, cadence, or retired house-price promise", () => {
+    const forbidden =
+      /daily-updated|updated daily|every set|every card|complete (?:price|coverage)|trade[- ]in|store credit|retail buy price|we buy/i;
+
+    for (const g of PRICE_GUIDE_GAMES) {
+      const publicCopy = [
+        g.seo_title,
+        g.seo_description,
+        g.hero_paragraph,
+        g.set_intro_template,
+        g.pricing_note,
+      ].join("\n");
+      expect(publicCopy, `${g.slug} overclaims public coverage`).not.toMatch(
+        forbidden,
+      );
+    }
+
+    const synthesized = synthesizeConfigFromCatalog({
+      slug: "test-live-game",
+      display_name: "Test Live Game",
+      game_code: "tlg",
+    });
+    expect(synthesized.coverage_status).toBe("observed");
+    expect(
+      [
+        synthesized.seo_title,
+        synthesized.seo_description,
+        synthesized.hero_paragraph,
+        synthesized.set_intro_template,
+        synthesized.pricing_note,
+      ].join("\n"),
+    ).not.toMatch(forbidden);
   });
 
   it("no hand-written confirmed literal survives in the cardrush rows", () => {

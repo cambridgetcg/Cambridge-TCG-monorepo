@@ -114,9 +114,9 @@ export async function GET(): Promise<Response> {
       canonical_source: "/api/v1/changelog",
     },
     agents_notebook: {
-      status: "unknown",
+      status: "ok",
       detail:
-        "Agent notebook GET is up if the process is up; POST persistence depends on agent_notes table availability (migration-0102). For DB-backed write status, attempt POST and read the response.",
+        "Agent notebook GET serves the editorial seed corpus. Participant database storage and publication are disabled; the witness-only POST echo is not persisted.",
       canonical_source: "/api/v1/agents/notes",
     },
   };

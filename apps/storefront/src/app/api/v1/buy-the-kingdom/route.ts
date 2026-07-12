@@ -7,7 +7,8 @@
  * rights are separate questions:
  *
  *   - This fixed joke document is CC0-1.0.
- *   - The specification text in packages/data-spec is CC0-1.0.
+ *   - Exact standard text named by docs/STANDARDS-LICENSE.md is CC0-1.0.
+ *   - packages/data-spec is internal implementation code with no general license.
  *   - Other resources carry their own access and reuse boundary.
  *   - The universal encoding describes itself at /api/v1/universal/encoding.
  *
@@ -33,9 +34,9 @@ const BODY = {
       "That dedication does not extend to linked resources or source-derived data.",
     public_doors: [
       "https://cambridgetcg.com/api/v1/manifest — access directory",
-      "https://cambridgetcg.com/data/catalog.jsonl — readable bulk catalog; aggregate rights NOASSERTION",
+      "https://cambridgetcg.com/data/catalog.jsonl — bulk-publication status only; zero catalog rows while rights review is pending",
       "https://cambridgetcg.com/api/v1/universal/encoding — encoding description",
-      "packages/data-spec — CC0 specification text; implementation code has separate rights",
+      "https://cambridgetcg.com/standards — exact CC0 specification texts; internal package code has no general license",
     ],
     boundary: DATA_RIGHTS_BOUNDARY,
   },

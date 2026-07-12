@@ -104,7 +104,7 @@ export async function GET(request: Request) {
         card_name: card.card_name,
         card_number: card.card_number,
         set_name: card.set_name,
-        image_url: card.image_url,
+        image_url: null,
         rarity: card.rarity,
       }));
   const visibleActivity = isOwn
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
         event_type: event.event_type,
         title: event.title,
         description: event.description,
-        image_url: event.image_url,
+        image_url: null,
         created_at: event.created_at,
         user_name: event.user_name,
         user_username: event.user_username,

@@ -40,20 +40,20 @@ export default async function B2BCheckoutPage() {
   const lines = await Promise.all(
     rows.map(async (r) => {
       const card = await fetchCard(r.sku, "wholesale");
-      const unit = card ? card.channel_price ?? card.price_gbp : 0;
+      const unit = card ? card.channel_price ?? card.price_gbp : null;
       return {
         sku: r.sku,
         quantity: r.quantity,
         displayName: card?.name_en || card?.name || r.sku,
         unit,
-        lineTotal: unit * r.quantity,
+        lineTotal: unit === null ? null : unit * r.quantity,
         outOfStock: card ? card.stock < r.quantity : true,
-        missing: !card,
+        missing: !card || unit === null,
       };
     }),
   );
 
-  const total = lines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const total = lines.reduce((sum, l) => sum + (l.lineTotal ?? 0), 0);
   const itemCount = lines.reduce((sum, l) => sum + l.quantity, 0);
   const blocked = lines.some((l) => l.missing);
 
@@ -61,7 +61,9 @@ export default async function B2BCheckoutPage() {
     <div className="space-y-6 max-w-2xl">
       <PageHeader
         title="Checkout"
-        description={`Pay ${formatPrice(total)} for ${itemCount} item${itemCount === 1 ? "" : "s"} via Stripe.`}
+        description={blocked
+          ? "Checkout is paused while pricing source rights are reviewed."
+          : `Pay ${formatPrice(total)} for ${itemCount} item${itemCount === 1 ? "" : "s"} via Stripe.`}
       />
 
       <Link
@@ -92,7 +94,7 @@ export default async function B2BCheckoutPage() {
                   {l.missing && <span className="ml-2 text-xs">unavailable</span>}
                 </span>
                 <span className="font-mono whitespace-nowrap">
-                  {l.missing ? "—" : formatPrice(l.lineTotal)}
+                  {l.missing || l.lineTotal === null ? "Unavailable" : formatPrice(l.lineTotal)}
                 </span>
               </li>
             ))}
@@ -108,8 +110,8 @@ export default async function B2BCheckoutPage() {
         <PayButton disabled={blocked} />
         {blocked && (
           <p className="mt-3 text-sm text-danger">
-            One or more cards are no longer in the catalog. Return to the cart and remove
-            them before checking out.
+            One or more prices are unavailable while source rights are reviewed. Checkout
+            remains paused rather than substituting a value.
           </p>
         )}
       </Card>

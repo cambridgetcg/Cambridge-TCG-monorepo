@@ -5,6 +5,10 @@ import { eq, and, gte, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { sendOrderEmail } from "@/lib/email/send-order-email";
 import { assignClientOrderNumber } from "@/lib/order-number";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "@/lib/source-publication-policy";
 
 // The idempotency marker rides as the first line of `notes` (no dedicated
 // key column yet); strip it before the order leaves the API.
@@ -15,6 +19,12 @@ function withoutIdemMarker<T extends { notes: string | null }>(order: T): T {
 }
 
 export async function POST(req: NextRequest) {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return NextResponse.json(
+      { order_status: "blocked", reason: LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON },
+      { status: 503 },
+    );
+  }
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

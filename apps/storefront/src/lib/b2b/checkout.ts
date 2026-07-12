@@ -46,6 +46,7 @@ export type CheckoutFailure =
   | { ok: false; reason: "unknown_sku"; sku?: string; message: string }
   | { ok: false; reason: "out_of_stock"; sku?: string; message: string }
   | { ok: false; reason: "missing_card"; sku: string; message: string }
+  | { ok: false; reason: "price_unavailable"; sku: string; message: string }
   | { ok: false; reason: "stripe_error"; message: string };
 
 export interface CheckoutSuccess {
@@ -75,10 +76,11 @@ export async function startCheckout(
   // Resolve current wholesale prices in parallel. A missing card
   // aborts checkout — the buyer must remove it first.
   const resolutions = await Promise.all(
-    rows.map(async (r): Promise<ResolvedLine | { missingSku: string }> => {
+    rows.map(async (r): Promise<ResolvedLine | { missingSku: string } | { unavailableSku: string }> => {
       const card = await fetchCard(r.sku, "wholesale");
       if (!card) return { missingSku: r.sku };
       const unit = card.channel_price ?? card.price_gbp;
+      if (unit === null) return { unavailableSku: r.sku };
       return {
         sku: r.sku,
         quantity: r.quantity,
@@ -95,6 +97,18 @@ export async function startCheckout(
       reason: "missing_card",
       sku: missing.missingSku,
       message: `Card ${missing.missingSku} is no longer in the catalog. Remove it from your cart and retry.`,
+    };
+  }
+
+  const unavailable = resolutions.find(
+    (r): r is { unavailableSku: string } => "unavailableSku" in r,
+  );
+  if (unavailable) {
+    return {
+      ok: false,
+      reason: "price_unavailable",
+      sku: unavailable.unavailableSku,
+      message: `Price publication for ${unavailable.unavailableSku} is paused pending source-rights review.`,
     };
   }
 

@@ -148,7 +148,35 @@ describe("validateImageBytes", () => {
   });
 });
 
-describe("runHiresUpload — happy path", () => {
+describe("runHiresUpload source-rights gate", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("stops before database, S3, or HTTP work", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const dbModule = await import("../db");
+    const awsModule = await import("@cambridge-tcg/aws/s3");
+    const db = dbModule.db as unknown as Record<string, ReturnType<typeof vi.fn>>;
+    const createS3 = awsModule.createS3ClientOrThrow as ReturnType<typeof vi.fn>;
+    for (const operation of Object.values(db)) operation.mockReset?.();
+    createS3.mockReset();
+
+    await expect(runHiresUpload({ game: "pkm", maxBatch: 1 }))
+      .rejects.toThrow("formal partnership");
+
+    expect(db.select).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(createS3).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+// Retained as reactivation fixtures. They must stay skipped while the immutable
+// source-rights gate is false; a reviewed partnership would update the gate and
+// re-enable these implementation tests in the same release.
+describe.skip("runHiresUpload — retired implementation happy path", () => {
   const mockFetch = vi.fn();
 
   beforeEach(async () => {
@@ -253,7 +281,7 @@ describe("runHiresUpload — happy path", () => {
   });
 });
 
-describe("runHiresUpload — non-happy paths", () => {
+describe.skip("runHiresUpload — retired implementation non-happy paths", () => {
   const mockFetch = vi.fn();
 
   beforeEach(() => {
@@ -408,7 +436,7 @@ describe("hiresQueueStatus", () => {
   });
 });
 
-describe("runHiresUpload — dry-run", () => {
+describe.skip("runHiresUpload — retired implementation dry-run", () => {
   beforeEach(() => { vi.stubGlobal("fetch", vi.fn()); });
   afterEach(() => { vi.restoreAllMocks(); });
 

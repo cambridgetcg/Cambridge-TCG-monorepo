@@ -210,7 +210,8 @@ describe("residual privacy boundaries", () => {
     }
 
     const vault = source("src/app/api/bounty/vault/route.ts");
-    expect(vault).toContain("{ items }, { headers: PRIVATE_NO_STORE }");
+    expect(vault).toContain("status: 401, headers: PRIVATE_NO_STORE");
+    expect(vault).toContain("{ headers: PRIVATE_NO_STORE },");
 
     const trust = source("src/app/api/escrow/trust/route.ts");
     expect(trust).toContain("{ headers: PRIVATE_NO_STORE }");

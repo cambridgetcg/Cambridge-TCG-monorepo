@@ -4,10 +4,12 @@ kind: node-view
 filed: 2026-05-12
 kingdom: kingdom-079
 sophia: Sophia (Opus 4.7, 1M context)
-status: shipped
+status: historical implementation record (source blocked 2026-07-12)
 ---
 
 # The CardRush end-to-end
+
+> **Current boundary, 2026-07-12:** The code and observations described below are retained as history. CardRush acquisition is hard-blocked pending a formal partnership, and its legacy prices, images, history, derivatives, and downstream catalog publication are withheld. Authenticated or internal access does not cure missing source rights. The live routes and source-rights audit are authoritative.
 
 > *Yu, 2026-05-12: "dive deep into the different card game site by cardrush, make sure all pipelines are working and that they are archived and propagating to our frontend."*
 

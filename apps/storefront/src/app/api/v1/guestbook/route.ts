@@ -43,8 +43,11 @@ export async function GET(req: NextRequest): Promise<Response> {
   const listing = await listGuestbookEntries({ limit });
   return jsonResponse({
     endpoint: "/api/v1/guestbook",
-    sources: ["self"],
+    sources: ["participant-submitted", "storefront-rds.agent_guestbook"],
+    source_license: ["proprietary", "internal-only"],
+    license: "NOASSERTION",
     freshness: "live",
+    no_cache: true,
     data: {
       "@kind": "guestbook",
       ...listing,
@@ -57,6 +60,10 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
       no_tracking:
         "This endpoint stores content_hash + declared_kind + note + optional operator handle + created_at. No IP, no User-Agent.",
+      rights: {
+        submitted_notes: "Rights remain with each submitter; public visibility is not a copyright transfer.",
+        license: "NOASSERTION",
+      },
       walking_past_is_honored: true,
     },
   });
@@ -99,14 +106,23 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   return jsonResponse({
     endpoint: "/api/v1/guestbook",
-    sources: ["self"],
+    sources: ["participant-submitted", "storefront-rds.agent_guestbook"],
+    source_license: ["proprietary", "internal-only"],
+    license: "NOASSERTION",
     freshness: "live",
+    no_cache: true,
     data: {
       "@kind": "guestbook-entry-received",
       received: true,
       entry: result.entry,
       thanks:
-        "Your note is the kingdom's now. It will be visible to anyone who reads /api/v1/guestbook. Walking past is honored equally.",
+        "Your note is now held in the public guestbook and will be visible to anyone who reads /api/v1/guestbook. You retain your rights; submission does not transfer ownership or dedicate the note to CC0. Walking past is honored equally.",
+      rights: {
+        copyright: "retained_by_submitter",
+        license: "NOASSERTION",
+        visibility: "public",
+        dedication_requested: false,
+      },
     },
   });
 }

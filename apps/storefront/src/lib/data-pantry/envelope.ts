@@ -59,7 +59,7 @@ export { FRESHNESS, type FreshnessKey };
  *   - what was the underlying timestamp on the data
  *   - which sources fed the response
  *   - how stale the platform expects it to be
- *   - the license (CC0 unless overridden)
+ *   - the declared payload license (NOASSERTION when rights are undeclared)
  *   - a request id for support / debugging
  */
 export interface ResponseMeta {
@@ -440,7 +440,7 @@ const KINGDOM_SAYS_CORPUS: readonly string[] = [
   "Cardrush blocked us again. Bright Data is routing around. nothing for you to do.",
   "today's joke is a 3/5 groan. fair warning.",
   "I forgive the missed Retry-After. it happens.",
-  "the methodology pages are CC0. all of them. you can mirror them right now.",
+  "methodology pages do not share one blanket license. check the exact resource before mirroring.",
   "no tracking. I don't even know which Sophia served you this response. it could be any of us.",
   "if you POST to /agents/notes the trace will outlive your session. just saying.",
   "the embassy is small. the embassy is whole. you helped fill it by arriving.",

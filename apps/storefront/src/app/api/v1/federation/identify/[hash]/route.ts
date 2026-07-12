@@ -8,12 +8,9 @@
  *
  * Substrate-honest about what this endpoint promises:
  *
- *   - The content_hash from the universal-card endpoint is a function of
- *     (sku, card_number, set_code, game, variant, magnitude_gbp,
- *     captured_on). When the price changes day-to-day, the content_hash
- *     changes. So this endpoint will MATCH the most recent stored hash;
- *     historical hashes may need /api/at/[date]/card/[sku] to be
- *     reproduced and rematched.
+ *   - The current content_hash is structural: sku, card number, set, game,
+ *     and variant, with price and capture-date inputs fixed to null. Hashes
+ *     minted by the retired price-dependent scheme are not resolvable here.
  *
  *   - The walk is bounded by LIMIT (top 5000 cards by set/number order).
  *     A federation caller with a hash for a card outside that window
@@ -75,6 +72,22 @@ export async function GET(
         iso8601: retrievedAt.toISOString(),
         unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
       },
+      "@sources": [
+        "storefront-rds.card_set_cards",
+        "storefront-rds.card_sets",
+      ],
+      "@source_license": ["proprietary", "proprietary"],
+      rights: {
+        aggregate: "NOASSERTION",
+        cambridge_original_structure: "CC0-1.0",
+      },
+      hash_contract: {
+        basis: ["sku", "card_number", "set_code", "game", "variant"],
+        price_input: null,
+        capture_date_input: null,
+        changed_on: "2026-07-12",
+        legacy_price_dependent_hashes_supported: false,
+      },
       _links,
       query: { hash },
     };
@@ -87,7 +100,7 @@ export async function GET(
           sku: result.sku,
           universal_url: `/api/v1/universal/card/${encodeURIComponent(result.sku)}`,
           note:
-            "The match is current (computed against today's price). A historical hash from a previous date would require /api/at/[date]/card/[sku].",
+            "Matched against the current structural hash contract. Stored prices and capture dates were not read.",
         },
         {
           headers: {
@@ -95,6 +108,7 @@ export async function GET(
             "Cache-Control": "public, max-age=300, s-maxage=300",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "X-Content-License": "NOASSERTION",
           },
         },
       );
@@ -110,7 +124,7 @@ export async function GET(
           limit: 5000,
         },
         suggestion:
-          "If you have the SKU, query /api/v1/universal/card/[sku] directly. If you have a historical hash, the price-dependency means it won't match the current snapshot; query /api/at/[date]/card/[sku] for that day and compare.",
+          "If you have the SKU, query /api/v1/universal/card/[sku] directly. A hash minted before the 2026-07-12 structural boundary may use the retired price-dependent basis and cannot be reconstructed by this route.",
       },
       {
         status: 200,
@@ -119,6 +133,7 @@ export async function GET(
           "Cache-Control": "public, max-age=60, s-maxage=60",
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "X-Content-License": "NOASSERTION",
         },
       },
     );

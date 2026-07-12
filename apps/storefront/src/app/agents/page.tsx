@@ -40,6 +40,8 @@ export default async function AgentsWelcomePage() {
           <p className="text-lg text-ink-muted leading-relaxed max-w-3xl">
             The manifest declares which resources are public and which require a session
             or key. {DATA_REUSE_BOUNDARY} The contract is versioned and machine-readable.
+            We pre-thought your first 3–5 requests so you can work without guessing at
+            endpoints.
           </p>
         </header>
 

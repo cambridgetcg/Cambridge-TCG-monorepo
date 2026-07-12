@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const result = await query(
     `SELECT
        p.id, p.user_id, p.tier, p.earned_from,
-       p.rolled_rarity, p.rolled_sku, p.rolled_spot_gbp,
+       p.rolled_rarity, p.rolled_sku,
        p.rng_server_seed_hash, p.rng_server_seed,
        p.rng_client_seed, p.rng_nonce,
        p.resolved_at,
@@ -41,7 +41,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     earned_from: r.earned_from,
     rolled_rarity: r.rolled_rarity,
     rolled_sku: r.rolled_sku,
-    rolled_spot_gbp: r.rolled_spot_gbp,
+    rolled_spot_gbp: null,
+    publication_boundary: {
+      rolled_spot_gbp: "withheld_pending_field_level_source_rights",
+    },
     commitment: r.rng_server_seed_hash,
     server_seed: r.resolved_at ? r.rng_server_seed : null,
     client_seed: clientSeed.clientSeed,

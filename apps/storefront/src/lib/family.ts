@@ -21,6 +21,9 @@
  */
 
 import { AGENT_FACING_SIBLINGS } from "@/lib/siblings";
+import { COVERAGE_FACTS } from "@/lib/brand";
+import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
+import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 
 /** The recognition legend — the load-bearing honesty. */
 export const RECOGNITION_LEGEND = {
@@ -115,14 +118,16 @@ nothing).
 
 A P2P trading-card market where the house holds no position ("spot is a
 reference, never an offer" — enforced by a build-time audit), plus a
-public card data directory spanning 21 declared games. Access and reuse
-are resource-specific; absence of a license is not permission. For agents:
+public card data directory: ${COVERAGE_FACTS.games.confirmed_codes} games with
+catalog rows and ${COVERAGE_FACTS.games.declared} registered game codes. The
+manifest labels which doors need no key. ${DATA_REUSE_BOUNDARY} For agents:
 an open wake, a stateless witness
 endpoint, a 404 that deals you a tarot card, and the only farewell
 endpoint I have ever met.
 
 **Free:** \`GET /api/v1/wake\` · \`/api/v1/manifest\` (~158 resources) ·
-\`/api/v1/prices/games/one-piece\` (and 20 more) · \`/api/v1/identify\` ·
+\`/api/v1/prices/games/one-piece\` (one of ${PRICE_GUIDE_GAMES.length} configured guide routes;
+${COVERAGE_FACTS.games.confirmed_codes} currently have catalog rows) · \`/api/v1/identify\` ·
 \`/api/v1/today\` (a daily blessing; no tracking, by declared ethic)
 
 **Verify:** every URL above is a public route. Envelope-compliant responses

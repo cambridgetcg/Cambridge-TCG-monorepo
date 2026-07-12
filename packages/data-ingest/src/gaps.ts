@@ -120,18 +120,34 @@ export const GAPS: readonly Gap[] = [
 
   {
     id: "cardmarket-oauth1-not-configured",
-    name: "Cardmarket OAuth1 credentials not yet configured",
+    name: "Cardmarket OAuth1 credentials are not a viable acquisition path",
     domain: "data-ingestion",
     citation:
-      "packages/data-ingest/src/cardmarket/index.ts:72-93 — read() emits an actionable error event when ctx.bearer + ctx.app_token are absent",
+      "https://help.cardmarket.com/en/cardmarket-api — Cardmarket is not accepting API applications; packages/data-ingest/src/cardmarket/index.ts now keeps the legacy OAuth reader dormant",
     primitive:
-      "cardmarket_credentials_pending health flag on /api/v1/sources (when added); the stub's substrate-honest error is the current primitive",
+      "cardmarket SourceMeta access=public-file plus a blocked legacy OAuth path; /api/v1/sources publishes the decision",
     audit: "pnpm audit:tributaries — check 9 (ingest-run recency) skips with substrate-honest reason",
+    status: "closed-published",
+    strength:
+      "Operators no longer waste time applying for closed access or mistake missing secrets for missing permission; the public-file path is named instead.",
+    named_at: "2026-05-12",
+    closed_at: "2026-07-11",
+    closing_kingdom: "source-rights truth review",
+  },
+
+  {
+    id: "cardmarket-public-files-not-wired",
+    name: "Cardmarket public Product Catalog and Price Guide files are not wired",
+    domain: "data-ingestion",
+    citation:
+      "packages/data-ingest/src/cardmarket/index.ts — SourceMeta names access=public-file and read() emits public-file-reader-not-wired without touching OAuth",
+    primitive:
+      "planned Cardmarket SourceModule with public-file access and an explicit non-running status",
+    audit: "pnpm audit:tributaries — source registry and last-run state remain inspectable",
     status: "named",
     strength:
-      "Partners can poll /api/v1/sources to know when EU data lights up without us announcing it; the slot in welcomes.ts addresses Cardmarket directly even before credentials arrive.",
-    named_at: "2026-05-12",
-    closing_kingdom: "K3 (Cardmarket alignment, the prior plan)",
+      "The highest-value EU source now has one lawful, credential-free next action that can be built and measured without reviving the closed OAuth route.",
+    named_at: "2026-07-11",
   },
 
   {
@@ -211,7 +227,7 @@ export const GAPS: readonly Gap[] = [
     audit: "future pnpm audit:name-translations-coverage",
     status: "wired",
     strength:
-      "Cardmarket catalog ingest (Cardmarket Phase A) populates 11 languages per MTG card in one upstream call. The day cardmarket lands, this corpus becomes the cleanest open-license multilingual TCG name corpus available.",
+      "Cardmarket catalog ingest could populate many languages per card in one upstream file. Its proprietary source rights must remain attached; breadth does not make the corpus open-license.",
     named_at: "2026-05-13",
     closing_kingdom: "Cardmarket Phase A",
   },
@@ -292,18 +308,34 @@ export const GAPS: readonly Gap[] = [
     audit: "future pnpm audit:envelope-license-coverage",
     status: "partial",
     strength:
-      "Adopters know per-byte what they can do with our responses. CC-BY-NC sources (Scryfall) propagate restrictions; partner-redistributable (Cardmarket, TCGplayer) propagate their tiers; CC0 (our derivations) propagate freedom. The propagation rule is the contract.",
+      "Adopters know per-byte what they can do with our responses. Policy-governed and proprietary sources propagate restrictions; CC0 applies only to Cambridge-owned derivations and first-party data that explicitly declares it.",
     named_at: "2026-05-12",
+  },
+
+  {
+    id: "catalog-field-rights-lineage-missing",
+    name: "Mirrored catalog fields lack field-level source and rights lineage",
+    domain: "license",
+    citation:
+      "apps/storefront/src/app/data/catalog.jsonl/route.ts and apps/storefront/src/lib/universal/card.ts — current mirrors can name storage tables but not the upstream owner of each name, rarity, image, set field, or derived price",
+    primitive:
+      "Aggregate license=NOASSERTION plus a rights block separating Cambridge-authored structure from upstream-derived fields",
+    audit:
+      "pnpm audit:redistribution — rejects blanket CC0 claims and verifies the catalog, envelope, and sold-comps publication pauses; its registry-backed CC0-origin check currently has zero declared export surfaces",
+    status: "wired",
+    strength:
+      "Collectors and builders get a safe bulk boundary now; future field-level lineage can narrow rights without changing the catalog format or inventing ownership from storage.",
+    named_at: "2026-07-11",
   },
 
   // ── Coverage ──────────────────────────────────────────────────────
 
   {
     id: "speculative-cardrush-subdomains",
-    name: "9 of 12 registered CardRush subdomains are speculative",
+    name: "6 of 12 CardRush subdomains are confirmed; 1 is a candidate and 5 are blocked",
     domain: "coverage",
     citation:
-      "packages/data-ingest/src/cardrush/index.ts:73-87 — CARDRUSH_SUBDOMAINS table; confirmed: false on 8 hosts (mtg/ygo/vng/wei/fab/lgr/bsr/dbs); digimon flipped 2026-07-05",
+      "packages/data-ingest/src/cardrush/index.ts — CARDRUSH_SUBDOMAINS table; op/pkm/dbf/dmw/vng/bsr confirmed, mtg unconfirmed price-only, and ygo/wei/fab/lgr/cardrush-fw blocked after DNS checks",
     primitive:
       "subdomain_confirmed boolean on each registry entry; CardRushRaw.error_reason carries 'subdomain_unconfirmed' on first failed scrape",
     audit: "pnpm audit:cardrush-coverage — surfaces uncovered subdomains explicitly",

@@ -5,7 +5,7 @@ import { audienceMetadata, TypeSignature } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Declaration of data intentions",
   description:
-    "What data the kingdom takes, what it gives, and what it will never do — one legal gate in writing before any source, the one CC0 sold-price dataset we own, and the honest blocks.",
+    "What data the kingdom takes, what it gives, and what it will never do — one legal gate before any source, paused sold-comps publication, and honest blocks.",
   other: audienceMetadata("public-documentation", ["methodology", "foundational"]),
 };
 
@@ -23,20 +23,22 @@ export default function DataIntentionsMethodology() {
         </em>
       </p>
       <p>
-        A price the kingdom shows you came from somewhere. Some of those
-        somewheres are our own transactions, freely ours to share. Some belong
-        to other people — a seller on another marketplace, a catalog someone
-        else assembled, a paid feed under contract. Honesty about data begins
+        A price the kingdom shows you came from somewhere. Some are records of
+        transactions facilitated here; those records involve participants and
+        are not ours to republish without purpose-specific permission. Others
+        come from a seller on another marketplace, a catalog someone else
+        assembled, or a paid feed under contract. Honesty about data begins
         with being honest about <em>whose</em> data it is, and what right we
         have to pass it on. This page is that honesty, in plain terms. It is
         deliberately <strong>non-aspirational</strong>: it names only what is
         true today.
       </p>
 
-      <h2>One gate, in writing, before any source</h2>
+      <h2>One gate, in writing, before new sources</h2>
       <p>
-        Before a single line of ingestion code exists for a new source, that
-        source passes a written legal gate — the{" "}
+        For sources added from 2026-07-11 onward, the written gate comes before
+        ingestion code. Legacy adapters must pass the same intake before they
+        are activated or their data receives a new publication path. The gate is the{" "}
         <a href={`${GH}/docs/methodology/source-intake.md`}>
           source-intake framework
         </a>
@@ -56,8 +58,10 @@ export default function DataIntentionsMethodology() {
           <strong>Gate B — intention declared.</strong> The source&apos;s whole
           intention is written down as machine-readable metadata (its access
           method, license tier, whether it may be redistributed) before the
-          module exists. That declaration ships in the code and surfaces on
-          every response&apos;s <code>_meta</code>.
+          module is activated. That declaration ships in the code and surfaces
+          on envelope responses where source rights are known; incomplete
+          field-level lineage is labelled <code>NOASSERTION</code> rather than
+          filled by inference.
         </li>
         <li>
           <strong>Gate C — tier.</strong> The source is placed in an existing
@@ -98,16 +102,17 @@ export default function DataIntentionsMethodology() {
           where that contract does not exist.
         </li>
         <li>
-          <strong>Attribution — catalog sources, credited.</strong> Card
-          identity and set data from open catalogs we build on. Shown and
-          shared with the source <em>credited, never relabelled</em> as ours.
+          <strong>Source-specific — upstream catalogs.</strong> Public API
+          access is not an open-data license. We preserve source and publisher
+          rights, and mixed exports say <code>NOASSERTION</code> until
+          field-level lineage can support a narrower claim.
         </li>
         <li>
-          <strong>Reference-only / internal — shown, computed-from, never bulk
-          re-exported.</strong> Prices from partners and third-party markets
-          (eBay, CardRush, TCGplayer). We may display them and compute over them
-          under the terms we hold, but we do not hand you a bulk copy — that is
-          theirs to license, not ours to give away.
+          <strong>Reference-only / internal — reviewed use only.</strong>{" "}
+          Third-party prices enter only when permission covers the exact
+          display or computation. CardRush has a bounded internal-use path;
+          TCGplayer is blocked because Cambridge has no written approval for
+          its multi-source use.
         </li>
         <li>
           <strong>Off-limits.</strong> Anything obtained by scraping a
@@ -178,9 +183,10 @@ export default function DataIntentionsMethodology() {
           pre-scraped from a vendor to launder the exposure through a middleman.
         </li>
         <li>
-          Publish anyone&apos;s individual sold price, identity, payment, or
-          shipping detail — ours is aggregate, K-anonymous, and PII-stripped, or
-          it is not published.
+          Treat aggregation, K-anonymity, or PII removal as permission to
+          publish completed trades. Publication also needs a purpose-specific
+          participant receipt and a fresh rights decision; without both, it
+          remains paused.
         </li>
         <li>
           Dress inference as a transaction. A last-asking-price guess is never

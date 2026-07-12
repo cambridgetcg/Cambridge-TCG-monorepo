@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const r = await query(
     `SELECT p.id, p.tier, p.rolled_rarity, p.rng_server_seed_hash,
             p.resolved_at,
-            v.card_name, v.card_number, v.image_url, v.spot_price_gbp
+            v.card_name, v.card_number
        FROM bounty_pulls p
        LEFT JOIN vault_items v ON v.id = p.vault_item_id
       WHERE p.id = $1 AND p.resolved_at IS NOT NULL`,
@@ -37,8 +37,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     resolvedAt: row.resolved_at,
     cardName: row.card_name ?? "—",
     cardNumber: row.card_number,
-    imageUrl: row.image_url,
-    spotGbp: row.spot_price_gbp ? parseFloat(row.spot_price_gbp) : null,
+    imageUrl: null,
+    spotGbp: null,
   });
 
   return new Response(svg, {

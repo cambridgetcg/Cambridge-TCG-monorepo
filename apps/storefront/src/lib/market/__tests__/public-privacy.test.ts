@@ -82,12 +82,13 @@ describe("public market privacy projections", () => {
     expect(leaderboard).toContain("busiestSkus: []");
   });
 
-  it("keeps the read-only mirror on offers and reference history", () => {
+  it("keeps the read-only mirror on current offers and pauses mixed reference history", () => {
     const composer = source("src/lib/market/card-market.ts");
     expect(composer).toContain('return { entries: [] }');
     expect(composer).toContain("vwap_30d: null");
     expect(composer).toContain('"market_orders"');
-    expect(composer).toContain('"card_price_history"');
+    expect(composer).not.toContain('FROM card_price_history');
+    expect(composer).toContain("const window_365d: PriceHistoryPoint[] = []");
     expect(composer).not.toContain("last_trade_price");
     expect(composer).not.toContain("CardMarketParticipants");
   });

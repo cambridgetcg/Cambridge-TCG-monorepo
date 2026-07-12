@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // template has everything it needs.
   const item = await query(
     `SELECT v.id, v.user_id, v.redemption_order_id, v.status, v.card_name,
-            v.card_number, v.rarity, v.image_url, v.acquired_at,
+            v.card_number, v.rarity, NULL::text AS image_url, v.acquired_at,
             co.shipping_name, co.shipping_address
      FROM vault_items v
      LEFT JOIN customer_orders co ON co.id = v.redemption_order_id
@@ -94,7 +94,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     cardName: v.card_name,
     cardNumber: v.card_number,
     rarity: v.rarity,
-    imageUrl: v.image_url,
+    imageUrl: null,
     shippingName: v.shipping_name ?? "",
     shippingAddress: v.shipping_address ?? "",
     orderId,

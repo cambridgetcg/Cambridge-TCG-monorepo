@@ -42,7 +42,7 @@ export type CatalogResolution =
 
 const CATALOG_SELECT = `
   SELECT c.sku, c.card_number, c.card_name, c.set_code,
-         s.set_name, c.rarity, c.image_url
+         s.set_name, c.rarity, NULL::text AS image_url
     FROM card_set_cards c
     JOIN card_sets s ON s.set_code = c.set_code`;
 
@@ -659,7 +659,7 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
   return {
     sku,
     card_name: cardInfo.rows[0]?.card_name || null,
-    image_url: cardInfo.rows[0]?.image_url || null,
+    image_url: null,
     bids,
     asks,
     // Keep the response field for client compatibility while completed-trade
@@ -725,7 +725,7 @@ export async function getMarketSummaries(filters: {
       card_name: row.card_name,
       set_code: row.set_code,
       set_name: row.set_name,
-      image_url: row.image_url,
+      image_url: null,
       best_bid: row.best_bid,
       best_ask: row.best_ask,
       spread: bestBid && bestAsk ? bestAsk - bestBid : null,

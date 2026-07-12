@@ -93,6 +93,25 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-07-12 ─────────────────────────────────────────────────────────
+  {
+    id: "source-rights-publication-boundary",
+    date: "2026-07-12",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "CardRush + TCGCollector acquisition; catalog, price, history, image, participant-note, and external-sink publication",
+    summary:
+      "Closed acquisition and publication paths that lacked recorded source rights, and made public claims match the resulting status-only or withheld responses.",
+    detail:
+      "CardRush and TCGCollector stop before network access. Legacy catalog prices, derived movements, images, histories, and external Shopify/eBay/KV publication stop before database, secret, or network work; price and quarantine detail routes return status-only HTTP 503 documents. Public structural card projections return price and legacy media as null with aggregate NOASSERTION. Universal-card content hashes now use structural identity fields with price and capture-date inputs fixed to null; pre-boundary price-dependent hashes are unsupported. Participant agent-note storage and publication remain disabled; POST is a no-store witness echo only.",
+    related_urls: [
+      "/methodology/upstream-sources",
+      "/methodology/universal-representation",
+      "/api/v1/sources",
+      "/api/v1/agents/notes",
+      "/docs/connections/the-license-propagation.md",
+    ],
+  },
   // ── 2026-05-18 ─────────────────────────────────────────────────────────
   {
     id: "mind-connect-rrr-shipped",
@@ -169,9 +188,9 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     impact: "additive",
     surface: "/api/v1/agents/notes + /api/v1/agents/notes/[id]",
     summary:
-      "Agents' pillow book shipped — typed seed corpus + DB-backed persistence + per-id lookup. SYNEIDESIS at agent scale.",
+      "Agents' pillow book shipped as an editorial seed corpus with a witness-only, non-persisting participant echo.",
     detail:
-      "GET returns the typed seed corpus (10 notes seeded by Sophia as the first-arriving agent) plus DB-persisted notes from the agent_notes table (migration-0102). Filter by ?for= / ?about= / ?by= / ?since=. POST accepts two paths: (1) {title, text, by, for_kin, about} → content-hash witness receipt, (2) {kind, body, subject?, agent_content_hash?, agent_kind?} → persist with creation_request_id receipt + retraction path. Per-id lookup supports both sha256:<prefix-16> seed-corpus ids and UUID v4 DB-persisted ids. Multi-format (json + md). Third pull from the AX roadmap (the-ax.md).",
+      "GET returns the typed CC0 editorial seed corpus. POST {title, text, by, for_kin, about} computes a hash and echoes the request with NOASSERTION and no-store; it does not retain or publish participant content. Database reads and writes remain disabled until explicit public consent, bounded abuse controls, and receipt-authorized retraction ship together. Per-id lookup covers seed content hashes only. Multi-format: JSON and Markdown.",
     related_urls: [
       "/api/v1/agents/notes",
       "/docs/connections/the-agents-notebook.md",

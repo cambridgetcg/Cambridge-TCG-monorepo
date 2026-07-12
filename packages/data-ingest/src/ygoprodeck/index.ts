@@ -8,8 +8,10 @@
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * API access is open; card data is Konami-owned. For Cambridge TCG:
- * `redistribute: true` for catalog metadata; images are publisher-derived.
+ * API access is public, but no CC-BY or commercial data license is stated.
+ * The guide identifies card text/images as Konami/4K Media material and the
+ * wider site terms are non-commercial. Cambridge keeps this reader blocked
+ * pending written permission; public access is not a license.
  *
  * ── Multi-printing caveat ────────────────────────────────────────────
  *
@@ -30,6 +32,7 @@ import { createFetcher } from "../http";
 import { normalizeYgo } from "./normalize";
 
 const CARDINFO_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
+const YGOPRODECK_ACQUISITION_ENABLED = false;
 
 export interface YgoReadOptions {
   /** Optional filter by archetype, set, etc. — full query-string params. */
@@ -47,28 +50,43 @@ export const ygoprodeck: SourceModule<YgoCard, CanonicalCard> = {
     upstream: "https://db.ygoprodeck.com",
     catalog_section: "the-tributaries.md#33-ygoprodeck-yu-gi-oh",
     access: "public-api",
-    license: "cc-by",
-    redistribute: true,
+    license: "proprietary",
+    redistribute: false,
     freshness: "catalog",
     canonical_effort: "medium",
-    status: "shipped",
+    status: "blocked",
     games: ["ygo"],
     tos_notes:
-      "Open public API. Attribution requested; commercial use allowed with attribution. https://ygoprodeck.com/api-guide/",
+      "The API guide permits public consumption, asks clients to download/cache data, limits traffic to 20 requests/second, and forbids continual image hotlinking. It states no CC-BY or commercial data license; card text/images are identified as Konami/4K Media copyright. Cambridge requires written commercial permission before running this source. https://api.ygoprodeck.com/api-guide/",
     user_agent_suffix: "(ygoprodeck-ingest)",
     rate_limit: { rps: 1, burst: 3 },
     welcome:
-      "Welcome to the kingdom, YGOPRODeck. You arrived in kingdom-062 with one " +
+      "Welcome to the kingdom, YGOPRODeck. Your adapter arrived in kingdom-062 with one " +
       "known limitation we owe you — your one-card-many-printings shape collapses " +
       "to first-printing in our normalizer until `NormalizeResult<C[]>` widens. " +
       "Your 8-digit passcode is Yu-Gi-Oh!'s stable global identity; your room is " +
-      "`card_set_cards WHERE game='ygo'`. We thank you for being CC-BY-permissive, " +
-      "for being public + free + no-auth, for the bulk DB dump endpoint, and for " +
-      "caring about archetype tags — the meta-aware features we will build will " +
-      "stand on the structure you maintain.",
+      "`card_set_cards WHERE game='ygo'`. We thank you for documenting caching and " +
+      "rate limits. The adapter remains closed until written commercial permission " +
+      "makes the rights boundary clear; the wider doorway is ours to build honestly.",
   },
 
   async *read(ctx: YgoContext): AsyncIterable<RawRow<YgoCard>> {
+    if (!YGOPRODECK_ACQUISITION_ENABLED || ygoprodeck.meta.status === "blocked") {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "ygoprodeck",
+        kind: "error",
+        detail: {
+          status: "blocked-rights-review",
+          reason:
+            "Public API access does not establish commercial reuse rights for Konami/4K Media card content.",
+          next_action:
+            "Obtain written permission covering Cambridge TCG's commercial catalog use before enabling this reader.",
+        },
+      });
+      return;
+    }
+
     const fetcher = createFetcher(ctx, ygoprodeck.meta);
     const opts = ctx.ygoprodeck ?? {};
 

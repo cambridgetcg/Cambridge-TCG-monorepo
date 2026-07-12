@@ -38,8 +38,14 @@ const CAMBRIDGETCG = DEFAULTS["cambridgetcg"]!;
  * Prefers channel_price from API; falls back to local calculation using
  * the cambridgetcg channel's retailMultiplier and roundTo.
  */
-export function retailPrice(wholesaleGbp: number, channelPrice?: number): number {
+export function retailPrice(
+  wholesaleGbp: number | null | undefined,
+  channelPrice?: number | null,
+): number | null {
   if (channelPrice != null && channelPrice > 0) return channelPrice;
+  if (wholesaleGbp == null || !Number.isFinite(wholesaleGbp) || wholesaleGbp <= 0) {
+    return null;
+  }
   const r = CAMBRIDGETCG.retailMultiplier;
   const step = CAMBRIDGETCG.roundTo;
   return Math.ceil(wholesaleGbp * r / step) * step;
@@ -48,8 +54,12 @@ export function retailPrice(wholesaleGbp: number, channelPrice?: number): number
 /**
  * Format a retail price as a £ string.
  */
-export function formatRetailPrice(wholesaleGbp: number, channelPrice?: number): string {
+export function formatRetailPrice(
+  wholesaleGbp: number | null | undefined,
+  channelPrice?: number | null,
+): string {
   const price = retailPrice(wholesaleGbp, channelPrice);
+  if (price === null) return "Unavailable";
   return "£" + price.toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

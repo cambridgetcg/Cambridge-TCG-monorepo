@@ -106,7 +106,13 @@ import {
   ingestQuarantine,
 } from "@/lib/db/schema";
 import type { CardRushContext } from "@cambridge-tcg/data-ingest";
-import { cardrush, runSource, CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  cardrush,
+  runSource,
+  CARDRUSH_SUBDOMAINS,
+} from "@cambridge-tcg/data-ingest";
 import { fetchGbpJpyRate } from "@/lib/fx";
 import { calculatePriceByCategory } from "@/lib/pricing";
 import { logPriceChange } from "@/lib/price-change-log";
@@ -188,6 +194,9 @@ const PROXY_COOLDOWN_HOURS = 24;
 export async function runDailySnapshotV2(
   options?: SnapshotV2Options,
 ): Promise<SnapshotV2Result> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   const startMs = Date.now();
   const snapshotDate = options?.date ?? new Date().toISOString().slice(0, 10);
   const triggeredBy = options?.triggeredBy ?? "cron";

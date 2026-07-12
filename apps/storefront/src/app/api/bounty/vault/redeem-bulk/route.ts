@@ -111,9 +111,9 @@ export async function POST(request: Request) {
     name: it.card_name,
     card_number: it.card_number,
     rarity: it.rarity,
-    image_url: it.image_url,
+    image_url: null,
     quantity: 1,
-    spot_price_gbp: it.spot_price_gbp,
+    spot_price_gbp: null,
   }));
 
   const order = await query(

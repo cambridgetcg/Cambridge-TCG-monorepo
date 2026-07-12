@@ -51,7 +51,7 @@ export async function catalogSearch(_actor: unknown, params: { q?: string; limit
         sku: row.sku,
         name: row.name,
         card_number: row.card_number,
-        image_url: row.image_url,
+        image_url: null,
         rarity: row.rarity,
         set_name: row.set_name,
         game: row.game,

@@ -13,6 +13,10 @@
 import { db } from "./db";
 import { cards, priceArchive, games } from "./db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "./source-publication-policy";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -164,6 +168,9 @@ function sortItems(items: BuylistItem[]): BuylistItem[] {
 // ---------------------------------------------------------------------------
 
 export async function buildBuylist(): Promise<BuylistData> {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    throw new Error(`Buylist publication is blocked. ${LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON}`);
+  }
   // 1. Find the One Piece game_id
   const [opGame] = await db
     .select({ id: games.id })

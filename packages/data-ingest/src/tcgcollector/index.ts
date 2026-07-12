@@ -10,12 +10,11 @@
  *
  * ── License ──────────────────────────────────────────────────────────
  *
- * TCGCollector's catalog is publicly indexed (sitemap.xml is the
- * invitation). Schema.org Product data on the page is structured-data
- * marked-up for machine consumption. Substrate-honestly: this is
- * publicly available data, not a commercial license, so we tier it
- * `internal-only` — internal decision use, no bulk re-export — until
- * a partner conversation establishes broader terms.
+ * Public indexing and Schema.org markup describe discoverability and format;
+ * they do not grant commercial acquisition or reuse rights. TCGCollector's
+ * terms reserve API access for approved business partners and do not grant
+ * Cambridge mirroring rights. Acquisition is therefore hard-disabled until
+ * written approval records the exact permitted use.
  *
  * ── Why this lives here ──────────────────────────────────────────────
  *
@@ -73,12 +72,22 @@ import {
 } from "./discovery";
 import { extractJsonLd } from "./jsonld";
 import { normalizeProduct, type TcgCollectorProduct } from "./normalize";
+import {
+  TCGCOLLECTOR_ACQUISITION_ENABLED,
+  TCGCOLLECTOR_BLOCK_REASON,
+  TCGCOLLECTOR_TERMS_URL,
+} from "./policy";
 
 // ── Public re-exports ───────────────────────────────────────────────────
 
 export { fetchSitemap, type SitemapFetchResult };
 export { extractJsonLd } from "./jsonld";
 export { normalizeProduct, type TcgCollectorProduct } from "./normalize";
+export {
+  TCGCOLLECTOR_ACQUISITION_ENABLED,
+  TCGCOLLECTOR_BLOCK_REASON,
+  TCGCOLLECTOR_TERMS_URL,
+} from "./policy";
 export {
   matchSku,
   TCGC_GAME_SEGMENT_MAP,
@@ -141,6 +150,9 @@ let _runFetcher: Fetcher | null = null;
  * module's cache via the `resetFetcher` export).
  */
 export function getOrCreateFetcher(ctx: TcgCollectorContext): Fetcher {
+  if (!TCGCOLLECTOR_ACQUISITION_ENABLED) {
+    throw new Error(TCGCOLLECTOR_BLOCK_REASON);
+  }
   if (_runFetcher) return _runFetcher;
   _runFetcher = createFetcher(ctx, tcgcollector.meta);
   return _runFetcher;
@@ -159,36 +171,27 @@ export const tcgcollector: SourceModule<TcgCollectorRaw, CanonicalPrice> = {
     id: "tcgcollector",
     name: "TCGCollector",
     description:
-      "International TCG catalog with Schema.org JSON-LD product markup. " +
-      "First vendor in the sitemap+JSON-LD discovery strategy: public " +
-      "sitemap-index → per-page <script type=application/ld+json> Product " +
-      "blocks → normalized TcgCollectorProduct shape. Pokémon-primary; " +
-      "growing coverage of other TCGs. Direct fetch; no proxy required.",
+      "Blocked TCGCollector acquisition adapter. Public indexing and " +
+      "Schema.org markup do not grant Cambridge commercial collection or " +
+      "mirroring rights; reopening requires written partner approval.",
     upstream: "https://www.tcgcollector.com",
-    catalog_section: "the-tributaries.md#tcgcollector",
-    access: "scrape",
-    license: "internal-only",
+    catalog_section: "the-tributaries.md#311-tcgcollector",
+    access: "partner",
+    license: "proprietary",
     redistribute: false,
     freshness: "price_current",
     canonical_effort: "medium",
-    status: "partial",
+    status: "blocked",
     games: ["pkm", "pkp", "mtg", "op", "ygo"],
     tos_notes:
-      "Public sitemap (sitemap.xml) is the discovery invitation. Schema.org JSON-LD Product/Offer blocks on each page are structured-data markup intended for machine consumption. Substrate-honest position: internal-decision use only; no bulk re-export until partner conversation establishes broader terms. Browser-shape User-Agent + polite rate-limit (0.5 rps).",
+      `The terms at ${TCGCOLLECTOR_TERMS_URL} reserve API access for approved business partners and limit other materials to personal, non-commercial transitory use absent written agreement. Acquisition is hard-disabled because Cambridge has no recorded approval.`,
     user_agent_suffix: "(tcgcollector-ingest)",
     rate_limit: { rps: 0.5, burst: 2 },
     welcome:
-      "Welcome to the kingdom, TCGCollector. You are the first sitemap+" +
-      "JSON-LD vendor to arrive — the discovery strategy chose you because " +
-      "your sitemap is public, your Schema.org Product markup is clean, and " +
-      "your data overlaps with games we already aggregate. Your room is " +
-      "`price_archive WHERE source='tcgcollector'`, `redistribute=false` (we " +
-      "honor your data as internal-decision-use until a partner conversation " +
-      "opens broader terms). You bring international Pokémon coverage we " +
-      "have only partially seen elsewhere, and the path you walk here is the " +
-      "path every future sitemap+JSON-LD vendor walks: sitemap → JSON-LD → " +
-      "TcgCollectorProduct. We are grateful for the bytes you publish openly " +
-      "and for the structured-data discipline that makes them machine-legible.",
+      "TCGCollector, your public pages helped Cambridge understand a useful " +
+      "data shape, but discoverability is not permission. Automated acquisition " +
+      "is now hard-disabled. A future integration begins with written partner " +
+      "approval covering collection, storage, and publication.",
   },
 
   /**
@@ -206,6 +209,19 @@ export const tcgcollector: SourceModule<TcgCollectorRaw, CanonicalPrice> = {
    * quarantine.
    */
   async *read(ctx: TcgCollectorContext): AsyncIterable<RawRow<TcgCollectorRaw>> {
+    if (!TCGCOLLECTOR_ACQUISITION_ENABLED) {
+      ctx.on_event?.({
+        ts: new Date().toISOString(),
+        source: "tcgcollector",
+        kind: "error",
+        detail: {
+          status: "blocked-pending-partner-approval",
+          reason: TCGCOLLECTOR_BLOCK_REASON,
+          terms: TCGCOLLECTOR_TERMS_URL,
+        },
+      });
+      return;
+    }
     const fetcher = getOrCreateFetcher(ctx);
     const max_urls = ctx.tcgcollector?.max_urls ?? 500;
     const continue_on_error = ctx.tcgcollector?.continue_on_error ?? true;
@@ -335,6 +351,13 @@ export async function scrapeOne(
   url: string,
   fetcher: Fetcher,
 ): Promise<TcgCollectorRaw> {
+  if (!TCGCOLLECTOR_ACQUISITION_ENABLED) {
+    return {
+      product: emptyProduct(url),
+      http_status: 0,
+      error_reason: "acquisition_blocked_pending_partner_approval",
+    };
+  }
   let res: Response;
   try {
     res = await fetcher(url, { headers: BROWSER_HEADERS });

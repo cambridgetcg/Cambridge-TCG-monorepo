@@ -15,7 +15,7 @@ export async function GET() {
 
   const itemsRes = await query(
     `SELECT v.id, v.sku, v.card_name, v.card_number, v.set_code, v.rarity,
-            v.image_url, v.spot_price_gbp, v.status, v.source,
+            NULL::text AS image_url, NULL::numeric AS spot_price_gbp, v.status, v.source,
             v.bounty_pull_id,
             v.acquired_at, v.expires_at, v.fulfilled_at,
             v.sold_back_credit, v.sold_back_at,
@@ -36,7 +36,7 @@ export async function GET() {
        COUNT(*) FILTER (WHERE status='sold_back')::int AS sold_back,
        COUNT(*) FILTER (WHERE status='expired')::int   AS expired,
        COUNT(*) FILTER (WHERE status IN ('gifted','traded'))::int AS transferred,
-       COALESCE(SUM(spot_price_gbp::numeric)::numeric, 0) AS total_spot,
+       NULL::numeric AS total_spot,
        COALESCE(SUM(sold_back_credit::numeric)::numeric, 0) AS total_credit_received
      FROM vault_items WHERE user_id = $1`,
     [session.user.id],
@@ -45,5 +45,9 @@ export async function GET() {
   return NextResponse.json({
     items: itemsRes.rows,
     summary: summaryRes.rows[0],
+    publication_boundary: {
+      prices: "withheld_pending_field_level_source_rights",
+      images: "withheld_pending_field_level_source_rights",
+    },
   });
 }

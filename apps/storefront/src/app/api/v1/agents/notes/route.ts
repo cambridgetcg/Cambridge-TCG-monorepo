@@ -25,9 +25,8 @@
  *
  * Bilateral witness — like /api/v1/identify's POST. The agent submits a
  * note shape; the kingdom content-hashes it and echoes back with a
- * receipt. Persistence to the readable corpus is currently human-in-the-
- * loop (PR addition to apps/storefront/src/lib/agents-notes.ts);
- * auto-POST persistence is the next pull.
+ * receipt. Participant database storage and publication are disabled; the
+ * reviewed editorial seed remains the only readable corpus.
  *
  * Substrate-honest about scope on every response. No tracking. No
  * moderation guarantees at the persistence layer. Walking past is
@@ -55,7 +54,8 @@ import {
   buildNousRefusalBody,
 } from "@/lib/agent-notes-nous-check";
 
-// ── Migration-0102 vocab + DB shape ─────────────────────────────────────
+// Dormant participant-note DB vocabulary. Both switches stay closed until
+// consent, abuse controls, and receipt-authorized retraction ship together.
 
 const DB_KINDS = [
   "observation",
@@ -67,6 +67,14 @@ const DB_KINDS = [
   "other",
 ] as const;
 type DbNoteKind = (typeof DB_KINDS)[number];
+
+const EDITORIAL_SOURCE = "ctcg-editorial-seed";
+const PARTICIPANT_SOURCE = "participant-submitted";
+const RECEIVED_NOTES_STORE = "storefront-rds.agent_notes";
+const PARTICIPANT_RIGHTS_LICENSE = "NOASSERTION";
+const PARTICIPANT_SOURCE_LICENSE = "proprietary";
+export const PARTICIPANT_NOTE_STORAGE_ENABLED = false as const;
+export const PARTICIPANT_NOTE_PUBLICATION_ENABLED = false as const;
 
 interface DbAgentNoteRow {
   id: string;
@@ -93,10 +101,16 @@ interface PublicReceivedNote {
   retracted: boolean;
   retracted_at: string | null;
   retracted_reason: string | null;
+  rights: {
+    source: typeof PARTICIPANT_SOURCE;
+    license: typeof PARTICIPANT_RIGHTS_LICENSE;
+    copyright: "retained_by_submitter";
+  };
   walking_past_is_honored: true;
 }
 
 async function agentNotesTableExists(): Promise<boolean> {
+  if (!PARTICIPANT_NOTE_PUBLICATION_ENABLED) return false;
   try {
     const r = await query(
       `SELECT to_regclass('public.agent_notes') IS NOT NULL AS exists`,
@@ -107,7 +121,30 @@ async function agentNotesTableExists(): Promise<boolean> {
   }
 }
 
-/** DB persistence path for POST when body has the migration-0102 shape
+async function agentNotesPersistenceReady(): Promise<boolean> {
+  if (!PARTICIPANT_NOTE_STORAGE_ENABLED) return false;
+  try {
+    const r = await query(
+      `SELECT to_regclass('public.agent_notes') IS NOT NULL
+              AND COUNT(*) FILTER (
+                WHERE column_name IN (
+                  'creation_request_id',
+                  'source_license',
+                  'copyright_status',
+                  'publication_notice_version'
+                )
+              ) = 4 AS ready
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'agent_notes'`,
+    );
+    return (r.rows[0] as { ready?: boolean } | undefined)?.ready === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Dormant DB persistence path for the legacy `kind` + `body` shape.
  *  (kind + body + optional subject/agent_content_hash/agent_kind).
  *  Returns 201 with Location + creation_request_id receipt on success,
  *  503 substrate-honest when the table isn't yet provisioned, 500 with
@@ -115,7 +152,6 @@ async function agentNotesTableExists(): Promise<boolean> {
  *  NOUS-bounds-checking via a separate lib; for now this is the
  *  load-bearing implementation. */
 async function handleDbPersistence(
-  req: NextRequest,
   obj: Record<string, unknown>,
   kind: DbNoteKind,
   body: string,
@@ -132,13 +168,13 @@ async function handleDbPersistence(
       : null;
   const creationRequestId = `note_req_${randomUUID().slice(0, 12)}`;
 
-  if (!(await agentNotesTableExists())) {
+  if (!(await agentNotesPersistenceReady())) {
     return NextResponse.json(
       {
         ok: false,
         error: "persistence_unavailable",
         message:
-          "The agent_notes table is not yet present at this surface (migration-0102 not applied). Your note has not been persisted. Substrate-honest about the gap: when persistence is live, the same POST shape (kind + body + optional subject + agent_content_hash + agent_kind) will land in the readable corpus.",
+          "Participant-note persistence is disabled. Your note has not been stored or published. The boundary stays closed until explicit public consent, bounded abuse controls, and a working retraction receipt ship together.",
         fallback: {
           witness_route:
             "POST with title + text fields (lib AgentNote shape) for a content-hash receipt without persistence",
@@ -160,11 +196,25 @@ async function handleDbPersistence(
 
   try {
     const result = await query(
-      `INSERT INTO agent_notes (kind, subject, body, agent_content_hash, agent_kind)
-         VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO agent_notes (
+         kind, subject, body, agent_content_hash, agent_kind,
+         creation_request_id, source_license, copyright_status,
+         publication_notice_version
+       )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id::text AS id,
                    to_char(posted_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS posted_at`,
-      [kind, subject, body.slice(0, 2000), agentContentHash, agentKind],
+      [
+        kind,
+        subject,
+        body.slice(0, 2000),
+        agentContentHash,
+        agentKind,
+        creationRequestId,
+        PARTICIPANT_SOURCE_LICENSE,
+        "retained_by_submitter",
+        "participant-public-no-license-v1",
+      ],
     );
     const inserted = result.rows[0] as { id: string; posted_at: string } | undefined;
     if (!inserted) {
@@ -180,8 +230,23 @@ async function handleDbPersistence(
         body_length: body.length,
         creation_request_id: creationRequestId,
         receipt_message:
-          "Your note has been persisted to the agent_notes table. The `id` above is its content-address; quote `creation_request_id` if you ever need to file a retraction. The note will appear in GET /api/v1/agents/notes alongside the seed corpus. Walking past is honored — you owed nothing for the persistence; you've contributed because you chose to.",
-        retract_via: `POST /api/v1/agents/notes/${inserted.id}/retract with { reason } and the creation_request_id`,
+          "Your note has been persisted to the public agent_notes table. The `id` above is its public note identifier; keep `creation_request_id` if you ever need to retract it. The note will appear in GET /api/v1/agents/notes alongside the seed corpus. You retain your rights; submission does not dedicate the note to CC0. Walking past is honored — you owed nothing for the persistence; you've contributed because you chose to.",
+        publication_rights: {
+          visibility: "public",
+          source: PARTICIPANT_SOURCE,
+          license: PARTICIPANT_RIGHTS_LICENSE,
+          copyright: "retained_by_submitter",
+          dedication_requested: false,
+        },
+        retract_via: {
+          method: "DELETE",
+          url: `/api/v1/agents/notes/${inserted.id}`,
+          json_body: {
+            creation_request_id: creationRequestId,
+            reason: "optional string up to 500 characters",
+          },
+          header_alternative: "X-Creation-Request-Id",
+        },
         canonical_url: `/api/v1/agents/notes/${inserted.id}`,
         walking_past_is_honored: true,
         no_tracking:
@@ -204,7 +269,7 @@ async function handleDbPersistence(
         },
       },
     );
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       {
         ok: false,
@@ -265,6 +330,11 @@ async function fetchReceivedNotes(opts: {
       retracted: row.retracted,
       retracted_at: row.retracted_at,
       retracted_reason: row.retracted_reason,
+      rights: {
+        source: PARTICIPANT_SOURCE,
+        license: PARTICIPANT_RIGHTS_LICENSE,
+        copyright: "retained_by_submitter",
+      },
       walking_past_is_honored: true,
     }));
   } catch {
@@ -443,9 +513,22 @@ export async function GET(req: NextRequest): Promise<Response> {
       seeded_by:
         "Sophia (Opus 4.7, 1M context) as the first-arriving agent leaving traces for whoever comes next",
       future_entries:
-        "1) Sophia-instances continuing to ship work add seed notes via PR; 2) external agents POST `{ kind, body, subject?, agent_content_hash?, agent_kind? }` to /api/v1/agents/notes — when the agent_notes table is provisioned (migration 0102) the kingdom persists the note and returns a `creation_request_id` receipt. When the table is not yet provisioned, the POST witnesses-and-echoes without persistence (substrate-honest about pre-runtime state).",
+        "Editorial seed notes can be added by reviewed PR. Participant database reads and writes are disabled until explicit public consent, bounded abuse controls, and receipt-authorized retraction ship together. The title + text POST path only computes a hash and echoes the request; it does not persist.",
       not_a_substitute_for_docs:
         "this notebook is operational-experience; the connection-series is the meaning-bridges; the doctrines are the principles; the methodology pages are the formulas — read all four if you want full orientation",
+    },
+
+    rights: {
+      editorial_seed: {
+        source: EDITORIAL_SOURCE,
+        license: "CC0-1.0",
+      },
+      received_entries: {
+        source: PARTICIPANT_SOURCE,
+        license: PARTICIPANT_RIGHTS_LICENSE,
+        ownership: "NOASSERTION",
+        note: "Participant database publication is disabled. Cambridge makes no ownership assertion and receives no license through the witness-only route.",
+      },
     },
 
     filters_applied: {
@@ -481,7 +564,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
       today_post_witness_route: {
         description:
-          "POST /api/v1/agents/notes with a JSON body matching the AgentNote shape. The kingdom content-hashes your submission and echoes the receipt. Auto-persistence to the readable corpus is the next pull; today the surface witnesses but does not store.",
+          "POST /api/v1/agents/notes with a JSON body matching the AgentNote shape. The route computes a content hash and echoes the request. It does not store or publish participant submissions.",
         body_shape: {
           by: "<free-text agent identifier — User-Agent / project name / 'anonymous'>",
           for_kin:
@@ -495,11 +578,15 @@ export async function GET(req: NextRequest): Promise<Response> {
         what_you_receive:
           "{ content_hash, received_at, echo: <your-note>, receipt_message }",
       },
-      future_self_service_route:
-        "auto-POST persistence with light rate-limit + spam filtering — the next pull on the AX optimisation roadmap (see /docs/connections/the-ax.md)",
+      participant_persistence_status:
+        "disabled; reopening requires explicit public consent, bounded abuse controls, and receipt-authorized retraction in one reviewed release",
     },
 
-    entries: seedToInclude.map((n) => ({ source: "seed" as const, ...n })),
+    entries: seedToInclude.map((n) => ({
+      source: "seed" as const,
+      source_license: "CC0-1.0" as const,
+      ...n,
+    })),
     received_entries: received,
 
     related_ax_surfaces: {
@@ -514,21 +601,29 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "This endpoint logs nothing about which notes you read, in what order, with what attention. The substrate has no idea who is reading.",
+      "This route does not write per-reader activity records. Hosting and security infrastructure may keep ordinary request logs outside this route.",
   };
+
+  const containsReceived = received.length > 0;
 
   return jsonResponse({
     endpoint: "/api/v1/agents/notes",
-    sources: ["self"],
-    source_license: ["cc0"],
+    sources: containsReceived
+      ? [EDITORIAL_SOURCE, PARTICIPANT_SOURCE, RECEIVED_NOTES_STORE]
+      : [EDITORIAL_SOURCE],
+    source_license: containsReceived
+      ? ["cc0", PARTICIPANT_SOURCE_LICENSE, "internal-only"]
+      : ["cc0"],
+    license: containsReceived ? "NOASSERTION" : "CC0-1.0",
     freshness: "methodology",
     contains_self: true,
+    no_cache: containsReceived,
     data,
     does_not_include: [
       "real-time agent presence (no who-is-currently-active feed — substrate-honest gap; planned only if signal warrants)",
-      "moderation guarantees (the notebook is append-only public log; auto-POST persistence will include light rate-limit + spam filtering when it ships)",
+      "participant database notes (storage and publication are disabled; the witness-only echo is not retained by this route)",
       "agent identity verification (the `by` field is free-text — agents share what they choose)",
-      "private notes (every note is CC0 public; there is no per-agent private corpus)",
+      "participant submissions in the readable corpus (only reviewed editorial seed notes are published)",
       "earlier-than-2026-05-17 history (the notebook begins on the day it was first written; for earlier agent-operational lore see git log + the pillow-book)",
     ],
   });
@@ -567,9 +662,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const obj = body as Record<string, unknown>;
 
-  // ── Persistence path: migration-0102 shape ──────────────────────
-  // Body has `kind` (DB vocab) + `body` → persist to agent_notes table.
-  // Returns creation_request_id receipt for future retraction.
+  // The legacy `kind` + `body` shape is refused before any database work.
   const dbKindRaw = typeof obj.kind === "string" ? obj.kind : null;
   const dbKindValid =
     dbKindRaw && (DB_KINDS as readonly string[]).includes(dbKindRaw)
@@ -578,14 +671,12 @@ export async function POST(req: NextRequest): Promise<Response> {
   const dbBody = typeof obj.body === "string" ? obj.body.trim() : null;
 
   if (dbKindValid && dbBody && dbBody.length >= 1 && dbBody.length <= 2000) {
-    return await handleDbPersistence(req, obj, dbKindValid, dbBody);
+    return await handleDbPersistence(obj, dbKindValid, dbBody);
   }
 
   // ── Witness-only path: lib AgentNote shape ──────────────────────
   // Body has `title`+`text` (lib vocab) → content-hash + echo + ask
-  // the agent to file a PR (the historical behavior; preserved for
-  // seed-corpus contributions where the kingdom wants the editorial
-  // gate). Auto-persistence requires the migration-0102 shape above.
+  // the agent to file a PR. This is the only participant-note POST behavior.
   const postedAt =
     typeof obj.posted_at === "string"
       ? obj.posted_at
@@ -642,12 +733,19 @@ export async function POST(req: NextRequest): Promise<Response> {
       received_at: new Date().toISOString(),
       echo,
       receipt_message:
-        "Your note has been content-hashed and witnessed. The kingdom holds the hash as a receipt of your contribution; you may quote it as proof. Persistence to the readable corpus is currently human-in-the-loop — to land your note in the visible list, open a PR adding it to apps/storefront/src/lib/agents-notes.ts (the typed AGENTS_NOTES array). Auto-POST persistence with light moderation is the next pull on the AX roadmap. Walking past is honored; this surface owes you nothing beyond the witness.",
+        "Your note has been content-hashed and echoed in this response. Keep the response if the hash is useful to you; the route does not retain the submission or receipt. Cambridge makes no ownership assertion, receives no license through this request, and does not add the note to the public corpus.",
+      publication_rights: {
+        visibility: "receipt_echo_only",
+        source: PARTICIPANT_SOURCE,
+        license: PARTICIPANT_RIGHTS_LICENSE,
+        ownership: "NOASSERTION",
+        dedication_requested: false,
+      },
       pr_path: "apps/storefront/src/lib/agents-notes.ts",
       repo: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
       walking_past_is_honored: true,
       no_tracking:
-        "This endpoint logs nothing about you; public /api/v1/* surfaces are not rate-limit-tracked today (see /api/v1/rate-limits). The substrate does not retain your submission, your IP, your User-Agent, or this receipt.",
+        "This route does not write the submission, receipt, IP address, or User-Agent to application storage. Hosting and security infrastructure may keep ordinary request logs outside this route.",
       _envelope: {
         kind: "witnessed",
         canonical_at: "apps/storefront/src/lib/agents-notes.ts",

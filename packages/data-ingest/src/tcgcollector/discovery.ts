@@ -37,6 +37,7 @@
  */
 
 import type { createFetcher } from "../http";
+import { TCGCOLLECTOR_ACQUISITION_ENABLED } from "./policy";
 
 // ── Sitemap fetch result types ──────────────────────────────────────────
 
@@ -85,6 +86,17 @@ export async function fetchSitemap(
 ): Promise<SitemapFetchResult> {
   const fetched_at = new Date().toISOString();
   const max_urls = opts?.max_urls ?? Infinity;
+
+  if (!TCGCOLLECTOR_ACQUISITION_ENABLED) {
+    return {
+      ok: false,
+      product_urls: [],
+      total_urls: 0,
+      child_sitemaps: 0,
+      error_reason: "acquisition_blocked_pending_partner_approval",
+      fetched_at,
+    };
+  }
 
   // Step 1 — fetch the entrypoint.
   let entryXml: string;

@@ -6,26 +6,31 @@
  * for calculation."* Six currencies cover the platform's real audiences:
  *
  *   GBP — the platform's canonical currency (Cambridge TCG operates in £)
- *   USD — TCGplayer source, US visitors
- *   EUR — Cardmarket source (planned), continental EU visitors
+ *   USD — US visitor display (does not imply TCGplayer ingestion)
+ *   EUR — continental EU visitor display (does not imply Cardmarket ingestion)
  *   JPY — CardRush source, Japanese visitors
  *   HKD — South-East Asia visitors (no direct upstream yet)
  *   CHF — Swiss visitors (no direct upstream yet)
  *
  * Substrate-honest about the rate's origin: every emission carries the
- * `source` (which upstream API answered) + `fetched_at` (when the rates
- * were last refreshed). The fallback table is marked `source: 'fallback'`
- * so the surface never silently degrades to stale numbers.
+ * `source`, `as_of` (the ECB observation date), and `fetched_at` (when
+ * Cambridge retrieved it). The fallback table is marked `source: 'fallback'`
+ * so the surface never silently degrades to stale numbers. ECB statistics
+ * permit free reuse with source attribution; every display and API response
+ * carries that attribution.
  *
  * The platform's *wholesale* prices live in GBP (column `price_gbp` on
  * cards). The wholesale ingest pipeline already converts JPY/USD source-
- * currencies to GBP at write time using `apps/wholesale/src/lib/fx.ts`.
+ * currencies to GBP at write time when a reviewed source is active, using
+ * `apps/wholesale/src/lib/fx.ts`.
  * This storefront-side module is for **display only** — converting the
  * canonical GBP retail prices to whatever currency the visitor chose.
  *
  * Pure server module. `fetchRates()` uses Next.js's `fetch` revalidate
  * to cache 6h; pure helpers are safe everywhere.
  */
+
+import { XMLParser } from "fast-xml-parser";
 
 // ── Currency catalog ────────────────────────────────────────────────────
 
@@ -67,10 +72,7 @@ export function parseCurrency(raw: string | undefined | null): Currency | null {
 
 // ── Rate table types ────────────────────────────────────────────────────
 
-export type RateSource =
-  | "open.er-api.com"
-  | "exchangerate.host"
-  | "fallback";
+export type RateSource = "ecb.europa.eu" | "fallback";
 
 export interface RateTable {
   /** Base currency the rates are quoted against (always GBP here). */
@@ -80,6 +82,8 @@ export interface RateTable {
   rates: Record<Currency, number>;
   /** Which upstream produced these rates. */
   source: RateSource;
+  /** Observation date published by the source. */
+  as_of: string;
   /** ISO 8601 of when the rates were retrieved. */
   fetched_at: string;
   /** True when the upstream live-fetch failed and we fell back to the
@@ -108,18 +112,22 @@ const FALLBACK_FETCHED_AT = "2026-05-14T00:00:00.000Z";
 
 // ── Live fetch ──────────────────────────────────────────────────────────
 
-interface ErApiResponse {
-  result?: string;
-  base_code?: string;
-  rates?: Record<string, number>;
-  time_last_update_utc?: string;
+interface EcbQuote {
+  currency?: string;
+  rate?: string | number;
 }
 
-interface ExchangeRateHostResponse {
-  success?: boolean;
-  base?: string;
-  rates?: Record<string, number>;
-  date?: string;
+interface EcbDailyCube {
+  time?: string;
+  Cube?: EcbQuote | EcbQuote[];
+}
+
+interface EcbDocument {
+  "gesmes:Envelope"?: {
+    Cube?: {
+      Cube?: EcbDailyCube;
+    };
+  };
 }
 
 /**
@@ -145,72 +153,73 @@ function selectSupportedRates(
   return out;
 }
 
-/**
- * Fetch live GBP-base rates for the six supported currencies.
- *
- * Cached for 6 hours via Next.js's `fetch` revalidate. Successive calls
- * within that window return the same result without an upstream hit.
- *
- * Returns the static FALLBACK_RATES when both upstreams fail. Callers
- * can inspect `is_fallback` to render an honesty pill on the surface.
- */
+const ECB_DAILY_RATES_URL =
+  "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
+
+/** Parse ECB's EUR-base daily XML and transform it to a GBP base. */
+export function parseEcbRates(xml: string, fetchedAt: string): RateTable | null {
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: "",
+  });
+  const document = parser.parse(xml) as EcbDocument;
+  const daily = document["gesmes:Envelope"]?.Cube?.Cube;
+  const quotes = daily?.Cube
+    ? (Array.isArray(daily.Cube) ? daily.Cube : [daily.Cube])
+    : [];
+
+  const perEur: Record<string, number> = { EUR: 1 };
+  for (const quote of quotes) {
+    const currency = quote.currency?.toUpperCase();
+    const rate = Number(quote.rate);
+    if (currency && Number.isFinite(rate) && rate > 0) perEur[currency] = rate;
+  }
+
+  const gbpPerEur = perEur.GBP;
+  if (!gbpPerEur || !daily?.time) return null;
+
+  const perGbp: Record<string, number> = { GBP: 1 };
+  for (const currency of SUPPORTED_CURRENCIES) {
+    if (currency === "GBP") continue;
+    const targetPerEur = perEur[currency];
+    if (!targetPerEur) return null;
+    perGbp[currency] = Number((targetPerEur / gbpPerEur).toFixed(12));
+  }
+  const rates = selectSupportedRates(perGbp);
+  if (!rates) return null;
+
+  return {
+    base: "GBP",
+    rates,
+    source: "ecb.europa.eu",
+    as_of: `${daily.time}T00:00:00.000Z`,
+    fetched_at: fetchedAt,
+    is_fallback: false,
+  };
+}
+
+/** Fetch ECB daily rates, falling back to a clearly dated static table. */
 export async function fetchRates(): Promise<RateTable> {
-  // Primary: open.er-api.com (free, no key, daily-refreshed).
+  const fetchedAt = new Date().toISOString();
   try {
-    const res = await fetch("https://open.er-api.com/v6/latest/GBP", {
+    const res = await fetch(ECB_DAILY_RATES_URL, {
       next: { revalidate: 21_600 },
       signal: AbortSignal.timeout(8_000),
     });
     if (res.ok) {
-      const data = (await res.json()) as ErApiResponse;
-      const picked = selectSupportedRates(data?.rates);
-      if (picked && (data.base_code ?? "GBP").toUpperCase() === "GBP") {
-        return {
-          base: "GBP",
-          rates: picked,
-          source: "open.er-api.com",
-          fetched_at: data.time_last_update_utc
-            ? new Date(data.time_last_update_utc).toISOString()
-            : new Date().toISOString(),
-          is_fallback: false,
-        };
-      }
+      const parsed = parseEcbRates(await res.text(), fetchedAt);
+      if (parsed) return parsed;
     }
   } catch {
-    // fall through
+    // Fall through to the explicitly dated static table.
   }
 
-  // Fallback: exchangerate.host.
-  try {
-    const res = await fetch("https://api.exchangerate.host/latest?base=GBP", {
-      next: { revalidate: 21_600 },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as ExchangeRateHostResponse;
-      const picked = selectSupportedRates(data?.rates);
-      if (picked && (data.base ?? "GBP").toUpperCase() === "GBP") {
-        return {
-          base: "GBP",
-          rates: picked,
-          source: "exchangerate.host",
-          fetched_at: data.date
-            ? new Date(data.date).toISOString()
-            : new Date().toISOString(),
-          is_fallback: false,
-        };
-      }
-    }
-  } catch {
-    // fall through
-  }
-
-  // Final fallback — static table.
   return {
     base: "GBP",
     rates: { ...FALLBACK_RATES },
     source: "fallback",
-    fetched_at: FALLBACK_FETCHED_AT,
+    as_of: FALLBACK_FETCHED_AT,
+    fetched_at: fetchedAt,
     is_fallback: true,
   };
 }

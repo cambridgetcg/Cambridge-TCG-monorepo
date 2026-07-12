@@ -38,6 +38,7 @@
 import type { IngestContext } from "../types";
 import { createFetcher, type Fetcher } from "../http";
 import {
+  CARDRUSH_ACQUISITION_ENABLED,
   cardrush,
   getOrCreateFetcher,
   CARDRUSH_BROWSER_HEADERS,
@@ -79,6 +80,16 @@ export async function fetchSitemap(
 ): Promise<SitemapFetchResult> {
   const url = `https://${host}/sitemap.xml`;
   const fetched_at = new Date().toISOString();
+
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return {
+      ok: false,
+      product_urls: [],
+      total_urls: 0,
+      error_reason: "acquisition_blocked_pending_formal_partnership",
+      fetched_at,
+    };
+  }
 
   let xml: string;
   try {
@@ -321,6 +332,14 @@ export async function fetchAndParseProduct(
   fetcher: ReturnType<typeof createFetcher>,
 ): Promise<FetchAndParseResult> {
   const fetched_at = new Date().toISOString();
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return {
+      ok: false,
+      metadata: null,
+      error_reason: "acquisition_blocked_pending_formal_partnership",
+      fetched_at,
+    };
+  }
   let html: string;
   try {
     const res = await fetcher(url, {
@@ -373,6 +392,9 @@ export { BROWSER_UA };
  * buckets.
  */
 export function createDiscoveryFetcher(ctx: IngestContext = {}): Fetcher {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error("CardRush acquisition is blocked pending a formal partnership.");
+  }
   return createFetcher(ctx, cardrush.meta);
 }
 

@@ -70,9 +70,7 @@ export async function GET(
     // Cards in the set (singleton-set carries its children inline; the
     // collection endpoint /sets/[game] returns set-level rows only).
     const cards = await query(
-      `SELECT csc.sku, csc.card_number, csc.card_name, csc.rarity, csc.variant,
-              (SELECT spot_gbp FROM card_price_history
-                 WHERE sku = csc.sku ORDER BY captured_on DESC LIMIT 1) AS spot_gbp
+      `SELECT csc.sku, csc.card_number, csc.card_name, csc.rarity, csc.variant
        FROM card_set_cards csc
        WHERE csc.set_code = $1
        ORDER BY csc.card_number, csc.variant`,
@@ -97,7 +95,7 @@ export async function GET(
       card_number: c.card_number as string,
       variant: (c.variant as string) || "",
       rarity: c.rarity as string | null,
-      latest_price_gbp: c.spot_gbp == null ? null : Number(c.spot_gbp),
+      latest_price_gbp: null,
       _links: {
         canonical: `/api/v1/universal/card/${encodeURIComponent(c.sku)}`,
       },
@@ -129,6 +127,16 @@ export async function GET(
         iso8601: retrievedAt.toISOString(),
         unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
       },
+      "@sources": [
+        "storefront-rds.card_sets",
+        "storefront-rds.card_set_cards",
+      ],
+      "@source_license": ["proprietary", "proprietary"],
+      rights: {
+        aggregate: "NOASSERTION",
+        cambridge_original_structure: "CC0-1.0",
+        field_level_lineage_available: false,
+      },
       "_note_opaque": [
         "set_name",
         "cover_image_url",
@@ -144,7 +152,11 @@ export async function GET(
       released_at: set.released_at
         ? new Date(set.released_at).toISOString().slice(0, 10)
         : null,
-      cover_image_url: (set.cover_image_url as string | null) ?? null,
+      cover_image_url: null,
+      publication_boundary: {
+        prices: "withheld_pending_field_level_source_rights",
+        cover_image: "withheld_pending_field_level_source_rights",
+      },
       first_seen_at: set.created_at
         ? {
             iso8601: new Date(set.created_at).toISOString(),
@@ -180,6 +192,7 @@ export async function GET(
         "Cache-Control": "public, max-age=300, s-maxage=300",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "X-Content-License": "NOASSERTION",
       },
     });
   } catch (err) {

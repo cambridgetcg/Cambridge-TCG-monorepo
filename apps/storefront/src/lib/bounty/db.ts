@@ -2,6 +2,7 @@
 // All queries go through `src/lib/db` so the SSL + pooling is shared.
 
 import { query } from "@/lib/db";
+import { LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED } from "@/lib/public-wholesale-fields";
 
 // ── Types ──
 
@@ -349,6 +350,9 @@ export async function sellBackVaultItem(itemId: string, userId: string): Promise
   item: VaultItem;
   creditAwarded: number;
 } | { error: string }> {
+  if (!LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED) {
+    return { error: "Sell-back pricing is paused pending source-rights review." };
+  }
   const { addCredit } = await import("@/lib/membership/db");
   const { logVaultTransition } = await import("./fulfilment-log");
 
@@ -541,6 +545,9 @@ export async function runBountyExpiry(): Promise<{
   emailsFailed: number;
   reverted: number;
 }> {
+  if (!LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED) {
+    return { expiredCount: 0, creditTotalGbp: 0, errors: 0, emailsFailed: 0, reverted: 0 };
+  }
   // Lazy imports to avoid a cycle (addCredit + email both transitively
   // touch modules that import from here).
   const { addCredit } = await import("@/lib/membership/db");

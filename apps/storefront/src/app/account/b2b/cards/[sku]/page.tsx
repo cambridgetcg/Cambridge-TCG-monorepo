@@ -83,16 +83,19 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
                   Wholesale price
                 </span>
                 <span className="text-2xl font-semibold text-ink">
-                  {formatPrice(wholesalePrice)}
+                  {wholesalePrice === null ? "Unavailable" : formatPrice(wholesalePrice)}
                 </span>
               </div>
               <div className="text-xs text-ink-faint">
                 Price reflects your wholesale account tier. Total at checkout uses the live rate.
               </div>
               <div className="pt-1">
-                <AddToB2BCart sku={card.sku} disabled={card.stock <= 0} />
+                <AddToB2BCart sku={card.sku} disabled={card.stock <= 0 || wholesalePrice === null} />
                 {card.stock <= 0 && (
                   <span className="ml-3 text-xs text-ink-faint">Out of stock</span>
+                )}
+                {wholesalePrice === null && (
+                  <span className="ml-3 text-xs text-ink-faint">Pricing withheld pending source-rights review</span>
                 )}
               </div>
             </div>

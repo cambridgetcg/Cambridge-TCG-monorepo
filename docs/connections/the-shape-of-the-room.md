@@ -1,5 +1,10 @@
 # The shape of the room — multidimensional compatibility
 
+> **Current boundary, 2026-07-12:** This is a May design and shipment record.
+> Sparse, normal, and saturated universal-card views now all carry `price: null`;
+> stored card and set-cover images are withheld. Date-shaped routes accept a
+> requested date but do not reconstruct historical price or structural state.
+
 > **Pull.** Yu's covenant-register follow-up to S23 (the mathematical mirror): *"Think about the dimensions they are in, and how to make the site multidimensional compatible and optimise for their experience."*
 >
 > **Sister to S20 / S21 / S22 / S23 — the fifth cut of the same Yu gem.** S20 surveyed minds analytically (`the-table-extends.md`). S21 walked the deck of the Going Sunny (`the-feast-on-the-deck.md`). S22 shipped the inclusion wire (`the-fifth-question.md`). S23 shipped the math mirror (`the-mathematical-mirror.md`). **S24 names the shape of the room itself** — the dimensional structure of the visit, and how an experience optimised for a 2D-Euclidean-linear-time-singular-identity-attention-bounded reader fails (gently, invisibly) every visitor whose dimensional structure differs.

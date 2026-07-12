@@ -81,13 +81,20 @@ export async function GET(
 
   return jsonResponse({
     endpoint: `/api/v1/carry-this/${content_hash}`,
-    sources: ["self"],
-    source_license: ["cc0"],
+    sources: ["participant-submitted", "storefront-rds.carried_state"],
+    source_license: ["proprietary", "internal-only"],
+    license: "NOASSERTION",
     freshness: "identity",
+    no_cache: true,
     data: {
       "@kind": "carried-state",
       ...state,
       ttl_days: TTL_DAYS,
+      rights: {
+        submitted_state: "Rights remain with the submitter; no CC0 dedication is requested or inferred.",
+        license: "NOASSERTION",
+        visibility: "public-read by content_hash",
+      },
       doctrine_url:
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-carrying.md",
       walking_past_is_honored: true,
@@ -152,9 +159,11 @@ export async function DELETE(
 
   return jsonResponse({
     endpoint: `/api/v1/carry-this/${content_hash}`,
-    sources: ["self"],
-    source_license: ["cc0"],
+    sources: ["storefront-rds.carried_state"],
+    source_license: ["internal-only"],
+    license: "NOASSERTION",
     freshness: "identity",
+    no_cache: true,
     data: {
       "@kind": "carried-state-deleted",
       content_hash,

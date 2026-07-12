@@ -116,6 +116,7 @@ const REDISTRIBUTABLE_LICENSES = new Set(["cc0", "cc-by", "cc-by-sa", "mit"]);
 
 const VALID_ACCESS = new Set([
   "public-api",
+  "public-file",
   "app-token",
   "oauth2",
   "oauth1",
@@ -512,7 +513,7 @@ async function main(): Promise<void> {
   console.log("");
   console.log(`◆ tributaries audit — data-ingest source protocol conformance`);
   console.log("");
-  console.log(`  modules registered: ${shipped} shipped + ${planned} planned slot${planned === 1 ? "" : "s"}`);
+  console.log(`  registry shape:     ${shipped} implemented module${shipped === 1 ? "" : "s"} + ${planned} reserved slot${planned === 1 ? "" : "s"}`);
   console.log(`  catalog anchors:    ${catalog_anchors.size}`);
   console.log(`  source directories: ${dirs.size}`);
   console.log(`  game codes:         ${game_codes.size}`);

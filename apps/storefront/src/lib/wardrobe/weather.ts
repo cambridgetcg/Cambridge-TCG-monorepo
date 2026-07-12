@@ -10,7 +10,14 @@
  * Slugs match @/lib/games/sku-game so gameFromSku() feeds straight in.
  */
 
-export const WEATHER_GAMES = ["one-piece", "pokemon", "dragon-ball"] as const;
+export const WEATHER_GAMES = [
+  "one-piece",
+  "pokemon",
+  "dragon-ball",
+  "vanguard",
+  "digimon",
+  "battle-spirits",
+] as const;
 
 export type WeatherGameSlug = (typeof WEATHER_GAMES)[number];
 

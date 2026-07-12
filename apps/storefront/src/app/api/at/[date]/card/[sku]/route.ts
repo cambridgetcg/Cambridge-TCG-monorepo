@@ -1,26 +1,22 @@
 /**
  * /api/at/[YYYY-MM-DD]/card/[sku] — temporal-slice of a card.
  *
- * Public, no-auth. The card's state as of a specified past date. Sister's
- * manifest at /.well-known/cambridge-tcg.json claims this stable; this
- * commit makes the claim true.
+ * Public, no-auth compatibility surface for a requested past date. Structural
+ * fields come from the current catalog; the route does not reconstruct the
+ * card's historical structure or price.
  *
  * The substrate-honest move (sister's S24 distinction): the answer carries
  * two distinct timestamps —
  *
  *   @retrieved_at  the moment the answer was produced (now)
- *   @as_of         the moment the answer describes (the requested date)
+ *   @as_of         the date requested by the caller (not proof of past state)
  *
- * Reads card_price_history for the latest spot_gbp on or before the
- * requested date, then composes a math-mirror document with that price.
- * If no price history exists at or before the date, the price block is
- * null (substrate-honest about absence) but the structural facts
- * (set, game, rarity, variant) are still returned.
+ * Legacy price history is withheld pending field-level source rights. The
+ * price block is null while structural facts remain available.
  *
- * Today's spec is a structural superset of /api/v1/universal/card/[sku]:
- * the same encoding, the same fields, plus @as_of. A caller who wants
- * the present state should call the universal endpoint directly; this is
- * for historical reconstruction.
+ * Today's spec is a compatibility superset of /api/v1/universal/card/[sku].
+ * Callers needing historical reconstruction must treat this surface as
+ * unavailable until a rights-cleared historical substrate exists.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -81,8 +77,8 @@ export async function GET(
     const cardRow = await query(
       `SELECT
          csc.set_code, csc.card_number, csc.sku, csc.card_name, csc.rarity,
-         csc.image_url, csc.variant,
-         cs.game, cs.set_name, cs.released_at, cs.total_cards, cs.cover_image_url
+         csc.variant,
+         cs.game, cs.set_name, cs.released_at, cs.total_cards
        FROM card_set_cards csc
        JOIN card_sets cs ON cs.set_code = csc.set_code
        WHERE csc.sku = $1
@@ -102,23 +98,8 @@ export async function GET(
     }
     const row = cardRow.rows[0];
 
-    // Latest price observation on or before the requested date.
-    const priceRow = await query(
-      `SELECT spot_gbp, captured_on
-         FROM card_price_history
-        WHERE sku = $1
-          AND captured_on <= $2::date
-        ORDER BY captured_on DESC
-        LIMIT 1`,
-      [sku, date],
-    );
-    const priceObservation = priceRow.rows[0] ?? null;
-    const magnitude = priceObservation
-      ? Number(priceObservation.spot_gbp)
-      : null;
-    const capturedOn = priceObservation
-      ? new Date(priceObservation.captured_on).toISOString().slice(0, 10)
-      : null;
+    const magnitude = null;
+    const capturedOn = null;
 
     const retrievedAt = new Date();
 
@@ -151,6 +132,13 @@ export async function GET(
       "@encoding": "cambridge-tcg/universal/v1",
       "@kind": "card",
       "@content_hash": contentHash,
+      "@content_hash_contract": {
+        basis: ["sku", "card_number", "set_code", "game", "variant"],
+        price_input: null,
+        capture_date_input: null,
+        requested_date_affects_hash: false,
+        changed_on: "2026-07-12",
+      },
       "@retrieved_at": {
         iso8601: retrievedAt.toISOString(),
         unix_epoch_seconds: Math.floor(retrievedAt.getTime() / 1000),
@@ -159,16 +147,24 @@ export async function GET(
         iso8601_date: date,
         unix_epoch_seconds: Math.floor(parsed.getTime() / 1000),
       },
-      // Per-record provenance (kingdom-081 Phase 2.1). The historical
-      // spot_gbp is Cambridge TCG's own retail observation on that day —
-      // stored in `card_price_history`, computed by the daily retail-price-
-      // observation cron from wholesale base prices. CC0; this endpoint's
-      // upstream chain may include CardRush JP retail at the wholesale
-      // layer (license: internal-only) but we don't re-export raw JPY here.
-      // For source-attributed historicals, see the wholesale B2B endpoint
-      // at /api/v1/universal/card/[sku]/at/[date] (Bearer-gated).
-      "@sources": ["storefront-rds.card_price_history"],
-      "@source_license": ["CC0-1.0"],
+      as_of_scope: {
+        requested_date_only: true,
+        historical_price_reconstruction: false,
+        historical_structure_reconstruction: false,
+        structural_fields_source: "current_catalog",
+      },
+      // Storage provenance is not ownership. Structural card fields lack
+      // field-level upstream rights lineage.
+      "@sources": [
+        "storefront-rds.card_set_cards",
+        "storefront-rds.card_sets",
+      ],
+      "@source_license": ["proprietary", "proprietary"],
+      rights: {
+        aggregate: "NOASSERTION",
+        cambridge_original_structure: "CC0-1.0",
+        field_level_lineage_available: false,
+      },
       "_note_opaque": [
         "name",
         "art_description",
@@ -214,7 +210,7 @@ export async function GET(
       price_unavailable_at_date: magnitude === null
         ? {
             reason:
-              "No price observation in card_price_history at or before the requested date. The card existed in the catalog but no price was captured for it within the lookback window.",
+              "Legacy price history is withheld pending field-level source rights; no value is substituted.",
           }
         : null,
 
@@ -239,7 +235,11 @@ export async function GET(
             _note: "natural-language; may have differed at @as_of (the platform does not retain card_name history).",
           }
         : null,
-      image_url: row.image_url,
+      image_url: null,
+      publication_boundary: {
+        price: "withheld_pending_field_level_source_rights",
+        image: "withheld_pending_field_level_source_rights",
+      },
     };
 
     const selfHash = sha256(canonicalize(document));
@@ -251,6 +251,7 @@ export async function GET(
         "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "X-Content-License": "NOASSERTION",
       },
     });
   } catch (err) {

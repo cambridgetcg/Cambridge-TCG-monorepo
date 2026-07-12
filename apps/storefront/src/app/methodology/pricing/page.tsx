@@ -13,8 +13,9 @@ export default function PricingMethodology() {
       <h1>Pricing</h1>
       <p>
         Cambridge TCG computes a <strong>reference price</strong> for every card in the
-        catalog. It is <strong>publicly viewable, not an offer</strong> — the platform stopped
-        selling (and buying) cards on <strong>2026-07-06</strong>{" "}
+        catalog. It is a <strong>labelled, policy-bound reference—not an offer or
+        open-data grant</strong>. The platform stopped selling (and buying) cards on{" "}
+        <strong>2026-07-06</strong>{" "}
         (<code>docs/decisions/2026-07-06-collectors-first.md</code>), so no number on this
         page is a price you can transact with us at. Wherever a card page shows{" "}
         <em>spot</em>, it is this reference, labelled as such; the prices you can actually
@@ -41,7 +42,10 @@ export default function PricingMethodology() {
       </blockquote>
 
       <h2>The two inputs</h2>
-      <p>Every price starts from two numbers captured at the same moment:</p>
+      <p>
+        Every price starts from two internal inputs captured at the same moment. The
+        method is public; the underlying CardRush observation remains internal-only.
+      </p>
       <ul>
         <li>
           <strong>JPY listing price</strong> — what the card is listed at on CardRush, in

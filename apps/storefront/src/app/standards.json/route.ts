@@ -10,8 +10,14 @@
  */
 
 import { NextResponse } from "next/server";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
 
-type Status = "frozen" | "draft" | "spec-only" | "planned";
+type Status = "frozen" | "draft" | "implemented" | "planned";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 interface StandardEntry {
   code: string;
@@ -35,7 +41,7 @@ const STANDARDS: StandardEntry[] = [
     version: "1.0",
     status: "frozen",
     short:
-      "<game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. Thirteen registered games.",
+      `<game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. ${PUBLIC_GAME_COUNT} public game codes; ${PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows.`,
     spec_url: "/methodology/sku-standard",
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/sku-standard/page.tsx",
@@ -61,7 +67,7 @@ const STANDARDS: StandardEntry[] = [
     code: "CTCG-UNIVERSAL-v1",
     title: "Universal-representation (math-mirror)",
     version: "1.0",
-    status: "spec-only",
+    status: "implemented",
     short:
       "Cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. Language-free card data.",
     spec_url: "/methodology/universal-representation",
@@ -89,7 +95,7 @@ interface StandardsManifest {
     total: number;
     frozen: number;
     draft: number;
-    spec_only: number;
+    implemented: number;
     planned: number;
   };
   adoption: {
@@ -114,7 +120,7 @@ export async function GET(): Promise<NextResponse> {
     total: STANDARDS.length,
     frozen: STANDARDS.filter((s) => s.status === "frozen").length,
     draft: STANDARDS.filter((s) => s.status === "draft").length,
-    spec_only: STANDARDS.filter((s) => s.status === "spec-only").length,
+    implemented: STANDARDS.filter((s) => s.status === "implemented").length,
     planned: STANDARDS.filter((s) => s.status === "planned").length,
   };
 

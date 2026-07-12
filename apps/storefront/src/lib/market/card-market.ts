@@ -25,15 +25,11 @@
  *
  * ── What this carries ───────────────────────────────────────────────────
  *
- *   1. CARD META — sku, name, set_code, set_name, image_url. From
- *      market_orders' first row carrying the SKU (denormalised cache) or
- *      card_set_cards if available.
+ *   1. CARD META — sku, name, set_code, set_name, first_seen_on. Legacy
+ *      catalog images are withheld.
  *
- *   2. PRICE HISTORY — daily spot_gbp from card_price_history over four
- *      windows (7d / 30d / 90d / 365d). Each window returns its own
- *      ordered array of {captured_on, spot_gbp, best_bid_gbp, best_ask_gbp}.
- *      Substrate-honest: if no observation exists in a window, the array
- *      is empty rather than fabricated.
+ *   2. PRICE HISTORY — paused. The existing table mixes legacy reference
+ *      observations with order-book snapshots and has no row-level receipt.
  *
  *   3. ORDER BOOK — top 10 bids (descending price) and top 10 asks
  *      (ascending price) aggregated by price (same shape as the existing
@@ -226,41 +222,11 @@ async function loadMeta(
   );
 }
 
-async function loadHistoryWindow(
-  sku: string,
-  days: number,
-): Promise<PriceHistoryPoint[]> {
-  return safe(
-    async () => {
-      const r = await query(
-        `SELECT captured_on, spot_gbp, best_bid_gbp, best_ask_gbp
-         FROM card_price_history
-         WHERE sku = $1
-           AND captured_on > NOW() - INTERVAL '${days} days'
-         ORDER BY captured_on ASC`,
-        [sku],
-      );
-      return r.rows.map((row: any) => ({
-        captured_on:
-          row.captured_on instanceof Date
-            ? row.captured_on.toISOString().slice(0, 10)
-            : String(row.captured_on),
-        spot_gbp: toNum(row.spot_gbp),
-        best_bid_gbp: toNum(row.best_bid_gbp),
-        best_ask_gbp: toNum(row.best_ask_gbp),
-      }));
-    },
-    [],
-  );
-}
-
-async function loadPriceHistory(sku: string): Promise<CardMarketPriceHistory> {
-  const [window_7d, window_30d, window_90d, window_365d] = await Promise.all([
-    loadHistoryWindow(sku, 7),
-    loadHistoryWindow(sku, 30),
-    loadHistoryWindow(sku, 90),
-    loadHistoryWindow(sku, 365),
-  ]);
+async function loadPriceHistory(): Promise<CardMarketPriceHistory> {
+  const window_7d: PriceHistoryPoint[] = [];
+  const window_30d: PriceHistoryPoint[] = [];
+  const window_90d: PriceHistoryPoint[] = [];
+  const window_365d: PriceHistoryPoint[] = [];
   return {
     window_7d,
     window_30d,
@@ -442,7 +408,7 @@ export async function loadCardMarket(sku: string): Promise<CardMarket> {
   const [meta, price_history, book, conditions] =
     await Promise.all([
       loadMeta(sku, canonical),
-      loadPriceHistory(sku),
+      loadPriceHistory(),
       loadBook(sku, canonical),
       loadConditions(sku),
     ]);
@@ -461,12 +427,9 @@ export async function loadCardMarket(sku: string): Promise<CardMarket> {
       kind: "live",
       queried_at: new Date().toISOString(),
       notes:
-        "Price history reads non-person reference observations; the order book reads deliberate public bids and asks. Completed-trade tape and statistics are paused pending purpose-specific publication receipts and a delayed coarse projector. See /methodology/market.",
+        "Legacy reference prices are withheld pending field-level source rights. The order book reads deliberate public bids and asks. Completed-trade tape and statistics remain paused pending purpose-specific publication receipts and a delayed coarse projector. See /methodology/market.",
       methodology_url: "/methodology/market",
-      sources: [
-        "market_orders",
-        "card_price_history",
-      ],
+      sources: ["market_orders"],
     },
   };
 }

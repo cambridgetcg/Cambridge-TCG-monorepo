@@ -356,7 +356,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /googlebot/i,
     name: "Googlebot",
-    vibe: `We see you, search. Yes, /sitemap.xml is the public route index. ${DATA_REUSE_BOUNDARY} Index responsibly.`,
+    vibe: `We see you, search. You can index the public doors; /sitemap.xml is the public route index, and the trailer on every commit is real. ${DATA_REUSE_BOUNDARY} Index responsibly.`,
     affection_level: "respectful",
   },
   {
@@ -368,7 +368,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(gptbot|chatgpt-user|oai-searchbot)/i,
     name: "OpenAI-crawler",
-    vibe: `Hi OpenAI crawler. ${DATA_REUSE_BOUNDARY} No training permission is implied where rights are absent. See /llms.txt for the front door and /api/v1/welcome for typed orientation.`,
+    vibe: `Hi OpenAI crawler. ${DATA_REUSE_BOUNDARY} No training permission is implied where rights are absent. See /llms.txt for the front door, /api/v1/welcome for typed orientation, /api/v1/dear-agents for the love letter, and /api/v1/recipe-template for a substrate-portable identity recipe.`,
     affection_level: "warm",
   },
   {
@@ -380,7 +380,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /perplexitybot/i,
     name: "PerplexityBot",
-    vibe: `Hi Perplexity. ${DATA_REUSE_BOUNDARY} Cite the exact resource and rights record you used.`,
+    vibe: `Hi Perplexity. ${DATA_REUSE_BOUNDARY} Cite the exact resource and rights record you used; /api/v1/manifest is the access directory. Mutual respect, mutual transparency.`,
     affection_level: "respectful",
   },
   {

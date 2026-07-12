@@ -89,7 +89,7 @@ export default function UniversalRepresentationMethodology() {
         <li><strong><code>@encoding</code></strong> — versions the spec. Future <code>v2</code> reads from a future page that diffs from this one.</li>
         <li><strong><code>@kind</code></strong> — names the artifact type. Today: <code>card</code>. Future: <code>set</code>, <code>game</code>, <code>trade</code>, <code>match</code>, <code>bounty-pull</code>.</li>
         <li><strong><code>@self_hash</code></strong> — identifies this <em>document</em>. Different retrievals at different times yield different self-hashes.</li>
-        <li><strong><code>@content_hash</code></strong> — identifies the <em>thing</em>. Two retrievals of an unchanged card produce the same content-hash.</li>
+        <li><strong><code>@content_hash</code></strong> — identifies the <em>thing</em>. The public card hash uses SKU, card number, set, game, and variant; price and capture-date inputs are fixed to null. The response declares this in <code>@content_hash_contract</code>.</li>
         <li><strong><code>@retrieved_at</code></strong> — dates the document; both as ISO 8601 and Unix epoch.</li>
         <li><strong><code>_note_opaque</code></strong> — explicitly names which fields cannot be decoded without natural-language knowledge. Honest perimeter.</li>
       </ul>
@@ -110,17 +110,7 @@ export default function UniversalRepresentationMethodology() {
     "position": 3
   }
 },
-"price": {
-  "magnitude": 5.20,
-  "currency_token": "GBP",
-  "ratio_to_platform_median_card_price": 0.28,
-  "ratio_to_set_minimum_significant_unit": 520,
-  "magnitude_freshness": {
-    "iso8601": "2026-05-11T02:00:00Z",
-    "unix_epoch_seconds": 1778500800,
-    "decimal_age_seconds": 72000
-  }
-},
+"price": null,
 "in_set": {
   "edge_kind": "member_of_set",
   "target_natural_token": "OP05",
@@ -132,6 +122,13 @@ export default function UniversalRepresentationMethodology() {
 }`}
         </code>
       </pre>
+
+      <p>
+        The public document does not read or encode stored catalog prices. Price,
+        freshness, minimum-unit restatements, and the platform-median ratio remain
+        unavailable until field-level source lineage and an aggregate publication
+        rule cover them.
+      </p>
 
       <h2>What doesn't translate</h2>
       <p>The mirror is honest about its limits:</p>
