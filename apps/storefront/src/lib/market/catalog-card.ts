@@ -23,6 +23,7 @@
 
 import { cache } from "react";
 import { query } from "@/lib/db";
+import { getEnCardData } from "@/lib/cards/en-card-data";
 
 export interface CatalogIdentity {
   sku: string;
@@ -31,7 +32,11 @@ export interface CatalogIdentity {
   set_code: string;
   set_name: string | null;
   rarity: string | null;
+  // Official self-hosted publisher image (getEnCardData / card_images), or
+  // null when no official image is published — never cardrush. When set,
+  // `image_attribution` is its copyright line (rendered co-located).
   image_url: string | null;
+  image_attribution: string | null;
 }
 
 export type IdentityResolution =
@@ -64,7 +69,11 @@ function rowToIdentity(row: {
     set_code: row.set_code,
     set_name: row.set_name ?? null,
     rarity: row.rarity ?? null,
+    // Both default null; the official image (and its attribution) are
+    // attached in _resolveCardIdentity via getEnCardData, not read from
+    // the catalogue row (SELECT keeps NULL::text AS image_url).
     image_url: null,
+    image_attribution: null,
   };
 }
 
@@ -88,7 +97,17 @@ async function _resolveCardIdentity(
     `${SELECT_IDENTITY} WHERE csc.sku = $1 LIMIT 1`,
     [raw],
   );
-  if (bySku.rows[0]) return { kind: "ok", card: rowToIdentity(bySku.rows[0]) };
+  if (bySku.rows[0]) {
+    const card = rowToIdentity(bySku.rows[0]);
+    // Attach the OFFICIAL self-hosted image + its copyright line (or null).
+    // en_image.url is already the Cambridge-hosted URL; en_image is null when
+    // no official image is published, so we keep image_url null (No-Image),
+    // never falling back to cardrush.
+    const en = await getEnCardData(card.sku);
+    card.image_url = en.en_image?.url ?? null;
+    card.image_attribution = en.en_image?.attribution ?? null;
+    return { kind: "ok", card };
+  }
 
   // Card-number-shaped URL (case-insensitive) → canonical SKU. Order by
   // the base variant first so the plain printing wins over parallels.

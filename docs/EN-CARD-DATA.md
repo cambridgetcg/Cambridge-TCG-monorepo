@@ -1,68 +1,100 @@
 # EN card data: current boundary
 
-*Reviewed 2026-07-12. This records the implementation and rights state; it is
+*Reviewed 2026-07-13. This records the implementation and rights state; it is
 not legal advice.*
+
+## The recorded decision (2026-07-13)
+
+The owner has decided that Cambridge publishes OFFICIAL publisher card images for
+the games whose official source we have added — today One Piece and Dragon Ball
+Fusion — taken from each publisher's own card database. The rule, in plain terms:
+
+- **Official art only.** The image is the publisher's own card art
+  (`kind = 'official_sample'`). No shop scans, seller photos, or community
+  re-uploads.
+- **Self-hosted.** Each image is copied to a Cambridge-controlled host and served
+  from our own object, built from `CARD_IMAGE_CDN + s3_key`. The stored publisher
+  `source_url` is provenance metadata and is **never** served as an image src, so
+  the site does not hotlink the publisher.
+- **Always attributed.** The publisher's copyright line is stored NOT NULL and is
+  rendered next to the image wherever it appears. An image without its credit is
+  not published.
+- **Takedown-honouring.** Publication is gated on `takedown_status = 'clear'`. A
+  disputed or removed row stops publishing immediately.
+- **Nominative fair use for a marketplace.** You must be able to see a card to
+  trade it; the art identifies the publisher's specific card and is credited to
+  the publisher, not presented as ours or offered for reuse.
+
+This **supersedes** the prior blocker that required a recorded written Bandai
+permission before any English image could publish. The basis for publication is
+now the nominative-fair-use / self-hosted / attributed rule above, not a
+paused-pending-permission state. Text (effect/rules text) is **not** covered by
+this decision and stays withheld — see "Text stays withheld" below.
 
 ## What exists
 
-- The fixture-backed Bandai One Piece parser and normalizer exist in
-  `packages/data-ingest/src/bandai-en/`. They are useful internal parsing work.
+- The fixture-backed Bandai parser and normalizer live in
+  `packages/data-ingest/src/bandai-en/`.
 - Migration **0116** created `card_texts` and `card_images` and has already been
-  applied in production. Its duplicate `0116` filename is therefore preserved.
-  Renaming an applied migration would make the migration record less truthful.
-- Production contains Bandai-derived rows collected before this review: 2,634
-  English text rows and 4,571 English image rows.
-- None of the 4,571 image rows has a Cambridge-hosted object. They contain only
-  publisher source URLs. The planned `ctcg-card-images` bucket and thumbnail
-  pipeline do not exist.
+  applied in production. Its duplicate `0116` filename is preserved on purpose:
+  renaming an applied migration would make the migration record less truthful.
+- Production holds Bandai-derived English rows across One Piece and Dragon Ball
+  Fusion (on the order of 8,300 image rows).
+- The `ctcg-card-images` host now exists. A background backfill populates
+  `card_images.s3_key` for the official images. A row publishes only once its
+  `s3_key` is set; rows still awaiting a self-hosted object do not appear.
 
-Schema, storage, attribution, and a takedown column are safeguards. They do not
-create collection or publication permission.
+Schema, storage, attribution, and the takedown column are the mechanism the rule
+runs on. They are enforced structurally by the reader's query, not by hope.
 
 ## Rights state
 
-Bandai card text and images are proprietary. Cambridge has no recorded written
-permission covering collection into this service, public display, hotlinking,
-mirroring, or redistribution. The absence of a robots restriction is not such
-permission. Industry practice or publisher tolerance is not a rights grant
-either.
+Cambridge publishes the official publisher card images under nominative fair use
+for a marketplace: the images are shown to identify the physical cards being
+traded, are self-hosted rather than hotlinked, and always carry the publisher's
+copyright line. We do not claim ownership of the art and do not license it onward.
 
-The source declaration therefore remains:
+The source declaration remains conservative for **bulk redistribution** — this
+decision authorizes per-card display of self-hosted, attributed official images
+on our own surfaces, not a redistributable data export:
 
-- `license: proprietary`
-- `redistribute: false`
-- `status: blocked`
-- permission: undocumented
-- public publication: paused
+- `license: proprietary` (the underlying art is the publisher's)
+- `redistribute: false` (no bulk re-publication or onward licensing)
+- image display: **enabled** for added official sources, self-hosted + attributed
+- takedown: honoured via `takedown_status`
 
-Attribution may be required by a future permission, but attribution alone does
-not authorize use.
+CardRush and other shop/seller image paths stay blocked; they are not part of this
+lane.
 
 ## Runtime state
 
-- `GET` and `POST /api/cron/ingest/bandai-en` return HTTP 503 before reading
-  authentication, query parameters, the network, or the database.
-- `getEnCardData()` performs no database query and returns
-  `{ effect_text: null, en_image: null }`.
-- Publisher `source_url` values are never used as public image fallbacks. There
-  is no Bandai hotlink path.
-- Existing rows remain internal and dark while their disposition is reviewed.
+- `getEnCardData()` and `getEnCardImages()`
+  (`apps/storefront/src/lib/cards/en-card-data.ts`) publish an image **only** via
+  its self-hosted object. The query requires
+  `kind = 'official_sample' AND takedown_status = 'clear' AND s3_key IS NOT NULL`,
+  and the served `url` is built from `CARD_IMAGE_CDN + s3_key`. The stored
+  publisher `source_url` is returned as metadata but is never the served `url`.
+- When a card has no published official image, the readers return `en_image: null`
+  and the page keeps its withheld / no-image state. They do not fall back to a
+  CardRush scan or a legacy `card_set_cards.image_url`.
+- The redistribution audit (`apps/storefront/scripts/redistribution.ts`, check 8)
+  pins this: the legacy image lane stays `image_url: null`, and the official
+  reader may serve an image only via `s3_key` with the takedown/official guards,
+  never the publisher `source_url`.
 
-The parser can still be exercised against local fixtures. Parser correctness
-does not imply permission to fetch or publish live upstream content.
+## Text stays withheld
 
-## What must happen before reopening
+`getEnCardData()` returns `effect_text: null`. Publisher rules/effect text is
+proprietary and is **not** covered by the image decision; it needs its own review
+before any publication. The parser can still be exercised against local fixtures —
+parser correctness does not imply permission to publish text.
 
-1. Record written permission and its exact scope: collection, storage,
-   per-card display, bulk export, image transformation, attribution, and
-   takedown duties are separate questions.
-2. Review the resulting field-level publication rule and update the source
-   declaration to match it. `redistribute: false` cannot feed a public field.
-3. Build a Cambridge-controlled image host and thumbnail path if images are
-   allowed. Never fall back to a publisher URL.
-4. Add tests proving the route is fail-closed, disputed or removed rows cannot
-   publish, and no public response carries a publisher image URL.
-5. Run a fresh legal and operational review before enabling any cron.
+## Other games and reopening
 
-Until all five are complete, the honest state is simple: the internal parser
-exists; the ingest and public reader are paused.
+- Games without an added official image source stay imageless. They join this rule
+  only when their official source is added and reviewed; until then their cards
+  keep the withheld / no-image state.
+- Storage, a provenance URL, or the absence of a robots restriction is still never
+  treated as a rights grant. When a new official source is added, record which
+  publisher database it is, confirm the self-hosted + attributed + takedown
+  mechanism covers it, and keep the reader's structural guards intact.

@@ -33,6 +33,7 @@ import { createHash } from "node:crypto";
 import { query } from "@/lib/db";
 import { buildLinks } from "@/lib/universal/links";
 import { resolveCardName } from "@/lib/cards/name";
+import { getEnCardData } from "@/lib/cards/en-card-data";
 
 export type Density = "sparse" | "normal" | "saturated";
 
@@ -174,6 +175,15 @@ export async function buildUniversalCard(
     content_hash: contentHash,
   });
 
+  // Official EN publisher image: self-hosted on a Cambridge host and always
+  // carrying its copyright line, published under the field-level rule in
+  // @/lib/cards/en-card-data (query enforces s3_key + takedown-clear +
+  // official-sample). `en.en_image` is null when no cleared image exists — the
+  // image then stays withheld exactly as before. Price stays withheld
+  // unconditionally (this rule covers images only). The served url is already
+  // the self-hosted CDN url; the publisher source_url is never surfaced here.
+  const en = await getEnCardData(row.sku);
+
   const fullDocument: Record<string, unknown> = {
     "@encoding": "cambridge-tcg/universal/v1",
     "@kind": "card",
@@ -274,10 +284,17 @@ export async function buildUniversalCard(
           };
         })()
       : null,
-    image_url: null,
+    image_url: en.en_image?.url ?? null,
+    // Copyright line for image_url above. Emitted as a sibling so it travels
+    // co-located with the image through every density projection — a rendered
+    // image must never appear without its attribution. This is null exactly
+    // when image_url is null, so the two are never separated.
+    image_attribution: en.en_image?.attribution ?? null,
     publication_boundary: {
       price: "withheld_pending_field_level_source_rights",
-      image: "withheld_pending_field_level_source_rights",
+      image: en.en_image
+        ? "cleared_official_sample_self_hosted_attributed"
+        : "withheld_pending_field_level_source_rights",
     },
   };
 
@@ -303,6 +320,11 @@ export async function buildUniversalCard(
       price: price ? { magnitude: price.magnitude, currency_token: price.currency_token } : null,
       in_set: inSet ? { target_hash: inSet.target_hash } : null,
       of_game: ofGame ? { target_hash: ofGame.target_hash } : null,
+      // image_url + image_attribution are intentionally BOTH elided at sparse
+      // density (an image is heavy; sparse is the minimal projection). They are
+      // only ever dropped together, so the co-location invariant — no image
+      // without its copyright line — holds. `normal`/`saturated` spread
+      // fullDocument below, carrying both fields through unchanged.
     };
   } else if (density === "saturated") {
     projected = {

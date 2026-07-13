@@ -77,10 +77,24 @@ const nextConfig: NextConfig = {
     // CardRush hosts images ride on before the 5-min drain archives them.
     // Only the One Piece pair was listed before — pokemon/dragon-ball
     // images failed next/image for want of a whitelist line.
+    //
+    // Plus the self-hosted OFFICIAL English card-image host: the /market
+    // grid + table now render publisher art served (attributed) from our
+    // own S3 bucket (see lib/cards/en-card-data.ts CARD_IMAGE_CDN). Both
+    // the region-qualified and bare S3 endpoints are listed so next/image
+    // accepts whichever form the CDN env resolves to.
     remotePatterns: [
       {
         protocol: "https",
         hostname: "cdn.shopify.com",
+      },
+      {
+        protocol: "https",
+        hostname: "ctcg-card-images.s3.us-east-1.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "ctcg-card-images.s3.amazonaws.com",
       },
       {
         protocol: "https",

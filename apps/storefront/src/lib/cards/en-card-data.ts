@@ -48,13 +48,27 @@
  *
  * ── Substrate honesty ─────────────────────────────────────────────────
  *
- * Bandai has not given Cambridge documented permission to publish these
- * proprietary fields. Public reads therefore return only nulls and perform no
- * database query. This also guarantees that a stored publisher `source_url`
- * can never become a hotlink fallback.
+ * IMAGES: official publisher art is published under the recorded rule (see
+ * getEnCardData below) — self-hosted on a Cambridge host, takedown-clear, and
+ * always carrying its copyright line. A stored publisher `source_url` is NEVER
+ * served (the query requires s3_key), so it can never become a hotlink.
+ * TEXT: effect_text stays withheld pending its own rule; getEnCardData returns
+ * effect_text:null.
  */
 
 import { GAMES, GAME_CODES, type GameCode } from "@cambridge-tcg/sku";
+import { query } from "@/lib/db";
+
+/**
+ * Cambridge-controlled public host for self-hosted official card images.
+ * A row publishes ONLY via its s3_key on this host — never the stored
+ * publisher `source_url` (that would be a hotlink). See the getEnCardData
+ * query + docs/EN-CARD-DATA.md.
+ */
+const CARD_IMAGE_CDN = (
+  process.env.CTCG_CARD_IMAGE_CDN ||
+  "https://ctcg-card-images.s3.us-east-1.amazonaws.com"
+).replace(/\/$/, "");
 
 /** Official English rules text for a card (never flavor text — the
  *  column doesn't exist, by policy). */
@@ -135,13 +149,102 @@ export function enCardKey(catalogSku: string): string | null {
 }
 
 /**
- * Public Bandai EN publication boundary.
+ * Public official-image publication rule (recorded 2026-07-13, docs/EN-CARD-DATA.md
+ * + /legal/card-images). The owner's decision: publish OFFICIAL publisher card
+ * images (from the publisher's own card database), self-hosted on a Cambridge-
+ * controlled host, with the copyright line always attached, under the
+ * nominative-fair-use / marketplace rationale — you must show the card to trade
+ * it, and the art is identified as the publisher's, not ours.
  *
- * Do not query stored rows until documented source permission, self-hosting,
- * and field-level publication rules all exist. Attribution and a takedown
- * field are safeguards; neither grants publication rights.
+ * The field-level rule is enforced structurally by the query, not by hope:
+ *   - kind = 'official_sample' — only publisher-official art, never shop scans.
+ *   - s3_key IS NOT NULL       — only images self-hosted on our host; the stored
+ *                                publisher source_url is NEVER served (no hotlink).
+ *   - takedown_status = 'clear'— a disputed/removed row can never publish.
+ *   - card_images.attribution is NOT NULL by schema, so every released image
+ *     carries its copyright line by construction.
+ * Text (effect_text) stays withheld — this rule covers images only.
  */
 export async function getEnCardData(catalogSku: string): Promise<EnCardData> {
-  void catalogSku;
-  return { effect_text: null, en_image: null };
+  const key = enCardKey(catalogSku);
+  if (!key) return { effect_text: null, en_image: null };
+
+  const { rows } = await query(
+    `SELECT s3_key, kind, attribution, source_url, retrieved_at
+       FROM card_images
+      WHERE sku = $1 AND lang = 'en' AND kind = 'official_sample'
+        AND takedown_status = 'clear' AND s3_key IS NOT NULL
+      ORDER BY retrieved_at DESC
+      LIMIT 1`,
+    [key],
+  );
+  const row = rows[0] as
+    | { s3_key: string; kind: string; attribution: string; source_url: string | null; retrieved_at: unknown }
+    | undefined;
+
+  const en_image: EnCardImage | null = row
+    ? {
+        // Always the self-hosted URL; NEVER row.source_url.
+        url: `${CARD_IMAGE_CDN}/${row.s3_key}`,
+        attribution: row.attribution,
+        kind: row.kind,
+        source_url: row.source_url,
+        retrieved_at:
+          row.retrieved_at instanceof Date
+            ? row.retrieved_at.toISOString()
+            : String(row.retrieved_at),
+      }
+    : null;
+  return { effect_text: null, en_image };
+}
+
+/**
+ * Batch official-image lookup for a page of catalogue SKUs (the grid path —
+ * one query, not N). Same field-level rule as getEnCardData. Returns a map
+ * keyed by the ORIGINAL catalogue sku (only entries that have a published
+ * official image); missing skus simply aren't in the map.
+ */
+export async function getEnCardImages(
+  catalogSkus: readonly string[],
+): Promise<Map<string, EnCardImage>> {
+  const keyBySku = new Map<string, string>();
+  const keys = new Set<string>();
+  for (const sku of catalogSkus) {
+    const key = enCardKey(sku);
+    if (key) {
+      keyBySku.set(sku, key);
+      keys.add(key);
+    }
+  }
+  if (keys.size === 0) return new Map();
+
+  const { rows } = await query(
+    `SELECT sku, s3_key, kind, attribution, source_url, retrieved_at
+       FROM card_images
+      WHERE sku = ANY($1) AND lang = 'en' AND kind = 'official_sample'
+        AND takedown_status = 'clear' AND s3_key IS NOT NULL`,
+    [Array.from(keys)],
+  );
+
+  const byKey = new Map<string, EnCardImage>();
+  for (const r of rows as Array<{
+    sku: string; s3_key: string; kind: string; attribution: string; source_url: string | null; retrieved_at: unknown;
+  }>) {
+    if (byKey.has(r.sku)) continue;
+    byKey.set(r.sku, {
+      url: `${CARD_IMAGE_CDN}/${r.s3_key}`,
+      attribution: r.attribution,
+      kind: r.kind,
+      source_url: r.source_url,
+      retrieved_at:
+        r.retrieved_at instanceof Date ? r.retrieved_at.toISOString() : String(r.retrieved_at),
+    });
+  }
+
+  const out = new Map<string, EnCardImage>();
+  for (const [sku, key] of keyBySku) {
+    const img = byKey.get(key);
+    if (img) out.set(sku, img);
+  }
+  return out;
 }

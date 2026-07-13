@@ -7,6 +7,7 @@ import {
 } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
 import { query } from "@/lib/db";
+import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
 
 // GET /api/market/catalog — all cards with spot + P2P data for Cardmarket-style browse
 //
@@ -109,6 +110,22 @@ export async function GET(request: Request) {
     }
   }
 
+  // Official English self-hosted card images (one batch query, per the
+  // grid contract). The publication rule lives entirely in en-card-data.ts:
+  // only publisher 'official_sample' art, self-hosted via s3_key (the stored
+  // source_url is NEVER served — no hotlink), takedown-clear, and always
+  // carrying its copyright line. The returned `url` is already the Cambridge-
+  // hosted URL; cards with no published official image simply aren't in the
+  // map, so their image_url stays whatever db-source gave (today: null).
+  let enImages = new Map<string, EnCardImage>();
+  if (skus.length > 0) {
+    try {
+      enImages = await getEnCardImages(skus);
+    } catch {
+      // EN image enrichment is optional; the catalog renders without it.
+    }
+  }
+
   // Collectors-first (2026-07-06): the tradein-credit channel enrichment
   // (the house's standing we-buy bids) is gone — one less price channel
   // to compute. Every bid/ask below is a collector's; spot_price survives
@@ -118,6 +135,10 @@ export async function GET(request: Request) {
     const p2p = p2pData.get(item.sku);
     const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
     const marketPrice = bestAsk !== null && (spot === null || bestAsk < spot) ? bestAsk : spot;
+    // db-source image_url is always null; the official self-hosted EN image
+    // (already the Cambridge URL — never source_url) overrides it when one
+    // is published, and its copyright line rides along for co-located render.
+    const img = enImages.get(item.sku);
 
     return {
       sku: item.sku,
@@ -126,7 +147,8 @@ export async function GET(request: Request) {
       set_code: item.set_code,
       set_name: item.set_name,
       rarity: item.rarity,
-      image_url: item.image_url,
+      image_url: img?.url ?? item.image_url,
+      image_attribution: img?.attribution ?? null,
       // Prices — spot_price is the catalogue reference (labelled "(ref)"
       // in the UI), not something anyone sells at.
       spot_price: spot,

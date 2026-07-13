@@ -8,6 +8,10 @@ const mockQuery = vi.mocked(query);
 
 beforeEach(() => {
   mockQuery.mockReset();
+  // Default for any unspecified read (e.g. buildUniversalCard's getEnCardData
+  // official-image lookup): no EN image → withheld, as before. The specific
+  // fetchCardRow mockResolvedValueOnce below still takes precedence in order.
+  mockQuery.mockResolvedValue({ rows: [] } as never);
 });
 
 describe("universal card legacy snapshot boundary", () => {

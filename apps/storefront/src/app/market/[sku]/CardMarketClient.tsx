@@ -30,6 +30,12 @@ export interface CardIdentitySeed extends CatalogIdentity {
   reference_price: number | null;
 }
 
+// The client's working view = the live unified order book plus the official
+// image's copyright line. `image_attribution` isn't on UnifiedMarketView (the
+// live /unified view carries no rights-cleared image); it rides in from the
+// server-resolved identity so the displayed image always keeps its line.
+type MarketView = UnifiedMarketView & { image_attribution: string | null };
+
 // A live auction for this exact card, resolved server-side from
 // auctions.sku. Additive read only — the auction engine is untouched.
 export interface AlsoAtAuction {
@@ -389,13 +395,14 @@ export default function CardMarketClient({
   // reference price — instead of a loading skeleton. The order book fills
   // in from the /unified fetch below; identity never blanks out even if
   // that fetch fails.
-  const seed: UnifiedMarketView = {
+  const seed: MarketView = {
     sku: identity.sku,
     card_name: identity.card_name,
     card_number: identity.card_number,
     set_code: identity.set_code,
     set_name: identity.set_name,
     image_url: identity.image_url,
+    image_attribution: identity.image_attribution,
     rarity: identity.rarity,
     reference_price: identity.reference_price,
     bids: [],
@@ -409,7 +416,7 @@ export default function CardMarketClient({
     p2p_discount: null,
   };
 
-  const [book, setBook] = useState<UnifiedMarketView | null>(seed);
+  const [book, setBook] = useState<MarketView | null>(seed);
   // Not "loading" from a blank slate — identity is already seeded, so the
   // page renders immediately and the order book fills in.
   const [loading, setLoading] = useState(false);
@@ -492,7 +499,13 @@ export default function CardMarketClient({
         card_number: data.card_number ?? identity.card_number,
         set_code: data.set_code ?? identity.set_code,
         set_name: data.set_name ?? identity.set_name,
-        image_url: data.image_url ?? identity.image_url,
+        // The image + its copyright line stay strictly the official,
+        // self-hosted pair from the server identity — we deliberately ignore
+        // data.image_url (the live view's wholesale/cardrush art) so we never
+        // render an unattributed or non-official image. No official image ⇒
+        // null here ⇒ the No-Image placeholder, per policy.
+        image_url: identity.image_url,
+        image_attribution: identity.image_attribution,
         rarity: data.rarity ?? identity.rarity,
         reference_price: data.reference_price ?? identity.reference_price,
       });
@@ -719,6 +732,14 @@ export default function CardMarketClient({
                     alt={book.card_name || sku}
                     className="w-full rounded"
                   />
+                  {/* Copyright line — an official image must always carry it
+                      (it travels with image_url as one pair). Small, muted,
+                      directly under the art. */}
+                  {book.image_attribution && (
+                    <p className="mt-1.5 px-0.5 text-[10px] leading-snug text-ink-faint">
+                      {book.image_attribution}
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

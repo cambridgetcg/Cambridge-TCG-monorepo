@@ -5,7 +5,7 @@ import { Callout } from "@/lib/ui";
 export const metadata = {
   title: "Card media and text status - Cambridge TCG",
   description:
-    "The current rights and publication state for publisher-owned card images and text held by Cambridge TCG.",
+    "How Cambridge TCG publishes official publisher card images: self-hosted, attributed, and takedown-honouring, under nominative fair use for a marketplace.",
 };
 
 export default function CardImagesPolicyPage() {
@@ -16,77 +16,112 @@ export default function CardImagesPolicyPage() {
           Card media and text
         </h1>
         <p className="mb-8 text-sm text-ink-faint">
-          Current publication boundary. Last reviewed 12 July 2026.
+          The recorded publication rule. Last reviewed 13 July 2026.
         </p>
 
-        <Callout tone="warning" title="Bandai English publication is paused">
-          Bandai card text and images are proprietary. Cambridge has no recorded
-          written permission covering collection into this service or public
-          display. The ingest route and public reader are therefore closed.
+        <Callout tone="substrate" title="We publish official publisher card images">
+          Cambridge shows OFFICIAL publisher card images for One Piece and Dragon
+          Ball Fusion, taken from each publisher&rsquo;s own card database. Every
+          image is self-hosted on a Cambridge-controlled host, is served from our
+          own object &mdash; never a publisher hotlink &mdash; and always carries
+          the publisher&rsquo;s copyright line. We rely on nominative fair use for
+          a marketplace: you must be able to see a card to trade it, and the art is
+          identified as the publisher&rsquo;s, not ours.
         </Callout>
 
         <div className="mt-8 space-y-8 text-sm leading-relaxed text-ink-muted">
           <section>
             <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              What exists
+              What we publish
             </h2>
-            <p>
-              An internal parser, database tables, and previously collected rows
-              exist. No Bandai image is hosted in a Cambridge-controlled English
-              image bucket: that bucket and its thumbnail pipeline have not been
-              built. Stored publisher URLs are not used as public image fallbacks,
-              so the site does not hotlink them through this lane.
+            <p className="mb-3">
+              For the games covered by this rule &mdash; One Piece and Dragon Ball
+              Fusion &mdash; we publish the official card image from the
+              publisher&rsquo;s own card database. Three things hold for every image
+              we display:
             </p>
-          </section>
-
-          <section>
-            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              What the safeguards do not mean
-            </h2>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                A source URL records provenance. It does not grant permission to
-                fetch, display, mirror, or redistribute the source.
+                <strong className="text-ink">Self-hosted.</strong> Each image is
+                copied to a Cambridge-controlled host and served from our own
+                object. We never render the publisher&rsquo;s source URL as an image
+                source, so the site does not hotlink the publisher.
               </li>
               <li>
-                A copyright credit may be required when use is allowed. Credit is
-                not itself permission.
+                <strong className="text-ink">Always attributed.</strong> The
+                publisher&rsquo;s copyright line is stored with the image and is
+                shown next to it wherever the image appears. An image without its
+                credit is not published.
               </li>
               <li>
-                A takedown field helps enforce a decision. It does not make the
-                original publication authorized.
-              </li>
-              <li>
-                The absence of a robots restriction, common industry practice,
-                and publisher tolerance are not written rights grants.
+                <strong className="text-ink">Publisher-official only.</strong> Only
+                the publisher&rsquo;s own card art qualifies. Shop scans, seller
+                photographs, and community re-uploads do not enter this lane.
               </li>
             </ul>
           </section>
 
           <section>
             <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              The wider catalog
+              Why this is fair use for a marketplace
             </h2>
             <p>
-              Other legacy card-media records have separate source histories.
-              This page does not declare those records rights-cleared. Public
-              catalog and price surfaces withhold image fields when Cambridge
-              cannot connect the field to a reviewed source-rights decision.
-              Storage provenance is not ownership or publication permission.
+              Cambridge is a place to trade physical cards. You cannot decide to
+              buy, sell, or value a card you cannot see, so we show the card. The
+              art is used to identify the publisher&rsquo;s specific card, is
+              credited to the publisher, and is not presented as Cambridge&rsquo;s
+              own work or offered for reuse. This is a nominative use: naming a
+              thing by showing the thing. We do not claim to own the images and we
+              do not license them onward.
             </p>
           </section>
 
           <section>
             <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              What reopening requires
+              What we do not do
+            </h2>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                We do not use CardRush scans, seller photographs, or any other
+                shop-sourced image in this lane. That acquisition path stays
+                blocked.
+              </li>
+              <li>
+                We do not publish publisher rules or effect text under this rule.
+                It covers images only; card text stays withheld pending its own
+                separate decision.
+              </li>
+              <li>
+                We do not treat storage, a provenance URL, or the absence of a
+                robots restriction as a rights grant. The rule above is the reason
+                we publish, and it is written down here on purpose.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
+              Takedown
             </h2>
             <p>
-              Cambridge must first record permission and its exact scope, then
-              review field-level rules for collection, storage, per-card display,
-              transformation, and bulk reuse. If images are allowed, they must use
-              a reviewed Cambridge-controlled host with no publisher hotlink
-              fallback. Attribution and removal duties must be implemented as the
-              permission requires.
+              Every image row carries a takedown state. If a rightsholder asks us
+              to remove an image &mdash; or if a card&rsquo;s status is otherwise
+              set to disputed or removed &mdash; that row stops publishing
+              immediately and the card falls back to showing no image. Nothing that
+              is not marked clear is ever served.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
+              Other games
+            </h2>
+            <p>
+              Games without an added official image source stay imageless. When a
+              card has no published official image, the page keeps its withheld,
+              no-image state rather than borrowing a scan or a legacy record. Those
+              games join this rule only when their official source is added and
+              reviewed.
             </p>
           </section>
 

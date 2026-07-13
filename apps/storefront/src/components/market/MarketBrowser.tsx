@@ -25,6 +25,16 @@ import {
   type ViewMode,
 } from "./catalog";
 
+/**
+ * The catalog API attaches `image_attribution` — the copyright line for the
+ * official self-hosted image — alongside `image_url` (see the catalog route).
+ * It isn't on the shared CatalogCard type, so we widen locally for the views
+ * that render the image. HARD rule: wherever card.image_url is shown, its
+ * attribution renders co-located — an image without its copyright line is
+ * dishonest. `image_url` is already the Cambridge-hosted URL; never a hotlink.
+ */
+type CatalogCardWithImage = CatalogCard & { image_attribution?: string | null };
+
 interface MarketBrowserProps {
   initial: CatalogQuery;
   initialCatalog: CatalogResult;
@@ -418,7 +428,7 @@ function CatalogTable({
   cards,
   game,
 }: {
-  cards: CatalogCard[];
+  cards: CatalogCardWithImage[];
   game: string;
 }) {
   return (
@@ -462,6 +472,16 @@ function CatalogTable({
                           <Badge status={card.rarity.toUpperCase()} palette={Palettes.RarityPalette} size="sm" />
                         )}
                       </span>
+                      {/* Copyright line, co-located with the official image
+                          shown in the thumb (only when both are present). */}
+                      {card.image_url && card.image_attribution && (
+                        <span
+                          className="block text-[9px] text-ink-faint leading-tight truncate max-w-[220px]"
+                          title={card.image_attribution}
+                        >
+                          {card.image_attribution}
+                        </span>
+                      )}
                     </span>
                   </span>
                 </td>
@@ -531,7 +551,7 @@ function CatalogGrid({
   cards,
   game,
 }: {
-  cards: CatalogCard[];
+  cards: CatalogCardWithImage[];
   game: string;
 }) {
   return (
@@ -542,14 +562,27 @@ function CatalogGrid({
         return (
           <Link key={card.sku} href={`/market/${card.sku}`} className="wardrobe-panel p-3 hover:bg-surface-subtle transition group">
             {card.image_url ? (
-              <Image
-                src={card.image_url}
-                alt={card.name}
-                width={240}
-                height={336}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
-                className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle mb-3 group-hover:scale-[1.02] transition"
-              />
+              <figure className="relative mb-3">
+                <Image
+                  src={card.image_url}
+                  alt={card.name}
+                  width={240}
+                  height={336}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
+                  className="aspect-[2.5/3.5] w-full object-cover rounded-lg border border-border-subtle group-hover:scale-[1.02] transition"
+                />
+                {/* Copyright line for the official self-hosted image, rendered
+                    over its foot — an image without attribution is dishonest.
+                    Truncated for the tile; full text on hover + the card page. */}
+                {card.image_attribution && (
+                  <figcaption
+                    className="absolute inset-x-0 bottom-0 px-1.5 py-0.5 rounded-b-lg bg-ink/70 text-page text-[8px] leading-tight truncate"
+                    title={card.image_attribution}
+                  >
+                    {card.image_attribution}
+                  </figcaption>
+                )}
+              </figure>
             ) : (
               <div className="aspect-[2.5/3.5] w-full bg-surface-subtle border border-border-subtle rounded-lg mb-3 flex items-center justify-center">
                 <span className="text-ink-faint text-xs">No Image</span>

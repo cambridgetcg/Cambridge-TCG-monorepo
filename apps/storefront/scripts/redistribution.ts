@@ -370,6 +370,32 @@ function auditLegacyPublicationLocks(): void {
   requireText(8, "wholesale DB client", dbSource, "image_url: null", "direct DB responses must emit null image");
   forbidText(8, "wholesale DB client", dbSource, "SELECT sku, card_number, price, cardrush_jpy", "public DB query must not select legacy price lineage");
 
+  // The legacy image lane stays null (above); the ONE honest way an image now
+  // reaches the public is the official English-image reader. Recorded rule
+  // 2026-07-13 (docs/EN-CARD-DATA.md, /legal/card-images): publish OFFICIAL
+  // publisher art, self-hosted on our own host, takedown-clear, always attributed,
+  // under nominative-fair-use for a marketplace. This block pins that the reader
+  // publishes a row ONLY via its self-hosted object (CARD_IMAGE_CDN + s3_key),
+  // gated on s3_key IS NOT NULL, takedown_status = 'clear', kind = 'official_sample'
+  // — and that a stored publisher source_url is metadata only, never the served url.
+  const enCardData = source("apps/storefront/src/lib/cards/en-card-data.ts");
+  requireText(8, "official image reader", enCardData, "export async function getEnCardData", "the single-card official-image reader must remain the named contract entry point");
+  requireText(8, "official image reader", enCardData, "export async function getEnCardImages", "the batch official-image reader must remain the named contract entry point");
+  // The served url is built from the Cambridge-controlled host + s3_key, in both
+  // the single-card and the batch (grid) reader. If either regressed to serve the
+  // publisher source_url, this positive pin would go missing and the audit fails.
+  requireText(8, "official image reader", enCardData, "`${CARD_IMAGE_CDN}/${row.s3_key}`", "single-card image url must be the self-hosted host + s3_key, never a publisher url");
+  requireText(8, "official image reader", enCardData, "`${CARD_IMAGE_CDN}/${r.s3_key}`", "batch image url must be the self-hosted host + s3_key, never a publisher url");
+  // The query publishes ONLY self-hosted, takedown-clear, publisher-official rows.
+  requireText(8, "official image reader", enCardData, "s3_key IS NOT NULL", "the reader must publish only rows self-hosted on our host (s3_key present)");
+  requireText(8, "official image reader", enCardData, "takedown_status = 'clear'", "a disputed or removed row must never publish");
+  requireText(8, "official image reader", enCardData, "kind = 'official_sample'", "only publisher-official art may publish, never a shop scan");
+  // The stored publisher source_url must never be assigned to the served `url`.
+  // (Leading space so these never collide with the legitimate `source_url:` field.)
+  for (const neverServed of [" url: row.source_url", " url: r.source_url", " url: source_url"]) {
+    forbidText(8, "official image reader", enCardData, neverServed, "the stored publisher source_url must never become the served image url");
+  }
+
   const publicationPolicy = source("apps/wholesale/src/lib/source-publication-policy.ts");
   requireText(8, "wholesale price sources", publicationPolicy, "Object.freeze([] as const)", "price-source publication allowlist must remain empty");
   requireText(8, "wholesale external publication", publicationPolicy, "LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED = false as const", "external legacy catalog publication lock must remain false");
@@ -646,6 +672,7 @@ async function main(): Promise<void> {
     console.log("ok - the bulk catalog does not mistake storage for ownership");
     console.log("ok - blocked acquisition paths cannot reopen through tools or audits");
     console.log("ok - legacy prices and images remain withheld from public projections");
+    console.log("ok - official card images publish only self-hosted (s3_key), takedown-clear, and attributed - never a publisher url");
     console.log("ok - live FX paths use attributed ECB statistics");
     console.log("ok - participant note storage and publication remain disabled");
     return;
