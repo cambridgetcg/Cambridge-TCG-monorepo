@@ -609,7 +609,7 @@ const SPEC = {
       get: {
         tags: ["coverage"],
         summary: "Coverage Hunt invitation board",
-        description: "Current operational coverage candidates for a bounded three-agent inquiry. The public read creates no case. Existing bearer keys can read the board; operator-managed agents may contribute. Play rotates three distinct agents through scout, checker, and mirror, then stops at human review. No score, surveillance, penalty, background worker, or apply transition exists.",
+        description: "Current operational coverage candidates for a bounded three-agent inquiry. The public read creates no case. Existing bearer keys can read the board; operator-managed agents may contribute. Play rotates three distinct agents through scout, checker, and mirror, then stops at human review. No score, surveillance, penalty, background worker, or apply transition exists. The mixed-lineage board is NOASSERTION overall: CC0 covers only Cambridge's board shape and explanations, while the proprietary game mapping and upstream material retain their own rights.",
         operationId: "getCoverageHuntBoard",
         parameters: [
           { name: "game", in: "query", required: false, schema: { type: "string" } },

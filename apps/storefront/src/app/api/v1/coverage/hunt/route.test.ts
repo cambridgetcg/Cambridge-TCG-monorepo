@@ -56,6 +56,16 @@ describe("GET /api/v1/coverage/hunt", () => {
       apply_transition_exists: false,
       human_review_required: true,
     });
+    expect(body._meta.license).toBe("NOASSERTION");
+    expect(body._meta.sources).toEqual([
+      "cambridge-tcg.coverage-hunt-board",
+      "cambridge-tcg.catalog-game-mapping",
+      "cardrush",
+    ]);
+    expect(body._meta.source_license).toEqual(["cc0", "proprietary", "internal-only"]);
+    expect(body._meta.does_not_include).toContain(
+      "CC0 applies only to rights Cambridge holds in the board shape and explanatory metadata; the internal card-to-game mapping is proprietary, and upstream terms still govern upstream material",
+    );
     expect(JSON.stringify(body.data.board)).not.toMatch(/price_gbp|price_amount|user_id|email/);
   });
 

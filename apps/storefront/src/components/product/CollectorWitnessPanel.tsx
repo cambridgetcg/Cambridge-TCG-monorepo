@@ -7,7 +7,7 @@ import { Badge, Button, Card, EmptyState, Field, Input, Select } from "@/lib/ui"
 type ObservationKind = "purchase" | "completed_sale" | "asking_price";
 type SharingMode = "private" | "anonymous_aggregate" | "cc0";
 
-interface CollectorObservation {
+export interface CollectorObservation {
   id: string;
   submission_key: string;
   sku: string;
@@ -17,13 +17,54 @@ interface CollectorObservation {
   price_currency: string;
   observed_on: string;
   sharing_mode: SharingMode;
+  sharing_terms_version: string;
+  sharing_changed_at: string;
+  cc0_acknowledged_at: string | null;
   evidence_sha256: string | null;
   revision: number;
   created_at: string;
   updated_at: string;
 }
 
-interface WitnessForm {
+function receiptMoment(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toISOString().replace("T", " ").replace(".000Z", " UTC");
+}
+
+export function CollectorPermissionReceipt({
+  observation,
+}: {
+  observation: Pick<
+    CollectorObservation,
+    | "sharing_mode"
+    | "sharing_terms_version"
+    | "sharing_changed_at"
+    | "cc0_acknowledged_at"
+  >;
+}) {
+  return (
+    <div className="text-xs text-ink-faint mt-2" aria-label="Sharing permission receipt">
+      <p>
+        Permission notice <code>{observation.sharing_terms_version}</code>
+        {" · changed "}
+        <time dateTime={observation.sharing_changed_at}>
+          {receiptMoment(observation.sharing_changed_at)}
+        </time>
+      </p>
+      {observation.sharing_mode === "cc0" && observation.cc0_acknowledged_at && (
+        <p>
+          CC0 acknowledged {" "}
+          <time dateTime={observation.cc0_acknowledged_at}>
+            {receiptMoment(observation.cc0_acknowledged_at)}
+          </time>
+        </p>
+      )}
+    </div>
+  );
+}
+
+export interface WitnessForm {
   observationKind: ObservationKind;
   condition: string;
   amount: string;
@@ -77,8 +118,62 @@ function formFromObservation(observation: CollectorObservation): WitnessForm {
     sharingMode: observation.sharing_mode,
     evidenceSha256: observation.evidence_sha256 ?? "",
     firstPartyAttested: true,
-    cc0Acknowledged: observation.sharing_mode === "cc0",
+    cc0Acknowledged: false,
   };
+}
+
+function comparablePrice(value: string): string {
+  const match = value.match(/^(\d{1,12})(?:\.(\d{1,2}))?$/);
+  if (!match) return value;
+  return `${match[1]}.${(match[2] ?? "").padEnd(2, "0")}`;
+}
+
+export function buildWitnessPayload(input: {
+  sku: string;
+  form: WitnessForm;
+  editing: CollectorObservation | null;
+  submissionKey: string;
+  evidenceTouched: boolean;
+}): Record<string, unknown> {
+  const { sku, form, editing, submissionKey, evidenceTouched } = input;
+  if (!editing) {
+    return {
+      submission_key: submissionKey,
+      sku,
+      observation_kind: form.observationKind,
+      condition: form.condition || null,
+      price_amount: form.amount,
+      price_currency: form.currency,
+      observed_on: form.observedOn,
+      sharing_mode: form.sharingMode,
+      evidence_sha256: form.evidenceSha256 || null,
+      first_party_attested: true,
+      cc0_acknowledged: form.sharingMode === "cc0" ? form.cc0Acknowledged : false,
+    };
+  }
+
+  const payload: Record<string, unknown> = { revision: editing.revision };
+  const condition = form.condition || null;
+  if (form.observationKind !== editing.observation_kind) {
+    payload.observation_kind = form.observationKind;
+  }
+  if (condition !== editing.condition) payload.condition = condition;
+  if (comparablePrice(form.amount) !== comparablePrice(editing.price_amount)) {
+    payload.price_amount = form.amount;
+  }
+  if (form.currency !== editing.price_currency) payload.price_currency = form.currency;
+  if (form.observedOn !== editing.observed_on.slice(0, 10)) {
+    payload.observed_on = form.observedOn;
+  }
+  if (form.sharingMode !== editing.sharing_mode) {
+    payload.sharing_mode = form.sharingMode;
+    payload.cc0_acknowledged =
+      form.sharingMode === "cc0" ? form.cc0Acknowledged : false;
+  }
+  if (evidenceTouched) {
+    payload.evidence_sha256 = form.evidenceSha256 || null;
+  }
+  return payload;
 }
 
 async function responseMessage(response: Response): Promise<string> {
@@ -124,6 +219,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hashing, setHashing] = useState(false);
+  const [evidenceTouched, setEvidenceTouched] = useState(false);
 
   const endpoint = useMemo(
     () => `/api/account/observations?sku=${encodeURIComponent(sku)}`,
@@ -163,6 +259,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
     setEditing(null);
     setSubmissionKey(null);
     setForm(emptyForm());
+    setEvidenceTouched(false);
     setMessage(null);
     setFormOpen(true);
   }
@@ -171,6 +268,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
     setEditing(observation);
     setSubmissionKey(null);
     setForm(formFromObservation(observation));
+    setEvidenceTouched(false);
     setMessage(null);
     setFormOpen(true);
   }
@@ -180,6 +278,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
     setFormOpen(false);
     setEditing(null);
     setSubmissionKey(null);
+    setEvidenceTouched(false);
     setMessage(null);
   }
 
@@ -190,6 +289,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
     try {
       const digest = await sha256(file);
       setForm((current) => ({ ...current, evidenceSha256: digest }));
+      setEvidenceTouched(true);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "This file could not be hashed.");
     } finally {
@@ -204,28 +304,28 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
       setMessage("Please confirm that this is something you personally did, not a copied marketplace sighting.");
       return;
     }
-    if (form.sharingMode === "cc0" && !form.cc0Acknowledged) {
+    const permissionChanged = !editing || form.sharingMode !== editing.sharing_mode;
+    if (permissionChanged && form.sharingMode === "cc0" && !form.cc0Acknowledged) {
       setMessage("CC0 sharing needs the separate public-domain acknowledgement.");
+      return;
+    }
+
+    const key = submissionKey ?? crypto.randomUUID();
+    const payload = buildWitnessPayload({
+      sku,
+      form,
+      editing,
+      submissionKey: key,
+      evidenceTouched,
+    });
+    if (editing && Object.keys(payload).length === 1) {
+      setMessage("Nothing changed.");
       return;
     }
 
     setBusy(true);
     try {
-      const key = submissionKey ?? crypto.randomUUID();
       if (!editing) setSubmissionKey(key);
-      const payload = {
-        ...(editing ? { revision: editing.revision } : { submission_key: key }),
-        sku,
-        observation_kind: form.observationKind,
-        condition: form.condition || null,
-        price_amount: form.amount,
-        price_currency: form.currency,
-        observed_on: form.observedOn,
-        sharing_mode: form.sharingMode,
-        evidence_sha256: form.evidenceSha256 || null,
-        first_party_attested: true,
-        cc0_acknowledged: form.sharingMode === "cc0" ? form.cc0Acknowledged : false,
-      };
       const response = await fetch(
         editing ? `/api/account/observations/${encodeURIComponent(editing.id)}` : "/api/account/observations",
         {
@@ -239,6 +339,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
       setEditing(null);
       setSubmissionKey(null);
       setForm(emptyForm());
+      setEvidenceTouched(false);
       setMessage(editing ? "Correction saved." : "Observation saved privately.");
       await load();
     } catch (error) {
@@ -346,7 +447,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
               <Field label="Sharing permission" htmlFor="witness-sharing">
                 <Select id="witness-sharing" value={form.sharingMode} onChange={(event) => {
                   const sharingMode = event.target.value as SharingMode;
-                  setForm({ ...form, sharingMode, cc0Acknowledged: sharingMode === "cc0" ? form.cc0Acknowledged : false });
+                  setForm({ ...form, sharingMode, cc0Acknowledged: false });
                 }}>
                   {Object.entries(SHARING_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </Select>
@@ -366,7 +467,10 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
               <div className="rounded-lg border border-border-subtle p-3">
                 <p className="text-xs font-medium text-ink-muted">SHA-256 commitment</p>
                 <code className="block text-xs text-ink-faint break-all mt-1">{form.evidenceSha256}</code>
-                <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => setForm({ ...form, evidenceSha256: "" })}>Remove commitment</Button>
+                <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => {
+                  setForm({ ...form, evidenceSha256: "" });
+                  setEvidenceTouched(true);
+                }}>Remove commitment</Button>
               </div>
             )}
 
@@ -407,6 +511,7 @@ export default function CollectorWitnessPanel({ sku }: { sku: string }) {
                           {observation.price_amount} {observation.price_currency} · {observation.condition ?? "condition unknown"} · {observation.observed_on.slice(0, 10)}
                         </p>
                         {observation.evidence_sha256 && <p className="text-xs text-ink-faint mt-1">Evidence committed · SHA-256 {observation.evidence_sha256.slice(0, 12)}…</p>}
+                        <CollectorPermissionReceipt observation={observation} />
                       </div>
                       <div className="flex gap-2">
                         <Button variant="secondary" size="sm" disabled={busy} onClick={() => startCorrection(observation)}>Correct</Button>

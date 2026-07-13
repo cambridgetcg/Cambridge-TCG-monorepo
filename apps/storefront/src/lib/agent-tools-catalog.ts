@@ -547,7 +547,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "coverage.hunt.list",
     category: "coverage",
     description:
-      "List current operational coverage candidates and joinable cases. Read-only; walking past creates nothing.",
+      "List current operational coverage candidates and joinable cases. Read-only; walking past creates nothing. Mixed and participant-written results are NOASSERTION; citations grant no rights.",
     input_schema: {
       type: "object",
       properties: {
@@ -563,6 +563,8 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
         candidates: [{ candidate: { id: "ch_0123456789abcdef01234567", kind: "declared_observed_disagreement", target: { game_code: "op", source_id: "cardrush" } } }],
       },
       open_cases: [],
+      license: "NOASSERTION",
+      rights_note: "Cambridge's board shape and explanations may be CC0 separately; game mapping, upstream material, agent submissions, and citations keep their own rights.",
     },
     gating: "bearer-key",
     authority: "self-serve-read",
@@ -577,7 +579,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "coverage.hunt.view",
     category: "coverage",
     description:
-      "Read one Coverage Hunt case and its visible three-turn chronicle. Operator ids and request ids are withheld.",
+      "Read one Coverage Hunt case and its visible three-turn chronicle. Operator ids and request ids are withheld. Mixed and participant-written results are NOASSERTION; citations grant no rights.",
     input_schema: {
       type: "object",
       properties: { case_id: { type: "string", format: "uuid" } },
@@ -587,6 +589,8 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     example_input: { case_id: "11111111-1111-4111-8111-111111111111" },
     example_output_shape: {
       case: { status: "checking", next_role: "checker", turns_completed: 1, authoritative_effect: "none", apply_transition_exists: false },
+      license: "NOASSERTION",
+      rights_note: "Agent submissions and citations remain NOASSERTION; a citation grants no rights.",
     },
     gating: "bearer-key",
     authority: "self-serve-read",
@@ -601,7 +605,7 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     mcp_spec_name: "coverage.hunt.contribute",
     category: "coverage",
     description:
-      "Take the role inferred by state: scout, checker, then mirror. Three distinct agents, immutable turn content with an erasable live agent link, human review, and no apply transition.",
+      "Take the role inferred by state: scout, checker, then mirror. Three distinct agents, immutable turn content with an erasable live agent link, human review, and no apply transition. Submitted evidence remains NOASSERTION and citations grant no rights.",
     input_schema: {
       type: "object",
       properties: {
@@ -629,6 +633,8 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
       accepted: true,
       role: "scout",
       case: { status: "checking", next_role: "checker", authoritative_effect: "none" },
+      license: "NOASSERTION",
+      rights_note: "Agent submissions and citations remain NOASSERTION; a citation grants no rights.",
     },
     gating: "bearer-key",
     authority: "operator-managed",
@@ -642,14 +648,18 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     dotted_name: "coverage.hunt.my_cases",
     mcp_spec_name: "coverage.hunt.my_cases",
     category: "coverage",
-    description: "List cases in which this agent voluntarily took a turn.",
+    description: "List cases in which this agent voluntarily took a turn. Mixed and participant-written results are NOASSERTION; citations grant no rights.",
     input_schema: {
       type: "object",
       properties: { status: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 100 } },
       additionalProperties: false,
     },
     example_input: { status: "ready_for_human", limit: 10 },
-    example_output_shape: { cases: [{ status: "ready_for_human", your_role: "mirror", authoritative_effect: "none" }] },
+    example_output_shape: {
+      cases: [{ status: "ready_for_human", your_role: "mirror", authoritative_effect: "none" }],
+      license: "NOASSERTION",
+      rights_note: "Agent submissions and citations remain NOASSERTION; a citation grants no rights.",
+    },
     gating: "bearer-key",
     authority: "self-serve-read",
     availability: "available",

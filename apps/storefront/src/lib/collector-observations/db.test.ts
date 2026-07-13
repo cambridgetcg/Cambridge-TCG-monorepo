@@ -24,7 +24,7 @@ function ownerRow(overrides: Record<string, unknown> = {}) {
     observed_on: "2026-07-11",
     first_party_attested_at: "2026-07-12T10:00:00.000Z",
     sharing_mode: "private",
-    sharing_terms_version: "collector-witness-v1",
+    sharing_terms_version: "collector-witness-v2",
     sharing_changed_at: "2026-07-12T10:00:00.000Z",
     cc0_acknowledged_at: null,
     evidence_sha256: null,
@@ -87,7 +87,53 @@ describe("collector observation database boundary", () => {
     );
     expect(result.created).toBe(false);
     expect(calls[0]!.sql).toContain("ON CONFLICT (user_id, submission_key) DO NOTHING");
+    expect(calls[0]!.params).toContain("collector-witness-v2");
     expect(calls[1]!.sql).toContain("WHERE user_id = $1::uuid AND submission_key = $2::uuid");
+  });
+
+  it("stamps current terms and clears the active CC0 receipt on withdrawal", async () => {
+    const { q, calls } = scriptedQuery([[
+      ownerRow({
+        sharing_mode: "anonymous_aggregate",
+        sharing_terms_version: "collector-witness-v2",
+        revision: 2,
+      }),
+    ]]);
+
+    const result = await updateCollectorObservation(
+      "123e4567-e89b-42d3-a456-426614174099",
+      "123e4567-e89b-42d3-a456-426614174001",
+      { revision: 1, sharing_mode: "anonymous_aggregate" },
+      q,
+    );
+
+    expect(result.status).toBe("updated");
+    expect(calls[0]!.sql).toContain("sharing_terms_version = $5");
+    expect(calls[0]!.params[4]).toBe("collector-witness-v2");
+    expect(calls[0]!.sql).toContain("cc0_acknowledged_at = NULL");
+  });
+
+  it("records a fresh active receipt when CC0 permission is selected", async () => {
+    const { q, calls } = scriptedQuery([[
+      ownerRow({
+        sharing_mode: "cc0",
+        sharing_terms_version: "collector-witness-v2",
+        cc0_acknowledged_at: "2026-07-13T11:00:00.000Z",
+        revision: 2,
+      }),
+    ]]);
+
+    const result = await updateCollectorObservation(
+      "123e4567-e89b-42d3-a456-426614174099",
+      "123e4567-e89b-42d3-a456-426614174001",
+      { revision: 1, sharing_mode: "cc0", cc0_acknowledged: true },
+      q,
+    );
+
+    expect(result.status).toBe("updated");
+    expect(calls[0]!.sql).toContain("sharing_terms_version = $5");
+    expect(calls[0]!.params[4]).toBe("collector-witness-v2");
+    expect(calls[0]!.sql).toContain("cc0_acknowledged_at = NOW()");
   });
 
   it("clears stale evidence on a factual correction and scopes by owner+revision", async () => {

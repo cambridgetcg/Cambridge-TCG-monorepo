@@ -4,12 +4,11 @@ import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import type { AgentActor } from "./auth";
 import { ToolError } from "./play-tools";
 import {
-  createCoverageHuntCase,
   getCoverageHuntCase,
   listActiveCoverageHuntCases,
   listCoverageHuntCasesForAgent,
+  persistCoverageHuntScoutTurn,
   persistCoverageHuntTurn,
-  restCoverageHuntCaseIfExpired,
 } from "@/lib/coverage-hunt/db";
 import {
   COVERAGE_CANDIDATE_KINDS,
@@ -29,6 +28,12 @@ import {
 } from "@/lib/coverage-hunt/board";
 import { roleForStatus } from "@/lib/coverage-hunt/state-machine";
 import { fetchAggregatorCoverage } from "@/lib/wholesale/client";
+
+const COVERAGE_HUNT_RIGHTS = {
+  license: "NOASSERTION" as const,
+  rights_note:
+    "Cambridge's board shape and explanations may be available separately under CC0. Proprietary game mappings and upstream materials retain their own rights. Agent submissions and citations remain NOASSERTION; a citation grants no rights.",
+};
 
 function asHuntActor(actor: AgentActor) {
   return {
@@ -187,6 +192,7 @@ export async function coverageHuntList(
       listActiveCoverageHuntCases(limit),
     ]);
     return {
+      ...COVERAGE_HUNT_RIGHTS,
       board,
       open_cases: active
         .filter((state) => !state.turns.some((turn) => turn.actor.agent_id === actor.agentId))
@@ -205,9 +211,12 @@ export async function coverageHuntView(
 ) {
   try {
     if (typeof params.case_id !== "string") throw new ToolError("case_id is required");
-    const state = await restCoverageHuntCaseIfExpired(params.case_id);
+    const state = await getCoverageHuntCase(params.case_id);
     if (!state) throw new ToolError("coverage hunt case not found", 404);
-    return { case: publicCase(state, actor.agentId) };
+    return {
+      ...COVERAGE_HUNT_RIGHTS,
+      case: publicCase(state, actor.agentId),
+    };
   } catch (error) {
     toToolError(error);
   }
@@ -232,28 +241,32 @@ export async function coverageHuntContribute(
       throw new ToolError("client_request_id is required");
     }
 
-    let state: CoverageHuntCase;
+    let result: Awaited<ReturnType<typeof persistCoverageHuntTurn>>;
     if (candidateId) {
       // Validate the scout shape before opening anything. A malformed first
       // turn must not leave behind an empty case as a side effect.
       validateSubmission("scout", params.submission);
       const candidate = await currentCandidateById(candidateId);
       if (!candidate) throw new ToolError("candidate is not on the current bounded board", 404);
-      state = await createCoverageHuntCase(candidate);
+      result = await persistCoverageHuntScoutTurn({
+        candidate,
+        actor: asHuntActor(actor),
+        client_request_id: params.client_request_id,
+        submission: params.submission as CoverageHuntSubmission,
+      });
     } else {
       const found = await getCoverageHuntCase(requestedCaseId!);
       if (!found) throw new ToolError("coverage hunt case not found", 404);
-      state = found;
+      result = await persistCoverageHuntTurn({
+        case_id: found.id,
+        actor: asHuntActor(actor),
+        client_request_id: params.client_request_id,
+        submission: params.submission as CoverageHuntSubmission,
+      });
     }
-
-    const result = await persistCoverageHuntTurn({
-      case_id: state.id,
-      actor: asHuntActor(actor),
-      client_request_id: params.client_request_id,
-      submission: params.submission as CoverageHuntSubmission,
-    });
     if (!result.ok) throw new ToolError(result.message, 409);
     return {
+      ...COVERAGE_HUNT_RIGHTS,
       accepted: true,
       idempotent: result.idempotent,
       role: result.turn.role,
@@ -277,7 +290,10 @@ export async function coverageHuntMyCases(
     const status = optionalStatus(params.status);
     const limit = boundedLimit(params.limit, 20, 100);
     const cases = await listCoverageHuntCasesForAgent(actor.agentId, { status, limit });
-    return { cases: cases.map((state) => publicCase(state, actor.agentId)) };
+    return {
+      ...COVERAGE_HUNT_RIGHTS,
+      cases: cases.map((state) => publicCase(state, actor.agentId)),
+    };
   } catch (error) {
     toToolError(error);
   }

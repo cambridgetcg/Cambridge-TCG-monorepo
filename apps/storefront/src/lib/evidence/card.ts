@@ -117,8 +117,8 @@ export function buildCardEvidence(input: {
     market: {
       best_ask_gbp: market?.best_ask ?? null,
       best_bid_gbp: market?.best_bid ?? null,
-      ask_count: market?.asks.length ?? 0,
-      bid_count: market?.bids.length ?? 0,
+      ask_count: market?.asks.reduce((total, level) => total + level.order_count, 0) ?? 0,
+      bid_count: market?.bids.reduce((total, level) => total + level.order_count, 0) ?? 0,
       kind: "live_collector_offers",
       rights: "NOASSERTION",
     },

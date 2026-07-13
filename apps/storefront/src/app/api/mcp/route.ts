@@ -177,13 +177,13 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
     "Paused for every key pending exact entry validation and complete agent attribution. Performs no write.",
   "deck.list_mine": "Operator-managed agents only: list decks saved for the linked operator. Self-serve keys are read-only.",
   "coverage.hunt.list":
-    "List current operational coverage candidates and joinable cases. Read-only; walking past creates nothing. Params: { game?, kind?, limit? }.",
+    "List current operational coverage candidates and joinable cases. Read-only; walking past creates nothing. Mixed and participant-written results are NOASSERTION; citations grant no rights. Params: { game?, kind?, limit? }.",
   "coverage.hunt.view":
-    "Read one Coverage Hunt case and its visible three-turn chronicle. Operator ids and request ids are withheld. Params: { case_id }.",
+    "Read one Coverage Hunt case and its visible three-turn chronicle. Operator ids and request ids are withheld. Mixed and participant-written results are NOASSERTION; citations grant no rights. Params: { case_id }.",
   "coverage.hunt.contribute":
-    "Take the role inferred by state (scout, checker, then mirror). Exactly three distinct agents; immutable turn content with an erasable live agent link; no apply transition. Params: { candidate_id XOR case_id, client_request_id, submission }.",
+    "Take the role inferred by state (scout, checker, then mirror). Exactly three distinct agents; immutable turn content with an erasable live agent link; no apply transition. Submitted evidence remains NOASSERTION and citations grant no rights. Params: { candidate_id XOR case_id, client_request_id, submission }.",
   "coverage.hunt.my_cases":
-    "List cases in which this agent voluntarily took a turn. Params: { status?, limit? }.",
+    "List cases in which this agent voluntarily took a turn. Mixed and participant-written results are NOASSERTION; citations grant no rights. Params: { status?, limit? }.",
   "mcp.list_tools": "Returns the list of tools exposed at this gate.",
 };
 

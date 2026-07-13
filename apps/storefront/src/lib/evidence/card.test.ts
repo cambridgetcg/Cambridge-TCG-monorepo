@@ -65,8 +65,11 @@ describe("card evidence", () => {
         image_url: null,
         rarity: null,
         reference_price: 12.34,
-        bids: [{ price: "9.00", total_quantity: 1, order_count: 1 }],
-        asks: [{ price: "13.00", total_quantity: 1, order_count: 1 }],
+        bids: [{ price: "9.00", total_quantity: 3, order_count: 3 }],
+        asks: [
+          { price: "13.00", total_quantity: 2, order_count: 2 },
+          { price: "14.00", total_quantity: 5, order_count: 4 },
+        ],
         trade_aggregates: [],
         trade_publication: {
           status: "paused",
@@ -83,7 +86,12 @@ describe("card evidence", () => {
     });
 
     expect(model.reference).toMatchObject({ kind: "computed_reference", is_offer: false });
-    expect(model.market).toMatchObject({ kind: "live_collector_offers", best_ask_gbp: 13 });
+    expect(model.market).toMatchObject({
+      kind: "live_collector_offers",
+      best_ask_gbp: 13,
+      ask_count: 6,
+      bid_count: 3,
+    });
     expect(model.completed_sales).toMatchObject({
       state: "paused",
       rights: "NOASSERTION",

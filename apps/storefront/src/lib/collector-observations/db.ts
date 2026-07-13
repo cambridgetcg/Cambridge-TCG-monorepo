@@ -206,8 +206,13 @@ export async function updateCollectorObservation(
 
   if (input.sharing_mode !== undefined) {
     add("sharing_mode", input.sharing_mode);
+    add("sharing_terms_version", COLLECTOR_OBSERVATION_TERMS_VERSION);
     sets.push("sharing_changed_at = NOW()");
-    if (input.sharing_mode === "cc0") sets.push("cc0_acknowledged_at = NOW()");
+    sets.push(
+      input.sharing_mode === "cc0"
+        ? "cc0_acknowledged_at = NOW()"
+        : "cc0_acknowledged_at = NULL",
+    );
   }
 
   if (input.evidence_sha256 !== undefined) {

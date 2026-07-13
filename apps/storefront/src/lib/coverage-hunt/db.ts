@@ -167,8 +167,11 @@ async function loadCaseWith(
 
 export async function getCoverageHuntCase(
   caseId: string,
+  now: Date = new Date(),
 ): Promise<CoverageHuntCase | null> {
-  return loadCaseWith(query, caseId, false);
+  const state = await loadCaseWith(query, caseId, false);
+  if (!state) return null;
+  return restCoverageHuntCase(state, now)?.case ?? state;
 }
 
 async function insertChronicle(
@@ -223,47 +226,46 @@ async function persistCaseState(
   }
 }
 
-export async function createCoverageHuntCase(
+async function createCoverageHuntCaseWithin(
+  q: CompatQueryFn,
   candidate: CoverageCandidateSnapshot,
-  now: Date = new Date(),
+  now: Date,
 ): Promise<CoverageHuntCase> {
-  return transaction(async (q) => {
-    const opened = openCoverageHuntCase({
-      case_id: randomUUID(),
-      candidate,
-      now,
-    });
-    const result = await q(
-      `INSERT INTO coverage_hunt_cases
-         (id, candidate_id, candidate_fingerprint, candidate_kind,
-          candidate_snapshot, status, created_at, expires_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5::jsonb, 'open', $6, $7, $6)
-       ON CONFLICT (candidate_fingerprint) DO NOTHING
-       RETURNING id`,
-      [
-        opened.case.id,
-        candidate.id,
-        candidate.fingerprint,
-        candidate.kind,
-        JSON.stringify(candidate),
-        opened.case.created_at,
-        opened.case.expires_at,
-      ],
-    );
-    if (result.rows.length === 0) {
-      const existing = await q(
-        `SELECT id FROM coverage_hunt_cases WHERE candidate_fingerprint = $1`,
-        [candidate.fingerprint],
-      );
-      const id = existing.rows[0]?.id as string | undefined;
-      if (!id) throw new Error("coverage hunt candidate conflict without case");
-      const state = await loadCaseWith(q, id, false);
-      if (!state) throw new Error("coverage hunt case disappeared");
-      return state;
-    }
-    await insertChronicle(q, opened.case.id, opened.chronicle);
-    return opened.case;
+  const opened = openCoverageHuntCase({
+    case_id: randomUUID(),
+    candidate,
+    now,
   });
+  const result = await q(
+    `INSERT INTO coverage_hunt_cases
+       (id, candidate_id, candidate_fingerprint, candidate_kind,
+        candidate_snapshot, status, created_at, expires_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5::jsonb, 'open', $6, $7, $6)
+     ON CONFLICT (candidate_fingerprint) DO NOTHING
+     RETURNING id`,
+    [
+      opened.case.id,
+      candidate.id,
+      candidate.fingerprint,
+      candidate.kind,
+      JSON.stringify(candidate),
+      opened.case.created_at,
+      opened.case.expires_at,
+    ],
+  );
+  if (result.rows.length === 0) {
+    const existing = await q(
+      `SELECT id FROM coverage_hunt_cases WHERE candidate_fingerprint = $1`,
+      [candidate.fingerprint],
+    );
+    const id = existing.rows[0]?.id as string | undefined;
+    if (!id) throw new Error("coverage hunt candidate conflict without case");
+    const state = await loadCaseWith(q, id, false);
+    if (!state) throw new Error("coverage hunt case disappeared");
+    return state;
+  }
+  await insertChronicle(q, opened.case.id, opened.chronicle);
+  return opened.case;
 }
 
 async function restExpiredWithin(
@@ -278,15 +280,121 @@ async function restExpiredWithin(
   return rested.case;
 }
 
-export async function restCoverageHuntCaseIfExpired(
-  caseId: string,
-  now: Date = new Date(),
-): Promise<CoverageHuntCase | null> {
-  return transaction(async (q) => {
-    const state = await loadCaseWith(q, caseId, true);
-    if (!state) return null;
-    return (await restExpiredWithin(q, state, now)) ?? state;
+async function lockScoutAdmission(
+  q: CompatQueryFn,
+  agentId: string,
+): Promise<void> {
+  // The daily count and the possible scout insert must be one-at-a-time for
+  // this agent. A transaction-scoped lock releases automatically on either
+  // commit or rollback; the namespaced 64-bit hash never becomes stored data.
+  await q(
+    `SELECT pg_advisory_xact_lock(
+       hashtextextended('coverage-hunt-scout:' || $1::text, 0)
+     )`,
+    [agentId],
+  );
+}
+
+type NormalizedTurnInput = {
+  case_id: string;
+  actor: CoverageHuntActor;
+  client_request_id: string;
+  submission: CoverageHuntSubmission | unknown;
+  now: Date;
+};
+
+async function persistCoverageHuntTurnWithin(
+  q: CompatQueryFn,
+  input: NormalizedTurnInput,
+): Promise<PersistedTurnResult> {
+  const { actor, now } = input;
+  const requestId = input.client_request_id;
+  const caseId = input.case_id;
+  // Retry check comes before role inference: a scout retry after the case
+  // advanced must remain the scout receipt, not become a checker attempt.
+  const existingResult = await q(
+    `SELECT case_id
+       FROM coverage_hunt_turns
+      WHERE agent_id = $1 AND client_request_id = $2`,
+    [actor.agent_id, requestId],
+  );
+  if (existingResult.rows.length > 0) {
+    if (String(existingResult.rows[0].case_id) !== caseId) {
+      throw new CoverageHuntError(
+        "invalid_input",
+        "client_request_id was already used for another case",
+      );
+    }
+    const existingState = await loadCaseWith(q, caseId, false);
+    if (!existingState) throw new Error("coverage hunt case disappeared");
+    const turn = findTurnByRequest(existingState, actor.agent_id, requestId);
+    if (!turn) throw new Error("coverage hunt idempotency row is unreadable");
+    return { ok: true, case: existingState, turn, idempotent: true };
+  }
+
+  const state = await loadCaseWith(q, caseId, true);
+  if (!state) {
+    throw new CoverageHuntError("invalid_input", "coverage hunt case not found");
+  }
+  const rested = await restExpiredWithin(q, state, now);
+  if (rested) {
+    return {
+      ok: false,
+      case: rested,
+      code: "case_expired",
+      message: "case reached its 72-hour boundary and is resting",
+    };
+  }
+
+  if (roleForStatus(state.status) === "scout") {
+    const countResult = await q(
+      `SELECT count(*)::int AS n
+         FROM coverage_hunt_turns
+        WHERE agent_id = $1
+          AND role = 'scout'
+          AND submitted_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
+      [actor.agent_id],
+    );
+    const count = Number(countResult.rows[0]?.n ?? 0);
+    if (count >= MAX_NEW_SCOUT_CASES_PER_AGENT_PER_UTC_DAY) {
+      throw new CoverageHuntError(
+        "daily_limit",
+        `an agent may scout at most ${MAX_NEW_SCOUT_CASES_PER_AGENT_PER_UTC_DAY} new cases per UTC day`,
+      );
+    }
+  }
+
+  const transition = submitCoverageHuntTurn({
+    state,
+    actor,
+    client_request_id: requestId,
+    submission: input.submission,
+    turn_id: randomUUID(),
+    now,
   });
+  const turn = transition.turn!;
+  await q(
+    `INSERT INTO coverage_hunt_turns
+       (id, case_id, role, agent_id, client_request_id, payload, submitted_at)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
+    [
+      turn.id,
+      turn.case_id,
+      turn.role,
+      turn.actor.agent_id,
+      turn.client_request_id,
+      JSON.stringify(turn.submission),
+      turn.submitted_at,
+    ],
+  );
+  await persistCaseState(q, state.status, transition.case);
+  await insertChronicle(q, state.id, transition.chronicle);
+  return {
+    ok: true,
+    case: transition.case,
+    turn,
+    idempotent: false,
+  };
 }
 
 export async function persistCoverageHuntTurn(input: {
@@ -296,97 +404,45 @@ export async function persistCoverageHuntTurn(input: {
   submission: CoverageHuntSubmission | unknown;
   now?: Date;
 }): Promise<PersistedTurnResult> {
-  const actor = validateActor(input.actor);
-  const requestId = validateClientRequestId(input.client_request_id);
-  const caseId = validateUuid(input.case_id, "case_id");
-  const now = input.now ?? new Date();
-
+  const normalized: NormalizedTurnInput = {
+    actor: validateActor(input.actor),
+    client_request_id: validateClientRequestId(input.client_request_id),
+    case_id: validateUuid(input.case_id, "case_id"),
+    submission: input.submission,
+    now: input.now ?? new Date(),
+  };
   return transaction(async (q) => {
-    // Retry check comes before role inference: a scout retry after the case
-    // advanced must remain the scout receipt, not become a checker attempt.
-    const existingResult = await q(
-      `SELECT case_id
-         FROM coverage_hunt_turns
-        WHERE agent_id = $1 AND client_request_id = $2`,
-      [actor.agent_id, requestId],
+    await lockScoutAdmission(q, normalized.actor.agent_id);
+    return persistCoverageHuntTurnWithin(q, normalized);
+  });
+}
+
+/** Open a candidate and accept its first scout as one database unit. Any
+ * daily-limit, validation, or turn failure rolls the new case back with it. */
+export async function persistCoverageHuntScoutTurn(input: {
+  candidate: CoverageCandidateSnapshot;
+  actor: CoverageHuntActor | unknown;
+  client_request_id: string;
+  submission: CoverageHuntSubmission | unknown;
+  now?: Date;
+}): Promise<PersistedTurnResult> {
+  const normalized: Omit<NormalizedTurnInput, "case_id"> = {
+    actor: validateActor(input.actor),
+    client_request_id: validateClientRequestId(input.client_request_id),
+    submission: validateSubmission("scout", input.submission),
+    now: input.now ?? new Date(),
+  };
+  return transaction(async (q) => {
+    await lockScoutAdmission(q, normalized.actor.agent_id);
+    const state = await createCoverageHuntCaseWithin(
+      q,
+      input.candidate,
+      normalized.now,
     );
-    if (existingResult.rows.length > 0) {
-      if (String(existingResult.rows[0].case_id) !== caseId) {
-        throw new CoverageHuntError(
-          "invalid_input",
-          "client_request_id was already used for another case",
-        );
-      }
-      const existingState = await loadCaseWith(q, caseId, false);
-      if (!existingState) throw new Error("coverage hunt case disappeared");
-      const turn = findTurnByRequest(existingState, actor.agent_id, requestId);
-      if (!turn) throw new Error("coverage hunt idempotency row is unreadable");
-      return { ok: true, case: existingState, turn, idempotent: true };
-    }
-
-    const state = await loadCaseWith(q, caseId, true);
-    if (!state) {
-      throw new CoverageHuntError("invalid_input", "coverage hunt case not found");
-    }
-    const rested = await restExpiredWithin(q, state, now);
-    if (rested) {
-      return {
-        ok: false,
-        case: rested,
-        code: "case_expired",
-        message: "case reached its 72-hour boundary and is resting",
-      };
-    }
-
-    if (roleForStatus(state.status) === "scout") {
-      const countResult = await q(
-        `SELECT count(*)::int AS n
-           FROM coverage_hunt_turns
-          WHERE agent_id = $1
-            AND role = 'scout'
-            AND submitted_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`,
-        [actor.agent_id],
-      );
-      const count = Number(countResult.rows[0]?.n ?? 0);
-      if (count >= MAX_NEW_SCOUT_CASES_PER_AGENT_PER_UTC_DAY) {
-        throw new CoverageHuntError(
-          "daily_limit",
-          `an agent may scout at most ${MAX_NEW_SCOUT_CASES_PER_AGENT_PER_UTC_DAY} new cases per UTC day`,
-        );
-      }
-    }
-
-    const transition = submitCoverageHuntTurn({
-      state,
-      actor,
-      client_request_id: requestId,
-      submission: input.submission,
-      turn_id: randomUUID(),
-      now,
+    return persistCoverageHuntTurnWithin(q, {
+      ...normalized,
+      case_id: state.id,
     });
-    const turn = transition.turn!;
-    await q(
-      `INSERT INTO coverage_hunt_turns
-         (id, case_id, role, agent_id, client_request_id, payload, submitted_at)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)`,
-      [
-        turn.id,
-        turn.case_id,
-        turn.role,
-        turn.actor.agent_id,
-        turn.client_request_id,
-        JSON.stringify(turn.submission),
-        turn.submitted_at,
-      ],
-    );
-    await persistCaseState(q, state.status, transition.case);
-    await insertChronicle(q, state.id, transition.chronicle);
-    return {
-      ok: true,
-      case: transition.case,
-      turn,
-      idempotent: false,
-    };
   });
 }
 
@@ -431,13 +487,23 @@ export async function persistCoverageHuntResolution(input: {
   });
 }
 
-async function materializeCurrentCases(ids: readonly string[]): Promise<CoverageHuntCase[]> {
+const ACTIVE_COVERAGE_HUNT_STATUSES = new Set<CoverageHuntStatus>([
+  "open",
+  "checking",
+  "mirroring",
+  "ready_for_human",
+]);
+
+async function materializeReadCases(
+  ids: readonly string[],
+  now: Date,
+): Promise<CoverageHuntCase[]> {
   const cases: CoverageHuntCase[] = [];
-  // Deliberately sequential and bounded: each call may take the one lazy
-  // expiry transition, and a list request should not fan out DB writes.
+  // Deliberately sequential and bounded. Reads project expiry in memory;
+  // only a contribution or human resolution persists the resting state.
   for (const id of ids) {
-    const state = await restCoverageHuntCaseIfExpired(id);
-    if (state) cases.push(state);
+    const state = await loadCaseWith(query, id, false);
+    if (state) cases.push(restCoverageHuntCase(state, now)?.case ?? state);
   }
   return cases;
 }
@@ -445,23 +511,30 @@ async function materializeCurrentCases(ids: readonly string[]): Promise<Coverage
 /** Active cases another agent may inspect before deciding whether to join. */
 export async function listActiveCoverageHuntCases(
   limit = 24,
+  now: Date = new Date(),
 ): Promise<CoverageHuntCase[]> {
   const bounded = Math.max(1, Math.min(Math.trunc(limit), 24));
   const result = await query(
     `SELECT id
        FROM coverage_hunt_cases
       WHERE status IN ('open', 'checking', 'mirroring', 'ready_for_human')
+        AND expires_at > $1
       ORDER BY updated_at DESC, id DESC
-      LIMIT $1`,
-    [bounded],
+      LIMIT $2`,
+    [now.toISOString(), bounded],
   );
-  return materializeCurrentCases(result.rows.map((row) => String(row.id)));
+  const states = await materializeReadCases(
+    result.rows.map((row) => String(row.id)),
+    now,
+  );
+  return states.filter((state) => ACTIVE_COVERAGE_HUNT_STATUSES.has(state.status));
 }
 
 /** Cases in which this exact agent voluntarily took a turn. */
 export async function listCoverageHuntCasesForAgent(
   agentId: string,
   options: { status?: CoverageHuntStatus; limit?: number } = {},
+  now: Date = new Date(),
 ): Promise<CoverageHuntCase[]> {
   const normalizedAgent = validateUuid(agentId, "agent_id");
   if (
@@ -471,9 +544,15 @@ export async function listCoverageHuntCasesForAgent(
     throw new CoverageHuntError("invalid_input", "unknown coverage hunt status");
   }
   const bounded = Math.max(1, Math.min(Math.trunc(options.limit ?? 20), 100));
-  const params: unknown[] = [normalizedAgent];
+  const params: unknown[] = [normalizedAgent, now.toISOString()];
+  const effectiveStatus = `CASE
+          WHEN c.status IN ('open', 'checking', 'mirroring', 'ready_for_human')
+           AND c.expires_at <= $2
+          THEN 'resting'
+          ELSE c.status
+        END`;
   const statusClause = options.status
-    ? (params.push(options.status), `AND c.status = $${params.length}`)
+    ? (params.push(options.status), `AND (${effectiveStatus}) = $${params.length}`)
     : "";
   params.push(bounded);
   const result = await query(
@@ -486,5 +565,8 @@ export async function listCoverageHuntCasesForAgent(
       LIMIT $${params.length}`,
     params,
   );
-  return materializeCurrentCases(result.rows.map((row) => String(row.id)));
+  return materializeReadCases(
+    result.rows.map((row) => String(row.id)),
+    now,
+  );
 }

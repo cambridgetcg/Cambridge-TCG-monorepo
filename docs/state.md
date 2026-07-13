@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-07-13T11:01:10.187Z`
+> *Generated:* `2026-07-13T11:22:25.784Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -37,9 +37,9 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 ## Git
 
 - **Branch:** `main`
-- **Last commit:** 033f4738 fix(release): authenticate the paused Bandai cron
+- **Last commit:** 3fda8f79 fix(catalog): harden evidence release boundaries
 - **Working tree:** 🟢 clean
-- **vs origin:** 59 ahead, 0 behind
+- **vs origin:** 60 ahead, 0 behind
 
 ---
 

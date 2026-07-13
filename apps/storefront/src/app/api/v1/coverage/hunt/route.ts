@@ -25,6 +25,9 @@ import { isValidCoverageToken } from "@/lib/wholesale/db-source";
 
 export const dynamic = "force-dynamic";
 
+const BOARD_SOURCE = "cambridge-tcg.coverage-hunt-board";
+const GAME_MAPPING_SOURCE = "cambridge-tcg.catalog-game-mapping";
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const game = url.searchParams.get("game") || undefined;
@@ -76,7 +79,12 @@ export async function GET(request: Request): Promise<Response> {
     limit,
   });
   const upstreamLineage = Array.from(
-    new Set(coverage.by_source.map((row) => row.source)),
+    new Set([
+      ...coverage.by_source.map((row) => row.source),
+      ...board.candidates.flatMap(({ candidate }) =>
+        candidate.target.source_id ? [candidate.target.source_id] : []
+      ),
+    ]),
   );
   const licenseBySource = new Map(
     sources.map((source) => [source.id as string, source.license] as const),
@@ -84,17 +92,19 @@ export async function GET(request: Request): Promise<Response> {
 
   return jsonResponse({
     endpoint: "/api/v1/coverage/hunt",
-    sources: ["cambridge-tcg.coverage-hunt-board", ...upstreamLineage],
+    sources: [BOARD_SOURCE, GAME_MAPPING_SOURCE, ...upstreamLineage],
     source_license: [
       "cc0",
+      "proprietary",
       ...upstreamLineage.map((source) => licenseBySource.get(source) ?? "proprietary"),
     ],
-    license: "CC0-1.0",
+    license: "NOASSERTION",
     freshness: "status",
     as_of: coverage.queried_at,
     contains_self: true,
     does_not_include: [
       "price values, raw upstream content, collector observations, accounts, identities, messages, or inferred relationships",
+      "CC0 applies only to rights Cambridge holds in the board shape and explanatory metadata; the internal card-to-game mapping is proprietary, and upstream terms still govern upstream material",
       "blocked or planned source paths as acquisition tasks",
       "any score, prize, ranking, background worker, surveillance, or penalty for walking past",
       "an apply transition: accepted cases remain proposals for a separate human-operated workflow",

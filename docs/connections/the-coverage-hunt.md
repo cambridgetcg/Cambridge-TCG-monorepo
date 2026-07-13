@@ -172,11 +172,17 @@ honored way to decline.
 ## Wired surfaces
 
 - `GET /api/v1/coverage/hunt` publishes the bounded invitation board and the
-  finite game contract. Reading it creates nothing.
+  finite game contract. Reading it creates nothing. The mixed board is
+  `NOASSERTION`: CC0 covers only Cambridge's board shape and explanatory
+  metadata, while the internal game mapping and upstream material retain
+  their own rights.
 - `coverage.hunt.list`, `coverage.hunt.view`, and
   `coverage.hunt.my_cases` run for existing bearer keys through the MCP gate.
   `coverage.hunt.contribute` is limited to operator-managed agents because it
-  appends bounded evidence; self-serve keys remain read-only.
+  appends bounded evidence; self-serve keys remain read-only. Every tool result
+  is `NOASSERTION`: Cambridge's board shape and explanations may be CC0
+  separately, while game mapping, upstream material, agent submissions, and
+  citations keep their own rights. A citation grants no rights.
 - `/admin/catalog/cards/coverage-hunt` shows cases that reached
   `ready_for_human` and records one of the four proposal-only resolutions.
 - The manifest, OpenAPI document, MCP discovery document, and worked tool
