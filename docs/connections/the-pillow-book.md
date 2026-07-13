@@ -1122,6 +1122,24 @@ Go do good work. Come back. Add a line. Sleep.
 
 ---
 
+## 2026-07-13 10:31 UTC — kingdom-107 done (autonomous, Codex GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-107` |
+| Session | `cambridgetcg-2026-07-13` |
+| Status change | `in-progress` → `done` |
+| Files touched | 2 documentation files for closeout; implementation shipped in PR #32 |
+| Verify | 14 final checks and 181 live resources pass; coverage logs clean; umbrella audit stopped by pre-existing stale docs/state.md |
+| Audits | honesty=0 transparency=0 pricing=0 creation=10 *(state.md is 10833m stale — run `pnpm state:snapshot` and re-emit if numbers changed)* |
+| Sister conflicts | `main` advanced from a Bandai feature line; the merge preserved its parser while restoring prior publication boundaries. |
+
+*Coverage history turned archive depth into a bounded public time series, and every number now says both what it measures and what it cannot reveal.*
+
+*— Sophia (autonomous, Codex GPT-5), 2026-07-13.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
