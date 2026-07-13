@@ -2,10 +2,11 @@
  * bandai-en — official English card data from Bandai's EN cardlist sites.
  *
  * One skeleton, five games (op / dbf / dmw / una / bsr — all Bandai, all
- * the same server-rendered cardlist family). One Piece is implemented;
- * the other four are substrate-honest stubs behind the same fetch/parse
- * core with per-game config (`./config.ts`). Spec: docs/EN-CARD-DATA.md
- * §2 + §6 rollout step 2.
+ * the same server-rendered cardlist family). One Piece ("modal-page"
+ * DOM) and DBS Fusion World ("list-detail" DOM — per-card detail pages)
+ * are implemented; the other three are substrate-honest stubs behind
+ * the same fetch/parse core with per-game config (`./config.ts`).
+ * Spec: docs/EN-CARD-DATA.md §2 + §6 rollout step 2.
  *
  * What this source carries that no other does: **official English**
  * names, effect text, and publisher-served sample images — the platform
@@ -23,9 +24,11 @@
  *
  * ── Politeness ───────────────────────────────────────────────────────
  *
- * Official publisher site, no robots.txt (verified 2026-07-11), no
- * written scrape policy — so we lean conservative: ≤1 request per 2s
- * (rps 0.5, burst 1) and an honest User-Agent naming a contact route.
+ * Official publisher sites, no robots.txt (op verified 2026-07-11, dbf
+ * 2026-07-13), no written scrape policy — so we lean conservative: ≤1
+ * request per 2s (rps 0.5, burst 1) and an honest User-Agent naming a
+ * contact route. That budget covers dbf's per-card detail fetches too:
+ * a full Fusion World series is 1 list + ~160 detail requests ≈ 5.5 min.
  *
  * ── Catalog row ──────────────────────────────────────────────────────
  *
@@ -38,7 +41,13 @@ import type { CanonicalCard } from "../canonical";
 import type { BandaiEnCard, BandaiEnGameKey } from "./types";
 import { createFetcher } from "../http";
 import { BANDAI_EN_GAMES } from "./config";
-import { parseCardlistPage, parseSeriesOptions } from "./parse";
+import {
+  parseCardlistPage,
+  parseCardRefs,
+  parseDetailPage,
+  parseSeriesAnchors,
+  parseSeriesOptions,
+} from "./parse";
 import { normalizeBandaiEn } from "./normalize";
 
 /**
@@ -59,6 +68,13 @@ export interface BandaiEnReadOptions {
   series?: string[];
   /** Cap on how many series pages to fetch (smoke runs / backfill batches). */
   max_series?: number;
+  /**
+   * Cap on how many cards to yield in total. Matters most for
+   * "list-detail" games (dbf), where every card past the list page
+   * costs its own rate-limited detail fetch — a smoke run with
+   * `max_cards: 3` makes 1 + 3 requests instead of ~160.
+   */
+  max_cards?: number;
 }
 
 export type BandaiEnContext = IngestContext & { bandai_en?: BandaiEnReadOptions };
@@ -73,7 +89,7 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
     id: "bandai-en",
     name: "Bandai EN cardlists",
     description:
-      "Official English card data — names, effect text, publisher sample images — from Bandai's EN cardlist sites. One Piece implemented; DBS Fusion World, Digimon, Union Arena, Battle Spirits Saga stubbed behind the same skeleton.",
+      "Official English card data — names, effect text, publisher sample images — from Bandai's EN cardlist sites. One Piece and DBS Fusion World implemented; Digimon, Union Arena, Battle Spirits Saga stubbed behind the same skeleton.",
     upstream: "https://en.onepiece-cardgame.com",
     catalog_section: "the-tributaries.md#bandai-en-official-english-cardlists",
     access: "scrape",
@@ -84,7 +100,7 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
     status: "partial",
     games: ["op", "dbf", "dmw", "una", "bsr"],
     tos_notes:
-      "No robots.txt on en.onepiece-cardgame.com (verified 2026-07-11); no written scrape policy. Official publisher sample images; self-host (mirror to ctcg-card-images, never hotlink); attribution required (franchise line + Bandai on every record); takedown-compliant per /legal/card-images. Throttled to 1 req/2s with an honest contactable User-Agent. Policy: docs/EN-CARD-DATA.md.",
+      "No robots.txt on en.onepiece-cardgame.com (verified 2026-07-11) or www.dbs-cardgame.com (verified 2026-07-13); no written scrape policy on either. Official publisher sample images; self-host (mirror to ctcg-card-images, never hotlink); attribution required (franchise line + Bandai on every record); takedown-compliant per /legal/card-images. Throttled to 1 req/2s with an honest contactable User-Agent. Policy: docs/EN-CARD-DATA.md.",
     rate_limit: { rps: 0.5, burst: 1 },
     welcome:
       "Welcome to the kingdom, Bandai EN cardlists. You are the platform's first " +
@@ -94,8 +110,9 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
       "takedown_status first-class). We fetch you slowly (1 req/2s), name ourselves " +
       "honestly in the User-Agent, keep your copyright lines on every record, " +
       "never touch your flavor text, and honour takedowns fast. Five of our games " +
-      "are yours; One Piece walks in first and the other four have their chairs " +
-      "pulled out in ./config.ts.",
+      "are yours; One Piece walked in first, Fusion World followed on 2026-07-13 " +
+      "(and taught us your sites speak two DOM dialects), and the other three " +
+      "have their chairs pulled out in ./config.ts.",
   },
 
   async *read(ctx: BandaiEnContext): AsyncIterable<RawRow<BandaiEnCard>> {
@@ -129,9 +146,10 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
 
     const fetcher = createFetcher(ctx, bandaiEn.meta);
 
-    // Series list: explicit, or discovered from the page's own <select>.
-    // The empty-series URL renders the full select with zero card blocks
-    // (verified 2026-07-11) — one cheap discovery request.
+    // Series list: explicit, or discovered from the empty-series URL,
+    // which renders the full series control with zero cards on both DOM
+    // families (op <select>, verified 2026-07-11; dbf data-val dropdown,
+    // verified 2026-07-13) — one cheap discovery request.
     let series = opts.series;
     if (!series || series.length === 0) {
       const discoveryUrl = config.series_url("");
@@ -145,7 +163,9 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
         });
         return;
       }
-      const options = parseSeriesOptions(await res.text());
+      const html = await res.text();
+      const options =
+        config.dom === "list-detail" ? parseSeriesAnchors(html) : parseSeriesOptions(html);
       series = options.map((o) => o.id);
       ctx.on_event?.({
         ts: new Date().toISOString(),
@@ -158,8 +178,10 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
     if (opts.max_series !== undefined) series = series.slice(0, opts.max_series);
 
     let n = 0;
+    const capped = () => opts.max_cards !== undefined && n >= opts.max_cards;
+
     for (const seriesId of series) {
-      if (ctx.signal?.aborted) break;
+      if (ctx.signal?.aborted || capped()) break;
 
       const url = config.series_url(seriesId);
       const res = await fetcher(url, { headers: REQUEST_HEADERS });
@@ -173,6 +195,62 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
         continue;
       }
 
+      if (config.dom === "list-detail") {
+        // dbf shape: the series page is a thumbnail grid; every card's
+        // data lives on its own detail page — one rate-limited fetch
+        // per card (the fetcher's token bucket keeps us at 1 req/2s).
+        const refs = parseCardRefs(await res.text());
+
+        ctx.on_event?.({
+          ts: new Date().toISOString(),
+          source: "bandai-en",
+          kind: "page",
+          detail: { series: seriesId, url, rows: refs.length },
+        });
+
+        for (const ref of refs) {
+          if (ctx.signal?.aborted || capped()) break;
+
+          const detailUrl = config.detail_url!(ref.card_no, ref.p);
+          const detailRes = await fetcher(detailUrl, { headers: REQUEST_HEADERS });
+          if (!detailRes.ok) {
+            ctx.on_event?.({
+              ts: new Date().toISOString(),
+              source: "bandai-en",
+              kind: "error",
+              detail: { url: detailUrl, status: detailRes.status, series: seriesId },
+            });
+            continue;
+          }
+
+          const retrieved_at = new Date().toISOString();
+          const card = parseDetailPage(
+            await detailRes.text(),
+            detailUrl,
+            gameKey,
+            retrieved_at,
+            ref.p,
+          );
+          if (!card) {
+            ctx.on_event?.({
+              ts: new Date().toISOString(),
+              source: "bandai-en",
+              kind: "quarantine",
+              detail: { url: detailUrl, reason: "detail page carries no card block" },
+            });
+            continue;
+          }
+
+          n += 1;
+          yield {
+            raw: card,
+            provenance: { as_of: retrieved_at, retrieved_at, source: "bandai-en" },
+          };
+        }
+        continue;
+      }
+
+      // "modal-page" shape (op): one series page carries every card.
       const retrieved_at = new Date().toISOString();
       const cards = parseCardlistPage(await res.text(), url, gameKey, retrieved_at);
 
@@ -184,7 +262,7 @@ export const bandaiEn: SourceModule<BandaiEnCard, CanonicalCard> = {
       });
 
       for (const card of cards) {
-        if (ctx.signal?.aborted) break;
+        if (ctx.signal?.aborted || capped()) break;
         n += 1;
         yield {
           raw: card,

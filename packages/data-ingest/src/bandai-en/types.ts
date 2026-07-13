@@ -17,6 +17,19 @@
 export type BandaiEnGameKey = "op" | "dbf" | "dmw" | "una" | "bsr";
 
 /**
+ * The two DOM families the Bandai EN cardlist sites use (both verified
+ * live):
+ *
+ * - `"modal-page"` — one series page carries every card's full data as
+ *   `<dl class="modalCol">` blocks (One Piece, verified 2026-07-11).
+ * - `"list-detail"` — the series page is a thumbnail grid of
+ *   `<li class="cardItem">` links; each card's data lives on its own
+ *   server-rendered `detail.php?card_no=…` page (DBS Fusion World,
+ *   verified 2026-07-13).
+ */
+export type BandaiEnDomKind = "modal-page" | "list-detail";
+
+/**
  * Per-game configuration for the shared fetch/parse skeleton. One
  * scraper covers all five Bandai EN sites (identical
  * `.../card/{CARD_NO}.png|webp` convention, `_p1` suffixes for
@@ -29,8 +42,19 @@ export interface BandaiEnGameConfig {
   label: string;
   /** Site root — documentation + URL resolution base. */
   base_url: string;
+  /**
+   * Which DOM family this site serves. For stubs this is the *presumed*
+   * family (see `notes`); the first implementation run verifies it.
+   */
+  dom: BandaiEnDomKind;
   /** Series page URL for a given series id (empty id = discovery page). */
   series_url: (series_id: string) => string;
+  /**
+   * Card detail page URL — `"list-detail"` sites only. `p` is the
+   * parallel query value exactly as the list page carries it ("_p1"),
+   * or null for the base print.
+   */
+  detail_url?: (card_no: string, p: string | null) => string;
   /**
    * Copyright/attribution line stamped into every card's `extra` —
    * policy requirement (docs/EN-CARD-DATA.md §7: attribution always,
@@ -95,6 +119,40 @@ export interface BandaiEnCard {
   source_url: string;
   /** ISO moment the page was fetched (stamped by read(); keeps normalize pure). */
   retrieved_at: string;
+
+  // ── "list-detail" DOM extras (dbf; absent on "modal-page" games) ────
+  // Fusion World leaders are double-faced: the detail page renders
+  // is-front/is-back values and _f/_b images. Optional so the op shape
+  // is untouched; only games whose DOM carries the row set them.
+
+  /** Back-face image URL (leaders; `…_b[_pN].webp`). */
+  back_image_url?: string | null;
+  /** Back-face power (leaders print different front/back power). */
+  power_back?: string | null;
+  /** Back-face Special Traits (leaders). */
+  traits_back?: string | null;
+  /** Back-face Skills — rules text, part of oracle text (leaders). */
+  effect_back_text?: string | null;
+  /** The "Specified cost" row (color-cost icons, e.g. "R"). */
+  specified_cost?: string | null;
+  /** The "Combo power" row. */
+  combo_power?: string | null;
+}
+
+/**
+ * One `<li class="cardItem">` from a "list-detail" series page — a
+ * reference to a card's detail page, not the card itself. `read()`
+ * follows each ref with a (rate-limited) detail fetch.
+ */
+export interface BandaiEnCardRef {
+  /** Card number verbatim from the detail link, e.g. "FB10-001". */
+  card_no: string;
+  /** Parallel query value exactly as linked ("_p1") or null (base print). */
+  p: string | null;
+  /** The lazy-loaded thumbnail's data-src, page-relative, or null. */
+  image_src: string | null;
+  /** The thumbnail alt text, e.g. "FB10-001 Son Goku". */
+  alt: string;
 }
 
 /** One `<option>` from the series `<select>` on the cardlist page. */
