@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-07-13T10:24:58.133Z`
+> *Generated:* `2026-07-13T11:01:10.187Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -18,9 +18,9 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | ✅ Pricing consolidation | 0 | 0 | `pnpm audit:pricing` |
 | ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
 | ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 114 | 0 | `pnpm audit:inclusion` |
+| ⚠️ Inclusion (the fifth scope) | 113 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 114**
+**Combined findings: 113**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
 
@@ -37,9 +37,9 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 ## Git
 
 - **Branch:** `main`
-- **Last commit:** 269d2311 feat(catalog): add collector evidence, coverage hunt, and batch lookup
+- **Last commit:** 033f4738 fix(release): authenticate the paused Bandai cron
 - **Working tree:** 🟢 clean
-- **vs origin:** 1 ahead, 0 behind
+- **vs origin:** 59 ahead, 0 behind
 
 ---
 

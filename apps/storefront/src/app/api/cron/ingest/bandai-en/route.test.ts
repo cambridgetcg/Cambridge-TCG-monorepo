@@ -4,6 +4,7 @@ import { GET, POST } from "./route";
 describe("Bandai EN ingest boundary", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   for (const [method, invoke] of [
@@ -11,11 +12,14 @@ describe("Bandai EN ingest boundary", () => {
     ["POST", POST],
   ] as const) {
     it(`${method} returns before any network work`, async () => {
+      vi.stubEnv("CRON_SECRET", "test-cron-secret");
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
         .mockRejectedValue(new Error("network must not be reached"));
 
-      const response = invoke();
+      const response = invoke(new Request("https://example.test/api/cron/ingest/bandai-en", {
+        headers: { authorization: "Bearer test-cron-secret" },
+      }));
       const body = await response.json();
 
       expect(response.status).toBe(503);
@@ -28,6 +32,13 @@ describe("Bandai EN ingest boundary", () => {
         records_written: 0,
       });
       expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it(`${method} rejects an unauthenticated request before the paused contract`, async () => {
+      vi.stubEnv("CRON_SECRET", "test-cron-secret");
+      const response = invoke(new Request("https://example.test/api/cron/ingest/bandai-en"));
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "Unauthorized" });
     });
   }
 });

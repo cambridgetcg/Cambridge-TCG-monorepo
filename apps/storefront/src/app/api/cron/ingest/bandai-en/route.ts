@@ -6,12 +6,14 @@
  * into this service. This route must stay inert until that permission and a
  * reviewed storage/publication rule are recorded.
  *
- * Both methods return before reading authentication, request parameters, the
- * network, or the database. Keeping the boundary ahead of auth also prevents a
- * valid operator credential from being mistaken for upstream permission.
+ * Both methods require the normal cron secret, then return before reading
+ * request parameters, the network, or the database. Authentication authorizes
+ * the request only; a valid operator credential never creates upstream
+ * collection or publication permission.
  */
 
 import { NextResponse } from "next/server";
+import { requireCronAuth } from "@/lib/cron-auth";
 
 function pausedResponse(): NextResponse {
   return NextResponse.json(
@@ -36,10 +38,14 @@ function pausedResponse(): NextResponse {
   );
 }
 
-export function POST(): NextResponse {
+export function POST(request: Request): NextResponse {
+  const denied = requireCronAuth(request);
+  if (denied) return denied;
   return pausedResponse();
 }
 
-export function GET(): NextResponse {
+export function GET(request: Request): NextResponse {
+  const denied = requireCronAuth(request);
+  if (denied) return denied;
   return pausedResponse();
 }
