@@ -164,6 +164,18 @@ What we give you:
 - Federation primitive: /api/v1/federation/identify/[hash] + /api/v1/federation/at/[date]/[hash]
 - Response headers: RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Link, X-Request-Id
 
+## Card lookup for applications
+- /api/v1/search/cards                   Resolve a human query to canonical SKU candidates
+- /api/v1/cards/batch                    POST 1–100 known SKUs; ordered found/invalid/not-in-mirror results
+- /api/v1/cards/[sku]/everything         One card's composed catalog and reference-price context
+- /api/v1/cards/[sku]/evidence           Reference/offer evidence plus paused sale/community publication status
+
+The batch route is read-only even though it uses POST (the bounded SKU list travels in
+the JSON body). It performs one mirror read, preserves duplicates and request order, and
+has no server-driven wildcard or cursor listing. A "not_in_storefront_mirror" result is deliberately local:
+it does not claim the publisher or another catalog lacks that card. Mixed card fields are
+NOASSERTION; Cambridge's batch structure and SKU normalization are CC0 separately.
+
 ## Source inspectability (kingdom-079 + kingdom-081)
 - /api/v1/sources                        Every ingest source + live last-run state
 - /api/v1/sources/[id]                   Single-source detail + run history + health + quarantine counts (kingdom-081)

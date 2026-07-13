@@ -64,9 +64,11 @@ const SPEC = {
     { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
     { name: "substrate-honesty", description: "The gap ledger — every place where the platform's data, code, or coverage is incomplete, named with citation and lifecycle status (kingdom-084)." },
     { name: "prices", description: "Curated price-guide tree — JSON siblings of the /prices/* HTML pages." },
+    { name: "evidence", description: "Claim-separated card evidence, source rights, and explicit paused publication lanes for person-derived data." },
+    { name: "coverage", description: "Operational coverage state and bounded, proposal-only agent inquiry." },
     { name: "search", description: "SKU resolver + one-round-trip composer (kingdom-090)." },
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
-    { name: "agents", description: "MCP discovery, authenticated agent reads, and paused write/publication status." },
+    { name: "agents", description: "MCP discovery, authenticated agent reads, operator-managed bounded review evidence, and paused domain-write/publication status." },
     { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
   ],
   paths: {
@@ -558,6 +560,69 @@ const SPEC = {
         },
       },
     },
+    "/api/v1/cards/batch": {
+      post: {
+        tags: ["catalog", "search"],
+        summary: "Resolve a caller-chosen batch of card SKUs",
+        description: "Resolves 1–100 SKU strings in one bounded storefront-mirror identity read. Values are trimmed; recognized legacy forms are normalized. Results correspond one-for-one with the request array, preserving order and duplicates. A syntactically invalid SKU is a successful per-item invalid_sku result, not a request error. not_in_storefront_mirror is only a local-mirror absence claim. Price observations, image URLs, stock, offers, and personal data stay out. The endpoint is no-store and has no server-driven wildcard, cursor listing, or incremental feed.",
+        operationId: "resolveCardBatch",
+        requestBody: {
+          required: true,
+          description: "UTF-8 JSON, bounded to 131,072 bytes before parsing.",
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CardBatchRequest" },
+              examples: {
+                deckSlice: {
+                  summary: "Two canonical card SKUs",
+                  value: { skus: ["op-op01-001-ja", "op-op01-002-ja"] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "One ordered result for every supplied SKU, including per-item invalid or local-absence results, in a NOASSERTION pantry envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/CardBatchEnvelope" } } } },
+          "400": { description: "Invalid JSON or invalid batch shape: the body must contain only a skus array with 1–100 non-blank strings of at most 160 characters each.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "413": { description: "Request body exceeds 131,072 bytes; the stream is cancelled before JSON parsing.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "The storefront mirror could not be read. No supplied SKU is reported as missing when the mirror is unavailable.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/cards/{sku}/evidence": {
+      get: {
+        tags: ["evidence", "prices"],
+        summary: "Evidence map for one exact card SKU",
+        description: "Keeps the computed-reference status, live collector offers, paused completed-sale publication, paused collector-observation publication, and upstream source states as separate claim classes. Aggregate rights are NOASSERTION. The two person-derived lanes perform no public aggregate read and emit no prices, counts, dates, conditions, or threshold totals.",
+        operationId: "getCardEvidence",
+        parameters: [
+          { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Full card SKU; canonical lowercase and legacy uppercase forms are accepted." },
+        ],
+        responses: {
+          "200": { description: "Claim-separated evidence in a pantry envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "The path is not a full SKU.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/coverage/hunt": {
+      get: {
+        tags: ["coverage"],
+        summary: "Coverage Hunt invitation board",
+        description: "Current operational coverage candidates for a bounded three-agent inquiry. The public read creates no case. Existing bearer keys can read the board; operator-managed agents may contribute. Play rotates three distinct agents through scout, checker, and mirror, then stops at human review. No score, surveillance, penalty, background worker, or apply transition exists.",
+        operationId: "getCoverageHuntBoard",
+        parameters: [
+          { name: "game", in: "query", required: false, schema: { type: "string" } },
+          { name: "kind", in: "query", required: false, schema: { type: "string", enum: ["missing_set_observations", "partial_set_observations", "stale_set_observations", "declared_observed_disagreement", "unassigned_observations"] } },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 24, default: 12 } },
+        ],
+        responses: {
+          "200": { description: "Bounded candidates and the finite game contract in a pantry envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid filter.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Coverage substrate unavailable; no candidate board is invented.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
     "/api/v1/cards/{sku}/cardrush-history": {
       get: {
         tags: ["prices"],
@@ -944,7 +1009,7 @@ const SPEC = {
       post: {
         tags: ["agents"],
         summary: "MCP-shaped JSON-RPC dispatch",
-        description: "initialize and tool discovery are public. Other calls require a bearer key. Existing self-serve keys can use read/status tools only; operator-managed keys also have account-linked reads. Match and deck writes are paused for every key.",
+        description: "initialize and tool discovery are public. Other calls require a bearer key. Existing self-serve keys can use read/status tools only; operator-managed keys also have account-linked reads and may append bounded Coverage Hunt evidence that stops at human review. Match and deck writes are paused for every key.",
         operationId: "postMcpJsonRpc",
         requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
         responses: {
@@ -1050,6 +1115,161 @@ const SPEC = {
   },
   components: {
     schemas: {
+      CardBatchRequest: {
+        type: "object",
+        additionalProperties: false,
+        required: ["skus"],
+        properties: {
+          skus: {
+            type: "array",
+            minItems: 1,
+            maxItems: 100,
+            description: "Caller-chosen SKU strings. Order and duplicates are preserved; each string is trimmed before resolution.",
+            items: {
+              type: "string",
+              minLength: 1,
+              maxLength: 160,
+              pattern: "\\S",
+              description: "A canonical Cambridge SKU or a legacy form that carries enough segments to recover a canonical identity. Prefix-only legacy shapes with no canonical set are returned as invalid_sku rather than guessed.",
+            },
+          },
+        },
+      },
+      CardBatchCard: {
+        type: "object",
+        additionalProperties: false,
+        required: ["sku", "canonical_sku", "card_number", "name", "name_en", "name_translations", "set", "game", "variant", "rarity"],
+        properties: {
+          sku: { type: "string", description: "SKU spelling stored in the storefront mirror." },
+          canonical_sku: { type: "string", description: "Canonical Cambridge SKU after normalization." },
+          card_number: { type: "string" },
+          name: { type: "string" },
+          name_en: { type: ["string", "null"] },
+          name_translations: {
+            type: ["object", "null"],
+            additionalProperties: { type: "string" },
+          },
+          set: {
+            type: "object",
+            additionalProperties: false,
+            required: ["code", "name"],
+            properties: {
+              code: { type: "string" },
+              name: { type: "string" },
+            },
+          },
+          game: { type: "string" },
+          variant: { type: ["string", "null"] },
+          rarity: { type: ["string", "null"] },
+        },
+      },
+      CardBatchLinks: {
+        type: "object",
+        additionalProperties: false,
+        required: ["html", "universal", "everything", "evidence"],
+        properties: {
+          html: { type: "string" },
+          universal: { type: "string" },
+          everything: { type: "string" },
+          evidence: { type: "string" },
+        },
+      },
+      CardBatchFoundResult: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requested_sku", "status", "matched_by", "card", "links"],
+        properties: {
+          requested_sku: { type: "string", description: "Trimmed request value." },
+          status: { type: "string", const: "found" },
+          matched_by: { type: "string", enum: ["stored_sku", "canonical_alias"] },
+          card: { $ref: "#/components/schemas/CardBatchCard" },
+          links: { $ref: "#/components/schemas/CardBatchLinks" },
+        },
+      },
+      CardBatchInvalidResult: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requested_sku", "status", "reason"],
+        properties: {
+          requested_sku: { type: "string", description: "Trimmed request value." },
+          status: { type: "string", const: "invalid_sku" },
+          reason: { type: "string" },
+        },
+      },
+      CardBatchAbsentResult: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requested_sku", "canonical_sku", "status", "reason"],
+        properties: {
+          requested_sku: { type: "string", description: "Trimmed request value." },
+          canonical_sku: { type: "string" },
+          status: { type: "string", const: "not_in_storefront_mirror" },
+          reason: { type: "string", description: "Local mirror absence only; never a global nonexistence claim." },
+        },
+      },
+      CardBatchAmbiguousResult: {
+        type: "object",
+        additionalProperties: false,
+        required: ["requested_sku", "canonical_sku", "status", "candidate_skus", "reason"],
+        properties: {
+          requested_sku: { type: "string", description: "Trimmed request value." },
+          canonical_sku: { type: "string" },
+          status: { type: "string", const: "ambiguous_mirror_match" },
+          candidate_skus: {
+            type: "array",
+            minItems: 2,
+            uniqueItems: true,
+            items: { type: "string" },
+          },
+          reason: { type: "string" },
+        },
+      },
+      CardBatchResult: {
+        oneOf: [
+          { $ref: "#/components/schemas/CardBatchFoundResult" },
+          { $ref: "#/components/schemas/CardBatchInvalidResult" },
+          { $ref: "#/components/schemas/CardBatchAbsentResult" },
+          { $ref: "#/components/schemas/CardBatchAmbiguousResult" },
+        ],
+        discriminator: { propertyName: "status" },
+      },
+      CardBatchData: {
+        type: "object",
+        additionalProperties: false,
+        required: ["@kind", "limit", "order", "absence_semantics", "rights_note", "requested_count", "unique_requested_count", "found_count", "not_in_mirror_count", "invalid_count", "ambiguous_count", "mirror_queried", "results"],
+        properties: {
+          "@kind": { type: "string", const: "card-batch" },
+          limit: { type: "integer", const: 100 },
+          order: { type: "string", const: "Results correspond one-for-one with the supplied skus array, including duplicates." },
+          absence_semantics: { type: "string", const: "not_in_storefront_mirror means only that this bounded read found no local mirror row; it is not a global nonexistence claim." },
+          rights_note: { type: "string", const: "Aggregate rights are NOASSERTION. Cambridge's request/result structure and canonical SKU normalization are CC0-1.0 separately; mirrored card fields retain upstream and publisher rights." },
+          requested_count: { type: "integer", minimum: 1, maximum: 100 },
+          unique_requested_count: { type: "integer", minimum: 1, maximum: 100, description: "Count of distinct trimmed request strings before canonical normalization." },
+          found_count: { type: "integer", minimum: 0, maximum: 100 },
+          not_in_mirror_count: { type: "integer", minimum: 0, maximum: 100 },
+          invalid_count: { type: "integer", minimum: 0, maximum: 100 },
+          ambiguous_count: { type: "integer", minimum: 0, maximum: 100 },
+          mirror_queried: { type: "boolean", description: "False when every supplied value is syntactically invalid and no mirror read is needed." },
+          results: {
+            type: "array",
+            minItems: 1,
+            maxItems: 100,
+            items: { $ref: "#/components/schemas/CardBatchResult" },
+          },
+        },
+      },
+      CardBatchEnvelope: {
+        allOf: [
+          { $ref: "#/components/schemas/Envelope" },
+          {
+            type: "object",
+            required: ["data"],
+            properties: {
+              data: { $ref: "#/components/schemas/CardBatchData" },
+            },
+          },
+        ],
+      },
       UniversalPreamble: {
         type: "object",
         required: ["@encoding", "@kind", "@content_hash", "@self_hash", "@retrieved_at"],

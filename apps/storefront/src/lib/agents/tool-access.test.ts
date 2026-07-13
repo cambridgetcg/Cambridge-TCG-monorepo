@@ -19,7 +19,11 @@ describe("agent tool authority boundary", () => {
   it("allows self-serve keys to use read and status tools", () => {
     for (const tool of [
       "agent.self",
+      "catalog.lookup_many",
       "catalog.search",
+      "coverage.hunt.list",
+      "coverage.hunt.my_cases",
+      "coverage.hunt.view",
       "leaderboards.read",
       "prices.recent",
       "play.list_open_rooms",
@@ -31,6 +35,8 @@ describe("agent tool authority boundary", () => {
     }
     expect(canInvokeAgentTool("operator", "deck.list_mine")).toBe(true);
     expect(canInvokeAgentTool("self-serve", "deck.list_mine")).toBe(false);
+    expect(canInvokeAgentTool("operator", "coverage.hunt.contribute")).toBe(true);
+    expect(canInvokeAgentTool("self-serve", "coverage.hunt.contribute")).toBe(false);
     expect(canInvokeAgentTool("self-serve", "future.write")).toBe(false);
   });
 

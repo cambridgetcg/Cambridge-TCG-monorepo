@@ -107,6 +107,32 @@ describe("admin/actions adminAction wrapper", () => {
     );
   });
 
+  it("can replace the retained email label with a generic protocol role", async () => {
+    const { requireAdmin } = await import("@/lib/admin/auth");
+    const { logAdminAction } = await import("@/lib/admin/audit");
+    (requireAdmin as any).mockResolvedValue({
+      id: "u-private",
+      email: "private-admin@example.com",
+      role: "admin",
+    });
+
+    const { adminAction } = await import("../actions");
+    await adminAction({
+      action: "coverage_hunt.resolve",
+      targetKind: "coverage_hunt_case",
+      targetId: "case-1",
+      auditActorLabel: "admin-reviewer",
+      run: async () => ({ resolved: true }),
+    });
+
+    expect(logAdminAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorLabelOverride: "admin-reviewer",
+        admin: expect.objectContaining({ id: "u-private" }),
+      }),
+    );
+  });
+
   it("does NOT write to the audit log when run throws", async () => {
     const { requireAdmin } = await import("@/lib/admin/auth");
     const { logAdminAction } = await import("@/lib/admin/audit");

@@ -16,7 +16,7 @@
  */
 
 import { parseSku, type SkuParts } from "./parse";
-import { isGameCode } from "./games";
+import { GAME_CODES, GAMES, isGameCode, type GameCode } from "./games";
 
 /**
  * Legacy language codes → ISO 639-1.
@@ -38,9 +38,33 @@ const LANG_NORMALIZE: Readonly<Record<string, string>> = {
   ru: "ru", rus: "ru",
 };
 
+/** Frozen pre-v1 prefixes point at a game, not necessarily its canonical
+ * game code (`EB`/`ST` → `op`, `PK` → `pkm`, `FB` → `dbf`). Keep the map
+ * derived from the Atlas so every reader accepts the same production shapes. */
+const LEGACY_PREFIX_TO_GAME: Readonly<Record<string, GameCode>> =
+  Object.fromEntries(
+    GAME_CODES.flatMap((code) =>
+      (GAMES[code].legacyPrefixes ?? []).map((prefix) => [
+        prefix.toLowerCase(),
+        code,
+      ]),
+    ),
+  ) as Record<string, GameCode>;
+
 function normalizeLang(raw: string): string | null {
   const lower = raw.toLowerCase();
   return LANG_NORMALIZE[lower] ?? null;
+}
+
+/** `parseSku` validates the two-letter shape, not the ISO registry. Country
+ * codes used by the legacy catalog (`jp`, `cn`, `kr`) therefore parse even
+ * though the SKU standard names languages (`ja`, `zh`, `ko`). Repair those
+ * values after parsing instead of letting the fast path freeze them. */
+function normalizeParsed(parts: SkuParts): string {
+  const lang = normalizeLang(parts.lang) ?? parts.lang;
+  return [parts.game, parts.set, parts.number, lang, parts.variant]
+    .filter((part): part is string => Boolean(part))
+    .join("-");
 }
 
 /**
@@ -64,15 +88,26 @@ export function normalizeSku(sku: string): string | null {
 
   // Fast path: already canonical?
   const direct = parseSku(sku);
-  if (direct) return direct.canonical;
+  if (direct) return normalizeParsed(direct);
 
   // Try lowercasing + reparsing.
   const lower = sku.toLowerCase();
   const lowered = parseSku(lower);
-  if (lowered) return lowered.canonical;
+  if (lowered) return normalizeParsed(lowered);
 
-  // Split and try to recover.
-  const parts = lower.split("-");
+  // Split and try to recover. A frozen legacy prefix names the owning game,
+  // while the next segment remains the set (`EB-EB01-...`). Prefix-only
+  // shapes such as `P-001-JP` identify a game but not a canonical set; do not
+  // invent that missing identity here.
+  let parts = lower.split("-");
+  const legacyGame = parts[0]
+    ? LEGACY_PREFIX_TO_GAME[parts[0]]
+    : undefined;
+  if (legacyGame) {
+    const [, ...tail] = parts;
+    if (tail.length < 3) return null;
+    parts = [legacyGame, ...tail];
+  }
   if (parts.length < 4) return null;
 
   const [game, set, third, fourth, ...rest] = parts;

@@ -15,6 +15,13 @@ export const metadata = { title: "Card Catalog" };
 
 const LIVE_TOOLS = [
   {
+    href: "/admin/catalog/cards/coverage-hunt",
+    title: "Review Coverage Hunts",
+    description:
+      "Read the scout, checker, and mirror turns; record a proposal-only human resolution. Nothing applies itself.",
+    status: "live",
+  },
+  {
     href: "/admin/catalog/cards/classify",
     title: "Classify card editions",
     description:

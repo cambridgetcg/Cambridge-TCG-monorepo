@@ -11,9 +11,11 @@
  */
 
 import type { Metadata } from "next";
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { fetchCard, fetchPrices, cardAltText } from "@/lib/wholesale/client";
-import { formatRetailPrice } from "@/lib/pricing";
+import { formatRetailPrice, retailPrice } from "@/lib/pricing";
 import { getUnifiedMarketView } from "@/lib/market/unified";
+import { buildCardEvidence } from "@/lib/evidence/card";
 import { MoneyDisplay } from "@/lib/ui";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -21,6 +23,8 @@ import Link from "next/link";
 import AddToPortfolio from "@/components/product/AddToPortfolio";
 import ExternalBuyLinks from "@/components/product/ExternalBuyLinks";
 import AnsweringRhyme from "@/components/product/AnsweringRhyme";
+import CardEvidence from "@/components/product/CardEvidence";
+import CollectorWitnessPanel from "@/components/product/CollectorWitnessPanel";
 import Script from "next/script";
 import CardGrid from "@/components/catalog/CardGrid";
 import { Provenance, WhyLink, Audience, Palettes } from "@/lib/ui";
@@ -28,6 +32,7 @@ import { TONE_COLOR } from "@/lib/ui/Badge";
 import { gameFromSku, gameBrand, isSkuGameSlug } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
 import { weatherClass } from "@/lib/wardrobe/weather";
+import { parseSkuShape } from "@/lib/search/resolver";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }): Promise<Metadata> {
   const { sku } = await params;
@@ -67,15 +72,15 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
   const card = await fetchCard(sku);
   if (!card) notFound();
 
-  // Fetch related cards from the same set
-  const related = card.set_code
-    ? await fetchPrices({ set: card.set_code, limit: 7 }).catch(() => ({ items: [] }))
-    : { items: [] };
+  // Independent reads stay independent: a missing market or evidence
+  // source must not take the card's reference page down with it.
+  const [related, market] = await Promise.all([
+    card.set_code
+      ? fetchPrices({ set: card.set_code, limit: 7 }).catch(() => ({ items: [] }))
+      : Promise.resolve({ items: [] }),
+    getUnifiedMarketView(sku).catch(() => null),
+  ]);
   const relatedCards = related.items.filter((c) => c.sku !== card.sku).slice(0, 6);
-
-  // Collector market pulse for this card (open asks and bids only — the
-  // platform holds no position, so nothing here is ours to sell or buy)
-  const market = await getUnifiedMarketView(sku).catch(() => null);
 
   const rarityClasses = rarityBadgeClasses(card.rarity);
 
@@ -91,6 +96,14 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
   const gameLabel = gameConfig?.short_name ?? "One Piece";
   const brandName = gameBrand(gameSlug);
   const cardName = card.name_en || card.name || card.card_number;
+  const evidence = buildCardEvidence({
+    sku: card.sku,
+    game: parseSkuShape(card.sku)?.game ?? null,
+    referenceAmountGbp: retailPrice(card.price_gbp, card.channel_price),
+    referenceObservedAt: card.updated_at,
+    market,
+    sources: listSourceMeta(),
+  });
 
   // JSON-LD structured data — Product identity WITHOUT an Offer block.
   // The platform sells nothing, so schema.org must not claim a
@@ -180,6 +193,9 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             <div className="flex items-center gap-3">
               <Provenance kind="synced" source="wholesale" at={card.updated_at} cadence="daily" />
               <WhyLink href="/methodology/pricing" />
+              <Link href="#evidence" className="text-xs text-accent hover:text-accent-strong transition">
+                See evidence &darr;
+              </Link>
             </div>
             <p className="text-xs text-ink-faint">
               A published data point, not an offer — Cambridge TCG doesn&apos;t buy or sell cards.
@@ -275,6 +291,9 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
           )}
         </div>
       </div>
+
+      <CardEvidence model={evidence} />
+      <CollectorWitnessPanel sku={card.sku} />
 
       {/* A relation appears only when the bounded, human-reviewable corpus
           has one for this exact SKU. It keeps interpretation, evidence, and

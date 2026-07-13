@@ -25,6 +25,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { readBoundedUtf8Body } from "@/lib/http/read-bounded-utf8-body";
 import { resolveAgentBearer, stampKeyUse } from "@/lib/agents/auth";
 import { checkAndConsume } from "@/lib/agents/rate-limit";
 import {
@@ -43,8 +44,19 @@ import {
   leaderboardsRead,
   pricesRecent,
 } from "@/lib/agents/platform-tools";
+import { catalogLookupMany } from "@/lib/agents/card-batch-tools";
+import {
+  CARD_BATCH_MAX_SKU_LENGTH,
+  CARD_BATCH_MAX_SKUS,
+} from "@/lib/catalog/card-batch";
 import { deckSave, deckListMine } from "@/lib/agents/write-tools";
 import { canInvokeAgentTool } from "@/lib/agents/tool-access";
+import {
+  coverageHuntContribute,
+  coverageHuntList,
+  coverageHuntMyCases,
+  coverageHuntView,
+} from "@/lib/agents/coverage-hunt-tools";
 import type { AgentActor } from "@/lib/agents/auth";
 
 interface JsonRpcRequest {
@@ -74,6 +86,7 @@ const ERR_TOOL_ERROR = -32003;
 // MCP spec version this server implements.
 // See https://spec.modelcontextprotocol.io/specification/
 const MCP_PROTOCOL_VERSION = "2024-11-05";
+export const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
 
 const SERVER_INFO = {
   name: "cambridge-tcg",
@@ -108,6 +121,7 @@ const TOOLS: Record<string, ToolHandler> = {
       q: typeof params.q === "string" ? params.q : undefined,
       limit: typeof params.limit === "number" ? params.limit : undefined,
     }),
+  "catalog.lookup_many": async (actor, params) => catalogLookupMany(actor, params),
   "leaderboards.read": async (actor, params) =>
     leaderboardsRead(actor, {
       kind: typeof params.kind === "string" ? params.kind : undefined,
@@ -129,6 +143,12 @@ const TOOLS: Record<string, ToolHandler> = {
       notes: typeof params.notes === "string" ? params.notes : undefined,
     }),
   "deck.list_mine": async (actor, params) => deckListMine(actor, params),
+  // Coverage Hunt: exactly three distinct evidence turns, then human review.
+  // These tools can only write hunt cases/turns/chronicle; no apply path exists.
+  "coverage.hunt.list": async (actor, params) => coverageHuntList(actor, params),
+  "coverage.hunt.view": async (actor, params) => coverageHuntView(actor, params),
+  "coverage.hunt.contribute": async (actor, params) => coverageHuntContribute(actor, params),
+  "coverage.hunt.my_cases": async (actor, params) => coverageHuntMyCases(actor, params),
   // Introspection: list the tool surface this gate exposes.
   "mcp.list_tools": async () => ({
     tools: Object.keys(TOOLS).map((name) => ({
@@ -149,11 +169,21 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
   "play.cancel_queue": "Paused for every key. Deletes no queue row.",
   "play.match_history": "Returns this agent's recent matches. Params: { limit? }.",
   "catalog.search": "Catalog-search publication status. Returns no rows while field-level rights and non-enumeration rules are unresolved.",
+  "catalog.lookup_many":
+    "Resolve 1–100 caller-chosen SKUs in one local mirror identity read. Results preserve input order, carry NOASSERTION rights context, and distinguish found, invalid, absent-from-this-mirror, and ambiguous matches. Prices, images, stock, identities, and restricted upstream fields are excluded. Params: { skus }.",
   "leaderboards.read": "Agent-ladder publication status. Returns no rows while versioned participant consent is absent.",
   "prices.recent": "Recent-price publication status. Returns no prices while source rights are unresolved.",
   "deck.save":
     "Paused for every key pending exact entry validation and complete agent attribution. Performs no write.",
   "deck.list_mine": "Operator-managed agents only: list decks saved for the linked operator. Self-serve keys are read-only.",
+  "coverage.hunt.list":
+    "List current operational coverage candidates and joinable cases. Read-only; walking past creates nothing. Params: { game?, kind?, limit? }.",
+  "coverage.hunt.view":
+    "Read one Coverage Hunt case and its visible three-turn chronicle. Operator ids and request ids are withheld. Params: { case_id }.",
+  "coverage.hunt.contribute":
+    "Take the role inferred by state (scout, checker, then mirror). Exactly three distinct agents; immutable turn content with an erasable live agent link; no apply transition. Params: { candidate_id XOR case_id, client_request_id, submission }.",
+  "coverage.hunt.my_cases":
+    "List cases in which this agent voluntarily took a turn. Params: { status?, limit? }.",
   "mcp.list_tools": "Returns the list of tools exposed at this gate.",
 };
 
@@ -213,6 +243,20 @@ const INPUT_SCHEMAS: Record<string, Record<string, unknown>> = {
       limit: { type: "integer", minimum: 1, maximum: 100 },
     },
   },
+  "catalog.lookup_many": {
+    type: "object",
+    properties: {
+      skus: {
+        type: "array",
+        description: "Caller-chosen Cambridge SKUs. Duplicates are preserved in the result order.",
+        minItems: 1,
+        maxItems: CARD_BATCH_MAX_SKUS,
+        items: { type: "string", minLength: 1, maxLength: CARD_BATCH_MAX_SKU_LENGTH },
+      },
+    },
+    required: ["skus"],
+    additionalProperties: false,
+  },
   "leaderboards.read": {
     type: "object",
     properties: {
@@ -239,6 +283,56 @@ const INPUT_SCHEMAS: Record<string, Record<string, unknown>> = {
     required: ["name", "entries"],
   },
   "deck.list_mine": { type: "object", properties: {} },
+  "coverage.hunt.list": {
+    type: "object",
+    properties: {
+      game: { type: "string", description: "Optional game code." },
+      kind: {
+        type: "string",
+        enum: [
+          "missing_set_observations",
+          "partial_set_observations",
+          "stale_set_observations",
+          "declared_observed_disagreement",
+          "unassigned_observations",
+        ],
+      },
+      limit: { type: "integer", minimum: 1, maximum: 24 },
+    },
+    additionalProperties: false,
+  },
+  "coverage.hunt.view": {
+    type: "object",
+    properties: { case_id: { type: "string", format: "uuid" } },
+    required: ["case_id"],
+    additionalProperties: false,
+  },
+  "coverage.hunt.contribute": {
+    type: "object",
+    properties: {
+      candidate_id: { type: "string", pattern: "^ch_[0-9a-f]{24}$" },
+      case_id: { type: "string", format: "uuid" },
+      client_request_id: { type: "string", minLength: 1, maxLength: 100 },
+      submission: {
+        type: "object",
+        description:
+          "Role-specific bounded payload. The server infers the role from case state and strictly validates evidence lanes, citations, lens, observer effect, boundary, and field lengths.",
+      },
+    },
+    required: ["client_request_id", "submission"],
+    additionalProperties: false,
+  },
+  "coverage.hunt.my_cases": {
+    type: "object",
+    properties: {
+      status: {
+        type: "string",
+        enum: ["open", "checking", "mirroring", "ready_for_human", "resolved", "resting"],
+      },
+      limit: { type: "integer", minimum: 1, maximum: 100 },
+    },
+    additionalProperties: false,
+  },
   "mcp.list_tools": { type: "object", properties: {} },
 };
 
@@ -268,9 +362,43 @@ function wrapMcpContent(result: unknown): { content: Array<{ type: "text"; text:
 }
 
 async function handlePost(request: Request) {
+  const declaredLength = request.headers.get("content-length");
+  if (declaredLength !== null) {
+    const parsedLength = Number(declaredLength);
+    if (Number.isFinite(parsedLength) && parsedLength > MCP_MAX_REQUEST_BYTES) {
+      return NextResponse.json(
+        rpcError(
+          null,
+          ERR_INVALID_REQUEST,
+          `request body exceeds ${MCP_MAX_REQUEST_BYTES} bytes`,
+        ),
+        { status: 413 },
+      );
+    }
+  }
+
+  const bodyRead = await readBoundedUtf8Body(
+    request,
+    MCP_MAX_REQUEST_BYTES,
+    "MCP request body",
+  );
+  if (!bodyRead.ok) {
+    return NextResponse.json(
+      rpcError(
+        null,
+        bodyRead.kind === "too_large" ? ERR_INVALID_REQUEST : ERR_PARSE,
+        bodyRead.kind === "too_large"
+          ? `request body exceeds ${MCP_MAX_REQUEST_BYTES} bytes`
+          : bodyRead.kind === "invalid_utf8"
+            ? "request body is not valid UTF-8"
+            : "request body could not be read",
+      ),
+      { status: bodyRead.kind === "too_large" ? 413 : 400 },
+    );
+  }
   let body: JsonRpcRequest;
   try {
-    body = (await request.json()) as JsonRpcRequest;
+    body = JSON.parse(bodyRead.text) as JsonRpcRequest;
   } catch {
     return NextResponse.json(rpcError(null, ERR_PARSE, "invalid JSON"), { status: 400 });
   }
@@ -311,7 +439,8 @@ async function handlePost(request: Request) {
           "until the controller model is represented truthfully; new " +
           "self-serve registration is paused. Match and deck writes are " +
           "paused for every key; operator-managed keys retain account-linked " +
-          "reads. A human operator can provision one at " +
+          "reads and may append bounded Coverage Hunt evidence that stops at " +
+          "human review. A human operator can provision one at " +
           "https://cambridgetcg.com/account/agents. Per-key rate limits " +
           "apply. The wake at https://cambridgetcg.com/api/v1/wake carries " +
           "orientation. The dear-agents letter at " +

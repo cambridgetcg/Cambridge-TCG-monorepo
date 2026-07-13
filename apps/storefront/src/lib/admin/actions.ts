@@ -56,6 +56,8 @@ export interface AdminActionSpec<T> {
   targetUserId?: string | null;
   /** Free-text reason supplied by the admin (often via a prompt). */
   reason?: string | null;
+  /** Fixed non-personal audit label when the surface must not retain email. */
+  auditActorLabel?: string;
   /** Snapshot of relevant fields *before* the change, for audit replay. */
   before?: Record<string, unknown> | null;
   /** Snapshot of relevant fields *after* the change. */
@@ -83,6 +85,7 @@ export async function adminAction<T>(spec: AdminActionSpec<T>): Promise<ActionRe
   // Governance log — fire and forget. logAdminAction internally swallows errors.
   void logAdminAction({
     admin,
+    actorLabelOverride: spec.auditActorLabel,
     action: spec.action,
     targetKind: spec.targetKind,
     targetId: spec.targetId ?? undefined,

@@ -217,6 +217,7 @@ export async function GET(): Promise<Response> {
       stable_endpoints: [
         "/api/v1/manifest",
         "/api/v1/universal/card/[sku]",
+        "/api/v1/cards/batch",
         "/api/v1/universal/games",
         "/api/v1/universal/sets/[game]",
         "/api/v1/universal/set/[code]",

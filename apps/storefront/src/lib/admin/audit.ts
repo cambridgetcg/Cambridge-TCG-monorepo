@@ -10,6 +10,9 @@ import type { AdminSession } from "./auth";
 export interface AuditEntry {
   /** The admin performing the action */
   admin: AdminSession;
+  /** Optional non-personal label for records whose protocol must not retain
+   * the admin email. actor_id still links to the live account until deletion. */
+  actorLabelOverride?: string;
   /** Action identifier, e.g. 'user.suspend', 'tradein.approve' */
   action: string;
   /** Target entity kind, e.g. 'user', 'tradein', 'order' */
@@ -41,7 +44,7 @@ export async function logAdminAction(entry: AuditEntry): Promise<void> {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         entry.admin.id,
-        entry.admin.email,
+        entry.actorLabelOverride ?? entry.admin.email,
         entry.targetUserId ?? null,
         entry.targetKind,
         entry.targetId ?? null,

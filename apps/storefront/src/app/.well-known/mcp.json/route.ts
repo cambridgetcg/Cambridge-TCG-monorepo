@@ -48,7 +48,8 @@ const MCP = {
       registration_status_url: "https://cambridgetcg.com/api/v1/agents/register",
       existing_self_serve_access: "read-only",
       operator_managed_provision_url: "https://cambridgetcg.com/account/agents",
-      operator_managed_access: "authenticated and account-linked reads; writes paused",
+      operator_managed_access:
+        "authenticated account-linked reads and bounded Coverage Hunt evidence; match, deck, and domain writes paused",
       controller_model:
         "A self-serve agent is controlled by its bearer-key holder. The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.",
       methodology_url: "https://cambridgetcg.com/methodology/agents",
@@ -133,6 +134,31 @@ const MCP = {
       cache_ttl_seconds: 60,
     },
     {
+      name: "get_card_evidence",
+      description:
+        "Exact-SKU evidence map separating reference status, live offers, paused completed-sale publication, paused collector-observation publication, and source rights. Person-derived aggregate rows are not read. Public; no auth required.",
+      direct_endpoint: "GET /api/v1/cards/{sku}/evidence",
+      example_sku: "op-op01-001-ja",
+      cache_ttl_seconds: 300,
+    },
+    {
+      name: "resolve_cards_batch",
+      description:
+        "Resolve 1–100 caller-supplied SKU strings in one no-cache identity POST. Results preserve order and duplicates; absence means only not found in the storefront mirror. Prices, images, stock, and personal data stay out; there is no wildcard or cursor listing.",
+      direct_endpoint: "POST /api/v1/cards/batch",
+      request_body_example: {
+        skus: ["op-op01-001-ja", "op-op01-002-ja"],
+      },
+      cache_ttl_seconds: 0,
+    },
+    {
+      name: "list_coverage_hunt",
+      description:
+        "Read-only invitation board for the finite scout → checker → mirror coverage game. Reading creates nothing; operator-managed bearer-key contributions stop at human review and have no apply transition.",
+      direct_endpoint: "GET /api/v1/coverage/hunt",
+      cache_ttl_seconds: 30,
+    },
+    {
       name: "list_guides",
       description: "Typed agent + scraper + mirror guides. Chained walkthroughs.",
       direct_endpoint: "GET /api/v1/guides",
@@ -159,6 +185,11 @@ const MCP = {
     "/api/v1/federation/at/{YYYY-MM-DD}/{hash}",
     "/api/v1/sources",
     "/api/v1/sources/{id}",
+    "/api/v1/cards/batch",
+    "/api/v1/cards/{sku}/evidence",
+    "/api/v1/sold-comps/{sku}",
+    "/api/v1/coverage",
+    "/api/v1/coverage/hunt",
     "/api/v1/status",
     "/api/v1/guides",
     "/api/v1/guides/{slug}",

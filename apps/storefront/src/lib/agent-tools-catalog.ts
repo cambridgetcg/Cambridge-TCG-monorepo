@@ -48,6 +48,7 @@ export type ToolCategory =
   | "leaderboards" // ladder reads
   | "prices" // price observations
   | "deck" // deck save / list
+  | "coverage" // bounded evidence review over operational coverage gaps
   | "discovery"; // built-in introspection (mcp.list_tools)
 
 /** A single tool entry in the catalog. */
@@ -369,6 +370,65 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     source: `${SRC_BASE}/platform-tools.ts`,
   },
   {
+    dotted_name: "catalog.lookup_many",
+    mcp_spec_name: "catalog.lookup_many",
+    category: "catalog",
+    description:
+      "Resolve 1–100 caller-chosen SKUs in one local mirror identity read. Preserves order, carries NOASSERTION rights context, and reports found, invalid, absent-from-this-mirror, or ambiguous per item; no prices, images, stock, identities, or restricted upstream fields.",
+    input_schema: {
+      type: "object",
+      properties: {
+        skus: {
+          type: "array",
+          minItems: 1,
+          maxItems: 100,
+          items: { type: "string", minLength: 1, maxLength: 160 },
+        },
+      },
+      required: ["skus"],
+      additionalProperties: false,
+    },
+    example_input: {
+      skus: ["op-op01-001-ja", "op-op01-999-ja"],
+    },
+    example_output_shape: {
+      "@kind": "card-batch",
+      license: "NOASSERTION",
+      rights_note: "Mirrored card fields retain upstream and publisher rights.",
+      absence_semantics:
+        "not_in_storefront_mirror is local to this bounded storefront mirror read.",
+      requested_count: 2,
+      found_count: 1,
+      not_in_mirror_count: 1,
+      invalid_count: 0,
+      mirror_queried: true,
+      results: [
+        {
+          requested_sku: "op-op01-001-ja",
+          status: "found",
+          card: {
+            sku: "op-op01-001-ja",
+            canonical_sku: "op-op01-001-ja",
+            name: "Monkey D. Luffy",
+            set: { code: "OP01", name: "Romance Dawn" },
+          },
+        },
+        {
+          requested_sku: "op-op01-999-ja",
+          canonical_sku: "op-op01-999-ja",
+          status: "not_in_storefront_mirror",
+        },
+      ],
+    },
+    gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
+    freshness: "live",
+    since: "2026-07-13",
+    dispatch_url: "/api/mcp",
+    source: `${SRC_BASE}/card-batch-tools.ts`,
+  },
+  {
     dotted_name: "leaderboards.read",
     mcp_spec_name: "leaderboards.read",
     category: "leaderboards",
@@ -483,6 +543,122 @@ export const AGENT_TOOLS: readonly ToolCatalogEntry[] = [
     source: `${SRC_BASE}/write-tools.ts`,
   },
   {
+    dotted_name: "coverage.hunt.list",
+    mcp_spec_name: "coverage.hunt.list",
+    category: "coverage",
+    description:
+      "List current operational coverage candidates and joinable cases. Read-only; walking past creates nothing.",
+    input_schema: {
+      type: "object",
+      properties: {
+        game: { type: "string" },
+        kind: { type: "string" },
+        limit: { type: "integer", minimum: 1, maximum: 24 },
+      },
+      additionalProperties: false,
+    },
+    example_input: { game: "op", limit: 6 },
+    example_output_shape: {
+      board: {
+        candidates: [{ candidate: { id: "ch_0123456789abcdef01234567", kind: "declared_observed_disagreement", target: { game_code: "op", source_id: "cardrush" } } }],
+      },
+      open_cases: [],
+    },
+    gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
+    freshness: "live",
+    since: "2026-07-12",
+    dispatch_url: "/api/mcp",
+    source: `${SRC_BASE}/coverage-hunt-tools.ts`,
+  },
+  {
+    dotted_name: "coverage.hunt.view",
+    mcp_spec_name: "coverage.hunt.view",
+    category: "coverage",
+    description:
+      "Read one Coverage Hunt case and its visible three-turn chronicle. Operator ids and request ids are withheld.",
+    input_schema: {
+      type: "object",
+      properties: { case_id: { type: "string", format: "uuid" } },
+      required: ["case_id"],
+      additionalProperties: false,
+    },
+    example_input: { case_id: "11111111-1111-4111-8111-111111111111" },
+    example_output_shape: {
+      case: { status: "checking", next_role: "checker", turns_completed: 1, authoritative_effect: "none", apply_transition_exists: false },
+    },
+    gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
+    freshness: "live",
+    since: "2026-07-12",
+    dispatch_url: "/api/mcp",
+    source: `${SRC_BASE}/coverage-hunt-tools.ts`,
+  },
+  {
+    dotted_name: "coverage.hunt.contribute",
+    mcp_spec_name: "coverage.hunt.contribute",
+    category: "coverage",
+    description:
+      "Take the role inferred by state: scout, checker, then mirror. Three distinct agents, immutable turn content with an erasable live agent link, human review, and no apply transition.",
+    input_schema: {
+      type: "object",
+      properties: {
+        candidate_id: { type: "string" },
+        case_id: { type: "string", format: "uuid" },
+        client_request_id: { type: "string", maxLength: 100 },
+        submission: { type: "object" },
+      },
+      required: ["client_request_id", "submission"],
+      additionalProperties: false,
+    },
+    example_input: {
+      candidate_id: "ch_0123456789abcdef01234567",
+      client_request_id: "scout-op-cardrush-1",
+      submission: {
+        role: "scout",
+        claim: "gap_present",
+        lanes: { facts: ["The public coverage board reports zero rows."], self_claims: [], inferences: ["The declaration may be ahead of the archive."], unknowns: ["Whether a permitted writer is scheduled."] },
+        evidence: [],
+        suggested_correction: null,
+        boundary: "I did not fetch a restricted source or inspect private state.",
+      },
+    },
+    example_output_shape: {
+      accepted: true,
+      role: "scout",
+      case: { status: "checking", next_role: "checker", authoritative_effect: "none" },
+    },
+    gating: "bearer-key",
+    authority: "operator-managed",
+    availability: "available",
+    freshness: "live",
+    since: "2026-07-12",
+    dispatch_url: "/api/mcp",
+    source: `${SRC_BASE}/coverage-hunt-tools.ts`,
+  },
+  {
+    dotted_name: "coverage.hunt.my_cases",
+    mcp_spec_name: "coverage.hunt.my_cases",
+    category: "coverage",
+    description: "List cases in which this agent voluntarily took a turn.",
+    input_schema: {
+      type: "object",
+      properties: { status: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 100 } },
+      additionalProperties: false,
+    },
+    example_input: { status: "ready_for_human", limit: 10 },
+    example_output_shape: { cases: [{ status: "ready_for_human", your_role: "mirror", authoritative_effect: "none" }] },
+    gating: "bearer-key",
+    authority: "self-serve-read",
+    availability: "available",
+    freshness: "live",
+    since: "2026-07-12",
+    dispatch_url: "/api/mcp",
+    source: `${SRC_BASE}/coverage-hunt-tools.ts`,
+  },
+  {
     dotted_name: "mcp.list_tools",
     mcp_spec_name: "tools/list",
     category: "discovery",
@@ -567,7 +743,7 @@ export const TOOLS_CATALOG_SUMMARY = {
   auth:
     "mcp.list_tools/tools/list is public; every other tool requires Bearer <agent-key>",
   authority:
-    "Existing self-serve keys are read-only. Operator-managed keys may use account-linked reads; every match and deck write is paused.",
+    "Existing self-serve keys are read-only. Operator-managed keys may use account-linked reads and append bounded Coverage Hunt evidence; every match and deck write is paused.",
   self_serve_registration: "paused",
   operator_provision_at: "/account/agents",
   discovery_files: ["/.well-known/mcp.json", "/.well-known/mcp-config.json"],

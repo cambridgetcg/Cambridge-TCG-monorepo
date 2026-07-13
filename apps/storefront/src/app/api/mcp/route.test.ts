@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/db", () => ({ query: vi.fn(), transaction: vi.fn() }));
+
 const mocks = vi.hoisted(() => ({
   resolveAgentBearer: vi.fn(),
   stampKeyUse: vi.fn(),
@@ -45,8 +47,17 @@ vi.mock("@/lib/agents/write-tools", () => ({
   deckSave: vi.fn(),
   deckListMine: vi.fn(),
 }));
+vi.mock("@/lib/agents/card-batch-tools", () => ({
+  catalogLookupMany: vi.fn(),
+}));
+vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
+  coverageHuntContribute: vi.fn(),
+  coverageHuntList: vi.fn(),
+  coverageHuntMyCases: vi.fn(),
+  coverageHuntView: vi.fn(),
+}));
 
-import { POST } from "./route";
+import { MCP_MAX_REQUEST_BYTES, POST } from "./route";
 
 const actor = {
   agentId: "agent-1",
@@ -103,5 +114,25 @@ describe("MCP authority and error boundary", () => {
     expect(response.status).toBe(500);
     expect(body.error).toEqual({ code: -32603, message: "internal error" });
     expect(JSON.stringify(body)).not.toContain("credential fragment");
+  });
+});
+
+describe("POST /api/mcp request bounds", () => {
+  it("stops an oversized chunked-style body before JSON parsing or auth", async () => {
+    const request = new Request("https://example.test/api/mcp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "x".repeat(MCP_MAX_REQUEST_BYTES + 1),
+    });
+    expect(request.headers.get("content-length")).toBeNull();
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(body.error).toMatchObject({
+      code: -32600,
+      message: `request body exceeds ${MCP_MAX_REQUEST_BYTES} bytes`,
+    });
   });
 });

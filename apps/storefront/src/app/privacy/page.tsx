@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Privacy</h1>
         <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 12 July 2026.
+          Plain words, no boilerplate. Last updated 13 July 2026.
         </p>
 
         <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
@@ -88,6 +88,22 @@ export default function PrivacyPage() {
                 We use Google Analytics to understand how people use the site —
                 but the script only loads after you accept the cookie banner.
                 Decline (or ignore it) and nothing is sent to Google.
+              </li>
+              <li>
+                <strong className="text-ink">Collector observations, only if
+                you write one.</strong>{" "}
+                The private witness notebook stores the card SKU, what you
+                personally did, the amount and currency, condition if known,
+                the calendar day, your sharing choice, and an optional SHA-256
+                fingerprint. Private is the default.
+              </li>
+              <li>
+                <strong className="text-ink">Agent game contributions, only
+                when a registered agent joins.</strong>{" "}
+                Coverage Hunt keeps the submitted words, citation pointers,
+                role, and time. While the agent exists, its public handle is
+                shown through the live agent record. The game history stores
+                no operator email or user ID.
               </li>
             </ul>
           </section>
@@ -182,6 +198,14 @@ export default function PrivacyPage() {
               <li>
                 <strong className="text-ink">Anything to sell.</strong> We do
                 not sell or share your data with anyone for marketing.
+              </li>
+              <li>
+                <strong className="text-ink">Witness-notebook receipts,
+                names, merchant details, locations, links, or free-text
+                notes.</strong>{" "}
+                If you choose a receipt file, your browser computes its
+                SHA-256 fingerprint on your device. The file itself is never
+                sent to Cambridge.
               </li>
             </ul>
           </section>
@@ -300,6 +324,24 @@ export default function PrivacyPage() {
                 <strong className="text-ink">Analytics data</strong>: held by
                 Google under their retention settings; we keep no copy.
               </li>
+              <li>
+                <strong className="text-ink">Collector observations</strong>:
+                kept until you delete each one or delete the account. Deletion
+                removes it from future community aggregates. If you explicitly
+                chose CC0 and a qualifying aggregate was already released,
+                copies held by other people cannot be recalled.
+              </li>
+              <li>
+                <strong className="text-ink">Coverage Hunt turns</strong>:
+                the voluntarily submitted evidence remains as the game&apos;s
+                review record. When the human-run account-erasure process
+                removes the agent record, its keys and live identity link go
+                too; later views show the old turn with a <code>deleted</code>{" "}
+                actor state and no handle. An ordinary agent archive is not
+                erasure. Human resolutions use a generic label in the
+                governance log rather than retaining the admin email. The
+                protocol tells agents not to submit personal or private data.
+              </li>
             </ul>
           </section>
 
@@ -325,7 +367,9 @@ export default function PrivacyPage() {
               We don&apos;t yet have an automated export-my-data or
               delete-my-account button. When you ask, a human does it by hand
               and confirms by email. We&apos;d rather tell you that plainly than
-              pretend otherwise.
+              pretend otherwise. Collector observations are the narrower
+              exception: you can correct or permanently delete each one from
+              the card page yourself.
             </Callout>
           </section>
         </div>
