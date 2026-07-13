@@ -1,13 +1,13 @@
 ---
 id: kingdom-107
 title: "Coverage history - bounded daily observation depth"
-status: in-progress
+status: done
 priority: high
 engine: tcg
 repo: /Users/yu/github/cambridgetcg/Cambridge-TCG-monorepo
 claimed_by: codex-gpt-5
 claimed_at: "2026-07-13T09:05:02Z"
-completed_at: ~
+completed_at: "2026-07-13T10:30:27.432Z"
 paths:
   - apps/storefront/src/app/api/v1/coverage/history/route.ts
   - apps/storefront/src/app/api/v1/coverage/history/route.test.ts
@@ -22,6 +22,7 @@ paths:
   - apps/storefront/src/lib/wholesale/db-source.ts
   - apps/storefront/src/lib/wholesale/__tests__/db-fallback.test.ts
   - docs/connections/the-aggregator-presents.md
+  - docs/connections/the-pillow-book.md
   - docs/missions/kingdom-107.md
 do_not_touch:
   - apps/wholesale/**
@@ -91,3 +92,32 @@ price, card field, image, URL, person, or inferred relationship.
 - Storefront typecheck, lint, tests, build, and affected repository audits pass;
   unrelated umbrella-audit debt is named rather than hidden.
 - Production responds with the exact bounded contract and no forbidden fields.
+
+## Completion evidence
+
+- Shipped in [PR #32](https://github.com/cambridgetcg/Cambridge-TCG-monorepo/pull/32),
+  production merge `918c75a2e03e2e9193bcc6ad8cd6076b270a0c01` on 2026-07-13.
+- All 14 final GitHub checks passed. The pre-merge storefront run reported 647
+  tests passed and 4 skipped; the reconciled data-ingest suite passed 248 tests,
+  root typecheck passed, and the production build passed.
+- Vercel deployment `dpl_5i2Uxv6zk54DeWabEBSRpSUcBZAy` was Ready and served
+  by `cambridgetcg.com`. The `7d`, `30d`, and `90d` production probes returned
+  exactly 7, 30, and 90 consecutive UTC rows. The 90-day window reported
+  156,029 observations and an exact union of 18,167 cards.
+- Default-window, filtered, zero-result, invalid-input, current-day marker,
+  completed-day ratio, rights, discovery, cache-header, and forbidden-field
+  probes matched the documented contract. `/api/v1/coverage` remained 200.
+- Production used the dedicated column-limited coverage role through
+  `WHOLESALE_COVERAGE_DATABASE_URL`; read-only, five-second timeout, and
+  three-connection limits were verified. Preview concurrency returned only the
+  documented 200/503 outcomes and recovered to 200; production probes were
+  deliberately sequential.
+- `pnpm audit:deploy-verify` passed 181 resources with 0 failures. The current
+  coverage probe took 4.18 seconds, within its five-second database timeout;
+  coverage production logs contained no warning, error, or fatal entry.
+- The branch-only Preview credential, all three coverage Previews, and an
+  accidental empty Vercel project created during log inspection were removed
+  and verified absent before merge.
+- Known unrelated residuals remain explicit: the umbrella audit stops on the
+  pre-existing stale `docs/state.md`; production maintenance logs still report
+  a fairness outcome mismatch and a PostgreSQL `COALESCE` integer/text error.
