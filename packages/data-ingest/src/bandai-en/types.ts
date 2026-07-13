@@ -1,12 +1,10 @@
 /**
- * Raw shapes for the bandai-en source — official English card data
- * scraped from Bandai's EN cardlist sites.
+ * Raw shapes for the internal, fixture-backed Bandai EN parser.
  *
- * One parsed `<dl class="modalCol">` block → one `BandaiEnCard`. The
- * shape mirrors the DOM verbatim (verified live 2026-07-11 against
- * en.onepiece-cardgame.com/cardlist/?series=569101): field values stay
- * strings; "-" placeholders become null at parse time; nothing is
- * interpreted until `normalize()`.
+ * One parsed modal block or detail page becomes one `BandaiEnCard`. The
+ * shapes mirror the retained fixtures: field values stay strings, "-"
+ * placeholders become null at parse time, and interpretation waits for
+ * `normalize()`.
  */
 
 /**
@@ -17,9 +15,23 @@
 export type BandaiEnGameKey = "op" | "dbf" | "dmw" | "una" | "bsr";
 
 /**
- * Per-game configuration retained for the offline parse skeleton. One Piece
- * has a local fixture; the other sites and their exact image conventions are
- * unverified. The live SourceModule reader is blocked for every game.
+ * The two DOM families the Bandai EN cardlist sites use (both verified
+ * live):
+ *
+ * - `"modal-page"` — one series page carries every card's full data as
+ *   `<dl class="modalCol">` blocks (One Piece, verified 2026-07-11).
+ * - `"list-detail"` — the series page is a thumbnail grid of
+ *   `<li class="cardItem">` links; each card's data lives on its own
+ *   server-rendered `detail.php?card_no=…` page (DBS Fusion World,
+ *   verified 2026-07-13).
+ */
+export type BandaiEnDomKind = "modal-page" | "list-detail";
+
+/**
+ * Per-game configuration for the offline parse skeleton. One Piece and DBS
+ * Fusion World are fixture-backed. The other sites and their exact DOM and
+ * image conventions remain unverified. The live SourceModule reader is
+ * blocked for every game.
  */
 export interface BandaiEnGameConfig {
   /** Registered game code (doubles as the config key). */
@@ -28,8 +40,19 @@ export interface BandaiEnGameConfig {
   label: string;
   /** Site root — documentation + URL resolution base. */
   base_url: string;
-  /** Candidate series page URL, inert until written permission exists. */
+  /**
+   * Which DOM family this site serves. For stubs this is the *presumed*
+   * family (see `notes`); the first implementation run verifies it.
+   */
+  dom: BandaiEnDomKind;
+  /** Candidate series URL retained for parser fixtures; live use is blocked. */
   series_url: (series_id: string) => string;
+  /**
+   * Candidate detail URL for `"list-detail"` fixtures. `p` is the
+   * parallel query value exactly as the list page carries it ("_p1"),
+   * or null for the base print. Live use is blocked.
+   */
+  detail_url?: (card_no: string, p: string | null) => string;
   /**
    * Copyright/attribution line preserved in fixture-normalized provenance.
    * Attribution does not grant collection or publication permission.
@@ -89,10 +112,43 @@ export interface BandaiEnCard {
   trigger_text: string | null;
   /** The "Card Set(s)" row, e.g. "-ROMANCE DAWN- [OP01]". */
   card_sets_text: string | null;
-  /** The series page this block was parsed from. */
+  /** The page this card was parsed from. */
   source_url: string;
-  /** ISO moment the page was fetched (stamped by read(); keeps normalize pure). */
+  /** Capture timestamp supplied by the parser caller; keeps normalize pure. */
   retrieved_at: string;
+
+  // ── "list-detail" DOM extras (dbf; absent on "modal-page" games) ────
+  // Fusion World leaders are double-faced: the detail page renders
+  // is-front/is-back values and _f/_b images. Optional so the op shape
+  // is untouched; only games whose DOM carries the row set them.
+
+  /** Back-face image URL (leaders; `…_b[_pN].webp`). */
+  back_image_url?: string | null;
+  /** Back-face power (leaders print different front/back power). */
+  power_back?: string | null;
+  /** Back-face Special Traits (leaders). */
+  traits_back?: string | null;
+  /** Back-face Skills — rules text, part of oracle text (leaders). */
+  effect_back_text?: string | null;
+  /** The "Specified cost" row (color-cost icons, e.g. "R"). */
+  specified_cost?: string | null;
+  /** The "Combo power" row. */
+  combo_power?: string | null;
+}
+
+/**
+ * One `<li class="cardItem">` from a "list-detail" series page — a
+ * reference to a card's detail page, not the card itself.
+ */
+export interface BandaiEnCardRef {
+  /** Card number verbatim from the detail link, e.g. "FB10-001". */
+  card_no: string;
+  /** Parallel query value exactly as linked ("_p1") or null (base print). */
+  p: string | null;
+  /** The lazy-loaded thumbnail's data-src, page-relative, or null. */
+  image_src: string | null;
+  /** The thumbnail alt text, e.g. "FB10-001 Son Goku". */
+  alt: string;
 }
 
 /** One `<option>` from the series `<select>` on the cardlist page. */

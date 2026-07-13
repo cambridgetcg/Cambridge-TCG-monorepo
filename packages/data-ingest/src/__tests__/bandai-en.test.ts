@@ -1,24 +1,39 @@
 /**
  * Tests for the bandai-en source — fixture-based, no network.
  *
- * The fixture is a trimmed verbatim sample of
+ * "modal-page" (op) fixture: a trimmed verbatim sample of
  * https://en.onepiece-cardgame.com/cardlist/?series=569101 (OP-01,
  * fetched 2026-07-11): leader OP01-001 + its _p1 parallel, character
  * OP01-006 (Notes/errata row), event OP01-026 (Trigger + Notes).
  *
+ * "list-detail" (dbf) fixtures: trimmed verbatim samples of
+ * https://www.dbs-cardgame.com/fw/en/cardlist/ (FB10, fetched
+ * 2026-07-13): the thumbnail-grid series page plus three detail pages
+ * — double-faced leader FB10-001, its _p1 parallel, battle FB10-002.
+ *
  * Coverage:
  *   1. parseCardlistPage — block extraction, field fidelity, parallels,
  *      image URL resolution, Notes/remarks exclusion
- *   2. normalizeBandaiEn — SKU shape, policy quartet in extra,
- *      oracle_text = Effect + Trigger (rules only), quarantine paths
- *   3. read() — fail-closed before an injected fetch while rights are blocked
+ *   2. parseCardRefs / parseDetailPage / parseSeriesAnchors — the dbf
+ *      DOM family: grid refs, detail fields, leader faces, Q&A exclusion
+ *   3. normalizeBandaiEn — SKU shape, policy quartet in extra,
+ *      oracle_text = rules only (op: Effect + Trigger; dbf: both leader
+ *      faces), quarantine paths
+ *   4. read() — fail-closed before an injected fetch while rights are blocked
  */
 
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { parseCardlistPage, parseSeriesOptions } from "../bandai-en/parse";
+import {
+  parseCardlistPage,
+  parseCardRefs,
+  parseDetailPage,
+  parseSeriesAnchors,
+  parseSeriesOptions,
+} from "../bandai-en/parse";
+import { BANDAI_EN_GAMES } from "../bandai-en/config";
 import { normalizeBandaiEn } from "../bandai-en/normalize";
 import { bandaiEn, type BandaiEnContext } from "../bandai-en/index";
 import type { BandaiEnCard } from "../bandai-en/types";
@@ -26,6 +41,22 @@ import type { IngestEvent } from "../types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = readFileSync(join(__dirname, "fixtures", "bandai-en-op01-sample.html"), "utf8");
+
+function dbfFixture(name: string): string {
+  return readFileSync(join(__dirname, "fixtures", `bandai-en-dbf-${name}.html`), "utf8");
+}
+const DBF_LIST = dbfFixture("fb10-list");
+const DBF_LEADER = dbfFixture("fb10-001-detail");
+const DBF_LEADER_P1 = dbfFixture("fb10-001-p1-detail");
+const DBF_BATTLE = dbfFixture("fb10-002-detail");
+
+const DBF_LIST_URL =
+  "https://www.dbs-cardgame.com/fw/en/cardlist/?search=true&category%5B%5D=583010";
+const DBF_LEADER_URL =
+  "https://www.dbs-cardgame.com/fw/en/cardlist/detail.php?card_no=FB10-001";
+const DBF_RETRIEVED_AT = "2026-07-13T00:00:00.000Z";
+const DBF_ATTRIBUTION =
+  "©BIRD STUDIO/SHUEISHA ©BIRD STUDIO/SHUEISHA, TOEI ANIMATION ©Bandai Namco Entertainment Inc.";
 
 const PAGE_URL = "https://en.onepiece-cardgame.com/cardlist/?series=569101";
 const RETRIEVED_AT = "2026-07-11T00:00:00.000Z";
@@ -247,6 +278,265 @@ describe("bandaiEn.read", () => {
     expect(bandaiEn.meta.redistribute).toBe(false);
     expect(bandaiEn.meta.status).toBe("blocked");
     expect(bandaiEn.meta.games).toEqual(["op", "dbf", "dmw", "una", "bsr"]);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// "list-detail" DOM family — DBS Fusion World (dbf), verified 2026-07-13
+// ═════════════════════════════════════════════════════════════════════
+
+describe("parseCardRefs (dbf series page)", () => {
+  it("extracts every cardItem ref, parallels via the p query value", () => {
+    const refs = parseCardRefs(DBF_LIST);
+    expect(refs.map((r) => [r.card_no, r.p])).toEqual([
+      ["FB10-001", null],
+      ["FB10-001", "_p1"],
+      ["FB10-002", null],
+      ["FB10-006", null],
+      ["FB10-006", "_p1"],
+    ]);
+  });
+
+  it("carries the lazy thumbnail data-src and alt text", () => {
+    const [leader, leaderP1, battle] = parseCardRefs(DBF_LIST);
+    // Leaders carry the _f front suffix; single-faced cards don't.
+    expect(leader.image_src).toBe("../../images/cards/card/en/FB10-001_f.webp");
+    expect(leaderP1.image_src).toBe("../../images/cards/card/en/FB10-001_f_p1.webp");
+    expect(battle.image_src).toBe("../../images/cards/card/en/FB10-002.webp");
+    expect(leader.alt).toBe("FB10-001 Son Goku");
+  });
+});
+
+describe("parseSeriesAnchors (dbf series discovery)", () => {
+  it("reads ids + labels from the category dropdown only, skipping ALL", () => {
+    // The fixture keeps the language-switcher UL (same data-val markup)
+    // as a decoy — scoping via the category[] input must exclude it.
+    expect(parseSeriesAnchors(DBF_LIST)).toEqual([
+      { id: "583010", label: "BOOSTER PACK -CROSS FORCE- [FB10]" },
+      { id: "583009", label: "BOOSTER PACK -DUAL EVOLUTION- [FB09]" },
+      { id: "583001", label: "BOOSTER PACK -AWAKENED PULSE- [FB01]" },
+      { id: "583901", label: "Promotion Card" },
+    ]);
+  });
+
+  it("returns [] when no category input exists", () => {
+    expect(parseSeriesAnchors("<html><body>nothing</body></html>")).toEqual([]);
+  });
+});
+
+describe("parseDetailPage (dbf)", () => {
+  const leader = parseDetailPage(DBF_LEADER, DBF_LEADER_URL, "dbf", DBF_RETRIEVED_AT, null);
+  const leaderP1 = parseDetailPage(
+    DBF_LEADER_P1,
+    `${DBF_LEADER_URL}&p=_p1`,
+    "dbf",
+    DBF_RETRIEVED_AT,
+    "_p1",
+  );
+  const battle = parseDetailPage(
+    DBF_BATTLE,
+    "https://www.dbs-cardgame.com/fw/en/cardlist/detail.php?card_no=FB10-002",
+    "dbf",
+    DBF_RETRIEVED_AT,
+    null,
+  );
+
+  it("reads number, rarity, category, name from the detail header", () => {
+    expect(leader?.card_number).toBe("FB10-001");
+    expect(leader?.rarity).toBe("L");
+    expect(leader?.category).toBe("LEADER");
+    expect(leader?.name).toBe("Son Goku"); // front h1, never the is-back one
+    expect(battle?.card_number).toBe("FB10-002");
+    expect(battle?.rarity).toBe("C");
+    expect(battle?.category).toBe("BATTLE");
+    expect(battle?.name).toBe("Upa");
+  });
+
+  it("resolves _f/_b leader images and single-face battle images", () => {
+    expect(leader?.image_url).toBe(
+      "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB10-001_f.webp",
+    );
+    expect(leader?.back_image_url).toBe(
+      "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB10-001_b.webp",
+    );
+    expect(battle?.image_url).toBe(
+      "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB10-002.webp",
+    );
+    expect(battle?.back_image_url).toBeNull();
+  });
+
+  it("keeps the parallel tail aligned with the publisher's image naming", () => {
+    expect(leaderP1?.card_id).toBe("FB10-001_p1");
+    expect(leaderP1?.card_number).toBe("FB10-001");
+    expect(leaderP1?.parallel).toBe("p1");
+    expect(leaderP1?.image_url).toBe(
+      "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB10-001_f_p1.webp",
+    );
+    expect(leaderP1?.back_image_url).toBe(
+      "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB10-001_b_p1.webp",
+    );
+    expect(leader?.card_id).toBe("FB10-001");
+    expect(leader?.parallel).toBeNull();
+  });
+
+  it("reads the stat cells; '-' as null; leader faces split", () => {
+    expect(leader?.cost).toBeNull(); // leaders print "-"
+    expect(leader?.cost_kind).toBeNull();
+    expect(leader?.specified_cost).toBeNull();
+    expect(leader?.power).toBe("15000"); // front face
+    expect(leader?.power_back).toBe("20000"); // back face
+    expect(leader?.combo_power).toBeNull();
+    expect(leader?.color).toBe("Red");
+    expect(leader?.type_feature).toBe("Saiyan");
+    expect(leader?.traits_back).toBe("Saiyan");
+
+    expect(battle?.cost).toBe("2");
+    expect(battle?.cost_kind).toBe("cost");
+    expect(battle?.specified_cost).toBe("R");
+    expect(battle?.power).toBe("5000");
+    expect(battle?.combo_power).toBe("10000");
+    expect(battle?.type_feature).toBe("Earthling"); // Bandai's "is-nomal" class
+    expect(battle?.power_back).toBeNull();
+    expect(battle?.traits_back).toBeNull();
+    expect(battle?.effect_back_text).toBeNull();
+  });
+
+  it("captures Skills rules text per face, never the Q&A rulings block", () => {
+    expect(leader?.effect_text).toContain("[When Attacking] Draw 1 card.");
+    expect(leader?.effect_text).toContain("[Awaken]");
+    expect(leader?.effect_back_text).toContain("[Activate Main][Once Per Turn]");
+    expect(battle?.effect_text).toContain("[On Play] This card gets +1 [Ki].");
+    expect(battle?.trigger_text).toBeNull(); // op-only concept
+    // The leader fixture carries a cardQACol rulings block (Q576);
+    // policy: rulings are not card text — no parsed field may leak it.
+    for (const card of [leader, leaderP1, battle]) {
+      for (const v of Object.values(card ?? {})) {
+        if (typeof v === "string") {
+          expect(v).not.toContain("Q576");
+          expect(v).not.toContain("cardQA");
+        }
+      }
+    }
+  });
+
+  it("reads the Where to get it row and stamps provenance", () => {
+    for (const card of [leader, leaderP1, battle]) {
+      expect(card?.card_sets_text).toBe("BOOSTER PACK -CROSS FORCE- [FB10]");
+      expect(card?.game).toBe("dbf");
+      expect(card?.retrieved_at).toBe(DBF_RETRIEVED_AT);
+    }
+    expect(leader?.source_url).toBe(DBF_LEADER_URL);
+  });
+
+  it("returns null for a page with no card block instead of an empty husk", () => {
+    expect(parseDetailPage("<html><body>404</body></html>", DBF_LEADER_URL, "dbf", DBF_RETRIEVED_AT, null)).toBeNull();
+  });
+});
+
+describe("normalizeBandaiEn (dbf)", () => {
+  const leader = parseDetailPage(DBF_LEADER, DBF_LEADER_URL, "dbf", DBF_RETRIEVED_AT, null)!;
+  const leaderP1 = parseDetailPage(
+    DBF_LEADER_P1,
+    `${DBF_LEADER_URL}&p=_p1`,
+    "dbf",
+    DBF_RETRIEVED_AT,
+    "_p1",
+  )!;
+  const battle = parseDetailPage(
+    DBF_BATTLE,
+    "https://www.dbs-cardgame.com/fw/en/cardlist/detail.php?card_no=FB10-002",
+    "dbf",
+    DBF_RETRIEVED_AT,
+    null,
+  )!;
+
+  it("builds the canonical SKU (dbf-fb10-001-en; parallel gets the -p1 tail)", () => {
+    const r1 = normalizeBandaiEn(leader);
+    const r2 = normalizeBandaiEn(leaderP1);
+    expect(r1.ok && r1.record.sku).toBe("dbf-fb10-001-en");
+    expect(r2.ok && r2.record.sku).toBe("dbf-fb10-001-en-p1");
+    if (!r1.ok || !r2.ok) throw new Error("expected ok");
+    expect(r1.record.game).toBe("dbf");
+    expect(r1.record.set).toBe("fb10");
+    expect(r1.record.number).toBe("001");
+    expect(r1.record.lang).toBe("en");
+    expect(r2.record.variant).toBe("p1");
+    expect(r1.record.upstream_id).toBe("FB10-001");
+    expect(r2.record.upstream_id).toBe("FB10-001_p1");
+  });
+
+  it("carries the policy quartet with the site footer's verbatim attribution", () => {
+    for (const raw of [leader, leaderP1, battle]) {
+      const r = normalizeBandaiEn(raw);
+      if (!r.ok) throw new Error(r.reason);
+      expect(r.record.extra?.source_url).toBe(raw.source_url);
+      expect(r.record.extra?.image_kind).toBe("official_sample");
+      expect(r.record.extra?.attribution).toBe(DBF_ATTRIBUTION);
+      expect(r.record.extra?.retrieved_at).toBe(DBF_RETRIEVED_AT);
+    }
+  });
+
+  it("oracle_text carries both leader faces under the DOM's own labels", () => {
+    const r = normalizeBandaiEn(leader);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.record.oracle_text).toMatch(/^\[FRONT\]\n\[When Attacking\] Draw 1 card\./);
+    expect(r.record.oracle_text).toContain("\n[BACK]\n[When Attacking] Draw 1 card.");
+    // Single-faced cards keep the plain op shape — no face labels.
+    const rb = normalizeBandaiEn(battle);
+    if (!rb.ok) throw new Error(rb.reason);
+    expect(rb.record.oracle_text).toMatch(/^\[On Play\]/);
+    expect(rb.record.oracle_text).not.toContain("[FRONT]");
+  });
+
+  it("carries the list-detail facts in extra, absent on modal-page games", () => {
+    const r = normalizeBandaiEn(battle);
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.record.extra?.specified_cost).toBe("R");
+    expect(r.record.extra?.combo_power).toBe("10000");
+    const rl = normalizeBandaiEn(leader);
+    if (!rl.ok) throw new Error(rl.reason);
+    expect(rl.record.extra?.power_back).toBe("20000");
+    expect(rl.record.extra?.back_image_url).toBe(
+      "https://www.dbs-cardgame.com/fw/images/cards/card/en/FB10-001_b.webp",
+    );
+    // op records never grow these keys.
+    const op = normalizeBandaiEn(parseCardlistPage(FIXTURE, PAGE_URL, "op", RETRIEVED_AT)[0]);
+    if (!op.ok) throw new Error(op.reason);
+    expect("specified_cost" in (op.record.extra ?? {})).toBe(false);
+    expect("power_back" in (op.record.extra ?? {})).toBe(false);
+  });
+});
+
+describe("bandaiEn DBF boundary", () => {
+  it("retains fixture URL shapes without enabling the live reader", () => {
+    const config = BANDAI_EN_GAMES.dbf;
+    expect(config.dom).toBe("list-detail");
+    expect(config.implemented).toBe(true);
+    expect(config.series_url("583010")).toBe(DBF_LIST_URL);
+    expect(config.detail_url?.("FB10-001", null)).toBe(DBF_LEADER_URL);
+    expect(config.detail_url?.("FB10-001", "_p1")).toBe(`${DBF_LEADER_URL}&p=_p1`);
+  });
+
+  it("stops before a DBF network request while permission is absent", async () => {
+    const events: IngestEvent[] = [];
+    let fetchCalls = 0;
+    const ctx: BandaiEnContext = {
+      fetch: async () => {
+        fetchCalls += 1;
+        throw new Error("blocked DBF reader must not fetch");
+      },
+      on_event: (event) => events.push(event),
+      bandai_en: { game: "dbf", series: ["583010"] },
+    };
+
+    const rows = [];
+    for await (const row of bandaiEn.read(ctx)) rows.push(row);
+
+    expect(rows).toHaveLength(0);
+    expect(fetchCalls).toBe(0);
+    expect(events.find((event) => event.kind === "error")?.detail.reason).toContain(
+      "no documented source permission",
+    );
   });
 });
 

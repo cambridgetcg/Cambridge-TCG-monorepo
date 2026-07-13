@@ -51,10 +51,17 @@ export function normalizeBandaiEn(raw: BandaiEnCard): NormalizeResult<CanonicalC
 
   // Rules text only: Effect, then Trigger (already "[Trigger] …"-prefixed
   // upstream). Flavor text is never captured — docs/EN-CARD-DATA.md §3.
+  // Double-faced leaders (dbf "list-detail" DOM) carry rules on both
+  // faces; both are functional, so both belong in oracle text. The
+  // [FRONT]/[BACK] labels are the detail DOM's own vocabulary (its
+  // .frontBack badge and "Show the BACK" toggle), not our invention.
   const rules = [raw.effect_text, raw.trigger_text].filter(
     (t): t is string => t !== null && t.length > 0,
   );
-  const oracle_text = rules.length > 0 ? rules.join("\n") : undefined;
+  let oracle_text = rules.length > 0 ? rules.join("\n") : undefined;
+  if (raw.effect_back_text) {
+    oracle_text = `[FRONT]\n${oracle_text ?? ""}\n[BACK]\n${raw.effect_back_text}`;
+  }
 
   const config = BANDAI_EN_GAMES[raw.game];
 
@@ -91,6 +98,19 @@ export function normalizeBandaiEn(raw: BandaiEnCard): NormalizeResult<CanonicalC
     },
   };
   if (variant) record.variant = variant;
+
+  // "list-detail" DOM facts (dbf) — keys present only when the game's
+  // DOM carries the row, so "modal-page" records keep their exact shape.
+  const listDetailExtra: Record<string, string | null | undefined> = {
+    specified_cost: raw.specified_cost,
+    combo_power: raw.combo_power,
+    power_back: raw.power_back,
+    traits_back: raw.traits_back,
+    back_image_url: raw.back_image_url,
+  };
+  for (const [key, value] of Object.entries(listDetailExtra)) {
+    if (value !== undefined) record.extra![key] = value;
+  }
 
   return { ok: true, record };
 }
