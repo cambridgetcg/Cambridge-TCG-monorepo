@@ -290,10 +290,36 @@ export async function buildUniversalCard(
     // image must never appear without its attribution. This is null exactly
     // when image_url is null, so the two are never separated.
     image_attribution: en.en_image?.attribution ?? null,
+
+    // ── Official EN card details (published under the same recorded rule as the
+    // image; see @/lib/cards/en-card-data). Structured game facts are published
+    // as FACTS cited to the source; the effect text is published WITH its
+    // copyright line. Both are siblings of image_url and, like it, flow through
+    // the normal/saturated projections and are elided at sparse. ─────────────
+    // The structured game facts (cost/power/colour/counter/attribute/type). null
+    // when the publisher facts are absent; render only the non-null members.
+    attributes: en.attributes ?? null,
+    // The attributed rules text. The `attribution` (copyright line) is carried
+    // INSIDE this object, so it can never be separated from the text it covers:
+    // the whole object is present-or-null as a unit (null exactly when there is
+    // no effect text), preserving the co-location invariant through every
+    // density projection — text never travels without its copyright line.
+    effect: en.effect_text
+      ? {
+          text: en.effect_text.text,
+          card_type: en.effect_text.card_type,
+          attribution: en.effect_text.attribution,
+          source_url: en.effect_text.source_url,
+          retrieved_at: en.effect_text.retrieved_at,
+        }
+      : null,
     publication_boundary: {
       price: "withheld_pending_field_level_source_rights",
       image: en.en_image
         ? "cleared_official_sample_self_hosted_attributed"
+        : "withheld_pending_field_level_source_rights",
+      text: en.effect_text
+        ? "cleared_official_text_attributed"
         : "withheld_pending_field_level_source_rights",
     },
   };
@@ -320,11 +346,13 @@ export async function buildUniversalCard(
       price: price ? { magnitude: price.magnitude, currency_token: price.currency_token } : null,
       in_set: inSet ? { target_hash: inSet.target_hash } : null,
       of_game: ofGame ? { target_hash: ofGame.target_hash } : null,
-      // image_url + image_attribution are intentionally BOTH elided at sparse
-      // density (an image is heavy; sparse is the minimal projection). They are
-      // only ever dropped together, so the co-location invariant — no image
-      // without its copyright line — holds. `normal`/`saturated` spread
-      // fullDocument below, carrying both fields through unchanged.
+      // image_url + image_attribution — and likewise `attributes` + `effect` —
+      // are intentionally elided at sparse density (they are heavy; sparse is
+      // the minimal projection). Each is only ever dropped as a unit (the effect
+      // carries its attribution inside itself), so the co-location invariant —
+      // no image without its copyright line, no effect text without its
+      // attribution — holds. `normal`/`saturated` spread fullDocument below,
+      // carrying every field through unchanged.
     };
   } else if (density === "saturated") {
     projected = {

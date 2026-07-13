@@ -23,7 +23,11 @@
 
 import { cache } from "react";
 import { query } from "@/lib/db";
-import { getEnCardData } from "@/lib/cards/en-card-data";
+import {
+  getEnCardData,
+  type EnCardText,
+  type CardAttributes,
+} from "@/lib/cards/en-card-data";
 
 export interface CatalogIdentity {
   sku: string;
@@ -37,6 +41,12 @@ export interface CatalogIdentity {
   // `image_attribution` is its copyright line (rendered co-located).
   image_url: string | null;
   image_attribution: string | null;
+  // Official English effect text + structured game facts (same getEnCardData
+  // result as the image). `effect_text` carries its own copyright line in
+  // `attribution` (render co-located); `attributes` are non-copyrightable
+  // facts. Both null when unpublished — render only what is present.
+  effect_text: EnCardText | null;
+  attributes: CardAttributes | null;
 }
 
 export type IdentityResolution =
@@ -74,6 +84,10 @@ function rowToIdentity(row: {
     // the catalogue row (SELECT keeps NULL::text AS image_url).
     image_url: null,
     image_attribution: null,
+    // Same story: effect text + facts are attached from the SAME
+    // getEnCardData result in _resolveCardIdentity, not the catalogue row.
+    effect_text: null,
+    attributes: null,
   };
 }
 
@@ -106,6 +120,11 @@ async function _resolveCardIdentity(
     const en = await getEnCardData(card.sku);
     card.image_url = en.en_image?.url ?? null;
     card.image_attribution = en.en_image?.attribution ?? null;
+    // Effect text + game facts ride in from the SAME result (no second
+    // fetch). Each stays null when unpublished; the effect text carries its
+    // own copyright line for co-located rendering.
+    card.effect_text = en.effect_text;
+    card.attributes = en.attributes;
     return { kind: "ok", card };
   }
 

@@ -18,6 +18,7 @@ import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import type { CatalogIdentity } from "@/lib/market/catalog-card";
+import type { EnCardText, CardAttributes } from "@/lib/cards/en-card-data";
 import { ListingsPanel, type TrustLimits } from "./ListingsPanel";
 import { tradeLimitWarning } from "./offer-guidance";
 
@@ -31,10 +32,15 @@ export interface CardIdentitySeed extends CatalogIdentity {
 }
 
 // The client's working view = the live unified order book plus the official
-// image's copyright line. `image_attribution` isn't on UnifiedMarketView (the
-// live /unified view carries no rights-cleared image); it rides in from the
-// server-resolved identity so the displayed image always keeps its line.
-type MarketView = UnifiedMarketView & { image_attribution: string | null };
+// image's copyright line and the official EN effect text + game facts. None of
+// these are on UnifiedMarketView (the live /unified view carries no rights-
+// cleared substrate); they ride in from the server-resolved identity so the
+// displayed image keeps its line and the effect text keeps its copyright line.
+type MarketView = UnifiedMarketView & {
+  image_attribution: string | null;
+  effect_text: EnCardText | null;
+  attributes: CardAttributes | null;
+};
 
 // A live auction for this exact card, resolved server-side from
 // auctions.sku. Additive read only — the auction engine is untouched.
@@ -96,6 +102,81 @@ function AlsoAtAuctionStrip({ auctions }: { auctions: AlsoAtAuction[] }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/** Official EN card facts + effect text, shown next to the art.
+ *
+ *  Two publisher-sourced blocks, each rendered only when present:
+ *   - a compact stat grid of the non-null structured game FACTS (cost, power,
+ *     counter, colour, attribute, category, type) — facts, not copyrightable;
+ *   - the verbatim effect TEXT as a readable rules block, with its copyright
+ *     line (`effect.attribution`) rendered co-located directly beneath it —
+ *     the text never shows without its line. Null fields render nothing;
+ *     nothing is invented. */
+function CardFactsPanel({
+  attributes,
+  effect,
+}: {
+  attributes: CardAttributes | null;
+  effect: EnCardText | null;
+}) {
+  const stats: { label: string; value: string }[] = [];
+  if (attributes) {
+    const push = (label: string, value: string | null) => {
+      if (value != null && value !== "") stats.push({ label, value });
+    };
+    push("Cost", attributes.cost);
+    push("Power", attributes.power);
+    push("Counter", attributes.counter);
+    push("Colour", attributes.color);
+    push("Attribute", attributes.attribute);
+    push("Category", attributes.category);
+    push("Type", attributes.type_feature);
+    // has_trigger is a boolean fact — surface it only when true (false/null
+    // is not a distinct fact worth a row).
+    if (attributes.has_trigger) stats.push({ label: "Trigger", value: "Yes" });
+  }
+
+  if (stats.length === 0 && !effect) return null;
+
+  return (
+    <div className="mt-4 wardrobe-mat rounded-lg p-3 space-y-3">
+      {stats.length > 0 && (
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+          {stats.map((s) => (
+            <div
+              key={s.label}
+              className="flex items-baseline justify-between gap-2 min-w-0"
+            >
+              <dt className="text-[10px] uppercase tracking-wide text-ink-faint shrink-0">
+                {s.label}
+              </dt>
+              <dd className="text-xs font-mono tabular-nums text-ink text-right truncate">
+                {s.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {effect && (
+        <div>
+          {effect.card_type && (
+            <p className="text-[10px] uppercase tracking-wide text-ink-faint mb-1">
+              {effect.card_type}
+            </p>
+          )}
+          <p className="text-xs text-ink-muted leading-relaxed whitespace-pre-line">
+            {effect.text}
+          </p>
+          {/* Copyright line — official effect text must always carry it,
+              co-located directly under the text. Small and muted. */}
+          <p className="mt-1.5 text-[10px] leading-snug text-ink-faint">
+            {effect.attribution}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -403,6 +484,8 @@ export default function CardMarketClient({
     set_name: identity.set_name,
     image_url: identity.image_url,
     image_attribution: identity.image_attribution,
+    effect_text: identity.effect_text,
+    attributes: identity.attributes,
     rarity: identity.rarity,
     reference_price: identity.reference_price,
     bids: [],
@@ -506,6 +589,11 @@ export default function CardMarketClient({
         // null here ⇒ the No-Image placeholder, per policy.
         image_url: identity.image_url,
         image_attribution: identity.image_attribution,
+        // Effect text + game facts are official substrate, not on the live
+        // view — keep them strictly from the server identity (same reason as
+        // the image pair) so the copyright-lined text can't be dropped.
+        effect_text: identity.effect_text,
+        attributes: identity.attributes,
         rarity: data.rarity ?? identity.rarity,
         reference_price: data.reference_price ?? identity.reference_price,
       });
@@ -774,6 +862,10 @@ export default function CardMarketClient({
                 </button>
               )}
             </div>
+
+            {/* Official EN game facts + effect text (with its copyright
+                line), shown next to the art. Renders nothing when absent. */}
+            <CardFactsPanel attributes={book.attributes} effect={book.effect_text} />
             {loggedIn && (
               <div className="mt-3">
                 <button

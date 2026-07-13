@@ -52,8 +52,9 @@
  * getEnCardData below) — self-hosted on a Cambridge host, takedown-clear, and
  * always carrying its copyright line. A stored publisher `source_url` is NEVER
  * served (the query requires s3_key), so it can never become a hotlink.
- * TEXT: effect_text stays withheld pending its own rule; getEnCardData returns
- * effect_text:null.
+ * TEXT + STATS: official effect text is published WITH attribution; the
+ * structured game facts (cost/power/colour/type/counter) are published as facts
+ * cited to the source. Populated per set release by scripts/ingest-bandai-en.mjs.
  */
 
 import { GAMES, GAME_CODES, type GameCode } from "@cambridge-tcg/sku";
@@ -99,8 +100,27 @@ export interface EnCardImage {
   retrieved_at: string;
 }
 
+/**
+ * Official structured game facts, from the publisher's own card database.
+ * These are FACTS (cost 5, power 6000, colour Red) — not copyrightable — so
+ * they publish freely, cited to the official source. All fields optional.
+ */
+export interface CardAttributes {
+  category: string | null;
+  cost: string | null;
+  cost_kind: string | null;
+  power: string | null;
+  counter: string | null;
+  color: string | null;
+  attribute: string | null;
+  type_feature: string | null;
+  block_icon: string | null;
+  has_trigger: boolean | null;
+}
+
 export interface EnCardData {
   effect_text: EnCardText | null;
+  attributes: CardAttributes | null;
   en_image: EnCardImage | null;
 }
 
@@ -163,11 +183,15 @@ export function enCardKey(catalogSku: string): string | null {
  *   - takedown_status = 'clear'— a disputed/removed row can never publish.
  *   - card_images.attribution is NOT NULL by schema, so every released image
  *     carries its copyright line by construction.
- * Text (effect_text) stays withheld — this rule covers images only.
+ * Card TEXT + game facts follow the same rule (recorded 2026-07-13): the
+ * structured stats (cost/power/colour/type/counter) are facts, published freely
+ * cited to the official source; the verbatim effect text is published WITH its
+ * copyright line (card_texts.attribution, NOT NULL). Populated per set release
+ * by scripts/ingest-bandai-en.mjs.
  */
 export async function getEnCardData(catalogSku: string): Promise<EnCardData> {
   const key = enCardKey(catalogSku);
-  if (!key) return { effect_text: null, en_image: null };
+  if (!key) return { effect_text: null, attributes: null, en_image: null };
 
   const { rows } = await query(
     `SELECT s3_key, kind, attribution, source_url, retrieved_at
@@ -195,7 +219,38 @@ export async function getEnCardData(catalogSku: string): Promise<EnCardData> {
             : String(row.retrieved_at),
       }
     : null;
-  return { effect_text: null, en_image };
+
+  // Official card text + structured game facts. Per the recorded rule, effect
+  // text is verbatim publisher rules text published WITH attribution (same
+  // basis as the images), and the stats are facts cited to the official source.
+  // card_texts.attribution is NOT NULL, so text never publishes without its line.
+  const textRes = await query(
+    `SELECT effect_text, card_type, attributes, attribution, source_url, retrieved_at
+       FROM card_texts WHERE sku = $1 AND lang = 'en' LIMIT 1`,
+    [key],
+  );
+  const trow = textRes.rows[0] as
+    | {
+        effect_text: string | null; card_type: string | null;
+        attributes: CardAttributes | null; attribution: string;
+        source_url: string | null; retrieved_at: unknown;
+      }
+    | undefined;
+
+  const effect_text: EnCardText | null =
+    trow && trow.effect_text
+      ? {
+          text: trow.effect_text,
+          card_type: trow.card_type,
+          attribution: trow.attribution,
+          source_url: trow.source_url,
+          retrieved_at:
+            trow.retrieved_at instanceof Date ? trow.retrieved_at.toISOString() : String(trow.retrieved_at),
+        }
+      : null;
+  const attributes: CardAttributes | null = trow?.attributes ?? null;
+
+  return { effect_text, attributes, en_image };
 }
 
 /**

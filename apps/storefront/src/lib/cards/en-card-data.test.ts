@@ -21,6 +21,25 @@ const SOURCE_URL =
 const ATTRIBUTION =
   "© Eiichiro Oda/Shueisha, Toei Animation — card image shown to identify the item for trade";
 
+// Official effect text + its copyright line + the structured game facts. The
+// text publishes only WITH its attribution (same basis as the image); the
+// attributes are FACTS cited to the source.
+const EFFECT_TEXT = "[On Play] Draw 1 card, then trash 1 card from your hand.";
+const TEXT_ATTRIBUTION =
+  "© Eiichiro Oda/Shueisha, Toei Animation — official card text shown to identify the item for trade";
+const ATTRIBUTES = {
+  category: "CHARACTER",
+  cost: "2",
+  cost_kind: "cost",
+  power: "3000",
+  counter: "1000",
+  color: "Red",
+  attribute: "Slash",
+  type_feature: "Straw Hat Crew",
+  block_icon: null,
+  has_trigger: false,
+} as const;
+
 beforeEach(() => {
   mockQuery.mockReset();
 });
@@ -35,12 +54,15 @@ describe("Bandai EN card-data boundary", () => {
   it("returns all-null without touching the db when the sku carries no EN key", async () => {
     await expect(getEnCardData("SEALED-OP01-BOX-JP")).resolves.toEqual({
       effect_text: null,
+      attributes: null,
       en_image: null,
     });
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it("publishes a cleared official image as a self-hosted, attributed CDN url — never the source_url", async () => {
+    // 1st query() → the official image; 2nd query() → the card_texts lookup
+    // (this card has no text row here, so text + attributes stay withheld).
     mockQuery.mockResolvedValueOnce({
       rows: [
         {
@@ -52,11 +74,13 @@ describe("Bandai EN card-data boundary", () => {
         },
       ],
     } as never);
+    mockQuery.mockResolvedValueOnce({ rows: [] } as never);
 
     const data = await getEnCardData("OP-OP01-001-JP-V11DZ");
 
-    // Text stays withheld even when an image is now available.
+    // Text + facts stay withheld even when an image is now available.
     expect(data.effect_text).toBeNull();
+    expect(data.attributes).toBeNull();
 
     // en_image CAN now return (previously always null).
     expect(data.en_image).not.toBeNull();
@@ -89,13 +113,58 @@ describe("Bandai EN card-data boundary", () => {
 
   it("yields en_image:null when no cleared self-hosted row matches (null s3_key / non-clear are filtered out in SQL)", async () => {
     // A null-s3_key or non-clear (disputed/removed) row cannot satisfy the
-    // WHERE clause, so the query returns zero rows for it — en_image is null
-    // and effect_text stays null.
-    mockQuery.mockResolvedValueOnce({ rows: [] } as never);
+    // image WHERE clause, so the 1st query returns zero rows — en_image is null.
+    // The 2nd query (card_texts) also returns nothing here, so a card with NO
+    // text row yields effect_text:null AND attributes:null.
+    mockQuery.mockResolvedValueOnce({ rows: [] } as never); // image lookup
+    mockQuery.mockResolvedValueOnce({ rows: [] } as never); // card_texts lookup
 
     await expect(getEnCardData("OP-OP01-001-JP-V11DZ")).resolves.toEqual({
       effect_text: null,
+      attributes: null,
       en_image: null,
     });
+  });
+
+  it("publishes attributed effect text + a structured attributes object from the card_texts row", async () => {
+    // getEnCardData does the image query FIRST, then the card_texts query.
+    mockQuery.mockResolvedValueOnce({ rows: [] } as never); // no official image
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          effect_text: EFFECT_TEXT,
+          card_type: "CHARACTER",
+          attributes: ATTRIBUTES,
+          attribution: TEXT_ATTRIBUTION,
+          source_url: SOURCE_URL,
+          retrieved_at: "2026-07-13T09:00:00.000Z",
+        },
+      ],
+    } as never);
+
+    const data = await getEnCardData("OP-OP01-001-JP-V11DZ");
+
+    // No image row here — the image path is independent of the text path.
+    expect(data.en_image).toBeNull();
+
+    // Effect text now returns, and its copyright line rides ALONG with it —
+    // effect_text.attribution is present exactly when the text is.
+    expect(data.effect_text).not.toBeNull();
+    const effect = data.effect_text!;
+    expect(effect.text).toBe(EFFECT_TEXT);
+    expect(effect.card_type).toBe("CHARACTER");
+    expect(effect.attribution).toBe(TEXT_ATTRIBUTION);
+    expect(effect.source_url).toBe(SOURCE_URL);
+    expect(effect.retrieved_at).toBe("2026-07-13T09:00:00.000Z");
+
+    // The structured game FACTS surface as a sibling attributes object.
+    expect(data.attributes).toEqual(ATTRIBUTES);
+
+    // Two query() calls — image THEN card_texts — both keyed by the derived EN
+    // base key. The card_texts query reads the text/facts table.
+    expect(mockQuery).toHaveBeenCalledTimes(2);
+    const [textSql, textParams] = mockQuery.mock.calls[1]!;
+    expect(textParams).toEqual(["OP-OP01-001-EN"]);
+    expect(String(textSql)).toContain("card_texts");
   });
 });
