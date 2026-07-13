@@ -14,12 +14,13 @@ import type { Metadata } from "next";
 import { fetchCard, fetchPrices, cardAltText } from "@/lib/wholesale/client";
 import { formatRetailPrice } from "@/lib/pricing";
 import { getUnifiedMarketView } from "@/lib/market/unified";
-import { MoneyDisplay } from "@/lib/ui";
+import { deriveCardBiography } from "@/lib/market/biography";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import AddToPortfolio from "@/components/product/AddToPortfolio";
 import ExternalBuyLinks from "@/components/product/ExternalBuyLinks";
+import LeanIn from "@/components/product/LeanIn";
 import AnsweringRhyme from "@/components/product/AnsweringRhyme";
 import Script from "next/script";
 import CardGrid from "@/components/catalog/CardGrid";
@@ -114,15 +115,10 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
     url: `https://cambridgetcg.com/product/${sku}`,
   };
 
-  const bestAsk = market && market.asks.length > 0 ? parseFloat(market.asks[0].price) : null;
-  const bestBid = market?.best_bid ?? null;
-  const recentTrades24h = market
-    ? market.recent_trades.filter((t) => {
-        const tradeTime = new Date(t.created_at).getTime();
-        return Date.now() - tradeTime < 24 * 60 * 60 * 1000;
-      })
-    : [];
-  const hasPulse = bestAsk !== null || bestBid !== null || recentTrades24h.length > 0;
+  // The life of this card — its collectors'-market biography, composed only
+  // from real trades + the live book (the empty plinth when there's no life
+  // to tell yet). Not invented lore — the card's actual market history.
+  const biography = deriveCardBiography(market, { referencePrice: card.price_gbp });
 
   return (
     <>
@@ -163,13 +159,16 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             >
               <div className="relative aspect-[3/4] wardrobe-panel overflow-hidden">
                 {card.image_url && (
-                  <Image
-                    src={card.image_url}
-                    alt={cardAltText(card)}
-                    fill
-                    className="object-contain"
-                    priority
-                  />
+                  <>
+                    <Image
+                      src={card.image_url}
+                      alt={cardAltText(card)}
+                      fill
+                      className="object-contain"
+                      priority
+                    />
+                    <LeanIn src={card.image_url} alt={cardAltText(card)} />
+                  </>
                 )}
               </div>
             </div>
@@ -237,67 +236,34 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             rarity={card.rarity}
           />
 
-          {/* Collector market pulse */}
-          {hasPulse ? (
-            <div className="bg-surface border border-border-subtle rounded-lg p-4 flex flex-col gap-3">
-              <h3 className="font-mono text-xs font-semibold text-ink-muted uppercase tracking-[0.15em]">On the market · the card&apos;s ledger</h3>
-              {bestAsk !== null && (
-                <div className="text-sm text-ink-muted">
-                  Collectors are selling from{" "}
-                  <MoneyDisplay value={bestAsk} className="text-ask font-medium" />
-                  {" "}&nbsp;
-                  <Link
-                    href={`/market/${sku}`}
-                    className="text-accent hover:text-accent-strong font-medium transition"
-                  >
-                    See listings
-                  </Link>
-                </div>
-              )}
-              {bestBid !== null && (
-                <div className="text-sm text-ink-muted">
-                  Highest buy offer:{" "}
-                  <MoneyDisplay value={bestBid} className="text-bid font-medium" />
-                  {" "}&nbsp;
-                  <Link
-                    href={`/market/${sku}`}
-                    className="text-accent hover:text-accent-strong font-medium transition"
-                  >
-                    Sell yours
-                  </Link>
-                </div>
-              )}
-              {recentTrades24h.length > 0 && (
-                <p className="text-sm text-ink-faint">
-                  {recentTrades24h.length} collector trade{recentTrades24h.length !== 1 ? "s" : ""} in the last 24h
-                </p>
-              )}
-              <Link
-                href={`/market/${sku}`}
-                className="text-sm text-ink-faint hover:text-ink transition"
-              >
-                View full order book &rarr;
-              </Link>
-            </div>
-          ) : (
-            <p className="text-sm text-ink-faint">
-              No live listings for this card yet —{" "}
-              <Link
-                href={`/market/${sku}`}
-                className="text-accent hover:text-accent-strong transition"
-              >
-                be the first to list it
-              </Link>
-              , or{" "}
-              <Link
-                href="/account/swaps/new"
-                className="text-accent hover:text-accent-strong transition"
-              >
-                propose a swap
-              </Link>
-              .
+          {/* The life of this card — its collectors'-market biography, told
+              from real records only (the empty plinth when there's no life to
+              tell yet). Not invented lore: the card's actual market history,
+              reverently read — the museum's honest provenance. */}
+          <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col gap-3">
+            <h3 className="font-mono text-xs font-semibold text-ink-muted uppercase tracking-[0.15em]">
+              The life of this card
+            </h3>
+            <p className="font-display italic text-ink-muted leading-relaxed">
+              {biography.sentences.join(" ")}
             </p>
-          )}
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink-faint">
+                the collectors&apos; market record
+              </span>
+              <WhyLink href="/methodology/market" />
+            </div>
+            <Link
+              href={`/market/${sku}`}
+              className="text-sm text-accent hover:text-accent-strong transition"
+            >
+              {biography.empty
+                ? "Be the first to list it →"
+                : biography.kind === "listed"
+                  ? "See the listings →"
+                  : "See the full order book →"}
+            </Link>
+          </div>
 
           {/* Find this card elsewhere — routes outward to the other channels
               (CardRush/Cardmarket/eBay). Sits below the market CTA so the
