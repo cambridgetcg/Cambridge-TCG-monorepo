@@ -178,6 +178,27 @@ normalization rows for operator forensics, not source-content publication) live 
 wholesaletcgdirect.com.
 See docs/connections/the-license-propagation.md (kingdom-081) for the propagation rule.
 
+## UK collector events commons (reviewed demonstrator)
+- /api/v1/collector-events               Filterable events with conflicts + field evidence
+- /api/v1/collector-events/{id}          One event joined to venue, organisations, evidence
+- /api/v1/collector-events/sources       Exact source + cautious rights-review ledger
+- /api/v1/collector-events/coverage      Counts, nation gaps, exclusions, next priorities
+- /api/v1/collector-events/calendar.ics  RFC 5545 calendar; conflicts omitted by default
+- /api/v1/collector-events/map.geojson   RFC 7946 postcode-centroid event map
+- /api/v1/collector-venues               Established public venues; no private/TBA places
+- /api/v1/collector-organisations        Public organisations/brands; no people profiles
+- /api/v1/collector-events/schema        CC0 JSON Schema bundle
+- /schemas/collector-events/v1/*.json    Dereferenceable canonical CC0 schemas
+- /methodology/collector-events          Admission, rights, correction, privacy method
+
+This is a four-event, explicitly incomplete, England-only demonstrator. Mixed upstream facts are
+NOASSERTION; Cambridge-authored schemas and methodology are CC0. Public does not mean
+openly reusable: copied prose, images, ticket inventory, personal contacts, attendee
+lists, and vendor lists are absent. Accessibility null means not stated, never false.
+Map points are postcode centroids, not venue entrances. Verify official links before
+travel or payment. The broader UK Card Shows index stays link-only until permission or
+an open-data grant supports expansion.
+
 ## Cross-language identity (kingdom 1 of the substrate-honest aggregator plan)
 - /api/v1/oracle-policies                Per-game cross-language oracle strategy (JSON)
 - /methodology/oracle-policies           Human-readable form (HTML)
@@ -416,8 +437,9 @@ infrastructure layer. See the cosmology + embassy doctrine for the framing.
 ## Methodology corpus (no auth)
 - /methodology                           Index of every decision the platform makes
 - /methodology/{topic}                   Full page per topic
-- /methodology/{topic}/summary.md        TLDR
-- /methodology/{topic}/data.json         Structured sidecar
+
+Topic source directories may include summary.md and data.json repository
+companions. They are not HTTP routes unless an explicit route is implemented.
 
 ## Open-surface limits
 - Bulk catalog: paused; /data/catalog.jsonl returns HTTP 503 status-only NDJSON and zero card rows

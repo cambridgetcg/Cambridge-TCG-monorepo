@@ -117,25 +117,55 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
     ],
   },
   {
+    group: "UK collector events — reviewed demonstrator",
+    blurb:
+      "Four source-backed public events, venues, and organisations for calendars, maps, trip planning, and community tools. Explicitly incomplete and England-only; mixed facts are NOASSERTION; people profiles and direct personal contacts are absent.",
+    rows: [
+      {
+        path: "/api/v1/collector-events",
+        blurb: "Filterable events with stable ids, schedule precision, separate status/time/integrity, field evidence, source conflicts, tri-state accessibility, and review timestamps.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/collector-events",
+      },
+      {
+        path: "/api/v1/collector-events/coverage",
+        blurb: "The honest boundary: seed counts, missing UK nations, integrity split, source-rights exclusions, unresolved leads, and next priorities.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/collector-events",
+      },
+      {
+        path: "/api/v1/collector-events/calendar.ics",
+        blurb: "RFC 5545 calendar with stable UIDs, cancellation updates, and no personal contact properties. Conflicted records are omitted unless explicitly requested; JSON remains lifecycle authority.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/collector-events",
+      },
+      {
+        path: "/api/v1/collector-events/map.geojson",
+        blurb: "RFC 7946 event map using attributed postcode centroids labelled as approximate, never venue entrances.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/collector-events",
+      },
+      {
+        path: "/api/v1/collector-events/schema",
+        blurb: "CC0 JSON Schemas for event, venue, organisation, and evidence records. Canonical $id URLs dereference under /schemas/collector-events/v1/*.json. Data routes also link venues, organisations, and the source ledger.",
+        auth: "none",
+        status: "stable",
+        methodology: "/methodology/collector-events",
+      },
+    ],
+  },
+  {
     group: "Methodology — how decisions are made",
     blurb:
-      "Every decision the platform makes about a user has a documented formula. Each page also ships a `summary.md` (TLDR) and a `data.json` (machine-readable sidecar).",
+      "Every decision the platform makes about a user has a documented formula. Topic source directories may also keep summary.md and data.json companion files for repository readers; they are not advertised as HTTP routes unless an explicit route exists.",
     rows: [
       {
         path: "/methodology",
         blurb: "Index of every methodology page (trust score, escrow tier, commission rate, payout hold, fraud flag, store credit, pricing, agents, response windows, Sabbath, sacred, cosmology, universal representation, memorial, welcoming, and more).",
-        auth: "none",
-        status: "stable",
-      },
-      {
-        path: "/methodology/[topic]/summary.md",
-        blurb: "TLDR (~50 words) for every methodology topic. Markdown.",
-        auth: "none",
-        status: "stable",
-      },
-      {
-        path: "/methodology/[topic]/data.json",
-        blurb: "Structured-data sidecar for every methodology topic. Carries title, URL, source-code refs, doctrine refs.",
         auth: "none",
         status: "stable",
       },

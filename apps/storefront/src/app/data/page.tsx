@@ -208,6 +208,92 @@ const ENDPOINTS: Endpoint[] = [
       "GET contract; POST { data: { receipt: { statement, content_hash, witness, target, issuer_attestation } }, _meta }",
   },
 
+  // ── Collector-events demonstrator ──────────────────────────────────
+  {
+    path: "/api/v1/collector-events",
+    title: "Collector events",
+    blurb: "Four-event, England-only demonstrator with cautious status normalization, conflicts, accessibility, and field evidence. Mixed upstream facts are NOASSERTION.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-events/[id]",
+    title: "Collector event (one)",
+    blurb: "One event joined to its public venue, public organisations, exact evidence, rights evidence, and geometry attribution.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-events/sources",
+    title: "Collector-event evidence",
+    blurb: "Exact public sources, batch review time, publication modes, upstream licence where known, and rights-evidence links.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-events/coverage",
+    title: "Collector-event coverage",
+    blurb: "Counts, missing UK nations, exclusions, and the permission boundary around broader listing indexes.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-events/schema",
+    title: "Collector-events schemas",
+    blurb: "CC0 JSON Schemas for the Cambridge-authored event, venue, organisation, and evidence contracts.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/schemas/collector-events/v1/[name].json",
+    title: "Collector-events canonical schema",
+    blurb: "Dereferenceable application/schema+json for event, venue, organisation, or source. CC0 covers the Cambridge-authored contract only.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-events/calendar.ics",
+    title: "Collector-events calendar",
+    blurb: "RFC 5545 projection with stable UIDs and cancellation updates. Absence is never lifecycle evidence; JSON remains authoritative.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-events/map.geojson",
+    title: "Collector-events map",
+    blurb: "RFC 7946 postcode-centroid map with source-published attribution and explicit input, feature, and unlocated counts.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-venues",
+    title: "Collector venues",
+    blurb: "Established public venues with approximate postcode centroids; no private or unpublished locations.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-venues/[id]",
+    title: "Collector venue (one)",
+    blurb: "One public venue with related events, exact evidence, and retained geometry attribution.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-organisations",
+    title: "Collector organisations",
+    blurb: "Public organisations and brands with organisation-level links; no people profiles or direct personal contacts.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/v1/collector-organisations/[id]",
+    title: "Collector organisation (one)",
+    blurb: "One public organisation with source-stated event roles, related events, and exact evidence.",
+    status: "shipped",
+    auth: "none",
+  },
+
   // ── Methodology corpus — already public ─────────────────────────────
   {
     path: "/methodology",
@@ -234,7 +320,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/datasets",
     title: "Dataset status catalog (human-readable)",
     blurb:
-      "Available datasets and paused publication surfaces, with aggregate rights, named source rights, fields, and access paths. Paused zero-row paths are excluded from the schema.org crawler graph.",
+      "Available datasets—including bounded observation coverage history and the UK collector-events demonstrator—and paused publication surfaces, with aggregate rights, named source rights, temporal coverage, fields, and access paths. The CC0 catalog licence covers authored descriptions only; mixed or undeclared record rights remain NOASSERTION. Paused zero-row paths are excluded from the schema.org crawler graph.",
     status: "shipped",
     auth: "none",
   },

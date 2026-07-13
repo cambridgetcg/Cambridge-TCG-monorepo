@@ -35,6 +35,18 @@ describe("GET /api/v1/datasets", () => {
         expect.arrayContaining([expect.objectContaining({ kind: "status" })]),
       );
     }
+
+    expect(byId["uk-collector-events"].license).toBe("NOASSERTION");
+    expect(byId["uk-collector-events"].tier).toBe("noassertion");
+    expect(byId["uk-collector-events"].availability).toBe("available");
+    expect(byId["uk-collector-events"].records_published).toBe(true);
+    expect(byId["uk-collector-events"].source_rights.length).toBeGreaterThan(0);
+    expect(byId["uk-collector-events"].distributions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ encoding_format: "text/calendar" }),
+        expect.objectContaining({ encoding_format: "application/geo+json" }),
+      ]),
+    );
   });
 
   it("keeps mixed or undeclared record rights at NOASSERTION", async () => {
@@ -43,7 +55,7 @@ describe("GET /api/v1/datasets", () => {
     const byId = Object.fromEntries(
       body.data.datasets.map((d: { id: string }) => [d.id, d]),
     );
-    for (const id of ["coverage", "sources-registry"]) {
+    for (const id of ["coverage", "sources-registry", "uk-collector-events"]) {
       expect(byId[id].license).toBe("NOASSERTION");
       expect(byId[id].tier).toBe("noassertion");
       expect(byId[id].source_rights.length).toBeGreaterThan(0);
@@ -80,9 +92,19 @@ describe("GET /api/v1/datasets", () => {
       if (d["@id"] === "https://cambridgetcg.com/datasets#known-gaps") {
         expect(d.license).toBe("https://creativecommons.org/publicdomain/zero/1.0/");
       } else {
-        expect(d.license).toBe("NOASSERTION");
+        expect(d.license).toBeUndefined();
+        expect(typeof d.usageInfo).toBe("string");
+        expect(d.conditionsOfAccess).toContain("No response-wide reuse licence");
       }
       expect(Array.isArray(d.distribution)).toBe(true);
     }
+    const eventDataset = graph.dataset.find(
+      (d: { "@id": string }) => d["@id"].endsWith("#uk-collector-events"),
+    );
+    expect(eventDataset.license).toBeUndefined();
+    expect(eventDataset.usageInfo).toBe(
+      "https://cambridgetcg.com/methodology/collector-events",
+    );
+    expect(eventDataset.conditionsOfAccess).toContain("No response-wide reuse licence");
   });
 });

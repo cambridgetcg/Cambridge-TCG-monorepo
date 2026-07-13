@@ -23,7 +23,24 @@
  */
 
 import { NextResponse } from "next/server";
+import {
+  COLLECTOR_EVENT_SCHEMA,
+  COLLECTOR_EVENT_SOURCE_SCHEMA,
+  COLLECTOR_ORGANISATION_SCHEMA,
+  COLLECTOR_VENUE_SCHEMA,
+} from "@cambridge-tcg/data-spec";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+
+const COLLECTOR_EVENT_FILTERS = [
+  { name: "from", in: "query", required: false, schema: { type: "string", format: "date" }, description: "Include events whose date range overlaps this date or later." },
+  { name: "to", in: "query", required: false, schema: { type: "string", format: "date" }, description: "Include events whose date range overlaps this date or earlier." },
+  { name: "venue_id", in: "query", required: false, schema: { type: "string", pattern: "^ven_[a-z0-9]+$" } },
+  { name: "organisation_id", in: "query", required: false, schema: { type: "string", pattern: "^org_[a-z0-9]+$" } },
+  { name: "nation", in: "query", required: false, schema: { type: "string", enum: ["England", "Scotland", "Wales", "Northern Ireland"] } },
+  { name: "status", in: "query", required: false, schema: { type: "string", enum: ["scheduled", "tentative", "postponed", "cancelled", "unknown"] } },
+  { name: "integrity", in: "query", required: false, schema: { type: "string", enum: ["consistent", "conflicting"] } },
+  { name: "time_relation", in: "query", required: false, schema: { type: "string", enum: ["upcoming", "in_progress", "past", "unscheduled"] } },
+] as const;
 
 const SPEC = {
   openapi: "3.1.0",
@@ -59,6 +76,7 @@ const SPEC = {
     { name: "federation", description: "Reverse-resolution for content hashes." },
     { name: "discovery", description: "Discovery surfaces (manifest, llms.txt, this spec)." },
     { name: "culture", description: "Rights-aware cultural exchange with sovereign sibling systems." },
+    { name: "collector-events", description: "Source-backed UK collector events, public venues, public organisations, evidence, coverage, calendar, and map formats." },
     { name: "introduction", description: "On-ramp for beings not native to the TCG tradition (#22)." },
     { name: "identity", description: "Cross-language and cross-source identity contracts (oracle policies, federation anchors)." },
     { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
@@ -584,6 +602,167 @@ const SPEC = {
         ],
         responses: {
           "503": { description: "Source blocked; no TCGplayer observations are exposed.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-events": {
+      get: {
+        tags: ["collector-events", "discovery"],
+        summary: "List the reviewed UK collector-events demonstrator",
+        description: "Returns a four-event, explicitly incomplete and England-only demonstrator. Each record separates cautiously normalized status, derived time relation, and evidence integrity; preserves schedule precision; carries field-level evidence, source conflicts, tri-state accessibility, and review timestamps; and excludes people and direct personal contacts. The bounded collection is unpaginated; a cursor will be added before 100 admitted records. The mixed-facts response is NOASSERTION.",
+        operationId: "listCollectorEvents",
+        parameters: COLLECTOR_EVENT_FILTERS,
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing matching events.", content: { "application/json": { schema: { $ref: "#/components/schemas/CollectorEventListEnvelope" } } } },
+          "400": { description: "Unknown, repeated, or invalid filter.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-events/{id}": {
+      get: {
+        tags: ["collector-events"],
+        summary: "Get one collector event with joined evidence",
+        description: "Returns one event joined to its public venue, source-stated public organisations, and exact reviewed evidence sources. Conflicts and unknowns remain visible. NOASSERTION over mixed upstream facts.",
+        operationId: "getCollectorEvent",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", pattern: "^evt_[a-z0-9]+$" } }],
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing event detail.", content: { "application/json": { schema: { $ref: "#/components/schemas/CollectorEventDetailEnvelope" } } } },
+          "404": { description: "Event id not found.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-events/sources": {
+      get: {
+        tags: ["collector-events", "discovery"],
+        summary: "List event evidence and rights reviews",
+        description: "Exact official source URLs, batch retrieval time, source kinds, rights-evidence links, and cautious minimal-facts/open-geodata/link-only publication modes. Modes are publication decisions, not downstream grants; they do not claim an upstream open licence. Descriptive prose and media are excluded. NOASSERTION.",
+        operationId: "listCollectorEventSources",
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing evidence sources.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-events/coverage": {
+      get: {
+        tags: ["collector-events", "substrate-honesty"],
+        summary: "Inspect event-seed coverage and exclusions",
+        description: "Counts events, venues, organisations, evidence, integrity states, UK-nation representation, and records with explicit accessibility facts. Names the link-only boundary around the broader UK Card Shows index, other source-rights exclusions, and unresolved leads. Counts describe this four-event demonstrator only, not the UK event population. NOASSERTION.",
+        operationId: "getCollectorEventCoverage",
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing coverage and gaps.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-events/schema": {
+      get: {
+        tags: ["collector-events", "discovery"],
+        summary: "Get CC0 collector-events JSON Schemas",
+        description: "Draft 2020-12 schemas for event, venue, organisation, and evidence-source record shapes. CC0 covers Cambridge-authored contracts and identifiers, not upstream event facts.",
+        operationId: "getCollectorEventsSchemas",
+        responses: {
+          "200": { description: "CC0 pantry envelope containing the schema bundle.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/schemas/collector-events/v1/{name}.json": {
+      get: {
+        tags: ["collector-events", "discovery"],
+        summary: "Dereference one canonical collector-events schema",
+        description: "Returns the canonical CC0 application/schema+json document for one Cambridge-authored record shape. This does not grant rights over upstream event facts.",
+        operationId: "getCanonicalCollectorEventsSchema",
+        parameters: [{
+          name: "name",
+          in: "path",
+          required: true,
+          schema: {
+            type: "string",
+            enum: ["event", "venue", "organisation", "source"],
+          },
+        }],
+        responses: {
+          "200": {
+            description: "One canonical Draft 2020-12 schema.",
+            content: {
+              "application/schema+json": {
+                schema: { type: "object", description: "A JSON Schema document." },
+              },
+            },
+          },
+          "404": { description: "Unknown schema name." },
+        },
+      },
+    },
+    "/api/v1/collector-events/calendar.ics": {
+      get: {
+        tags: ["collector-events"],
+        summary: "Download the reviewed event calendar",
+        description: "Standards-native RFC 5545 calendar with stable UIDs, sequence numbers, cancellation updates retaining the last known schedule, preserved date precision, CRLF-safe values, and no ATTENDEE, CONTACT, or personal ORGANIZER properties. Conflicted records are omitted unless explicitly requested. This is a curated projection, not lifecycle authority; absence never means cancellation. Mixed event facts are NOASSERTION.",
+        operationId: "getCollectorEventsCalendar",
+        parameters: [{ name: "include_conflicts", in: "query", required: false, schema: { type: "boolean", default: false }, description: "Explicitly include records whose official source contradicts itself." }],
+        responses: {
+          "200": { description: "NOASSERTION iCalendar document.", content: { "text/calendar": { schema: { type: "string" } } } },
+          "400": { description: "Invalid query option.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-events/map.geojson": {
+      get: {
+        tags: ["collector-events"],
+        summary: "Download the reviewed event map",
+        description: "RFC 7946 FeatureCollection using WGS84 longitude-latitude postcode centroids. Every feature says the point is approximate and not a venue entrance; the Postcodes.io-published attribution is retained; input, feature, and unlocated counts are explicit; contact fields are absent. Mixed event facts are NOASSERTION.",
+        operationId: "getCollectorEventsMap",
+        parameters: COLLECTOR_EVENT_FILTERS,
+        responses: {
+          "200": { description: "NOASSERTION GeoJSON FeatureCollection.", content: { "application/geo+json": { schema: { type: "object" } } } },
+          "400": { description: "Unknown, repeated, or invalid filter.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-venues": {
+      get: {
+        tags: ["collector-events"],
+        summary: "List public collector-event venues",
+        description: "Established public venues admitted through event evidence, with public postal addresses and approximate postcode-centroid geometry. Private and unpublished locations and staff profiles are excluded. NOASSERTION.",
+        operationId: "listCollectorVenues",
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing venues.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-venues/{id}": {
+      get: {
+        tags: ["collector-events"],
+        summary: "Get one public collector-event venue",
+        description: "Returns one public venue with related reviewed events and exact venue/geocoder evidence. Coordinates remain labelled postcode centroids. NOASSERTION.",
+        operationId: "getCollectorVenue",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", pattern: "^ven_[a-z0-9]+$" } }],
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing venue detail.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "404": { description: "Venue id not found.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-organisations": {
+      get: {
+        tags: ["collector-events"],
+        summary: "List public collector-event organisations",
+        description: "Public organisations and brands with source-stated event roles and organisation-level HTTPS links only. No officers, employees, personal contacts, inferred ties, or behavioural profiles. NOASSERTION.",
+        operationId: "listCollectorOrganisations",
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing organisations.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+        },
+      },
+    },
+    "/api/v1/collector-organisations/{id}": {
+      get: {
+        tags: ["collector-events"],
+        summary: "Get one public collector-event organisation",
+        description: "Returns one public organisation or brand with related events, source-stated roles, public organisation links, and exact evidence. Person-level profiles are excluded. NOASSERTION.",
+        operationId: "getCollectorOrganisation",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", pattern: "^org_[a-z0-9]+$" } }],
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing organisation detail.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "404": { description: "Organisation id not found.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -1388,6 +1567,90 @@ const SPEC = {
           data: { description: "Endpoint-specific payload." },
           _meta: { $ref: "#/components/schemas/ResponseMeta" },
         },
+      },
+      CollectorEvent: COLLECTOR_EVENT_SCHEMA,
+      CollectorVenue: COLLECTOR_VENUE_SCHEMA,
+      CollectorOrganisation: COLLECTOR_ORGANISATION_SCHEMA,
+      CollectorEventEvidenceSource: COLLECTOR_EVENT_SOURCE_SCHEMA,
+      CollectorEventListEnvelope: {
+        allOf: [
+          { $ref: "#/components/schemas/Envelope" },
+          {
+            type: "object",
+            properties: {
+              data: {
+                type: "object",
+                required: [
+                  "@kind",
+                  "count",
+                  "total_reviewed_records",
+                  "comprehensive",
+                  "bounded_static_seed",
+                  "pagination",
+                  "events",
+                ],
+                properties: {
+                  "@kind": { const: "collector-event-list" },
+                  count: { type: "integer", minimum: 0 },
+                  total_reviewed_records: { type: "integer", minimum: 0 },
+                  comprehensive: { const: false },
+                  bounded_static_seed: { const: true },
+                  pagination: { type: "null" },
+                  events: {
+                    type: "array",
+                    items: { $ref: "#/components/schemas/CollectorEvent" },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      CollectorEventDetailEnvelope: {
+        allOf: [
+          { $ref: "#/components/schemas/Envelope" },
+          {
+            type: "object",
+            properties: {
+              data: {
+                type: "object",
+                required: ["@kind", "event", "included", "attribution"],
+                properties: {
+                  "@kind": { const: "collector-event-detail" },
+                  event: { $ref: "#/components/schemas/CollectorEvent" },
+                  included: {
+                    type: "object",
+                    required: ["venue", "organisations", "evidence_sources"],
+                    properties: {
+                      venue: {
+                        oneOf: [
+                          { type: "null" },
+                          { $ref: "#/components/schemas/CollectorVenue" },
+                        ],
+                      },
+                      organisations: {
+                        type: "array",
+                        items: {
+                          $ref: "#/components/schemas/CollectorOrganisation",
+                        },
+                      },
+                      evidence_sources: {
+                        type: "array",
+                        items: {
+                          $ref: "#/components/schemas/CollectorEventEvidenceSource",
+                        },
+                      },
+                    },
+                  },
+                  attribution: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        ],
       },
       ResponseMeta: {
         type: "object",

@@ -21,8 +21,14 @@ import {
 export const metadata: Metadata = {
   title: "Dataset status catalog",
   description:
-    "Available Cambridge TCG datasets and paused publication surfaces, with aggregate rights and named source rights.",
-  other: audienceMetadata("public-documentation", ["datasets", "data-rights", "schema.org"]),
+    "Available Cambridge TCG datasets—including bounded observation coverage history and the UK collector-events demonstrator—and paused publication surfaces, with aggregate rights and named source rights.",
+  other: audienceMetadata("public-documentation", [
+    "datasets",
+    "data-rights",
+    "coverage-history",
+    "collector-events",
+    "schema.org",
+  ]),
 };
 
 function TierBadge({ tier }: { tier: CommonsTier }) {
@@ -118,8 +124,9 @@ export default function DatasetsIndex() {
       <p>
         <code>CC0-1.0</code> on the catalog response covers these Cambridge-authored
         descriptions only. It does not license the records they describe. Mixed or
-        undeclared record rights remain <code>NOASSERTION</code>; paused paths are
-        status notices and are excluded from the crawler dataset graph. The rights
+        undeclared record rights—including the bulk card catalogue and collector-events
+        demonstrator—remain <code>NOASSERTION</code>, never relabelled CC0. Paused paths
+        are status notices and are excluded from the crawler dataset graph. The rights
         reasoning behind every source lives in the{" "}
         <Link href="/methodology/data-intentions">declaration of data intentions</Link>.
       </p>

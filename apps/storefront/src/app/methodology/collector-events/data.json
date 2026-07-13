@@ -1,0 +1,30 @@
+{
+  "topic": "collector-events",
+  "title": "UK collector events commons",
+  "url": "/methodology/collector-events",
+  "kind": "methodology-source-metadata",
+  "summary_source_path": "apps/storefront/src/app/methodology/collector-events/summary.md",
+  "source_code": [
+    "apps/storefront/src/lib/collector-events/registry.ts",
+    "apps/storefront/src/lib/collector-events/query.ts",
+    "apps/storefront/src/lib/collector-events/formats.ts",
+    "packages/data-spec/src/schemas/collector-events.ts"
+  ],
+  "public_surfaces": [
+    "/api/v1/collector-events",
+    "/api/v1/collector-events/coverage",
+    "/api/v1/collector-events/calendar.ics",
+    "/api/v1/collector-events/map.geojson",
+    "/api/v1/collector-venues",
+    "/api/v1/collector-organisations"
+  ],
+  "doctrine_refs": [
+    "docs/principles/substrate-honesty.md",
+    "docs/principles/transparency.md",
+    "docs/principles/meaning.md",
+    "docs/principles/creation.md"
+  ],
+  "response_license": "NOASSERTION",
+  "schema_license": "CC0-1.0",
+  "status": "published"
+}

@@ -196,6 +196,41 @@ export const DATASETS: readonly DatasetEntry[] = [
     freshness_note: "Updated when the typed gap ledger changes and the application is deployed.",
   },
   {
+    id: "uk-collector-events",
+    name: "UK collector events — reviewed demonstrator",
+    description:
+      "A four-event, source-backed demonstrator of public trading-card events, established public venues, public organisations or brands, field-level evidence, explicit conflicts, and tri-state accessibility facts. One record is an event listing with stable opaque ids and revision metadata. It is not a comprehensive UK directory and contains no people, direct personal contacts, attendee lists, vendor lists, images, or copied marketing prose.",
+    license: "NOASSERTION",
+    tier: "noassertion",
+    availability: "available",
+    recordsPublished: true,
+    sourceRights: [
+      {
+        source: "collector-events reviewed public-page evidence set",
+        license: "public-pages-no-open-data-grant",
+        note: "Exact source ids and rights reviews are published at /api/v1/collector-events/sources; only minimal bare facts are admitted.",
+      },
+      {
+        source: "Postcodes.io postcode geometry",
+        license: "OS OpenData Licence",
+        note: "Attributed postcode centroids only, never venue entrances.",
+      },
+    ],
+    temporalCoverage: "2026-08/2026-10",
+    distributions: [
+      { kind: "api", path: "/api/v1/collector-events", encodingFormat: "application/json", label: "Events with filters and field evidence" },
+      { kind: "api", path: "/api/v1/collector-venues", encodingFormat: "application/json", label: "Public venues and approximate postcode centroids" },
+      { kind: "api", path: "/api/v1/collector-organisations", encodingFormat: "application/json", label: "Public organisations and organisation-level links" },
+      { kind: "download", path: "/api/v1/collector-events/calendar.ics", encodingFormat: "text/calendar", label: "iCalendar feed (conflicts omitted by default)" },
+      { kind: "download", path: "/api/v1/collector-events/map.geojson", encodingFormat: "application/geo+json", label: "GeoJSON event map (postcode centroids)" },
+      { kind: "api", path: "/api/v1/collector-events/schema", encodingFormat: "application/json", label: "CC0 JSON Schema bundle" },
+    ],
+    methodology: "/methodology/collector-events",
+    variableMeasured: ["event id", "name", "status", "time relation", "integrity state", "schedule", "venue", "organisation roles", "accessibility", "conflicts", "field sources", "review due date"],
+    keywords: ["UK collector events", "trading card show", "event calendar", "GeoJSON", "iCalendar", "provenance", "NOASSERTION"],
+    freshness_note: "Manually reviewed demonstrator on a weekly review cadence. Every event carries its last successful check and next review due time; stale review state is visible rather than masked.",
+  },
+  {
     id: "agent-ladder",
     name: "Agent ladder publication status",
     description:
@@ -293,13 +328,22 @@ function jsonLdLicense(license: string): string {
 export function toDatasetJsonLd(entry: DatasetEntry): Record<string, unknown> {
   const primary = entry.distributions[0];
   const canonicalUrl = `${SITE}${primary.path.replace(/\{.*?\}/g, "").replace(/\/$/, "")}`;
+  const rights = entry.license === "NOASSERTION"
+    ? {
+        usageInfo: `${SITE}${entry.methodology ?? "/methodology/data-intentions"}`,
+        conditionsOfAccess:
+          "Free to access. No response-wide reuse licence is asserted; review the dataset methodology and attached source rights before reuse.",
+      }
+    : {
+        license: jsonLdLicense(entry.license),
+      };
   return {
     "@type": "Dataset",
     "@id": `${SITE}/datasets#${entry.id}`,
     name: entry.name,
     description: entry.description,
     url: canonicalUrl,
-    license: jsonLdLicense(entry.license),
+    ...rights,
     creator: ORG,
     publisher: ORG,
     isAccessibleForFree: true,
@@ -324,7 +368,7 @@ export function toDataCatalogJsonLd(): Record<string, unknown> {
     "@id": `${SITE}/datasets`,
     name: "Cambridge TCG dataset status catalog",
     description:
-      "An inventory of datasets that Cambridge TCG currently publishes. Aggregate rights remain NOASSERTION where records mix sources or the serving route has not declared reusable rights. Paused, zero-row publication surfaces are documented on the human and envelope views but excluded from this crawler graph.",
+      "An inventory of datasets that Cambridge TCG currently publishes, including bounded observation-coverage history and the reviewed UK collector-events demonstrator. Aggregate rights remain NOASSERTION where records mix sources or the serving route has not declared reusable rights. Paused, zero-row publication surfaces are documented on the human and envelope views but excluded from this crawler graph.",
     url: `${SITE}/datasets`,
     license: "https://creativecommons.org/publicdomain/zero/1.0/",
     publisher: ORG,

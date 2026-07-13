@@ -48,7 +48,9 @@ export function GET(request: Request): NextResponse {
       catalog:
         "An inventory of available datasets and paused publication surfaces. " +
         "The catalog descriptions are CC0 metadata. Each entry separately " +
-        "states record availability, aggregate rights, and named source rights.",
+        "states record availability, aggregate rights, and named source rights. " +
+        "Mixed-rights records, including the collector-events demonstrator, " +
+        "remain NOASSERTION.",
       count: DATASETS.length,
       available_count: AVAILABLE_DATASETS.length,
       paused_count: DATASETS.length - AVAILABLE_DATASETS.length,

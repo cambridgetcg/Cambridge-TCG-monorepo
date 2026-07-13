@@ -58,3 +58,6 @@ packages/*/probe-*.mjs
 
 # the /api/v1/coverage route is source, not test output (trap found 2026-07-11)
 !apps/storefront/src/app/api/v1/coverage/
+# Exception: collector-events/coverage is a public API route, not test output.
+!apps/storefront/src/app/api/v1/collector-events/coverage/
+!apps/storefront/src/app/api/v1/collector-events/coverage/**

@@ -13,3 +13,10 @@
 export { ENVELOPE_SCHEMA, META_SCHEMA, ERROR_CODE_VALUES } from "./envelope";
 export { ERROR_BODY_SCHEMA } from "./error";
 export { PROVENANCE_SCHEMA } from "./provenance";
+export {
+  COLLECTOR_EVENT_SCHEMA,
+  COLLECTOR_VENUE_SCHEMA,
+  COLLECTOR_ORGANISATION_SCHEMA,
+  COLLECTOR_EVENT_SOURCE_SCHEMA,
+  COLLECTOR_EVENTS_SCHEMAS,
+} from "./collector-events";

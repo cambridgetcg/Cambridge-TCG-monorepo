@@ -73,6 +73,10 @@ export default function MethodologyOfMethodology() {
       <h3>2. <code>summary.md</code> — the TLDR</h3>
       <ul>
         <li>
+          A repository companion file. It is not an HTTP route unless a topic
+          explicitly implements one.
+        </li>
+        <li>
           ~50 words. Markdown. Single paragraph + a link back to the full page.
         </li>
         <li>
@@ -89,8 +93,9 @@ export default function MethodologyOfMethodology() {
       <h3>3. <code>data.json</code> — the structured sidecar</h3>
       <ul>
         <li>
-          JSON. Topic + title + url + kind + summary_url + status. The methodology
-          corpus as a queryable surface for machines.
+          JSON source metadata: topic, title, page URL, kind, summary source path,
+          and status. It is repository-readable and is not an HTTP route unless a
+          topic explicitly implements one.
         </li>
         <li>
           Status is one of <code>"published"</code> or <code>"stub"</code>.

@@ -226,7 +226,8 @@ export default function MapPage() {
               </li>
               <li>
                 Compositions: every <Internal href="/methodology">/methodology page</Internal>{" "}
-                — 17 topics, each with summary.md + data.json sidecars
+                — topic source directories may also include summary.md + data.json
+                repository companions
               </li>
               <li>
                 Cited by: every connection-doc that justifies a user-affecting decision
@@ -426,9 +427,10 @@ export default function MapPage() {
             <li><Methodology slug="sku-standard" label="sku-standard" /></li>
           </ul>
           <p className="text-[11px] text-ink-faint mt-3">
-            Each topic also ships at <code>/methodology/&lt;slug&gt;/summary.md</code>{" "}
-            (TLDR) and <code>/methodology/&lt;slug&gt;/data.json</code> (structured-data
-            sidecar). See <Internal href="/api">/api</Internal> for the full path list.
+            Some topic source directories include <code>summary.md</code> (TLDR) and{" "}
+            <code>data.json</code> (structured-data sidecar) as repository companions.
+            They are not HTTP routes unless an explicit route exists. See{" "}
+            <Internal href="/api">/api</Internal> for the implemented path list.
           </p>
         </section>
 

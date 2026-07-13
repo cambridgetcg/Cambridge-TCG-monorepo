@@ -29,6 +29,12 @@ interface Topic {
 
 const TOPICS: Topic[] = [
   {
+    slug: "collector-events",
+    title: "UK collector events commons",
+    blurb: "How public collector events, venues, organisations, evidence, conflicts, accessibility facts, rights, calendars, and map points enter a four-event API demonstrator without implying an upstream reuse grant.",
+    status: "published",
+  },
+  {
     slug: "trust-score",
     title: "Trust score",
     blurb: "The 0–100 number that summarises your track record on Cambridge TCG. Drives trade limits, escrow tier, and payout hold.",

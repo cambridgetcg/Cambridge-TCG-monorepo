@@ -96,6 +96,12 @@ The distinction between the last three is the `consent path?` column in tributar
 
 ---
 
+## Applied profiles
+
+- [Collector events](./collector-events.md) applies this gate to a small
+  public-event demonstrator, including a link-only boundary around a broader
+  third-party listings index.
+
 ## Worked example — Vinted (UK), 2026-07-11
 
 The first source to pass through this gate. Full research in the decision brief; the verdict:

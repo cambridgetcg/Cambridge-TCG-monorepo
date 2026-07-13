@@ -3,6 +3,7 @@ import { GET as getOpenApi } from "@/app/api/openapi.json/route";
 import { EXAMPLES } from "@/lib/examples";
 import { GUIDES } from "@/lib/guides";
 import { MANIFEST } from "@/lib/manifest";
+import { DATASETS } from "@/lib/datasets";
 import {
   LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED,
   withholdUnreviewedWholesaleFields,
@@ -190,5 +191,18 @@ describe("public source-rights contracts", () => {
     expect(source).not.toContain("application/ld+json");
     expect(source).toContain('dynamic = "force-dynamic"');
     expect(source).toContain("No agent handle, display name, model tag, operator identity");
+  });
+
+  it("keeps the collector-events commons mixed-rights across discovery surfaces", async () => {
+    const response = await getOpenApi();
+    const spec = (await response.json()) as {
+      paths: Record<string, { get: { description: string } }>;
+    };
+    const dataset = DATASETS.find((candidate) => candidate.id === "uk-collector-events");
+
+    expect(dataset?.license).toBe("NOASSERTION");
+    expect(dataset?.tier).toBe("noassertion");
+    expect(manifestDescription("storefront.collector_events.list")).toContain("NOASSERTION");
+    expect(spec.paths["/api/v1/collector-events"].get.description).toContain("NOASSERTION");
   });
 });

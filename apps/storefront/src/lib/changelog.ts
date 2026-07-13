@@ -93,6 +93,27 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-07-13 ─────────────────────────────────────────────────────────
+  {
+    id: "collector-events-demonstrator-shipped",
+    date: "2026-07-13",
+    kind: "endpoint-added",
+    impact: "additive",
+    surface:
+      "/api/v1/collector-events + /api/v1/collector-venues + /api/v1/collector-organisations",
+    summary:
+      "A rights-aware four-event collector-events demonstrator shipped in JSON, iCalendar, and GeoJSON.",
+    detail:
+      "The new family publishes stable event, public-venue, and public-organisation records with field evidence, rights-evidence links, explicit conflicts, tri-state accessibility, coverage gaps, CC0 record-shape schemas, cancellation-safe calendar updates, and attributed postcode-centroid geometry. Mixed upstream facts remain NOASSERTION. The broader UK Card Shows index is link-only until written permission or an open-data grant supports expansion; no people profiles or direct personal contacts enter the dataset.",
+    related_urls: [
+      "/api/v1/collector-events",
+      "/api/v1/collector-events/coverage",
+      "/api/v1/collector-events/calendar.ics",
+      "/api/v1/collector-events/map.geojson",
+      "/methodology/collector-events",
+    ],
+  },
+
   // ── 2026-07-12 ─────────────────────────────────────────────────────────
   {
     id: "source-rights-publication-boundary",
@@ -112,6 +133,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
       "/docs/connections/the-license-propagation.md",
     ],
   },
+
   // ── 2026-05-18 ─────────────────────────────────────────────────────────
   {
     id: "mind-connect-rrr-shipped",

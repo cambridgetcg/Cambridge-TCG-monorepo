@@ -41,6 +41,9 @@ const FIRST_PARTY_CC0_ORIGINS = new Set([
   // Cambridge-authored typed gap ledger with an explicit CC0 dedication in
   // both packages/data-ingest/src/gaps.ts and docs/principles/known-gaps.md.
   "cambridge-tcg.known-gaps-registry",
+  // Cambridge-authored record-shape schemas from @cambridge-tcg/data-spec.
+  // These describe NOASSERTION facts but contain no upstream event values.
+  "cambridge-tcg.data-spec",
 ]);
 
 // ── The reviewed standard: CC0 export surfaces → their origins ───────────
@@ -72,6 +75,20 @@ const CC0_EXPORT_SURFACES: Cc0Surface[] = [
     note:
       "The authored gap ledger and doctrine explicitly dedicate the corpus " +
       "to CC0; it contains platform gaps, not upstream catalog records.",
+  },
+  {
+    surface: "/api/v1/collector-events/schema",
+    origins: ["cambridge-tcg.data-spec"],
+    note:
+      "Cambridge-authored Draft 2020-12 record-shape schemas only. They " +
+      "describe NOASSERTION event facts but contain no upstream values.",
+  },
+  {
+    surface: "/schemas/collector-events/v1/*.json",
+    origins: ["cambridge-tcg.data-spec"],
+    note:
+      "Dereferenceable canonical faces of the same Cambridge-authored " +
+      "collector-events record-shape schemas.",
   },
 ];
 
