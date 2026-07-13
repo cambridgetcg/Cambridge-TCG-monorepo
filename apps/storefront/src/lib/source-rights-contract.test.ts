@@ -26,7 +26,23 @@ describe("public source-rights contracts", () => {
   it("keeps OpenAPI mixed price responses aligned with runtime NOASSERTION", async () => {
     const response = await getOpenApi();
     const spec = (await response.json()) as {
-      paths: Record<string, { get: { description: string } }>;
+      paths: Record<
+        string,
+        {
+          get: {
+            description: string;
+            responses: Record<
+              string,
+              {
+                content?: Record<
+                  string,
+                  { schema: { $ref?: string } }
+                >;
+              }
+            >;
+          };
+        }
+      >;
     };
 
     expect(spec.paths["/api/v1/prices/games/{game}"].get.description)
@@ -41,6 +57,15 @@ describe("public source-rights contracts", () => {
       .toContain("paused paths are never advertised as downloads");
     expect(spec.paths["/api/v1/coverage"].get.description)
       .toContain("aggregate rights remain NOASSERTION");
+    expect(spec.paths["/api/v1/coverage/history"].get.description)
+      .toContain("explicit aggregate NOASSERTION");
+    expect(spec.paths["/api/v1/coverage/history"].get.description)
+      .toContain("not fetch timestamps");
+    expect(
+      spec.paths["/api/v1/coverage/history"].get.responses["200"].content?.[
+        "application/json"
+      ].schema.$ref,
+    ).toBe("#/components/schemas/CoverageHistoryEnvelope");
     expect(spec.paths["/api/v1/sold-comps"].get.description)
       .toContain("no transaction database read");
   });
@@ -139,6 +164,19 @@ describe("public source-rights contracts", () => {
       expect(source).not.toMatch(/priceArchive|price_archive|fetchCardrushHistory/);
       expect(source).toMatch(/503|SOURCE_UNAVAILABLE/);
     }
+  });
+
+  it("keeps coverage scans on their column-limited database login", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "src/lib/wholesale/db-source.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("process.env.WHOLESALE_COVERAGE_DATABASE_URL");
+    expect(source).toContain("getCoveragePool().connect()");
+    expect(source).not.toMatch(
+      /WHOLESALE_COVERAGE_DATABASE_URL\s*\|\|\s*process\.env\.WHOLESALE_DATABASE_URL/,
+    );
   });
 
   it("keeps the agent ladder status-only without a participant read", () => {

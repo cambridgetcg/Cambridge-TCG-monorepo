@@ -33,6 +33,7 @@ const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 
 import {
   dbFetchAggregatorCoverage,
+  dbFetchAggregatorCoverageHistory,
   dbFetchCard,
   dbFetchGames,
   dbFetchPrices,
@@ -505,12 +506,76 @@ export interface AggregatorCoverageResponse {
   queried_at: string;
 }
 
+export type AggregatorCoverageHistoryWindow = "7d" | "30d" | "90d";
+
+export interface AggregatorCoverageHistoryDay {
+  date: string;
+  is_current_utc_day: boolean;
+  observations: number;
+  distinct_cards: number;
+  distinct_games: number;
+  distinct_sources: number;
+  unassigned_observations: number;
+  sources: string[];
+  games: string[];
+}
+
+export interface AggregatorCoverageHistoryResponse {
+  period: {
+    start: string;
+    through: string;
+    timezone: "UTC";
+    current_utc_day_may_be_incomplete: true;
+  };
+  summary: {
+    total_observations: number;
+    distinct_cards: number;
+    distinct_games: number;
+    distinct_sources: number;
+    unassigned_observations: number;
+    observed_days_including_current: number;
+    completed_days: number;
+    observed_completed_days: number;
+    zero_observation_completed_days: number;
+    observation_completed_day_ratio: number;
+  };
+  by_day: AggregatorCoverageHistoryDay[];
+  observed_sources: string[];
+  filter: {
+    window: AggregatorCoverageHistoryWindow;
+    window_days: number;
+    source: string | null;
+    game: string | null;
+  };
+  queried_at: string;
+}
+
 const COVERAGE_CACHE_TTL_MS = 30_000;
 const COVERAGE_CACHE_MAX_KEYS = 64;
+const COVERAGE_MAX_IN_FLIGHT = 3;
+
+interface CoverageCacheEntry<T> {
+  expiresAt: number;
+  pending: Promise<T>;
+  settled: boolean;
+}
+
 const coverageCache = new Map<
   string,
-  { expiresAt: number; pending: Promise<AggregatorCoverageResponse> }
+  CoverageCacheEntry<AggregatorCoverageResponse>
 >();
+const coverageHistoryCache = new Map<
+  string,
+  CoverageCacheEntry<AggregatorCoverageHistoryResponse>
+>();
+let coverageReadsInFlight = 0;
+
+class CoverageReadCapacityError extends Error {
+  constructor() {
+    super("coverage read capacity is currently full");
+    this.name = "CoverageReadCapacityError";
+  }
+}
 
 function coverageCacheKey(opts?: {
   source?: string;
@@ -524,34 +589,67 @@ function coverageCacheKey(opts?: {
   });
 }
 
-function cacheCoverageRead(
+function cacheCoverageRead<T>(
+  cache: Map<string, CoverageCacheEntry<T>>,
   key: string,
-  read: () => Promise<AggregatorCoverageResponse>,
-): Promise<AggregatorCoverageResponse> {
+  read: () => Promise<T>,
+): Promise<T> {
   const now = Date.now();
-  const cached = coverageCache.get(key);
-  if (cached && cached.expiresAt > now) return cached.pending;
-  if (cached) coverageCache.delete(key);
+  const cached = cache.get(key);
+  if (cached && (!cached.settled || cached.expiresAt > now)) {
+    return cached.pending;
+  }
+  if (cached) cache.delete(key);
 
-  if (coverageCache.size >= COVERAGE_CACHE_MAX_KEYS) {
-    const oldestKey = coverageCache.keys().next().value as string | undefined;
-    if (oldestKey) coverageCache.delete(oldestKey);
+  if (cache.size >= COVERAGE_CACHE_MAX_KEYS) {
+    const reusable = [...cache.entries()].find(([, entry]) => entry.settled);
+    if (!reusable) return Promise.reject(new CoverageReadCapacityError());
+    cache.delete(reusable[0]);
   }
 
-  const pending = read().catch((error) => {
-    coverageCache.delete(key);
-    throw error;
-  });
-  coverageCache.set(key, { expiresAt: now + COVERAGE_CACHE_TTL_MS, pending });
+  const pending = runBoundedCoverageRead(read);
+  const entry: CoverageCacheEntry<T> = {
+    expiresAt: now + COVERAGE_CACHE_TTL_MS,
+    pending,
+    settled: false,
+  };
+  cache.set(key, entry);
+  void pending.then(
+    () => {
+      entry.settled = true;
+    },
+    () => {
+      entry.settled = true;
+      if (cache.get(key) === entry) cache.delete(key);
+    },
+  );
   return pending;
+}
+
+function runBoundedCoverageRead<T>(read: () => Promise<T>): Promise<T> {
+  if (coverageReadsInFlight >= COVERAGE_MAX_IN_FLIGHT) {
+    return Promise.reject(new CoverageReadCapacityError());
+  }
+
+  coverageReadsInFlight += 1;
+  return Promise.resolve()
+    .then(read)
+    .finally(() => {
+      coverageReadsInFlight -= 1;
+    });
+}
+
+function reportCoverageReadError(scope: string, error: unknown): void {
+  if (error instanceof CoverageReadCapacityError) return;
+  console.error(`[wholesale] ${scope} db-source error`, error);
 }
 
 /**
  * Fetch the aggregator's "what we've collected" snapshot directly from the
  * wholesale Postgres. The historical HTTP route never shipped, so probing it
  * would add a known redirect/404/timeout before every honest read. Returns
- * null on database failure and empty arrays when the database is reachable
- * but has no observations.
+ * null when the database cannot answer or the shared read ceiling is full,
+ * and empty arrays when the database is reachable but has no observations.
  */
 export async function fetchAggregatorCoverage(opts?: {
   source?: string;
@@ -565,14 +663,55 @@ export async function fetchAggregatorCoverage(opts?: {
   };
   try {
     if ((process.env.COVERAGE_CACHE_DISABLED || '').trim() === '1') {
-      return await dbFetchAggregatorCoverage(normalized);
+      return await runBoundedCoverageRead(() =>
+        dbFetchAggregatorCoverage(normalized),
+      );
     }
     return await cacheCoverageRead(
+      coverageCache,
       coverageCacheKey(normalized),
       () => dbFetchAggregatorCoverage(normalized),
     );
   } catch (err) {
-    console.error("[wholesale] aggregator coverage db-source error", err);
+    reportCoverageReadError("aggregator coverage", err);
+    return null;
+  }
+}
+
+/**
+ * Read a bounded daily history of archive coverage. Like the current coverage
+ * snapshot, this uses the direct database ground route and distinguishes a
+ * reachable empty window from an unavailable or currently saturated read.
+ */
+export async function fetchAggregatorCoverageHistory(opts?: {
+  window?: AggregatorCoverageHistoryWindow;
+  source?: string;
+  game?: string;
+}): Promise<AggregatorCoverageHistoryResponse | null> {
+  const normalized = {
+    window: opts?.window ?? "30d",
+    source: opts?.source || undefined,
+    game: opts?.game || undefined,
+  };
+  const key = JSON.stringify({
+    window: normalized.window,
+    source: normalized.source ?? null,
+    game: normalized.game ?? null,
+  });
+
+  try {
+    if ((process.env.COVERAGE_CACHE_DISABLED || "").trim() === "1") {
+      return await runBoundedCoverageRead(() =>
+        dbFetchAggregatorCoverageHistory(normalized),
+      );
+    }
+    return await cacheCoverageRead(
+      coverageHistoryCache,
+      key,
+      () => dbFetchAggregatorCoverageHistory(normalized),
+    );
+  } catch (err) {
+    reportCoverageReadError("aggregator coverage history", err);
     return null;
   }
 }

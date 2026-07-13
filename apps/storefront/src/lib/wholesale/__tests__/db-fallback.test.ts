@@ -1,18 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   fetchAggregatorCoverage,
+  fetchAggregatorCoverageHistory,
   fetchPrices,
   fetchGamesDetailed,
   fetchSetsDetailed,
   type AggregatorCoverageResponse,
+  type AggregatorCoverageHistoryResponse,
 } from "../client";
 import {
   composeAggregatorCoverage,
+  composeAggregatorCoverageHistory,
   dbFetchAggregatorCoverage,
+  dbFetchAggregatorCoverageHistory,
   dbFetchPrices,
   dbFetchGames,
   dbFetchSets,
   isValidCoverageDate,
+  isValidCoverageHistoryWindow,
   isValidCoverageToken,
 } from "../db-source";
 import { stripSslMode, isLocalDbHost, channelPriceForRow } from "../db-source";
@@ -26,6 +31,7 @@ vi.mock("../db-source", async () => {
     dbFetchGames: vi.fn(),
     dbFetchSets: vi.fn(),
     dbFetchAggregatorCoverage: vi.fn(),
+    dbFetchAggregatorCoverageHistory: vi.fn(),
   };
 });
 
@@ -34,6 +40,7 @@ const mockDbPrices = vi.mocked(dbFetchPrices);
 const mockDbGames = vi.mocked(dbFetchGames);
 const mockDbSets = vi.mocked(dbFetchSets);
 const mockDbCoverage = vi.mocked(dbFetchAggregatorCoverage);
+const mockDbCoverageHistory = vi.mocked(dbFetchAggregatorCoverageHistory);
 
 beforeEach(() => {
   vi.stubGlobal("fetch", mockFetch);
@@ -51,6 +58,7 @@ afterEach(() => {
   mockDbGames.mockReset();
   mockDbSets.mockReset();
   mockDbCoverage.mockReset();
+  mockDbCoverageHistory.mockReset();
 });
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -58,6 +66,20 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 }
 
 const httpPrices = {
@@ -140,6 +162,45 @@ const dbCoverage: AggregatorCoverageResponse = {
   filter: { source: null, game: null, since: null },
   queried_at: "2026-07-11T18:00:00.000Z",
 };
+
+const dbCoverageHistory: AggregatorCoverageHistoryResponse =
+  composeAggregatorCoverageHistory(
+    {
+      start_date: "2026-07-07",
+      through_date: "2026-07-13",
+      total_observations: 8,
+      distinct_cards: 3,
+      distinct_games: 1,
+      distinct_sources: 2,
+      unassigned_observations: 1,
+      observed_sources: ["tcgplayer", "cardrush"],
+      by_day: [
+        {
+          date: "2026-07-07",
+          observations: 5,
+          distinct_cards: 2,
+          distinct_games: 1,
+          distinct_sources: 1,
+          unassigned_observations: 0,
+          sources: ["cardrush"],
+          games: ["op"],
+        },
+        {
+          date: "2026-07-09",
+          observations: 3,
+          distinct_cards: 2,
+          distinct_games: 1,
+          distinct_sources: 2,
+          unassigned_observations: 1,
+          sources: ["tcgplayer", "cardrush"],
+          games: ["op"],
+        },
+      ],
+    },
+    "7d",
+    { source: null, game: null },
+    "2026-07-13T09:00:00.000Z",
+  );
 
 describe("fetchPrices source fallback", () => {
   it("serves from the HTTP API when it answers, without touching the DB", async () => {
@@ -238,6 +299,159 @@ describe("fetchAggregatorCoverage source fallback", () => {
   });
 });
 
+describe("fetchAggregatorCoverageHistory source fallback", () => {
+  it("reads the database directly with the bounded window and filters", async () => {
+    mockDbCoverageHistory.mockResolvedValueOnce({
+      ...dbCoverageHistory,
+      filter: {
+        window: "7d",
+        window_days: 7,
+        source: "cardrush",
+        game: "op",
+      },
+    });
+    const filters = { window: "7d" as const, source: "cardrush", game: "op" };
+
+    const result = await fetchAggregatorCoverageHistory(filters);
+
+    expect(result?.filter).toEqual({ ...filters, window_days: 7 });
+    expect(mockDbCoverageHistory).toHaveBeenCalledWith(filters);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns null rather than an empty history when the database fails", async () => {
+    mockDbCoverageHistory.mockRejectedValueOnce(new Error("db down"));
+    expect(await fetchAggregatorCoverageHistory({ window: "7d" })).toBeNull();
+  });
+
+  it("coalesces identical reads but keeps different windows in different cache keys", async () => {
+    vi.stubEnv("COVERAGE_CACHE_DISABLED", "");
+    mockDbCoverageHistory.mockResolvedValue(dbCoverageHistory);
+    const lane = { source: "history-cache-test" };
+
+    const [first, second] = await Promise.all([
+      fetchAggregatorCoverageHistory({ ...lane, window: "7d" }),
+      fetchAggregatorCoverageHistory({ ...lane, window: "7d" }),
+    ]);
+    await fetchAggregatorCoverageHistory({ ...lane, window: "30d" });
+
+    expect(first).toBe(second);
+    expect(mockDbCoverageHistory).toHaveBeenCalledTimes(2);
+    expect(mockDbCoverageHistory).toHaveBeenNthCalledWith(1, {
+      ...lane,
+      window: "7d",
+      game: undefined,
+    });
+    expect(mockDbCoverageHistory).toHaveBeenNthCalledWith(2, {
+      ...lane,
+      window: "30d",
+      game: undefined,
+    });
+  });
+});
+
+describe("coverage read concurrency", () => {
+  it("shares a max-three in-flight gate across current and history reads while coalescing identical keys", async () => {
+    vi.stubEnv("COVERAGE_CACHE_DISABLED", "");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const currentA = deferred<AggregatorCoverageResponse>();
+    const historyB = deferred<AggregatorCoverageHistoryResponse>();
+    const currentC = deferred<AggregatorCoverageResponse>();
+
+    mockDbCoverage.mockImplementation((opts) => {
+      if (opts?.source === "gate-current-a") return currentA.promise;
+      if (opts?.source === "gate-current-c") return currentC.promise;
+      throw new Error(`unexpected current coverage source: ${opts?.source}`);
+    });
+    mockDbCoverageHistory.mockImplementation(({ source }) => {
+      if (source === "gate-history-b") return historyB.promise;
+      return Promise.resolve(dbCoverageHistory);
+    });
+
+    const first = fetchAggregatorCoverage({ source: "gate-current-a" });
+    const firstAgain = fetchAggregatorCoverage({ source: "gate-current-a" });
+    const second = fetchAggregatorCoverageHistory({
+      window: "7d",
+      source: "gate-history-b",
+    });
+    const third = fetchAggregatorCoverage({ source: "gate-current-c" });
+
+    const rejected = await fetchAggregatorCoverageHistory({
+      window: "30d",
+      source: "gate-history-d",
+    });
+
+    expect(rejected).toBeNull();
+    expect(mockDbCoverage).toHaveBeenCalledTimes(2);
+    expect(mockDbCoverageHistory).toHaveBeenCalledTimes(1);
+
+    currentA.resolve(dbCoverage);
+    historyB.resolve(dbCoverageHistory);
+    currentC.resolve(dbCoverage);
+
+    const [firstResult, firstAgainResult, secondResult, thirdResult] =
+      await Promise.all([first, firstAgain, second, third]);
+    expect(firstResult).toBe(firstAgainResult);
+    expect(firstResult).toBe(dbCoverage);
+    expect(secondResult).toBe(dbCoverageHistory);
+    expect(thirdResult).toBe(dbCoverage);
+  });
+
+  it("releases rejected slots and still serves settled cache hits at capacity", async () => {
+    vi.stubEnv("COVERAGE_CACHE_DISABLED", "");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    mockDbCoverage.mockResolvedValueOnce(dbCoverage);
+    const cached = await fetchAggregatorCoverage({ source: "gate-cached" });
+
+    const failing = deferred<AggregatorCoverageResponse>();
+    const history = deferred<AggregatorCoverageHistoryResponse>();
+    const current = deferred<AggregatorCoverageResponse>();
+    mockDbCoverage.mockImplementation((opts) => {
+      if (opts?.source === "gate-failing") return failing.promise;
+      if (opts?.source === "gate-current") return current.promise;
+      throw new Error(`unexpected current coverage source: ${opts?.source}`);
+    });
+    mockDbCoverageHistory.mockImplementation(({ source }) => {
+      if (source === "gate-history") return history.promise;
+      if (source === "gate-recovered") return Promise.resolve(dbCoverageHistory);
+      throw new Error(`unexpected history coverage source: ${source}`);
+    });
+
+    const first = fetchAggregatorCoverage({ source: "gate-failing" });
+    const second = fetchAggregatorCoverageHistory({
+      window: "7d",
+      source: "gate-history",
+    });
+    const third = fetchAggregatorCoverage({ source: "gate-current" });
+
+    expect(await fetchAggregatorCoverage({ source: "gate-cached" })).toBe(cached);
+    expect(
+      await fetchAggregatorCoverageHistory({
+        window: "30d",
+        source: "gate-before-release",
+      }),
+    ).toBeNull();
+
+    failing.reject(new Error("bounded read failed"));
+    expect(await first).toBeNull();
+    expect(
+      await fetchAggregatorCoverageHistory({
+        window: "90d",
+        source: "gate-recovered",
+      }),
+    ).toBe(dbCoverageHistory);
+
+    history.resolve(dbCoverageHistory);
+    current.resolve(dbCoverage);
+    await expect(second).resolves.toBe(dbCoverageHistory);
+    await expect(third).resolves.toBe(dbCoverage);
+    expect(mockDbCoverage).toHaveBeenCalledTimes(3);
+    expect(mockDbCoverageHistory).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("db-source pure helpers", () => {
   it("accepts real ISO dates and rejects impossible calendar dates", () => {
     expect(isValidCoverageDate("2024-02-29")).toBe(true);
@@ -253,6 +467,102 @@ describe("db-source pure helpers", () => {
     expect(isValidCoverageToken("")).toBe(false);
     expect(isValidCoverageToken("op OR TRUE")).toBe(false);
     expect(isValidCoverageToken("x".repeat(65))).toBe(false);
+  });
+
+  it("accepts only the three bounded coverage-history windows", () => {
+    expect(isValidCoverageHistoryWindow("7d")).toBe(true);
+    expect(isValidCoverageHistoryWindow("30d")).toBe(true);
+    expect(isValidCoverageHistoryWindow("90d")).toBe(true);
+    expect(isValidCoverageHistoryWindow("365d")).toBe(false);
+    expect(isValidCoverageHistoryWindow("")).toBe(false);
+  });
+
+  it("zero-fills history dates and keeps whole-window distinct counts non-additive", () => {
+    expect(dbCoverageHistory.by_day).toHaveLength(7);
+    expect(dbCoverageHistory.by_day.map((day) => day.date)).toEqual([
+      "2026-07-07",
+      "2026-07-08",
+      "2026-07-09",
+      "2026-07-10",
+      "2026-07-11",
+      "2026-07-12",
+      "2026-07-13",
+    ]);
+    expect(dbCoverageHistory.by_day[1]).toMatchObject({
+      observations: 0,
+      distinct_cards: 0,
+      sources: [],
+      games: [],
+    });
+    expect(dbCoverageHistory.by_day[2].sources).toEqual([
+      "cardrush",
+      "tcgplayer",
+    ]);
+    expect(dbCoverageHistory.by_day[6].is_current_utc_day).toBe(true);
+    expect(dbCoverageHistory.summary).toMatchObject({
+      total_observations: 8,
+      distinct_cards: 3,
+      completed_days: 6,
+      observed_completed_days: 2,
+      zero_observation_completed_days: 4,
+      observation_completed_day_ratio: 0.3333,
+      observed_days_including_current: 2,
+    });
+    expect(dbCoverageHistory.summary).not.toHaveProperty("zero_observation_days");
+  });
+
+  it("zero-fills exact 30d and 90d UTC windows across month, year, and leap-day rollovers", () => {
+    const emptyRow = (startDate: string, throughDate: string) => ({
+      start_date: startDate,
+      through_date: throughDate,
+      total_observations: 0,
+      distinct_cards: 0,
+      distinct_games: 0,
+      distinct_sources: 0,
+      unassigned_observations: 0,
+      observed_sources: [],
+      by_day: [],
+    });
+
+    const thirtyDays = composeAggregatorCoverageHistory(
+      emptyRow("2026-01-03", "2026-02-01"),
+      "30d",
+      { source: null, game: null },
+      "2026-02-01T12:00:00.000Z",
+    );
+    const ninetyDays = composeAggregatorCoverageHistory(
+      emptyRow("2023-12-02", "2024-02-29"),
+      "90d",
+      { source: null, game: null },
+      "2024-02-29T12:00:00.000Z",
+    );
+
+    expect(thirtyDays.by_day).toHaveLength(30);
+    expect(thirtyDays.by_day[0].date).toBe("2026-01-03");
+    expect(thirtyDays.by_day[28].date).toBe("2026-01-31");
+    expect(thirtyDays.by_day[29]).toMatchObject({
+      date: "2026-02-01",
+      is_current_utc_day: true,
+      observations: 0,
+    });
+
+    expect(ninetyDays.by_day).toHaveLength(90);
+    expect(ninetyDays.by_day[0].date).toBe("2023-12-02");
+    expect(ninetyDays.by_day[29].date).toBe("2023-12-31");
+    expect(ninetyDays.by_day[30].date).toBe("2024-01-01");
+    expect(ninetyDays.by_day[88].date).toBe("2024-02-28");
+    expect(ninetyDays.by_day[89]).toMatchObject({
+      date: "2024-02-29",
+      is_current_utc_day: true,
+      observations: 0,
+    });
+    expect(ninetyDays.summary).toMatchObject({
+      completed_days: 89,
+      observed_completed_days: 0,
+      zero_observation_completed_days: 89,
+      observation_completed_day_ratio: 0,
+      observed_days_including_current: 0,
+    });
   });
 
   it("stripSslMode removes sslmode while keeping the rest of the URL", () => {

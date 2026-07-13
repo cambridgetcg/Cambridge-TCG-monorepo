@@ -1317,11 +1317,16 @@ export const MANIFEST: Manifest = {
       // The originally claimed wholesale sibling never shipped. Kingdom-105
       // makes the existing storefront route live through its direct database
       // ground route, so only that real public door returns to discovery.
-      { id: "storefront.coverage", description: "What the observation archive has actually accumulated: counts, exact distinct-card coverage, date ranges, freshness, and explicit unassigned-row totals. Reads wholesale Postgres directly with bounded filters, caching, and no price or personal values. Cambridge dedicates whatever rights it holds in the compiled operational view to CC0; upstream terms still govern upstream material. ?source / ?game / ?since filters. kingdom-105.",
+      { id: "storefront.coverage", description: "What the observation archive has actually accumulated: counts, exact distinct-card coverage, game identifiers, date ranges, freshness, and explicit unassigned-row totals. Reads wholesale Postgres directly with bounded filters, caching, and no price or personal values. The envelope names the CC0 Cambridge aggregation, the proprietary internal catalog game-mapping step, and each actually observed upstream source with its reviewed tier; unknown upstream ids default to proprietary and aggregate rights remain NOASSERTION. ?source / ?game / ?since filters. kingdom-105.",
         host: "storefront", path: "/api/v1/coverage", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["time", "substrate"], methodology_url: "docs/connections/the-aggregator-presents.md",
         since: "2026-07-11" },
+      { id: "storefront.coverage.history", description: "Bounded daily history of stored observation depth for 7, 30, or 90 UTC dates. Returns one zero-filled row per day, exact whole-window distinct-card unions, completed-day ratios that exclude the partial current UTC day, and contributing source rights; no upstream price or card-level catalog field beyond game identifiers, URL, person, or inferred relationship. Snapshot dates are archive labels rather than fetch timestamps, backfills may revise old points, and daily distinct counts are non-additive. The envelope names the CC0 Cambridge aggregation, proprietary internal catalog game mapping, and reviewed upstream tiers; unknown upstream ids default to proprietary and aggregate rights remain NOASSERTION. ?window / ?source / ?game filters. kingdom-107.",
+        host: "storefront", path: "/api/v1/coverage/history", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["time", "substrate"], methodology_url: "docs/connections/the-aggregator-presents.md",
+        since: "2026-07-13" },
       { id: "storefront.prices.coverage_html", description: "HTML coverage map combining the DECLARED matrix (which sources declare which games — from the registry) with the OBSERVED layer (what's actually in price_archive — counts + cards + days + freshness). Substrate-honest at both axes. kingdom-085.",
         host: "storefront", path: "/prices/coverage", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "live",

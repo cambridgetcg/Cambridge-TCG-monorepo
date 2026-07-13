@@ -57,7 +57,7 @@ export const DATASETS: readonly DatasetEntry[] = [
     id: "coverage",
     name: "Observation coverage",
     description:
-      "Operational counts from the observation archive, grouped by game and source: observation rows, distinct cards, snapshot ranges, and freshness. Each response names the upstream sources that contributed and carries their per-source rights tiers. Aggregate rights are therefore NOASSERTION whenever mixed or restricted lineage is present.",
+      "Current summaries and bounded, zero-filled daily histories from the observation archive: operational row counts, distinct-card breadth, game identifiers, snapshot ranges, and freshness. Each response separately names the Cambridge aggregation, its internal catalog game-mapping dependency, and the upstream sources that actually contributed. Aggregate rights remain NOASSERTION.",
     license: "NOASSERTION",
     tier: "noassertion",
     availability: "available",
@@ -66,12 +66,17 @@ export const DATASETS: readonly DatasetEntry[] = [
       {
         source: "cambridge-tcg.coverage-aggregation",
         license: "cc0",
-        note: "Cambridge-authored aggregation shape and explanatory metadata.",
+        note: "Cambridge-authored aggregation shape and explanatory metadata only.",
+      },
+      {
+        source: "cambridge-tcg.catalog-game-mapping",
+        license: "proprietary",
+        note: "Conservative rights tier for the internal cards-to-games mapping used to derive game identifiers.",
       },
       {
         source: "dynamic upstream lineage",
         license: "varies per response",
-        note: "Read each response's parallel _meta.sources and _meta.source_license arrays.",
+        note: "Actually observed upstream ids retain their reviewed tiers; unknown ids default to proprietary. Read each response's parallel _meta.sources and _meta.source_license arrays.",
       },
     ],
     distributions: [
@@ -80,6 +85,12 @@ export const DATASETS: readonly DatasetEntry[] = [
         path: "/api/v1/coverage",
         encodingFormat: "application/json",
         label: "Current coverage summary and breakdowns",
+      },
+      {
+        kind: "api",
+        path: "/api/v1/coverage/history",
+        encodingFormat: "application/json",
+        label: "Bounded daily coverage history",
       },
     ],
     methodology: "/methodology/data-intentions",
@@ -90,12 +101,17 @@ export const DATASETS: readonly DatasetEntry[] = [
       "latest_snapshot",
       "days_of_coverage",
       "freshest_age_hours",
+      "completed_days",
+      "observed_completed_days",
+      "zero_observation_completed_days",
+      "observation_completed_day_ratio",
+      "observed_days_including_current",
       "game",
       "source",
     ],
     keywords: ["catalogue coverage", "observation archive", "data completeness", "tcg"],
     freshness_note:
-      "Computed from the wholesale observation database on request; returns 503 when that database is unavailable.",
+      "Both coverage routes are computed from the wholesale observation database on request; each returns 503 when that database cannot answer, the per-process three-read ceiling is full, or the coverage role reaches its three-connection limit.",
   },
   {
     id: "sources-registry",

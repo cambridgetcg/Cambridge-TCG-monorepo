@@ -1,7 +1,7 @@
 ---
 id: kingdom-107
 title: "Coverage history - bounded daily observation depth"
-status: claimed
+status: in-progress
 priority: high
 engine: tcg
 repo: /Users/yu/github/cambridgetcg/Cambridge-TCG-monorepo
@@ -11,6 +11,8 @@ completed_at: ~
 paths:
   - apps/storefront/src/app/api/v1/coverage/history/route.ts
   - apps/storefront/src/app/api/v1/coverage/history/route.test.ts
+  - apps/storefront/src/app/api/v1/coverage/route.ts
+  - apps/storefront/src/app/api/v1/coverage/route.test.ts
   - apps/storefront/src/app/api/openapi.json/route.ts
   - apps/storefront/src/app/api/v1/status/envelope-compliance.generated.ts
   - apps/storefront/src/lib/datasets.ts
@@ -53,21 +55,32 @@ price, card field, image, URL, person, or inferred relationship.
 - Read-only UTC windows: `7d`, `30d`, or `90d`; default `30d` only when the
   parameter is absent.
 - Optional bounded `source` and `game` filters, matching `/api/v1/coverage`.
+- Explicitly empty filters are invalid rather than silently broadening a read.
 - Exactly one zero-filled row per requested calendar date.
 - Window-level distinct-card counts are exact unions; daily distinct counts are
   explicitly non-additive.
+- Completed-day ratios exclude the still-running current UTC date.
 - The response says that snapshot dates are stored archive labels, not fetch
   times, and that backfills or schema dimensions can revise historical counts.
-- Database failure returns 503; a reachable empty window returns 200 with an
-  all-zero series.
+- A database that cannot answer, a full per-process read ceiling, or a full
+  coverage-role connection limit returns 503; a reachable empty window returns
+  200 with an all-zero series.
 
 ## Safety and rights
 
 - One parameterized query inside the existing read-only five-second database
-  boundary and bounded 30-second cache.
-- No migration, write, cron, secret, or external network request.
+  boundary and bounded 30-second cache. Current and historical coverage share
+  a per-process three-read in-flight ceiling matching the database pool; the
+  deployed coverage role separately limits total connections to three.
+- Coverage reads require the explicit `WHOLESALE_COVERAGE_DATABASE_URL`; they
+  never fall through to the broader wholesale or storefront database login.
+  The deployed database role is limited to the archive/card/game columns used
+  by these aggregate queries.
+- Request handling performs no migration, data write, cron action, or outbound
+  HTTP request. The deployment secret holds only the column-limited login.
 - Aggregate rights remain `NOASSERTION`; the Cambridge-authored aggregation
-  shape is CC0 while actual contributing sources retain their reviewed rights
+  shape is CC0, the internal card-to-game mapping is named separately as
+  proprietary, and actual contributing sources retain their reviewed rights
   tiers. Unknown source ids fail closed to `proprietary`.
 
 ## Acceptance
@@ -75,5 +88,6 @@ price, card field, image, URL, person, or inferred relationship.
 - Focused behavior, rights, cache, and pure-composition tests pass.
 - OpenAPI, manifest, dataset registry, and status self-description match the
   live response.
-- Storefront typecheck, lint, tests, build, and repository audits pass.
+- Storefront typecheck, lint, tests, build, and affected repository audits pass;
+  unrelated umbrella-audit debt is named rather than hidden.
 - Production responds with the exact bounded contract and no forbidden fields.

@@ -35,19 +35,15 @@ describe("GET /api/v1/coverage", () => {
     expect(mockFetchCoverage).not.toHaveBeenCalled();
   });
 
-  it("normalizes empty filters instead of claiming they were applied", async () => {
-    mockFetchCoverage.mockResolvedValueOnce(null);
-    const response = await GET(
-      new Request("https://example.test/api/v1/coverage?source=&game=&since="),
-    );
-
-    expect(response.status).toBe(503);
-    expect((await response.json())._meta.endpoint).toBe("/api/v1/coverage");
-    expect(mockFetchCoverage).toHaveBeenCalledWith({
-      source: undefined,
-      game: undefined,
-      since: undefined,
-    });
+  it("rejects explicitly empty filters instead of broadening the read", async () => {
+    for (const query of ["source=", "game=", "since="]) {
+      const response = await GET(
+        new Request(`https://example.test/api/v1/coverage?${query}`),
+      );
+      expect(response.status).toBe(400);
+      expect((await response.json())._meta.endpoint).toBe("/api/v1/coverage");
+    }
+    expect(mockFetchCoverage).not.toHaveBeenCalled();
   });
 
   it("maps observed sources to their reviewed rights tier and defaults unknown ids closed", async () => {
@@ -92,11 +88,13 @@ describe("GET /api/v1/coverage", () => {
     expect(response.status).toBe(200);
     expect(body._meta.sources).toEqual([
       "cambridge-tcg.coverage-aggregation",
+      "cambridge-tcg.catalog-game-mapping",
       "cardrush",
       "legacy-unregistered-source",
     ]);
     expect(body._meta.source_license).toEqual([
       "cc0",
+      "proprietary",
       "internal-only",
       "proprietary",
     ]);
