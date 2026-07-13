@@ -13,6 +13,7 @@ import {
   TwoOperations,
   HOME_HERO_PANELS,
   HOME_HERO_HEADLINE,
+  HOME_HERO_OVERLINE,
   HOME_HERO_SUBHEAD,
   HOME_BENEDICTION,
 } from "@/lib/brand";
@@ -117,6 +118,11 @@ export default async function Home() {
           aria-hidden="true"
           className="absolute inset-x-0 top-0 h-56 wardrobe-tone-whisper wardrobe-tone-fade pointer-events-none"
         />
+        {/* The museum overline — the atlas claim, quiet apparatus voice
+            above the Fraunces headline. */}
+        <p className="relative font-mono text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
+          {HOME_HERO_OVERLINE}
+        </p>
         {/* Two panels; the gutter between them breathes (9s). The h1 is
             one accessible sentence — screen readers and no-JS read
             HOME_HERO_HEADLINE unchanged; the split is presentation. */}
@@ -185,7 +191,7 @@ export default async function Home() {
           above) — the heading says so instead of implying every game's
           latest sets. */}
       <div className="wardrobe-rise" style={{ "--rise-delay": "180ms" } as Record<string, string>}>
-        <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Latest One Piece Sets" />
+        <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Now showing · latest One Piece exhibitions" />
       </div>
       <div className="wardrobe-rise" style={{ "--rise-delay": "240ms" } as Record<string, string>}>
         <StorySection />

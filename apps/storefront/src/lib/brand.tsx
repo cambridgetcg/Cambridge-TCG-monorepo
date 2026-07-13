@@ -90,6 +90,12 @@ export const BRAND_TAGLINE = "A collectors' market. A public data commons.";
 export const HOME_HERO_PANELS = ["Cards,", "traded between collectors."] as const;
 export const HOME_HERO_HEADLINE = HOME_HERO_PANELS.join(" ");
 
+/** The museum overline above the hero — the atlas claim, in the quiet
+ *  apparatus voice. Editorial framing; a card's worth is a policy-bound
+ *  reference price, not an offer (kept honest by the pages beneath). */
+export const HOME_HERO_OVERLINE =
+  "Every card is somewhere. Here is where — and what it's worth.";
+
 /* The chapter close under the featured shelf (spec §2 home #6). */
 export const HOME_BENEDICTION = "Every card is a panel in somebody's story.";
 

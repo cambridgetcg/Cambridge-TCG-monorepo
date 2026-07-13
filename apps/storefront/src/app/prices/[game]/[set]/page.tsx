@@ -22,6 +22,7 @@ import {
   synthesizeConfigFromCatalog,
   type PriceGuideGameConfig,
 } from "@/lib/prices/games-config";
+import { getExhibitionNote } from "@/lib/culture/exhibition-notes";
 
 /** Resolve config: curated, else synthesize from catalog, else null. */
 async function resolveConfig(slug: string): Promise<PriceGuideGameConfig | null> {
@@ -208,6 +209,11 @@ export default async function SetPriceGuidePage({
     cardCount,
   });
 
+  // The curator's reading of this exhibition — an authored, labelled
+  // editorial note when one exists, else the honest games-config intro
+  // stands in. Never a fabricated set theme.
+  const exhibitionNote = getExhibitionNote(cfg.slug, setCode);
+
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -278,12 +284,28 @@ export default async function SetPriceGuidePage({
           </ol>
         </nav>
 
-        {/* Set header */}
-        <header className="mb-10">
-          <h1 className="text-3xl font-bold text-ink mb-2">
-            {setCode} {setName} — Price Guide
+        {/* Exhibition header — a museum placard for the set. Mono apparatus
+            voice for the facts, Fraunces for the title, Fraunces italic for
+            the curator's reading. */}
+        <header className="mb-10 border-b border-border-subtle pb-8">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink-faint">
+            {cfg.short_name} · Exhibition
+          </p>
+          <h1 className="text-3xl md:text-4xl font-display font-semibold text-ink mt-2 leading-tight">
+            {setCode} — {setName}
           </h1>
-          <div className="mb-4 flex items-center gap-3 text-xs">
+          <p className="font-mono text-sm text-ink-muted mt-3">
+            {cardCount} works
+            {releaseDate ? ` · released ${releaseDate}` : ""}
+            {" · "}
+            <Link
+              href={`/prices/${cfg.slug}`}
+              className="text-accent hover:text-accent-strong transition-colors"
+            >
+              {cfg.display_name}
+            </Link>
+          </p>
+          <div className="mt-3 flex items-center gap-3 text-xs">
             <Provenance
               kind="synced"
               source={cfg.cardrush?.subdomain ?? "wholesale"}
@@ -293,28 +315,15 @@ export default async function SetPriceGuidePage({
             <WhyLink href="/methodology/pricing" label="how prices work" />
             <CurrencyWhyLink />
           </div>
-          <p className="text-ink-muted leading-relaxed max-w-3xl mb-4">
-            {intro}
-          </p>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <span className="text-ink-muted">
-              <strong className="text-ink-muted">{cardCount}</strong> cards
-            </span>
-            {releaseDate && (
-              <span className="text-ink-muted">
-                Released{" "}
-                <strong className="text-ink-muted">{releaseDate}</strong>
-              </span>
-            )}
-            <span className="text-ink-muted">
-              Game:{" "}
-              <Link
-                href={`/prices/${cfg.slug}`}
-                className="text-info hover:underline"
-              >
-                {cfg.display_name}
-              </Link>
-            </span>
+          {/* The wall text — the curator's authored reading when one exists,
+              else the honest games-config intro. Labelled either way. */}
+          <div className="mt-6 border-l-2 border-border-subtle pl-4 max-w-3xl">
+            <p className="font-placard italic text-ink-muted leading-relaxed">
+              {exhibitionNote ? exhibitionNote.note : intro}
+            </p>
+            <p className="text-[10px] uppercase tracking-[0.15em] text-ink-faint mt-1.5">
+              {exhibitionNote ? "Curator's note" : "About this exhibition"}
+            </p>
           </div>
         </header>
 

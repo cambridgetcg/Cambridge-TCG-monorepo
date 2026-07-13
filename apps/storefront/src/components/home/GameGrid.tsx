@@ -16,7 +16,7 @@ import { weatherClass } from "@/lib/wardrobe/weather";
 export default function GameGrid({ games }: { games: GameItem[] }) {
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <PlateHeader title="Browse by Game" plate={1} rule />
+      <PlateHeader title="The wings · browse by game" plate={1} rule />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {games.map((g) => (
           <Link

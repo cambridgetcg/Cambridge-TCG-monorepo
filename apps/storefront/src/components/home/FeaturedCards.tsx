@@ -15,7 +15,7 @@ export default function FeaturedCards({ cards }: { cards: PriceItem[] }) {
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
       <PlateHeader
-        title="Featured Cards"
+        title="On the walls · featured"
         plate={4}
         rule
         action={<span className="font-mono text-xs text-ink-faint">reference prices</span>}

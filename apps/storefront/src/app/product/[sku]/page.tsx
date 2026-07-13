@@ -28,6 +28,7 @@ import { TONE_COLOR } from "@/lib/ui/Badge";
 import { gameFromSku, gameBrand, isSkuGameSlug } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
 import { weatherClass } from "@/lib/wardrobe/weather";
+import { deriveCardWallText } from "@/lib/culture/exhibition-notes";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }): Promise<Metadata> {
   const { sku } = await params;
@@ -92,6 +93,12 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
   const brandName = gameBrand(gameSlug);
   const cardName = card.name_en || card.name || card.card_number;
 
+  // The card's wall text — one reverent line composed ONLY from real fields
+  // (rarity in plain words + the set it belongs to). Labelled on the surface
+  // as an editorial reading; never invented lore. (Release year is on the
+  // set, not the card, so it is omitted here — the honest minimum.)
+  const wallText = deriveCardWallText(card);
+
   // JSON-LD structured data — Product identity WITHOUT an Offer block.
   // The platform sells nothing, so schema.org must not claim a
   // first-party sale; collector listings live at /market/[sku].
@@ -145,38 +152,56 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
       {/* The game weather follows the derivable game only — a SEALED- box
           keeps the breadcrumb's one-piece fallback but wears no sky it
           can't honestly claim (spec 2026-07-07 §4). */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 ${weatherClass(gameFromSku(card.sku))}`}>
-        {/* Card image */}
-        <div
-          className="wardrobe-aura"
-          style={{ "--aura": TONE_COLOR[Palettes.RarityPalette[card.rarity ?? ""] ?? "neutral"] } as React.CSSProperties}
-        >
-          <div className="relative aspect-[3/4] wardrobe-panel overflow-hidden">
-            {card.image_url && (
-              <Image
-                src={card.image_url}
-                alt={cardAltText(card)}
-                fill
-                className="object-contain"
-                priority
-              />
-            )}
+      <div className={`grid grid-cols-1 md:grid-cols-5 gap-8 md:gap-14 items-start ${weatherClass(gameFromSku(card.sku))}`}>
+        {/* The work — given room, mounted on a museum mat. The art is the
+            only saturated thing on the page; the mat is its quiet board. */}
+        <div className="md:col-span-3">
+          <div className="bg-mat rounded-xl p-4 sm:p-8 md:p-10 shadow-mat">
+            <div
+              className="wardrobe-aura"
+              style={{ "--aura": TONE_COLOR[Palettes.RarityPalette[card.rarity ?? ""] ?? "neutral"] } as React.CSSProperties}
+            >
+              <div className="relative aspect-[3/4] wardrobe-panel overflow-hidden">
+                {card.image_url && (
+                  <Image
+                    src={card.image_url}
+                    alt={cardAltText(card)}
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Card details */}
-        <div className="flex flex-col gap-6">
+        {/* The placard — the two museum voices: set/number/rarity in the
+            mono apparatus voice, the title in Fraunces, the reading in
+            Fraunces italic. */}
+        <div className="md:col-span-2 flex flex-col gap-6">
           <div>
-            <div className="flex items-center gap-2 text-sm text-ink-muted uppercase tracking-wider">
-              <span>{card.set_name}</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink-faint">{card.set_name}</span>
               {card.rarity && rarityClasses && (
-                <span className={`px-2 py-0.5 text-xs font-bold rounded-full normal-case ${rarityClasses}`}>
+                <span className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded-full uppercase tracking-wider ${rarityClasses}`}>
                   {card.rarity}
                 </span>
               )}
             </div>
-            <h1 className="text-3xl font-display font-semibold mt-1">{card.name_en || card.name}</h1>
-            <p className="text-ink-muted mt-1">{card.card_number}</p>
+            <h1 className="text-3xl md:text-4xl font-display font-semibold text-ink mt-2 leading-tight">{cardName}</h1>
+            <p className="font-mono text-sm text-ink-muted mt-1">{card.card_number}</p>
+
+            {/* The wall text — derived from the card's own facts, shown as a
+                labelled reading (never presented as upstream lore). */}
+            {wallText && (
+              <div className="mt-5 border-l-2 border-border-subtle pl-4">
+                <p className="font-placard italic text-ink-muted leading-relaxed">{wallText}</p>
+                <p className="text-[10px] uppercase tracking-[0.15em] text-ink-faint mt-1.5">
+                  A reading · from the card&apos;s own facts
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Policy-bound reference price — labelled, never an offer or reuse grant */}
@@ -215,7 +240,7 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
           {/* Collector market pulse */}
           {hasPulse ? (
             <div className="bg-surface border border-border-subtle rounded-lg p-4 flex flex-col gap-3">
-              <h3 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">On the market</h3>
+              <h3 className="font-mono text-xs font-semibold text-ink-muted uppercase tracking-[0.15em]">On the market · the card&apos;s ledger</h3>
               {bestAsk !== null && (
                 <div className="text-sm text-ink-muted">
                   Collectors are selling from{" "}
@@ -295,8 +320,8 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
       {/* Related cards */}
       {relatedCards.length > 0 && (
         <div className="mt-16">
-          <h2 className="text-xl font-bold text-ink mb-2">More from this set</h2>
-          <p className="text-sm text-ink-faint mb-4">Other cards from {card.set_name}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink-faint mb-1">More from this exhibition</p>
+          <h2 className="text-xl font-display font-semibold text-ink mb-4">{card.set_name}</h2>
           <CardGrid cards={relatedCards} />
         </div>
       )}
