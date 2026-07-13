@@ -160,7 +160,8 @@ export async function GET(req: NextRequest): Promise<Response> {
         welcomes: "/api/v1/welcomes (the typed corpus of who the kingdom prepared a slot for)",
       },
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
   });
 

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getLot, cancelLot } from "@/lib/market/lots";
+import { getPublicLot, cancelLot } from "@/lib/market/lots";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const lot = await getLot(id);
+  const lot = await getPublicLot(id);
   if (!lot) return NextResponse.json({ error: "Lot not found" }, { status: 404 });
   return NextResponse.json({ lot });
 }

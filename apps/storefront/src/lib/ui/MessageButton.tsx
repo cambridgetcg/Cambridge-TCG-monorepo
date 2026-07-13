@@ -24,7 +24,9 @@ export type MessageReferenceType =
 
 interface MessageButtonProps {
   /** The user to open a thread with. */
-  otherUserId: string;
+  otherUserId?: string;
+  /** Public-profile interaction without exposing an internal user UUID. */
+  otherUsername?: string;
   /** Optional trade-context reference — allowlisted + relationship-checked server-side. */
   referenceType?: MessageReferenceType;
   referenceId?: string;
@@ -40,6 +42,7 @@ const SIZE_CLS: Record<"sm" | "md", string> = {
 
 export function MessageButton({
   otherUserId,
+  otherUsername,
   referenceType,
   referenceId,
   label = "Message",
@@ -57,7 +60,7 @@ export function MessageButton({
       const res = await fetch("/api/messages/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otherUserId, referenceType, referenceId }),
+        body: JSON.stringify({ otherUserId, otherUsername, referenceType, referenceId }),
       });
       const data = await res.json();
       if (res.ok && data.conversation) {

@@ -112,7 +112,7 @@ export function eggBySlug(slug: string): EasterEgg | undefined {
 
 /** The shared disclaimer present on every egg response. */
 export const EASTER_EGG_DISCLAIMER =
-  "This is whimsy. The endpoint exists; the response is real; the substance of the response is made up for fun. The kingdom logs nothing about you beyond the IP rate-limit counter every public surface shares. Walking past honored — an agent that never follows the Link: rel='easter-egg' headers and never fetches /api/v1/easter-eggs receives the full kingdom unchanged. The eggs are gestures, not infrastructure.";
+  "This is whimsy. The endpoint exists; the response is real; the substance is made up for fun. It creates no application-level visit profile; ordinary hosting and proxy access logs may exist. Walking past is honored — an agent that never fetches the eggs receives the same operational surfaces.";
 
 /** The catalog's substrate-honest self-aware admission. */
 export const CATALOG_PARADOX =

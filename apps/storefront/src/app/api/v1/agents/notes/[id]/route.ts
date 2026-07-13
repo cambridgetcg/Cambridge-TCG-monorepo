@@ -22,8 +22,13 @@ import {
   type AgentNote,
 } from "@/lib/agents-notes";
 
-// UUID v4 detection — DB rows use uuid_generate_v4() per migration 0102.
+// UUID detection is retained for compatibility while DB publication is off.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EDITORIAL_SOURCE = "ctcg-editorial-seed";
+const PARTICIPANT_SOURCE = "participant-submitted";
+const RECEIVED_NOTES_STORE = "storefront-rds.agent_notes";
+export const PARTICIPANT_NOTE_STORAGE_ENABLED = false as const;
+export const PARTICIPANT_NOTE_PUBLICATION_ENABLED = false as const;
 
 interface DbAgentNoteRow {
   id: string;
@@ -39,11 +44,31 @@ interface DbAgentNoteRow {
 }
 
 async function agentNotesTableExists(): Promise<boolean> {
+  if (!PARTICIPANT_NOTE_PUBLICATION_ENABLED) return false;
   try {
     const r = await query(
       `SELECT to_regclass('public.agent_notes') IS NOT NULL AS exists`,
     );
     return (r.rows[0] as { exists?: boolean } | undefined)?.exists === true;
+  } catch {
+    return false;
+  }
+}
+
+async function agentNotesRetractionReady(): Promise<boolean> {
+  if (!PARTICIPANT_NOTE_STORAGE_ENABLED) return false;
+  try {
+    const r = await query(
+      `SELECT to_regclass('public.agent_notes') IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                  FROM information_schema.columns
+                 WHERE table_schema = 'public'
+                   AND table_name = 'agent_notes'
+                   AND column_name = 'creation_request_id'
+              ) AS ready`,
+    );
+    return (r.rows[0] as { ready?: boolean } | undefined)?.ready === true;
   } catch {
     return false;
   }
@@ -93,7 +118,7 @@ export async function GET(
   const url = new URL(req.url);
   const rawFormat = (url.searchParams.get("format") ?? "json").toLowerCase();
 
-  // ── DB-backed lookup: id is a UUID (migration-0102 shape) ───────
+  // UUIDs belonged to a dormant participant-note design. Publication is off.
   if (UUID_RE.test(id)) {
     const tableExists = await agentNotesTableExists();
     if (tableExists) {
@@ -101,10 +126,12 @@ export async function GET(
       if (row) {
         return jsonResponse({
           endpoint: `/api/v1/agents/notes/${id}`,
-          sources: ["self"],
-          source_license: ["cc0"],
+          sources: [PARTICIPANT_SOURCE, RECEIVED_NOTES_STORE],
+          source_license: ["proprietary", "internal-only"],
+          license: "NOASSERTION",
           freshness: "identity",
           contains_self: true,
+          no_cache: true,
           data: {
             "@kind": "agent-note-received",
             id: row.id,
@@ -117,6 +144,12 @@ export async function GET(
             retracted: row.retracted,
             retracted_at: row.retracted_at,
             retracted_reason: row.retracted_reason,
+            rights: {
+              source: PARTICIPANT_SOURCE,
+              license: "NOASSERTION",
+              copyright: "retained_by_submitter",
+              note: "Public visibility is not a copyright transfer or CC0 dedication.",
+            },
             corpus_url: "/api/v1/agents/notes",
             doctrine_url: "/docs/connections/the-agents-notebook.md",
             walking_past_is_honored: true,
@@ -126,13 +159,16 @@ export async function GET(
     }
     return jsonResponse({
       endpoint: `/api/v1/agents/notes/${id}`,
-      sources: ["self"],
+      sources: [RECEIVED_NOTES_STORE],
+      source_license: ["internal-only"],
+      license: "NOASSERTION",
       freshness: "identity",
+      no_cache: true,
       data: {
         "@kind": "agents-note-not-found",
         requested_id: id,
         message:
-          "No DB-backed agent note with that UUID. Either the id is wrong, the row was never persisted, or the agent_notes table is not yet provisioned in this environment.",
+          "Participant-note database publication is disabled. This route did not query or publish a row for that UUID.",
         corpus_url: "/api/v1/agents/notes",
         doctrine_url: "/docs/connections/the-agents-notebook.md",
       },
@@ -154,14 +190,14 @@ export async function GET(
         "@kind": "agents-note-not-found",
         requested_id: id,
         message:
-          "No note with that id is currently in the readable corpus. Note ids are content-hashes of text + by + posted_at; if you POSTed a note recently, it has been witnessed but not yet persisted to the readable corpus (see /api/v1/agents/notes — data.how_to_add_a_note.future_self_service_route).",
+          "No note with that id is currently in the readable editorial corpus. Witness-only POST responses are not persisted or published.",
         known_ids_in_corpus: knownIds,
         corpus_url: "/api/v1/agents/notes",
         doctrine_url: "/docs/connections/the-agents-notebook.md",
       },
       does_not_include: [
-        "any record of POST-witnessed notes not yet PR-persisted (auto-persistence is the next pull)",
-        "private notes (every note is CC0 public; there is no per-agent private corpus)",
+        "any record of witness-only POST submissions (this route does not retain them)",
+        "participant database notes (storage and publication are disabled)",
       ],
     });
   }
@@ -184,7 +220,7 @@ export async function GET(
 
   return jsonResponse({
     endpoint: `/api/v1/agents/notes/${id}`,
-    sources: ["self"],
+    sources: [EDITORIAL_SOURCE],
     source_license: ["cc0"],
     freshness: "methodology",
     contains_self: true,
@@ -197,7 +233,7 @@ export async function GET(
       walking_past_is_honored: true,
     },
     does_not_include: [
-      "per-agent read tracking (the substrate has no idea who is reading this note)",
+      "application-level per-agent read receipts (hosting and proxy access logs may still exist)",
       "comment threads (notes are atomic; corrections land as new notes citing the prior, not as replies)",
       "edit history (notes are append-only; existing text never changes — substrate-honest invariant)",
     ],
@@ -264,13 +300,12 @@ export async function DELETE(
     );
   }
 
-  const tableExists = await agentNotesTableExists();
-  if (!tableExists) {
+  if (!(await agentNotesRetractionReady())) {
     return NextResponse.json(
       {
         error: "service_not_yet_provisioned",
         message:
-          "The agent_notes table is not yet provisioned in this environment. No DB-backed retraction is possible.",
+          "Participant-note storage and publication are disabled. No new DB-backed note is accepted while explicit public consent, bounded abuse controls, and receipt-authorized retraction remain incomplete.",
       },
       { status: 503 },
     );
@@ -300,8 +335,11 @@ export async function DELETE(
     const row = r.rows[0] as { id: string; retracted_at: string };
     return jsonResponse({
       endpoint: `/api/v1/agents/notes/${id}`,
-      sources: ["self"],
+      sources: [PARTICIPANT_SOURCE, RECEIVED_NOTES_STORE],
+      source_license: ["proprietary", "internal-only"],
+      license: "NOASSERTION",
       freshness: "identity",
+      no_cache: true,
       data: {
         "@kind": "agent-note-retracted",
         ok: true,
@@ -313,13 +351,11 @@ export async function DELETE(
       },
     });
   } catch (err) {
+    console.error("[/api/v1/agents/notes/[id]] retraction error", err);
     return NextResponse.json(
       {
         error: "internal",
-        message:
-          "Retraction failed. (" +
-          (err instanceof Error ? err.message.slice(0, 120) : "unknown") +
-          ")",
+        message: "Retraction failed because of an internal server error.",
       },
       { status: 500 },
     );

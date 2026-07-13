@@ -9,7 +9,7 @@
  * killed invocation keeps its progress. Full policy in the header of
  * `@/lib/price-snapshot-v2`.
  *
- * Auth: Authorization: Bearer {CRON_SECRET}  OR  Vercel Cron header.
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Query params:
  *   ?dryRun=1       — set, runs but caps maxCards (review the ingest_run row)
@@ -28,12 +28,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runDailySnapshotV2 } from "@/lib/price-snapshot-v2";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+} from "@cambridge-tcg/data-ingest";
 
 export const maxDuration = 800; // seconds — Vercel limit for fluid functions
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireCronAuth(req);
   if (denied) return denied;
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, status: "blocked_pending_formal_partnership", reason: CARDRUSH_BLOCK_REASON, policy: CARDRUSH_DATA_POLICY_URL },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
@@ -65,7 +77,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       dryRun,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("cron/ingest/cardrush", err);
     return NextResponse.json(
       {
         ok: false,

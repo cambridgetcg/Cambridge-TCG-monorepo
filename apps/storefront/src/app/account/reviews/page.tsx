@@ -4,12 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Audience } from "@/lib/ui";
+import {
+  PERSON_PUBLICATION_NOTICE,
+  PERSON_PUBLICATION_NOTICE_PATH,
+  PERSON_PUBLICATION_NOTICE_VERSION,
+} from "@/lib/social/publication";
 interface ReceivedReview {
   id: string;
   trade_id: string;
   role: string;
   rating: number;
   comment: string | null;
+  is_public: boolean;
   admin_hidden: boolean;
   flagged: boolean;
   appealed_at: string | null;
@@ -26,6 +32,9 @@ interface GivenReview {
   role: string;
   rating: number;
   comment: string | null;
+  is_public: boolean;
+  publication_notice_version: string | null;
+  published_at: string | null;
   admin_hidden: boolean;
   flagged: boolean;
   created_at: string;
@@ -73,10 +82,30 @@ export default function AccountReviewsPage() {
     } finally { setAppealing(null); }
   }
 
+  async function setReviewPublication(reviewId: string, isPublic: boolean) {
+    const r = await fetch("/api/account/reviews", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reviewId,
+        isPublic,
+        publicationNoticeVersion: isPublic
+          ? PERSON_PUBLICATION_NOTICE_VERSION
+          : undefined,
+      }),
+    });
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      alert(body.error || "Could not update review publication.");
+      return;
+    }
+    await load();
+  }
+
   if (loading || !data) return <div className="text-ink-faint">Loading…</div>;
 
   const list = tab === "received" ? data.received : data.given;
-  const visibleReceived = data.received.filter((r) => !r.admin_hidden);
+  const visibleReceived = data.received.filter((r) => r.is_public && !r.admin_hidden);
   const avgVisible = visibleReceived.length > 0
     ? visibleReceived.reduce((s, r) => s + r.rating, 0) / visibleReceived.length
     : 0;
@@ -184,6 +213,23 @@ export default function AccountReviewsPage() {
                     </Link>
                   ) : counterparty}
                 </div>
+                {!isReceived && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border-subtle pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setReviewPublication(r.id, !given!.is_public)}
+                      className="rounded-md border border-border-subtle px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-subtle"
+                    >
+                      {given!.is_public ? "Unpublish review" : "Publish review"}
+                    </button>
+                    <span className="text-xs text-ink-faint">
+                      {given!.is_public ? PERSON_PUBLICATION_NOTICE.review : "Visible only to trade participants and account tools."}{" "}
+                      <Link href={PERSON_PUBLICATION_NOTICE_PATH} className="text-accent underline">
+                        Publication notice
+                      </Link>
+                    </span>
+                  </div>
+                )}
 
                 {isReceived && r.admin_hidden && (
                   <div className="mt-3 bg-accent-wash border border-accent/30 rounded p-3 text-xs">

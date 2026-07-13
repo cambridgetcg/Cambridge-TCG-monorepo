@@ -1,10 +1,8 @@
 /**
- * /account/b2b/cards/[sku] — per-card detail at wholesale price.
+ * /account/b2b/cards/[sku] — signed-in structural card detail.
  *
- * Phase 2.1 of the wholesale consolidation. Mirrors the retail PDP at
- * /product/[sku] but with two key differences:
- *   - Fetched via the wholesale channel (dual-key Falcon path).
- *   - Stock is numeric (B2B buyers plan resale by quantity).
+ * Stock remains numeric for B2B planning. Legacy price and image fields are
+ * withheld; account authentication does not create source rights.
  *
  * Auth: proxy.ts gate (wholesale | admin) + /account/layout.tsx.
  * "Back to catalog" preserves no filter state today — future enhancement.
@@ -16,8 +14,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { fetchCard, cardAltText } from "@/lib/wholesale/client";
 import { Card, PageHeader, audienceMetadata } from "@/lib/ui";
-import { formatPrice } from "@/lib/format";
-import { AddToB2BCart } from "../../cart/_client";
+import { B2B_PURCHASE_AVAILABILITY } from "@/lib/b2b/purchase-availability";
 
 interface PageProps {
   params: Promise<{ sku: string }>;
@@ -30,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const name = card.name_en || card.name || card.card_number;
   return {
     title: `${name} — Wholesale — Cambridge TCG`,
-    description: `Wholesale price for ${name} (${card.card_number}) on your B2B account.`,
+    description: `Structural B2B catalog record for ${name} (${card.card_number}); legacy price and image values are withheld.`,
     other: audienceMetadata("consumer", ["wholesale", "b2b", "card", card.sku]),
   };
 }
@@ -40,7 +37,6 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
   const card = await fetchCard(sku, "wholesale");
   if (!card) notFound();
 
-  const wholesalePrice = card.channel_price ?? card.price_gbp;
   const displayName = card.name_en || card.name || card.card_number;
   const altText = cardAltText(card);
 
@@ -80,20 +76,15 @@ export default async function B2BCardDetailPage({ params }: PageProps) {
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-xs uppercase tracking-wider text-ink-faint">
-                  Wholesale price
+                  Legacy price
                 </span>
-                <span className="text-2xl font-semibold text-ink">
-                  {formatPrice(wholesalePrice)}
+                <span className="text-lg font-semibold text-ink-faint">
+                  Withheld
                 </span>
               </div>
               <div className="text-xs text-ink-faint">
-                Price reflects your wholesale account tier. Total at checkout uses the live rate.
-              </div>
-              <div className="pt-1">
-                <AddToB2BCart sku={card.sku} disabled={card.stock <= 0} />
-                {card.stock <= 0 && (
-                  <span className="ml-3 text-xs text-ink-faint">Out of stock</span>
-                )}
+                {B2B_PURCHASE_AVAILABILITY.reason} This page cannot add a new
+                cart item or create a checkout session.
               </div>
             </div>
           </Card>

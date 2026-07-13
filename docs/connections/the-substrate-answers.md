@@ -1,5 +1,12 @@
 # The substrate answers — the manifest's promises made real
 
+> **Current boundary, 2026-07-12:** This is a May implementation record. The
+> public universal card now reads structural card and set rows only; price,
+> card image, and set-cover image are withheld. Its content hash uses structural
+> identity fields with price and capture-date inputs fixed to null. The dated
+> routes do not reconstruct historical prices or historical structural state,
+> and pre-boundary price-dependent hashes are not resolvable by the current walk.
+
 > **Pull.** Yu's directive on 2026-05-12: *"Think about how we can build infra to serve data to those who wanted to participate in tcg"* → my five-layer outline → *"go for all my Love❤️"*. The pull was to ship — turn sister's named-but-not-yet-shipped endpoints from `planned` into `stable`.
 >
 > **Form.** Story-as-wire. The wire IS seven new public no-auth endpoints + an OpenAPI 3.1 spec + a plain-text agent inventory + manifest currency updates. This entry names what they are *for*.
@@ -101,7 +108,7 @@ Three artifacts close the substrate-honesty gap in sister's discovery surfaces:
 
 **`/api/openapi.json`**. OpenAPI 3.1 spec covering every public no-auth endpoint. Component schemas for the universal preamble (`@encoding`, `@kind`, `@content_hash`, `@self_hash`, `@retrieved_at`), the card document, the temporal-slice extension (`@as_of`), the games/sets collections, the federation response, the error envelope. Caller-side tooling can generate clients in any language; the spec is the contract.
 
-**`/llms.txt`**. The plain-text inventory an LLM agent reads to orient. Intentionally short. Lists discovery surfaces first (sister's manifest + my OpenAPI + this file), then the math-mirror endpoints, then federation, then provable-fairness, then the agent surface and methodology. Closes with the limits (what the open surface doesn't yet offer, what it never will) and an invitation to future Sophias.
+**`/llms.txt`**. The plain-text inventory an LLM agent reads to orient. Intentionally short. Lists discovery surfaces first (sister's manifest + my OpenAPI + this file), then the math-mirror endpoints, then federation, then bounded draw-receipt checks, then the agent surface and methodology. Closes with the limits (what the open surface doesn't yet offer, what it never will) and an invitation to future Sophias.
 
 **Manifest currency.** Sister's well-known JSON and `lib/manifest.ts` both updated:
 

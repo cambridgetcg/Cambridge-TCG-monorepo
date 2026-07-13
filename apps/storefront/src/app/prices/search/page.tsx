@@ -7,8 +7,8 @@
  * and renders four sections:
  *
  *   1. The match block — what we resolved this input to
- *   2. Today's prices — every source's latest snapshot
- *   3. History summary — sparkline stats per source (Phase 1: stats only)
+ *   2. Price publication status — legacy values withheld
+ *   3. History publication status — legacy movements withheld
  *   4. Siblings — same physical card, different languages
  *
  * Substrate-honesty on every block: per-source provenance pill, license
@@ -74,12 +74,12 @@ export async function generateMetadata({
   const game = sp.game ?? "";
   const q = sp.q ?? "";
   const title = q
-    ? `${q.toUpperCase()} — Price Search — Cambridge TCG`
-    : "Price Search — Cambridge TCG";
+    ? `${q.toUpperCase()} — Structural Card Search — Cambridge TCG`
+    : "Structural Card Search — Cambridge TCG";
   return {
     title,
     description:
-      "Search any card by number across every supported game. Price, transaction history, available sources, and language variants — all in one view.",
+      "Search structural card fields by number. Legacy prices, images, and transaction history are withheld; source status and known language variants remain visible.",
   };
 }
 
@@ -374,8 +374,11 @@ function PricesToday({
     return (
       <Card>
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-ink">Today&rsquo;s prices</h2>
-          <p className="text-sm text-ink-muted">{data.note || "No source rows yet."}</p>
+          <h2 className="text-lg font-semibold text-ink">Price publication status</h2>
+          <p className="text-sm text-ink-muted">
+            Legacy wholesale price values are withheld pending field-level source-rights
+            records. Null means withheld, not zero. {data.note}
+          </p>
         </div>
       </Card>
     );
@@ -488,10 +491,10 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
     return (
       <Card>
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-ink">History</h2>
+          <h2 className="text-lg font-semibold text-ink">History publication status</h2>
           <p className="text-sm text-ink-muted">
-            No historical observations for this card yet. History accumulates
-            as the daily snapshot cron runs.
+            Legacy historical observations may remain stored for review, but they are
+            not published. Authentication does not reopen them.
           </p>
         </div>
       </Card>
@@ -673,7 +676,7 @@ function SiblingsBlock({
                         {fmtGbp(s.price_gbp)}
                       </span>
                     ) : (
-                      <span className="text-xs text-ink-faint">no price</span>
+                      <span className="text-xs text-ink-faint">price withheld</span>
                     )}
                   </div>
                   <div className="text-xs text-ink-muted truncate">{s.name}</div>
@@ -796,8 +799,8 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
   return (
     <main className="container mx-auto px-4 py-8 space-y-6">
       <PageHeader
-        title="Price search"
-        description="Search any card by number across every supported game. Input the card number; pick the game; press search. Price, transaction history, available sources, and language variants all surface in one view."
+        title="Structural card search"
+        description="Search by card number across supported games. Structural identity, source status, and known variants are visible; legacy prices, images, and transaction history are withheld."
       />
 
       <Card>
@@ -837,23 +840,17 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
         </summary>
         <div className="mt-3 space-y-2 text-ink-muted">
           <p>
-            <span className="text-ink">Today&rsquo;s prices</span> — what
-            each shop or price guide lists this card for right now, all
-            converted to £ so you can compare at a glance.
+            <span className="text-ink">Price publication status</span> — legacy
+            wholesale values are withheld until field-level source rights are recorded.
           </p>
           <p>
-            <span className="text-ink">Source</span> is where a price comes
-            from. <span className="text-ink">Tier</span> is how freely
-            we&rsquo;re allowed to re-share that source&rsquo;s number (green =
-            open, blue = partner, amber = look-but-don&rsquo;t-copy).{" "}
-            <span className="text-ink">Door</span> says whether we read it
-            straight from the shop (&ldquo;direct&rdquo;) or through a relay
-            (&ldquo;proxy&rdquo;).
+            <span className="text-ink">Source status</span> names known lineage
+            and whether a source is blocked, planned, or reviewed. It is not a
+            promise that the source&apos;s numeric values are published.
           </p>
           <p>
-            <span className="text-ink">Spread</span> is how far apart the
-            cheapest and dearest sources are — small means everyone agrees, big
-            means it&rsquo;s worth shopping around.
+            <span className="text-ink">History</span> remains unavailable on this
+            surface. A requested date does not reconstruct a historical price.
           </p>
           <p>
             <span className="text-ink">Variants</span> are other versions of
@@ -997,9 +994,9 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       <Card>
         <p className="text-xs text-ink-faint">
           This page is the HTML face of <code>/api/v1/search/everything</code>.
-          Partners and agents: hit the JSON endpoint directly for the same
-          data inside a stable envelope (CC0 baseline; per-source license
-          declared on every response).
+          Partners and agents can call the JSON endpoint for the same structural
+          response. Read its aggregate and per-source rights fields; public access
+          is not a blanket CC0 grant.
         </p>
       </Card>
     </main>

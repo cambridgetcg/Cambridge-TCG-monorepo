@@ -1,17 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import type {
   GameCard,
-  PlayerState,
-  GameState,
   GamePhase,
-  GameAction,
 } from "@/lib/game/types";
 import { PHASE_LABELS } from "@/lib/game/types";
+import type {
+  PublicGameAction,
+  PublicGameState,
+  PublicPlayerState,
+} from "@/lib/game/public";
 import {
   loadSavedDecks,
   deckToCards,
@@ -31,20 +33,17 @@ const POLL_MS = 1500;
 
 interface StateResponse {
   room: {
-    id: string;
     code: string;
     status: "waiting" | "playing" | "finished" | "abandoned";
     player1Name: string | null;
     player2Name: string | null;
-    player1Id: string | null;
-    player2Id: string | null;
     turnNumber: number;
     phase: string;
     isPublic: boolean;
     lastActionAt: string;
   };
-  state: GameState | null;
-  log: GameAction[];
+  state: PublicGameState | null;
+  log: PublicGameAction[];
   you: "player1" | "player2" | "spectator";
 }
 
@@ -54,7 +53,6 @@ interface StateResponse {
 
 export default function GameBoard() {
   const params = useParams();
-  const router = useRouter();
   const code = (params.code as string || "").toUpperCase();
 
   /* ---- Core state ---- */
@@ -82,9 +80,9 @@ export default function GameBoard() {
   const you = resp?.you ?? "spectator";
   const log = resp?.log ?? [];
   const isPlayer = you === "player1" || you === "player2";
-  const isMyTurn = state ? (you === "player1" ? state.currentTurn === state.player1.userId : state.currentTurn === state.player2.userId) : false;
-  const myState: PlayerState | null = state ? (you === "player1" ? state.player1 : you === "player2" ? state.player2 : state.player1) : null;
-  const oppState: PlayerState | null = state ? (you === "player1" ? state.player2 : you === "player2" ? state.player1 : state.player2) : null;
+  const isMyTurn = state ? state.currentTurn === you : false;
+  const myState: PublicPlayerState | null = state ? (you === "player1" ? state.player1 : you === "player2" ? state.player2 : state.player1) : null;
+  const oppState: PublicPlayerState | null = state ? (you === "player1" ? state.player2 : you === "player2" ? state.player1 : state.player2) : null;
   const gameActive = room?.status === "playing" && state?.phase !== "finished";
 
   /* ================================================================ */
@@ -493,7 +491,7 @@ export default function GameBoard() {
     isOwn,
     label,
   }: {
-    player: PlayerState;
+    player: PublicPlayerState;
     isOwn: boolean;
     label: string;
   }) {
@@ -642,7 +640,17 @@ export default function GameBoard() {
                 <span className="text-ink-faint mr-1">
                   {new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <span className="text-ink-muted">{entry.playerId === myState?.userId ? "You" : "Opponent"}</span>{" "}
+                <span className="text-ink-muted">{
+                  entry.player === you
+                    ? "You"
+                    : isPlayer
+                      ? "Opponent"
+                      : entry.player === "player1"
+                        ? room?.player1Name || "Player 1"
+                        : entry.player === "player2"
+                          ? room?.player2Name || "Player 2"
+                          : "Player"
+                }</span>{" "}
                 {formatAction(entry)}
               </div>
             ))
@@ -653,13 +661,14 @@ export default function GameBoard() {
     );
   }
 
-  function formatAction(action: GameAction): string {
+  function formatAction(action: PublicGameAction): string {
+    const actionData = action.data ?? {};
     switch (action.type) {
-      case "move_card": return `moved a card to ${(action.data as Record<string, unknown>).toZone}`;
+      case "move_card": return actionData.toZone ? `moved a card to ${actionData.toZone}` : "moved a card";
       case "toggle_rest": return "toggled rest on a card";
       case "attach_don": return "attached DON!! to a card";
       case "detach_don": return "detached DON!! from a card";
-      case "rest_don": return `rested ${(action.data as Record<string, unknown>).count} DON!!`;
+      case "rest_don": return actionData.count ? `rested ${actionData.count} DON!!` : "rested DON!!";
       case "begin_turn": return "started the turn (refresh, draw, DON!!)";
       case "refresh_all": return "refreshed all cards";
       case "draw_card": return "drew a card";
@@ -668,6 +677,7 @@ export default function GameBoard() {
       case "next_phase": return "advanced to next phase";
       case "end_turn": return "ended their turn";
       case "concede": return "conceded the game";
+      case "chat": return "sent a message";
       default: return action.type;
     }
   }
@@ -842,10 +852,10 @@ export default function GameBoard() {
     // state.winner is authoritative (set on the finishing attack and on
     // concede). Life totals are the fallback for legacy rows.
     let winnerText = "Game Over";
-    const winnerId = state?.winner;
-    if (winnerId && winnerId === room?.player1Id) {
+    const winner = state?.winner;
+    if (winner === "player1") {
       winnerText = you === "player1" ? "You Win!" : `${room?.player1Name || "Player 1"} Wins!`;
-    } else if (winnerId && winnerId === room?.player2Id) {
+    } else if (winner === "player2") {
       winnerText = you === "player2" ? "You Win!" : `${room?.player2Name || "Player 2"} Wins!`;
     } else if (p1Life <= 0 && p2Life > 0) {
       winnerText = you === "player2" ? "You Win!" : `${room?.player2Name || "Player 2"} Wins!`;

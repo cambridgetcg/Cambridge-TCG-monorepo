@@ -4,8 +4,7 @@
  *
  * Bundles existing verification surfaces into one report:
  *   • Git state (branch, ahead/behind, dirty files, last 10 commits)
- *   • Production health (/api/health on Vercel)
- *   • Production version vs local HEAD
+ *   • Production process liveness (/api/health on Vercel)
  *   • Type check, lint, build (optional, --full)
  *   • Route health (scripts/test-routes.sh)
  *
@@ -68,8 +67,8 @@ function gitState() {
   return { branch, head, headShort, upstream, ahead: +ahead, behind: +behind, dirty, lastCommits };
 }
 
-// ── Prod health ─────────────────────────────────────────────────────────────
-async function prodHealth() {
+// ── Prod liveness ──────────────────────────────────────────────────────────
+async function prodLiveness() {
   const start = Date.now();
   try {
     const r = await fetch(`${PROD_URL}/api/health`, { signal: AbortSignal.timeout(15_000) });
@@ -126,16 +125,7 @@ function routeHealth() {
 report.checks.git = gitState();
 
 if (!values["no-prod"]) {
-  report.checks.prodHealth = await prodHealth();
-  // Compare prod APP_VERSION vs local HEAD short SHA
-  const prodVer = report.checks.prodHealth.body?.environment?.APP_VERSION;
-  if (prodVer) {
-    report.checks.versionMatch = {
-      prod: prodVer,
-      local: report.checks.git.headShort,
-      synced: prodVer.startsWith(report.checks.git.headShort) || report.checks.git.headShort.startsWith(prodVer),
-    };
-  }
+  report.checks.prodLiveness = await prodLiveness();
 }
 
 if (values.full) {
@@ -168,25 +158,16 @@ if (g.dirty.length > 0 && g.dirty.length <= 10) {
 console.log(`  Recent commits:`);
 for (const line of g.lastCommits.slice(0, 5)) console.log(`    ${c.dim}${line}${c.reset}`);
 
-if (report.checks.prodHealth) {
-  const h = report.checks.prodHealth;
+if (report.checks.prodLiveness) {
+  const h = report.checks.prodLiveness;
   console.log(`\n${c.bold}Production${c.reset}  ${c.dim}${PROD_URL}${c.reset}`);
   if (h.ok) {
     const b = h.body;
-    console.log(`  Health:    ${c.green}${b.status}${c.reset}  (${h.latency}ms)`);
-    console.log(`  Version:   ${b.environment?.APP_VERSION ?? "?"}`);
-    console.log(`  DB:        ${b.dataAPI?.connected ? c.green + "connected" + c.reset : c.red + "down" + c.reset}  (${b.dataAPI?.responseTime ?? "?"}ms, ${b.dataAPI?.schemaInfo?.publicTables ?? "?"} tables)`);
-    console.log(`  Memory:    ${b.memory?.heapUsed} / ${b.memory?.heapTotal} (${b.memory?.heapUsagePercent})`);
-    console.log(`  Cache:     ${b.cache?.status ?? "?"}`);
+    console.log(`  Liveness:  ${c.green}${b.status}${c.reset}  (${h.latency}ms)`);
+    console.log(`  Readiness: requires the authenticated operator probe`);
   } else {
     console.log(`  ${c.red}DOWN${c.reset}  status=${h.status ?? "?"}  ${h.error ?? ""}`);
   }
-}
-
-if (report.checks.versionMatch) {
-  const v = report.checks.versionMatch;
-  const tag = v.synced ? c.green + "in sync" + c.reset : c.yellow + "DRIFT" + c.reset;
-  console.log(`  Sync:      ${tag}  prod=${v.prod}  local=${v.local}`);
 }
 
 if (values.full) {
@@ -214,8 +195,7 @@ console.log("");
 
 // Exit code: nonzero if anything important failed
 const failed =
-  (report.checks.prodHealth && !report.checks.prodHealth.ok) ||
-  (report.checks.versionMatch && !report.checks.versionMatch.synced) ||
+  (report.checks.prodLiveness && !report.checks.prodLiveness.ok) ||
   (report.checks.typecheck && !report.checks.typecheck.pass) ||
   (report.checks.lint && !report.checks.lint.pass) ||
   (report.checks.build && !report.checks.build.pass) ||

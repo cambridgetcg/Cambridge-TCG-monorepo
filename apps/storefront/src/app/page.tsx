@@ -36,7 +36,7 @@ function freshestUpdate(items: { updated_at: string | null }[]): string | null {
 export default async function Home() {
   const [allGames, featured, opSets] = await Promise.all([
     fetchGames().catch(() => []),
-    fetchPrices({ in_stock: true, sort: "price_desc", limit: 12 }).catch(() => ({
+    fetchPrices({ in_stock: true, sort: "number_asc", limit: 12 }).catch(() => ({
       count: 0,
       total: 0,
       channel: "",
@@ -157,8 +157,8 @@ export default async function Home() {
         ))}
       </nav>
 
-      {/* THE PRIMARY IDENTITY — a collectors' market and a public data
-          commons (docs/decisions/2026-07-06-collectors-first.md). The home
+      {/* THE PRIMARY IDENTITY — a collectors' market and card data
+           directory (docs/decisions/2026-07-06-collectors-first.md). The home
           hero speaks to collectors first (the quiet gallery); the identity
           claim keeps its place directly beneath, medium-sized. */}
       <BrandStatement size="medium" />

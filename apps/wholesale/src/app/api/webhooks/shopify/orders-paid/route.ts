@@ -15,6 +15,7 @@ import { cards, stockAdjustments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { stock } from "@/lib/stock";
 import { createHmac } from "crypto";
+import { redactInternalError } from "@/lib/public-errors";
 
 // Shopify sends the raw body, we need it for HMAC verification
 export const dynamic = "force-dynamic";
@@ -129,8 +130,10 @@ export async function POST(req: NextRequest) {
 
       results.push({ sku, prev_stock: prevStock, new_stock: newStock, delta, deduplicated: movement === null });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push({ sku, error: msg });
+      errors.push({
+        sku,
+        error: redactInternalError("webhooks/shopify/orders-paid item", err),
+      });
     }
   }
 

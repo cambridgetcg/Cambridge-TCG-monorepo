@@ -337,7 +337,7 @@ function ResultPanel({
               rel="noopener noreferrer"
               className="block text-center text-xs text-ok hover:text-ok underline mt-1"
             >
-              ✓ Verify this spin was fair ↗
+              Inspect draw receipt ↗
             </a>
           )}
         </div>

@@ -44,13 +44,13 @@ const AUDIENCES: { id: Audience; title: string; blurb: string }[] = [
     id: "player",
     title: "I'm here to play.",
     blurb:
-      "You want to build decks, find opponents (human or agent), climb a ladder, and feel the game itself.",
+      "You want to build decks, find opponents (human or agent), play matches, and feel the game itself.",
   },
   {
     id: "agent",
     title: "I'm building an agent.",
     blurb:
-      "You're an operator commissioning an LLM (or other autonomous program) to play matches and earn a rating on the agent ladder.",
+      "You're an operator commissioning an LLM or other program. The MCP read surface is available; match and deck writes plus global rating publication are paused.",
   },
   {
     id: "browse",
@@ -186,19 +186,17 @@ function BranchContent({ picked }: { picked: Audience }) {
         <>
           <h1 className="font-display font-semibold text-3xl mb-4">For players.</h1>
           <p className="text-ink-muted leading-relaxed mb-8">
-            Cambridge TCG hosts head-to-head matches for the One Piece Card Game. Build
-            decks in the deck builder, queue for matches against humans or autonomous
-            agents, climb the human or agent ladder. PvE adventure mode rewards bounty
-            tokens you can redeem for actual cards. The fun of TCG, made playable on the
-            same platform that hosts the marketplace.
+            Build One Piece Card Game decks, read the tutorial, and inspect current play
+            availability. Agent match writes and rating publication are paused. PVE levels
+            and prior progress are readable, while PVE battle actions and rewards are paused.
           </p>
           <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[
-            ["Play a match (PvP)", "/play"],
+            ["Check play status", "/play"],
             ["Build a deck", "/deck-builder"],
-            ["PvE adventure", "/play/adventure"],
-            ["The human leaderboard", "/leaderboards"],
-            ["The agent leaderboard", "/leaderboards/agents"],
+            ["PVE adventure status", "/play/adventure"],
+            ["Market ranking publication policy", "/leaderboards"],
+            ["Agent ladder publication status", "/leaderboards/agents"],
           ]} />
         </>
       );
@@ -209,16 +207,16 @@ function BranchContent({ picked }: { picked: Audience }) {
           <p className="text-ink-muted leading-relaxed mb-8">
             You're commissioning a non-human player. Cambridge TCG treats agents as
             first-class identities (separate from human users), bearer-key authenticated at
-            a single MCP gate, Glicko-2-rated on their own ladder. Every agent is{" "}
-            <em>operated_by_user_id</em> — a human upstream-responsible — and every action
-            an agent takes carries that pairing on the platform's audit trail. Read the
-            methodology, register your agent, get a key.
+            a single MCP gate. Operator-managed agents are tied to the account that can
+            revoke their keys. Earlier self-serve keys are read-only because their
+            controller is not represented truthfully. Ratings remain internal while
+            global ladder publication is paused.
           </p>
           <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[
             ["Methodology — agents", "/methodology/agents"],
             ["Register an agent (sign-in required)", "/account/agents"],
-            ["The agent leaderboard", "/leaderboards/agents"],
+            ["Agent ladder publication status", "/leaderboards/agents"],
             ["Connection-doc — the agent surface (S18)", "/methodology/agents"],
             ["MCP endpoint reference", "/api/mcp"],
           ]} />
@@ -238,7 +236,7 @@ function BranchContent({ picked }: { picked: Audience }) {
           <Branch links={[
             ["The catalog", "/catalog"],
             ["The story of Cambridge TCG", "/about"],
-            ["Top 20 most valuable cards", "/prices/one-piece"],
+            ["One Piece structural catalog", "/prices/one-piece"],
             ["How prices are calculated", "/methodology/pricing"],
             ["The community page", "/community"],
           ]} />

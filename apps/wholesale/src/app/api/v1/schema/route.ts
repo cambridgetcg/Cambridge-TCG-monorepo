@@ -23,7 +23,7 @@ const SCHEMA = {
     title: "Cambridge TCG Wholesale API",
     version: "1.0.0",
     description:
-      "Public wholesale API for Cambridge TCG. Lists every card in every channel's pricing. Read-only except for the /sales endpoint, which is the storefront's hook for reporting completed purchases back to the wholesale stock ledger. Every endpoint requires a bearer token (`Authorization: Bearer <key>`).",
+      "Public schema for the Cambridge TCG wholesale API. Legacy catalog price and image publication is blocked pending field-level source-rights receipts; the price routes expose only unauthenticated HTTP 503 status documents and no card rows. Other documented data routes require a bearer token (`Authorization: Bearer <key>`) unless their operation declares otherwise.",
     contact: {
       email: "contact@cambridgetcg.com",
     },
@@ -56,33 +56,7 @@ const SCHEMA = {
           "tradein-credit",
         ],
         description:
-          "Pricing channel. Same card produces different prices per channel — see /methodology/pricing on the storefront for the formula.",
-      },
-      PriceItem: {
-        type: "object",
-        required: ["sku", "card_number", "price_gbp"],
-        properties: {
-          sku: { type: "string", example: "op05-001" },
-          card_number: { type: "string", example: "OP05-001" },
-          name: { type: ["string", "null"], description: "Display name (English preferred)" },
-          name_en: { type: ["string", "null"], description: "English name" },
-          price_gbp: { type: "number", description: "Wholesale base GBP price" },
-          channel_price: {
-            type: "number",
-            description:
-              "Channel-adjusted price. Present when channel ≠ wholesale. Computed via @cambridge-tcg/pricing — see /methodology/pricing.",
-          },
-          channel: { $ref: "#/components/schemas/Channel" },
-          stock: { type: "integer", description: "UK warehouse on-hand (received - fulfilled)" },
-          pending_stock: { type: "integer", description: "Ordered/shipped but not yet received" },
-          image_url: { type: ["string", "null"] },
-          set_code: { type: ["string", "null"] },
-          set_name: { type: ["string", "null"] },
-          rarity: { type: ["string", "null"] },
-          category: { type: ["string", "null"], enum: ["singles", "sealed", null] },
-          game_code: { type: ["string", "null"] },
-          updated_at: { type: ["string", "null"], format: "date-time" },
-        },
+          "Recorded sales-channel identifier. This enum does not promise that catalog prices are publishable for any channel.",
       },
       Game: {
         type: "object",
@@ -143,63 +117,63 @@ const SCHEMA = {
   paths: {
     "/api/v1/prices": {
       get: {
-        summary: "List prices",
+        summary: "Price catalog publication status",
         description:
-          "Returns a page of priced cards. Filterable by game, set, category, rarity, q (free-text), in_stock. Channel parameter controls the channel_price field (when ≠ wholesale).",
-        parameters: [
-          { name: "channel", in: "query", schema: { $ref: "#/components/schemas/Channel" } },
-          { name: "game", in: "query", schema: { type: "string" } },
-          { name: "set", in: "query", schema: { type: "string" } },
-          { name: "category", in: "query", schema: { type: "string", enum: ["singles", "sealed"] } },
-          { name: "rarity", in: "query", schema: { type: "string" } },
-          { name: "q", in: "query", schema: { type: "string" } },
-          { name: "in_stock", in: "query", schema: { type: "boolean" } },
-          { name: "sort", in: "query", schema: { type: "string" } },
-          { name: "limit", in: "query", schema: { type: "integer", default: 48, maximum: 500 } },
-          { name: "offset", in: "query", schema: { type: "integer", default: 0 } },
-          { name: "updated_since", in: "query", schema: { type: "string", format: "date-time" } },
-        ],
+          "Returns an unauthenticated HTTP 503 status document. Legacy catalog prices and images remain blocked until field-level source receipts establish publication rights. The route performs no authentication or catalog read and always returns total=0, count=0, and items=[].",
+        security: [],
         responses: {
-          200: {
-            description: "Page of priced cards",
+          503: {
+            description: "Catalog publication blocked; status only, with zero rows",
             content: {
               "application/json": {
                 schema: {
                   type: "object",
+                  required: ["status", "publication_status", "source", "policy_url", "reason", "total", "count", "items"],
                   properties: {
-                    count: { type: "integer" },
-                    total: { type: "integer" },
-                    channel: { $ref: "#/components/schemas/Channel" },
-                    items: {
-                      type: "array",
-                      items: { $ref: "#/components/schemas/PriceItem" },
-                    },
+                    status: { type: "string", const: "unavailable" },
+                    publication_status: { type: "string", const: "blocked" },
+                    source: { type: "string", const: "legacy-wholesale-catalog" },
+                    policy_url: { type: "string", format: "uri" },
+                    reason: { type: "string" },
+                    total: { type: "integer", const: 0 },
+                    count: { type: "integer", const: 0 },
+                    items: { type: "array", maxItems: 0 },
                   },
                 },
               },
             },
           },
-          401: { description: "Missing or invalid bearer token" },
-          404: { description: "Game not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
     "/api/v1/prices/{sku}": {
       get: {
-        summary: "Get one card's price",
+        summary: "Single-card price publication status",
         description:
-          "Returns a single card by SKU. Honours the channel parameter — the catalog list endpoint and this single-SKU endpoint produce the same channel_price for the same card+channel (this was a substrate-honesty fix landed during kingdom-049, recorded in S17 the-pricing-arrow.md).",
+          "Returns an unauthenticated HTTP 503 status document for every SKU. Legacy catalog prices and images remain blocked until field-level source receipts establish publication rights. The route performs no authentication or card lookup and returns no card fields.",
+        security: [],
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" } },
-          { name: "channel", in: "query", schema: { $ref: "#/components/schemas/Channel" } },
         ],
         responses: {
-          200: {
-            description: "Card detail",
-            content: { "application/json": { schema: { $ref: "#/components/schemas/PriceItem" } } },
+          503: {
+            description: "Card publication blocked; status only, with no card fields",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["status", "publication_status", "source", "policy_url", "reason"],
+                  properties: {
+                    status: { type: "string", const: "unavailable" },
+                    publication_status: { type: "string", const: "blocked" },
+                    source: { type: "string", const: "legacy-wholesale-catalog" },
+                    policy_url: { type: "string", format: "uri" },
+                    reason: { type: "string" },
+                  },
+                },
+              },
+            },
           },
-          401: { description: "Missing or invalid bearer token" },
-          404: { description: "Card not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },

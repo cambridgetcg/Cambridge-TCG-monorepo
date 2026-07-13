@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { getEligibility, getVaultItem } from "@/lib/bounty/db";
+import {
+  BOUNTY_PHONE_VERIFICATION_MESSAGE,
+  getEligibility,
+  getVaultItem,
+} from "@/lib/bounty/db";
 
 // Create a redemption order (customer_orders row with status='redemption_pending')
 // and attach the vault item to it. Admin fulfils from there.
@@ -29,7 +33,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const elig = await getEligibility(session.user.id);
   if (!elig.eligible) {
     return NextResponse.json(
-      { error: "Bounty Board requires a verified phone and prior paid order.", reasons: elig.reasons },
+      {
+        error: elig.reasons.includes("phone_verification_unavailable")
+          ? BOUNTY_PHONE_VERIFICATION_MESSAGE
+          : "Bounty Board requires a prior paid order.",
+        reasons: elig.reasons,
+      },
       { status: 403 },
     );
   }
@@ -58,9 +67,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     name: item.card_name,
     card_number: item.card_number,
     rarity: item.rarity,
-    image_url: item.image_url,
+    image_url: null,
     quantity: 1,
-    spot_price_gbp: item.spot_price_gbp,
+    spot_price_gbp: null,
   }];
 
   const order = await query(

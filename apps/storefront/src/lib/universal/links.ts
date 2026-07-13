@@ -2,7 +2,7 @@
  * Universal HATEOAS links — every response carries doorways everywhere.
  *
  * Yu's directive: *"keep nesting everything in everything"*. The platform's
- * substrate is open (S25 manifest + S26 wire); the next move is making
+ * public resources are discoverable (S25 manifest + S26 wire); the next move is making
  * every response *self-describing about what's connected to it*. A caller
  * landing on any endpoint can find everything else from there.
  *

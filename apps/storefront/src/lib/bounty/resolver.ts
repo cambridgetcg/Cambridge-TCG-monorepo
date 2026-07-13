@@ -15,6 +15,7 @@ import {
   commitBountyPull,
   consumePullToken,
   countReservedForSku,
+  BOUNTY_PHONE_VERIFICATION_MESSAGE,
   createVaultItemIfStockAvailable,
   getTierConfig,
   grantPullToken,
@@ -62,7 +63,9 @@ export async function resolvePull(
   if (!elig.eligible) {
     return {
       error: "not_eligible",
-      message: "Bounty Board requires a verified phone and a prior paid order.",
+      message: elig.reasons.includes("phone_verification_unavailable")
+        ? BOUNTY_PHONE_VERIFICATION_MESSAGE
+        : "Bounty Board requires a prior paid order.",
       reasons: elig.reasons,
     };
   }
@@ -96,10 +99,9 @@ export async function resolvePull(
   //    seeing the desired outcome.
   const serverSeed = generateServerSeed();
   const commitment = sha256(serverSeed);
-  // userId anchors the seed to this account; the random suffix means two
-  // pulls by the same user produce different (server,client,nonce) tuples
-  // even if their server_seeds and nonces somehow collided.
-  const clientSeed = `${userId}:${generateClientSeedSuffix()}`;
+  // The client seed is public proof material. Keep it opaque: older rows
+  // prefixed this value with userId and therefore require owner-only replay.
+  const clientSeed = `pull:${generateClientSeedSuffix()}`;
   // 48 random bits — collision probability for 1M pulls is ~1e-3.
   // Date.now() (the prior implementation) would collide between two
   // requests served in the same millisecond.
@@ -180,6 +182,11 @@ export async function resolvePull(
     const idx = Math.floor(pickRoll * pool.length);
     const picked = pool[idx];
     const spot = retailPrice(picked.price_gbp, picked.channel_price);
+    if (spot === null) {
+      pool.splice(idx, 1);
+      attempt++;
+      continue;
+    }
     try {
       vault = await createVaultItemIfStockAvailable(
         {

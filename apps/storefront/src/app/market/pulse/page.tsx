@@ -8,11 +8,7 @@ import { useVoice } from "@/lib/wardrobe/context";
 import { InkRule } from "@/lib/ui/InkRule";
 
 interface PulseData {
-  hot: Array<{ sku: string; cardName: string | null; imageUrl: string | null; volume24h: number; tradeCount24h: number }>;
-  movers: Array<{ sku: string; cardName: string | null; imageUrl: string | null; lastPrice: number | null; change24hPct: number | null }>;
-  mostWatched: Array<{ sku: string; cardName: string | null; imageUrl: string | null; watchCount: number; bestAsk: number | null }>;
   tightSpreads: Array<{ sku: string; cardName: string | null; imageUrl: string | null; bestBid: number | null; bestAsk: number | null }>;
-  recentTrades: Array<{ sku: string; cardName: string | null; imageUrl: string | null; price: number | null; tradedAt: string | null }>;
 }
 
 // Wardrobe migration (spec §3.4): semantic tokens + Gallery materials only — same fetch, same 60s poll.
@@ -27,7 +23,7 @@ export default function MarketPulsePage() {
       .then((d) => { if (d) setData(d); })
       .catch(() => {})
       .finally(() => setLoading(false));
-    // Refresh every 60s — pulse data is "live" enough that staleness shows
+    // Open orders are live intent, so refresh their spreads once a minute.
     const t = setInterval(() => {
       fetch("/api/market/pulse").then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) setData(d); });
     }, 60000);
@@ -43,7 +39,9 @@ export default function MarketPulsePage() {
         </Link>
       </div>
       <p className="text-sm text-ink-muted mb-8">
-        {v("market.pulse.subtitle")}
+        Live spreads come from bids and asks collectors chose to publish.
+        Completed-trade analytics and public watch, alert, and co-watch
+        intelligence are paused.
       </p>
 
       {loading ? (
@@ -52,7 +50,7 @@ export default function MarketPulsePage() {
           <p className="md:col-span-2 font-display italic text-sm text-ink-faint">
             {v("market.pulse.loading")}
           </p>
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="wardrobe-mat rounded-lg p-4 animate-pulse">
               <div className="h-3 bg-surface-subtle rounded w-1/3 mb-4" />
               <div className="h-8 bg-surface-subtle rounded mb-2" />
@@ -65,73 +63,8 @@ export default function MarketPulsePage() {
         <p className="text-sm text-danger">{v("market.pulse.failed")}</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Hot */}
           <PulseCard
-            title="Hot — most traded (24h)"
-            icon="pulse"
-            empty={data.hot.length === 0}
-            emptyTitle={v("market.empty.trades.title")}
-            emptyDesc={v("market.empty.trades.description")}
-          >
-            {data.hot.map((row, i) => (
-              <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
-                <div className="text-right">
-                  <div className="text-xs font-mono tabular-nums text-accent">{row.volume24h} units</div>
-                  <div className="text-[10px] font-mono tabular-nums text-ink-faint">{row.tradeCount24h} trade{row.tradeCount24h !== 1 ? "s" : ""}</div>
-                </div>
-              </PulseRow>
-            ))}
-          </PulseCard>
-
-          {/* Movers */}
-          <PulseCard
-            title="Big movers (24h)"
-            icon="spark"
-            empty={data.movers.length === 0}
-            emptyTitle={v("market.empty.movers.title")}
-            emptyDesc={v("market.empty.movers.description")}
-          >
-            {data.movers.map((row, i) => (
-              <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
-                <div className="text-right">
-                  <div className="text-xs font-mono tabular-nums text-ink">
-                    {row.lastPrice !== null ? <Money value={row.lastPrice} /> : "—"}
-                  </div>
-                  {row.change24hPct !== null && (
-                    <div className={`text-[10px] font-mono tabular-nums ${row.change24hPct > 0 ? "text-bid" : "text-ask"}`}>
-                      {row.change24hPct > 0 ? "+" : ""}{row.change24hPct.toFixed(1)}%
-                    </div>
-                  )}
-                </div>
-              </PulseRow>
-            ))}
-          </PulseCard>
-
-          {/* Most watched */}
-          <PulseCard
-            title="Most watched"
-            icon="eye"
-            empty={data.mostWatched.length === 0}
-            emptyTitle={v("market.empty.watched.title")}
-            emptyDesc={v("market.empty.watched.description")}
-          >
-            {data.mostWatched.map((row, i) => (
-              <PulseRow key={row.sku} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl} rank={i + 1}>
-                <div className="text-right">
-                  <div className="flex items-center justify-end gap-1 text-xs font-mono tabular-nums text-accent">
-                    {row.watchCount} <Icon name="eye" size={11} />
-                  </div>
-                  {row.bestAsk !== null && (
-                    <div className="text-[10px] text-ink-faint font-mono tabular-nums">ask <Money value={row.bestAsk} /></div>
-                  )}
-                </div>
-              </PulseRow>
-            ))}
-          </PulseCard>
-
-          {/* Tight spreads */}
-          <PulseCard
-            title="Tightest spreads"
+            title="Tightest open-order spreads"
             icon="spread"
             empty={data.tightSpreads.length === 0}
             emptyTitle="No two-sided markets yet."
@@ -154,29 +87,13 @@ export default function MarketPulsePage() {
               );
             })}
           </PulseCard>
-
-          {/* Recent trades — full width */}
-          <div className="md:col-span-2">
-            <PulseCard
-              title="Latest trades"
-              icon="tape"
-              empty={data.recentTrades.length === 0}
-              emptyTitle={v("market.empty.trades.title")}
-              emptyDesc={v("market.empty.trades.description")}
-            >
-              {data.recentTrades.map((row) => (
-                <PulseRow key={`${row.sku}-${row.tradedAt}`} sku={row.sku} cardName={row.cardName} imageUrl={row.imageUrl}>
-                  <div className="text-right">
-                    <div className="text-xs font-mono tabular-nums text-ink">
-                      {row.price !== null ? <Money value={row.price} /> : "—"}
-                    </div>
-                    <div className="text-[10px] font-mono tabular-nums text-ink-faint">
-                      {row.tradedAt ? timeAgo(row.tradedAt) : ""}
-                    </div>
-                  </div>
-                </PulseRow>
-              ))}
-            </PulseCard>
+          <div className="border-l-2 border-border-strong pl-4 py-1 text-sm text-ink-muted">
+            <p className="font-medium text-ink">Private signals stay private.</p>
+            <p className="mt-1">
+              Public trade, watch, alert, and co-watch summaries will return
+              only after they have their own publication choice and a delayed,
+              coarse release process that resists reconstruction.
+            </p>
           </div>
         </div>
       )}
@@ -232,15 +149,4 @@ function PulseRow({ sku, cardName, imageUrl, rank, children }: {
       <div className="shrink-0">{children}</div>
     </Link>
   );
-}
-
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
 }

@@ -12,7 +12,6 @@
 // around the threshold.
 
 import { query } from "@/lib/db";
-import { scheduleEmail } from "@/lib/email/queue";
 
 export type AlertDirection = "above" | "below";
 
@@ -48,7 +47,7 @@ export async function listAlerts(userId: string): Promise<PriceAlert[]> {
     `SELECT * FROM portfolio_price_alerts WHERE user_id = $1 ORDER BY created_at DESC`,
     [userId],
   );
-  return r.rows as PriceAlert[];
+  return r.rows.map((row) => ({ ...row, image_url: null })) as PriceAlert[];
 }
 
 export async function createAlert(a: CreateAlertArgs): Promise<PriceAlert> {
@@ -68,7 +67,7 @@ export async function createAlert(a: CreateAlertArgs): Promise<PriceAlert> {
      RETURNING *`,
     [
       a.userId, a.sku, a.direction, a.thresholdGbp.toFixed(2),
-      a.cardName ?? null, a.cardNumber ?? null, a.imageUrl ?? null, a.note ?? null,
+      a.cardName ?? null, a.cardNumber ?? null, null, a.note ?? null,
     ],
   );
   return r.rows[0];
@@ -100,74 +99,6 @@ export interface AlertSweepResult {
   skipped: number;
 }
 
-const REFIRE_COOLDOWN_DAYS = 7;
-
 export async function runPriceAlertSweep(): Promise<AlertSweepResult> {
-  // Join enabled alerts with each SKU's latest captured price.
-  const rows = await query(
-    `WITH latest AS (
-       SELECT DISTINCT ON (sku) sku, captured_on, spot_gbp
-       FROM retail_price_observation
-       ORDER BY sku, captured_on DESC
-     )
-     SELECT
-       a.id, a.user_id, a.sku, a.direction, a.threshold_gbp,
-       a.last_notified_at, a.card_name, a.card_number, a.image_url,
-       l.spot_gbp, l.captured_on
-     FROM portfolio_price_alerts a
-     JOIN latest l ON l.sku = a.sku
-     WHERE a.enabled = true`,
-  );
-
-  let fired = 0;
-  let skipped = 0;
-
-  for (const r of rows.rows) {
-    const spot = parseFloat(r.spot_gbp);
-    const threshold = parseFloat(r.threshold_gbp);
-    const cross =
-      (r.direction === "above" && spot >= threshold) ||
-      (r.direction === "below" && spot <= threshold);
-    if (!cross) { skipped++; continue; }
-
-    // Cooldown: don't re-fire within 7 days.
-    if (r.last_notified_at) {
-      const since = Date.now() - new Date(r.last_notified_at).getTime();
-      if (since < REFIRE_COOLDOWN_DAYS * 86400 * 1000) {
-        skipped++;
-        continue;
-      }
-    }
-
-    try {
-      await scheduleEmail({
-        userId: r.user_id,
-        event: "portfolio_price_alert",
-        data: {
-          alertId: r.id,
-          sku: r.sku,
-          direction: r.direction,
-          thresholdGbp: threshold,
-          currentSpotGbp: spot,
-          cardName: r.card_name,
-          cardNumber: r.card_number,
-          imageUrl: r.image_url,
-        },
-        // Schedule for ~now; the drain will pick it up on the next tick.
-        scheduledFor: new Date(Date.now() + 30 * 1000),
-        idempotencyKey: `portfolio_price_alert:${r.id}:${r.captured_on}`,
-      });
-      await query(
-        `UPDATE portfolio_price_alerts SET last_notified_at = NOW(), updated_at = NOW()
-         WHERE id = $1`,
-        [r.id],
-      );
-      fired++;
-    } catch (err) {
-      console.error(`[price-alerts] failed to queue for ${r.id}:`, err);
-      skipped++;
-    }
-  }
-
-  return { considered: rows.rows.length, fired, skipped };
+  return { considered: 0, fired: 0, skipped: 0 };
 }

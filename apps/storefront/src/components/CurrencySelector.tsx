@@ -218,7 +218,18 @@ export function RateTablePanel({
           </span>
           <span aria-hidden>·</span>
           <span>
-            source <code className="text-ink-muted">{rates.source}</code>
+            {rates.source === "ecb.europa.eu" ? (
+              <a
+                href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html"
+                className="text-accent hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Source: ECB statistics
+              </a>
+            ) : (
+              <>source <code className="text-ink-muted">fallback</code></>
+            )}
           </span>
           <span aria-hidden>·</span>
           <span>
@@ -230,7 +241,7 @@ export function RateTablePanel({
           {rates.is_fallback && (
             <span
               className="inline-block px-1.5 py-0.5 rounded bg-warning/10 text-warning border border-warning/30 uppercase tracking-wider"
-              title="Both upstream FX APIs failed; using approximate static rates from 2026-05"
+              title="ECB daily rates were unavailable; using approximate static rates from 2026-05"
             >
               fallback rates
             </span>
@@ -292,8 +303,8 @@ export function RateTablePanel({
       </div>
 
       <p className="mt-3 text-[11px] text-ink-faint">
-        Rates are mid-market reference values, refreshed every six hours from
-        the upstream named above. They drive the display only — every
+        ECB daily reference rates are transformed from EUR base to GBP base and
+        refreshed every six hours. They drive the display only — every
         transaction on cambridgetcg.com clears in GBP. See{" "}
         <Link href="/api/v1/fx-rates" className="text-accent hover:underline">
           /api/v1/fx-rates

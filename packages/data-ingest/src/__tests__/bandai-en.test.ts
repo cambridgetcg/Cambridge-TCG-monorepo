@@ -19,9 +19,7 @@
  *   3. normalizeBandaiEn — SKU shape, policy quartet in extra,
  *      oracle_text = rules only (op: Effect + Trigger; dbf: both leader
  *      faces), quarantine paths
- *   4. read() — generator over an injected fetch; honest User-Agent;
- *      dbf list→detail flow with max_cards; stubbed games yield nothing
- *      and emit an actionable error
+ *   4. read() — fail-closed before an injected fetch while rights are blocked
  */
 
 import { describe, it, expect } from "vitest";
@@ -35,8 +33,9 @@ import {
   parseSeriesAnchors,
   parseSeriesOptions,
 } from "../bandai-en/parse";
+import { BANDAI_EN_GAMES } from "../bandai-en/config";
 import { normalizeBandaiEn } from "../bandai-en/normalize";
-import { bandaiEn, BANDAI_EN_USER_AGENT, type BandaiEnContext } from "../bandai-en/index";
+import { bandaiEn, type BandaiEnContext } from "../bandai-en/index";
 import type { BandaiEnCard } from "../bandai-en/types";
 import type { IngestEvent } from "../types";
 
@@ -251,55 +250,33 @@ describe("normalizeBandaiEn", () => {
 // ── read() ───────────────────────────────────────────────────────────
 
 describe("bandaiEn.read", () => {
-  it("yields one RawRow per block with provenance, using the honest User-Agent", async () => {
-    const seenUserAgents: (string | null)[] = [];
-    const mockFetch: typeof fetch = async (_url, init) => {
-      seenUserAgents.push(new Headers(init?.headers).get("User-Agent"));
-      return new Response(FIXTURE, { status: 200 });
-    };
-
+  it("yields nothing and returns before network work", async () => {
+    const events: IngestEvent[] = [];
+    let fetchCalls = 0;
     const ctx: BandaiEnContext = {
-      fetch: mockFetch,
-      rate_limit: { rps: 1000, burst: 1000 }, // don't wait in tests
+      fetch: async () => {
+        fetchCalls += 1;
+        throw new Error("blocked reader must not fetch");
+      },
+      on_event: (event) => events.push(event),
       bandai_en: { game: "op", series: ["569101"] },
     };
 
     const rows = [];
     for await (const row of bandaiEn.read(ctx)) rows.push(row);
 
-    expect(rows).toHaveLength(4);
-    expect(rows[0].provenance.source).toBe("bandai-en");
-    expect(rows[0].provenance.retrieved_at).toBe(rows[0].provenance.as_of);
-    expect(rows[0].raw.card_id).toBe("OP01-001");
-    expect(seenUserAgents).toEqual([BANDAI_EN_USER_AGENT]);
-  });
-
-  it("stubbed games (dmw/una/bsr) yield nothing and emit an actionable error", async () => {
-    const events: IngestEvent[] = [];
-    const ctx: BandaiEnContext = {
-      fetch: async () => {
-        throw new Error("stub must not fetch");
-      },
-      on_event: (e) => {
-        events.push(e);
-      },
-      bandai_en: { game: "dmw" },
-    };
-
-    const rows = [];
-    for await (const row of bandaiEn.read(ctx)) rows.push(row);
-
     expect(rows).toHaveLength(0);
+    expect(fetchCalls).toBe(0);
     const error = events.find((e) => e.kind === "error");
     expect(error).toBeTruthy();
-    expect(String(error?.detail.reason)).toContain("stub");
-    expect(String(error?.detail.action)).toContain("config.ts");
+    expect(String(error?.detail.reason)).toContain("no documented source permission");
+    expect(String(error?.detail.action)).toContain("written permission");
   });
 
   it("declares the polite rate limit and non-redistributable license in meta", () => {
     expect(bandaiEn.meta.rate_limit).toEqual({ rps: 0.5, burst: 1 });
     expect(bandaiEn.meta.redistribute).toBe(false);
-    expect(bandaiEn.meta.status).toBe("partial");
+    expect(bandaiEn.meta.status).toBe("blocked");
     expect(bandaiEn.meta.games).toEqual(["op", "dbf", "dmw", "una", "bsr"]);
   });
 });
@@ -530,91 +507,36 @@ describe("normalizeBandaiEn (dbf)", () => {
   });
 });
 
-describe("bandaiEn.read (dbf list→detail flow)", () => {
-  const detailByUrl: Record<string, string> = {
-    "detail.php?card_no=FB10-001": DBF_LEADER,
-    "detail.php?card_no=FB10-001&p=_p1": DBF_LEADER_P1,
-    "detail.php?card_no=FB10-002": DBF_BATTLE,
-    // FB10-006 (+_p1) reuse the battle fixture — shape is what matters.
-    "detail.php?card_no=FB10-006": DBF_BATTLE,
-    "detail.php?card_no=FB10-006&p=_p1": DBF_BATTLE,
-  };
+describe("bandaiEn DBF boundary", () => {
+  it("retains fixture URL shapes without enabling the live reader", () => {
+    const config = BANDAI_EN_GAMES.dbf;
+    expect(config.dom).toBe("list-detail");
+    expect(config.implemented).toBe(true);
+    expect(config.series_url("583010")).toBe(DBF_LIST_URL);
+    expect(config.detail_url?.("FB10-001", null)).toBe(DBF_LEADER_URL);
+    expect(config.detail_url?.("FB10-001", "_p1")).toBe(`${DBF_LEADER_URL}&p=_p1`);
+  });
 
-  function mockDbfFetch(fetched: string[]): typeof fetch {
-    return async (url, init) => {
-      const u = String(url);
-      fetched.push(u);
-      const ua = new Headers(init?.headers).get("User-Agent");
-      if (ua !== BANDAI_EN_USER_AGENT) throw new Error(`wrong UA: ${ua}`);
-      if (u.includes("detail.php")) {
-        const key = decodeURIComponent(u.slice(u.indexOf("detail.php")));
-        const body = detailByUrl[key];
-        if (!body) return new Response("not found", { status: 404 });
-        return new Response(body, { status: 200 });
-      }
-      return new Response(DBF_LIST, { status: 200 });
-    };
-  }
-
-  it("fetches the series page, then one detail page per card, and yields parsed cards", async () => {
-    const fetched: string[] = [];
+  it("stops before a DBF network request while permission is absent", async () => {
+    const events: IngestEvent[] = [];
+    let fetchCalls = 0;
     const ctx: BandaiEnContext = {
-      fetch: mockDbfFetch(fetched),
-      rate_limit: { rps: 1000, burst: 1000 },
+      fetch: async () => {
+        fetchCalls += 1;
+        throw new Error("blocked DBF reader must not fetch");
+      },
+      on_event: (event) => events.push(event),
       bandai_en: { game: "dbf", series: ["583010"] },
     };
 
     const rows = [];
     for await (const row of bandaiEn.read(ctx)) rows.push(row);
 
-    expect(fetched[0]).toBe(DBF_LIST_URL);
-    expect(fetched).toHaveLength(6); // 1 list + 5 details
-    expect(rows.map((r) => r.raw.card_id)).toEqual([
-      "FB10-001",
-      "FB10-001_p1",
-      "FB10-002",
-      // FB10-006 (+_p1) served the FB10-002 fixture: the number comes
-      // from the page, the parallel tail from the list ref's p value.
-      "FB10-002",
-      "FB10-002_p1",
-    ]);
-    expect(rows[0].provenance.source).toBe("bandai-en");
-    expect(rows[0].provenance.retrieved_at).toBe(rows[0].provenance.as_of);
-    expect(rows[1].raw.parallel).toBe("p1");
-  });
-
-  it("max_cards caps the detail fetches, not just the yields", async () => {
-    const fetched: string[] = [];
-    const ctx: BandaiEnContext = {
-      fetch: mockDbfFetch(fetched),
-      rate_limit: { rps: 1000, burst: 1000 },
-      bandai_en: { game: "dbf", series: ["583010"], max_cards: 2 },
-    };
-
-    const rows = [];
-    for await (const row of bandaiEn.read(ctx)) rows.push(row);
-
-    expect(rows).toHaveLength(2);
-    expect(fetched).toHaveLength(3); // 1 list + 2 details, never the other 3
-  });
-
-  it("discovers series from the category dropdown when none are given", async () => {
-    const fetched: string[] = [];
-    const ctx: BandaiEnContext = {
-      fetch: mockDbfFetch(fetched),
-      rate_limit: { rps: 1000, burst: 1000 },
-      bandai_en: { game: "dbf", max_series: 1, max_cards: 1 },
-    };
-
-    const rows = [];
-    for await (const row of bandaiEn.read(ctx)) rows.push(row);
-
-    // discovery (empty category) → first discovered series → 1 detail
-    expect(fetched[0]).toBe(
-      "https://www.dbs-cardgame.com/fw/en/cardlist/?search=true&category%5B%5D=",
+    expect(rows).toHaveLength(0);
+    expect(fetchCalls).toBe(0);
+    expect(events.find((event) => event.kind === "error")?.detail.reason).toContain(
+      "no documented source permission",
     );
-    expect(fetched[1]).toBe(DBF_LIST_URL);
-    expect(rows).toHaveLength(1);
   });
 });
 

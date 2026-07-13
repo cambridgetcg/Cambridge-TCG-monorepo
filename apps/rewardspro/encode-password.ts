@@ -1,6 +1,11 @@
-// URL encode the password for connection string
-const password = "gA8YHoh7YJ0|Ze2sBi[[iA[XO$Ce";
-const encodedPassword = encodeURIComponent(password);
-console.log("Encoded password:", encodedPassword);
-console.log("\nFull connection string:");
-console.log(`DATABASE_URL=postgresql://postgres:${encodedPassword}@rewardspro-dev.cluster-cj06ko4ko87d.eu-north-1.rds.amazonaws.com:5432/rewardspro`);
+const password = process.argv[2] ?? process.env.REWARDSPRO_DATABASE_PASSWORD;
+
+if (!password) {
+  console.error(
+    "Provide a password argument or set REWARDSPRO_DATABASE_PASSWORD.",
+  );
+  process.exitCode = 1;
+} else {
+  // Print only the encoded value requested by this utility, never a full DSN.
+  console.log(encodeURIComponent(password));
+}

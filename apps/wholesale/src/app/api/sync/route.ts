@@ -5,6 +5,7 @@ import { cards, games, sets, priceArchive } from "@/lib/db/schema";
 import { fetchPriceFeed, parseSkuGame } from "@/lib/s3";
 import { calculatePrice } from "@/lib/pricing";
 import { eq, and, count } from "drizzle-orm";
+import { redactInternalError } from "@/lib/public-errors";
 
 export async function POST() {
   const session = await auth();
@@ -110,14 +111,16 @@ export async function POST() {
       }
     } catch (snapErr) {
       // Non-fatal: sync succeeded, snapshot can be retried by cron
-      console.error("[sync] price-snapshot post-sync failed:", snapErr);
-      snapshotResult = { error: String(snapErr) };
+      snapshotResult = {
+        error: redactInternalError("api/sync price snapshot", snapErr),
+      };
     }
 
     return NextResponse.json({ synced, timestamp: now, snapshot: snapshotResult });
   } catch (error) {
+    redactInternalError("api/sync", error);
     return NextResponse.json(
-      { error: "Sync failed", details: String(error) },
+      { error: "Sync failed" },
       { status: 500 },
     );
   }

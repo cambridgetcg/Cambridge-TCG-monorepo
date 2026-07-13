@@ -5,7 +5,7 @@ import { audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Casual play — for hobbyists who love the game",
   description:
-    "Friendly matches and adventure mode against AI. No rating pressure, no prize pressure. Just the game.",
+    "Casual play status and learning resources. PVE battles and rewards are currently paused.",
   other: audienceMetadata("public-documentation", ["play", "casual", "hobbyist"]),
 };
 
@@ -30,7 +30,7 @@ export default function CasualPlay() {
           href="/play/adventure"
           className="inline-block border border-accent bg-accent-wash text-accent hover:bg-accent/20 hover:text-accent-strong rounded-md px-4 py-2 font-medium no-underline"
         >
-          Play solo vs AI →
+          View adventure status →
         </Link>
       </p>
 
@@ -40,12 +40,12 @@ export default function CasualPlay() {
           and share the code with a friend.
         </li>
         <li>
-          <strong>Adventure</strong> — themed AI opponents scaling from very
-          easy. Take your time.
+          <strong>Adventure</strong> — level and prior-progress reads remain
+          available; battles and rewards are paused.
         </li>
       </ul>
 
-      <p>Games are live; finish them in one sitting for now.</p>
+      <p>Check the lobby before relying on a game write surface.</p>
 
       <p className="border border-border-subtle bg-surface-subtle rounded-md p-4 text-sm">
         <strong>Fun first.</strong> Nothing here earns money or store credit.
@@ -58,7 +58,7 @@ export default function CasualPlay() {
       <p>
         New? Start with the{" "}
         <Link href="/guides/how-to-play">beginner&apos;s guide</Link>, then the
-        easiest adventure level. If you learned OPTCG in Japanese, the{" "}
+        adventure status page. If you learned OPTCG in Japanese, the{" "}
         <Link href="/api/v1/play/glossary">bilingual glossary</Link> maps every
         term.
       </p>

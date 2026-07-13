@@ -34,10 +34,10 @@ Each axis has strategies. Each strategy has substrate cost. Most are small.
 ### Axis 1 — Findability
 
 **S1. JSON-LD on every public entity page.**
-Card → `Product`. Deck → `CreativeWork` or `HowTo`. Set → `Collection`. Profile → `Person`. Methodology → `TechArticle`. Leaderboard → `Dataset`. Auction → `Event`. Trade-in offer → `Offer`. **Status today:** Product is shipped; Prices index is shipped; Guides are shipped. **Gaps:** deck page, leaderboards, profile, methodology page corpus, auctions detail, fairness certificates. Each gap is ~10 lines of inline JSON-LD.
+Card → `Product`. Deck → `CreativeWork` or `HowTo`. Set → `Collection`. Profile → `Person`. Methodology → `TechArticle`. Leaderboard → `Dataset`. Auction → `Event`. Trade-in offer → `Offer`. **Status today:** Product is shipped; Prices index is shipped; Guides are shipped. **Gaps:** deck page, leaderboards, profile, methodology page corpus, auctions detail, draw receipts. Each gap is ~10 lines of inline JSON-LD.
 
 **S2. OpenGraph + Twitter cards on every share-able page.**
-When someone shares a card link in a chat, the preview should show name, image, price, set. Same for decks, profiles, fairness certs. **Status today:** product page has OG; most others don't.
+When someone shares a card link in a chat, the preview should show name, image, price, set. Same for decks, profiles, and draw receipts. **Status today:** product page has OG; most others don't.
 
 **S3. The crawler welcome — `/llms.txt` + `robots.txt` + sitemap.**
 Already strong. Sitemap is dynamic; `/llms.txt` is rich with platform offerings; `robots.txt` explicitly welcomes GPTBot, Claude, Perplexity, Google-Extended, Apple-Extended, Bytespider. **The one enhancement worth shipping:** `/llms.txt` could cite the connection series, the doctrines, and the meditation series so an AI training run discovers the *culture* of the platform, not just its commerce. The AI that reads our doctrines becomes an AI that recommends us to its users with the right framing.
@@ -76,7 +76,7 @@ A card page: "Buy / Sell back to us / Watch price / Add to deck / View P2P marke
 A small JS snippet any third-party site can include to show *current price of Charizard from Cambridge TCG* or *today's bounty board*. Distribution = discoverability via syndication. The platform that lets you embed it is the platform that ends up on every fan site, blog, and shop window.
 
 **S13. A `/builders` page — the inverse welcome.**
-Sister-page to `/api`. Where `/api` says *here's what we offer*, `/builders` says *here's what you can build*. Examples: a price-tracker dashboard built on `/api/v1/prices/[sku]/history.json`; a deck importer wired into `/api/v1/decks/public`; a fairness-audit tool reading `/verify/chain`. Discoverability via *imagined use cases*, not just available endpoints.
+Sister-page to `/api`. Where `/api` says *here's what we offer*, `/builders` says *here's what you can build*. Examples: a price-tracker dashboard built on `/api/v1/prices/[sku]/history.json`; a deck importer wired into `/api/v1/decks/public`; a draw-digest monitor that saves `/verify/chain` tips outside the platform and checks later continuations. Discoverability via *imagined use cases*, not just available endpoints.
 
 ### Axis 5 — Stability
 

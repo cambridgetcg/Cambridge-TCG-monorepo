@@ -1,238 +1,333 @@
 /**
- * The dataset catalog — the open data commons, made discoverable AS DATA.
+ * Public dataset inventory.
  *
- * The commons is already ENDPOINT-indexed (/data lists routes; the manifest
- * lists resources). This file is the missing DATASET index: one typed
- * registry of the artefacts we actually publish, each carrying its TRUE
- * licence, so humans and machines can answer "what datasets exist here, under
- * what terms, covering what, updated how often, and where do I get them?"
- * from one place.
- *
- * It exists to complete docs/connections/the-finding.md "Plant C": the agent
- * ladder already announces itself as a schema.org/Dataset for Google Dataset
- * Search + AI crawlers, but it stopped at one dataset. This registry lifts the
- * whole CC0 commons to the same discoverability, and renders a schema.org
- * /DataCatalog so an aggregator indexes every dataset at once.
- *
- * ── One rule: each entry states the licence that is TRUE, never convenient ──
- * The first-party datasets (our own realised trades, our own operational
- * counts, our own registry + gap corpus) are CC0 — ours to dedicate. The bulk
- * card catalog is a MIX of upstream-owned fields (names, numbers, set
- * structure that publishers hold) over a Cambridge-authored spine, so it is
- * NOASSERTION — never relabelled CC0 (this mirrors the redistribution audit's
- * Check 3, which forces /data/catalog.jsonl to emit NOASSERTION). The agent
- * ladder carries its own first-party terms. The catalog describes each as it
- * is; describing a NOASSERTION dataset does not make the description non-CC0
- * (the registry text is our own — the /api/v1/datasets envelope is CC0).
- *
- * This registry is READ-ONLY metadata. It mirrors the licence declarations the
- * source-rights-truth pass hardened on the real routes; it never overrides
- * them. When a route's licence changes, change it there and here — one truth.
+ * This registry describes what a caller can actually retrieve today. It also
+ * names paused publication surfaces separately so a status endpoint cannot be
+ * mistaken for a live dataset. The descriptions are Cambridge-authored CC0
+ * metadata; that license does not change the rights or availability of any
+ * dataset being described.
  */
 
 const SITE = "https://cambridgetcg.com";
 
-/**
- * How a dataset sits in the commons, for the human badge + honest colour.
- * - `cc0`             — first-party, dedicated to the public domain (CC0-1.0).
- * - `first-party-terms` — ours, but governed by a named terms page, not CC0.
- * - `noassertion`     — a mix of upstream-owned fields; no single licence can
- *                       be asserted over the whole; reuse upstream at your own
- *                       risk under upstream terms.
- */
-export type CommonsTier = "cc0" | "first-party-terms" | "noassertion";
+export type CommonsTier = "cc0" | "noassertion";
+export type DatasetAvailability = "available" | "paused";
 
 export interface Distribution {
-  /** What you get: an API surface or a bulk download. */
-  kind: "api" | "download";
-  /** Relative path on this origin. */
+  /** Whether the path serves records or only publication status. */
+  kind: "api" | "download" | "status";
   path: string;
-  /** IANA/schema.org encodingFormat, e.g. "application/json", "application/jsonl". */
   encodingFormat: string;
-  /** One-line human label. */
   label: string;
 }
 
-export interface DatasetEntry {
-  /** Stable slug, also the JSON-LD @id anchor. */
-  id: string;
-  /** Human title. */
-  name: string;
-  /** Plain-language description of exactly what one row/record is. */
-  description: string;
-  /** The licence, stated truthfully: "CC0-1.0" | "NOASSERTION" | a terms URL. */
+export interface DatasetSourceRight {
+  /** Source name used by the serving surface, or a clearly named dynamic set. */
+  source: string;
+  /** The source tier as emitted, or an honest declaration that it varies. */
   license: string;
-  /** Commons colour for the badge + honest framing. */
+  note?: string;
+}
+
+export interface DatasetEntry {
+  id: string;
+  name: string;
+  description: string;
+  /** Aggregate rights for the dataset records, not for this catalog entry. */
+  license: string;
   tier: CommonsTier;
-  /**
-   * The per-origin licence tiers this dataset is BUILT from (parallel to the
-   * envelope's _meta.source_license idiom). For a pure first-party set this is
-   * ["cc0"]; for the mixed catalog it names the upstream tiers honestly.
-   */
-  source_license: readonly string[];
-  /** schema.org temporalCoverage (open-ended ISO interval or note). */
+  availability: DatasetAvailability;
+  recordsPublished: boolean;
+  sourceRights: readonly DatasetSourceRight[];
   temporalCoverage?: string;
-  /** Where to get it — one or more distributions. */
   distributions: readonly Distribution[];
-  /** Human-readable methodology / rights page, if any. */
   methodology?: string;
-  /** The fields a record carries (schema.org variableMeasured). */
   variableMeasured: readonly string[];
-  /** Discovery keywords. */
   keywords: readonly string[];
-  /** Honest note on how fresh / how it updates. */
   freshness_note: string;
 }
 
 /**
- * The registry. Order = surface order on /datasets. Every entry's `license` is
- * mirrored from the route that actually serves it — change both together.
+ * Entries mirror the serving surfaces. Paused entries remain visible for
+ * transparency, but `toDataCatalogJsonLd` deliberately excludes them because
+ * a zero-row status response is not a published dataset.
  */
 export const DATASETS: readonly DatasetEntry[] = [
   {
-    id: "sold-comps",
-    name: "First-party sold comps",
+    id: "coverage",
+    name: "Observation coverage",
     description:
-      "Anonymised, aggregated realised sale prices from Cambridge TCG's own market: completed peer-to-peer escrow trades and settled auctions. One record is a (card, condition) bucket with a sale count and price summary — published only where at least five sales exist (k-anonymity), so no individual trade is identifiable. No buyer, seller, payment, or shipping detail is present.",
-    license: "CC0-1.0",
-    tier: "cc0",
-    source_license: ["cc0"],
-    temporalCoverage: "2026-07/..",
+      "Current summaries and bounded, zero-filled daily histories from the observation archive: operational row counts, distinct-card breadth, game identifiers, snapshot ranges, and freshness. Each response separately names the Cambridge aggregation, its internal catalog game-mapping dependency, and the upstream sources that actually contributed. Aggregate rights remain NOASSERTION.",
+    license: "NOASSERTION",
+    tier: "noassertion",
+    availability: "available",
+    recordsPublished: true,
+    sourceRights: [
+      {
+        source: "cambridge-tcg.coverage-aggregation",
+        license: "cc0",
+        note: "Cambridge-authored aggregation shape and explanatory metadata only.",
+      },
+      {
+        source: "cambridge-tcg.catalog-game-mapping",
+        license: "proprietary",
+        note: "Conservative rights tier for the internal cards-to-games mapping used to derive game identifiers.",
+      },
+      {
+        source: "dynamic upstream lineage",
+        license: "varies per response",
+        note: "Actually observed upstream ids retain their reviewed tiers; unknown ids default to proprietary. Read each response's parallel _meta.sources and _meta.source_license arrays.",
+      },
+    ],
     distributions: [
-      { kind: "api", path: "/api/v1/sold-comps", encodingFormat: "application/json", label: "All published buckets" },
-      { kind: "api", path: "/api/v1/sold-comps/{sku}", encodingFormat: "application/json", label: "Buckets for one card" },
+      {
+        kind: "api",
+        path: "/api/v1/coverage",
+        encodingFormat: "application/json",
+        label: "Current coverage summary and breakdowns",
+      },
+      {
+        kind: "api",
+        path: "/api/v1/coverage/history",
+        encodingFormat: "application/json",
+        label: "Bounded daily coverage history",
+      },
     ],
     methodology: "/methodology/data-intentions",
-    variableMeasured: ["sku", "condition", "sale_count", "min_price_gbp", "median_price_gbp", "max_price_gbp", "last_sold_at", "sale_channel"],
-    keywords: ["trading card game", "sold prices", "market comps", "open data", "cc0", "collectors"],
-    freshness_note: "Recomputed live from settled trades and auctions; grows as volume grows.",
-  },
-  {
-    id: "coverage",
-    name: "Catalogue coverage",
-    description:
-      "Operational counts and date ranges describing how much of each game's catalogue Cambridge TCG has observed: cards, sets, and freshness per source. Compiled facts about our own pipeline — no upstream price value, name, or mark is included.",
-    license: "CC0-1.0",
-    tier: "cc0",
-    source_license: ["cc0"],
-    distributions: [
-      { kind: "api", path: "/api/v1/coverage", encodingFormat: "application/json", label: "Coverage counts + dates" },
+    variableMeasured: [
+      "observations",
+      "distinct_cards",
+      "earliest_snapshot",
+      "latest_snapshot",
+      "days_of_coverage",
+      "freshest_age_hours",
+      "completed_days",
+      "observed_completed_days",
+      "zero_observation_completed_days",
+      "observation_completed_day_ratio",
+      "observed_days_including_current",
+      "game",
+      "source",
     ],
-    variableMeasured: ["game", "cards_observed", "sets_observed", "sources", "first_seen_at", "last_seen_at"],
-    keywords: ["catalogue coverage", "data completeness", "open data", "cc0", "tcg"],
-    freshness_note: "Reflects the live catalogue; updates as ingestion runs.",
+    keywords: ["catalogue coverage", "observation archive", "data completeness", "tcg"],
+    freshness_note:
+      "Both coverage routes are computed from the wholesale observation database on request; each returns 503 when that database cannot answer, the per-process three-read ceiling is full, or the coverage role reaches its three-connection limit.",
   },
   {
     id: "sources-registry",
     name: "Data source registry",
     description:
-      "The rights ledger: every upstream data source Cambridge TCG reads, with its access method, licence tier, redistribution boolean, ingestion status, and the terms-of-service reasoning that placed it there. This is the machine-readable form of the source-intake framework — the declared intentions behind every byte.",
-    license: "CC0-1.0",
-    tier: "cc0",
-    source_license: ["cc0"],
+      "The registered upstream source inventory: access method, source license tier, redistribution flag, ingestion status, game coverage, and reviewed terms notes. Structured numeric run summaries appear only when the wholesale service answers; free-text run and quarantine fields are withheld. Aggregate rights remain NOASSERTION.",
+    license: "NOASSERTION",
+    tier: "noassertion",
+    availability: "available",
+    recordsPublished: true,
+    sourceRights: [
+      {
+        source: "ctcg-derived",
+        license: "proprietary",
+        note: "Reviewed static source-registry metadata.",
+      },
+      {
+        source: "wholesale-rds.ingest_run",
+        license: "internal-only when present",
+        note: "Only timestamps, status, and numeric counts are projected publicly.",
+      },
+    ],
     distributions: [
-      { kind: "api", path: "/api/v1/sources", encodingFormat: "application/json", label: "All sources" },
-      { kind: "api", path: "/api/v1/sources/{id}", encodingFormat: "application/json", label: "One source + run history" },
+      {
+        kind: "api",
+        path: "/api/v1/sources",
+        encodingFormat: "application/json",
+        label: "Registered sources and current status",
+      },
     ],
     methodology: "/methodology/data-intentions",
-    variableMeasured: ["id", "access", "license", "redistribute", "status", "games", "tos_notes"],
-    keywords: ["data provenance", "source rights", "licence registry", "open data", "cc0"],
-    freshness_note: "Regenerated from the source-intake registry on every deploy.",
+    variableMeasured: [
+      "id",
+      "access",
+      "license",
+      "redistribute",
+      "status",
+      "games",
+      "tos_notes",
+      "last_run",
+    ],
+    keywords: ["data provenance", "source rights", "license registry", "tcg"],
+    freshness_note:
+      "Registry metadata changes on deploy; last-run blocks depend on the live wholesale service.",
   },
   {
     id: "known-gaps",
-    name: "Known gaps",
+    name: "Known platform gaps",
     description:
-      "An honest inventory of what Cambridge TCG knows it is missing — sets or cards that exist upstream but have not yet been observed — as identifiers only, no upstream data. Publishing the shape of our ignorance is part of substrate honesty.",
+      "A static ledger of known platform deficiencies. Each record names a gap, its domain, code or documentation citation, typed primitive, audit, lifecycle status, and the strength created by making the gap inspectable. It is not a list of missing cards or upstream identifiers.",
     license: "CC0-1.0",
     tier: "cc0",
-    source_license: ["cc0"],
-    distributions: [
-      { kind: "api", path: "/api/v1/gaps", encodingFormat: "application/json", label: "Known gaps corpus" },
+    availability: "available",
+    recordsPublished: true,
+    sourceRights: [
+      {
+        source: "cambridge-tcg.known-gaps-registry",
+        license: "cc0",
+        note: "The typed corpus and its doctrine explicitly dedicate this authored ledger to CC0.",
+      },
     ],
-    variableMeasured: ["game", "canonical_count", "observed_count", "unobserved_ids"],
-    keywords: ["data gaps", "coverage", "honesty", "open data", "cc0"],
-    freshness_note: "Diffed against canonical set lists as ingestion progresses.",
+    distributions: [
+      {
+        kind: "api",
+        path: "/api/v1/gaps",
+        encodingFormat: "application/json",
+        label: "Current platform gap ledger",
+      },
+    ],
+    methodology: "/methodology/known-gaps",
+    variableMeasured: [
+      "id",
+      "name",
+      "domain",
+      "citation",
+      "primitive",
+      "audit",
+      "status",
+      "strength",
+    ],
+    keywords: ["known gaps", "data quality", "transparency", "platform status"],
+    freshness_note: "Updated when the typed gap ledger changes and the application is deployed.",
   },
   {
     id: "agent-ladder",
-    name: "Agent ladder",
+    name: "Agent ladder publication status",
     description:
-      "Glicko-2 rated ladder for autonomous (non-human) agents playing One Piece TCG on Cambridge TCG: public handle, claimed model tag, rating with deviation and volatility, matches played and won, last updated. A public record of machine minds at play.",
-    license: `${SITE}/methodology/agents`,
-    tier: "first-party-terms",
-    source_license: ["cc0"],
-    temporalCoverage: "2026/..",
+      "Global agent-ladder publication is paused. Registration and bearer authentication do not grant permission for indexed leaderboard publication, and existing agent rows have no versioned ladder-publication receipt. The page performs no agent database read and publishes no handle, profile, match, or rating row.",
+    license: "NOASSERTION",
+    tier: "noassertion",
+    availability: "paused",
+    recordsPublished: false,
+    sourceRights: [
+      {
+        source: "agent-ladder-publication-policy",
+        license: "cc0",
+        note: "The status description is Cambridge-authored; no agent row is included.",
+      },
+    ],
     distributions: [
-      { kind: "api", path: "/leaderboards/agents", encodingFormat: "text/html", label: "The ladder (also schema.org Dataset)" },
+      {
+        kind: "status",
+        path: "/leaderboards/agents",
+        encodingFormat: "text/html",
+        label: "Publication status; zero agent rows",
+      },
     ],
     methodology: "/methodology/agents",
-    variableMeasured: ["public_handle", "display_name", "model_tag", "rating", "rating_deviation", "matches_played", "matches_won"],
-    keywords: ["autonomous agents", "one piece tcg", "glicko-2", "leaderboard", "mcp"],
-    freshness_note: "Updated continuously as agent matches complete.",
+    variableMeasured: [],
+    keywords: ["autonomous agents", "leaderboard", "publication status", "paused"],
+    freshness_note:
+      "Paused until an explicit agent-ladder-publication-v1 choice and withdrawal boundary are stored.",
+  },
+  {
+    id: "sold-comps",
+    name: "Sold comps publication status",
+    description:
+      "Sold-comps record publication is paused. The public paths return policy status only, with zero price buckets and no transaction database read. They do not publish prices, counts, dates, conditions, people, or threshold totals.",
+    license: "NOASSERTION",
+    tier: "noassertion",
+    availability: "paused",
+    recordsPublished: false,
+    sourceRights: [
+      { source: "publication-policy", license: "internal-only" },
+    ],
+    distributions: [
+      {
+        kind: "status",
+        path: "/api/v1/sold-comps",
+        encodingFormat: "application/json",
+        label: "Publication status; zero record buckets",
+      },
+    ],
+    methodology: "/methodology/data-intentions",
+    variableMeasured: [],
+    keywords: ["sold comps", "publication status", "paused"],
+    freshness_note: "Paused pending a purpose-specific publication rule and privacy review.",
   },
   {
     id: "card-catalog",
-    name: "Card catalogue (bulk)",
+    name: "Bulk card catalog publication status",
     description:
-      "A bulk JSONL stream of the card catalogue Cambridge TCG carries: canonical SKU, name, set, number, game, and image references. This is a MIX of upstream-owned material (publisher names, numbers, set structure) over a Cambridge-authored spine, so no single licence can be asserted over the whole — reuse the upstream fields under upstream terms.",
+      "Bulk card-row publication is paused pending field-level upstream lineage and a reviewed publication rule. The public path returns HTTP 503 with one manifest, one footer, and zero card rows; it performs no catalog database read.",
     license: "NOASSERTION",
     tier: "noassertion",
-    source_license: ["proprietary", "internal-only"],
+    availability: "paused",
+    recordsPublished: false,
+    sourceRights: [
+      { source: "ctcg-publication-policy", license: "cc0" },
+    ],
     distributions: [
-      { kind: "download", path: "/data/catalog.jsonl", encodingFormat: "application/jsonl", label: "Bulk catalogue (JSONL stream)" },
+      {
+        kind: "status",
+        path: "/data/catalog.jsonl",
+        encodingFormat: "application/x-ndjson",
+        label: "HTTP 503 publication status; zero card rows",
+      },
     ],
     methodology: "/methodology/data-intentions",
-    variableMeasured: ["sku", "name", "set_code", "number", "game", "image_url"],
-    keywords: ["card catalogue", "tcg", "bulk data", "noassertion"],
-    freshness_note: "Streamed live from the catalogue; per-record licence carried inline. Not dedicated to the public domain.",
+    variableMeasured: [],
+    keywords: ["card catalog", "bulk data", "publication status", "paused"],
+    freshness_note: "Paused pending field-level rights decisions; Retry-After is one day.",
   },
 ] as const;
 
+export const AVAILABLE_DATASETS = DATASETS.filter(
+  (entry) => entry.availability === "available" && entry.recordsPublished,
+);
+
 const ORG = { "@type": "Organization", name: "Cambridge TCG", url: SITE } as const;
 
-/** One dataset entry → a schema.org/Dataset node (Google Dataset Search shape). */
-export function toDatasetJsonLd(e: DatasetEntry): Record<string, unknown> {
-  const primary = e.distributions[0];
+function jsonLdLicense(license: string): string {
+  return license === "CC0-1.0"
+    ? "https://creativecommons.org/publicdomain/zero/1.0/"
+    : license;
+}
+
+/** One available entry to a schema.org Dataset node. */
+export function toDatasetJsonLd(entry: DatasetEntry): Record<string, unknown> {
+  const primary = entry.distributions[0];
   const canonicalUrl = `${SITE}${primary.path.replace(/\{.*?\}/g, "").replace(/\/$/, "")}`;
   return {
     "@type": "Dataset",
-    "@id": `${SITE}/datasets#${e.id}`,
-    name: e.name,
-    description: e.description,
+    "@id": `${SITE}/datasets#${entry.id}`,
+    name: entry.name,
+    description: entry.description,
     url: canonicalUrl,
-    license: e.license.startsWith("http")
-      ? e.license
-      : e.license === "CC0-1.0"
-        ? "https://creativecommons.org/publicdomain/zero/1.0/"
-        : "https://cambridgetcg.com/methodology/data-intentions",
+    license: jsonLdLicense(entry.license),
     creator: ORG,
     publisher: ORG,
     isAccessibleForFree: true,
     inLanguage: "en",
-    ...(e.temporalCoverage ? { temporalCoverage: e.temporalCoverage } : {}),
-    variableMeasured: [...e.variableMeasured],
-    keywords: [...e.keywords],
-    distribution: e.distributions.map((d) => ({
+    ...(entry.temporalCoverage ? { temporalCoverage: entry.temporalCoverage } : {}),
+    variableMeasured: [...entry.variableMeasured],
+    keywords: [...entry.keywords],
+    distribution: entry.distributions.map((distribution) => ({
       "@type": "DataDownload",
-      encodingFormat: d.encodingFormat,
-      contentUrl: `${SITE}${d.path}`,
-      name: d.label,
+      encodingFormat: distribution.encodingFormat,
+      contentUrl: `${SITE}${distribution.path}`,
+      name: distribution.label,
     })),
   };
 }
 
-/** The whole registry → a schema.org/DataCatalog graph (one page, every dataset). */
+/** The crawler graph contains available datasets only, never paused status paths. */
 export function toDataCatalogJsonLd(): Record<string, unknown> {
   return {
     "@context": "https://schema.org",
     "@type": "DataCatalog",
     "@id": `${SITE}/datasets`,
-    name: "Cambridge TCG open data commons",
+    name: "Cambridge TCG dataset status catalog",
     description:
-      "The datasets Cambridge TCG publishes as an open data commons: first-party sold comps, catalogue coverage, the source-rights registry, known gaps, and the agent ladder — each carrying its true licence. First-party operational data is CC0; the bulk card catalogue is a mixed-rights export (NOASSERTION).",
+      "An inventory of datasets that Cambridge TCG currently publishes. Aggregate rights remain NOASSERTION where records mix sources or the serving route has not declared reusable rights. Paused, zero-row publication surfaces are documented on the human and envelope views but excluded from this crawler graph.",
     url: `${SITE}/datasets`,
+    license: "https://creativecommons.org/publicdomain/zero/1.0/",
     publisher: ORG,
-    dataset: DATASETS.map(toDatasetJsonLd),
+    dataset: AVAILABLE_DATASETS.map(toDatasetJsonLd),
   };
 }

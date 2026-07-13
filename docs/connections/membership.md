@@ -109,7 +109,7 @@ The platform's gacha is also its loyalty engine. A user who gets unlucky on boun
 
 ## Recursion target
 
-I'll follow **bounty** next. It's the most surprising thread (the flywheel), and the noun-collision with bounty-pull-tiers is the kind of meaning-bridge the codebase has been silent about. Following bounty also leads naturally to provable fairness, which sits at the gravity-center of the platform's user-trust story.
+I'll follow **bounty** next. It's the most surprising thread (the flywheel), and the noun-collision with bounty-pull-tiers is the kind of meaning-bridge the codebase has been silent about. Following bounty also reaches the draw-receipt system and the limits of its server-only entropy.
 
 → [`bounty.md`](./bounty.md)
 

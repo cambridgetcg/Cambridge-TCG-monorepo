@@ -37,13 +37,23 @@ function errorCodeFrom(res: Response): string | null {
   }
 }
 
-// Honest mapping of what the auth API actually exposes. There is no
-// application-level rate limit; 429 can still arrive from platform
-// protection in front of the app, so it gets named — nothing else is
-// invented.
-function messageFor(res: Response): string | null {
+// Honest mapping of what the auth API actually exposes. New issuance stops at
+// five unexpired tokens per email address or 500 across the service; hosting
+// protection may add broader limits in front of it.
+async function messageFor(res: Response): Promise<string | null> {
   if (res.status === 429) {
-    return "Too many sign-in attempts right now. Wait a minute, then try again.";
+    try {
+      const body = await res.clone().json() as { code?: unknown };
+      if (body.code === "magic_link_global_limit") {
+        return "Sign-in email is temporarily at its service-wide safety limit. Use a recent link or wait before requesting another.";
+      }
+      if (body.code === "magic_link_email_limit") {
+        return "This address has reached its active sign-in email limit. Use a recent link if one arrived, or wait before requesting another.";
+      }
+    } catch {
+      // Hosting-level 429 responses are not required to carry our JSON shape.
+    }
+    return "This address has reached its active sign-in email limit. Use a recent link if one arrived, or wait before requesting another.";
   }
   const code = errorCodeFrom(res);
   if (code === "Configuration") {
@@ -96,7 +106,7 @@ function LoginInner() {
         }),
       });
 
-      const failure = messageFor(res);
+      const failure = await messageFor(res);
       if (failure) {
         setError(failure);
       } else {

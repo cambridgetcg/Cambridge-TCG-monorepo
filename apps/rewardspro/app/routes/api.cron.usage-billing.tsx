@@ -1,11 +1,11 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import * as crypto from "node:crypto";
-import { timingSafeEqual } from "node:crypto";
 import prisma from "../db.server";
 import { UsageRecordService } from "../services/billing/usage-record.service";
 import { shopifyApi, ApiVersion } from "@shopify/shopify-api";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const JOB_NAME = "usage-billing";
 const LOCK_TTL_MINUTES = 30;
@@ -21,9 +21,12 @@ const LOCK_TTL_MINUTES = 30;
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export async function loader({ request }: LoaderFunctionArgs) {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   const correlationId = crypto.randomUUID();
-  const userAgent = request.headers.get('user-agent');
   let lockId: string | undefined;
 
   // Structured logging helper
@@ -38,35 +41,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     }));
   };
 
-  log('info', 'Cron invocation started', {
-    userAgent,
-    isVercelCron: userAgent?.includes('vercel-cron/1.0'),
-    method: request.method,
-  });
-
-  // 1. Verify authorization with timing-safe comparison
-  const auth = request.headers.get('authorization');
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-
-  const isAuthorized = (() => {
-    if (!process.env.CRON_SECRET || !auth) return false;
-    try {
-      const authBuffer = Buffer.from(auth);
-      const expectedBuffer = Buffer.from(expectedAuth);
-      if (authBuffer.length !== expectedBuffer.length) return false;
-      return timingSafeEqual(authBuffer, expectedBuffer);
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isAuthorized) {
-    log('error', 'Unauthorized cron attempt', {
-      hasSecret: !!process.env.CRON_SECRET,
-      userAgent,
-    });
-    return new Response('Unauthorized', { status: 401 });
-  }
+  log('info', 'Cron invocation started');
 
   // 2. Check if new billing is enabled
   const useNewBilling = process.env.USE_NEW_BILLING === 'true';
@@ -315,7 +290,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     date: dateStr,
     shopsProcessed: results.processed,
     shopsSkipped: results.skipped,
-    errors: results.errors,
+    errorCount: results.errors,
     totalShops: activeShops.length,
     duration: Date.now() - startTime,
     dryRun: isDryRun,
@@ -332,7 +307,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     success: true,
     correlationId,
     summary,
-    details: isDryRun ? undefined : results.shops,
   });
 
   } finally {

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { blockUser, unblockUser, listBlocked } from "@/lib/messages/db";
 
+const PRIVATE_HEADERS = { "Cache-Control": "private, no-store" };
+
 // GET — my block list
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   const blocks = await listBlocked(session.user.id);
-  return NextResponse.json({ blocks });
+  return NextResponse.json({ blocks }, { headers: PRIVATE_HEADERS });
 }
 
 // POST — block. Body: { userId }

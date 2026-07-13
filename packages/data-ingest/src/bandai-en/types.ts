@@ -1,12 +1,10 @@
 /**
- * Raw shapes for the bandai-en source — official English card data
- * scraped from Bandai's EN cardlist sites.
+ * Raw shapes for the internal, fixture-backed Bandai EN parser.
  *
- * One parsed `<dl class="modalCol">` block → one `BandaiEnCard`. The
- * shape mirrors the DOM verbatim (verified live 2026-07-11 against
- * en.onepiece-cardgame.com/cardlist/?series=569101): field values stay
- * strings; "-" placeholders become null at parse time; nothing is
- * interpreted until `normalize()`.
+ * One parsed modal block or detail page becomes one `BandaiEnCard`. The
+ * shapes mirror the retained fixtures: field values stay strings, "-"
+ * placeholders become null at parse time, and interpretation waits for
+ * `normalize()`.
  */
 
 /**
@@ -30,10 +28,10 @@ export type BandaiEnGameKey = "op" | "dbf" | "dmw" | "una" | "bsr";
 export type BandaiEnDomKind = "modal-page" | "list-detail";
 
 /**
- * Per-game configuration for the shared fetch/parse skeleton. One
- * scraper covers all five Bandai EN sites (identical
- * `.../card/{CARD_NO}.png|webp` convention, `_p1` suffixes for
- * parallels — docs/EN-CARD-DATA.md §2).
+ * Per-game configuration for the offline parse skeleton. One Piece and DBS
+ * Fusion World are fixture-backed. The other sites and their exact DOM and
+ * image conventions remain unverified. The live SourceModule reader is
+ * blocked for every game.
  */
 export interface BandaiEnGameConfig {
   /** Registered game code (doubles as the config key). */
@@ -47,21 +45,20 @@ export interface BandaiEnGameConfig {
    * family (see `notes`); the first implementation run verifies it.
    */
   dom: BandaiEnDomKind;
-  /** Series page URL for a given series id (empty id = discovery page). */
+  /** Candidate series URL retained for parser fixtures; live use is blocked. */
   series_url: (series_id: string) => string;
   /**
-   * Card detail page URL — `"list-detail"` sites only. `p` is the
+   * Candidate detail URL for `"list-detail"` fixtures. `p` is the
    * parallel query value exactly as the list page carries it ("_p1"),
-   * or null for the base print.
+   * or null for the base print. Live use is blocked.
    */
   detail_url?: (card_no: string, p: string | null) => string;
   /**
-   * Copyright/attribution line stamped into every card's `extra` —
-   * policy requirement (docs/EN-CARD-DATA.md §7: attribution always,
-   * schema-enforced downstream). Franchise line + Bandai.
+   * Copyright/attribution line preserved in fixture-normalized provenance.
+   * Attribution does not grant collection or publication permission.
    */
   attribution: string;
-  /** Whether read() actually fetches this game yet. */
+  /** Whether an offline parser shape has been fixture-verified. */
   implemented: boolean;
   /**
    * Substrate-honest status note. For stubs: what is verified, what
@@ -115,9 +112,9 @@ export interface BandaiEnCard {
   trigger_text: string | null;
   /** The "Card Set(s)" row, e.g. "-ROMANCE DAWN- [OP01]". */
   card_sets_text: string | null;
-  /** The series page this block was parsed from. */
+  /** The page this card was parsed from. */
   source_url: string;
-  /** ISO moment the page was fetched (stamped by read(); keeps normalize pure). */
+  /** Capture timestamp supplied by the parser caller; keeps normalize pure. */
   retrieved_at: string;
 
   // ── "list-detail" DOM extras (dbf; absent on "modal-page" games) ────
@@ -141,8 +138,7 @@ export interface BandaiEnCard {
 
 /**
  * One `<li class="cardItem">` from a "list-detail" series page — a
- * reference to a card's detail page, not the card itself. `read()`
- * follows each ref with a (rate-limited) detail fetch.
+ * reference to a card's detail page, not the card itself.
  */
 export interface BandaiEnCardRef {
   /** Card number verbatim from the detail link, e.g. "FB10-001". */

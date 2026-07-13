@@ -3,7 +3,7 @@
 /**
  * Route error boundary for the /prices subtree.
  *
- * The price guide reads live data; a single bad row or a flaky upstream
+ * The structural catalog guide reads live coverage data; a single bad row or a flaky upstream
  * should never hard-500 the whole page. This catches any render error in
  * /prices/* and degrades to a clear, plain-language fallback with a retry —
  * substrate honesty (we say it failed, in plain words) + the fifth question
@@ -20,11 +20,11 @@ export default function PricesError({
   return (
     <main className="max-w-2xl mx-auto px-4 py-20 text-center">
       <h1 className="text-2xl font-bold text-ink mb-3">
-        This price page didn&rsquo;t load
+        This catalog page didn&rsquo;t load
       </h1>
       <p className="text-ink-muted mb-6">
-        Something went wrong fetching the prices for this page. It&rsquo;s on
-        our side, not yours — try again, or browse the full price guide.
+        Something went wrong fetching the structural catalog rows for this
+        page. It&rsquo;s on our side, not yours — try again, or browse all games.
       </p>
       <div className="flex items-center justify-center gap-3">
         <button

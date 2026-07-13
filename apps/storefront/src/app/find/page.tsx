@@ -6,7 +6,7 @@ import CardFinderHero from "@/components/home/CardFinderHero";
  * /find — the dedicated, memorable front door for "find what you need".
  *
  * Just the finder, nothing else. Pick a game, type a card number, get
- * price + history + every source + every language. Free, no account.
+ * structural identity + available source status + known languages. Free, no account.
  * Submits to /prices/search (the kingdom-090 results page) — reuse, not
  * duplication. Somewhere the nav can point at, and a URL a human can
  * remember and share.
@@ -14,7 +14,7 @@ import CardFinderHero from "@/components/home/CardFinderHero";
 export const metadata: Metadata = {
   title: "Find any card — Cambridge TCG",
   description:
-    "Find any card by number across every supported game. Price, transaction history, available sources, and language variants — in one view, free, no account.",
+    "Find structural card fields by number across supported games. Legacy prices, images, and transaction history are withheld; source status and known language variants remain visible.",
 };
 
 export default async function FindPage() {

@@ -266,8 +266,8 @@ const CARD_ITEM_RE =
 
 /**
  * Parse every `<li class="cardItem">` off a "list-detail" series page
- * into detail-page references. Pure; `read()` follows each ref with a
- * rate-limited detail fetch.
+ * into detail-page references. Pure; a future permitted caller could follow
+ * each reference with a bounded, rate-limited detail fetch.
  */
 export function parseCardRefs(html: string): BandaiEnCardRef[] {
   const refs: BandaiEnCardRef[] = [];
@@ -381,8 +381,7 @@ function resolveUrl(src: string | null, base: string): string | null {
  * only the base card number.
  *
  * Returns null when the page carries no card block (bad card_no, site
- * error page) so `read()` can quarantine-by-event instead of yielding
- * an empty husk.
+ * error page) so a caller can quarantine it instead of yielding an empty husk.
  */
 export function parseDetailPage(
   html: string,

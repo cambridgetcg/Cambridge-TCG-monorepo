@@ -72,9 +72,9 @@ export async function POST(request: Request) {
   }
 
   const doSpin = async () => {
-    // Provable-fair selection. Commit a seed + weights to verifiable_draws
-    // BEFORE rolling, so the recorded commitment predates the outcome.
-    // Segment index as the weight key keeps the verifier generic.
+    // Reproducible draw receipt. The commitment row precedes the outcome row,
+    // but all entropy is server-chosen and no external pre-roll witness exists.
+    // Segment index as the weight key keeps the checker generic.
     const totalProb = segments.reduce((s: number, seg: Segment) => s + seg.probability, 0);
     const weights: Record<string, number> = {};
     segments.forEach((seg, i) => { weights[String(i)] = seg.probability / totalProb; });

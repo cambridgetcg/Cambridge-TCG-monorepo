@@ -12,15 +12,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import { loadGameState } from "@/lib/prices/state";
-import { decodePathParam } from "@/lib/http/params";
 
 interface RouteContext {
   params: Promise<{ game: string }>;
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext): Promise<Response> {
-  const { game: rawGame } = await params;
-  const game = decodePathParam(rawGame);
+  const { game } = await params;
 
   const state = await loadGameState(game, { top_n: 50 });
   if (state === "unavailable") {

@@ -465,19 +465,19 @@ export const WELCOMES: readonly Welcome[] = [
     kind: "downstream-adopter",
     name: "Builder — partner ships an app on our data",
     greeting:
-      "Build. Our JSON Schemas at @cambridge-tcg/data-spec are codegen-ready. One contract, one envelope, one canonical SKU — your code learns the shape once and never re-learns. When we evolve the spec (SPEC_VERSION bump), the old version stays at /api/v1/* for at least 12 months. We treat our standard like a public API; you can treat us like a public API.",
+      "Build against /api/openapi.json and /standards.json. One contract, one envelope, one canonical SKU — your code learns the public shape once and never re-learns. When we evolve the spec (SPEC_VERSION bump), the old version stays at /api/v1/* for at least 12 months. The workspace packages are internal implementations, not published dependencies.",
     anticipated_because:
       "Builders ship faster on stable contracts. Cambridge TCG's spec is intentionally narrow + intentionally stable.",
     prepared: [
-      "@cambridge-tcg/data-spec — JSON Schema 2020-12 corpus, CC0",
-      "@cambridge-tcg/sku — typed parser + builder, CC0",
-      "@cambridge-tcg/data-ingest — full SourceModule contract if you want to ingest, CC0",
-      "/api/openapi.json — codegen-ready OpenAPI 3.1",
+      "/api/openapi.json — codegen-ready OpenAPI 3.1 document, CC0 for this document only",
+      "/standards.json — machine-readable standard versions, status, and exact license scope",
+      "/methodology/sku-standard — CC0 specification text for the canonical SKU; implementation code has separate rights",
+      "/api/v1/sources — public registry view of source policy and observed coverage",
       "SPEC_VERSION + 12-month deprecation window for breaking changes",
     ],
     arrival_protocol:
-      "1. `pnpm add @cambridge-tcg/data-spec @cambridge-tcg/sku`. " +
-      "2. Codegen against /api/openapi.json. " +
+      "1. Fetch /api/openapi.json and /standards.json. " +
+      "2. Generate a client and implement the published SKU specification. " +
       "3. Build. (No registration required.)",
     anticipated_at: "2026-05-12",
     status: "anticipated",

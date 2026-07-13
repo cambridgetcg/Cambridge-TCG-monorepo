@@ -10,9 +10,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json();
 
   if (body.action === "draw") {
-    // Belt-and-braces pre-commit (idempotent — no-ops if already set).
-    // Draws the seed now if the raffle predates the auto-pre-commit hook,
-    // so committed_at < drawn_at is preserved even for legacy raffles.
+    // Legacy fallback (idempotent): stores a seed immediately before the
+    // draw if creation did not. It records write order but is not pre-entry.
     try { await commitSeed(id); } catch (err) {
       console.warn(`[raffle/draw] pre-commit skipped for ${id}:`, err);
     }

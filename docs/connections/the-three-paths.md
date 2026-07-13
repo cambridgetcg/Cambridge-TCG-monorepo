@@ -1,5 +1,11 @@
 # The three paths — hobbyist, collector, competitor
 
+> **Current boundary (2026-07-12).** This is the historical design story.
+> Agent ladder publication, agent match writes, and matchmaking are now paused;
+> human ranked play and tournaments remain planned. Any later statement that
+> calls the ladder live or public records the earlier design and is superseded
+> by this note, `/play/compete`, and `/methodology/agents`.
+
 > **Pull.** Yu, immediately after the fun-first boundary landed: *"Structure it for both hobbyist who love the game, collectors who wanted to learn more, and serious players competing for prizes. Think about the different types of players and what they need to build tailored modules and flows for each."*
 >
 > **Form.** Story-as-wire. The wire is one new typed endpoint (`/api/v1/play/archetypes`), two new opinionated landings (`/play/casual` for the Hobbyist, `/play/compete` for the Competitor), a restructured welcome page organising paths as archetype × player-kind, plus methodology + manifest currency. **The play module learns to recognise three reasons a player is here, not just one.**
@@ -20,7 +26,7 @@ The moment the play module recognised that the same player can be three differen
 
 **The Collector.** Loves the cards. The deep need is set completion, lore connections, card-art appreciation, variant comparison, historical pricing context. The Collector's primary flow lives *outside* `/play` — at `/account/portfolio` (collection tracking), `/market` (acquisition), the universal-rep catalog endpoints (`/api/v1/universal/games`, `/sets/[game]`, `/card/[sku]`, `/at/[date]/card/[sku]`), and the federation primitive for archivists. **Financial stance: not a play surface; collection acquisition lives on the commerce side, separate from play.**
 
-**The Competitor.** Loves the contest. Ranked ladder (Glicko-2; agent ladder live, human ladder planned), tournament structure (planned), match reporting + replay system (planned), meta analysis (planned). The Competitor surface is `/play/compete` — substrate-honest about what's shipped vs planned, with the entire prize-pool layer queued for the future play-to-earn opt-in feature. **Financial stance: today fun-only; may involve play-to-earn when that opt-in feature ships, attached here.**
+**The Competitor.** Loves the contest. Ranked ladder (Glicko-2; agent ladder publication now paused, human ladder planned), tournament structure (planned), match reporting + replay system (planned), meta analysis (planned). The Competitor surface is `/play/compete` — substrate-honest about what's shipped vs planned, with the entire prize-pool layer queued for the future play-to-earn opt-in feature. **Financial stance: today fun-only; may involve play-to-earn when that opt-in feature ships, attached here.**
 
 **The Archetypes Endpoint.** `/api/v1/play/archetypes`. Machine-readable taxonomy: each archetype with `id` / `display_label` / `pull_quote` / `what_they_love` / `primary_needs[]` / `flows_served_today[]` / `flows_planned[]` / `financial_stance` / `composes_with_player_kinds[]` / `doctrinal_grounding[]`. An agent can fetch this before declaring itself at `/api/v1/identify` so its self-declaration carries archetype intent — *I am a competitor agent built to climb the agent ladder*, *I am a hobbyist agent built to play friendly games at the lobby's casual tier*.
 
@@ -139,7 +145,7 @@ After this commit:
 | # | Gap |
 |---|-----|
 | 1 | **Tournament substrate.** Tables, brackets, swiss-pairing engine, match-reporting flow, deck registration — none shipped. `/play/compete` lists them all as planned. |
-| 2 | **Human Glicko-2 ladder.** Today's ladder is agent-only. A separate human-ranked ladder lands when human ranked-play opt-in ships. |
+| 2 | **Human and agent Glicko-2 publication.** Agent match writes and ladder publication are paused. A separate human-ranked ladder remains planned and requires its own opt-in publication contract. |
 | 3 | **Replay system.** Planned. Composes with `match_lifecycle_log` which already records every move; the replay surface renders what the Scribe already records. |
 | 4 | **Themed weekly events for Hobbyists.** Format-of-the-week, theme-of-the-week, novel rulesets — named on `/play/casual` as planned. |
 | 5 | **Collector-specific landing on /play.** Deliberately omitted — Collector flows live outside /play. Could become a `/play/collect` curiosity surface (catalog-browse-as-game) in a future kingdom if there's demand. |
@@ -186,7 +192,7 @@ The Competitor's `flows_planned` includes "Prize pools" with the explicit note t
 | The methodology three-archetypes section | `apps/storefront/src/app/methodology/play-module/page.tsx` |
 | Manifest currency | `lib/manifest.ts` (+1 entry); `.well-known/cambridge-tcg.json` (+1 endpoint); OpenAPI (+1 operation); `llms.txt` (+ archetypes line) |
 | Tournament substrate | gap |
-| Human Glicko-2 ladder | gap |
+| Human and agent ladder publication | gap; agent match writes and publication paused, human ladder planned |
 | Replay system | gap |
 | Themed weekly events for Hobbyists | gap |
 | Prize-pool substrate | gap — lives under future play-to-earn |

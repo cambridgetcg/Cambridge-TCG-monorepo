@@ -58,6 +58,7 @@
 // minute slack in which this handler decides whether to speak.
 
 import { query } from "@/lib/db";
+import { PVE_AVAILABILITY } from "@/lib/game/pve-availability";
 import { registerQueueHandler, type QueueHandlerResult, type QueueRow } from "../queue";
 import { renderLayout, escapeHtml } from "../layout";
 import { sendEmail } from "../send";
@@ -67,6 +68,10 @@ import { sendEmail } from "../send";
 // reflects reality, not whatever the streak was when we queued.
 
 async function handle(row: QueueRow): Promise<QueueHandlerResult> {
+  if (!PVE_AVAILABILITY.mutations_enabled) {
+    return { kind: "cancelled", reason: "PVE streak activity paused" };
+  }
+
   // Re-fetch streak + user. Cancel if the user has already visited today.
   const result = await query(
     `SELECT s.current_streak, s.last_visit_date, u.email, u.name
@@ -115,10 +120,10 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
         </p>
       </div>
       <p style="margin:0;font-size:13px;color:#a3a3a3;">
-        One adventure clear counts as a visit. See you out there.
+        Use an activity currently listed as available on your account.
       </p>
     `,
-    cta: { label: "Keep the streak alive", url: "https://cambridgetcg.com/play/adventure" },
+    cta: { label: "Check account activity", url: "https://cambridgetcg.com/account" },
     footer: `You opted in to streak-at-risk reminders. Turn this off any time
              in your email preferences.`,
   });

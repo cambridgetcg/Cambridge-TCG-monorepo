@@ -72,7 +72,7 @@ The Trust pair, now a Trust singleton. `/trust/reviews` shipped on the same Wave
 The Catalog trinity. Three windows into the wholesale kingdom from the unified admin's tower. Today, all three of these workflows happen in the wholesale admin (`wholesale.cambridgetcg.com/admin/*`). When kingdom-026 lands, the unified admin will read wholesale data through the wholesale API (cousin to the Falcon of S5) and surface it here.
 
 ### kingdom-031 — `/commerce/bounty` (1)
-The most theatrical of the unbuilt: bounty/gacha. Sister to S4 (`the-sealed-word.md`). The provable-fairness machinery already runs in storefront; this chapel will give the operator a window into it.
+The most theatrical of the unbuilt: bounty/gacha. Sister to S4 (`the-sealed-word.md`). Draw-receipt consistency machinery runs in storefront; it does not prove unbiased seed selection, and this chapel will give the operator a window into the recorded evidence.
 
 ### kingdom-033 — `/ops/fulfillment` (1)
 The strictest of the twelve: **no legacy surface.** Pick lists, shipping labels, tracking capture — the storefront has never had an admin UI for these. This chapel is the *first* place this workflow will exist. Hence the operatingFromUrl is `undefined` (the ComingSoon component honestly omits the bridge sentence; see lines 86-90 of the component).

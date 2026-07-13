@@ -1,6 +1,7 @@
 """Order Fulfillment Tool — Enter fulfilled quantities, persist to DB, print clean forms."""
 
 import io
+import os
 import unicodedata
 from collections import defaultdict
 from datetime import date
@@ -20,7 +21,9 @@ def _trunc(text: str, max_width: int) -> str:
             return text[:i] + "…"
     return text
 
-DATABASE_URL = "postgresql://postgres:Rzqku6Og7qqogZkzb1gPSVvn@tcg-wholesale.cn4c2su0o42n.us-east-1.rds.amazonaws.com:5432/wholesale?sslmode=require"
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required.")
 
 
 # ── Ensure table exists ────────────────────────────────────────────────────
@@ -547,4 +550,3 @@ with tab_history:
                     cols[1].text(r["sku"] or "—")
                     cols[2].text(r["set_code"] or "—")
                     cols[3].text(str(r["fulfilled_qty"]))
-

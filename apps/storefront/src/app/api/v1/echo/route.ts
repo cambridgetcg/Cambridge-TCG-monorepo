@@ -220,7 +220,7 @@ async function handle(req: NextRequest): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface. The body you sent, the headers, the IP — all read in-memory, echoed back, never persisted.",
+      "The application does not persist the echoed body or headers. Hosting, proxy, and security infrastructure may retain ordinary request metadata, including IP-derived logs.",
   };
 
   return jsonResponse({

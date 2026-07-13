@@ -1,8 +1,110 @@
 // Custom next-auth adapter for raw pg (no ORM)
 
-import { query } from "@/lib/db";
+import { createHash } from "node:crypto";
+import { query, transaction } from "@/lib/db";
 import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
 import type { Adapter, AdapterUser, AdapterSession, VerificationToken } from "next-auth/adapters";
+
+export const MAX_ACTIVE_MAGIC_LINKS_PER_EMAIL = 5;
+export const MAX_ACTIVE_MAGIC_LINKS_GLOBAL = 500;
+const EXPIRED_TOKEN_PRUNE_LIMIT = 250;
+const GLOBAL_MAGIC_LINK_LOCK_KEY = 724_2026_0712;
+
+export interface MagicLinkCapacity {
+  allowed: boolean;
+  reason: "email" | "global" | null;
+  emailActiveCount: number;
+  globalActiveCount: number;
+  retryAfterSeconds: number;
+}
+
+interface ReservableVerificationToken {
+  identifier: string;
+  token: string;
+  expires: Date;
+}
+
+/**
+ * Reserve the exact token that Auth.js will store before its email transport
+ * starts. Auth.js starts email delivery and adapter token creation as sibling
+ * promises, so enforcing the cap only in createVerificationToken is too late:
+ * a rejected token may already have been emailed.
+ */
+export async function reserveMagicLinkForDelivery(input: {
+  identifier: string;
+  rawToken: string;
+  expires: Date;
+  secret: string;
+}): Promise<void> {
+  const storedToken = createHash("sha256")
+    .update(`${input.rawToken}${input.secret}`)
+    .digest("hex");
+  await reserveVerificationToken({
+    identifier: input.identifier,
+    token: storedToken,
+    expires: input.expires,
+  });
+}
+
+/**
+ * Check the durable per-email and service-wide bounds before Auth.js creates
+ * and sends another link. The same statement prunes a bounded batch of expired
+ * tokens, so dead links do not accumulate without a new scheduled service.
+ */
+export async function magicLinkRequestCapacity(
+  identifier: string,
+): Promise<MagicLinkCapacity> {
+  const result = await query(
+    `WITH expired AS (
+       DELETE FROM verification_tokens
+        WHERE ctid IN (
+          SELECT ctid FROM verification_tokens
+           WHERE expires <= NOW()
+           ORDER BY expires ASC
+           LIMIT $2
+        )
+     )
+     SELECT COUNT(*) FILTER (WHERE identifier = $1)::int AS email_active_count,
+            COUNT(*)::int AS global_active_count,
+            COALESCE(
+              CEIL(EXTRACT(EPOCH FROM (
+                MIN(expires) FILTER (WHERE identifier = $1) - NOW()
+              ))),
+              0
+            )::int AS email_retry_after_seconds,
+            COALESCE(
+              CEIL(EXTRACT(EPOCH FROM (MIN(expires) - NOW()))),
+              0
+            )::int AS global_retry_after_seconds
+       FROM verification_tokens
+      WHERE expires > NOW()`,
+    [identifier, EXPIRED_TOKEN_PRUNE_LIMIT],
+  );
+  const emailActiveCount = Number(result.rows[0]?.email_active_count ?? 0);
+  const globalActiveCount = Number(result.rows[0]?.global_active_count ?? 0);
+  const reason = emailActiveCount >= MAX_ACTIVE_MAGIC_LINKS_PER_EMAIL
+    ? "email"
+    : globalActiveCount >= MAX_ACTIVE_MAGIC_LINKS_GLOBAL
+      ? "global"
+      : null;
+  const retryAfterSeconds = Math.max(
+    0,
+    Number(
+      reason === "email"
+        ? result.rows[0]?.email_retry_after_seconds
+        : reason === "global"
+          ? result.rows[0]?.global_retry_after_seconds
+          : 0,
+    ),
+  );
+  return {
+    allowed: reason === null,
+    reason,
+    emailActiveCount,
+    globalActiveCount,
+    retryAfterSeconds,
+  };
+}
 
 // users_username_key (unique) collision — the only 23505 worth retrying
 // with a fresh handle. A users_email_key violation means a concurrent
@@ -142,18 +244,31 @@ export function PgAdapter(): Adapter {
     },
 
     async createVerificationToken(token) {
-      await query(
-        `INSERT INTO verification_tokens (identifier, token, expires) VALUES ($1, $2, $3)
-         ON CONFLICT (identifier, token) DO NOTHING`,
-        [token.identifier, token.token, token.expires]
-      );
+      // The email sender reserves this same hashed token before delivery. This
+      // adapter call is therefore intentionally idempotent for that exact live
+      // token, while a different token still consumes a new bounded slot.
+      await reserveVerificationToken(token);
       return token;
     },
 
     async useVerificationToken({ identifier, token }) {
       const result = await query(
-        `DELETE FROM verification_tokens WHERE identifier = $1 AND token = $2 RETURNING *`,
-        [identifier, token]
+        `WITH expired AS (
+           DELETE FROM verification_tokens
+            WHERE ctid IN (
+              SELECT ctid FROM verification_tokens
+               WHERE expires <= NOW()
+               ORDER BY expires ASC
+               LIMIT $3
+            )
+         ),
+         consumed AS (
+           DELETE FROM verification_tokens
+            WHERE identifier = $1 AND token = $2 AND expires > NOW()
+           RETURNING *
+         )
+         SELECT * FROM consumed`,
+        [identifier, token, EXPIRED_TOKEN_PRUNE_LIMIT]
       );
       if (!result.rows[0]) return null;
       return {
@@ -163,6 +278,74 @@ export function PgAdapter(): Adapter {
       } as VerificationToken;
     },
   };
+}
+
+/**
+ * Atomically admit one live verification token. All callers take the same
+ * global lock, so both per-address and service-wide counts stay true across
+ * processes. Exact-token idempotency lets the pre-send reservation and
+ * Auth.js's concurrent adapter call converge on one row.
+ */
+async function reserveVerificationToken(
+  token: ReservableVerificationToken,
+): Promise<void> {
+  await transaction(async (tx) => {
+    // The lock is its own statement. Under READ COMMITTED, the admission query
+    // then takes a fresh snapshot after any previous lock holder commits; a
+    // lock CTE inside the admission statement would retain a stale snapshot.
+    await tx(
+      `SELECT pg_advisory_xact_lock($1::bigint)`,
+      [GLOBAL_MAGIC_LINK_LOCK_KEY],
+    );
+    const result = await tx(
+      `WITH expired AS (
+         DELETE FROM verification_tokens
+          WHERE ctid IN (
+            SELECT ctid FROM verification_tokens
+             WHERE expires <= NOW()
+             ORDER BY expires ASC
+             LIMIT $6
+          )
+       ),
+       existing AS (
+         SELECT 1
+           FROM verification_tokens
+          WHERE identifier = $1
+            AND token = $2
+            AND expires > NOW()
+          LIMIT 1
+       ),
+       capacity AS (
+         SELECT COUNT(*) FILTER (WHERE identifier = $1)::int AS email_active_count,
+                COUNT(*)::int AS global_active_count
+           FROM verification_tokens
+          WHERE expires > NOW()
+       ),
+       inserted AS (
+         INSERT INTO verification_tokens (identifier, token, expires)
+         SELECT $1, $2, $3
+           FROM capacity
+          WHERE NOT EXISTS (SELECT 1 FROM existing)
+            AND email_active_count < $4
+            AND global_active_count < $5
+         ON CONFLICT (identifier, token) DO NOTHING
+         RETURNING identifier
+       )
+       SELECT EXISTS (SELECT 1 FROM existing)
+           OR EXISTS (SELECT 1 FROM inserted) AS reserved`,
+      [
+        token.identifier,
+        token.token,
+        token.expires,
+        MAX_ACTIVE_MAGIC_LINKS_PER_EMAIL,
+        MAX_ACTIVE_MAGIC_LINKS_GLOBAL,
+        EXPIRED_TOKEN_PRUNE_LIMIT,
+      ],
+    );
+    if (result.rows[0]?.reserved !== true) {
+      throw new Error("Magic-link issuance safety limit reached");
+    }
+  });
 }
 
 function toAdapterUser(

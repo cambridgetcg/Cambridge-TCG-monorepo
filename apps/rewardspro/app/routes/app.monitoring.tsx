@@ -20,8 +20,8 @@ import { MetricsService } from "~/services/monitoring/metrics.service";
 import { Logger } from "~/services/logger.service";
 import { formatCurrency } from "~/utils/currency";
 
-interface HealthStatus {
-  status: string;
+interface OperatorHealthStatus {
+  status: "healthy" | "degraded" | "unhealthy";
   timestamp: string;
   responseTime: number;
   environment: {
@@ -34,9 +34,8 @@ interface HealthStatus {
     heapTotal: string;
     heapUsagePercent: string;
   };
-  dataAPI: {
+  database: {
     connected: boolean;
-    responseTime: number;
   };
   monitoring: {
     datadog: string;
@@ -50,6 +49,7 @@ interface HealthStatus {
  * Only accessible to shop owners
  */
 export async function loader({ request }: LoaderFunctionArgs) {
+  const startedAt = Date.now();
   const { session } = await authenticate.admin(request);
 
   if (!session?.shop) {
@@ -59,9 +59,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   // Run each fetch independently — a single failure must not zero out the page.
-  const [healthResult, shopSettingsResult, recentErrorsResult, metricsResult, webhookActivityResult] =
+  const [shopSettingsResult, recentErrorsResult, metricsResult, webhookActivityResult] =
     await Promise.allSettled([
-      fetch(new URL('/api/health?detailed=true', request.url).href).then(r => r.json()),
       db.shopSettings.findUnique({
         where: { shop: session.shop },
         select: { storeCurrency: true, currencyDisplayType: true }
@@ -100,27 +99,57 @@ export async function loader({ request }: LoaderFunctionArgs) {
       failures.push(label);
     }
   };
-  fail('health', healthResult);
   fail('shopSettings', shopSettingsResult);
   fail('recentErrors', recentErrorsResult);
   fail('metrics', metricsResult);
   fail('webhookActivity', webhookActivityResult);
 
-  return json({
-    shop: session.shop,
-    health: healthResult.status === 'fulfilled' ? (healthResult.value as HealthStatus) : null,
-    metrics: metricsResult.status === 'fulfilled' ? metricsResult.value.metrics : null,
-    recentErrors:
-      recentErrorsResult.status === 'fulfilled'
-        ? Number(recentErrorsResult.value[0]?.count || 0)
-        : 0,
-    webhookActivity: webhookActivityResult.status === 'fulfilled' ? webhookActivityResult.value : [],
-    shopSettings:
-      shopSettingsResult.status === 'fulfilled' && shopSettingsResult.value
-        ? shopSettingsResult.value
-        : { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' },
-    error: failures.length > 0 ? `Failed to load: ${failures.join(', ')}` : null,
-  });
+  const databaseConnected = shopSettingsResult.status === 'fulfilled';
+  const memoryUsage = process.memoryUsage();
+  const operatorHealth: OperatorHealthStatus = {
+    status: !databaseConnected
+      ? 'unhealthy'
+      : failures.length > 0
+        ? 'degraded'
+        : 'healthy',
+    timestamp: new Date().toISOString(),
+    responseTime: Date.now() - startedAt,
+    environment: {
+      VERCEL_ENV: process.env.VERCEL_ENV || 'local',
+      NODE_ENV: process.env.NODE_ENV || 'development',
+      APP_VERSION: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) || 'unknown',
+    },
+    memory: {
+      heapUsed: `${(memoryUsage.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+      heapTotal: `${(memoryUsage.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+      heapUsagePercent: `${((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100).toFixed(2)}%`,
+    },
+    database: { connected: databaseConnected },
+    monitoring: {
+      datadog: process.env.DD_API_KEY ? 'configured' : 'not configured',
+      sentry: process.env.SENTRY_DSN ? 'configured' : 'not configured',
+      logging: 'operational',
+    },
+  };
+
+  return json(
+    {
+      shop: session.shop,
+      health: operatorHealth,
+      metrics: metricsResult.status === 'fulfilled' ? metricsResult.value.metrics : null,
+      recentErrors:
+        recentErrorsResult.status === 'fulfilled'
+          ? Number(recentErrorsResult.value[0]?.count || 0)
+          : 0,
+      webhookActivity: webhookActivityResult.status === 'fulfilled' ? webhookActivityResult.value : [],
+      shopSettings:
+        shopSettingsResult.status === 'fulfilled' && shopSettingsResult.value
+          ? shopSettingsResult.value
+          : { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' },
+      error: failures.length > 0 ? `Failed to load: ${failures.join(', ')}` : null,
+    },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  );
 }
 
 export default function MonitoringDashboard() {
@@ -156,7 +185,7 @@ export default function MonitoringDashboard() {
     switch (status) {
       case 'operational':
       case 'configured':
-        return <Badge tone="success">Operational</Badge>;
+        return <Badge tone="info">Configured</Badge>;
       case 'error':
         return <Badge tone="critical">Error</Badge>;
       case 'not configured':
@@ -223,8 +252,8 @@ export default function MonitoringDashboard() {
                   <InlineStack gap="400" wrap>
                     <InlineStack gap="200">
                       <Text as="span">Database:</Text>
-                      <Badge tone={data.health.dataAPI.connected ? "success" : "critical"}>
-                        {data.health.dataAPI.connected ? 'Connected' : 'Disconnected'}
+                      <Badge tone={data.health.database.connected ? "success" : "critical"}>
+                        {data.health.database.connected ? 'Connected' : 'Disconnected'}
                       </Badge>
                     </InlineStack>
 

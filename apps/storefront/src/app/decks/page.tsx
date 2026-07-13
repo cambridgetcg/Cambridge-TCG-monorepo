@@ -128,7 +128,7 @@ export default function PublicDecksPage() {
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-ink-faint text-xs">
-                      no leader
+                      {d.leader_card ? "card art unavailable" : "no leader"}
                     </div>
                   )}
                 </div>

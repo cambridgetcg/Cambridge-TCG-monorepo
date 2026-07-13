@@ -173,7 +173,10 @@ function fullEscrow(sellerScore: number): EscrowRouting {
 
 // ── Route a specific trade by ID ──
 
-export async function getTradeRouting(tradeId: string): Promise<EscrowRouting | null> {
+export async function getTradeRouting(
+  tradeId: string,
+  viewerId: string,
+): Promise<EscrowRouting | null> {
   const result = await query(
     `SELECT t.price, t.buyer_id, t.seller_id,
        bu.trust_score as buyer_trust, su.trust_score as seller_trust,
@@ -185,8 +188,9 @@ export async function getTradeRouting(tradeId: string): Promise<EscrowRouting | 
      LEFT JOIN trust_profiles bp ON bp.user_id=t.buyer_id
      LEFT JOIN trust_profiles sp ON sp.user_id=t.seller_id
      LEFT JOIN market_orders o ON t.bid_order_id=o.id
-     WHERE t.id=$1`,
-    [tradeId]
+     WHERE t.id=$1
+       AND (t.buyer_id=$2 OR t.seller_id=$2)`,
+    [tradeId, viewerId]
   );
 
   if (result.rows.length === 0) return null;

@@ -17,7 +17,7 @@ export default function NavigationMethodology() {
       <p>
         Cambridge TCG has many routes, but the global header is not a site
         index. It presents the four things most visitors come to do, then a
-        small <strong>More</strong> menu for help, trust, and open-platform
+        small <strong>More</strong> menu for help, trust, and data-directory
         material. The complete corpus stays available through its hub pages
         and platform map.
       </p>
@@ -51,11 +51,11 @@ export default function NavigationMethodology() {
           </tr>
           <tr>
             <td><strong>Play</strong></td>
-            <td>How do I play, build a deck, or see the leaderboards?</td>
+            <td>How do I play, build a deck, or see the agent ladder and ranking policy?</td>
           </tr>
           <tr>
             <td><strong>Community</strong></td>
-            <td>Where are the people, rewards, and shared activity?</td>
+            <td>Where are profiles, rewards, agents, and the current activity policy?</td>
           </tr>
           <tr>
             <td><strong>More</strong></td>
@@ -75,9 +75,9 @@ export default function NavigationMethodology() {
         The header promises twelve destinations instead of reproducing every
         deep route. Each destination is a real hub: Market links auctions,
         swaps, lots, and pulse; Prices carries guides and sets; Play carries
-        modes and decks; Community links membership, rewards, leaderboards, and
-        bounties. The More menu links to Start here, Guides, About, Open data,
-        Methods &amp; fees, and Verify outcomes.
+        modes and decks; Community links membership, rewards, ranking policy, and
+        bounties. The More menu links to Start here, Guides, About, Data directory,
+        Methods &amp; fees, and Draw proof checks.
       </p>
       <p>
         Nothing is deleted from the platform. The{" "}
@@ -90,7 +90,7 @@ export default function NavigationMethodology() {
         </Link>{" "}
         and{" "}
         <Link href="/data" className="text-accent hover:underline">
-          open-data hub
+          data directory
         </Link>{" "}
         carry their own depth.
       </p>

@@ -1,189 +1,104 @@
 import Link from "next/link";
 import { Callout } from "@/lib/ui";
 
-/**
- * /legal/card-images — the card image & card text policy, in plain words.
- *
- * The public half of docs/EN-CARD-DATA.md. Every rule stated here is
- * enforced by schema (card_images.attribution NOT NULL, takedown_status)
- * or by ingest policy (no flavor text, thumbnail caps, no leaks). Say
- * only what we actually do; do everything we say.
- */
-
+/** Public statement of the card-media boundary that exists today. */
 export const metadata = {
-  title: "Card images & card text — Cambridge TCG",
+  title: "Card media and text status - Cambridge TCG",
   description:
-    "Whose work the card images are, why they appear here, exactly how we use them, and how a rightsholder gets anything removed — fast.",
+    "The current rights and publication state for publisher-owned card images and text held by Cambridge TCG.",
 };
-
-const publishers = [
-  {
-    game: "One Piece Card Game / Dragon Ball Super Fusion World / Digimon Card Game / Battle Spirits / Union Arena / Gundam Card Game",
-    line: "© BANDAI CO., LTD. — with the respective franchise rightsholders (including Eiichiro Oda/Shueisha and Toei Animation for One Piece; Bird Studio/Shueisha and Toei Animation for Dragon Ball). This site is not produced by, endorsed by, or affiliated with Bandai.",
-  },
-  {
-    game: "Pokémon Trading Card Game",
-    line: "Pokémon and Pokémon TCG card images © Pokémon / Nintendo / Creatures / GAME FREAK. This site is not affiliated with, sponsored, or endorsed by The Pokémon Company International.",
-  },
-  {
-    game: "Cardfight!! Vanguard",
-    line: "© bushiroad All Rights Reserved. This site is not produced by, endorsed by, or affiliated with Bushiroad.",
-  },
-  {
-    game: "Magic: The Gathering (coverage in preparation)",
-    line: "Portions of this site may include unofficial Fan Content permitted under the Wizards of the Coast Fan Content Policy. Card images © Wizards of the Coast LLC. Not endorsed by Wizards of the Coast.",
-  },
-  {
-    game: "Yu-Gi-Oh! (coverage in preparation)",
-    line: "Yu-Gi-Oh! card images © Konami Digital Entertainment / Studio Dice. This site is not produced by, endorsed by, or affiliated with Konami.",
-  },
-];
 
 export default function CardImagesPolicyPage() {
   return (
     <main className="min-h-screen bg-page">
-      <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">
-          Card images &amp; card text
+      <div className="mx-auto max-w-3xl px-4 py-12">
+        <h1 className="mb-2 text-2xl font-display font-semibold text-ink md:text-3xl">
+          Card media and text
         </h1>
-        <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 11 July 2026.
+        <p className="mb-8 text-sm text-ink-faint">
+          Current publication boundary. Last reviewed 12 July 2026.
         </p>
 
-        <Callout tone="note" title="What this page is">
-          Every card pictured on this site is somebody&apos;s art and
-          somebody&apos;s brand — none of it ours. This page says exactly why
-          card images appear here, how we limit that use, whose work it is,
-          and how a rightsholder gets anything removed, fast. We are here to
-          promote the culture of these games, not to take anything from the
-          people who make them.
+        <Callout tone="warning" title="Bandai English publication is paused">
+          Bandai card text and images are proprietary. Cambridge has no recorded
+          written permission covering collection into this service or public
+          display. The ingest route and public reader are therefore closed.
         </Callout>
 
-        <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
+        <div className="mt-8 space-y-8 text-sm leading-relaxed text-ink-muted">
           <section>
-            <h2 className="text-lg font-display font-semibold text-ink mb-3">
-              Why card images appear here at all
+            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
+              What exists
             </h2>
             <p>
-              This is a marketplace and price guide for <em>genuine, physical</em>{" "}
-              trading cards being resold second-hand. A picture of the card is
-              how a buyer knows which printing, which art, which condition they
-              are buying — the same way every card shop window works. That is
-              the only job card images do here: identifying real products.
-              They are not decoration, not our branding, and never
-              merchandise.
+              An internal parser, database tables, and previously collected rows
+              exist. No Bandai image is hosted in a Cambridge-controlled English
+              image bucket: that bucket and its thumbnail pipeline have not been
+              built. Stored publisher URLs are not used as public image fallbacks,
+              so the site does not hotlink them through this lane.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-display font-semibold text-ink mb-3">
-              The rules we hold ourselves to
+            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
+              What the safeguards do not mean
             </h2>
-            <ul className="list-disc pl-5 space-y-2">
+            <ul className="list-disc space-y-2 pl-5">
               <li>
-                <strong className="text-ink">Official sample images first.</strong>{" "}
-                Where a publisher publishes card galleries (Bandai, Bushiroad
-                and others do, for every set), we use those images, unaltered,
-                and say where they came from. Every image in our catalogue
-                carries a stored credit line and source — an image without
-                attribution cannot enter the database.
+                A source URL records provenance. It does not grant permission to
+                fetch, display, mirror, or redistribute the source.
               </li>
               <li>
-                <strong className="text-ink">Small where small does the job.</strong>{" "}
-                Browsing and search use thumbnails. Full-size images appear
-                only where you are looking at one specific physical card for
-                sale.
+                A copyright credit may be required when use is allowed. Credit is
+                not itself permission.
               </li>
               <li>
-                <strong className="text-ink">Never edited.</strong> No crops
-                that remove copyright lines, no filters, no overlays on the
-                card art itself.
+                A takedown field helps enforce a decision. It does not make the
+                original publication authorized.
               </li>
               <li>
-                <strong className="text-ink">Rules text, not flavor text.</strong>{" "}
-                We reproduce what a card <em>does</em> (its effect text —
-                functional information a buyer needs). We deliberately do not
-                republish flavor text — the creative prose belongs with the
-                card and its makers.
-              </li>
-              <li>
-                <strong className="text-ink">No leaks, ever.</strong> Cards
-                that have not been officially revealed by their publisher are
-                banned from this site outright — listings, images, and text.
-                This is a hard rule with expedited removal.
-              </li>
-              <li>
-                <strong className="text-ink">No publisher logos in our branding.</strong>{" "}
-                Game names appear as plain text to identify products
-                (nominative use). Our look is ours; theirs is theirs.
-              </li>
-              <li>
-                <strong className="text-ink">Genuine cards only.</strong>{" "}
-                Counterfeits and proxies are forbidden in our{" "}
-                <Link href="/terms" className="text-accent underline">
-                  terms
-                </Link>
-                . Pictures of fakes get the listing removed, not just the
-                image.
+                The absence of a robots restriction, common industry practice,
+                and publisher tolerance are not written rights grants.
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-display font-semibold text-ink mb-3">
-              Whose work it is
+            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
+              The wider catalog
             </h2>
-            <ul className="space-y-3">
-              {publishers.map((p) => (
-                <li key={p.game}>
-                  <p className="font-medium text-ink">{p.game}</p>
-                  <p>{p.line}</p>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3">
-              All other card games shown here follow the same pattern: the
-              images and card text are © their respective publishers and
-              creators, we claim nothing, and we are affiliated with none of
-              them.
+            <p>
+              Other legacy card-media records have separate source histories.
+              This page does not declare those records rights-cleared. Public
+              catalog and price surfaces withhold image fields when Cambridge
+              cannot connect the field to a reviewed source-rights decision.
+              Storage provenance is not ownership or publication permission.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-display font-semibold text-ink mb-3">
-              For rightsholders: removal, fast
+            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
+              What reopening requires
             </h2>
             <p>
-              If you own rights in anything shown here and want it changed or
-              gone, tell us via the{" "}
-              <Link href="/contact" className="text-accent underline">
-                contact page
-              </Link>{" "}
-              — identify the material (a URL or SKU is perfect) and the right
-              you hold. We do not argue, we do not stall: verified requests
-              are honoured promptly, the affected images are taken down while
-              we check, and the removal is recorded in our catalogue&apos;s
-              audit trail. Sellers whose own photos repeatedly infringe lose
-              the ability to list.
+              Cambridge must first record permission and its exact scope, then
+              review field-level rules for collection, storage, per-card display,
+              transformation, and bulk reuse. If images are allowed, they must use
+              a reviewed Cambridge-controlled host with no publisher hotlink
+              fallback. Attribution and removal duties must be implemented as the
+              permission requires.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-display font-semibold text-ink mb-3">
-              Where we stand
+            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
+              Contact
             </h2>
             <p>
-              We operate from the United Kingdom. We rely on the ordinary
-              legality of reselling genuine goods (exhaustion of rights) and
-              on identifying products honestly by their names (honest
-              practices under trade mark law). For everything beyond that, we
-              rely on doing right by the games: attribution always, official
-              sources first, small images where small will do, and immediate
-              compliance when a rightsholder asks. These games are cultures,
-              not just products — the people who make them deserve better
-              than being scraped and forgotten, and the people who play them
-              deserve a marketplace that says plainly where everything came
-              from.
+              A rightsholder can identify material and the right they hold through
+              the <Link href="/contact" className="text-accent underline">contact page</Link>.
+              Cambridge will review the report and restrict material it controls
+              while the claim is resolved.
             </p>
           </section>
         </div>

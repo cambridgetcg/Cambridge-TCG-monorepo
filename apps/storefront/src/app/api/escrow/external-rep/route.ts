@@ -4,19 +4,38 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { addExternalRep, verifyExternalRep } from "@/lib/escrow/trust-engine";
 import { query } from "@/lib/db";
 
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
+
 // GET — user's external reputation links
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { error: "Sign in required." },
+      { status: 401, headers: PRIVATE_NO_STORE },
+    );
+  }
 
   const url = new URL(request.url);
   const userId = url.searchParams.get("userId") || session.user.id;
+  if (userId !== session.user.id) {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Forbidden." },
+        { status: 403, headers: PRIVATE_NO_STORE },
+      );
+    }
+  }
 
   const result = await query(
     `SELECT * FROM external_reputation WHERE user_id=$1 ORDER BY platform`,
     [userId]
   );
-  return NextResponse.json({ accounts: result.rows });
+  return NextResponse.json(
+    { accounts: result.rows },
+    { headers: PRIVATE_NO_STORE },
+  );
 }
 
 // POST — add external platform link or verify (admin)

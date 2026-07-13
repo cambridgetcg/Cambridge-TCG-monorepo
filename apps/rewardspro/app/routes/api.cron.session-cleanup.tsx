@@ -13,6 +13,7 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { getAuroraClient } from "~/utils/aurora-data-api";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 // Cleanup configuration
 const CONFIG = {
@@ -32,15 +33,11 @@ interface CleanupStats {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const startTime = Date.now();
-
-  // Verify cron secret
-  const cronSecret = request.headers.get("X-Cron-Secret");
-  if (cronSecret !== process.env.CRON_SECRET) {
-    console.warn("[SessionCleanupCron] Unauthorized request");
-    return json({ error: "Unauthorized" }, { status: 401 });
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
+  const startTime = Date.now();
   const url = new URL(request.url);
   const statsOnly = url.searchParams.get("stats") === "true";
   const dryRun = url.searchParams.get("dry-run") === "true";
@@ -156,7 +153,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       {
         success: false,
         job: "session-cleanup",
-        error: error.message,
+        error: "Session cleanup failed",
         durationMs: duration,
         timestamp: new Date().toISOString(),
       },

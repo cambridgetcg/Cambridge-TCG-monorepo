@@ -22,7 +22,7 @@ vi.mock("@/lib/source-publication-policy", () => ({
     redistribute: false,
   },
   priceSourcePublicationPolicy: () => ({
-    publish: true,
+    publish: false,
     license: "internal-only",
     redistribute: false,
   }),
@@ -49,7 +49,7 @@ function currentCardRows(rows: unknown[]) {
 describe("GET /api/v1/universal/card/[sku] publication boundary", () => {
   beforeEach(() => mocks.select.mockReset());
 
-  it("uses policy rights for the current price and disables shared caching", async () => {
+  it("withholds CardRush-derived current prices and disables shared caching", async () => {
     mocks.select
       .mockReturnValueOnce(currentCardRows([{
         id: 7,
@@ -86,11 +86,49 @@ describe("GET /api/v1/universal/card/[sku] publication boundary", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(body["@source_license"]).toEqual(["internal-only", "internal-only"]);
-    expect(body.price).toMatchObject({
-      source: "cardrush",
-      source_license: "internal-only",
-      source_redistribute: false,
-    });
+    expect(body["@source_license"]).toEqual(["internal-only"]);
+    expect(body.price).toBeNull();
+  });
+
+  it("does not publish a stored price without reviewed upstream lineage", async () => {
+    mocks.select
+      .mockReturnValueOnce(currentCardRows([{
+        id: 8,
+        sku: "unknown-source-sku",
+        cardNumber: "002",
+        name: "Unknown Source Card",
+        nameEn: null,
+        nameTranslations: null,
+        price: "99.99",
+        baseGbp: null,
+        cardrushJpy: null,
+        gbpJpyRate: null,
+        stock: 0,
+        rarity: null,
+        category: "singles",
+        setCode: "TST",
+        setName: "Test Set",
+        setId: 1,
+        gameId: 1,
+        gameCode: "op",
+        imageUrl: null,
+        artDescription: null,
+        lastSyncedAt: new Date("2026-07-11T00:00:00Z"),
+      }]))
+      .mockReturnValueOnce({
+        from: vi.fn(async () => [{ p: "10.00" }]),
+      });
+
+    const response = await GET(
+      new NextRequest("https://wholesale.example/api/v1/universal/card/unknown-source-sku"),
+      { params: Promise.resolve({ sku: "unknown-source-sku" }) },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(body["@sources"]).toEqual(["wholesale-rds.cards"]);
+    expect(body["@source_license"]).toEqual(["internal-only"]);
+    expect(body.price).toBeNull();
   });
 });

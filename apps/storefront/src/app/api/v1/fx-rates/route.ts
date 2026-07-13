@@ -2,10 +2,10 @@
  * /api/v1/fx-rates — machine-readable rate table for the price guide.
  *
  * Yu's directive 2026-05-14: *"Find source for global exchange rates."*
- * The platform consumes open.er-api.com (primary) and exchangerate.host
- * (fallback). This endpoint emits whichever upstream answered, with the
- * fetched_at timestamp and the static FALLBACK_RATES table when both
- * fail — substrate-honest about the source.
+ * The platform consumes the ECB's daily EUR-reference-rate XML and converts
+ * it to a GBP base. The ECB permits free commercial and non-commercial reuse
+ * of its public statistics with source attribution. This endpoint carries the
+ * attribution, source observation date, retrieval time, and transformation.
  *
  * Six currencies cover the platform's real audiences today:
  *
@@ -38,6 +38,7 @@ export async function GET(): Promise<Response> {
     base: table.base,
     source: table.source,
     is_fallback: table.is_fallback,
+    as_of: table.as_of,
     fetched_at: table.fetched_at,
     currencies: SUPPORTED_CURRENCIES.map((code) => {
       const meta = CURRENCY_META[code];
@@ -54,34 +55,37 @@ export async function GET(): Promise<Response> {
     }),
     upstream_sources: [
       {
-        url: "https://open.er-api.com/v6/latest/GBP",
-        license: "open (free tier, no key required)",
+        url: "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
+        license: "ESCB statistics reuse policy; free reuse with source attribution",
+        policy_url:
+          "https://www.ecb.europa.eu/stats/ecb_statistics/governance_and_quality_framework/html/usage_policy.en.html",
         cadence: "daily refresh; we cache 6 hours",
-        position: "primary",
-      },
-      {
-        url: "https://api.exchangerate.host/latest?base=GBP",
-        license: "open (free tier)",
-        cadence: "daily refresh; we cache 6 hours",
-        position: "fallback",
+        position: "source",
       },
     ],
+    attribution: {
+      text: "Source: ECB statistics.",
+      url: "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html",
+    },
+    transformation:
+      "ECB publishes units per EUR. Cambridge computes each GBP-base rate as target_per_EUR / GBP_per_EUR; source observations are not relabelled as Cambridge data.",
     methodology:
       "Display-only conversion. Platform transactions clear in GBP. " +
-      "Rates are mid-market reference values fetched from open.er-api.com " +
-      "(primary) or exchangerate.host (fallback). When both fail, the " +
-      "endpoint returns a static fallback table marked is_fallback=true.",
+      "Rates are ECB daily reference statistics transformed from EUR base to " +
+      "GBP base. When ECB is unavailable, the endpoint returns a static, dated " +
+      "fallback table marked is_fallback=true.",
     methodology_url: "https://cambridgetcg.com/methodology/fx-rates",
   };
 
   return jsonResponse({
     data,
     endpoint: "/api/v1/fx-rates",
-    sources: [table.source === "fallback" ? "ctcg-fallback" : table.source],
-    source_license: ["cc0"],
+    sources: [table.source === "fallback" ? "ctcg-fallback" : "ecb-statistics"],
+    source_license: ["proprietary"],
+    license: "NOASSERTION",
     // Custom freshness: 6 hours matches our upstream cache.
     freshness: 21_600,
-    as_of: table.fetched_at,
+    as_of: table.as_of,
     contains_self: true,
   });
 }

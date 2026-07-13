@@ -59,7 +59,7 @@ Draft the full `SourceMeta` **in this intake record, before the module exists** 
 Map onto the **existing** vocabularies — invent no new enums:
 - **access** → tributaries §10 (`public-api` / `public-file` / `app-token` / `oauth2` / `oauth1` / `scrape` / `partner` / `paid-feed` / `blocked`).
 - **license** → tributaries §11. `internal-only` for anything scraped or consent-restricted; `redistribute: true` **only** when `cc0` / `cc-by` / `cc-by-sa` / `mit` demonstrably covers the upstream data itself, not merely client code. The tributaries audit enforces the enum pairing; intake must verify the scope.
-- **status** → `shipped` / `partial` / `planned` / `blocked`, with the registry-legend semantics (`blocked` = "known unobtainable; module exists for documentation").
+- **status** → `shipped` / `partial` / `planned` / `blocked`, with the registry-legend semantics (`blocked` = no permitted runtime path now; documentation or fixture parsers may remain).
 
 ### Gate D — Integration shape
 
@@ -70,7 +70,7 @@ Pick one, all from existing precedent — the intake output names which:
 | **Full module** | legal + credentialed, data flows through a tested writer | None currently; an implemented reader without writer evidence remains `partial` |
 | **Partial, gated branch** | one surface open, one gated | `ebay` (Browse open; Marketplace Insights partner-gated) |
 | **Planned stub** | legal path identified, reader/writer not yet wired — meta declared, `read()` a no-op | `cardmarket` public files |
-| **Blocked module** | unobtainable but worth declaring the verdict in code, *and* a consent door exists | **`vinted`** (snkrdunk pattern) |
+| **Blocked module** | no permitted runtime path, but the verdict or a fixture parser is worth preserving | **`vinted`** (consent door) and `bandai-en` (fixture parser; permission undocumented) |
 | **§9 row only** | declined outright, no consent path | Goldin, private discords |
 | **Reserved slot** | id claimed, decision pending | registry `undefined` slots |
 
@@ -82,7 +82,17 @@ The distinction between the last three is the `consent path?` column in tributar
 - `SOURCE_UNAVAILABLE` + `null` over a substituted proxy — a gap is answered honestly, never papered over.
 - Quarantine failed rows; never drop silently.
 - A **consented first-party** source additionally requires, in its intake record: a DPIA-lite note (what personal data, whose, lawful basis, minimisation) and the explicit third-party-field drop-list from Gate A.2.
-- **Credit-tier attributes** (e.g. the illustrator's name — `CanonicalCard.artist`): a creator's credit is factual attribution, and crediting them *multiplies* their reach rather than extracting from it — the opposite of a redistribution grab. It may be captured into the canonical model and **displayed with attribution** to its producing source even when that source is `redistribute: false`. But it inherits that source's tier for *bulk* purposes: it is **never republished raw on a CC0/bulk surface** (the redistribution audit still governs it). Display-with-credit ≠ bulk-redistribute.
+- Consent to import or operate on a seller's history is not consent to publish
+  it, aggregate it into public signals, or dedicate a projection to CC0. Each
+  public purpose needs its own versioned receipt and a non-reconstructive
+  projection review. The first-party sold-comps endpoints are paused because
+  that second permission did not exist.
+- Credit fields such as `CanonicalCard.artist` are upstream-derived fields.
+  Capturing one in an internal canonical model does not establish a right to
+  display or redistribute it. When the source says `redistribute: false`, keep
+  the field out of every public response until a written, field-specific and
+  purpose-specific permission is recorded. Attribution may be a condition of
+  that permission; attribution is not the permission itself.
 
 ---
 

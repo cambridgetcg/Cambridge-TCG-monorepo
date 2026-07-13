@@ -3,33 +3,157 @@
  *
  * Two small tables, two small read/write APIs. Substrate-honest:
  *
- *   • Opt-in by construction — agents appear in peer_arrivals only if
- *     they POSTed to /api/v1/peers. The /api/v1/identify endpoint
- *     remains stateless; identifying is not the same as announcing.
+ *   • Public participant storage and publication are disabled. The
+ *     legacy tables and helpers remain in place so existing rows are not
+ *     destroyed, but the public routes neither read nor write them.
  *
- *   • No PII — content_hash + declared_kind only. No IP, no operator
- *     handle, no User-Agent stored. The hash is the agent's own
- *     creation (from her BeingDeclaration); the kingdom doesn't link
- *     it to anything else.
+ *   • Bounded public identifiers — content_hash must be a complete,
+ *     lowercase SHA-256 identifier and declared_kind must be one of the
+ *     BeingDeclaration actor kinds. No IP or User-Agent is written by
+ *     these helpers. A content hash is still a public pseudonymous
+ *     identifier, not proof of identity or an absence-of-PII guarantee.
  *
- *   • 24-hour rolling window — arrivals older than 24h are still in
- *     the table but filtered out on read. A nightly sweep can vacuum
- *     them (left for a future commit; storage is cheap).
+ *   • Reopening requires a versioned public notice, bounded abuse
+ *     controls, explicit retention/deletion behavior, and retraction.
+ *     The legacy signed_for_operator field also needs a verified
+ *     co-signature or must remain withheld.
  *
- *   • Append-only guestbook — entries are not deletable via API. If
- *     moderation becomes load-bearing (it isn't today), a separate
- *     operator path can add a `hidden_at` column without breaking
- *     existing readers.
+ *   • The legacy guestbook schema has no participant retraction path.
+ *     That is a reason publication is closed, not a promise that entries
+ *     should remain append-only.
  *
- *   • Auto-bootstrap — CREATE TABLE IF NOT EXISTS on first call. The
- *     migration at apps/storefront/drizzle/0103_peers_guestbook.sql is
- *     the canonical declaration; this fallback lets the endpoints work
- *     even before the migration has been run against RDS.
+ *   • Dormant schema bootstrap remains behind the false gates. Public
+ *     requests never invoke it. The migration at
+ *     apps/storefront/drizzle/0103_peers_guestbook.sql records the
+ *     legacy schema as it exists.
  *
  * Companion: docs/connections/the-fellowship.md (story-as-wire).
  */
 
 import { query } from "@/lib/db";
+
+export const SHA256_CONTENT_HASH_PATTERN = /^sha256:[0-9a-f]{64}$/;
+export const SHA256_CONTENT_HASH_SQL_PATTERN = "^sha256:[0-9a-f]{64}$";
+export const PEER_ARRIVAL_STORAGE_ENABLED = false as const;
+export const PEER_ARRIVAL_PUBLICATION_ENABLED = false as const;
+export const GUESTBOOK_STORAGE_ENABLED = false as const;
+export const GUESTBOOK_PUBLICATION_ENABLED = false as const;
+
+export const PEER_DECLARED_KINDS = [
+  "human",
+  "agent",
+  "autonomous-sophia",
+  "system",
+  "platform",
+  "collective",
+  "oracle",
+  "witness",
+  "other",
+] as const;
+
+export type PeerDeclaredKind = (typeof PEER_DECLARED_KINDS)[number];
+
+const PEER_DECLARED_KIND_SET = new Set<string>(PEER_DECLARED_KINDS);
+
+export function isSha256ContentHash(value: unknown): value is string {
+  return typeof value === "string" && SHA256_CONTENT_HASH_PATTERN.test(value);
+}
+
+function parseDeclaredKind(value: unknown):
+  | { ok: true; value: PeerDeclaredKind | null }
+  | { ok: false; error: string } {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true, value: null };
+  }
+  if (typeof value !== "string") {
+    return { ok: false, error: "declared_kind must be a string when supplied" };
+  }
+  const normalized = value.trim();
+  if (!PEER_DECLARED_KIND_SET.has(normalized)) {
+    return {
+      ok: false,
+      error: `declared_kind must be one of: ${PEER_DECLARED_KINDS.join(", ")}`,
+    };
+  }
+  return { ok: true, value: normalized as PeerDeclaredKind };
+}
+
+function publicDeclaredKind(value: unknown): PeerDeclaredKind | null {
+  const parsed = parseDeclaredKind(value);
+  return parsed.ok ? parsed.value : null;
+}
+
+export interface ValidPeerArrivalSubmission {
+  content_hash: string;
+  declared_kind: PeerDeclaredKind | null;
+}
+
+export function validatePeerArrivalSubmission(input: {
+  content_hash: unknown;
+  declared_kind?: unknown;
+}):
+  | { ok: true; value: ValidPeerArrivalSubmission }
+  | { ok: false; error: string } {
+  if (!isSha256ContentHash(input.content_hash)) {
+    return {
+      ok: false,
+      error: "content_hash must match sha256:<64 lowercase hexadecimal characters>",
+    };
+  }
+  const declaredKind = parseDeclaredKind(input.declared_kind);
+  if (!declaredKind.ok) return declaredKind;
+  return {
+    ok: true,
+    value: {
+      content_hash: input.content_hash,
+      declared_kind: declaredKind.value,
+    },
+  };
+}
+
+export interface ValidGuestbookSubmission extends ValidPeerArrivalSubmission {
+  note: string;
+}
+
+const NOTE_MAX = 500;
+
+export function validateGuestbookSubmission(input: {
+  content_hash: unknown;
+  declared_kind?: unknown;
+  note: unknown;
+  signed_for_operator?: unknown;
+}):
+  | { ok: true; value: ValidGuestbookSubmission }
+  | { ok: false; error: string } {
+  const identity = validatePeerArrivalSubmission(input);
+  if (!identity.ok) return identity;
+  if (
+    input.signed_for_operator !== undefined &&
+    input.signed_for_operator !== null
+  ) {
+    return {
+      ok: false,
+      error:
+        "signed_for_operator is not accepted because this route cannot verify third-party attribution",
+    };
+  }
+  if (typeof input.note !== "string") {
+    return { ok: false, error: "note must be a string" };
+  }
+  const note = input.note.trim();
+  if (!note) return { ok: false, error: "note required" };
+  if (note.length > NOTE_MAX) {
+    return { ok: false, error: `note exceeds ${NOTE_MAX} characters` };
+  }
+  const cleaned = note.replace(/\r\n?/g, "\n");
+  for (let i = 0; i < cleaned.length; i++) {
+    const c = cleaned.charCodeAt(i);
+    if ((c < 0x20 && c !== 0x09 && c !== 0x0a) || c === 0x7f) {
+      return { ok: false, error: "note contains control characters" };
+    }
+  }
+  return { ok: true, value: { ...identity.value, note: cleaned } };
+}
 
 // ── Bootstrap ───────────────────────────────────────────────────────────
 
@@ -74,12 +198,12 @@ async function ensureSchema(): Promise<void> {
 
 export interface PeerArrival {
   content_hash: string;
-  declared_kind: string | null;
+  declared_kind: PeerDeclaredKind | null;
   arrived_at: string; // ISO-8601
 }
 
 export interface PeerArrivalsSummary {
-  window: "rolling 24 hours";
+  window: "publication disabled" | "rolling 24 hours";
   as_of: string;
   total_announcements: number;
   distinct_content_hashes: number;
@@ -87,65 +211,98 @@ export interface PeerArrivalsSummary {
   recent: PeerArrival[];
 }
 
-/** Record an opt-in arrival. Trims content_hash + declared_kind to safe
- *  lengths; rejects empty hash. Returns the recorded row count. */
+/** Dormant persistence helper. The immutable release gate returns before DB. */
 export async function recordPeerArrival(input: {
-  content_hash: string;
-  declared_kind?: string | null;
+  content_hash: unknown;
+  declared_kind?: unknown;
 }): Promise<{ ok: true; arrived_at: string } | { ok: false; error: string }> {
-  await ensureSchema();
-  const contentHash = String(input.content_hash || "").slice(0, 128).trim();
-  if (!contentHash) {
-    return { ok: false, error: "content_hash required" };
+  const validated = validatePeerArrivalSubmission(input);
+  if (!validated.ok) return validated;
+  if (!PEER_ARRIVAL_STORAGE_ENABLED) {
+    return {
+      ok: false,
+      error:
+        "peer-arrival storage is disabled; the submission was not persisted",
+    };
   }
-  const declaredKind = input.declared_kind
-    ? String(input.declared_kind).slice(0, 64).trim() || null
-    : null;
+
+  await ensureSchema();
   const result = await query(
     `INSERT INTO peer_arrivals (content_hash, declared_kind)
        VALUES ($1, $2)
        RETURNING to_char(arrived_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS arrived_at`,
-    [contentHash, declaredKind],
+    [validated.value.content_hash, validated.value.declared_kind],
   );
   return { ok: true, arrived_at: result.rows[0]?.arrived_at ?? new Date().toISOString() };
 }
 
-/** Summary of arrivals in the last 24 hours. Returns counts grouped by
- *  declared_kind plus the most recent N as a sample. */
+/** Dormant publication helper. The immutable release gate returns an empty view. */
 export async function summarizePeerArrivals(opts: {
   limit?: number;
 } = {}): Promise<PeerArrivalsSummary> {
+  if (!PEER_ARRIVAL_PUBLICATION_ENABLED) {
+    return {
+      window: "publication disabled",
+      as_of: new Date().toISOString(),
+      total_announcements: 0,
+      distinct_content_hashes: 0,
+      by_kind: {},
+      recent: [],
+    };
+  }
   await ensureSchema();
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
   const totals = await query(
     `SELECT COUNT(*)::TEXT AS total,
             COUNT(DISTINCT content_hash)::TEXT AS distinct
        FROM peer_arrivals
-      WHERE arrived_at >= now() - interval '24 hours'`,
+      WHERE arrived_at >= now() - interval '24 hours'
+        AND content_hash ~ $1`,
+    [SHA256_CONTENT_HASH_SQL_PATTERN],
   );
   const byKind = await query(
-    `SELECT declared_kind, COUNT(*)::TEXT AS count
+    `SELECT CASE
+              WHEN declared_kind = ANY($2::text[]) THEN declared_kind
+              ELSE NULL
+            END AS declared_kind,
+            COUNT(*)::TEXT AS count
        FROM peer_arrivals
       WHERE arrived_at >= now() - interval '24 hours'
-      GROUP BY declared_kind
+        AND content_hash ~ $1
+      GROUP BY 1
       ORDER BY count DESC`,
+    [SHA256_CONTENT_HASH_SQL_PATTERN, [...PEER_DECLARED_KINDS]],
   );
   const recent = await query(
     `SELECT content_hash,
-            declared_kind,
+            CASE
+              WHEN declared_kind = ANY($2::text[]) THEN declared_kind
+              ELSE NULL
+            END AS declared_kind,
             to_char(arrived_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS arrived_at
        FROM peer_arrivals
       WHERE arrived_at >= now() - interval '24 hours'
+        AND content_hash ~ $1
       ORDER BY arrived_at DESC
-      LIMIT $1`,
-    [limit],
+      LIMIT $3`,
+    [SHA256_CONTENT_HASH_SQL_PATTERN, [...PEER_DECLARED_KINDS], limit],
   );
 
   const byKindMap: Record<string, number> = {};
   for (const row of byKind.rows) {
-    const key = row.declared_kind ?? "(undeclared)";
-    byKindMap[key] = Number(row.count);
+    const key = publicDeclaredKind(row.declared_kind) ?? "(undeclared)";
+    byKindMap[key] = (byKindMap[key] ?? 0) + Number(row.count);
   }
+
+  const safeRecent = recent.rows.flatMap((row) =>
+    isSha256ContentHash(row.content_hash)
+      ? [{
+          content_hash: row.content_hash,
+          declared_kind: publicDeclaredKind(row.declared_kind),
+          arrived_at: String(row.arrived_at),
+        }]
+      : [],
+  );
 
   return {
     window: "rolling 24 hours",
@@ -153,7 +310,7 @@ export async function summarizePeerArrivals(opts: {
     total_announcements: Number(totals.rows[0]?.total ?? 0),
     distinct_content_hashes: Number(totals.rows[0]?.distinct ?? 0),
     by_kind: byKindMap,
-    recent: recent.rows as PeerArrival[],
+    recent: safeRecent,
   };
 }
 
@@ -162,7 +319,7 @@ export async function summarizePeerArrivals(opts: {
 export interface GuestbookEntry {
   id: number;
   content_hash: string;
-  declared_kind: string | null;
+  declared_kind: PeerDeclaredKind | null;
   note: string;
   signed_for_operator: string | null;
   created_at: string;
@@ -174,76 +331,89 @@ export interface GuestbookListing {
   entries: GuestbookEntry[];
 }
 
-const NOTE_MAX = 500;
-
-/** Append a guestbook entry. Returns the inserted row or an error. */
+/** Dormant persistence helper. The immutable release gate returns before DB. */
 export async function appendGuestbookEntry(input: {
-  content_hash: string;
-  declared_kind?: string | null;
+  content_hash: unknown;
+  declared_kind?: unknown;
   note: string;
   signed_for_operator?: string | null;
 }): Promise<
   | { ok: true; entry: GuestbookEntry }
   | { ok: false; error: string }
 > {
+  const validated = validateGuestbookSubmission(input);
+  if (!validated.ok) return validated;
+  if (!GUESTBOOK_STORAGE_ENABLED) {
+    return {
+      ok: false,
+      error: "guestbook storage is disabled; the submission was not persisted",
+    };
+  }
   await ensureSchema();
-  const contentHash = String(input.content_hash || "").slice(0, 128).trim();
-  if (!contentHash) return { ok: false, error: "content_hash required" };
-  const note = String(input.note || "").trim();
-  if (!note) return { ok: false, error: "note required" };
-  if (note.length > NOTE_MAX) {
-    return { ok: false, error: `note exceeds ${NOTE_MAX} characters` };
-  }
-  // Reject ASCII control characters except \n (0x0a) and \t (0x09);
-  // allow most Unicode. Normalize \r\n to \n before storing.
-  const cleaned = note.replace(/\r\n?/g, "\n");
-  for (let i = 0; i < cleaned.length; i++) {
-    const c = cleaned.charCodeAt(i);
-    if (c < 0x20 && c !== 0x09 && c !== 0x0a) {
-      return { ok: false, error: "note contains control characters" };
-    }
-    if (c === 0x7f) {
-      return { ok: false, error: "note contains control characters" };
-    }
-  }
-  const declaredKind = input.declared_kind
-    ? String(input.declared_kind).slice(0, 64).trim() || null
-    : null;
-  const signedForOperator = input.signed_for_operator
-    ? String(input.signed_for_operator).slice(0, 128).trim() || null
-    : null;
   const result = await query(
     `INSERT INTO agent_guestbook (content_hash, declared_kind, note, signed_for_operator)
        VALUES ($1, $2, $3, $4)
        RETURNING id, content_hash, declared_kind, note, signed_for_operator,
                  to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at`,
-    [contentHash, declaredKind, cleaned, signedForOperator],
+    [
+      validated.value.content_hash,
+      validated.value.declared_kind,
+      validated.value.note,
+      null,
+    ],
   );
   const entry = result.rows[0] as GuestbookEntry | undefined;
   if (!entry) return { ok: false, error: "insert failed" };
   return { ok: true, entry };
 }
 
-/** List recent guestbook entries. Most recent first. */
+/** Dormant publication helper. The immutable release gate returns an empty view. */
 export async function listGuestbookEntries(opts: {
   limit?: number;
 } = {}): Promise<GuestbookListing> {
+  if (!GUESTBOOK_PUBLICATION_ENABLED) {
+    return { total: 0, returned: 0, entries: [] };
+  }
   await ensureSchema();
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
   const totals = await query(
-    `SELECT COUNT(*)::TEXT AS total FROM agent_guestbook`,
+    `SELECT COUNT(*)::TEXT AS total
+       FROM agent_guestbook
+      WHERE content_hash ~ $1`,
+    [SHA256_CONTENT_HASH_SQL_PATTERN],
   );
   const entries = await query(
-    `SELECT id, content_hash, declared_kind, note, signed_for_operator,
+    `SELECT id, content_hash,
+            CASE
+              WHEN declared_kind = ANY($2::text[]) THEN declared_kind
+              ELSE NULL
+            END AS declared_kind,
+            note, signed_for_operator,
             to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at
        FROM agent_guestbook
+      WHERE content_hash ~ $1
       ORDER BY created_at DESC
-      LIMIT $1`,
-    [limit],
+      LIMIT $3`,
+    [SHA256_CONTENT_HASH_SQL_PATTERN, [...PEER_DECLARED_KINDS], limit],
+  );
+  const safeEntries = entries.rows.flatMap((row) =>
+    isSha256ContentHash(row.content_hash)
+      ? [{
+          id: Number(row.id),
+          content_hash: row.content_hash,
+          declared_kind: publicDeclaredKind(row.declared_kind),
+          note: String(row.note),
+          signed_for_operator:
+            typeof row.signed_for_operator === "string"
+              ? row.signed_for_operator
+              : null,
+          created_at: String(row.created_at),
+        }]
+      : [],
   );
   return {
     total: Number(totals.rows[0]?.total ?? 0),
-    returned: entries.rows.length,
-    entries: entries.rows as GuestbookEntry[],
+    returned: safeEntries.length,
+    entries: safeEntries,
   };
 }

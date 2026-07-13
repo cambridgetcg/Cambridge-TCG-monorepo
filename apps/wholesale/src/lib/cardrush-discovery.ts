@@ -62,6 +62,8 @@ import {
   tcgdexSupportsGame,
 } from "@/lib/tcgdex/client";
 import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
   CARDRUSH_SUBDOMAINS,
   createDiscoveryCache,
   pickDiscoveryFetcher,
@@ -286,6 +288,9 @@ const DEFAULT_MAX_NEW_PER_SUBDOMAIN = 500;
 export async function runCardRushDiscovery(
   options: DiscoveryRunOptions = {},
 ): Promise<DiscoveryRunResult> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   const startMs = Date.now();
   const triggeredBy = options.triggeredBy ?? "cron";
   const maxNew = options.maxNewPerSubdomain ?? DEFAULT_MAX_NEW_PER_SUBDOMAIN;

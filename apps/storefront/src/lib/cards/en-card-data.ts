@@ -43,20 +43,17 @@
  *   `op-op01-001-ja`, and `EB-EB04-061-JP` all resolve to their one EN
  *   key. SEALED-/unknown prefixes resolve to null (no EN data, honestly).
  *
- * Write-side: the bandai-en ingest cron
- * (`app/api/cron/ingest/bandai-en/route.ts`) builds the same key from
- * `CanonicalCard.game/set/number` via `enCardKeyFromParts`.
+ * The key helpers remain because the internal parser and the already-applied
+ * migration use this shape. The public ingest route is paused.
  *
  * ── Substrate honesty ─────────────────────────────────────────────────
  *
- * Reads degrade to `{ effect_text: null, en_image: null }` when migration
- * 0116 hasn't applied or the tables are empty — a card without EN data is
- * a normal state, never an error. Only images with
- * `takedown_status = 'clear'` are ever served (EN-CARD-DATA §7: takedowns
- * honoured fast; the row survives for the audit trail, the pixels don't).
+ * Bandai has not given Cambridge documented permission to publish these
+ * proprietary fields. Public reads therefore return only nulls and perform no
+ * database query. This also guarantees that a stored publisher `source_url`
+ * can never become a hotlink fallback.
  */
 
-import { query } from "@/lib/db";
 import { GAMES, GAME_CODES, type GameCode } from "@cambridge-tcg/sku";
 
 /** Official English rules text for a card (never flavor text — the
@@ -74,10 +71,9 @@ export interface EnCardText {
   retrieved_at: string;
 }
 
-/** Best clear English image for a card. */
+/** English image shape reserved for a future rights-cleared publication rule. */
 export interface EnCardImage {
-  /** Serveable URL: our mirror when `s3_key` exists, else the
-   *  publisher's own gallery URL. */
+  /** Serveable URL from a reviewed Cambridge-controlled host. */
   url: string;
   /** Copyright line — NOT NULL by schema; always render near the image. */
   attribution: string;
@@ -138,88 +134,14 @@ export function enCardKey(catalogSku: string): string | null {
   return enCardKeyFromParts(game, set, number);
 }
 
-// TODO(EN-CARD-DATA §5): S3 mirroring. The `ctcg-card-images` bucket
-// does not exist yet (needs Yu — rollout §6.5a), so `s3_key` is NULL on
-// every row and we serve the publisher's own gallery URL (official
-// samples, credited). When the bucket lands: mirror at ingest, set
-// `s3_key = {lang}/{game}/{set}/{CARD_NO}[_variant].{ext}` (+ thumb/
-// prefix), add the host below to next.config.ts remotePatterns, and
-// this helper starts preferring the mirror automatically.
-const EN_IMAGE_BUCKET_HOST = "ctcg-card-images.s3.us-east-1.amazonaws.com";
-
-function enImageUrl(
-  s3Key: string | null,
-  sourceUrl: string | null,
-): string | null {
-  if (s3Key) return `https://${EN_IMAGE_BUCKET_HOST}/${s3Key}`;
-  return sourceUrl;
-}
-
-function toIso(value: unknown): string {
-  if (value instanceof Date) return value.toISOString();
-  return String(value ?? "");
-}
-
 /**
- * Fetch the EN text + best clear EN image for a catalogue sku.
+ * Public Bandai EN publication boundary.
  *
- * "Best" image: `official_sample` first (publisher-served, cleanest
- * provenance — EN-CARD-DATA §5), then newest. Rows under takedown are
- * never candidates. Both lookups degrade to null pre-migration/pre-
- * ingest.
+ * Do not query stored rows until documented source permission, self-hosting,
+ * and field-level publication rules all exist. Attribution and a takedown
+ * field are safeguards; neither grants publication rights.
  */
 export async function getEnCardData(catalogSku: string): Promise<EnCardData> {
-  const key = enCardKey(catalogSku);
-  if (!key) return { effect_text: null, en_image: null };
-
-  try {
-    const [textRes, imageRes] = await Promise.all([
-      query(
-        `SELECT effect_text, card_type, attribution, source_url, retrieved_at
-           FROM card_texts
-          WHERE sku = $1 AND lang = 'en'
-          LIMIT 1`,
-        [key],
-      ),
-      query(
-        `SELECT source_url, s3_key, attribution, kind, retrieved_at
-           FROM card_images
-          WHERE sku = $1 AND lang = 'en' AND takedown_status = 'clear'
-          ORDER BY (kind = 'official_sample') DESC, retrieved_at DESC
-          LIMIT 1`,
-        [key],
-      ),
-    ]);
-
-    const t = textRes.rows[0];
-    const effect_text: EnCardText | null =
-      t && typeof t.effect_text === "string" && t.effect_text.length > 0
-        ? {
-            text: t.effect_text,
-            card_type: t.card_type ?? null,
-            attribution: t.attribution,
-            source_url: t.source_url ?? null,
-            retrieved_at: toIso(t.retrieved_at),
-          }
-        : null;
-
-    const i = imageRes.rows[0];
-    const url = i ? enImageUrl(i.s3_key ?? null, i.source_url ?? null) : null;
-    const en_image: EnCardImage | null =
-      i && url
-        ? {
-            url,
-            attribution: i.attribution,
-            kind: i.kind,
-            source_url: i.source_url ?? null,
-            retrieved_at: toIso(i.retrieved_at),
-          }
-        : null;
-
-    return { effect_text, en_image };
-  } catch {
-    // Migration 0116 not applied (or a read hiccup) — the card simply
-    // has no EN data yet. Callers render the JP-only surface unchanged.
-    return { effect_text: null, en_image: null };
-  }
+  void catalogSku;
+  return { effect_text: null, en_image: null };
 }

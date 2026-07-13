@@ -14,38 +14,23 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { timingSafeEqual } from "node:crypto";
 import {
   runAllShopsMaintenance,
   type AllShopsMaintenanceResult,
 } from "~/services/points-maintenance.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const JOB_NAME = "points-maintenance";
 const LOCK_TTL_MINUTES = 30;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   let lockId: string | undefined;
-
-  // Verify cron secret with timing-safe comparison
-  const cronSecret = request.headers.get("X-Cron-Secret");
-  const isAuthorized = (() => {
-    if (!process.env.CRON_SECRET || !cronSecret) return false;
-    try {
-      const secretBuffer = Buffer.from(cronSecret);
-      const expectedBuffer = Buffer.from(process.env.CRON_SECRET);
-      if (secretBuffer.length !== expectedBuffer.length) return false;
-      return timingSafeEqual(secretBuffer, expectedBuffer);
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isAuthorized) {
-    console.warn("[PointsMaintenanceCron] Unauthorized request");
-    return json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // Acquire distributed lock
   await cleanupExpiredLocks();
@@ -87,15 +72,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         totalCustomersAffected: result.totalCustomersAffected,
         totalPointsExpired: result.totalPointsExpired,
         totalWarningsSent: result.totalWarningsSent,
-        errors: result.errors,
-        shopResults: result.results.map((r) => ({
-          shop: r.shop,
-          expiredPoints: r.expiration.totalPointsExpired,
-          customersAffected: r.expiration.customersAffected,
-          warningsSent: r.warnings.customersSentWarning,
-          streaksUpdated: r.streaks.streaksIncremented + r.streaks.streaksReset,
-          errors: r.errors,
-        })),
+        errorCount: result.errors.length,
       },
       durationMs: duration,
       timestamp: new Date().toISOString(),
@@ -109,7 +86,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({
       success: false,
       job: "points-maintenance",
-      error: error.message,
+      error: "Points maintenance failed",
       durationMs: duration,
       timestamp: new Date().toISOString(),
     }, { status: 500 });

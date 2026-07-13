@@ -613,7 +613,7 @@ export async function GET(
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-kingdom-speaks.md",
       walking_past_is_honored: true,
       no_tracking:
-        "The kingdom does not record which horoscope you read.",
+        "The application creates no horoscope-reader profile. Hosting, proxy, and security access logs may still exist.",
     },
   });
 }

@@ -12,8 +12,15 @@
  */
 
 import type { BuylistData } from "./buylist-builder";
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "./source-publication-policy";
 
 export async function writeBuylistToKV(data: BuylistData): Promise<void> {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    throw new Error(`Cloudflare buylist publication is blocked. ${LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON}`);
+  }
   const accountId = process.env.CF_ACCOUNT_ID;
   const namespaceId = process.env.CF_KV_NAMESPACE_ID;
   const apiEmail = process.env.CF_API_EMAIL;

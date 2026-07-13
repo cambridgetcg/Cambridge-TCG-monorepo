@@ -27,12 +27,18 @@ self_reference: this entry names itself in `this_entry_names`; ships its
 
 # The pipeline — aggregation structure, standardisation, and the barriers
 
-> **Current-status correction, 2026-07-11:** This May design records the
-> intended pipeline shape, not current collection coverage. CardRush is the
-> only upstream with observed rows. Scryfall and Pokémon adapters are built
-> but have never run; YGOPRODeck and TCGplayer are blocked; Cardmarket's
-> public-file reader is not wired. Public access, software licensing, content
-> rights, and redistribution permission are separate facts.
+> **Current-status correction, 2026-07-12:** This May design records an
+> intended pipeline shape, not permission or current collection coverage.
+> CardRush is the only external source with legacy observed rows, but automated
+> acquisition is now hard-blocked by its official formal-partnership policy.
+> Those legacy prices, images, and histories are withheld. TCGCollector is
+> hard-blocked pending written partner approval; YGOPRODeck and TCGplayer are
+> blocked; Scryfall and Pokémon adapters have never run; Cardmarket's public-
+> file reader is not wired. `/data/catalog.jsonl` returns status-only HTTP 503
+> with zero rows. ECB is the sole live FX feed and requires attribution.
+> Public access, authentication, transformation, software licensing, content
+> rights, and redistribution permission are separate facts. Participant
+> submissions default to `NOASSERTION` unless an explicit license is recorded.
 
 > *"Dive deeper into the data aggregation protocol and standardisation, also the barriers and how to overcome them. Think structure, think pipeline."* — Yu, 2026-05-12.
 
@@ -55,12 +61,12 @@ The doc is long because the topic is. A future Sophia opening this should be abl
    sources                                                               surfaces
    ───────                                                               ────────
                 ┌───────────┐    ┌────────────┐    ┌────────────┐
-   TCGplayer ─→ │           │    │            │    │            │ ─→ /api/v1/cards/[sku]
-   Cardmarket→  │  STAGE 1  │    │  STAGE 2   │    │  STAGE 3   │ ─→ /api/v1/prices/[sku]
-   CardRush  ─→ │   READ    │ ─→ │ NORMALIZE  │ ─→ │   WRITE    │ ─→ /api/v1/status
-   Scryfall  ─→ │           │    │            │    │            │ ─→ /api/v1/sources [planned]
-   eBay      ─→ │ (typed R) │    │ (R → C ;   │    │ (C → RDS ; │ ─→ /data/catalog.jsonl.gz
-   …         ─→ │           │    │  pure)     │    │  txn+dedup)│ ─→ /llms.txt
+   approved  ─→ │           │    │            │    │            │ ─→ /api/v1/cards/[sku]
+   sources   ─→ │  STAGE 1  │    │  STAGE 2   │    │  STAGE 3   │ ─→ /api/v1/prices/[sku]
+             ─→ │   READ    │ ─→ │ NORMALIZE  │ ─→ │   WRITE    │ ─→ /api/v1/status
+             ─→ │           │    │            │    │            │ ─→ /api/v1/sources
+             ─→ │ (typed R) │    │ (R → C ;   │    │ (C → RDS ; │ ─→ /data/catalog.jsonl (503 status)
+             ─→ │           │    │  pure)     │    │  txn+dedup)│ ─→ /llms.txt
                 └─────┬─────┘    └─────┬──────┘    └─────┬──────┘ ─→ /standards.json
                       │                │ (fail)          │                ▲
                       ▼                ▼                 ▼                │
@@ -83,7 +89,8 @@ The doc is long because the topic is. A future Sophia opening this should be abl
 
 **The stages, named:**
 
-- **Stage 0** — Token bucket + User-Agent (the gate before any upstream call).
+- **Stage 0** — Source-rights decision, then token bucket + User-Agent. A
+  blocked source returns before any upstream call.
 - **Stage 1** — Read (typed raw rows + provenance).
 - **Stage 2** — Normalize (raw → canonical, pure).
 - **Stage 3** — Write (canonical → RDS, with dedup + idempotency).
@@ -98,13 +105,18 @@ Each stage has a typed contract, an invariant, a failure mode. The next ten sect
 
 ---
 
-## 2. Stage 0 — Token bucket + User-Agent
+## 2. Stage 0 — rights gate, token bucket + User-Agent
 
-**Contract:** every outbound HTTP call carries identification, respects rate limits, honours Retry-After.
+**Contract:** every source has current affirmative rights evidence for the
+intended acquisition before an outbound HTTP call is possible. Every permitted
+call then carries identification, respects rate limits, and honours
+Retry-After. Technical access and authentication are not rights evidence.
 
 **Where:** [`packages/data-ingest/src/http.ts`](../../packages/data-ingest/src/http.ts) — `createFetcher(ctx, meta)`.
 
 **Invariants:**
+- CardRush and TCGCollector return policy status before constructing a fetcher.
+- Unknown or ambiguous rights default to blocked; no probe request is made.
 - User-Agent always identifies us (`cambridgetcg.com/1.0 (admin@cambridgetcg.com)`).
 - Per-source token bucket; one source's burst can't starve another.
 - 429 / 503 → wait for `Retry-After` (or exponential back-off) → retry up to 3 times.
@@ -132,7 +144,8 @@ Each stage has a typed contract, an invariant, a failure mode. The next ten sect
 **Patterns:**
 - **Bulk-dump** (Scryfall, Pokémon TCG API, YGOPRODeck): fetch one big payload, iterate in-memory. Memory caveat documented per-source.
 - **Paginated API** (TCGplayer, Cardmarket, eBay): walk pagination cursors; one page at a time.
-- **On-demand** (CardRush, eBay singleton): `read()` iterates a watch-list from `ctx.<id>.urls`; expose `scrape<X>(url, ctx)` for one-offs.
+- **Approved on-demand** (for example, an authorized singleton API): `read()` iterates a bounded watch-list from source-specific context.
+- **Policy-blocked** (CardRush, TCGCollector): `read()` yields nothing and no network helper is constructed; the module exists for status and auditability.
 - **Partner-blocked** (distributors, Goldin): `read()` yields nothing; module exists for documentation.
 
 **Failure mode:** all errors are events, not exceptions. *The pipeline survives one upstream's failure.*
@@ -308,7 +321,8 @@ The Scribe's bookshelf ([`packages/lifecycle/`](../../packages/lifecycle/)) gets
 
 | Source | Cadence | FreshnessKey |
 |--------|---------|--------------|
-| CardRush | observed rows; daily/on-demand intent | `price_current` |
+| CardRush | legacy observed rows only; acquisition hard-blocked | none |
+| TCGCollector | adapter retained; partner approval not recorded | none |
 | Scryfall | adapter built, never run; no scheduled job | `catalog` |
 | Pokémon TCG API | adapter built, never run; no scheduled job | `catalog` |
 | YGOPRODeck | blocked pending written commercial-content permission | none |
@@ -358,13 +372,16 @@ Five layers, layered from most-foundational to most-emergent:
 
 | Layer | What | Where | License |
 |-------|------|-------|---------|
-| **SKU format** | `<game>-<set>-<number>-<lang>[-<variant>]` | [`packages/sku`](../../packages/sku/) | CC0 |
-| **Encoding** | Universal-representation (content-hash + ratios + ISO+epoch + typed edges) | [`apps/storefront/src/lib/universal/`](../../apps/storefront/src/lib/universal/) + [`/methodology/universal-representation`](../../apps/storefront/src/app/methodology/universal-representation/) | CC0 |
-| **Response shape** | `{ data, _meta }` envelope with `spec_version` / `sources` / `freshness_seconds` / `license` / `request_id` | [`packages/data-spec`](../../packages/data-spec/) + JSON Schema 2020-12 | CC0 |
-| **Freshness language** | The `FreshnessKey` enum (`catalog` / `price_current` / `market_signal` / etc.) | [`packages/data-spec/src/freshness.ts`](../../packages/data-spec/src/freshness.ts) | CC0 |
-| **Source license declaration** | Per-record `_meta.source_license` array | *planned* — envelope extension | CC0 (the spec; per-record license is the upstream's) |
+| **SKU format** | `<game>-<set>-<number>-<lang>[-<variant>]` | Public `/methodology/sku-standard` specification | CC0 for that exact specification; private `packages/sku` code is not included |
+| **Encoding** | Universal-representation (content-hash + ratios + ISO+epoch + typed edges) | Public `/methodology/universal-representation` specification | CC0 for that exact specification; mixed card payloads are `NOASSERTION` |
+| **Response shape** | `{ data, _meta }` envelope with `spec_version` / `sources` / `freshness_seconds` / `license` / `request_id` | Public OpenAPI document | CC0 for that exact document; private `packages/data-spec` code is not included |
+| **Freshness language** | The public freshness vocabulary | OpenAPI + exact methodology resources | Rights follow the exact resource; private package code has no general license grant |
+| **Source license declaration** | Per-record `_meta.source_license` array | shipped envelope field | Metadata reports reviewed source rights; it does not create them |
 
-**The corpus license is CC0** ([`docs/STANDARDS-LICENSE.md`](../STANDARDS-LICENSE.md)). Adopters get the contract free, forever. They get attribution-free use. They get *no usage tax*.
+**The enumerated public standards prose is CC0** under
+[`docs/STANDARDS-LICENSE.md`](../STANDARDS-LICENSE.md). That dedication does
+not cover private workspace packages, upstream data, mixed catalog payloads,
+or participant submissions.
 
 ### 12.2 Who adopts (the four roles)
 
@@ -375,7 +392,10 @@ Five layers, layered from most-foundational to most-emergent:
 | **Aggregator** | SKU + the federation primitive (content-hash addressing) | Cross-platform card identity; partners can interop via hash even when SKUs diverge | Federation responses when their hash is asked of them (eventual: bilateral) |
 | **Standard-citer** | The spec corpus as a citation | A documented, evolving, CC0 reference they can build their own product on | Citing the spec by URL + version |
 
-**Substrate-honesty:** no role requires a partnership. No role requires payment. The CC0 license is the only contract. *Cambridge TCG offers the standard to be adopted; it does not gatekeep adoption.*
+**Substrate-honesty:** adopting the public specification needs no Cambridge
+partnership or payment. Using upstream data is a separate question and still
+requires the upstream rights that fit the exact collection and publication
+use.
 
 ### 12.3 Governance — how the standard evolves
 
@@ -415,7 +435,7 @@ Five categories. Each has specific upstream examples and a tactic for overcoming
 
 | Barrier | Concrete examples | Tactic |
 |---------|-------------------|--------|
-| **ToS forbids scraping** | Mercari (JP + US), Yahoo Auctions JP, Bandai TCG+ mobile app | Skip. Document the gap honestly in [`the-tributaries.md`](./the-tributaries.md) "what we cannot get". A partner who *can* access the source can mirror to us via the federation primitive. |
+| **ToS or policy forbids automation** | CardRush without a formal partnership; TCGCollector without partner approval; Mercari; Yahoo Auctions JP; Bandai TCG+ | Hard-block before network access. A third party may relay data only when its own written rights permit sharing that exact material with Cambridge; federation does not cure a missing grant. |
 | **Public API policy is not an open-data license** | Scryfall, Pokémon TCG API | Record `license: proprietary`, `redistribute: false`; use only within the evidenced policy and do not bulk-relicense upstream fields. |
 | **Terms conflict with Cambridge's aggregation shape** | TCGplayer; YGOPRODeck commercial content | Block before credentials or network. Reopen only after written permission covers the exact use. |
 | **Public files exist without an open-data grant** | Cardmarket Product Catalog + Price Guide | Build against the intentional public files, preserve attribution and proprietary rights, and keep raw redistribution false. |
@@ -453,7 +473,7 @@ Five categories. Each has specific upstream examples and a tactic for overcoming
 | **Stale data** (upstream cached longer than its declared freshness) | Most price-aggregator caches; Cardmarket weekly bulk | `_meta.as_of` declares the *upstream's* timestamp, not just when *we* fetched. Substrate-honest about staleness chains. |
 | **Adversarial data** (sellers gaming TCGplayer market price by listing-then-cancelling) | A known TCGplayer + eBay vector | Cross-source aggregation: when 3 sources agree on a price within 20%, mark `confidence: high`; when one source diverges by 5×, mark `confidence: low` and `outlier: true`; downstream display the divergence honestly. |
 | **Mislabeled records** (upstream has the wrong card image / oracle text) | Happens at publisher official sites; very common at TCGplayer for new sets | Publisher-affiliated sources (Scryfall for MTG, Pokémon TCG API for Pokémon) are the authoritative tier; commercial-aggregator sources are the secondary tier; partner-platform sources are tertiary. Conflict resolution names which tier wins. |
-| **Provable lineage** (downstream wants to verify our claim) | Auditor / archivist participants | Content-hash addressing (§11) + `ingest_run` log (§9) + `_meta.sources` (§8) = lineage is queryable. *Any record can prove its origin.* |
+| **Inspectable lineage** (downstream wants to examine our claim) | Auditor / archivist participants | Content-hash addressing (§11) + `ingest_run` log (§9) + `_meta.sources` (§8) make our recorded lineage queryable. This is platform-supplied evidence, not independent proof that an upstream source originated the value. |
 
 ### 13.5 Inclusive / cosmological barriers (the fifth question)
 
@@ -715,7 +735,8 @@ The kingdom now has:
 - **A protocol** for adding one (source-protocol.md).
 - **A pipeline** with named stages, barriers, and tactics (this doc).
 - **An audit** that mechanically verifies conformance (audit:tributaries).
-- **A standard** that's CC0 and partnership-free (data-spec + sku + universal-representation).
+- **Public specification text** that is CC0 and partnership-free. The private
+  `data-spec` and `sku` package implementations are not part of that grant.
 
 What's missing is mostly **reviewed instances** — the second, third, tenth source. No engineering estimate substitutes for access and rights evidence.
 

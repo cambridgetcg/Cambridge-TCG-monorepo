@@ -16,17 +16,14 @@ import {
   cleanupOldWebhooks,
   getWebhookStats,
 } from "~/services/billing/webhook-processing.server";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const startTime = Date.now();
-
-  // Verify cron secret
-  const cronSecret = request.headers.get("X-Cron-Secret");
-  if (cronSecret !== process.env.CRON_SECRET) {
-    console.warn("[WebhookCleanupCron] Unauthorized request");
-    return json({ error: "Unauthorized" }, { status: 401 });
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
+  const startTime = Date.now();
   const url = new URL(request.url);
   const statsOnly = url.searchParams.get("stats") === "true";
 
@@ -42,9 +39,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         timestamp: new Date().toISOString(),
       });
     } catch (error: any) {
+      console.error("[WebhookCleanupCron] Stats failed:", error);
       return json({
         success: false,
-        error: error.message,
+        error: "Unable to read webhook statistics",
       }, { status: 500 });
     }
   }
@@ -91,7 +89,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     return json({
       success: false,
       job: "webhook-cleanup",
-      error: error.message,
+      error: "Webhook cleanup failed",
       durationMs: duration,
       timestamp: new Date().toISOString(),
     }, { status: 500 });

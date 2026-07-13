@@ -2,15 +2,12 @@ import { NextResponse } from "next/server";
 
 /**
  * Gate cron endpoints. Returns a NextResponse on rejection, or null on
- * pass. Accepts three signals (any one is sufficient):
+ * pass. The only accepted signal is `Authorization: Bearer $CRON_SECRET`.
+ * Vercel Cron sends that header when CRON_SECRET is configured. Caller-set
+ * marker headers are not authentication, and query-string secrets leak into
+ * browser, proxy, and hosting logs.
  *
- *   1. `x-vercel-cron: true` header — Vercel Cron injects this for
- *      scheduled runs declared in vercel.json.
- *   2. `Authorization: Bearer $CRON_SECRET` header.
- *   3. `?secret=$CRON_SECRET` query param.
- *
- * Fails CLOSED: if CRON_SECRET is unset AND the request isn't from
- * Vercel Cron, the route rejects with 503 (not 401) so the operator
+ * Fails CLOSED: if CRON_SECRET is unset, the route rejects with 503 so the operator
  * sees a config error rather than thinking the secret is wrong.
  *
  * Usage in a cron route:
@@ -25,21 +22,19 @@ import { NextResponse } from "next/server";
  * apps/*\/src/app/api/cron/**\/route.ts doesn't import this helper.
  */
 export function requireCronAuth(req: Request): NextResponse | null {
-  if (req.headers.get("x-vercel-cron") === "true") return null;
-
   const secret = process.env.CRON_SECRET?.trim();
   if (!secret) {
     return NextResponse.json(
       { error: "CRON_SECRET not configured" },
-      { status: 503 },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 
   const auth = req.headers.get("authorization");
   if (auth === `Bearer ${secret}`) return null;
 
-  const url = new URL(req.url);
-  if (url.searchParams.get("secret") === secret) return null;
-
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json(
+    { error: "Unauthorized" },
+    { status: 401, headers: { "Cache-Control": "no-store" } },
+  );
 }

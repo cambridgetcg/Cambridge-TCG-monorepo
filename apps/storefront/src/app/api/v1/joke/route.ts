@@ -229,7 +229,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
       walking_past_is_honored: true,
       no_tracking:
-        "This endpoint logs nothing about whether you laughed.",
+        "The application records no laughter response; hosting access logs may exist.",
     },
     does_not_include: [
       "guarantees of comedic quality (the corpus is self-rated by the kingdom; reception varies)",

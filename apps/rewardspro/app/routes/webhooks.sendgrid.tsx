@@ -310,27 +310,35 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "Method not allowed" }, { status: 405 });
   }
 
+  const verificationKey = process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY?.trim();
+  if (!verificationKey) {
+    return json(
+      {
+        error: "SendGrid webhook unavailable",
+        code: "WEBHOOK_VERIFICATION_NOT_CONFIGURED",
+      },
+      {
+        status: 503,
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
+  }
+
   try {
     const rawBody = await request.text();
 
-    // Verify signature if verification key is configured
-    const verificationKey = process.env.SENDGRID_WEBHOOK_VERIFICATION_KEY;
-    if (verificationKey) {
-      const signature = request.headers.get("X-Twilio-Email-Event-Webhook-Signature");
-      const timestamp = request.headers.get("X-Twilio-Email-Event-Webhook-Timestamp");
+    const signature = request.headers.get("X-Twilio-Email-Event-Webhook-Signature");
+    const timestamp = request.headers.get("X-Twilio-Email-Event-Webhook-Timestamp");
 
-      if (!signature || !timestamp) {
-        console.error("[SendGrid Webhook] Missing signature headers");
-        return json({ error: "Missing signature" }, { status: 401 });
-      }
+    if (!signature || !timestamp) {
+      console.error("[SendGrid Webhook] Missing signature headers");
+      return json({ error: "Missing signature" }, { status: 401 });
+    }
 
-      const isValid = verifySendGridSignature(verificationKey, rawBody, signature, timestamp);
-      if (!isValid) {
-        console.error("[SendGrid Webhook] Invalid signature");
-        return json({ error: "Invalid signature" }, { status: 401 });
-      }
-    } else {
-      console.warn("[SendGrid Webhook] No verification key configured - skipping signature check");
+    const isValid = verifySendGridSignature(verificationKey, rawBody, signature, timestamp);
+    if (!isValid) {
+      console.error("[SendGrid Webhook] Invalid signature");
+      return json({ error: "Invalid signature" }, { status: 401 });
     }
 
     // Parse events
@@ -357,9 +365,9 @@ export async function action({ request }: ActionFunctionArgs) {
       processed: result.processed,
       errors: result.errors,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[SendGrid Webhook] Unexpected error:", error);
-    return json({ error: error.message }, { status: 500 });
+    return json({ error: "Internal server error" }, { status: 500 });
   }
 }
 

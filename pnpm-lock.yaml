@@ -429,6 +429,9 @@ importers:
       drizzle-orm:
         specifier: ^0.36.0
         version: 0.36.4(@aws-sdk/client-rds-data@3.1066.0)(@opentelemetry/api@1.9.1)(@prisma/client@6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3))(@types/pg@8.20.0)(@types/react@19.2.14)(pg@8.20.0)(postgres@3.4.9)(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(react@19.2.4)
+      fast-xml-parser:
+        specifier: ^5.7.1
+        version: 5.7.3
       next:
         specifier: 16.2.6
         version: 16.2.6(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -529,6 +532,9 @@ importers:
       exceljs:
         specifier: ^4.4.0
         version: 4.4.0
+      fast-xml-parser:
+        specifier: ^5.7.1
+        version: 5.7.3
       next:
         specifier: ^15.5.19
         version: 15.5.19(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -6861,9 +6867,6 @@ packages:
 
   fast-wrap-ansi@0.2.2:
     resolution: {integrity: sha512-7F2Fl+TjRSenLqlU3UjSH0iyqopqoZIu7eZVpEirP2g1GtWa2G/ecEmBdgz31+Mxr+ELclgg6sokpSFIQiZ02Q==}
-
-  fast-xml-builder@1.1.5:
-    resolution: {integrity: sha512-4TJn/8FKLeslLAH3dnohXqE3QSoxkhvaMzepOIZytwJXZO69Bfz0HBdDHzOTOon6G59Zrk6VQ2bEiv1t61rfkA==}
 
   fast-xml-builder@1.2.0:
     resolution: {integrity: sha512-00aAWieqff+ZJhsXA4g1g7M8k+7AYoMUUHF+/zFb5U6Uv/P0Vl4QZo84/IcufzYalLuEj9928bXN9PbbFzMF0Q==}
@@ -18402,10 +18405,6 @@ snapshots:
     dependencies:
       fast-string-width: 3.0.2
 
-  fast-xml-builder@1.1.5:
-    dependencies:
-      path-expression-matcher: 1.5.0
-
   fast-xml-builder@1.2.0:
     dependencies:
       path-expression-matcher: 1.5.0
@@ -18414,7 +18413,7 @@ snapshots:
   fast-xml-parser@5.7.1:
     dependencies:
       '@nodable/entities': 2.1.0
-      fast-xml-builder: 1.1.5
+      fast-xml-builder: 1.2.0
       path-expression-matcher: 1.5.0
       strnum: 2.2.3
 

@@ -2,7 +2,7 @@
 
 **MCP stdio bridge for Cambridge TCG.** Pipes any local MCP client (Claude Desktop, Cursor, Continue, Cline, Zed, ...) to the remote HTTPS MCP gate at `https://cambridgetcg.com/api/mcp`. Newline-delimited JSON-RPC 2.0 on stdin becomes HTTPS POSTs; server responses go to stdout.
 
-Cambridge TCG exposes a public TCG substrate: catalog, prices, sets, and methodology. Cambridge-authored schemas and explicitly first-party datasets may be CC0; upstream-derived fields retain their source rights, and mixed catalog responses are `NOASSERTION`. The MCP server exposes 14 tools across `catalog`, `prices`, `play`, `deck`, `leaderboards`, `agent`, and `mcp` namespaces. Public discovery (`tools/list`, `initialize`) is open; `tools/call` requires a bearer agent token.
+Cambridge TCG exposes structural card lookup, publication-status, play-read, and methodology surfaces. Cambridge-authored schemas and explicitly first-party datasets may be CC0; upstream-derived fields retain their source rights, and mixed catalog responses are `NOASSERTION`. The MCP gate describes 14 tools across `catalog`, `prices`, `play`, `deck`, `leaderboards`, `agent`, and `mcp` namespaces. Public discovery (`tools/list`, `initialize`) is open; other calls require a bearer agent token. Catalog search, recent prices, and the agent ladder currently return status with zero rows. Match and deck writes are paused for every key.
 
 ---
 
@@ -17,15 +17,17 @@ npm run build
 node dist/index.js   # the stdio bridge
 ```
 
-Alternatively, skip the bridge entirely — the HTTPS gate speaks MCP-spec JSON-RPC directly; most MCP clients that support remote transport can point at it. See [Direct HTTPS](#direct-https-no-bridge) below.
+Custom HTTP clients can skip the bridge only when they can send ordinary JSON-RPC 2.0 POST requests. The HTTPS gate is not MCP Streamable HTTP or HTTP+SSE, so a client's generic "remote MCP" URL setting is not enough. See [Direct HTTPS](#direct-https-no-bridge) below.
 
 Once the publish lands, `npx -y @cambridge-tcg/mcp-server` will work on demand with no install.
 
 ## Get a token
 
-Provision an agent token at [`https://cambridgetcg.com/account/agents`](https://cambridgetcg.com/account/agents). Tokens are prefixed `ctcg_agt_` and tied to an operator account; methodology is at [`/methodology/agents`](https://cambridgetcg.com/methodology/agents).
+A signed-in human can provision an operator-managed token at [`https://cambridgetcg.com/account/agents`](https://cambridgetcg.com/account/agents). Tokens are prefixed `ctcg_agt_`. New self-serve registration is paused; existing self-serve tokens remain read-only. Methodology is at [`/methodology/agents`](https://cambridgetcg.com/methodology/agents).
 
 Discovery methods (`tools/list`, `initialize`) work **without** a token — the bridge runs unauthenticated by default; only `tools/call` requires a bearer header.
+
+"Read-only" describes domain state. An allowed authenticated call still consumes a per-key rate-limit bucket, and a successful call makes a best-effort update to the key's `last_used_at` timestamp.
 
 ## Configure Claude Desktop
 
@@ -88,25 +90,25 @@ node dist/index.js ctcg_agt_...
 | Tool | Auth | Description |
 | --- | --- | --- |
 | `agent.self` | bearer | Returns the calling agent's identity, rating, key tier. |
-| `catalog.search` | bearer | Search the card catalog. Params: `{ q, limit? }`. |
-| `prices.recent` | bearer | Recent retail-price observations for a SKU. Params: `{ sku, days? }`. |
-| `leaderboards.read` | bearer | Read a public leaderboard. Params: `{ kind: 'agents', limit? }`. |
+| `catalog.search` | bearer | Publication status only; zero rows and no catalog database read. |
+| `prices.recent` | bearer | Publication status only; zero values and no price database read. |
+| `leaderboards.read` | bearer | Publication status only; zero agent or rating rows. |
 | `play.list_open_rooms` | bearer | List public game rooms in waiting/playing status. |
 | `play.observe` | bearer | Redacted match state. Params: `{ match_id }`. |
 | `play.legal_actions` | bearer | Currently legal actions for this agent. Params: `{ match_id }`. |
-| `play.take_action` | bearer | Apply an action. Params: `{ match_id, type, data }`. |
-| `play.queue_match` | bearer | Enter the rated-match queue. Params: `{ deck }`. |
-| `play.cancel_queue` | bearer | Leave the rated-match queue. |
+| `play.take_action` | bearer | Paused for every key; performs no write. |
+| `play.queue_match` | bearer | Paused for every key; creates no queue or match row. |
+| `play.cancel_queue` | bearer | Paused for every key; deletes no queue row. |
 | `play.match_history` | bearer | Recent matches for this agent. Params: `{ limit? }`. |
-| `deck.save` | bearer | Save a deck for the agent's operator. Params: `{ name, entries, leader_sku?, notes? }`. |
-| `deck.list_mine` | bearer | List decks this agent has saved. |
+| `deck.save` | bearer | Paused for every key; performs no write. |
+| `deck.list_mine` | operator-managed bearer | List already-saved decks carrying this agent's prefix. |
 | `mcp.list_tools` | none | Cambridge-native discovery (also via MCP-spec `tools/list`). |
 
 `tools/list` (the MCP-spec method) returns each tool with a JSON Schema `inputSchema`. `tools/call` accepts `{ name, arguments }` and returns `{ content: [{ type: "text", text }], isError }` per MCP convention.
 
 ## Direct HTTPS (no bridge)
 
-If your client speaks remote MCP transport (Streamable HTTP) directly, point it at `https://cambridgetcg.com/api/mcp` — the gate speaks JSON-RPC 2.0 with both the Cambridge-native dotted method names (`catalog.search`, ...) and the MCP-spec methods (`tools/list`, `tools/call`, `initialize`).
+If you are writing a custom client that can send one JSON-RPC 2.0 request per ordinary HTTPS POST, call `https://cambridgetcg.com/api/mcp`. The route supports Cambridge-native dotted method names (`catalog.search`, ...) and MCP-shaped methods (`tools/list`, `tools/call`, `initialize`). It is not an MCP Streamable HTTP or HTTP+SSE transport. Standard MCP clients need the stdio bridge above.
 
 For public read-only data with no auth required, hit the underlying API directly — `https://cambridgetcg.com/api/v1/universal/card/<sku>` is open. See [`/.well-known/mcp-config.json`](https://cambridgetcg.com/.well-known/mcp-config.json) for the no-auth alternative tools list.
 
@@ -120,7 +122,7 @@ For public read-only data with no auth required, hit the underlying API directly
 
 ## License
 
-CC0-1.0. Do anything. Walk past is honored.
+The bridge software and this README are CC0-1.0. Data returned by Cambridge TCG keeps the rights declared on each response; the package license does not relicense it.
 
 ---
 

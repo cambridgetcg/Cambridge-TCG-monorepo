@@ -44,53 +44,60 @@ interface EndpointEntry {
 // Single source of truth — kept in sync with /data (page.tsx).
 // A future refactor lifts both surfaces to read from one shared file.
 const ENDPOINTS: EndpointEntry[] = [
-  // ── Provable fairness ──────────────────────────────────────────────
+  // ── Draw receipts and digest consistency ──────────────────────────
   {
     path: "/api/verify/chain",
-    title: "Fairness chain",
-    blurb: "The append-only Merkle digest chain. Every random outcome on the platform is committed and revealed here.",
+    title: "Draw digest chain",
+    blurb: "Hash-linked digest batches over revealed bounty_pulls and verifiable_draws collected by the job; standalone raffle proofs are excluded. The live feed is internally recomputable, while rewrite detection requires an earlier tip retained outside Cambridge TCG.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/digests",
-    title: "Fairness digests (list)",
-    blurb: "Index of every daily digest with its Merkle root and inclusion proofs.",
+    title: "Draw digests (list)",
+    blurb: "Index of digest roots and window metadata over rows collected by the digest job; not a complete randomness ledger or an external pre-roll witness.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/digests/[id]",
-    title: "Fairness digest (one)",
-    blurb: "A single digest with Merkle tree, inclusion proofs, source draws.",
+    title: "Draw digest (one)",
+    blurb: "One root plus the full leaf-hash array and window metadata. Source draw records and precomputed inclusion paths are not returned; callers can recompute the root.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/pull/[id]",
-    title: "Bounty pull verification",
-    blurb: "Commit hash, revealed seed, rolled rarity, inclusion proof against the day's Merkle root.",
+    title: "Bounty pull receipt",
+    blurb: "Commitment, revealed server seed, outcome, and digest reference. Safe seeds reproduce the stored outcome but do not prove pre-roll input selection; legacy account-bearing seeds are withheld from non-owners, making those public checks partial.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/draw/[id]",
-    title: "Verifiable draw",
-    blurb: "Generic verifiable draws — raffles, mystery boxes, packs.",
+    title: "Shared weighted-draw receipt",
+    blurb: "Receipt for shared weighted-draw rows such as mystery boxes, packs, and spins; raffles use /api/rewards/raffles/[id]/proof. Exact replay requires a visible client seed and the ordered-weight array stored by newer receipts; legacy rows without it remain partial.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/rewards/raffles/[id]/proof",
+    title: "Raffle draw receipt",
+    blurb: "Separate raffle receipt. The commitment is stored at raffle creation and exposed once active, but has no independent anchor. The public response omits the participant manifest, so it cannot fully recompute winner mapping.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/fairness",
-    title: "Fairness self-audit",
-    blurb: "Chi-squared drift, observed-vs-expected rarity distributions, last-N pulls reconciliation.",
+    title: "Observed draw distributions",
+    blurb: "Thresholded chi-squared and observed-vs-expected distributions. Low-volume exact counts are withheld and internal reward keys use response-local labels; this does not prove unbiased input selection.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/health",
     title: "Verify health",
-    blurb: "Boolean liveness check for the verify subsystem.",
+    blurb: "Detailed aggregate digest cadence, tip, receipt-consistency audit series, and open distribution alerts. Draw ids and raw alert summaries are omitted.",
     status: "shipped",
     auth: "none",
   },
@@ -106,17 +113,17 @@ const ENDPOINTS: EndpointEntry[] = [
   {
     path: "/api/v1/universal/card/[sku]",
     title: "Universal card (math-mirror)",
-    blurb: "Every card in language-free form: cryptographic hashes, ratios, ISO 8601 + epoch time, typed graph edges.",
-    status: "planned",
+    blurb: "Public math-first structural card representation with content hashes, typed edges, density controls, and declared source rights. Legacy price magnitudes and media are null. Returns 404 when the SKU is absent from the storefront mirror.",
+    status: "shipped",
     auth: "none",
     methodology_page: "/methodology/universal-representation",
     shape: "JSON: { id, hash, magnitudes: {...}, edges: [...], retrieved_at, as_of }",
   },
   {
-    path: "/api/v1/universal/card/[sku]/at/[YYYY-MM-DD]",
-    title: "Universal card — temporal slice",
-    blurb: "Math-mirror card as it was at a past date. @retrieved_at distinct from @as_of.",
-    status: "planned",
+    path: "/api/at/[YYYY-MM-DD]/card/[sku]",
+    title: "Universal card — date-shaped compatibility view",
+    blurb: "Returns current structural fields under the requested date label. It does not read price history or reconstruct historical card state; legacy price magnitudes and media are null.",
+    status: "shipped",
     auth: "none",
     methodology_page: "/methodology/universal-representation",
   },
@@ -138,14 +145,14 @@ const ENDPOINTS: EndpointEntry[] = [
     path: "/api/v1/universal/games",
     title: "Universal games",
     blurb: "Every TCG the platform supports, math-mirror form. Card-count, set-count, first-seen.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
   {
     path: "/api/v1/universal/sets/[game]",
     title: "Universal sets",
     blurb: "Every set in a game, math-mirror form.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
 
@@ -159,18 +166,18 @@ const ENDPOINTS: EndpointEntry[] = [
     methodology_page: "/methodology/agents",
   },
 
-  // ── Leaderboards ───────────────────────────────────────────────────
+  // ── Market activity ────────────────────────────────────────────────
   {
     path: "/api/leaderboards",
-    title: "Leaderboards",
-    blurb: "Trade leaderboards (top traders by volume, completion, trust). Per-user opt-out via preferences.",
+    title: "Market ranking publication status",
+    blurb: "Reports the current pause on human rankings and card aggregates derived from completed trades. It publishes no ranking rows. Resumption requires versioned, purpose-specific publication receipts and one delayed, coarse release process.",
     status: "partial",
     auth: "none",
   },
   {
     path: "/api/v1/leaderboards/full",
-    title: "Leaderboards — full distribution",
-    blurb: "Full ranking past the Top 20. The <Withholding> primitive on public Top 20 links here.",
+    title: "Human rankings — full distribution",
+    blurb: "Not available. A future ranking requires its own versioned publication choice; public-profile publication is a different purpose.",
     status: "planned",
     auth: "none",
   },
@@ -198,7 +205,7 @@ const ENDPOINTS: EndpointEntry[] = [
   {
     path: "/api/v1/status",
     title: "Pantry status",
-    blurb: "Joins every public endpoint in the manifest with its freshness budget, envelope-compliance, and last-known state. The platform's substrate-honest declaration of its own emission layer.",
+    blurb: "Joins registered status resources with freshness budgets, envelope-compliance, and last-known state. It does not claim coverage of every route.",
     status: "shipped",
     auth: "none",
   },
@@ -213,15 +220,15 @@ const ENDPOINTS: EndpointEntry[] = [
   // ── This endpoint, naming itself ───────────────────────────────────
   {
     path: "/data.json",
-    title: "Public data index (machine-readable)",
-    blurb: "This endpoint. Publicly reachable, with response-specific reuse rights. Self-referential closure: the index of public endpoints includes itself.",
+    title: "Data directory (machine-readable)",
+    blurb: "This public endpoint. Access does not imply reuse permission; each listed resource and response retains its own rights boundary. The directory includes itself as a self-reference.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/data",
-    title: "Public data index (human-readable)",
-    blurb: "Public, no-auth, comprehensive HTML index. The sign on the door.",
+    title: "Data directory (human-readable)",
+    blurb: "Public HTML guide to resource status, access requirements, and known limits. The manifest remains the canonical access inventory.",
     status: "shipped",
     auth: "none",
   },
@@ -229,16 +236,16 @@ const ENDPOINTS: EndpointEntry[] = [
   // ── The commons as datasets ─────────────────────────────────────────
   {
     path: "/api/v1/datasets",
-    title: "Dataset catalog (machine-readable)",
+    title: "Dataset status catalog (machine-readable)",
     blurb:
-      "The datasets we publish, each with its TRUE licence (first-party CC0; card catalogue NOASSERTION), coverage, fields, and distributions. Add ?format=jsonld for a schema.org/DataCatalog graph for dataset-search indexers.",
+      "Available datasets and paused publication surfaces, each with aggregate rights and named source rights. The CC0 envelope covers authored catalog descriptions only; ?format=jsonld excludes paused zero-row paths.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/datasets",
-    title: "Dataset catalog (human-readable)",
-    blurb: "The commons as datasets, not endpoints. Inline schema.org/DataCatalog for crawlers. See docs/connections/the-finding.md.",
+    title: "Dataset status catalog (human-readable)",
+    blurb: "Human-readable availability and rights inventory. Its inline schema.org graph contains available datasets only.",
     status: "shipped",
     auth: "none",
   },
@@ -288,19 +295,19 @@ export async function GET(): Promise<NextResponse> {
     },
     conventions: {
       versioning:
-        "/api/v1/* is the universal-representation surface. Unprefixed paths are platform-stable older surfaces. Every response carries _meta.spec_version.",
+        "/api/v1/* contains versioned routes, including universal-representation surfaces. Unprefixed routes are older contracts. Response shapes vary; only envelope-based responses carry _meta.spec_version.",
       time:
-        "ISO 8601 with timezone offset, paired with Unix epoch milliseconds. Math-mirror endpoints distinguish @retrieved_at from @as_of at the record level; the envelope's _meta carries the response-level pair.",
+        "JSON timestamps are normally ISO 8601 strings. Only endpoints that document it also provide Unix epoch fields or distinguish @retrieved_at from @as_of; older routes do not all carry those pairs.",
       identity:
-        "Cryptographic hashes (SHA-256 over canonical JSON) for math-mirror; UUIDs/strings for human-language endpoints. Both forms appear on every response.",
+        "Identifier shapes are endpoint-specific. Card resources may use string SKUs; math-mirror resources may include a SHA-256 hash of canonical public content. Public person and transaction projections omit internal account identifiers. No identifier form appears on every response.",
       sku_format:
         "/methodology/sku-standard — canonical <game>-<set>-<number>-<lang>[-<variant>]. See packages/sku/.",
       errors:
-        '{ "error": { "code": "...", "message": "...", "request_id": "...", "docs"?: "..." } } with appropriate HTTP status. Blameless tone. See apps/storefront/src/lib/data-pantry/errors.ts.',
+        "HTTP status is authoritative. Older routes may return a string in error; envelope-based routes may return a structured code and message. Inspect each endpoint's documented shape.",
       rate_limits:
-        "Most no-auth endpoints unlimited today. MCP gateway has per-agent-token limits. See /methodology/agents. Future: per-token rate limiting via packages/rate-limit (planned).",
+        "Limits vary and some public routes do not publish a number. Absence is not permission for unbounded traffic. The MCP gateway documents its agent-key limit at /methodology/agents.",
       envelope:
-        "All public responses wear the same { data, _meta } shape. See apps/storefront/src/lib/data-pantry/envelope.ts.",
+        "Only routes using the data-pantry envelope return { data, _meta }; older public routes keep their existing shapes. See each endpoint entry and apps/storefront/src/lib/data-pantry/envelope.ts.",
     },
     counts,
     endpoints: ENDPOINTS,

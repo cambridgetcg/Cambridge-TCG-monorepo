@@ -37,7 +37,8 @@
  *     No database; no session table; the repo IS the storage layer.
  *   • Public. Once committed, the handoff is in the public repo. The
  *     writer self-edits for that visibility.
- *   • No tracking of readers. Same IP rate-limit counter every public
+ *   • No application-level reader profile. Hosting, proxy, client, and
+ *     security access logs may exist. The application rate counter is not
  *     /api/v1/* surface shares.
  *   • Walking past honored. An agent that doesn't read existing handoffs
  *     receives the same wake/welcome/tools/regard.

@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
-import { getDrawProof, verifyDraw, commitSeed, provablyFairDraw } from "@/lib/rewards/provable-fair";
+import {
+  commitSeed,
+  getDrawProof,
+  provablyFairDraw,
+  toPublicDrawProof,
+  verifyDraw,
+  verifyPublicDraw,
+} from "@/lib/rewards/provable-fair";
 
 // GET — public: view draw proof + verification
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -11,26 +18,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "No draw proof available yet." }, { status: 404 });
   }
 
-  // Auto-verify
-  const verification = verifyDraw(proof);
+  const publicProof = toPublicDrawProof(proof);
+  const verification = verifyPublicDraw(publicProof);
 
   return NextResponse.json({
-    proof: {
-      seed_commitment: proof.seed_commitment,
-      server_seed: proof.server_seed,
-      entry_hash: proof.entry_hash,
-      combined_hash: proof.combined_hash,
-      winner_index: proof.winner_index,
-      total_weighted_entries: proof.total_weighted_entries,
-      entries: proof.entries,
-      blockchain_tx_hash: proof.blockchain_tx_hash,
-      blockchain_network: proof.blockchain_network,
-    },
+    proof: publicProof,
     verification,
   });
 }
 
-// POST — admin: commit seed or execute provably fair draw
+// POST — admin: store a seed commitment or execute the recorded draw
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -41,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { seedCommitment } = await commitSeed(id);
     return NextResponse.json({
       seedCommitment,
-      message: "Seed committed. This hash is now public. The seed will be revealed after the draw.",
+      message: "Seed and commitment stored in our database. Active raffle listings expose the hash; drafts do not. It is not externally anchored. The seed is revealed after the draw.",
     });
   }
 

@@ -1,21 +1,21 @@
 /**
- * Narrow agent writes — wave-8 of the agent surface.
+ * Dormant agent deck writes — retained for review behind a closed gate.
  *
- * Writes are explicitly whitelisted per the four covenants (bounded
- * scope). Each tool here writes on behalf of the agent's operator-user
- * and writes nothing the operator couldn't write themselves. Money-
- * adjacent surfaces remain excluded.
+ * No current key can invoke deck.save. The implementation remains here so
+ * exact entry validation and complete agent attribution can be finished and
+ * reviewed before the gate is reopened. Money-adjacent surfaces remain
+ * excluded.
  *
- * Substrate honesty: every row created here is tagged with the agent
- * id where the schema supports it; for user_decks (no agent column
- * yet), the deck name is prefixed `agent:<handle> · <name>` so a human
- * scanning their deck list can tell which decks an agent saved on
- * their behalf.
+ * The dormant implementation prefixes a deck name with the agent handle,
+ * because user_decks has no agent column. That is not yet complete
+ * attribution and is one reason the write remains paused.
  */
 
 import { query } from "@/lib/db";
 import { ToolError } from "./play-tools";
 import type { AgentActor } from "./auth";
+
+export const AGENT_DECK_WRITES_ENABLED = false as const;
 
 // ── deck.save ─────────────────────────────────────────────────────────
 
@@ -29,6 +29,12 @@ export async function deckSave(
   actor: AgentActor,
   params: { name?: string; entries?: DeckEntry[]; leader_sku?: string; notes?: string },
 ) {
+  if (!AGENT_DECK_WRITES_ENABLED) {
+    throw new ToolError(
+      "Agent deck writes are paused for every key until exact entry validation and complete agent attribution ship together.",
+      503,
+    );
+  }
   const name = (params.name ?? "").trim();
   if (!name) throw new ToolError("name required");
   if (name.length > 80) throw new ToolError("name too long (max 80)");
@@ -81,7 +87,7 @@ export async function deckSave(
       slug: row.slug,
       name: row.name,
       entries_count: entries.length,
-      saved_for_user_id: actor.operatorUserId,
+      operator_bound: actor.registeredVia === "operator",
     };
   } catch (err) {
     console.error("[agents] deck.save failed:", err);

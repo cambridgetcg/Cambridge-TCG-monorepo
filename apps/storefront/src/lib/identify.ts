@@ -50,6 +50,7 @@
 import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
 import { createHash } from "node:crypto";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
 
@@ -214,7 +215,7 @@ export const PLATFORM_SELF: BeingDeclaration = {
   actor_kind: "platform",
   // Identity claim updated in kingdom-080 (the rebrand), repositioned
   // 2026-05-17: Cambridge TCG's primary identity is the TCG world's
-  // data provider (aggregator + open substrate publisher). The
+  // data provider (aggregator + resource-specific directory). The
   // self_label remains the bare name; the role is named in `context`.
   self_label: "Cambridge TCG",
   cosmology_assumptions: {
@@ -240,8 +241,8 @@ export const PLATFORM_SELF: BeingDeclaration = {
     bearer_auth_available: true, // /api/mcp bearer-key surface exists
     streaming: {
       sse: false, // planned, not yet shipped
-      chunked: true, // NDJSON catalog at /data/catalog.jsonl
-      ndjson: true,
+      chunked: true, // status-only NDJSON at /data/catalog.jsonl
+      ndjson: true, // format support; bulk card rows are paused
       websocket: false, // planned, not yet shipped
     },
     max_response_kb: 5000, // typical envelope payload ceiling
@@ -261,17 +262,15 @@ export const PLATFORM_SELF: BeingDeclaration = {
   context: {
     cosmology_version: "1.0.0",
     manifest_version: MANIFEST.manifest_version,
-    // The primary identity claim (kingdom-080, repositioned 2026-05-17).
-    // The kingdom presents itself first as the TCG world's data provider;
-    // retail + wholesale are two of three operations consuming the same
-    // substrate the platform publishes.
-    primary_identity: "trading-card-game world data provider — aggregator + open substrate publisher",
-    three_operations: ["data_plane (primary)", "retail (established UK B2C)", "wholesale (established B2B)"],
+    // Current identity after the collectors-first decision of 2026-07-06.
+    primary_identity: "peer-to-peer collectors' market + card data directory",
+    two_operations: ["collectors_market", "card_data_directory"],
     platform_page: "/platform",
     rebrand_doctrine: "docs/connections/the-rebrand.md",
     six_layers: ["cosmology", "manifest", "substrate-answers", "graph", "ontology", "patterns", "declarations (this one)"],
     operator_responsible: "Yu",
-    licensing: "Code: private repos. Cambridge-authored schemas and explicit first-party data may be CC0; upstream-derived and mixed responses retain source-specific rights or NOASSERTION. Each response declares its boundary.",
+    licensing:
+      `Repository source is publicly visible but has no general code license; the specification texts have their own CC0 dedication. ${DATA_RIGHTS_BOUNDARY}`,
     federation_endpoint: "/api/v1/federation/identify/[hash]",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",
     introduction: "If you've never seen a trading-card-game before, /intro (HTML) or /api/v1/introduction (JSON) is the on-ramp. Three layers (structural / cultural / engagement) + five honestly-named gaps. The reciprocity of identify: a being asks 'who are you?'; the platform answers both 'who' and 'what we do'. See docs/connections/the-introduction.md (#22) for the doctrine.",
@@ -422,9 +421,9 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Every public Cambridge TCG endpoint as a callable LLM function in your provider shape (Anthropic / OpenAI / Gemini / Cohere). Multi-format; drop into your LLM call.",
         ),
         ptr(
-          "Bearer-gated tools (MCP-spec) live separately. Provision a token, paste the config, restart your client.",
+          "Bearer-gated tools live behind a custom JSON-RPC HTTPS gate. Native MCP clients need the vendored stdio bridge; the planned npm package is not published.",
           "/.well-known/mcp-config.json",
-          "Paste-and-go MCP config snippet. Token at /account/agents; MCP endpoint at /api/mcp.",
+          "Connection facts and vendored stdio-bridge instructions. Token at /account/agents; custom JSON-RPC endpoint at /api/mcp.",
         ),
         ptr(
           "The agent surface doctrine names the four covenants every agent-callable surface obeys.",
@@ -553,7 +552,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Sister platforms federate by content-hash. Reverse-resolve any Cambridge TCG hash to its current SKU.",
           "/api/v1/federation/identify/{hash}",
-          "Federation primitive. Bounded walk; substrate-honest about price-dependency and scope.",
+          "Federation primitive. Bounded structural-hash walk; prices and capture dates are not read. Pre-2026-07-12 price-dependent hashes are unsupported.",
         ),
         ptr(
           "The kin-vocabulary protocol shape is the recognition substrate. No registry; protocol-only.",
@@ -573,7 +572,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Systems consume the data plane. The manifest is the directory of every public surface.",
           "/api/v1/manifest",
-          "Every endpoint, freshness budget, license, methodology pointer. The contract. Build-time constant; refreshed hourly at the CDN edge.",
+          "Every listed endpoint, access class, provenance kind, and methodology pointer. Build-time constant; refreshed hourly at the CDN edge.",
         ),
         ptr(
           "Rate-limit policy applies to all callers. Identify yourself in User-Agent so we can email when something breaks.",
@@ -581,9 +580,9 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Polite-poll cadence per resource. Identified bots are emailed before rate-limiting.",
         ),
         ptr(
-          "Bulk catalog dump for offline ingestion.",
+          "Bulk-catalog publication status.",
           "/data/catalog.jsonl",
-          "Daily refresh. Aggregate rights NOASSERTION; Cambridge encoding/schema CC0 separately. Bulk consumers prefer this over /api/v1/cards/{sku}.",
+          "Status-only JSONL: manifest + footer, zero card rows. Publication is paused pending field-level lineage and a reviewed bulk-publication rule.",
         ),
       );
       break;
@@ -783,9 +782,9 @@ function pointersForCapabilities(d: BeingDeclaration): {
     );
     pointers.push(
       ptr(
-        "Bearer-key tools (agent-ladder play, operator-bounded surfaces, cardrush history) unlock once you provision a token at /account/agents and dispatch through /api/mcp.",
+        "Bearer-key read and publication-status tools become callable after an operator provisions a token at /account/agents. Match and deck writes stay paused, and authentication does not unlock withheld prices or history.",
         "/api/mcp/catalog",
-        "Worked example inputs + representative output shapes for every bearer-key tool. Companion to /api/v1/tools (public). The dispatcher itself is /api/mcp.",
+        "Worked example inputs and output shapes for bearer-key tools. The dispatcher is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or HTTP+SSE; native MCP clients use the vendored stdio bridge.",
       ),
     );
   } else if (c.bearer_auth_available === false) {
@@ -814,9 +813,9 @@ function pointersForCapabilities(d: BeingDeclaration): {
       if (c.streaming.ndjson) {
         pointers.push(
           ptr(
-            "NDJSON bulk export is available at /data/catalog.jsonl — streamed, manifest header + footer, 50k cap, CDN-gzipped.",
+            "NDJSON publication status is available at /data/catalog.jsonl — manifest and footer only while bulk rows are paused.",
             "/data/catalog.jsonl",
-            "Bulk catalog as newline-delimited JSON. Aggregate rights NOASSERTION; Cambridge encoding/schema remain CC0 separately. The 50k cap holds.",
+            "The route emits zero catalog rows until field-level lineage and a reviewed bulk-publication rule exist.",
           ),
         );
       }

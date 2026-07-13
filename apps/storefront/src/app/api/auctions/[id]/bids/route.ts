@@ -1,14 +1,57 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { placeBid, getBidHistory } from "@/lib/auction/db";
+import { isAdmin } from "@/lib/admin/auth";
+import { getAuction, placeBid, getBidHistory } from "@/lib/auction/db";
+import { isAuctionId } from "@/lib/auction/id";
+import {
+  auctionRecordIsPublic,
+  projectAuctionBidsForPublic,
+  projectAuctionBidsForSeller,
+  projectBidMutationResult,
+} from "@/lib/auction/public";
 import { sendOutbidEmail } from "@/lib/auction/email";
 import { query } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
 
+function notFoundResponse() {
+  return NextResponse.json(
+    { error: "Not found" },
+    { status: 404, headers: { "Cache-Control": "private, no-store" } },
+  );
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const bids = await getBidHistory(id);
-  return NextResponse.json({ bids });
+  if (!isAuctionId(id)) return notFoundResponse();
+
+  const [session, auction, bids] = await Promise.all([
+    auth().catch(() => null),
+    getAuction(id),
+    getBidHistory(id),
+  ]);
+  if (!auction) return notFoundResponse();
+  const uid = session?.user?.id ?? null;
+  const admin = uid !== null && (await isAdmin().catch(() => false));
+  const seller = !!uid && uid === auction.seller_user_id;
+  const winner = !!uid && uid === auction.winner_user_id;
+
+  if (!admin && !seller && !winner && !auctionRecordIsPublic(auction)) {
+    return NextResponse.json(
+      { error: "Not found" },
+      { status: 404, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
+  return NextResponse.json(
+    {
+      bids: admin
+        ? bids
+        : seller
+          ? projectAuctionBidsForSeller(bids)
+          : projectAuctionBidsForPublic(bids, uid),
+    },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +61,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
+  if (!isAuctionId(id)) return notFoundResponse();
+
   const { amount, is_best_offer } = await request.json();
   const isBestOffer = !!is_best_offer;
 
@@ -56,7 +101,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }).catch((err) => console.error("[auction] Outbid email failed:", err));
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json(projectBidMutationResult(result), {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch (err) {
     console.error("[auction] Bid error:", err);
     return NextResponse.json({ error: "Failed to place bid." }, { status: 500 });

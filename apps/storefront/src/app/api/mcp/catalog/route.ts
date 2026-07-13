@@ -104,11 +104,15 @@ export async function GET(req: NextRequest): Promise<Response> {
         total: TOOLS_CATALOG_SUMMARY.total,
         by_category: TOOLS_CATALOG_SUMMARY.by_category(),
         by_gating: TOOLS_CATALOG_SUMMARY.by_gating(),
+        by_authority: TOOLS_CATALOG_SUMMARY.by_authority(),
+        by_availability: TOOLS_CATALOG_SUMMARY.by_availability(),
         dispatch_url: TOOLS_CATALOG_SUMMARY.dispatch_url,
         protocol: TOOLS_CATALOG_SUMMARY.protocol,
         mcp_spec_version: TOOLS_CATALOG_SUMMARY.mcp_spec_version,
-        auth_required: TOOLS_CATALOG_SUMMARY.auth_required,
-        register_at: TOOLS_CATALOG_SUMMARY.register_at,
+        auth: TOOLS_CATALOG_SUMMARY.auth,
+        authority: TOOLS_CATALOG_SUMMARY.authority,
+        self_serve_registration: TOOLS_CATALOG_SUMMARY.self_serve_registration,
+        operator_provision_at: TOOLS_CATALOG_SUMMARY.operator_provision_at,
         discovery_files: TOOLS_CATALOG_SUMMARY.discovery_files,
         doctrine_url: TOOLS_CATALOG_SUMMARY.doctrine_url,
       },
@@ -151,7 +155,8 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
 
       walking_past_is_honored: true,
-      no_tracking: true,
+      tracking_boundary:
+        "No application-level participant record is created by this catalog read; hosting and proxy infrastructure may retain ordinary access logs.",
     },
   });
 

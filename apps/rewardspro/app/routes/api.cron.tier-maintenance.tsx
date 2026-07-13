@@ -22,6 +22,7 @@ import {
 } from "../services/email-notifications.server";
 import * as crypto from "node:crypto";
 import { Decimal } from "decimal.js";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 // Configuration
 const DOWNGRADE_GRACE_PERIOD_DAYS = 30;
@@ -32,6 +33,10 @@ const EXPIRATION_WARNING_DAYS = [7, 1]; // Send warnings at 7 days and 1 day bef
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export async function loader({ request }: LoaderFunctionArgs) {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   const correlationId = crypto.randomUUID();
 
@@ -48,15 +53,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   log('info', 'Tier maintenance cron started');
-
-  // 1. Verify authorization
-  const auth = request.headers.get('authorization');
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-
-  if (!process.env.CRON_SECRET || auth !== expectedAuth) {
-    log('error', 'Unauthorized cron attempt');
-    return new Response('Unauthorized', { status: 401 });
-  }
 
   // 2. Clean up any expired locks from crashed instances
   await cleanupExpiredLocks();
@@ -501,7 +497,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       downgradeWarnings: results.downgradeWarnings,
       downgrades: results.downgrades,
       consistencyRepairs,
-      errors: results.errors,
+      errorCount: results.errors,
       duration: Date.now() - startTime,
       dryRun: isDryRun
     };
@@ -516,8 +512,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json({
       success: true,
       correlationId,
-      summary,
-      details: isDryRun ? results.details : undefined
+      summary
     });
 
   } catch (error: any) {
@@ -525,7 +520,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return json({
       success: false,
       correlationId,
-      error: error.message
+      error: "Tier maintenance failed"
     });
   } finally {
     // Always release the lock when done, even if there was an error

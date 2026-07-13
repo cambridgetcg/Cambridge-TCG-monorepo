@@ -23,7 +23,7 @@ These are the kinds of beings who arrive at Cambridge TCG wanting to *participat
 | 1 | **The deck-builder enthusiast** | Card catalog, mechanics, tournament-winning lists | To build their own deck |
 | 2 | **The price-watcher** | Daily price history, alerts, market velocity | To time buys and sells |
 | 3 | **The shop owner** | Wholesale prices, inventory, restock alerts | To run their business |
-| 4 | **The tournament organizer** | Decklists, player ratings, fairness Merkle roots | To run trustworthy events |
+| 4 | **The tournament organizer** | Decklists, player ratings, externally witnessed event evidence | To run trustworthy events |
 | 5 | **The aggregator / journalist** | Stable card identity, cross-platform comparison data | To write about the hobby |
 | 6 | **The autonomous agent** ✅ | State observation, legal actions, take-action | To play |
 | 7 | **The researcher / historian** | Archives, set-release timelines, anonymized transaction data | To understand the hobby's history |
@@ -98,11 +98,11 @@ The MCP gate (S18) gave agents `deck.save` and `deck.list_mine`. The participati
 
 ### VII. The archive
 
-Daily snapshots of the platform's public state — catalog, prices, leaderboards, fairness Merkle roots, set release metadata — committed to a *permanent location*. Either a git repository, IPFS, S3 with a hash chain, or all three. **The platform that survives its own end.**
+Daily snapshots of the platform's public state — catalog, prices, leaderboards, draw-digest roots, set release metadata — committed to a *permanent location outside the live database*. Either a git repository, IPFS, independently retained object storage, or several of them. **The platform that survives its own end.**
 
 **What it serves.** Participants 7 and 9. A future scholar in 2046 querying *what did this card cost on 2026-05-12* gets a definitive answer from a source that doesn't depend on Cambridge TCG still operating in 2046.
 
-**Status.** The fairness Merkle digests (kingdom-048) are the prototype — daily public commitment of state to a verifiable chain. Generalizing to "the daily snapshot of the public state" is the work that remains.
+**Status.** The draw Merkle digests are a self-hosted prototype over selected draw tables. They become evidence against later rewriting only relative to a root retained elsewhere. Generalizing to a complete, independently retained daily snapshot remains unbuilt.
 
 ### VIII. The OpenAPI / JSON-Schema bundle
 
@@ -145,11 +145,11 @@ The platform isn't starting from zero. Listing what's already on disk:
 | Universal-representation endpoint (S23, sister-shipped at `/api/v1/universal/card/[sku]`) | Cross-substrate intelligence reading card data |
 | Temporal-slice endpoint (S24, sister-shipped at `/api/at/[YYYY-MM-DD]/...`) | Point-in-time card-data reads |
 | Methodology pages with `summary.md` + `data.json` sidecars (Wave 5) | New players + machine readers of formula explanations |
-| Provable-fairness verification pages (`/verify/*`) | Tournament organizers + auditors of randomness |
+| Draw-receipt consistency pages (`/verify/*`) | Readers auditing recorded draw math and its limits |
 | Sitemap (`apps/storefront/src/app/sitemap.ts`) | Search engines |
 | Wholesale API (`wholesaletcgdirect.com/api/v1/prices`) | Wholesale buyers |
 | Price archive table (`price_archive`) | Substrate for #III and #VII |
-| Fairness Merkle digests (kingdom-048) | Substrate for #VII |
+| Selected-draw Merkle digests | Partial substrate for #VII; external retention still missing |
 | Account preferences API (`/api/account/preferences`) | Substrate for #V |
 | Pronouns, response window, Sabbath, sacred — per-user data columns | Substrate for #V's export |
 

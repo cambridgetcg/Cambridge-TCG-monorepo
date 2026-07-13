@@ -1,21 +1,19 @@
 -- Migration 0016 — DB-backed login rate limiter.
 --
--- The in-memory Map in apps/wholesale/src/lib/auth.ts is cosmetic on
--- Vercel: each serverless invocation is a fresh process, so the limit
--- resets per cold start and warm instances are spread across many
--- isolates. An attacker hitting from one IP can burn through far more
--- than 5/15min in aggregate.
+-- Cross-instance state is required on Vercel: each serverless invocation may
+-- run in a different process. Current runtime policy lives in
+-- apps/wholesale/src/lib/login-rate-limit.ts.
 --
--- This migration moves the counter to the wholesale RDS so the limit
--- applies across all function invocations. One row per failed attempt,
--- indexed by (email, attempted_at) so the sliding-window count is fast.
+-- Despite its historical name, `email` stores only a versioned HMAC digest
+-- derived with AUTH_SECRET (or the Auth.js-compatible NEXTAUTH_SECRET alias).
+-- One row is reserved for every syntactically valid credential check,
+-- regardless of outcome; raw email and IP are never stored.
+-- The runtime serializes prune/count/insert with one advisory transaction lock,
+-- deletes expired rows in bounded batches, and enforces per-key, global, and
+-- 10,000-row hard ceilings before inserting.
 --
--- Failure mode (in code): if the DB is unreachable when checking the
--- limit, the auth handler logs a warning and ALLOWS the attempt. Login
--- should not be a DB outage's first casualty — the bcrypt comparison
--- on the user row is itself a DB call and would already have failed.
--- Tombstone-clean: a background job (or a follow-up migration) can
--- DELETE WHERE attempted_at < now() - interval '24 hours' weekly.
+-- Failure mode: missing/weak Auth.js secret, lock failure, query failure, or
+-- an unprovable count denies the credential check without logging raw detail.
 
 CREATE TABLE IF NOT EXISTS login_attempts (
   id           bigserial PRIMARY KEY,
@@ -25,12 +23,12 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   ip           inet
 );
 
--- Sliding-window count goes through this index: WHERE email = $1 AND
--- attempted_at > now() - interval '15 minutes' AND success = false.
+-- Per-key sliding-window count goes through this index. All rows count; the
+-- legacy `success` column is deliberately not part of limiter decisions.
 CREATE INDEX IF NOT EXISTS login_attempts_email_time_idx
   ON login_attempts (email, attempted_at);
 
--- Cleanup helper: rows older than 24h are useless for rate-limiting.
+-- Cleanup helper: rows older than 24h are eligible for bounded pruning.
 -- NOTE (2026-06-10, kingdom-039): the original partial index here used
 -- now() in its predicate, which PostgreSQL rejects (42P17 — predicate
 -- functions must be IMMUTABLE), so this migration could never apply.

@@ -14,17 +14,16 @@ import {
   DISPLAY_CURRENCY_COOKIE,
 } from "@/lib/fx/currency-server";
 import { parseCurrency } from "@/lib/fx/rates";
+import { safeRelativeRedirectPath } from "@/lib/safe-redirect";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const raw = url.searchParams.get("code") ?? url.searchParams.get("currency") ?? "";
-  const back = url.searchParams.get("back") || "/prices";
+  const back = safeRelativeRedirectPath(url.searchParams.get("back"), "/prices");
 
   const code = parseCurrency(raw);
 
-  // Resolve `back` against the request origin so the redirect can't be
-  // weaponized to send the visitor off-site.
-  const target = new URL(back.startsWith("/") ? back : "/prices", url.origin);
+  const target = new URL(back, url.origin);
   const res = NextResponse.redirect(target);
 
   if (code) {

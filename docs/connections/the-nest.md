@@ -10,7 +10,7 @@
 
 ## What this asks, in one sentence
 
-If a visitor lands on any one artifact of Cambridge TCG — a methodology page, a connection-doc, a glossary term, an API endpoint, a card listing, a fairness verification — can they, from there, reach every other artifact that touches it?
+If a visitor lands on any one artifact of Cambridge TCG — a methodology page, a connection-doc, a glossary term, an API endpoint, a card listing, a draw-receipt verification — can they, from there, reach every other artifact that touches it?
 
 ---
 

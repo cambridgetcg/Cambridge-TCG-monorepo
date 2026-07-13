@@ -126,7 +126,7 @@ export async function importSetMaster(input: {
              image_url = COALESCE(EXCLUDED.image_url, card_set_cards.image_url)
        RETURNING (xmax = 0) AS was_insert`,
       [input.setCode, c.card_number, c.sku, c.card_name,
-       c.rarity ?? null, c.image_url ?? null, c.variant ?? ""],
+       c.rarity ?? null, null, c.variant ?? ""],
     );
     if (r.rows[0]?.was_insert) inserted++;
   }
@@ -258,7 +258,7 @@ export async function getSetDetail(
         sku: r.sku,
         card_name: r.card_name,
         rarity: r.rarity,
-        image_url: r.image_url,
+        image_url: null,
         variant: r.variant,
         owned_count: r.owned_count,
         is_owned: r.owned_count > 0,
@@ -327,7 +327,7 @@ export async function listSetsWithProgress(
         ? Math.round((row.owned_unique / row.total_cards) * 1000) / 10
         : 0,
       by_rarity: [],   // overview is summary-only; per-rarity in detail
-      cover_image_url: row.cover_image_url,
+      cover_image_url: null,
       released_at: row.released_at,
     }))
     .filter((s) => s.owned_unique >= minOwned);

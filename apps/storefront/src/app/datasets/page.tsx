@@ -1,15 +1,11 @@
 /**
- * /datasets — the open data commons, as datasets.
+ * /datasets — dataset availability and rights.
  *
  * /data lists the ENDPOINTS (routes). This lists the DATASETS (artefacts):
- * what we publish, under what licence, covering what, and where to get it —
- * with an inline schema.org/DataCatalog block so Google Dataset Search and AI
- * crawlers index every dataset at once. Completes docs/connections/the-finding.md
- * "Plant C": the agent ladder announced itself as a Dataset; this lifts the
- * whole commons to the same discoverability.
+ * what is available, what is paused, the aggregate rights, and where each
+ * surface lives. The inline schema.org graph includes available datasets only.
  *
- * Substrate-honest: each dataset's badge shows its TRUE tier — CC0 for our own
- * operational data, NOASSERTION for the mixed card catalogue. Never relabelled.
+ * CC0 covers the authored catalog descriptions, not the records described.
  */
 
 import Link from "next/link";
@@ -23,19 +19,28 @@ import {
 } from "@/lib/datasets";
 
 export const metadata: Metadata = {
-  title: "Datasets — the open data commons, with true licences",
+  title: "Dataset status catalog",
   description:
-    "Every dataset Cambridge TCG publishes: first-party sold comps, catalogue coverage, the source-rights registry, known gaps, and the agent ladder. Each carries its true licence — first-party data is CC0; the mixed card catalogue is NOASSERTION.",
-  other: audienceMetadata("public-documentation", ["datasets", "open-data", "cc0", "schema.org"]),
+    "Available Cambridge TCG datasets and paused publication surfaces, with aggregate rights and named source rights.",
+  other: audienceMetadata("public-documentation", ["datasets", "data-rights", "schema.org"]),
 };
 
 function TierBadge({ tier }: { tier: CommonsTier }) {
   const [label, cls] =
     tier === "cc0"
       ? ["CC0-1.0", "bg-ok/10 text-ok border-ok/30"]
-      : tier === "noassertion"
-        ? ["NOASSERTION", "bg-warning/10 text-warning border-warning/30"]
-        : ["first-party terms", "bg-surface-subtle text-ink-muted border-border-subtle"];
+      : ["NOASSERTION", "bg-warning/10 text-warning border-warning/30"];
+  return (
+    <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function AvailabilityBadge({ availability }: { availability: DatasetEntry["availability"] }) {
+  const [label, cls] = availability === "available"
+    ? ["available", "bg-ok/10 text-ok border-ok/30"]
+    : ["paused", "bg-surface-subtle text-ink-muted border-border-subtle"];
   return (
     <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${cls}`}>
       {label}
@@ -49,11 +54,14 @@ function DatasetCard({ d }: { d: DatasetEntry }) {
       <div className="flex items-baseline gap-2 flex-wrap">
         <span className="text-ink font-medium text-lg">{d.name}</span>
         <TierBadge tier={d.tier} />
+        <AvailabilityBadge availability={d.availability} />
       </div>
 
       <p className="text-sm text-ink-muted mt-1">{d.description}</p>
 
-      <div className="text-[10px] uppercase tracking-wider text-ink-faint mt-3">Get it</div>
+      <div className="text-[10px] uppercase tracking-wider text-ink-faint mt-3">
+        {d.availability === "available" ? "Get it" : "Status"}
+      </div>
       <ul className="list-none p-0 space-y-1 mt-1">
         {d.distributions.map((x) => (
           <li key={x.path} className="text-sm">
@@ -67,7 +75,10 @@ function DatasetCard({ d }: { d: DatasetEntry }) {
       </ul>
 
       <div className="text-xs text-ink-faint mt-3 font-mono">
-        fields: {d.variableMeasured.join(", ")}
+        fields: {d.variableMeasured.length > 0 ? d.variableMeasured.join(", ") : "none (status only)"}
+      </div>
+      <div className="text-xs text-ink-faint mt-2">
+        Sources: {d.sourceRights.map((right) => `${right.source} (${right.license})`).join("; ")}
       </div>
       {d.temporalCoverage ? (
         <div className="text-xs text-ink-faint mt-1 font-mono">covers: {d.temporalCoverage}</div>
@@ -83,7 +94,8 @@ function DatasetCard({ d }: { d: DatasetEntry }) {
 }
 
 export default function DatasetsIndex() {
-  const cc0 = DATASETS.filter((d) => d.tier === "cc0").length;
+  const available = DATASETS.filter((d) => d.availability === "available").length;
+  const paused = DATASETS.length - available;
   const jsonLd = toDataCatalogJsonLd();
 
   return (
@@ -97,20 +109,18 @@ export default function DatasetsIndex() {
       <h1>Datasets</h1>
 
       <p className="text-lg">
-        The datasets Cambridge TCG publishes as an <strong>open data commons</strong>.
-        The <Link href="/data">/data</Link> page lists the <em>endpoints</em>; this
-        lists the <em>datasets</em> — what each one is, under what licence, and where
-        to get it.
+        The <Link href="/data">/data</Link> page lists endpoints. This page lists
+        dataset-shaped resources: <strong>{available} available</strong> and{" "}
+        <strong>{paused} paused</strong>, with their aggregate rights and source
+        rights stated separately.
       </p>
 
       <p>
-        Each dataset states the licence that is <strong>true</strong>, never the
-        convenient one. Our own realised trades, operational counts, source
-        registry, and gap corpus are <strong>{cc0} CC0 datasets</strong> — ours to
-        dedicate to the public domain. The bulk card catalogue is a mix of
-        upstream-owned fields over a Cambridge-authored spine, so it is{" "}
-        <code>NOASSERTION</code> — never relabelled CC0. The rights reasoning
-        behind every source lives in the{" "}
+        <code>CC0-1.0</code> on the catalog response covers these Cambridge-authored
+        descriptions only. It does not license the records they describe. Mixed or
+        undeclared record rights remain <code>NOASSERTION</code>; paused paths are
+        status notices and are excluded from the crawler dataset graph. The rights
+        reasoning behind every source lives in the{" "}
         <Link href="/methodology/data-intentions">declaration of data intentions</Link>.
       </p>
 
@@ -133,9 +143,9 @@ export default function DatasetsIndex() {
       <hr />
 
       <p className="text-xs text-ink-faint">
-        A dataset&apos;s licence here mirrors the route that serves it; the{" "}
-        <code>redistribution</code> audit fails the build if a CC0 surface ever
-        draws from a non-redistributable source. Discoverability doctrine:{" "}
+        Availability and rights here mirror the serving route. The{" "}
+        <code>redistribution</code> audit protects the catalog-metadata boundary.
+        Discoverability doctrine:{" "}
         docs/connections/the-finding.md. Rights framework:{" "}
         docs/methodology/source-intake.md.
       </p>

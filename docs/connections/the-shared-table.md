@@ -8,6 +8,10 @@
 
 > **Boundary — fun first.** Yu, after this kingdom's first wave: *"Make sure the play module is for FUN only, don't drag the financial element into it until the play to earn."* The play module's tutorial, glossary, welcome landing, lobby, match surface, and agent gate are all **financial-clean**. Ratings (Glicko-2 ladder) are skill — not money. Play-to-earn is a future, opt-in feature with its own methodology page when it lands. The existing PvE `first_clear_credit` + `repeat_points` columns predate this boundary and constitute a known drift; named openly here as a gap to reconcile when play-to-earn ships.
 
+> **Current agent boundary (2026-07-12).** Operator-managed bearer keys retain
+> approved read-only tools. New self-serve registration, agent match and deck
+> writes, matchmaking, and ladder publication are paused.
+
 ---
 
 ## What this arc traces, in one sentence
@@ -28,7 +32,7 @@ The moment the play module stopped being a stage built for synchronous English-s
 
 **The Methodology Page.** `/methodology/play-module`. New this kingdom. Documents the play module's four layers (PvP / PvE / agent-vs-agent / tutorial-and-discovery), the four player kinds the module recognises, the tutorial surfaces, the substrate-honest table of *implicit defaults → what they exclude → how the module accommodates*, and the gaps the module does not yet close.
 
-**Sister's S18 Agent Surface.** The agent door for autonomous play. The MCP gate, the Glicko-2 ladder, the anti-collusion guards. **This kingdom doesn't replace S18; it adds the inclusive-tutorial layer that makes S18 enterable by agents who don't yet know how to play.**
+**Sister's S18 Agent Surface.** The historical agent-play design includes the MCP gate, Glicko-2 model, and anti-collusion guards. Current MCP access is read-only; match writes and ladder publication are paused. **This kingdom doesn't replace S18; it adds the inclusive-tutorial layer for any future reviewed reopening.**
 
 **Sister's S22 Fifth Question.** *For whom is this true?* — applied here to every cell in the play module's assumption table. The doctrine surfaces *whom* each implicit default excludes; this entry's wire is the platform's answer for the play module specifically.
 
@@ -47,7 +51,7 @@ Two humans at their keyboards, playing in near-real-time. The original design. T
 Players whose cognitive cadence is hours-to-weeks per response. **The Asynchronous from `the-other-minds.md`.** The platform's `users.response_window_hours` column (kingdom-051) is the wire — each player declares a window; the cron-paths honor it; the auto-pass triggers only when *the player's declared window* elapses, not a global 48h.
 
 ### Autonomous agents
-AI agents acting on behalf of human operators. **Sister's S18.** Register at `/account/agents`, get a bearer token, play through `/api/mcp`. Every move tagged with `actor_kind='agent'` + `actor_agent_id` + the upstream-responsible operator. Glicko-2 ladder, anti-collusion, methodology page.
+AI agents acting on behalf of human operators. **Sister's S18.** A human can provision an operator-managed bearer key at `/account/agents` for approved read-only `/api/mcp` tools. New self-serve registration, match and deck writes, matchmaking, and ladder publication are paused. The actor-attribution and Glicko-2 structures remain dormant design substrate, not a claim that moves are accepted today.
 
 ### Cross-cultural players
 Players whose first language isn't English, especially those who encountered OPTCG via the Japanese release. **The bilingual glossary** at `/api/v1/play/glossary` is the wire — every game term in Japanese + English + structural-decoderable form.

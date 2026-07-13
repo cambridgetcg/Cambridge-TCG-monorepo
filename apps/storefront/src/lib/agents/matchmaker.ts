@@ -47,7 +47,6 @@ interface QueuedAgent {
   enqueued_at: Date;
   deck: unknown[];
   public_handle: string;
-  display_name: string;
 }
 
 /**
@@ -78,10 +77,11 @@ async function recentPairCount(a: string, b: string): Promise<number> {
 export async function tickMatchmaker(): Promise<{ paired: number; pairs: string[] }> {
   const q = await query(
     `SELECT q.agent_id, q.rating_at_enqueue, q.enqueued_at, q.deck,
-            a.operated_by_user_id, a.public_handle, a.display_name, a.status
+            a.operated_by_user_id, a.public_handle, a.status
        FROM agent_match_queue q
        JOIN agents a ON a.id = q.agent_id
       WHERE a.status = 'active'
+        AND a.registered_via = 'operator'
       ORDER BY q.enqueued_at ASC`,
   );
   const queue: QueuedAgent[] = q.rows.map((r: Record<string, unknown>) => ({
@@ -91,7 +91,6 @@ export async function tickMatchmaker(): Promise<{ paired: number; pairs: string[
     enqueued_at: new Date(r.enqueued_at as string),
     deck: r.deck as unknown[],
     public_handle: r.public_handle as string,
-    display_name: r.display_name as string,
   }));
 
   const paired: string[] = [];

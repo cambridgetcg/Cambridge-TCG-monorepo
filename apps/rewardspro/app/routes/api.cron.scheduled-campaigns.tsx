@@ -17,8 +17,13 @@ import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { sendCampaignEmails } from "../services/email-notifications.server";
 import * as crypto from "node:crypto";
+import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  if (!verifyCronAuth(request)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const startTime = Date.now();
   const correlationId = crypto.randomUUID();
 
@@ -34,15 +39,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   log('info', 'Scheduled campaigns cron started');
-
-  // 1. Verify authorization
-  const auth = request.headers.get('authorization');
-  const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
-
-  if (!process.env.CRON_SECRET || auth !== expectedAuth) {
-    log('error', 'Unauthorized cron attempt');
-    return new Response('Unauthorized', { status: 401 });
-  }
 
   // 2. Clean up expired locks
   await cleanupExpiredLocks();
@@ -253,7 +249,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const summary = {
       sent: results.sentCount,
       failed: results.failedCount,
-      errors: results.errors,
+      errorCount: results.errors,
       duration: Date.now() - startTime,
       dryRun: isDryRun,
     };
@@ -264,14 +260,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       success: true,
       correlationId,
       summary,
-      details: isDryRun ? results.details : undefined,
     });
   } catch (error: any) {
     log('error', 'Scheduled campaigns cron failed', { error: error.message });
     return json({
       success: false,
       correlationId,
-      error: error.message,
+      error: "Scheduled campaign processing failed",
     });
   } finally {
     if (lock.lockId) {

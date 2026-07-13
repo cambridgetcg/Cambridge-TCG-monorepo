@@ -134,29 +134,19 @@ async function resolvePricesForSkus(
         WHERE side = 'ask' AND status IN ('open', 'partially_filled')
               AND sku = ANY($1::text[])
         GROUP BY sku
-     ),
-     latest_history AS (
-       SELECT DISTINCT ON (sku) sku, spot_gbp::numeric AS price
-         FROM retail_price_observation
-        WHERE sku = ANY($1::text[])
-        ORDER BY sku, captured_on DESC
      )
      SELECT $1::text[] AS skus,
-            ba.sku AS ba_sku, ba.price AS ba_price,
-            lh.sku AS lh_sku, lh.price AS lh_price
+            ba.sku AS ba_sku, ba.price AS ba_price
        FROM unnest($1::text[]) s
-       LEFT JOIN best_asks ba ON ba.sku = s
-       LEFT JOIN latest_history lh ON lh.sku = s`,
+       LEFT JOIN best_asks ba ON ba.sku = s`,
     [skus],
   );
 
   for (const row of r.rows) {
-    const sku = row.ba_sku ?? row.lh_sku;
+    const sku = row.ba_sku;
     if (!sku) continue;
     if (row.ba_price != null) {
       out.set(sku, { unit_price: parseFloat(row.ba_price), source: "best_ask" });
-    } else if (row.lh_price != null) {
-      out.set(sku, { unit_price: parseFloat(row.lh_price), source: "price_history" });
     }
   }
   return out;

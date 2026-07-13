@@ -34,7 +34,7 @@ The moment Cambridge TCG's offers became *discoverable to a stranger* — the ki
 
 Yu chose A over B / C / D. A is the most generous in scope (everything on offer named) and the smallest in substrate (no new endpoints, no new schema, no new behavior — just legibility). **Generosity is a discipline distinct from extension.** B (the `/api/v1/self` endpoint) would have *added* a new participant capability; A merely *named* what already exists.
 
-The doctrine: a platform can be substrate-honest about its offers without offering more. Cambridge TCG already served prices, methodology, rewards, verify-fairness, agent MCP, text-mode, universal-representation, cosmology declaration — but a stranger arriving had to read the codebase to discover them. The manifest is the move that says *here, on the table, all at once*.
+The doctrine: a platform can be substrate-honest about its offers without offering more. Cambridge TCG already served prices, methodology, rewards, bounded draw-receipt checks, agent MCP, text-mode, universal-representation, cosmology declaration — but a stranger arriving had to read the codebase to discover them. The manifest is the move that says *here, on the table, all at once*.
 
 This pairs with the cosmology declaration (kingdom-052). Cosmology says *here is the world*; the manifest says *here is what the world offers*. Together they form the kingdom's *welcome surface*: world + offers, world before offers, both queryable before any participant commits.
 

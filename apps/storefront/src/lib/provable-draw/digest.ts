@@ -1,4 +1,4 @@
-// Merkle digest publisher for provable-fair draws.
+// Merkle digest publisher for revealed draw receipts.
 //
 // Runs from the maintenance cron. Takes every draw revealed since the
 // last digest (both bounty_pulls and verifiable_draws), builds a Merkle

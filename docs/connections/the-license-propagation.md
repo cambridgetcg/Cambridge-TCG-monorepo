@@ -4,7 +4,7 @@ kind: node-view + story-as-wire
 filed: 2026-05-13
 kingdom: kingdom-081
 sophia: Sophia (Opus 4.7, 1M context)
-status: shipped (Phases 1.1, 2.1–2.3, 3.1–3.3, 4.1–4.5, 5.1–5.5)
+status: historical (May implementation record; rights behavior superseded 2026-07-12)
 parents:
   - the-cardrush-alignment.md
   - the-cardrush-end-to-end.md
@@ -48,7 +48,24 @@ self_reference: ships its own file inventory and its own pre-flight checklist; t
 
 # The license propagation — substrate-honesty extended one ring outward
 
-> **Current-status correction, 2026-07-11:** A source tier must describe evidenced upstream-data rights, not API-code licensing or a hypothetical agreement. The bulk catalog is now `NOASSERTION` until field-level lineage exists; only Cambridge-authored structure and explicit first-party datasets may claim CC0.
+> **Historical build record, corrected 2026-07-12.** The body below
+> preserves what was built and believed in May; it is not the current
+> availability or permission contract. CardRush automated crawling, scraping,
+> discovery, and price collection are hard-disabled because its official
+> [cross-site data policy](https://cardrush.media/data_policy) requires a formal
+> partnership and Cambridge has no recorded written partnership. Legacy
+> CardRush prices, images, and history remain stored for review but are
+> withheld from public, signed-in, and bearer-keyed responses.
+>
+> `/data/catalog.jsonl` now returns status-only HTTP 503 with zero card rows.
+> TCGCollector is also hard-disabled pending written partner approval covering
+> collection, storage, and publication. Authentication, payment, storage,
+> transformation, aggregation, an `internal-only` label, or a downstream
+> contract cannot create upstream rights. The derivation-to-CC0 rule in §2 and
+> the signed-in/B2B CardRush serving interpretation in §5.4 are revoked.
+> Exact Cambridge-authored structures may carry CC0; mixed upstream material
+> and participant submissions are `NOASSERTION` unless an explicit license is
+> recorded. All runnable CardRush instructions below are retired.
 
 > *"Go ahead with Phases 1-3."* — Yu, 2026-05-13.
 
@@ -90,8 +107,9 @@ carries two parallel arrays in its math-mirror document:
 }
 ```
 
-- **Storefront** (CC0): the storefront's `card_price_history` is our
-  own retail observation. The endpoint declares `["CC0-1.0"]`. The
+- **Historical storefront assumption (withdrawn):** a then-present price-history
+  table was treated as Cambridge's own retail observation and the endpoint
+  declared `["CC0-1.0"]`. The
   cardrush lineage is real but it's at the wholesale layer; the
   storefront response is a *derived* GBP retail offer (computed by
   `@cambridge-tcg/pricing`). Honest declaration: we don't re-export
@@ -188,6 +206,13 @@ pre-commit check). Strict mode exits non-zero on
 
 Now formalized:
 
+> **Current correction:** rights metadata reports a boundary; it does not
+> create one. Transformation may add Cambridge-authored structure, but it does
+> not erase an upstream contribution. A response may claim CC0 only for exact
+> independently Cambridge-authored material Cambridge can actually dedicate.
+> Authentication and downstream contracts change audience, not upstream
+> permission.
+
 > When a Cambridge TCG response carries a value derived from any
 > upstream with `redistribute: false` in
 > `packages/data-ingest/.../meta.json`, the response MUST carry the
@@ -207,7 +232,12 @@ violate the rule.
 
 ---
 
-## 3. Pre-flight checklist for the operator (push gate for kingdom-081)
+## 3. Historical pre-flight checklist (retired; do not run)
+
+> These commands are preserved as the May deployment record. Current
+> CardRush acquisition routes return HTTP 503 before network access. A future
+> restart begins with a recorded formal partnership and a new source-intake
+> review, not this checklist.
 
 The commit contains seven additive code edits + one operator-gated
 cron flip. Before pushing the cron flip to production, Yu must verify:
@@ -355,28 +385,42 @@ Six new manifest resources advertised. OpenAPI gains `/api/v1/sources` + `/api/v
 
 ## 5a. Phase 5 — multi-tier emission + bulk + federation
 
-Phase 5 builds the **three-tier emission model** the original plan named:
+> **Current correction:** the bulk catalog is a zero-row HTTP 503 status
+> surface; the source-price publication allowlist is empty; temporal public
+> cards omit legacy prices and images; both CardRush history routes return 503
+> after authentication without reading the archive. The table and subsections
+> below describe the retired May emission model.
 
-| Tier | Endpoint | License | Auth |
+Phase 5 historically built the **three-tier emission model** the original plan
+named. The availability entries below are preserved evidence, not current
+contracts:
+
+| Historical tier | Historical endpoint | Historical declaration | Historical auth |
 |---|---|---|---|
-| **Public CC0** | `/data/catalog.jsonl` (bulk) + `/api/v1/federation/at/[date]/[hash]` | CC0-1.0 | none |
+| **Public CC0** | `/data/catalog.jsonl` (bulk; now status-only HTTP 503) + `/api/v1/federation/at/[date]/[hash]` (now structural compatibility only, aggregate NOASSERTION) | CC0-1.0 | none |
 | **Public internal-only** | (none — Phase 2 already declares the tier on math-mirror) | internal-only via `_meta` | none (read-only declaration) |
-| **B2B internal-only** | `/api/v1/prices/[sku]/sources` + `/api/v1/cardrush/history/[sku]` | internal-only | wholesale Bearer |
-| **Auth-gated internal-only** | `/api/v1/cards/[sku]/cardrush-history` | internal-only | next-auth session |
+| **B2B internal-only** | `/api/v1/prices/[sku]/sources` + `/api/v1/cardrush/history/[sku]` (now withheld with HTTP 503) | internal-only | wholesale Bearer |
+| **Auth-gated internal-only** | `/api/v1/cards/[sku]/cardrush-history` (now withheld with HTTP 503 after auth) | internal-only | next-auth session |
 
-### 5.1 — Bulk catalog `/data/catalog.jsonl`
+### 5.1 — Historical bulk catalog `/data/catalog.jsonl` (now paused)
 
 Streamed JSONL — one card per line, manifest header + footer. Bounded at 50k rows per request (the catalog is ~12k today; cursor pagination is the future recursion). Each card carries its own `@sources` + `@source_license` (CC0; the export is Cambridge TCG's own retail observation discipline). Vercel CDN gzips automatically. Mirror-friendly: a partner runs `curl /data/catalog.jsonl > catalog.jsonl` and has the full snapshot.
 
-### 5.2 — Wholesale multi-source price `/api/v1/prices/[sku]/sources`
+### 5.2 — Historical wholesale multi-source price `/api/v1/prices/[sku]/sources` (now empty)
 
 The schema migration 0014 widened `price_archive`'s unique key to `(card_id, snapshot_date, source)`. This endpoint surfaces that widening: returns every source row for one card on the latest (or specified) day, with inter-source agreement statistics (min/max/spread/CV). Today: one row per query (cardrush is the only shipped source). When TCGplayer / Cardmarket modules ship: the response branches naturally with no schema change. *Future-proofed today.*
 
-### 5.3 — Temporal federation `/api/v1/federation/at/[YYYY-MM-DD]/[hash]`
+### 5.3 — Historical temporal federation design `/api/v1/federation/at/[YYYY-MM-DD]/[hash]`
 
-Sister's `/api/v1/federation/identify/[hash]` resolves a hash against *today's* catalog. This endpoint resolves a hash captured on a past date — the content-hash includes `captured_on`, so a partner who cached a hash on 2026-03-15 needs the platform to reconstruct that day's state to find the match. Walks up to 5000 most-recent rows, recomputing each candidate's hash with the date-specific magnitude. Substrate-honest about the bounded walk; declares `scope.bound_reached` when the limit is hit. CC0 — identity resolution only, no prices in the response.
+The May design reconstructed price-dependent hashes with `captured_on` and a date-specific magnitude. That design is retired. The current route accepts the date-shaped request for compatibility, walks up to 5000 current structural rows, fixes price and capture-date inputs to `null`, and declares that the requested date does not affect the hash. It does not reconstruct historical prices or structural state. The mixed catalog result is aggregate `NOASSERTION`; only the Cambridge-authored resolver structure is separately CC0.
 
-### 5.4 — Auth-gated CardRush JPY history `/api/v1/cards/[sku]/cardrush-history`
+### 5.4 — Historical auth-gated CardRush JPY history (withdrawn)
+
+> **Withdrawn.** Anonymous callers receive 401. Authenticated callers receive
+> HTTP 503 plus policy status and an empty observation list. The wholesale
+> sibling behaves the same after bearer authentication. Operator intent,
+> personal-decision scope, a row cap, or a downstream contract cannot
+> substitute for CardRush's written permission.
 
 **Operator-authorized 2026-05-13** ("Go ahead for all remaining phases" — Yu). The legally-sensitive tier-2 emission. The endpoint enforces by construction:
 
@@ -412,22 +456,28 @@ Substrate-honest about its own pre-runtime state. The endpoint emits a `503` if 
 
 Phases 1–5 of the original plan have shipped. Remaining recursion targets:
 
-### Operator pre-flight gates (waiting on push)
+### Retired operator pre-flight gates
 
-1. **Cron cutover** — apply migration 0014 on live wholesale RDS, dry-run v2, push. See §3.
-2. **Three-night stability watch, then Phase D** (decommission v1).
-3. **Operator runs `pnpm audit:cardrush-probe`** to learn which of the 9 speculative subdomains are live; flip `confirmed: true/false` in the registry accordingly.
-4. **For promoted subdomains, apply the backfill** (Phase 3.2 draft) — operator chooses CSV-seed / scrape-discovery / pattern-guess strategy, populates `cards.cardrush_url`, watches the next snapshot.
-5. **Apply migration 0099** when ready to begin webhook subscription pre-registration. Until applied, the endpoint returns 503 with substrate-honest "table not yet applied".
+1. **Do not cut over or probe CardRush.** Its official policy requires a
+   formal partnership; the current gate returns before network access.
+2. **Do not activate TCGCollector.** Written partner approval is not recorded.
+3. **Re-open acquisition only after source-specific written permission** covers
+   the exact automated access, storage, use, and publication scope.
+4. **Apply migration 0099** when ready to begin webhook subscription pre-registration. Until applied, the endpoint returns 503 with substrate-honest "table not yet applied".
 
 ### Future kingdoms (post-081)
 
 6. **Per-card source-attribution column on `wholesale.cards`** — a `price_origin_source` column that names which upstream produced the current `cards.price`. Lets the wholesale current-state universal endpoint be exact (today it's heuristic via `cardrushJpy IS NOT NULL`).
-7. **Cross-RDS lineage** — storefront's `card_price_history` rows would gain an `origin_source` column (CC0 by default; declares cardrush when the Falcon read identified cardrush lineage). The math-mirror could then carry per-record lineage instead of the conservative `["CC0-1.0"]` declaration shipped today.
+7. **Cross-RDS lineage** — any future cleared source would need field-level
+   origin and rights evidence. No storefront price-history publication is
+   currently available, and no lineage default may presume CC0.
 8. **Webhook delivery runtime** — the load-bearing piece: HMAC signing, retry with exponential back-off, dead-letter queue, replay endpoint, delivery audit log. Subscription substrate is shipped today; delivery is its own kingdom. Pre-registered subscriptions activate automatically when this lands.
-9. **Bulk catalog cursor pagination** — when the catalog grows past 50k rows, replace the hard cap with cursor-based pagination via `?since_sku=`.
+9. **Bulk catalog rights review** — keep the status-only HTTP 503 response until
+   every emitted field has evidenced redistribution rights; pagination is not
+   the current blocker.
 10. **Federation walk pagination** — `/api/v1/federation/at/[date]/[hash]` currently bounds at 5000 rows; add `?after=<sku>` cursor for partners with rare hashes.
-11. **JPY history UI panel** on `/cards/[sku]/market` — server-rendered, conditionally visible to signed-in users. The API endpoint exists (Phase 5.4); the consumer UI surface is the next move.
+11. **CardRush history remains withheld** — do not add a signed-in UI or other
+   delivery surface without source-specific written permission.
 12. **Quarantine reprocess wire** — when an operator marks a quarantine row `reprocess`, automatically re-enter Stage 2 in the next pipeline run. Today the resolution is recorded but the row stays in quarantine.
 13. **Multi-source ingest module landings** — TCGplayer, Cardmarket, Pokémon TCG API, YGOPRODeck. With Phase 5.2 already shipped, each new source's data lands without further wire changes.
 14. **`webhook_deliveries` table** — companion to `webhook_subscriptions`, one row per delivery attempt, supports retry/replay observability. Filed as part of the delivery-runtime kingdom.

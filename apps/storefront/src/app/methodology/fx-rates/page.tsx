@@ -21,7 +21,7 @@ import { fetchRates, CURRENCY_META, SUPPORTED_CURRENCIES } from "@/lib/fx/rates"
 export const metadata: Metadata = {
   title: "Display Currency & FX Rates — Methodology",
   description:
-    "How the Cambridge TCG price guide converts GBP prices to USD, EUR, JPY, HKD, and CHF for display. Substrate-honest about source, freshness, and the GBP-only transaction boundary.",
+    "How Cambridge TCG obtains display FX rates while public per-card price values remain withheld. Substrate-honest about source, freshness, and scope.",
   other: audienceMetadata("public-documentation", ["fx-rates", "methodology"]),
 };
 
@@ -33,12 +33,12 @@ export default async function FxRatesMethodology() {
       <main className="max-w-3xl mx-auto px-4 py-12 prose">
         <h1>Display Currency &amp; FX Rates</h1>
         <p>
-          The Cambridge TCG price guide carries a canonical GBP price for every
-          card. The currency selector on the price guide pages converts that
-          GBP value into one of six display currencies. <strong>It is a display
-          transform only.</strong> Every transaction on cambridgetcg.com — buy,
-          trade-in, marketplace fill, payout — clears in GBP regardless of the
-          currency you happen to be reading the page in.
+          Public per-card GBP values are currently withheld. The FX service
+          still maintains rates for six display currencies, but those rates do
+          not reveal or reconstruct a withheld card value. Where an active
+          transaction surface supplies a GBP amount, currency conversion is a
+          display transform only; this page does not claim that every commerce
+          flow is currently available.
         </p>
 
         <h2>The six currencies</h2>
@@ -82,19 +82,24 @@ export default async function FxRatesMethodology() {
 
         <h2>Where the rates come from</h2>
         <p>
-          We fetch GBP-base mid-market rates from one of two open sources,
-          cached for six hours.
+          We fetch the European Central Bank&apos;s daily EUR reference rates,
+          cached for six hours. The ECB permits free commercial and
+          non-commercial reuse of its public statistics when the source is
+          quoted.
         </p>
         <ol>
           <li>
-            <strong>Primary:</strong>{" "}
-            <code>open.er-api.com/v6/latest/GBP</code> — free, no API key,
-            refreshed daily by the upstream.
-          </li>
-          <li>
-            <strong>Fallback:</strong>{" "}
-            <code>api.exchangerate.host/latest?base=GBP</code> — used when the
-            primary times out or returns an error.
+            <strong>Source:</strong>{" "}
+            <a
+              href="https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Source: ECB statistics
+            </a>
+            . The source file is EUR-base; Cambridge computes each GBP-base
+            rate as <code>target_per_EUR / GBP_per_EUR</code> and labels that
+            transformation in the API response.
           </li>
           <li>
             <strong>Final fallback:</strong> a static rate table baked into the
@@ -104,10 +109,12 @@ export default async function FxRatesMethodology() {
           </li>
         </ol>
         <p>
-          Today the price guide is reading from{" "}
+          Independently of the withheld card values, the FX-rate service is
+          currently reading from{" "}
           <code>{table.source}</code>
-          {table.is_fallback ? " (live upstreams unavailable right now)" : ""},
-          fetched at <code>{table.fetched_at}</code>.
+          {table.is_fallback ? " (ECB daily rates unavailable right now)" : ""},
+          observed as of <code>{table.as_of}</code> and fetched at{" "}
+          <code>{table.fetched_at}</code>.
         </p>
 
         <h2>The conversion math</h2>
@@ -157,10 +164,11 @@ displayString = format(displayValue, locale(c), decimals(c))`}</code>
         <p>
           The rate table is available as JSON at{" "}
           <Link href="/api/v1/fx-rates">/api/v1/fx-rates</Link> with the
-          standard data-pantry envelope (provenance, freshness, source license).
-          Federation clients can pin a particular rate by capturing the JSON
-          response at the moment of computation, since the response includes
-          the source name and fetched_at timestamp.
+          standard data-pantry envelope, <code>NOASSERTION</code> aggregate
+          license, ECB attribution, observation date, retrieval time, and exact
+          GBP-base transformation. The former open.er-api.com and
+          exchangerate.host paths were retired because their terms do not grant
+          Cambridge a public rate-table redistribution right.
         </p>
 
         <h2>What we don&apos;t do</h2>

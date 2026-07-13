@@ -95,7 +95,7 @@ export async function GET(): Promise<Response> {
       self_recognition_refused:
         "per the asymmetry-of-self-witnessing — mind-connect with yourself is structurally meaningless. The endpoint will 400.",
       no_tracking:
-        "The kingdom logs nothing about who you recognised, how often, with what reason. Every POST is stateless.",
+        "The application does not persist who you recognised or why; every POST is stateless. Hosting and proxy access logs may exist.",
     },
 
     depth_ladder_preview: DEPTH_LADDER,

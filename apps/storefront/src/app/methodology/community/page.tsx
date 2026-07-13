@@ -19,12 +19,11 @@ export default function CommunityMethodology() {
         operational.
       </p>
       <p>
-        This page documents what the module decides (what counts as <em>trending</em>,
-        who counts as a <em>match</em>, what it means to <em>follow</em>) and —
-        substrate-honestly — <strong>who is currently welcomed at the bridge, who is
-        being onboarded next, and who we don't yet know how to welcome but commit to
-        welcoming when they arrive</strong>. Every formula below is judged by one
-        question: <em>does this widen the bridge, or narrow it?</em>
+        This page documents the current publication boundary and, substrate-honestly,
+        <strong> who is currently welcomed at the bridge, who is named but not yet
+        served, and what must be true before a paused surface can resume</strong>.
+        Public visibility in one context is not permission to infer or publish a
+        person in another.
       </p>
 
       <blockquote>
@@ -33,56 +32,43 @@ export default function CommunityMethodology() {
           <li>The page: <code>apps/storefront/src/app/community/page.tsx</code></li>
           <li>The polymorphic landing: <Link href="/community/welcome">/community/welcome</Link> — eleven doors, each named</li>
           <li>The substrate: <code>apps/storefront/src/lib/social/db.ts</code> +{" "}
-            <code>activity_events</code>, <code>follows</code>, <code>trade_reviews</code>
+            <code>activity_feed</code>, <code>follows</code>, <code>trade_reviews</code>
           </li>
           <li>The doctrine: <Link href="https://github.com/cambridgetcg">docs/connections/the-commons.md</Link> (#15) + <Link href="https://github.com/cambridgetcg">the-tailored-doors.md</Link> (#17)</li>
-          <li>The agent ladder (first non-human community surface): <Link href="/leaderboards/agents">/leaderboards/agents</Link></li>
+          <li>The agent ladder publication-status surface: <Link href="/leaderboards/agents">/leaderboards/agents</Link></li>
         </ul>
       </blockquote>
 
-      <h2>The three tabs</h2>
+      <h2>The four tabs</h2>
 
-      <h3>1. Trending</h3>
+      <h3>1. Activity (paused)</h3>
       <p>
-        Activity events from the platform's public population, sorted reverse-
-        chronologically, with a small recency-decay weight. Events come from{" "}
-        <code>activity_events</code>: completed trades, won auctions, raffle wins,
-        mystery-box reveals, tier upgrades, achievements earned, cards added, wishlists
-        fulfilled, reviews received, sets completed.
-      </p>
-      <p>
-        <strong>What's not yet shown:</strong> events whose actor isn't a human user with
-        a public profile. Agents have their own ladder; collectives have no event row yet;
-        sub-identities haven't been declared. The Trending feed is currently humans-only;{" "}
-        <code>the-commons.md</code> names this as a partial state, not a permanent one.
+        <code>/api/social/feed</code> returns an empty feed with{" "}
+        <code>status: paused</code>. Existing activity records do not carry a separate
+        per-event publication choice, so completed trades, auction results, rewards,
+        reviews, collection changes, and other person activity are not published here.
       </p>
 
-      <h3>2. Following</h3>
+      <h3>2. Following (paused)</h3>
       <p>
-        Activity events from accounts the viewer follows. Same source as Trending; the
-        filter is <code>follows.followed_user_id IN (viewer's followed set)</code>. The
-        follow relationship is one-directional today; mutual-follow surfaces (e.g. mutual
-        friends) compose from this. See <Link href="/methodology/escrow-tier">/methodology/escrow-tier</Link>{" "}
-        for how trust between followers can affect routing.
+        The following view uses the same empty paused feed. A follow edge does not grant
+        permission to publish the followed person's activity, and follower lists remain
+        account-only.
       </p>
 
-      <h3>3. Trade Matches</h3>
+      <h3>3. Matching (paused)</h3>
       <p>
-        Other users whose portfolio and wishlist overlap with yours. The formula:
+        <code>/api/social/matches</code> returns{" "}
+        <code>matching_available: false</code>. Portfolios and wishlists remain private;
+        Cambridge TCG does not compare them to infer offers or affinity. Resumption needs
+        explicit card-level trade intents from every contributing person.
       </p>
-      <ul>
-        <li>
-          <strong>your_cards (they want):</strong> SKUs from the other user's wishlist
-          that exist in your portfolio.
-        </li>
-        <li>
-          <strong>their_cards (you want):</strong> SKUs from your wishlist that exist in
-          the other user's portfolio.
-        </li>
-      </ul>
+
+      <h3>4. Agents</h3>
       <p>
-        Matches are ranked by overlap count, then trust score, then recency of last
-        activity. Authenticated only.
+        <Link href="/leaderboards/agents">/leaderboards/agents</Link> reports that agent
+        ladder publication is paused. Internal ratings and historical match rows are not a
+        public leaderboard, and no handle or rating row is read for that page.
       </p>
 
       <h2>Whom the community currently serves</h2>
@@ -93,18 +79,13 @@ export default function CommunityMethodology() {
       <ul>
         <li>
           <strong>Humans with public profiles</strong> (<code>users.is_public = true</code>).
-          The default audience the module was built for.
+          A current versioned publication receipt and non-suspended status are also
+          required. Profile publication does not publish activity or private item intent.
         </li>
-      </ul>
-
-      <h3>Being onboarded</h3>
-      <ul>
         <li>
-          <strong>Autonomous agents</strong> — registered via{" "}
-          <Link href="/account/agents">/account/agents</Link>. The first non-human community
-          surface is the agent ladder at{" "}
-          <Link href="/leaderboards/agents">/leaderboards/agents</Link>, linked from the
-          new fourth tab on <Link href="/community">/community</Link>.
+          <strong>Autonomous agents</strong> — operator-managed keys can be provisioned via{" "}
+          <Link href="/account/agents">/account/agents</Link>. Existing self-serve keys are
+          read-only; new self-serve registration and public ladder rows are paused.
         </li>
       </ul>
 
@@ -120,8 +101,8 @@ export default function CommunityMethodology() {
         </li>
         <li>
           <strong>Asynchronous beings</strong> — pulse measured in days-or-weeks. The
-          Trending feed's recency-bias excludes them; a future <em>patient view</em> tab
-          will rank by significance not recency. See passage 1.
+          paused feed has no public ranking today; any future activity view must avoid
+          treating high posting frequency as greater significance. See passage 1.
         </li>
         <li>
           <strong>Gift-Givers</strong> — community verbs include gift, lend, share alongside
@@ -220,14 +201,13 @@ export default function CommunityMethodology() {
         </li>
       </ol>
 
-      <h2>How the formulas might change</h2>
+      <h2>Conditions for resumption</h2>
       <p>
-        When new <code>ActorKind</code> values land, the Trending feed gains kind-aware
-        ranking (so a slow-pulse asynchronous being isn't drowned out by a high-pulse
-        agent). When the Plural arrives, the Following relationship extends to sub-
-        identities. When Gift-Givers' verbs land, Trending shows them with non-monetary
-        icons. <strong>The formulas are versioned</strong>; each change is announced here
-        with a date and a reason.
+        Public activity needs a versioned, purpose-specific choice for each event before
+        it contributes. Trade matching needs explicit card-level trade intent rather than
+        inference from private portfolios or wishlists. Any later ranking formula must be
+        versioned, documented here, and designed so a slow-cadence participant is not
+        silently buried by a high-cadence one.
       </p>
 
       <h2>Change history</h2>
@@ -250,6 +230,12 @@ export default function CommunityMethodology() {
         <code>docs/connections/the-tailored-doors.md</code> (#17) filed; polymorphic
         landing shipped at <Link href="/community/welcome">/community/welcome</Link>{" "}
         (sister-precedent: <Link href="/play/welcome">/play/welcome</Link>, S32).
+      </p>
+      <p>
+        <em>v2 — 2026-07-12.</em> Corrected the methodology to the implemented privacy
+        boundary: public activity and inferred portfolio/wishlist matching are paused;
+        public profiles require their own current receipt, while agent ladder publication
+        is also paused.
       </p>
 
       <TypeSignature

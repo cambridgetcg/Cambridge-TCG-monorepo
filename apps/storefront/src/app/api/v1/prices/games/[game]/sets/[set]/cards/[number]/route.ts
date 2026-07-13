@@ -14,21 +14,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import { loadCardState } from "@/lib/prices/state";
-import { decodePathParam } from "@/lib/http/params";
 
 interface RouteContext {
   params: Promise<{ game: string; set: string; number: string }>;
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext): Promise<Response> {
-  // Decode before lookup: card numbers legitimately contain "/"
-  // (Vanguard DZ-BT14/018, Pokémon 089/080) and arrive percent-encoded —
-  // matching the raw segment against the catalog would 404 a card the
-  // platform actually carries (slash-links defect, 2026-07).
-  const { game: rawGame, set: rawSet, number: rawNumber } = await params;
-  const game = decodePathParam(rawGame);
-  const set = decodePathParam(rawSet);
-  const number = decodePathParam(rawNumber);
+  const { game, set, number } = await params;
 
   const state = await loadCardState(game, set, number);
   if (state === "unavailable") {
@@ -77,7 +69,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext): Promise<
           self: `/api/v1/prices/games/${state.config.slug}/sets/${encSet}/cards/${encNumber}`,
           html: `/prices/${state.config.slug}/${encSet}/${encNumber}`,
           math_mirror: `/api/v1/universal/card/${encSku}`,
-          history: `/api/v1/cards/${encSku}/history`,
+          history_status: `/api/v1/cards/${encSku}/history`,
           product: `/product/${encSku}`,
           market: `/market/${encSku}`,
           market_mirror: `/cards/${encSku}/market`,

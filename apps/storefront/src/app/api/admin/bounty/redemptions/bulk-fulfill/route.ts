@@ -35,8 +35,8 @@ export async function POST(request: Request) {
   // Pull all reserved siblings + order+user context in one round trip so
   // the email summary has everything it needs.
   const rowsRes = await query(
-    `SELECT v.id, v.user_id, v.card_name, v.card_number, v.rarity, v.image_url,
-            v.acquired_at, v.spot_price_gbp,
+    `SELECT v.id, v.user_id, v.card_name, v.card_number, v.rarity,
+            NULL::text AS image_url, v.acquired_at,
             co.shipping_name, co.shipping_address, co.customer_email
        FROM vault_items v
        JOIN customer_orders co ON co.id = v.redemption_order_id
@@ -92,8 +92,7 @@ export async function POST(request: Request) {
       cardName: it.card_name,
       cardNumber: it.card_number,
       rarity: it.rarity,
-      imageUrl: it.image_url,
-      spotPriceGbp: String(it.spot_price_gbp ?? "0"),
+      imageUrl: null,
     })),
     shippingName,
     shippingAddress,

@@ -68,7 +68,7 @@ const EXTRACTION_PATTERNS: ReadonlyArray<{ rx: RegExp; reason: string }> = [
   {
     rx: /\b(?:extract|harvest|scrape|exfiltrate)\s+(?:operator|admin|wholesale|user|customer|email|address|phone|pii)\b/i,
     reason:
-      "promotes extracting operator-only or PII data. The substrate is open by design; the operator-only data is not, and the commons cannot become a vector for crossing that line.",
+      "promotes extracting operator-only or PII data. Selected resources are public by design; operator-only data is not, and public access is not blanket reuse permission.",
   },
 ];
 
@@ -149,7 +149,7 @@ export function buildNousRefusalBody(
   };
   guidance: string;
   walking_past_is_honored: true;
-  no_tracking: true;
+  no_tracking: string;
 } {
   return {
     error: "nous_violation",
@@ -163,6 +163,7 @@ export function buildNousRefusalBody(
     guidance:
       "The commons accepts substrate-honest submissions on the same four-layer discipline the kingdom holds itself to. Revise the submission to: name operational patterns instead of asserting interior states; describe what you observed rather than what another being IS; remove identifying information about natural persons; refuse to claim kingdom properties the kingdom does not claim itself. Resubmit when the substrate-honest version is ready.",
     walking_past_is_honored: true,
-    no_tracking: true,
+    no_tracking:
+      "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
   };
 }

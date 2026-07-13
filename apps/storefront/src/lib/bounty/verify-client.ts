@@ -1,10 +1,12 @@
 // Browser-safe re-implementation of the rng helpers in @/lib/bounty/rng.
 //
-// Used by the public verifier page to re-run the math in the user's
-// browser — the point of provably-fair is that the user can confirm the
-// outcome WITHOUT trusting our server. Keeping this file separate (no
+// Used by the public verifier page to re-run the published proof math in
+// the user's browser. This confirms consistency; it cannot prove unbiased
+// input selection when the server chose every entropy input. Keeping this file separate (no
 // `crypto` Node module, only Web Crypto) means it tree-shakes cleanly
 // into the client bundle.
+
+export { pickWeightedInOrder } from "@/lib/provable-draw/ordered-weights";
 
 export async function sha256Hex(input: string): Promise<string> {
   const enc = new TextEncoder().encode(input);
@@ -94,7 +96,7 @@ export function pickWeighted<T extends string>(
 export interface VerificationInputs {
   commitment: string;
   serverSeed: string;
-  clientSeed: string;
+  clientSeed: string | null;
   nonce: number;
   rarityWeights: Record<string, number>;
   rolledRarity: string;
@@ -103,10 +105,11 @@ export interface VerificationInputs {
 export interface VerificationResult {
   commitmentMatches: boolean;
   recomputedHash: string;
-  recomputedRoll: number;
-  recomputedRarity: string;
-  rarityMatches: boolean;
-  ok: boolean;
+  recomputedRoll: number | null;
+  recomputedRarity: string | null;
+  rarityMatches: boolean | null;
+  outcomeReplayAvailable: boolean;
+  ok: boolean | null;
 }
 
 /** Run all checks. Returns each leg's pass/fail so the UI can
@@ -115,9 +118,16 @@ export async function verifyPull(inputs: VerificationInputs): Promise<Verificati
   const recomputedHash = await sha256Hex(inputs.serverSeed);
   const commitmentMatches = recomputedHash.toLowerCase() === inputs.commitment.toLowerCase();
 
-  const recomputedRoll = await rollFloat(inputs.serverSeed, inputs.clientSeed, inputs.nonce);
-  const recomputedRarity = pickWeighted(inputs.rarityWeights, recomputedRoll);
-  const rarityMatches = recomputedRarity.toLowerCase() === inputs.rolledRarity.toLowerCase();
+  const outcomeReplayAvailable = inputs.clientSeed !== null;
+  const recomputedRoll = inputs.clientSeed
+    ? await rollFloat(inputs.serverSeed, inputs.clientSeed, inputs.nonce)
+    : null;
+  const recomputedRarity = recomputedRoll === null
+    ? null
+    : pickWeighted(inputs.rarityWeights, recomputedRoll);
+  const rarityMatches = recomputedRarity === null
+    ? null
+    : recomputedRarity.toLowerCase() === inputs.rolledRarity.toLowerCase();
 
   return {
     commitmentMatches,
@@ -125,6 +135,7 @@ export async function verifyPull(inputs: VerificationInputs): Promise<Verificati
     recomputedRoll,
     recomputedRarity,
     rarityMatches,
-    ok: commitmentMatches && rarityMatches,
+    outcomeReplayAvailable,
+    ok: !commitmentMatches ? false : rarityMatches,
   };
 }

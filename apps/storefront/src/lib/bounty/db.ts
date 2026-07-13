@@ -2,6 +2,7 @@
 // All queries go through `src/lib/db` so the SSL + pooling is shared.
 
 import { query } from "@/lib/db";
+import { LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED } from "@/lib/public-wholesale-fields";
 
 // ── Types ──
 
@@ -45,11 +46,14 @@ export interface VaultItem {
 export interface BountyEligibility {
   user_id: string;
   phone_verified: boolean;
-  phone_number: string | null;
+  phone_verification_available: boolean;
   first_order_paid: boolean;
   eligible: boolean;
   reasons: string[];
 }
+
+export const BOUNTY_PHONE_VERIFICATION_MESSAGE =
+  "Phone verification is unavailable while real code verification is being built. Pulls and redemptions remain closed.";
 
 // ── Pull tokens ──
 
@@ -288,13 +292,16 @@ export async function getEligibility(userId: string): Promise<BountyEligibility>
   const firstOrderPaid: boolean = paid.rows[0]?.paid ?? false;
 
   const row = await query(
-    `SELECT * FROM user_bounty_eligibility WHERE user_id = $1`,
+    `SELECT first_order_paid FROM user_bounty_eligibility WHERE user_id = $1`,
     [userId],
   );
 
   const existing = row.rows[0];
-  const phoneVerified: boolean = existing?.phone_verified ?? false;
-  const phoneNumber: string | null = existing?.phone_number ?? null;
+  // The former endpoint accepted a phone number without proving control of
+  // it. Those rows are submissions, not verification evidence, so none of
+  // them may satisfy this gate. A future provider-backed flow must record and
+  // validate evidence before this value can become true.
+  const phoneVerified = false;
 
   // Persist any change to first_order_paid (cheap upsert).
   if (!existing || existing.first_order_paid !== firstOrderPaid) {
@@ -310,30 +317,17 @@ export async function getEligibility(userId: string): Promise<BountyEligibility>
   }
 
   const reasons: string[] = [];
-  if (!phoneVerified) reasons.push("phone_not_verified");
+  if (!phoneVerified) reasons.push("phone_verification_unavailable");
   if (!firstOrderPaid) reasons.push("no_paid_order");
 
   return {
     user_id: userId,
     phone_verified: phoneVerified,
-    phone_number: phoneNumber,
+    phone_verification_available: false,
     first_order_paid: firstOrderPaid,
     eligible: reasons.length === 0,
     reasons,
   };
-}
-
-export async function markPhoneVerified(userId: string, phoneNumber: string): Promise<void> {
-  await query(
-    `INSERT INTO user_bounty_eligibility (user_id, phone_verified, phone_verified_at, phone_number, updated_at)
-     VALUES ($1, true, NOW(), $2, NOW())
-     ON CONFLICT (user_id) DO UPDATE SET
-       phone_verified = true,
-       phone_verified_at = COALESCE(user_bounty_eligibility.phone_verified_at, NOW()),
-       phone_number = EXCLUDED.phone_number,
-       updated_at = NOW()`,
-    [userId, phoneNumber],
-  );
 }
 
 // ── Sell-back + redemption + pulls ──
@@ -356,6 +350,9 @@ export async function sellBackVaultItem(itemId: string, userId: string): Promise
   item: VaultItem;
   creditAwarded: number;
 } | { error: string }> {
+  if (!LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED) {
+    return { error: "Sell-back pricing is paused pending source-rights review." };
+  }
   const { addCredit } = await import("@/lib/membership/db");
   const { logVaultTransition } = await import("./fulfilment-log");
 
@@ -548,6 +545,9 @@ export async function runBountyExpiry(): Promise<{
   emailsFailed: number;
   reverted: number;
 }> {
+  if (!LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED) {
+    return { expiredCount: 0, creditTotalGbp: 0, errors: 0, emailsFailed: 0, reverted: 0 };
+  }
   // Lazy imports to avoid a cycle (addCredit + email both transitively
   // touch modules that import from here).
   const { addCredit } = await import("@/lib/membership/db");

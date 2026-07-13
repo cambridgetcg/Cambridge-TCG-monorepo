@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { wantedCards } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { redactInternalError } from "@/lib/public-errors";
 
 export async function GET() {
   const session = await auth();
@@ -46,9 +47,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ wanted: true });
     }
   } catch (err) {
-    console.error("POST /api/wanted error:", err);
+    const error = redactInternalError("api/wanted", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
+      { error },
       { status: 500 },
     );
   }

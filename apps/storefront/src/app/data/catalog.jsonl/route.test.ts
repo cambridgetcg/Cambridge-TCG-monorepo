@@ -1,77 +1,41 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { query } from "@/lib/db";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 import { GET } from "./route";
 
-vi.mock("@/lib/db", () => ({ query: vi.fn() }));
-
-const mockQuery = vi.mocked(query);
-
-const catalogRow = {
-  set_code: "OP01",
-  card_number: "OP01-001",
-  sku: "OP-OP01-001-JP",
-  card_name: "Example card",
-  rarity: "L",
-  image_url: "https://upstream.example/card.jpg",
-  variant: "",
-  game: "op",
-  set_name: "Romance Dawn",
-  spot_gbp: "1.25",
-  captured_on: "2026-07-11",
-};
-
-async function cardLine(response: Response): Promise<Record<string, unknown>> {
-  const lines = (await response.text())
-    .trim()
-    .split("\n")
-    .map((line) => JSON.parse(line) as Record<string, unknown>);
-  return lines[1] as Record<string, unknown>;
-}
-
-beforeEach(() => {
-  mockQuery.mockReset();
-});
-
 describe("GET /data/catalog.jsonl rights boundary", () => {
-  it("does not relicense mirrored card fields as CC0", async () => {
-    mockQuery.mockResolvedValueOnce({
-      rows: [catalogRow],
-    } as Awaited<ReturnType<typeof query>>);
-
+  it("returns policy status without catalog rows", async () => {
     const response = await GET();
     const lines = (await response.text())
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as Record<string, unknown>);
-    const manifest = lines[0] as Record<string, unknown>;
-    const card = lines[1] as Record<string, unknown>;
 
+    expect(response.status).toBe(503);
     expect(response.headers.get("X-Content-License")).toBe("NOASSERTION");
-    expect(manifest.license).toBe("NOASSERTION");
-    expect(manifest.source_license).toEqual([
-      "proprietary",
-      "proprietary",
-      "proprietary",
-    ]);
-    expect(card["@source_license"]).toEqual([
-      "proprietary",
-      "proprietary",
-      "proprietary",
-    ]);
-    expect(JSON.stringify(manifest)).not.toContain("mirror freely");
+    expect(response.headers.get("Retry-After")).toBe("86400");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatchObject({
+      "@kind": "catalog_manifest",
+      publication_status: "paused_pending_field_level_rights",
+      count_expected: 0,
+      license: "NOASSERTION",
+    });
+    expect(lines[1]).toMatchObject({
+      "@kind": "catalog_footer",
+      publication_status: "paused_pending_field_level_rights",
+      count_emitted: 0,
+      complete: false,
+      catalog_complete: false,
+    });
   });
 
-  it("changes the content hash when an emitted upstream field changes", async () => {
-    mockQuery
-      .mockResolvedValueOnce({ rows: [catalogRow] } as Awaited<ReturnType<typeof query>>)
-      .mockResolvedValueOnce({
-        rows: [{ ...catalogRow, card_name: "Corrected upstream name" }],
-      } as Awaited<ReturnType<typeof query>>);
+  it("does not read storage or retain a dormant card-row emitter", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/app/data/catalog.jsonl/route.ts"), "utf8");
 
-    const before = await cardLine(await GET());
-    const after = await cardLine(await GET());
-
-    expect(after.name).toBe("Corrected upstream name");
-    expect(after["@content_hash"]).not.toBe(before["@content_hash"]);
+    expect(source).not.toContain('from "@/lib/db"');
+    expect(source).not.toContain("card_price_history");
+    expect(source).not.toContain("spot_gbp");
+    expect(source).not.toContain('"@kind": "card"');
   });
 });

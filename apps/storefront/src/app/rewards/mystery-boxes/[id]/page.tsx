@@ -175,7 +175,7 @@ export default function MysteryBoxDetailPage() {
                         rel="noopener noreferrer"
                         className="block mt-2 text-xs text-ok hover:text-ok underline"
                       >
-                        ✓ Verify this box was fair ↗
+                        Inspect draw receipt ↗
                       </a>
                     )}
                   </div>

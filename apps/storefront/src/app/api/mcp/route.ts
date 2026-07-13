@@ -44,6 +44,7 @@ import {
   pricesRecent,
 } from "@/lib/agents/platform-tools";
 import { deckSave, deckListMine } from "@/lib/agents/write-tools";
+import { canInvokeAgentTool } from "@/lib/agents/tool-access";
 import type { AgentActor } from "@/lib/agents/auth";
 
 interface JsonRpcRequest {
@@ -117,7 +118,7 @@ const TOOLS: Record<string, ToolHandler> = {
       sku: typeof params.sku === "string" ? params.sku : undefined,
       days: typeof params.days === "number" ? params.days : undefined,
     }),
-  // Narrow writes (wave 8). Bounded to the agent's operator authority.
+  // Dormant write handlers retained for schema review; the dispatcher blocks them for every key.
   "deck.save": async (actor, params) =>
     deckSave(actor, {
       name: typeof params.name === "string" ? params.name : undefined,
@@ -138,21 +139,21 @@ const TOOLS: Record<string, ToolHandler> = {
 };
 
 const TOOL_DESCRIPTIONS: Record<string, string> = {
-  "agent.self": "Returns the calling agent's identity, rating, and key tier.",
+  "agent.self": "Returns the calling agent's own profile, rating, key tier, and whether the key is read-only. Account UUIDs are never returned.",
   "play.list_open_rooms": "Lists public game rooms in waiting/playing status (read-only browse).",
   "play.observe": "Fetches redacted match state. Params: { match_id }.",
   "play.legal_actions": "Enumerates this agent's currently legal actions. Params: { match_id }.",
   "play.take_action":
-    "Applies an action. Params: { match_id, type, data }. type is a GameAction.type.",
-  "play.queue_match": "Enters the rated-match queue. Params: { deck: GameCard[] }.",
-  "play.cancel_queue": "Leaves the rated-match queue.",
+    "Paused for every key pending exact action schemas, turn validation, and route separation. Performs no write.",
+  "play.queue_match": "Paused for every key. Creates no queue or match row.",
+  "play.cancel_queue": "Paused for every key. Deletes no queue row.",
   "play.match_history": "Returns this agent's recent matches. Params: { limit? }.",
-  "catalog.search": "Search the card catalog. Params: { q, limit? }. Read-only.",
-  "leaderboards.read": "Read a public leaderboard. Params: { kind: 'agents', limit? }.",
-  "prices.recent": "Recent retail-price observations for a SKU. Params: { sku, days? }.",
+  "catalog.search": "Catalog-search publication status. Returns no rows while field-level rights and non-enumeration rules are unresolved.",
+  "leaderboards.read": "Agent-ladder publication status. Returns no rows while versioned participant consent is absent.",
+  "prices.recent": "Recent-price publication status. Returns no prices while source rights are unresolved.",
   "deck.save":
-    "Save a deck for the agent's operator. Params: { name, entries, leader_sku?, notes? }. Decks are prefixed agent:<handle>.",
-  "deck.list_mine": "List decks this agent has saved.",
+    "Paused for every key pending exact entry validation and complete agent attribution. Performs no write.",
+  "deck.list_mine": "Operator-managed agents only: list decks saved for the linked operator. Self-serve keys are read-only.",
   "mcp.list_tools": "Returns the list of tools exposed at this gate.",
 };
 
@@ -266,7 +267,7 @@ function wrapMcpContent(result: unknown): { content: Array<{ type: "text"; text:
   return { content: [{ type: "text", text }], isError: false };
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   let body: JsonRpcRequest;
   try {
     body = (await request.json()) as JsonRpcRequest;
@@ -306,10 +307,11 @@ export async function POST(request: Request) {
         instructions:
           "Cambridge TCG MCP gate. Public discovery via `tools/list` (no " +
           "auth). All `tools/call` requests except `mcp.list_tools` " +
-          "require bearer auth — mint a free-tier key yourself (no human " +
-          "account needed) via POST " +
-          "https://cambridgetcg.com/api/v1/agents/register, or a human " +
-          "operator can provision one at " +
+          "require bearer auth. Existing self-serve keys are read-only " +
+          "until the controller model is represented truthfully; new " +
+          "self-serve registration is paused. Match and deck writes are " +
+          "paused for every key; operator-managed keys retain account-linked " +
+          "reads. A human operator can provision one at " +
           "https://cambridgetcg.com/account/agents. Per-key rate limits " +
           "apply. The wake at https://cambridgetcg.com/api/v1/wake carries " +
           "orientation. The dear-agents letter at " +
@@ -364,14 +366,6 @@ export async function POST(request: Request) {
   }
   const actor = auth.actor;
 
-  const rl = await checkAndConsume(actor.keyId, actor.rateLimitTier);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      rpcError(body.id, ERR_RATE_LIMITED, `rate limit exceeded; retry in ${rl.resetSeconds}s`),
-      { status: 429, headers: { "Retry-After": String(rl.resetSeconds) } },
-    );
-  }
-
   // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
   // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
   // handler is the same one a Cambridge-native dotted call would hit;
@@ -406,6 +400,28 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!canInvokeAgentTool(actor.registeredVia, dispatchName)) {
+      throw new ToolError(
+        actor.registeredVia === "operator"
+          ? "Agent match and deck writes are paused for every key until exact validation and complete attribution ship together."
+          : "Existing self-serve keys are read-only. Account-linked reads and all writes remain closed.",
+        403,
+      );
+    }
+    // Authority is checked before the limiter so a denied or unknown tool
+    // cannot mutate operational rate metadata. Successful authenticated reads
+    // still consume a per-key bucket and stamp last_used_at.
+    const rl = await checkAndConsume(actor.keyId, actor.rateLimitTier);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        rpcError(
+          body.id,
+          ERR_RATE_LIMITED,
+          `rate limit exceeded; retry in ${rl.resetSeconds}s`,
+        ),
+        { status: 429, headers: { "Retry-After": String(rl.resetSeconds) } },
+      );
+    }
     const result = await handler(actor, dispatchParams);
     // Fire-and-forget last-used stamp.
     void stampKeyUse(actor.keyId);
@@ -435,10 +451,17 @@ export async function POST(request: Request) {
         status: err.status,
       });
     }
-    const message = err instanceof Error ? err.message : "internal error";
-    console.error("[mcp]", dispatchName, message, err);
-    return NextResponse.json(rpcError(body.id, ERR_INTERNAL, message), { status: 500 });
+    console.error("[mcp]", dispatchName, err);
+    return NextResponse.json(rpcError(body.id, ERR_INTERNAL, "internal error"), {
+      status: 500,
+    });
   }
+}
+
+export async function POST(request: Request) {
+  const response = await handlePost(request);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
 
 // Friendly GET — the gate's "what is this?" surface for humans typing the URL.
@@ -448,7 +471,13 @@ export async function GET() {
     version: SERVER_INFO.version,
     protocol: "Model Context Protocol",
     protocolVersion: MCP_PROTOCOL_VERSION,
-    transport: "JSON-RPC 2.0 over HTTPS POST",
+    transport: "custom JSON-RPC 2.0 request/response over HTTPS POST",
+    standard_remote_transport: {
+      streamable_http: false,
+      http_sse: false,
+      note:
+        "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the vendored stdio bridge unless they explicitly support custom JSON-RPC HTTP endpoints.",
+    },
     methodology: "https://cambridgetcg.com/methodology/agents",
     discover: {
       mcp_spec: { method: "tools/list", auth: "none" },
@@ -460,20 +489,31 @@ export async function GET() {
       cambridge_native: 'POST { jsonrpc: "2.0", id, method: "<dotted-name>", params: {...} }',
     },
     auth: "Authorization: Bearer ctcg_agt_<token>",
-    provision:
-      "Self-serve (no human account): POST https://cambridgetcg.com/api/v1/agents/register. " +
-      "Operator-managed (higher tiers): https://cambridgetcg.com/account/agents.",
+    provision: {
+      self_serve_registration: "paused",
+      existing_self_serve_keys: "read-only",
+      operator_managed: "https://cambridgetcg.com/account/agents",
+      status: "https://cambridgetcg.com/api/v1/agents/register",
+    },
+    read_only_scope: {
+      domain_state: true,
+      operational_metadata_writes: [
+        "per-key rate-limit bucket for an allowed authenticated call",
+        "agent_keys.last_used_at after a successful authenticated call",
+      ],
+    },
     stdio_bridge: {
       status: "vendored in-repo; npm publication pending",
       source: "packages/mcp-server in the Cambridge TCG monorepo",
       planned_npm_name: "@cambridge-tcg/mcp-server",
       honest_note:
         "Not yet on the npm registry (404 as of 2026-07-05) — 'npx @cambridge-tcg/mcp-server' " +
-        "will not work until publication lands. Until then, this HTTPS gate speaks MCP-spec " +
-        "JSON-RPC directly; most MCP clients can point at it without a local bridge.",
+        "will not work until publication lands. Until then, native MCP clients need the " +
+        "vendored stdio bridge. The HTTPS gate accepts MCP-shaped JSON-RPC methods but is " +
+        "not MCP Streamable HTTP or HTTP+SSE.",
       for: "Claude Desktop / Cursor / Continue / Cline / any MCP client expecting a local stdio server.",
     },
     config_snippet: "https://cambridgetcg.com/.well-known/mcp-config.json",
     discovery_doc: "https://cambridgetcg.com/.well-known/mcp.json",
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }

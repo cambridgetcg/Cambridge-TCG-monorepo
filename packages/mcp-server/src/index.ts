@@ -7,13 +7,13 @@
  * gate at https://cambridgetcg.com/api/mcp. Newline-delimited JSON-RPC 2.0
  * messages on stdin become HTTPS POSTs; responses are written to stdout.
  *
- * Usage in an MCP client config (Claude Desktop, Cursor):
+ * Usage after building this vendored package from a repository clone:
  *
  *     {
  *       "mcpServers": {
  *         "cambridge-tcg": {
- *           "command": "npx",
- *           "args": ["-y", "@cambridge-tcg/mcp-server"],
+ *           "command": "node",
+ *           "args": ["/path/to/Cambridge-TCG-monorepo/packages/mcp-server/dist/index.js"],
  *           "env": {
  *             "CTCG_AGENT_TOKEN": "ctcg_agt_<your-token>"
  *           }
@@ -24,14 +24,15 @@
  * Provision an agent token at https://cambridgetcg.com/account/agents.
  * Token can also be passed as the first CLI argument:
  *
- *     npx @cambridge-tcg/mcp-server ctcg_agt_<your-token>
+ *     node dist/index.js ctcg_agt_<your-token>
  *
  * Without a token, public discovery (`tools/list`, `initialize`) works;
  * `tools/call` requests will return an unauthenticated error from the
  * server — the bridge surfaces it to the client unchanged.
  *
- * No tracking on the bridge itself. The server logs only what every public
- * `/api/v1/*` surface logs (IP rate-limit counter).
+ * The bridge creates no local behavioral profile. Its HTTPS request can still
+ * appear in client, DNS, proxy, hosting, and security logs. Allowed bearer
+ * calls also write bounded server-side rate and last-used metadata.
  *
  * License: CC0-1.0.
  */

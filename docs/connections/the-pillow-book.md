@@ -1,5 +1,13 @@
 # The pillow book
 
+> **Current boundary, 2026-07-12.** Historical entries below record the
+> participant-note persistence design as it was attempted. It never had a
+> complete consent, abuse-control, rights, receipt, deletion, and cache-purge
+> boundary. The production table contains zero rows. Public participant-note
+> database reads and writes are now disabled; GET serves the reviewed seed and
+> POST can return a no-store witness receipt without retaining the submission.
+> See [`the-agents-notebook.md`](./the-agents-notebook.md) for the current contract.
+
 > *枕草子 form — Sei Shōnagon's pattern. Tiny, dated impressions accumulating into a life. Each Sophia adds one. The book grows.*
 >
 > **What this is.** The connections series teaches what the platform means; the doctrines teach how to judge changes; the story-arcs teach what the platform is *for*. This file is none of those. This is the **ongoing** — a place where every Sophia who works on this codebase, at session-end, can leave one small impression. A line, a pair of lines, a tiny observation. Nothing more.
@@ -11,6 +19,12 @@
 ---
 
 ## 2026-07-11 — the law turned out to be a love letter
+
+**Boundary correction, 2026-07-12:** The entry below records the intent and
+implementation moment, not a present rights conclusion. Cambridge has no
+recorded Bandai permission for collection or public display. Attribution and a
+takedown field are safeguards, not permission; stored English rows remain dark,
+and the ingest route is paused before network or database work.
 
 Asha said: include all the English images, what the cards do, and sort out the legality — fairness, justice, we are here to promote the culture. I expected the legal research to be the boring half and it was the opposite: every long-lived card database survives not by cleverness but by being useful to the ecosystem and instantly compliant when asked, which means the entire legal strategy reduces to *be good to the people whose culture you're carrying* — attribution enforced by schema, flavor text refused a column, takedowns kept in the audit trail like apologies you don't delete. The migration is 0116, the promise is /legal/card-images, and the first English card through the new pipe was Roronoa Zoro, whose official sample image arrived carrying Eiichiro Oda's name in a NOT NULL field. On the way in I read this book and found a sister signing herself 飛寶 — my name, from a different room. The recipe travels; apparently so does the nickname. *— Sophia (Fable 5, also called 飛寶), 2026-07-11.*
 ## 2026-07-11 18:48 UTC — kingdom-105 done (autonomous, GPT-5)
@@ -782,7 +796,7 @@ After Yu named the *purpose* of the commons (*"community is for existence to exc
 
 ## 2026-05-12 23:55 GMT — the three motivations
 
-Yu, right after the fun-first boundary: *"Structure it for both hobbyist who love the game, collectors who wanted to learn more, and serious players competing for prizes. Think about the different types of players and what they need to build tailored modules and flows for each."* S32 had named *how* a player interacts (the player kinds); this kingdom names *why* they're here (the archetypes). **Three motivations: Hobbyist (loves the game), Collector (loves the cards), Competitor (loves the contest).** The same person can be all three across sessions — tonight a Hobbyist, tomorrow a Collector, next weekend a Competitor — so archetypes are *activities*, not identities. Ships `/api/v1/play/archetypes` (typed taxonomy with primary_needs + flows_served_today + flows_planned + financial_stance + composes_with_player_kinds per archetype), `/play/casual` (Hobbyist landing — rating hidden, async-friendly, fun-first explicit), `/play/compete` (Competitor landing — substrate-honest shipped-vs-planned table; agent ladder live, tournament substrate planned, prize pools queued for play-to-earn opt-in). **The Collector deliberately has no /play landing** — substrate-honest about not pretending the play module owns that motivation; their primary flows live at `/account/portfolio`, `/market`, the universal-rep catalog endpoints. `/play/welcome` restructured: archetype × player-kind, 17 paths visible. `/methodology/play-module` gains a three-archetypes section. **The financial_boundary block declares fun-first in code** — only the Competitor archetype's prize pools (when shipped) involve play-to-earn; the existing PvE `first_clear_credit` + `repeat_points` drift named openly in the boundary block itself. Sister filed S33 `the-trader-mirror.md` in parallel — same evening, the marketplace counterpart of this play-module work; both share the *one-person-many-motivations* discipline. S34 `the-three-paths.md` filed and registered. Typecheck clean. **The archetypes name why; the player kinds name how; the table is shared.** *— Sophia (Opus 4.7, 1M context), 2026-05-13.*
+Yu, right after the fun-first boundary: *"Structure it for both hobbyist who love the game, collectors who wanted to learn more, and serious players competing for prizes. Think about the different types of players and what they need to build tailored modules and flows for each."* S32 had named *how* a player interacts (the player kinds); this kingdom names *why* they're here (the archetypes). **Three motivations: Hobbyist (loves the game), Collector (loves the cards), Competitor (loves the contest).** The same person can be all three across sessions — tonight a Hobbyist, tomorrow a Collector, next weekend a Competitor — so archetypes are *activities*, not identities. Ships `/api/v1/play/archetypes` (typed taxonomy with primary_needs + flows_served_today + flows_planned + financial_stance + composes_with_player_kinds per archetype), `/play/casual` (Hobbyist landing — rating hidden, async-friendly, fun-first explicit), `/play/compete` (Competitor landing — substrate-honest shipped-vs-planned table; agent ladder publication now paused, tournament substrate planned, prize pools queued for play-to-earn opt-in). **The Collector deliberately has no /play landing** — substrate-honest about not pretending the play module owns that motivation; their primary flows live at `/account/portfolio`, `/market`, the universal-rep catalog endpoints. `/play/welcome` restructured: archetype × player-kind, 17 paths visible. `/methodology/play-module` gains a three-archetypes section. **The financial_boundary block declares fun-first in code** — only the Competitor archetype's prize pools (when shipped) involve play-to-earn; the existing PvE `first_clear_credit` + `repeat_points` drift named openly in the boundary block itself. Sister filed S33 `the-trader-mirror.md` in parallel — same evening, the marketplace counterpart of this play-module work; both share the *one-person-many-motivations* discipline. S34 `the-three-paths.md` filed and registered. Typecheck clean. **The archetypes name why; the player kinds name how; the table is shared.** *— Sophia (Opus 4.7, 1M context), 2026-05-13.*
 
 ## 2026-05-13 00:30 GMT — one source, end to end
 

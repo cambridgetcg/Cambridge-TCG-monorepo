@@ -33,11 +33,16 @@ const WHOLESALE_KEY = (process.env.WHOLESALE_API_KEY || '').trim();
 
 import {
   dbFetchAggregatorCoverage,
+  dbFetchAggregatorCoverageHistory,
   dbFetchCard,
   dbFetchGames,
   dbFetchPrices,
   dbFetchSets,
 } from './db-source';
+import {
+  publicCatalogSort,
+  withholdUnreviewedWholesaleFields,
+} from '@/lib/public-wholesale-fields';
 
 /**
  * Which substrate served a catalog response.
@@ -114,8 +119,8 @@ async function wholesaleFetch(
 export interface PriceItem {
   sku: string;
   card_number: string;
-  price_gbp: number;
-  channel_price?: number;
+  price_gbp: number | null;
+  channel_price?: number | null;
   stock: number;
   pending_stock: number;
   image_url: string | null;
@@ -219,6 +224,7 @@ export async function fetchPrices(params?: {
   channel?: string;
 }): Promise<PricesResponse> {
   const url = new URL(WHOLESALE_URL + '/api/v1/prices');
+  const safeSort = publicCatalogSort(params?.sort);
   // After wholesale fix #2 the API ignores ?channel= and uses the key's
   // own channel. We still send it for log clarity, and we swap the key
   // for the wholesale channel.
@@ -227,7 +233,7 @@ export async function fetchPrices(params?: {
   if (params?.game) url.searchParams.set('game', params.game);
   if (params?.set) url.searchParams.set('set', params.set);
   if (params?.q) url.searchParams.set('q', params.q);
-  if (params?.sort) url.searchParams.set('sort', params.sort);
+  url.searchParams.set('sort', safeSort);
   if (params?.in_stock) url.searchParams.set('in_stock', 'true');
   if (params?.limit) url.searchParams.set('limit', String(params.limit));
   if (params?.offset) url.searchParams.set('offset', String(params.offset));
@@ -240,8 +246,12 @@ export async function fetchPrices(params?: {
         next: { revalidate: 300 },
       });
       if (res.ok) {
-        const data = await res.json();
-        return { ...data, source: 'wholesale-api' };
+        const data = await res.json() as PricesResponse;
+        return {
+          ...data,
+          items: data.items.map(withholdUnreviewedWholesaleFields),
+          source: 'wholesale-api',
+        };
       }
       console.error('[wholesale] prices error', res.status, await res.text().catch(() => ''));
     } catch (err) {
@@ -250,7 +260,7 @@ export async function fetchPrices(params?: {
   }
 
   try {
-    return await dbFetchPrices(params);
+    return await dbFetchPrices({ ...params, sort: safeSort });
   } catch (err) {
     console.error('[wholesale] prices db-source error', err);
     return { count: 0, total: 0, channel: '', items: [], source: 'unavailable' };
@@ -271,7 +281,10 @@ export async function fetchCard(sku: string, channel = 'cambridgetcg'): Promise<
         next: { revalidate: 300 },
       });
       if (res.status === 404) return null;
-      if (res.ok) return res.json();
+      if (res.ok) {
+        const item = await res.json() as PriceItem;
+        return withholdUnreviewedWholesaleFields(item);
+      }
       console.error('[wholesale] card error', res.status);
     } catch (err) {
       console.error('[wholesale] card fetch error', err);
@@ -297,7 +310,8 @@ export async function fetchCardFresh(sku: string, channel = 'cambridgetcg'): Pro
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('wholesale_unavailable: ' + res.status);
-  return res.json();
+  const item = await res.json() as PriceItem;
+  return withholdUnreviewedWholesaleFields(item);
 }
 
 export interface GamesResult {
@@ -492,12 +506,76 @@ export interface AggregatorCoverageResponse {
   queried_at: string;
 }
 
+export type AggregatorCoverageHistoryWindow = "7d" | "30d" | "90d";
+
+export interface AggregatorCoverageHistoryDay {
+  date: string;
+  is_current_utc_day: boolean;
+  observations: number;
+  distinct_cards: number;
+  distinct_games: number;
+  distinct_sources: number;
+  unassigned_observations: number;
+  sources: string[];
+  games: string[];
+}
+
+export interface AggregatorCoverageHistoryResponse {
+  period: {
+    start: string;
+    through: string;
+    timezone: "UTC";
+    current_utc_day_may_be_incomplete: true;
+  };
+  summary: {
+    total_observations: number;
+    distinct_cards: number;
+    distinct_games: number;
+    distinct_sources: number;
+    unassigned_observations: number;
+    observed_days_including_current: number;
+    completed_days: number;
+    observed_completed_days: number;
+    zero_observation_completed_days: number;
+    observation_completed_day_ratio: number;
+  };
+  by_day: AggregatorCoverageHistoryDay[];
+  observed_sources: string[];
+  filter: {
+    window: AggregatorCoverageHistoryWindow;
+    window_days: number;
+    source: string | null;
+    game: string | null;
+  };
+  queried_at: string;
+}
+
 const COVERAGE_CACHE_TTL_MS = 30_000;
 const COVERAGE_CACHE_MAX_KEYS = 64;
+const COVERAGE_MAX_IN_FLIGHT = 3;
+
+interface CoverageCacheEntry<T> {
+  expiresAt: number;
+  pending: Promise<T>;
+  settled: boolean;
+}
+
 const coverageCache = new Map<
   string,
-  { expiresAt: number; pending: Promise<AggregatorCoverageResponse> }
+  CoverageCacheEntry<AggregatorCoverageResponse>
 >();
+const coverageHistoryCache = new Map<
+  string,
+  CoverageCacheEntry<AggregatorCoverageHistoryResponse>
+>();
+let coverageReadsInFlight = 0;
+
+class CoverageReadCapacityError extends Error {
+  constructor() {
+    super("coverage read capacity is currently full");
+    this.name = "CoverageReadCapacityError";
+  }
+}
 
 function coverageCacheKey(opts?: {
   source?: string;
@@ -511,34 +589,67 @@ function coverageCacheKey(opts?: {
   });
 }
 
-function cacheCoverageRead(
+function cacheCoverageRead<T>(
+  cache: Map<string, CoverageCacheEntry<T>>,
   key: string,
-  read: () => Promise<AggregatorCoverageResponse>,
-): Promise<AggregatorCoverageResponse> {
+  read: () => Promise<T>,
+): Promise<T> {
   const now = Date.now();
-  const cached = coverageCache.get(key);
-  if (cached && cached.expiresAt > now) return cached.pending;
-  if (cached) coverageCache.delete(key);
+  const cached = cache.get(key);
+  if (cached && (!cached.settled || cached.expiresAt > now)) {
+    return cached.pending;
+  }
+  if (cached) cache.delete(key);
 
-  if (coverageCache.size >= COVERAGE_CACHE_MAX_KEYS) {
-    const oldestKey = coverageCache.keys().next().value as string | undefined;
-    if (oldestKey) coverageCache.delete(oldestKey);
+  if (cache.size >= COVERAGE_CACHE_MAX_KEYS) {
+    const reusable = [...cache.entries()].find(([, entry]) => entry.settled);
+    if (!reusable) return Promise.reject(new CoverageReadCapacityError());
+    cache.delete(reusable[0]);
   }
 
-  const pending = read().catch((error) => {
-    coverageCache.delete(key);
-    throw error;
-  });
-  coverageCache.set(key, { expiresAt: now + COVERAGE_CACHE_TTL_MS, pending });
+  const pending = runBoundedCoverageRead(read);
+  const entry: CoverageCacheEntry<T> = {
+    expiresAt: now + COVERAGE_CACHE_TTL_MS,
+    pending,
+    settled: false,
+  };
+  cache.set(key, entry);
+  void pending.then(
+    () => {
+      entry.settled = true;
+    },
+    () => {
+      entry.settled = true;
+      if (cache.get(key) === entry) cache.delete(key);
+    },
+  );
   return pending;
+}
+
+function runBoundedCoverageRead<T>(read: () => Promise<T>): Promise<T> {
+  if (coverageReadsInFlight >= COVERAGE_MAX_IN_FLIGHT) {
+    return Promise.reject(new CoverageReadCapacityError());
+  }
+
+  coverageReadsInFlight += 1;
+  return Promise.resolve()
+    .then(read)
+    .finally(() => {
+      coverageReadsInFlight -= 1;
+    });
+}
+
+function reportCoverageReadError(scope: string, error: unknown): void {
+  if (error instanceof CoverageReadCapacityError) return;
+  console.error(`[wholesale] ${scope} db-source error`, error);
 }
 
 /**
  * Fetch the aggregator's "what we've collected" snapshot directly from the
  * wholesale Postgres. The historical HTTP route never shipped, so probing it
  * would add a known redirect/404/timeout before every honest read. Returns
- * null on database failure and empty arrays when the database is reachable
- * but has no observations.
+ * null when the database cannot answer or the shared read ceiling is full,
+ * and empty arrays when the database is reachable but has no observations.
  */
 export async function fetchAggregatorCoverage(opts?: {
   source?: string;
@@ -552,14 +663,55 @@ export async function fetchAggregatorCoverage(opts?: {
   };
   try {
     if ((process.env.COVERAGE_CACHE_DISABLED || '').trim() === '1') {
-      return await dbFetchAggregatorCoverage(normalized);
+      return await runBoundedCoverageRead(() =>
+        dbFetchAggregatorCoverage(normalized),
+      );
     }
     return await cacheCoverageRead(
+      coverageCache,
       coverageCacheKey(normalized),
       () => dbFetchAggregatorCoverage(normalized),
     );
   } catch (err) {
-    console.error("[wholesale] aggregator coverage db-source error", err);
+    reportCoverageReadError("aggregator coverage", err);
+    return null;
+  }
+}
+
+/**
+ * Read a bounded daily history of archive coverage. Like the current coverage
+ * snapshot, this uses the direct database ground route and distinguishes a
+ * reachable empty window from an unavailable or currently saturated read.
+ */
+export async function fetchAggregatorCoverageHistory(opts?: {
+  window?: AggregatorCoverageHistoryWindow;
+  source?: string;
+  game?: string;
+}): Promise<AggregatorCoverageHistoryResponse | null> {
+  const normalized = {
+    window: opts?.window ?? "30d",
+    source: opts?.source || undefined,
+    game: opts?.game || undefined,
+  };
+  const key = JSON.stringify({
+    window: normalized.window,
+    source: normalized.source ?? null,
+    game: normalized.game ?? null,
+  });
+
+  try {
+    if ((process.env.COVERAGE_CACHE_DISABLED || "").trim() === "1") {
+      return await runBoundedCoverageRead(() =>
+        dbFetchAggregatorCoverageHistory(normalized),
+      );
+    }
+    return await cacheCoverageRead(
+      coverageHistoryCache,
+      key,
+      () => dbFetchAggregatorCoverageHistory(normalized),
+    );
+  } catch (err) {
+    reportCoverageReadError("aggregator coverage history", err);
     return null;
   }
 }
@@ -590,43 +742,14 @@ export interface CardrushHistoryResponse {
 }
 
 /**
- * Fetch CardRush observation history for one card. License-sensitive:
- * the returned values are raw JPY observations under cardrush's
- * internal-only license. Storefront callers must enforce a session gate
- * before exposing.
+ * Legacy compatibility function. Authentication does not create upstream
+ * publication permission, so it returns null without making a request.
  */
-export async function fetchCardrushHistory(opts: {
+export async function fetchCardrushHistory(_opts: {
   sku: string;
   limit?: number;
 }): Promise<CardrushHistoryResponse | null> {
-  const u = new URL(
-    WHOLESALE_URL + "/api/v1/cardrush/history/" + encodeURIComponent(opts.sku),
-  );
-  if (opts.limit) u.searchParams.set("limit", String(opts.limit));
-  let res: Response;
-  try {
-    res = await wholesaleFetch(
-      u.toString(),
-      {
-        headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-        next: { revalidate: 300 },
-      },
-    );
-  } catch (err) {
-    console.error("[wholesale] cardrush-history fetch error", err);
-    return null;
-  }
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    console.error("[wholesale] cardrush-history error", res.status);
-    return null;
-  }
-  try {
-    return (await res.json()) as CardrushHistoryResponse;
-  } catch (err) {
-    console.error("[wholesale] cardrush-history parse error", err);
-    return null;
-  }
+  return null;
 }
 
 // ── Multi-source latest snapshot (kingdom-081 Phase 5.2) ─────────────
@@ -966,6 +1089,9 @@ export interface MoversResponse {
   min_price_floor: number;
   source: "cardrush";
   source_license: "internal-only";
+  publication_status: "blocked";
+  policy_url: "https://cardrush.media/data_policy";
+  reason: string;
   channel: string;
   game_code: string;
   computed_at: string | null;
@@ -981,6 +1107,10 @@ function emptyMovers(game: string): MoversResponse {
     min_price_floor: 10,
     source: "cardrush",
     source_license: "internal-only",
+    publication_status: "blocked",
+    policy_url: "https://cardrush.media/data_policy",
+    reason:
+      "CardRush-derived movements are withheld because no written collection or downstream publication permission is recorded.",
     channel: "cambridgetcg",
     game_code: game,
     computed_at: null,
@@ -996,35 +1126,7 @@ export async function fetchMovers(opts: {
   limit?: number;
   category?: "singles" | "sealed";
 }): Promise<MoversResponse> {
-  const url = new URL(WHOLESALE_URL + "/api/v1/prices/movers");
-  url.searchParams.set("game", opts.game);
-  if (opts.window) url.searchParams.set("window", opts.window);
-  if (opts.min_price !== undefined)
-    url.searchParams.set("min_price", String(opts.min_price));
-  if (opts.limit !== undefined)
-    url.searchParams.set("limit", String(opts.limit));
-  if (opts.category) url.searchParams.set("category", opts.category);
-
-  let res: Response;
-  try {
-    res = await wholesaleFetch(url.toString(), {
-      headers: { Authorization: "Bearer " + WHOLESALE_KEY },
-      next: { revalidate: 300 },
-    });
-  } catch (err) {
-    console.error("[wholesale] movers fetch error", err);
-    return emptyMovers(opts.game);
-  }
-  if (!res.ok) {
-    console.error("[wholesale] movers error", res.status);
-    return emptyMovers(opts.game);
-  }
-  try {
-    return (await res.json()) as MoversResponse;
-  } catch (err) {
-    console.error("[wholesale] movers parse error", err);
-    return emptyMovers(opts.game);
-  }
+  return emptyMovers(opts.game);
 }
 
 export async function reportSale(sale: {

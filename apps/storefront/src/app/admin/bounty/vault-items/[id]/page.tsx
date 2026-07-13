@@ -131,7 +131,7 @@ export default function AdminVaultItemPage({ params }: { params: Promise<{ id: s
                   target="_blank"
                   className="block mt-3 text-center text-xs bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded px-3 py-2 transition-colors"
                 >
-                  ✓ View provably-fair proof ↗
+                  ✓ View draw proof ↗
                 </Link>
               )}
             </div>

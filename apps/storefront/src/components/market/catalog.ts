@@ -40,8 +40,6 @@ export type CatalogSource = "wholesale-api" | "wholesale-db" | "unavailable";
 export type SortKey =
   | "name_asc"
   | "name_desc"
-  | "price_asc"
-  | "price_desc"
   | "number_asc";
 
 export type ViewMode = "table" | "grid";
@@ -49,8 +47,6 @@ export type ViewMode = "table" | "grid";
 export const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
   { value: "name_asc", label: "Name A-Z" },
   { value: "name_desc", label: "Name Z-A" },
-  { value: "price_asc", label: "Price Low → High" },
-  { value: "price_desc", label: "Price High → Low" },
   { value: "number_asc", label: "Card Number" },
 ];
 

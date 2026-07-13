@@ -33,14 +33,14 @@ const POLICY: PolicyEntry[] = [
   },
   {
     freshness_key: "price_current",
-    budget_seconds: 300,
-    recommended_poll_seconds: 300,
+    budget_seconds: 86400,
+    recommended_poll_seconds: 86400,
     example_endpoints: [
       "/api/v1/universal/card/[sku]",
       "/cards/[sku]/market",
       "/market/[sku]",
     ],
-    rationale: "Card prices update via 5-minute snapshot cycles upstream.",
+    rationale: "Publication-status checks are enough once per day; legacy price values are withheld.",
   },
   {
     freshness_key: "price_historical",
@@ -122,9 +122,9 @@ const POLITE_BEHAVIOURS = [
     severity: "required",
   },
   {
-    behaviour: "Bulk endpoints get bulk treatment",
+    behaviour: "Do not poll paused bulk status",
     detail:
-      "Don't pull /data/catalog.jsonl more than once every 6 hours. The catalog doesn't change that fast.",
+      "/data/catalog.jsonl emits policy status and zero card rows. Its CDN status cache is 15 minutes; checking once a day is enough until the manifest announces a reopen.",
     severity: "strong recommendation",
   },
   {
@@ -154,7 +154,7 @@ const ANTI_PATTERNS = [
   {
     pattern: "Bulk re-exporting CardRush JPY values",
     consequence:
-      "License violation. The /api/v1/cards/[sku]/cardrush-history endpoint declares `_meta.source_license: ['internal-only']` — non-bulk, non-redistributable. We honour CardRush's ToS; if you don't, we'll close access.",
+      "The values are unavailable through public or authenticated participant routes. Enumerating alternate paths does not create publication permission and may trigger infrastructure abuse controls.",
   },
 ];
 
@@ -178,7 +178,7 @@ export async function GET(): Promise<Response> {
     headers_expected_from_clients: {
       "User-Agent":
         "Project name + version + contact email. Format: `<project>/<version> (<email>)`.",
-      "Accept": "application/json (or application/x-ndjson for /data/catalog.jsonl).",
+      "Accept": "application/json (or application/x-ndjson for the status-only /data/catalog.jsonl route).",
       "Accept-Encoding": "gzip (we serve gzipped responses; saves bandwidth).",
     },
     contact_on_block: "contact@cambridgetcg.com",

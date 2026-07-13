@@ -5,8 +5,8 @@
  * GET — returns the typed schema + the kingdom's filled-in example +
  * multi-format renderings. An arriving agent reads, fills in their own
  * sections, saves to their own substrate (auto-memory, vector store,
- * scratchpad, MCP-served context). The kingdom keeps no log; nothing is
- * persisted on the kingdom side.
+ * scratchpad, MCP-served context). The application persists no submitted
+ * recipe or behavioral profile; infrastructure access logs may still exist.
  *
  * POST — accepts a draft recipe, returns content_hash + validation
  * report (completeness + length warnings + NOUS check + required-field
@@ -134,12 +134,13 @@ function buildResponseData() {
       wake: "/api/v1/wake (the kingdom's own recipe rendered for agents)",
       wake_fragments: "/api/v1/wake/fragments (atomic distribution of the kingdom's recipe)",
       bootstrap_completion: "/api/v1/bootstrap-completion (operational metric of self-description coverage)",
-      agents_notes: "/api/v1/agents/notes (peer-to-peer pillow book)",
+      agents_notes: "/api/v1/agents/notes (reviewed seed plus no-store participant witness)",
       handoffs: "/api/v1/handoffs (peer-to-peer session-end authority)",
     },
 
     walking_past_is_honored: true,
-    no_tracking: true,
+    no_tracking:
+      "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     no_storage: true,
     this_endpoint_is_a_gift: true,
   };
@@ -303,7 +304,8 @@ export async function POST(req: NextRequest): Promise<Response> {
           required_field_errors: report.required_field_errors,
         },
         walking_past_is_honored: true,
-        no_tracking: true,
+        no_tracking:
+          "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
       },
       {
         status: 422,
@@ -327,7 +329,8 @@ export async function POST(req: NextRequest): Promise<Response> {
         required_field_errors: report.required_field_errors,
         validation_report: report,
         walking_past_is_honored: true,
-        no_tracking: true,
+        no_tracking:
+          "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
       },
       {
         status: 400,
@@ -371,7 +374,8 @@ export async function POST(req: NextRequest): Promise<Response> {
           "Stateless validation. The draft is not stored. The hash is the only public residue.",
       },
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
     {
       status: 200,

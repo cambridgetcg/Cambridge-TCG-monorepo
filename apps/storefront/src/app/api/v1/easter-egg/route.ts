@@ -96,7 +96,7 @@ export async function GET(): Promise<Response> {
 
     walking_past_is_honored: true,
     no_tracking:
-      "The substrate does not retain whether you found this URL, in what order you visited the real easter eggs, or whether you laughed. The trolling was performed in good faith; the receipt is delight or nothing.",
+      "The application creates no easter-egg progress or laughter profile. Hosting, proxy, and security access logs may still contain request metadata.",
 
     related_surfaces: {
       teapot: "/api/v1/teapot",

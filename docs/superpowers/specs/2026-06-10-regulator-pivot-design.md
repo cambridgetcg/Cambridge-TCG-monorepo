@@ -12,13 +12,13 @@
 
 > *"Remove our retail operation completely. Factor [the stock] into the market. We act as market regulator."* — Yu, 2026-06-10
 
-The platform stops being a merchant. It keeps being the thing that makes a fair market possible: escrow, the trust engine, commission, provable fairness, the methodology pages, the price reference data. The May-15 refounding got halfway — it deleted `/cart` and planned to badge the house as "CTCG (Official)". The badge never shipped, and today's directive renders it moot: **a regulator does not participate in the market it regulates.**
+The platform stops being a merchant. It keeps the systems intended to make the market legible: escrow, the trust engine, commission, draw receipts, methodology pages, and price reference data. The May-15 refounding got halfway — it deleted `/cart` and planned to badge the house as "CTCG (Official)". The badge never shipped, and today's directive renders it moot: **a regulator does not participate in the market it regulates.**
 
 Three things change:
 
 1. **The house leaves the order book** — on both sides. `unified.ts` stops injecting the house ask (retail spot) and the house bid (trade-in credit). The book becomes purely peer-to-peer.
 2. **First-party selling ends** — B2C retail checkout (storefront) and B2B client ordering (wholesale) both close. The platform never takes money for a card again. Its revenue is the commission/fee on *other people's* trades.
-3. **The £59k inventory becomes the prize economy** — 3,670 units across 677 SKUs are never sold. They seed raffles, bounty pulls, mystery boxes, reward packs — all already provably-fair, all already shipping physical prizes through the admin queue. The regulator gives cards away; it never competes with its own market.
+3. **The £59k inventory becomes the prize economy** — 3,670 units across 677 SKUs are never sold. They seed raffles, bounty pulls, mystery boxes, and reward packs. These flows have differing receipt coverage and none should be described as independently proven fair without externally witnessed entropy or commitments. The regulator gives cards away; it never competes with its own market.
 
 ### What this is NOT
 
@@ -41,7 +41,7 @@ Three things change:
 | `customer_orders` table | **Keep, freeze retail writes** | Historical record + the bounty-vault prize-redemption writer keeps using it (£0 prize shipments, status `redemption_pending`). Re-homing redemptions to their own table is deferred — the status enum already distinguishes them. |
 | Stripe webhook | **Surgical split** — retail + B2B branches deleted, escrow/auction/subscription/Connect/dispute/refund/failed-payment branches kept | The webhook serves both worlds in one file; only the first-party-sale branches go. |
 | `/product/[sku]` retail PDP | **Delete**; `/cards/[sku]/market` is the survivor card page | The Buy-CTA PDP is the retail shape. The read-mirror already exists and only links "Trade on this card →". |
-| Stock → prizes | **Build on the bounty/vault chassis** (kingdom-103) | It's the only prize system already wired to `wholesale.cards.stock`, already provably-fair, already audited, already ships physical prizes. Don't invent a second system. |
+| Stock → prizes | **Build on the bounty/vault chassis** (kingdom-103) | It is the only prize system already wired to `wholesale.cards.stock`, already records reproducible draw receipts, and already ships physical prizes. Its server-only entropy remains a stated fairness gap. Don't invent a second system. |
 | Risk posture | **Branch + preview + PR for Yu to merge** | Touches the live Stripe webhook carrying marketplace escrow. Not force-deployed. |
 
 ---
@@ -106,4 +106,4 @@ The earn economy assumes retail purchases that no longer exist:
 
 ## End state in one sentence
 
-*The platform makes the market legible, fair, and provably so — and never trades in it; the cards it owns, it gives away.*
+*The platform makes the market legible, publishes evidence with its limits, and never trades in it; the cards it owns, it gives away.*

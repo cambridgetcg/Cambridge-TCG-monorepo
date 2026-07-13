@@ -143,7 +143,7 @@ export async function valuatePortfolio(userId: string): Promise<{
       // value is the collector book plus the labelled reference price.
       const [wholesale, orderBook] = await Promise.all([
         fetchCard(card.sku).catch(() => null),
-        getCardOrderBook(card.sku).catch(() => ({ bids: [], asks: [], recent_trades: [], best_bid: null, best_ask: null, sku: card.sku, card_name: null, image_url: null })),
+        getCardOrderBook(card.sku).catch(() => ({ bids: [], asks: [], trade_aggregates: [], best_bid: null, best_ask: null, sku: card.sku, card_name: null, image_url: null })),
       ]);
 
       const spotPrice = wholesale ? retailPrice(wholesale.price_gbp, wholesale.channel_price) : null;

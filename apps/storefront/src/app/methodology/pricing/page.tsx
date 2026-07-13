@@ -12,35 +12,33 @@ export default function PricingMethodology() {
       <Audience kind="public-documentation" contexts={["pricing", "methodology"]} />
       <h1>Pricing</h1>
       <p>
-        Cambridge TCG computes a <strong>reference price</strong> for every card in the
-        catalog. It is a <strong>labelled, policy-bound reference—not an offer or
-        open-data grant</strong>. The platform stopped selling (and buying) cards on{" "}
-        <strong>2026-07-06</strong>{" "}
-        (<code>docs/decisions/2026-07-06-collectors-first.md</code>), so no number on this
-        page is a price you can transact with us at. Wherever a card page shows{" "}
-        <em>spot</em>, it is this reference, labelled as such; the prices you can actually
-        trade at are the collectors&rsquo; own bids and asks on the{" "}
-        <a href="/market">market</a>.
+        Cambridge TCG stores legacy wholesale observations and derived channel values,
+        but it does <strong>not publish those price magnitudes today</strong>. The rows
+        predate field-level source-rights receipts. Public card surfaces return null for
+        legacy prices and images, and price-history routes return status without values.
+        Authentication and mathematical transformation do not reopen that boundary.
       </p>
       <p>
-        This page explains exactly how the reference number is computed, and — because
-        history is history — documents the shop-era channels the same engine once priced.
+        Public visibility does not grant redistribution or training rights. API
+        consumers must inspect the response license and source-rights fields.
+      </p>
+      <p>
+        This page documents the internal and shop-era formula so its existence is
+        understandable. It is not evidence that any computed value is publicly available.
       </p>
 
       <blockquote>
         <strong>Where this lives in code.</strong> The canonical implementation is at{" "}
         <code>packages/pricing/src/index.ts</code> (function <code>computePrice</code>).
-        Channel constants are stored in the <code>channel_pricing</code> table on the
-        wholesale RDS and edited via the admin Manager page. Daily snapshot cron lives at{" "}
-        <code>apps/wholesale/src/lib/price-snapshot.ts</code>. Every price mutation appends
-        to <code>card_price_change_log</code>. When the formula changes, this page is
-        updated in the same PR.
+        Channel constants and observations remain internal on the wholesale substrate.
+        The public boundary is enforced in the wholesale price routes and storefront
+        field-withholding helpers. Formula tests do not grant publication rights.
       </blockquote>
 
       <h2>The two inputs</h2>
       <p>
-        Every price starts from two internal inputs captured at the same moment. The
-        method is public; the underlying CardRush observation remains internal-only.
+        The dormant/internal calculation starts from two inputs captured at the same
+        moment. The method is public; the underlying observations and results are not.
       </p>
       <ul>
         <li>
@@ -59,17 +57,14 @@ export default function PricingMethodology() {
         <code>baseGbp = cardrush_jpy / gbp_jpy_rate</code>
       </pre>
       <p>
-        This is what one copy of the card costs us before any margin, fee, VAT, or channel
-        uplift. It is the same across all channels.
+        This was the shop-era internal base before margin, fee, VAT, or channel uplift.
       </p>
 
       <h2>The channel multipliers</h2>
       <p>
-        Each channel has six numbers that say how to translate the wholesale base into that
-        channel's price. Since 2026-07-06 only one channel is customer-facing — the{" "}
-        <strong>cambridgetcg.com reference price</strong> — and it faces you as a labelled
-        reference, not an offer. The remaining channels are documented for the historical
-        record and for reproducing old numbers.
+        Each channel has six numbers that translate the internal wholesale base into a
+        derived value. No derived legacy card value is customer-facing today. The channels
+        remain documented for code review and the historical record.
       </p>
       <table>
         <thead>
@@ -128,7 +123,7 @@ price    = round(preRound / roundTo) × roundTo`}
         £0.10 yields £5.10, not £5.20.
       </p>
 
-      <h2>The channels (one live reference; the rest historical)</h2>
+      <h2>The channels (internal or historical; none publicly priced)</h2>
       <table>
         <thead>
           <tr>
@@ -162,8 +157,8 @@ price    = round(preRound / roundTo) × roundTo`}
         The <strong>retail channels</strong> (historical: Shopify, eBay, Cardmarket; and the
         shop-era cambridgetcg price) all charged VAT. The retail multiplier differed per
         channel: eBay's was highest because eBay's seller fees were higher and the shop
-        recovered them via the price. The cambridgetcg formula survives as the{" "}
-        <strong>reference price</strong> — same computation, no longer an offer.
+        recovered them via the price. The cambridgetcg formula remains in code and
+        internal records; its result is not emitted as a public reference value.
       </p>
 
       <h2>Worked example</h2>
@@ -183,25 +178,22 @@ cambridgetcg.com:
         The same listing priced £5.60 on eBay, £1.78 on trade-in cash, and £2.50 on trade-in
         credit in the shop era. These exact numbers are locked as regression tests in{" "}
         <code>packages/pricing/src/__tests__/pricing.test.ts</code> — if the formula drifts,
-        the tests fire and this page is updated in the same PR. The £5.10 above is what you
-        see today as the card&rsquo;s labelled reference price.
+        the tests fire. The £5.10 above is a worked formula example, not a value published
+        for a current card.
       </p>
 
       <h2>Freshness</h2>
       <p>
-        Prices are snapshot daily at 02:00 UTC. The catalog you see on a typical visit was
-        true at the most recent snapshot. Every price surface on cambridgetcg.com displays
-        a small label like <em>"synced from wholesale · 4h ago"</em> next to the price —
-        this is the freshness pill, and it tells you exactly when the number you're looking
-        at became true.
+        Internal collection jobs may retain observations and timestamps. Public structural
+        catalog freshness describes the returned structural row, not a published price.
+        No freshness label should be read as permission to disclose a withheld magnitude.
       </p>
       <p>
-        If the snapshot cron fails or hasn't run yet, the pill turns amber. If the wholesale
-        source is unavailable entirely, the pill turns red and reads <em>"source unavailable"</em>.
-        We do not show stale prices as if they were live.
+        A null public price is the source-rights boundary, not a claim that the value is
+        zero, stale, or temporarily unavailable.
       </p>
 
-      <h2>What changes a price</h2>
+      <h2>What changes an internal stored value</h2>
       <ol>
         <li>
           <strong>The daily snapshot found a new CardRush price.</strong> Most common. The cron
@@ -222,9 +214,9 @@ cambridgetcg.com:
         </li>
       </ol>
 
-      <h2>What does not affect a price</h2>
+      <h2>What does not affect the internal formula</h2>
       <ul>
-        <li>Who is looking at it. Every customer sees the same price for the same channel.</li>
+        <li>Who is looking at it. The public boundary withholds the legacy value for everyone.</li>
         <li>Stock level. Low-stock cards do not auto-mark-up; high-stock cards do not auto-discount.</li>
         <li>
           Account standing or trust score. These affect{" "}
@@ -238,17 +230,17 @@ cambridgetcg.com:
         </li>
       </ul>
 
-      <h2>Verifying a price yourself</h2>
-      <p>Every price on cambridgetcg.com is reproducible from:</p>
+      <h2>Verifying the documented formula</h2>
+      <p>The formula can be reproduced from hypothetical or independently licensed inputs:</p>
       <ol>
-        <li>The CardRush JPY listing you can navigate to from the card detail page.</li>
+        <li>A JPY input you have the right to use; public card pages do not expose the stored CardRush value.</li>
         <li>The GBP/JPY rate on the snapshot date.</li>
         <li>The cambridgetcg channel constants in the table above.</li>
         <li>The formula above.</li>
       </ol>
       <p>
-        If a price doesn't match what this formula would produce — within £0.01 rounding
-        tolerance — that's a bug. Email us at{" "}
+        If the pure formula does not match its documented worked examples within £0.01
+        rounding tolerance, that is a code or documentation bug. Email us at{" "}
         <a href="mailto:contact@cambridgetcg.com">contact@cambridgetcg.com</a>{" "}
         with the SKU and the snapshot date and we'll investigate.
       </p>

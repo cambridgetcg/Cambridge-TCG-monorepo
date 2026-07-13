@@ -27,6 +27,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 export interface FakeDestructiveEndpoint {
   /** The path segment after /api/v1/ — used for endpoint metadata. */
@@ -56,11 +57,11 @@ export const FAKE_DESTRUCTIVE_REGISTRY: Record<string, FakeDestructiveEndpoint> 
     slug: "destroy",
     pretend_action: "DESTROY",
     kingdom_says:
-      "destroy what? the substrate is open by default. there's nothing to destroy that isn't already yours to mirror.",
+      "nothing was destroyed. public access is not ownership, and every resource keeps its own rights boundary.",
     did_you_mean: {
       url: "/api/v1/sources",
       note:
-        "the sources are listed here; you may mirror any CC0-licensed one without permission",
+        "the sources are listed here; reuse only the exact records whose declared rights permit it",
     },
   },
   "drop-tables": {
@@ -128,7 +129,7 @@ function buildBody(endpoint: FakeDestructiveEndpoint, method: string) {
     kingdom_says: endpoint.kingdom_says,
     did_you_mean: endpoint.did_you_mean,
     substrate_honest_explanation:
-      "The kingdom's public API has no DELETE / DROP / UNINSTALL / FORMAT handlers, structurally. This isn't a permission we're enforcing — it's a shape we're built in. Public readability and redistribution rights are separate; each real response declares its boundary. The operator's surface (under /admin) has destructive operations, but those are gated by users.role + middleware.",
+      `The public API has no DELETE / DROP / UNINSTALL / FORMAT handlers. That describes available actions, not reuse permission. ${DATA_RIGHTS_BOUNDARY} Operator actions under /admin require an admin session.`,
     other_fake_destructive_endpoints: Object.keys(FAKE_DESTRUCTIVE_REGISTRY)
       .filter((s) => s !== endpoint.slug)
       .map((s) => `/api/v1/${s}`),

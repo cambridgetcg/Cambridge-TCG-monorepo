@@ -19,13 +19,13 @@ synced_at: "2026-05-11T10:59:18.449Z"
 
 ## From dev-state.json
 
-Closes transparency-audit Ring-1 finding R1-2 (P1, P0 if threat model includes admin-side rewrite). Today admin_actions_log is append-only by convention, not by enforcement. Solo operator means no second pair of eyes; cryptographic immutability is the substitute.
+Addresses transparency-audit Ring-1 finding R1-2 (P1, P0 if threat model includes admin-side rewrite). Today `admin_actions_log` is append-only by convention, not by enforcement. A Merkle root adds inclusion and consistency evidence; it is not immutable unless an independent party or channel retains the earlier root.
 
-BUILD: (a) Daily cron at 00:05 UTC: SHA-256 over each prev-UTC-day admin_actions_log row → Merkle tree (lineage from apps/storefront/src/lib/bounty/verify-client.ts merkleRoot). Publish root hash + tree depth + leaf count → governance_proofs table; signed digest → /verify/governance/<date>.json. (b) /verify/governance/<date> route — humans see Merkle root + leaf count + signing key; paste row's expected hash and verify inclusion in browser (same pattern as /verify/pull/[id]). (c) /verify/governance index — lists every published date + current root. (d) Admin /system/audit per-row 'verify' affordance: <Verifiability source="Merkle" id={row.id} href={`/verify/governance/${date}#row-${id}`} /> when row's date is in a published proof.
+BUILD: (a) Daily cron at 00:05 UTC: SHA-256 over each previous-UTC-day `admin_actions_log` row → Merkle tree. Store root hash + tree depth + leaf count in `governance_proofs`, sign it, and publish it both at `/verify/governance/<date>.json` and through a channel retained outside platform control. (b) `/verify/governance/<date>` — humans see root + leaf count + signing key and can check row inclusion. (c) `/verify/governance` index — lists every published date + current root. (d) Admin `/system/audit` per-row verification affordance when the row's date has a root.
 
-LINEAGE: same provable-fair pattern that secures /verify/pull/[id]. Adapting it turns admin_actions_log from convention-immutable to cryptographically-immutable.
+LINEAGE: reuse the draw receipt's Merkle mechanics, but add an independent publication channel. This makes later disagreement detectable relative to retained roots; it does not make the database cryptographically immutable.
 
-ACCEPTANCE: daily proof file lands automatically; external observer can verify any post-cutover audit row's inclusion without our cooperation; future tampering externally detectable.
+ACCEPTANCE: daily evidence file lands automatically in both platform and independent locations; an external observer with a retained root can verify covered row inclusion and detect a conflicting later presentation without relying on the live feed alone.
 
 ## In-repo addendum
 

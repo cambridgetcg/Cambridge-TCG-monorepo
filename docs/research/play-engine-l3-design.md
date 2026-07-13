@@ -100,7 +100,7 @@ MOOgiwara's wire format was full-zone snapshots over Socket.IO, with `js-sdsl Ve
 
 Even at L3, we lay the substrate for future commit-reveal RNG. `deck_seed_commit_by_player` is a sha256 hash of each player's locally-generated deck seed. The seed itself is revealed in `match_ended`. Anyone can re-derive the deck order from the seed + the deck list + the server's published shuffle algorithm.
 
-At L3 (casual play), the platform trusts itself with `crypto.randomBytes`-seeded Fisher-Yates and the commit-reveal is decorative. At L7 (ranked play with prizes), the commit-reveal is load-bearing: cheating is provably absent.
+At L3 (casual play), the platform trusts itself with `crypto.randomBytes`-seeded Fisher-Yates and a server-only receipt adds little. At L7 (ranked play with prizes), randomness must combine independently generated participant or beacon entropy under precommitted rules, with evidence retained outside the match server. That can make shuffle selection auditable; it does not prove all cheating absent.
 
 ---
 

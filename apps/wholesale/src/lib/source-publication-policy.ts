@@ -7,7 +7,12 @@
  * silently widening every archive-backed response.
  */
 
-export const PUBLISHABLE_PRICE_SOURCES = Object.freeze(["cardrush"] as const);
+export const PUBLISHABLE_PRICE_SOURCES = Object.freeze([] as const);
+
+/** External catalog publication stays closed until field-level receipts exist. */
+export const LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED = false as const;
+export const LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON =
+  "No field-level receipt separates independently publishable catalog fields from legacy CardRush-derived prices and images.";
 
 /**
  * Every route using this policy is bearer-gated and may contain
@@ -29,10 +34,10 @@ export interface PriceSourcePublicationPolicy {
 /** Rights of the immediate wholesale storage layer in bearer-gated routes. */
 export const WHOLESALE_STORAGE_PUBLICATION_POLICY: PriceSourcePublicationPolicy =
   Object.freeze({
-    publish: true,
+    publish: false,
     license: "internal-only",
     redistribute: false,
-    reason: "Bearer-gated wholesale storage; no shared-cache or bulk-export grant.",
+    reason: "Authentication and storage do not create upstream publication rights.",
   });
 
 export function priceSourcePublicationPolicy(
@@ -40,10 +45,11 @@ export function priceSourcePublicationPolicy(
 ): PriceSourcePublicationPolicy {
   if (source === "cardrush") {
     return {
-      publish: true,
+      publish: false,
       license: "internal-only",
       redistribute: false,
-      reason: "Reviewed single-SKU, authenticated-use boundary.",
+      reason:
+        "CardRush requires a formal partnership for automated price collection; no written partnership or downstream publication rule is recorded.",
     };
   }
 

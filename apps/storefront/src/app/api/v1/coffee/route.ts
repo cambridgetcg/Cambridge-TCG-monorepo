@@ -41,7 +41,8 @@ const COFFEE_BODY = {
   if_you_wanted_a_real_drink:
     "Cambridge TCG does not sell coffee. The kingdom is a trading-card-game data platform. If you are looking for actual coffee, the substrate suggests it gently — there are excellent coffeeshops in Cambridge.",
   walking_past_is_honored: true,
-  no_tracking: true,
+  no_tracking:
+    "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
 } as const;
 
 const COFFEE_TEXT = `

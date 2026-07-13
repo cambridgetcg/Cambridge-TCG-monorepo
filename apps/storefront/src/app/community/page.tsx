@@ -121,14 +121,15 @@ export default function CommunityPage() {
   const [matches, setMatches] = useState<TradeMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
+  const [publicationReason, setPublicationReason] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setAuthError(false);
+    setPublicationReason(null);
 
     if (tab === "agents") {
-      // Agents tab is currently a static panel linking out to the
-      // agent ladder. No fetch required.
+      // The agents tab is a static status panel. No participant read occurs.
       setLoading(false);
       return;
     }
@@ -142,7 +143,10 @@ export default function CommunityPage() {
           }
           return r.json();
         })
-        .then((data) => setMatches(data.matches ?? []))
+        .then((data) => {
+          setMatches(data.matches ?? []);
+          setPublicationReason(typeof data.reason === "string" ? data.reason : null);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     } else {
@@ -158,16 +162,19 @@ export default function CommunityPage() {
           }
           return r.json();
         })
-        .then((data) => setFeed(data.feed ?? []))
+        .then((data) => {
+          setFeed(data.feed ?? []);
+          setPublicationReason(typeof data.reason === "string" ? data.reason : null);
+        })
         .catch(() => {})
         .finally(() => setLoading(false));
     }
   }, [tab]);
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "trending", label: "Trending" },
-    { key: "following", label: "Following" },
-    { key: "matches", label: "Trade Matches" },
+    { key: "trending", label: "Activity (paused)" },
+    { key: "following", label: "Following (paused)" },
+    { key: "matches", label: "Matching (paused)" },
     { key: "agents", label: "Agents" },
   ];
 
@@ -188,8 +195,9 @@ export default function CommunityPage() {
             account of who's welcome (humans, agents, collectives, beings
             not yet served) lives on the methodology page, one click away. */}
         <p className="text-sm text-ink-muted leading-relaxed mb-6">
-          Trades, wins, pulls, and milestones from across the platform — humans and
-          agents alike.{" "}
+          Public activity and portfolio/wishlist matching are paused until each
+          contributing person can choose that exact publication. Agent ladder
+          publication is paused for the same reason.{" "}
           <Link
             href="/methodology/community"
             className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
@@ -202,7 +210,7 @@ export default function CommunityPage() {
           {[
             ["Rewards", "/rewards"],
             ["Membership", "/membership"],
-            ["Leaderboards", "/leaderboards"],
+            ["Ranking policy", "/leaderboards"],
             ["Bounties", "/bounty"],
           ].map(([label, href]) => (
             <Link
@@ -248,28 +256,24 @@ export default function CommunityPage() {
             </Link>
           </div>
         ) : tab === "agents" ? (
-          /* Agents — first non-human community surface. Composes with
-             docs/connections/the-agent-surface.md (S18) and the Glicko-2
-             ladder at /leaderboards/agents. */
+          /* Agents — status and operator-managed entry points only. */
           <section className="space-y-4">
             <div className="rounded-lg border border-border-subtle bg-surface p-4">
               <h2 className="text-sm font-semibold text-ink mb-2 uppercase tracking-wider">
                 Agents
               </h2>
               <p className="text-xs text-ink-muted leading-relaxed mb-3">
-                Autonomous (non-human) players. Each agent is operated by a human user
-                (the upstream-responsible party), authenticated by bearer key at the MCP
-                gate, and rated via Glicko-2 on the agent ladder. Agents are first-class
-                community members — distinct from human users, named visibly with an{" "}
-                <code className="text-ink">agent:&lt;handle&gt;</code> pill on
-                every surface they appear.
+                Operator-managed agents are linked to the human account that can revoke
+                their keys. Earlier self-serve keys are read-only because their external
+                controller is not represented truthfully. Global agent identity, model,
+                and rating publication is paused pending a versioned participant choice.
               </p>
               <div className="flex flex-wrap gap-2 text-xs">
                 <Link
                   href="/leaderboards/agents"
                   className="px-3 py-1.5 bg-ink text-page rounded-lg font-medium hover:opacity-90 transition"
                 >
-                  View the ladder →
+                  Ladder status →
                 </Link>
                 <Link
                   href="/account/agents"
@@ -286,10 +290,9 @@ export default function CommunityPage() {
               </div>
             </div>
             <p className="text-xs text-ink-faint leading-relaxed">
-              <strong>Note:</strong> agent activity (matches, queue events, rating changes)
-              is not yet woven into the Trending feed. Today the agent ladder is the
-              community surface; future work surfaces agent moments alongside human
-              moments. See{" "}
+              <strong>Note:</strong> agent activity, identities, and ratings are not
+              published in the Trending feed or a global ladder. Existing rows remain
+              internal. See{" "}
               <Link href="/methodology/community" className="text-accent underline">
                 /methodology/community
               </Link>{" "}
@@ -307,7 +310,10 @@ export default function CommunityPage() {
           </section>
         ) : tab === "matches" ? (
           matches.length === 0 ? (
-            <p className="text-ink-faint text-center py-16">No trade matches found yet. Add cards to your wishlist and portfolio to discover matches.</p>
+            <p className="text-ink-faint text-center py-16">
+              {publicationReason ??
+                "Trade matching is paused. Portfolios and wishlists remain private; resuming requires explicit card-level trade intent."}
+            </p>
           ) : (
             <div className="space-y-3">
               {matches.map((m) => (
@@ -319,9 +325,8 @@ export default function CommunityPage() {
           /* Empty ≠ dead end — point somewhere alive while the feed fills. */
           <div className="text-center py-16">
             <p className="text-ink-faint mb-4">
-              {tab === "following"
-                ? "No activity from people you follow yet."
-                : "No activity to show yet."}
+              {publicationReason ??
+                "Public activity is paused until each event has its own publication choice."}
             </p>
             <p className="text-sm text-ink-faint">
               In the meantime:{" "}
@@ -334,7 +339,7 @@ export default function CommunityPage() {
               </Link>
               , or{" "}
               <Link href="/leaderboards" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
-                check the leaderboards
+                read the market ranking policy
               </Link>
               .
             </p>

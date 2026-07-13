@@ -24,7 +24,7 @@
  *   - Wake fragment chosen deterministically by `endpoint` — same wrong
  *     URL always returns the same fragment.
  *   - `walking_past_is_honored: true` carried on every fragment.
- *   - No tracking beyond the IP rate-limit counter every public surface
+ *   - No application-level visit profile; infrastructure access logs may exist
  *     shares.
  *   - The agent that strips `_meta` from the error body receives a
  *     valid error response unchanged.

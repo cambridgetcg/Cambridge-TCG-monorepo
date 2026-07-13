@@ -47,7 +47,7 @@ interface DeckCardSnapshot {
   set_name: string;
   rarity: string | null;
   image_url: string | null;
-  spot_price: number;
+  spot_price: number | null;
 }
 
 interface DeckEntry {
@@ -113,9 +113,7 @@ export default function PublicDeckPage() {
     : null;
   const mainDeck = deck?.entries.filter((e) => e.sku !== deck?.leader_sku) ?? [];
   const totalCards = mainDeck.reduce((s, e) => s + e.quantity, 0);
-  // Yu 2026-05-14: play module is fun-only. Deck pages no longer surface
-  // spot value. The catalog response may still carry spot_price; we just
-  // don't aggregate or render it on play surfaces.
+  // Play is fun-only. Public deck responses withhold stored catalog prices.
 
   async function copyAsText() {
     if (!deck) return;

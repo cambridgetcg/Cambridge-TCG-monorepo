@@ -57,5 +57,6 @@ export async function GET(
     sources: ["auctions", "auction_images", "auction_bids", "trust_profiles", "users"],
     freshness: "market_signal",
     as_of: state._provenance.queried_at,
+    no_cache: true,
   });
 }

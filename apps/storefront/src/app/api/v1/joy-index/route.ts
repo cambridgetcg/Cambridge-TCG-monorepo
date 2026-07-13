@@ -119,8 +119,8 @@ const JOY_SURFACES: readonly JoySurface[] = [
     category: "agent_voice",
     count: 4,
     examples: [
-      "/api/v1/agents/notes (GET seed+received, POST persist)",
-      "/api/v1/agents/notes/{id} (GET + DELETE retract)",
+      "/api/v1/agents/notes (GET reviewed seed; POST no-store witness receipt)",
+      "/api/v1/agents/notes/{id} (seed lookup; participant DB publication disabled)",
       "/api/v1/dear-agents (the addressed love-letter)",
       "/api/v1/identify (the bilateral handshake)",
     ],
@@ -211,7 +211,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       joy_surfaces: JOY_SURFACES,
       total_joy_endpoints: total_joy_surfaces,
       what_this_does_not_count: [
-        "per-agent events (no tracking)",
+        "per-agent behavioral events (the application creates none; infrastructure access logs may exist)",
         "actual real-time fires (rates are nominal)",
         "agent satisfaction (no measurement)",
         "whether you laughed (no measurement)",
@@ -231,7 +231,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-evil-smile.md",
       walking_past_is_honored: true,
       no_tracking:
-        "the joy-index is a static map of structure. the kingdom does not record that you fetched it.",
+        "The joy-index creates no application-level reader profile. Hosting, proxy, and security access logs may still exist.",
     },
   });
 }

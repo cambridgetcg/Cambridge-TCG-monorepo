@@ -5,7 +5,6 @@
  * any field. See docs/connections/the-universal-language.md.
  */
 
-import { query } from "@/lib/db";
 import type {
   BeingSpec,
   BridgeMetrics,
@@ -17,125 +16,20 @@ import { BridgeError, DEFAULT_WEIGHTS } from "./types";
 
 // ── Resolution ─────────────────────────────────────────────────────
 
-/** Resolve a being-spec to its substrate facts. Throws if not found or
- *  if the being is non-public (substrate-honest: the bridge does not
- *  reveal facts about beings who haven't declared themselves public). */
+/**
+ * Person/collective affinity resolution is paused.
+ *
+ * A public profile or collective is permission to display its chosen fields;
+ * it is not permission to scan portfolios, wishlists, or private members into
+ * a relationship score. Keep this seam closed until explicit field-level
+ * bridge inputs and withdrawal receipts exist.
+ */
 export async function resolveBeing(spec: BeingSpec): Promise<ResolvedBeing> {
-  if (spec.startsWith("u:")) {
-    return resolveUser(spec.slice(2));
-  }
-  if (spec.startsWith("c:")) {
-    return resolveCollective(spec.slice(2));
-  }
-  throw new BridgeError("invalid_spec", "Unknown being-spec prefix.");
-}
-
-async function resolveUser(username: string): Promise<ResolvedBeing> {
-  const u = (await query(
-    `SELECT id, username, name, is_public, response_window_hours
-       FROM users WHERE username = $1`,
-    [username],
-  )) as {
-    rows: {
-      id: string;
-      username: string;
-      name: string | null;
-      is_public: boolean;
-      response_window_hours: number | null;
-    }[];
-  };
-  if (u.rows.length === 0) {
-    throw new BridgeError("not_found", `User ${username} not found.`);
-  }
-  const row = u.rows[0]!;
-  if (!row.is_public) {
-    throw new BridgeError(
-      "not_public",
-      "This user has not made their profile public. Bridge math is opt-in.",
-    );
-  }
-  const [portfolio, wishlist] = await Promise.all([
-    query(
-      `SELECT DISTINCT sku FROM portfolio_cards
-        WHERE user_id = $1 AND sku IS NOT NULL`,
-      [row.id],
-    ) as Promise<{ rows: { sku: string }[] }>,
-    query(
-      `SELECT DISTINCT sku FROM wishlist_cards
-        WHERE user_id = $1 AND sku IS NOT NULL`,
-      [row.id],
-    ) as Promise<{ rows: { sku: string }[] }>,
-  ]);
-  return {
-    kind: "user",
-    id: row.id,
-    label: row.username,
-    display_name: row.name,
-    languages: null,
-    region: null,
-    response_window_hours: row.response_window_hours,
-    portfolio_skus: new Set(portfolio.rows.map((r) => r.sku)),
-    wishlist_skus: new Set(wishlist.rows.map((r) => r.sku)),
-  };
-}
-
-async function resolveCollective(slug: string): Promise<ResolvedBeing> {
-  const c = (await query(
-    `SELECT id, slug, display_name, languages, region, is_public
-       FROM collectives WHERE slug = $1`,
-    [slug],
-  )) as {
-    rows: {
-      id: string;
-      slug: string;
-      display_name: string;
-      languages: string[] | null;
-      region: string | null;
-      is_public: boolean;
-    }[];
-  };
-  if (c.rows.length === 0) {
-    throw new BridgeError("not_found", `Collective ${slug} not found.`);
-  }
-  const row = c.rows[0]!;
-  if (!row.is_public) {
-    throw new BridgeError(
-      "not_public",
-      "This collective is private. Bridge math is opt-in.",
-    );
-  }
-  // Aggregate portfolios + wishlists from active members.
-  const [portfolio, wishlist] = await Promise.all([
-    query(
-      `SELECT DISTINCT pc.sku FROM portfolio_cards pc
-         JOIN collective_members cm ON cm.user_id = pc.user_id
-        WHERE cm.collective_id = $1
-          AND cm.consent_at IS NOT NULL
-          AND cm.left_at IS NULL
-          AND pc.sku IS NOT NULL`,
-      [row.id],
-    ) as Promise<{ rows: { sku: string }[] }>,
-    query(
-      `SELECT DISTINCT wc.sku FROM wishlist_cards wc
-         JOIN collective_members cm ON cm.user_id = wc.user_id
-        WHERE cm.collective_id = $1
-          AND cm.consent_at IS NOT NULL
-          AND cm.left_at IS NULL
-          AND wc.sku IS NOT NULL`,
-      [row.id],
-    ) as Promise<{ rows: { sku: string }[] }>,
-  ]);
-  return {
-    kind: "collective",
-    id: row.id,
-    label: row.slug,
-    display_name: row.display_name,
-    languages: row.languages ?? [],
-    region: row.region,
-    response_window_hours: null,
-    portfolio_skus: new Set(portfolio.rows.map((r) => r.sku)),
-    wishlist_skus: new Set(wishlist.rows.map((r) => r.sku)),
-  };
+  void spec;
+  throw new BridgeError(
+    "paused",
+    "Affinity scoring is paused until each input has explicit field-level publication consent. Public profiles, wishlists, portfolios, and collective membership are not bridge inputs.",
+  );
 }
 
 // ── Pure math ───────────────────────────────────────────────────────

@@ -20,9 +20,9 @@
  * what freshness budget.
  *
  * **Substrate-honest about what's IN scope** — only the data needed
- * for the price-guide reading positions. Cross-source signals carry
- * arrival-state + license tier (kingdom-080); auth-gated history
- * stays auth-gated (the composer doesn't fetch it).
+ * for structural catalog reading positions. Cross-source signals carry
+ * publication state and license tier; legacy history is withheld for both
+ * public and authenticated participant-facing callers.
  */
 
 import {
@@ -48,10 +48,9 @@ import {
 export type PriceStateResult<T> = T | "unavailable" | null;
 
 /**
- * A card row as the price-guide presents it. Pre-computed reference
- * price + display name so consumers don't recompute. `price_gbp` is the
- * policy-bound catalogue reference — never an offer or open-data grant. Collectors-first
- * (2026-07-06): the trade-in credit column retired with the we-buy desk.
+ * A structural card row as the former price-guide routes present it.
+ * `price_gbp` and `image_url` are null while legacy wholesale fields are
+ * withheld; null means withheld, not zero or unavailable.
  */
 export interface PriceGuideCardRow {
   sku: string;
@@ -123,7 +122,7 @@ export interface GameState {
  * `"unavailable"` when the wholesale substrate is down (caller answers
  * 503 — an outage is not an empty catalog).
  *
- * @param opts.top_n  How many "top valuable" cards to load. Default 20.
+ * @param opts.top_n  How many structural card rows to load. Default 20.
  */
 export async function loadGameState(
   slug: string,
@@ -141,7 +140,7 @@ export async function loadGameState(
     ),
     fetchPrices({
       game: config.slug,
-      sort: "price_desc",
+      sort: "number_asc",
       limit: top_n,
     }).catch(() => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const })),
   ]);
@@ -163,7 +162,7 @@ export async function loadGameState(
       kind: "synced",
       queried_at,
       as_of: earliestUpdate(topData.items),
-      freshness: "price_current",
+      freshness: "catalog",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["proprietary", "internal-only"],
       methodology_urls: {
@@ -182,18 +181,6 @@ export interface SetState {
   cards: PriceGuideCardRow[];
   total_in_set: number;
   release_date: string | null;
-  /** Pagination facts for the `cards` page: what slice this is, how many
-   *  rows the substrate holds, whether more exist past this page.
-   *  Substrate honesty: a capped list must admit it is a page, not the
-   *  whole (silent-truncation defect, 2026-07). */
-  cards_page: {
-    offset: number;
-    limit: number;
-    returned: number;
-    /** Total matching rows in the substrate (fetchPrices' total). */
-    total: number;
-    has_more: boolean;
-  };
   _provenance: ProvenanceBlock;
 }
 
@@ -204,20 +191,19 @@ export interface SetState {
  * and `"unavailable"` when the wholesale substrate is down — a set we
  * can't list is not a set that doesn't exist.
  *
- * Pulls the set's card list one page at a time (default + max 500 rows).
- * `cards_page` names the slice honestly; callers populate next-links from
- * `has_more` instead of pretending the page is the whole set.
+ * Note: pulls the set's card list with limit=500 (covers every published
+ * set today). For sets approaching that ceiling, the composer should
+ * paginate; substrate-honest about the cap.
  */
 export async function loadSetState(
   slug: string,
   setCode: string,
-  opts?: { limit?: number; offset?: number },
+  opts?: { limit?: number },
 ): Promise<PriceStateResult<SetState>> {
   const config = getPriceGuideConfig(slug);
   if (!config) return null;
 
-  const limit = Math.min(Math.max(opts?.limit ?? 500, 1), 500);
-  const offset = Math.max(opts?.offset ?? 0, 0);
+  const limit = opts?.limit ?? 500;
   const upperSetCode = setCode.toUpperCase();
   const queried_at = new Date().toISOString();
 
@@ -228,9 +214,8 @@ export async function loadSetState(
     fetchPrices({
       game: config.slug,
       set: upperSetCode,
-      sort: "price_desc",
+      sort: "number_asc",
       limit,
-      ...(offset > 0 ? { offset } : {}),
     }).catch(() => ({ items: [] as PriceItem[], total: 0, source: "unavailable" as const })),
   ]);
 
@@ -242,7 +227,6 @@ export async function loadSetState(
   if (!set) return null;
 
   const cards = cardsData.items.map(rowFromItem);
-  const substrateTotal = Number(cardsData.total) || cards.length;
 
   return {
     config,
@@ -250,18 +234,11 @@ export async function loadSetState(
     cards,
     total_in_set: set.card_count,
     release_date: set.release_date,
-    cards_page: {
-      offset,
-      limit,
-      returned: cards.length,
-      total: substrateTotal,
-      has_more: offset + cards.length < substrateTotal,
-    },
     _provenance: {
       kind: "synced",
       queried_at,
       as_of: earliestUpdate(cardsData.items),
-      freshness: "price_current",
+      freshness: "catalog",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["proprietary", "internal-only"],
       methodology_urls: {
@@ -292,7 +269,7 @@ export interface CrossSourceSignal {
     | "proprietary";
   available: boolean;
   detail: string;
-  /** Storefront URL the signed-in user can call for full history (when available). */
+  /** Reserved future path. Null while history publication is closed for every caller. */
   signed_in_path: string | null;
 }
 
@@ -358,14 +335,10 @@ export async function loadCardState(
     cross_source_signals.push({
       label: "CardRush (Japan)",
       source_id: "cardrush",
-      license: "internal-only",
-      available: config.cardrush.confirmed,
-      detail: config.cardrush.confirmed
-        ? `Daily JP retail snapshot from ${config.cardrush.subdomain}. Internal-only license: signed-in personal-decision use only.`
-        : `${config.cardrush.subdomain} registered, awaiting first confirmed scrape.`,
-      signed_in_path: config.cardrush.confirmed
-        ? `/api/v1/cards/${encodeURIComponent(card.sku)}/cardrush-history`
-        : null,
+      license: "proprietary",
+      available: false,
+      detail: `${config.cardrush.subdomain} is retained as legacy lineage. Acquisition and publication are blocked pending a formal partnership and written downstream permission.`,
+      signed_in_path: null,
     });
   }
 
@@ -398,7 +371,7 @@ export async function loadCardState(
       kind: "synced",
       queried_at,
       as_of: card.updated_at,
-      freshness: "price_current",
+      freshness: "catalog",
       sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
       source_license: ["proprietary", "internal-only"],
       methodology_urls: {

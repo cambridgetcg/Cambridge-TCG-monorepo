@@ -29,7 +29,6 @@ import {
   RateTablePanel,
   CurrencyWhyLink,
 } from "@/components/CurrencySelector";
-import { Money } from "@/lib/fx/Money";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -326,7 +325,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
       fetchSets(cfg.slug).catch(() => []),
       fetchPrices({
         game: cfg.slug,
-        sort: "price_desc",
+        sort: "number_asc",
         limit: 20,
       }).catch(() => ({ items: [], total: 0 })),
       // kingdom-085: per-game aggregator coverage. Scoped via game_code so
@@ -437,7 +436,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               at={freshestUpdate}
               cadence="daily"
             />
-            <WhyLink href="/methodology/pricing" label="how prices work" />
+            <WhyLink href="/methodology/pricing" label="price publication boundary" />
             <CurrencyWhyLink />
             {cfg.cardrush && !cfg.cardrush.confirmed && (
               <span
@@ -591,10 +590,8 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
               </div>
             )}
             <div className="text-[10px] text-ink-faint mt-2">
-              Live observed data from{" "}
-              <code className="text-ink-faint">price_archive</code>. The
-              underlying source license tier still applies — raw upstream
-              values are emitted only on auth-gated per-card endpoints.
+              Aggregate row counts and date ranges from internal archive metadata.
+              No upstream price value is emitted here or through a bearer-key side door.
             </div>
           </section>
         )}
@@ -730,27 +727,26 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         </section>
 
         {/* ---------------------------------------------------------- */}
-        {/*  Top 20 Most Valuable Cards                                  */}
+        {/*  Structural catalog sample                                   */}
         {/* ---------------------------------------------------------- */}
         <section className="mb-14">
           <div className="flex items-baseline justify-between mb-5">
             <h2 className="text-xl font-semibold text-ink">
-              Top {topCards.length > 0 ? topCards.length : 20} Most Valuable{" "}
-              {cfg.short_name} Cards
+              Structural {cfg.short_name} catalog rows
             </h2>
             {topCards.length > 0 && (
               <Link
                 href={`/prices/${cfg.slug}/movers`}
                 className="text-sm text-info hover:underline"
               >
-                See top 50 →
+                Price-movement publication status →
               </Link>
             )}
           </div>
 
           {topCards.length === 0 ? (
             <p className="text-ink-faint text-sm py-6 text-center bg-surface border border-border-subtle rounded-lg">
-              No price data for this game yet.
+              No structural catalog rows for this game are available.
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border-subtle">
@@ -761,7 +757,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                     <th className="px-3 py-3">Card</th>
                     <th className="px-3 py-3">Set</th>
                     <th className="px-3 py-3">Rarity</th>
-                    <th className="px-3 py-3 text-right">Buy Price</th>
+                    <th className="px-3 py-3 text-right">Legacy price</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle">
@@ -791,7 +787,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                         <RarityBadge rarity={card.rarity} />
                       </td>
                       <td className="px-3 py-3 text-right text-ink font-medium">
-                        <Money value={card.price} />
+                        <span className="text-ink-faint">Withheld</span>
                       </td>
                     </tr>
                   ))}
@@ -817,15 +813,12 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         {/* ---------------------------------------------------------- */}
         <section className="border-t border-border-subtle pt-8">
           <h2 className="text-lg font-semibold text-ink mb-3">
-            How Prices Are Calculated
+            Price publication boundary
           </h2>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl mb-4">
-            {cfg.pricing_note}{" "}
-            The <strong className="text-ink-muted">Buy Price</strong> is our
-            catalogue reference price — a policy-bound derived value, not an offer
-            or an open-data grant. Cambridge TCG
-            no longer sells from stock or buys cards itself; trading happens
-            between collectors on the market.
+            {cfg.pricing_note} Authentication and currency conversion do not create
+            publication rights. Structural card fields remain visible; collector bids
+            and asks are separate market events rather than a substitute legacy guide.
           </p>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
             Want to buy or sell live?{" "}

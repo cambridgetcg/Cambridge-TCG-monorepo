@@ -110,6 +110,9 @@ export interface UserDeck {
   updated_at: string;
 }
 
+/** Deck publication covers the deck artifact, not its author's identity. */
+export type PublicDeck = Omit<UserDeck, "user_id" | "is_public">;
+
 // ── helpers ──────────────────────────────────────────────────────────────
 
 function slugify(name: string): string {
@@ -161,12 +164,16 @@ export async function getUserDeck(userId: string, idOrSlug: string): Promise<Use
   return (r.rows[0] as UserDeck) ?? null;
 }
 
-export async function getPublicDeckBySlug(slug: string): Promise<UserDeck | null> {
+export async function getPublicDeckBySlug(slug: string): Promise<PublicDeck | null> {
   const r = await query(
-    `SELECT * FROM user_decks WHERE slug = $1 AND is_public = true LIMIT 1`,
+    `SELECT id, slug, name, leader_sku, entries, notes, tags, view_count,
+            created_at, updated_at
+       FROM user_decks
+      WHERE slug = $1 AND is_public = true
+      LIMIT 1`,
     [slug],
   );
-  return (r.rows[0] as UserDeck) ?? null;
+  return (r.rows[0] as PublicDeck) ?? null;
 }
 
 export interface SaveDeckArgs {
@@ -259,14 +266,15 @@ export async function incrementViewCount(slug: string): Promise<void> {
   );
 }
 
-export async function listPublicDecks(limit: number = 30): Promise<Array<UserDeck & { user_name: string | null }>> {
+export async function listPublicDecks(limit: number = 30): Promise<PublicDeck[]> {
   const r = await query(
-    `SELECT d.*, u.name AS user_name
-     FROM user_decks d JOIN users u ON u.id = d.user_id
-     WHERE d.is_public = true
-     ORDER BY d.updated_at DESC
-     LIMIT $1`,
+    `SELECT d.id, d.slug, d.name, d.leader_sku, d.entries, d.notes, d.tags,
+            d.view_count, d.created_at, d.updated_at
+       FROM user_decks d
+      WHERE d.is_public = true
+      ORDER BY d.updated_at DESC
+      LIMIT $1`,
     [limit],
   );
-  return r.rows as Array<UserDeck & { user_name: string | null }>;
+  return r.rows as PublicDeck[];
 }

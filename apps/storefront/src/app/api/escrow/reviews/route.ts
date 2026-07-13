@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { submitReview, getUserReviews } from "@/lib/escrow/trust-engine";
+import { submitReview } from "@/lib/escrow/trust-engine";
 import { ReviewGateError } from "@/lib/reviews/gates";
 import { query } from "@/lib/db";
+import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
 
 // GET — reviews for a user
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const userId = url.searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "userId required." }, { status: 400 });
-
-  const reviews = await getUserReviews(userId);
-  return NextResponse.json({ reviews });
+  void userId;
+  return NextResponse.json(
+    {
+      error:
+        "UUID-keyed review lookup is unavailable. Use /api/social/profile?user=<username> for explicitly-public, redacted reviews.",
+    },
+    { status: 400, headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 // POST — submit a review after trade
@@ -22,6 +27,15 @@ export async function POST(request: Request) {
   const body = await request.json();
   if (!body.tradeId) return NextResponse.json({ error: "Trade ID required." }, { status: 400 });
   if (!body.rating || body.rating < 1 || body.rating > 5) return NextResponse.json({ error: "Rating 1-5 required." }, { status: 400 });
+  if (
+    body.isPublic === true &&
+    body.publication_notice_version !== PERSON_PUBLICATION_NOTICE_VERSION
+  ) {
+    return NextResponse.json(
+      { error: "Read and accept the current review-publication notice." },
+      { status: 400 },
+    );
+  }
 
   // Verify user is part of the trade and determine role. Terminal states
   // (completed | refunded) are both reviewable — mirrors lib/reviews/gates.ts.
@@ -46,6 +60,8 @@ export async function POST(request: Request) {
       shippingSpeed: body.shippingSpeed,
       communication: body.communication,
       comment: body.comment?.trim(),
+      isPublic: body.isPublic === true,
+      publicationNoticeVersion: body.publication_notice_version,
     });
     return NextResponse.json({ review });
   } catch (err) {
@@ -53,6 +69,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: err.message, code: err.code },
         { status: err.code === "rate_limit" ? 429 : 403 },
+      );
+    }
+    if (err instanceof Error && err.message === "invalid_review_publication_notice") {
+      return NextResponse.json(
+        { error: "Read and accept the current review-publication notice." },
+        { status: 400 },
       );
     }
     throw err;

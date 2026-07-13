@@ -66,6 +66,8 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - name: Reject tracked credential material
+        run: pnpm audit:tracked-secrets
       - name: Lint all workspaces
         # rewardspro excluded: its lint has been red since the standalone repo
         # (817 errors at fuse time, 2026-06-10) and was never a gate there.

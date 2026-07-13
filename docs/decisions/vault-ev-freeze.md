@@ -25,9 +25,9 @@ The frozen-at-acquisition behaviour is:
 - `apps/storefront/src/app/admin/bounty/{redemptions,vault-items/[id]}/page.tsx`
   — same.
 - `apps/storefront/src/app/api/verify/pull/[id]/certificate.svg/route.ts` —
-  burns it onto the provable-fairness certificate at pull time.
+  burns it onto the draw receipt at pull time.
 
-The frozen value is also part of the **fairness certificate**, which is one
+The frozen value is also part of the **draw receipt**, which is one
 reason this isn't a pure engineering choice.
 
 ---
@@ -42,12 +42,12 @@ store credit (77% — see [/methodology/pricing](../methodology/pricing.md)),
 regardless of whether the market moves up or down before you act.
 
 **Pros.**
-- *Provably-fair certificate has a fixed claim.* The certificate already burns
+- *Draw receipt has a fixed value claim.* The receipt already burns
   in the spot at pull time; the user can present it and the platform's promise
   is mechanical.
 - *No surprise downside.* Users know what their vault is worth and can plan.
 - *Cheap.* No re-read on the bounty page; no recompute cron.
-- *Aligns with substrate-honesty on the certificate.* The certificate says
+- *Aligns with substrate-honesty on the receipt.* The receipt says
   what was true at pull time; the sell-back honours that.
 
 **Cons.**
@@ -63,7 +63,7 @@ regardless of whether the market moves up or down before you act.
 
 **What it means.** When the user views their vault, the sell-back column is
 recomputed against today's `price_archive` value for the SKU. The historical
-spot is preserved on the certificate (substrate-honesty), but the *current*
+spot is preserved on the receipt (substrate-honesty), but the *current*
 sell-back offer floats with the market.
 
 **Pros.**
@@ -75,9 +75,9 @@ sell-back offer floats with the market.
   storefront catalog reflects today's market; the vault could too.
 
 **Cons.**
-- *Provably-fair certificate becomes a historical artefact.* The certificate
-  burns in the acquisition spot as part of the fairness proof; the vault page
-  shows a different number. This is OK with disclosure ("certificate value was
+- *Draw receipt becomes a historical artefact.* The receipt
+  records the acquisition spot as historical draw data; the vault page
+  shows a different number. This is OK with disclosure ("receipt value was
   £X; current sell-back is £Y") but is one more thing for users to understand.
 - *Surprise downside.* A user who pulled a £50 card and saw a £38.50 sell-back
   yesterday could open the vault tomorrow and see £24.50 if the market moved.
@@ -96,19 +96,20 @@ the truth about its own state*. Today, the vault page tells one truth (an old
 sell-back value) while the market tells another (the current spot). That's a
 small lie of omission — survivable, but at odds with the doctrine.
 
-**Option A is "fair to the user but stale."** It also matches what the fairness
-certificate already says, which is the platform's strongest legal claim.
+**Option A is "fair to the user but stale."** It also matches what the draw
+receipt already says, which is a fixed historical value claim rather than proof
+of unbiased random selection.
 
 **Option B is "honest but exposes the user to market risk."** It can be made
 substrate-honest by labelling the displayed number as "live · refreshed every
-visit" with a small ↗ to the certificate showing the historical value.
+visit" with a small ↗ to the receipt showing the historical value.
 
 If we go with **B**, the right shape is:
 
 ```
-Vault item: Charizard ex                              [→ certificate]
+Vault item: Charizard ex                              [→ draw receipt]
 
-   Pulled at:           £50.00       (frozen — burned to certificate)
+   Pulled at:           £50.00       (frozen — recorded in receipt)
    Sell-back today:     £30.94       live · synced from wholesale
    ↑ change since pull: −£7.56       (−19% market move)
 ```

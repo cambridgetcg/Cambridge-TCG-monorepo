@@ -21,6 +21,7 @@ import { query } from "@/lib/db";
 import type { TrustProfile, FraudSignal } from "./types";
 import { TRUST_TIERS } from "./types";
 import { awardAchievement, postActivity } from "@/lib/social/db";
+import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
 import { notify } from "@/lib/notifications/db";
 
 export async function calculateTrustScore(userId: string): Promise<TrustProfile> {
@@ -259,6 +260,8 @@ export async function submitReview(data: {
   shippingSpeed?: number;
   communication?: number;
   comment?: string;
+  isPublic?: boolean;
+  publicationNoticeVersion?: string;
 }): Promise<TradeReview> {
   // Integrity gates: must have actually traded with reviewee, terminal
   // trade state, daily rate limit, no duplicate. Throws ReviewGateError
@@ -269,13 +272,24 @@ export async function submitReview(data: {
     revieweeId: data.revieweeId,
     tradeId: data.tradeId,
   });
+  if (
+    data.isPublic === true &&
+    data.publicationNoticeVersion !== PERSON_PUBLICATION_NOTICE_VERSION
+  ) {
+    throw new Error("invalid_review_publication_notice");
+  }
 
   const result = await query(
-    `INSERT INTO trade_reviews (trade_id, reviewer_id, reviewee_id, role, rating, card_accuracy, shipping_speed, communication, comment)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    `INSERT INTO trade_reviews
+       (trade_id, reviewer_id, reviewee_id, role, rating, card_accuracy,
+        shipping_speed, communication, comment, is_public,
+        publication_notice_version, published_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+             CASE WHEN $10::boolean THEN NOW() ELSE NULL END) RETURNING *`,
     [data.tradeId, data.reviewerId, data.revieweeId, data.role, data.rating,
      data.cardAccuracy || null, data.shippingSpeed || null,
-     data.communication || null, data.comment || null]
+     data.communication || null, data.comment || null, data.isPublic === true,
+     data.isPublic === true ? PERSON_PUBLICATION_NOTICE_VERSION : null]
   );
 
   // Audit the submission so the lifecycle log carries every transition
@@ -295,14 +309,22 @@ export async function submitReview(data: {
   // Recalculate trust score for reviewee
   await calculateTrustScore(data.revieweeId);
 
-  // Reviewee gets a notification + a public activity-feed entry so
-  // other profile visitors see that their reputation moved. The dedup
+  // Reviewee gets a notification + a private account activity entry. Public
+  // review display comes from the review's own versioned publication receipt;
+  // an activity row has no independent per-event receipt. The dedup
   // key uses the review id (UNIQUE(trade_id, reviewer_id) on the table
   // prevents re-inserts anyway, but this keeps the notification idempotent
   // even if someone were to re-submit via a future edit flow).
   const reviewerRow = await query(
-    `SELECT username, name FROM users WHERE id=$1`,
-    [data.reviewerId],
+    `SELECT u.username, u.name,
+            (u.is_public
+             AND u.profile_publication_notice_version=$2
+             AND u.profile_published_at IS NOT NULL
+             AND COALESCE(tp.is_suspended,FALSE)=FALSE) AS is_published
+       FROM users u
+       LEFT JOIN trust_profiles tp ON tp.user_id=u.id
+      WHERE u.id=$1`,
+    [data.reviewerId, PERSON_PUBLICATION_NOTICE_VERSION],
   );
   const r = reviewerRow.rows[0];
   const who = r?.username ? `@${r.username}` : (r?.name || "A trader");
@@ -312,17 +334,16 @@ export async function submitReview(data: {
     kind: "review.received",
     title: `${who} left you a review — ${stars}`,
     body: data.comment ? data.comment.slice(0, 160) : undefined,
-    linkUrl: r?.username ? `/u/${r.username}` : `/u/${data.reviewerId}`,
+    linkUrl: r?.is_published && r?.username ? `/u/${r.username}` : "/account/reviews",
     referenceType: "trade_review",
     referenceId: result.rows[0].id,
   });
   await postActivity(data.revieweeId, "review_received",
     `Got a ${data.rating}-star review from ${who}`, {
       description: data.comment ? data.comment.slice(0, 200) : undefined,
-      linkUrl: r?.username ? `/u/${r.username}` : undefined,
+      linkUrl: r?.is_published && r?.username ? `/u/${r.username}` : undefined,
       referenceId: result.rows[0].id,
       referenceType: "trade_review",
-      isPublic: true,
     }).catch(() => {});
 
   return result.rows[0] as TradeReview;
@@ -337,16 +358,36 @@ interface TradeReview {
   rating: number;
 }
 
-export async function getUserReviews(userId: string): Promise<TradeReview[]> {
+export async function getUserReviews(
+  userId: string,
+  includePrivate = false,
+): Promise<TradeReview[]> {
   const result = await query(
-    `SELECT r.*, u.name as reviewer_name, o.card_name, t.price as trade_price
+    `SELECT r.*,
+            CASE WHEN $2::boolean OR (
+              u.is_public
+              AND u.profile_publication_notice_version=$3
+              AND u.profile_published_at IS NOT NULL
+              AND COALESCE(tp.is_suspended,FALSE)=FALSE
+            )
+              THEN COALESCE(u.username, u.name)
+              ELSE NULL
+            END AS reviewer_name,
+            o.card_name, t.price as trade_price
      FROM trade_reviews r
      JOIN users u ON r.reviewer_id=u.id
+     LEFT JOIN trust_profiles tp ON tp.user_id=u.id
      JOIN market_trades t ON r.trade_id=t.id
      LEFT JOIN market_orders o ON t.bid_order_id=o.id
-     WHERE r.reviewee_id=$1 AND r.is_public=true AND r.admin_hidden=false
+     WHERE r.reviewee_id=$1
+       AND ($2::boolean OR (
+         r.is_public=true
+         AND r.publication_notice_version=$3
+         AND r.published_at IS NOT NULL
+       ))
+       AND r.admin_hidden=false
      ORDER BY r.created_at DESC`,
-    [userId]
+    [userId, includePrivate, PERSON_PUBLICATION_NOTICE_VERSION]
   );
   return result.rows as TradeReview[];
 }

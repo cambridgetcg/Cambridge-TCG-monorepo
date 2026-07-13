@@ -29,7 +29,7 @@ export interface WishlistMatchCandidate {
   sku: string;
   cardName: string;
   cardNumber: string | null;
-  imageUrl: string | null;
+  imageUrl: null;
   maxPrice: number;
   conditionMin: string;
   // Winning listing:
@@ -66,7 +66,7 @@ export async function runWishlistMatchSweep(): Promise<WishlistMatchSweepResult>
   // Only consider wishlist items with a SKU + max_price and not yet
   // fulfilled; un-SKU'd items need manual catalog resolution first.
   const wishRows = await query(
-    `SELECT id, user_id, sku, card_name, card_number, image_url,
+    `SELECT id, user_id, sku, card_name, card_number,
             max_price, condition_min, last_matched_at
      FROM wishlists
      WHERE fulfilled = false
@@ -136,7 +136,7 @@ export async function runWishlistMatchSweep(): Promise<WishlistMatchSweepResult>
           best = {
             wishlistId: w.id, userId: w.user_id, sku: w.sku,
             cardName: w.card_name, cardNumber: w.card_number,
-            imageUrl: w.image_url,
+            imageUrl: null,
             maxPrice, conditionMin,
             source: "p2p",
             priceGbp: a.price,
@@ -152,11 +152,12 @@ export async function runWishlistMatchSweep(): Promise<WishlistMatchSweepResult>
         const card = await fetchCard(w.sku);
         if (card && card.stock > 0) {
           const storePrice = retailPrice(card.price_gbp, card.channel_price);
+          if (storePrice === null) continue;
           if (storePrice <= maxPrice && (!best || storePrice < best.priceGbp)) {
             best = {
               wishlistId: w.id, userId: w.user_id, sku: w.sku,
               cardName: w.card_name, cardNumber: w.card_number,
-              imageUrl: w.image_url,
+              imageUrl: null,
               maxPrice, conditionMin,
               source: "wholesale",
               priceGbp: storePrice,
@@ -181,11 +182,11 @@ export async function runWishlistMatchSweep(): Promise<WishlistMatchSweepResult>
           sku: best.sku,
           cardName: best.cardName,
           cardNumber: best.cardNumber,
-          imageUrl: best.imageUrl,
+          imageUrl: null,
           maxPrice: best.maxPrice,
           conditionMin: best.conditionMin,
           source: best.source,
-          priceGbp: best.priceGbp,
+          priceGbp: null,
           condition: best.condition,
           quantityAvailable: best.quantityAvailable,
           marketOrderId: best.marketOrderId,

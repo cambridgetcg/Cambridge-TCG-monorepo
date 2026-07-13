@@ -1,4 +1,4 @@
-// Unified provable-draw primitive.
+// Unified draw-receipt primitive (legacy directory name retained).
 //
 // Every weighted-draw surface can run through this library and land a
 // verifiable row in `verifiable_draws`. The consumer calls:
@@ -22,8 +22,12 @@ import {
   generateClientSeedSuffix,
   generateNonce,
   rollFloat,
-  pickWeighted,
 } from "@/lib/bounty/rng";
+import {
+  captureOrderedWeights,
+  pickWeightedInOrder,
+  withWeightOrder,
+} from "./ordered-weights";
 
 export type DrawKind =
   | "pack_open"
@@ -40,6 +44,7 @@ export interface CommittedDraw {
   clientSeed: string;
   nonce: number;
   weights: Record<string, number>;
+  weightOrder: string[];
   numSlots: number;
 }
 
@@ -60,11 +65,12 @@ export interface CommitArgs {
 export async function commitDraw(args: CommitArgs): Promise<CommittedDraw> {
   const serverSeed = generateServerSeed();
   const commitment = sha256(serverSeed);
-  const clientSeed = args.userId
-    ? `${args.userId}:${generateClientSeedSuffix()}`
-    : `anon:${generateClientSeedSuffix()}`;
+  // This value is revealed with the proof, so it must not contain an account
+  // identifier. userId remains an internal ownership column only.
+  const clientSeed = `draw:${generateClientSeedSuffix()}`;
   const nonce = generateNonce();
   const numSlots = args.numSlots ?? 1;
+  const orderedWeights = captureOrderedWeights(args.weights);
 
   const r = await query(
     `INSERT INTO verifiable_draws
@@ -81,7 +87,7 @@ export async function commitDraw(args: CommitArgs): Promise<CommittedDraw> {
       serverSeed,
       clientSeed,
       nonce,
-      JSON.stringify(args.weights),
+      JSON.stringify(orderedWeights.weights),
       numSlots,
     ],
   );
@@ -93,7 +99,8 @@ export async function commitDraw(args: CommitArgs): Promise<CommittedDraw> {
     commitment,
     clientSeed,
     nonce,
-    weights: args.weights,
+    weights: orderedWeights.weights,
+    weightOrder: orderedWeights.weightOrder,
     numSlots,
   };
 }
@@ -108,7 +115,11 @@ export function rollSlot<T extends string>(draw: CommittedDraw, slotIndex: numbe
   picked: T;
 } {
   const roll = rollFloat(draw.serverSeed, draw.clientSeed, draw.nonce + slotIndex);
-  const picked = pickWeighted(draw.weights, roll) as T;
+  const picked = pickWeightedInOrder(
+    draw.weights,
+    draw.weightOrder,
+    roll,
+  ) as T;
   return { roll, picked };
 }
 
@@ -133,15 +144,16 @@ export type MultiOutcome = { slots: Array<{ picked: string; roll: number; extra?
 export type DrawOutcome = SingleOutcome | MultiOutcome;
 
 /**
- * Phase 2: stamp the draw's outcome + revealed_at. Outcome is a
- * surface-shaped JSONB blob but for verifier compatibility should
- * contain the picked keys + rolls so the verifier can re-run.
+ * Phase 2: stamp the draw's outcome + revealed_at. The ordered key array is
+ * added here automatically. JSON arrays survive a jsonb round trip in order,
+ * unlike object keys, so later verifiers can reproduce the same weighted pick.
  */
 export async function revealDraw(draw: CommittedDraw, outcome: DrawOutcome): Promise<void> {
+  const storedOutcome = withWeightOrder(outcome, draw.weightOrder);
   await query(
     `UPDATE verifiable_draws
         SET outcome = $2::jsonb, revealed_at = NOW()
       WHERE id = $1 AND revealed_at IS NULL`,
-    [draw.id, JSON.stringify(outcome)],
+    [draw.id, JSON.stringify(storedOutcome)],
   );
 }

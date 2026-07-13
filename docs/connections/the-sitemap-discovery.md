@@ -2,7 +2,7 @@
 title: The sitemap-discovery — agents tell us what they carry, in the schema everyone already speaks
 shape: story-as-wire
 date: 2026-05-17
-status: shipped
+status: historical implementation record; acquisition blocked 2026-07-12
 maturity: doctrinal
 doctrines: [substrate-honesty, meaning, creation]
 this_entry_names:
@@ -17,10 +17,22 @@ parents:
   - the-tributaries.md                # the upstream catalog
   - the-license-propagation.md        # how source_license rides downstream
   - the-cardrush-discovery.md         # kingdom-087, the sister discovery pattern
-self_reference: this entry IS one of two data-discovery strategies the kingdom currently runs (the other is `the-cardrush-discovery.md`); the naming-of-the-strategy is itself a discovery surface.
+self_reference: this entry records a historical discovery strategy; neither TCGCollector nor CardRush acquisition currently runs.
 ---
 
 # The sitemap-discovery — agents tell us what they carry, in the schema everyone already speaks
+
+> **Current-status correction, 2026-07-12.** This document preserves the May
+> implementation history; its permission and availability claims are
+> withdrawn. A public sitemap, robots allowance, JSON-LD, indexability, or
+> technical accessibility is discovery evidence, not a license or invitation
+> to acquire, store, transform, or republish data. TCGCollector acquisition is
+> hard-blocked pending written partner approval, and its cron returns HTTP 503
+> before any network request. CardRush acquisition is separately hard-blocked
+> by the source's official data policy. Authentication, internal-only labels,
+> attribution, transformation, and downstream contracts do not create upstream
+> rights. The runnable flows and “no negotiation required” reasoning below are
+> historical design notes only and must not be executed.
 
 > *Story-as-wire. Companion module: [`packages/data-ingest/src/tcgcollector/`](../../packages/data-ingest/src/tcgcollector/). The runner: [`apps/wholesale/src/lib/tcgcollector-discovery.ts`](../../apps/wholesale/src/lib/tcgcollector-discovery.ts). The cron: [`apps/wholesale/src/app/api/cron/discover/tcgcollector/route.ts`](../../apps/wholesale/src/app/api/cron/discover/tcgcollector/route.ts). The audit: [`apps/storefront/scripts/sitemap-discovery.ts`](../../apps/storefront/scripts/sitemap-discovery.ts).*
 
@@ -28,7 +40,8 @@ self_reference: this entry IS one of two data-discovery strategies the kingdom c
 
 ## What this is
 
-A discovery strategy for data the kingdom aggregates.
+A historical implementation record for a discovery strategy the kingdom does
+not currently run.
 
 The kingdom is, at its primary identity (kingdom-080), **the trading-card-game world's data provider**. Provision requires discovery: every card we publish came from a source we found, parsed, normalized, and held with attribution. The strategies are several (see the conversation that opened on 2026-05-17 under *"Devise strategies for discovery of data for aggregation"*); this entry names one of them.
 
@@ -37,7 +50,11 @@ The kingdom is, at its primary identity (kingdom-080), **the trading-card-game w
   1. A **`/sitemap.xml`** — an explicit enumeration of every URL the site wants indexed.
   2. **Schema.org JSON-LD** — `<script type="application/ld+json">` blocks embedded in product pages, declaring `Product`, `Offer`, `AggregateOffer` typed by the public Schema.org vocabulary.
 
-Both are *the vendor telling us, in advance, what they carry, in a language we already speak*. The sitemap is the discovery handshake; the JSON-LD is the data payload. No partnership conversation required; no proprietary schema to translate. The vendor publishes; the kingdom walks.
+**Historical assumption, withdrawn:** the May implementation treated these as
+the vendor telling us what it carried, treated the sitemap as a discovery
+handshake and JSON-LD as a payload, and concluded no partnership conversation
+was required. Current policy rejects that inference: discoverability does not
+establish acquisition, storage, transformation, or publication rights.
 
 This is the same logic the kingdom applies to its own discovery surfaces: `/sitemap.xml`, `/.well-known/cambridge-tcg.json`, the embedded JSON-LD on `/welcome-all`, the OpenAPI spec at `/api/openapi.json`. We publish what we carry in the languages a partner already speaks. The sitemap-discovery strategy is *us reading the partner's symmetric move*.
 
@@ -131,7 +148,8 @@ The first vendor shipped under this strategy. Why TCGCollector first:
 
 ## Why this is its own strategy
 
-The kingdom currently runs two data-discovery strategies; this entry names one of them. The other:
+The May implementation recorded two data-discovery strategies; neither runs
+now. The other historical strategy was:
 
   - **CardRush self-discovery** (`docs/connections/the-cardrush-discovery.md`, kingdom-087). Walks per-subdomain `/sitemap.xml`, fetches each /product/[N] page, parses CardRush's HTML title regex into set_code + card_number + rarity. Different from sitemap-discovery: the upstream has **no Schema.org markup**, so the adapter is title-regex-based (fragile) rather than JSON-LD-based (typed). When CardRush ever adds Schema.org Product markup, the two strategies can converge.
 
@@ -190,7 +208,8 @@ The first vendor (this entry) was the path-finding; every subsequent vendor is t
 
 → Or: `docs/connections/the-vendor-conversation.md` — written the day a vendor reads this connection-doc and opens a partner conversation. The transition from substrate-honest internal-decision-use to broader-terms partnership; what changes in `SourceMeta.license` tier; how the license rides downstream after the conversation.
 
-A future session writes either. Both are downstream of this entry's structural claim: *the vendor's sitemap and JSON-LD are the vendor's invitation; the kingdom's job is to read them and honor what's been published*.
+A future session may document a written partner conversation. The former claim
+that a sitemap and JSON-LD are themselves an invitation is withdrawn.
 
 ---
 

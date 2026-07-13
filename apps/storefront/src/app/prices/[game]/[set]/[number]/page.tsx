@@ -3,16 +3,15 @@
  *
  * The natural next stop after the per-set table. Where /product/[sku] is
  * the marketplace transactional surface (buy / sell / list), this is the
- * price-guide-native surface: UK reference pricing and source-state
- * signal, license tier per source, history teaser.
+ * structural-card surface: legacy price, image, and historical fields are
+ * withheld while their field-level source rights remain unresolved.
  *
  * URL shape uses (game, set, number) rather than SKU because:
  *   - SEO: "one piece op01 001" is searchable; "op-op01-001-en" isn't
  *   - human-readable breadcrumbs compose naturally
  *   - the price-guide reader rarely has a SKU in hand
  *
- * Substrate-honest about source boundaries: CardRush history is auth-gated;
- * TCGplayer is blocked and Cardmarket ingestion is planned.
+ * Authentication does not reopen the withheld CardRush-derived fields.
  *
  * **Refactor (kingdom-080 follow-up):** the page now reads from
  * `loadCardState(...)` in `@/lib/prices/state` — one composer feeds the
@@ -31,7 +30,6 @@ import { RarityBadge } from "@/lib/ui/prices/RarityBadge";
 import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
-import { Money } from "@/lib/fx/Money";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -50,11 +48,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title:
         state === "unavailable"
-          ? `${set.toUpperCase()} ${number.toUpperCase()} — prices temporarily unavailable · Cambridge TCG`
+          ? `${set.toUpperCase()} ${number.toUpperCase()} — catalog temporarily unavailable · Cambridge TCG`
           : `${set.toUpperCase()} ${number.toUpperCase()} — card not found · Cambridge TCG`,
       description:
         state === "unavailable"
-          ? `Pricing is temporarily unavailable for ${set.toUpperCase()} ${number.toUpperCase()}.`
+          ? `The structural catalog is temporarily unavailable for ${set.toUpperCase()} ${number.toUpperCase()}.`
           : `No catalog entry for ${set.toUpperCase()} ${number.toUpperCase()}.`,
       robots: { index: false },
     };
@@ -62,11 +60,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const cardName = state.card.name;
   const setCode = state.set.code.toUpperCase();
   return {
-    title: `${cardName} ${setCode} ${state.card.card_number} — ${state.config.short_name} Price UK`,
-    description: `Latest held UK reference value for ${cardName} (${setCode} ${state.card.card_number}) from ${state.config.display_name}. Current collected upstream pricing is CardRush-only; collector bids and asks are separate.`,
+    title: `${cardName} ${setCode} ${state.card.card_number} — Structural Catalog`,
+    description: `Structural catalog record for ${cardName} (${setCode} ${state.card.card_number}) from ${state.config.display_name}. Legacy prices, images, and history are withheld.`,
     openGraph: {
-      title: `${cardName} ${setCode} ${state.card.card_number} — ${state.config.short_name} Price UK`,
-      description: `Latest held UK reference value for ${cardName} from ${state.config.display_name}.`,
+      title: `${cardName} ${setCode} ${state.card.card_number} — Structural Catalog`,
+      description: `Structural catalog record for ${cardName}; legacy prices, images, and history are withheld.`,
       images: state.card.image_url ? [{ url: state.card.image_url }] : undefined,
     },
   };
@@ -84,15 +82,18 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
   ]);
   if (state === "unavailable") {
     // An outage must surface as a transient error, never a false 404.
-    throw new Error("Pricing substrate temporarily unavailable");
+    throw new Error("Structural catalog temporarily unavailable");
   }
   if (!state) notFound();
 
-  const { config, set: setMeta, card, cross_source_signals: signals } = state;
+  const { config, set: setMeta, card } = state;
   const accent = ACCENT_CLASSES[config.accent];
   const setCode = setMeta.code.toUpperCase();
   const setSlug = setMeta.code.toLowerCase();
   const numberSlug = card.card_number.toLowerCase();
+  const encodedSetSlug = encodeURIComponent(setSlug);
+  const encodedNumberSlug = encodeURIComponent(numberSlug);
+  const encodedSku = encodeURIComponent(card.sku);
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -110,13 +111,13 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         "@type": "ListItem",
         position: 4,
         name: `${setCode} ${setMeta.name}`,
-        item: `https://cambridgetcg.com/prices/${config.slug}/${setSlug}`,
+        item: `https://cambridgetcg.com/prices/${config.slug}/${encodedSetSlug}`,
       },
       {
         "@type": "ListItem",
         position: 5,
         name: `${card.name} (${card.card_number})`,
-        item: `https://cambridgetcg.com/prices/${config.slug}/${setSlug}/${numberSlug}`,
+        item: `https://cambridgetcg.com/prices/${config.slug}/${encodedSetSlug}/${encodedNumberSlug}`,
       },
     ],
   };
@@ -131,7 +132,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
         sku: card.sku,
         offers: {
           "@type": "Offer",
-          url: `https://cambridgetcg.com/product/${card.sku}`,
+          url: `https://cambridgetcg.com/product/${encodedSku}`,
           priceCurrency: "GBP",
           price: card.price_gbp.toFixed(2),
           availability:
@@ -188,7 +189,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             <li className="text-ink-faint">/</li>
             <li>
               <Link
-                href={`/prices/${config.slug}/${setSlug}`}
+                href={`/prices/${config.slug}/${encodedSetSlug}`}
                 className="hover:text-ink"
               >
                 {setCode}
@@ -235,14 +236,14 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
                 at={state._provenance.as_of}
                 cadence="daily"
               />
-              <WhyLink href="/methodology/pricing" label="how prices work" />
+              <WhyLink href="/methodology/pricing" label="price publication boundary" />
               <WhyLink
                 href="/methodology/cross-source-pricing"
                 label="cross-source"
               />
               <CurrencyWhyLink />
               <Link
-                href={`/api/v1/prices/games/${config.slug}/sets/${setSlug}/cards/${numberSlug}`}
+                href={`/api/v1/prices/games/${config.slug}/sets/${encodedSetSlug}/cards/${encodedNumberSlug}`}
                 className="text-xs text-info hover:underline"
                 title="JSON sibling — same data through the data-pantry envelope"
               >
@@ -255,25 +256,23 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               <CurrencySelector
                 selected={currency}
                 rates={rates}
-                back={`/prices/${config.slug}/${setSlug}/${numberSlug}`}
+                back={`/prices/${config.slug}/${encodedSetSlug}/${encodedNumberSlug}`}
               />
             </div>
 
-            {/* Headline price. Collectors-first (2026-07-06): the "Buy from
-                us" / "We buy (credit)" pair retired with the shop — the
-                number that remains is a policy-bound catalogue reference,
-                not an offer or an open-data grant. */}
+            {/* Price publication status. Stored legacy values are intentionally
+                absent from this participant-facing surface. */}
             <div className="rounded-lg border border-border-subtle bg-surface p-5 mb-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <div className="text-xs text-ink-faint uppercase tracking-wider mb-1">
-                    Reference price
+                    Legacy price publication
                   </div>
                   <div className="text-2xl font-bold text-ink">
-                    <Money value={card.price_gbp} />
+                    <span className="text-base">Withheld</span>
                   </div>
                   <div className="text-[10px] text-ink-faint mt-1">
-                    catalogue reference — not an offer
+                    pending field-level source-rights records; null is not zero
                   </div>
                 </div>
                 <div>
@@ -289,19 +288,19 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
 
             <div className="flex flex-wrap gap-3">
               <Link
-                href={`/product/${card.sku}`}
+                href={`/product/${encodedSku}`}
                 className="inline-block rounded-lg bg-ink hover:opacity-90 text-page font-semibold text-sm px-4 py-2 transition-colors"
               >
                 View card page →
               </Link>
               <Link
-                href={`/market/${card.sku}`}
+                href={`/market/${encodedSku}`}
                 className="inline-block rounded-lg border border-border-subtle hover:border-border-strong text-ink text-sm px-4 py-2 transition-colors"
               >
                 Open market depth
               </Link>
               <Link
-                href={`/cards/${card.sku}/market`}
+                href={`/cards/${encodedSku}/market`}
                 className="inline-block rounded-lg border border-border-subtle hover:border-border-strong text-ink text-sm px-4 py-2 transition-colors"
               >
                 Read-only mirror
@@ -310,65 +309,21 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
           </div>
         </header>
 
-        {/* Cross-source signals */}
+        {/* Cross-source publication status */}
         <section className="mb-10">
           <h2 className="text-xl font-semibold text-ink mb-4">
-            Cross-source price signals
+            Price and history publication status
           </h2>
           <p className="text-sm text-ink-muted mb-5 max-w-2xl">
-            Current collected upstream price history is CardRush only.
-            TCGplayer is blocked under the access and use terms available to
-            Cambridge; Cardmarket&apos;s public-file reader is planned.
+            No legacy wholesale price, derived channel value, image, or historical
+            movement is published for this card. Stored CardRush-derived rows remain
+            internal pending written and field-level source-rights records. TCGplayer
+            is blocked and Cardmarket ingestion remains planned.
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {signals.map((sig) => (
-              <div
-                key={sig.source_id}
-                className="rounded-lg border border-border-subtle bg-surface p-4"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-ink font-semibold text-sm">
-                    {sig.label}
-                  </h3>
-                  <span
-                    className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${
-                      sig.available
-                        ? "bg-ok/10 text-ok border-ok/30"
-                        : sig.source_id === "tcgplayer"
-                          ? "bg-danger/10 text-danger border-danger/30"
-                          : "bg-surface-subtle text-ink-muted border-border-subtle"
-                    }`}
-                  >
-                    {sig.available
-                      ? "available"
-                      : sig.source_id === "tcgplayer"
-                        ? "blocked"
-                        : "planned"}
-                  </span>
-                </div>
-                <p className="text-xs text-ink-muted mb-3">{sig.detail}</p>
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="px-2 py-0.5 rounded bg-surface-subtle text-ink-muted">
-                    license: {sig.license}
-                  </span>
-                  {sig.available && sig.signed_in_path ? (
-                    <Link
-                      href="/login"
-                      className="text-info hover:underline"
-                    >
-                      sign in for history →
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-
           <p className="text-[11px] text-ink-faint mt-5 max-w-2xl">
-            CardRush&apos;s current boundary restricts compiled price-data
-            redistribution, so its history remains signed-in and bounded.
-            Cambridge has no recorded TCGplayer partner agreement; no
-            TCGplayer observations or history are served.
+            Authentication and bearer possession do not create source rights, so
+            there is no signed-in history side door. Collector-authored bids and
+            asks are separate market events and are not substituted here.
           </p>
         </section>
 
@@ -397,7 +352,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
               </dt>
               <dd>
                 <Link
-                  href={`/prices/${config.slug}/${setSlug}`}
+                  href={`/prices/${config.slug}/${encodedSetSlug}`}
                   className="text-info hover:underline"
                 >
                   {setCode} {setMeta.name}
@@ -423,7 +378,7 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             The canonical SKU is the federation-stable identifier — a partner
             with this SKU can resolve through{" "}
             <Link
-              href={`/api/v1/universal/card/${card.sku}`}
+              href={`/api/v1/universal/card/${encodedSku}`}
               className="text-info hover:underline"
             >
               /api/v1/universal/card/{card.sku}

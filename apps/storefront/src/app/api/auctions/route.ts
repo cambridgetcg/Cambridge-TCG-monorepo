@@ -11,8 +11,14 @@ export async function GET(req: NextRequest) {
   const limit = url.searchParams.get("limit") ? parseInt(url.searchParams.get("limit")!, 10) : undefined;
   const offset = url.searchParams.get("offset") ? parseInt(url.searchParams.get("offset")!, 10) : undefined;
 
-  const result = await listAuctions({ status, type, limit, offset });
-  return NextResponse.json(result);
+  const admin = await isAdmin().catch(() => false);
+  const result = await listAuctions(
+    { status, type, limit, offset },
+    { includeUnpublished: admin },
+  );
+  return NextResponse.json(result, {
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }
 
 export async function POST(req: NextRequest) {

@@ -9,6 +9,11 @@
  * Tokens expire every 18 months; if expired, getAccessToken() returns a clear error.
  */
 
+import {
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED,
+  LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON,
+} from "../source-publication-policy";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -204,6 +209,9 @@ export async function pushListing(
   stock: number,
   options?: PushOptions,
 ): Promise<Result<{ sku: string; offerId?: string }>> {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return { ok: false, error: `eBay listing publication is blocked. ${LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON}` };
+  }
   const tokenResult = await getAccessToken();
   if (!tokenResult.ok) return tokenResult;
   const token = tokenResult.data;
@@ -309,6 +317,9 @@ export async function bulkPushListings(
   items: ListingInput[],
   options?: PushOptions,
 ): Promise<Result<{ pushed: number; errors: { sku: string; error: string }[] }>> {
+  if (!LEGACY_CATALOG_EXTERNAL_PUBLICATION_ENABLED) {
+    return { ok: false, error: `eBay listing publication is blocked. ${LEGACY_CATALOG_EXTERNAL_PUBLICATION_REASON}` };
+  }
   const pushed: string[] = [];
   const errors: { sku: string; error: string }[] = [];
 

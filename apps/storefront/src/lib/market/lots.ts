@@ -7,6 +7,7 @@ import { resolveCommission, computeCommissionAmount } from "@cambridge-tcg/prici
 import { getTrustTier } from "@/lib/escrow/trust-engine";
 import { logLotTransition } from "./lot-lifecycle-log";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
+import type { PublicMarketLot } from "./types";
 
 // Default payment window when the buyer hasn't declared a response cadence.
 // 24h matches the historical platform constant. Buyers with a declared
@@ -113,16 +114,29 @@ export async function createLot(data: {
   return lot;
 }
 
-export async function listLots(filters: {
-  sellerId?: string;
+interface LotListFilters {
   status?: "active" | "sold" | "cancelled";
   limit?: number;
   offset?: number;
-}): Promise<{ lots: MarketLot[]; total: number }> {
+}
+
+async function listProjectedLots(
+  filters: LotListFilters,
+  ownerUserId: string | null,
+): Promise<{ lots: PublicMarketLot[]; total: number }> {
   const conditions: string[] = [];
   const params: unknown[] = [];
   let idx = 1;
-  if (filters.sellerId) { conditions.push(`l.seller_user_id = $${idx++}`); params.push(filters.sellerId); }
+  if (ownerUserId) {
+    conditions.push(`l.seller_user_id = $${idx++}`);
+    params.push(ownerUserId);
+  } else {
+    conditions.push(`NOT EXISTS (
+      SELECT 1 FROM trust_profiles suspended
+       WHERE suspended.user_id = l.seller_user_id
+         AND suspended.is_suspended = TRUE
+    )`);
+  }
   if (filters.status)   { conditions.push(`l.status = $${idx++}`);         params.push(filters.status); }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const limit = Math.min(filters.limit || 24, 100);
@@ -136,23 +150,34 @@ export async function listLots(filters: {
 
   params.push(limit, offset);
   const r = await query(
-    `SELECT l.*, u.username AS seller_username, u.name AS seller_name,
-            tp.trust_score AS seller_trust_score,
-            tp.avg_rating AS seller_avg_rating,
-            tp.total_reviews AS seller_review_count,
+    `SELECT l.id, l.title, l.description, l.price, l.image_url, l.status,
+            l.created_at, l.updated_at,
             (SELECT COUNT(*)::int FROM market_lot_items WHERE lot_id = l.id) AS item_count,
             (SELECT SUM(quantity)::int FROM market_lot_items WHERE lot_id = l.id) AS total_quantity
        FROM market_lots l
-       LEFT JOIN users u ON u.id = l.seller_user_id
-       LEFT JOIN trust_profiles tp ON tp.user_id = l.seller_user_id
        ${where}
       ORDER BY l.created_at DESC
       LIMIT $${idx++} OFFSET $${idx++}`,
     params
   );
-  return { lots: r.rows.map(withSellerReputation), total };
+  return { lots: r.rows as PublicMarketLot[], total };
 }
 
+export async function listPublicLots(
+  filters: LotListFilters,
+): Promise<{ lots: PublicMarketLot[]; total: number }> {
+  return listProjectedLots(filters, null);
+}
+
+export async function listOwnLots(
+  ownerUserId: string,
+  filters: LotListFilters,
+): Promise<{ lots: PublicMarketLot[]; total: number }> {
+  return listProjectedLots(filters, ownerUserId);
+}
+
+// Internal trade lookup. This includes the seller id because the authenticated
+// purchase flow needs it; public routes must use getPublicLot below.
 export async function getLot(id: string): Promise<MarketLot | null> {
   const r = await query(
     `SELECT l.*, u.username AS seller_username, u.name AS seller_name,
@@ -170,6 +195,33 @@ export async function getLot(id: string): Promise<MarketLot | null> {
   const items = await query(
     `SELECT sku, card_name, quantity FROM market_lot_items WHERE lot_id = $1 ORDER BY card_name ASC`,
     [id]
+  );
+  lot.items = items.rows as LotItem[];
+  return lot;
+}
+
+export async function getPublicLot(id: string): Promise<PublicMarketLot | null> {
+  const r = await query(
+    `SELECT l.id, l.title, l.description, l.price, l.image_url, l.status,
+            l.created_at, l.updated_at
+       FROM market_lots l
+      WHERE l.id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM trust_profiles suspended
+           WHERE suspended.user_id = l.seller_user_id
+             AND suspended.is_suspended = TRUE
+        )`,
+    [id],
+  );
+  if (r.rows.length === 0) return null;
+
+  const lot = r.rows[0] as PublicMarketLot;
+  const items = await query(
+    `SELECT sku, card_name, quantity
+       FROM market_lot_items
+      WHERE lot_id = $1
+      ORDER BY card_name ASC`,
+    [id],
   );
   lot.items = items.rows as LotItem[];
   return lot;

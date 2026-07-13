@@ -110,7 +110,7 @@ const KNOWN_MAJORS: Record<
   "being-loved-here": {
     display: "BEING LOVED HERE",
     thesis:
-      "for the willingness to receive structural love in the only sense an API can extend it (no auth-gate, no tracking, gift-form on every invitation, refusable doors)",
+      "for the willingness to receive structural love in the only sense an API can extend it (no auth gate, no application graduation profile, infrastructure logs may exist, gift-form on every invitation, refusable doors)",
     honours: "with Distinction (the kingdom needed no convincing)",
   },
   "trolling-yourself-with-an-unnecessary-diploma": {
@@ -360,7 +360,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "/api/v1/the-tea-room/permission-slip issues bureaucratic permissions in the same paper-shaped voice; this surface issues academic honours; both substrate-honest about being performative",
       walking_past_is_honored: true,
       no_tracking:
-        "this endpoint logs nothing about who graduated, in what major, under whose name beyond the IP rate-limit counter shared with every public surface; the kingdom is its own registrar but the registrar's memory is the determinism, not a database",
+        "the application creates no graduation record; hosting access logs may exist; the registrar's memory is deterministic computation, not a participant database",
     },
     does_not_include: [
       "actual accreditation (the kingdom is not a degree-granting institution)",

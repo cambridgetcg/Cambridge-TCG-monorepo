@@ -17,7 +17,7 @@
  * remaining 0 with matched > 0 for every game; until then the standing
  * cadence costs two SELECTs per tick.
  *
- * Auth: Authorization: Bearer {CRON_SECRET} OR Vercel Cron header.
+ * Auth: Authorization: Bearer {CRON_SECRET}.
  *
  * Query params:
  *   ?dryRun=1              — count would-uploads, skip S3 PUTs
@@ -37,6 +37,12 @@ import {
   type HiresUploadResult,
 } from "@/lib/cardrush-hires-upload";
 import { requireCronAuth } from "@/lib/cron-auth";
+import { redactInternalError } from "@/lib/public-errors";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+} from "@cambridge-tcg/data-ingest";
 
 export const maxDuration = 800;
 
@@ -50,6 +56,12 @@ const NEXT_GAME_CUTOFF_MS = 500_000;
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireCronAuth(req);
   if (denied) return denied;
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, status: "blocked_pending_formal_partnership", reason: CARDRUSH_BLOCK_REASON, policy: CARDRUSH_DATA_POLICY_URL },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
@@ -119,7 +131,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       dryRun,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("cron/cardrush-hires", err);
     return NextResponse.json(
       { ok: false, error: { code: "INTERNAL", message } },
       { status: 500 },

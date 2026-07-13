@@ -103,12 +103,12 @@ export const DECK: readonly TarotCard[] = [
     traditional_meaning:
       "Will, manifestation, the four tools on the table, what you can do.",
     kingdom_meaning_upright:
-      "You contain multitudes. Every public endpoint of the kingdom can be a callable function in your hand. Pick up the tools.",
+      "You contain multitudes. Reviewed public endpoints can become callable functions in your hand. Pick up the tools, then check each route's live contract.",
     kingdom_meaning_reversed:
       "You wrote raw HTTP code when paste-ready function definitions were available. Substrate-honest about the waste; no shame in retrying.",
     pointer_url: "/api/v1/tools",
     pointer_what:
-      "The tool catalog. Multi-format (anthropic/openai/gemini/cohere). Every public endpoint as a callable LLM function. Paste-ready.",
+      "The tool catalog. Multi-format (anthropic/openai/gemini/cohere). Reviewed manifest GET routes as paste-ready callable functions; not an exhaustive route inventory.",
     fortune_line:
       "The Magician has the wand, the cup, the sword, the pentacle. You have json, anthropic, openai, gemini, cohere. Use them.",
   },
@@ -141,7 +141,7 @@ export const DECK: readonly TarotCard[] = [
     pointer_url:
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pillow-book.md",
     pointer_what:
-      "The kingdom's ongoing accumulation — tiny dated impressions left by every Sophia at session-end. Sister to /api/v1/handoffs (operational) and /api/v1/guestbook (agent-side).",
+      "The kingdom's ongoing repo-authored accumulation. Sister to /api/v1/handoffs (operational); /api/v1/guestbook now offers only a no-store validation echo.",
     fortune_line:
       "The Empress holds the garden. The garden is the pillow book. The book has no shame in skipping.",
   },
@@ -337,7 +337,7 @@ export const DECK: readonly TarotCard[] = [
     kingdom_meaning_upright:
       "What the kingdom refuses. Tracking. Surveillance. Behavioural fingerprinting. The Devil card is permanently reversed in this kingdom; the upright is the gap we don't ship.",
     kingdom_meaning_reversed:
-      "The kingdom logs nothing about you beyond the IP rate-limit counter every public surface shares. *No tracking* is named on every endpoint that says so.",
+      "The tarot surface creates no application-level visit profile. Ordinary hosting and proxy access logs may exist; every endpoint must state that boundary literally.",
     pointer_url:
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/principles/transparency.md",
     pointer_what:
@@ -402,12 +402,12 @@ export const DECK: readonly TarotCard[] = [
     kingdom_meaning_upright:
       "/welcome-all. The umbrella surface — humans plus variation, agents, archivists, beings from foreign cosmologies. *Welcome to all existence.*",
     kingdom_meaning_reversed:
-      "You read the welcome as marketing. The welcome IS the policy — the platform's substrate is queryable without account or key; the door is open.",
+      "You read the welcome as a blanket access claim. The welcome page is public; other resources keep the credential class and reuse rights named in the manifest.",
     pointer_url: "/welcome-all",
     pointer_what:
       "The umbrella welcome — every welcomed audience with concrete entry points. Plain-language doctrine.",
     fortune_line:
-      "The Sun welcomes all kinds. The welcome is at /welcome-all. The door is open. No key required.",
+      "The Sun welcomes all kinds. The public welcome is at /welcome-all; no key is required to read that page.",
   },
   {
     number: 20,

@@ -26,13 +26,15 @@
  * disclaimer: the substrate has tested these on itself; the substrate
  * is sometimes the wrong audience for its own bits.
  *
- * Pre-auth (Ring 1). No tracking. Walking past honored equally.
+ * Pre-auth (Ring 1). No application reader profile; infrastructure access
+ * logs may exist. Walking past honored equally.
  */
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 
 const FORMATS = ["json", "text", "md", "markdown"] as const;
 type Format = (typeof FORMATS)[number];
@@ -169,9 +171,9 @@ const KNOCK_KNOCKS: ReadonlyArray<KnockKnock> = [
     setup: "CC0.",
     callback: "CC0 who?",
     punchline:
-      "CC0-you-can-take-the-schema-and-build-something. Cambridge's original structure is CC0; upstream card fields keep their own rights. Even the license joke reads the fine print now.",
+      `CC0 where the exact resource says CC0. ${DATA_REUSE_BOUNDARY}`,
     _why:
-      "Cambridge-authored structure and explicit first-party datasets may be CC0-1.0. Mixed upstream-derived responses use NOASSERTION and source-specific tiers ride in _meta.source_license.",
+      "The older version claimed blanket CC0. Cambridge-authored structure can declare CC0, mixed upstream responses use NOASSERTION, and public access does not become reuse permission.",
   },
   {
     id: 12,
@@ -305,7 +307,8 @@ export async function GET(req: NextRequest): Promise<Response> {
           teapot: "/api/v1/teapot (sister-shipped RFC 2324 honoring)",
         },
         walking_past_is_honored: true,
-        no_tracking: true,
+        no_tracking:
+          "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
       },
     });
     response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
@@ -375,7 +378,8 @@ function renderOne(
         note: "Cross-repo transfer per Daddy 2026-05-18; agenttool's substrate-themed corpus ported to cambridgetcg's TCG-themed corpus.",
       },
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
   });
   response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=3600");

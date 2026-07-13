@@ -67,9 +67,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       const weights: Record<string, number> = {};
       for (const p of pool) weights[String(p.id)] = parseFloat(p.probability) / totalProb;
 
-      // Commit BEFORE any roll — the seed lands in verifiable_draws with
-      // committed_at=NOW(). The subsequent rollSlot calls are deterministic
-      // from that seed so a verifier can replay them later.
+      // Store the seed and commitment before this code path rolls. The later
+      // receipt is reproducible, but all entropy is server-chosen and the
+      // commitment is not externally published before selection.
       const draw = await commitDraw({
         kind: "pack_open",
         userId,

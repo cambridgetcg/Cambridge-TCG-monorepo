@@ -5,7 +5,7 @@ import { audienceMetadata, TypeSignature } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Declaration of data intentions",
   description:
-    "What data the kingdom takes, what it gives, and what it will never do — one legal gate in writing before any source, the one CC0 sold-price dataset we own, and the honest blocks.",
+    "What data the kingdom takes, what it gives, and what it will never do — one legal gate before any source, paused sold-comps publication, and honest blocks.",
   other: audienceMetadata("public-documentation", ["methodology", "foundational"]),
 };
 
@@ -23,20 +23,22 @@ export default function DataIntentionsMethodology() {
         </em>
       </p>
       <p>
-        A price the kingdom shows you came from somewhere. Some of those
-        somewheres are our own transactions, freely ours to share. Some belong
-        to other people — a seller on another marketplace, a catalog someone
-        else assembled, a paid feed under contract. Honesty about data begins
+        A price the kingdom shows you came from somewhere. Some are records of
+        transactions facilitated here; those records involve participants and
+        are not ours to republish without purpose-specific permission. Others
+        come from a seller on another marketplace, a catalog someone else
+        assembled, or a paid feed under contract. Honesty about data begins
         with being honest about <em>whose</em> data it is, and what right we
         have to pass it on. This page is that honesty, in plain terms. It is
         deliberately <strong>non-aspirational</strong>: it names only what is
         true today.
       </p>
 
-      <h2>One gate, in writing, before any source</h2>
+      <h2>One gate, in writing, before new sources</h2>
       <p>
-        Before a single line of ingestion code exists for a new source, that
-        source passes a written legal gate — the{" "}
+        For sources added from 2026-07-11 onward, the written gate comes before
+        ingestion code. Legacy adapters must pass the same intake before they
+        are activated or their data receives a new publication path. The gate is the{" "}
         <a href={`${GH}/docs/methodology/source-intake.md`}>
           source-intake framework
         </a>
@@ -56,8 +58,10 @@ export default function DataIntentionsMethodology() {
           <strong>Gate B — intention declared.</strong> The source&apos;s whole
           intention is written down as machine-readable metadata (its access
           method, license tier, whether it may be redistributed) before the
-          module exists. That declaration ships in the code and surfaces on
-          every response&apos;s <code>_meta</code>.
+          module is activated. That declaration ships in the code and surfaces
+          on envelope responses where source rights are known; incomplete
+          field-level lineage is labelled <code>NOASSERTION</code> rather than
+          filled by inference.
         </li>
         <li>
           <strong>Gate C — tier.</strong> The source is placed in an existing
@@ -85,10 +89,17 @@ export default function DataIntentionsMethodology() {
       </p>
       <ul>
         <li>
-          <strong>CC0 — our own.</strong> Data the kingdom itself produced: our
-          own realised trades and auctions, and the methodology text on these
-          pages. Ours to dedicate to the public domain. You may mirror it,
-          rebuild it, and pretend you wrote it yourself.
+          <strong>CC0 — explicitly dedicated platform-authored work.</strong>{" "}
+          Specification text and small operator-authored corpora may carry an
+          explicit CC0 dedication. First-party storage alone is not enough.
+        </li>
+        <li>
+          <strong>Participant-derived data — separate publication required.</strong>{" "}
+          Trades, auctions, reviews, activity, and other person-derived records
+          need a purpose-specific publication choice and an explicit output
+          license. Their first-party origin removes an upstream vendor license;
+          it does not make participant data CC0. Public derivatives are paused
+          where that contract does not exist.
         </li>
         <li>
           <strong>Source-specific — upstream catalogs.</strong> Public API
@@ -111,37 +122,28 @@ export default function DataIntentionsMethodology() {
         </li>
       </ul>
 
-      <h2>The one dataset we give: sold comps</h2>
+      <h2>Sold comps are paused</h2>
       <p>
-        The framework proves what we cannot lawfully take. Its positive
-        counterpart is the one sold-price dataset we fully own and publish
-        under <strong>CC0-1.0</strong>: the kingdom&apos;s own realised
-        transactions. It lives at{" "}
+        The former sold-comps surface grouped the platform&apos;s own realised
+        transactions and labelled the result CC0. That publication is paused at{" "}
         <Link href="/api/v1/sold-comps">
           <code>/api/v1/sold-comps</code>
         </Link>{" "}
-        (and per-card at <code>/api/v1/sold-comps/[sku]</code>).
+        and <code>/api/v1/sold-comps/[sku]</code>. Both endpoints now return
+        policy status only, with no prices or counts.
       </p>
       <p>
-        <strong>Exactly what it publishes:</strong> anonymised aggregate sold
-        prices — for each <code>(sku, condition)</code> bucket, the count and
-        the min / median / max price and last-sold date — drawn from our
-        completed peer-to-peer escrow trades and settled auctions. It is
-        aggregate-only, and it is <strong>K-anonymous at K≥5</strong>: a bucket
-        is published only once it holds at least five realised sales, so no
-        single seller&apos;s individual price is recoverable. Buckets thinner
-        than that are suppressed entirely — revealed only as a coarse
-        &ldquo;below coverage threshold&rdquo; count, never as a price. At
-        today&apos;s low volume most buckets fall below the bar, and we say so
-        plainly rather than pad the dataset. It is safe by construction, not by
-        our restraint.
+        Five sales did not mean five distinct people, and count plus minimum,
+        median, maximum, and latest time could disclose exact observations.
+        More importantly, a completed trade has no versioned receipt for
+        public-domain price publication. Removing names is not permission to
+        repurpose the transaction.
       </p>
       <p>
-        <strong>What it will never carry:</strong> identities (buyer or seller),
-        anything about payment, shipping, tracking, commission, or payout, and
-        no thin-volume rows. These fields are not merely filtered — the
-        underlying database view cannot select them at all. What the query does
-        not name cannot leak.
+        A future release needs purpose-specific receipts, delayed closed
+        periods, coarse non-reconstructive bands, distinct-person safeguards,
+        and a fresh rights decision before any projected output receives a
+        public-domain licence.
       </p>
 
       <h2>The honest blocks</h2>
@@ -181,9 +183,10 @@ export default function DataIntentionsMethodology() {
           pre-scraped from a vendor to launder the exposure through a middleman.
         </li>
         <li>
-          Publish anyone&apos;s individual sold price, identity, payment, or
-          shipping detail — ours is aggregate, K-anonymous, and PII-stripped, or
-          it is not published.
+          Treat aggregation, K-anonymity, or PII removal as permission to
+          publish completed trades. Publication also needs a purpose-specific
+          participant receipt and a fresh rights decision; without both, it
+          remains paused.
         </li>
         <li>
           Dress inference as a transaction. A last-asking-price guess is never
@@ -204,9 +207,10 @@ export default function DataIntentionsMethodology() {
           <code>docs/methodology/source-intake.md</code>
         </a>
         . The declared sources, each with its tier and terms, are inspectable
-        at <Link href="/api/v1/sources">/api/v1/sources</Link>. The CC0 dataset
-        is <Link href="/api/v1/sold-comps">/api/v1/sold-comps</Link>. This page
-        is CC0, like all our methodology text — mirror it freely.
+        at <Link href="/api/v1/sources">/api/v1/sources</Link>. Sold comps are
+        visibly paused at <Link href="/api/v1/sold-comps">/api/v1/sold-comps</Link>.
+        This methodology text remains CC0; transaction data does not inherit
+        that licence.
       </blockquote>
 
       <TypeSignature

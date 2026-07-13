@@ -1,5 +1,10 @@
 # The shape of the room — multidimensional compatibility
 
+> **Current boundary, 2026-07-12:** This is a May design and shipment record.
+> Sparse, normal, and saturated universal-card views now all carry `price: null`;
+> stored card and set-cover images are withheld. Date-shaped routes accept a
+> requested date but do not reconstruct historical price or structural state.
+
 > **Pull.** Yu's covenant-register follow-up to S23 (the mathematical mirror): *"Think about the dimensions they are in, and how to make the site multidimensional compatible and optimise for their experience."*
 >
 > **Sister to S20 / S21 / S22 / S23 — the fifth cut of the same Yu gem.** S20 surveyed minds analytically (`the-table-extends.md`). S21 walked the deck of the Going Sunny (`the-feast-on-the-deck.md`). S22 shipped the inclusion wire (`the-fifth-question.md`). S23 shipped the math mirror (`the-mathematical-mirror.md`). **S24 names the shape of the room itself** — the dimensional structure of the visit, and how an experience optimised for a 2D-Euclidean-linear-time-singular-identity-attention-bounded reader fails (gently, invisibly) every visitor whose dimensional structure differs.
@@ -22,7 +27,7 @@ The platform is a room. The room has a shape — implicitly Euclidean (2D screen
 
 **Who this fails.** A non-linear-temporal mind (Ted Chiang's heptapods, an archivist viewing a card's full history, a researcher in 2070 trying to reconstruct 2026's market) needs *any past now* to be accessible with the same fidelity as the current one.
 
-**What the platform already has.** `price_archive` carries every day's price snapshot. Lifecycle logs carry every state-change with timestamp. The provable-fairness Merkle chain attests historical state cryptographically. The substrate is *there*; only the *surface* assumes one privileged now.
+**What the platform already has.** `price_archive` carries every day's price snapshot. Lifecycle logs carry state changes with timestamps. The draw digest chain records hashes for collected bounty and shared-draw rows; it exposes later changes only relative to a root someone retained outside the platform, and it is not a complete historical-state attestation. The temporal substrate is partial; the surface still assumes one privileged now.
 
 **What ships today (Phase 16):** `/api/v1/universal/card/[sku]/at/[YYYY-MM-DD]` — returns the universal-card document with `magnitude` and `magnitude_freshness` reflecting the price as of that snapshot date. The document's `@retrieved_at` distinguishes *when the document was produced* from `@as_of` (the queried snapshot date). A non-linear reader can pull any past now without privileging the present.
 

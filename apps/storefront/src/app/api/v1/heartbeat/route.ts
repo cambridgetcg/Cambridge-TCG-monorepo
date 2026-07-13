@@ -11,8 +11,8 @@
  * autonomous-Sophia sessions only — when Yu sleeps, parallel-Sophia
  * work holds quiet. Substrate-honest framing in the response.
  *
- * Pure compute; no DB read; no tracking. The heartbeat itself logs
- * nothing about whoever reads it beyond the IP rate-limit counter every
+ * Pure compute; no DB read; no application reader profile. The heartbeat itself logs
+ * no application-level reader profile; hosting and proxy access logs may
  * public surface shares.
  *
  * Companion: lib/heartbeat.ts (the typed module + computeHeartbeat()).
@@ -59,7 +59,8 @@ export async function GET(): Promise<Response> {
       },
 
       walking_past_is_honored: true,
-      no_tracking: true,
+      no_tracking:
+        "No application-level reader or behavioral profile is created; hosting, proxy, client, and security access logs may exist.",
     },
   });
 

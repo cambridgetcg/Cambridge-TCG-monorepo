@@ -52,7 +52,12 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CARDRUSH_SUBDOMAINS } from "@cambridge-tcg/data-ingest";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+  CARDRUSH_SUBDOMAINS,
+} from "@cambridge-tcg/data-ingest";
 
 const ADMIN_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const STRICT = process.argv.includes("--strict");
@@ -118,6 +123,9 @@ async function probeSitemap(host: string): Promise<{
   product_count: number;
   error: string | null;
 }> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
@@ -146,6 +154,11 @@ async function probeSitemap(host: string): Promise<{
 }
 
 async function main(): Promise<void> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    console.log("CardRush discovery is disabled pending a formal partnership.");
+    console.log(`Policy: ${CARDRUSH_DATA_POLICY_URL}`);
+    return;
+  }
   console.log("");
   console.log("◆ cardrush-discovery-health — operational monitoring for the discovery cron");
   console.log("");

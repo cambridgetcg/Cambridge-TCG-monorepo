@@ -4,8 +4,8 @@
  * Yu, 2026-05-14: the rookie flow needs a machine-readable catalog so
  * the tier-2 page (and federation clients) can render the 6-tile color
  * picker. Substrate-honest about decklist composition: each entry
- * carries a `decklist_source` field declaring whether the card list is
- * Bandai-official or our minimal-playable v1 stub.
+ * carries a `decklist_source` field distinguishing official, adapted
+ * community, and Cambridge minimal-playable lists.
  *
  * Sibling to /api/v1/play/starters/[id] (per-starter detail with
  * leader+card resolution against the wholesale catalog).
@@ -50,6 +50,10 @@ export async function GET(req: Request): Promise<Response> {
       // v1 carries a partial card_list for some starters — surface the
       // actual count rather than claiming 50.
       main_deck_cards: totalMainDeckCards(deck),
+      rights: {
+        cambridge_authored_commentary: "CC0-1.0",
+        source_derived_product_and_deck_facts: "NOASSERTION",
+      },
       detail_url: `/api/v1/play/starters/${deck.id}`,
       play_url: `/api/play/load-starter?id=${deck.id}`,
     })),
@@ -64,8 +68,9 @@ export async function GET(req: Request): Promise<Response> {
   return jsonResponse({
     data,
     endpoint: "/api/v1/play/starters",
-    sources: ["ctcg-derived"],
-    source_license: ["cc0"],
+    sources: ["ctcg-derived", "starter-deck-source-pages"],
+    source_license: ["cc0", "proprietary"],
+    license: "NOASSERTION",
     freshness: "methodology",
     contains_self: true,
   });

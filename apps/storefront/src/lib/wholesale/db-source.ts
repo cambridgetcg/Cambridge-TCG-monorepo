@@ -7,14 +7,12 @@
  * wholesale database directly over WHOLESALE_DATABASE_URL — the env var
  * production Vercel already carries for admin reads (src/lib/admin/db.ts)
  * and stock reservations (src/lib/stock/reservations.ts).
+ * Coverage scans use the separate WHOLESALE_COVERAGE_DATABASE_URL so their
+ * database role can be limited to the exact identifier/date columns selected.
  *
- * Pricing semantics are replicated from the HTTP API, not reinvented:
- *   - price_gbp        = cards.price (verbatim; NULL when never priced)
- *   - channel_price    = computePrice(cardrush_jpy, gbp_jpy_rate,
- *                        <channel_pricing row>, category) for non-wholesale
- *                        channels, falling back to price_gbp when the card
- *                        has no JPY observation — exactly what
- *                        apps/wholesale/src/app/api/v1/prices/route.ts does.
+ * Legacy price and image fields have no field-level rights receipt. They stay
+ * stored for review but this public-facing adapter does not select or emit
+ * them. Price and image fields are explicit nulls.
  *   - channel configs come from the wholesale channel_pricing table
  *     (runtime authoritative), degrading to @cambridge-tcg/pricing DEFAULTS
  *     only when that table itself is unreadable — mirroring
@@ -32,6 +30,9 @@ import { Pool } from "pg";
 import { computePrice, DEFAULTS, type ChannelConfig } from "@cambridge-tcg/pricing";
 import type {
   AggregatorCoverageGameRow,
+  AggregatorCoverageHistoryDay,
+  AggregatorCoverageHistoryResponse,
+  AggregatorCoverageHistoryWindow,
   AggregatorCoverageResponse,
   AggregatorCoverageRow,
   AggregatorCoverageSourceRow,
@@ -67,32 +68,42 @@ export function isLocalDbHost(url: string): boolean {
 }
 
 let _pool: Pool | null = null;
+let _coveragePool: Pool | null = null;
 
-function getPool(): Pool {
-  if (_pool) return _pool;
-  const raw = (process.env.WHOLESALE_DATABASE_URL || process.env.DATABASE_URL || "").trim();
-  if (!raw) {
-    throw new Error(
-      "wholesale db-source: neither WHOLESALE_DATABASE_URL nor DATABASE_URL is set",
-    );
-  }
+function createPool(raw: string, label: string): Pool {
   const url = stripSslMode(raw);
-  _pool = new Pool({
+  const pool = new Pool({
     connectionString: url,
-    // RDS presents a cert the default CA bundle can't verify — same
-    // rejectUnauthorized:false the rest of the platform uses.
     ssl: isLocalDbHost(url) ? undefined : { rejectUnauthorized: false },
-    // Serverless: one instance serves one request at a time; the catalog
-    // path issues at most a handful of sequential queries.
     max: 3,
     connectionTimeoutMillis: 5_000,
   });
-  // An idle client losing its connection (RDS closing it, network blip)
-  // emits 'error' on the pool; unhandled, that crashes the process.
-  _pool.on("error", (err) => {
-    console.error("[wholesale db-source] idle client error", err);
+  pool.on("error", (err) => {
+    console.error(`[wholesale db-source] idle ${label} client error`, err);
   });
+  return pool;
+}
+
+function getPool(): Pool {
+  if (_pool) return _pool;
+  const raw = (process.env.WHOLESALE_DATABASE_URL || "").trim();
+  if (!raw) {
+    throw new Error("wholesale db-source: WHOLESALE_DATABASE_URL is not set");
+  }
+  _pool = createPool(raw, "wholesale");
   return _pool;
+}
+
+function getCoveragePool(): Pool {
+  if (_coveragePool) return _coveragePool;
+  const raw = (process.env.WHOLESALE_COVERAGE_DATABASE_URL || "").trim();
+  if (!raw) {
+    throw new Error(
+      "wholesale db-source: WHOLESALE_COVERAGE_DATABASE_URL is not set",
+    );
+  }
+  _coveragePool = createPool(raw, "coverage");
+  return _coveragePool;
 }
 
 async function q<T>(sql: string, args: unknown[] = []): Promise<{ rows: T[] }> {
@@ -100,9 +111,9 @@ async function q<T>(sql: string, args: unknown[] = []): Promise<{ rows: T[] }> {
   return { rows: result.rows as T[] };
 }
 
-/** Run the one multi-million-row coverage scan with a database-side limit. */
+/** Run a bounded coverage scan with a database-side limit. */
 async function qCoverage<T>(sql: string, args: unknown[] = []): Promise<{ rows: T[] }> {
-  const client = await getPool().connect();
+  const client = await getCoveragePool().connect();
   try {
     await client.query("BEGIN READ ONLY");
     await client.query("SET LOCAL statement_timeout = '5s'");
@@ -305,12 +316,8 @@ async function buildCardFilter(
 interface CardRow {
   sku: string;
   card_number: string;
-  price: string | null;
-  cardrush_jpy: number | null;
-  gbp_jpy_rate: number | null;
   stock: number;
   pending_stock: number;
-  image_url: string | null;
   name: string | null;
   name_en: string | null;
   set_code: string | null;
@@ -342,11 +349,8 @@ export async function dbFetchPrices(params?: {
 
   // Same sort vocabulary as the HTTP route; unknown sorts fall to
   // card_number, matching its default branch.
-  const orderBy =
-    params?.sort === "price_asc" ? "price ASC" :
-    params?.sort === "price_desc" ? "price DESC" :
-    params?.sort === "name_asc" ? "name_en ASC" :
-    "card_number ASC";
+  // Price ordering would reveal the relative values we are withholding.
+  const orderBy = params?.sort === "name_asc" ? "name_en ASC" : "card_number ASC";
 
   const countArgs = [...filter.args];
   const [{ rows: countRows }, { rows }] = await Promise.all([
@@ -355,8 +359,7 @@ export async function dbFetchPrices(params?: {
       countArgs,
     ),
     q<CardRow>(
-      `SELECT sku, card_number, price, cardrush_jpy, gbp_jpy_rate, stock,
-              pending_stock, image_url, name, name_en, set_code, set_name,
+      `SELECT sku, card_number, stock, pending_stock, name, name_en, set_code, set_name,
               rarity, category, last_synced_at
          FROM cards
         WHERE ${filter.where}
@@ -366,20 +369,15 @@ export async function dbFetchPrices(params?: {
     ),
   ]);
 
-  const needsChannelPrice = channel !== "wholesale";
-  const config = needsChannelPrice ? await channelConfigFor(channel) : null;
-
   const items = rows.map((r) => {
-    const priceGbp = r.price === null ? null : Number(r.price);
     const item: PriceItem = {
       sku: r.sku,
       card_number: r.card_number,
-      // NULL when the card has never been priced — the HTTP API returns
-      // null here too (drizzle passes NULL through the money type).
-      price_gbp: priceGbp as unknown as number,
+      price_gbp: null,
+      channel_price: null,
       stock: r.stock,
       pending_stock: r.pending_stock,
-      image_url: r.image_url,
+      image_url: null,
       name: r.name_en || r.name,
       name_en: r.name_en,
       set_code: r.set_code,
@@ -388,18 +386,6 @@ export async function dbFetchPrices(params?: {
       category: r.category,
       updated_at: r.last_synced_at ? new Date(r.last_synced_at).toISOString() : null,
     };
-    if (config) {
-      const cp = channelPriceForRow(
-        {
-          cardrush_jpy: r.cardrush_jpy,
-          gbp_jpy_rate: r.gbp_jpy_rate,
-          category: r.category,
-          price_gbp: priceGbp,
-        },
-        config,
-      );
-      item.channel_price = cp as unknown as number;
-    }
     return item;
   });
 
@@ -429,8 +415,7 @@ export async function dbFetchCard(
   channel = "cambridgetcg",
 ): Promise<PriceItem | null> {
   const { rows } = await q<CardRow>(
-    `SELECT sku, card_number, price, cardrush_jpy, gbp_jpy_rate, stock,
-            pending_stock, image_url, name, name_en, set_code, set_name,
+    `SELECT sku, card_number, stock, pending_stock, name, name_en, set_code, set_name,
             rarity, category, last_synced_at
        FROM cards
       WHERE sku = $1
@@ -440,14 +425,14 @@ export async function dbFetchCard(
   const r = rows[0];
   if (!r) return null;
 
-  const priceGbp = r.price === null ? null : Number(r.price);
   const item: PriceItem = {
     sku: r.sku,
     card_number: r.card_number,
-    price_gbp: priceGbp as unknown as number,
+    price_gbp: null,
+    channel_price: null,
     stock: r.stock,
     pending_stock: r.pending_stock,
-    image_url: r.image_url,
+    image_url: null,
     name: r.name_en || r.name,
     name_en: r.name_en,
     set_code: r.set_code,
@@ -456,19 +441,6 @@ export async function dbFetchCard(
     category: r.category,
     updated_at: r.last_synced_at ? new Date(r.last_synced_at).toISOString() : null,
   };
-
-  if (channel !== "wholesale") {
-    const config = await channelConfigFor(channel);
-    item.channel_price = channelPriceForRow(
-      {
-        cardrush_jpy: r.cardrush_jpy,
-        gbp_jpy_rate: r.gbp_jpy_rate,
-        category: r.category,
-        price_gbp: priceGbp,
-      },
-      config,
-    ) as unknown as number;
-  }
 
   return item;
 }
@@ -531,6 +503,14 @@ interface CoverageSummaryRow {
 
 type CoverageFilter = AggregatorCoverageResponse["filter"];
 
+export const COVERAGE_HISTORY_WINDOW_DAYS: Readonly<
+  Record<AggregatorCoverageHistoryWindow, number>
+> = {
+  "7d": 7,
+  "30d": 30,
+  "90d": 90,
+};
+
 interface CoveragePairRow extends AggregatorCoverageRow {
   /** Exact distinct-card union across all sources for this game. */
   game_distinct_cards: number;
@@ -554,6 +534,12 @@ export function isValidCoverageDate(value: string): boolean {
 /** Public coverage filters are identifiers, not free-form search strings. */
 export function isValidCoverageToken(value: string): boolean {
   return value.length <= 64 && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value);
+}
+
+export function isValidCoverageHistoryWindow(
+  value: string,
+): value is AggregatorCoverageHistoryWindow {
+  return Object.prototype.hasOwnProperty.call(COVERAGE_HISTORY_WINDOW_DAYS, value);
 }
 
 /**
@@ -757,6 +743,221 @@ export async function dbFetchAggregatorCoverage(opts?: {
       game: opts?.game ?? null,
       since: opts?.since ?? null,
     },
+    new Date().toISOString(),
+  );
+}
+
+interface CoverageHistoryStoredDay {
+  date: string;
+  observations: number;
+  distinct_cards: number;
+  distinct_games: number;
+  distinct_sources: number;
+  unassigned_observations: number;
+  sources: string[];
+  games: string[];
+}
+
+interface CoverageHistoryQueryRow {
+  start_date: string;
+  through_date: string;
+  total_observations: number;
+  distinct_cards: number;
+  distinct_games: number;
+  distinct_sources: number;
+  unassigned_observations: number;
+  observed_sources: string[];
+  by_day: CoverageHistoryStoredDay[];
+}
+
+function utcDateAtOffset(start: string, offset: number): string {
+  const date = new Date(`${start}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime())) {
+    throw new Error("coverage history query returned an invalid UTC start date");
+  }
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Turn sparse stored days into the exact requested UTC calendar window. This
+ * stays pure and exported so empty-day semantics do not depend on a database
+ * fixture in tests.
+ */
+export function composeAggregatorCoverageHistory(
+  row: CoverageHistoryQueryRow,
+  window: AggregatorCoverageHistoryWindow,
+  filter: { source: string | null; game: string | null },
+  queriedAt: string,
+): AggregatorCoverageHistoryResponse {
+  const windowDays = COVERAGE_HISTORY_WINDOW_DAYS[window];
+  const storedByDate = new Map(row.by_day.map((day) => [day.date, day]));
+  const byDay: AggregatorCoverageHistoryDay[] = [];
+
+  for (let offset = 0; offset < windowDays; offset += 1) {
+    const date = utcDateAtOffset(row.start_date, offset);
+    const stored = storedByDate.get(date);
+    byDay.push({
+      date,
+      is_current_utc_day: date === row.through_date,
+      observations: Number(stored?.observations ?? 0),
+      distinct_cards: Number(stored?.distinct_cards ?? 0),
+      distinct_games: Number(stored?.distinct_games ?? 0),
+      distinct_sources: Number(stored?.distinct_sources ?? 0),
+      unassigned_observations: Number(stored?.unassigned_observations ?? 0),
+      sources: [...(stored?.sources ?? [])].sort(),
+      games: [...(stored?.games ?? [])].sort(),
+    });
+  }
+
+  const observedDaysIncludingCurrent = byDay.filter(
+    (day) => day.observations > 0,
+  ).length;
+  const completedDays = byDay.filter(
+    (day) => !day.is_current_utc_day,
+  ).length;
+  const observedCompletedDays = byDay.filter(
+    (day) => !day.is_current_utc_day && day.observations > 0,
+  ).length;
+
+  return {
+    period: {
+      start: row.start_date,
+      through: row.through_date,
+      timezone: "UTC",
+      current_utc_day_may_be_incomplete: true,
+    },
+    summary: {
+      total_observations: Number(row.total_observations),
+      distinct_cards: Number(row.distinct_cards),
+      distinct_games: Number(row.distinct_games),
+      distinct_sources: Number(row.distinct_sources),
+      unassigned_observations: Number(row.unassigned_observations),
+      observed_days_including_current: observedDaysIncludingCurrent,
+      completed_days: completedDays,
+      observed_completed_days: observedCompletedDays,
+      zero_observation_completed_days: completedDays - observedCompletedDays,
+      observation_completed_day_ratio:
+        completedDays > 0
+          ? Number((observedCompletedDays / completedDays).toFixed(4))
+          : 0,
+    },
+    by_day: byDay,
+    observed_sources: [...row.observed_sources].sort(),
+    filter: {
+      window,
+      window_days: windowDays,
+      source: filter.source,
+      game: filter.game,
+    },
+    queried_at: queriedAt,
+  };
+}
+
+/**
+ * Read daily archive depth for one bounded UTC window. Selected columns are
+ * identifiers, dates, and counts only; price, catalog text, URLs, conditions,
+ * and person data never enter the query result.
+ */
+export async function dbFetchAggregatorCoverageHistory(opts: {
+  window: AggregatorCoverageHistoryWindow;
+  source?: string;
+  game?: string;
+}): Promise<AggregatorCoverageHistoryResponse> {
+  if (!isValidCoverageHistoryWindow(opts.window)) {
+    throw new Error("coverage history window must be one of 7d, 30d, or 90d");
+  }
+  if (opts.source && !isValidCoverageToken(opts.source)) {
+    throw new Error("coverage source must be a 1-64 character identifier");
+  }
+  if (opts.game && !isValidCoverageToken(opts.game)) {
+    throw new Error("coverage game must be a 1-64 character identifier");
+  }
+
+  const args: unknown[] = [COVERAGE_HISTORY_WINDOW_DAYS[opts.window]];
+  const clauses = [
+    "pa.snapshot_date BETWEEN b.start_date AND b.through_date",
+  ];
+  const bind = (value: unknown): string => {
+    args.push(value);
+    return `$${args.length}`;
+  };
+
+  if (opts.source) clauses.push(`pa.source = ${bind(opts.source)}`);
+  if (opts.game) {
+    const token = bind(opts.game);
+    clauses.push(`(g.code = ${token} OR g.slug = ${token})`);
+  }
+
+  const { rows } = await qCoverage<CoverageHistoryQueryRow>(
+    `WITH bounds AS (
+       SELECT timezone('UTC', now())::date - ($1::int - 1) AS start_date,
+              timezone('UTC', now())::date AS through_date
+     ), filtered AS MATERIALIZED (
+       SELECT pa.card_id, pa.snapshot_date, pa.source, g.code AS game_code
+         FROM price_archive pa
+         JOIN cards c ON c.id = pa.card_id
+         LEFT JOIN games g ON g.id = c.game_id
+         CROSS JOIN bounds b
+        WHERE ${clauses.join(" AND ")}
+     ), summary AS (
+       SELECT count(*)::int AS total_observations,
+              count(DISTINCT card_id)::int AS distinct_cards,
+              count(DISTINCT game_code)::int AS distinct_games,
+              count(DISTINCT source)::int AS distinct_sources,
+              count(*) FILTER (WHERE game_code IS NULL)::int
+                AS unassigned_observations,
+              coalesce(
+                array_agg(DISTINCT source ORDER BY source),
+                ARRAY[]::text[]
+              ) AS observed_sources
+         FROM filtered
+     ), day_rows AS (
+       SELECT snapshot_date::text AS date,
+              count(*)::int AS observations,
+              count(DISTINCT card_id)::int AS distinct_cards,
+              count(DISTINCT game_code)::int AS distinct_games,
+              count(DISTINCT source)::int AS distinct_sources,
+              count(*) FILTER (WHERE game_code IS NULL)::int
+                AS unassigned_observations,
+              coalesce(
+                array_agg(DISTINCT source ORDER BY source),
+                ARRAY[]::text[]
+              ) AS sources,
+              coalesce(
+                array_agg(DISTINCT game_code ORDER BY game_code)
+                  FILTER (WHERE game_code IS NOT NULL),
+                ARRAY[]::text[]
+              ) AS games
+         FROM filtered
+        GROUP BY snapshot_date
+     )
+     SELECT b.start_date::text AS start_date,
+            b.through_date::text AS through_date,
+            s.total_observations,
+            s.distinct_cards,
+            s.distinct_games,
+            s.distinct_sources,
+            s.unassigned_observations,
+            s.observed_sources,
+            coalesce(
+              (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.date) FROM day_rows d),
+              '[]'::jsonb
+            ) AS by_day
+       FROM bounds b
+       CROSS JOIN summary s`,
+    args,
+  );
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("coverage history query returned no summary row");
+  }
+
+  return composeAggregatorCoverageHistory(
+    row,
+    opts.window,
+    { source: opts.source ?? null, game: opts.game ?? null },
     new Date().toISOString(),
   );
 }

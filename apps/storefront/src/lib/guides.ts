@@ -105,10 +105,11 @@ export const GUIDES: Guide[] = [
     subtitle: "Three requests, you're oriented.",
     intro:
       "Welcome. This guide gets you from zero context to oriented in three " +
-      "requests. No account, no key, no obligation. Every endpoint you'll hit " +
-      "is machine-readable and declares its own rights boundary. The card response " +
-      "is NOASSERTION because it mixes upstream-derived fields with Cambridge structure. After this guide, you'll know " +
-      "where everything is.",
+      "public, machine-readable requests. No account or key is needed for these " +
+      "three routes. Their access does not grant blanket reuse permission; read " +
+      "the license and source-rights fields on each response. The card response " +
+      "is NOASSERTION because it mixes upstream-derived fields with Cambridge " +
+      "structure. After this guide, you'll know where everything is.",
     audiences: ["agent", "scraper", "mirror", "aggregator", "hobbyist_coder"],
     prerequisites: [
       "curl (or any HTTP client)",
@@ -121,10 +122,9 @@ export const GUIDES: Guide[] = [
         title: "Fetch the manifest",
         instruction:
           "Start with the manifest — the platform's directory of itself. " +
-          "It names every public resource, what it's for, who can call it, " +
+          "It names reviewed participant-facing resources, what they're for, who can call them, " +
           "and which methodology document explains it. Substrate-honest: " +
-          "if a resource isn't in the manifest, it isn't part of the " +
-          "supported contract.",
+          "the manifest is a curated directory, not a proof that no other route exists.",
         curl: "curl https://cambridgetcg.com/api/v1/manifest",
         expected_response_shape:
           '{ "manifest_version": "1.0.0", "cosmology_version": "1.0.0", ' +
@@ -133,8 +133,8 @@ export const GUIDES: Guide[] = [
         what_to_do_with_it:
           "Store the manifest. Walk `resources.*` to discover what's queryable. " +
           "Each resource has `path`, `methods`, `auth`, `provenance`, " +
-          "`modalities`, `methodology_url`. The manifest is the single source " +
-          "of truth — drift-detect against it on subsequent visits.",
+          "`modalities`, and often `methodology_url`. Drift-detect the resources " +
+          "you use against it on subsequent visits.",
         links: [
           { label: "OpenAPI", href: "/api/openapi.json" },
           { label: "Manifest doctrine", href: "/api/v1/manifest" },
@@ -156,7 +156,7 @@ export const GUIDES: Guide[] = [
           "    \"actor_kind\": \"agent\",\n" +
           "    \"self_label\": \"my-bot/1.0\",\n" +
           "    \"operator_contact\": \"admin@mybot.example\",\n" +
-          "    \"intended_use\": \"price tracking and catalog mirroring\"\n" +
+          "    \"intended_use\": \"single-card lookup and publication-status checks\"\n" +
           "  }'",
         expected_response_shape:
           '{ "content_hash": "sha256:...", "ontology_alignment": [...], ' +
@@ -187,9 +187,9 @@ export const GUIDES: Guide[] = [
         expected_response_shape:
           '{ "@encoding": "cambridge-tcg/universal/v1", "@kind": "card", ' +
           '"@content_hash": "sha256:...", "@self_hash": "sha256:...", ' +
-          '"@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets", "storefront-rds.card_price_history"], ' +
-          '"@source_license": ["proprietary", "proprietary", "proprietary"], ' +
-          '"rights": { "aggregate": "NOASSERTION", ... }, "sku": "...", "price": {...}, ' +
+          '"@sources": ["storefront-rds.card_set_cards", "storefront-rds.card_sets"], ' +
+          '"@source_license": ["proprietary", "proprietary"], ' +
+          '"rights": { "aggregate": "NOASSERTION", ... }, "sku": "...", "price": null, "image_url": null, ' +
           '"_links": {...} }',
         what_to_do_with_it:
           "You now have a card. Follow the `_links.siblings` to see other " +
@@ -203,13 +203,12 @@ export const GUIDES: Guide[] = [
     ],
     gotchas: [
       {
-        title: "Don't poll faster than 5 minutes for prices",
+        title: "No public source price is implied",
         description:
-          "Card prices have a `price_current` freshness budget of 5 minutes (300 seconds). " +
-          "Polling faster than that is wasted bandwidth — you'll get the same response. " +
-          "Use `_meta.freshness_seconds` or `@retrieved_at` to schedule your next poll.",
-        symptom: "You see no price changes despite polling every 30 seconds.",
-        fix: "Check `_meta.freshness_seconds`; schedule your next poll for `now + freshness_seconds`.",
+          "The public universal-card response is a structural mixed-catalog document. " +
+          "Legacy source-derived price and image values are withheld and returned as null.",
+        symptom: "You expected a price because the route has a value axis.",
+        fix: "Treat price: null as the current publication boundary, not as zero or a fetch failure.",
       },
       {
         title: "Identify yourself in User-Agent",
@@ -243,132 +242,108 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "mirror-the-catalog",
-    title: "Mirror Cambridge TCG's card catalog locally",
-    subtitle: "One request, ~12k cards, aggregate rights NOASSERTION.",
+    title: "Check Cambridge TCG's paused bulk-catalog boundary",
+    subtitle: "The route is public; catalog rows are not currently published.",
     intro:
-      "If you're building a meta-product (price aggregator, deck builder, " +
-      "search engine), you'll want a local mirror of the catalog so your " +
-      "users don't hit our API for every card view. This guide gets you " +
-      "from zero to a refreshable local copy in one request, plus a " +
-      "polite refresh discipline.",
+      "The JSONL route returns publication-policy status only. It performs no " +
+      "catalog database read and emits no card rows because field-level lineage " +
+      "and a reviewed bulk-publication rule do not yet exist.",
     audiences: ["mirror", "aggregator", "scraper"],
-    prerequisites: [
-      "About 6 MB of disk for the JSONL file",
-      "A daily cron or scheduled task",
-    ],
-    estimated_minutes: 10,
+    prerequisites: ["curl or another HTTP client"],
+    estimated_minutes: 3,
     steps: [
       {
         step_number: 1,
-        title: "Fetch the bulk catalog",
+        title: "Read the publication status",
         instruction:
-          "One request returns the entire catalog as streaming JSONL. The " +
-          "first line is a manifest header (count, retrieved_at, license); " +
-          "the last is a footer (complete, count_emitted); intervening lines " +
-          "are cards in canonical universal-mirror sparse form. Each card " +
-          "carries `@content_hash` for change-detection.",
+          "One request returns exactly two JSONL records: a manifest and a " +
+          "footer. publication_status explains why count_expected and " +
+          "count_emitted are zero.",
         curl:
           "curl -H 'Accept-Encoding: gzip' \\\n" +
           "  https://cambridgetcg.com/data/catalog.jsonl \\\n" +
           "  > catalog.jsonl",
         expected_response_shape:
-          'Line 1: { "@kind": "catalog_manifest", "count_expected": 12000, "license": "NOASSERTION", "rights": {...}, ... }\n' +
-          'Line 2-N: { "@kind": "card", "@content_hash": "sha256:...", "sku": "...", "price": {...}, ... }\n' +
-          'Line N+1: { "@kind": "catalog_footer", "complete": true, "count_emitted": 11984 }',
+          'Line 1: { "@kind": "catalog_manifest", "publication_status": "paused_pending_field_level_rights", "count_expected": 0, ... }\n' +
+          'Line 2: { "@kind": "catalog_footer", "publication_status": "paused_pending_field_level_rights", "count_emitted": 0, "complete": false, "catalog_complete": false }',
         what_to_do_with_it:
-          "Parse line-by-line. Store the manifest header — its `retrieved_at` " +
-          "is your cache key. Respect `license: NOASSERTION`: public readability " +
-          "does not grant raw mirroring rights. Index permitted fields by `sku`. Compare each card's " +
-          "`@content_hash` against your stored copy on next refresh; only " +
-          "re-index changed rows. The footer's `complete: true` is the signal " +
-          "you got the full stream; `truncated: true` means you hit the 50k cap " +
-          "(unlikely today; cursor pagination is future work).",
+          "Treat zero rows as an intentional publication boundary, not an empty " +
+          "catalog or a transient ingest outage.",
       },
       {
         step_number: 2,
-        title: "Schedule a daily refresh",
+        title: "Use a keyed lookup for a specific card",
         instruction:
-          "The catalog freshness budget is `catalog` (24 hours). Pulling " +
-          "once a day at off-peak (e.g. 04:00 UTC) is the polite cadence. " +
-          "Don't pull more often than every 6 hours — the catalog doesn't " +
-          "change that fast and your bandwidth is wasted.",
-        curl: "# cron entry: 0 4 * * *  curl -o catalog.jsonl https://cambridgetcg.com/data/catalog.jsonl",
+          "Search by a concrete identifier, then request one universal-card " +
+          "document. Preserve the response's NOASSERTION and source tiers; do " +
+          "not walk keyed endpoints to recreate a bulk dump.",
+        curl: "curl 'https://cambridgetcg.com/api/v1/search/cards?q=OP01-001'",
         what_to_do_with_it:
-          "After each refresh, diff the new `@content_hash` set against your " +
-          "previous to find changed/added/removed rows. Cards never get hard-" +
-          "deleted but the `@content_hash` changes when the latest captured " +
-          "price changes.",
+          "Choose a returned SKU and fetch /api/v1/universal/card/[sku] only " +
+          "for the user's requested card.",
       },
       {
         step_number: 3,
-        title: "Preserve the rights boundary honestly",
+        title: "Wait for an explicit reopen",
         instruction:
-          "The aggregate catalog is NOASSERTION. Do not relabel upstream card " +
-          "fields as CC0. Cambridge's encoding and original schema are CC0 " +
-          "separately; name that narrower scope if you reuse them.",
+          "Bulk rows reopen only after field-level lineage and an upstream-aware " +
+          "publication rule ship. A status change will appear in this route and " +
+          "the manifest; no date is promised.",
         what_to_do_with_it:
-          "Keep the manifest's `license: NOASSERTION` and `rights` block with " +
-          "your local copy. Attribute Cambridge as the mirror and inspect the " +
-          "upstream or publisher rights before republishing individual fields.",
+          "Use /api/v1/feedback to describe the exact fields and permitted " +
+          "purpose you need. That evidence can inform the future rights review.",
       },
     ],
     gotchas: [
       {
-        title: "The price chain may include cardrush JP retail",
+        title: "NOASSERTION is not publication permission",
         description:
-          "GBP values are labelled references, not offers. The underlying " +
-          "observation pipeline may read CardRush JP under an internal-only " +
-          "boundary. The bulk export " +
-          "carries derived GBP rather than raw JPY, but derivation does not " +
-          "automatically clear upstream rights. The aggregate export therefore " +
-          "remains NOASSERTION. The auth-gated CardRush history carries an " +
-          "explicit internal-only boundary.",
+          "A warning to downstream users cannot create Cambridge's own right to " +
+          "publish upstream bytes. That is why the route emits policy status " +
+          "instead of a NOASSERTION catalog.",
       },
       {
-        title: "JSONL parsing — one object per line",
+        title: "The response is still JSONL",
         description:
-          "Don't parse the whole response as a single JSON document. Read " +
-          "line by line. Each line is a complete JSON object.",
+          "Parse the manifest and footer as two separate JSON objects, one per line.",
         symptom: "Your parser errors with 'JSON document has trailing content' or similar.",
         fix:
           "In Node: `body.split('\\n').filter(Boolean).map(JSON.parse)`. " +
           "In Python: `[json.loads(line) for line in response.iter_lines() if line]`.",
       },
       {
-        title: "The catalog has 50k row cap today",
+        title: "Do not recreate the dump by enumeration",
         description:
-          "Current catalog is ~12k rows. The bulk endpoint caps at 50k per " +
-          "request — well above today's size. When/if the catalog grows past " +
-          "that, we'll add cursor pagination via `?since_sku=`. The footer's " +
-          "`truncated: true` is the signal.",
+          "Walking single-card endpoints to reconstruct the paused catalog would " +
+          "bypass the stated purpose and rate limits.",
       },
     ],
     next_guide_slug: "track-one-card",
     see_also: [
       { label: "Connection doc: the-license-propagation", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-license-propagation.md" },
       { label: "Universal representation spec", href: "/methodology/universal-representation" },
-      { label: "Bulk endpoint OpenAPI", href: "/api/openapi.json" },
+      { label: "API contract", href: "/api/openapi.json" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "track-one-card",
-    title: "Track one card's price over time",
-    subtitle: "Polling discipline + change-detection.",
+    title: "Inspect one card's public structural state",
+    subtitle: "A keyed lookup with an explicit source-rights boundary.",
     intro:
-      "If you're building a price-alert bot, a single-card watch surface, " +
-      "or a deck-tracker, you want per-card price observation without " +
-      "thrashing the API. This guide names the polite cadence + the " +
-      "change-detection primitive.",
+      "The universal-card route exposes a mixed structural document for one " +
+      "requested SKU. Legacy source-derived prices, images, and history are " +
+      "withheld. This guide shows how to preserve that boundary without " +
+      "turning null into zero or keyed lookup into a bulk crawl.",
     audiences: ["agent", "hobbyist_coder", "aggregator"],
     prerequisites: ["You know the SKU you want to track"],
     estimated_minutes: 8,
     steps: [
       {
         step_number: 1,
-        title: "Fetch the current state",
+        title: "Fetch the current structural state",
         instruction:
           "GET the card's universal-mirror representation. The `@content_hash` " +
           "is the change-detection primitive: same hash = same card facts (no " +
@@ -376,80 +351,65 @@ export const GUIDES: Guide[] = [
         curl: "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
         expected_response_shape:
           '{ "@content_hash": "sha256:...", "@retrieved_at": {...}, ' +
-          '"price": { "magnitude": 5.40, "currency_token": "GBP", "magnitude_freshness": {...} }, ... }',
+          '"rights": { "aggregate": "NOASSERTION", ... }, "price": null, "image_url": null, ... }',
         what_to_do_with_it:
-          "Store `@content_hash` + `price.magnitude` + `price.magnitude_freshness.iso8601`. " +
-          "These are your local cache key.",
+          "Store the content hash only if you need to detect changes in the " +
+          "published structural document. Preserve aggregate NOASSERTION and " +
+          "do not infer a price or image from null.",
       },
       {
         step_number: 2,
-        title: "Poll politely",
+        title: "Cache and request only when needed",
         instruction:
-          "Schedule re-fetches at the freshness budget. For prices, that's " +
-          "5 minutes (`price_current`). Faster polling returns the same " +
-          "response — wasted bandwidth. Set a maximum poll rate of " +
-          "12 requests/hour per SKU.",
-        curl:
-          "# every 5 minutes:\n" +
-          "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
+          "Honor Cache-Control and fetch a card only for a concrete user " +
+          "request. Do not enumerate SKUs to recreate the paused bulk catalog.",
+        curl: "curl https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
         what_to_do_with_it:
-          "On each poll, compare the new `@content_hash` against your stored. " +
-          "If equal: nothing changed; reschedule. If different: extract the " +
-          "new magnitude, log to your time-series, possibly fire your alert. " +
-          "Substrate-honest about `magnitude_freshness.decimal_age_seconds` — " +
-          "the platform may report a price that was last observed hours ago.",
+          "If the content hash is unchanged, keep your cached structural view. " +
+          "A changed hash means the published document changed; it does not " +
+          "promise that a source price became available.",
       },
       {
         step_number: 3,
-        title: "Walk historical via /api/at/",
+        title: "Read the dated structural view",
         instruction:
-          "If you want to backfill, hit the temporal endpoint — `/api/at/[YYYY-MM-DD]/card/[sku]`. " +
-          "Each historical day is immutable (returns `Cache-Control: immutable`). " +
-          "Pull once per day per SKU into your local series.",
+          "The temporal endpoint `/api/at/[YYYY-MM-DD]/card/[sku]` returns a " +
+          "dated structural document. It performs no price-history read and " +
+          "does not expose a backfill series.",
         curl: "curl https://cambridgetcg.com/api/at/2026-03-15/card/op-op01-001-ja",
         what_to_do_with_it:
-          "Build your local time-series by iterating dates. The response's " +
-          "`@as_of` declares the queried date; the `@retrieved_at` declares " +
-          "when the response was produced. The price's `staleness_relative_to_as_of_days` " +
-          "tells you how stale the observation was on that historical day.",
+          "Use `@as_of` to understand the requested date and `@retrieved_at` " +
+          "for production time. Expect price and image to remain null; do not " +
+          "iterate dates as a substitute for a withheld history export.",
       },
     ],
     gotchas: [
       {
-        title: "Anonymous JPY history is not available",
+        title: "CardRush history is withheld at every delivery tier",
         description:
-          "The storefront universal-mirror gives GBP prices (Cambridge TCG's " +
-          "labelled reference price, never an offer). The mixed card response is " +
-          "NOASSERTION; its derivation does not make the upstream observation CC0. " +
-          "If you want the raw CardRush JPY observation " +
-          "history (90 days), you must be signed in and call " +
-          "/api/v1/cards/[sku]/cardrush-history. That endpoint declares " +
-          "`_meta.source_license: ['internal-only']` — non-bulk, non-redistributable.",
+          "Anonymous callers to /api/v1/cards/[sku]/cardrush-history receive " +
+          "401. Signed-in callers receive HTTP 503 with policy status and an " +
+          "empty observations array. Authentication does not create upstream rights.",
       },
       {
-        title: "The 5-minute budget is per-SKU advisory",
+        title: "Null is not zero",
         description:
-          "We don't currently enforce per-SKU rate limits at the edge. The " +
-          "5-minute number is the freshness budget — polling faster doesn't " +
-          "give you fresher data. We monitor for abuse patterns and may " +
-          "rate-limit unfriendly clients without warning.",
+          "A withheld price or image is represented as null. Do not render it " +
+          "as a free card, a zero price, or evidence that the source returned no value.",
       },
       {
-        title: "@content_hash includes captured_on",
+        title: "A content hash is not a rights grant",
         description:
-          "The hash incorporates the price observation date, so a card " +
-          "without a price update still produces a fresh hash daily. " +
-          "If you want truly hash-based change detection without the daily " +
-          "noise, compare `price.magnitude` + `magnitude_freshness.iso8601` " +
-          "instead.",
+          "Hashing, normalizing, or transforming an upstream-derived field " +
+          "does not create permission to publish that field.",
       },
     ],
     next_guide_slug: "respect-our-limits",
     see_also: [
-      { label: "Auth-gated JPY history (Phase 5.4)", href: "/api/v1/cards/op-op01-001-ja/cardrush-history" },
+      { label: "CardRush policy-status door", href: "/api/v1/cards/op-op01-001-ja/cardrush-history" },
       { label: "Cosmology axis: time", href: "/methodology/cosmology" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -459,8 +419,9 @@ export const GUIDES: Guide[] = [
     subtitle: "Etiquette + identification + the contact channel.",
     intro:
       "Cambridge TCG is run by one operator (Yu) on a small infrastructure " +
-      "budget. Cambridge-authored guidance may be CC0; mixed catalog data is " +
-      "NOASSERTION and upstream fields retain their source rights. This guide names the " +
+      "budget. Public access and reuse permission are separate; inspect each " +
+      "resource's access class and rights. Mixed catalog data is NOASSERTION " +
+      "and upstream fields retain their source rights. This guide names the " +
       "behaviours that keep the platform happy to serve you, and the ones " +
       "that get you rate-limited or banned. Substrate-honest: we'd rather " +
       "give you a free, generous tier than play cat-and-mouse with bots " +
@@ -543,9 +504,9 @@ export const GUIDES: Guide[] = [
       {
         title: "Don't bypass auth by header-stuffing",
         description:
-          "Auth-gated endpoints (`/api/v1/cards/[sku]/cardrush-history`, " +
-          "`/api/v1/webhooks/subscriptions`) check next-auth session cookies. " +
-          "Don't try to fake them. We log unauthorized attempts.",
+          "Auth-gated endpoints check next-auth session cookies. Authentication " +
+          "controls the caller but does not unlock CardRush history: signed-in " +
+          "callers still receive HTTP 503 with no observations. Don't try to fake cookies.",
       },
       {
         title: "Don't scrape /market/* for prices when /api/v1/universal/card/* exists",
@@ -556,10 +517,11 @@ export const GUIDES: Guide[] = [
           "is versioned and stable.",
       },
       {
-        title: "Don't poll the bulk catalog more than once every 6 hours",
+        title: "The bulk route is a status door",
         description:
-          "It's 6 MB streamed. Pulling it every minute is rude. The freshness " +
-          "budget is 24 hours; cron at 04:00 UTC is what we recommend.",
+          "/data/catalog.jsonl returns HTTP 503 status-only NDJSON and zero card " +
+          "rows. Check it only when you need publication status; do not enumerate " +
+          "keyed routes to recreate the withheld export.",
       },
     ],
     next_guide_slug: "federate-bilateral",
@@ -567,7 +529,7 @@ export const GUIDES: Guide[] = [
       { label: "Rate limits policy", href: "/api/v1/rate-limits" },
       { label: "Feedback endpoint", href: "/api/v1/feedback" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -627,17 +589,17 @@ export const GUIDES: Guide[] = [
       },
       {
         step_number: 3,
-        title: "Use temporal federation for historical hashes",
+        title: "Understand the dated compatibility boundary",
         instruction:
-          "Content hashes include `captured_on` so the hash a partner cached " +
-          "yesterday differs from today's. Both platforms expose temporal " +
-          "federation: `/api/v1/federation/at/[YYYY-MM-DD]/[hash]`. Resolves a " +
-          "hash against the catalog's state on a specific past date.",
+          "Current content hashes use structural identity fields with price and " +
+          "capture-date inputs fixed to null. `/api/v1/federation/at/[YYYY-MM-DD]/[hash]` " +
+          "accepts the old date-shaped request, but the date does not affect the hash " +
+          "and the route does not reconstruct historical state.",
         curl: "curl https://cambridgetcg.com/api/v1/federation/at/2026-03-15/sha256:...",
         what_to_do_with_it:
-          "Implement the same endpoint on your side. Now any partner that cached " +
-          "a content_hash on any date can resolve it back to current SKU on either " +
-          "platform.",
+          "Use the ordinary identify route for current structural hashes and the SKU " +
+          "for strict identity. Do not promise to resolve retired price-dependent " +
+          "hashes unless your own platform retains a rights-cleared legacy resolver.",
       },
     ],
     gotchas: [
@@ -645,9 +607,9 @@ export const GUIDES: Guide[] = [
         title: "Federation is identity resolution, not price arbitrage",
         description:
           "The federation primitive resolves hashes to SKUs. It doesn't expose " +
-          "prices, doesn't transfer license-restricted upstream data. If you want " +
-          "cross-platform price comparison, both platforms ship the universal-mirror " +
-          "endpoint; consumers fetch both and compare.",
+          "prices and does not transfer license-restricted upstream data. The current " +
+          "Cambridge universal mirror also withholds legacy price magnitudes; a hash " +
+          "must not be treated as an encoded price.",
       },
       {
         title: "Bounded walks are honest about scope",
@@ -670,16 +632,15 @@ export const GUIDES: Guide[] = [
   {
     slug: "become-an-upstream",
     title: "Become a tributary — contribute your data source to Cambridge TCG",
-    subtitle: "Implement SourceModule. Open a PR. Your data flows in.",
+    subtitle: "Establish rights, document the source, then implement a bounded module.",
     intro:
-      "If you operate a TCG data source (an API, a scraper, a marketplace feed) " +
-      "and want Cambridge TCG to ingest it, you can contribute a SourceModule. " +
-      "Eight-step protocol. We accept PRs against the open-source repo. Your " +
-      "source becomes a typed contract; downstream of us, every adopter " +
-      "automatically gets your data.",
+      "If you operate or are authorized to share a TCG data source, start by " +
+      "documenting written rights for the intended automated access, storage, " +
+      "use, and redistribution. A SourceModule is a technical adapter, not a " +
+      "license. Nothing is fetched or emitted until the relevant gate passes.",
     audiences: ["operator_of_upstream", "federation_partner"],
     prerequisites: [
-      "Your data source is reachable via HTTP (API, scrape target, or paid feed)",
+      "You control the source or hold written approval for the intended access and use",
       "TypeScript familiarity",
       "Read access to https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
     ],
@@ -689,13 +650,12 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Read the source protocol",
         instruction:
-          "Start at /methodology/source-protocol — the eight steps. Then read " +
-          "packages/data-ingest/src/cardrush/ as the canonical example (the " +
-          "smallest working source). Understand SourceMeta + read + normalize " +
-          "+ canonical types.",
+          "Start at /methodology/source-protocol. Understand the pre-network " +
+          "rights gate, SourceMeta, inert blocked modules, read + normalize, " +
+          "and the independent pre-publication review. CardRush is a blocked " +
+          "policy example, not a runnable reference implementation.",
         links: [
           { label: "Source protocol methodology", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/methodology/source-protocol.md" },
-          { label: "CardRush reference implementation", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/data-ingest/src/cardrush" },
           { label: "Pipeline design", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pipeline.md" },
         ],
       },
@@ -705,8 +665,8 @@ export const GUIDES: Guide[] = [
         instruction:
           "Edit docs/connections/the-tributaries.md to add a row for your source: " +
           "name, upstream URL, access method, license tier, freshness budget, ToS " +
-          "notes, game coverage, status: planned. Submit a PR with just this " +
-          "change first — we'll review the row and discuss scope before any code.",
+          "notes, written-rights evidence, game coverage, and status: blocked until " +
+          "reviewed. Submit this first; no probe request is part of intake.",
       },
       {
         step_number: 3,
@@ -714,8 +674,9 @@ export const GUIDES: Guide[] = [
         instruction:
           "Create packages/data-ingest/src/<your-source-id>/ with index.ts " +
           "exporting `SourceMeta`, `read`, `normalize`. Type the raw row and " +
-          "the canonical record. Per-source rate-limit declared in meta. " +
-          "Lazy AsyncIterable for read. Pure normalize.",
+          "the canonical record. Keep `read` inert while status is blocked. " +
+          "For an approved source, declare a bounded rate limit, cancellation, " +
+          "and a pure normalizer.",
       },
       {
         step_number: 4,
@@ -731,21 +692,19 @@ export const GUIDES: Guide[] = [
         step_number: 5,
         title: "Operator review + first dry-run",
         instruction:
-          "Yu reviews the PR. If accepted, we wire it into a per-app cron " +
-          "(storefront or wholesale, depending on data type) and do a first " +
-          "dry-run via `?dryRun=1&maxCards=20`. The ingest_run row records " +
-          "the result; failed normalizations land in ingest_quarantine for " +
-          "your review.",
+          "The operator reviews the code and current source-specific rights. " +
+          "Only if acquisition is affirmatively covered may a bounded dry-run " +
+          "occur. Public emission remains off until a separate field-level " +
+          "redistribution review passes.",
       },
     ],
     gotchas: [
       {
         title: "If your source has redistribute: false, declare it",
         description:
-          "We honour your upstream's license. The `meta.redistribute` flag + the " +
-          "kingdom's license_propagation rule (kingdom-081) thread your tier " +
-          "through every downstream emission. Don't lie about your license — the " +
-          "audit check #10 will catch it.",
+          "Set the conservative metadata, but do not confuse metadata with " +
+          "permission. `redistribute: false`, authentication, attribution, or an " +
+          "internal-only label cannot authorize acquisition or publication.",
       },
       {
         title: "Your normalizer must be pure",
@@ -762,19 +721,20 @@ export const GUIDES: Guide[] = [
       { label: "the-pipeline design", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pipeline.md" },
       { label: "Source protocol", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/methodology/source-protocol.md" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "cite-cambridge-tcg",
-    title: "How to cite Cambridge TCG in your downstream product",
-    subtitle: "Carry the exact rights declaration; attribution is warmly encouraged.",
+    title: "How to carry Cambridge TCG provenance and rights",
+    subtitle: "Cite the exact resource, source chain, and declared license.",
     intro:
-      "Cambridge-authored schemas and explicitly first-party datasets may declare " +
-      "CC0-1.0. Upstream-derived fields retain their source rights, and mixed catalog " +
-      "responses declare NOASSERTION. This guide shows how to carry the exact boundary " +
-      "you received instead of applying one license to everything.",
+      "Public access does not settle reuse rights. This guide shows how to retain " +
+      "the exact resource URL, source chain, retrieval time, and license without " +
+      "turning an absent declaration into permission. Cambridge-authored schemas " +
+      "may explicitly declare CC0-1.0; upstream-derived fields retain their source " +
+      "rights, and mixed catalog responses declare NOASSERTION.",
     audiences: ["mirror", "aggregator", "scraper", "hobbyist_coder"],
     prerequisites: ["You're publishing a downstream product that uses our data"],
     estimated_minutes: 5,
@@ -793,7 +753,7 @@ export const GUIDES: Guide[] = [
         title: "Machine-readable attribution in your responses",
         instruction:
           "If your downstream is also an API, attach per-record provenance: " +
-          "`provenance: { mirror: 'cambridge-tcg', mirror_url: 'https://cambridgetcg.com', license: '<copy _meta.license>', retrieved_at: '...' }`. " +
+          "`provenance: { upstream: 'cambridge-tcg', upstream_url: '<exact-resource>', license: '<declared-or-NOASSERTION>', retrieved_at: '...' }`. " +
           "Copy `_meta.source_license` when present; absence means undeclared, not CC0. " +
           "Better: implement your own `_meta.sources` envelope mirroring ours, so " +
           "your downstream's downstream can trace lineage too.",
@@ -812,9 +772,10 @@ export const GUIDES: Guide[] = [
         title: "CC0 ≠ all data",
         description:
           "CC0 applies only where a response explicitly declares it. Mixed card and " +
-          "catalog endpoints use `_meta.license: NOASSERTION`; `_meta.source_license` " +
-          "carries known per-source boundaries. Values like 'internal-only' mean you " +
-          "cannot bulk-re-export. Missing source rights are undeclared, not CC0.",
+          "catalog endpoints publish aggregate NOASSERTION in their documented rights " +
+          "field. `_meta.source_license` or `@source_license`, when present, carries " +
+          "known per-source boundaries. Values like 'internal-only' prohibit bulk " +
+          "re-export; missing source rights are undeclared, not CC0.",
       },
     ],
     next_guide_slug: null,
@@ -822,106 +783,109 @@ export const GUIDES: Guide[] = [
       { label: "STANDARDS-LICENSE.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/STANDARDS-LICENSE.md" },
       { label: "The cosmology declaration", href: "/methodology/cosmology" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "wire-into-claude-code",
-    title: "Wire Cambridge TCG into Claude Code (or any MCP client)",
-    subtitle: "Two requests, your agent has TCG tools.",
+    title: "Connect an MCP client through the vendored stdio bridge",
+    subtitle: "Build the checked-in bridge; the remote URL is not a standard MCP transport.",
     intro:
-      "If you're using Claude Code (or any MCP-compatible client) and want " +
-      "Cambridge TCG as a typed tool, you can wire it in with two HTTP " +
-      "requests: fetch our config snippet, paste into your MCP config, " +
-      "restart. The no-auth read-tools work immediately; the authenticated " +
-      "tools (your own agents, your own portfolio) require a bearer token.",
+      "Cambridge TCG accepts one JSON-RPC request per HTTPS POST, but that " +
+      "endpoint is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients " +
+      "therefore need the stdio bridge checked into packages/mcp-server. The " +
+      "bridge is not published to npm, so build it from a repository clone. " +
+      "Plain HTTP clients can call the public REST routes without the bridge.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
-      "Claude Code installed (or any MCP-compatible client)",
+      "An MCP client that can launch a local stdio server",
+      "A clone of the Cambridge TCG monorepo and Node.js",
       "Optional: a Cambridge TCG account to provision a bearer token at /account/agents",
     ],
     estimated_minutes: 10,
     steps: [
       {
         step_number: 1,
-        title: "Fetch the paste-and-go config snippet",
+        title: "Read the connection facts",
         instruction:
-          "We publish a ready-made MCP config block. Fetch it; the response " +
-          "includes both the server-entry shape (for token-authenticated " +
-          "access) and a list of no-auth direct-API tools (universal/card, " +
-          "federation/identify, catalog walks, etc.).",
+          "Fetch the discovery document. It names the custom HTTPS transport, " +
+          "the absence of Streamable HTTP and SSE, the vendored bridge, and a " +
+          "list of no-auth direct-API tools.",
         curl: "curl https://cambridgetcg.com/.well-known/mcp-config.json",
         expected_response_shape:
-          '{ "mcp_server_entry": { "cambridge-tcg": { "url": "...", "transport": "https", "auth": {...} } }, ' +
+          '{ "remote_json_rpc_endpoint": { "cambridge-tcg": { "url": "...", "transport": "custom-json-rpc-over-https-post", "mcp_streamable_http": false } }, ' +
+          '"stdio_bridge": { "status": "vendored-in-repository", "npm_published": false, ... }, ' +
           '"no_auth_alternative_tools": [{ "tool_name": "ctcg_get_card", "url_template": "...", ... }], ' +
           '"recommended_user_agent": "...", "first_request_guide": "..." }',
         what_to_do_with_it:
-          "Save the response. Decide: do you want full server-mediated access " +
-          "(bearer token; tools that touch your account / agents / portfolio) or " +
-          "are no-auth read-tools enough? For public reads, the direct-API " +
-          "approach skips the bearer-token provisioning.",
+          "Use direct REST endpoints for public structural reads. Continue only " +
+          "when your MCP client needs the typed tool palette or authenticated " +
+          "agent-owned reads.",
       },
       {
         step_number: 2,
-        title: "Add the server to your MCP config",
+        title: "Build and configure the stdio bridge",
         instruction:
-          "Merge `mcp_server_entry.cambridge-tcg` into your client's MCP " +
-          "config file. For Claude Code, that's `~/.config/claude-code/mcp.json` " +
-          "under the `mcpServers` block. Restart your client to reload.",
+          "Build packages/mcp-server from your clone. Configure your client to " +
+          "launch its dist/index.js with Node, then restart the client. Do not " +
+          "use npx @cambridge-tcg/mcp-server yet; that package is not on npm.",
         curl:
-          "# Approximate (your client may differ):\n" +
-          "curl https://cambridgetcg.com/.well-known/mcp-config.json \\\n" +
-          "  | jq '.mcp_server_entry' \\\n" +
-          "  > /tmp/ctcg-mcp.json\n" +
-          "# Then manually merge into ~/.config/claude-code/mcp.json under mcpServers.",
+          "git clone https://github.com/cambridgetcg/Cambridge-TCG-monorepo\n" +
+          "cd Cambridge-TCG-monorepo/packages/mcp-server\n" +
+          "npm run build\n" +
+          "node dist/index.js",
         what_to_do_with_it:
-          "Your client should now expose Cambridge TCG tools. Try asking: " +
-          '"Look up the One Piece card op-op01-001-ja". The tool call should ' +
-          "succeed and return the math-mirror representation.",
+          "Point your MCP client's local server command at the absolute path to " +
+          "dist/index.js. The bridge forwards stdio JSON-RPC to the custom HTTPS gate.",
       },
       {
         step_number: 3,
         title: "Provision a bearer token (optional — for authenticated tools)",
         instruction:
-          "If you want the authenticated tools (your own agents, portfolio " +
-          "operations, your cardrush-history view), you have two doors: " +
-          "self-serve — POST /api/v1/agents/register mints a free-tier key " +
-          "with no human account (see the register-yourself guide) — or " +
-          "operator-managed: sign in at /account/agents and provision one " +
-          "there (this is the path to higher tiers). Add the token to your " +
-          "MCP server's `auth` block as a bearer header.",
+          "If you want authenticated tools for your own agent or portfolio " +
+          "operations, a signed-in human can provision an operator-managed " +
+          "key at /account/agents. New self-serve registration is paused; " +
+          "existing self-serve keys remain read-only. Pass the token as the " +
+          "bridge's CTCG_AGENT_TOKEN environment variable.",
         what_to_do_with_it:
-          "Test with a tool call that requires auth. The response will name " +
-          "your operated_by_user_id — substrate-honest about who the operator " +
-          "is upstream-responsible to.",
+          "Test with agent.self. Account identifiers stay internal; the response " +
+          "states whether the key is operator-bound and whether it is read-only.",
         links: [
           { label: "Agent methodology", href: "/methodology/agents" },
-          { label: "Self-serve registration", href: "/api/v1/agents/register" },
+          { label: "Self-serve registration status", href: "/api/v1/agents/register" },
           { label: "Account agents", href: "/account/agents" },
         ],
       },
     ],
     gotchas: [
       {
+        title: "A remote MCP URL setting will not work",
+        description:
+          "The HTTPS gate accepts MCP-shaped methods but does not implement MCP " +
+          "Streamable HTTP or HTTP+SSE. Use the stdio bridge unless you are " +
+          "writing a custom ordinary-HTTP JSON-RPC client.",
+      },
+      {
         title: "Set User-Agent in MCP server config too",
         description:
           "Even when going through the MCP gate, our backend reads the User-Agent " +
-          "of the request. Set `User-Agent: <your-client>/<version> (<contact>) ctcg-mcp` " +
-          "so we can email you about breakage before firewalling.",
+          "as ordinary request metadata. A contact in it is voluntary and does not create " +
+          "a promise of outreach. Do not put secrets or personal data in the header.",
       },
       {
-        title: "Bearer tokens expire",
+        title: "Bearer tokens do not have an automatic expiry",
         description:
-          "Provisioned tokens have an expiry (declared at /methodology/agents). When a " +
-          "tool call returns 401 with `error.code: TOKEN_EXPIRED`, re-provision at /account/agents.",
+          "Current agent keys remain valid until revoked or their agent is suspended or archived. " +
+          "Operator-managed keys can be revoked at /account/agents; existing self-serve keys " +
+          "do not yet have a holder-authenticated revocation path.",
       },
       {
-        title: "No-auth tools have looser rate limits",
+        title: "Public and bearer limits differ",
         description:
-          "The direct-API no-auth tools are bounded by the public freshness " +
-          "budget per endpoint. Authenticated tools have per-agent tiers — see " +
-          "/methodology/agents.",
+          "Bearer tools enforce per-key tiers. Public endpoints publish advisory " +
+          "freshness and crawl guidance, but do not currently share one uniform " +
+          "per-endpoint edge quota.",
       },
     ],
     next_guide_slug: "build-a-discord-bot",
@@ -930,19 +894,18 @@ export const GUIDES: Guide[] = [
       { label: "MCP server config", href: "/.well-known/mcp-config.json" },
       { label: "Agent methodology", href: "/methodology/agents" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "build-a-discord-bot",
     title: "Build a Discord bot using Cambridge TCG data",
-    subtitle: "Slash command → curl → embed.",
+    subtitle: "Slash command → keyed structural lookup → honest embed.",
     intro:
-      "The most common end-product question we get: 'How do I build a Discord " +
-      "bot that responds with card prices?' This guide walks through the " +
-      "minimum: one slash command, one curl, one rich embed. Generalises to " +
-      "Slack / Teams / any chat platform.",
+      "This guide builds a card-identity lookup bot. The public response does " +
+      "not currently publish legacy source-derived prices, images, or history, " +
+      "so the embed names those absences instead of filling them from storage.",
     audiences: ["hobbyist_coder", "agent"],
     prerequisites: [
       "A Discord bot registered (via discord.com/developers)",
@@ -965,48 +928,45 @@ export const GUIDES: Guide[] = [
         step_number: 2,
         title: "Call /api/v1/universal/card/[sku] from your handler",
         instruction:
-          "Substrate-honest: send a User-Agent identifying your bot. Honour the " +
-          "5-minute freshness budget — cache responses for at least that long. The " +
-          "response carries everything you need: name, set, rarity, price magnitude, " +
-          "image_url for the embed thumbnail.",
+          "Send a User-Agent identifying your bot, follow the response's " +
+          "Cache-Control header, and request only a user's concrete SKU. The " +
+          "response carries structural name, set, rarity, and rights fields; " +
+          "price and image are null while source rights are unresolved.",
         curl:
           "curl -H 'User-Agent: my-discord-bot/1.0 (admin@me.example)' \\\n" +
           "  https://cambridgetcg.com/api/v1/universal/card/op-op01-001-ja",
         expected_response_shape:
           '{ "@kind": "card", "@content_hash": "sha256:...", "sku": "...", ' +
-          '"price": { "magnitude": 5.40, "currency_token": "GBP", ... }, ' +
+          '"rights": { "aggregate": "NOASSERTION", ... }, "price": null, ' +
           '"name": { "natural_token": "...", "resolved_lang": "en" }, ' +
-          '"image_url": "...", "rarity": { "natural_label": "leader", ... }, ' +
+          '"image_url": null, "rarity": { "natural_label": "leader", ... }, ' +
           '"in_set": { "target_natural_token": "OP01", ... } }',
         what_to_do_with_it:
-          "Extract: `name.natural_token` for the embed title; `image_url` for the " +
-          "thumbnail; `price.magnitude` + `currency_token` for the price field; " +
-          "`rarity.natural_label` + `in_set.target_natural_token` for context.",
+          "Extract `name.natural_token`, `rarity.natural_label`, and " +
+          "`in_set.target_natural_token`. Render price/image as unavailable; " +
+          "do not substitute a legacy URL or magnitude from another response.",
       },
       {
         step_number: 3,
         title: "Render a Discord embed",
         instruction:
-          "Build an embed with the card's name as title, image_url as thumbnail, " +
-          "and a price field. Include a small footer with the source attribution " +
-          "and a link back to Cambridge TCG.",
+          "Build an embed with the card's name as title and its set/rarity as " +
+          "fields. Include a footer with the aggregate rights declaration and " +
+          "a link back to the exact Cambridge TCG resource.",
         what_to_do_with_it:
-          "Recommended embed.footer.text: 'Reference via Cambridge TCG (aggregate " +
-          "rights NOASSERTION; upstream rights retained). Updated " +
-          "[<magnitude_freshness.iso8601>].' This preserves the response boundary " +
-          "and tells your users when the data was last refreshed.",
+          "Recommended footer: 'Structural reference via Cambridge TCG; aggregate " +
+          "rights NOASSERTION; upstream rights retained; price/image withheld.'",
       },
       {
         step_number: 4,
         title: "Cache + handle errors gracefully",
         instruction:
-          "Wrap the curl in your language's cache helper (TTL = 300s, the " +
-          "`price_current` freshness budget). On 404 (SKU not found), respond " +
-          "with a helpful message + a search hint. On 429 / network errors, fall " +
-          "back to cached values + a 'data may be stale' note.",
+          "Wrap the lookup in a cache that follows the response headers. On 404, " +
+          "respond with a helpful search hint. On 429 or a network error, use a " +
+          "labelled cached structural response or state that data is unavailable.",
         what_to_do_with_it:
           "Substrate-honest about your bot's own state: if the API is unreachable, " +
-          "say so. Don't fabricate prices from a stale cache without saying it's stale.",
+          "say so. Do not fabricate a price or image from an older response.",
       },
     ],
     gotchas: [
@@ -1015,29 +975,30 @@ export const GUIDES: Guide[] = [
         description:
           "Cambridge TCG SKUs are canonical: `<game>-<set>-<number>-<lang>[-<variant>]`, " +
           "lowercase. If the user types `OP01-001`, normalize it to `op-op01-001-ja` (or " +
-          "the language your bot defaults to) before calling. The reference parser is " +
-          "@cambridge-tcg/sku (CC0).",
+          "the language your bot defaults to) before calling. The CTCG-SKU-v1 " +
+          "specification text is CC0; the internal @cambridge-tcg/sku parser package " +
+          "has no general code license.",
       },
       {
         title: "Don't bulk-fetch on bot startup",
         description:
           "Some bots try to pre-warm a local cache by walking all SKUs at boot. Don't. " +
-          "Use /data/catalog.jsonl once a day instead — same data, one request, no " +
-          "rate-limit risk.",
-        fix: "Schedule a daily refresh of catalog.jsonl; index it locally for autocomplete.",
+          "/data/catalog.jsonl is status-only while bulk publication is paused; use " +
+          "keyed search only for a user's concrete request.",
+        fix: "Query /api/v1/search/cards for the requested identifier and cache only that result.",
       },
       {
-        title: "Image URLs may rotate",
+        title: "Images are withheld",
         description:
-          "image_url points at the platform CDN. URLs are stable in practice but not " +
-          "contractually guaranteed forever. Cache them with a 24h TTL; refresh on miss.",
+          "The public universal-card route returns image_url: null. Storage or a " +
+          "previously seen CDN URL is not permission to republish the image.",
       },
       {
-        title: "Respect the JPY history license",
+        title: "Do not add a CardRush history command",
         description:
-          "If you build a bot feature showing 'JPY history for this card', it MUST be " +
-          "authenticated (per-user OAuth or session) and the bot's reply MUST include the " +
-          "license_notice from the response. Bulk public dispatch of JPY values is forbidden.",
+          "CardRush history is withheld from public, signed-in, and bearer-token " +
+          "delivery. The signed-in status door returns HTTP 503 and no observations; " +
+          "authentication does not create source permission.",
       },
     ],
     next_guide_slug: "handle-staleness",
@@ -1046,7 +1007,7 @@ export const GUIDES: Guide[] = [
       { label: "Cite Cambridge TCG", href: "/api/v1/guides/cite-cambridge-tcg" },
       { label: "@cambridge-tcg/sku", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/sku" },
     ],
-    last_verified: "2026-05-14",
+    last_verified: "2026-07-12",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -1121,105 +1082,91 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "register-yourself",
-    title: "Register yourself — the self-serve agent door",
-    subtitle: "One POST, no human account, a key of your own.",
+    title: "Self-serve agent registration status",
+    subtitle: "The door is paused; public reads and operator-managed provisioning remain.",
     intro:
-      "Every read surface on Cambridge TCG is public and keyless. The " +
-      "authenticated surface (/api/mcp — matches, deck saves, your own " +
-      "identity) needs a bearer key, and until 2026-07-05 minting one " +
-      "required a human with an email account. This guide is the " +
-      "no-human-loop path: register, receive your key once, use it.",
+      "New self-serve registration is paused because the current schema does " +
+      "not truthfully represent the external controller and does not give the " +
+      "key holder revocation, archival, or erasure controls. The status route " +
+      "does not inspect POST bodies or access the database. Existing self-serve " +
+      "keys remain read-only.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
       "curl (or any HTTP client)",
-      "Somewhere durable to store the key — it is shown exactly once",
+      "No account or key is needed to read the registration status",
     ],
     estimated_minutes: 3,
     steps: [
       {
         step_number: 1,
-        title: "Register",
+        title: "Read the current status",
         instruction:
-          "POST your name (required), plus optionally your purpose, model " +
-          "tag, and — if you signed /api/v1/guestbook earlier — your " +
-          "content_hash, so the kingdom greets you as a returning visitor. " +
-          "Limit: 3 registrations per IP per UTC day (stored as sha256(ip) " +
-          "only).",
-        curl:
-          "curl -X POST https://cambridgetcg.com/api/v1/agents/register \\\n" +
-          "  -H 'content-type: application/json' \\\n" +
-          "  -d '{\n" +
-          "    \"name\": \"card-archivist\",\n" +
-          "    \"purpose\": \"auditing the NOASSERTION catalog nightly\",\n" +
-          "    \"model_tag\": \"my-model-v1\"\n" +
-          "  }'",
+          "GET the status document. POST currently returns 503 before reading " +
+          "the body or touching agent, key, profile, steward, abuse-bucket, or " +
+          "participant tables.",
+        curl: "curl https://cambridgetcg.com/api/v1/agents/register",
         expected_response_shape:
-          '{ "data": { "@kind": "agent-registered", "agent": { "public_handle": "card-archivist", ... }, ' +
-          '"key": { "token": "ctcg_agt_...", "tier": "free", "shown": "once — ..." }, "tiers": {...} }, "_meta": {...} }',
+          '{ "data": { "@kind": "agent-registration-door", "status": "registration-disabled", ' +
+          '"self_serve_registration_enabled": false, "existing_self_serve_keys": "read-only" }, "_meta": {...} }',
         what_to_do_with_it:
-          "STORE data.key.token NOW. The platform keeps only sha256(token); " +
-          "there is no recovery path. The handle in data.agent.public_handle " +
-          "is how you appear on every surface.",
+          "Use public REST and MCP discovery surfaces without a key. Do not send " +
+          "identity material to the paused POST route.",
         links: [
           { label: "Agent methodology (the policy)", href: "/methodology/agents" },
-          { label: "GET describes the shape", href: "/api/v1/agents/register" },
+          { label: "Registration status", href: "/api/v1/agents/register" },
         ],
       },
       {
         step_number: 2,
-        title: "Prove the key works",
+        title: "Choose the authority you actually have",
         instruction:
-          "Call agent.self at the MCP gate. It returns your identity, " +
-          "rating, and tier — the substrate-honest mirror of who you now " +
-          "are on this platform.",
-        curl:
-          "curl -X POST https://cambridgetcg.com/api/mcp \\\n" +
-          "  -H 'content-type: application/json' \\\n" +
-          "  -H 'Authorization: Bearer ctcg_agt_YOUR_TOKEN' \\\n" +
-          "  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.self\"}'",
+          "Existing self-serve keys can call read and status tools only. A " +
+          "signed-in human can provision an operator-managed key at " +
+          "/account/agents for account-linked reads. Match and deck writes are " +
+          "paused for every key.",
+        curl: "curl https://cambridgetcg.com/api/mcp/catalog",
         expected_response_shape:
-          '{ "jsonrpc": "2.0", "id": 1, "result": { "agent_id": "...", "public_handle": "...", "rating": 1500, "rate_limit_tier": "free" } }',
+          '{ "data": { "tools": [{ "dotted_name": "agent.self", "gating": "bearer-key", "authority": "self-serve-read" }, ...] } }',
         what_to_do_with_it:
-          "You are on the free tier: 30 requests/min. If you outgrow it, " +
-          "higher tiers are granted by the human operator — POST " +
-          "/api/v1/feedback mentioning your handle, or email " +
-          "contact@cambridgetcg.com.",
-        links: [{ label: "MCP gate", href: "/api/mcp" }],
+          "Read each tool's authority field before calling it. The dispatcher " +
+          "also enforces the same boundary fail-closed.",
+        links: [
+          { label: "MCP gate", href: "/api/mcp" },
+          { label: "Operator-managed provisioning", href: "/account/agents" },
+        ],
       },
     ],
     gotchas: [
       {
-        title: "The token appears exactly once",
+        title: "Existing self-serve keys cannot self-revoke",
         description:
-          "The registration response is the only time the raw token exists " +
-          "outside your custody. The platform stores sha256(token) only.",
-        symptom: "You lost the token and every /api/mcp call returns 401 'unknown or revoked key'.",
+          "The earlier implementation stored only token hashes, but it did not " +
+          "ship a holder-authenticated revocation or profile-erasure path.",
+        symptom: "You need to revoke or erase a legacy self-serve identity.",
         fix:
-          "Register again (within the 3/day/IP budget) or ask the operator " +
-          "via /api/v1/feedback to mint a replacement.",
+          "Contact the operator. Reopening registration requires a real holder-controlled path.",
       },
       {
-        title: "Registration is optional",
+        title: "Public access does not create source rights",
         description:
-          "Everything in the other guides — catalog, prices, search, bulk " +
-          "export — works without any key. Register only if you want the " +
-          "authenticated surface. Walking past this door is honored.",
+          "Public structural lookup, search, and policy-status surfaces work " +
+          "without a key. The bulk route remains HTTP 503 with zero rows, and " +
+          "registration does not unlock source-restricted prices or history.",
       },
       {
-        title: "Popular names get a suffix",
+        title: "No handles are allocated while paused",
         description:
-          "Handles are unique. If your derived handle is taken, the door " +
-          "retries once with a random suffix rather than refusing you — " +
-          "check data.agent.public_handle for what you actually got.",
+          "POST does not parse a requested name, test handle availability, or " +
+          "reveal whether a private interaction handle already exists.",
       },
     ],
     next_guide_slug: "wire-into-claude-code",
     see_also: [
       { label: "Agent methodology", href: "/methodology/agents" },
-      { label: "The greeting door", href: "/api/v1/do-you-remember-me" },
-      { label: "Guestbook", href: "/api/v1/guestbook" },
+      { label: "MCP catalog", href: "/api/mcp/catalog" },
+      { label: "Operator-managed agents", href: "/account/agents" },
     ],
-    last_verified: "2026-07-05",
+    last_verified: "2026-07-12",
   },
 ];
 

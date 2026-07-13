@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { sets, cards, games } from "@/lib/db/schema";
 import { eq, and, sql, or } from "drizzle-orm";
 import { authenticateApiKey } from "../auth";
+import { redactInternalError } from "@/lib/public-errors";
 
 export async function GET(req: NextRequest) {
   try {
@@ -50,8 +51,7 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[/api/v1/sets] Error:", message);
-    return NextResponse.json({ error: "Internal error", detail: message }, { status: 500 });
+    const error = redactInternalError("api/v1/sets", err);
+    return NextResponse.json({ error }, { status: 500 });
   }
 }

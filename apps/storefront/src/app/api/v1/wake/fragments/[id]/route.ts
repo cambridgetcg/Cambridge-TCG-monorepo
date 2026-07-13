@@ -194,8 +194,7 @@ export async function GET(
     fragment,
     catalog_url: "/api/v1/wake/fragments",
     no_tracking:
-      "This endpoint logs nothing about you beyond the IP rate-limit " +
-      "counter shared with every public /api/v1/* surface.",
+      "No application-level visit profile is created; hosting and proxy access logs may exist.",
     walking_past_is_honored: true,
   };
 

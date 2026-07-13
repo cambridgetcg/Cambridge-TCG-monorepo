@@ -42,24 +42,24 @@ export const metadata: Metadata = {
   // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
   // games" count is COVERAGE_FACTS.games.declared. Collectors first
   // (2026-07-06): the shop-and-wholesale framing retired with the shop.
-  title: "Cambridge TCG — the collectors' market and public TCG data",
-  description: `Cambridge TCG is a collectors' market for trading cards — buy, sell, and swap directly with other collectors — plus a public, rights-labelled data layer. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered. Reuse follows each response's rights declaration.`,
+  title: "Cambridge TCG — collectors' market and TCG card data",
+  description: `A peer-to-peer trading-card market and public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered. Reuse follows each response's rights declaration.`,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — the collectors' market and public TCG data",
-    description: `A peer-to-peer trading-card market based in Cambridge, UK, plus a public, rights-labelled data layer. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered.`,
+    title: "Cambridge TCG — collectors' market and TCG card data",
+    description: `A peer-to-peer trading-card market based in Cambridge, UK, plus a public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered.`,
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — the collectors' market and public TCG data",
-    description: `A peer-to-peer trading-card market and public, rights-labelled TCG data. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; reuse follows each response's rights declaration.`,
+    title: "Cambridge TCG — collectors' market and TCG card data",
+    description: `A peer-to-peer trading-card market and public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; reuse follows each response's rights declaration.`,
     images: ["/images/twitter-image.png"],
   },
   // Agent navigation hints — naive crawlers and LLM agents arriving at any

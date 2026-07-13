@@ -11,15 +11,27 @@
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { redactInternalError } from "@/lib/public-errors";
 import {
   runHiresUpload,
   type HiresUploadOptions,
 } from "@/lib/cardrush-hires-upload";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+  CARDRUSH_DATA_POLICY_URL,
+} from "@cambridge-tcg/data-ingest";
 
 export async function POST(request: Request): Promise<NextResponse> {
   const session = await auth();
   if (!session || session.user.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    return NextResponse.json(
+      { ok: false, status: "blocked_pending_formal_partnership", reason: CARDRUSH_BLOCK_REASON, policy: CARDRUSH_DATA_POLICY_URL },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   let body: Partial<HiresUploadOptions> = {};
@@ -50,7 +62,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     return NextResponse.json({ ok: true, summary, dryRun: summary.dryRun });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = redactInternalError("admin/cardrush/upload-hires", err);
     return NextResponse.json(
       { ok: false, error: { code: "INTERNAL", message } },
       { status: 500 },

@@ -115,7 +115,7 @@ export default async function MarketPage({
               href="/leaderboards"
               className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-surface hover:bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink font-medium transition"
             >
-              <Icon name="trophy" className="text-accent" /> Leaderboards
+              <Icon name="trophy" className="text-accent" /> Rankings paused
             </Link>
           </div>
         </div>

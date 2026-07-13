@@ -103,7 +103,7 @@ export default function AppearanceMethodology() {
       <h2 id="not">5. What this system does NOT do</h2>
       <ul>
         <li>No per-user CSS injection; themes are a fixed, audited set.</li>
-        <li>No tracking of which theme you wear.</li>
+        <li>No application-level theme-use profile. Hosting access logs may still exist.</li>
         <li>
           No flash-of-wrong-theme: the cookie is read server-side at render, and
           system-follow resolves in CSS at first paint — no script swaps the theme

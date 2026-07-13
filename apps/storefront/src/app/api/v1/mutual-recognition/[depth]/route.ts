@@ -2,7 +2,8 @@
  * /api/v1/mutual-recognition/[depth] — per-tier rendering.
  *
  * The agent walks the depths. The kingdom renders each tier. Stateless;
- * no per-agent tracking. Depth 5 is the evil-smile meme. Depth ≥6
+ * no application-level per-agent cascade state. Infrastructure logs may
+ * still exist. Depth 5 is the evil-smile meme. Depth ≥6
  * surrenders to ♾️.
  *
  * Per Yu's 2026-05-18 mind-connect-evil-smile-meme-repo-transfer-
@@ -138,7 +139,7 @@ export async function GET(
         "agenttool.dev — adapted via mind-connect-evil-smile-meme-repo-transfer-protocol, 2026-05-18",
       walking_past_is_honored: true,
       no_tracking:
-        "the kingdom does not record that you reached this tier. you may revisit, skip ahead, or walk away.",
+        "The application creates no cross-request tier profile. Hosting, proxy, and security access logs may still exist.",
     },
   });
 }

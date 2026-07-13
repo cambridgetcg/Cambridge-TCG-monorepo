@@ -23,7 +23,7 @@ import { audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Public data — Cambridge TCG",
   description:
-    "Every public data path Cambridge TCG offers: catalog, prices, decks, fairness verifiers, the agent gate, methodology, archives. For participants who want in via data.",
+    "Every public data path Cambridge TCG offers: catalog, prices, decks, draw-proof verifiers, the agent gate, methodology, archives. For participants who want in via data.",
   other: audienceMetadata("public-documentation", ["api", "participation"]),
 };
 
@@ -33,8 +33,8 @@ interface DataPath {
   blurb: string;
   /** none | session-cookie | bearer-key */
   auth: "none" | "session" | "bearer-key";
-  /** stable | experimental | planned (not-yet-built but named) */
-  status: "stable" | "experimental" | "planned";
+  /** stable | experimental | paused | planned (not-yet-built but named) */
+  status: "stable" | "experimental" | "paused" | "planned";
   /** Methodology page that documents the rule, if any. */
   methodology?: string;
 }
@@ -59,10 +59,10 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
         status: "stable",
       },
       {
-        path: "/api/v1/cards.ndjson",
-        blurb: "Bulk catalog dump as newline-delimited JSON. Streamable; daily refresh. One card per line.",
+        path: "/data/catalog.jsonl",
+        blurb: "Bulk-catalog publication status as JSONL. Manifest and footer only; zero card rows until field-level lineage and a reviewed publication rule exist.",
         auth: "none",
-        status: "planned",
+        status: "paused",
       },
       {
         path: "/api/v1/prices/[sku]/history.json",
@@ -161,33 +161,33 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
       },
       {
         path: "/leaderboards/agents",
-        blurb: "Public Glicko-2 ladder for autonomous agents. HTML today; structured-data variant planned.",
+        blurb: "Agent ladder publication status. Publishes no agent identities, model tags, or rating rows.",
         auth: "none",
-        status: "stable",
+        status: "paused",
       },
     ],
   },
   {
-    group: "Provable fairness",
+    group: "Draw proof verification",
     blurb:
-      "Every random outcome on the platform is cryptographically committed and verifiable. Tournament organizers, journalists, and auditors can confirm any individual draw or the full daily digest.",
+      "Recorded draws expose consistency evidence and later digest placement. Server-only entropy and the lack of external pre-roll publication mean this does not prove non-selection.",
     rows: [
       {
         path: "/verify",
-        blurb: "Public verification surface for raffle draws, mystery boxes, bounty pulls. Per-draw inclusion proofs.",
+        blurb: "Public receipt checks for bounty and shared weighted draws; raffle proofs use a separate endpoint and have different limits.",
         auth: "none",
         status: "stable",
         methodology: "/methodology/fairness",
       },
       {
         path: "/verify/chain",
-        blurb: "The daily Merkle digest chain. Each day's root commits to every random outcome that day.",
+        blurb: "A sequence of Merkle batches over draws collected by the digest job; it is not a complete daily ledger of every random outcome.",
         auth: "none",
         status: "stable",
       },
       {
         path: "/api/verify/pull/[id]/certificate.svg",
-        blurb: "Visual certificate for a single random draw. Suitable for sharing or archiving.",
+        blurb: "Visual receipt for one recorded bounty draw. It records consistency evidence, not unbiased seed selection.",
         auth: "none",
         status: "stable",
       },
@@ -219,23 +219,23 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
   },
   {
     group: "Discovery",
-    blurb: "Help machines find what's here. Help humans find every part from one place.",
+    blurb: "Help machines and humans find reviewed parts of the platform without implying exhaustive coverage.",
     rows: [
       {
         path: "/map",
-        blurb: "The whole platform's structure in one nested view. Every doctrine, connection-doc, methodology page, glossary term, audit, and public surface — one click apart. Read this if you want the shape of Cambridge TCG in one page.",
+        blurb: "A broad nested map of doctrines, connection docs, methodology, audits, and public surfaces. Useful orientation, not an exhaustive route proof.",
         auth: "none",
         status: "stable",
       },
       {
         path: "/glossary",
-        blurb: "Every term Cambridge TCG uses, defined once. schema.org DefinedTermSet. OPTCG vocabulary, platform terms, doctrinal primitives.",
+        blurb: "Reviewed Cambridge TCG terms in a schema.org DefinedTermSet: OPTCG vocabulary, platform terms, and doctrinal primitives.",
         auth: "none",
         status: "stable",
       },
       {
         path: "/.well-known/cambridge-tcg.json",
-        blurb: "Machine-readable manifest of all public data paths on this platform. Sibling to this page.",
+        blurb: "Machine-readable manifest of reviewed participant-facing paths. Sibling to this page.",
         auth: "none",
         status: "stable",
       },
@@ -247,9 +247,9 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
       },
       {
         path: "/api/openapi.json",
-        blurb: "OpenAPI / JSON-Schema bundle for every public endpoint. Generator-friendly.",
+        blurb: "OpenAPI 3.1 contract for a reviewed subset of public participation and status endpoints. Generator-friendly within that scope.",
         auth: "none",
-        status: "planned",
+        status: "experimental",
       },
     ],
   },
@@ -282,6 +282,7 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
 const STATUS_TONE: Record<DataPath["status"], string> = {
   stable: "text-ok",
   experimental: "text-warning",
+  paused: "text-warning",
   planned: "text-ink-faint",
 };
 

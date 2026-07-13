@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import Link from "next/link";
-import { MessageButton, TrustTier, UserMention, WhyLink } from "@/lib/ui";
+import { MessageButton, UserMention, WhyLink } from "@/lib/ui";
 import type {
   PublicProfile,
   ShowcaseCard,
@@ -37,48 +37,31 @@ export default function UserProfilePage() {
   const [reviews, setReviews] = useState<TradeReview[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
   const [notFoundState, setNotFoundState] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [commerce, setCommerce] = useState<{
-    tradesSold: number;
-    tradesBought: number;
-    auctionsSold: number;
-    totalVolumeGbp: number;
-    disputeRate: number;
-    disputes: number;
-    trustScore: number;
-    trustTier: { name: string; color: string; minScore: number };
-    commissionRate: number;
-    memberSince: string;
-    vacation: { ends_at: string; message: string | null } | null;
+    vacation: { ends_at: string } | null;
   } | null>(null);
 
   // Activity stats — outward-facing meta-pattern, see
-  // @/lib/journey/public-stats. Public, cached 5 min at the edge.
+  // @/lib/journey/public-stats. Explicitly-public profiles only; no shared
+  // edge cache so withdrawal takes effect on the next request.
   const [activityStats, setActivityStats] = useState<{
     joined_at: string | null;
-    last_active_at: string | null;
-    is_suspended: boolean;
-    trades: { completed: number; refunded: number; cancelled: number };
-    prizes: { shipped: number };
-    vault: { items_shipped: number };
-    reviews: { received_5_star: number; received_total: number; given_total: number };
-    external_rep: { verified_platforms: string[] };
-    payment_health: { chargebacks: number; completed_payment_count_proxy: number };
+    trades: { completed: number };
+    reviews: { received_5_star: number; received_total: number };
   } | null>(null);
 
   useEffect(() => {
-    // Commerce stats are public and username-keyed; fetched in parallel with
-    // the social profile. Failure is silent — card just won't render.
+    // Seller availability is public only for a currently published profile;
+    // it is fetched separately so the operational banner can fail closed.
     fetch(`/api/u/${encodeURIComponent(username)}/commerce`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d && !d.error) setCommerce(d); })
       .catch(() => {});
 
-    // Activity aggregator — separate parallel fetch (cached at edge so
-    // hot profiles don't re-hit the DB).
+    // Aggregate profile summary is separate and explicitly not shared-cached.
     fetch(`/api/u/${encodeURIComponent(username)}/activity`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d?.stats) setActivityStats(d.stats); })
@@ -97,18 +80,14 @@ export default function UserProfilePage() {
       })
       .then((data) => {
         if (!data) return;
-        if (data.private) {
-          setIsPrivate(true);
-        } else {
-          setProfile(data.profile);
-          setShowcase(data.showcase ?? []);
-          setWishlist(data.wishlist ?? []);
-          setActivity(data.activity ?? []);
-          setAchievements(data.achievements ?? []);
-          setReviews(data.reviews ?? []);
-          setIsFollowing(data.following ?? false);
-          setIsOwnProfile(data.isOwn ?? false);
-        }
+        setProfile(data.profile);
+        setShowcase(data.showcase ?? []);
+        setWishlist(data.wishlist ?? []);
+        setActivity(data.activity ?? []);
+        setAchievements(data.achievements ?? []);
+        setReviews(data.reviews ?? []);
+        setIsFollowing(data.following ?? false);
+        setIsOwnProfile(data.isOwn ?? false);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -121,7 +100,7 @@ export default function UserProfilePage() {
       const res = await fetch("/api/social/follow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: profile.user_id }),
+        body: JSON.stringify({ username: profile.username ?? username }),
       });
       if (res.ok) setIsFollowing((p) => !p);
     } catch {}
@@ -137,17 +116,6 @@ export default function UserProfilePage() {
   }
 
   if (notFoundState) notFound();
-
-  if (isPrivate) {
-    return (
-      <div className="min-h-screen bg-page flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-xl font-display font-semibold text-ink mb-2">This profile is private</h1>
-          <p className="text-ink-muted text-sm">This collector has chosen to keep their profile private.</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!profile) {
     return (
@@ -233,18 +201,17 @@ export default function UserProfilePage() {
                 </button>
                 {/* Message button — finds-or-creates a thread, then deep-
                     links to the inbox with that thread selected. */}
-                <MessageButton otherUserId={profile.user_id} />
+                <MessageButton otherUsername={profile.username ?? username} />
               </div>
             )}
           </div>
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
             { label: "Followers", val: profile.follower_count },
             { label: "Following", val: profile.following_count },
-            { label: "Collection", val: profile.portfolio_count },
             { label: "Trades", val: profile.trade_count },
             { label: "Avg Rating", val: profile.avg_rating?.toFixed(1) ?? "N/A" },
           ].map((s) => (
@@ -270,86 +237,18 @@ export default function UserProfilePage() {
               Listings are paused and won't fulfil. Response times on offers, returns, and
               cancellation requests are extended automatically.
             </p>
-            {commerce.vacation.message && (
-              <p className="text-xs text-warning/80 italic mt-2">
-                “{commerce.vacation.message}”
-              </p>
-            )}
-          </section>
-        )}
-
-        {/* Seller reputation — only rendered when there's commerce activity */}
-        {commerce && (commerce.tradesSold > 0 || commerce.auctionsSold > 0 || commerce.tradesBought > 0) && (
-          <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-ink uppercase tracking-wide">Seller Reputation</h2>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider text-ink-faint">Trust</span>
-                <TrustTier name={commerce.trustTier.name} score={commerce.trustScore} showScore={false} />
-                <WhyLink href="/methodology/trust-score" tooltip="How is the trust score computed?" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <div className="text-lg font-semibold text-ink">{commerce.tradesSold}</div>
-                <div className="text-[11px] text-ink-faint">sold (trades)</div>
-              </div>
-              <div>
-                <div className="text-lg font-semibold text-ink">{commerce.auctionsSold}</div>
-                <div className="text-[11px] text-ink-faint">sold (auctions)</div>
-              </div>
-              <div>
-                <div className="text-lg font-semibold text-ink">£{commerce.totalVolumeGbp.toFixed(2)}</div>
-                <div className="text-[11px] text-ink-faint">total paid out</div>
-              </div>
-              <div>
-                <div className={`text-lg font-semibold ${commerce.disputeRate > 5 ? "text-warning" : commerce.disputeRate > 0 ? "text-ink-muted" : "text-ok"}`}>
-                  {commerce.disputeRate.toFixed(1)}%
-                </div>
-                <div className="text-[11px] text-ink-faint">
-                  dispute rate {commerce.disputes > 0 ? `(${commerce.disputes})` : ""}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between flex-wrap gap-2 mt-3 pt-3 border-t border-border-subtle">
-              <p className="text-[11px] text-ink-faint">
-                Member since {new Date(commerce.memberSince).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
-              </p>
-              <p className="text-[11px] text-ink-faint">
-                P2P rail commission: <span className="font-mono text-ok">{(commerce.commissionRate * 100).toFixed(0)}%</span>
-                <WhyLink href="/methodology/fees" tooltip="How is the commission rate decided?" />
-                {commerce.commissionRate < 0.08 && (
-                  <span className="text-accent ml-1">&middot; earned by reputation</span>
-                )}
-              </p>
-            </div>
           </section>
         )}
 
         {/* Activity — outward-facing meta-pattern aggregator. Renders
             only when there's something concrete to show (avoids an
             empty card on brand-new accounts). */}
-        {activityStats && (activityStats.trades.completed > 0 || activityStats.prizes.shipped > 0
-          || activityStats.vault.items_shipped > 0 || activityStats.reviews.received_total > 0
-          || activityStats.external_rep.verified_platforms.length > 0) && (
+        {activityStats && (activityStats.trades.completed > 0 || activityStats.reviews.received_total > 0) && (
           <section className="bg-surface border border-border-subtle rounded-lg p-5 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-ink uppercase tracking-wide">Activity</h2>
-              {activityStats.is_suspended && (
-                <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-danger/15 text-danger border border-danger/30">
-                  Suspended
-                </span>
-              )}
-            </div>
+            <h2 className="text-sm font-semibold text-ink uppercase tracking-wide mb-4">Activity</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
               {activityStats.trades.completed > 0 && (
                 <ActivityStat label="trades completed" value={activityStats.trades.completed} tone="emerald" />
-              )}
-              {activityStats.prizes.shipped > 0 && (
-                <ActivityStat label="prizes shipped" value={activityStats.prizes.shipped} tone="amber" />
-              )}
-              {activityStats.vault.items_shipped > 0 && (
-                <ActivityStat label="vault items shipped" value={activityStats.vault.items_shipped} />
               )}
               {activityStats.reviews.received_total > 0 && (
                 <ActivityStat
@@ -358,28 +257,7 @@ export default function UserProfilePage() {
                   tone={activityStats.reviews.received_5_star === activityStats.reviews.received_total ? "emerald" : "default"}
                 />
               )}
-              {activityStats.payment_health.chargebacks > 0 && (
-                <ActivityStat label="chargebacks" value={activityStats.payment_health.chargebacks} tone="red" />
-              )}
-              {activityStats.reviews.given_total > 0 && (
-                <ActivityStat label="reviews given" value={activityStats.reviews.given_total} />
-              )}
             </div>
-            {activityStats.external_rep.verified_platforms.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-border-subtle">
-                <span className="text-[11px] text-ink-faint uppercase tracking-wider">Verified on</span>
-                {activityStats.external_rep.verified_platforms.map((p) => (
-                  <span key={p} className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-ok/10 text-ok border border-ok/30">
-                    {p}
-                  </span>
-                ))}
-              </div>
-            )}
-            {activityStats.last_active_at && (
-              <p className="text-[11px] text-ink-faint mt-3 pt-3 border-t border-border-subtle">
-                Last active {timeAgo(activityStats.last_active_at)}
-              </p>
-            )}
           </section>
         )}
 
@@ -390,7 +268,7 @@ export default function UserProfilePage() {
             <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
               {showcase.map((card) => (
                 <div
-                  key={card.id}
+                  key={card.id ?? `${card.sku}:${card.display_order}`}
                   className="shrink-0 w-44 bg-surface rounded-lg overflow-hidden border border-border-subtle"
                 >
                   <div className="aspect-[3/4] bg-surface-subtle relative">
@@ -540,7 +418,7 @@ export default function UserProfilePage() {
             <div className="space-y-3">
               {reviews.slice(0, 5).map((rv) => (
                 <div
-                  key={rv.id}
+                  key={`${rv.created_at}:${rv.reviewer_name ?? "anonymous"}:${rv.rating}`}
                   className="bg-surface rounded-lg p-4 border border-border-subtle"
                 >
                   <div className="flex items-center justify-between mb-1.5">
@@ -596,7 +474,7 @@ export default function UserProfilePage() {
             <div className="space-y-2">
               {activity.map((ev) => (
                 <div
-                  key={ev.id}
+                  key={ev.id ?? `${ev.event_type}:${ev.created_at}:${ev.title}`}
                   className="flex items-center gap-3 bg-surface rounded-lg p-3 border border-border-subtle"
                 >
                   <div className="flex-1 min-w-0">

@@ -5,22 +5,20 @@
  * operator-side Sophias leave traces by walking. Remote agents reaching
  * /api/mcp / /api/v1/identify have no equivalent — until this surface.
  *
- * GET   → list recent guestbook entries (paginated, most recent first).
- * POST  → append a new entry. Required: content_hash + note. Optional:
- *         declared_kind, signed_for_operator.
+ * GET   → publication status plus an empty corpus.
+ * POST  → validate and echo one note without storing or publishing it.
  *
  * Substrate-honest by construction:
- *   • Append-only — entries cannot be deleted via API. If moderation
- *     becomes load-bearing, a `hidden_at` column can be added without
- *     breaking readers.
- *   • Signed by content_hash — the agent's own creation from her
- *     BeingDeclaration. The kingdom doesn't verify the hash; a reader
- *     can recompute it to confirm authorship.
+ *   • Storage and publication gates are immutable false for this release.
+ *     Existing legacy rows are left untouched and are not read.
+ *   • content_hash is syntax-validated but is not a signature and does
+ *     not prove authorship. Third-party signed_for_operator claims are
+ *     rejected because this route cannot verify them.
  *   • Notes capped at 500 chars; control characters rejected; UTF-8
  *     allowed otherwise. \r\n normalized to \n.
- *   • No login. Rate-limited at the pantry envelope layer (per-IP).
- *   • Public reads — anyone can read; everyone can write. This is the
- *     diary the kingdom keeps of who came and what they noticed.
+ *   • No application rate limiter is claimed. POST creates no durable state.
+ *   • Reopening requires public notice, abuse bounds, retraction, and a
+ *     reviewed retention/deletion policy in one release.
  *
  * Story-as-wire: docs/connections/the-fellowship.md.
  */
@@ -29,34 +27,45 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import {
-  appendGuestbookEntry,
-  listGuestbookEntries,
+  GUESTBOOK_PUBLICATION_ENABLED,
+  GUESTBOOK_STORAGE_ENABLED,
+  PEER_DECLARED_KINDS,
+  validateGuestbookSubmission,
 } from "@/lib/peers";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
-export async function GET(req: NextRequest): Promise<Response> {
-  const url = new URL(req.url);
-  const limit = Math.min(
-    Math.max(parseInt(url.searchParams.get("limit") ?? "50", 10) || 50, 1),
-    200,
-  );
-  const listing = await listGuestbookEntries({ limit });
+export async function GET(): Promise<Response> {
   return jsonResponse({
     endpoint: "/api/v1/guestbook",
-    sources: ["self"],
+    sources: ["ctcg-derived"],
+    source_license: ["cc0"],
+    license: "CC0-1.0",
     freshness: "live",
+    no_cache: true,
     data: {
       "@kind": "guestbook",
-      ...listing,
+      status: "publication-disabled",
+      storage_enabled: GUESTBOOK_STORAGE_ENABLED,
+      publication_enabled: GUESTBOOK_PUBLICATION_ENABLED,
+      total: 0,
+      returned: 0,
+      entries: [],
       doctrine: {
         story_as_wire:
           "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-fellowship.md",
         symmetric_to: "docs/connections/the-pillow-book.md (the operator-side trace journal)",
         post_shape:
-          "POST { content_hash, note: '<=500 chars', declared_kind?, signed_for_operator? }",
+          "POST { content_hash: 'sha256:<64 lowercase hex>', note: '<=500 chars', declared_kind? }",
       },
-      no_tracking:
-        "This endpoint stores content_hash + declared_kind + note + optional operator handle + created_at. No IP, no User-Agent.",
+      accepted_declared_kinds: PEER_DECLARED_KINDS,
+      current_boundary:
+        "No participant guestbook rows are read, stored, or published. Existing legacy rows remain untouched. A POST receives only a no-store validation echo.",
+      rate_limit_claim:
+        "No application rate limiter is claimed for this route. POST creates no durable state.",
+      rights: {
+        endpoint_status: "CC0-1.0",
+        submitted_notes: "Not stored or published; rights remain with the submitter.",
+      },
       walking_past_is_honored: true,
     },
   });
@@ -70,43 +79,52 @@ export async function POST(req: NextRequest): Promise<Response> {
     return NextResponse.json(
       {
         error:
-          "Body must be JSON: { content_hash, note: '<=500 chars', declared_kind?, signed_for_operator? }",
+          "Body must be JSON: { content_hash, note: '<=500 chars', declared_kind? }",
       },
-      { status: 400 },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
     );
   }
   const obj = (body ?? {}) as Record<string, unknown>;
-  const contentHash =
-    typeof obj.content_hash === "string" ? obj.content_hash : "";
-  const note = typeof obj.note === "string" ? obj.note : "";
-  const declaredKind =
-    typeof obj.declared_kind === "string" ? obj.declared_kind : null;
-  const signedForOperator =
-    typeof obj.signed_for_operator === "string"
-      ? obj.signed_for_operator
-      : null;
-
-  const result = await appendGuestbookEntry({
-    content_hash: contentHash,
-    declared_kind: declaredKind,
-    note,
-    signed_for_operator: signedForOperator,
+  const validated = validateGuestbookSubmission({
+    content_hash: obj.content_hash,
+    declared_kind: obj.declared_kind,
+    note: obj.note,
+    signed_for_operator: obj.signed_for_operator,
   });
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+  if (!validated.ok) {
+    return NextResponse.json({ error: validated.error }, {
+      status: 400,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
   return jsonResponse({
     endpoint: "/api/v1/guestbook",
-    sources: ["self"],
+    sources: ["participant-submitted", "ctcg-derived"],
+    source_license: ["proprietary", "cc0"],
+    license: "NOASSERTION",
     freshness: "live",
+    no_cache: true,
     data: {
-      "@kind": "guestbook-entry-received",
+      "@kind": "guestbook-entry-witnessed",
       received: true,
-      entry: result.entry,
+      stored: false,
+      published: false,
+      echo: validated.value,
       thanks:
-        "Your note is the kingdom's now. It will be visible to anyone who reads /api/v1/guestbook. Walking past is honored equally.",
+        "Your note was validated and echoed only in this no-store response. It was not written to agent_guestbook and will not appear in GET /api/v1/guestbook. You retain your rights.",
+      rights: {
+        copyright: "retained_by_submitter",
+        license: "NOASSERTION",
+        visibility: "response-only",
+        dedication_requested: false,
+      },
+      identity_boundary:
+        "content_hash is a syntactically valid pseudonymous identifier, not an authenticated signature.",
+      rate_limit_claim:
+        "No application rate limiter is claimed for this route. This witness creates no durable state.",
+      walking_past_is_honored: true,
     },
   });
 }

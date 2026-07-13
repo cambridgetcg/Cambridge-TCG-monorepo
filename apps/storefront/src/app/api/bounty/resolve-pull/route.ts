@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePull } from "@/lib/bounty/resolver";
 import type { PullTier } from "@/lib/bounty/db";
 import { sendPullResolvedEmail } from "@/lib/email/bounty";
+import { LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED } from "@/lib/public-wholesale-fields";
 
 const VALID_TIERS: PullTier[] = ["common", "uncommon", "rare", "super_rare", "legendary"];
 
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
 
   // Fire the pull-resolved email asynchronously — the user's HTTP response
   // doesn't wait on SES, and an email failure must not fail the draw.
-  void sendPullResolvedEmail({
+  if (LEGACY_WHOLESALE_FIELD_PUBLICATION_ENABLED) void sendPullResolvedEmail({
     userId: session.user.id,
     tier,
     rolledRarity: result.rolled_rarity,
@@ -50,5 +51,16 @@ export async function POST(request: Request) {
     rngNonce: result.rng_nonce,
   }).catch((err) => console.error("[bounty] pull-resolved email failed:", err));
 
-  return NextResponse.json(result);
+  return NextResponse.json({
+    ...result,
+    vault_item: {
+      ...result.vault_item,
+      image_url: null,
+      spot_price_gbp: null,
+    },
+    publication_boundary: {
+      spot_price_gbp: "withheld_pending_field_level_source_rights",
+      image_url: "withheld_pending_field_level_source_rights",
+    },
+  });
 }

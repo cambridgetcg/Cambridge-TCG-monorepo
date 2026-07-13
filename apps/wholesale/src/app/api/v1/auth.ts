@@ -65,8 +65,8 @@ export async function authenticateApiKey(
       .from(apiKeyUsage)
       .where(and(eq(apiKeyUsage.apiKeyId, key.id), gt(apiKeyUsage.usedAt, since)));
     count = row?.n ?? 0;
-  } catch (err) {
-    console.warn(`[AUTH] Rate-limit count failed for key #${key.id} — allowing:`, err);
+  } catch {
+    console.warn("[AUTH] API-key rate-limit count failed; allowing request");
     return key;
   }
 

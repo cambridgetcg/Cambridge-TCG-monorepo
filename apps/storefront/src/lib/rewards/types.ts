@@ -22,10 +22,12 @@ export interface Raffle {
   winner_notified: boolean;
   prize_fulfilled: boolean;
   created_at: string;
+  seed_commitment?: string | null;
   // Joined
   winner_name?: string | null;
   winner_email?: string;
   user_entries?: number;
+  is_winner?: boolean;
 }
 
 export interface RaffleEntry {

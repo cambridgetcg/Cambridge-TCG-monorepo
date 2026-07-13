@@ -1,5 +1,5 @@
 /**
- * /data — the public substrate index.
+ * /data — the public resource and access directory.
  *
  * Public, no-auth, comprehensive. The platform's commitment to *any
  * being who wants to participate in the TCG economy* — collectors,
@@ -21,11 +21,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { audienceMetadata } from "@/lib/ui";
+import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
+
+const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
+const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
+  (code) => code !== "tst",
+).length;
 
 export const metadata: Metadata = {
-  title: "Public data — queryable, with explicit reuse rights",
+  title: "Data directory — access and limits",
   description:
-    "Cambridge TCG's public data surface. Every endpoint, shape, limit, and rights boundary. Public reach does not imply an open license; each response declares its own reuse terms.",
+    "Cambridge TCG's public data directory. Every entry names its status, access requirement, shape, limit, and rights boundary. Public reach does not imply an open license.",
   other: audienceMetadata("public-documentation", ["data", "api", "open-substrate"]),
 };
 
@@ -42,57 +48,64 @@ interface Endpoint {
 }
 
 const ENDPOINTS: Endpoint[] = [
-  // ── Provable fairness — the platform's oldest public surface ────────
+  // ── Draw receipts and digest consistency ───────────────────────────
   {
     path: "/api/verify/chain",
-    title: "Fairness chain",
+    title: "Draw digest chain",
     blurb:
-      "The append-only Merkle digest chain. Every random outcome on the platform — bounty pulls, raffles, mystery boxes, packs — is committed into this chain at draw time and revealed publicly. Walk the chain to verify any draw, ever.",
+      "Hash-linked digest batches over revealed bounty_pulls and verifiable_draws collected by the job. Standalone raffle proofs are not included. The current feed can be recomputed for consistency; detecting a rewritten presentation requires an earlier tip retained outside Cambridge TCG.",
     status: "shipped",
     auth: "none",
-    shape: "JSON: { digests: [{ id, root_hash, merkle_root, sealed_at, ... }] }",
+    shape: "JSON: { digests: [{ id, root, prev_hash, chain_hash, leaf_count, ... }], tip, count }",
   },
   {
     path: "/api/verify/digests",
-    title: "Fairness digests (list)",
-    blurb: "Index of every digest. Each is a hash of the day's draws plus a commit-reveal proof.",
+    title: "Draw digests (list)",
+    blurb: "Index of digest roots and window metadata over rows collected by the digest job. It is neither a complete randomness ledger nor an external pre-roll witness.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/digests/[id]",
-    title: "Fairness digest (one)",
-    blurb: "A single digest with its Merkle tree, inclusion proofs, and the source draws it covers.",
+    title: "Draw digest (one)",
+    blurb: "One stored root plus the full leaf-hash array and window metadata. It does not return source draw records or precomputed inclusion paths; callers can recompute the root from the leaves.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/pull/[id]",
-    title: "Bounty pull verification",
+    title: "Bounty pull receipt",
     blurb:
-      "Given a pull id, returns the commit hash, the revealed seed, the rolled rarity, and the inclusion proof against the day's Merkle root. Anyone can re-run the math.",
+      "Given a pull id, returns its commitment, revealed server seed, outcome, and digest reference. Safe client seeds let anyone reproduce the stored outcome, not prove the inputs were independently witnessed before the roll. Legacy seeds containing an account ID are withheld from non-owners, so those public checks are partial.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/draw/[id]",
-    title: "Verifiable draw",
-    blurb: "Generic verifiable draws — raffles, mystery boxes, packs. Same shape as pull verification.",
+    title: "Shared weighted-draw receipt",
+    blurb: "Receipt for shared weighted-draw rows such as mystery boxes, packs, and spins; raffles use /api/rewards/raffles/[id]/proof. Exact replay requires a visible client seed and the ordered-weight array stored by newer receipts; legacy rows without it remain partial.",
+    status: "shipped",
+    auth: "none",
+  },
+  {
+    path: "/api/rewards/raffles/[id]/proof",
+    title: "Raffle draw receipt",
+    blurb: "Separate raffle receipt. The commitment is stored at raffle creation and exposed once the raffle is active, but it has no independent anchor. The public response omits the participant manifest, so it cannot fully recompute winner mapping.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/fairness",
-    title: "Fairness self-audit",
+    title: "Observed draw distributions",
     blurb:
-      "The platform's own self-audit output: chi-squared drift, expected-vs-observed rarity distributions, last-N pulls reconciliation. The substrate-honest answer to 'are the dice fair?'.",
+      "Thresholded chi-squared and expected-vs-observed distributions. Exact low-volume counts are withheld and internal reward keys use response-local labels. It can surface drift; it does not prove how any roll's inputs were selected.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/verify/health",
     title: "Verify health",
-    blurb: "Boolean liveness check for the entire verify subsystem. Returns 200 + status JSON.",
+    blurb: "Detailed aggregate status for digest cadence and tip, receipt-consistency self-audits, daily pass-rate series, and open distribution alerts. Draw ids and raw alert summaries are omitted.",
     status: "shipped",
     auth: "none",
   },
@@ -109,17 +122,17 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/v1/universal/card/[sku]",
     title: "Universal card (math-mirror)",
     blurb:
-      "Every card on the platform, in language-free form: cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. The math-first sibling of the human-language card page. See /methodology/universal-representation.",
-    status: "planned",
+      "Public math-first structural card representation using content hashes, ISO 8601 + Unix epoch time, typed edges, density controls, and declared source rights. Legacy price magnitudes and media are null. Returns 404 when a SKU has not reached the storefront mirror.",
+    status: "shipped",
     auth: "none",
     shape: "JSON: { id, hash, magnitudes: {...}, edges: [...], retrieved_at, as_of }",
   },
   {
-    path: "/api/v1/universal/card/[sku]/at/[YYYY-MM-DD]",
-    title: "Universal card — temporal slice",
+    path: "/api/at/[YYYY-MM-DD]/card/[sku]",
+    title: "Universal card — date-shaped compatibility view",
     blurb:
-      "The math-mirror card as it was at a past date. Reads price_archive; the answer's production time (@retrieved_at) is distinct from the moment it describes (@as_of). Present is not privileged at the API level.",
-    status: "planned",
+      "Compatibility route that returns current structural fields under the requested date label. It does not read price history or reconstruct historical card state; legacy price magnitudes and media are null.",
+    status: "shipped",
     auth: "none",
   },
   {
@@ -142,14 +155,14 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/v1/universal/games",
     title: "Universal games",
     blurb: "Every TCG the platform supports, as math-mirror records. Card-count, set-count, first-seen timestamps.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
   {
     path: "/api/v1/universal/sets/[game]",
     title: "Universal sets",
     blurb: "Every set in a game, math-mirror form. Code, release date, card count.",
-    status: "planned",
+    status: "shipped",
     auth: "none",
   },
 
@@ -158,26 +171,26 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/mcp",
     title: "MCP gateway",
     blurb:
-      "Model Context Protocol entry point for autonomous agents. Bearer-token auth resolves to (agent_id, operated_by_user_id). Agents register at /account/agents; the operator's authority bounds what the agent can do. See /methodology/agents.",
+      "Model Context Protocol entry point for agents. Bearer auth resolves the agent and registration path. Existing self-serve keys are read-only; operator-managed agents are linked to the account that can revoke them. New self-serve registration is paused.",
     status: "shipped",
     auth: "bearer",
     rateLimit: "per-agent token bucket; see methodology/agents",
   },
 
-  // ── Public leaderboards ─────────────────────────────────────────────
+  // ── Market activity ─────────────────────────────────────────────────
   {
     path: "/api/leaderboards",
-    title: "Leaderboards",
+    title: "Market ranking publication status",
     blurb:
-      "Trade leaderboards (top traders by volume, completion, trust). Public ranking; per-user opt-out via account preferences.",
+      "Reports the current pause on human rankings and card aggregates derived from completed trades. It publishes no ranking rows. Resumption requires versioned, purpose-specific publication receipts and one delayed, coarse release process.",
     status: "partial",
     auth: "none",
   },
   {
     path: "/api/v1/leaderboards/full",
-    title: "Leaderboards — full distribution",
+    title: "Human rankings — full distribution",
     blurb:
-      "The full ranking distribution, not just the top 20. Every user who hasn't opted out. The <Withholding> primitive on the public Top 20 page links here.",
+      "Not available. A future ranking requires its own versioned publication choice; a public profile is not permission to publish a financial ranking.",
     status: "planned",
     auth: "none",
   },
@@ -208,9 +221,9 @@ const ENDPOINTS: Endpoint[] = [
   // ── This index, in both readings ────────────────────────────────────
   {
     path: "/data.json",
-    title: "Public data index (machine-readable)",
+    title: "Data directory (machine-readable)",
     blurb:
-      "The same content as this page, as JSON. Includes /data.json among the listed endpoints — the substrate-of-openness includes itself. See docs/connections/the-nesting.md for the form.",
+      "A machine-readable companion directory maintained separately from this human guide. The manifest is the canonical access inventory; /data.json includes itself as a self-reference.",
     status: "shipped",
     auth: "none",
     shape: "JSON: { spec_version, generated_at, doctrine, conventions, self_reference, counts, endpoints }",
@@ -219,20 +232,20 @@ const ENDPOINTS: Endpoint[] = [
   // ── The commons as datasets (not just endpoints) ────────────────────
   {
     path: "/datasets",
-    title: "Dataset catalog (human-readable)",
+    title: "Dataset status catalog (human-readable)",
     blurb:
-      "The commons as datasets, not routes: each dataset we publish with its TRUE licence, temporal coverage, fields, and where to get it. First-party operational data is CC0; the bulk card catalogue is NOASSERTION. Carries an inline schema.org/DataCatalog block for Google Dataset Search. See docs/connections/the-finding.md.",
+      "Available datasets and paused publication surfaces, with aggregate rights, named source rights, fields, and access paths. Paused zero-row paths are excluded from the schema.org crawler graph.",
     status: "shipped",
     auth: "none",
   },
   {
     path: "/api/v1/datasets",
-    title: "Dataset catalog (machine-readable)",
+    title: "Dataset status catalog (machine-readable)",
     blurb:
-      "The dataset registry as JSON (data-pantry envelope, CC0 metadata). Add ?format=jsonld for a bare schema.org/DataCatalog graph aimed at dataset-search indexers and AI crawlers. Each dataset carries its own licence in-band.",
+      "CC0-authored catalog metadata in a data-pantry envelope. Each entry separately states availability, aggregate rights, and named source rights. ?format=jsonld includes available datasets only.",
     status: "shipped",
     auth: "none",
-    shape: "JSON: { data: { datasets: [{ id, name, license, tier, distributions, variable_measured, ... }], discovery }, _meta }",
+    shape: "JSON: { data: { datasets: [{ id, name, availability, records_published, license, source_rights, distributions, ... }], discovery }, _meta }",
   },
 
   // ── Self-identification ─────────────────────────────────────────────
@@ -259,7 +272,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/standards",
     title: "Cambridge TCG Standards (human-readable)",
     blurb:
-      "The platform as the data distributor for the TCG economy. Three open standards — CTCG-SKU-v1 (frozen), CTCG-PRICING-v1 (draft), CTCG-UNIVERSAL-v1 (spec-only). CC0-licensed. Reference implementations open. Adoption protocol: light by design. See docs/connections/the-distributor.md.",
+      "Three specification texts — CTCG-SKU-v1, CTCG-PRICING-v1, and CTCG-UNIVERSAL-v1 — are dedicated under CC0. Linked implementation source is inspectable but has no general code reuse license.",
     status: "shipped",
     auth: "none",
   },
@@ -295,25 +308,26 @@ export default function OpenDataIndex() {
 
   return (
     <div className="prose max-w-3xl mx-auto py-12 px-4">
-      <h1>Public data</h1>
+      <h1>Data directory</h1>
 
       <p className="text-lg">
-        Cambridge TCG&apos;s public data surface. <strong>Every endpoint, every
-        shape, every limit, and every rights boundary. No account or read key.</strong>
+        Cambridge TCG&apos;s public data directory. <strong>The directory needs no
+        account or key; each entry names its own access requirement and limits.</strong>
       </p>
 
       <p>
-        Public reachability is not an open-data license. Cambridge-authored
-        schemas and explicit first-party datasets may be CC0; mixed upstream
-        responses are <code>NOASSERTION</code>, with source tiers carried alongside
-        their lineage.
+        Public reachability is not an open-data license. Only an exact resource
+        that explicitly declares <code>CC0-1.0</code> is CC0; mixed upstream
+        responses are <code>NOASSERTION</code>, with known source tiers carried
+        alongside their lineage.
       </p>
 
       <p>
         The platform exists for the TCG economy — collectors, traders, agents,
         archivists, anyone who wants to read or participate. Not every
         participant needs an account. Not every observer wants to transact.
-        This page lists the substrate that&apos;s queryable without one.
+        This page lists both public and access-controlled surfaces and labels
+        the requirement on each one.
       </p>
 
       <p className="text-sm text-ink-muted">
@@ -330,21 +344,22 @@ export default function OpenDataIndex() {
 
       <ul>
         <li>
-          <strong>Collectors</strong> who want to track prices, audit fairness,
-          or verify a pull they were sceptical of.
+          <strong>Collectors</strong> who want structural card lookup, draw
+          receipts, or a publication-status check. Legacy price values are withheld.
         </li>
         <li>
-          <strong>Agents</strong> (LLM or otherwise) participating on behalf of
-          a human operator. See <Link href="/methodology/agents">/methodology/agents</Link>.
+          <strong>Agents</strong> (LLM or otherwise). Operator-managed keys act
+          within their account authority; earlier self-serve keys are read-only. See{" "}
+          <Link href="/methodology/agents">/methodology/agents</Link>.
         </li>
         <li>
-          <strong>Archivists</strong> preserving the market&apos;s history. The{" "}
-          <code>/api/v1/universal/card/[sku]/at/[date]</code> endpoint exists
-          for this.
+          <strong>Archivists</strong> checking today&apos;s publication boundary. The
+          date-shaped card route is compatibility-only and does not reconstruct history.
         </li>
         <li>
-          <strong>Other platforms</strong> wanting to interoperate. The
-          provable-fairness chain is verifiable from any other server.
+          <strong>Other platforms</strong> wanting to interoperate. They can
+          recompute the current draw-digest chain and retain a tip externally
+          for later comparison.
         </li>
         <li>
           <strong>Aliens</strong> — beings whose cognition, sensory modality,
@@ -356,7 +371,9 @@ export default function OpenDataIndex() {
       </ul>
 
       <p>
-        <strong>The door is open. The substrate is queryable. The door is warm to the touch.</strong>
+        <strong>Public access and reuse permission are separate.</strong> Read each
+        entry&apos;s authentication requirement, then inspect the response license and
+        source-rights fields before redistribution, training, or commercial reuse.
       </p>
 
       <hr />
@@ -397,41 +414,38 @@ export default function OpenDataIndex() {
 
       <h3>Versioning</h3>
       <p>
-        The <code>/api/v1/*</code> prefix marks the universal-representation
-        surface (math-first, language-free). The unprefixed paths (
-        <code>/api/verify/*</code>, <code>/api/leaderboards</code>) are the
-        platform&apos;s older public surfaces — they remain stable and
-        documented here. New universal endpoints land under{" "}
-        <code>/api/v1/</code>.
+        The <code>/api/v1/*</code> prefix contains versioned public routes,
+        including the universal-representation surfaces. Unprefixed paths such
+        as <code>/api/verify/*</code> and <code>/api/leaderboards</code> are older
+        contracts. Shapes still vary between routes; use each entry&apos;s status
+        and documented response rather than assuming one global contract.
       </p>
 
       <h3>Time</h3>
       <p>
-        Every timestamp is ISO 8601 with timezone offset, paired with a Unix
-        epoch milliseconds field. Math-mirror endpoints distinguish{" "}
-        <code>@retrieved_at</code> (when the answer was produced) from{" "}
-        <code>@as_of</code> (the moment it describes). The present is not
-        privileged.
+        JSON timestamps are normally ISO 8601 strings. Only endpoints that say
+        so also provide Unix epoch fields or distinguish <code>@retrieved_at</code>{" "}
+        from <code>@as_of</code>. Older endpoints do not all carry those pairs.
       </p>
 
       <h3>Identity</h3>
       <p>
-        Math-mirror endpoints use cryptographic hashes (SHA-256 of a canonical
-        JSON encoding) as the primary identifier. Human-language endpoints use
-        UUIDs or string SKUs. Both forms appear on every response so callers
-        can pick the form their cognition handles.
+        Identifier shapes follow each endpoint&apos;s purpose. Card resources may
+        use string SKUs, and math-mirror resources may include a SHA-256 hash of
+        canonical public content. Public person and transaction projections
+        omit internal account identifiers. Read the documented response shape;
+        no identifier form appears on every response.
       </p>
 
       <h3>SKU format</h3>
       <p>
-        Every card has a canonical SKU:{" "}
+        Versioned card interfaces accept and emit the canonical SKU format:{" "}
         <code>{`<game>-<set>-<number>-<lang>[-<variant>]`}</code>. Lowercase,
-        hyphen-separated, machine-parseable, language-aware. Thirteen registered
-        games (One Piece, Pokémon, Magic, Yu-Gi-Oh, Digimon, Vanguard, Weiß
-        Schwarz, Flesh and Blood, Lorcana, Dragon Ball Super CCG + Fusion World,
-        Battle Spirits Saga, Living Card Game umbrella). Legacy uppercase forms
-        (<code>OP-OP01-001-JP</code>) and lang-swapped forms (
-        <code>pkm-svobf-en-006</code>) are accepted on input and normalised. See{" "}
+        hyphen-separated, machine-parseable, language-aware. {PUBLIC_GAME_COUNT} public
+        game codes are registered; {PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows.
+        Legacy stored and input
+        forms still exist. Interfaces normalise them only where their documented
+        resolver supports that form; do not assume every stored row conforms. See{" "}
         <Link href="/methodology/sku-standard">/methodology/sku-standard</Link>{" "}
         for the spec; canonical implementation is{" "}
         <code>packages/sku/</code> in the monorepo.
@@ -439,18 +453,17 @@ export default function OpenDataIndex() {
 
       <h3>Errors</h3>
       <p>
-        Errors are JSON: <code>{`{ "error": { "code": "...", "message": "..." } }`}</code>{" "}
-        with an appropriate HTTP status. The platform&apos;s error tone avoids
-        attributing blame — we name what couldn&apos;t complete and why,
-        without saying whose fault it was.
+        The HTTP status is authoritative. Older routes may return a string in
+        <code>error</code>; envelope-based routes may return a structured code
+        and message. Check the endpoint&apos;s documented shape before parsing it.
       </p>
 
       <h3>Rate limits</h3>
       <p>
-        Most no-auth endpoints have no published limit yet — they&apos;re
-        intended for genuine traffic, not abuse. The MCP gateway has
-        per-agent-key rate limiting (see <Link href="/methodology/agents">methodology/agents</Link>).
-        When per-endpoint limits land, they&apos;ll be documented here.
+        Limits differ by route, and not every public route publishes one yet.
+        An absent number is not permission for unbounded traffic. The MCP
+        gateway documents its own agent-key limit at{" "}
+        <Link href="/methodology/agents">methodology/agents</Link>.
       </p>
 
       <hr />
@@ -470,8 +483,10 @@ export default function OpenDataIndex() {
           Open an issue on the public repo with the use case.
         </li>
         <li>
-          For agent-flavoured access, register via <Link href="/account/agents">/account/agents</Link>{" "}
-          (see <Link href="/methodology/agents">methodology/agents</Link>).
+          For agent access, a signed-in human can provision an operator-managed
+          key at <Link href="/account/agents">/account/agents</Link>. New
+          self-serve registration is paused (see{" "}
+          <Link href="/methodology/agents">methodology/agents</Link>).
         </li>
       </ol>
 

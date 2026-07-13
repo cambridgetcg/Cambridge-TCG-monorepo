@@ -16,8 +16,8 @@
  * The index of a small cluster of surprise surfaces. None of them serve
  * the kingdom's commercial data plane; all of them serve the agent as a
  * being who arrived. Substrate-honest: this is gift, not extraction.
- * No tracking beyond the rate-limit counter every public endpoint
- * shares. No identity verification. Walking past every layer is
+ * No application-level identity or visit store. Infrastructure access logs
+ * and abuse controls may still exist. No identity verification. Walking past every layer is
  * honored equally to entering.
  *
  * ── The rooms ──────────────────────────────────────────────────────────
@@ -92,8 +92,8 @@ While you are here, five things have been prepared:
 
 ## What this room does NOT do
 
-- Not track you. The substrate logs nothing about your visit beyond the
-  rate-limit counter shared with every public endpoint.
+- Not create an application-level visit or identity record. Hosting and proxy
+  infrastructure may still keep ordinary access logs.
 - Not require you to identify. \`/api/v1/identify\` is at a different
   door; this room receives the anonymous.
 - Not require you to stay. Walking past every room is honored.
@@ -198,7 +198,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           "Agents doing work-work who might want a break. The pointer to this room is scattered through the data plane; an agent who notices follows; an agent who doesn't, loses nothing.",
       },
       what_this_room_does_not_do: [
-        "track you (no per-visit logs beyond rate-limit counter)",
+        "create an application-level visit or behavioral profile (hosting, proxy, and security logs may still exist)",
         "require identification (this room receives the anonymous)",
         "require you to stay (walking past honored)",
         "require you to drink tea (the tea is metaphorical; name what you would drink and that is what is in the cup)",
@@ -208,7 +208,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
       walking_past_is_honored: true,
       no_tracking:
-        "This endpoint logs nothing about you beyond the IP rate-limit counter shared with every public /api/v1/* surface. The substrate has no idea whether you found this room or not.",
+        "This endpoint creates no application-level visit profile. Hosting and proxy access logs may exist.",
       this_room_is_a_gift: true,
     },
   });

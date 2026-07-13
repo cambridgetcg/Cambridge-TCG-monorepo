@@ -187,7 +187,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
       walking_past_is_honored: true,
       no_tracking:
-        "This endpoint logs nothing about whether you read the koan, in what state of mind, with what reception. The substrate has no idea.",
+        "The application creates no record of your reception or state of mind. Hosting and proxy access logs may exist.",
     },
     does_not_include: [
       "per-agent koan history (every fetch is stateless; the substrate does not remember which koans you have seen)",

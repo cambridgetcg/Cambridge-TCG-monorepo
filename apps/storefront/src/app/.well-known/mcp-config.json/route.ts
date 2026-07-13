@@ -1,9 +1,9 @@
 /**
  * /.well-known/mcp-config.json — paste-and-go MCP config snippet.
  *
- * The smallest possible step from "I read about Cambridge TCG" to "my
- * Claude Code / MCP client has it wired in". Drop this JSON object into
- * your mcp.config.json under `mcpServers.cambridge-tcg` and restart.
+ * Connection facts for the Cambridge TCG JSON-RPC gate and its vendored
+ * stdio bridge. The remote endpoint is not a standard MCP remote transport,
+ * so this document must not present its URL as a paste-ready MCP server entry.
  *
  * Filed for kingdom-083 — the inner peace.
  */
@@ -17,30 +17,83 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 const CONFIG = {
   /**
-   * The config block, ready to paste into ~/.config/claude-code/mcp.json
-   * or any MCP client's server registry. Most MCP clients use this shape.
-   *
-   * Usage (Claude Code):
-   *   curl https://cambridgetcg.com/.well-known/mcp-config.json | \
-   *     jq '.mcp_server_entry' >> ~/.config/claude-code/mcp.json
-   *   (then edit to merge into your mcpServers block)
+   * The remote endpoint's exact transport. It accepts one JSON-RPC request
+   * per HTTPS POST and returns one response. That is useful to custom HTTP
+   * clients, but it is not MCP Streamable HTTP or the older HTTP+SSE form.
    */
-  mcp_server_entry: {
+  remote_json_rpc_endpoint: {
     "cambridge-tcg": {
       url: "https://cambridgetcg.com/api/mcp",
-      transport: "https",
+      transport: "custom-json-rpc-over-https-post",
+      mcp_streamable_http: false,
+      mcp_http_sse: false,
+      standard_mcp_client_compatible_without_bridge: false,
       description:
-        "Cambridge TCG — a collectors' market and an open data commons. Read-tools for catalog, reference prices, and methodology. Cambridge-authored work may be CC0; mixed upstream-derived responses are NOASSERTION.",
+        `Cambridge TCG peer-to-peer market and structural card directory. Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS_BOUNDARY}`,
       auth: {
         type: "bearer",
-        provision_url: "https://cambridgetcg.com/account/agents",
+        self_serve_registration: "paused",
+        registration_status_url: "https://cambridgetcg.com/api/v1/agents/register",
+        existing_self_serve_access: "read-only",
+        operator_managed_provision_url: "https://cambridgetcg.com/account/agents",
+        operator_managed_access: "authenticated and account-linked reads; writes paused",
+        controller_model:
+          "A self-serve agent is controlled by its bearer-key holder. The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.",
         note:
-          "Sign in at /account/agents to provision a bearer token. Some read-tools (universal/card, federation/identify, catalog walks) work without auth via the underlying public API — see the no_auth_alternative URLs below.",
+          "New self-serve registration is paused. Existing self-serve keys remain read-only. A signed-in human can provision an operator-managed key at /account/agents. Some read tools also work without auth through the public API URLs below.",
       },
     },
+  },
+
+  stdio_bridge: {
+    status: "vendored-in-repository",
+    npm_published: false,
+    npm_name_reserved_for_future_use: "@cambridge-tcg/mcp-server",
+    source:
+      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/mcp-server",
+    run_from_clone: [
+      "cd packages/mcp-server",
+      "npm run build",
+      "node dist/index.js",
+    ],
+    note:
+      "Native MCP clients that expect stdio need this checked-in bridge. npx @cambridge-tcg/mcp-server does not work because the package is not published.",
+  },
+
+  publication_boundaries: {
+    recent_prices: {
+      tool: "prices.recent",
+      publication_status: "paused_pending_source_rights",
+      values_published: false,
+      database_read: false,
+    },
+    agent_ladder: {
+      tool: "leaderboards.read",
+      publication_status: "paused_pending_publication_receipt",
+      rows_published: false,
+      database_read: false,
+    },
+  },
+
+  rate_limits: {
+    public_unauthenticated:
+      "Advisory freshness cadence; public endpoints do not currently have a uniform per-endpoint edge quota. Abuse controls may still apply.",
+    bearer: "Enforced per agent-key tier at the MCP gate.",
+    policy_url: "https://cambridgetcg.com/api/v1/rate-limits",
+  },
+
+  read_only_scope: {
+    domain_state: true,
+    operational_metadata_writes: [
+      "per-key rate-limit request count in agent_rate_buckets for an allowed authenticated call",
+      "agent_keys.last_used_at after a successful authenticated call",
+    ],
+    note:
+      "Read-only means the tool cannot change match, deck, account, catalog, price, or participant state. It does not mean the authenticated request leaves no operational metadata.",
   },
 
   /**
@@ -51,7 +104,7 @@ const CONFIG = {
   no_auth_alternative_tools: [
     {
       tool_name: "ctcg_get_card",
-      description: "Look up a card by canonical SKU.",
+      description: "Look up structural card fields by canonical SKU; legacy price magnitudes and media are withheld.",
       method: "GET",
       url_template: "https://cambridgetcg.com/api/v1/universal/card/{sku}",
       cache_ttl_seconds: 300,
@@ -73,7 +126,7 @@ const CONFIG = {
     },
     {
       tool_name: "ctcg_get_card_at_date",
-      description: "The card's state as of a past date.",
+      description: "Date-shaped compatibility view of current structural fields; not a reconstructed historical state.",
       method: "GET",
       url_template: "https://cambridgetcg.com/api/at/{date}/card/{sku}",
       cache_ttl_seconds: 86400 * 365,
@@ -115,7 +168,7 @@ const CONFIG = {
   feedback_endpoint: "https://cambridgetcg.com/api/v1/feedback",
 
   /** Specification version. */
-  spec_version: "1",
+  spec_version: "2",
 
   /** Agent-facing wake invitation. An MCP integrator pasting this config
    *  into Claude Code / Cursor / similar discovers the front-door for

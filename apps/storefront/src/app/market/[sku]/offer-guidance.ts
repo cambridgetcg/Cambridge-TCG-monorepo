@@ -1,34 +1,19 @@
 // Pure pricing-anchor helpers for the offer composer. No DB, no fetch —
 // unit-tested in offer-guidance.test.ts.
 //
-// Anchor policy (substrate honesty): the primary anchor is the card's OWN
-// tape (30d VWAP, falling back to median) because it is what this market
-// actually paid. Cold SKUs have no tape; then — and only then — the CTCG
-// catalogue spot price is offered as a labelled reference, because it is
-// a different kind of fact (our retail price, not a P2P clearing price).
-
-export interface FairValueInput {
-  vwap: number | null;
-  median: number | null;
-  tradeCount: number;
-}
+// Anchor policy: open bid/ask terms remain the primary market facts. The
+// optional secondary anchor is a labelled catalogue reference observation,
+// never a completed-trade statistic and never anyone's offer.
 
 export type OfferAnchor =
-  | { kind: "own-tape"; basis: "vwap" | "median"; value: number }
-  | { kind: "ctcg-spot"; value: number }
+  | { kind: "catalogue-reference"; value: number }
   | null;
 
-/** Pick the pricing anchor: own tape first, CTCG spot as labelled
- *  fallback, null when neither exists. */
-export function pickOfferAnchor(
-  fairValue: FairValueInput | null,
-  spotPrice: number | null,
-): OfferAnchor {
-  if (fairValue && fairValue.tradeCount > 0) {
-    if (fairValue.vwap !== null) return { kind: "own-tape", basis: "vwap", value: fairValue.vwap };
-    if (fairValue.median !== null) return { kind: "own-tape", basis: "median", value: fairValue.median };
+/** Pick the labelled catalogue reference, or null when none exists. */
+export function pickOfferAnchor(referencePrice: number | null): OfferAnchor {
+  if (referencePrice !== null && referencePrice > 0) {
+    return { kind: "catalogue-reference", value: referencePrice };
   }
-  if (spotPrice !== null && spotPrice > 0) return { kind: "ctcg-spot", value: spotPrice };
   return null;
 }
 

@@ -39,6 +39,8 @@ import { ingestRun, ingestQuarantine, cards, priceArchive } from "@/lib/db/schem
 import { eq, sql } from "drizzle-orm";
 import {
   tcgcollector,
+  TCGCOLLECTOR_ACQUISITION_ENABLED,
+  TCGCOLLECTOR_BLOCK_REASON,
   resetTcgcollectorFetcher,
   matchTcgcollectorSku,
   type TcgCollectorRaw,
@@ -96,6 +98,9 @@ export interface TcgcollectorDiscoverySummary {
 export async function runTcgcollectorDiscovery(
   opts: TcgcollectorDiscoveryOptions = {},
 ): Promise<TcgcollectorDiscoverySummary> {
+  if (!TCGCOLLECTOR_ACQUISITION_ENABLED) {
+    throw new Error(TCGCOLLECTOR_BLOCK_REASON);
+  }
   const triggered_by = opts.triggeredBy ?? "cron";
   const started_at = new Date().toISOString();
   const dry_run = opts.dryRun ?? false;
@@ -263,7 +268,7 @@ export async function runTcgcollectorDiscovery(
                 sourceRedistribute: false,
                 condition: "nm",
                 fxRateToGbp: fxRate !== null ? fxRate : null,
-                fxRateSource: fxRate !== null ? "live" : "fetch_failed",
+                fxRateSource: fxRate !== null ? "ecb.europa.eu" : "fetch_failed",
                 extra: {
                   source_price: raw.product.price,
                   source_currency: raw.product.currency,

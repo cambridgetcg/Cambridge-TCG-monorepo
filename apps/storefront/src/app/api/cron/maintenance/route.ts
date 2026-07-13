@@ -121,16 +121,16 @@ export async function GET(request: Request) {
     runRaffleAutoDraw(),
     // Catch-up: notify winners whose first email failed
     retryWinnerNotifications(),
-    // PVE win reconciliation — recover unawarded wins after victory-handler crashes
+    // PVE reconciliation reports paused without reading or writing PVE tables.
     runPveReconciliationSweep(),
-    // Fairness digest — hashes revealed draws into a Merkle root so
-    // inclusion proofs become tamper-evident against our own DB.
+    // Draw digest — hashes revealed draws into a Merkle root. Later rewrites
+    // become independently detectable only against a root retained elsewhere.
     runFairnessDigest(),
-    // Fairness self-audit — samples random revealed draws and re-runs
-    // the proof math server-side to detect corruption / tampering.
+    // Draw self-audit — samples revealed draws and re-runs their receipt math
+    // to detect inconsistency or corruption, not biased entropy selection.
     runFairnessSelfAudit(),
-    // Fairness drift — daily χ² check per tier/kind; alerts admins when
-    // a group diverges beyond threshold.
+    // Distribution drift — daily χ² check per tier/kind; alerts admins when
+    // recorded outcomes diverge from recorded/configured weights.
     runFairnessDriftCheck(),
     // Trust score daily recompute + history snapshot. Self-gates to
     // 05:00 UTC; covers users active in the last 90 days.

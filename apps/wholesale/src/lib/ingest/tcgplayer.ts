@@ -95,7 +95,7 @@ export interface TcgplayerPricingResult {
   rowsQuarantined: number;
   errors: number;
   fxRateUsd: number;
-  fxRateSource: "live" | "cached" | "fallback";
+  fxRateSource: "ecb.europa.eu" | "cached" | "fallback";
   durationMs: number;
 }
 
@@ -408,7 +408,7 @@ export async function runTcgplayerPricing(
   const ingestRunId = runRow.id;
 
   let fxRate: number;
-  const fxRateSource: "live" | "cached" | "fallback" = "live";
+  const fxRateSource: "ecb.europa.eu" | "cached" | "fallback" = "ecb.europa.eu";
   try {
     fxRate = await fetchGbpUsdRate();
   } catch (err) {
@@ -650,7 +650,7 @@ async function writePricingBatch(
   snapshotDate: string,
   batch: Array<CanonicalPrice & { extra?: Record<string, unknown> }>,
   fxRate: number,
-  fxRateSource: "live" | "cached" | "fallback",
+  fxRateSource: "ecb.europa.eu" | "cached" | "fallback",
 ): Promise<PricingBatchResult> {
   let written = 0;
   let quarantined = 0;

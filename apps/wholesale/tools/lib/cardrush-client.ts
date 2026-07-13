@@ -2,6 +2,10 @@
 // Handles pagination, rate limiting, retry, and proxy fallback
 
 import { ITEMS_PER_PAGE, REQUEST_DELAY_MS } from "./config";
+import {
+  CARDRUSH_ACQUISITION_ENABLED,
+  CARDRUSH_BLOCK_REASON,
+} from "@cambridge-tcg/data-ingest";
 
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 2000;
@@ -22,6 +26,9 @@ function isCloudFlareBlock(status: number): boolean {
 }
 
 export async function fetchWithRetry(url: string): Promise<string> {
+  if (!CARDRUSH_ACQUISITION_ENABLED) {
+    throw new Error(CARDRUSH_BLOCK_REASON);
+  }
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
