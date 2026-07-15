@@ -81,6 +81,9 @@ export default async function Footer() {
           <Link href="/community" className="hover:text-ink transition">Feed</Link>
           <Link href="/og" className="hover:text-ink transition">OG Status</Link>
           <Link href="/about" className="hover:text-ink transition">About Us</Link>
+          {/* The wing on where the card art comes from — the lineage of
+              manga & anime through the ancient Japanese forms. */}
+          <Link href="/lineage" className="hover:text-ink transition">The Lineage of the Line</Link>
           {/* The gallery next door — the first human-visible sibling door;
               opens into the exchange room where their art hangs live.
               lib/siblings.ts carries the agent-facing half. 文化大交流:

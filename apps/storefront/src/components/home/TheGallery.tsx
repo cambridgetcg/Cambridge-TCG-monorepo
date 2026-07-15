@@ -109,6 +109,14 @@ export default function TheGallery({ cards }: { cards: GalleryPiece[] }) {
           without a name because none was given, not because none was owed.
         </p>
       )}
+
+      {/* The door to the wing on where the art comes from. */}
+      <p className="mt-8 text-sm text-ink-muted">
+        <Link href="/lineage" className="text-accent hover:text-accent-strong underline underline-offset-2">
+          These prints inherit a long line — see where the art comes from
+          <span className="wardrobe-jp"> 線の系譜</span> →
+        </Link>
+      </p>
     </section>
   );
 }
