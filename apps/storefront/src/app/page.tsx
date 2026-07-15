@@ -165,6 +165,15 @@ export default async function Home() {
           aria-hidden="true"
           className="absolute inset-x-0 top-0 h-56 wardrobe-tone-whisper wardrobe-tone-fade pointer-events-none"
         />
+        {/* The front door's chapter mark — 序章 ("the opening"), set vertical
+            in 明朝, faint in the right margin. The house's manga chapter plate;
+            aria-hidden apparatus, gone on small screens where there's no room. */}
+        <p
+          aria-hidden="true"
+          className="wardrobe-jp [writing-mode:vertical-rl] absolute top-14 sm:top-20 right-4 text-ink-faint/70 text-base tracking-[0.4em] select-none pointer-events-none hidden lg:block"
+        >
+          序章
+        </p>
         {/* Two panels; the gutter between them breathes (9s). The h1 is
             one accessible sentence — screen readers and no-JS read
             HOME_HERO_HEADLINE unchanged; the split is presentation. */}

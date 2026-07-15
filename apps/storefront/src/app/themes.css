@@ -47,7 +47,7 @@
   /* typographic voices — themes re-bind these; terminal keeps Inter
    * for both. --font-mono stays theme-bound (gallery/midnight speak
    * Spline Sans Mono; terminal keeps the system mono stack). */
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
 }
 
@@ -101,9 +101,9 @@
   --color-bid: #41775c;
   --color-ask: #9e4433;
   --shadow-mat: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
-  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: light;
 }
 
@@ -137,9 +137,9 @@
   --color-bid: #5bbf8f;
   --color-ask: #e07a6b;
   --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
-  --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
 }
 
@@ -211,9 +211,9 @@
     --color-bid: #5bbf8f;
     --color-ask: #e07a6b;
     --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
-    --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+    --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
     --font-body: var(--font-schibsted), system-ui, sans-serif;
-    --font-mono: var(--font-spline-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
     color-scheme: dark;
   }
 }
@@ -235,6 +235,16 @@
   [data-theme="system"] .wardrobe-ground {
     background-image: none;
   }
+}
+
+/* 明朝 — the Japanese mincho hand. A material for the few places we set
+ * Japanese type on PURPOSE (a vertical chapter mark, a mono-no-aware
+ * whisper) rather than letting kana·kanji fall through the display chain.
+ * Latin is not its job; it draws kana and kanji in the weight of old print.
+ * Quiet by default — it colours nothing, moves nothing, only shapes glyphs. */
+.wardrobe-jp {
+  font-family: var(--font-noto-serif-jp), "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-weight: 400;
 }
 
 /* The mat — a framed card image: hairline + warm shadow + white mount. */

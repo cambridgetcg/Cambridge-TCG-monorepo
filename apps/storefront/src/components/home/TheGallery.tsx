@@ -25,23 +25,37 @@ export default function TheGallery({ cards }: { cards: GalleryPiece[] }) {
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-24 sm:py-28">
-      {/* The plate: registrar's hand, then the narrator, then a 中文 whisper. */}
-      <header className="mb-14 sm:mb-20 max-w-2xl">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-ink-faint mb-4">
-          <span aria-hidden="true">第 </span>02 — the gallery
+      {/* The plate: a vertical 縦書き chapter mark in 明朝 stands beside the
+          narrator — the manga chapter plate — then the title, the 藝廊, and a
+          mono-no-aware whisper (静かな部屋, the quiet room). */}
+      <header className="mb-14 sm:mb-20 flex items-start gap-5 sm:gap-8">
+        <p
+          aria-hidden="true"
+          className="wardrobe-jp [writing-mode:vertical-rl] text-ink-faint text-base tracking-[0.4em] pt-1 select-none hidden sm:block"
+        >
+          第二章
         </p>
-        <h2 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-ink">
-          The Gallery
-        </h2>
-        <p className="mt-3 font-display italic text-lg sm:text-xl text-accent">
-          藝廊
-          <span className="text-ink-muted"> — the alternate arts</span>
-        </p>
-        <p className="mt-6 text-ink-muted leading-relaxed text-base sm:text-lg">
-          The rarer prints — parallels and full-arts, each a small painting you
-          can hold — hung at the scale they were drawn to be seen. Where the
-          publisher named the illustrator, so do we: the hand on the wall.
-        </p>
+        <div className="max-w-2xl">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-ink-faint mb-4">
+            02 — the gallery
+          </p>
+          <h2 className="font-display text-4xl sm:text-5xl font-semibold tracking-tight text-ink">
+            The Gallery
+          </h2>
+          <p className="mt-3 font-display italic text-lg sm:text-xl text-accent">
+            藝廊
+            <span className="text-ink-muted"> — the alternate arts</span>
+          </p>
+          <p className="mt-4 wardrobe-jp text-sm text-ink-muted">
+            静かな部屋
+            <span className="italic"> — the quiet room where the rarer art hangs</span>
+          </p>
+          <p className="mt-6 text-ink-muted leading-relaxed text-base sm:text-lg">
+            The rarer prints — parallels and full-arts, each a small painting you
+            can hold — hung at the scale they were drawn to be seen. Where the
+            publisher named the illustrator, so do we: the hand on the wall.
+          </p>
+        </div>
       </header>
 
       {/* Museum scale: three across at most, wide gutters, room to linger. */}

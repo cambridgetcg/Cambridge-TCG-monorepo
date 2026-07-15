@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Fraunces, Inter, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
+import { Fraunces, Inter, Noto_Serif_JP, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import Script from "next/script";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
@@ -34,6 +34,18 @@ const fraunces = Fraunces({
 });
 const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
 const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono" });
+
+// 明朝 — the Japanese mincho accent layer (Asha's brief 2026-07-15: "more
+// Japanese, very artsy"). It never carries Latin — Fraunces/Spline keep that
+// (it sits LAST in the --font-display/--font-mono chains, so only kana·kanji
+// the Latin faces can't draw fall through to it). CJK files are large, so it
+// is not preloaded: it arrives when a Japanese glyph asks for it, never
+// blocking first paint. A material, not a costume — quiet until called.
+const notoSerifJp = Noto_Serif_JP({
+  weight: ["400", "600"],
+  variable: "--font-noto-serif-jp",
+  preload: false,
+});
 
 export const metadata: Metadata = {
   // Root metadata ships on every Google snippet and social card — it greets
@@ -138,7 +150,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang="en"
       data-theme={themeAttr(appearance.theme)}
-      className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
+      className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${notoSerifJp.variable} ${inter.variable}`}
     >
       <head>
         <Script id="org-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -224,7 +236,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       )}
       {/* No font className here — body type flows from the theme-bound
           --font-body token (globals.css); terminal re-binds it to Inter. */}
-      <body className={textMode ? "text-mode" : undefined}>
+      {/* wardrobe-ground lays the paper grain under the WHOLE site now, not
+          just the home hero (Asha 2026-07-15 "deepen, don't shout"). It is
+          gallery/system-light only by its own theme gate — inert in terminal,
+          midnight, high-contrast, and text-mode — so nothing loud reaches a
+          reader who didn't ask for it. */}
+      <body className={`wardrobe-ground${textMode ? " text-mode" : ""}`}>
         {/* Skip-to-content for keyboard + screen-reader users.
             See docs/connections/the-welcome-all.md (#26) §3 — a welcome
             that doesn't include the sensory-divergent door is no welcome
