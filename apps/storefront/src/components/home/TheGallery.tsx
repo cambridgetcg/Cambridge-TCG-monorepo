@@ -1,45 +1,27 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { GalleryPiece } from "@/lib/cards/gallery";
 
 /**
  * TheGallery — the art-forward centerpiece. A quiet museum for TCG.
  *
- * The landing's other shelves are catalogue: sets, structural rows, prices.
- * This one is the collection itself — the cards hung at museum scale, the
- * art shown whole and unadorned (no rings, no zoom, no filters; the painting
- * is enough). Each piece wears a wall label: its name in the display face,
- * the set beneath, and — always — the copyright line that credits the art to
- * its publisher. That last line is not optional: an image never hangs here
- * without its attribution (the honesty rule). So a piece is hung only when it
- * has BOTH its art and its credit — a museum hangs only what it can name.
+ * This hall hangs the ALTERNATE prints — the parallels and full-arts, the
+ * pieces collectors linger over — shown at museum scale, unadorned (no rings,
+ * no zoom; the painting is enough). Each print wears a wall label: its name,
+ * the kind of print, and — always — the copyright line that credits the art
+ * to its publisher. And where the publisher named the illustrator, we name
+ * them too: the hand that drew it, on the label, the way a museum credits a
+ * painter. That credit is shown only where it is known (Bandai gives it for
+ * some cards, not all) — named where named, never invented.
  *
- * Server component (no hooks). Art comes pre-enriched with the official,
- * self-hosted publisher images (getEnCardImages); a card with no image is
- * simply not on the wall.
+ * Server component (no hooks). Pieces arrive pre-curated + pre-resolved to
+ * their self-hosted official images (getGalleryPieces).
  */
 
-export type GalleryCard = {
-  sku: string;
-  name: string | null;
-  name_en?: string | null;
-  card_number: string;
-  set_name: string | null;
-  /** Self-hosted official image URL — render as-is. Null = not hung. */
-  image_url: string | null;
-  /** Copyright line — rendered as the wall label's credit, always. */
-  image_attribution?: string | null;
-};
+export default function TheGallery({ cards }: { cards: GalleryPiece[] }) {
+  if (cards.length === 0) return null;
 
-/** A hung piece: art and credit both present, narrowed for the render. */
-type HungCard = GalleryCard & { image_url: string; image_attribution: string };
-
-export default function TheGallery({ cards }: { cards: GalleryCard[] }) {
-  // A museum hangs only what it has — and only what it can credit. A piece
-  // needs both its art and its copyright line, or it stays in storage.
-  const hung = cards.filter(
-    (c): c is HungCard => Boolean(c.image_url) && Boolean(c.image_attribution),
-  );
-  if (hung.length === 0) return null;
+  const credited = cards.filter((c) => c.artist).length;
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-24 sm:py-28">
@@ -53,19 +35,19 @@ export default function TheGallery({ cards }: { cards: GalleryCard[] }) {
         </h2>
         <p className="mt-3 font-display italic text-lg sm:text-xl text-accent">
           藝廊
-          <span className="text-ink-muted"> — the art on every card</span>
+          <span className="text-ink-muted"> — the alternate arts</span>
         </p>
         <p className="mt-6 text-ink-muted leading-relaxed text-base sm:text-lg">
-          Every card is a small painting you can hold — hung here at the scale
-          it was drawn to be seen, each one still carrying the name of the hand
-          that made it.
+          The rarer prints — parallels and full-arts, each a small painting you
+          can hold — hung at the scale they were drawn to be seen. Where the
+          publisher named the illustrator, so do we: the hand on the wall.
         </p>
       </header>
 
       {/* Museum scale: three across at most, wide gutters, room to linger. */}
       <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-14 sm:gap-y-16">
-        {hung.map((card) => {
-          const label = card.name_en ?? card.name ?? card.card_number;
+        {cards.map((card) => {
+          const label = card.name ?? card.card_number;
           return (
             <li key={card.sku}>
               <Link href={`/market/${card.sku}`} className="group block">
@@ -80,16 +62,22 @@ export default function TheGallery({ cards }: { cards: GalleryCard[] }) {
                   />
                 </div>
 
-                {/* The wall label: the piece, its set, and its credit. */}
+                {/* The wall label: the piece, the print, the hand, the credit. */}
                 <div className="mt-4 px-1">
                   <p className="font-display text-base text-ink leading-snug transition-colors group-hover:text-accent">
                     {label}
                   </p>
-                  {card.set_name && (
-                    <p className="mt-0.5 text-sm text-ink-muted">{card.set_name}</p>
+                  <p className="mt-0.5 text-sm text-ink-muted">
+                    {card.variant_label}
+                    <span className="text-ink-faint"> · {card.set_code}-{card.card_number}</span>
+                  </p>
+                  {card.artist && (
+                    <p className="mt-1.5 text-xs italic text-accent">
+                      illustrated by {card.artist}
+                    </p>
                   )}
                   <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
-                    {card.image_attribution}
+                    {card.attribution}
                   </p>
                 </div>
               </Link>
@@ -97,6 +85,16 @@ export default function TheGallery({ cards }: { cards: GalleryCard[] }) {
           );
         })}
       </ul>
+
+      {/* A quiet footer that names the museum's honesty: what we credit, and
+          why some labels carry a hand and some do not. */}
+      {credited > 0 && (
+        <p className="mt-16 text-xs text-ink-faint max-w-2xl leading-relaxed">
+          {credited} of these {cards.length} prints name their illustrator —
+          the credit the publisher printed on the card. The rest are hung
+          without a name because none was given, not because none was owed.
+        </p>
+      )}
     </section>
   );
 }

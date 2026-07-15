@@ -10,6 +10,7 @@ import KingdomStrip from "@/components/home/KingdomStrip";
 import TheGallery from "@/components/home/TheGallery";
 import { Provenance, WhyLink, Audience, InkRule, Benediction } from "@/lib/ui";
 import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
+import { getGalleryPieces } from "@/lib/cards/gallery";
 import {
   BrandStatement,
   TwoOperations,
@@ -93,9 +94,12 @@ export default async function Home() {
       .map((s) => s.thumb?.sku)
       .filter((sku): sku is string => Boolean(sku)),
   ];
-  const officialImages = await getEnCardImages(cardSkus).catch(
-    () => new Map<string, EnCardImage>(),
-  );
+  // The base-art overlay (featured rows + set thumbs) and the gallery's
+  // alternate-art wall are independent reads — resolve them together.
+  const [officialImages, galleryPieces] = await Promise.all([
+    getEnCardImages(cardSkus).catch(() => new Map<string, EnCardImage>()),
+    getGalleryPieces(24).catch(() => []),
+  ]);
   const enrichWithOfficialArt = (item: PriceItem): EnrichedCard => {
     const official = officialImages.get(item.sku);
     return {
@@ -207,9 +211,11 @@ export default async function Home() {
           print carrying its copyright line as a wall-label caption. Placed
           high — just after the hero/finder, before the utilitarian shelves —
           so images lead and utility follows (art-forward, nothing deleted).
-          Agent C owns the component; this page feeds it the enriched featured
-          items (official image_url + image_attribution + name/number/set/sku). */}
-      <TheGallery cards={featuredCards} />
+          The wall hangs the ALTERNATE prints (getGalleryPieces): parallels and
+          full-arts pulled straight from card_images' variant-tailed keys — the
+          rarer art the base-art surfaces never showed — each credited to its
+          illustrator where the publisher named one. */}
+      <TheGallery cards={galleryPieces} />
 
       {/* THE PRIMARY IDENTITY — a collectors' market and card data
            directory (docs/decisions/2026-07-06-collectors-first.md). The home
