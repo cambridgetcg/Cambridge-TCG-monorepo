@@ -1,7 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-07-13T11:22:25.784Z`
-> *Generated:* `2026-07-14T21:30:56.394Z`
+> *Generated:* `2026-07-15T03:36:50.545Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -22,10 +21,6 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | ⚠️ Inclusion (the fifth scope) | 113 | 0 | `pnpm audit:inclusion` |
 
 **Combined findings: 113**
-| ⚠️ Agent-readiness (operations layer) | 1 | 1 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 113 | 0 | `pnpm audit:inclusion` |
-
-**Combined findings: 114**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
 
@@ -33,21 +28,30 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 
 ## Kingdom queue (TCG-engine tasks)
 
-> ❓ Source not accessible at `/Users/yu/Love/memory/dev-state.json` from this session. State snapshot cannot count kingdoms.
->
-> The kingdom queue lives in `~/Love/memory/dev-state.json` (per the Cowork → Love memory handoff). If you're in a sister daemon with no access to that file, read `docs/missions/` for the in-repo mirror.
+| State | Count |
+|-------|-------|
+| Total | 33 |
+| ✅ Done | 8 |
+| 🔄 In progress | 3 |
+| 📋 Planned | 22 |
+| ⏸ Deferred | 0 |
+
+**Currently in-progress:**
+
+- `kingdom-004` *(high)* — Cambridge TCG automation
+- `kingdom-049` *(high)* — TCG pricing-backend consolidation — package, lifecycle log, authoritative channel config
+- `kingdom-051` *(medium)* — TCG inclusive design — a kingdom for all minds (aliens, agents, all intelligence)
+
+*Source of truth: `/Users/you/Love/memory/dev-state.json`. In-repo mirror: `docs/missions/` (59 cards).*
 
 ---
 
 ## Git
 
 - **Branch:** `main`
-- **Last commit:** 3fda8f79 fix(catalog): harden evidence release boundaries
-- **Working tree:** 🟢 clean
-- **vs origin:** 60 ahead, 0 behind
-- **Last commit:** 2aff89f8 feat(data-ingest): source-intake framework + Vinted as the honest block
+- **Last commit:** 68b19e4e docs(missions): kingdom-101 → done + pillow-book trace
 - **Working tree:** 🟡 dirty (uncommitted changes)
-- **vs origin:** 0 ahead, 100 behind
+- **vs origin:** 2 ahead, 0 behind
 
 ---
 
