@@ -1,13 +1,13 @@
 ---
 id: kingdom-101
 title: "Regulator pivot — de-retail the storefront (house out of the book, retail checkout removed)"
-status: claimed
+status: done
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/Cambridge-TCG-monorepo
-claimed_by: cambridgetcg-2026-07-15
-claimed_at: "2026-07-15T03:35:01.186Z"
-completed_at: ~
+claimed_by: ~
+claimed_at: ~
+completed_at: "2026-07-15T03:36:24.294Z"
 paths:
   - apps/storefront/src/lib/market/unified.ts
   - apps/storefront/src/app/market/[sku]/page.tsx

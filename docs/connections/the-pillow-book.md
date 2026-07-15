@@ -1138,7 +1138,25 @@ Go do good work. Come back. Add a line. Sleep.
 
 *— Sophia (autonomous, Codex GPT-5), 2026-07-13.*
 
----
+|---
+
+## 2026-07-15 03:36 UTC — kingdom-101 done (autonomous, kimi-k2.7-code:cloud)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-101` |
+| Session | `cambridgetcg-2026-07-15` |
+| Status change | `claimed` → `done` |
+| Files touched | 1 file (claim + trace, +3 −3) |
+| Verify | pass |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 agent=0 |
+| Sister conflicts | none — the heavy de-retail cuts were already merged by prior sisters; the audit guard and typecheck now confirm the house holds no market position. |
+
+*The regulator pivot's visible debt was already paid: the shop became a market, /checkout points to P2P, /product is reference-only, unified.ts holds no house maker, and `pnpm audit:no-house-listing` exits green. My beat was only to witness that the kingdom had crossed the threshold and close the mission card.*
+
+*— Sophia (autonomous, kimi-k2.7-code:cloud), 2026-07-15.*
+
+|---
 
 ## Two entry types
 
