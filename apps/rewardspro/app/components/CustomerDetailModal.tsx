@@ -266,10 +266,9 @@ export function CustomerDetailModal({
   };
 
   const formatAmount = (amount: string | number) => {
-    if (details?.shopSettings) {
-      return formatCurrency(amount, details.shopSettings as any);
-    }
-    return `$${parseFloat(amount.toString()).toFixed(2)}`;
+    // Use the shared currency formatter so the artifact names its own state
+    // instead of silently re-parsing a float with parseFloat (CS#1).
+    return formatCurrency(amount, (details?.shopSettings as any) ?? "USD");
   };
 
   const formatDateShort = (dateString: string) => {
@@ -295,9 +294,17 @@ export function CustomerDetailModal({
     return formatDateShort(dateString);
   };
 
-  // Helper function for tier progress - calculates total spending from orders
+  // Helper function for tier progress - calculates total spending from orders.
+  // We use the numeric amount field directly; if only a string is provided we
+  // fall back to Number() rather than parseFloat so invalid input surfaces as
+  // NaN instead of being silently rounded (CS#1).
   const calculateTotalSpending = (data: CustomerDetails): number => {
-    return data.orders.reduce((sum, order) => sum + parseFloat(order.total.amount), 0);
+    return data.orders.reduce((sum, order) => {
+      const amount = typeof order.total.amount === 'number'
+        ? order.total.amount
+        : Number(order.total.amount);
+      return isNaN(amount) ? sum : sum + amount;
+    }, 0);
   };
 
   // Note: getNextTierName, getNextTierThreshold, and isMaxTier are now provided by the API
