@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
+import { fetchGames, fetchPrices, fetchSets, type PriceItem } from "@/lib/wholesale/client";
 import GameGrid from "@/components/home/GameGrid";
 import SetGrid from "@/components/home/SetGrid";
 import PriceGuideStrip from "@/components/home/PriceGuideStrip";
@@ -7,7 +7,9 @@ import FeaturedCards from "@/components/home/FeaturedCards";
 import CardFinderHero from "@/components/home/CardFinderHero";
 import StorySection from "@/components/home/StorySection";
 import KingdomStrip from "@/components/home/KingdomStrip";
+import TheGallery from "@/components/home/TheGallery";
 import { Provenance, WhyLink, Audience, InkRule, Benediction } from "@/lib/ui";
+import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
 import {
   BrandStatement,
   TwoOperations,
@@ -16,6 +18,17 @@ import {
   HOME_HERO_SUBHEAD,
   HOME_BENEDICTION,
 } from "@/lib/brand";
+
+/**
+ * A landing card item overlaid with official publisher art. The wholesale
+ * client withholds images (`image_url` is always null), so the museum draws
+ * its art from `card_images` via getEnCardImages: `image_url` becomes the
+ * self-hosted official URL when we have one, and `image_attribution` carries
+ * the copyright line that MUST render beside the image (the honesty rule —
+ * an image never shows without its wall label). A miss leaves the item's own
+ * values untouched; we never fall back to cardrush.
+ */
+type EnrichedCard = PriceItem & { image_attribution: string | null };
 
 /* The three quiet doors under the hero — the nav's L1 destinations in
    their calmest form. Text, hairline, nothing shouting. */
@@ -65,6 +78,37 @@ export default async function Home() {
   );
 
   const freshUpdate = freshestUpdate(featured.items);
+
+  // ── Official art enrichment (the museum's whole point) ──────────────
+  // Collect every catalogue sku shown on the page — the featured rows and
+  // each set's thumbnail — and resolve their OFFICIAL publisher art in ONE
+  // query (getEnCardImages). Overlay each item's image_url with the self-
+  // hosted official URL, and carry the copyright line as image_attribution
+  // so every mount that renders the art can render its wall label beside it.
+  // A lookup failure degrades to the (null) wholesale image_url — the page
+  // still renders; it never reaches for cardrush.
+  const cardSkus = [
+    ...featured.items.map((it) => it.sku),
+    ...setsWithThumbs
+      .map((s) => s.thumb?.sku)
+      .filter((sku): sku is string => Boolean(sku)),
+  ];
+  const officialImages = await getEnCardImages(cardSkus).catch(
+    () => new Map<string, EnCardImage>(),
+  );
+  const enrichWithOfficialArt = (item: PriceItem): EnrichedCard => {
+    const official = officialImages.get(item.sku);
+    return {
+      ...item,
+      image_url: official?.url ?? item.image_url,
+      image_attribution: official?.attribution ?? null,
+    };
+  };
+  const featuredCards = featured.items.map(enrichWithOfficialArt);
+  const setsWithArt = setsWithThumbs.map((set) => ({
+    ...set,
+    thumb: set.thumb ? enrichWithOfficialArt(set.thumb) : null,
+  }));
 
   return (
     <main>
@@ -157,6 +201,16 @@ export default async function Home() {
         ))}
       </nav>
 
+      {/* THE GALLERY — the art-forward centerpiece (museum brief 2026-07-15).
+          You walk in through the calm hero and the finder, and the first hall
+          is the art: official publisher card art shown at museum scale, each
+          print carrying its copyright line as a wall-label caption. Placed
+          high — just after the hero/finder, before the utilitarian shelves —
+          so images lead and utility follows (art-forward, nothing deleted).
+          Agent C owns the component; this page feeds it the enriched featured
+          items (official image_url + image_attribution + name/number/set/sku). */}
+      <TheGallery cards={featuredCards} />
+
       {/* THE PRIMARY IDENTITY — a collectors' market and card data
            directory (docs/decisions/2026-07-06-collectors-first.md). The home
           hero speaks to collectors first (the quiet gallery); the identity
@@ -185,7 +239,7 @@ export default async function Home() {
           above) — the heading says so instead of implying every game's
           latest sets. */}
       <div className="wardrobe-rise" style={{ "--rise-delay": "180ms" } as Record<string, string>}>
-        <SetGrid sets={setsWithThumbs} gameSlug="one-piece" heading="Latest One Piece Sets" />
+        <SetGrid sets={setsWithArt} gameSlug="one-piece" heading="Latest One Piece Sets" />
       </div>
       <div className="wardrobe-rise" style={{ "--rise-delay": "240ms" } as Record<string, string>}>
         <StorySection />
@@ -204,7 +258,7 @@ export default async function Home() {
         />
         <WhyLink href="/methodology/pricing" label="how prices work" />
       </div>
-      <FeaturedCards cards={featured.items} />
+      <FeaturedCards cards={featuredCards} />
       <Benediction line={HOME_BENEDICTION} />
     </main>
   );
