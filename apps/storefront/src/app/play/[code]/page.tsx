@@ -263,10 +263,28 @@ export default function GameBoard() {
               sizes="64px"
               className="object-cover"
             />
+          ) : faceUp && !card.faceDown ? (
+            /* Face-up card without artwork: a readable text face — the
+               board stays playable when image resolution fails. */
+            <div className="w-full h-full bg-surface flex flex-col text-left">
+              <span
+                className={`flex-1 px-0.5 pt-1 text-ink font-medium leading-tight break-words overflow-hidden ${
+                  small ? "text-[8px]" : "text-[9px]"
+                }`}
+              >
+                {card.name}
+              </span>
+              <span className="px-0.5 pb-0.5 text-[8px] font-mono text-ink-faint truncate">
+                {card.cardNumber}
+              </span>
+            </div>
           ) : (
+            /* Hidden card (opponent hand / face-down): a quiet back. */
             <div className="w-full h-full bg-surface-subtle flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border-2 border-border-subtle flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-border-strong" />
+              <div className="w-6 h-9 rounded-sm border border-border-strong/60 flex items-center justify-center">
+                <span className="text-ink-faint text-[9px] font-mono rotate-90 tracking-widest">
+                  CTCG
+                </span>
               </div>
             </div>
           )}

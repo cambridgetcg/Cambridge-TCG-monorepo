@@ -14,7 +14,9 @@ describe("PVE public boundary", () => {
       mutations_enabled: false,
       rewards_enabled: false,
       reason:
-        "PVE battles and rewards are paused while server-side rules validation is rebuilt.",
+        "Durable PVE battles and rewards are paused while server-side rules validation is completed.",
+      practice:
+        "Practice battles run locally in your browser — nothing durable is recorded and nothing is paid.",
     });
   });
 

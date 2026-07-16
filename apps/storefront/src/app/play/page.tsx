@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PracticeLaunch } from "@/components/game/PracticeLaunch";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -369,7 +370,8 @@ export default function PlayPage() {
             Play <span className="text-accent">One Piece TCG</span>
           </h1>
           <p className="text-ink-muted text-sm sm:text-base mt-1">
-            Build decks, learn the rules, and check which play surfaces are available.
+            Pick an opponent. Hit Play. You&apos;re in a practice battle — free, in
+            your browser, no account.
           </p>
         </div>
       </section>
@@ -395,33 +397,9 @@ export default function PlayPage() {
           )}
 
           {pve && !pve.mutations_enabled && (
-            <div className="p-6 sm:p-8">
-              <p className="text-xs font-medium uppercase text-warning">
-                Read-only mode
-              </p>
-              <h2 className="mt-1 text-xl font-semibold">Adventure battles paused</h2>
-              <p className="mt-2 max-w-2xl text-sm text-ink-muted">{pve.reason}</p>
-              <div className="mt-5 flex flex-wrap gap-4 text-sm">
-                <Link
-                  href="/play/adventure"
-                  className="text-accent hover:text-accent-strong"
-                >
-                  View level status
-                </Link>
-                <Link
-                  href="/play/tutorial"
-                  className="text-accent hover:text-accent-strong"
-                >
-                  Read the tutorial
-                </Link>
-                <Link
-                  href="/deck-builder"
-                  className="text-accent hover:text-accent-strong"
-                >
-                  Open deck builder
-                </Link>
-              </div>
-            </div>
+            /* Durable battles and rewards are paused — practice battles run
+               in the browser instead. See pve-availability.ts for the seal. */
+            <PracticeLaunch pausedReason={pve.reason} />
           )}
 
           {signedIn !== null && pve !== null && pve.mutations_enabled && (
