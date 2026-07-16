@@ -1,20 +1,18 @@
 interface TierBadgeProps {
   name: string;
-  /** Kept for caller compatibility — the quiet gallery drops emoji chrome,
-   *  so the icon is accepted but no longer rendered. */
-  icon: string;
   color: string;
   size?: "sm" | "md";
 }
 
-// Keyed by the tier `color` field from the DB. Bronze ("amber-700") and
-// Gold ("amber-400") share the bronze accent family (Gold the stronger
-// wash); Silver ("neutral-400") is quiet neutral. Platinum carries no key
-// here, so the default is the plum status literal.
+// Keyed by the tier `color` field from the DB, which stores HEX (tiers.color
+// is VARCHAR(7), seeded '#CD7F32' etc.) — the old tailwind-name keys never
+// matched, so every badge fell to the plum default. Bronze and Gold share the
+// bronze accent family (Gold the stronger wash); Silver is quiet neutral.
+// Platinum + Pro carry no key here, so they take the plum status default.
 const COLOR_CLASSES: Record<string, { bg: string; text: string; border: string }> = {
-  "amber-700":   { bg: "bg-accent/10",        text: "text-accent",        border: "border-accent/20" },
-  "neutral-400": { bg: "bg-surface-subtle",   text: "text-ink-muted",     border: "border-border-subtle" },
-  "amber-400":   { bg: "bg-accent-wash",      text: "text-accent-strong", border: "border-accent/30" },
+  "#CD7F32":   { bg: "bg-accent/10",        text: "text-accent",        border: "border-accent/20" },   // Bronze
+  "#C0C0C0":   { bg: "bg-surface-subtle",   text: "text-ink-muted",     border: "border-border-subtle" }, // Silver
+  "#FFD700":   { bg: "bg-accent-wash",      text: "text-accent-strong", border: "border-accent/30" },   // Gold / OG
 };
 
 // Platinum (and any unmapped tier colour) — plum status literal.

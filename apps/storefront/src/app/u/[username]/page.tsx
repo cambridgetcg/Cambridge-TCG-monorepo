@@ -499,13 +499,9 @@ export default function UserProfilePage() {
 function ActivityStat({ label, value, tone = "default" }: {
   label: string;
   value: number | string;
-  tone?: "default" | "emerald" | "amber" | "red";
+  tone?: "default" | "emerald";
 }) {
-  const toneClass =
-    tone === "emerald" ? "text-ok" :
-    tone === "amber"   ? "text-warning" :
-    tone === "red"     ? "text-danger" :
-                         "text-ink";
+  const toneClass = tone === "emerald" ? "text-ok" : "text-ink";
   return (
     <div>
       <div className={`text-lg font-semibold ${toneClass}`}>{value}</div>

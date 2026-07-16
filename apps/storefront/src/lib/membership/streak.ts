@@ -58,7 +58,6 @@ export interface StreakState {
   longestStreak: number;
   multiplier: number;       // 1.00–1.50
   totalVisits: number;
-  isNewDay: boolean;        // true if this call actually extended the streak
 }
 
 export async function bumpStreak(userId: string): Promise<StreakState> {
@@ -88,8 +87,7 @@ export async function bumpStreak(userId: string): Promise<StreakState> {
            ELSE 1
          END - 1) * 0.02),
        updated_at = NOW()
-     RETURNING current_streak, longest_streak, streak_multiplier, total_visits,
-       (last_visit_date = CURRENT_DATE) AS is_today`,
+     RETURNING current_streak, longest_streak, streak_multiplier, total_visits`,
     [userId],
   );
   const r = result.rows[0];
@@ -98,11 +96,6 @@ export async function bumpStreak(userId: string): Promise<StreakState> {
     longestStreak: r.longest_streak,
     multiplier: parseFloat(r.streak_multiplier),
     totalVisits: r.total_visits,
-    // The UPSERT always sets last_visit_date=CURRENT_DATE, so is_today is always true.
-    // "isNewDay" means: would this visit have been the first today? We check via
-    // total_visits increment vs prior — but we don't have prior here. Approximate:
-    // if current_streak changed from yesterday's value, it's a new day.
-    isNewDay: true,
   };
 }
 

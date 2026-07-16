@@ -9,18 +9,20 @@ import type { Tier, MemberProfile, PointsEntry, CreditEntry } from "@/lib/member
 import { Audience } from "@/lib/ui";
 // ── Tier tone maps keyed by the tier `color` field. The quiet gallery:
 // hairline cards, a small tone accent per tier — never gradients or glow.
+// Keyed by the DB HEX value (tiers.color, seeded '#CD7F32' etc.); the old
+// tailwind-name keys never matched, so every tier fell to the default tone.
 const TIER_COLORS: Record<string, {
   border: string; text: string; bg: string; progressBg: string; progressBar: string;
 }> = {
-  "amber-700": {
+  "#CD7F32": {   // Bronze
     border: "border-[#8a6544]/40", text: "text-[#8a6544]", bg: "bg-surface",
     progressBg: "bg-surface-subtle", progressBar: "bg-[#8a6544]",
   },
-  "neutral-400": {
+  "#C0C0C0": {   // Silver
     border: "border-border-strong", text: "text-ink-muted", bg: "bg-surface",
     progressBg: "bg-surface-subtle", progressBar: "bg-ink-faint",
   },
-  "amber-400": {
+  "#FFD700": {   // Gold / OG
     border: "border-accent/40", text: "text-accent", bg: "bg-surface",
     progressBg: "bg-surface-subtle", progressBar: "bg-accent",
   },
@@ -343,9 +345,9 @@ export default function MembershipPage() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
           <div className="space-y-3">
             {tier ? (
-              <TierBadge name={tier.name} icon={tier.icon} color={tier.color} size="md" />
+              <TierBadge name={tier.name} color={tier.color} size="md" />
             ) : (
-              <TierBadge name="Bronze" icon="🥉" color="amber-700" size="md" />
+              <TierBadge name="Bronze" color="#CD7F32" size="md" />
             )}
 
             {!tier && (
@@ -545,7 +547,7 @@ export default function MembershipPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <TierBadge name={t.name} icon={t.icon} color={t.color} />
+                    <TierBadge name={t.name} color={t.color} />
                     {isCurrent && (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-ok">Current</span>
                     )}

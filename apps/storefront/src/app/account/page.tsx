@@ -521,7 +521,6 @@ export default async function AccountOverviewPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <TierBadge
                   name={membership.tier.name}
-                  icon={membership.tier.icon}
                   color={membership.tier.color}
                   size="md"
                 />

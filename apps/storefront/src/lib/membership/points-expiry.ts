@@ -99,34 +99,3 @@ export async function runPointsExpirySweep(opts?: { force?: boolean }): Promise<
 
   return { ranInWindow: true, expired, totalPointsExpired, failures };
 }
-
-// Customer-facing helper: how many of the user's points are at risk of
-// expiring soon. Returns 0 if expiration is disabled.
-export async function getExpiringSoon(userId: string, withinDays = 30): Promise<{
-  amount: number; expiresInDays: number | null;
-}> {
-  const config = await query(`SELECT points_expire, expiration_days FROM points_config LIMIT 1`);
-  if (!config.rows[0]?.points_expire) {
-    return { amount: 0, expiresInDays: null };
-  }
-  const days = config.rows[0].expiration_days || 365;
-
-  const last = await query(
-    `SELECT u.points_balance,
-            (SELECT MAX(created_at) FROM points_ledger WHERE user_id = u.id) AS last_activity
-       FROM users u WHERE u.id = $1`,
-    [userId]
-  );
-  const row = last.rows[0];
-  if (!row || !row.points_balance || !row.last_activity) {
-    return { amount: 0, expiresInDays: null };
-  }
-  const balance = parseInt(row.points_balance, 10);
-  const expiresAt = new Date(row.last_activity).getTime() + days * 86400_000;
-  const remainingDays = Math.ceil((expiresAt - Date.now()) / 86400_000);
-
-  if (remainingDays > withinDays || remainingDays < 0) {
-    return { amount: 0, expiresInDays: null };
-  }
-  return { amount: balance, expiresInDays: Math.max(0, remainingDays) };
-}

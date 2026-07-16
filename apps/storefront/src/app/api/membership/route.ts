@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getMemberProfile, getAllTiers } from "@/lib/membership/db";
-import { getExpiringSoon } from "@/lib/membership/points-expiry";
 
 // GET — member profile with tier, points, perks, progress
 export async function GET(request: Request) {
@@ -21,12 +20,9 @@ export async function GET(request: Request) {
   // checkout / rewards page load.
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ profile: null, expiringSoon: [] });
+    return NextResponse.json({ profile: null });
   }
 
-  const [profile, expiringSoon] = await Promise.all([
-    getMemberProfile(session.user.id),
-    getExpiringSoon(session.user.id, 30),
-  ]);
-  return NextResponse.json({ profile, expiringSoon });
+  const profile = await getMemberProfile(session.user.id);
+  return NextResponse.json({ profile });
 }

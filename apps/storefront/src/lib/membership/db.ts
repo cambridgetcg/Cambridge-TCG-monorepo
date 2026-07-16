@@ -401,14 +401,6 @@ export async function getPointsHistory(userId: string, limit: number = 20): Prom
   return result.rows as PointsEntry[];
 }
 
-// ── Berries aliases ──
-// The DB columns and canonical function names stay on `points` until a proper
-// rename migration lands. New code should import these Berries-named aliases
-// so the codebase naturally migrates over time.
-export const earnBerries = earnPoints;
-export const spendBerries = spendPoints;
-export const getBerriesHistory = getPointsHistory;
-
 // ══════════════════════════════════════════════════════════════
 // STORE CREDIT
 // ══════════════════════════════════════════════════════════════
@@ -488,55 +480,3 @@ export async function processOrderRewards(userId: string, orderTotal: number, or
   return { pointsEarned, cashbackAmount };
 }
 
-// ══════════════════════════════════════════════════════════════
-// MIGRATION IMPORT
-// ══════════════════════════════════════════════════════════════
-
-export async function importMember(data: {
-  email: string;
-  tierName: string;
-  pointsBalance: number;
-  lifetimePoints: number;
-  storeCreditBalance: number;
-  annualSpend: number;
-  totalSpend: number;
-}): Promise<{ userId: string; created: boolean }> {
-  // Find or create user by email
-  let userResult = await query(`SELECT id FROM users WHERE email = $1`, [data.email.toLowerCase()]);
-  let created = false;
-
-  if (userResult.rows.length === 0) {
-    userResult = await query(
-      `INSERT INTO users (email) VALUES ($1) RETURNING id`,
-      [data.email.toLowerCase()]
-    );
-    created = true;
-  }
-
-  const userId = userResult.rows[0].id;
-
-  // Map tier name
-  const tierResult = await query(`SELECT id FROM tiers WHERE LOWER(name) = LOWER($1)`, [data.tierName]);
-  const tierId = tierResult.rows[0]?.id ?? null;
-
-  // Update user
-  await query(
-    `UPDATE users SET tier_id = $1, points_balance = $2, lifetime_points = $3,
-     store_credit_balance = $4, annual_spend = $5, total_spend = $6,
-     tier_source = 'migration', tier_calculated_at = NOW(), updated_at = NOW()
-     WHERE id = $7`,
-    [tierId, data.pointsBalance, data.lifetimePoints,
-     data.storeCreditBalance.toFixed(2), data.annualSpend.toFixed(2),
-     data.totalSpend.toFixed(2), userId]
-  );
-
-  // Log migration entries
-  if (data.pointsBalance > 0) {
-    await earnPoints(userId, data.pointsBalance, "migration", "Migrated from RewardsPro");
-  }
-  if (data.storeCreditBalance > 0) {
-    await addCredit(userId, data.storeCreditBalance, "migration", "Migrated from RewardsPro");
-  }
-
-  return { userId, created };
-}
