@@ -96,7 +96,20 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           pool_id: String(selected.id),
         });
 
-        await query(`UPDATE reward_pack_pools SET awarded=awarded+1 WHERE id=$1`, [selected.id]);
+        // Guard the increment on stock so awarded can never exceed a limited
+        // pool's stock, even when an earlier slot in this same open or a
+        // concurrent open already took the last one. (The per-slot pick is
+        // fixed at commit time for the provable-fair receipt, so a true
+        // stockout still displays the card; reconciling the draw with finite
+        // stock is a separate design decision — see REVIEW notes.)
+        const stockUpd = await query(
+          `UPDATE reward_pack_pools SET awarded=awarded+1
+           WHERE id=$1 AND (stock IS NULL OR awarded < stock)`,
+          [selected.id]
+        );
+        if ((stockUpd.rowCount ?? 0) === 0) {
+          console.warn(`[packs] pool ${selected.id} stocked out during open of pack ${id}; award count held at stock`);
+        }
 
         if (selected.reward_type === "points") {
           await earnRewardPoints({
@@ -113,6 +126,16 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       }
 
       await revealDraw(draw, { slots: slotOutcomes });
+
+      // Canonical result rows live INSIDE the wrapper: if either write throws,
+      // the compensating refund fires. Written outside, a failed insert left
+      // the user charged with cards but no pack_opens record and no refund.
+      await query(
+        `INSERT INTO pack_opens (pack_id, user_id, cards, points_spent) VALUES ($1,$2,$3,$4)`,
+        [id, userId, JSON.stringify(cards), pack.cost_points]
+      );
+      await query(`UPDATE reward_packs SET total_opens=total_opens+1 WHERE id=$1`, [id]);
+
       return { cards, drawId: draw.id };
     },
   );
@@ -121,14 +144,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: wrapped.error }, { status: 400 });
   }
   const { cards, drawId } = wrapped.result;
-
-  // Record the open (subject_id on the draw already points back to the
-  // pack, but we also store the pack_opens row as the canonical result)
-  await query(
-    `INSERT INTO pack_opens (pack_id, user_id, cards, points_spent) VALUES ($1,$2,$3,$4)`,
-    [id, userId, JSON.stringify(cards), pack.cost_points]
-  );
-  await query(`UPDATE reward_packs SET total_opens=total_opens+1 WHERE id=$1`, [id]);
 
   // Activity
   const bestPull = cards.reduce((best, c) => {

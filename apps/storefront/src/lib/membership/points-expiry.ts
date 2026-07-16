@@ -10,7 +10,7 @@
 // per-minute cron tick checks the time. Disabled when
 // points_config.points_expire = false.
 
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 
 export interface PointsExpiryResult {
   ranInWindow: boolean;
@@ -41,7 +41,7 @@ export async function runPointsExpirySweep(opts?: { force?: boolean }): Promise<
   // window. Filtered in SQL via the LATERAL subquery so we only return
   // candidates for expiration.
   const stale = await query(
-    `SELECT u.id, u.points_balance, u.email, la.last_activity
+    `SELECT u.id
        FROM users u
        LEFT JOIN LATERAL (
          SELECT MAX(created_at) AS last_activity
@@ -52,34 +52,45 @@ export async function runPointsExpirySweep(opts?: { force?: boolean }): Promise<
              OR la.last_activity <= NOW() - make_interval(days => $1))`,
     [days]
   );
-  const cutoff = Date.now() - days * 86400_000;
-
   let expired = 0;
   let totalPointsExpired = 0;
   let failures = 0;
 
   for (const u of stale.rows) {
-    const lastTs = u.last_activity ? new Date(u.last_activity).getTime() : 0;
-    if (lastTs >= cutoff) continue;
-
-    const amount = parseInt(u.points_balance, 10) || 0;
-    if (amount <= 0) continue;
-
     try {
-      // Atomic: zero the balance, write a ledger 'expired' row referencing
-      // the days-since-activity for forensics. ledger.balance reflects the
-      // post-expiration zero.
-      await query(
-        `UPDATE users SET points_balance = 0, updated_at = NOW() WHERE id = $1`,
-        [u.id]
-      );
-      await query(
-        `INSERT INTO points_ledger (user_id, amount, balance, type, description)
-         VALUES ($1, $2, 0, 'expired', $3)`,
-        [u.id, -amount, `Inactivity expiration (${days} days)`]
-      );
-      expired++;
-      totalPointsExpired += amount;
+      // Genuinely atomic per user: the candidate scan above is only a hint.
+      // Re-check staleness AT WRITE TIME inside one transaction — a concurrent
+      // earn/spend since the scan writes a fresh ledger row, which cancels the
+      // expiration (NOT EXISTS fails) so we don't destroy just-earned points;
+      // and we zero + book the amount actually held, not the stale read.
+      const amount = await transaction(async (q) => {
+        const upd = await q(
+          `UPDATE users u
+              SET points_balance = 0, updated_at = NOW()
+             FROM (SELECT points_balance AS prev FROM users WHERE id = $1) old
+            WHERE u.id = $1
+              AND u.points_balance > 0
+              AND NOT EXISTS (
+                SELECT 1 FROM points_ledger
+                 WHERE user_id = u.id AND created_at > NOW() - make_interval(days => $2)
+              )
+            RETURNING old.prev::int AS expired_amount`,
+          [u.id, days]
+        );
+        if (upd.rows.length === 0) return 0;
+        const amt = upd.rows[0].expired_amount || 0;
+        if (amt <= 0) return 0;
+        await q(
+          `INSERT INTO points_ledger (user_id, amount, balance, type, description)
+           VALUES ($1, $2, 0, 'expired', $3)`,
+          [u.id, -amt, `Inactivity expiration (${days} days)`]
+        );
+        return amt;
+      });
+      if (amount > 0) {
+        expired++;
+        totalPointsExpired += amount;
+      }
     } catch (err) {
       failures++;
       console.error(`[points-expiry] failed for ${u.id}:`, err);

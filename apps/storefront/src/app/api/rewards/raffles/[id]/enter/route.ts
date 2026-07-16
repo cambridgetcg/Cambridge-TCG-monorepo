@@ -8,7 +8,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   const body = await request.json();
-  const entries = body.entries || 1;
+  const entries = body.entries ?? 1;
+  if (!Number.isInteger(entries) || entries < 1) {
+    return NextResponse.json({ error: "entries must be a positive whole number." }, { status: 400 });
+  }
 
   const result = await enterRaffle(id, session.user.id, entries);
   if (!result.success) return NextResponse.json({ error: result.error }, { status: 400 });

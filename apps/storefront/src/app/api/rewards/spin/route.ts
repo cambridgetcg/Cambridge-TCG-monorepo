@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { addCredit } from "@/lib/membership/db";
 import { bumpStreak } from "@/lib/membership/streak";
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 import { commitDraw, rollSlot, revealDraw } from "@/lib/provable-draw";
 
 interface Segment {
@@ -60,14 +60,34 @@ export async function POST(request: Request) {
 
   const segments: Segment[] = config.segments;
 
-  // Check free spin availability
+  // Atomically claim one of today's free-spin slots BEFORE spinning. A plain
+  // read-then-insert let two concurrent requests both see the count under the
+  // limit and both spin; serverless functions each hold a 1-connection pool,
+  // so the requests race across instances. The advisory lock is a DB-level
+  // (cross-instance) mutex, and the guarded re-count inside it is the real
+  // gate. Returns a claimed placeholder row id that doSpin fills in.
+  let freeClaimId: string | null = null;
   if (!isPremium) {
-    const todaySpins = await query(
-      `SELECT COUNT(*) FROM spin_results WHERE user_id=$1 AND NOT is_premium AND created_at::date=CURRENT_DATE`,
-      [userId]
-    );
-    if (parseInt(todaySpins.rows[0].count, 10) >= config.free_spins_per_day) {
-      return NextResponse.json({ error: "No free spins left today. Use premium spin (500 Berries)." }, { status: 400 });
+    freeClaimId = await transaction(async (q) => {
+      await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`spin_free:${userId}`]);
+      const c = await q(
+        `SELECT COUNT(*)::int AS n FROM spin_results
+         WHERE user_id=$1 AND NOT is_premium AND created_at::date=CURRENT_DATE`,
+        [userId]
+      );
+      if (c.rows[0].n >= config.free_spins_per_day) return null;
+      const ins = await q(
+        `INSERT INTO spin_results (user_id, segment_index, reward_type, reward_value, reward_label, is_premium)
+         VALUES ($1, -1, 'pending', 0, 'pending', false) RETURNING id`,
+        [userId]
+      );
+      return ins.rows[0].id as string;
+    });
+    if (!freeClaimId) {
+      return NextResponse.json(
+        { error: `No free spins left today. Use a premium spin (${config.premium_cost_points} Berries).` },
+        { status: 400 }
+      );
     }
   }
 
@@ -104,12 +124,22 @@ export async function POST(request: Request) {
         `Spin wheel: ${selected.label}`);
     }
 
-    // Record result
-    await query(
-      `INSERT INTO spin_results (user_id, segment_index, reward_type, reward_value, reward_label, is_premium)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [userId, selectedIndex, selected.reward_type, selected.reward_value, selected.label, isPremium]
-    );
+    // Record result. Free spins fill in the placeholder row claimed above (so
+    // the slot was reserved before any reward was awarded); premium spins,
+    // whose entitlement came from the spend, insert a fresh row.
+    if (freeClaimId) {
+      await query(
+        `UPDATE spin_results SET segment_index=$2, reward_type=$3, reward_value=$4, reward_label=$5
+         WHERE id=$1`,
+        [freeClaimId, selectedIndex, selected.reward_type, selected.reward_value, selected.label]
+      );
+    } else {
+      await query(
+        `INSERT INTO spin_results (user_id, segment_index, reward_type, reward_value, reward_label, is_premium)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [userId, selectedIndex, selected.reward_type, selected.reward_value, selected.label, isPremium]
+      );
+    }
 
     return { selectedIndex, selected, drawId: draw.id };
   };

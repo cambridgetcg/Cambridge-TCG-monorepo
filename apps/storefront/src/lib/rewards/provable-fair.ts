@@ -244,12 +244,9 @@ export async function provablyFairDraw(raffleId: string): Promise<{
     [raffleId, winnerEntry?.user_id, entryHash, drawHash, winnerIndex]
   );
 
-  // Update winner's entry status
+  // The winner is recorded on the raffles row above (winner_user_id); there is
+  // no per-entry winner flag on raffle_entries, so nothing more to write here.
   if (winnerEntry) {
-    await query(
-      `UPDATE auction_bids SET status='winning' WHERE id=$1`,
-      [winnerEntry.id]
-    );
     // Social side-effects (was on the legacy drawRaffleWinner; moved
     // here so they fire whichever draw path runs).
     try {

@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     typeof body.tier === "string" && body.tier.trim() ? body.tier.trim() : "Platinum";
 
   const tierResult = await query(
-    `SELECT * FROM tiers WHERE name = $1 AND is_paid = true`,
+    `SELECT * FROM tiers WHERE name = $1 AND is_paid = true AND is_active = true`,
     [tierName],
   );
   if (tierResult.rows.length === 0)
@@ -44,10 +44,26 @@ export async function POST(request: Request) {
   // create one keyed on email — the webhook will store it back
   // when the subscription activates.
   const existing = await query(
-    `SELECT stripe_customer_id FROM users WHERE id = $1`,
+    `SELECT stripe_customer_id, subscription_status, subscription_expires_at FROM users WHERE id = $1`,
     [session.user.id]
   );
   const customerId = existing.rows[0]?.stripe_customer_id ?? null;
+
+  // Already subscribed? A second Checkout would create a parallel Stripe
+  // subscription and orphan the first (still billing). Changing plans goes
+  // through the billing portal, not a fresh checkout.
+  const subStatus = existing.rows[0]?.subscription_status;
+  const subExpires = existing.rows[0]?.subscription_expires_at;
+  const hasActiveSub = subStatus === "active" && (!subExpires || new Date(subExpires) > new Date());
+  if (hasActiveSub) {
+    return NextResponse.json(
+      {
+        error: "You already have an active membership. Manage or change it from the billing portal.",
+        code: "already_subscribed",
+      },
+      { status: 409 },
+    );
+  }
 
   try {
     // getStripe() throws when STRIPE_SECRET_KEY is absent — constructed

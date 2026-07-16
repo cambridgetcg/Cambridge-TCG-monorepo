@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
+import { recalculateTier } from "@/lib/membership/db";
 
 // POST — admin: manually assign a tier (for OG and special grants)
 export async function POST(request: Request) {
@@ -52,10 +53,24 @@ export async function DELETE(request: Request) {
 
   if (!email) return NextResponse.json({ error: "Email required." }, { status: 400 });
 
+  const userRow = await query(`SELECT id FROM users WHERE email = LOWER($1)`, [email]);
+  if (userRow.rows.length === 0) {
+    return NextResponse.json({ error: `No account for ${email}.` }, { status: 404 });
+  }
+  const userId = userRow.rows[0].id;
+
   await query(
-    `UPDATE users SET tier_source='spending', tier_calculated_at=NULL, updated_at=NOW() WHERE email = LOWER($1)`,
-    [email]
+    `UPDATE users SET tier_source='spending', tier_calculated_at=NULL, updated_at=NOW() WHERE id=$1`,
+    [userId]
   );
 
-  return NextResponse.json({ message: `Manual tier removed for ${email}. Will recalculate on next visit.` });
+  // Recalculate NOW rather than "on next visit": otherwise the revoked user
+  // keeps the granted tier's perks (e.g. an OG's 0% commission / 7x points)
+  // until they happen to load an account page — indefinitely for a zero-spend
+  // grantee, since P2P/auction activity doesn't itself trigger a recalc.
+  const { tier } = await recalculateTier(userId);
+
+  return NextResponse.json({
+    message: `Manual tier removed for ${email}. Recalculated to ${tier?.name ?? "no tier"}.`,
+  });
 }

@@ -68,7 +68,7 @@
 // module is named there as the bones beneath the raffle's fairy-tale.
 // The recursion the story promised lands here.
 
-import { spendPoints, earnPoints } from "@/lib/membership/db";
+import { spendPoints, refundPoints } from "@/lib/membership/db";
 
 export interface AtomicSpendOpts {
   userId: string;
@@ -96,14 +96,14 @@ export async function withCompensatingSpend<T>(
   } catch (err) {
     // Compensating refund. Best-effort — if THIS fails too the user has a
     // legitimate ledger discrepancy and admin needs to intervene; we log
-    // loudly. earnPoints is just a balance bump + ledger insert; it has
-    // no other side-effects so re-running it is safe.
+    // loudly. refundPoints restores the balance without inflating
+    // lifetime_points (a refund isn't earning) and books a 'refund' row; it
+    // has no other side-effects so re-running it is safe.
     const reason = err instanceof Error ? err.message : "unknown error";
     try {
-      await earnPoints(
+      await refundPoints(
         opts.userId,
         opts.amount,
-        "manual_credit",
         `Refund: ${opts.description} (${reason})`,
         opts.referenceId,
       );
