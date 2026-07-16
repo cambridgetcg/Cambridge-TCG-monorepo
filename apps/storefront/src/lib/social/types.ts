@@ -13,6 +13,8 @@ export interface PublicProfile {
   profile_published_at: string | null;
   messaging_notice_version: string | null;
   messaging_enabled_at: string | null;
+  activity_publication_notice_version: string | null;
+  activity_published_at: string | null;
   /** Owner-only moderation state; public callers receive not-found. */
   is_suspended: boolean;
   // Address preferences — Wave 1.1 of the All-Aboard plan.

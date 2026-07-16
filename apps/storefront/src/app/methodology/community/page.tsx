@@ -41,19 +41,32 @@ export default function CommunityMethodology() {
 
       <h2>The four tabs</h2>
 
-      <h3>1. Activity (paused)</h3>
+      <h3>1. Activity (live — opt-in, <code>activity-publication-v1</code>)</h3>
       <p>
-        <code>/api/social/feed</code> returns an empty feed with{" "}
-        <code>status: paused</code>. Existing activity records do not carry a separate
-        per-event publication choice, so completed trades, auction results, rewards,
-        reviews, collection changes, and other person activity are not published here.
+        <code>/api/social/feed</code> serves the milestones of members who hold a
+        current <strong>activity-publication receipt</strong>. From the moment a person
+        turns it on, their completed trades, auctions won, achievements, and set
+        completions are published — <strong>forward-only</strong>, so past activity stays
+        private. Collection, wishlist, purchases, prices paid, message and review text are
+        never published by this choice. Withdrawal is instant: the feed re-checks the
+        author&apos;s current receipt on every read, so turning it off hides even
+        milestones already shown.
+      </p>
+      <p>
+        Ranking is versioned — <strong>activity-rank-v1</strong>: at most two events per
+        member reach the feed, then events are ordered by the significance of the milestone
+        (set completion &gt; achievement &gt; auction won &gt; completed trade), then
+        recency — so a member who trades once a season is not buried by one who trades
+        daily. The gate and formula live in{" "}
+        <code>apps/storefront/src/lib/social/publication.ts</code> +{" "}
+        <code>db.ts</code> (<code>postActivity</code>, <code>getCommunityFeed</code>).
       </p>
 
-      <h3>2. Following (paused)</h3>
+      <h3>2. Following (live — same receipt)</h3>
       <p>
-        The following view uses the same empty paused feed. A follow edge does not grant
-        permission to publish the followed person's activity, and follower lists remain
-        account-only.
+        The following view applies the same receipt and ranking, filtered to the people you
+        follow. A follow edge still grants no permission to publish anyone; it only narrows
+        the already-consented feed. Follower lists remain account-only.
       </p>
 
       <h3>3. Matching (paused)</h3>
@@ -236,6 +249,17 @@ export default function CommunityMethodology() {
         boundary: public activity and inferred portfolio/wishlist matching are paused;
         public profiles require their own current receipt, while agent ladder publication
         is also paused.
+      </p>
+      <p>
+        <em>v3 — 2026-07-16.</em> Activity and Following <strong>resumed</strong> under{" "}
+        <code>activity-publication-v1</code> — a versioned, forward-only, opt-in receipt
+        publishing four milestone event types (completed trades, auctions won, achievements,
+        set completions), off by default, with instant withdrawal — meeting the standing
+        condition that public activity needs a versioned, purpose-specific choice. The
+        ranking <code>activity-rank-v1</code> caps each member at two events, then orders by
+        milestone significance and then recency, so a slow-cadence participant is not buried
+        by a high-cadence one. <strong>Matching stays paused</strong> pending explicit
+        card-level trade intent.
       </p>
 
       <TypeSignature

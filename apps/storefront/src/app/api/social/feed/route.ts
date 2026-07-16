@@ -28,12 +28,11 @@ export async function GET(request: Request) {
     offset,
   });
 
+  // Live as of activity-publication-v1: the feed carries only the milestones
+  // of people who hold a current activity-publication receipt, ranked by
+  // activity-rank-v1 (see @/lib/social/publication + /methodology/community).
   return NextResponse.json(
-    {
-      feed,
-      status: "paused",
-      reason: "Public activity needs a separate per-event publication choice.",
-    },
+    { feed, status: "live" },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }

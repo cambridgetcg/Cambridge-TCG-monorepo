@@ -172,8 +172,8 @@ export default function CommunityPage() {
   }, [tab]);
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "trending", label: "Activity (paused)" },
-    { key: "following", label: "Following (paused)" },
+    { key: "trending", label: "Activity" },
+    { key: "following", label: "Following" },
     { key: "matches", label: "Matching (paused)" },
     { key: "agents", label: "Agents" },
   ];
@@ -195,11 +195,18 @@ export default function CommunityPage() {
             doesn't read as three paused tabs and nothing else. The public
             feeds are paused on purpose (consent-first); we say so plainly. */}
         <p className="text-sm text-ink-muted leading-relaxed mb-4">
-          Your corner of the community already works: set up a public profile,
-          follow other collectors, and message them directly. The public
-          activity feeds and trade-matching below are paused until each person
-          can choose that exact publication — we&apos;d rather wait than publish
-          anyone without asking.{" "}
+          Set up a public profile, follow other collectors, and message them
+          directly. The <strong className="text-ink font-medium">Activity</strong>{" "}
+          feed is live too — opt-in: it shows only the milestones of members who
+          chose to publish them (you control yours in{" "}
+          <Link
+            href="/account/profile"
+            className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
+          >
+            profile settings
+          </Link>
+          ). Trade-matching stays paused until it has its own card-level consent —
+          we&apos;d rather wait than publish anyone without asking.{" "}
           <Link
             href="/methodology/community"
             className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
@@ -342,24 +349,23 @@ export default function CommunityPage() {
             </div>
           )
         ) : feed.length === 0 ? (
-          /* Empty ≠ dead end — point somewhere alive while the feed fills. */
+          /* Live but empty — the feed fills as members opt in. Point them at
+             the switch, and somewhere alive meanwhile. */
           <div className="text-center py-16">
             <p className="text-ink-faint mb-4">
               {publicationReason ??
-                "Public activity is paused until each event has its own publication choice."}
+                (tab === "following"
+                  ? "No milestones yet from people you follow who publish theirs."
+                  : "No published milestones yet — be the first.")}
             </p>
             <p className="text-sm text-ink-faint">
-              In the meantime:{" "}
-              <Link href="/decks" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
-                browse decks
-              </Link>
-              ,{" "}
-              <Link href="/play" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
-                play a match
+              Share your milestones by turning on activity publishing in your{" "}
+              <Link href="/account/profile" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
+                profile settings
               </Link>
               , or{" "}
-              <Link href="/leaderboards" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
-                read the market ranking policy
+              <Link href="/play" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
+                play a match
               </Link>
               .
             </p>

@@ -5,7 +5,7 @@ import { getWishlist } from "@/lib/social/db";
 import { getUserAchievements } from "@/lib/social/db";
 import { isFollowing } from "@/lib/social/db";
 import { getUserReviews } from "@/lib/escrow/trust-engine";
-import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
+import { PERSON_PUBLICATION_NOTICE_VERSION, ACTIVITY_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
 
 const PERSON_HEADERS = { "Cache-Control": "private, no-store" };
 
@@ -196,6 +196,11 @@ export async function PATCH(request: Request) {
   const messagingNoticeVersion = typeof body.messaging_notice_version === "string"
     ? body.messaging_notice_version
     : undefined;
+  const activityPublicRaw = pick(body, "activityPublic", "activity_public");
+  const activityPublic = typeof activityPublicRaw === "boolean" ? activityPublicRaw : undefined;
+  const activityNoticeVersion = typeof body.activity_publication_notice_version === "string"
+    ? body.activity_publication_notice_version
+    : undefined;
 
   // Per-field validation — client paints the error on the offending
   // input instead of showing a single generic toast.
@@ -224,6 +229,9 @@ export async function PATCH(request: Request) {
   if (acceptsMessages === true && messagingNoticeVersion !== PERSON_PUBLICATION_NOTICE_VERSION) {
     errors.accepts_messages = "Read and accept the current direct-message notice.";
   }
+  if (activityPublic === true && activityNoticeVersion !== ACTIVITY_PUBLICATION_NOTICE_VERSION) {
+    errors.activity_public = "Read and accept the current activity-publication notice.";
+  }
   if (Object.keys(errors).length > 0) {
     return NextResponse.json({ error: "Validation failed.", fields: errors }, { status: 400 });
   }
@@ -235,8 +243,10 @@ export async function PATCH(request: Request) {
       avatarUrl: avatarUrl === "" ? undefined : avatarUrl,
       isPublic,
       acceptsMessages,
+      activityPublic,
       profileNoticeVersion,
       messagingNoticeVersion,
+      activityNoticeVersion,
     });
   } catch (err) {
     // Postgres unique_violation (23505) → username clash. Surface as

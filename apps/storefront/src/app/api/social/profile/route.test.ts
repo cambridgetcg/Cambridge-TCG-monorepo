@@ -48,6 +48,8 @@ beforeEach(() => {
     profile_published_at: "2026-07-01T00:00:00Z",
     messaging_notice_version: null,
     messaging_enabled_at: null,
+    activity_publication_notice_version: null,
+    activity_published_at: null,
     is_suspended: false,
     pronouns: null,
     preferred_address: null,

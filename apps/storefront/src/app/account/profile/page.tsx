@@ -12,6 +12,9 @@ import {
   PERSON_PUBLICATION_NOTICE,
   PERSON_PUBLICATION_NOTICE_PATH,
   PERSON_PUBLICATION_NOTICE_VERSION,
+  ACTIVITY_PUBLICATION_NOTICE,
+  ACTIVITY_PUBLICATION_NOTICE_PATH,
+  ACTIVITY_PUBLICATION_NOTICE_VERSION,
 } from "@/lib/social/publication";
 
 interface PortfolioCard {
@@ -32,6 +35,7 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [acceptsMessages, setAcceptsMessages] = useState(false);
+  const [activityPublic, setActivityPublic] = useState(false);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
 
   // Showcase
@@ -122,6 +126,10 @@ export default function EditProfilePage() {
           p.messaging_notice_version === PERSON_PUBLICATION_NOTICE_VERSION &&
           p.messaging_enabled_at,
         ));
+        setActivityPublic(Boolean(
+          p?.activity_publication_notice_version === ACTIVITY_PUBLICATION_NOTICE_VERSION &&
+          p.activity_published_at,
+        ));
         setShowcase(data.showcase ?? []);
         setWishlist(data.wishlist ?? []);
         setPortfolioCards(portfolio.cards ?? []);
@@ -188,11 +196,15 @@ export default function EditProfilePage() {
           bio,
           is_public: isPublic,
           accepts_messages: acceptsMessages,
+          activity_public: activityPublic,
           profile_publication_notice_version: isPublic
             ? PERSON_PUBLICATION_NOTICE_VERSION
             : undefined,
           messaging_notice_version: acceptsMessages
             ? PERSON_PUBLICATION_NOTICE_VERSION
+            : undefined,
+          activity_publication_notice_version: activityPublic
+            ? ACTIVITY_PUBLICATION_NOTICE_VERSION
             : undefined,
         }),
       });
@@ -424,6 +436,37 @@ export default function EditProfilePage() {
           {" "}
           <Link href={PERSON_PUBLICATION_NOTICE_PATH} className="text-accent underline">
             Read the direct-message notice.
+          </Link>
+        </p>
+      </div>
+
+      {/* Activity publication — the opt-in for the community feed. */}
+      <div className="mb-8">
+        <label className="flex cursor-pointer items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={activityPublic}
+            onClick={() => setActivityPublic(!activityPublic)}
+            className={`relative h-6 w-10 rounded-full transition ${
+              activityPublic ? "bg-accent" : "bg-surface-subtle"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface transition-transform ${
+                activityPublic ? "left-[18px]" : "left-0.5"
+              }`}
+            />
+          </button>
+          <span className="text-sm text-ink-muted">
+            {activityPublic ? "Activity published to the community" : "Activity private"}
+          </span>
+        </label>
+        <p className="mt-2 max-w-xl text-xs text-ink-faint">
+          Off by default. {ACTIVITY_PUBLICATION_NOTICE.activity} {ACTIVITY_PUBLICATION_NOTICE.withdrawal}
+          {" "}
+          <Link href={ACTIVITY_PUBLICATION_NOTICE_PATH} className="text-accent underline">
+            Read the activity notice.
           </Link>
         </p>
       </div>

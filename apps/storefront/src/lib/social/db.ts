@@ -1,6 +1,10 @@
 import { query, transaction } from "@/lib/db";
 import type { PublicProfile, ShowcaseCard, WishlistItem, ActivityEvent, Achievement, TradeMatch } from "./types";
-import { PERSON_PUBLICATION_NOTICE_VERSION } from "./publication";
+import {
+  PERSON_PUBLICATION_NOTICE_VERSION,
+  ACTIVITY_PUBLICATION_NOTICE_VERSION,
+  PUBLISHABLE_EVENT_TYPES,
+} from "./publication";
 
 // ══════════════════════════════════════════════════════════════
 // PROFILES
@@ -12,7 +16,9 @@ export async function getPublicProfile(identifier: string): Promise<PublicProfil
     `SELECT u.id as user_id, u.username, u.name, u.bio, u.avatar_url, u.is_public,
        u.accepts_messages, u.profile_publication_notice_version,
        u.profile_published_at, u.messaging_notice_version,
-       u.messaging_enabled_at, COALESCE(tp.is_suspended,FALSE) AS is_suspended,
+       u.messaging_enabled_at,
+       u.activity_publication_notice_version, u.activity_published_at,
+       COALESCE(tp.is_suspended,FALSE) AS is_suspended,
        u.pronouns, u.preferred_address,
        t.name as tier_name, t.icon as tier_icon, t.color as tier_color,
        u.trust_score, u.trade_count, u.follower_count, u.following_count,
@@ -46,8 +52,10 @@ export async function updateProfile(userId: string, data: {
   avatarUrl?: string;
   isPublic?: boolean;
   acceptsMessages?: boolean;
+  activityPublic?: boolean;
   profileNoticeVersion?: string;
   messagingNoticeVersion?: string;
+  activityNoticeVersion?: string;
 }): Promise<void> {
   const fields: string[] = [];
   const values: unknown[] = [];
@@ -93,6 +101,21 @@ export async function updateProfile(userId: string, data: {
         THEN messaging_enabled_at
       ELSE NOW()
     END`);
+  }
+
+  if (data.activityPublic !== undefined) {
+    if (data.activityPublic && data.activityNoticeVersion !== ACTIVITY_PUBLICATION_NOTICE_VERSION) {
+      throw new Error("invalid_activity_publication_notice");
+    }
+    const enabledParam = `$${idx++}`;
+    fields.push(`activity_published_at=CASE
+      WHEN ${enabledParam}=FALSE THEN NULL
+      ELSE COALESCE(activity_published_at, NOW())
+    END`);
+    values.push(data.activityPublic);
+    const noticeParam = `$${idx++}`;
+    fields.push(`activity_publication_notice_version=${noticeParam}`);
+    values.push(data.activityPublic ? ACTIVITY_PUBLICATION_NOTICE_VERSION : null);
   }
 
   if (fields.length === 0) return;
@@ -246,12 +269,21 @@ export async function postActivity(userId: string, eventType: string, title: str
   referenceId?: string;
   referenceType?: string;
 }): Promise<void> {
+  // Forward-only publication, decided at insert: an event is public only if
+  // it's a publishable milestone AND its author currently holds the activity
+  // receipt. Non-milestones and non-consenting authors write is_public=false.
+  // Computed in-SQL so there's no read-modify-write race with a consent toggle.
   await query(
     `INSERT INTO activity_feed (user_id, event_type, title, description, image_url, link_url, reference_id, reference_type, is_public)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,
+       ($2 = ANY($9::text[])) AND EXISTS (
+         SELECT 1 FROM users u
+          WHERE u.id = $1
+            AND u.activity_publication_notice_version = $10
+            AND u.activity_published_at IS NOT NULL))`,
     [userId, eventType, title, data?.description || null, data?.imageUrl || null,
      data?.linkUrl || null, data?.referenceId || null, data?.referenceType || null,
-     false]
+     PUBLISHABLE_EVENT_TYPES, ACTIVITY_PUBLICATION_NOTICE_VERSION]
   );
 }
 
@@ -261,11 +293,62 @@ export async function getCommunityFeed(options: {
   limit?: number;
   offset?: number;
 }): Promise<ActivityEvent[]> {
-  // No per-event person receipt exists yet. A profile publication choice is
-  // not permission to publish purchase, trade, reward or review activity, so
-  // the public feed stays paused until that separate choice has a real model.
-  void options;
-  return [];
+  const limit = Math.min(Math.max(options.limit ?? 30, 1), 30);
+  const followingOnly = options.followingOnly === true;
+
+  // A follow view without a viewer has no edges to read — return empty rather
+  // than leak a global feed under a "following" label.
+  if (followingOnly && !options.viewerUserId) return [];
+
+  // Publication gate (all three, always): the event is a public milestone row
+  // AND its author STILL holds the current activity receipt AND is not
+  // suspended. Re-checking the receipt on read makes withdrawal instant.
+  // Ranking = activity-rank-v1 (see @/lib/social/publication): at most 2 events
+  // per member reach the feed (so a high-cadence member can't bury others),
+  // then order by milestone significance, then recency.
+  const params: unknown[] = [
+    ACTIVITY_PUBLICATION_NOTICE_VERSION, // $1
+    PUBLISHABLE_EVENT_TYPES,             // $2
+    limit,                               // $3
+  ];
+  let followClause = "";
+  if (followingOnly) {
+    params.push(options.viewerUserId); // $4
+    followClause = `AND f.user_id IN (SELECT following_id FROM follows WHERE follower_id = $4)`;
+  }
+
+  const result = await query(
+    `WITH ranked AS (
+       SELECT f.*,
+              u.name AS user_name, u.username AS user_username, u.avatar_url AS user_avatar,
+              CASE f.event_type
+                WHEN 'set_completed' THEN 4 WHEN 'achievement_earned' THEN 3
+                WHEN 'auction_won' THEN 2 WHEN 'trade_completed' THEN 1 ELSE 0
+              END AS significance,
+              ROW_NUMBER() OVER (
+                PARTITION BY f.user_id
+                ORDER BY CASE f.event_type
+                  WHEN 'set_completed' THEN 4 WHEN 'achievement_earned' THEN 3
+                  WHEN 'auction_won' THEN 2 WHEN 'trade_completed' THEN 1 ELSE 0
+                END DESC, f.created_at DESC
+              ) AS per_user_rank
+         FROM activity_feed f
+         JOIN users u ON u.id = f.user_id
+         LEFT JOIN trust_profiles tp ON tp.user_id = u.id
+        WHERE f.is_public = true
+          AND f.event_type = ANY($2::text[])
+          AND u.activity_publication_notice_version = $1
+          AND u.activity_published_at IS NOT NULL
+          AND COALESCE(tp.is_suspended, false) = false
+          ${followClause}
+     )
+     SELECT * FROM ranked
+      WHERE per_user_rank <= 2
+      ORDER BY significance DESC, created_at DESC
+      LIMIT $3`,
+    params,
+  );
+  return result.rows as ActivityEvent[];
 }
 
 export async function getUserActivity(
