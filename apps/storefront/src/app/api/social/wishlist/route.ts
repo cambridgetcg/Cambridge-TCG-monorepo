@@ -33,18 +33,31 @@ export async function POST(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
   const body = await request.json();
-  if (!body.cardName?.trim()) return NextResponse.json({ error: "Card name required." }, { status: 400 });
+  if (typeof body.cardName !== "string" || !body.cardName.trim()) {
+    return NextResponse.json({ error: "Card name required." }, { status: 400 });
+  }
+  // Coerce the optional fields so a non-string (or a non-numeric max price)
+  // can't reach the SQL helper and throw a 500 — e.g. maxPrice.toFixed().
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  let maxPrice: number | undefined;
+  if (body.maxPrice !== undefined && body.maxPrice !== null && body.maxPrice !== "") {
+    const n = Number(body.maxPrice);
+    if (!Number.isFinite(n) || n < 0) {
+      return NextResponse.json({ error: "Max price must be a non-negative number." }, { status: 400 });
+    }
+    maxPrice = n;
+  }
 
   const item = await addToWishlist(session.user.id, {
-    sku: body.sku,
+    sku: str(body.sku),
     cardName: body.cardName.trim(),
-    cardNumber: body.cardNumber,
-    setCode: body.setCode,
-    setName: body.setName,
-    imageUrl: body.imageUrl,
-    maxPrice: body.maxPrice,
-    conditionMin: body.conditionMin,
-    notes: body.notes,
+    cardNumber: str(body.cardNumber),
+    setCode: str(body.setCode),
+    setName: str(body.setName),
+    imageUrl: str(body.imageUrl),
+    maxPrice,
+    conditionMin: str(body.conditionMin),
+    notes: str(body.notes),
   });
 
   return NextResponse.json({ item });
@@ -73,6 +86,9 @@ export async function DELETE(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
 
   const { itemId } = await request.json();
+  if (typeof itemId !== "string" || !itemId) {
+    return NextResponse.json({ error: "itemId required." }, { status: 400 });
+  }
   await removeFromWishlist(session.user.id, itemId);
   return NextResponse.json({ removed: true });
 }

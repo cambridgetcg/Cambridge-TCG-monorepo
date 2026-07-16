@@ -49,6 +49,7 @@ export async function notifyFollowersOfAuctionListing(data: {
     try {
       await sendFollowerAuctionListedEmail({
         email: row.email,
+        userId: row.follower_id,
         followerName: row.follower_name,
         sellerName,
         sellerUsername,
