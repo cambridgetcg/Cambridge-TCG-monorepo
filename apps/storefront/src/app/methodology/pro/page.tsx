@@ -15,19 +15,22 @@ export default function ProMethodology() {
       <h1>CTCG Pro</h1>
       <p>
         Pro is an optional paid membership. It costs{" "}
-        <strong>£3.99/month</strong> or <strong>£29.99/year</strong>. It exists
-        for one reason: to pay you back more than it costs if you buy or sell
-        here regularly — and to do it without hiding anything.
+        <strong>£3.99/month</strong> or <strong>£29.99/year</strong>. It lowers
+        your selling fees and boosts your Berries — worth it if you sell here
+        regularly, and it hides nothing.
       </p>
 
       <h2>What you get</h2>
       <ul>
-        <li><strong>5% off every store order.</strong> Applied at checkout, shown as a line you can see.</li>
         <li><strong>Lower selling fees.</strong> 7% on peer-to-peer sales (vs the standard 8%) and 10% on auctions (vs 12%).</li>
-        <li><strong>1.5&times; Berries</strong> on purchases, and <strong>1% cashback</strong> to your store credit.</li>
-        <li><strong>5% extra trade-in credit</strong> when you sell cards to us for credit.</li>
+        <li><strong>1.5&times; Berries</strong> on the Berries you earn.</li>
         <li><strong>Early access to restocks</strong> of hot singles.</li>
       </ul>
+      <p>
+        <em>The shop-era Pro perks — 5% off store orders, cashback to store
+        credit, extra trade-in credit — retired with the shop on 2026-07-06
+        (see <Link href="/methodology/store-credit">the store-credit record</Link>).</em>
+      </p>
 
       <h2>The honest part</h2>
       <p>
@@ -50,12 +53,12 @@ export default function ProMethodology() {
 
       <h2>Is it worth it?</h2>
       <p>
-        Plainly: the 5% discount alone covers the £3.99 once you spend about £80 in
-        a month. Below that, you&rsquo;re paying for the lower selling fees, the
-        bonus credit, and early access — so Pro makes most sense if you buy or sell
-        here often. If you don&rsquo;t, the free tiers already give you cashback and
-        a fair price. We&rsquo;d rather tell you that than sell you a subscription
-        you won&rsquo;t use.
+        Plainly: Pro pays for itself through the lower selling fees. Save 1% on
+        P2P and 2% on auctions, and £3.99/month is covered once you sell around
+        £400 of cards in a month; the Berries boost and early access are on top.
+        So Pro makes most sense if you sell here often. If you don&rsquo;t, the
+        free tiers already give you a fair price — we&rsquo;d rather tell you
+        that than sell you a subscription you won&rsquo;t use.
       </p>
 
       <TypeSignature

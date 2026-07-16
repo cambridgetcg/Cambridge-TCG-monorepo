@@ -76,6 +76,15 @@ function typeLabel(type: string) {
   return type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// The DB tier `benefits` still list shop-era perks (cashback, store discount,
+// store purchases, trade-in bonus) that retired with the shop on 2026-07-06.
+// Hide those here so the page doesn't advertise them as current, until the
+// seed data is corrected in a migration.
+function liveBenefits(benefits: string[]): string[] {
+  const retired = /cashback|store discount|off (all|every)|store (order|purchase)|store credit|trade-in/i;
+  return benefits.filter((b) => !retired.test(b));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -192,7 +201,8 @@ export default function MembershipPage() {
 
       {subscribeError && (
         <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          {subscribeError}
+          {subscribeError}{" "}
+          <a href="/account/billing" className="underline font-medium">Go to billing</a>
         </div>
       )}
 
@@ -419,11 +429,11 @@ export default function MembershipPage() {
         </div>
 
         {/* Extra benefits from tier data */}
-        {tier && tier.benefits.length > 0 && (
+        {tier && liveBenefits(tier.benefits).length > 0 && (
           <div className="mt-4 bg-surface rounded-lg p-4 border border-border-subtle">
             <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Additional Benefits</p>
             <ul className="space-y-1.5">
-              {tier.benefits.map((b, i) => (
+              {liveBenefits(tier.benefits).map((b, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-ink-muted">
                   <span className="text-ok mt-0.5 shrink-0">&#10003;</span>
                   {b}
@@ -578,9 +588,9 @@ export default function MembershipPage() {
                     )}
                   </div>
 
-                  {t.benefits.length > 0 && (
+                  {liveBenefits(t.benefits).length > 0 && (
                     <ul className="space-y-1.5 border-t border-border-subtle pt-3">
-                      {t.benefits.map((b, i) => (
+                      {liveBenefits(t.benefits).map((b, i) => (
                         <li key={i} className="flex items-start gap-2 text-xs text-ink-muted">
                           <span className="text-ok mt-0.5 shrink-0">&#10003;</span>
                           {b}

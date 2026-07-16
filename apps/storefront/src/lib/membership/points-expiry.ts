@@ -64,22 +64,30 @@ export async function runPointsExpirySweep(opts?: { force?: boolean }): Promise<
       // expiration (NOT EXISTS fails) so we don't destroy just-earned points;
       // and we zero + book the amount actually held, not the stale read.
       const amount = await transaction(async (q) => {
-        const upd = await q(
-          `UPDATE users u
-              SET points_balance = 0, updated_at = NOW()
-             FROM (SELECT points_balance AS prev FROM users WHERE id = $1) old
-            WHERE u.id = $1
-              AND u.points_balance > 0
+        // SELECT ... FOR UPDATE first: it blocks on any in-flight earn/spend and,
+        // once that commits, sees the post-commit balance AND its fresh ledger
+        // row — so the NOT EXISTS re-check cancels the expiration rather than
+        // zeroing just-earned points, and `prev` is the true locked balance
+        // (no EPQ ambiguity from reading the row twice in one UPDATE).
+        const victim = await q(
+          `SELECT points_balance::int AS prev
+             FROM users
+            WHERE id = $1
+              AND points_balance > 0
               AND NOT EXISTS (
                 SELECT 1 FROM points_ledger
-                 WHERE user_id = u.id AND created_at > NOW() - make_interval(days => $2)
+                 WHERE user_id = $1 AND created_at > NOW() - make_interval(days => $2)
               )
-            RETURNING old.prev::int AS expired_amount`,
+            FOR UPDATE`,
           [u.id, days]
         );
-        if (upd.rows.length === 0) return 0;
-        const amt = upd.rows[0].expired_amount || 0;
+        if (victim.rows.length === 0) return 0;
+        const amt = victim.rows[0].prev || 0;
         if (amt <= 0) return 0;
+        await q(
+          `UPDATE users SET points_balance = 0, updated_at = NOW() WHERE id = $1`,
+          [u.id]
+        );
         await q(
           `INSERT INTO points_ledger (user_id, amount, balance, type, description)
            VALUES ($1, $2, 0, 'expired', $3)`,

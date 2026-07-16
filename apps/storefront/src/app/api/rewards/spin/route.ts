@@ -70,6 +70,15 @@ export async function POST(request: Request) {
   if (!isPremium) {
     freeClaimId = await transaction(async (q) => {
       await q(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`spin_free:${userId}`]);
+      // Reclaim placeholders abandoned by a crashed/timed-out earlier attempt:
+      // a 'pending' row older than a few minutes never got filled in, so it
+      // must not keep counting against the daily limit.
+      await q(
+        `DELETE FROM spin_results
+          WHERE user_id=$1 AND NOT is_premium AND reward_type='pending'
+            AND created_at < NOW() - INTERVAL '5 minutes'`,
+        [userId]
+      );
       const c = await q(
         `SELECT COUNT(*)::int AS n FROM spin_results
          WHERE user_id=$1 AND NOT is_premium AND created_at::date=CURRENT_DATE`,
@@ -161,7 +170,15 @@ export async function POST(request: Request) {
     if (!wrapped.success) return NextResponse.json({ error: wrapped.error }, { status: 400 });
     outcome = wrapped.result;
   } else {
-    outcome = await doSpin();
+    // Free spin: if the draw/award/fill-in throws, release the claimed slot by
+    // deleting its placeholder, so the failure is retryable rather than burning
+    // the user's daily free spin for a transient error.
+    try {
+      outcome = await doSpin();
+    } catch (err) {
+      await query(`DELETE FROM spin_results WHERE id=$1 AND reward_type='pending'`, [freeClaimId]).catch(() => {});
+      throw err;
+    }
   }
 
   return NextResponse.json({
