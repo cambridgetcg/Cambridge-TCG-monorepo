@@ -30,16 +30,15 @@ export default function MembershipInvite() {
       <div className="grid gap-8 md:grid-cols-[1.4fr_1fr] items-start">
         <div className="max-w-2xl">
           <p className="text-base sm:text-lg text-ink-muted leading-relaxed">
-            Being part of Cambridge TCG is free. Trade with other collectors, and
-            your membership quietly lowers your selling fee as you go — from{" "}
-            <span className="text-ink">8%</span> down to{" "}
-            <span className="text-ink">5%</span> at Gold, or{" "}
-            <span className="text-ink">0%</span> at Platinum. Every trade earns{" "}
-            <span className="text-ink">Berries</span> to spend in the{" "}
+            Being part of Cambridge TCG is free. Trade with other collectors in
+            cash, between each other — no shop, no middleman. Your membership tier
+            sets your selling fee: <span className="text-ink">8%</span> on Bronze,{" "}
+            <span className="text-ink">5%</span> at Gold, <span className="text-ink">0%</span>{" "}
+            at Platinum. And the{" "}
             <Link href="/rewards" className="text-accent hover:text-accent-strong underline underline-offset-2">
               Rewards Hub
             </Link>
-            . No shop, no catch — collectors, in cash, between each other.
+            {" "}— daily spins, packs, raffles — is where you earn and spend Berries.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -62,8 +61,8 @@ export default function MembershipInvite() {
         <ul className="rounded-lg border border-border-subtle bg-surface-subtle divide-y divide-border-subtle text-sm">
           {[
             { name: "Bronze", req: "free", fee: "8%" },
-            { name: "Silver", req: "£100/yr traded", fee: "6%" },
-            { name: "Gold", req: "£500/yr traded", fee: "5%" },
+            { name: "Silver", req: "£100/yr spend", fee: "6%" },
+            { name: "Gold", req: "£500/yr spend", fee: "5%" },
             { name: "Platinum", req: "£22/mo", fee: "0%" },
           ].map((t) => (
             <li key={t.name} className="flex items-baseline justify-between gap-3 px-4 py-2.5">

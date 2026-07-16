@@ -98,7 +98,7 @@ export default async function PublicTrustPage({
           <Link href={`/api/v1/universal/users/${state.username}/trust`} className="rounded-lg border border-border-subtle px-4 py-2">
             Structural JSON
           </Link>
-          <Link href="/methodology/community-directory" className="rounded-lg border border-border-subtle px-4 py-2">
+          <Link href="/methodology/community" className="rounded-lg border border-border-subtle px-4 py-2">
             Publication boundary
           </Link>
         </div>

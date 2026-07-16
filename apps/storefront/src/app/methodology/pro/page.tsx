@@ -36,10 +36,9 @@ export default function ProMethodology() {
         is free now stays free.
       </p>
       <p>
-        <strong>You can also reach Pro for free.</strong> Spend £300 in a year and
-        you get the Pro tier without paying the subscription — the paid option is
-        just a shortcut to lock it in. (Platinum works the same way at £2,000/yr or
-        £22/mo.)
+        <strong>Pro is a subscription.</strong> The free Bronze&ndash;Gold tiers move
+        with your annual spend, but Pro &mdash; like Platinum &mdash; is reached by
+        subscribing; there is no spend threshold that grants a paid tier.
       </p>
       <p>
         <strong>If a fee isn&rsquo;t on this page, we don&rsquo;t charge it.</strong>{" "}

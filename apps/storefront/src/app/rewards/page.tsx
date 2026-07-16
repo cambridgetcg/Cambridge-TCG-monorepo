@@ -41,7 +41,7 @@ export default function RewardsHubPage() {
             Rewards <span className="text-accent">Hub</span>
           </h1>
           <p className="text-ink-muted mt-2">
-            Earn Berries on every purchase. Spend them on packs, spins, raffles, and mystery boxes.
+            Earn Berries with daily spins and streaks. Spend them on packs, raffles, and mystery boxes.
           </p>
         </div>
 
@@ -191,22 +191,13 @@ export default function RewardsHubPage() {
           <h2 className="text-lg font-bold text-ink mb-4">How to Earn Berries</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
             <div className="flex items-start gap-3">
-              <p className="text-ink-muted"><strong className="text-ink">Buy cards</strong> — 10 Berries per £1 spent, multiplied by your tier</p>
+              <p className="text-ink-muted"><strong className="text-ink">Daily spin</strong> — a free spin every day can land bonus Berries</p>
             </div>
             <div className="flex items-start gap-3">
-              <p className="text-ink-muted"><strong className="text-ink">P2P trades</strong> — earn Berries on completed trades</p>
+              <p className="text-ink-muted"><strong className="text-ink">Daily streak</strong> — visit daily for up to a 1.5x multiplier on Berries you earn</p>
             </div>
             <div className="flex items-start gap-3">
-              <p className="text-ink-muted"><strong className="text-ink">Trade-in</strong> — sell cards for credit, earn Berries too</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <p className="text-ink-muted"><strong className="text-ink">Daily streak</strong> — visit daily for up to 1.5x Berries multiplier</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <p className="text-ink-muted"><strong className="text-ink">Tier upgrades</strong> — Silver 1.5x, Gold 2x, Platinum 3x Berries</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <p className="text-ink-muted"><strong className="text-ink">Spin & win</strong> — daily spins can award bonus Berries</p>
+              <p className="text-ink-muted"><strong className="text-ink">Your tier</strong> — membership multiplies your Berries (Silver 1.5x, Gold 2x, Platinum 3x)</p>
             </div>
           </div>
         </div>
