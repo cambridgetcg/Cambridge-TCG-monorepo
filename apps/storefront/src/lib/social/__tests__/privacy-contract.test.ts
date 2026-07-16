@@ -155,13 +155,7 @@ describe("community privacy contract", () => {
     expect(route).toContain("Historical bulk activity paging is unavailable");
     expect(route).toContain('status: "live"');
     expect(route).toContain('"Cache-Control": "private, no-store"');
-
-    // Trade matching stays PAUSED — a portfolio/wishlist is private inventory,
-    // not an offer to be scanned into a people graph.
-    const matching = db.slice(db.indexOf("export async function findTradeMatches"));
-    expect(matching).toContain("return []");
-    const matchesRoute = source("src/app/api/social/matches/route.ts");
-    expect(matchesRoute).toContain("matching_available: false");
+    // (Trade matching's own consent gate is covered by its dedicated test below.)
   });
 
   it("keeps generated activity private unless the author holds the activity receipt", () => {
@@ -209,15 +203,26 @@ describe("community privacy contract", () => {
     expect(route).toContain('"Cache-Control": "private, no-store"');
   });
 
-  it("does not infer offers from portfolios and wishlists", () => {
+  it("matches only on explicit card-level trade intent, never inferred from private data", () => {
     const db = source("src/lib/social/db.ts");
-    const matcher = db.slice(db.indexOf("export async function findTradeMatches"));
-    expect(matcher).not.toContain("FROM portfolio_cards");
-    expect(matcher).not.toContain("FROM wishlists");
-    expect(matcher).toContain("return []");
+    const matcher = db.slice(
+      db.indexOf("export async function findTradeMatches"),
+      db.indexOf("export async function findTradeMatches") + 1600,
+    );
+    // A wish is surfaced ONLY when its owner explicitly opted it in...
+    expect(matcher).toContain("w.open_to_trade = true");
+    // ...and the owner already publishes their profile (identity is their choice)
+    // and isn't suspended.
+    expect(matcher).toContain("u.profile_publication_notice_version = $2");
+    expect(matcher).toContain("u.profile_published_at IS NOT NULL");
+    expect(matcher).toContain("COALESCE(tp.is_suspended, false) = false");
+    // The only portfolio consulted is the VIEWER'S OWN ($1) — no one else's
+    // holdings are ever read or revealed.
+    expect(matcher).toContain("pc.user_id = $1");
 
     const route = source("src/app/api/social/matches/route.ts");
-    expect(route).toContain("matching_available: false");
+    expect(route).toContain("matching_available: true");
+    expect(route).toContain('"Cache-Control": "private, no-store"');
   });
 
   it("does not infer affinity through the historical bridge side door", () => {
