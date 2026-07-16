@@ -36,9 +36,11 @@ export interface CatalogIdentity {
   set_code: string;
   set_name: string | null;
   rarity: string | null;
-  // Official self-hosted publisher image (getEnCardData / card_images), or
-  // null when no official image is published — never cardrush. When set,
-  // `image_attribution` is its copyright line (rendered co-located).
+  // The card's image, official-first: the self-hosted publisher art
+  // (getEnCardData / card_images) when published — carrying its copyright
+  // line in `image_attribution` (rendered co-located) — else the self-hosted
+  // catalogue photo (card_set_cards.image_url on jp-op-photos, no attribution;
+  // a product reference shot, never a hotlink). Null only when we have neither.
   image_url: string | null;
   image_attribution: string | null;
   // Official English effect text + structured game facts (same getEnCardData
@@ -59,7 +61,7 @@ export type IdentityResolution =
 
 const SELECT_IDENTITY = `
   SELECT csc.sku, csc.card_number, csc.card_name, csc.set_code,
-         cs.set_name, csc.rarity, NULL::text AS image_url
+         cs.set_name, csc.rarity, csc.image_url
     FROM card_set_cards csc
     LEFT JOIN card_sets cs ON cs.set_code = csc.set_code`;
 
@@ -79,10 +81,10 @@ function rowToIdentity(row: {
     set_code: row.set_code,
     set_name: row.set_name ?? null,
     rarity: row.rarity ?? null,
-    // Both default null; the official image (and its attribution) are
-    // attached in _resolveCardIdentity via getEnCardData, not read from
-    // the catalogue row (SELECT keeps NULL::text AS image_url).
-    image_url: null,
+    // The catalogue photo is the FALLBACK image (self-hosted on jp-op-photos).
+    // _resolveCardIdentity overrides it with the official publisher image when
+    // one is published (and only then sets image_attribution).
+    image_url: row.image_url ?? null,
     image_attribution: null,
     // Same story: effect text + facts are attached from the SAME
     // getEnCardData result in _resolveCardIdentity, not the catalogue row.
@@ -113,13 +115,15 @@ async function _resolveCardIdentity(
   );
   if (bySku.rows[0]) {
     const card = rowToIdentity(bySku.rows[0]);
-    // Attach the OFFICIAL self-hosted image + its copyright line (or null).
-    // en_image.url is already the Cambridge-hosted URL; en_image is null when
-    // no official image is published, so we keep image_url null (No-Image),
-    // never falling back to cardrush.
+    // OFFICIAL art wins when published (its copyright line rides along); when
+    // none is, keep the self-hosted catalogue photo already on `card.image_url`
+    // (jp-op-photos, no attribution). Both are Cambridge-hosted — never a
+    // hotlink. Null image_url only when the catalogue had none either.
     const en = await getEnCardData(card.sku);
-    card.image_url = en.en_image?.url ?? null;
-    card.image_attribution = en.en_image?.attribution ?? null;
+    if (en.en_image) {
+      card.image_url = en.en_image.url;
+      card.image_attribution = en.en_image.attribution;
+    }
     // Effect text + game facts ride in from the SAME result (no second
     // fetch). Each stays null when unpublished; the effect text carries its
     // own copyright line for co-located rendering.

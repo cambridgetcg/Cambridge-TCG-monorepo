@@ -126,6 +126,25 @@ export async function GET(request: Request) {
     }
   }
 
+  // The self-hosted catalogue photo — the FALLBACK shown when a card has no
+  // official published art (e.g. Pokémon, which has no card_images). Every
+  // card_set_cards.image_url is now on jp-op-photos (the cardrush hotlinks
+  // were self-hosted), so this is always a Cambridge-hosted URL — never a
+  // hotlink. No copyright line: it's a product reference photo, not published
+  // publisher art, so official images (which carry attribution) take priority.
+  let catalogImages = new Map<string, string>();
+  if (skus.length > 0) {
+    try {
+      const r = await query(
+        `SELECT sku, image_url FROM card_set_cards WHERE sku = ANY($1) AND image_url IS NOT NULL`,
+        [skus],
+      );
+      for (const row of r.rows) catalogImages.set(row.sku, row.image_url);
+    } catch {
+      // Fallback image enrichment is optional.
+    }
+  }
+
   // Collectors-first (2026-07-06): the tradein-credit channel enrichment
   // (the house's standing we-buy bids) is gone — one less price channel
   // to compute. Every bid/ask below is a collector's; spot_price survives
@@ -135,9 +154,9 @@ export async function GET(request: Request) {
     const p2p = p2pData.get(item.sku);
     const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
     const marketPrice = bestAsk !== null && (spot === null || bestAsk < spot) ? bestAsk : spot;
-    // db-source image_url is always null; the official self-hosted EN image
-    // (already the Cambridge URL — never source_url) overrides it when one
-    // is published, and its copyright line rides along for co-located render.
+    // Official self-hosted EN art wins (its copyright line rides along); when
+    // there's none, fall back to the self-hosted catalogue photo (jp-op-photos,
+    // no attribution). db-source image_url stays the last resort (today null).
     const img = enImages.get(item.sku);
 
     return {
@@ -147,7 +166,7 @@ export async function GET(request: Request) {
       set_code: item.set_code,
       set_name: item.set_name,
       rarity: item.rarity,
-      image_url: img?.url ?? item.image_url,
+      image_url: img?.url ?? catalogImages.get(item.sku) ?? item.image_url,
       image_attribution: img?.attribution ?? null,
       // Prices — spot_price is the catalogue reference (labelled "(ref)"
       // in the UI), not something anyone sells at.
