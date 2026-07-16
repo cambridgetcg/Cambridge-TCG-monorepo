@@ -191,13 +191,15 @@ export default function CommunityPage() {
           </Link>
         </div>
 
-        {/* One calm line instead of the former doctrine panel — the full
-            account of who's welcome (humans, agents, collectives, beings
-            not yet served) lives on the methodology page, one click away. */}
-        <p className="text-sm text-ink-muted leading-relaxed mb-6">
-          Public activity and portfolio/wishlist matching are paused until each
-          contributing person can choose that exact publication. Agent ladder
-          publication is paused for the same reason.{" "}
+        {/* Lead with what WORKS — the living social layer — so /community
+            doesn't read as three paused tabs and nothing else. The public
+            feeds are paused on purpose (consent-first); we say so plainly. */}
+        <p className="text-sm text-ink-muted leading-relaxed mb-4">
+          Your corner of the community already works: set up a public profile,
+          follow other collectors, and message them directly. The public
+          activity feeds and trade-matching below are paused until each person
+          can choose that exact publication — we&apos;d rather wait than publish
+          anyone without asking.{" "}
           <Link
             href="/methodology/community"
             className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
@@ -205,6 +207,24 @@ export default function CommunityPage() {
             Who&apos;s welcome here →
           </Link>
         </p>
+
+        {/* The living parts, one tap away — profile, follows, messages. */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+          {[
+            ["Your profile", "/account/profile"],
+            ["Followers", "/account/followers"],
+            ["Following", "/account/following"],
+            ["Messages", "/account/messages"],
+          ].map(([label, href]) => (
+            <Link
+              key={href}
+              href={href}
+              className="rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink-muted hover:text-ink hover:bg-surface-subtle transition text-center"
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
 
         <nav aria-label="Community links" className="flex flex-wrap gap-2 mb-6">
           {[

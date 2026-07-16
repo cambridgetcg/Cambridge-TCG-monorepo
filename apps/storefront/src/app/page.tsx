@@ -9,6 +9,7 @@ import StorySection from "@/components/home/StorySection";
 import KingdomStrip from "@/components/home/KingdomStrip";
 import TheGallery from "@/components/home/TheGallery";
 import TheShowcase from "@/components/home/TheShowcase";
+import MembershipInvite from "@/components/home/MembershipInvite";
 import { Provenance, WhyLink, Audience, InkRule, Benediction } from "@/lib/ui";
 import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
 import { getGalleryPieces } from "@/lib/cards/gallery";
@@ -35,6 +36,7 @@ type EnrichedCard = PriceItem & { image_attribution: string | null };
 /* The three quiet doors under the hero — the nav's L1 destinations in
    their calmest form. Text, hairline, nothing shouting. */
 const QUIET_LINKS = [
+  { label: "Start here", href: "/start" },
   { label: "Market", href: "/market" },
   { label: "Prices", href: "/prices" },
   { label: "Play", href: "/play" },
@@ -237,6 +239,10 @@ export default async function Home() {
           claim keeps its place directly beneath, medium-sized. */}
       <BrandStatement size="medium" />
       <TwoOperations />
+
+      {/* The human on-ramp — membership is real and free but was nav-orphaned;
+          surface the free-tier value where a newcomer decides to take part. */}
+      <MembershipInvite />
 
       {/* The self-describing layer's homepage door — seven layer cards in
           human words, derived from KINGDOM_LAYERS. Contact-surface spec
