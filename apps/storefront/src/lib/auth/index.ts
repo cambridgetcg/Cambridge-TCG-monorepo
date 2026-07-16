@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
+import Google from "next-auth/providers/google";
 import { PgAdapter } from "./adapter";
 import { sendVerificationRequest } from "./email";
 import { query } from "@/lib/db";
@@ -11,6 +12,29 @@ import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users
 import { SESSION_COOKIE_OVERRIDE } from "./cookies";
 
 const MAGIC_LINK_TOKEN_SECRET = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
+// Google sign-in — registered ONLY when its credentials are present, so the
+// app deploys safely before the Google OAuth app exists (no creds → no
+// provider, no button; the /login page hides it via /api/auth/providers).
+// Switch it on by setting AUTH_GOOGLE_ID + AUTH_GOOGLE_SECRET in the prod env.
+// Google console → Authorized redirect URI:
+//   https://cambridgetcg.com/api/auth/callback/google
+const GOOGLE_ID = process.env.AUTH_GOOGLE_ID;
+const GOOGLE_SECRET = process.env.AUTH_GOOGLE_SECRET;
+const googleProvider =
+  GOOGLE_ID && GOOGLE_SECRET
+    ? [
+        Google({
+          clientId: GOOGLE_ID,
+          clientSecret: GOOGLE_SECRET,
+          // Google verifies email ownership, so mapping a Google sign-in onto
+          // an existing magic-link account with the same address is safe here
+          // (the "dangerous" caveat is for providers that do NOT verify email).
+          // One person, one account, whichever door they use.
+          allowDangerousEmailAccountLinking: true,
+        }),
+      ]
+    : [];
 
 export const authConfig: NextAuthConfig = {
   adapter: PgAdapter(),
@@ -31,6 +55,7 @@ export const authConfig: NextAuthConfig = {
       ...(MAGIC_LINK_TOKEN_SECRET ? { secret: MAGIC_LINK_TOKEN_SECRET } : {}),
       sendVerificationRequest,
     }),
+    ...googleProvider,
   ],
   pages: {
     signIn: "/login",
