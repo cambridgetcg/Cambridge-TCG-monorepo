@@ -24,14 +24,22 @@ const PREFIX = "community/pkm";
 
 // The curated wall — iconic + gorgeous, every one with a named illustrator.
 const IDS = [
-  "base1-4",   // Charizard — Mitsuhiro Arita (the icon, 1999)
-  "swsh7-215", // Umbreon VMAX alt art "Moonbreon" — Keiichiro Ito
-  "sv1-245",   // Gardevoir ex — Jiro Sasumo
-  "sv1-244",   // Miraidon ex — kantaro
-  "sv1-247",   // Koraidon ex — Ryota Murayama
-  "sv2-256",   // Meowscarada ex — Kouki Saitou
-  "sv1-249",   // Arven — kantaro (a character piece)
-  "sv1-246",   // Great Tusk ex — Pani Kobayashi
+  "base1-4",    // Charizard — Mitsuhiro Arita (the icon, 1999)
+  "swsh7-215",  // Umbreon VMAX alt art "Moonbreon" — Keiichiro Ito
+  "swsh11-212", // Giratina VSTAR alt art (Lost Origin) — 5ban Graphics
+  "swsh12-202", // Lugia VSTAR alt art (Silver Tempest) — PLANETA Mochizuki
+  "swsh7-217",  // Rayquaza VMAX alt art — PLANETA Mochizuki
+  "swsh7-211",  // Sylveon VMAX alt art — Ryota Murayama
+  "sv1-245",    // Gardevoir ex — Jiro Sasumo
+  "sv4pt5-232", // Mew ex — USGMEN
+  "me2pt5-277", // Pikachu ex — James Turner
+  "sv4pt5-234", // Charizard ex (Paldean Fates) — AKIRA EGAWA
+  "me2pt5-284", // Mega Gengar ex — danciao
+  "sv1-244",    // Miraidon ex — kantaro
+  "sv1-247",    // Koraidon ex — Ryota Murayama
+  "sv2-256",    // Meowscarada ex — Kouki Saitou
+  "sv1-249",    // Arven — kantaro (a character piece)
+  "sv1-246",    // Great Tusk ex — Pani Kobayashi
 ];
 
 const OUT = "src/lib/cards/showcase.ts";

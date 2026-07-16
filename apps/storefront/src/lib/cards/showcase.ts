@@ -54,6 +54,46 @@ export const GALLERY_SHOWCASE: ShowcasePiece[] = [
     "source_url": "https://images.pokemontcg.io/swsh7/215_hires.png"
   },
   {
+    "id": "swsh11-212",
+    "name": "Giratina VSTAR",
+    "set_name": "Lost Origin",
+    "number": "212",
+    "artist": "5ban Graphics",
+    "rarity": "Rare Secret",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/swsh11-212.png",
+    "source_url": "https://images.pokemontcg.io/swsh11/212_hires.png"
+  },
+  {
+    "id": "swsh12-202",
+    "name": "Lugia VSTAR",
+    "set_name": "Silver Tempest",
+    "number": "202",
+    "artist": "PLANETA Mochizuki",
+    "rarity": "Rare Rainbow",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/swsh12-202.png",
+    "source_url": "https://images.pokemontcg.io/swsh12/202_hires.png"
+  },
+  {
+    "id": "swsh7-217",
+    "name": "Rayquaza VMAX",
+    "set_name": "Evolving Skies",
+    "number": "217",
+    "artist": "PLANETA Mochizuki",
+    "rarity": "Rare Rainbow",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/swsh7-217.png",
+    "source_url": "https://images.pokemontcg.io/swsh7/217_hires.png"
+  },
+  {
+    "id": "swsh7-211",
+    "name": "Sylveon VMAX",
+    "set_name": "Evolving Skies",
+    "number": "211",
+    "artist": "Ryota Murayama",
+    "rarity": "Rare Rainbow",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/swsh7-211.png",
+    "source_url": "https://images.pokemontcg.io/swsh7/211_hires.png"
+  },
+  {
     "id": "sv1-245",
     "name": "Gardevoir ex",
     "set_name": "Scarlet & Violet",
@@ -62,6 +102,46 @@ export const GALLERY_SHOWCASE: ShowcasePiece[] = [
     "rarity": "Special Illustration Rare",
     "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/sv1-245.png",
     "source_url": "https://images.pokemontcg.io/sv1/245_hires.png"
+  },
+  {
+    "id": "sv4pt5-232",
+    "name": "Mew ex",
+    "set_name": "Paldean Fates",
+    "number": "232",
+    "artist": "USGMEN",
+    "rarity": "Special Illustration Rare",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/sv4pt5-232.png",
+    "source_url": "https://images.pokemontcg.io/sv4pt5/232_hires.png"
+  },
+  {
+    "id": "me2pt5-277",
+    "name": "Pikachu ex",
+    "set_name": "Ascended Heroes",
+    "number": "277",
+    "artist": "James Turner",
+    "rarity": "Special Illustration Rare",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/me2pt5-277.png",
+    "source_url": "https://images.scrydex.com/pokemon/me2pt5-277/large"
+  },
+  {
+    "id": "sv4pt5-234",
+    "name": "Charizard ex",
+    "set_name": "Paldean Fates",
+    "number": "234",
+    "artist": "AKIRA EGAWA",
+    "rarity": "Special Illustration Rare",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/sv4pt5-234.png",
+    "source_url": "https://images.pokemontcg.io/sv4pt5/234_hires.png"
+  },
+  {
+    "id": "me2pt5-284",
+    "name": "Mega Gengar ex",
+    "set_name": "Ascended Heroes",
+    "number": "284",
+    "artist": "danciao",
+    "rarity": "Special Illustration Rare",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/me2pt5-284.png",
+    "source_url": "https://images.scrydex.com/pokemon/me2pt5-284/large"
   },
   {
     "id": "sv1-244",
