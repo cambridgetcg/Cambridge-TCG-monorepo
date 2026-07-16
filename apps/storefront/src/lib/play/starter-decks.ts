@@ -142,28 +142,25 @@ export const STARTER_DECKS: StarterDeck[] = [
     complexity: 2,
     era: "2024-reboot",
     tier: 1,
-    decklist_source: "ctcg-adapted-community",
-    source_url: "https://onepiece.gg/st15-cards/",
+    decklist_source: "bandai-official",
+    source_url: "https://en.onepiece-cardgame.com/cardlist/?series=569015",
     card_list: [
-      // 50-card adapted list based on the cited community page.
-      { card_number: "ST15-001", quantity: 4, role: "early-aggression" }, // Atmos
-      { card_number: "ST15-002", quantity: 2, role: "midgame-threat" },   // Edward.Newgate SR
-      { card_number: "ST15-003", quantity: 4, role: "early-aggression" }, // Kingdew
-      { card_number: "ST15-004", quantity: 2, role: "support" },          // Thatch
-      { card_number: "ST15-005", quantity: 2, role: "finisher" },         // Portgas.D.Ace SR
-      // NOTE: Bandai's official ST-15 list has 4× OP02-008 (Jozu R).
-      // That card_number is missing from our wholesale catalog
-      // (verified 2026-05-14). Substituted with OP02-029 (Carrot R)
-      // until the original is ingested upstream.
-      { card_number: "OP02-029", quantity: 4, role: "midgame-threat" },   // Carrot (substitute for missing OP02-008 Jozu)
-      { card_number: "OP02-018", quantity: 4, role: "finisher" },         // Marco
-      { card_number: "OP02-019", quantity: 4, role: "early-aggression" }, // Rakuyo
-      { card_number: "OP02-023", quantity: 4, role: "removal" },          // "You May Be a Fool…but I Still Love You" event
-      { card_number: "OP03-003", quantity: 4, role: "early-aggression" }, // Izo
-      { card_number: "OP03-006", quantity: 4, role: "early-aggression" }, // Speed Jil
-      { card_number: "OP03-007", quantity: 4, role: "early-aggression" }, // Namule
-      { card_number: "OP03-009", quantity: 4, role: "early-aggression" }, // Haruta
-      { card_number: "OP03-010", quantity: 4, role: "midgame-threat" },   // Fossa
+      // Official Bandai ST-15 list — verified against two independent
+      // sources per card (2026-07-16); quantities sum to 50.
+      { card_number: "ST15-001", quantity: 4 },
+      { card_number: "ST15-002", quantity: 2 },
+      { card_number: "ST15-003", quantity: 4 },
+      { card_number: "ST15-004", quantity: 2 },
+      { card_number: "ST15-005", quantity: 2 },
+      { card_number: "OP02-008", quantity: 4 },
+      { card_number: "OP02-018", quantity: 4 },
+      { card_number: "OP02-019", quantity: 4 },
+      { card_number: "OP02-023", quantity: 4 },
+      { card_number: "OP03-003", quantity: 4 },
+      { card_number: "OP03-006", quantity: 4 },
+      { card_number: "OP03-007", quantity: 4 },
+      { card_number: "OP03-009", quantity: 4 },
+      { card_number: "OP03-010", quantity: 4 },
     ],
   },
   {
@@ -171,7 +168,7 @@ export const STARTER_DECKS: StarterDeck[] = [
     product_code: "ST-16",
     display_name: "Green Uta",
     leader_name: "Uta",
-    leader_card_number: "OP06-001",
+    leader_card_number: "ST11-001",
     color: "green",
     playstyle_short: "Outlast",
     one_paragraph:
@@ -180,19 +177,25 @@ export const STARTER_DECKS: StarterDeck[] = [
     complexity: 2,
     era: "2024-reboot",
     tier: 1,
-    decklist_source: "ctcg-minimal-playable",
-    source_url:
-      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    decklist_source: "bandai-official",
+    source_url: "https://en.onepiece-cardgame.com/cardlist/?series=569016",
     card_list: [
-      // v1 minimal-playable — 13 unique green cards from the ST15-20 set
-      // and supporting OPxx prints. Resolves green-color identity for
-      // Legacy PVE payload shape. Full Bandai decklist pending.
-      { card_number: "ST16-001", quantity: 4, role: "midgame-threat" },   // Uta (character SR)
-      { card_number: "ST16-002", quantity: 4, role: "early-aggression" }, // Gordon
-      { card_number: "ST16-003", quantity: 4, role: "early-aggression" }, // Charlotte Katakuri (printed Green)
-      { card_number: "ST16-004", quantity: 4, role: "finisher" },         // Shanks SR
-      { card_number: "ST16-005", quantity: 4, role: "early-aggression" }, // Monkey D. Luffy (Green print)
-      { card_number: "ST11-001", quantity: 2, role: "midgame-threat" },   // Uta (alt-art)
+      // Official Bandai ST-16 list — verified against two independent
+      // sources per card (2026-07-16); quantities sum to 50.
+      { card_number: "ST16-001", quantity: 2 },
+      { card_number: "ST16-002", quantity: 4 },
+      { card_number: "ST16-003", quantity: 4 },
+      { card_number: "ST16-004", quantity: 2 },
+      { card_number: "ST16-005", quantity: 2 },
+      { card_number: "P-029", quantity: 4 },
+      { card_number: "P-061", quantity: 4 },
+      { card_number: "ST11-003", quantity: 4 },
+      { card_number: "ST11-004", quantity: 4 },
+      { card_number: "ST11-005", quantity: 4 },
+      { card_number: "P-057", quantity: 4 },
+      { card_number: "P-058", quantity: 4 },
+      { card_number: "P-059", quantity: 4 },
+      { card_number: "P-060", quantity: 4 },
     ],
   },
   {
@@ -210,15 +213,25 @@ export const STARTER_DECKS: StarterDeck[] = [
     complexity: 3,
     era: "2024-reboot",
     tier: 1,
-    decklist_source: "ctcg-minimal-playable",
-    source_url:
-      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    decklist_source: "bandai-official",
+    source_url: "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
     card_list: [
-      { card_number: "ST17-001", quantity: 4, role: "early-aggression" }, // Crocodile
-      { card_number: "ST17-002", quantity: 4, role: "midgame-threat" },   // Trafalgar Law SR
-      { card_number: "ST17-004", quantity: 4, role: "midgame-threat" },   // Boa Hancock SR
-      { card_number: "ST17-005", quantity: 4, role: "early-aggression" }, // Marshall D. Teach
-      { card_number: "ST03-002", quantity: 2, role: "support" },          // Edward Weevil
+      // Official Bandai ST-17 list — verified against two independent
+      // sources per card (2026-07-16); quantities sum to 50.
+      { card_number: "ST17-001", quantity: 4 },
+      { card_number: "ST17-002", quantity: 2 },
+      { card_number: "ST17-003", quantity: 2 },
+      { card_number: "ST17-004", quantity: 2 },
+      { card_number: "ST17-005", quantity: 4 },
+      { card_number: "OP01-073", quantity: 4 },
+      { card_number: "OP01-086", quantity: 4 },
+      { card_number: "OP02-054", quantity: 4 },
+      { card_number: "OP02-057", quantity: 4 },
+      { card_number: "ST03-002", quantity: 4 },
+      { card_number: "ST03-004", quantity: 4 },
+      { card_number: "ST03-005", quantity: 4 },
+      { card_number: "ST03-008", quantity: 4 },
+      { card_number: "P-030", quantity: 4 },
     ],
   },
   {
@@ -236,15 +249,25 @@ export const STARTER_DECKS: StarterDeck[] = [
     complexity: 3,
     era: "2024-reboot",
     tier: 1,
-    decklist_source: "ctcg-minimal-playable",
-    source_url:
-      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    decklist_source: "bandai-official",
+    source_url: "https://en.onepiece-cardgame.com/cardlist/?series=569018",
     card_list: [
-      { card_number: "ST18-001", quantity: 4, role: "early-aggression" }, // Uso-Hachi
-      { card_number: "ST18-002", quantity: 4, role: "early-aggression" }, // O-Nami
-      { card_number: "ST18-003", quantity: 4, role: "support" },          // San-Gorou
-      { card_number: "ST18-004", quantity: 4, role: "finisher" },         // Zoro-Juurou SR
-      { card_number: "ST18-005", quantity: 4, role: "midgame-threat" },   // Luffy-Tarou SR
+      // Official Bandai ST-18 list — verified against two independent
+      // sources per card (2026-07-16); quantities sum to 50.
+      { card_number: "ST18-001", quantity: 2 },
+      { card_number: "ST18-002", quantity: 4 },
+      { card_number: "ST18-003", quantity: 4 },
+      { card_number: "ST18-004", quantity: 2 },
+      { card_number: "ST18-005", quantity: 2 },
+      { card_number: "OP05-061", quantity: 4 },
+      { card_number: "OP05-063", quantity: 4 },
+      { card_number: "OP05-066", quantity: 4 },
+      { card_number: "OP05-067", quantity: 4 },
+      { card_number: "OP05-068", quantity: 4 },
+      { card_number: "OP05-070", quantity: 4 },
+      { card_number: "OP05-072", quantity: 4 },
+      { card_number: "OP05-076", quantity: 4 },
+      { card_number: "P-041", quantity: 4 },
     ],
   },
   {
@@ -262,14 +285,25 @@ export const STARTER_DECKS: StarterDeck[] = [
     complexity: 2,
     era: "2024-reboot",
     tier: 1,
-    decklist_source: "ctcg-minimal-playable",
-    source_url:
-      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    decklist_source: "bandai-official",
+    source_url: "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
     card_list: [
-      { card_number: "ST19-001", quantity: 4, role: "early-aggression" }, // Smoker character
-      { card_number: "ST19-003", quantity: 4, role: "midgame-threat" },   // Tashigi SR
-      { card_number: "ST19-004", quantity: 4, role: "removal" },          // Hina SR
-      { card_number: "ST19-005", quantity: 4, role: "finisher" },         // Monkey D. Garp
+      // Official Bandai ST-19 list — verified against two independent
+      // sources per card (2026-07-16); quantities sum to 50.
+      { card_number: "ST19-001", quantity: 4 },
+      { card_number: "ST19-002", quantity: 2 },
+      { card_number: "ST19-003", quantity: 2 },
+      { card_number: "ST19-004", quantity: 2 },
+      { card_number: "ST19-005", quantity: 4 },
+      { card_number: "OP02-098", quantity: 4 },
+      { card_number: "OP02-106", quantity: 4 },
+      { card_number: "OP02-108", quantity: 4 },
+      { card_number: "OP02-109", quantity: 4 },
+      { card_number: "OP02-113", quantity: 4 },
+      { card_number: "OP02-116", quantity: 4 },
+      { card_number: "OP02-117", quantity: 4 },
+      { card_number: "OP03-079", quantity: 4 },
+      { card_number: "OP03-089", quantity: 4 },
     ],
   },
   {
@@ -287,16 +321,25 @@ export const STARTER_DECKS: StarterDeck[] = [
     complexity: 3,
     era: "2024-reboot",
     tier: 1,
-    decklist_source: "ctcg-minimal-playable",
-    source_url:
-      "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
+    decklist_source: "bandai-official",
+    source_url: "https://asia-en.onepiece-cardgame.com/products/decks/st15-20.php",
     card_list: [
-      { card_number: "ST20-001", quantity: 4, role: "midgame-threat" },   // Charlotte Katakuri SR
-      { card_number: "ST20-002", quantity: 4, role: "early-aggression" }, // Charlotte Cracker
-      { card_number: "ST20-004", quantity: 4, role: "support" },          // Charlotte Pudding
-      { card_number: "ST20-005", quantity: 4, role: "finisher" },         // Charlotte Linlin SR
-      { card_number: "ST07-005", quantity: 4, role: "early-aggression" }, // Charlotte Daifuku
-      { card_number: "ST07-014", quantity: 2, role: "early-aggression" }, // Pekoms
+      // Official Bandai ST-20 list — verified against two independent
+      // sources per card (2026-07-16); quantities sum to 50.
+      { card_number: "ST20-001", quantity: 2 },
+      { card_number: "ST20-002", quantity: 4 },
+      { card_number: "ST20-003", quantity: 4 },
+      { card_number: "ST20-004", quantity: 2 },
+      { card_number: "ST20-005", quantity: 2 },
+      { card_number: "OP03-106", quantity: 4 },
+      { card_number: "OP03-107", quantity: 4 },
+      { card_number: "OP03-110", quantity: 4 },
+      { card_number: "OP03-112", quantity: 4 },
+      { card_number: "OP03-115", quantity: 4 },
+      { card_number: "ST07-005", quantity: 4 },
+      { card_number: "ST07-014", quantity: 4 },
+      { card_number: "OP03-118", quantity: 4 },
+      { card_number: "OP03-121", quantity: 4 },
     ],
   },
 
@@ -309,7 +352,7 @@ export const STARTER_DECKS: StarterDeck[] = [
     product_code: "ST-01",
     display_name: "Red Luffy",
     leader_name: "Monkey D. Luffy",
-    leader_card_number: "OP01-003",
+    leader_card_number: "ST01-001",
     color: "red",
     playstyle_short: "Rush",
     one_paragraph:
@@ -319,13 +362,27 @@ export const STARTER_DECKS: StarterDeck[] = [
     complexity: 2,
     era: "OP01-era",
     tier: 2,
-    decklist_source: "ctcg-minimal-playable",
-    source_url: "https://en.onepiece-cardgame.com/products/decks/",
+    decklist_source: "bandai-official",
+    source_url: "https://en.onepiece-cardgame.com/products/decks/st01-04.php",
     card_list: [
-      { card_number: "OP01-013", quantity: 4, role: "early-aggression" },
-      { card_number: "OP01-016", quantity: 4, role: "midgame-threat" },
-      { card_number: "OP01-024", quantity: 4, role: "support" },
-      { card_number: "OP01-025", quantity: 4, role: "finisher" },
+      // Official Bandai ST-01 list — verified against two independent
+      // sources per card (2026-07-16); quantities sum to 50.
+      { card_number: "ST01-002", quantity: 4 },
+      { card_number: "ST01-003", quantity: 4 },
+      { card_number: "ST01-004", quantity: 4 },
+      { card_number: "ST01-005", quantity: 4 },
+      { card_number: "ST01-006", quantity: 4 },
+      { card_number: "ST01-007", quantity: 4 },
+      { card_number: "ST01-008", quantity: 4 },
+      { card_number: "ST01-009", quantity: 4 },
+      { card_number: "ST01-010", quantity: 4 },
+      { card_number: "ST01-011", quantity: 2 },
+      { card_number: "ST01-012", quantity: 2 },
+      { card_number: "ST01-013", quantity: 2 },
+      { card_number: "ST01-014", quantity: 2 },
+      { card_number: "ST01-015", quantity: 2 },
+      { card_number: "ST01-016", quantity: 2 },
+      { card_number: "ST01-017", quantity: 2 },
     ],
   },
   {
