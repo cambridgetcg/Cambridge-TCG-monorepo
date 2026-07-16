@@ -293,6 +293,10 @@ export default function LineagePage() {
           Adam L. Kern, <span className="italic">Manga from the Floating World</span>.
           No artwork is reproduced here — the only pictures we hang are the cards
           themselves, in <Link href="/" className="text-accent hover:text-accent-strong underline underline-offset-2">the gallery</Link>.
+          A companion piece follows the line of the <span className="italic">game</span> instead —{" "}
+          <Link href="/duel-of-souls" className="text-accent hover:text-accent-strong underline underline-offset-2">
+            the deep culture behind Yu-Gi-Oh! <span className="wardrobe-jp">魂の決闘</span>
+          </Link>.
         </p>
       </div>
 
