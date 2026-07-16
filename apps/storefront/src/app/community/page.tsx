@@ -3,8 +3,84 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ActivityEvent, TradeMatch } from "@/lib/social/types";
+import {
+  ACTIVITY_PUBLICATION_NOTICE_VERSION,
+  ACTIVITY_PUBLICATION_NOTICE_PATH,
+} from "@/lib/social/publication";
 
 type Tab = "trending" | "following" | "matches" | "agents";
+
+/**
+ * The loving, one-tap door into the feed. A signed-in member sees a warm
+ * invitation to share their wins (or a quiet "you're sharing" note once they
+ * do) right where the feed lives — no trip to settings. `publishing` is null
+ * while unknown / signed-out.
+ */
+function ShareYourWins({
+  publishing,
+  busy,
+  onToggle,
+  signedIn,
+}: {
+  publishing: boolean | null;
+  busy: boolean;
+  onToggle: (next: boolean) => void;
+  signedIn: boolean;
+}) {
+  if (publishing === null && !signedIn) {
+    return (
+      <p className="mb-6 text-sm text-ink-muted">
+        <Link href="/login" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
+          Sign in
+        </Link>{" "}
+        to share your own wins here.
+      </p>
+    );
+  }
+  if (publishing === true) {
+    return (
+      <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-subtle px-4 py-2.5">
+        <span className="text-sm text-ink-muted">
+          <span className="text-ok">✓</span> You&apos;re sharing your wins with the community.
+        </span>
+        <button
+          type="button"
+          onClick={() => onToggle(false)}
+          disabled={busy}
+          className="text-xs text-ink-faint hover:text-ink underline underline-offset-2 disabled:opacity-50"
+        >
+          {busy ? "…" : "Turn off"}
+        </button>
+      </div>
+    );
+  }
+  if (publishing === false) {
+    return (
+      <div className="mb-6 rounded-lg border border-accent/30 bg-accent-wash px-4 py-4">
+        <p className="font-display text-ink">🎉 Share your wins</p>
+        <p className="mt-1 text-sm text-ink-muted leading-relaxed">
+          Finish a trade, win an auction, earn an achievement, complete a set? Let the
+          community celebrate with you. Only those wins — never your collection, prices,
+          or messages — and you can turn it off any time.
+        </p>
+        <div className="mt-3 flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => onToggle(true)}
+            disabled={busy}
+            className="rounded-lg bg-ink text-page px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+          >
+            {busy ? "Turning on…" : "Share my milestones"}
+          </button>
+          <Link href={ACTIVITY_PUBLICATION_NOTICE_PATH} className="text-xs text-ink-faint hover:text-accent underline underline-offset-2">
+            read the full notice
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -122,6 +198,44 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
   const [publicationReason, setPublicationReason] = useState<string | null>(null);
+  // The viewer's own activity-publish state — null while unknown / signed-out.
+  const [publishing, setPublishing] = useState<boolean | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+
+  // One read on mount: am I signed in, and am I already sharing my wins?
+  useEffect(() => {
+    fetch("/api/social/profile?user=me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.profile) return;
+        setSignedIn(true);
+        const p = data.profile;
+        setPublishing(Boolean(
+          p.activity_publication_notice_version === ACTIVITY_PUBLICATION_NOTICE_VERSION &&
+          p.activity_published_at,
+        ));
+      })
+      .catch(() => {});
+  }, []);
+
+  async function togglePublish(next: boolean) {
+    setPublishBusy(true);
+    try {
+      const res = await fetch("/api/social/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activity_public: next,
+          activity_publication_notice_version: next
+            ? ACTIVITY_PUBLICATION_NOTICE_VERSION
+            : undefined,
+        }),
+      });
+      if (res.ok) setPublishing(next);
+    } catch {}
+    setPublishBusy(false);
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -266,6 +380,17 @@ export default function CommunityPage() {
             </button>
           ))}
         </div>
+
+        {/* The one-tap door to sharing your own wins — only on the two activity
+            tabs, where the feed lives. */}
+        {(tab === "trending" || tab === "following") && (
+          <ShareYourWins
+            publishing={publishing}
+            signedIn={signedIn}
+            busy={publishBusy}
+            onToggle={togglePublish}
+          />
+        )}
 
         {/* Content */}
         {loading ? (

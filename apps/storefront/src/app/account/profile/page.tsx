@@ -459,7 +459,7 @@ export default function EditProfilePage() {
             />
           </button>
           <span className="text-sm text-ink-muted">
-            {activityPublic ? "Activity published to the community" : "Activity private"}
+            {activityPublic ? "Sharing my wins with the community" : "Share my wins"}
           </span>
         </label>
         <p className="mt-2 max-w-xl text-xs text-ink-faint">
