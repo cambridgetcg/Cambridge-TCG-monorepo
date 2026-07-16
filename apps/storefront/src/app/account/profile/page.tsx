@@ -288,6 +288,24 @@ export default function EditProfilePage() {
     } catch {}
   }
 
+  // The explicit card-level trade intent. Making a wish "open to trade" is the
+  // ONLY thing that lets it meet members who hold that card (nothing inferred).
+  async function toggleWishlistOpen(itemId: string, open: boolean) {
+    setWishlist((prev) => prev.map((w) => (w.id === itemId ? { ...w, open_to_trade: open } : w)));
+    try {
+      const res = await fetch("/api/social/wishlist", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, open_to_trade: open }),
+      });
+      if (!res.ok) {
+        setWishlist((prev) => prev.map((w) => (w.id === itemId ? { ...w, open_to_trade: !open } : w)));
+      }
+    } catch {
+      setWishlist((prev) => prev.map((w) => (w.id === itemId ? { ...w, open_to_trade: !open } : w)));
+    }
+  }
+
   const moveShowcase = useCallback(
     (idx: number, dir: -1 | 1) => {
       const next = idx + dir;
@@ -775,6 +793,18 @@ export default function EditProfilePage() {
                   )}
                   <span className="text-ink-faint ml-2">{item.condition_min}</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => toggleWishlistOpen(item.id, !item.open_to_trade)}
+                  title="Let members who hold this card find you for a trade"
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                    item.open_to_trade
+                      ? "bg-accent-wash text-accent-strong"
+                      : "bg-surface-subtle text-ink-faint hover:text-ink"
+                  }`}
+                >
+                  {item.open_to_trade ? "Open to trade ✓" : "Open to trade"}
+                </button>
                 <button
                   onClick={() => removeWishlistItem(item.id)}
                   className="text-danger hover:text-danger text-xs font-bold"

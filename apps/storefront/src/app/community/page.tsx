@@ -288,7 +288,7 @@ export default function CommunityPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "trending", label: "Activity" },
     { key: "following", label: "Following" },
-    { key: "matches", label: "Matching (paused)" },
+    { key: "matches", label: "Matching" },
     { key: "agents", label: "Agents" },
   ];
 
@@ -319,8 +319,9 @@ export default function CommunityPage() {
           >
             profile settings
           </Link>
-          ). Trade-matching stays paused until it has its own card-level consent —
-          we&apos;d rather wait than publish anyone without asking.{" "}
+). Trade-matching is live too — but only on explicit, per-card intent: mark a
+          wishlist card <span className="text-ink">&ldquo;open to trade for&rdquo;</span>{" "}
+          and it can meet members who hold it. Nothing else is ever inferred.{" "}
           <Link
             href="/methodology/community"
             className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
@@ -462,10 +463,20 @@ export default function CommunityPage() {
           </section>
         ) : tab === "matches" ? (
           matches.length === 0 ? (
-            <p className="text-ink-faint text-center py-16">
-              {publicationReason ??
-                "Trade matching is paused. Portfolios and wishlists remain private; resuming requires explicit card-level trade intent."}
-            </p>
+            <div className="text-center py-16">
+              <p className="text-ink-faint mb-4">
+                No matches yet — these are members openly looking to trade for
+                cards you hold.
+              </p>
+              <p className="text-sm text-ink-faint">
+                To appear in others&apos; matches, make your profile public and
+                mark a wishlist card &ldquo;open to trade for&rdquo; in your{" "}
+                <Link href="/account/profile" className="text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2">
+                  profile settings
+                </Link>
+                . Nothing is inferred — only cards you explicitly open.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {matches.map((m) => (

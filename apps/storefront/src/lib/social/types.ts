@@ -68,6 +68,8 @@ export interface WishlistItem {
   condition_min: string;
   notes: string | null;
   fulfilled: boolean;
+  /** Explicit card-level trade intent — "I'm open to trade for this". */
+  open_to_trade: boolean;
   created_at: string;
 }
 
