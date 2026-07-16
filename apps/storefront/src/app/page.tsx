@@ -8,6 +8,7 @@ import CardFinderHero from "@/components/home/CardFinderHero";
 import StorySection from "@/components/home/StorySection";
 import KingdomStrip from "@/components/home/KingdomStrip";
 import TheGallery from "@/components/home/TheGallery";
+import TheShowcase from "@/components/home/TheShowcase";
 import { Provenance, WhyLink, Audience, InkRule, Benediction } from "@/lib/ui";
 import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
 import { getGalleryPieces } from "@/lib/cards/gallery";
@@ -224,6 +225,10 @@ export default async function Home() {
           full-arts pulled straight from card_images' variant-tailed keys — the
           rarer art the base-art surfaces never showed — each credited to its
           illustrator where the publisher named one. */}
+      {/* The guest wall leads — a few clean, high-res, sourced pieces (no
+          SAMPLE mark), hung before the catalogue's alternate arts. Renders
+          nothing until the fetch pipeline has self-hosted something. */}
+      <TheShowcase />
       <TheGallery cards={galleryPieces} />
 
       {/* THE PRIMARY IDENTITY — a collectors' market and card data
