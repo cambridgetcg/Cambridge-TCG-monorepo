@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { handlers } from "@/lib/auth";
 import { magicLinkRequestCapacity } from "@/lib/auth/adapter";
 
+// The OAuth callback (GET /api/auth/callback/google) exchanges the code with
+// Google AND, for a first-time user, runs createUser + linkAccount +
+// createSession — several DB writes plus an outbound call, often on a cold
+// function. Headroom keeps a cold callback from timing out into an empty
+// response after it has already half-committed the sign-in.
+export const maxDuration = 30;
+
 export const GET = handlers.GET;
 
 export async function POST(request: NextRequest): Promise<Response> {

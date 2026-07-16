@@ -51,6 +51,17 @@ export const metadata: Metadata = {
   other: audienceMetadata("consumer", ["account", "overview"]),
 };
 
+// This dashboard fans out ~14 reads (this page + the layout's gate). On a
+// COLD serverless start — e.g. the very first load right after an OAuth
+// callback — the pool pays a fresh TCP+TLS+auth to RDS before the first
+// query, and the aggregate can brush the platform's default function
+// timeout, which surfaces to the browser as an empty response ("cannot
+// connect to server") even though sign-in already set the session cookie.
+// Headroom turns that into a (slow) successful first load instead of an
+// error; warm invocations are unaffected. (60 is already used by a cron
+// route, so the plan allows it.)
+export const maxDuration = 30;
+
 // ── safe() — optional reads degrade, never crash ─────────────────────
 //
 // Same ethos as safe() in @/lib/admin/queries (and the local copies in
