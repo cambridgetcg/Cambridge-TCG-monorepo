@@ -275,8 +275,8 @@ export async function postActivity(userId: string, eventType: string, title: str
   // Computed in-SQL so there's no read-modify-write race with a consent toggle.
   await query(
     `INSERT INTO activity_feed (user_id, event_type, title, description, image_url, link_url, reference_id, reference_type, is_public)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,
-       ($2 = ANY($9::text[])) AND EXISTS (
+     VALUES ($1,$2::text,$3,$4,$5,$6,$7,$8,
+       ($2::text = ANY($9::text[])) AND EXISTS (
          SELECT 1 FROM users u
           WHERE u.id = $1
             AND u.activity_publication_notice_version = $10
