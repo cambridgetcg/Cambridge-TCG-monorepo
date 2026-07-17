@@ -33,8 +33,6 @@ export async function GET() {
     pending: {
       trades: pending.trades,
       auctions: pending.auctions,
-      tradeins: pending.tradeins,
-      quotes: pending.quotes,
       totalOwedFormatted: pending.totalOwedFormatted,
     },
     liquidity: {

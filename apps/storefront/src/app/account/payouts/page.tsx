@@ -23,20 +23,8 @@ interface PendingPayout {
   holdDays: number;
 }
 
-// Trade-in and quote pending rows carry more detail because a single
-// submission can have both a cash and credit leg, each paid independently.
-interface PendingSubmissionPayout {
-  reference: string;
-  status: string;
-  cashOwed: number;
-  creditOwed: number;
-  amount: number;
-  amountFormatted: string;
-  when: string;
-}
-
 interface HistoryRow {
-  source: "trade" | "auction" | "tradein_cash" | "tradein_credit" | "quote_cash" | "quote_credit";
+  source: "trade" | "auction";
   id: string;
   label: string;
   amount: number;
@@ -61,19 +49,7 @@ interface HistoryPayload {
 const SOURCE_LABELS: Record<HistoryRow["source"], string> = {
   trade: "P2P trade",
   auction: "Auction",
-  tradein_cash: "Trade-in (cash)",
-  tradein_credit: "Trade-in (credit)",
-  quote_cash: "Quote (cash)",
-  quote_credit: "Quote (credit)",
 };
-
-// The we-buy desk closed 2026-07-06 (collectors-first decision). All
-// trade-in and quote payout sources are history — rows keep their
-// labels, they just wear a small "legacy" mark so nobody reads them as
-// a live door.
-function isLegacySource(source: HistoryRow["source"]): boolean {
-  return source.startsWith("tradein_") || source.startsWith("quote_");
-}
 
 const METHOD_LABELS: Record<HistoryRow["method"], string> = {
   stripe: "Stripe",
@@ -127,8 +103,6 @@ function PayoutsPageInner() {
   const [pending, setPending] = useState<{
     trades: PendingPayout[];
     auctions: PendingPayout[];
-    tradeins: PendingSubmissionPayout[];
-    quotes: PendingSubmissionPayout[];
     totalOwedFormatted: string;
     readyTotalFormatted: string;
     holdingTotalFormatted: string;
@@ -330,7 +304,7 @@ function PayoutsPageInner() {
       </div>
 
       {/* Pending payouts */}
-      {pending && (pending.trades.length > 0 || pending.auctions.length > 0 || pending.tradeins.length > 0 || pending.quotes.length > 0) && (
+      {pending && (pending.trades.length > 0 || pending.auctions.length > 0) && (
         <div className="bg-surface rounded-lg p-5">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-ink font-bold text-sm uppercase tracking-wide">Pending Payouts</h2>
@@ -396,30 +370,10 @@ function PayoutsPageInner() {
               </div>
             </div>
           )}
-          {pending.tradeins.length > 0 && (
-            <div className="mb-4">
-              <p className="text-xs text-ink-faint mb-2">Trade-ins</p>
-              <div className="space-y-1.5">
-                {pending.tradeins.map((r) => (
-                  <PendingSubmissionRow key={r.reference} row={r} kind="Trade-in" />
-                ))}
-              </div>
-            </div>
-          )}
-          {pending.quotes.length > 0 && (
-            <div>
-              <p className="text-xs text-ink-faint mb-2">Quotes</p>
-              <div className="space-y-1.5">
-                {pending.quotes.map((r) => (
-                  <PendingSubmissionRow key={r.reference} row={r} kind="Quote" />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {pending && pending.trades.length === 0 && pending.auctions.length === 0 && pending.tradeins.length === 0 && pending.quotes.length === 0 && (
+      {pending && pending.trades.length === 0 && pending.auctions.length === 0 && (
         <p className="text-sm text-ink-faint">No pending payouts.</p>
       )}
 
@@ -491,35 +445,10 @@ function PendingTradeRow({ row }: { row: PendingPayout }) {
   );
 }
 
-function PendingSubmissionRow({ row, kind }: { row: PendingSubmissionPayout; kind: "Trade-in" | "Quote" }) {
-  // Split-leg hint: if only one of cash/credit is owed, say so. Helps
-  // sellers reading a mixed submission understand what's left to clear.
-  const legHint =
-    row.cashOwed > 0 && row.creditOwed > 0 ? "cash + credit"
-    : row.cashOwed > 0 ? "cash"
-    : row.creditOwed > 0 ? "credit"
-    : "—";
-  return (
-    <div className="flex items-center justify-between text-sm gap-3">
-      <span className="text-ink-muted truncate">
-        {kind} <span className="text-ink-faint">{row.reference}</span>
-      </span>
-      <span className="flex items-center gap-2 shrink-0">
-        <span className="text-[10px] text-ink-faint uppercase tracking-wide">{row.status} · {legHint}</span>
-        <span className="text-ink font-mono">{row.amountFormatted}</span>
-      </span>
-    </div>
-  );
-}
-
 const HISTORY_FILTERS: Array<{ key: "all" | HistoryRow["source"]; label: string }> = [
   { key: "all", label: "All" },
   { key: "trade", label: "P2P" },
   { key: "auction", label: "Auctions" },
-  { key: "tradein_cash", label: "Trade-in cash" },
-  { key: "tradein_credit", label: "Trade-in credit" },
-  { key: "quote_cash", label: "Quote cash" },
-  { key: "quote_credit", label: "Quote credit" },
 ];
 
 function EarningsHistorySection({
@@ -592,11 +521,6 @@ function EarningsHistorySection({
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-ink truncate">{r.label}</span>
                   <span className="text-[10px] text-ink-faint uppercase tracking-wide">{SOURCE_LABELS[r.source]}</span>
-                  {isLegacySource(r.source) && (
-                    <span className="text-[9px] text-ink-faint uppercase tracking-wide border border-border-subtle rounded px-1 py-px">
-                      legacy
-                    </span>
-                  )}
                 </div>
                 <div className="text-[11px] text-ink-faint mt-0.5">
                   {new Date(r.paidAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
