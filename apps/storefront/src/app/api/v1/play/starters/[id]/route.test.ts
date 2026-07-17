@@ -24,6 +24,8 @@ describe("GET /api/v1/play/starters/[id] rights boundary", () => {
         image_url: "https://upstream.example/leader.jpg",
         rarity: "L",
         set_code: "ST01",
+        effect_text: null,
+        text_attribution: null,
       },
       cards: [],
     });

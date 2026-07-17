@@ -29,6 +29,8 @@ export interface SetupCard {
   power?: number | null;
   counter?: number | null;
   color?: string | null;
+  textEn?: string | null;
+  textAttribution?: string | null;
   /** Leader life total — used for the life-card count when this card is
    *  the leader. Default 5 when unknown (the pre-stats behavior). */
   life?: number | null;
@@ -47,6 +49,8 @@ function makeCard(source: SetupCard, zone: GameCard["zone"]): GameCard {
     power: source.power ?? null,
     counter: source.counter ?? null,
     color: source.color ?? null,
+    textEn: source.textEn ?? null,
+    textAttribution: source.textAttribution ?? null,
     isRested: false,
     attachedDon: 0,
     zone,

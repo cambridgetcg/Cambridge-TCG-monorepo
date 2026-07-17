@@ -338,6 +338,8 @@ export interface PracticeSetupCard {
   counter?: number | null;
   color?: string | null;
   life?: number | null;
+  textEn?: string | null;
+  textAttribution?: string | null;
   isLeader?: boolean;
 }
 

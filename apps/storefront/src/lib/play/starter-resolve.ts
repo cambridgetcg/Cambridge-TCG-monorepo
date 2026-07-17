@@ -6,6 +6,7 @@
 import { getStarterDeck, type StarterDeck } from "@/lib/play/starter-decks";
 import { fetchPrices } from "@/lib/wholesale/client";
 import { query } from "@/lib/db";
+import { enCardKeyFromParts } from "@/lib/cards/en-card-data";
 
 // Same CDN base the museum gallery uses (src/lib/cards/gallery.ts) — the
 // card_images table stores s3 keys, not full URLs.
@@ -70,6 +71,11 @@ export interface ResolvedStarterCard {
   image_url: string | null;
   rarity: string | null;
   set_code: string | null;
+  /** Verbatim EN effect text from the legal collection (card_texts) — the
+   *  recorded publication rule requires text_attribution rendered with it. */
+  effect_text: string | null;
+  /** Copyright line for effect_text; NOT NULL in schema wherever text is. */
+  text_attribution: string | null;
 }
 
 export interface ResolvedStarter {
@@ -89,6 +95,45 @@ const BUNDLED_SET_FOR: Record<string, string> = {
   ST23: "ST23-28", ST24: "ST23-28", ST25: "ST23-28",
   ST26: "ST23-28", ST27: "ST23-28", ST28: "ST23-28",
 };
+
+/**
+ * EN effect text from the legal collection. card_texts keys on the derived
+ * EN card key ("OP-OP02-018-EN") — the same SET-NUMBER identity a
+ * card_number carries, so no catalog resolution is required. Verbatim
+ * publisher rules text publishes WITH its copyright line (recorded rule,
+ * docs/EN-CARD-DATA.md + /legal/card-images); attribution is NOT NULL by
+ * schema so text can never travel without it. Failure degrades to no text.
+ */
+async function cardTextFallbacks(
+  cardNumbers: string[],
+): Promise<Map<string, { text: string; attribution: string }>> {
+  if (cardNumbers.length === 0) return new Map();
+  const keyFor = (num: string): string | null => {
+    const m = num.match(/^([A-Z]+\d*)-(\w+)$/);
+    return m ? enCardKeyFromParts("op", m[1], m[2]) : null;
+  };
+  const keyed = cardNumbers
+    .map((num) => ({ num, key: keyFor(num) }))
+    .filter((e): e is { num: string; key: string } => e.key !== null);
+  if (keyed.length === 0) return new Map();
+  try {
+    const { rows } = (await query(
+      `SELECT sku, effect_text, attribution
+         FROM card_texts
+        WHERE lang = 'en' AND effect_text IS NOT NULL AND sku = ANY($1)`,
+      [keyed.map((e) => e.key)],
+    )) as { rows: { sku: string; effect_text: string; attribution: string }[] };
+    const bySku = new Map(rows.map((r) => [r.sku, r]));
+    const out = new Map<string, { text: string; attribution: string }>();
+    for (const e of keyed) {
+      const r = bySku.get(e.key);
+      if (r) out.set(e.num, { text: r.effect_text, attribution: r.attribution });
+    }
+    return out;
+  } catch {
+    return new Map();
+  }
+}
 
 /** Resolve a starter's full card list against the wholesale catalog.
  *  Returns null when the starter id is unknown. Unresolvable cards come
@@ -154,6 +199,8 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
         image_url: null,
         rarity: null,
         set_code: null,
+        effect_text: null,
+        text_attribution: null,
       };
     }
     return {
@@ -166,6 +213,8 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
       image_url: cat.image_url ?? null,
       rarity: cat.rarity ?? null,
       set_code: cat.set_code ?? null,
+      effect_text: null,
+      text_attribution: null,
     };
   };
 
@@ -176,13 +225,20 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
   });
   const cards = deck.card_list.map((c) => resolveCard(c));
 
-  // Fill missing artwork from the legal EN image collection.
-  const needingArt = [leader, ...cards]
-    .filter((c) => !c.image_url)
-    .map((c) => c.card_number);
-  const artFallbacks = await cardImageFallbacks(needingArt);
-  for (const c of [leader, ...cards]) {
+  // Fill missing artwork + EN effect text from the legal EN collections.
+  const all = [leader, ...cards];
+  const needingArt = all.filter((c) => !c.image_url).map((c) => c.card_number);
+  const [artFallbacks, texts] = await Promise.all([
+    cardImageFallbacks(needingArt),
+    cardTextFallbacks(all.map((c) => c.card_number)),
+  ]);
+  for (const c of all) {
     if (!c.image_url) c.image_url = artFallbacks.get(c.card_number) ?? null;
+    const t = texts.get(c.card_number);
+    if (t) {
+      c.effect_text = t.text;
+      c.text_attribution = t.attribution;
+    }
   }
 
   return { deck, leader, cards };

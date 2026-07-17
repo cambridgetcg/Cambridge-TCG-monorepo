@@ -14,50 +14,76 @@ import type { PracticeSetupCard } from "@/lib/game/practice";
 /** card_number → catalog artwork URL (null when the catalog has none). */
 export type CardImageMap = Record<string, string | null>;
 
-const IMAGE_FETCH_TIMEOUT_MS = 2500;
+/** card_number → verbatim EN effect text + its mandatory copyright line. */
+export type CardTextMap = Record<string, { text: string; attribution: string }>;
+
+export interface StarterCardDetails {
+  images: CardImageMap;
+  texts: CardTextMap;
+}
+
+const DETAILS_FETCH_TIMEOUT_MS = 2500;
 
 /**
- * Fetch artwork URLs for a starter's cards from the read-only starters API.
- * Best-effort enhancement: any failure (offline, starved dev catalog, slow
- * resolution) returns an empty map and the board plays on with text faces.
- * The timeout keeps "Start battle" snappy even when catalog resolution
- * is slow — art is never worth making a player wait for.
+ * Fetch artwork URLs + EN effect text for a starter's cards from the
+ * read-only starters API. Best-effort enhancement: any failure (offline,
+ * starved dev catalog, slow resolution) returns empty maps and the board
+ * plays on with text faces and no card text. The timeout keeps "Start
+ * battle" snappy — detail is never worth making a player wait for.
  */
-export async function fetchStarterImages(starterId: string): Promise<CardImageMap> {
+export async function fetchStarterCardDetails(
+  starterId: string,
+): Promise<StarterCardDetails> {
+  const empty: StarterCardDetails = { images: {}, texts: {} };
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), DETAILS_FETCH_TIMEOUT_MS);
     const res = await fetch(`/api/v1/play/starters/${starterId}`, {
       signal: controller.signal,
     });
     clearTimeout(timer);
-    if (!res.ok) return {};
+    if (!res.ok) return empty;
     const env = await res.json();
     const detail = env?.data;
-    const map: CardImageMap = {};
-    if (detail?.leader?.card_number) {
-      map[detail.leader.card_number] = detail.leader.image_url ?? null;
-    }
-    for (const c of detail?.cards ?? []) {
-      if (c?.card_number) map[c.card_number] = c.image_url ?? null;
-    }
-    return map;
+    const images: CardImageMap = {};
+    const texts: CardTextMap = {};
+    const take = (c: {
+      card_number?: string;
+      image_url?: string | null;
+      effect_text?: string | null;
+      text_attribution?: string | null;
+    }) => {
+      if (!c?.card_number) return;
+      images[c.card_number] = c.image_url ?? null;
+      if (c.effect_text && c.text_attribution) {
+        texts[c.card_number] = {
+          text: c.effect_text,
+          attribution: c.text_attribution,
+        };
+      }
+    };
+    if (detail?.leader) take(detail.leader);
+    for (const c of detail?.cards ?? []) take(c);
+    return { images, texts };
   } catch {
-    return {};
+    return empty;
   }
 }
 
 function toSetupCard(
   cardNumber: string,
   isLeader: boolean,
-  images: CardImageMap,
+  details: StarterCardDetails,
 ): PracticeSetupCard {
   const stats = statsFor(cardNumber);
+  const text = details.texts[cardNumber];
   return {
     sku: cardNumber, // practice cards live outside the catalog; number is identity
     name: stats?.name ?? cardNumber,
     cardNumber,
-    imageUrl: images[cardNumber] ?? null,
+    imageUrl: details.images[cardNumber] ?? null,
+    textEn: text?.text ?? null,
+    textAttribution: text?.attribution ?? null,
     rarity: null,
     category: stats?.category ?? (isLeader ? "leader" : null),
     cost: stats?.cost ?? null,
@@ -73,7 +99,7 @@ function toSetupCard(
  *  Returns null only when the starter id is unknown. */
 export function buildPracticeDeck(
   starterId: string,
-  images: CardImageMap = {},
+  details: StarterCardDetails = { images: {}, texts: {} },
 ): {
   deck: PracticeSetupCard[];
   starter: StarterDeck;
@@ -82,11 +108,11 @@ export function buildPracticeDeck(
   if (!starter) return null;
 
   const deck: PracticeSetupCard[] = [
-    toSetupCard(starter.leader_card_number, true, images),
+    toSetupCard(starter.leader_card_number, true, details),
   ];
   for (const ref of starter.card_list) {
     for (let i = 0; i < ref.quantity; i++) {
-      deck.push(toSetupCard(ref.card_number, false, images));
+      deck.push(toSetupCard(ref.card_number, false, details));
     }
   }
   return { deck, starter };

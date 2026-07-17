@@ -31,7 +31,7 @@ import {
 import { attackPower, defensePower } from "@/lib/game/validate";
 import {
   buildPracticeDeck,
-  fetchStarterImages,
+  fetchStarterCardDetails,
   practiceStarters,
 } from "@/lib/play/practice-decks";
 import { getAdventureLevel, type AdventureLevel } from "@/lib/play/adventure-levels";
@@ -152,15 +152,16 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
   async function handleStart(id: string) {
     if (!level || starting) return;
     setStarting(true);
-    // Artwork is a best-effort enhancement fetched from the read-only
-    // catalog API (bounded by a short timeout) — cards the catalog can't
-    // illustrate keep their text faces and the battle starts regardless.
-    const [playerImages, aiImages] = await Promise.all([
-      fetchStarterImages(id),
-      fetchStarterImages(level.aiStarterId),
+    // Artwork + EN card text are best-effort enhancements fetched from the
+    // read-only catalog API (bounded by a short timeout) — cards the
+    // collection can't cover keep their text faces / show no rules text,
+    // and the battle starts regardless.
+    const [playerDetails, aiDetails] = await Promise.all([
+      fetchStarterCardDetails(id),
+      fetchStarterCardDetails(level.aiStarterId),
     ]);
-    const player = buildPracticeDeck(id, playerImages);
-    const ai = buildPracticeDeck(level.aiStarterId, aiImages) ?? player;
+    const player = buildPracticeDeck(id, playerDetails);
+    const ai = buildPracticeDeck(level.aiStarterId, aiDetails) ?? player;
     if (!player || !ai) {
       setStarting(false);
       return;
@@ -622,6 +623,19 @@ function ActionSheet({
             </p>
           </div>
         </div>
+        {card.textEn && (
+          <div className="mb-3 pb-3 border-b border-border-subtle">
+            <p className="text-[10px] text-ink-faint uppercase tracking-wider mb-1">
+              Card text · not interpreted by practice mode yet
+            </p>
+            <p className="text-xs text-ink-muted leading-relaxed whitespace-pre-line max-h-32 overflow-y-auto">
+              {card.textEn}
+            </p>
+            {card.textAttribution && (
+              <p className="mt-1.5 text-[9px] text-ink-faint">{card.textAttribution}</p>
+            )}
+          </div>
+        )}
         {options.length === 0 ? (
           <p className="text-ink-faint text-xs">
             {isMyTurn

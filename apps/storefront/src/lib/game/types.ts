@@ -19,6 +19,10 @@ export interface GameCard {
   power?: number | null;
   counter?: number | null;
   color?: string | null;
+  /** Verbatim EN effect text (legal collection). The recorded publication
+   *  rule requires textAttribution rendered wherever this is shown. */
+  textEn?: string | null;
+  textAttribution?: string | null;
   // Game state
   isRested: boolean;   // tapped/untapped
   attachedDon: number; // DON!! cards attached
