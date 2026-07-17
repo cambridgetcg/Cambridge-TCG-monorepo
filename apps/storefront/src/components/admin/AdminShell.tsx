@@ -19,8 +19,6 @@ interface AdminNavItem {
 
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin",                       label: "Overview",     group: "ops" },
-  { href: "/admin/trade-ins",             label: "Trade-Ins",    group: "ops" },
-  { href: "/admin/quotes",                label: "Quotes",       group: "ops" },
   { href: "/admin/bounty/redemptions",    label: "Redemptions",  group: "ops" },
   { href: "/admin/auctions",              label: "Auctions",     group: "ops" },
   { href: "/admin/verifications",         label: "Verifications", group: "ops" },

@@ -8,8 +8,6 @@ import { drainEmailQueue } from "@/lib/email/queue";
 import { runStreakAtRiskSweep } from "@/lib/email/streak-sweep";
 import { sendAdminWeeklyDigest } from "@/lib/email/admin-digest";
 import { runSellerRestockDigest, runBuyerWatchlistDigest } from "@/lib/market/digests";
-import { runTradeinSweep } from "@/lib/tradein/sweep";
-import { runQuoteSweep } from "@/lib/quote/sweep";
 import { runRetailObservationTick } from "@/lib/portfolio/price-history";
 import { runPriceAlertSweep } from "@/lib/portfolio/alerts";
 import { runWishlistMatchSweep } from "@/lib/wishlist/matching";
@@ -97,10 +95,9 @@ export async function GET(request: Request) {
     // Liquidity mining ran here until 2026-07-06 — paused with the
     // collectors-first decision (rewards paid store credit, which no
     // longer has a spending door). See lib/market/liquidity.ts.
-    // Trade-in: expire quotes past their 24h response window + email
-    runTradeinSweep(),
-    // Quote: expire 'quoted' offers past offer_expires_at + email
-    runQuoteSweep(),
+    // The trade-in + custom-quote sweeps lived here until the desk was
+    // fully retired (it bought cards for store credit / cash, which the
+    // collectors-first platform no longer does).
     // Portfolio price-history sampler
     runPriceTick ? runRetailObservationTick() : Promise.resolve(null),
     // Portfolio price-alert evaluator — runs right after the price tick so
@@ -191,7 +188,7 @@ export async function GET(request: Request) {
     runSwapExpirySweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, tradeinSweep, quoteSweep, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -242,14 +239,6 @@ export async function GET(request: Request) {
         : adminDigest.status === "rejected"
           ? { status: "rejected" }
           : { status: "skipped" },
-    tradeinSweep:
-      tradeinSweep.status === "fulfilled"
-        ? { status: "fulfilled", ...tradeinSweep.value }
-        : { status: "rejected" },
-    quoteSweep:
-      quoteSweep.status === "fulfilled"
-        ? { status: "fulfilled", ...quoteSweep.value }
-        : { status: "rejected" },
     priceTick:
       priceTick.status === "fulfilled" && priceTick.value != null
         ? { status: "fulfilled", ...priceTick.value }
@@ -429,20 +418,6 @@ export async function GET(request: Request) {
     console.log(
       `[cron] streak sweep: ${streakSweep.value.atRiskCount} at-risk, ` +
       `${streakSweep.value.queuedCount} queued, ${streakSweep.value.errors} errors`,
-    );
-  }
-  if (tradeinSweep.status === "rejected") console.error("[cron] tradein sweep failed:", tradeinSweep.reason);
-  else if (tradeinSweep.value.expired > 0) {
-    console.log(
-      `[cron] tradein: expired ${tradeinSweep.value.expired} quote(s), ` +
-      `${tradeinSweep.value.emailsSent} emails sent, ${tradeinSweep.value.emailsFailed} failed`
-    );
-  }
-  if (quoteSweep.status === "rejected") console.error("[cron] quote sweep failed:", quoteSweep.reason);
-  else if (quoteSweep.value.expired > 0) {
-    console.log(
-      `[cron] quote: expired ${quoteSweep.value.expired} offer(s), ` +
-      `${quoteSweep.value.emailsSent} emails sent, ${quoteSweep.value.emailsFailed} failed`
     );
   }
   if (spendRecompute.status === "rejected") console.error("[cron] spend recompute failed:", spendRecompute.reason);

@@ -1,26 +1,14 @@
-import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/admin/auth";
-import { listAllQuotes } from "@/lib/quote/db";
 import { errorResponse } from "@/lib/data-pantry";
-
-// GET — admin: list all quotes (history stays visible; the desk is closed)
-export async function GET() {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const quotes = await listAllQuotes();
-  return NextResponse.json({ quotes });
-}
 
 /**
  * POST /api/quotes — retired 2026-07-06
  * (collectors-first, docs/decisions/2026-07-06-collectors-first.md).
  *
  * This was the we-buy desk's quote door: submit cards for a house
- * credit/cash quote. The platform no longer buys, sells, or quotes
- * ("it does not buy, does not sell, does not quote"); sellers price
- * their own cards to other collectors. Existing quote records remain
- * readable via the admin GET above — history is history.
+ * credit/cash quote. The platform no longer buys, sells, or quotes;
+ * sellers price their own cards to other collectors. The quote records
+ * and the admin desk were removed once the desk closed owing nothing —
+ * this stays as a 410 so stale clients meet a teaching envelope, not a 404.
  */
 export async function POST(request: Request) {
   return errorResponse({

@@ -47,7 +47,7 @@ test.describe("auth surface — read-only smoke", () => {
   });
 
   test("/admin/* redirects unauthenticated visitors to /login", async ({ page }) => {
-    const resp = await page.goto("/admin/trade-ins", { waitUntil: "domcontentloaded" });
+    const resp = await page.goto("/admin/auctions", { waitUntil: "domcontentloaded" });
     // Either a redirect (302→200 chain) lands us at /login, or the
     // middleware serves the login page directly. Both are valid; what
     // matters is the URL after navigation.

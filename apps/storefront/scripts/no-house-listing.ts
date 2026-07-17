@@ -89,7 +89,6 @@ const ALLOW = [
   "src/app/account/membership/page.tsx",
   "src/lib/payouts/aggregation.ts",
   "src/lib/membership/types.ts",
-  "src/lib/tradein/db.ts",
   // retired-door tombstone (the route answers 410; its comment names what died)
   "src/app/api/market/sell-for-credit/route.ts",
 ];

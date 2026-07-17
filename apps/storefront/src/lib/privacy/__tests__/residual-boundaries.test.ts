@@ -178,11 +178,7 @@ describe("residual privacy boundaries", () => {
     expect(encoded).not.toContain("playerId");
   });
 
-  it("keeps retired quotes, order confirmation, and trade routing behind identity gates", () => {
-    const quotes = source("src/app/api/quotes/[ref]/route.ts");
-    expect(quotes.match(/await isAdmin\(\)/g)?.length).toBeGreaterThanOrEqual(3);
-    expect(quotes).toContain("retired customer flow: full quote detail is admin-only");
-
+  it("keeps order confirmation and trade routing behind identity gates", () => {
     const order = source("src/app/order-confirmation/page.tsx");
     expect(order.indexOf("const account = await auth()"))
       .toBeLessThan(order.indexOf("checkout.sessions.retrieve"));
@@ -201,7 +197,6 @@ describe("residual privacy boundaries", () => {
       "src/app/api/escrow/routing/route.ts",
       "src/app/api/escrow/trust/route.ts",
       "src/app/api/escrow/external-rep/route.ts",
-      "src/app/api/quotes/[ref]/route.ts",
       "src/app/api/market/lots/route.ts",
     ]) {
       expect(source(route)).toContain(
@@ -220,12 +215,6 @@ describe("residual privacy boundaries", () => {
     const externalRepGet = externalRep.slice(0, externalRep.indexOf("// POST"));
     expect(externalRepGet).toContain("{ headers: PRIVATE_NO_STORE }");
     expect(externalRepGet).toContain("status: 403, headers: PRIVATE_NO_STORE");
-
-    const quoteGet = source("src/app/api/quotes/[ref]/route.ts").slice(
-      0,
-      source("src/app/api/quotes/[ref]/route.ts").indexOf("// PATCH"),
-    );
-    expect(quoteGet).toContain("NextResponse.json(quote, { headers: PRIVATE_NO_STORE })");
 
     const lotsGet = source("src/app/api/market/lots/route.ts").slice(
       0,
