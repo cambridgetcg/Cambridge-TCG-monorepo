@@ -29,7 +29,11 @@ import {
   type PracticeStep,
 } from "@/lib/game/practice";
 import { attackPower, defensePower } from "@/lib/game/validate";
-import { buildPracticeDeck, practiceStarters } from "@/lib/play/practice-decks";
+import {
+  buildPracticeDeck,
+  fetchStarterImages,
+  practiceStarters,
+} from "@/lib/play/practice-decks";
 import { getAdventureLevel, type AdventureLevel } from "@/lib/play/adventure-levels";
 import { GameCardView } from "./GameCardView";
 
@@ -82,6 +86,7 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
 
   const [game, setGame] = useState<PracticeGame | null>(null);
   const [starterId, setStarterId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
@@ -144,11 +149,22 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
     [],
   );
 
-  function handleStart(id: string) {
-    if (!level) return;
-    const player = buildPracticeDeck(id);
-    const ai = buildPracticeDeck(level.aiStarterId) ?? player;
-    if (!player || !ai) return;
+  async function handleStart(id: string) {
+    if (!level || starting) return;
+    setStarting(true);
+    // Artwork is a best-effort enhancement fetched from the read-only
+    // catalog API (bounded by a short timeout) — cards the catalog can't
+    // illustrate keep their text faces and the battle starts regardless.
+    const [playerImages, aiImages] = await Promise.all([
+      fetchStarterImages(id),
+      fetchStarterImages(level.aiStarterId),
+    ]);
+    const player = buildPracticeDeck(id, playerImages);
+    const ai = buildPracticeDeck(level.aiStarterId, aiImages) ?? player;
+    if (!player || !ai) {
+      setStarting(false);
+      return;
+    }
     try {
       localStorage.setItem(STARTER_CHOICE_KEY, id);
     } catch {
@@ -156,6 +172,7 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
     }
     clearRecordedRef.current = false;
     setStarterId(id);
+    setStarting(false);
     const { game: fresh, steps } = startPracticeGame(
       "You",
       player.deck,
@@ -232,7 +249,8 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
       <SetupScreen
         level={level}
         rememberedStarterId={starterId}
-        onStart={handleStart}
+        starting={starting}
+        onStart={(id) => void handleStart(id)}
       />
     );
   }
@@ -681,10 +699,12 @@ function LogPanel({ log, onClose }: { log: PracticeLogEntry[]; onClose: () => vo
 function SetupScreen({
   level,
   rememberedStarterId,
+  starting,
   onStart,
 }: {
   level: AdventureLevel;
   rememberedStarterId: string | null;
+  starting: boolean;
   onStart: (starterId: string) => void;
 }) {
   const starters = practiceStarters();
@@ -738,10 +758,10 @@ function SetupScreen({
 
         <button
           onClick={() => picked && onStart(picked)}
-          disabled={!picked}
+          disabled={!picked || starting}
           className="w-full bg-ink hover:bg-ink/85 disabled:opacity-50 text-page font-bold rounded-lg py-3 transition-colors text-lg"
         >
-          Start battle
+          {starting ? "Shuffling…" : "Start battle"}
         </button>
 
         <p className="text-[11px] text-ink-faint text-center">

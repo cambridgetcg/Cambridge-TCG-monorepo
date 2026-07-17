@@ -11,16 +11,53 @@ import { STARTER_DECKS, type StarterDeck } from "./starter-decks";
 import { statsFor } from "./card-stats";
 import type { PracticeSetupCard } from "@/lib/game/practice";
 
+/** card_number → catalog artwork URL (null when the catalog has none). */
+export type CardImageMap = Record<string, string | null>;
+
+const IMAGE_FETCH_TIMEOUT_MS = 2500;
+
+/**
+ * Fetch artwork URLs for a starter's cards from the read-only starters API.
+ * Best-effort enhancement: any failure (offline, starved dev catalog, slow
+ * resolution) returns an empty map and the board plays on with text faces.
+ * The timeout keeps "Start battle" snappy even when catalog resolution
+ * is slow — art is never worth making a player wait for.
+ */
+export async function fetchStarterImages(starterId: string): Promise<CardImageMap> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    const res = await fetch(`/api/v1/play/starters/${starterId}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return {};
+    const env = await res.json();
+    const detail = env?.data;
+    const map: CardImageMap = {};
+    if (detail?.leader?.card_number) {
+      map[detail.leader.card_number] = detail.leader.image_url ?? null;
+    }
+    for (const c of detail?.cards ?? []) {
+      if (c?.card_number) map[c.card_number] = c.image_url ?? null;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 function toSetupCard(
   cardNumber: string,
   isLeader: boolean,
+  images: CardImageMap,
 ): PracticeSetupCard {
   const stats = statsFor(cardNumber);
   return {
     sku: cardNumber, // practice cards live outside the catalog; number is identity
     name: stats?.name ?? cardNumber,
     cardNumber,
-    imageUrl: null,
+    imageUrl: images[cardNumber] ?? null,
     rarity: null,
     category: stats?.category ?? (isLeader ? "leader" : null),
     cost: stats?.cost ?? null,
@@ -34,7 +71,10 @@ function toSetupCard(
 
 /** Expand a starter into the full card list a practice game consumes.
  *  Returns null only when the starter id is unknown. */
-export function buildPracticeDeck(starterId: string): {
+export function buildPracticeDeck(
+  starterId: string,
+  images: CardImageMap = {},
+): {
   deck: PracticeSetupCard[];
   starter: StarterDeck;
 } | null {
@@ -42,11 +82,11 @@ export function buildPracticeDeck(starterId: string): {
   if (!starter) return null;
 
   const deck: PracticeSetupCard[] = [
-    toSetupCard(starter.leader_card_number, true),
+    toSetupCard(starter.leader_card_number, true, images),
   ];
   for (const ref of starter.card_list) {
     for (let i = 0; i < ref.quantity; i++) {
-      deck.push(toSetupCard(ref.card_number, false));
+      deck.push(toSetupCard(ref.card_number, false, images));
     }
   }
   return { deck, starter };

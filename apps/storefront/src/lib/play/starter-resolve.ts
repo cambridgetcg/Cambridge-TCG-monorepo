@@ -5,6 +5,60 @@
 
 import { getStarterDeck, type StarterDeck } from "@/lib/play/starter-decks";
 import { fetchPrices } from "@/lib/wholesale/client";
+import { query } from "@/lib/db";
+
+// Same CDN base the museum gallery uses (src/lib/cards/gallery.ts) — the
+// card_images table stores s3 keys, not full URLs.
+const CARD_IMAGE_CDN = (
+  process.env.CTCG_CARD_IMAGE_CDN ||
+  "https://ctcg-card-images.s3.us-east-1.amazonaws.com"
+).replace(/\/$/, "");
+
+/**
+ * Artwork fallback: the wholesale catalog's image_url is sparse, but the
+ * legal EN image collection (card_images, takedown-clear official samples —
+ * see /legal/card-images) keys its skus on the same SET-NUMBER pair as a
+ * card_number. Batch-resolve any cards the catalog couldn't illustrate.
+ * Base prints beat parallels here — a play board wants the recognizable
+ * face, not the rarest one. Failure degrades to no artwork, never an error.
+ */
+async function cardImageFallbacks(
+  cardNumbers: string[],
+): Promise<Map<string, string>> {
+  if (cardNumbers.length === 0) return new Map();
+  try {
+    const { rows } = (await query(
+      `SELECT split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) AS base,
+              s3_key,
+              regexp_replace(sku, '^.*-EN-', '') AS tail
+         FROM card_images
+        WHERE lang = 'en'
+          AND kind = 'official_sample'
+          AND takedown_status = 'clear'
+          AND s3_key IS NOT NULL
+          AND sku ~ '-EN-[A-Z0-9]+$'
+          AND split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) = ANY($1)`,
+      [cardNumbers],
+    )) as { rows: { base: string; s3_key: string; tail: string }[] };
+
+    const score = (tail: string): number => {
+      if (/^R/.test(tail)) return 50; // base print
+      const p = /^P(\d+)$/.exec(tail);
+      if (p) return 20 - Number(p[1]); // among parallels, prefer P1
+      return 0;
+    };
+    const best = new Map<string, { s3_key: string; tail: string }>();
+    for (const r of rows) {
+      const cur = best.get(r.base);
+      if (!cur || score(r.tail) > score(cur.tail)) best.set(r.base, r);
+    }
+    return new Map(
+      [...best].map(([base, r]) => [base, `${CARD_IMAGE_CDN}/${r.s3_key}`]),
+    );
+  } catch {
+    return new Map();
+  }
+}
 
 export interface ResolvedStarterCard {
   card_number: string;
@@ -115,9 +169,21 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
     };
   };
 
-  return {
-    deck,
-    leader: resolveCard({ card_number: deck.leader_card_number, quantity: 1, role: "leader" }),
-    cards: deck.card_list.map((c) => resolveCard(c)),
-  };
+  const leader = resolveCard({
+    card_number: deck.leader_card_number,
+    quantity: 1,
+    role: "leader",
+  });
+  const cards = deck.card_list.map((c) => resolveCard(c));
+
+  // Fill missing artwork from the legal EN image collection.
+  const needingArt = [leader, ...cards]
+    .filter((c) => !c.image_url)
+    .map((c) => c.card_number);
+  const artFallbacks = await cardImageFallbacks(needingArt);
+  for (const c of [leader, ...cards]) {
+    if (!c.image_url) c.image_url = artFallbacks.get(c.card_number) ?? null;
+  }
+
+  return { deck, leader, cards };
 }
