@@ -67,7 +67,8 @@ export function draftCardFromCatalog(card: CatalogCard, source: CatalogSource): 
     set_name: card.set_name,
     rarity: card.rarity,
     image_url: card.image_url,
-    spot_price: card.spot_price,
+    // 0 = no first-party reference yet (the draft's price hints treat >0 only).
+    spot_price: card.spot_price ?? 0,
     best_ask: card.best_ask,
     best_bid: card.best_bid,
     source,

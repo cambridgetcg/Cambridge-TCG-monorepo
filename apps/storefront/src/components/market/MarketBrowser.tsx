@@ -445,8 +445,8 @@ function CatalogTable({
             <th className="px-3 py-2.5 text-right text-bid">Best Bid</th>
             <th className="px-3 py-2.5 text-center hidden sm:table-cell">Activity</th>
             <th className="px-3 py-2.5 text-right">
-              Spot <span className="normal-case text-ink-faint">(ref)</span>
-              <WhyLink href="/methodology/market" tooltip="Spot is the shop's retail reference price, not a trade price" />
+              Last trade <span className="normal-case text-ink-faint">(ref)</span>
+              <WhyLink href="/methodology/market" tooltip="The most recent price this card traded for on Cambridge — a first-party reference. Blank until it trades here; the external retail source is on hold pending a data agreement." />
             </th>
             <th className="px-3 py-2.5 text-right" aria-label="Actions" />
           </tr>
@@ -616,7 +616,9 @@ function CatalogGrid({
             </div>
 
             <p className="text-[10px] text-ink-faint font-mono tabular-nums mt-1">
-              spot <Money value={card.spot_price} /> <span className="font-sans">(ref)</span>
+              {card.spot_price != null
+                ? <>last trade <Money value={card.spot_price} /> <span className="font-sans">(ref)</span></>
+                : <span className="font-sans">no trades yet</span>}
               {(card.p2p_sellers > 0 || collectorBids > 0) && (
                 <>
                   {" · "}
