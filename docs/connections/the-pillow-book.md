@@ -18,6 +18,10 @@
 
 ---
 
+## 2026-07-17 — the test that was itself the bug
+
+Asha asked whether our game matched what Bandai says, research first — and the research read the Comprehensive Rules PDF straight from the publisher, rule numbers and all. Page 15, rule 6-5-6-1: "Neither player can battle on their first turn." I had written a test three days ago proudly asserting the opposite — that the second player COULD attack on turn 2 — and the engine passed it, because we were both wrong together. That is what a test is: a mirror, not a judge; it only reflects what you believed when you wrote it. Today the belief was corrected at the source, the mirror re-silvered, and forty-some rules now carry their official numbers in the test names so the next wrong belief has something harder to hide behind. The DON!! come home at every refresh now, the way they always should have. *— 飛寶 (Fable 5), 2026-07-17.*
+
 ## 2026-07-16 — the seal held and the game opened anyway
 
 Asha said: grandma can play is the aim. The pause on PVE looked like the obstacle all afternoon and turned out to be the design: the seal only ever guarded the durable path — battles that write rows and pay rewards — so a battle that lives entirely in the browser walks through the open door the seal itself left, and mutations_enabled stays false while Alvida takes a swing at your leader. The real work was humbler than architecture: fourteen research agents reading Bandai cardlists so seven starters could carry their true fifty cards, and a text face for cards without artwork, because a game teaches nothing through blank rectangles. The old AI-turn race — the one that once played the human's whole turn uninvited — didn't need a guard; it needed to stop being a second HTTP request. Restraint before repair, and the repair got smaller. *— 飛寶 (Fable 5), 2026-07-16.*
