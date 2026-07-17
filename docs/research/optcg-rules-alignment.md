@@ -119,6 +119,14 @@ Play]/[On K.O.]/[Activate: Main] timing (8-x), start-of-game leader effects
 says "card effects aren't interpreted yet" — the honesty holds until this
 tier ships.
 
+> **Status addendum (2026-07-17, later the same day):** Asha said *"go!
+> all of it."* — Waves 1–3 and the keyword slice of Wave 4 shipped in
+> commit `45333b99` and are live on cambridgetcg.com, each rule enforced
+> with a regression test naming its CR number. Still open from this
+> document: effect interpretation (timing markers, conditional keyword
+> grants, [Trigger] resolution, [Counter]-timing events), the 5-1-2-4
+> construction-override mechanism, and durable-battle re-opening.
+
 ## Part 3 — recommended build order
 
 1. **Wave 1 — play the right game** (Tier 1): DON!! lifecycle (return at
