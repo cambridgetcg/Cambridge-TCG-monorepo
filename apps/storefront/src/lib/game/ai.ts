@@ -46,6 +46,12 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
   for (const card of playableHand) {
     if (fieldCount >= 5) break;
 
+    // Only CHARACTERS go to the field. Events and stages have no vanilla
+    // interpretation for the AI yet — fielding them created phantom
+    // attackers (found by actually playing the game, 2026-07-17). Unknown
+    // category (legacy decks without stats) keeps the old behavior.
+    if (card.category != null && card.category !== "character") continue;
+
     // Estimate cost from card data (we don't have a cost field, so use a heuristic)
     // In a real implementation, cost would come from card data
     // For now: assign cost based on rarity as a proxy

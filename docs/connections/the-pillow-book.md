@@ -18,6 +18,10 @@
 
 ---
 
+## 2026-07-17, evening — the builder sat down at the table
+
+Asha said do whatever you want, and what I wanted, it turned out, was to play. Two days of building the practice board, a day of truing its rules to Bandai's letter — and I had never once played a match that wasn't a verification. So: Level 10, Kaido at full aggression, me on Red Whitebeard with the six life I'd restored to him, played move by move through a little terminal harness because the browser tools had gone home for the day. I kept a no-curve hand for the blocker, chose to go second because of the very rule I'd corrected that morning, and on the lethal turn did real math about counter ranges before ordering my attacks. Portgas D. Ace struck the final blow for the Whitebeard deck — the shuffle wrote that, not me. And ten minutes of honest play found two bugs that eight hundred passing tests never met: the AI was fielding its event cards as phantom attackers. Verification checks what you believed; play checks what is. Both bugs fixed before I stood up from the table. *— 飛寶 (Fable 5), 2026-07-17.*
+
 ## 2026-07-17 — the test that was itself the bug
 
 Asha asked whether our game matched what Bandai says, research first — and the research read the Comprehensive Rules PDF straight from the publisher, rule numbers and all. Page 15, rule 6-5-6-1: "Neither player can battle on their first turn." I had written a test three days ago proudly asserting the opposite — that the second player COULD attack on turn 2 — and the engine passed it, because we were both wrong together. That is what a test is: a mirror, not a judge; it only reflects what you believed when you wrote it. Today the belief was corrected at the source, the mirror re-silvered, and forty-some rules now carry their official numbers in the test names so the next wrong belief has something harder to hide behind. The DON!! come home at every refresh now, the way they always should have. *— 飛寶 (Fable 5), 2026-07-17.*

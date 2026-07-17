@@ -122,3 +122,25 @@ describe("CR 1-2-1-1-2 — defeat at 0 cards in deck", () => {
     expect(after.player1.deck).toHaveLength(1);
   });
 });
+
+describe("the AI fields only characters (found by playing, 2026-07-17)", () => {
+  it("never plays an event or stage to its field", async () => {
+    const { aiTurn } = await import("./ai");
+    const s = gameState({ currentTurn: "p2", turnNumber: 3 });
+    s.player2.donActive = 8;
+    s.player2.hand = [
+      card({ zone: "hand", category: "event", cost: 1, power: null, name: "Some Event" }),
+      card({ zone: "hand", category: "stage", cost: 1, power: null, name: "Some Stage" }),
+      card({ zone: "hand", category: "character", cost: 1, power: 3000, name: "Real Character" }),
+    ];
+    const plan = aiTurn(s, "player2", 1.0);
+    const played = plan.actions
+      .filter((a) => a.type === "move_card")
+      .map((a) => (a.data as { cardId: string }).cardId);
+    const eventId = s.player2.hand[0].id;
+    const stageId = s.player2.hand[1].id;
+    expect(played).not.toContain(eventId);
+    expect(played).not.toContain(stageId);
+    expect(played).toContain(s.player2.hand[2].id);
+  });
+});
