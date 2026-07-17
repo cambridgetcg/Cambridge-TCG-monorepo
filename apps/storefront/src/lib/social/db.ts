@@ -408,10 +408,62 @@ export async function awardAchievement(userId: string, code: string): Promise<bo
 // ══════════════════════════════════════════════════════════════
 
 export async function findTradeMatches(userId: string): Promise<TradeMatch[]> {
-  // Paused until an explicit trade_intents projection exists. A portfolio is
-  // private inventory, not an offer; a wishlist is private planning, not
-  // permission to scan it into a people graph. Keep the typed seam so the UI
-  // can say why matching is unavailable without reviving the unsafe query.
-  void userId;
-  return [];
+  // Consent-first matching (v1, card-level trade intent). We surface only:
+  //   - wishlist items whose owner EXPLICITLY marked them "open to trade for"
+  //     (open_to_trade) — never inferred from private wishlists,
+  //   - whose owner has a current public-profile receipt (so their identity is
+  //     already their published choice) and is not suspended,
+  //   - AND whose card is in the VIEWER's OWN portfolio (the viewer's private
+  //     data, used only for the viewer's own matches — never revealed to anyone).
+  // Nobody's portfolio is exposed; only opted-in wishes meet a viewer's own cards.
+  const { rows } = await query(
+    `SELECT w.user_id, u.username, u.name, u.avatar_url, u.trust_score,
+            w.sku, w.card_name, w.image_url
+       FROM wishlists w
+       JOIN users u ON u.id = w.user_id
+       LEFT JOIN trust_profiles tp ON tp.user_id = u.id
+      WHERE w.open_to_trade = true
+        AND w.fulfilled = false
+        AND w.sku IS NOT NULL
+        AND w.user_id <> $1
+        AND u.is_public = true
+        AND u.profile_publication_notice_version = $2
+        AND u.profile_published_at IS NOT NULL
+        AND COALESCE(tp.is_suspended, false) = false
+        AND EXISTS (SELECT 1 FROM portfolio_cards pc WHERE pc.user_id = $1 AND pc.sku = w.sku)
+      ORDER BY u.trust_score DESC NULLS LAST, w.created_at DESC`,
+    [userId, PERSON_PUBLICATION_NOTICE_VERSION],
+  );
+
+  // Group the opted-in wishes by the member who wants them.
+  const byUser = new Map<string, TradeMatch>();
+  for (const r of rows as Array<{
+    user_id: string; username: string | null; name: string | null;
+    avatar_url: string | null; trust_score: number;
+    sku: string; card_name: string; image_url: string | null;
+  }>) {
+    let m = byUser.get(r.user_id);
+    if (!m) {
+      m = {
+        user_id: r.user_id, username: r.username, name: r.name,
+        avatar_url: r.avatar_url, trust_score: r.trust_score,
+        your_cards: [], their_cards: [],
+      };
+      byUser.set(r.user_id, m);
+    }
+    m.your_cards.push({ sku: r.sku, card_name: r.card_name, image_url: r.image_url });
+  }
+  return [...byUser.values()];
+}
+
+/** Toggle the explicit card-level trade intent on one of your wishlist items. */
+export async function setWishlistOpenToTrade(
+  userId: string,
+  itemId: string,
+  open: boolean,
+): Promise<void> {
+  await query(
+    `UPDATE wishlists SET open_to_trade = $1 WHERE id = $2 AND user_id = $3`,
+    [open, itemId, userId],
+  );
 }

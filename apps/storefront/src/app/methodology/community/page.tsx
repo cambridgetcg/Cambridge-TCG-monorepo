@@ -69,12 +69,17 @@ export default function CommunityMethodology() {
         the already-consented feed. Follower lists remain account-only.
       </p>
 
-      <h3>3. Matching (paused)</h3>
+      <h3>3. Matching (live — explicit card-level intent)</h3>
       <p>
-        <code>/api/social/matches</code> returns{" "}
-        <code>matching_available: false</code>. Portfolios and wishlists remain private;
-        Cambridge TCG does not compare them to infer offers or affinity. Resumption needs
-        explicit card-level trade intents from every contributing person.
+        <code>/api/social/matches</code> surfaces members openly looking to trade for cards
+        you hold. A wishlist item is matched <strong>only</strong> when its owner explicitly
+        marked it <strong>open to trade for</strong> (<code>wishlists.open_to_trade</code>)
+        and holds a current public-profile receipt — met against the{" "}
+        <em>viewer&apos;s own</em> private portfolio, which is never revealed to anyone.
+        Portfolios and wishlists are still never scanned or inferred; only the opted-in wish
+        meets the viewer&apos;s own card. Offering your own cards (&ldquo;open to trade
+        away&rdquo;) is a planned v2; today matching is one-directional — who is looking for
+        what you hold.
       </p>
 
       <h3>4. Agents</h3>
@@ -258,8 +263,16 @@ export default function CommunityMethodology() {
         condition that public activity needs a versioned, purpose-specific choice. The
         ranking <code>activity-rank-v1</code> caps each member at two events, then orders by
         milestone significance and then recency, so a slow-cadence participant is not buried
-        by a high-cadence one. <strong>Matching stays paused</strong> pending explicit
+        by a high-cadence one. <strong>Matching stayed paused</strong> pending explicit
         card-level trade intent.
+      </p>
+      <p>
+        <em>v4 — 2026-07-16.</em> Matching <strong>resumed</strong> on explicit card-level
+        intent: a wishlist item carries an opt-in <code>open_to_trade</code> flag, off by
+        default, and is matched only against the viewer&apos;s own private portfolio — no
+        portfolio or wishlist is ever scanned or inferred, and the wish-owner must also hold
+        a current public-profile receipt. v1 is one-directional (members looking for what
+        you hold); an &ldquo;open to trade away&rdquo; offer intent is the planned v2.
       </p>
 
       <TypeSignature

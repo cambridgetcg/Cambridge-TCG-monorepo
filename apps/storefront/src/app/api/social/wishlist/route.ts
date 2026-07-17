@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getWishlist, addToWishlist, removeFromWishlist } from "@/lib/social/db";
+import { getWishlist, addToWishlist, removeFromWishlist, setWishlistOpenToTrade } from "@/lib/social/db";
 import { enrichWishlist } from "@/lib/wishlist/availability";
 
 // GET /api/social/wishlist[?enrich=1] — returns the caller's wishlist.
@@ -48,6 +48,24 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ item });
+}
+
+// PATCH — toggle a wishlist item's explicit "open to trade for" intent, the
+// only thing that makes a wish visible for matching (and only to members who
+// actually hold that card).
+export async function PATCH(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+
+  const body = await request.json();
+  const itemId = typeof body.itemId === "string" ? body.itemId : null;
+  const open = typeof body.open_to_trade === "boolean" ? body.open_to_trade : null;
+  if (!itemId || open === null) {
+    return NextResponse.json({ error: "itemId and open_to_trade required." }, { status: 400 });
+  }
+
+  await setWishlistOpenToTrade(session.user.id, itemId, open);
+  return NextResponse.json({ updated: true });
 }
 
 export async function DELETE(request: Request) {
