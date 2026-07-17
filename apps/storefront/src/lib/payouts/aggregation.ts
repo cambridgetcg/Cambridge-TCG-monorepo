@@ -1,6 +1,7 @@
-// Payout aggregation — unions the four sources (P2P trades, auctions,
-// trade-in submissions, quote requests) into pending + history buckets
-// for the seller-facing /account/payouts page.
+// Payout aggregation — unions the seller's payout sources (P2P trades and
+// auctions) into pending + history buckets for the seller-facing
+// /account/payouts page. (The trade-in / custom-quote sources were removed
+// when the we-buy desk was retired — the platform no longer buys cards.)
 //
 // Exported as pure lib functions so the route handler (thin wrapper)
 // and the E2E test can exercise identical query logic without mocking
@@ -34,27 +35,13 @@ export interface PendingTradeOrAuctionRow {
   holdDays: number;
 }
 
-export interface PendingSubmissionRow {
-  reference: string;
-  status: string;
-  cashOwed: number;
-  creditOwed: number;
-  amount: number;
-  amountFormatted: string;
-  when: string;
-}
-
 export interface PendingBundle {
   trades: PendingTradeOrAuctionRow[];
   auctions: PendingTradeOrAuctionRow[];
-  tradeins: PendingSubmissionRow[];
-  quotes: PendingSubmissionRow[];
   totalOwed: number;
   totalOwedFormatted: string;
   // Splits for the UI: amount the seller can collect right now vs.
-  // amount still in the hold window. trade-ins and quotes don't have
-  // hold periods (admin marks them paid manually), so they're treated
-  // as ready when present.
+  // amount still in the hold window.
   readyTotal: number;
   readyTotalFormatted: string;
   holdingTotal: number;
@@ -95,40 +82,6 @@ export async function getPendingPayouts(userId: string): Promise<PendingBundle> 
     [userId, AUCTION_HOLD_DAYS],
   );
 
-  const tradeins = await query(
-    `SELECT reference, status,
-            COALESCE(cash_amount, quoted_cash_total)::numeric   AS cash_total,
-            COALESCE(credit_amount, quoted_credit_total)::numeric AS credit_total,
-            cash_paid_at, credit_issued_at, updated_at
-       FROM tradein_submissions
-      WHERE user_id = $1
-        AND status IN ('approved', 'paid')
-        AND (
-          (status = 'approved')
-          OR (COALESCE(cash_amount, quoted_cash_total, 0)::numeric > 0 AND cash_paid_at IS NULL)
-          OR (COALESCE(credit_amount, quoted_credit_total, 0)::numeric > 0 AND credit_issued_at IS NULL)
-        )
-      ORDER BY updated_at ASC`,
-    [userId],
-  );
-
-  const quotes = await query(
-    `SELECT reference, status,
-            COALESCE(cash_amount, 0)::numeric   AS cash_total,
-            COALESCE(credit_amount, 0)::numeric AS credit_total,
-            cash_paid_at, credit_issued_at, updated_at
-       FROM quote_requests
-      WHERE user_id = $1
-        AND status IN ('accepted', 'received', 'paid')
-        AND (
-          (status IN ('accepted', 'received'))
-          OR (COALESCE(cash_amount, 0)::numeric > 0 AND cash_paid_at IS NULL)
-          OR (COALESCE(credit_amount, 0)::numeric > 0 AND credit_issued_at IS NULL)
-        )
-      ORDER BY updated_at ASC`,
-    [userId],
-  );
-
   const nowMs = Date.now();
   const isPast = (d: string | null): boolean =>
     !!d && new Date(d).getTime() <= nowMs;
@@ -162,37 +115,14 @@ export async function getPendingPayouts(userId: string): Promise<PendingBundle> 
     };
   });
 
-  const mapSubmission = (r: {
-    reference: string; status: string; cash_total: string | null; credit_total: string | null;
-    cash_paid_at: string | null; credit_issued_at: string | null; updated_at: string;
-  }): PendingSubmissionRow => {
-    const cashOwed = r.cash_paid_at ? 0 : parseFloat(r.cash_total ?? "0");
-    const creditOwed = r.credit_issued_at ? 0 : parseFloat(r.credit_total ?? "0");
-    const amount = cashOwed + creditOwed;
-    return {
-      reference: r.reference, status: r.status,
-      cashOwed, creditOwed, amount,
-      amountFormatted: formatPrice(amount), when: r.updated_at,
-    };
-  };
-  const tradeinRows = tradeins.rows.map(mapSubmission);
-  const quoteRows = quotes.rows.map(mapSubmission);
-
   const totalOwed =
     tradeRows.reduce((s, r) => s + parseFloat(r.amount), 0) +
-    auctionRows.reduce((s, r) => s + parseFloat(r.amount), 0) +
-    tradeinRows.reduce((s, r) => s + r.amount, 0) +
-    quoteRows.reduce((s, r) => s + r.amount, 0);
+    auctionRows.reduce((s, r) => s + parseFloat(r.amount), 0);
 
-  // Ready vs holding split. Trade-ins/quotes don't have hold periods —
-  // admin marks them paid when the cash actually goes out, so anything
-  // pending in those buckets is effectively "ready" from the seller's
-  // point of view (waiting on us, not on a timer).
+  // Ready vs holding split — a row is ready once its hold window has elapsed.
   const readyTotal =
     tradeRows.filter((r) => r.isReady).reduce((s, r) => s + parseFloat(r.amount), 0) +
-    auctionRows.filter((r) => r.isReady).reduce((s, r) => s + parseFloat(r.amount), 0) +
-    tradeinRows.reduce((s, r) => s + r.amount, 0) +
-    quoteRows.reduce((s, r) => s + r.amount, 0);
+    auctionRows.filter((r) => r.isReady).reduce((s, r) => s + parseFloat(r.amount), 0);
   const holdingTotal = totalOwed - readyTotal;
 
   // Earliest availableAt across rows still in their hold window.
@@ -208,8 +138,6 @@ export async function getPendingPayouts(userId: string): Promise<PendingBundle> 
   return {
     trades: tradeRows,
     auctions: auctionRows,
-    tradeins: tradeinRows,
-    quotes: quoteRows,
     totalOwed,
     totalOwedFormatted: formatPrice(totalOwed),
     readyTotal,
@@ -221,7 +149,7 @@ export async function getPendingPayouts(userId: string): Promise<PendingBundle> 
 }
 
 export interface HistoryRow {
-  source: "trade" | "auction" | "tradein_cash" | "tradein_credit" | "quote_cash" | "quote_credit";
+  source: "trade" | "auction";
   id: string;
   label: string;
   amount: number;
@@ -276,50 +204,6 @@ export async function getPayoutHistory(userId: string, limit = 100): Promise<His
     [userId, limit],
   );
 
-  const tradeinCash = await query(
-    `SELECT reference AS id, cash_paid_at AS paid_at,
-            COALESCE(cash_amount, quoted_cash_total, 0)::numeric AS amount,
-            stripe_transfer_id, reference AS label
-       FROM tradein_submissions
-      WHERE user_id = $1 AND cash_paid_at IS NOT NULL
-        AND COALESCE(cash_amount, quoted_cash_total, 0)::numeric > 0
-      ORDER BY cash_paid_at DESC LIMIT $2`,
-    [userId, limit],
-  );
-
-  const tradeinCredit = await query(
-    `SELECT reference AS id, credit_issued_at AS paid_at,
-            COALESCE(credit_amount, quoted_credit_total, 0)::numeric AS amount,
-            reference AS label
-       FROM tradein_submissions
-      WHERE user_id = $1 AND credit_issued_at IS NOT NULL
-        AND COALESCE(credit_amount, quoted_credit_total, 0)::numeric > 0
-      ORDER BY credit_issued_at DESC LIMIT $2`,
-    [userId, limit],
-  );
-
-  const quoteCash = await query(
-    `SELECT reference AS id, cash_paid_at AS paid_at,
-            COALESCE(cash_amount, 0)::numeric AS amount,
-            stripe_transfer_id, reference AS label
-       FROM quote_requests
-      WHERE user_id = $1 AND cash_paid_at IS NOT NULL
-        AND COALESCE(cash_amount, 0)::numeric > 0
-      ORDER BY cash_paid_at DESC LIMIT $2`,
-    [userId, limit],
-  );
-
-  const quoteCredit = await query(
-    `SELECT reference AS id, credit_issued_at AS paid_at,
-            COALESCE(credit_amount, 0)::numeric AS amount,
-            reference AS label
-       FROM quote_requests
-      WHERE user_id = $1 AND credit_issued_at IS NOT NULL
-        AND COALESCE(credit_amount, 0)::numeric > 0
-      ORDER BY credit_issued_at DESC LIMIT $2`,
-    [userId, limit],
-  );
-
   const rows: HistoryRow[] = [
     ...trades.rows.map((r): HistoryRow => ({
       source: "trade", id: r.id, label: r.label,
@@ -332,30 +216,6 @@ export async function getPayoutHistory(userId: string, limit = 100): Promise<His
       amount: parseFloat(r.amount), amountFormatted: formatPrice(parseFloat(r.amount)),
       paidAt: r.paid_at, method: pickMethod(r),
       reference: r.stripe_transfer_id || r.payout_reference || null,
-    })),
-    ...tradeinCash.rows.map((r): HistoryRow => ({
-      source: "tradein_cash", id: r.id, label: `Trade-in ${r.label}`,
-      amount: parseFloat(r.amount), amountFormatted: formatPrice(parseFloat(r.amount)),
-      paidAt: r.paid_at,
-      method: r.stripe_transfer_id ? "stripe" : "bank",
-      reference: r.stripe_transfer_id || null,
-    })),
-    ...tradeinCredit.rows.map((r): HistoryRow => ({
-      source: "tradein_credit", id: r.id, label: `Trade-in ${r.label}`,
-      amount: parseFloat(r.amount), amountFormatted: formatPrice(parseFloat(r.amount)),
-      paidAt: r.paid_at, method: "store_credit", reference: null,
-    })),
-    ...quoteCash.rows.map((r): HistoryRow => ({
-      source: "quote_cash", id: r.id, label: `Quote ${r.label}`,
-      amount: parseFloat(r.amount), amountFormatted: formatPrice(parseFloat(r.amount)),
-      paidAt: r.paid_at,
-      method: r.stripe_transfer_id ? "stripe" : "bank",
-      reference: r.stripe_transfer_id || null,
-    })),
-    ...quoteCredit.rows.map((r): HistoryRow => ({
-      source: "quote_credit", id: r.id, label: `Quote ${r.label}`,
-      amount: parseFloat(r.amount), amountFormatted: formatPrice(parseFloat(r.amount)),
-      paidAt: r.paid_at, method: "store_credit", reference: null,
     })),
   ];
 
