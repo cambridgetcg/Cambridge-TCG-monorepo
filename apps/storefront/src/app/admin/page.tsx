@@ -10,10 +10,6 @@ import AdminShell from "@/components/admin/AdminShell";
 
 import { Audience } from "@/lib/ui";
 interface Queues {
-  tradeinsPending: number;
-  tradeinsAwaitingPay: number;
-  tradeinsInflight: number;
-  quotesOpen: number;
   redemptionsPending: number;
   auctionsLive: number;
   verificationsPending: number;
@@ -48,24 +44,8 @@ export default function AdminHome() {
         </button>
       }
     >
-      {/* Ops — fulfil orders, process trade-ins */}
+      {/* Ops — fulfil orders + bounty redemptions */}
       <Section label="Ops" hint="Day-to-day fulfilment">
-        <QueueCard
-          href="/admin/trade-ins"
-          title="Trade-Ins"
-          stats={[
-            { label: "Need quote", value: queues?.tradeinsPending, tone: "amber" },
-            { label: "In flight",  value: queues?.tradeinsInflight },
-            { label: "Ready to pay", value: queues?.tradeinsAwaitingPay, tone: queues?.tradeinsAwaitingPay ? "emerald" : "default" },
-          ]}
-          loading={loading}
-        />
-        <QueueCard
-          href="/admin/quotes"
-          title="Quotes"
-          stats={[{ label: "Open", value: queues?.quotesOpen, tone: queues?.quotesOpen ? "amber" : "default" }]}
-          loading={loading}
-        />
         <QueueCard
           href="/admin/bounty/redemptions"
           title="Redemptions"

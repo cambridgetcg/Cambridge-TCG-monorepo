@@ -1,4 +1,5 @@
 import { sendMail } from "@cambridge-tcg/email";
+import { sendEmail, type SendResult } from "@/lib/email/send";
 import type { TradeShippingAddress } from "./types";
 
 const FROM = (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim();
@@ -176,6 +177,7 @@ export async function sendPayoutEmail(d: {
 
 export async function sendFollowerAuctionListedEmail(d: {
   email: string;
+  userId: string;
   followerName: string | null;
   sellerName: string;
   sellerUsername: string;
@@ -185,7 +187,7 @@ export async function sendFollowerAuctionListedEmail(d: {
   startingPrice: number;
   buyNowPrice: number | null;
   endsAt: string;
-}) {
+}): Promise<SendResult> {
   const fmt = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
   const url = `${SITE}/auctions/${d.auctionId}`;
   const subject = `${d.sellerName} just listed: ${d.auctionTitle}`;
@@ -196,10 +198,19 @@ export async function sendFollowerAuctionListedEmail(d: {
      <p><strong style="color:#fff;font-size:16px;">${d.auctionTitle}</strong></p>
      <p>Starting: <strong style="color:#f59e0b;">${fmt.format(d.startingPrice)}</strong>${d.buyNowPrice ? ` &middot; Buy Now: <strong>${fmt.format(d.buyNowPrice)}</strong>` : ""}</p>
      <p style="color:#737373;font-size:12px;">Ends ${new Date(d.endsAt).toUTCString()}</p>
-     <p style="color:#737373;font-size:12px;">By <a href="${SITE}/u/${d.sellerUsername}" style="color:#f59e0b;">@${d.sellerUsername}</a> &middot; <a href="${SITE}/account/profile" style="color:#737373;">Manage follows</a></p>`,
+     <p style="color:#737373;font-size:12px;">By <a href="${SITE}/u/${d.sellerUsername}" style="color:#f59e0b;">@${d.sellerUsername}</a></p>`,
     "View auction", url
   );
-  await send(d.email, subject, html, text);
+  // A follower broadcast is the platform reaching into an inbox, so it goes
+  // through the consent seam: memorial-account suppression, the follow_activity
+  // preference gate, and a one-click List-Unsubscribe footer.
+  return sendEmail({
+    to: d.email,
+    subject,
+    html,
+    text,
+    unsubscribe: { userId: d.userId, category: "follow_activity" },
+  });
 }
 
 // ── Weekly digests ──

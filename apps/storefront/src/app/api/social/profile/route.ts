@@ -178,12 +178,10 @@ export async function PATCH(request: Request) {
 
   const body = (await request.json()) as Record<string, unknown>;
 
-  const usernameRaw = pick(body, "username", "username");
-  const username = typeof usernameRaw === "string"
-    ? usernameRaw.trim().toLowerCase()
+  const username = typeof body.username === "string"
+    ? body.username.trim().toLowerCase()
     : undefined;
-  const bioRaw = pick(body, "bio", "bio");
-  const bio = typeof bioRaw === "string" ? bioRaw.trim() : undefined;
+  const bio = typeof body.bio === "string" ? body.bio.trim() : undefined;
   const avatarRaw = pick(body, "avatarUrl", "avatar_url");
   const avatarUrl = typeof avatarRaw === "string" ? avatarRaw.trim() : undefined;
   const isPublicRaw = pick(body, "isPublic", "is_public");

@@ -161,10 +161,13 @@ export async function recalculateTier(userId: string): Promise<{ tier: Tier | nu
 
   const currentTierId = user.rows[0].tier_id;
 
-  // Priority 0: Manual tier assignment (OG, special grants) — never overridden
+  // Priority 0: Manual tier assignment (OG, special grants) — never overridden.
+  // Return unconditionally: a manual grant is hands-off even when the granted
+  // tier row can't be resolved here (e.g. deactivated). Falling through to the
+  // spending path would rewrite tier_id while leaving tier_source='manual'.
   if (user.rows[0].tier_source === "manual") {
     const manualTier = tiers.find(t => t.id === currentTierId) || null;
-    if (manualTier) return { tier: manualTier, changed: false };
+    return { tier: manualTier, changed: false };
   }
 
   // Priority 1: Active paid tier (Platinum) — always wins over spending-based
@@ -268,14 +271,19 @@ export async function getMemberProfile(userId: string): Promise<MemberProfile> {
     benefits: u.t_benefits || [], is_active: true, is_hidden: u.t_hidden || false,
   } : null;
 
-  // Find next tier
+  // Find next tier. The progress bar tracks SPENDING progression, so only
+  // free (non-paid) tiers are candidates: a paid subscription tier isn't
+  // reached by spending, and its min_annual_spend (often 0) made the range
+  // negative and reported a bogus "£0 to next". A member already on a paid
+  // tier has no spending next-step.
   const allTiers = await getAllTiers();
-  const currentSort = tier?.sort_order ?? -1;
-  const nextTier = allTiers.find(t => t.sort_order > currentSort) ?? null;
+  const currentMin = tier ? parseFloat(tier.min_annual_spend) : 0;
+  const nextTier = tier?.is_paid
+    ? null
+    : (allTiers.find(t => !t.is_paid && parseFloat(t.min_annual_spend) > currentMin) ?? null);
 
   const annualSpend = parseFloat(u.annual_spend || "0");
   const nextMin = nextTier ? parseFloat(nextTier.min_annual_spend) : 0;
-  const currentMin = tier ? parseFloat(tier.min_annual_spend) : 0;
   const range = nextTier ? nextMin - currentMin : 1;
   const progress = nextTier ? Math.min(100, Math.round(((annualSpend - currentMin) / range) * 100)) : 100;
   const amountToNext = nextTier ? Math.max(0, nextMin - annualSpend) : 0;
@@ -331,6 +339,12 @@ export async function earnPoints(userId: string, amount: number, type: string, d
 }
 
 export async function spendPoints(userId: string, amount: number, type: string, description: string, referenceId?: string): Promise<{ success: boolean; entry?: PointsEntry; error?: string }> {
+  // A non-positive or fractional amount would let a "spend" mint Berries
+  // (subtracting a negative adds), so reject it before it reaches the ledger —
+  // no caller has a legitimate reason to spend zero, a fraction, or a negative.
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return { success: false, error: "Invalid Berries amount." };
+  }
   return transaction(async (q) => {
     // Balance check and debit in ONE guarded UPDATE, so two concurrent
     // spends can't both pass a stale read and drive the balance negative.
@@ -355,6 +369,30 @@ export async function spendPoints(userId: string, amount: number, type: string, 
   });
 }
 
+// Reverse a spend. Unlike earnPoints, this restores points_balance WITHOUT
+// bumping lifetime_points — a refund undoes a debit, it is not earning — and
+// books a distinct 'refund' ledger row so it isn't conflated with an admin
+// manual_credit. Used by the compensating-spend wrapper (lib/rewards/atomic-spend).
+export async function refundPoints(userId: string, amount: number, description: string, referenceId?: string): Promise<PointsEntry> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new Error(`refundPoints: invalid amount ${amount}`);
+  }
+  return transaction(async (q) => {
+    const updated = await q(
+      `UPDATE users SET points_balance = COALESCE(points_balance, 0) + $1, updated_at = NOW()
+       WHERE id = $2 RETURNING points_balance`,
+      [amount, userId]
+    );
+    const newBalance = updated.rows[0]?.points_balance ?? amount;
+    const result = await q(
+      `INSERT INTO points_ledger (user_id, amount, balance, type, description, reference_id)
+       VALUES ($1, $2, $3, 'refund', $4, $5) RETURNING *`,
+      [userId, amount, newBalance, description, referenceId || null]
+    );
+    return result.rows[0] as PointsEntry;
+  });
+}
+
 export async function getPointsHistory(userId: string, limit: number = 20): Promise<PointsEntry[]> {
   const result = await query(
     `SELECT * FROM points_ledger WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
@@ -362,14 +400,6 @@ export async function getPointsHistory(userId: string, limit: number = 20): Prom
   );
   return result.rows as PointsEntry[];
 }
-
-// ── Berries aliases ──
-// The DB columns and canonical function names stay on `points` until a proper
-// rename migration lands. New code should import these Berries-named aliases
-// so the codebase naturally migrates over time.
-export const earnBerries = earnPoints;
-export const spendBerries = spendPoints;
-export const getBerriesHistory = getPointsHistory;
 
 // ══════════════════════════════════════════════════════════════
 // STORE CREDIT
@@ -450,55 +480,3 @@ export async function processOrderRewards(userId: string, orderTotal: number, or
   return { pointsEarned, cashbackAmount };
 }
 
-// ══════════════════════════════════════════════════════════════
-// MIGRATION IMPORT
-// ══════════════════════════════════════════════════════════════
-
-export async function importMember(data: {
-  email: string;
-  tierName: string;
-  pointsBalance: number;
-  lifetimePoints: number;
-  storeCreditBalance: number;
-  annualSpend: number;
-  totalSpend: number;
-}): Promise<{ userId: string; created: boolean }> {
-  // Find or create user by email
-  let userResult = await query(`SELECT id FROM users WHERE email = $1`, [data.email.toLowerCase()]);
-  let created = false;
-
-  if (userResult.rows.length === 0) {
-    userResult = await query(
-      `INSERT INTO users (email) VALUES ($1) RETURNING id`,
-      [data.email.toLowerCase()]
-    );
-    created = true;
-  }
-
-  const userId = userResult.rows[0].id;
-
-  // Map tier name
-  const tierResult = await query(`SELECT id FROM tiers WHERE LOWER(name) = LOWER($1)`, [data.tierName]);
-  const tierId = tierResult.rows[0]?.id ?? null;
-
-  // Update user
-  await query(
-    `UPDATE users SET tier_id = $1, points_balance = $2, lifetime_points = $3,
-     store_credit_balance = $4, annual_spend = $5, total_spend = $6,
-     tier_source = 'migration', tier_calculated_at = NOW(), updated_at = NOW()
-     WHERE id = $7`,
-    [tierId, data.pointsBalance, data.lifetimePoints,
-     data.storeCreditBalance.toFixed(2), data.annualSpend.toFixed(2),
-     data.totalSpend.toFixed(2), userId]
-  );
-
-  // Log migration entries
-  if (data.pointsBalance > 0) {
-    await earnPoints(userId, data.pointsBalance, "migration", "Migrated from RewardsPro");
-  }
-  if (data.storeCreditBalance > 0) {
-    await addCredit(userId, data.storeCreditBalance, "migration", "Migrated from RewardsPro");
-  }
-
-  return { userId, created };
-}

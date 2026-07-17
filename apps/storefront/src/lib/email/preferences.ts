@@ -83,6 +83,7 @@ export type EmailCategory =
   | "vault_expiring_soon"
   | "streak_at_risk"
   | "messages"
+  | "follow_activity"
   | "marketing";
 
 const ALL_CATEGORIES: EmailCategory[] = [
@@ -93,6 +94,7 @@ const ALL_CATEGORIES: EmailCategory[] = [
   "vault_expiring_soon",
   "streak_at_risk",
   "messages",
+  "follow_activity",
   "marketing",
 ];
 
@@ -108,6 +110,9 @@ const DEFAULTS: Record<EmailCategory, boolean> = {
   // 12 hours (DM_EMAIL_WINDOW_HOURS in handlers/dm-unread.ts — keep the
   // description below in step if that constant moves).
   messages: true,
+  // Following someone is an explicit opt-in signal, so a milestone from
+  // someone you chose to follow is closer to lifecycle than re-engagement.
+  follow_activity: true,
   marketing: false,
 };
 
@@ -119,6 +124,7 @@ export const CATEGORY_LABELS: Record<EmailCategory, string> = {
   vault_expiring_soon: "Vault item expiring soon",
   streak_at_risk: "Streak at risk (re-engagement)",
   messages: "Direct messages",
+  follow_activity: "Sellers you follow",
   marketing: "Newsletters + promotions",
 };
 
@@ -131,6 +137,7 @@ export const CATEGORY_DESCRIPTIONS: Record<EmailCategory, string> = {
   streak_at_risk: "One-tap nudge when your daily streak is about to break.",
   messages:
     "Another trader messaged you and you haven't read it. At most one email per conversation every 12 hours.",
+  follow_activity: "When a seller you follow lists a new auction.",
   marketing: "Occasional product announcements, new set releases, sales.",
 };
 

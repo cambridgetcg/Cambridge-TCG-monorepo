@@ -27,9 +27,9 @@ const GROUPS: { title: string; caption: string; keys: string[]; tone: "activity"
     tone: "nudge",
   },
   {
-    title: "Messages",
-    caption: "When another trader writes to you.",
-    keys: ["messages"],
+    title: "People",
+    caption: "When another trader writes to you, or a seller you follow lists something.",
+    keys: ["messages", "follow_activity"],
     tone: "activity",
   },
   {

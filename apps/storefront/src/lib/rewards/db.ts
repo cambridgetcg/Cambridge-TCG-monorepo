@@ -299,18 +299,6 @@ export async function openMysteryBox(boxId: string, userId: string): Promise<{
   return { success: true, open: openResult.rows[0] as MysteryBoxOpen, reward: selectedReward, drawId };
 }
 
-export async function getUserRewardHistory(userId: string): Promise<MysteryBoxOpen[]> {
-  const result = await query(
-    `SELECT o.*, r.name as reward_name, r.reward_type, r.reward_value, r.rarity, r.image_url as reward_image,
-       b.title as box_title
-     FROM mystery_box_opens o
-     JOIN mystery_box_rewards r ON o.reward_id=r.id
-     JOIN mystery_boxes b ON o.box_id=b.id
-     WHERE o.user_id=$1 ORDER BY o.created_at DESC`,
-    [userId]
-  );
-  return result.rows as MysteryBoxOpen[];
-}
 
 export async function updateMysteryBoxStatus(boxId: string, status: string): Promise<void> {
   await query(`UPDATE mystery_boxes SET status=$2, updated_at=NOW() WHERE id=$1`, [boxId, status]);

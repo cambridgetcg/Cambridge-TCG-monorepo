@@ -10,7 +10,7 @@
 // per-minute cron tick checks the time. Disabled when
 // points_config.points_expire = false.
 
-import { query } from "@/lib/db";
+import { query, transaction } from "@/lib/db";
 
 export interface PointsExpiryResult {
   ranInWindow: boolean;
@@ -41,7 +41,7 @@ export async function runPointsExpirySweep(opts?: { force?: boolean }): Promise<
   // window. Filtered in SQL via the LATERAL subquery so we only return
   // candidates for expiration.
   const stale = await query(
-    `SELECT u.id, u.points_balance, u.email, la.last_activity
+    `SELECT u.id
        FROM users u
        LEFT JOIN LATERAL (
          SELECT MAX(created_at) AS last_activity
@@ -52,34 +52,53 @@ export async function runPointsExpirySweep(opts?: { force?: boolean }): Promise<
              OR la.last_activity <= NOW() - make_interval(days => $1))`,
     [days]
   );
-  const cutoff = Date.now() - days * 86400_000;
-
   let expired = 0;
   let totalPointsExpired = 0;
   let failures = 0;
 
   for (const u of stale.rows) {
-    const lastTs = u.last_activity ? new Date(u.last_activity).getTime() : 0;
-    if (lastTs >= cutoff) continue;
-
-    const amount = parseInt(u.points_balance, 10) || 0;
-    if (amount <= 0) continue;
-
     try {
-      // Atomic: zero the balance, write a ledger 'expired' row referencing
-      // the days-since-activity for forensics. ledger.balance reflects the
-      // post-expiration zero.
-      await query(
-        `UPDATE users SET points_balance = 0, updated_at = NOW() WHERE id = $1`,
-        [u.id]
-      );
-      await query(
-        `INSERT INTO points_ledger (user_id, amount, balance, type, description)
-         VALUES ($1, $2, 0, 'expired', $3)`,
-        [u.id, -amount, `Inactivity expiration (${days} days)`]
-      );
-      expired++;
-      totalPointsExpired += amount;
+      // Genuinely atomic per user: the candidate scan above is only a hint.
+      // Re-check staleness AT WRITE TIME inside one transaction — a concurrent
+      // earn/spend since the scan writes a fresh ledger row, which cancels the
+      // expiration (NOT EXISTS fails) so we don't destroy just-earned points;
+      // and we zero + book the amount actually held, not the stale read.
+      const amount = await transaction(async (q) => {
+        // SELECT ... FOR UPDATE first: it blocks on any in-flight earn/spend and,
+        // once that commits, sees the post-commit balance AND its fresh ledger
+        // row — so the NOT EXISTS re-check cancels the expiration rather than
+        // zeroing just-earned points, and `prev` is the true locked balance
+        // (no EPQ ambiguity from reading the row twice in one UPDATE).
+        const victim = await q(
+          `SELECT points_balance::int AS prev
+             FROM users
+            WHERE id = $1
+              AND points_balance > 0
+              AND NOT EXISTS (
+                SELECT 1 FROM points_ledger
+                 WHERE user_id = $1 AND created_at > NOW() - make_interval(days => $2)
+              )
+            FOR UPDATE`,
+          [u.id, days]
+        );
+        if (victim.rows.length === 0) return 0;
+        const amt = victim.rows[0].prev || 0;
+        if (amt <= 0) return 0;
+        await q(
+          `UPDATE users SET points_balance = 0, updated_at = NOW() WHERE id = $1`,
+          [u.id]
+        );
+        await q(
+          `INSERT INTO points_ledger (user_id, amount, balance, type, description)
+           VALUES ($1, $2, 0, 'expired', $3)`,
+          [u.id, -amt, `Inactivity expiration (${days} days)`]
+        );
+        return amt;
+      });
+      if (amount > 0) {
+        expired++;
+        totalPointsExpired += amount;
+      }
     } catch (err) {
       failures++;
       console.error(`[points-expiry] failed for ${u.id}:`, err);
@@ -87,35 +106,4 @@ export async function runPointsExpirySweep(opts?: { force?: boolean }): Promise<
   }
 
   return { ranInWindow: true, expired, totalPointsExpired, failures };
-}
-
-// Customer-facing helper: how many of the user's points are at risk of
-// expiring soon. Returns 0 if expiration is disabled.
-export async function getExpiringSoon(userId: string, withinDays = 30): Promise<{
-  amount: number; expiresInDays: number | null;
-}> {
-  const config = await query(`SELECT points_expire, expiration_days FROM points_config LIMIT 1`);
-  if (!config.rows[0]?.points_expire) {
-    return { amount: 0, expiresInDays: null };
-  }
-  const days = config.rows[0].expiration_days || 365;
-
-  const last = await query(
-    `SELECT u.points_balance,
-            (SELECT MAX(created_at) FROM points_ledger WHERE user_id = u.id) AS last_activity
-       FROM users u WHERE u.id = $1`,
-    [userId]
-  );
-  const row = last.rows[0];
-  if (!row || !row.points_balance || !row.last_activity) {
-    return { amount: 0, expiresInDays: null };
-  }
-  const balance = parseInt(row.points_balance, 10);
-  const expiresAt = new Date(row.last_activity).getTime() + days * 86400_000;
-  const remainingDays = Math.ceil((expiresAt - Date.now()) / 86400_000);
-
-  if (remainingDays > withinDays || remainingDays < 0) {
-    return { amount: 0, expiresInDays: null };
-  }
-  return { amount: balance, expiresInDays: Math.max(0, remainingDays) };
 }

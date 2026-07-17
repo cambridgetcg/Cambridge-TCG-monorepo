@@ -32,15 +32,38 @@ export async function runAnnualSpendRecompute(opts?: { force?: boolean }): Promi
     return { recomputed: 0, tierChanges: 0, failures: 0, ranInWindow: false };
   }
 
-  // Compute fresh annual_spend per user from the last WINDOW_DAYS of orders.
+  // Compute fresh annual_spend per user from the last WINDOW_DAYS of money
+  // spent THROUGH the platform. Since the shop closed, this is dominated by
+  // peer-to-peer buying: a completed P2P trade, a completed P2P lot, and a won
+  // auction all count on the BUYER's side (the money they paid). Seller
+  // proceeds are earnings, not spend, so they never count — and counting only
+  // the payer keeps a two-sided wash-trade from inflating both parties freely.
   // We update users.annual_spend in one statement; recalc fan-out comes after.
   const updated = await query(
-    `WITH spend AS (
-       SELECT user_id, SUM(total_gbp::numeric)::numeric AS amount
+    `WITH raw AS (
+       SELECT user_id, total_gbp::numeric AS amount
          FROM customer_orders
-        WHERE user_id IS NOT NULL
-          AND status = 'completed'
+        WHERE user_id IS NOT NULL AND status = 'completed'
           AND created_at > NOW() - make_interval(days => $1)
+       UNION ALL
+       SELECT buyer_id AS user_id, (price * quantity)::numeric AS amount
+         FROM market_trades
+        WHERE escrow_status = 'completed'
+          AND completed_at > NOW() - make_interval(days => $1)
+       UNION ALL
+       SELECT buyer_user_id AS user_id, price::numeric AS amount
+         FROM market_lot_trades
+        WHERE escrow_status = 'completed'
+          AND completed_at > NOW() - make_interval(days => $1)
+       UNION ALL
+       SELECT winner_user_id AS user_id, current_price::numeric AS amount
+         FROM auctions
+        WHERE winner_user_id IS NOT NULL AND status = 'paid'
+          AND paid_at > NOW() - make_interval(days => $1)
+     ),
+     spend AS (
+       SELECT user_id, SUM(amount)::numeric AS amount
+         FROM raw WHERE user_id IS NOT NULL
         GROUP BY user_id
      )
      UPDATE users u

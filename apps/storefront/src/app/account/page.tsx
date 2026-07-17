@@ -128,21 +128,9 @@ interface AttentionItem {
   href: string;
 }
 
-async function loadAttention(userId: string, email: string): Promise<AttentionItem[]> {
-  const [quotes, awaitingPayment, openReturns, disputed, failedPayments, unreadMessages] =
+async function loadAttention(userId: string): Promise<AttentionItem[]> {
+  const [awaitingPayment, openReturns, disputed, failedPayments, unreadMessages] =
     await Promise.all([
-      // Trade-in quotes the customer hasn't answered. Same linkage as
-      // /api/account/trade-ins (user_id OR email so pre-link rows and
-      // changed-email users still surface); the expiry guard matches
-      // the sweep in lib/tradein/db.ts so we never nag about a quote
-      // that's about to read "expired" on the detail page.
-      safeCount(
-        `SELECT COUNT(*)::int AS n FROM tradein_submissions
-          WHERE (user_id = $1 OR lower(customer_email) = lower($2))
-            AND status = 'quoted'
-            AND (quote_expires_at IS NULL OR quote_expires_at > NOW())`,
-        [userId, email],
-      ),
       // Escrow trades where this user is the buyer and the clock is
       // running on payment (EscrowStatus 'awaiting_payment').
       safeCount(
@@ -179,11 +167,6 @@ async function loadAttention(userId: string, email: string): Promise<AttentionIt
 
   const items: AttentionItem[] = [
     {
-      key: "tradein-quotes",
-      label: `${quotes} trade-in ${pluralize(quotes, "quote")} awaiting your accept or decline`,
-      href: "/account/trade-ins",
-    },
-    {
       key: "trades-awaiting-payment",
       label: `${awaitingPayment} ${pluralize(awaitingPayment, "trade")} awaiting your payment`,
       href: "/account/trades",
@@ -211,7 +194,7 @@ async function loadAttention(userId: string, email: string): Promise<AttentionIt
   ];
 
   // Counts drive visibility: zero (including failed-read zero) = no row.
-  const counts = [quotes, awaitingPayment, openReturns, disputed, failedPayments, unreadMessages];
+  const counts = [awaitingPayment, openReturns, disputed, failedPayments, unreadMessages];
   return items.filter((_, i) => counts[i] > 0);
 }
 
@@ -251,41 +234,6 @@ async function loadRecentOrders(email: string): Promise<RecentOrder[]> {
 
 // ── Trade-ins in progress ─────────────────────────────────────────────
 
-interface TradeInInProgress {
-  reference: string;
-  status: string;
-  created_at: string;
-}
-
-// The non-terminal slice of the trade-in lifecycle. Terminal states
-// (paid, rejected, cancelled, expired) and unsubmitted drafts don't
-// belong on an "in progress" strip.
-const TRADEIN_STEP: Record<string, string> = {
-  submitted: "Submitted — we're preparing your quote",
-  quoted: "Quote ready — accept or decline",
-  received: "Cards received — queued for grading",
-  grading: "Grading in progress",
-  approved: "Approved — payment on its way",
-};
-
-async function loadTradeInsInProgress(
-  userId: string,
-  email: string,
-): Promise<TradeInInProgress[]> {
-  return safe(async () => {
-    const r = await query(
-      `SELECT reference, status, created_at
-         FROM tradein_submissions
-        WHERE (user_id = $1 OR lower(customer_email) = lower($2))
-          AND status IN ('submitted','quoted','received','grading','approved')
-        ORDER BY created_at DESC
-        LIMIT 3`,
-      [userId, email],
-    );
-    return r.rows as TradeInInProgress[];
-  }, []);
-}
-
 // ══════════════════════════════════════════════════════════════════════
 // PAGE
 // ══════════════════════════════════════════════════════════════════════
@@ -295,11 +243,10 @@ export default async function AccountOverviewPage() {
   // collapses this to the same underlying invocation — no extra roundtrip.
   const user = (await getSessionUser())!;
 
-  const [standing, attention, recentOrders, tradeIns, membership, handle] = await Promise.all([
+  const [standing, attention, recentOrders, membership, handle] = await Promise.all([
     loadStanding(user.id),
-    loadAttention(user.id, user.email),
+    loadAttention(user.id),
     loadRecentOrders(user.email),
-    loadTradeInsInProgress(user.id, user.email),
     // Same source as /account/membership (via /api/membership). null on
     // failure — distinct from "no tier", which is a real profile state.
     safe<MemberProfile | null>(() => getMemberProfile(user.id), null),
@@ -458,41 +405,7 @@ export default async function AccountOverviewPage() {
         )}
       </section>
 
-      {/* ── 5. Trade-ins in progress — omitted when none ────────────── */}
-      {tradeIns.length > 0 && (
-        <section>
-          <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-lg font-semibold text-ink">Trade-ins in progress</h2>
-            <Link href="/account/trade-ins" className="text-sm text-accent hover:underline">
-              View all →
-            </Link>
-          </div>
-          <div className="space-y-2">
-            {tradeIns.map((sub) => (
-              <Link key={sub.reference} href="/account/trade-ins" className="block group">
-                <Card className="group-hover:border-border-strong transition">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-wrap min-w-0">
-                      <span className="text-sm font-mono font-bold text-accent">
-                        {sub.reference}
-                      </span>
-                      <Badge status={sub.status} palette={Palettes.TradeInStatusPalette} />
-                      <span className="text-xs text-ink-muted">
-                        {TRADEIN_STEP[sub.status] ?? sub.status.replace(/_/g, " ")}
-                      </span>
-                    </div>
-                    <span className="text-ink-faint group-hover:text-accent transition shrink-0">
-                      →
-                    </span>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── 6. Membership — real data from the same source as
+      {/* ── 5. Membership — real data from the same source as
              /account/membership. Three honest states: loaded, no tier
              yet, and read-failed (which never masquerades as either). ── */}
       <section>
@@ -521,7 +434,6 @@ export default async function AccountOverviewPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <TierBadge
                   name={membership.tier.name}
-                  icon={membership.tier.icon}
                   color={membership.tier.color}
                   size="md"
                 />

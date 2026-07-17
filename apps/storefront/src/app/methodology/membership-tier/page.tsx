@@ -11,11 +11,11 @@ export default function MembershipTierMethodology() {
     <>
       <h1>Membership tier</h1>
       <p>
-        Cambridge TCG has a tiered membership system. Your tier determines several things you
-        feel as a customer: <strong>cashback</strong> on purchases, your{" "}
-        <strong>Berries earn multiplier</strong>, your <strong>trade-in bonus</strong>, your{" "}
-        <strong>commission rate</strong> on P2P sales and auctions, and your{" "}
-        <strong>store discount</strong>. Higher tiers get better terms across the board.
+        Cambridge TCG has a tiered membership system. Your tier determines your{" "}
+        <strong>Berries earn multiplier</strong>, your <strong>commission rate</strong> on
+        P2P sales and auctions, and <strong>auction priority</strong>. Higher tiers get better
+        terms. (The shop-era perks — cashback, store discount, trade-in bonus — retired with the
+        shop on 2026-07-06; see <a href="/methodology/store-credit">the store-credit record</a>.)
       </p>
       <blockquote>
         <strong>Where this lives in code.</strong>
@@ -40,13 +40,16 @@ export default function MembershipTierMethodology() {
         promote on the next recompute. When it falls below, you demote.
       </p>
       <p>
-        Spend is counted from completed B2C orders. <strong>P2P trade volume does not count</strong>{" "}
-        toward annual_spend (the platform's commission is much smaller, and counting it would
-        create a perverse incentive to wash-trade for tier promotion).
+        Spend is the money you pay <strong>through</strong> Cambridge TCG: completed
+        peer-to-peer purchases, won auctions, and P2P lot buys all count on the buyer&rsquo;s
+        side. We don&rsquo;t sell cards ourselves — there is no shop — so your tier is built by
+        buying from other collectors here. Only the buyer&rsquo;s payment counts; a seller&rsquo;s
+        proceeds are earnings, not spend, and never raise a tier.
       </p>
       <p>
-        The recompute happens on the maintenance cron every minute. Tier moves are not
-        retroactive — your perks change from the next purchase forward.
+        The recompute runs on the daily maintenance sweep over a trailing 365-day window, so a
+        completed purchase lifts your <code>annual_spend</code> at the next sweep. Tier moves
+        aren&rsquo;t retroactive — perks change from the recompute forward.
       </p>
 
       <h3>2. Subscription (<code>tier_source = 'subscription'</code>)</h3>
@@ -77,25 +80,26 @@ export default function MembershipTierMethodology() {
       <table>
         <thead>
           <tr>
-            <th>Tier</th><th>Threshold</th><th>Cashback</th><th>Berries ×</th>
-            <th>Trade-in bonus</th><th>P2P / Auction commission</th><th>Store discount</th>
+            <th>Tier</th><th>How you reach it</th><th>Berries ×</th>
+            <th>P2P / Auction commission</th><th>Auction priority</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>Bronze</td><td>£0</td><td>0%</td><td>1×</td><td>0%</td><td>8% / 10%</td><td>0%</td></tr>
-          <tr><td>Silver</td><td>£200</td><td>1%</td><td>1×</td><td>2%</td><td>7% / 9%</td><td>0%</td></tr>
-          <tr><td>Gold</td><td>£500</td><td>2%</td><td>2×</td><td>5%</td><td>6% / 8%</td><td>2%</td></tr>
-          <tr><td>Platinum</td><td>£2,000</td><td>3%</td><td>3×</td><td>8%</td><td>5% / 7%</td><td>5%</td></tr>
-          <tr><td>OG (paid)</td><td>—</td><td>5%</td><td>4×</td><td>10%</td><td>4% / 6%</td><td>8%</td></tr>
+          <tr><td>Bronze</td><td>Free</td><td>1×</td><td>8% / 12%</td><td>—</td></tr>
+          <tr><td>Silver</td><td>£100/yr spend</td><td>1.5×</td><td>6% / 10%</td><td>—</td></tr>
+          <tr><td>Gold</td><td>£500/yr spend</td><td>2×</td><td>5% / 8%</td><td>Yes</td></tr>
+          <tr><td>Pro</td><td>£3.99/mo (paid)</td><td>1.5×</td><td>7% / 10%</td><td>—</td></tr>
+          <tr><td>Platinum</td><td>£22/mo (paid)</td><td>3×</td><td>0% / 0%</td><td>Yes</td></tr>
         </tbody>
       </table>
-      <p>(Illustrative shape — exact numbers are whatever the <code>tiers</code> table currently holds.)</p>
+      <p>Values reflect the <code>tiers</code> table; the operator&rsquo;s admin viewer is
+      authoritative. (A hidden OG tier exists for grant-only recognition and can&rsquo;t be
+      subscribed or earned.)</p>
 
       <h2>When a tier change happens</h2>
       <ul>
-        <li>New B2C order completes → <code>annual_spend</code> increments; tier may promote on next sweep.</li>
-        <li>Refund processed → <code>annual_spend</code> decrements; tier may demote.</li>
-        <li>365-day-old order falls out of the rolling window → <code>annual_spend</code> decrements.</li>
+        <li>A P2P trade, P2P lot, or won auction completes → the buyer&rsquo;s <code>annual_spend</code> rises; tier may promote on the next sweep.</li>
+        <li>A purchase falls out of the trailing 365-day window → <code>annual_spend</code> drops; tier may demote.</li>
         <li>Subscription starts → tier set to subscribed tier; <code>tier_source = 'subscription'</code>.</li>
         <li>Subscription cancels / fails → <code>tier_source</code> flips back; tier recomputes.</li>
         <li>Operator sets a manual tier → <code>tier_source = 'manual'</code>; recompute skipped.</li>

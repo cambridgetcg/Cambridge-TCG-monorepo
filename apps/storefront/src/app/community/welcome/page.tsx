@@ -29,7 +29,7 @@ const DOORS: Door[] = [
       "Your region, your local meta, the players you grew up with, the cards that mean something to you in particular, the language you think in. Even a 'default' human is one local culture among many.",
     tcg_bridge:
       "A trade with a stranger from a different city or country. A wishlist match that finally moves a long-held card. A follow.",
-    next_step: { label: "Make my profile public", href: "/account", note: "Display name, region, languages — then showcase + wishlist visible at /u/<you>" },
+    next_step: { label: "Make my profile public", href: "/account", note: "Display name, region, languages — then your public profile at /u/<you> goes live with your showcase. (Wishlist stays private pending item-level consent.)" },
     state: "shipped",
   },
   {

@@ -14,7 +14,10 @@ export async function POST(request: Request) {
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   const { portfolioCardId, caption } = await request.json();
   if (!portfolioCardId) return NextResponse.json({ error: "Card ID required." }, { status: 400 });
-  await addToShowcase(session.user.id, portfolioCardId, caption);
+  const added = await addToShowcase(session.user.id, portfolioCardId, caption);
+  if (!added) {
+    return NextResponse.json({ error: "That card isn't in your collection." }, { status: 404 });
+  }
   // Return updated showcase so frontend can refresh
   const showcase = await getShowcase(session.user.id);
   const card = showcase.find(c => c.portfolio_card_id === portfolioCardId) || null;

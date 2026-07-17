@@ -33,7 +33,7 @@ export async function getPublicProfile(identifier: string): Promise<PublicProfil
      FROM users u
      LEFT JOIN tiers t ON u.tier_id=t.id
      LEFT JOIN trust_profiles tp ON tp.user_id=u.id
-     WHERE u.username=$1 OR u.id::text=$1`,
+     WHERE LOWER(u.username)=LOWER($1) OR u.id::text=$1`,
     [identifier, PERSON_PUBLICATION_NOTICE_VERSION]
   );
   if (result.rows.length === 0) return null;
@@ -142,13 +142,17 @@ export async function getShowcase(userId: string): Promise<ShowcaseCard[]> {
 // Returns false when the portfolio card doesn't exist or isn't owned by the
 // caller — the FK alone only proves existence, not ownership.
 export async function addToShowcase(userId: string, portfolioCardId: string, caption?: string): Promise<boolean> {
-  const count = await query(`SELECT COUNT(*) FROM showcase_cards WHERE user_id=$1`, [userId]);
-  const order = parseInt(count.rows[0].count, 10);
+  // display_order is MAX+1 computed in the same statement, not COUNT(*): a
+  // COUNT after any removal reuses an order value that still exists on a
+  // surviving row, so two cards collide on the same slot.
   const result = await query(
     `INSERT INTO showcase_cards (user_id, portfolio_card_id, display_order, caption)
-     SELECT $1, id, $3, $4 FROM portfolio_cards WHERE id=$2 AND user_id=$1
-     ON CONFLICT (user_id, portfolio_card_id) DO UPDATE SET caption=$4`,
-    [userId, portfolioCardId, order, caption || null]
+     SELECT $1, id,
+            (SELECT COALESCE(MAX(display_order), -1) + 1 FROM showcase_cards WHERE user_id=$1),
+            $3
+     FROM portfolio_cards WHERE id=$2 AND user_id=$1
+     ON CONFLICT (user_id, portfolio_card_id) DO UPDATE SET caption=$3`,
+    [userId, portfolioCardId, caption || null]
   );
   return (result.rowCount ?? 0) > 0;
 }
@@ -224,7 +228,16 @@ export async function toggleFollow(followerId: string, followingId: string): Pro
       return false;
     }
 
-    await q(`INSERT INTO follows (follower_id, following_id) VALUES ($1,$2)`, [followerId, followingId]);
+    // ON CONFLICT DO NOTHING: two concurrent follows both pass the SELECT
+    // above; the loser would otherwise raise a unique-violation 23505 that
+    // surfaces as a 500. Here it inserts nothing, we don't double-count, and
+    // we return false so only the winner fires the one-shot notification.
+    const inserted = await q(
+      `INSERT INTO follows (follower_id, following_id) VALUES ($1,$2)
+       ON CONFLICT (follower_id, following_id) DO NOTHING`,
+      [followerId, followingId]
+    );
+    if ((inserted.rowCount ?? 0) === 0) return false;
     await q(`UPDATE users SET follower_count=follower_count+1 WHERE id=$1`, [followingId]);
     await q(`UPDATE users SET following_count=following_count+1 WHERE id=$1`, [followerId]);
     return true;
@@ -383,24 +396,27 @@ export async function getUserAchievements(userId: string): Promise<Achievement[]
 }
 
 export async function awardAchievement(userId: string, code: string): Promise<boolean> {
-  const achievement = await query(`SELECT id FROM achievements WHERE code=$1`, [code]);
-  if (achievement.rows.length === 0) return false;
+  const achievement = await query(`SELECT id, icon, name, description FROM achievements WHERE code=$1`, [code]);
+  const a = achievement.rows[0];
+  if (!a) return false;
 
-  await query(
+  const inserted = await query(
     `INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-    [userId, achievement.rows[0].id]
+    [userId, a.id]
   );
 
-  // Post activity
-  const a = await query(`SELECT * FROM achievements WHERE code=$1`, [code]);
-  if (a.rows[0]) {
+  // Only the FIRST earn posts to the activity feed. Callers re-fire this on
+  // every threshold recheck (portfolio size, trust score >= N), so an
+  // unconditional post appended a duplicate 'Earned: …' row — now publicly
+  // visible on the revived feed — each time past the threshold.
+  const newlyEarned = (inserted.rowCount ?? 0) > 0;
+  if (newlyEarned) {
     await postActivity(userId, "achievement_earned",
-      `Earned: ${a.rows[0].icon} ${a.rows[0].name}`,
-      { description: a.rows[0].description }
+      `Earned: ${a.icon} ${a.name}`,
+      { description: a.description }
     );
   }
-
-  return true;
+  return newlyEarned;
 }
 
 // ══════════════════════════════════════════════════════════════

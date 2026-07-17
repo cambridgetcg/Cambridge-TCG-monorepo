@@ -763,7 +763,7 @@ export default function PacksPage() {
                                 {card.reward_type === "points"
                                   ? `+${card.reward_value} Berries`
                                   : card.reward_type === "credit"
-                                  ? `+$${card.reward_value.toFixed(2)} credit`
+                                  ? `+£${card.reward_value.toFixed(2)} credit`
                                   : card.reward_type}
                               </p>
                             </div>

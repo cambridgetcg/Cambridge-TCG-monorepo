@@ -76,7 +76,7 @@ export function FollowList({ mode }: { mode: "followers" | "following" }) {
           {mode === "followers" ? "No followers yet." : "You aren't following anyone yet."}
         </p>
         {mode === "following" && (
-          <Link href="/u" className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong">
+          <Link href="/community" className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong">
             Find traders to follow →
           </Link>
         )}

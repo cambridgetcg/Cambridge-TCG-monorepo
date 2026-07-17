@@ -95,16 +95,12 @@ import {
 import { escapeHtml } from "./layout";
 import { isMemorialAccount } from "@/lib/users/memorial";
 
-export type SenderKey = "noreply" | "tradein" | "bounty";
+export type SenderKey = "noreply" | "bounty";
 
 const FROM_ADDRESS: Record<SenderKey, { email: string; displayName: string }> = {
   noreply: {
     email: (process.env.AUTH_FROM_EMAIL || "noreply@cambridgetcg.com").trim(),
     displayName: "Cambridge TCG",
-  },
-  tradein: {
-    email: (process.env.TRADEIN_FROM_EMAIL || "tradein@cambridgetcg.com").trim(),
-    displayName: "Cambridge TCG Trade-In",
   },
   bounty: {
     email: (process.env.BOUNTY_FROM_EMAIL || "bounty@cambridgetcg.com").trim(),

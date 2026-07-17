@@ -137,38 +137,38 @@ describe("community privacy contract", () => {
     expect(route).not.toContain("profile: { user_id: profile.user_id");
   });
 
-  it("pauses the public feed until activity has its own receipt", () => {
+  it("serves the public feed only for events whose author holds a current activity receipt", () => {
     const db = source("src/lib/social/db.ts");
     const publicFeed = db.slice(
       db.indexOf("export async function getCommunityFeed"),
       db.indexOf("export async function getUserActivity"),
     );
-    expect(publicFeed).toContain("No per-event person receipt exists yet");
-    expect(publicFeed).toContain("return []");
-    expect(publicFeed).not.toContain("FROM activity_feed");
+    // The full consent gate, re-checked ON READ so withdrawal is instant.
+    expect(publicFeed).toContain("f.is_public = true");
+    expect(publicFeed).toContain("u.activity_publication_notice_version = $1");
+    expect(publicFeed).toContain("u.activity_published_at IS NOT NULL");
+    expect(publicFeed).toContain("COALESCE(tp.is_suspended, false) = false");
+    // Anti-flood ranking: at most two events per member reach the feed.
+    expect(publicFeed).toContain("per_user_rank <= 2");
 
     const route = source("src/app/api/social/feed/route.ts");
     expect(route).toContain("Historical bulk activity paging is unavailable");
-    expect(route).toContain('status: "paused"');
+    expect(route).toContain('status: "live"');
     expect(route).toContain('"Cache-Control": "private, no-store"');
-
-    const page = source("src/app/community/page.tsx");
-    expect(page).toContain("Public activity and portfolio/wishlist matching are paused");
-    expect(page).toContain("setPublicationReason");
-    expect(page).toContain("Public activity is paused until each event has its own publication choice.");
-    expect(page).toContain("Trade matching is paused. Portfolios and wishlists remain private");
-    expect(page).toContain('["Ranking policy", "/leaderboards"]');
-    expect(page).not.toContain("Trades, wins, pulls, and milestones");
-    expect(page).not.toContain("Add cards to your wishlist and portfolio to discover matches");
+    // (Trade matching's own consent gate is covered by its dedicated test below.)
   });
 
-  it("keeps generated activity private and owner-readable", () => {
+  it("keeps generated activity private unless the author holds the activity receipt", () => {
     const db = source("src/lib/social/db.ts");
     const writer = db.slice(
       db.indexOf("export async function postActivity"),
       db.indexOf("export async function getCommunityFeed"),
     );
-    expect(writer).toContain("false]");
+    // is_public is COMPUTED at insert, not caller-supplied: a row is public only
+    // when it's a publishable milestone AND the author currently holds the
+    // activity receipt. A non-consenting author writes is_public=false.
+    expect(writer).toContain("ANY($9::text[])");
+    expect(writer).toContain("u.activity_published_at IS NOT NULL");
     expect(writer).not.toContain("isPublic?: boolean");
     expect(writer).not.toContain("data?.isPublic === true");
 
@@ -203,15 +203,26 @@ describe("community privacy contract", () => {
     expect(route).toContain('"Cache-Control": "private, no-store"');
   });
 
-  it("does not infer offers from portfolios and wishlists", () => {
+  it("matches only on explicit card-level trade intent, never inferred from private data", () => {
     const db = source("src/lib/social/db.ts");
-    const matcher = db.slice(db.indexOf("export async function findTradeMatches"));
-    expect(matcher).not.toContain("FROM portfolio_cards");
-    expect(matcher).not.toContain("FROM wishlists");
-    expect(matcher).toContain("return []");
+    const matcher = db.slice(
+      db.indexOf("export async function findTradeMatches"),
+      db.indexOf("export async function findTradeMatches") + 1600,
+    );
+    // A wish is surfaced ONLY when its owner explicitly opted it in...
+    expect(matcher).toContain("w.open_to_trade = true");
+    // ...and the owner already publishes their profile (identity is their choice)
+    // and isn't suspended.
+    expect(matcher).toContain("u.profile_publication_notice_version = $2");
+    expect(matcher).toContain("u.profile_published_at IS NOT NULL");
+    expect(matcher).toContain("COALESCE(tp.is_suspended, false) = false");
+    // The only portfolio consulted is the VIEWER'S OWN ($1) — no one else's
+    // holdings are ever read or revealed.
+    expect(matcher).toContain("pc.user_id = $1");
 
     const route = source("src/app/api/social/matches/route.ts");
-    expect(route).toContain("matching_available: false");
+    expect(route).toContain("matching_available: true");
+    expect(route).toContain('"Cache-Control": "private, no-store"');
   });
 
   it("does not infer affinity through the historical bridge side door", () => {

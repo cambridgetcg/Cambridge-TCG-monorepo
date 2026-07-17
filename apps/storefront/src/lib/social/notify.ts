@@ -47,8 +47,12 @@ export async function notifyFollowersOfAuctionListing(data: {
 
   for (const row of result.rows) {
     try {
-      await sendFollowerAuctionListedEmail({
+      // sendEmail returns a discriminated result instead of throwing; a hard
+      // failure (transport error) is logged, while a suppressed send
+      // (unsubscribed / memorial) is an intended no-op we don't warn on.
+      const res = await sendFollowerAuctionListedEmail({
         email: row.email,
+        userId: row.follower_id,
         followerName: row.follower_name,
         sellerName,
         sellerUsername,
@@ -59,8 +63,11 @@ export async function notifyFollowersOfAuctionListing(data: {
         buyNowPrice: data.buyNowPrice,
         endsAt: data.endsAt,
       });
+      if (!res.ok && res.error !== "suppressed_by_preference" && res.error !== "suppressed_by_memorial") {
+        console.error(`[follow] auction-listed notify to ${row.email} failed: ${res.error}`);
+      }
     } catch (err) {
-      console.error(`[follow] auction-listed notify to ${row.email} failed:`, err);
+      console.error(`[follow] auction-listed notify to ${row.email} threw:`, err);
     }
   }
 }

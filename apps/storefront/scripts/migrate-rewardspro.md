@@ -1,5 +1,11 @@
 # RewardsPro → Cambridge TCG Storefront Migration Guide
 
+> **RETIRED (2026-07-16):** the `POST /api/membership/import` endpoint and its
+> `importMember` helper have been removed — the one-time RewardsPro migration is
+> done and the route had no remaining callers. This guide is kept for the record
+> only; the curl below will 404. To run a similar import again, restore the route
+> from git history first.
+
 ## Overview
 
 This migrates existing RewardsPro members to the CTCG storefront by email.

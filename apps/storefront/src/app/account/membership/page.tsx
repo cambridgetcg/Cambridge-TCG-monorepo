@@ -9,18 +9,20 @@ import type { Tier, MemberProfile, PointsEntry, CreditEntry } from "@/lib/member
 import { Audience } from "@/lib/ui";
 // ── Tier tone maps keyed by the tier `color` field. The quiet gallery:
 // hairline cards, a small tone accent per tier — never gradients or glow.
+// Keyed by the DB HEX value (tiers.color, seeded '#CD7F32' etc.); the old
+// tailwind-name keys never matched, so every tier fell to the default tone.
 const TIER_COLORS: Record<string, {
   border: string; text: string; bg: string; progressBg: string; progressBar: string;
 }> = {
-  "amber-700": {
+  "#CD7F32": {   // Bronze
     border: "border-[#8a6544]/40", text: "text-[#8a6544]", bg: "bg-surface",
     progressBg: "bg-surface-subtle", progressBar: "bg-[#8a6544]",
   },
-  "neutral-400": {
+  "#C0C0C0": {   // Silver
     border: "border-border-strong", text: "text-ink-muted", bg: "bg-surface",
     progressBg: "bg-surface-subtle", progressBar: "bg-ink-faint",
   },
-  "amber-400": {
+  "#FFD700": {   // Gold / OG
     border: "border-accent/40", text: "text-accent", bg: "bg-surface",
     progressBg: "bg-surface-subtle", progressBar: "bg-accent",
   },
@@ -74,6 +76,15 @@ function typeLabel(type: string) {
   return type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// The tier `benefits` data was cleaned of shop-era perks by migration 0126.
+// This filter stays as a cheap display guard, so a fresh/un-migrated DB or any
+// future seed drift can never re-advertise a retired perk (cashback, store
+// discount, store purchases, trade-in-for-credit) as current.
+function liveBenefits(benefits: string[]): string[] {
+  const retired = /cashback|store discount|off (all|every)|store (order|purchase)|store credit|trade-in/i;
+  return benefits.filter((b) => !retired.test(b));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -88,6 +99,7 @@ export default function MembershipPage() {
   const [showAllPoints, setShowAllPoints] = useState(false);
   const [showAllCredits, setShowAllCredits] = useState(false);
   const [subscribing, setSubscribing] = useState<"monthly" | "annual" | null>(null);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check auth then fetch membership data
@@ -99,7 +111,7 @@ export default function MembershipPage() {
           return;
         }
         // Fetch all membership data in parallel
-        Promise.all([
+        return Promise.all([
           fetch("/api/membership").then(r => r.json()),
           fetch("/api/membership?tiers=true").then(r => r.json()),
           fetch("/api/membership/berries").then(r => r.json()),
@@ -111,11 +123,15 @@ export default function MembershipPage() {
           setCreditHistory(creditData.history || []);
           setLoading(false);
         });
-      });
+      })
+      // Without this, any failed fetch left loading=true and the page spun
+      // forever. Drop out of loading so the "Unable to load" fallback shows.
+      .catch(() => setLoading(false));
   }, [router]);
 
   async function handleSubscribe(plan: "monthly" | "annual", tierName: string = "Platinum") {
     setSubscribing(plan);
+    setSubscribeError(null);
     try {
       const res = await fetch("/api/membership/subscribe", {
         method: "POST",
@@ -125,8 +141,15 @@ export default function MembershipPage() {
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+        return;
       }
+      // No URL means the API returned an error (already subscribed, tier
+      // unpriced, payments down). Surface it and unstick the buttons instead
+      // of leaving them disabled on "Redirecting..." forever.
+      setSubscribeError(data.error || "Couldn't start checkout. Please try again.");
     } catch {
+      setSubscribeError("Couldn't reach checkout. Please try again.");
+    } finally {
       setSubscribing(null);
     }
   }
@@ -134,7 +157,6 @@ export default function MembershipPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-      <Audience kind="consumer" />
         <div className="text-ink-faint animate-pulse">Loading membership...</div>
       </div>
     );
@@ -171,10 +193,18 @@ export default function MembershipPage() {
 
   return (
     <div className="space-y-8">
+      <Audience kind="consumer" />
       <h1 className="text-2xl font-bold text-ink">
         Membership
         <WhyLink href="/methodology/membership-tier" tooltip="How is my tier assigned?" />
       </h1>
+
+      {subscribeError && (
+        <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          {subscribeError}{" "}
+          <a href="/account/billing" className="underline font-medium">Go to billing</a>
+        </div>
+      )}
 
       {/* ── Pro upgrade banner (non-Pro, non-Platinum members) ─────────────── */}
       {!isPlatinum && !isPro && (
@@ -189,8 +219,8 @@ export default function MembershipPage() {
               Lower selling fees on the market and at auction.
             </p>
             <p className="text-xs text-ink-faint mb-6">
-              No catch — nothing free is taken away, and you reach Pro free at £300/yr
-              spend. <WhyLink href="/methodology/pro" tooltip="What is Pro?" />
+              No catch — nothing free is taken away.{" "}
+              <WhyLink href="/methodology/pro" tooltip="What is Pro?" />
             </p>
             <div className="grid gap-4 sm:grid-cols-2 max-w-md">
               <div className="rounded-lg border border-border-subtle bg-page p-4 text-center">
@@ -325,9 +355,9 @@ export default function MembershipPage() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
           <div className="space-y-3">
             {tier ? (
-              <TierBadge name={tier.name} icon={tier.icon} color={tier.color} size="md" />
+              <TierBadge name={tier.name} color={tier.color} size="md" />
             ) : (
-              <TierBadge name="Bronze" icon="🥉" color="amber-700" size="md" />
+              <TierBadge name="Bronze" color="#CD7F32" size="md" />
             )}
 
             {!tier && (
@@ -371,12 +401,6 @@ export default function MembershipPage() {
         <h2 className="text-lg font-semibold text-ink mb-4">Your Perks</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <PerkCard
-            label="Cashback"
-            value={`${profile.perks.cashback_percent}%`}
-            description="cashback (shop era — retired 2026-07-06)"
-            highlight={false}
-          />
-          <PerkCard
             label="Berries"
             value={`${profile.perks.points_multiplier}x`}
             description="Berries multiplier"
@@ -394,12 +418,6 @@ export default function MembershipPage() {
             description={profile.perks.auction_commission_rate < 0.12 ? `commission (standard 12%)` : "commission"}
             highlight={profile.perks.auction_commission_rate < 0.12}
           />
-          <PerkCard
-            label="Store Discount"
-            value={`${profile.perks.store_discount_percent}%`}
-            description="store discount (shop era — retired 2026-07-06)"
-            highlight={false}
-          />
           {profile.perks.auction_priority_approval && (
             <PerkCard
               label="Priority"
@@ -411,11 +429,11 @@ export default function MembershipPage() {
         </div>
 
         {/* Extra benefits from tier data */}
-        {tier && tier.benefits.length > 0 && (
+        {tier && liveBenefits(tier.benefits).length > 0 && (
           <div className="mt-4 bg-surface rounded-lg p-4 border border-border-subtle">
             <p className="text-xs font-medium text-ink-faint uppercase tracking-wider mb-2">Additional Benefits</p>
             <ul className="space-y-1.5">
-              {tier.benefits.map((b, i) => (
+              {liveBenefits(tier.benefits).map((b, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-ink-muted">
                   <span className="text-ok mt-0.5 shrink-0">&#10003;</span>
                   {b}
@@ -539,7 +557,7 @@ export default function MembershipPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <TierBadge name={t.name} icon={t.icon} color={t.color} />
+                    <TierBadge name={t.name} color={t.color} />
                     {isCurrent && (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-ok">Current</span>
                     )}
@@ -554,7 +572,6 @@ export default function MembershipPage() {
                   </p>
 
                   <div className="space-y-2 mb-4">
-                    <TierStat label="Cashback" value={`${parseFloat(t.cashback_percent)}%`} />
                     <TierStat label="Berries" value={`${parseFloat(t.points_multiplier)}x`} />
                     <TierStat
                       label="P2P commission"
@@ -566,19 +583,14 @@ export default function MembershipPage() {
                       value={`${(parseFloat(t.auction_commission_rate) * 100).toFixed(0)}%`}
                       highlight={parseFloat(t.auction_commission_rate) === 0}
                     />
-                    <TierStat
-                      label="Store discount"
-                      value={`${parseFloat(t.store_discount_percent)}%`}
-                      highlight={parseFloat(t.store_discount_percent) > 0}
-                    />
                     {t.auction_priority_approval && (
                       <TierStat label="Priority approval" value="Yes" />
                     )}
                   </div>
 
-                  {t.benefits.length > 0 && (
+                  {liveBenefits(t.benefits).length > 0 && (
                     <ul className="space-y-1.5 border-t border-border-subtle pt-3">
-                      {t.benefits.map((b, i) => (
+                      {liveBenefits(t.benefits).map((b, i) => (
                         <li key={i} className="flex items-start gap-2 text-xs text-ink-muted">
                           <span className="text-ok mt-0.5 shrink-0">&#10003;</span>
                           {b}

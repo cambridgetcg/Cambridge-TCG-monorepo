@@ -562,25 +562,30 @@ export async function POST(request: Request) {
             // this webhook runs while side effects stay webhook-only
             // (see lib/orders/record.ts).
             const debitRes = await query(
-              `UPDATE users
+              `UPDATE users u
                   SET store_credit_balance = GREATEST(0, store_credit_balance - $2),
                       updated_at = NOW()
-                WHERE id = $1
+                 FROM (SELECT store_credit_balance AS prev FROM users WHERE id = $1) old
+                WHERE u.id = $1
                   AND NOT EXISTS (
                     SELECT 1 FROM store_credit_ledger
                      WHERE reference_id = $3 AND type = 'redeemed_checkout'
                   )
-                RETURNING store_credit_balance::numeric AS balance`,
+                RETURNING u.store_credit_balance::numeric AS balance, old.prev::numeric AS prev`,
               [creditUserId, creditAppliedGbp.toFixed(2), session.id]
             );
             if (debitRes.rows[0]) {
+              // Record the amount ACTUALLY subtracted, not the requested amount:
+              // GREATEST(0, …) clamps a debit larger than the balance, so booking
+              // the full request would make the ledger disagree with the balance.
+              const actualDebit = Number(debitRes.rows[0].prev) - Number(debitRes.rows[0].balance);
               await query(
                 `INSERT INTO store_credit_ledger (user_id, amount, balance, type, description, reference_id)
                  VALUES ($1, $2, $3, 'redeemed_checkout', $4, $5)`,
-                [creditUserId, (-creditAppliedGbp).toFixed(2), debitRes.rows[0].balance,
+                [creditUserId, (-actualDebit).toFixed(2), debitRes.rows[0].balance,
                  `Applied at checkout`, session.id]
               );
-              console.log(`[webhook] Credit redeemed: £${creditAppliedGbp.toFixed(2)} for ${creditUserId}`);
+              console.log(`[webhook] Credit redeemed: £${actualDebit.toFixed(2)} for ${creditUserId}`);
             }
           } catch (creditErr) {
             console.error("[webhook] Credit debit failed:", creditErr);
@@ -630,7 +635,15 @@ export async function POST(request: Request) {
         const subUserId = session.metadata.user_id;
         const tierId = session.metadata.tier_id;
         const plan = session.metadata.plan;
-        const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.toString() || session.id;
+        // The real Stripe subscription id (sub_…). Never fall back to the
+        // Checkout session id (cs_…): stored as subscription_stripe_id it
+        // silently breaks every later portal/cancel lookup. Null is honest.
+        const subId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : session.subscription && typeof session.subscription === "object" && "id" in session.subscription
+              ? (session.subscription as { id: string }).id
+              : null;
         const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
 
         // Set expiry based on plan

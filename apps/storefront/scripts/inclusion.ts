@@ -140,12 +140,10 @@ const CADENCE_PATTERN = /INTERVAL\s+['"](\d+)\s+(hour|day|minute|week|month)s?['
 const USER_FLOW_DIRS = [
   "lib/market",
   "lib/auction",
-  "lib/tradein",
   "lib/payments",
   "lib/membership",
   "lib/bounty",
   "lib/rewards",
-  "lib/quote",
   "lib/orders",
 ];
 

@@ -61,7 +61,9 @@ export default function NewAuctionPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/submissions")
+    // Probe a surviving admin-gated endpoint to confirm the session is an
+    // admin (was /api/admin/submissions, retired with the trade-in desk).
+    fetch("/api/admin/tiers")
       .then((res) => {
         if (res.ok) setAuthed(true);
       });

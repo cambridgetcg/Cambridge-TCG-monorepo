@@ -21,10 +21,6 @@ export async function GET() {
   }
 
   const [
-    tradeinsPending,
-    tradeinsAwaitingPay,
-    tradeinsInflight,
-    quotesOpen,
     redemptionsPending,
     auctionsLive,
     verificationsPending,
@@ -33,15 +29,6 @@ export async function GET() {
     fraudOpen,
     emailsDead,
   ] = await Promise.all([
-    // Trade-ins that need a quote composed
-    safeCount(`SELECT count(*)::int AS n FROM tradein_submissions WHERE status='submitted'`),
-    // Customer accepted, cards received+graded, just needs admin to flip to paid
-    safeCount(`SELECT count(*)::int AS n FROM tradein_submissions WHERE status='approved'`),
-    // Anything actively in the fulfilment pipe
-    safeCount(`SELECT count(*)::int AS n FROM tradein_submissions WHERE status IN ('accepted','received','grading')`),
-    // Quote requests still open. 'pending' = awaiting admin pricing,
-    // 'accepted'/'received' = in the fulfilment chain, not yet paid.
-    safeCount(`SELECT count(*)::int AS n FROM quote_requests WHERE status IN ('pending','accepted','received')`),
     // Vault-item redemptions waiting on pack+ship
     safeCount(`SELECT count(*)::int AS n FROM vault_items WHERE redemption_order_id IS NOT NULL AND status='reserved'`),
     // Live auctions (not yet settled)
@@ -60,10 +47,6 @@ export async function GET() {
 
   return NextResponse.json({
     queues: {
-      tradeinsPending,
-      tradeinsAwaitingPay,
-      tradeinsInflight,
-      quotesOpen,
       redemptionsPending,
       auctionsLive,
       verificationsPending,
