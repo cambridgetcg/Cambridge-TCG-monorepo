@@ -30,11 +30,12 @@ export default function MembershipInvite() {
       <div className="grid gap-8 md:grid-cols-[1.4fr_1fr] items-start">
         <div className="max-w-2xl">
           <p className="text-base sm:text-lg text-ink-muted leading-relaxed">
-            Being part of Cambridge TCG is free. Trade with other collectors in
-            cash, between each other — no shop, no middleman. Your membership tier
+            Being part of Cambridge TCG is free. Buy and sell with other collectors
+            in cash, between each other — no shop, no middleman. Your membership tier
             sets your selling fee: <span className="text-ink">8%</span> on Bronze,{" "}
             <span className="text-ink">5%</span> at Gold, <span className="text-ink">0%</span>{" "}
-            at Platinum. And the{" "}
+            at Platinum — and what you buy here through the year lifts you up the tiers.
+            The{" "}
             <Link href="/rewards" className="text-accent hover:text-accent-strong underline underline-offset-2">
               Rewards Hub
             </Link>

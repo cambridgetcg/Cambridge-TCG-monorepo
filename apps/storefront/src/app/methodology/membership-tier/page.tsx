@@ -40,13 +40,16 @@ export default function MembershipTierMethodology() {
         promote on the next recompute. When it falls below, you demote.
       </p>
       <p>
-        Spend is counted from completed B2C orders. <strong>P2P trade volume does not count</strong>{" "}
-        toward annual_spend (the platform's commission is much smaller, and counting it would
-        create a perverse incentive to wash-trade for tier promotion).
+        Spend is the money you pay <strong>through</strong> Cambridge TCG: completed
+        peer-to-peer purchases, won auctions, and P2P lot buys all count on the buyer&rsquo;s
+        side. We don&rsquo;t sell cards ourselves — there is no shop — so your tier is built by
+        buying from other collectors here. Only the buyer&rsquo;s payment counts; a seller&rsquo;s
+        proceeds are earnings, not spend, and never raise a tier.
       </p>
       <p>
-        The recompute happens on the maintenance cron every minute. Tier moves are not
-        retroactive — your perks change from the next purchase forward.
+        The recompute runs on the daily maintenance sweep over a trailing 365-day window, so a
+        completed purchase lifts your <code>annual_spend</code> at the next sweep. Tier moves
+        aren&rsquo;t retroactive — perks change from the recompute forward.
       </p>
 
       <h3>2. Subscription (<code>tier_source = 'subscription'</code>)</h3>
@@ -95,9 +98,8 @@ export default function MembershipTierMethodology() {
 
       <h2>When a tier change happens</h2>
       <ul>
-        <li>New B2C order completes → <code>annual_spend</code> increments; tier may promote on next sweep.</li>
-        <li>Refund processed → <code>annual_spend</code> decrements; tier may demote.</li>
-        <li>365-day-old order falls out of the rolling window → <code>annual_spend</code> decrements.</li>
+        <li>A P2P trade, P2P lot, or won auction completes → the buyer&rsquo;s <code>annual_spend</code> rises; tier may promote on the next sweep.</li>
+        <li>A purchase falls out of the trailing 365-day window → <code>annual_spend</code> drops; tier may demote.</li>
         <li>Subscription starts → tier set to subscribed tier; <code>tier_source = 'subscription'</code>.</li>
         <li>Subscription cancels / fails → <code>tier_source</code> flips back; tier recomputes.</li>
         <li>Operator sets a manual tier → <code>tier_source = 'manual'</code>; recompute skipped.</li>

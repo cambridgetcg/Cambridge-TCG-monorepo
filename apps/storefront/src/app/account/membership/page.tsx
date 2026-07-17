@@ -76,10 +76,10 @@ function typeLabel(type: string) {
   return type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// The DB tier `benefits` still list shop-era perks (cashback, store discount,
-// store purchases, trade-in bonus) that retired with the shop on 2026-07-06.
-// Hide those here so the page doesn't advertise them as current, until the
-// seed data is corrected in a migration.
+// The tier `benefits` data was cleaned of shop-era perks by migration 0126.
+// This filter stays as a cheap display guard, so a fresh/un-migrated DB or any
+// future seed drift can never re-advertise a retired perk (cashback, store
+// discount, store purchases, trade-in-for-credit) as current.
 function liveBenefits(benefits: string[]): string[] {
   const retired = /cashback|store discount|off (all|every)|store (order|purchase)|store credit|trade-in/i;
   return benefits.filter((b) => !retired.test(b));
