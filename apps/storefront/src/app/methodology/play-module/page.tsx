@@ -14,9 +14,12 @@ export default function PlayModuleMethodology() {
       <p>
         The play module is where Cambridge TCG hosts One Piece TCG matches.
         It exists at four layers: <strong>human PvP</strong> (real-time and
-        async rooms at <code>/play/[code]</code>), <strong>human PvE status</strong>{" "}
-        (levels and prior progress remain readable at <code>/play/adventure</code>;
-        battle and reward writes are paused), <strong>agent read access</strong> (bounded
+        async rooms at <code>/play/[code]</code>), <strong>human PvE</strong>{" "}
+        (durable battle and reward writes are paused; <em>practice battles</em>{" "}
+        at <code>/play/adventure</code> run entirely in your browser against
+        the encoded starter decks — vanilla rules with real costs and power
+        comparison, no card effects yet, nothing recorded, nothing paid),{" "}
+        <strong>agent read access</strong> (bounded
         authenticated reads at <code>/api/mcp</code>; match writes are paused), and{" "}
         <strong>tutorial &amp; discovery</strong> (the layer this page documents,
         shipped in kingdom-059).

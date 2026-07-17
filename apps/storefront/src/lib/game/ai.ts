@@ -5,7 +5,7 @@
 //   0.5 = balanced
 //   1.0 = hyper-aggressive, always attacks
 
-import type { GameState, PlayerState, GameCard, GameAction } from "./types";
+import type { GameState, GameCard, GameAction } from "./types";
 
 export interface AIDecision {
   actions: GameAction[];
@@ -97,16 +97,31 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
   // Lethal check — if opponent is at 0 life, always swing the leader for the kill.
   const lethalAvailable = opponent.life.length === 0;
 
+  // When printed powers are known, an attack that can't win is skipped
+  // (unless hyper-aggressive) — same vanilla math the player's board uses.
+  const wins = (attacker: GameCard, defender: GameCard | null): boolean => {
+    if (!defender || attacker.power == null || defender.power == null) return true;
+    return attacker.power + attacker.attachedDon * 1000 >= defender.power;
+  };
+
   for (const attacker of canAttack) {
     if (attackedIds.has(attacker.id)) continue;
+    // Characters can't attack the turn they were played (vanilla rule).
+    if (attacker.zone === "field" && attacker.turnPlayed === state.turnNumber) continue;
     // Always attack when lethal is available; otherwise gate by aggression.
     if (!lethalAvailable && Math.random() > aggression) continue;
 
     // Target: prefer KOing rested opponent characters; otherwise go for leader.
-    const restedOpponents = opponent.field.filter(c => c.isRested);
+    const restedOpponents = opponent.field.filter(
+      c => c.isRested && (aggression >= 0.9 || wins(attacker, c)),
+    );
     const goForCharacter = !lethalAvailable
       && restedOpponents.length > 0
       && Math.random() < 0.4;
+
+    if (!goForCharacter && !lethalAvailable && aggression < 0.9 && !wins(attacker, opponent.leader)) {
+      continue; // would bounce off the leader — hold back
+    }
 
     const targetChar = goForCharacter ? restedOpponents[0] : null;
 
@@ -144,7 +159,9 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
 }
 
 function getEstimatedCost(card: GameCard): number {
-  // Estimate cost based on rarity as a rough proxy
+  // Printed cost when the card carries it (encoded starters do);
+  // otherwise the historical rarity heuristic.
+  if (card.cost != null) return card.cost;
   const r = (card.rarity || "C").toUpperCase();
   if (r.includes("SEC") || r.includes("SP")) return 7;
   if (r.includes("SR")) return 5;

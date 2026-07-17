@@ -1,9 +1,8 @@
 // OPTCG Game Engine — manages game state, turns, and actions
 
 import { query } from "@/lib/db";
-import type { GameState, PlayerState, GameCard, GameAction } from "./types";
+import type { GameState, GameAction } from "./types";
 import { applyAction } from "./reducer";
-import crypto from "crypto";
 
 // ── Room Management ──
 
@@ -67,91 +66,9 @@ export async function listPublicRooms() {
 }
 
 // ── Game Setup ──
-
-function makeCard(sku: string, name: string, cardNumber: string, imageUrl: string | null, rarity: string | null, zone: string): GameCard {
-  return {
-    id: crypto.randomUUID(),
-    sku, name, cardNumber, imageUrl, rarity,
-    isRested: false, attachedDon: 0,
-    zone: zone as GameCard["zone"],
-    position: 0, faceDown: zone === "life" || zone === "deck",
-  };
-}
-
-export function initializeGame(
-  player1Id: string, player1Name: string, player1Deck: { sku: string; name: string; cardNumber: string; imageUrl: string | null; rarity: string | null; isLeader?: boolean }[],
-  player2Id: string, player2Name: string, player2Deck: { sku: string; name: string; cardNumber: string; imageUrl: string | null; rarity: string | null; isLeader?: boolean }[]
-): GameState {
-  function setupPlayer(userId: string, name: string, deck: typeof player1Deck): PlayerState {
-    const leader = deck.find(c => c.isLeader);
-    const mainDeck = deck.filter(c => !c.isLeader);
-
-    // Shuffle
-    for (let i = mainDeck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [mainDeck[i], mainDeck[j]] = [mainDeck[j], mainDeck[i]];
-    }
-
-    const leaderCard = leader
-      ? makeCard(leader.sku, leader.name, leader.cardNumber, leader.imageUrl, leader.rarity, "leader")
-      : null;
-
-    // Life cards = top N cards (based on leader's life, default 5)
-    const lifeCount = 5;
-    const lifeCards = mainDeck.splice(0, lifeCount).map((c, i) => {
-      const card = makeCard(c.sku, c.name, c.cardNumber, c.imageUrl, c.rarity, "life");
-      card.faceDown = true;
-      card.position = i;
-      return card;
-    });
-
-    // Hand = next 5 cards
-    const handCards = mainDeck.splice(0, 5).map((c, i) => {
-      const card = makeCard(c.sku, c.name, c.cardNumber, c.imageUrl, c.rarity, "hand");
-      card.faceDown = false;
-      card.position = i;
-      return card;
-    });
-
-    // Remaining = deck
-    const deckCards = mainDeck.map((c, i) => {
-      const card = makeCard(c.sku, c.name, c.cardNumber, c.imageUrl, c.rarity, "deck");
-      card.faceDown = true;
-      card.position = i;
-      return card;
-    });
-
-    return {
-      userId, name,
-      leader: leaderCard,
-      field: [],
-      stage: null,
-      hand: handCards,
-      life: lifeCards,
-      trash: [],
-      deck: deckCards,
-      donActive: 0,
-      donRested: 0,
-      donDeck: 10,
-      lifeCount: lifeCards.length, // honest count — small decks deal fewer life cards
-    };
-  }
-
-  const p1 = setupPlayer(player1Id, player1Name, player1Deck);
-  const p2 = setupPlayer(player2Id, player2Name, player2Deck);
-
-  // Random first player
-  const firstPlayer = Math.random() < 0.5 ? player1Id : player2Id;
-
-  return {
-    player1: p1,
-    player2: p2,
-    currentTurn: firstPlayer,
-    turnNumber: 1,
-    phase: "main",
-    firstPlayer,
-  };
-}
+// initializeGame moved to engine-setup.ts (pure, browser-safe) so the
+// practice board can import it without this module's DB dependency.
+export { initializeGame } from "./engine-setup";
 
 // ── Game Actions ──
 

@@ -1,5 +1,9 @@
 // OPTCG Virtual Tabletop Types
 
+/** Card category per the official game. `null` = unknown (catalog rows
+ *  without stats); consumers must degrade honestly, not guess. */
+export type CardCategory = "leader" | "character" | "event" | "stage";
+
 export interface GameCard {
   id: string;          // unique instance ID
   sku: string;
@@ -7,12 +11,23 @@ export interface GameCard {
   cardNumber: string;
   imageUrl: string | null;
   rarity: string | null;
+  // Printed stats — optional; present when the card came from a source
+  // that carries them (e.g. the encoded starter decks). Absent stats mean
+  // "unknown", never "zero" — rules that need them must say so.
+  category?: CardCategory | null;
+  cost?: number | null;
+  power?: number | null;
+  counter?: number | null;
+  color?: string | null;
   // Game state
   isRested: boolean;   // tapped/untapped
   attachedDon: number; // DON!! cards attached
   zone: CardZone;
   position: number;    // order within zone
   faceDown: boolean;
+  /** Turn this card entered the field — lets rules enforce "characters
+   *  can't attack the turn they're played". Absent on pre-existing games. */
+  turnPlayed?: number;
 }
 
 export type CardZone =
@@ -56,6 +71,9 @@ export interface GameState {
   /** Turn number the begin_turn upkeep last ran for — makes begin_turn
    *  idempotent within a turn (and lets the server reject re-runs). */
   lastUpkeepTurn?: number;
+  /** AI aggression for practice battles (0-1). Lives in the state so a
+   *  saved-and-resumed game keeps its difficulty. */
+  aiAggression?: number;
 }
 
 export type GamePhase = "setup" | "refresh" | "draw" | "don" | "main" | "end" | "counter" | "finished";

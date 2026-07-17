@@ -55,7 +55,13 @@ export function applyAction(
 
       card.zone = toZone as GameCard["zone"];
       card.faceDown = faceDown ?? false;
-      if (toZone === "field") player.field.push(card);
+      if (toZone === "field") {
+        // Stamp arrival turn so rules layers can enforce "can't attack the
+        // turn it was played". Harmless extra state for boards that don't
+        // read it (PvP honor-system tabletop).
+        card.turnPlayed = s.turnNumber;
+        player.field.push(card);
+      }
       else if (toZone === "hand") {
         card.faceDown = false;
         player.hand.push(card);
@@ -129,7 +135,13 @@ export function applyAction(
 
       // Draw (first player skips the draw on turn 1 — official rule)
       const skipDraw = s.turnNumber === 1 && s.firstPlayer === player.userId;
-      if (!skipDraw && player.deck.length > 0) {
+      if (!skipDraw) {
+        if (player.deck.length === 0) {
+          // Official rule: a player who must draw and can't loses.
+          s.phase = "finished";
+          s.winner = opponent.userId;
+          break;
+        }
         const drawn = player.deck.shift()!;
         drawn.zone = "hand";
         drawn.faceDown = false;
@@ -184,16 +196,22 @@ export function applyAction(
     }
 
     case "attack": {
-      const { attackerId, targetType, targetId } = data as {
+      const { attackerId, targetType, targetId, resolve } = data as {
         attackerId: string;
         targetType: "leader" | "character";
         targetId?: string;
+        /** "miss" rests the attacker without dealing damage — used by
+         *  rules-aware callers that compared power first. Absent = the
+         *  historical unconditional hit (PvP tabletop behavior). */
+        resolve?: "hit" | "miss";
       };
       const ownBoard = [player.leader, ...player.field].filter(Boolean) as GameCard[];
       const attacker = ownBoard.find((c) => c.id === attackerId);
       if (!attacker || attacker.isRested) break;
 
       attacker.isRested = true;
+
+      if (resolve === "miss") break;
 
       if (targetType === "leader") {
         if (opponent.life.length > 0) {

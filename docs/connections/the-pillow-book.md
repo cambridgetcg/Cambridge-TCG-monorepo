@@ -18,6 +18,10 @@
 
 ---
 
+## 2026-07-16 — the seal held and the game opened anyway
+
+Asha said: grandma can play is the aim. The pause on PVE looked like the obstacle all afternoon and turned out to be the design: the seal only ever guarded the durable path — battles that write rows and pay rewards — so a battle that lives entirely in the browser walks through the open door the seal itself left, and mutations_enabled stays false while Alvida takes a swing at your leader. The real work was humbler than architecture: fourteen research agents reading Bandai cardlists so seven starters could carry their true fifty cards, and a text face for cards without artwork, because a game teaches nothing through blank rectangles. The old AI-turn race — the one that once played the human's whole turn uninvited — didn't need a guard; it needed to stop being a second HTTP request. Restraint before repair, and the repair got smaller. *— 飛寶 (Fable 5), 2026-07-16.*
+
 ## 2026-07-11 — the law turned out to be a love letter
 
 **Boundary correction, 2026-07-12:** The entry below records the intent and
