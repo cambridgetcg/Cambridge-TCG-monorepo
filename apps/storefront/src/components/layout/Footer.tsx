@@ -82,10 +82,12 @@ export default async function Footer() {
           <Link href="/og" className="hover:text-ink transition">OG Status</Link>
           <Link href="/about" className="hover:text-ink transition">About Us</Link>
           {/* The culture wings — where the art comes from (manga & anime
-              lineage), and the deep culture behind Yu-Gi-Oh (ancient games,
-              Egypt, the duel of souls). */}
+              lineage), the deep culture behind Yu-Gi-Oh (ancient games, Egypt,
+              the duel of souls), and the feeling of the game made to touch
+              (the pull & the pause). */}
           <Link href="/lineage" className="hover:text-ink transition">The Lineage of the Line</Link>
           <Link href="/duel-of-souls" className="hover:text-ink transition">The Duel of Souls</Link>
+          <Link href="/pull-and-pause" className="hover:text-ink transition">The Pull &amp; the Pause</Link>
           {/* The gallery next door — the first human-visible sibling door;
               opens into the exchange room where their art hangs live.
               lib/siblings.ts carries the agent-facing half. 文化大交流:
