@@ -13,8 +13,12 @@
 
 import { applyAction } from "./reducer";
 import { aiTurn } from "./ai";
-import { initializeGame } from "./engine-setup";
-import type { GameState } from "./types";
+import {
+  dealOpeningHands,
+  finalizeSetup,
+  mulliganHand,
+} from "./engine-setup";
+import type { GameAction, GameCard, GameState } from "./types";
 import {
   attackPower,
   defensePower,
@@ -33,9 +37,22 @@ export interface PracticeStep {
   log: PracticeLogEntry[];
 }
 
+/** An AI attack against the player, paused for the defense window
+ *  (Block Step 7-1-2 + Counter Step 7-1-3). Serializable — a saved game
+ *  resumes mid-defense. */
+export interface PendingDefense {
+  attackerId: string;
+  targetType: "leader" | "character";
+  targetId?: string;
+  /** AI actions still queued after this attack resolves. */
+  remainingAiActions: GameAction[];
+}
+
 export interface PracticeGame {
   state: GameState;
   log: PracticeLogEntry[];
+  /** Set while an AI attack awaits the player's block/counter decision. */
+  pendingDefense?: PendingDefense | null;
 }
 
 export const PLAYER_ID = "practice-you";
@@ -46,6 +63,24 @@ const AI_KEY = "player2" as const;
 
 function entry(text: string, actor: PracticeLogEntry["actor"]): PracticeLogEntry {
   return { text, actor };
+}
+
+const DEFEND_FIRST: ValidationResult = {
+  ok: false,
+  code: "defend_first",
+  reason: "An attack is coming in — decide your block/counter first.",
+};
+
+const SETUP_FIRST: ValidationResult = {
+  ok: false,
+  code: "setup_first",
+  reason: "Finish the mulligan decision first.",
+};
+
+function blocked(game: PracticeGame): ValidationResult | null {
+  if (game.pendingDefense) return DEFEND_FIRST;
+  if (game.state.phase === "setup") return SETUP_FIRST;
+  return null;
 }
 
 /** Run the player's start-of-turn upkeep if it hasn't run this turn. */
@@ -68,6 +103,8 @@ export function playCard(
   game: PracticeGame,
   cardId: string,
 ): { game: PracticeGame; rejected?: ValidationResult } {
+  const gate = blocked(game);
+  if (gate) return { game, rejected: gate };
   const v = validateAction(game.state, PLAYER_KEY, "play_card", { cardId });
   if (!v.ok) return { game, rejected: v };
 
@@ -90,8 +127,23 @@ export function playCard(
       ),
     );
   } else if (card.category === "stage") {
+    // CR 6-5-3: a new Stage replaces the old one — the old goes to trash.
+    const old = state.player1.stage;
+    if (old) {
+      state = applyAction(state, PLAYER_KEY, "move_card", {
+        cardId: old.id,
+        toZone: "trash",
+      });
+    }
     state = applyAction(state, PLAYER_KEY, "move_card", { cardId, toZone: "stage" });
-    log.push(entry(`You set the stage: ${card.name}${cost ? ` (cost ${cost})` : ""}.`, "you"));
+    log.push(
+      entry(
+        old
+          ? `You replaced ${old.name} with ${card.name}${cost ? ` (cost ${cost})` : ""} — the old stage goes to trash.`
+          : `You set the stage: ${card.name}${cost ? ` (cost ${cost})` : ""}.`,
+        "you",
+      ),
+    );
   } else {
     state = applyAction(state, PLAYER_KEY, "move_card", { cardId, toZone: "field" });
     log.push(entry(`You played ${card.name}${cost ? ` (cost ${cost})` : ""}.`, "you"));
@@ -128,6 +180,8 @@ export function attack(
   targetType: "leader" | "character",
   targetId?: string,
 ): { game: PracticeGame; rejected?: ValidationResult } {
+  const gate = blocked(game);
+  if (gate) return { game, rejected: gate };
   const v = validateAction(game.state, PLAYER_KEY, "attack", {
     attackerId,
     targetType,
@@ -140,36 +194,116 @@ export function attack(
   const attacker = ([p1.leader, ...p1.field].filter(Boolean) as typeof p1.field).find(
     (c) => c.id === attackerId,
   )!;
-  const defender =
+  let defender =
     targetType === "leader" ? p2.leader! : p2.field.find((c) => c.id === targetId)!;
+  let finalTargetType = targetType;
+  let finalTargetId = targetId;
 
-  const outcome = resolveAttack(attacker, defender);
+  let state = game.state;
+  let log = [...game.log];
+  const atk = attackPower(attacker);
+
+  // ── Block Step (7-1-2), AI seat: rest an active [Blocker] to redirect.
+  // Heuristic: block hits on the leader when life is short, or hits that
+  // would KO a character worth more than the cheapest blocker.
+  const aiBlockers = p2.field.filter(
+    (c) => !c.isRested && c.keywords?.includes("blocker"),
+  );
+  const wouldHit = (d: GameCard) => {
+    const dp = defensePower(d);
+    return atk == null || dp == null || atk >= dp;
+  };
+  const worthBlocking =
+    (finalTargetType === "leader" && p2.life.length <= 3 && wouldHit(p2.leader!)) ||
+    (finalTargetType === "character" &&
+      wouldHit(defender) &&
+      (defender.cost ?? 0) >= 3);
+  if (aiBlockers.length > 0 && worthBlocking) {
+    const blocker = [...aiBlockers].sort(
+      (a, b) => (a.power ?? 0) - (b.power ?? 0),
+    )[0];
+    state = applyAction(state, AI_KEY, "toggle_rest", { cardId: blocker.id });
+    defender = state.player2.field.find((c) => c.id === blocker.id)!;
+    finalTargetType = "character";
+    finalTargetId = blocker.id;
+    log.push(entry(`${p2.name} blocks with ${blocker.name} — the attack is redirected!`, "ai"));
+  }
+
+  // ── Counter Step (7-1-3), AI seat: trash counter cards to survive.
+  // Heuristic: only to protect short life or a costly character; up to two
+  // counters, smallest first, only if that actually flips the outcome.
+  let counterBonus = 0;
+  const def0 = defensePower(defender);
+  if (atk != null && def0 != null && atk >= def0) {
+    const protecting =
+      (finalTargetType === "leader" && state.player2.life.length <= 3) ||
+      (finalTargetType === "character" && (defender.cost ?? 0) >= 3);
+    if (protecting) {
+      const counters = state.player2.hand
+        .filter((c) => c.counter != null && c.counter > 0)
+        .sort((a, b) => (a.counter ?? 0) - (b.counter ?? 0));
+      const used: GameCard[] = [];
+      let sum = 0;
+      for (const c of counters) {
+        if (used.length >= 2) break;
+        used.push(c);
+        sum += c.counter ?? 0;
+        if (def0 + sum > atk) break;
+      }
+      if (def0 + sum > atk) {
+        for (const c of used) {
+          state = applyAction(state, AI_KEY, "move_card", {
+            cardId: c.id,
+            toZone: "trash",
+          });
+          log.push(
+            entry(`${p2.name} trashes ${c.name} for +${c.counter} counter.`, "ai"),
+          );
+        }
+        counterBonus = sum;
+      }
+    }
+  }
+
+  const defense = (defensePower(defender) ?? 0) + counterBonus;
+  const outcome: "hit" | "miss" | "unknown" =
+    atk == null || defensePower(defender) == null
+      ? "unknown"
+      : atk >= defense
+        ? "hit"
+        : "miss";
   const resolve = outcome === "miss" ? "miss" : "hit";
-  const state = applyAction(game.state, PLAYER_KEY, "attack", {
+  state = applyAction(state, PLAYER_KEY, "attack", {
     attackerId,
-    targetType,
-    targetId,
+    targetType: finalTargetType,
+    targetId: finalTargetId,
     resolve,
   });
 
-  const log = [
-    ...game.log,
+  log.push(
     entry(
       describeAttack(
         attacker.name,
-        attackPower(attacker),
-        targetType === "leader" ? `${p2.name}'s leader` : defender.name,
-        defensePower(defender),
+        atk,
+        finalTargetType === "leader" ? `${p2.name}'s leader` : defender.name,
+        defensePower(defender) == null ? null : defense,
         outcome,
         "You",
       ),
       "you",
     ),
-  ];
+  );
   if (state.phase === "finished" && state.winner === PLAYER_ID) {
     log.push(entry("Their life is gone — you win!", "board"));
-  } else if (outcome !== "miss" && targetType === "leader") {
-    log.push(entry(`${p2.name} takes a life card into hand.`, "board"));
+  } else if (outcome !== "miss" && finalTargetType === "leader") {
+    const banish = attacker.keywords?.includes("banish") === true;
+    const dbl = attacker.keywords?.includes("double_attack") === true;
+    log.push(
+      entry(
+        `${p2.name} ${banish ? "banishes" : "takes"} ${dbl ? "2 life cards" : "a life card"}${banish ? " to the trash ([Banish])" : " into hand"}${dbl ? " ([Double Attack])" : ""}.`,
+        "board",
+      ),
+    );
   }
 
   return { game: { state, log } };
@@ -179,6 +313,8 @@ export function attachDon(
   game: PracticeGame,
   cardId: string,
 ): { game: PracticeGame; rejected?: ValidationResult } {
+  const gate = blocked(game);
+  if (gate) return { game, rejected: gate };
   const v = validateAction(game.state, PLAYER_KEY, "attach_don", { cardId });
   if (!v.ok) return { game, rejected: v };
   const state = applyAction(game.state, PLAYER_KEY, "attach_don", { cardId });
@@ -203,6 +339,8 @@ export function endTurn(game: PracticeGame): {
   steps: PracticeStep[];
   rejected?: ValidationResult;
 } {
+  const gate = blocked(game);
+  if (gate) return { game, steps: [], rejected: gate };
   const v = validateAction(game.state, PLAYER_KEY, "end_turn", {});
   if (!v.ok) return { game, steps: [], rejected: v };
 
@@ -211,92 +349,252 @@ export function endTurn(game: PracticeGame): {
   const steps: PracticeStep[] = [{ state, log }];
 
   const aiResult = runAiTurn({ state, log });
-  state = aiResult.game.state;
-  log = aiResult.game.log;
   steps.push(...aiResult.steps);
-
-  // Back to the player: run their upkeep so the board is ready to act.
-  if (state.phase !== "finished") {
-    const after = upkeep({ state, log });
-    state = after.state;
-    log = after.log;
-    steps.push({ state, log });
+  if (aiResult.game.pendingDefense) {
+    // The AI's attack awaits the player's block/counter decision.
+    return { game: aiResult.game, steps };
   }
-
-  return { game: { state, log }, steps };
+  const done = finishAiFlow(aiResult);
+  steps.push(...done.steps.slice(aiResult.steps.length));
+  return { game: done.game, steps };
 }
 
-/** The AI's full turn as reducer steps. Attacks get the same power
- *  comparison the player gets — one rulebook for both seats. */
+/** The AI's full turn as reducer steps. Attacks pause for the player's
+ *  defense window (block + counter) — resolveDefense resumes the queue. */
 function runAiTurn(game: PracticeGame): { game: PracticeGame; steps: PracticeStep[] } {
+  const state = game.state;
+  if (state.phase === "finished" || state.currentTurn !== AI_ID) {
+    return { game, steps: [] };
+  }
+  const aggression = state.aiAggression ?? 0.5;
+  const decision = aiTurn(state, "player2", aggression);
+  let actions = decision.actions;
+  if (state.turnNumber === 1 && state.firstPlayer === AI_ID) {
+    actions = actions.filter((a) => a.type !== "draw_card");
+  }
+  if (state.turnNumber <= 2) {
+    actions = actions.filter((a) => a.type !== "attack");
+  }
+  return runAiActions(game, actions);
+}
+
+/** Apply queued AI actions one by one; PAUSE when an attack targets the
+ *  player, exposing the defense window. */
+function runAiActions(
+  game: PracticeGame,
+  actions: GameAction[],
+): { game: PracticeGame; steps: PracticeStep[] } {
   let state = game.state;
   let log = game.log;
   const steps: PracticeStep[] = [];
 
-  if (state.phase === "finished" || state.currentTurn !== AI_ID) {
-    return { game, steps };
-  }
-
-  const aggression = state.aiAggression ?? 0.5;
-  const decision = aiTurn(state, AI_KEY, aggression);
-
-  // Official rules: whoever goes first skips their first draw AND cannot
-  // attack on turn 1. The AI plan includes both; drop them when it opens.
-  const actions =
-    state.turnNumber === 1 && state.firstPlayer === AI_ID
-      ? decision.actions.filter((a) => a.type !== "draw_card" && a.type !== "attack")
-      : decision.actions;
-
-  for (const action of actions) {
+  for (let i = 0; i < actions.length; i++) {
+    const action = actions[i];
     if (state.phase === "finished") break;
 
     if (action.type === "attack") {
-      const data = action.data as { attackerId: string; targetType: "leader" | "character"; targetId?: string };
+      const data = action.data as {
+        attackerId: string;
+        targetType: "leader" | "character";
+        targetId?: string;
+      };
       const ai = state.player2;
-      const you = state.player1;
-      const attacker = ([ai.leader, ...ai.field].filter(Boolean) as typeof ai.field).find(
+      const attacker = ([ai.leader, ...ai.field].filter(Boolean) as GameCard[]).find(
         (c) => c.id === data.attackerId,
       );
       if (!attacker || attacker.isRested) continue;
-      const defender =
-        data.targetType === "leader"
-          ? you.leader
-          : you.field.find((c) => c.id === data.targetId);
-      if (!defender) continue;
 
-      const outcome = resolveAttack(attacker, defender);
-      state = applyAction(state, AI_KEY, "attack", {
-        ...data,
-        resolve: outcome === "miss" ? "miss" : "hit",
-      });
+      const atk = attackPower(attacker);
+      const target =
+        data.targetType === "leader"
+          ? state.player1.leader
+          : state.player1.field.find((c) => c.id === data.targetId);
+      if (!target) continue;
+
       log = [
         ...log,
         entry(
-          describeAttack(
-            attacker.name,
-            attackPower(attacker),
-            data.targetType === "leader" ? "your leader" : defender.name,
-            defensePower(defender),
-            outcome,
-            "AI",
-          ),
+          `${ai.name}'s ${attacker.name} attacks ${
+            data.targetType === "leader" ? "your leader" : target.name
+          }${atk != null ? ` with ${atk} power` : ""} — your move: block or counter?`,
           "ai",
         ),
       ];
-      if (state.phase === "finished") {
-        log = [...log, entry("Your life is gone — defeat.", "board")];
-      } else if (outcome !== "miss" && data.targetType === "leader") {
-        log = [...log, entry("You take a life card into hand.", "board")];
-      }
-    } else {
-      state = applyAction(state, AI_KEY, action.type, action.data);
-      const text = describeAiAction(action.type, action.data, state);
-      if (text) log = [...log, entry(text, "ai")];
+      const paused: PracticeGame = {
+        state,
+        log,
+        pendingDefense: {
+          attackerId: data.attackerId,
+          targetType: data.targetType,
+          targetId: data.targetId,
+          remainingAiActions: actions.slice(i + 1),
+        },
+      };
+      steps.push({ state, log });
+      return { game: paused, steps };
     }
+
+    state = applyAction(state, AI_KEY, action.type, action.data);
+    const text = describeAiAction(action.type, action.data, state);
+    if (text) log = [...log, entry(text, "ai")];
     steps.push({ state, log });
   }
 
-  return { game: { state, log }, steps };
+  return { game: { state, log, pendingDefense: null }, steps };
+}
+
+/**
+ * The player's answer to a paused AI attack: optionally rest one of their
+ * active [Blocker] characters (Block Step 7-1-2) and/or trash hand cards
+ * for their printed counter values (Counter Step 7-1-3). Then the Damage
+ * Step resolves and the AI's remaining actions continue.
+ */
+export function resolveDefense(
+  game: PracticeGame,
+  choice: { blockerId?: string | null; counterCardIds?: string[] },
+): { game: PracticeGame; steps: PracticeStep[]; rejected?: ValidationResult } {
+  const pd = game.pendingDefense;
+  if (!pd) {
+    return {
+      game,
+      steps: [],
+      rejected: { ok: false, code: "no_pending", reason: "No attack to defend against." },
+    };
+  }
+
+  let state = game.state;
+  const log = [...game.log];
+  const steps: PracticeStep[] = [];
+
+  const ai = state.player2;
+  const attacker = ([ai.leader, ...ai.field].filter(Boolean) as GameCard[]).find(
+    (c) => c.id === pd.attackerId,
+  );
+  if (!attacker) {
+    // Attacker vanished (shouldn't happen in vanilla) — battle fizzles.
+    return finishAiFlow(
+      runAiActions({ state, log, pendingDefense: null }, pd.remainingAiActions),
+    );
+  }
+
+  let targetType = pd.targetType;
+  let targetId = pd.targetId;
+  let defender: GameCard | null =
+    targetType === "leader"
+      ? state.player1.leader
+      : (state.player1.field.find((c) => c.id === targetId) ?? null);
+
+  // Block Step — player's choice.
+  if (choice.blockerId) {
+    const blockerCard = state.player1.field.find((c) => c.id === choice.blockerId);
+    if (!blockerCard || blockerCard.isRested || !blockerCard.keywords?.includes("blocker")) {
+      return {
+        game,
+        steps: [],
+        rejected: {
+          ok: false,
+          code: "bad_blocker",
+          reason: "A blocker must be one of your ACTIVE characters with [Blocker].",
+        },
+      };
+    }
+    state = applyAction(state, PLAYER_KEY, "toggle_rest", { cardId: blockerCard.id });
+    defender = state.player1.field.find((c) => c.id === blockerCard.id)!;
+    targetType = "character";
+    targetId = blockerCard.id;
+    log.push(entry(`You block with ${defender.name} — the attack is redirected.`, "you"));
+  }
+
+  // Counter Step — player's choice.
+  let counterBonus = 0;
+  for (const id of choice.counterCardIds ?? []) {
+    const card = state.player1.hand.find((c) => c.id === id);
+    if (!card || card.counter == null || card.counter <= 0) {
+      return {
+        game,
+        steps: [],
+        rejected: {
+          ok: false,
+          code: "bad_counter",
+          reason: "Counters must be cards in your hand with a printed counter value.",
+        },
+      };
+    }
+    state = applyAction(state, PLAYER_KEY, "move_card", { cardId: id, toZone: "trash" });
+    counterBonus += card.counter;
+    log.push(entry(`You trash ${card.name} for +${card.counter} counter.`, "you"));
+  }
+
+  if (!defender) {
+    return finishAiFlow(
+      runAiActions({ state, log, pendingDefense: null }, pd.remainingAiActions),
+    );
+  }
+
+  // Damage Step (7-1-4): ties favor the attacker; counters raise defense
+  // for this battle only.
+  const atk = attackPower(attacker);
+  const baseDef = defensePower(defender);
+  const defense = (baseDef ?? 0) + counterBonus;
+  const outcome: "hit" | "miss" | "unknown" =
+    atk == null || baseDef == null ? "unknown" : atk >= defense ? "hit" : "miss";
+
+  state = applyAction(state, AI_KEY, "attack", {
+    attackerId: pd.attackerId,
+    targetType,
+    targetId,
+    resolve: outcome === "miss" ? "miss" : "hit",
+  });
+  log.push(
+    entry(
+      describeAttack(
+        attacker.name,
+        atk,
+        targetType === "leader" ? "your leader" : defender.name,
+        baseDef == null ? null : defense,
+        outcome,
+        "AI",
+      ),
+      "ai",
+    ),
+  );
+  if (state.phase === "finished" && state.winner === AI_ID) {
+    log.push(entry("Your life is gone — defeat.", "board"));
+  } else if (outcome !== "miss" && targetType === "leader") {
+    const taken = state.player1.hand[state.player1.hand.length - 1];
+    const trig = taken?.hasTrigger
+      ? " It has a [Trigger] — not interpreted yet, so it joins your hand."
+      : "";
+    log.push(entry(`You take a life card into hand.${trig}`, "board"));
+  }
+  steps.push({ state, log });
+
+  const resumed = runAiActions({ state, log, pendingDefense: null }, pd.remainingAiActions);
+  const out = finishAiFlow(resumed);
+  return { game: out.game, steps: [...steps, ...out.steps] };
+}
+
+/** After the AI queue drains (no pause left), hand the board back to the
+ *  player: their upkeep runs so the next turn is live. */
+function finishAiFlow(r: {
+  game: PracticeGame;
+  steps: PracticeStep[];
+}): { game: PracticeGame; steps: PracticeStep[] } {
+  let g = r.game;
+  const steps = [...r.steps];
+  if (
+    !g.pendingDefense &&
+    g.state.phase !== "finished" &&
+    g.state.currentTurn === PLAYER_ID &&
+    g.state.lastUpkeepTurn !== g.state.turnNumber
+  ) {
+    const ready = upkeep(g);
+    if (ready !== g) {
+      g = { state: ready.state, log: ready.log, pendingDefense: null };
+      steps.push({ state: g.state, log: g.log });
+    }
+  }
+  return { game: g, steps };
 }
 
 function describeAiAction(
@@ -340,48 +638,114 @@ export interface PracticeSetupCard {
   life?: number | null;
   textEn?: string | null;
   textAttribution?: string | null;
+  keywords?: ("rush" | "blocker" | "double_attack" | "banish")[];
+  hasTrigger?: boolean;
   isLeader?: boolean;
 }
 
-/** Build a fresh practice game. Both decks arrive as full card lists (the
- *  encoded starters) — no catalog round-trip, no partial resolution. */
-export function startPracticeGame(
+/**
+ * Official setup, staged (CR 5-2-1): hands are dealt and the game pauses in
+ * the mulligan window — the board shows the hand and asks Keep / Redraw.
+ * `playerGoesFirst` was declared by the toss winner (5-2-1-4/5).
+ */
+export function startPracticeSetup(
   playerName: string,
   playerDeck: PracticeSetupCard[],
   aiName: string,
   aiDeck: PracticeSetupCard[],
   aiAggression: number,
-): { game: PracticeGame; steps: PracticeStep[] } {
-  const state = initializeGame(
+  playerGoesFirst: boolean,
+): PracticeGame {
+  const state = dealOpeningHands(
     PLAYER_ID,
     playerName,
     playerDeck,
     AI_ID,
     aiName,
     aiDeck,
+    playerGoesFirst ? PLAYER_ID : AI_ID,
   );
   state.aiAggression = aiAggression;
-
-  let log: PracticeLogEntry[] = [
+  const log: PracticeLogEntry[] = [
     entry(
-      "Practice battle — it lives in this browser tab, records nothing, and pays nothing. Vanilla rules: costs and power are real, card effects aren't interpreted yet.",
+      "Practice battle — it lives in this browser tab, records nothing, and pays nothing. Costs, power, counters, and blockers are real; other card effects aren't interpreted yet.",
+      "board",
+    ),
+    entry(
+      playerGoesFirst ? "You go first." : `${aiName} goes first.`,
+      "board",
+    ),
+    entry(
+      "Opening hands are dealt. You may redraw your whole hand once (official mulligan) — then life cards are placed.",
       "board",
     ),
   ];
-  const first = state.firstPlayer === PLAYER_ID ? "You go" : `${aiName} goes`;
-  log = [...log, entry(`${first} first.`, "board")];
+  return { state, log };
+}
 
-  let game: PracticeGame = { state, log };
-  const steps: PracticeStep[] = [];
+/** The AI redraws when its opening hand can't develop early — no card of
+ *  cost 2 or less. A heuristic, not doctrine; the log says what it did. */
+function aiWantsMulligan(state: GameState): boolean {
+  return !state.player2.hand.some((c) => c.cost != null && c.cost <= 2);
+}
+
+/**
+ * Close the mulligan window (CR 5-2-1-6: first player decides first — both
+ * decisions apply here in official order), deal life (5-2-1-7), and open
+ * the game: the AI plays out its opening turn when it goes first, and the
+ * player's first upkeep runs so the board is live.
+ */
+export function resolveMulligans(
+  game: PracticeGame,
+  playerMulligans: boolean,
+): { game: PracticeGame; steps: PracticeStep[] } {
+  let state = game.state;
+  let log = game.log;
+
+  const aiMulligans = aiWantsMulligan(state);
+  const decisions: Array<["player1" | "player2", boolean]> =
+    state.firstPlayer === PLAYER_ID
+      ? [["player1", playerMulligans], ["player2", aiMulligans]]
+      : [["player2", aiMulligans], ["player1", playerMulligans]];
+
+  for (const [key, wants] of decisions) {
+    if (!wants) continue;
+    state = mulliganHand(state, key);
+    log = [
+      ...log,
+      entry(
+        key === "player1"
+          ? "You returned your hand and redrew 5."
+          : `${state.player2.name} returned their hand and redrew 5.`,
+        key === "player1" ? "you" : "ai",
+      ),
+    ];
+  }
+
+  state = finalizeSetup(state);
+  log = [
+    ...log,
+    entry(
+      `Life cards are set — ${state.player1.life.length} for you, ${state.player2.life.length} for ${state.player2.name}. The first player begins.`,
+      "board",
+    ),
+  ];
+
+  let g: PracticeGame = { state, log };
+  const steps: PracticeStep[] = [{ state, log }];
 
   if (state.firstPlayer === AI_ID) {
-    // AI opens; then the player's first upkeep runs so the board is live.
-    const opening = runAiTurn(game);
-    game = opening.game;
+    const opening = runAiTurn(g);
+    g = opening.game;
     steps.push(...opening.steps);
+    if (g.pendingDefense) return { game: g, steps };
   }
-  const ready = upkeep(game);
-  if (ready !== game) steps.push({ state: ready.state, log: ready.log });
-
-  return { game: ready, steps };
+  if (g.state.phase !== "finished") {
+    const ready = upkeep(g);
+    if (ready !== g) {
+      g = { ...ready, pendingDefense: g.pendingDefense };
+      steps.push({ state: g.state, log: g.log });
+    }
+  }
+  return { game: g, steps };
 }

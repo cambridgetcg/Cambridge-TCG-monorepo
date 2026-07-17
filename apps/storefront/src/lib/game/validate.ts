@@ -98,9 +98,7 @@ export function validateAction(
         );
       }
       if (card.category === "stage") {
-        if (player.stage) {
-          return no("stage_occupied", "Your stage area already has a card.");
-        }
+        // CR 6-5-3: playing a new Stage replaces the existing one.
         return ok;
       }
       if (card.category === "event") {
@@ -126,20 +124,22 @@ export function validateAction(
       if (attacker.isRested) {
         return no("attacker_rested", `${attacker.name} is rested — it already acted this turn.`);
       }
-      if (
-        state.turnNumber === 1 &&
-        state.firstPlayer === player.userId
-      ) {
-        return no("first_turn", "The player who goes first can't attack on turn 1.");
+      if (state.turnNumber <= 2) {
+        // CR 6-5-6-1: "Neither player can battle on their first turn."
+        return no(
+          "first_turn",
+          "Neither player can attack on their first turn — build your board first.",
+        );
       }
       if (
         attacker.zone === "field" &&
         attacker.turnPlayed != null &&
-        attacker.turnPlayed === state.turnNumber
+        attacker.turnPlayed === state.turnNumber &&
+        !attacker.keywords?.includes("rush")
       ) {
         return no(
           "summoning_sickness",
-          `${attacker.name} was just played — characters can't attack the turn they arrive.`,
+          `${attacker.name} was just played — characters can't attack the turn they arrive (unless they have [Rush]).`,
         );
       }
       if (targetType === "leader") return ok;

@@ -19,10 +19,17 @@ export interface GameCard {
   power?: number | null;
   counter?: number | null;
   color?: string | null;
+  /** Printed Leader life — leaders only. */
+  life?: number | null;
   /** Verbatim EN effect text (legal collection). The recorded publication
    *  rule requires textAttribution rendered wherever this is shown. */
   textEn?: string | null;
   textAttribution?: string | null;
+  /** Unconditionally possessed keywords (verified data); conditional
+   *  grants are Phase-4 effects and absent here. */
+  keywords?: ("rush" | "blocker" | "double_attack" | "banish")[];
+  /** Printed [Trigger] section exists (reveal label only until Phase 4). */
+  hasTrigger?: boolean;
   // Game state
   isRested: boolean;   // tapped/untapped
   attachedDon: number; // DON!! cards attached

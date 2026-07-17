@@ -166,7 +166,7 @@ export default function HowToPlayPage() {
         name: "How do you win in One Piece TCG?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Reduce your opponent to 0 Life cards, then land one more attack on their Leader. Alternatively, your opponent loses if they cannot draw a card when required (deck out).",
+          text: "Reduce your opponent to 0 Life cards, then land one more attack on their Leader. Alternatively, a player loses the moment their deck reaches 0 cards (deck out).",
         },
       },
       {
@@ -463,34 +463,32 @@ export default function HowToPlayPage() {
           </SectionHeading>
 
           <p className="text-ink-muted leading-relaxed mb-8">
-            Setting up takes less than a minute. Follow these five steps and you
-            are ready to play.
+            Setting up takes less than a minute. Follow these six steps — in
+            this order, per the official rules — and you are ready to play.
           </p>
 
           <div className="space-y-5">
             <Step n={1}>
+              <p className="text-ink font-bold">Shuffle and place your deck</p>
+              <p className="text-sm text-ink-muted mt-1">
+                Shuffle your 50-card deck thoroughly and place it face-down in
+                your Deck Area. Stack your 10 DON!! cards face-down beside it.
+              </p>
+            </Step>
+            <Step n={2}>
               <p className="text-ink font-bold">Place your Leader face-up</p>
               <p className="text-sm text-ink-muted mt-1">
                 Your Leader goes in the Leader Area in front of you. It stays
                 there for the entire game.
               </p>
             </Step>
-            <Step n={2}>
-              <p className="text-ink font-bold">Set your Life cards</p>
-              <p className="text-sm text-ink-muted mt-1">
-                Take cards from the top of your deck equal to your Leader&apos;s
-                Life value and place them face-down in your Life Area. These are
-                your Life cards — when an attack gets through your Leader, you
-                reveal one and add it to your hand. Most Leaders have 4 or 5 Life.
-              </p>
-            </Step>
             <Step n={3}>
-              <p className="text-ink font-bold">
-                Place 10 DON!! cards in your DON!! deck
-              </p>
+              <p className="text-ink font-bold">Decide who goes first</p>
               <p className="text-sm text-ink-muted mt-1">
-                Stack your 10 DON!! cards face-down next to your play area. You
-                will draw from this pile each turn.
+                Rock-paper-scissors (or any method you agree on) — and here is
+                the detail most people miss: the winner doesn&apos;t
+                automatically go first, the winner <em>chooses</em> whether to
+                go first or second.
               </p>
             </Step>
             <Step n={4}>
@@ -498,15 +496,27 @@ export default function HowToPlayPage() {
               <p className="text-sm text-ink-muted mt-1">
                 Draw 5 cards from the top of your deck. If you do not like your
                 hand, you get one mulligan: shuffle all 5 back and draw 5 new
-                cards. You must keep the second hand.
+                cards, deciding in turn order (first player first). You must
+                keep the second hand.
               </p>
             </Step>
             <Step n={5}>
-              <p className="text-ink font-bold">Decide who goes first</p>
+              <p className="text-ink font-bold">Set your Life cards</p>
               <p className="text-sm text-ink-muted mt-1">
-                Rock-paper-scissors, coin flip, or any method you agree on. The
-                first player only adds 1 DON!! on their first turn (instead of
-                2) and cannot attack on their very first turn.
+                After the mulligan window closes, take cards from the top of
+                your deck equal to your Leader&apos;s Life value and place them
+                face-down in your Life Area — the card from the top of the deck
+                goes to the bottom of the pile. When an attack gets through
+                your Leader, you reveal the top one and add it to your hand.
+              </p>
+            </Step>
+            <Step n={6}>
+              <p className="text-ink font-bold">The first player begins</p>
+              <p className="text-sm text-ink-muted mt-1">
+                The first player adds only 1 DON!! on their first turn (instead
+                of 2) and skips their first draw. Neither player can attack on
+                their own first turn — the battling starts from each
+                player&apos;s second turn.
               </p>
             </Step>
           </div>
@@ -862,9 +872,9 @@ export default function HowToPlayPage() {
                 Alternate Win Condition: Deck Out
               </p>
               <p className="text-sm text-ink-muted leading-relaxed">
-                If a player needs to draw a card and their deck is empty, they
-                lose. This is rare but can happen in long games or against mill
-                strategies.
+                The moment a player has 0 cards left in their deck, they lose —
+                drawing your last card ends the game on the spot. This is rare
+                but can happen in long games or against mill strategies.
               </p>
             </Card>
           </div>

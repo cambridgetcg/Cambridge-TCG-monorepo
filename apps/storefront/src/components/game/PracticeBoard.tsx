@@ -22,7 +22,9 @@ import {
   attachDon,
   endTurn,
   playCard,
-  startPracticeGame,
+  resolveDefense,
+  resolveMulligans,
+  startPracticeSetup,
   PLAYER_ID,
   type PracticeGame,
   type PracticeLogEntry,
@@ -87,6 +89,7 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
   const [game, setGame] = useState<PracticeGame | null>(null);
   const [starterId, setStarterId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [tossChoice, setTossChoice] = useState<string | null>(null); // starterId awaiting first/second
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
@@ -149,9 +152,23 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
     [],
   );
 
+  /** Rock-paper-scissors stand-in (CR 5-2-1-4): a fair toss decides who
+   *  CHOOSES first or second. When the player wins, they choose; when the
+   *  AI wins, it chooses to go first. */
   async function handleStart(id: string) {
     if (!level || starting) return;
+    const playerWonToss = Math.random() < 0.5;
+    if (playerWonToss) {
+      setTossChoice(id); // render the first/second choice
+      return;
+    }
+    await beginSetup(id, false, `${level.opponentName} won the toss and chose to go first.`);
+  }
+
+  async function beginSetup(id: string, playerGoesFirst: boolean, tossNote: string) {
+    if (!level || starting) return;
     setStarting(true);
+    setTossChoice(null);
     // Artwork + EN card text are best-effort enhancements fetched from the
     // read-only catalog API (bounded by a short timeout) — cards the
     // collection can't cover keep their text faces / show no rules text,
@@ -174,18 +191,32 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
     clearRecordedRef.current = false;
     setStarterId(id);
     setStarting(false);
-    const { game: fresh, steps } = startPracticeGame(
+    const fresh = startPracticeSetup(
       "You",
       player.deck,
       level.opponentName,
       ai.deck,
       level.aiAggression,
+      playerGoesFirst,
     );
-    if (steps.length > 0) {
-      void animateSteps(steps, fresh);
-    } else {
-      setGame(fresh);
+    fresh.log.splice(1, 0, { text: tossNote, actor: "board" });
+    setGame(fresh); // phase "setup" — the mulligan window renders
+  }
+
+  function handleMulligan(redraw: boolean) {
+    if (!game || animatingRef.current) return;
+    const { game: after, steps } = resolveMulligans(game, redraw);
+    void animateSteps(steps, after);
+  }
+
+  function handleDefense(choice: { blockerId?: string | null; counterCardIds?: string[] }) {
+    if (!game || animatingRef.current) return;
+    const r = resolveDefense(game, choice);
+    if (r.rejected && !r.rejected.ok) {
+      say(r.rejected.reason);
+      return;
     }
+    void animateSteps(r.steps, r.game);
   }
 
   function handlePlayCard(cardId: string) {
@@ -246,12 +277,49 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
   }
 
   if (!game) {
+    if (tossChoice) {
+      return (
+        <main className="min-h-screen bg-page text-ink flex items-center justify-center px-4">
+          <div className="bg-surface border border-border-subtle rounded-xl p-8 max-w-md w-full text-center space-y-5">
+            <h2 className="text-2xl font-display font-semibold">You won the toss!</h2>
+            <p className="text-ink-muted text-sm">
+              The toss winner chooses turn order (official rule). Going first
+              means no draw and 1 DON!! on turn one; going second means a full
+              draw and 2 DON!!.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => void beginSetup(tossChoice, true, "You won the toss and chose to go first.")}
+                className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-6 py-3 transition-colors"
+              >
+                Go first
+              </button>
+              <button
+                onClick={() => void beginSetup(tossChoice, false, "You won the toss and chose to go second.")}
+                className="bg-surface border border-border-subtle text-ink font-semibold rounded-lg px-6 py-3 transition-colors"
+              >
+                Go second
+              </button>
+            </div>
+          </div>
+        </main>
+      );
+    }
     return (
       <SetupScreen
         level={level}
         rememberedStarterId={starterId}
         starting={starting}
         onStart={(id) => void handleStart(id)}
+      />
+    );
+  }
+
+  if (game.state.phase === "setup" && !animating) {
+    return (
+      <MulliganPrompt
+        hand={game.state.player1.hand}
+        onDecide={handleMulligan}
       />
     );
   }
@@ -278,6 +346,12 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
 
   return (
     <main className="min-h-screen bg-page text-ink flex flex-col">
+      {game.pendingDefense && !animating && (
+        <DefensePrompt
+          game={game}
+          onResolve={handleDefense}
+        />
+      )}
       {selectedCard && (
         <ActionSheet
           card={selectedCard}
@@ -337,7 +411,8 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
       {/* Practice framing — one quiet line, always visible */}
       <p className="text-center text-[11px] text-ink-faint py-1 border-b border-border-subtle bg-surface-subtle">
         Practice battle — lives in this browser, records nothing, pays nothing.
-        Costs and power are real; card effects aren&apos;t interpreted yet.
+        Costs, power, counters, and blockers are real; other card effects
+        aren&apos;t interpreted yet.
       </p>
 
       {/* Board — compact: both zones + phase bar fit one laptop screen */}
@@ -870,5 +945,195 @@ function EndScreen({
         )}
       </div>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mulligan window (CR 5-2-1-6) — keep or redraw the whole hand once  */
+/* ------------------------------------------------------------------ */
+
+function MulliganPrompt({
+  hand,
+  onDecide,
+}: {
+  hand: GameCard[];
+  onDecide: (redraw: boolean) => void;
+}) {
+  return (
+    <main className="min-h-screen bg-page text-ink flex items-center justify-center px-4 py-8">
+      <div className="bg-surface border border-border-subtle rounded-xl p-6 sm:p-8 max-w-2xl w-full space-y-5 text-center">
+        <div>
+          <h2 className="text-2xl font-display font-semibold">Your opening hand</h2>
+          <p className="text-ink-muted text-sm mt-1">
+            You may return all five and redraw once — then life cards are set
+            and the battle begins.
+          </p>
+        </div>
+        <div className="flex items-end justify-center gap-2 flex-wrap">
+          {hand.map((card) => (
+            <GameCardView key={card.id} card={card} />
+          ))}
+        </div>
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={() => onDecide(false)}
+            className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-8 py-3 transition-colors"
+          >
+            Keep hand
+          </button>
+          <button
+            onClick={() => onDecide(true)}
+            className="bg-surface border border-border-subtle text-ink font-semibold rounded-lg px-6 py-3 transition-colors"
+          >
+            Redraw all 5 (once)
+          </button>
+        </div>
+        <p className="text-[11px] text-ink-faint">
+          Official mulligan: the whole hand, once per player. Your opponent
+          decides too.
+        </p>
+      </div>
+    </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Defense window — Block Step (7-1-2) + Counter Step (7-1-3)         */
+/* ------------------------------------------------------------------ */
+
+function DefensePrompt({
+  game,
+  onResolve,
+}: {
+  game: PracticeGame;
+  onResolve: (choice: { blockerId?: string | null; counterCardIds?: string[] }) => void;
+}) {
+  const pd = game.pendingDefense!;
+  const you = game.state.player1;
+  const ai = game.state.player2;
+  const [blockerId, setBlockerId] = useState<string | null>(null);
+  const [counterIds, setCounterIds] = useState<string[]>([]);
+
+  const attacker = ([ai.leader, ...ai.field].filter(Boolean) as GameCard[]).find(
+    (c) => c.id === pd.attackerId,
+  );
+  const originalTarget =
+    pd.targetType === "leader"
+      ? you.leader
+      : you.field.find((c) => c.id === pd.targetId) ?? null;
+  const blocker = blockerId ? you.field.find((c) => c.id === blockerId) ?? null : null;
+  const defender = blocker ?? originalTarget;
+
+  const atk = attacker ? attackPower(attacker) : null;
+  const counterSum = counterIds.reduce(
+    (sum, id) => sum + (you.hand.find((c) => c.id === id)?.counter ?? 0),
+    0,
+  );
+  const baseDef = defender ? defensePower(defender) : null;
+  const totalDef = (baseDef ?? 0) + counterSum;
+  const survives = atk != null && baseDef != null && totalDef > atk;
+
+  const blockers = you.field.filter(
+    (c) => !c.isRested && c.keywords?.includes("blocker"),
+  );
+  const counterCards = you.hand.filter((c) => c.counter != null && c.counter > 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+      <div className="bg-surface border border-border-subtle rounded-xl p-5 w-full max-w-md shadow-mat space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="text-center">
+          <p className="text-xs text-ink-faint uppercase tracking-wider">Incoming attack</p>
+          <h2 className="text-lg font-display font-semibold mt-1">
+            {attacker?.name ?? "Attacker"}{atk != null ? ` (${atk})` : ""} →{" "}
+            {defender ? (blocker ? `${defender.name} (blocking)` : defender.name) : "?"}
+          </h2>
+          <p className={`text-sm font-mono mt-1 ${survives ? "text-ok" : "text-danger"}`}>
+            {atk ?? "?"} vs {baseDef == null ? "?" : totalDef}
+            {counterSum > 0 ? ` (+${counterSum} counter)` : ""} —{" "}
+            {survives ? "the attack would MISS" : "the attack would HIT (ties favor the attacker)"}
+          </p>
+        </div>
+
+        {blockers.length > 0 && (
+          <div>
+            <p className="text-xs text-ink-faint font-medium mb-1.5">
+              Block Step — rest a [Blocker] to redirect the attack
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setBlockerId(null)}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  blockerId === null
+                    ? "border-accent bg-accent-wash text-accent"
+                    : "border-border-subtle text-ink-muted"
+                }`}
+              >
+                No block
+              </button>
+              {blockers.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => setBlockerId(b.id)}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    blockerId === b.id
+                      ? "border-accent bg-accent-wash text-accent"
+                      : "border-border-subtle text-ink"
+                  }`}
+                >
+                  {b.name} ({b.power ?? "?"})
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {counterCards.length > 0 && (
+          <div>
+            <p className="text-xs text-ink-faint font-medium mb-1.5">
+              Counter Step — trash cards from hand for their counter value
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {counterCards.map((c) => {
+                const on = counterIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() =>
+                      setCounterIds(
+                        on ? counterIds.filter((x) => x !== c.id) : [...counterIds, c.id],
+                      )
+                    }
+                    className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                      on
+                        ? "border-accent bg-accent-wash text-accent"
+                        : "border-border-subtle text-ink"
+                    }`}
+                  >
+                    {c.name} +{c.counter}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {blockers.length === 0 && counterCards.length === 0 && (
+          <p className="text-ink-faint text-xs text-center">
+            No active blockers and no counter cards in hand — brace for it.
+          </p>
+        )}
+
+        <button
+          onClick={() => onResolve({ blockerId, counterCardIds: counterIds })}
+          className="w-full bg-ink hover:bg-ink/85 text-page font-bold rounded-lg py-3 transition-colors"
+        >
+          {blockerId || counterIds.length > 0 ? "Defend" : "Take the hit"}
+        </button>
+        <p className="text-[10px] text-ink-faint text-center">
+          Counters raise power for this battle only. Trashed counters are gone —
+          spend them where they matter.
+        </p>
+      </div>
+    </div>
   );
 }

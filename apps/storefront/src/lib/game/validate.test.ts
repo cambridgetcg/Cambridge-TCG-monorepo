@@ -105,14 +105,13 @@ describe("validateAction — playing cards", () => {
     });
   });
 
-  it("rejects a second stage", () => {
+  it("allows a second stage — CR 6-5-3: it replaces the old one", () => {
     const c = card({ category: "stage", cost: 1 });
     const s = gameState();
     s.player1.hand = [c];
     s.player1.stage = card({ zone: "stage", category: "stage" });
-    expect(validateAction(s, "player1", "play_card", { cardId: c.id })).toMatchObject({
-      ok: false,
-      code: "stage_occupied",
+    expect(validateAction(s, "player1", "play_card", { cardId: c.id })).toEqual({
+      ok: true,
     });
   });
 
@@ -134,10 +133,19 @@ describe("validateAction — attacking", () => {
     expect(r).toMatchObject({ ok: false, code: "first_turn" });
   });
 
-  it("lets the second player attack on their first turn", () => {
+  it("blocks the second player too — CR 6-5-6-1: neither player battles on their first turn", () => {
     const s = gameState({ turnNumber: 2, firstPlayer: "p1", currentTurn: "p2" });
     const r = validateAction(s, "player2", "attack", {
       attackerId: s.player2.leader!.id,
+      targetType: "leader",
+    });
+    expect(r).toMatchObject({ ok: false, code: "first_turn" });
+  });
+
+  it("allows attacks from each player's second turn (turn 3 onward)", () => {
+    const s = gameState({ turnNumber: 3, firstPlayer: "p1" });
+    const r = validateAction(s, "player1", "attack", {
+      attackerId: s.player1.leader!.id,
       targetType: "leader",
     });
     expect(r).toEqual({ ok: true });

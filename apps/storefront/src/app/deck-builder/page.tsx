@@ -8,6 +8,12 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useToast } from "@/components/ui/Toast";
+import {
+  BANLIST_EFFECTIVE,
+  BANNED_CARD_NUMBERS,
+  BANNED_PAIRS,
+} from "@/lib/play/banlist";
+import { statsFor } from "@/lib/play/card-stats";
 import HandSimulator from "@/components/deck-builder/HandSimulator";
 import DeckStatsPanel from "@/components/deck-builder/DeckStatsPanel";
 import BulkImport, { type ParsedEntry } from "@/components/deck-builder/BulkImport";
@@ -166,16 +172,55 @@ export default function DeckBuilderPage() {
     [deckEntries]
   );
 
+  // Legality per the official rules (CR v1.2.0 + the banned/restricted
+  // page) — see docs/research/optcg-rules-alignment.md. Copy counting keys
+  // on CARD NUMBER (5-1-2-3): alt-art variants of one number count together.
+  // The color rule (5-1-2-2) checks only cards whose color is known from the
+  // encoded stats corpus — unknown-color cards are skipped, not flagged.
   const deckWarnings = useMemo(() => {
     const warns: string[] = [];
-    if (totalCards > MAX_DECK_SIZE)
-      warns.push(`Deck has ${totalCards} cards (max ${MAX_DECK_SIZE})`);
+    if (totalCards > 0 && totalCards !== MAX_DECK_SIZE)
+      warns.push(
+        totalCards > MAX_DECK_SIZE
+          ? `Deck has ${totalCards} cards — official decks are exactly ${MAX_DECK_SIZE}`
+          : `Deck has ${totalCards}/${MAX_DECK_SIZE} cards — official decks are exactly ${MAX_DECK_SIZE}`,
+      );
+
+    const byNumber = new Map<string, number>();
     for (const entry of deckEntries) {
-      if (entry.quantity > MAX_COPIES)
-        warns.push(`${entry.card.name} exceeds ${MAX_COPIES}-copy limit (${entry.quantity})`);
+      const num = entry.card.card_number.toUpperCase();
+      byNumber.set(num, (byNumber.get(num) ?? 0) + entry.quantity);
+    }
+    for (const [num, count] of byNumber) {
+      if (count > MAX_COPIES)
+        warns.push(`${num} has ${count} copies across variants — max ${MAX_COPIES} per card number`);
+    }
+
+    const present = new Set<string>(byNumber.keys());
+    if (leader) present.add(leader.card_number.toUpperCase());
+    for (const num of present) {
+      if (BANNED_CARD_NUMBERS.has(num))
+        warns.push(`${num} is on the official banned list (effective ${BANLIST_EFFECTIVE})`);
+    }
+    for (const [a, b] of BANNED_PAIRS) {
+      if (present.has(a) && present.has(b))
+        warns.push(`${a} and ${b} cannot be used in the same deck (official banned pair)`);
+    }
+
+    if (leader) {
+      const leaderStats = statsFor(leader.card_number.toUpperCase());
+      if (leaderStats) {
+        for (const entry of deckEntries) {
+          const s = statsFor(entry.card.card_number.toUpperCase());
+          if (s && s.color !== leaderStats.color)
+            warns.push(
+              `${entry.card.card_number} is ${s.color} — your ${leaderStats.color} leader's deck can only contain ${leaderStats.color} cards`,
+            );
+        }
+      }
     }
     return warns;
-  }, [deckEntries, totalCards]);
+  }, [deckEntries, totalCards, leader]);
 
   /* ---- Debounced search ---- */
   useEffect(() => {

@@ -44,6 +44,15 @@ export function applyAction(
       // cheats. Checked before removal so a rejected card stays put.
       if (toZone === "field" && card.zone !== "field" && player.field.length >= 5) break;
 
+      // CR 6-5-5-4: a card leaving the Leader/Character area sends its
+      // given DON!! back to the owner's cost area, rested.
+      const leavingBoard =
+        card.zone === "field" || card.zone === "leader" || card.zone === "stage";
+      if (leavingBoard && card.attachedDon > 0) {
+        player.donRested += card.attachedDon;
+        card.attachedDon = 0;
+      }
+
       const removeFrom = (zone: GameCard[]) => zone.filter((c) => c.id !== cardId);
       player.hand = removeFrom(player.hand);
       player.field = removeFrom(player.field);
@@ -126,26 +135,40 @@ export function applyAction(
       // instead of requiring four manual clicks in the right order.
       if (s.lastUpkeepTurn === s.turnNumber) break; // already ran this turn
 
-      // Refresh
-      if (player.leader) player.leader.isRested = false;
-      player.field.forEach((c) => (c.isRested = false));
-      if (player.stage) player.stage.isRested = false;
+      // Refresh. CR 6-2-3: DON!! given to the Leader/Characters return to
+      // the cost area first (rested), then CR 6-2-4 sets everything active —
+      // so returned DON!! are spendable this turn. Adding to donRested
+      // before the donActive sweep reproduces that exactly.
+      for (const c of [player.leader, ...player.field, player.stage].filter(
+        Boolean,
+      ) as GameCard[]) {
+        if (c.attachedDon > 0) {
+          player.donRested += c.attachedDon;
+          c.attachedDon = 0;
+        }
+        c.isRested = false;
+      }
       player.donActive += player.donRested;
       player.donRested = 0;
 
       // Draw (first player skips the draw on turn 1 — official rule)
       const skipDraw = s.turnNumber === 1 && s.firstPlayer === player.userId;
       if (!skipDraw) {
+        if (player.deck.length > 0) {
+          const drawn = player.deck.shift()!;
+          drawn.zone = "hand";
+          drawn.faceDown = false;
+          player.hand.push(drawn);
+        }
+        // CR 1-2-1-1-2 / 9-2: having 0 cards in your deck is a defeat
+        // condition judged at rule processing — reaching 0 loses, whether
+        // the draw happened or was impossible. (In the vanilla game the
+        // deck only shrinks by drawing, so this is the complete check.)
         if (player.deck.length === 0) {
-          // Official rule: a player who must draw and can't loses.
           s.phase = "finished";
           s.winner = opponent.userId;
           break;
         }
-        const drawn = player.deck.shift()!;
-        drawn.zone = "hand";
-        drawn.faceDown = false;
-        player.hand.push(drawn);
       }
 
       // DON!! (2 per turn; first player gets 1 on turn 1)
@@ -160,9 +183,17 @@ export function applyAction(
     }
 
     case "refresh_all": {
-      if (player.leader) player.leader.isRested = false;
-      player.field.forEach((c) => (c.isRested = false));
-      if (player.stage) player.stage.isRested = false;
+      // CR 6-2-3 + 6-2-4: given DON!! return to the cost area, then all
+      // rested cards (cost area included) become active.
+      for (const c of [player.leader, ...player.field, player.stage].filter(
+        Boolean,
+      ) as GameCard[]) {
+        if (c.attachedDon > 0) {
+          player.donRested += c.attachedDon;
+          c.attachedDon = 0;
+        }
+        c.isRested = false;
+      }
       player.donActive += player.donRested;
       player.donRested = 0;
       break;
@@ -214,22 +245,39 @@ export function applyAction(
       if (resolve === "miss") break;
 
       if (targetType === "leader") {
-        if (opponent.life.length > 0) {
-          const lifeCard = opponent.life.shift()!;
-          lifeCard.zone = "hand";
-          lifeCard.faceDown = false;
-          opponent.hand.push(lifeCard);
-          opponent.lifeCount = opponent.life.length;
-        } else {
-          s.phase = "finished";
-          s.winner = player.userId;
+        // [Double Attack] deals 2 damage per hit (10-1-2-1); [Banish]
+        // sends the life card to the trash instead of the hand (10-1-3-1).
+        const hits = attacker.keywords?.includes("double_attack") ? 2 : 1;
+        const banish = attacker.keywords?.includes("banish") === true;
+        for (let i = 0; i < hits; i++) {
+          if (opponent.life.length > 0) {
+            const lifeCard = opponent.life.shift()!;
+            lifeCard.faceDown = false;
+            if (banish) {
+              lifeCard.zone = "trash";
+              opponent.trash.push(lifeCard);
+            } else {
+              lifeCard.zone = "hand";
+              opponent.hand.push(lifeCard);
+            }
+            opponent.lifeCount = opponent.life.length;
+          } else {
+            s.phase = "finished";
+            s.winner = player.userId;
+            break;
+          }
         }
       } else if (targetType === "character" && targetId) {
         const idx = opponent.field.findIndex((c) => c.id === targetId);
         if (idx >= 0) {
           const char = opponent.field.splice(idx, 1)[0];
           char.zone = "trash";
-          char.attachedDon = 0;
+          // CR 6-5-5-4: DON!! given to a card that leaves its area return
+          // to their owner's cost area, rested — they are not destroyed.
+          if (char.attachedDon > 0) {
+            opponent.donRested += char.attachedDon;
+            char.attachedDon = 0;
+          }
           char.isRested = false;
           opponent.trash.push(char);
         }

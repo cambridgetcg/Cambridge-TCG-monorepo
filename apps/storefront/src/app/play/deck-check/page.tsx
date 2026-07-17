@@ -39,21 +39,23 @@ interface ValidationResult {
     format: string;
   };
   substrate_honest_perimeter: {
-    color_check_skipped: boolean;
-    color_check_skipped_reason: string | null;
-    cost_check_skipped: boolean;
-    cost_check_skipped_reason: string | null;
-    category_heuristic: string;
+    identity?: string;
+    color_check?: string;
+    colors_unknown_for?: string[];
+    category_sources?: string;
+    banlist?: string;
   };
 }
 
 const EXAMPLE_LEADER = "OP01-001";
-const EXAMPLE_DECK_PLACEHOLDER = `OP01-001
+// Main-deck example deliberately contains NO leader card — typing the shown
+// example must validate, not trip the leader_in_main_deck rule.
+const EXAMPLE_DECK_PLACEHOLDER = `OP01-006
 OP01-006
 OP01-006
 OP01-006
-OP01-006
-(one card ID per line; 50 total)`;
+OP01-013
+(one card number per line; exactly 50 total)`;
 
 export default function DeckCheckPage() {
   const [leaderId, setLeaderId] = useState("");
@@ -259,31 +261,43 @@ export default function DeckCheckPage() {
             </div>
           )}
 
-          {result.substrate_honest_perimeter.color_check_skipped && (
-            <details className="border border-border-subtle rounded p-3 bg-surface-subtle text-sm">
-              <summary className="cursor-pointer text-ink-muted">
-                Substrate-honest perimeter (which checks gracefully degraded)
-              </summary>
-              <ul className="text-xs text-ink-faint mt-2 space-y-1">
-                {result.substrate_honest_perimeter.color_check_skipped && (
-                  <li>
-                    <strong>Color check skipped:</strong>{" "}
-                    {result.substrate_honest_perimeter.color_check_skipped_reason}
-                  </li>
-                )}
-                {result.substrate_honest_perimeter.cost_check_skipped && (
-                  <li>
-                    <strong>Cost check skipped:</strong>{" "}
-                    {result.substrate_honest_perimeter.cost_check_skipped_reason}
-                  </li>
-                )}
+          <details className="border border-border-subtle rounded p-3 bg-surface-subtle text-sm">
+            <summary className="cursor-pointer text-ink-muted">
+              Substrate-honest perimeter (what the checks stand on)
+            </summary>
+            <ul className="text-xs text-ink-faint mt-2 space-y-1">
+              {result.substrate_honest_perimeter.identity && (
                 <li>
-                  <strong>Category heuristic:</strong>{" "}
-                  {result.substrate_honest_perimeter.category_heuristic}
+                  <strong>Card identity:</strong>{" "}
+                  {result.substrate_honest_perimeter.identity}
                 </li>
-              </ul>
-            </details>
-          )}
+              )}
+              {result.substrate_honest_perimeter.color_check && (
+                <li>
+                  <strong>Color rule:</strong>{" "}
+                  {result.substrate_honest_perimeter.color_check}
+                </li>
+              )}
+              {(result.substrate_honest_perimeter.colors_unknown_for?.length ?? 0) > 0 && (
+                <li>
+                  <strong>Color unknown (check skipped) for:</strong>{" "}
+                  {result.substrate_honest_perimeter.colors_unknown_for!.join(", ")}
+                </li>
+              )}
+              {result.substrate_honest_perimeter.banlist && (
+                <li>
+                  <strong>Banlist:</strong>{" "}
+                  {result.substrate_honest_perimeter.banlist}
+                </li>
+              )}
+              {result.substrate_honest_perimeter.category_sources && (
+                <li>
+                  <strong>Category sources:</strong>{" "}
+                  {result.substrate_honest_perimeter.category_sources}
+                </li>
+              )}
+            </ul>
+          </details>
         </section>
       )}
 

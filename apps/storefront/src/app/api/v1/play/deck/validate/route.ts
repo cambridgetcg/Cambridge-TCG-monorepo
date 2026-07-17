@@ -40,6 +40,8 @@ import {
   type DeckDeclaration,
   type CardMetadata,
 } from "@/lib/play/deck-legality";
+import { CARD_STATS } from "@/lib/play/card-stats";
+import { enCardKeyFromParts } from "@/lib/cards/en-card-data";
 
 function sha256(input: string): string {
   return "sha256:" + createHash("sha256").update(input).digest("hex");
@@ -74,64 +76,143 @@ function parseFormat(s: string | undefined): DeckDeclaration["format"] | null {
   }
 }
 
+/** Canonical card identity is the CARD NUMBER (CR 5-1-2-3 keys the copy
+ *  limit on it). Accepts either a card number ("OP01-025") or a catalog
+ *  sku ("OP-OP01-025-JP") and returns the number, or the input unchanged
+ *  when it doesn't parse (the checker then reports it unknown). */
+function toCardNumber(id: string): string {
+  const trimmed = id.trim();
+  if (/^[A-Z]+\d*-\w+$/i.test(trimmed) && trimmed.split("-").length === 2) {
+    return trimmed.toUpperCase();
+  }
+  const segs = trimmed.split("-");
+  if (segs.length >= 3) {
+    return `${segs[1]}-${segs[2]}`.toUpperCase();
+  }
+  return trimmed.toUpperCase();
+}
+
+const COLOR_WORDS = new Set([
+  "red", "green", "blue", "purple", "black", "yellow",
+]);
+
+function parseColors(raw: string | null | undefined): CardMetadata["colors"] {
+  if (!raw) return [];
+  return raw
+    .split(/[/,&]/)
+    .map((c) => c.trim().toLowerCase())
+    .filter((c): c is CardMetadata["colors"][number] => COLOR_WORDS.has(c));
+}
+
 /**
- * Load card metadata for every card_id mentioned in the declaration.
+ * Load card metadata for every card NUMBER mentioned in the declaration.
  *
- * The storefront catalog tables (card_set_cards + card_sets) carry name,
- * rarity, image_url, variant, set_code. They do NOT yet carry color, cost,
- * counter, or category. We synthesise what we can:
- *   - card_id from sku (the per-set canonical id)
- *   - set_code from card_set_cards.set_code
- *   - category: heuristic from rarity (rarity 'L' === Leader) — substrate-
- *     honest about the inference
- *   - colors: [] for now; gracefully degrade (skip the color check)
+ * Three sources, richest first — substrate-honest about what came from where:
+ *   1. CARD_STATS (encoded starter corpus: category/colors/cost/counter/life,
+ *      researched from the official cardlist).
+ *   2. card_texts.attributes (bandai-en ingest: official structured facts).
+ *   3. Catalog rarity heuristic (category only; colors stay unknown and the
+ *      color check skips for that card).
  */
 async function loadCardMetadata(
-  cardIds: Set<string>,
+  cardNumbers: Set<string>,
 ): Promise<{
   lookup: Map<string, CardMetadata>;
-  missing_color_data: boolean;
+  colors_unknown_for: string[];
 }> {
-  if (cardIds.size === 0) {
-    return { lookup: new Map(), missing_color_data: false };
+  if (cardNumbers.size === 0) {
+    return { lookup: new Map(), colors_unknown_for: [] };
   }
-  const ids = Array.from(cardIds);
+  const ids = Array.from(cardNumbers);
+  const lookup = new Map<string, CardMetadata>();
 
-  // PostgreSQL `= ANY($1)` for an array param.
+  // Source 3 groundwork: catalog rows for set_code + rarity heuristic.
   const r = await query(
-    `SELECT
-       csc.sku,
+    `SELECT DISTINCT ON (csc.card_number)
        csc.card_number,
        csc.rarity,
-       csc.variant,
-       cs.set_code,
-       cs.game
+       cs.set_code
      FROM card_set_cards csc
      JOIN card_sets cs ON cs.set_code = csc.set_code
-     WHERE csc.sku = ANY($1::text[])`,
+     WHERE csc.card_number = ANY($1::text[])`,
     [ids],
   );
-
-  const lookup = new Map<string, CardMetadata>();
   for (const row of r.rows) {
-    const rarity = (row.rarity as string | null) ?? "";
-    // Heuristic: rarity = "L" → Leader. Rarity may be "L" or "L/P" (promo
-    // alt-art leaders), so match on the segment before "/" — same predicate
-    // as decks/import. Anything else assumed character until cost/counter
-    // fields exist. Substrate-honest: the response includes a note flag
-    // when this heuristic was used.
-    const category: CardMetadata["category"] =
-      rarity.toUpperCase().split("/")[0] === "L" ? "leader" : "character";
-
-    lookup.set(row.sku as string, {
-      card_id: row.sku as string,
-      category,
-      colors: [], // not yet stored on card_set_cards
+    const rarity = ((row.rarity as string | null) ?? "").toUpperCase();
+    lookup.set(row.card_number as string, {
+      card_id: row.card_number as string,
+      category: rarity.split("/")[0] === "L" ? "leader" : "character",
+      colors: [],
       set_code: row.set_code as string,
     });
   }
 
-  return { lookup, missing_color_data: true };
+  // Source 2: official structured attributes from the bandai-en ingest.
+  const keyToNumber = new Map<string, string>();
+  for (const num of ids) {
+    const m = num.match(/^([A-Z]+\d*)-(\w+)$/);
+    if (m) keyToNumber.set(enCardKeyFromParts("op", m[1], m[2]), num);
+  }
+  if (keyToNumber.size > 0) {
+    try {
+      const t = await query(
+        `SELECT sku, attributes FROM card_texts
+          WHERE lang = 'en' AND attributes IS NOT NULL AND sku = ANY($1::text[])`,
+        [Array.from(keyToNumber.keys())],
+      );
+      for (const row of t.rows) {
+        const num = keyToNumber.get(row.sku as string);
+        if (!num) continue;
+        const attrs = row.attributes as {
+          category?: string | null;
+          cost?: string | null;
+          counter?: string | null;
+          color?: string | null;
+        };
+        const existing = lookup.get(num);
+        const category =
+          (attrs.category ?? "").toLowerCase() === "leader"
+            ? "leader"
+            : (attrs.category ?? "").toLowerCase() === "event"
+              ? "event"
+              : (attrs.category ?? "").toLowerCase() === "stage"
+                ? "stage"
+                : (existing?.category ?? "character");
+        lookup.set(num, {
+          card_id: num,
+          category,
+          colors: parseColors(attrs.color),
+          set_code: existing?.set_code ?? num.split("-")[0],
+          cost: attrs.cost != null ? Number(attrs.cost) || null : existing?.cost ?? null,
+          counter:
+            attrs.counter != null ? Number(attrs.counter) || null : existing?.counter ?? null,
+        });
+      }
+    } catch {
+      /* card_texts unavailable — sources 1 and 3 still apply */
+    }
+  }
+
+  // Source 1: the encoded starter corpus wins where present.
+  for (const num of ids) {
+    const s = CARD_STATS[num];
+    if (!s) continue;
+    const existing = lookup.get(num);
+    lookup.set(num, {
+      card_id: num,
+      category: s.category,
+      colors: [s.color],
+      set_code: existing?.set_code ?? num.split("-")[0],
+      cost: s.cost,
+      counter: s.counter,
+      life: s.life ?? null,
+    });
+  }
+
+  const colors_unknown_for = ids.filter(
+    (num) => lookup.has(num) && lookup.get(num)!.colors.length === 0,
+  );
+  return { lookup, colors_unknown_for };
 }
 
 export async function POST(req: NextRequest) {
@@ -189,14 +270,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Canonicalize every id to its card number — the official identity
+    // (CR 5-1-2-3 keys the 4-copy limit on card number, so two alt-art
+    // skus of one number count together).
     const declaration: DeckDeclaration = {
-      leader_id,
-      main_deck_card_ids: main,
+      leader_id: toCardNumber(leader_id),
+      main_deck_card_ids: main.map(toCardNumber),
       format,
     };
 
-    const allIds = new Set<string>([leader_id, ...main]);
-    const { lookup, missing_color_data } = await loadCardMetadata(allIds);
+    const allIds = new Set<string>([
+      declaration.leader_id,
+      ...declaration.main_deck_card_ids,
+    ]);
+    const { lookup, colors_unknown_for } = await loadCardMetadata(allIds);
 
     const result = checkDeckLegality(declaration, lookup);
     const retrievedAt = new Date();
@@ -247,15 +334,11 @@ export async function POST(req: NextRequest) {
       violations: result.violations,
       summary: result.summary,
       substrate_honest_perimeter: {
-        color_check_skipped: missing_color_data,
-        color_check_skipped_reason: missing_color_data
-          ? "card_set_cards does not yet carry the colors column. The color-match-with-leader check is currently skipped. A future migration adds `card_set_cards.colors text[]` and this gracefully-degraded path closes."
-          : null,
-        cost_check_skipped: true,
-        cost_check_skipped_reason:
-          "card_set_cards does not yet carry the cost column. The cost-based filters are deferred until the schema gains them.",
-        category_heuristic:
-          "Card category is currently inferred from rarity ('L' or 'L/P' → leader; everything else → character). A future migration adds an explicit category column and this heuristic closes.",
+        identity: "All ids are canonicalized to card numbers (CR 5-1-2-3 keys the copy limit on card number; alt-art skus of one number count together).",
+        color_check: "Live per-card where color data exists (encoded starter corpus, then official bandai-en attributes). Cards with unknown color are skipped, not assumed matching.",
+        colors_unknown_for,
+        category_sources: "starter corpus > official attributes > rarity heuristic ('L' → leader).",
+        banlist: "Official banned/restricted list enforced (see lib/play/banlist.ts for the mirrored page + effective date).",
       },
     };
 

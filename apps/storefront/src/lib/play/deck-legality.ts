@@ -1,10 +1,16 @@
 /**
  * Deck-legality validator — pure-function, no I/O.
  *
- * Implements the OPTCG deck-construction rules per the official Comprehensive
- * Rules v1.2.0 (cross-checked against TCG Protectors 2026 summary and the
- * official Q&A). Returns a structured result with typed violations rather
- * than throwing or asserting — callers decide how to surface findings.
+ * Implements the OPTCG deck-construction rules per the official
+ * Comprehensive Rules v1.2.0 (2026-01-16) and the official banned/restricted
+ * page — see docs/research/optcg-rules-alignment.md for the full citation
+ * trail. Returns a structured result with typed violations rather than
+ * throwing or asserting — callers decide how to surface findings.
+ *
+ * Note: the official game has ONE constructed ruleset plus the banlist.
+ * An earlier revision of this file invented a Standard block rotation for
+ * OP01-OP04; no official source exists for it and it was removed
+ * (2026-07-17). The `format` field remains accepted for API compatibility.
  *
  * Used by:
  *   - POST /api/v1/play/deck/validate (the public endpoint exposing this)
@@ -17,6 +23,12 @@
  * kingdom-069 (S36, mine). See docs/research/optcg-mechanics-and-engine-design.md
  * for the source rules.
  */
+
+import {
+  BANLIST_EFFECTIVE,
+  BANNED_CARD_NUMBERS,
+  BANNED_PAIRS,
+} from "./banlist";
 
 /** Inputs to deck validation. */
 export interface DeckDeclaration {
@@ -57,7 +69,8 @@ export interface DeckViolation {
     | "card_not_main_deck_eligible"
     | "card_copy_limit_exceeded"
     | "card_color_mismatch_with_leader"
-    | "card_set_not_legal_in_format";
+    | "card_banned"
+    | "banned_pair_present";
   /** Human-readable description. */
   message: string;
   /** Affected card_id, if applicable. */
@@ -80,19 +93,6 @@ export interface DeckLegalityResult {
   };
 }
 
-/** Block-rotation rules effective 2026-04-01. */
-const BLOCK_ROTATION_OUT_OF_STANDARD: Record<string, true> = {
-  OP01: true,
-  OP02: true,
-  OP03: true,
-  OP04: true,
-};
-
-/** Predicate: is a card_id from a Standard-rotated-out set? */
-function isRotatedOutOfStandard(set_code: string): boolean {
-  return BLOCK_ROTATION_OUT_OF_STANDARD[set_code] === true;
-}
-
 /** The hard deck-construction constants. */
 export const DECK_RULES = {
   main_deck_count: 50,
@@ -106,9 +106,9 @@ export const DECK_RULES = {
  * Returns ALL violations found, not just the first — callers can render the
  * full failure surface. `legal` is true if and only if violations.length === 0.
  *
- * The validator does not check tournament-specific format restrictions
- * beyond block rotation (e.g., sideboard rules, banlists). Those are tournament-
- * specific and live elsewhere when L7 tournament substrate ships.
+ * Checks the official banned/restricted list (banlist.ts) alongside the
+ * construction rules — banned cards "cannot be included in any deck", so
+ * this is a construction rule, not a tournament nicety.
  */
 export function checkDeckLegality(
   declaration: DeckDeclaration,
@@ -129,6 +129,16 @@ export function checkDeckLegality(
     violations.push({
       code: "leader_is_not_a_leader",
       message: `Card "${declaration.leader_id}" is category "${leader.category}", not "leader".`,
+      card_id: declaration.leader_id,
+    });
+  }
+
+  // ── 1b. Banlist (official banned/restricted page, effective ${''}) ────
+  // Banned cards cannot be included in ANY deck — leader slot included.
+  if (BANNED_CARD_NUMBERS.has(declaration.leader_id)) {
+    violations.push({
+      code: "card_banned",
+      message: `Leader "${declaration.leader_id}" is on the official banned list (effective ${BANLIST_EFFECTIVE}).`,
       card_id: declaration.leader_id,
     });
   }
@@ -194,10 +204,26 @@ export function checkDeckLegality(
       });
     }
 
+    // 3b2. Official banlist.
+    if (BANNED_CARD_NUMBERS.has(cardId)) {
+      violations.push({
+        code: "card_banned",
+        message: `Card "${cardId}" is on the official banned list (effective ${BANLIST_EFFECTIVE}).`,
+        card_id: cardId,
+      });
+    }
+
     // 3c. Color match with leader (every main-deck card must share ≥1 color
-    //     with the leader). Skip this check if the leader was unresolved
-    //     above (we already surfaced that violation).
-    if (leader && leader.category === "leader" && leaderColorSet.size > 0) {
+    //     with the leader). Skip when the leader was unresolved above, and
+    //     skip per-card when the card's colors are UNKNOWN (empty array) —
+    //     unknown is not colorless; callers surface which cards were
+    //     skipped in their substrate-honest perimeter.
+    if (
+      leader &&
+      leader.category === "leader" &&
+      leaderColorSet.size > 0 &&
+      meta.colors.length > 0
+    ) {
       const cardColorSet = new Set(meta.colors);
       const sharesColor = Array.from(cardColorSet).some((c) => leaderColorSet.has(c));
       if (!sharesColor) {
@@ -208,14 +234,16 @@ export function checkDeckLegality(
         });
       }
     }
+  }
 
-    // 3d. Format / block-rotation legality.
-    if (declaration.format === "standard" && isRotatedOutOfStandard(meta.set_code)) {
+  // ── 4. Banned pairs — two cards that cannot share a deck. ────────────
+  const present = new Set<string>([declaration.leader_id, ...counts.keys()]);
+  for (const [a, b] of BANNED_PAIRS) {
+    if (present.has(a) && present.has(b)) {
       violations.push({
-        code: "card_set_not_legal_in_format",
-        message: `Card "${cardId}" is from set "${meta.set_code}" which rotated out of Standard format on 2026-04-01.`,
-        card_id: cardId,
-        detail: meta.set_code,
+        code: "banned_pair_present",
+        message: `Cards "${a}" and "${b}" cannot be used together in the same deck (official banned pair, effective ${BANLIST_EFFECTIVE}).`,
+        detail: `${a}+${b}`,
       });
     }
   }

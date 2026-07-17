@@ -84,6 +84,8 @@ function toSetupCard(
     imageUrl: details.images[cardNumber] ?? null,
     textEn: text?.text ?? null,
     textAttribution: text?.attribution ?? null,
+    keywords: stats?.keywords ?? [],
+    hasTrigger: stats?.hasTrigger ?? false,
     rarity: null,
     category: stats?.category ?? (isLeader ? "leader" : null),
     cost: stats?.cost ?? null,

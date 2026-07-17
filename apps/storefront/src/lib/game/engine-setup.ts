@@ -31,6 +31,8 @@ export interface SetupCard {
   color?: string | null;
   textEn?: string | null;
   textAttribution?: string | null;
+  keywords?: ("rush" | "blocker" | "double_attack" | "banish")[];
+  hasTrigger?: boolean;
   /** Leader life total — used for the life-card count when this card is
    *  the leader. Default 5 when unknown (the pre-stats behavior). */
   life?: number | null;
@@ -49,14 +51,128 @@ function makeCard(source: SetupCard, zone: GameCard["zone"]): GameCard {
     power: source.power ?? null,
     counter: source.counter ?? null,
     color: source.color ?? null,
+    life: source.life ?? null,
     textEn: source.textEn ?? null,
     textAttribution: source.textAttribution ?? null,
+    keywords: source.keywords ?? [],
+    hasTrigger: source.hasTrigger ?? false,
     isRested: false,
     attachedDon: 0,
     zone,
     position: 0,
     faceDown: zone === "life" || zone === "deck",
   };
+}
+
+/**
+ * Official setup, first half (CR 5-2-1): decks shuffled, leaders placed,
+ * first/second already declared by the toss winner, opening hands of 5
+ * dealt — but NO life yet. Life is dealt in finalizeSetup AFTER the
+ * mulligan window (5-2-1-6 before 5-2-1-7).
+ */
+export function dealOpeningHands(
+  player1Id: string,
+  player1Name: string,
+  player1Deck: SetupCard[],
+  player2Id: string,
+  player2Name: string,
+  player2Deck: SetupCard[],
+  firstPlayer: string,
+): GameState {
+  function setupPlayer(userId: string, name: string, deck: SetupCard[]): PlayerState {
+    const leader = deck.find((c) => c.isLeader);
+    const mainDeck = deck.filter((c) => !c.isLeader);
+    for (let i = mainDeck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [mainDeck[i], mainDeck[j]] = [mainDeck[j], mainDeck[i]];
+    }
+    const deckCards = mainDeck.map((c, i) => {
+      const card = makeCard(c, "deck");
+      card.position = i;
+      return card;
+    });
+    const handCards = deckCards.splice(0, 5).map((c, i) => {
+      c.zone = "hand";
+      c.faceDown = false;
+      c.position = i;
+      return c;
+    });
+    return {
+      userId,
+      name,
+      leader: leader ? makeCard(leader, "leader") : null,
+      field: [],
+      stage: null,
+      hand: handCards,
+      life: [],
+      trash: [],
+      deck: deckCards,
+      donActive: 0,
+      donRested: 0,
+      donDeck: 10,
+      lifeCount: 0,
+    };
+  }
+  return {
+    player1: setupPlayer(player1Id, player1Name, player1Deck),
+    player2: setupPlayer(player2Id, player2Name, player2Deck),
+    currentTurn: firstPlayer,
+    turnNumber: 1,
+    phase: "setup",
+    firstPlayer,
+  };
+}
+
+/** CR 5-2-1-6-1: return the WHOLE hand to the deck, reshuffle, redraw 5.
+ *  At most once per player — callers enforce the once. */
+export function mulliganHand(
+  state: GameState,
+  playerKey: "player1" | "player2",
+): GameState {
+  const s = JSON.parse(JSON.stringify(state)) as GameState;
+  const p = s[playerKey];
+  for (const c of p.hand) {
+    c.zone = "deck";
+    c.faceDown = true;
+  }
+  p.deck = [...p.deck, ...p.hand];
+  p.hand = [];
+  for (let i = p.deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [p.deck[i], p.deck[j]] = [p.deck[j], p.deck[i]];
+  }
+  p.hand = p.deck.splice(0, 5).map((c, i) => {
+    c.zone = "hand";
+    c.faceDown = false;
+    c.position = i;
+    return c;
+  });
+  return s;
+}
+
+/** CR 5-2-1-7: after the mulligan window, each player places life from the
+ *  top of their deck — "such that the card at the top of their deck is at
+ *  the bottom in their Life area". life[0] is the top of the pile (damage
+ *  takes life.shift()), so each dealt card is unshifted: the first card
+ *  (deck top) sinks to the bottom. */
+export function finalizeSetup(state: GameState): GameState {
+  const s = JSON.parse(JSON.stringify(state)) as GameState;
+  for (const key of ["player1", "player2"] as const) {
+    const p = s[key];
+    const lifeCount = Math.min(
+      p.leader?.life ?? 5,
+      p.deck.length,
+    );
+    for (let i = 0; i < lifeCount; i++) {
+      const card = p.deck.shift()!;
+      card.zone = "life";
+      card.faceDown = true;
+      p.life.unshift(card);
+    }
+    p.lifeCount = p.life.length;
+  }
+  s.phase = "main";
+  return s;
 }
 
 export function initializeGame(
