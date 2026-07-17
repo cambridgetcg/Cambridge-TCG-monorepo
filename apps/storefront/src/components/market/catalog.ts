@@ -15,10 +15,11 @@ export interface CatalogCard {
   set_name: string;
   rarity: string | null;
   image_url: string | null;
-  // Labelled, policy-bound reference price — the catalogue number, never
-  // an offer. Collectors-first (2026-07-06): the trade-in credit channel
-  // that used to ride alongside it is gone with the we-buy desk.
-  spot_price: number;
+  // First-party reference — the last price this card traded for on Cambridge
+  // (publishable; the external CardRush source is internal-only / blocked).
+  // Null until the card has actually traded here. `ref_trades` backs it.
+  spot_price: number | null;
+  ref_trades?: number;
   market_price: number;
   stock: number;
   best_bid: number | null;

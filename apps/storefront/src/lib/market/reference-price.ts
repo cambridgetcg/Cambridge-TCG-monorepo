@@ -14,17 +14,17 @@
  * is the single reference-price authority the card page's SSR seed reads,
  * so the three surfaces stay in step.
  *
- * Returns null ONLY when the reference is genuinely unavailable (the card
- * has no priced catalogue row, or every price substrate is down). Callers
- * render a labelled "source unavailable" note in that case — never a bare
- * "Not available" that reads like the card has no value.
+ * As of 2026-07-17 the reference is FIRST-PARTY: the last price this card
+ * traded for on Cambridge's own P2P market (see @/lib/prices/first-party).
+ * The former CardRush-derived spot is `internal-only` / publication-blocked
+ * (no recorded downstream permission), so it is never served. Returns null
+ * when the card has not yet traded here; callers render an honest "no trades
+ * yet" note rather than a bare "not available".
  */
 
-import { fetchCard } from "@/lib/wholesale/client";
-import { retailPrice } from "@/lib/pricing";
+import { getFirstPartyReferences } from "@/lib/prices/first-party";
 
 export async function resolveReferencePrice(sku: string): Promise<number | null> {
-  const card = await fetchCard(sku).catch(() => null);
-  if (!card || card.price_gbp == null) return null;
-  return retailPrice(card.price_gbp, card.channel_price);
+  const refs = await getFirstPartyReferences([sku]).catch(() => null);
+  return refs?.get(sku)?.price ?? null;
 }

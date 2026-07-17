@@ -5,7 +5,7 @@ import {
   fetchSetsDetailed,
   type WholesaleSource,
 } from "@/lib/wholesale/client";
-import { retailPrice } from "@/lib/pricing";
+import { getFirstPartyReferences, type FirstPartyRef } from "@/lib/prices/first-party";
 import { query } from "@/lib/db";
 import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
 
@@ -149,8 +149,22 @@ export async function GET(request: Request) {
   // (the house's standing we-buy bids) is gone — one less price channel
   // to compute. Every bid/ask below is a collector's; spot_price survives
   // as a labelled, policy-bound reference, never as an offer or reuse grant.
+  // First-party reference — last traded price on OUR market (publishable, no
+  // upstream license). Replaces the CardRush-derived spot, which is
+  // internal-only / publication-blocked and reaches us null. A card shows a
+  // reference once it has actually traded here, and honestly none until then.
+  let firstPartyRefs = new Map<string, FirstPartyRef>();
+  if (skus.length > 0) {
+    try {
+      firstPartyRefs = await getFirstPartyReferences(skus);
+    } catch {
+      // Reference is enrichment; the catalog renders without it.
+    }
+  }
+
   const cards = data.items.map(item => {
-    const spot = retailPrice(item.price_gbp, item.channel_price);
+    const fp = firstPartyRefs.get(item.sku);
+    const spot = fp?.price ?? null;
     const p2p = p2pData.get(item.sku);
     const bestAsk = p2p?.best_ask ? parseFloat(p2p.best_ask) : null;
     const marketPrice = bestAsk !== null && (spot === null || bestAsk < spot) ? bestAsk : spot;
@@ -168,9 +182,11 @@ export async function GET(request: Request) {
       rarity: item.rarity,
       image_url: img?.url ?? catalogImages.get(item.sku) ?? item.image_url,
       image_attribution: img?.attribution ?? null,
-      // Prices — spot_price is the catalogue reference (labelled "(ref)"
-      // in the UI), not something anyone sells at.
+      // Prices — spot_price is now a FIRST-PARTY reference: the last price this
+      // card traded for on Cambridge (ref_trades backs it). Null until it has
+      // traded here. Never a republished external price.
       spot_price: spot,
+      ref_trades: fp?.trades ?? 0,
       market_price: marketPrice,
       stock: item.stock,
       // Pure collector book
