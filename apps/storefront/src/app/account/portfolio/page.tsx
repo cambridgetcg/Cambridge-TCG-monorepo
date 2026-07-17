@@ -441,14 +441,14 @@ export default function PortfolioPage() {
                   )}
                 </div>
 
-                {/* Listing Actions */}
-                {card.listing_actions && card.listing_actions.length > 0 && (
+                {/* Listing Actions — trade-in retired 2026-07-06, so those
+                    actions are filtered out; sell/auction are the live paths. */}
+                {card.listing_actions && card.listing_actions.filter((a) => a.type !== "tradein").length > 0 && (
                   <div className="flex gap-1.5 mb-2">
-                    {card.listing_actions.map((action) => {
+                    {card.listing_actions.filter((a) => a.type !== "tradein").map((action) => {
                       let href = "#";
                       if (action.type === "market_ask") href = `/market/${card.sku}?side=ask`;
                       else if (action.type === "auction") href = `/auctions/sell?sku=${card.sku}`;
-                      else if (action.type === "tradein") href = `/trade-in?sku=${card.sku}&name=${encodeURIComponent(card.card_name || "")}`;
 
                       return (
                         <Link
@@ -477,12 +477,6 @@ export default function PortfolioPage() {
                       className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
                     >
                       Auction
-                    </Link>
-                    <Link
-                      href={`/trade-in?sku=${card.sku}&name=${encodeURIComponent(card.card_name || "")}`}
-                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
-                    >
-                      Trade In
                     </Link>
                   </div>
                 )}

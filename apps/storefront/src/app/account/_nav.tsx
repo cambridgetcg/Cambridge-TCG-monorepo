@@ -49,7 +49,6 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
     label: "Shopping & money",
     items: [
       { href: "/account/orders", label: "Orders" },
-      { href: "/account/trade-ins", label: "Trade-Ins" },
       { href: "/account/trades", label: "Trades" },
       // Incoming price negotiations. Previously reachable only from a
       // single ephemeral notification (walker: a seller who missed it had
