@@ -261,3 +261,53 @@ describe("a full game terminates", () => {
     expect([PLAYER_ID, AI_ID]).toContain(game.state.winner);
   });
 });
+
+describe("AI attack retargeting (found by playing, 2026-07-19)", () => {
+  it("a planned attack on a dead character re-declares against the leader", () => {
+    const game = readyGame();
+    const s = game.state;
+    s.turnNumber = 4;
+    s.lastUpkeepTurn = 4;
+    // The AI's queue holds a second attack aimed at a target that will not
+    // exist when it executes — it must retarget the leader, not fizzle.
+    const paused: PracticeGame = {
+      ...game,
+      pendingDefense: {
+        attackerId: s.player2.leader!.id,
+        targetType: "leader",
+        remainingAiActions: [
+          {
+            type: "attack",
+            playerId: s.player2.userId,
+            data: {
+              attackerId: s.player2.field[0]?.id ?? s.player2.leader!.id,
+              targetType: "character",
+              targetId: "long-dead-card",
+            },
+            timestamp: "t",
+          },
+          { type: "end_turn", playerId: s.player2.userId, data: {}, timestamp: "t" },
+        ],
+      },
+    };
+    // Give the AI an unrested field attacker for the queued attack.
+    const attacker = {
+      ...s.player2.leader!,
+      id: "ai-attacker",
+      zone: "field" as const,
+      category: "character" as const,
+      power: 4000,
+      isRested: false,
+      turnPlayed: 2,
+    };
+    s.player2.field.push(attacker);
+    paused.pendingDefense!.remainingAiActions[0].data.attackerId = "ai-attacker";
+
+    const r = resolveDefense(paused, {}); // take the first hit
+    // The queued attack must have re-declared against our leader → a new
+    // defense window, not a silent fizzle into end_turn.
+    expect(r.game.pendingDefense).toBeTruthy();
+    expect(r.game.pendingDefense!.targetType).toBe("leader");
+    expect(r.game.pendingDefense!.attackerId).toBe("ai-attacker");
+  });
+});

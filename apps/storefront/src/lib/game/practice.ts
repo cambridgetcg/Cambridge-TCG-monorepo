@@ -405,17 +405,32 @@ function runAiActions(
       if (!attacker || attacker.isRested) continue;
 
       const atk = attackPower(attacker);
+      // The plan was drawn at turn start; the battlefield may have moved.
+      // A planned character target that has died or stood back up is no
+      // longer legal — the attack is re-declared against the leader
+      // instead of fizzling (each attack is declared fresh, CR 7-1-1).
+      // Found by playing: Kaido's later swings vanished after his first
+      // attack killed the shared target (2026-07-19).
+      let targetType = data.targetType;
+      let targetId = data.targetId;
+      if (targetType === "character") {
+        const t = state.player1.field.find((c) => c.id === targetId);
+        if (!t || !t.isRested) {
+          targetType = "leader";
+          targetId = undefined;
+        }
+      }
       const target =
-        data.targetType === "leader"
+        targetType === "leader"
           ? state.player1.leader
-          : state.player1.field.find((c) => c.id === data.targetId);
+          : state.player1.field.find((c) => c.id === targetId);
       if (!target) continue;
 
       log = [
         ...log,
         entry(
           `${ai.name}'s ${attacker.name} attacks ${
-            data.targetType === "leader" ? "your leader" : target.name
+            targetType === "leader" ? "your leader" : target.name
           }${atk != null ? ` with ${atk} power` : ""} — your move: block or counter?`,
           "ai",
         ),
@@ -425,8 +440,8 @@ function runAiActions(
         log,
         pendingDefense: {
           attackerId: data.attackerId,
-          targetType: data.targetType,
-          targetId: data.targetId,
+          targetType,
+          targetId,
           remainingAiActions: actions.slice(i + 1),
         },
       };
@@ -668,7 +683,7 @@ export function startPracticeSetup(
   state.aiAggression = aiAggression;
   const log: PracticeLogEntry[] = [
     entry(
-      "Practice battle — it lives in this browser tab, records nothing, and pays nothing. Costs, power, counters, and blockers are real; other card effects aren't interpreted yet.",
+      "Practice battle — it lives only in this session, records nothing, and pays nothing. Costs, power, counters, and blockers are real; other card effects aren't interpreted yet.",
       "board",
     ),
     entry(
@@ -748,4 +763,145 @@ export function resolveMulligans(
     }
   }
   return { game: g, steps };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Legal-move enumeration — hospitality for whoever sits at the table */
+/* ------------------------------------------------------------------ */
+
+export interface LegalAction {
+  /** Machine-executable move. */
+  move:
+    | { type: "mulligan"; redraw: boolean }
+    | { type: "play"; cardId: string }
+    | { type: "attach_don"; cardId: string }
+    | { type: "attack"; attackerId: string; targetType: "leader" | "character"; targetId?: string }
+    | { type: "defend"; blockerId?: string | null; counterCardIds?: string[] }
+    | { type: "end_turn" };
+  /** One human sentence — what this move is, with the math shown. */
+  label: string;
+  /** For attacks: the damage-step forecast before any counters. */
+  preview?: { attack: number | null; defense: number | null; outcome: "hit" | "miss" | "unknown" };
+}
+
+/**
+ * Every move the PLAYER seat may legally make right now, each labelled in
+ * the board's teaching voice. Guests should never have to reverse-engineer
+ * the rules to know their options — the host lays the table (xeniame).
+ * Pure; recomputed from state alone.
+ */
+export function enumerateLegalActions(game: PracticeGame): LegalAction[] {
+  const s = game.state;
+  const you = s.player1;
+  const opp = s.player2;
+  const out: LegalAction[] = [];
+
+  if (s.phase === "finished") return out;
+
+  if (game.pendingDefense) {
+    const pd = game.pendingDefense;
+    const attacker = ([opp.leader, ...opp.field].filter(Boolean) as GameCard[]).find(
+      (c) => c.id === pd.attackerId,
+    );
+    const atk = attacker ? attackPower(attacker) : null;
+    out.push({
+      move: { type: "defend" },
+      label: "Take the hit — no block, no counter.",
+    });
+    for (const b of you.field.filter((c) => !c.isRested && c.keywords?.includes("blocker"))) {
+      out.push({
+        move: { type: "defend", blockerId: b.id },
+        label: `Block with ${b.name} (${b.power ?? "?"}) — redirects the attack to it.`,
+        preview: {
+          attack: atk,
+          defense: defensePower(b),
+          outcome: atk != null && b.power != null ? (atk >= b.power ? "hit" : "miss") : "unknown",
+        },
+      });
+    }
+    for (const c of you.hand.filter((c) => c.counter != null && c.counter > 0)) {
+      out.push({
+        move: { type: "defend", counterCardIds: [c.id] },
+        label: `Counter with ${c.name} (+${c.counter}) — combine counterCardIds/blockerId freely in one defend move.`,
+      });
+    }
+    return out;
+  }
+
+  if (s.phase === "setup") {
+    return [
+      { move: { type: "mulligan", redraw: false }, label: "Keep your opening hand." },
+      {
+        move: { type: "mulligan", redraw: true },
+        label: "Return all 5 and redraw once (official mulligan, CR 5-2-1-6-1).",
+      },
+    ];
+  }
+
+  if (s.currentTurn !== PLAYER_ID) return out;
+
+  for (const c of you.hand) {
+    const v = validateAction(s, "player1", "play_card", { cardId: c.id });
+    if (v.ok) {
+      const kind = c.category === "event" ? "Play event" : c.category === "stage" ? "Set stage" : "Play";
+      out.push({
+        move: { type: "play", cardId: c.id },
+        label: `${kind} ${c.name}${c.cost != null ? ` (cost ${c.cost})` : ""}${c.category === "event" ? " — effect not interpreted; resolves to trash" : ""}.`,
+      });
+    }
+  }
+
+  const oppTargets = opp.field.filter((c) => c.isRested);
+  for (const a of [you.leader, ...you.field].filter(Boolean) as GameCard[]) {
+    const vLeader = validateAction(s, "player1", "attack", {
+      attackerId: a.id,
+      targetType: "leader",
+    });
+    if (vLeader.ok) {
+      const atk = attackPower(a);
+      const def = opp.leader ? defensePower(opp.leader) : null;
+      out.push({
+        move: { type: "attack", attackerId: a.id, targetType: "leader" },
+        label: `Attack their leader with ${a.zone === "leader" ? `your leader ${a.name}` : a.name} — ${atk ?? "?"} vs ${def ?? "?"}.`,
+        preview: {
+          attack: atk,
+          defense: def,
+          outcome: atk != null && def != null ? (atk >= def ? "hit" : "miss") : "unknown",
+        },
+      });
+    }
+    for (const t of oppTargets) {
+      const v = validateAction(s, "player1", "attack", {
+        attackerId: a.id,
+        targetType: "character",
+        targetId: t.id,
+      });
+      if (v.ok) {
+        const atk = attackPower(a);
+        const def = defensePower(t);
+        out.push({
+          move: { type: "attack", attackerId: a.id, targetType: "character", targetId: t.id },
+          label: `Attack ${t.name} with ${a.name} — ${atk ?? "?"} vs ${def ?? "?"}; a hit K.O.s it.`,
+          preview: {
+            attack: atk,
+            defense: def,
+            outcome: atk != null && def != null ? (atk >= def ? "hit" : "miss") : "unknown",
+          },
+        });
+      }
+    }
+    if (you.donActive > 0) {
+      const v = validateAction(s, "player1", "attach_don", { cardId: a.id });
+      if (v.ok) {
+        const who = a.zone === "leader" ? `your leader ${a.name}` : a.name;
+        out.push({
+          move: { type: "attach_don", cardId: a.id },
+          label: `Give 1 DON!! to ${who} (+1000 power until your turn ends).`,
+        });
+      }
+    }
+  }
+
+  out.push({ move: { type: "end_turn" }, label: "End your turn." });
+  return out;
 }

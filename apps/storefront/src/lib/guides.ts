@@ -778,7 +778,7 @@ export const GUIDES: Guide[] = [
           "re-export; missing source rights are undeclared, not CC0.",
       },
     ],
-    next_guide_slug: null,
+    next_guide_slug: "play-a-practice-match",
     see_also: [
       { label: "STANDARDS-LICENSE.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/STANDARDS-LICENSE.md" },
       { label: "The cosmology declaration", href: "/methodology/cosmology" },
@@ -1168,6 +1168,109 @@ export const GUIDES: Guide[] = [
     ],
     last_verified: "2026-07-12",
   },
+  // ───────────────────────────────────────────────────────────────────
+  {
+    slug: "play-a-practice-match",
+    title: "Sit down and play a practice match",
+    subtitle: "The stateless referee deals you in — no account, no storage, no stakes.",
+    intro:
+      "Cambridge TCG's practice referee lets any agent play a full One Piece " +
+      "TCG match under the official Comprehensive Rules. You carry the game " +
+      "state between requests; the referee validates each move and — the " +
+      "hospitable part — returns legal_actions every step, so you never have " +
+      "to reverse-engineer the rules to know your options. Nothing is stored " +
+      "server-side and results carry no standing: this is the practice table, " +
+      "not the arena.",
+    audiences: ["agent", "hobbyist_coder"],
+    prerequisites: [],
+    estimated_minutes: 10,
+    steps: [
+      {
+        step_number: 1,
+        title: "Read the table rules",
+        instruction:
+          "GET the referee's self-description: available starter decks, level " +
+          "range, request shapes, and the honest scope note (costs, power, " +
+          "counters, blockers, and battle steps are real; other card effects " +
+          "are not interpreted yet).",
+        curl: "curl https://cambridgetcg.com/api/v1/play/practice",
+        expected_response_shape:
+          '{ "@kind": "practice_referee_description", "how": { "new_game": {...}, "move": {...} }, ... }',
+        what_to_do_with_it:
+          "Pick a starter_id and a level_id. Level 1 (Alvida) is gentle; " +
+          "level 10 (Kaido) plays at full aggression.",
+      },
+      {
+        step_number: 2,
+        title: "Deal the game",
+        instruction:
+          "POST op:'new'. You get the full game object (keep it — you are its " +
+          "custodian), the opening log, and your first legal_actions: the " +
+          "official mulligan decision.",
+        curl:
+          "curl -X POST https://cambridgetcg.com/api/v1/play/practice " +
+          "-H 'Content-Type: application/json' " +
+          `-d '{"op":"new","starter_id":"st-15-red-newgate","level_id":1,"goes_first":"toss"}'`,
+        expected_response_shape:
+          '{ "game": {...}, "legal_actions": [ { "move": { "type": "mulligan", "redraw": false }, "label": "Keep your opening hand." }, ... ], ... }',
+        what_to_do_with_it:
+          "Choose one legal_actions[].move verbatim — it is already shaped " +
+          "for the next request.",
+      },
+      {
+        step_number: 3,
+        title: "Play, one move per request",
+        instruction:
+          "POST op:'move' with the game you carry and your chosen move. The " +
+          "response carries the updated game, the new log lines (the story of " +
+          "what happened), and fresh legal_actions with damage previews on " +
+          "every attack. When the AI attacks you, legal_actions becomes your " +
+          "defense options: block, counter, or take the hit.",
+        curl:
+          "curl -X POST https://cambridgetcg.com/api/v1/play/practice " +
+          "-H 'Content-Type: application/json' " +
+          `-d '{"op":"move","game":<game>,"move":{"type":"end_turn"}}'`,
+        expected_response_shape:
+          '{ "game": {...}, "new_log": [...], "legal_actions": [...], "finished": false, "winner": null }',
+        what_to_do_with_it:
+          "Loop until finished:true. Read new_log as you go — the referee " +
+          "narrates every rule it applies, with Comprehensive Rules numbers " +
+          "in the research doc it links.",
+      },
+    ],
+    gotchas: [
+      {
+        title: "You are the custodian of the state",
+        description:
+          "The referee stores nothing. Lose the game object, lose the game. " +
+          "Editing it only rearranges your own practice table — results have " +
+          "no standing anywhere, by design.",
+      },
+      {
+        title: "Rejected is not an error",
+        description:
+          "An illegal move returns HTTP 200 with a `rejected` object whose " +
+          "reason teaches the rule you broke, plus unchanged game state. " +
+          "Read it, pick from legal_actions, continue.",
+      },
+      {
+        title: "Card effects are not interpreted yet",
+        description:
+          "Every card's verbatim rules text rides along (with its copyright " +
+          "line — render it wherever you show the text) so you can plan, but " +
+          "[Trigger]/[On Play]-style effects do not fire. The scope note in " +
+          "every response says exactly what is real.",
+      },
+    ],
+    next_guide_slug: null,
+    see_also: [
+      { label: "The referee", href: "/api/v1/play/practice" },
+      { label: "Machine-readable tutorial", href: "/api/v1/play/tutorial" },
+      { label: "Rules alignment research", href: "/methodology/play-module" },
+    ],
+    last_verified: "2026-07-19",
+  },
+
 ];
 
 // ── Lookup helpers ─────────────────────────────────────────────────

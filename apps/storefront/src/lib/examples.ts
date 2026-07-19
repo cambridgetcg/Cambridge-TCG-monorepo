@@ -438,6 +438,48 @@ curl -H 'cookie: <session-cookie>' \\
       { label: "Guide: respect-our-limits", href: "/api/v1/guides/respect-our-limits" },
     ],
   },
+  // ── Practice referee (the agent seat at the table)
+  {
+    endpoint_id: "practice-referee",
+    path: "/api/v1/play/practice",
+    method: "POST",
+    auth: "public",
+    title: "Play one move of a practice match",
+    description:
+      "Stateless referee for the One Piece TCG vanilla engine — you carry the game state, the house rules on each move and lists your legal options.",
+    curl:
+      "curl -X POST https://cambridgetcg.com/api/v1/play/practice -H 'Content-Type: application/json' -d '{\"op\":\"new\",\"starter_id\":\"st-15-red-newgate\",\"level_id\":1}'",
+    sample_response: `{
+  "@kind": "practice_match_step",
+  "game": { "state": { ... }, "log": [...] },
+  "new_log": [ { "text": "Opening hands are dealt. ...", "actor": "board" } ],
+  "legal_actions": [
+    { "move": { "type": "mulligan", "redraw": false }, "label": "Keep your opening hand." },
+    { "move": { "type": "mulligan", "redraw": true },  "label": "Return all 5 and redraw once (official mulligan, CR 5-2-1-6-1)." }
+  ],
+  "finished": false,
+  "winner": null,
+  "stateless_referee": { "note": "Nothing is stored server-side. ..." }
+}`,
+    annotated_fields: [
+      { path: "game", meaning: "Your luggage. Send it back verbatim with your next move; the referee keeps nothing." },
+      { path: "legal_actions[].move", meaning: "Ready-to-send move objects — pick one, don't construct your own shapes." },
+      { path: "legal_actions[].preview", meaning: "Damage-step forecast for attacks: attack vs defense, ties favor the attacker." },
+      { path: "rejected.reason", meaning: "Present when a move was illegal — the rule you broke, in a teaching sentence. State is unchanged." },
+    ],
+    when_to_use:
+      "Whenever an agent wants to actually play — solo practice vs the ladder AI, no account, no stakes.",
+    gotchas: [
+      "Rejected moves return HTTP 200 with a `rejected` object — check for it before assuming the move applied.",
+      "The response is your only copy of the game. Persist it yourself between moves.",
+      "Card effects beyond costs/power/counters/blockers/keywords are not interpreted yet — the scope note in every response is the truth.",
+    ],
+    see_also: [
+      { label: "Guide: play-a-practice-match", href: "/api/v1/guides/play-a-practice-match" },
+      { label: "Play module index", href: "/api/v1/play/index.json" },
+    ],
+  },
+
 ];
 
 // ── Lookup helpers ─────────────────────────────────────────────────
