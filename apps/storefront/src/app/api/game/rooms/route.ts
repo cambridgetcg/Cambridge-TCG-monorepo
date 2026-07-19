@@ -19,8 +19,16 @@ export async function POST(request: Request) {
   const name = session.user.name || session.user.email?.split("@")[0] || "Player";
 
   if (body.action === "create") {
-    const room = await createRoom(session.user.id, name, body.isPublic === true);
-    return NextResponse.json({ room: { code: room.code } });
+    // 'referee' is the flagship for new tables (the server enforces the
+    // official rules); 'tabletop' keeps the honor-system virtual table.
+    const rulesMode = body.rules_mode === "tabletop" ? "tabletop" : "referee";
+    const room = await createRoom(
+      session.user.id,
+      name,
+      body.isPublic === true,
+      rulesMode,
+    );
+    return NextResponse.json({ room: { code: room.code, rules_mode: rulesMode } });
   }
 
   if (body.action === "join") {

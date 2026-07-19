@@ -85,6 +85,22 @@ export interface GameState {
   /** AI aggression for practice battles (0-1). Lives in the state so a
    *  saved-and-resumed game keeps its difficulty. */
   aiAggression?: number;
+  /** A declared attack awaiting the DEFENDER's block/counter decision
+   *  (Block Step 7-1-2 + Counter Step 7-1-3). Lives in the state so it
+   *  serializes with the game — a PvP room row or a carried practice
+   *  game resumes mid-battle. */
+  pendingDefense?: {
+    defender: "player1" | "player2";
+    attackerId: string;
+    targetType: "leader" | "character";
+    targetId?: string;
+  } | null;
+  /** Referee-mode setup: per-seat mulligan decisions. Both recorded →
+   *  life is dealt and the first turn begins. */
+  setupDecisions?: {
+    player1?: { redraw: boolean };
+    player2?: { redraw: boolean };
+  };
 }
 
 export type GamePhase = "setup" | "refresh" | "draw" | "don" | "main" | "end" | "counter" | "finished";

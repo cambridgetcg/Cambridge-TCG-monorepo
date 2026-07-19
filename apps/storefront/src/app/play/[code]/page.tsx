@@ -65,6 +65,8 @@ export default function GameBoard() {
   const [selectedCard, setSelectedCard] = useState<GameCard | null>(null);
   const [hoverCard, setHoverCard] = useState<GameCard | null>(null);
   const [donRestCount, setDonRestCount] = useState(1);
+  const [defBlockerId, setDefBlockerId] = useState<string | null>(null);
+  const [defCounterIds, setDefCounterIds] = useState<string[]>([]);
   const [showLog, setShowLog] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -84,6 +86,18 @@ export default function GameBoard() {
   const myState: PublicPlayerState | null = state ? (you === "player1" ? state.player1 : you === "player2" ? state.player2 : state.player1) : null;
   const oppState: PublicPlayerState | null = state ? (you === "player1" ? state.player2 : you === "player2" ? state.player1 : state.player2) : null;
   const gameActive = room?.status === "playing" && state?.phase !== "finished";
+  // Refereed table: the server enforces the official rules; the client
+  // offers only the refereed vocabulary and renders the two interaction
+  // windows (mulligan, defense) the rules create.
+  const referee = (room as { rulesMode?: string } | null)?.rulesMode === "referee";
+  const pendingDefense = (state as unknown as {
+    pendingDefense?: { defender: string; attackerId: string; targetType: string; targetId?: string } | null;
+  } | null)?.pendingDefense ?? null;
+  const setupDecided = (state as unknown as {
+    setupDecided?: { player1: boolean; player2: boolean };
+  } | null)?.setupDecided;
+  const inMulligan = referee && gameActive && state?.phase === "setup";
+  const iAmDefender = pendingDefense != null && pendingDefense.defender === you;
 
   /* ================================================================ */
   /*  Polling                                                         */
@@ -385,6 +399,108 @@ export default function GameBoard() {
     );
   }
 
+  /* ---- Refereed defense window (Block 7-1-2 + Counter 7-1-3) ---- */
+  function DefenseWindow() {
+    const pd = pendingDefense!;
+    const attacker = oppState
+      ? ([oppState.leader, ...oppState.field].filter(Boolean) as GameCard[]).find(
+          (c) => c.id === pd.attackerId,
+        )
+      : null;
+    const atk =
+      attacker && attacker.power != null
+        ? attacker.power + attacker.attachedDon * 1000
+        : null;
+    const targetCard =
+      pd.targetType === "leader"
+        ? myState?.leader
+        : myState?.field.find((c) => c.id === pd.targetId);
+    const blocker = defBlockerId
+      ? myState?.field.find((c) => c.id === defBlockerId) ?? null
+      : null;
+    const defender = blocker ?? targetCard ?? null;
+    const counterSum = defCounterIds.reduce(
+      (sum, id) => sum + (myState?.hand.find((c) => c.id === id)?.counter ?? 0),
+      0,
+    );
+    const baseDef = defender?.power ?? null;
+    const totalDef = (baseDef ?? 0) + counterSum;
+    const survives = atk != null && baseDef != null && totalDef > atk;
+    const myBlockers =
+      myState?.field.filter((c) => !c.isRested && c.keywords?.includes("blocker")) ?? [];
+    const myCounters = myState?.hand.filter((c) => (c.counter ?? 0) > 0) ?? [];
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+        <div className="bg-surface border border-border-subtle rounded-xl p-5 w-full max-w-md shadow-mat space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="text-center">
+            <p className="text-xs text-ink-faint uppercase tracking-wider">Incoming attack</p>
+            <h2 className="text-lg font-display font-semibold mt-1">
+              {attacker?.name ?? "?"}{atk != null ? ` (${atk})` : ""} → {defender?.name ?? "?"}
+            </h2>
+            <p className={`text-sm font-mono mt-1 ${survives ? "text-ok" : "text-danger"}`}>
+              {atk ?? "?"} vs {baseDef == null ? "?" : totalDef}
+              {counterSum > 0 ? ` (+${counterSum} counter)` : ""} — {survives ? "would MISS" : "would HIT (ties favor the attacker)"}
+            </p>
+          </div>
+          {myBlockers.length > 0 && (
+            <div>
+              <p className="text-xs text-ink-faint font-medium mb-1.5">Block Step — rest a [Blocker] to redirect</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setDefBlockerId(null)}
+                  className={`text-xs px-3 py-1.5 rounded-lg border ${defBlockerId === null ? "border-accent bg-accent-wash text-accent" : "border-border-subtle text-ink-muted"}`}
+                >
+                  No block
+                </button>
+                {myBlockers.map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => setDefBlockerId(b.id)}
+                    className={`text-xs px-3 py-1.5 rounded-lg border ${defBlockerId === b.id ? "border-accent bg-accent-wash text-accent" : "border-border-subtle text-ink"}`}
+                  >
+                    {b.name} ({b.power ?? "?"})
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {myCounters.length > 0 && (
+            <div>
+              <p className="text-xs text-ink-faint font-medium mb-1.5">Counter Step — trash cards for their counter value</p>
+              <div className="flex flex-wrap gap-2">
+                {myCounters.map((c) => {
+                  const on = defCounterIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() =>
+                        setDefCounterIds(on ? defCounterIds.filter((x) => x !== c.id) : [...defCounterIds, c.id])
+                      }
+                      className={`text-xs px-3 py-1.5 rounded-lg border ${on ? "border-accent bg-accent-wash text-accent" : "border-border-subtle text-ink"}`}
+                    >
+                      {c.name} +{c.counter}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => {
+              sendAction("defend", { blockerId: defBlockerId, counterCardIds: defCounterIds });
+              setDefBlockerId(null);
+              setDefCounterIds([]);
+            }}
+            className="w-full bg-ink hover:bg-ink/85 text-page font-bold rounded-lg py-3 transition-colors"
+          >
+            {defBlockerId || defCounterIds.length > 0 ? "Defend" : "Take the hit"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   /* ---- Card action menu ---- */
   function CardActionMenu() {
     if (!selectedCard || !isPlayer || !gameActive) return null;
@@ -397,8 +513,37 @@ export default function GameBoard() {
     // Attack — the win path. Mirrors the PvE board: leader or active field
     // cards can strike the opposing leader (takes life; at 0 life it ends
     // the game) or any rested opposing character.
-    const canAttack = (zone === "leader" || zone === "field") && !card.isRested && isMyTurn;
+    const canAttack = (zone === "leader" || zone === "field") && !card.isRested && isMyTurn && !pendingDefense;
     const restedOppChars = oppState?.field.filter((c) => c.isRested) ?? [];
+
+    if (referee) {
+      // Refereed vocabulary only: play, attack, give DON!!. The manual
+      // tabletop tools live in tabletop rooms.
+      if (zone === "hand" && isMyTurn && !pendingDefense && !inMulligan) {
+        const short = card.cost != null && (myState?.donActive ?? 0) < card.cost;
+        actions.push({
+          label: `Play${card.cost != null ? ` (cost ${card.cost})` : ""}${short ? ` — needs ${card.cost} DON!!` : ""}`,
+          action: short ? () => undefined : () => sendAction("play_card", { cardId: card.id }),
+        });
+      }
+      if (canAttack) {
+        actions.push({
+          label: "Attack Opponent Leader",
+          action: () => sendAction("attack", { attackerId: card.id, targetType: "leader" }),
+        });
+        for (const target of restedOppChars) {
+          actions.push({
+            label: `Attack ${target.name}`,
+            action: () => sendAction("attack", { attackerId: card.id, targetType: "character", targetId: target.id }),
+          });
+        }
+      }
+      if ((zone === "leader" || zone === "field") && isMyTurn && !pendingDefense && (myState?.donActive ?? 0) > 0) {
+        actions.push({ label: "Attach DON!! (+1000)", action: () => sendAction("attach_don", { cardId: card.id }) });
+      }
+      if (actions.length === 0) return null;
+      return renderMenu(actions);
+    }
 
     if (zone === "hand") {
       actions.push({ label: "Play to Field", action: () => sendAction("move_card", { cardId: card.id, toZone: "field", faceDown: false }) });
@@ -440,7 +585,11 @@ export default function GameBoard() {
     }
 
     if (actions.length === 0) return null;
+    return renderMenu(actions);
+  }
 
+  function renderMenu(actions: { label: string; action: () => void; variant?: "danger" }[]) {
+    const card = selectedCard!;
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" onClick={() => setSelectedCard(null)}>
         <div className="bg-surface border border-border-subtle rounded-lg p-4 min-w-[220px] shadow-mat" onClick={(e) => e.stopPropagation()}>
@@ -922,6 +1071,44 @@ export default function GameBoard() {
 
       {/* ---- Card Action Menu ---- */}
       <CardActionMenu />
+      {inMulligan && isPlayer && (
+        <div className="fixed inset-x-0 bottom-0 z-40 bg-surface border-t border-border-subtle p-4">
+          <div className="max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-ink-muted">
+              <strong className="text-ink">Mulligan window</strong> — you may
+              return your whole hand and redraw once (official rule). Life is
+              dealt after both players decide.
+            </p>
+            {setupDecided?.[you as "player1" | "player2"] ? (
+              <span className="text-xs text-ink-faint">Decision locked — waiting for your opponent…</span>
+            ) : (
+              <span className="flex gap-2">
+                <button
+                  onClick={() => sendAction("mulligan", { redraw: false })}
+                  className="bg-ink text-page text-sm font-bold rounded-lg px-4 py-2"
+                >
+                  Keep hand
+                </button>
+                <button
+                  onClick={() => sendAction("mulligan", { redraw: true })}
+                  className="bg-surface border border-border-subtle text-ink text-sm font-semibold rounded-lg px-4 py-2"
+                >
+                  Redraw all 5 (once)
+                </button>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {pendingDefense && isPlayer && (
+        iAmDefender ? (
+          <DefenseWindow />
+        ) : (
+          <div className="fixed inset-x-0 bottom-0 z-40 bg-warning/10 border-t border-warning/40 p-3 text-center text-sm text-ink-muted">
+            Attack declared — your opponent is deciding their block/counter…
+          </div>
+        )
+      )}
 
       {/* ---- Game Log Panel ---- */}
       <GameLog />

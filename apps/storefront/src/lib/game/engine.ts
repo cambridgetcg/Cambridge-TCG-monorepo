@@ -3,6 +3,16 @@
 import { query } from "@/lib/db";
 import type { GameState, GameAction } from "./types";
 import { applyAction } from "./reducer";
+import {
+  refereeAttachDon,
+  refereeAttack,
+  refereeBeginTurn,
+  refereeDefend,
+  refereeEndTurn,
+  refereeMulligan,
+  refereePlay,
+  type Seat,
+} from "./referee";
 
 // ── Room Management ──
 
@@ -13,15 +23,20 @@ function generateCode(): string {
   return code;
 }
 
-export async function createRoom(userId: string, userName: string, isPublic: boolean = false) {
+export async function createRoom(
+  userId: string,
+  userName: string,
+  isPublic: boolean = false,
+  rulesMode: "tabletop" | "referee" = "tabletop",
+) {
   // Retry once on the (rare) UNIQUE(code) collision instead of 500ing.
   for (let attempt = 0; attempt < 2; attempt++) {
     const code = generateCode();
     try {
       const result = await query(
-        `INSERT INTO game_rooms (code, player1_id, player1_name, is_public)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [code, userId, userName, isPublic]
+        `INSERT INTO game_rooms (code, player1_id, player1_name, is_public, rules_mode)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [code, userId, userName, isPublic, rulesMode]
       );
       return result.rows[0];
     } catch (err) {
@@ -122,7 +137,67 @@ export async function performAction(roomCode: string, userId: string, action: Ga
     return { state: currentState };
   }
 
-  const state = applyAction(currentState, isP1 ? "player1" : "player2", action.type, action.data);
+  const seat: Seat = isP1 ? "player1" : "player2";
+  let state: GameState;
+
+  if (room.rules_mode === "referee") {
+    // Refereed room: the server enforces the official rules — the same
+    // seat-generic referee the practice engine uses. Manual tabletop
+    // actions are not part of this vocabulary.
+    const d = action.data as Record<string, unknown>;
+    const step = (() => {
+      switch (action.type) {
+        case "mulligan":
+          return refereeMulligan(currentState, seat, Boolean(d.redraw));
+        case "play_card":
+          return refereePlay(currentState, seat, String(d.cardId ?? ""));
+        case "attach_don":
+          return refereeAttachDon(currentState, seat, String(d.cardId ?? ""));
+        case "attack":
+          return refereeAttack(currentState, seat, {
+            attackerId: String(d.attackerId ?? ""),
+            targetType: d.targetType === "character" ? "character" : "leader",
+            targetId: typeof d.targetId === "string" ? d.targetId : undefined,
+          });
+        case "defend":
+          return refereeDefend(currentState, seat, {
+            blockerId: typeof d.blockerId === "string" ? d.blockerId : null,
+            counterCardIds: Array.isArray(d.counterCardIds)
+              ? (d.counterCardIds as string[])
+              : [],
+          });
+        case "begin_turn":
+          return refereeBeginTurn(currentState, seat);
+        case "end_turn":
+          return refereeEndTurn(currentState, seat);
+        default:
+          return {
+            state: currentState,
+            narration: [],
+            rejected: {
+              ok: false as const,
+              code: "not_in_referee_vocabulary",
+              reason:
+                "This table is refereed — manual tabletop moves aren't available here. Legal moves: play_card, attach_don, attack, defend, begin_turn, end_turn, concede, chat.",
+            },
+          };
+      }
+    })();
+    if (step.rejected && !step.rejected.ok) {
+      return { error: step.rejected.reason, code: step.rejected.code };
+    }
+    state = step.state;
+    // Narration rides the log so both clients (and spectators, and any
+    // replay) see the same referee voice.
+    if (step.narration.length > 0) {
+      action = {
+        ...action,
+        data: { ...action.data, narration: step.narration },
+      };
+    }
+  } else {
+    state = applyAction(currentState, seat, action.type, action.data);
+  }
 
   // Save action to log
   const log = room.game_log || [];

@@ -95,7 +95,7 @@ function respond(
           : "opponent"
         : null,
       stateless_referee: {
-        note: "Nothing is stored server-side. You carry the game; the referee applies the official rules to each move and lists your legal options. Practice results carry no standing — durable matches remain paused until server-side rules validation completes.",
+        note: "Nothing is stored server-side. You carry the game — including the AI seat's hidden hand, deck order, and life cards, which statelessness cannot conceal from their own custodian. Peeking only spoils your own practice. The referee applies the official rules to each move and lists your legal options. Practice results carry no standing — durable matches remain paused until server-side rules validation completes.",
         rules: "docs/research/optcg-rules-alignment.md (Comprehensive Rules v1.2.0, 2026-01-16)",
       },
       _links: {

@@ -500,6 +500,16 @@ export const PLAY_RESOURCES: readonly PlayResource[] = [
     serves_archetypes: ["hobbyist", "competitor"],
   },
   {
+    id: "lib_deck_metadata",
+    path_or_file: "apps/storefront/src/lib/play/deck-metadata.ts",
+    kind: "library_file",
+    layer: "L3_runtime",
+    status: "shipped",
+    blurb: "Card metadata for legality checks — canonicalizes ids to card numbers and merges the encoded starter corpus, official bandai-en attributes, and the catalog rarity heuristic. One truth behind the public validate endpoint AND the refereed-room setup gate (CR 5-2-1-1).",
+    composes_with: ["lib_deck_legality", "lib_banlist"],
+    serves_archetypes: ["competitor"],
+  },
+  {
     id: "lib_banlist",
     path_or_file: "apps/storefront/src/lib/play/banlist.ts",
     kind: "library_file",

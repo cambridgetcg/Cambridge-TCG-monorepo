@@ -101,6 +101,7 @@ export default function PlayPage() {
   const [mpLoading, setMpLoading] = useState(false);
   const [mpError, setMpError] = useState<string | null>(null);
   const [isPublicRoom, setIsPublicRoom] = useState(false);
+  const [tabletopMode, setTabletopMode] = useState(false);
 
   /* ---- Fetch session ---- */
   useEffect(() => {
@@ -311,7 +312,11 @@ export default function PlayPage() {
       const res = await fetch("/api/game/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", isPublic: isPublicRoom }),
+        body: JSON.stringify({
+          action: "create",
+          isPublic: isPublicRoom,
+          rules_mode: tabletopMode ? "tabletop" : "referee",
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -652,6 +657,20 @@ export default function PlayPage() {
                     />
                     Also list as public
                   </label>
+                  <label className="flex items-center gap-2 text-xs text-ink-muted mb-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={tabletopMode}
+                      onChange={(e) => setTabletopMode(e.target.checked)}
+                      className="accent-accent w-3.5 h-3.5"
+                    />
+                    Manual tabletop (house rules — no referee)
+                  </label>
+                  <p className="text-[11px] text-ink-faint mb-3 -mt-1">
+                    By default the server referees: official costs, battle
+                    steps with real block/counter windows, and a legal-deck
+                    check at setup.
+                  </p>
                   <button
                     onClick={handleCreateRoom}
                     disabled={mpLoading}

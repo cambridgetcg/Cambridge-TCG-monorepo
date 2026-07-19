@@ -35,6 +35,7 @@ export interface GameRoomForProjection {
   turn_number: number;
   phase: string;
   is_public: boolean;
+  rules_mode?: string | null;
   last_action_at: string;
   game_state: GameState | null;
   game_log: GameAction[] | null;
@@ -120,6 +121,18 @@ export function projectGameState(
     firstPlayer: roleForId(room, state.firstPlayer),
     ...(winner ? { winner } : {}),
     ...(state.lastUpkeepTurn !== undefined ? { lastUpkeepTurn: state.lastUpkeepTurn } : {}),
+    // Referee-mode surfaces. pendingDefense is seat-keyed (no account ids)
+    // and public at a real table — both players see a declared attack.
+    // Mulligan decisions project as decided-flags only until both are in.
+    ...(state.pendingDefense ? { pendingDefense: state.pendingDefense } : {}),
+    ...(state.setupDecisions
+      ? {
+          setupDecided: {
+            player1: Boolean(state.setupDecisions.player1),
+            player2: Boolean(state.setupDecisions.player2),
+          },
+        }
+      : {}),
   };
 }
 
@@ -145,6 +158,7 @@ export function projectGameResponse(room: GameRoomForProjection, viewer: GameVie
     room: {
       code: room.code,
       status: room.status,
+      rulesMode: room.rules_mode ?? "tabletop",
       player1Name: spectator ? "Player 1" : room.player1_name,
       player2Name: spectator ? (room.player2_id ? "Player 2" : null) : room.player2_name,
       turnNumber: room.turn_number,
