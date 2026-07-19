@@ -110,11 +110,18 @@ export default function TheGallery({ cards }: { cards: GalleryPiece[] }) {
         </p>
       )}
 
-      {/* The door to the wing on where the art comes from. */}
+      {/* Doors to the culture wings — where the art comes from, and the
+          feeling of the game made to touch. */}
       <p className="mt-8 text-sm text-ink-muted">
         <Link href="/lineage" className="text-accent hover:text-accent-strong underline underline-offset-2">
           These prints inherit a long line — see where the art comes from
           <span className="wardrobe-jp"> 線の系譜</span> →
+        </Link>
+      </p>
+      <p className="mt-2 text-sm text-ink-muted">
+        <Link href="/pull-and-pause" className="text-accent hover:text-accent-strong underline underline-offset-2">
+          Or touch the feeling of the game — the pull &amp; the pause
+          <span className="wardrobe-jp"> 引きと間</span> →
         </Link>
       </p>
     </section>
