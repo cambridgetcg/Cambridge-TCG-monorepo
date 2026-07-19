@@ -62,9 +62,11 @@ function cloneCard(card: GameCard): GameCard {
   return { ...card };
 }
 
-function hiddenCard(card: GameCard): GameCard {
+function hiddenCard(card: GameCard, index: number): GameCard {
   return {
-    id: `${card.zone}:${card.position}`,
+    // Array index, not card.position — positions collide (every drawn
+    // card carries position 0) and duplicate ids broke React keys.
+    id: `${card.zone}:${index}`,
     sku: "",
     name: "?",
     cardNumber: "?",

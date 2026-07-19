@@ -52,6 +52,16 @@ function gate(state: GameState, seat: Seat): RefereeStep | null {
   if (state.phase === "setup") {
     return reject(state, "setup_first", "Finish the mulligan decision first.");
   }
+  if (
+    state.currentTurn === state[seat].userId &&
+    state.lastUpkeepTurn !== state.turnNumber
+  ) {
+    return reject(
+      state,
+      "upkeep_first",
+      "Start your turn first (begin_turn) — refresh, draw, and DON!! come before any move.",
+    );
+  }
   return null;
 }
 
@@ -304,8 +314,14 @@ export function refereeDefend(
 }
 
 export function refereeBeginTurn(state: GameState, seat: Seat): RefereeStep {
-  const g = gate(state, seat);
-  if (g) return g;
+  // begin_turn is exempt from the upkeep gate (it IS the upkeep) but
+  // still respects the defense window and setup phase.
+  if (state.pendingDefense) {
+    return reject(state, "defend_first", "Resolve the pending attack first.");
+  }
+  if (state.phase === "setup") {
+    return reject(state, "setup_first", "Finish the mulligan decision first.");
+  }
   const v = validateAction(state, seat, "begin_turn", {});
   if (!v.ok) return { state, narration: [], rejected: v };
   const s = applyAction(state, seat, "begin_turn", {});

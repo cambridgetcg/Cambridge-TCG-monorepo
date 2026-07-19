@@ -16,7 +16,16 @@ const UPKEEP_ONLY_VIA_BEGIN_TURN = new Set([
 
 // Actions legal on either player's turn: concede/chat always, and
 // take_damage because the defender reveals life during the attacker's turn.
-const TURN_EXEMPT = new Set(["concede", "chat", "take_damage"]);
+const TURN_EXEMPT = new Set([
+  "concede",
+  "chat",
+  "take_damage",
+  // Refereed vocabulary that legally happens OFF-turn: the defender
+  // answers during the attacker's turn, and mulligan decisions arrive
+  // from both seats during setup. The referee validates seat-legality.
+  "defend",
+  "mulligan",
+]);
 
 // POST — perform a game action
 export async function POST(

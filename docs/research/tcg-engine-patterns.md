@@ -69,6 +69,28 @@ optimistic concurrency (log-length versioning), masking at the boundary
 - Because our windows are unconditional (the defender may always counter
   or take the hit), we don't inherit MTG Arena's timing leak.
 
+## What the audit caught before the deploy (fixed same session)
+
+The two audit agents read the freshly-built referee before it shipped and
+found three genuine blockers plus two rules leaks — all closed:
+
+- **The defender's `defend` and both seats' `mulligan` were 409'd by the
+  action route's turn gate** — every refereed battle would have
+  deadlocked at its first attack. Off-turn-legal moves are now exempt at
+  the route; the referee enforces seat-legality itself.
+- **PvP decks carried no printed stats** — the referee would have ruled
+  over nulls (free costs, unknown powers). Refereed setup now enriches
+  the deck from the stats corpus + official attributes after the
+  legality gate passes.
+- **Main-phase moves were legal before upkeep** — a gate now requires
+  begin_turn first (refresh returns given DON!!, CR 6-2-3, so skipping
+  upkeep was exploitable).
+- **The state projection leaked the viewer's OWN deck order and life
+  faces** — both officially secret even from their owner. Everyone now
+  gets counts and card backs, including you.
+- The tabletop path stacked the life pile in reverse order
+  (CR 5-2-1-7), and masked-card ids collided (duplicate React keys).
+
 ## Gaps that remain (honest ledger)
 
 1. **Practice orchestrator unification** — `practice.ts` still carries its
@@ -84,7 +106,12 @@ optimistic concurrency (log-length versioning), masking at the boundary
 4. **Spectator narration** — the referee's log narration is stripped for
    spectators along with action data; a public-safe narration channel
    would let spectators follow refereed matches.
-5. **Phase 4 unchanged** — effect interpretation (the Forge/ygopro
+5. **Presence & lifecycle** — nothing ever sets rooms `abandoned`; no
+   reconnect grace, no timeout forfeits. The audit's full list also
+   holds: the 500-entry log cap (chat burns slots), polling as the sole
+   transport, PvP first/second still coin-flipped rather than chosen,
+   spectator-safe narration.
+6. **Phase 4 unchanged** — effect interpretation (the Forge/ygopro
    card-scripting layer) remains the open frontier; `effect-tokens.ts`
    was built as its beachhead.
 

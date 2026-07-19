@@ -5,7 +5,11 @@ import { dealOpeningHands } from "@/lib/game/engine-setup";
 import { query } from "@/lib/db";
 import { validateGameDeck } from "@/lib/game/request-input";
 import { checkDeckLegality } from "@/lib/play/deck-legality";
-import { loadCardMetadata, toCardNumber } from "@/lib/play/deck-metadata";
+import {
+  enrichDeckWithStats,
+  loadCardMetadata,
+  toCardNumber,
+} from "@/lib/play/deck-metadata";
 
 // POST — submit deck and start game
 export async function POST(
@@ -47,7 +51,7 @@ export async function POST(
   if (!validatedDeck.ok) {
     return NextResponse.json({ error: validatedDeck.error }, { status: 400 });
   }
-  const deck = validatedDeck.value;
+  let deck = validatedDeck.value;
 
   // Refereed rooms enforce CR 5-2-1-1: the deck presented at setup must
   // meet the construction rules — exactly 50 + a leader, 4-copy limit by
@@ -85,6 +89,9 @@ export async function POST(
         { status: 400 },
       );
     }
+    // The referee rules over printed stats — attach them now so costs are
+    // paid, powers compared, and keywords live in the room's game state.
+    deck = enrichDeckWithStats(deck, lookup);
   }
 
   // Atomic jsonb merge — both players submitting inside the same poll

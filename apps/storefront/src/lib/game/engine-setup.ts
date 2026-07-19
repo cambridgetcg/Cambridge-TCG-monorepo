@@ -197,12 +197,15 @@ export function initializeGame(
 
     // Life cards = top N of the deck; N comes from the leader's printed
     // life when known (4 or 5 on real leaders), else the historical 5.
+    // CR 5-2-1-7 ordering: the card from the top of the deck sits at the
+    // BOTTOM of the life pile; damage takes life[0] (the last one dealt).
     const lifeCount = leader?.life ?? 5;
-    const lifeCards = mainDeck.splice(0, lifeCount).map((c, i) => {
-      const card = makeCard(c, "life");
-      card.position = i;
-      return card;
-    });
+    const lifeCards: GameCard[] = [];
+    for (let i = 0; i < Math.min(lifeCount, mainDeck.length); i++) {
+      const card = makeCard(mainDeck.shift()!, "life");
+      lifeCards.unshift(card);
+    }
+    lifeCards.forEach((c, i) => (c.position = i));
 
     // Hand = next 5 cards
     const handCards = mainDeck.splice(0, 5).map((c, i) => {
