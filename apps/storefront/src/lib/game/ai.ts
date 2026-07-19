@@ -40,6 +40,7 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
   let availableDon = ai.donActive + donGain;
 
   const playableHand = [...ai.hand];
+  const plannedPlays: GameCard[] = [];
 
   // Play characters from hand (up to field limit of 5)
   let fieldCount = ai.field.length;
@@ -70,88 +71,144 @@ export function aiTurn(state: GameState, aiPlayer: "player1" | "player2", aggres
       });
       availableDon -= estimatedCost;
       fieldCount++;
+      plannedPlays.push(card);
       thoughts.push(`Played ${card.name} to field (cost ${estimatedCost})`);
     }
   }
 
-  // Attach remaining DON!! to attackers for power boost
-  if (availableDon > 0 && aggression > 0.3) {
-    const attackers = [...ai.field, ai.leader].filter(Boolean) as GameCard[];
-    if (attackers.length > 0) {
-      // Attach to first attacker (field card if any, otherwise leader)
-      const target = attackers[0];
-      const toAttach = Math.min(availableDon, Math.ceil(aggression * 3));
-      for (let i = 0; i < toAttach; i++) {
-        actions.push({
-          type: "attach_don", playerId: aiId,
-          data: { cardId: target.id },
-          timestamp: new Date().toISOString()
-        });
-      }
-      if (toAttach > 0) thoughts.push(`Attached ${toAttach} DON!! to ${target.name}`);
+  // ── Attack planning ──────────────────────────────────────────────
+  // Profitable attacks are taken; aggression shapes EXPOSURE APPETITE
+  // (how many attackers commit, whether blockers leave their post) and
+  // DON!! spending — never a coin flip that drops a winning attack.
+  // The old dice made mid-aggression opponents nap through winning
+  // turns; found by playing (2026-07-19).
+
+  const lethal = opponent.life.length === 0;
+  const leaderDef = opponent.leader?.power ?? null;
+
+  // Pool: board cards legally able to swing this turn, plus characters
+  // this very plan just played that carry [Rush] (they will be on the
+  // field by the time the attack action executes).
+  const sick = (c: GameCard) =>
+    c.zone === "field" &&
+    c.turnPlayed === state.turnNumber &&
+    !c.keywords?.includes("rush");
+  const pool = [
+    ...([ai.leader, ...ai.field].filter(Boolean) as GameCard[]).filter((c) => !sick(c)),
+    ...plannedPlays.filter((c) => c.keywords?.includes("rush")),
+  ];
+
+  // War chest: a committed aggressor over-boosts its leader up front to
+  // out-range counter cards (+1000 each) before the swings begin.
+  if (!lethal && aggression >= 0.8 && availableDon > 0 && ai.leader) {
+    const extra = Math.min(availableDon, 2);
+    for (let i = 0; i < extra; i++) {
+      actions.push({
+        type: "attach_don", playerId: aiId,
+        data: { cardId: ai.leader.id },
+        timestamp: new Date().toISOString(),
+      });
     }
+    availableDon -= extra;
+    thoughts.push(`Attached ${extra} DON!! to ${ai.leader.name}`);
   }
 
-  // Attack phase — based on aggression
-  // All board cards are eligible: the refresh_all queued above un-rests them
-  // before any attack resolves, so the snapshot's isRested is stale here.
-  // We track simulated rested state locally so the AI doesn't double-attack
-  // with the same card in one turn (actual rest is applied by the attack action).
-  const canAttack = [ai.leader, ...ai.field].filter(Boolean) as GameCard[];
-  const attackedIds = new Set<string>();
+  // Exposure appetite: blockers hold their post below 0.7 aggression —
+  // they ARE the defense. Commitment scales with aggression but a ready
+  // profitable attacker never fully sits out.
+  const nonBlockers = pool.filter((c) => !c.keywords?.includes("blocker"));
+  const blockers = pool.filter((c) => c.keywords?.includes("blocker"));
+  const committed = lethal
+    ? pool
+    : [...nonBlockers, ...(aggression >= 0.7 ? blockers : [])].slice(
+        0,
+        Math.max(1, Math.ceil(pool.length * Math.min(1, aggression + 0.34))),
+      );
 
-  // Lethal check — if opponent is at 0 life, always swing the leader for the kill.
-  const lethalAvailable = opponent.life.length === 0;
+  const restedTargets = [...opponent.field]
+    .filter((c) => c.isRested)
+    .sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0));
+  const koed = new Set<string>();
+  const boosted = new Map<string, number>();
 
-  // When printed powers are known, an attack that can't win is skipped
-  // (unless hyper-aggressive) — same vanilla math the player's board uses.
-  const wins = (attacker: GameCard, defender: GameCard | null): boolean => {
-    if (!defender || attacker.power == null || defender.power == null) return true;
-    return attacker.power + attacker.attachedDon * 1000 >= defender.power;
-  };
+  const powerOf = (c: GameCard) =>
+    (c.power ?? 0) + c.attachedDon * 1000 + (boosted.get(c.id) ?? 0) * 1000;
 
-  for (const attacker of canAttack) {
-    if (attackedIds.has(attacker.id)) continue;
-    // Characters can't attack the turn they were played (vanilla rule).
-    if (attacker.zone === "field" && attacker.turnPlayed === state.turnNumber) continue;
-    // Always attack when lethal is available; otherwise gate by aggression.
-    if (!lethalAvailable && Math.random() > aggression) continue;
-
-    // Target: prefer KOing rested opponent characters; otherwise go for leader.
-    const restedOpponents = opponent.field.filter(
-      c => c.isRested && (aggression >= 0.9 || wins(attacker, c)),
-    );
-    const goForCharacter = !lethalAvailable
-      && restedOpponents.length > 0
-      && Math.random() < 0.4;
-
-    if (!goForCharacter && !lethalAvailable && aggression < 0.9 && !wins(attacker, opponent.leader)) {
-      continue; // would bounce off the leader — hold back
-    }
-
-    const targetChar = goForCharacter ? restedOpponents[0] : null;
-
-    if (targetChar) {
-      actions.push({
-        type: "attack", playerId: aiId,
-        data: { attackerId: attacker.id, targetType: "character", targetId: targetChar.id },
-        timestamp: new Date().toISOString()
-      });
-      thoughts.push(`${attacker.name} attacks ${targetChar.name}!`);
-    } else {
+  for (const attacker of committed) {
+    if (lethal) {
+      // One clean swing on a 0-life leader ends it (CR 1-2-1-1-1).
       actions.push({
         type: "attack", playerId: aiId,
         data: { attackerId: attacker.id, targetType: "leader" },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       thoughts.push(`${attacker.name} attacks opponent's leader!`);
-      if (lethalAvailable) {
-        // If this swing ends the game, stop the AI from queueing further actions.
-        attackedIds.add(attacker.id);
-        break;
+      break;
+    }
+
+    const power = powerOf(attacker);
+    const canHitLeader =
+      attacker.power == null || leaderDef == null || power >= leaderDef;
+
+    // Best character KO: the fattest rested target this attacker beats.
+    // Worth it when the leader is out of reach, when the target is fat
+    // (cost 4+), or when playing cautiously (board control > face).
+    const winnable = (t: GameCard) =>
+      !koed.has(t.id) && (t.power == null || power >= t.power);
+    const koTarget =
+      restedTargets.find((t) => winnable(t) && (t.cost ?? 0) >= 2) ??
+      (!canHitLeader ? restedTargets.find(winnable) : undefined);
+
+    if (
+      koTarget &&
+      (!canHitLeader || (koTarget.cost ?? 0) >= 4 || aggression < 0.6)
+    ) {
+      actions.push({
+        type: "attack", playerId: aiId,
+        data: { attackerId: attacker.id, targetType: "character", targetId: koTarget.id },
+        timestamp: new Date().toISOString(),
+      });
+      koed.add(koTarget.id);
+      thoughts.push(`${attacker.name} attacks ${koTarget.name}!`);
+      continue;
+    }
+
+    if (canHitLeader) {
+      actions.push({
+        type: "attack", playerId: aiId,
+        data: { attackerId: attacker.id, targetType: "leader" },
+        timestamp: new Date().toISOString(),
+      });
+      thoughts.push(`${attacker.name} attacks opponent's leader!`);
+      continue;
+    }
+
+    // Near miss on the leader: close the deficit with DON!! when the
+    // chest affords it. Sub-power attacks are free misses in the vanilla
+    // game — holding back IS the correct play when the gap can't close.
+    if (leaderDef != null && attacker.power != null && aggression >= 0.4) {
+      const deficit = Math.ceil((leaderDef - power) / 1000);
+      if (deficit > 0 && deficit <= availableDon) {
+        for (let i = 0; i < deficit; i++) {
+          actions.push({
+            type: "attach_don", playerId: aiId,
+            data: { cardId: attacker.id },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        availableDon -= deficit;
+        boosted.set(attacker.id, (boosted.get(attacker.id) ?? 0) + deficit);
+        actions.push({
+          type: "attack", playerId: aiId,
+          data: { attackerId: attacker.id, targetType: "leader" },
+          timestamp: new Date().toISOString(),
+        });
+        thoughts.push(
+          `Attached ${deficit} DON!! to ${attacker.name}`,
+          `${attacker.name} attacks opponent's leader!`,
+        );
       }
     }
-    attackedIds.add(attacker.id);
   }
 
   // End turn

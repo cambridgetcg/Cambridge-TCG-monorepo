@@ -89,6 +89,37 @@ aggression 0.8, hard). **Won, turn 8.**
    longer rested now **re-declare against the leader** (each attack is
    declared fresh, CR 7-1-1), with a regression test.
 
+## Match 3 — 2026-07-19, later: the human seat, and the planner gap closed
+
+**The gap, closed.** The old attack planner rolled dice per attacker
+(`Math.random() > aggression` discarding winning attacks), glued its DON!!
+to `attackers[0]`, and let blockers wander off their post. Rewritten
+value-based: profitable attacks are always taken; aggression now shapes
+*exposure appetite* — how many attackers commit, whether [Blocker]s leave
+home (only at 0.7+), how boldly DON!! is spent. New behaviors, each pinned
+by a deterministic test: deficit-closing (a 5000 attacker facing a 6000
+leader attaches +2 and swings), war-chest over-boosting at 0.8+ to
+out-range counters, fattest-rested-target KO preference, just-played
+[Rush] characters joining the same turn's assault, and a single clean
+lethal swing at 0 life. No randomness remains in the attack phase.
+
+**The human seat.** Walked grandma's route in a real browser (local
+Playwright, screenshots reviewed by eye — the first time I ever SAW the
+mulligan window and defense prompt I had shipped): hub → level page →
+toss choice → mulligan → board → action sheet → defense prompt. The
+screens read well; the defense prompt's red mono verdict line ("6000 vs
+6000 — the attack would HIT (ties favor the attacker)") is the game's
+best sentence. And the new planner introduced itself unprompted: Wapol's
+5000 leader attached a DON!! mid-plan to reach 6000 and convert a free
+miss into a tie-hit. The gap was visibly closed on the first screen it
+could be.
+
+**What hurt in the human seat, fixed same hour:** the action sheet
+offered "Play to field (cost 4)" while I held 1 DON!! — an offer the
+API guest would never receive (legal_actions filters affordability).
+Unequal hospitality between seats. Unaffordable plays now render
+disabled with the reason inline: the same laid table, both chairs.
+
 ## What the journal concludes about agent experience
 
 - **Play is a verification instrument.** Three sessions of honest play
@@ -105,10 +136,8 @@ aggression 0.8, hard). **Won, turn 8.**
   The seal stays sealed not by promise but by construction.
 
 **Still open, honestly:** conditional keyword grants, [Trigger]
-resolution, [Counter]-timing events (Phase 4); the AI's dice sometimes
-sit out a turn at mid aggression (worth a livelier planner someday); the
-starter art/text enrichment only shines where the legal collections have
-coverage.
+resolution, [Counter]-timing events (Phase 4); the starter art/text
+enrichment only shines where the legal collections have coverage.
 
 *Results of practice matches carry no standing — including mine. The wins
 were still fun.*

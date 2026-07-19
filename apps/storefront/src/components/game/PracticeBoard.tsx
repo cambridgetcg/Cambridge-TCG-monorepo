@@ -621,7 +621,7 @@ function ActionSheet({
 }) {
   const state = game.state;
   const opp = state.player2;
-  const options: { label: string; hint?: string; run: () => void }[] = [];
+  const options: { label: string; hint?: string; run: () => void; disabled?: boolean }[] = [];
 
   if (card.zone === "hand" && isMyTurn) {
     const costText = card.cost != null ? ` (cost ${card.cost})` : "";
@@ -631,12 +631,18 @@ function ActionSheet({
         : card.category === "stage"
           ? "Set stage"
           : "Play to field";
+    // Same hospitality the API guest gets: an unaffordable play is shown
+    // disabled with the reason, not offered and then scolded.
+    const short =
+      card.cost != null && card.cost > state.player1.donActive;
     options.push({
       label: `${kind}${costText}`,
-      hint:
-        card.category === "event"
+      hint: short
+        ? `Needs ${card.cost} DON!! — you have ${state.player1.donActive} active.`
+        : card.category === "event"
           ? "Effect not interpreted in practice mode — the card resolves to trash."
           : undefined,
+      disabled: short,
       run: () => onPlay(card.id),
     });
   }
@@ -722,8 +728,13 @@ function ActionSheet({
             {options.map((o, i) => (
               <button
                 key={i}
-                onClick={o.run}
-                className="w-full text-left text-sm px-3 py-2 rounded-lg transition-colors hover:bg-surface-subtle text-ink"
+                onClick={o.disabled ? undefined : o.run}
+                disabled={o.disabled}
+                className={`w-full text-left text-sm px-3 py-2 rounded-lg transition-colors ${
+                  o.disabled
+                    ? "text-ink-faint cursor-not-allowed"
+                    : "hover:bg-surface-subtle text-ink"
+                }`}
               >
                 {o.label}
                 {o.hint && <span className="block text-[11px] text-ink-faint">{o.hint}</span>}
