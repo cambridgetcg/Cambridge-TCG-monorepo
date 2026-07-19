@@ -249,7 +249,7 @@ export default function ThePull() {
           <span className="text-[9.5px] uppercase tracking-[0.1em] text-ink-faint">Secret&nbsp;odds</span>
           <span className="tabular-nums text-ink">1.0%</span>
         </span>
-        <button type="button" onClick={toggleSound} className="wardrobe-jp grid h-7 w-7 place-items-center rounded-full border border-border-subtle text-xs text-ink-muted transition hover:text-ink" title="Sound on / off" aria-label="Toggle sound">{sound ? "音" : "静"}</button>
+        <button type="button" onClick={toggleSound} aria-pressed={sound} className="wardrobe-jp grid h-7 w-7 place-items-center rounded-full border border-border-subtle text-xs text-ink-muted transition hover:text-ink" title="Sound on / off" aria-label={sound ? "Sound on — turn off" : "Sound off — turn on"}>{sound ? "音" : "静"}</button>
       </div>
 
       <div className={styles.stage}>

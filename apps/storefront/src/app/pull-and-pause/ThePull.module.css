@@ -68,8 +68,9 @@
 .card:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
 .face { position: absolute; inset: 0; border-radius: 9px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: 0 10px 22px -12px rgba(32,29,24,.24); }
 .back { transform: rotateY(180deg); background: linear-gradient(160deg, var(--color-surface), var(--color-surface-subtle)); border: 1px solid var(--color-border-strong); display: grid; place-items: center; }
-.backCv { position: absolute; inset: 0; }
 .backKanji { font-family: var(--font-noto-serif-jp); font-size: 22px; color: var(--color-accent); opacity: .85; }
+/* #111 is the surface UNDER the generated card art (the canvas covers it); it
+   is deliberately raw, not chrome. */
 .front { border: 1px solid var(--color-border-strong); background: #111; }
 .frontCv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .frame { position: absolute; inset: 0; border-radius: 9px; pointer-events: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
@@ -98,7 +99,7 @@
 .chip canvas { width: 100%; height: 100%; display: block; }
 .chipRare { border-color: color-mix(in srgb, var(--color-accent) 55%, transparent); }
 .chipSuper { border-color: color-mix(in srgb, var(--color-accent) 82%, transparent); }
-.chipSecret { border-color: rgba(255,255,255,.65); box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent), 0 3px 10px -4px rgba(32,29,24,.24); }
+.chipSecret { border-color: color-mix(in srgb, var(--color-accent) 92%, transparent); box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 70%, transparent), 0 3px 10px -4px rgba(32,29,24,.24); }
 
 /* ── the held-still Secret moment ──────────── */
 .hush { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0; background: var(--color-page); background-image: radial-gradient(color-mix(in srgb, var(--color-ink) 20%, transparent) 1.1px, transparent 1.2px); background-size: 4px 4px; }
@@ -117,5 +118,6 @@
 @media (prefers-reduced-motion: reduce) {
   .pack, .flash, .speed, .aura, .hush, .tearing, .pop { animation: none !important; }
   .rSuper .front::after, .rSecret .front::after { animation: none; }
-  .card { transition: opacity .3s, transform .3s; }
+  /* no rotateY motion — the face swaps and fades in, it doesn't spin */
+  .card { transition: opacity .3s; }
 }

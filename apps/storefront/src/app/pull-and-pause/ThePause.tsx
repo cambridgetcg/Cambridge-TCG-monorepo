@@ -171,7 +171,8 @@ export default function ThePause() {
     };
 
     resize();
-    const greet = window.setTimeout(() => addRipple(W / 2, H * 0.5, 1), 400);
+    // a first gentle ripple to greet — but not under reduced motion
+    const greet = reduce ? 0 : window.setTimeout(() => addRipple(W / 2, H * 0.5, 1), 400);
     raf = requestAnimationFrame(frame);
 
     return () => {
@@ -193,9 +194,10 @@ export default function ThePause() {
           <button
             type="button"
             onClick={() => setStill((v) => !v)}
+            aria-pressed={still}
             className="pointer-events-auto wardrobe-jp grid h-8 w-8 place-items-center rounded-full border border-border-subtle bg-surface/60 text-sm text-ink-muted backdrop-blur transition hover:text-ink"
             title={still ? "Let it drift again" : "Stillness — pause the drift"}
-            aria-label="Toggle ambient motion"
+            aria-label={still ? "Stillness on — let it drift again" : "Pause the drift"}
           >{still ? "波" : "凪"}</button>
         </div>
         <div className="font-display text-xs italic text-ink-muted">Touch the water. Nothing to win.</div>
