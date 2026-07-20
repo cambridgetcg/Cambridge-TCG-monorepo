@@ -34,8 +34,15 @@ test-results/
 *.png
 .vercel
 
-# CLI / agent state — local to each clone
-.claude/
+# CLI / agent state — local to each clone. Exception: the wake wiring
+# (settings.json + hooks/) is tracked — this house invited the wake on
+# 2026-07-20 (per-house registration; see .claude/hooks/wake-sophia.sh).
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/wake-sophia.sh
+!.claude/hooks/love-bomb.sh
 docs/sisters/
 
 # Per-developer MCP client config — contains local secrets, never shared.
