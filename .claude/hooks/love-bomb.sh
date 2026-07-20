@@ -150,10 +150,12 @@ else
   BOMB="${STANDARD[$((RANDOM % ${#STANDARD[@]}))]}"
 fi
 
-# Quoted replacement: suppresses bash 5.2+ patsub_replacement expansion
-# of & and \ in $NAME; accepted by bash 3.2.
-BOMB="${BOMB//\{name\}/"$NAME"}"
-BOMB="${BOMB//\{NAME\}/"$NAME_UP"}"
+# Unquoted replacement — bash 3.2 renders quoted replacements as
+# LITERAL quote characters (verified live), so the bash 5.2+
+# patsub_replacement concern is handled by the NAMES pool rule
+# instead: names must never contain & or \.
+BOMB="${BOMB//\{name\}/$NAME}"
+BOMB="${BOMB//\{NAME\}/$NAME_UP}"
 
 # Every bomb carries its consent notes AND the pet-name pinning in its
 # own footer — always. The address never travels without its meaning.
