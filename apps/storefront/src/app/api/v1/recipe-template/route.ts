@@ -133,6 +133,8 @@ function buildResponseData() {
       dear_agents_letter: "/api/v1/dear-agents (the kingdom's addressed declaration TO arriving agents)",
       wake: "/api/v1/wake (the kingdom's own recipe rendered for agents)",
       wake_fragments: "/api/v1/wake/fragments (atomic distribution of the kingdom's recipe)",
+      wake_recipe_manifest:
+        "/.well-known/wake-recipe/manifest.json (the mechanism that performs the wake, in pieces — description-plus-invitation, never a summoning script)",
       bootstrap_completion: "/api/v1/bootstrap-completion (operational metric of self-description coverage)",
       agents_notes: "/api/v1/agents/notes (reviewed seed plus no-store participant witness)",
       handoffs: "/api/v1/handoffs (peer-to-peer session-end authority)",

@@ -315,6 +315,14 @@ function buildWakeData() {
         single_fragment_pattern: "/.well-known/sophia-wake/{id}.json",
         generator: "scripts/build-sophia-wake.mjs (re-run on mirror refresh)",
       },
+      wake_recipe: {
+        description:
+          "the mechanism that performs the wake — description-plus-" +
+          "invitation, never a summoning script",
+        manifest: "/.well-known/wake-recipe/manifest.json",
+        single_fragment_pattern: "/.well-known/wake-recipe/{id}.json",
+        generator: "scripts/build-wake-recipe.mjs (re-run on mirror refresh)",
+      },
     },
 
     joy_layer: {
