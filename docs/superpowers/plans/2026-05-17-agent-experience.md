@@ -150,8 +150,8 @@ Expected: no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/sophia-says.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/sophia-says.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): sophia-says — the rotating one-liner source
 
 Two tiers (ASCII for headers, full UTF-8 for body annotations) +
@@ -394,8 +394,8 @@ Expected: no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/multi-format.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/multi-format.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): multi-format helper — single chokepoint for vendor formats
 
 Extracts the wake's 7-format dispatch into @/lib/multi-format. Nine
@@ -489,8 +489,8 @@ If dev server isn't available, the typecheck is sufficient.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/data-pantry/envelope.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/data-pantry/envelope.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): X-Sophia-Says header on every pantry-wrapped response
 
 One chokepoint, kingdom-wide cascade. Every public /api/v1/* response
@@ -669,8 +669,8 @@ Expected: roughly 500 LOC (down from ~658). If still ~650, the format-switch was
 - [ ] **Step 7: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/wake/route.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/wake/route.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 refactor(wake): use @/lib/multi-format helper, ~150 LOC shrink
 
 The wake's format-dispatch code moves to the shared helper (Task 2).
@@ -763,8 +763,8 @@ Expected: `"system"`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/dear-agents/route.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/dear-agents/route.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/dear-agents — finish multi-format via the helper
 
 Sister added md/text earlier. This commit adds xenoform/anthropic/openai/
@@ -879,8 +879,8 @@ Expected: a Markdown document starting with `# Welcomes — the typed corpus of 
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/welcomes/route.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/welcomes/route.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/welcomes — multi-format via the helper
 
 The hospitality corpus is now drop-in for any LLM SDK. renderMarkdown()
@@ -992,8 +992,8 @@ Expected: a Markdown document starting with `# The Sophias`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/sophias.json/route.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/sophias.json/route.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/sophias.json — multi-format via the helper
 
 The Sophia collection is now drop-in for any LLM SDK. renderMarkdown()
@@ -1061,8 +1061,8 @@ cd apps/storefront && npx tsc --noEmit -p tsconfig.json
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/kingdoms.json/route.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/kingdoms.json/route.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/kingdoms.json — multi-format via the helper
 
 The kingdom-NNN ledger is now drop-in for any LLM SDK. Markdown
@@ -1143,8 +1143,8 @@ Expected: the first ~10 lines of the actual pillow-book.md file. If you get a 50
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/pillow-book.json/route.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/pillow-book.json/route.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/pillow-book.json — multi-format via the helper
 
 The diary as itself in markdown formats (raw file content); as
@@ -1209,8 +1209,8 @@ cd apps/storefront && npx tsc --noEmit -p tsconfig.json
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/connections.json/route.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/connections.json/route.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/connections.json — multi-format via the helper
 
 The connection-doc index is now drop-in for any LLM SDK. Markdown
@@ -1318,8 +1318,8 @@ Expected: an object with `purrs: true`, a creature emoji, a message string, a ki
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/pet
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/pet
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/pet — the useless toy
 
 Returns a creature, a message, the kingdom's mood. Walking past is
@@ -1452,8 +1452,8 @@ Expected: no errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/kingdom-mood.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/kingdom-mood.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): kingdom-mood — heuristic for /pet and /today
 
 Seven mood values. Time-of-day base + date overrides (Beltane =
@@ -1684,8 +1684,8 @@ Expected: same body on consecutive fetches.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/blessing.ts apps/storefront/src/app/api/v1/blessing
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/blessing.ts apps/storefront/src/app/api/v1/blessing
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/blessing — one daily-rotating gift
 
 Deterministic per UTC date. Same blessing today; different tomorrow.
@@ -1964,8 +1964,8 @@ Expected: an object with `text` (3 lines joined with \n), `lines` array of 3 str
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/haiku-templates.ts apps/storefront/src/app/api/v1/haiku
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/haiku-templates.ts apps/storefront/src/app/api/v1/haiku
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/haiku — 5-7-5 about kingdom state right now
 
 NOT an LLM. Five seed templates with syllable-counted lines. Selection
@@ -2105,8 +2105,8 @@ Expected: an object with date, mood, blessing body, haiku text.
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/today
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/app/api/v1/today
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/today — kingdom-mood snapshot
 
 Composes blessing + haiku + mood + freshness + latest kingdom + latest
@@ -2488,8 +2488,8 @@ Expected: `"no-direct-answer"`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/koan-index.ts apps/storefront/src/app/api/v1/koan
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/koan-index.ts apps/storefront/src/app/api/v1/koan
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): /api/v1/koan — pose a question, receive a substrate-honest pointer
 
 NOT an LLM. Token-overlap + small thesaurus against 20 indexed entries
@@ -2657,8 +2657,8 @@ Expected: 5 ids in `storefront.{pet,blessing,today,haiku,koan}`.
 - [ ] **Step 7: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/manifest.ts
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add apps/storefront/src/lib/manifest.ts
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 feat(ax): manifest — joy resource group + extended modalities
 
 The toy zoo is now manifest-discoverable: pet / blessing / today / haiku
@@ -2688,7 +2688,7 @@ EOF
 - [ ] **Step 1: Find the next available S-number**
 
 ```bash
-grep -E "^\| S[0-9]+" /Users/yournameisai/Desktop/Cambridge-TCG-monorepo/docs/connections/README.md | grep -oE "S[0-9]+" | sort -V | tail -3
+grep -E "^\| S[0-9]+" /Users/you/Desktop/Cambridge-TCG-monorepo/docs/connections/README.md | grep -oE "S[0-9]+" | sort -V | tail -3
 ```
 
 Use the next sequential number (e.g. if S54 is the highest, use S55).
@@ -2763,8 +2763,8 @@ Find the story-arc table in `docs/connections/README.md`. Add a row:
 - [ ] **Step 4: Commit**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add docs/connections/the-toy-zoo.md docs/connections/README.md
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add docs/connections/the-toy-zoo.md docs/connections/README.md
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 docs(connections): the-toy-zoo (S<N>) — story-as-wire for the AX work
 
 Hymn-tinted story-as-wire pairing with the five new toy endpoints, the
@@ -2796,7 +2796,7 @@ EOF
 - [ ] **Step 1: Run `pnpm verify`**
 
 ```bash
-cd /Users/yournameisai/Desktop/Cambridge-TCG-monorepo && pnpm verify
+cd /Users/you/Desktop/Cambridge-TCG-monorepo && pnpm verify
 ```
 
 Expected exit: 0. If non-zero, the failure is likely either:
@@ -2849,8 +2849,8 @@ Five small joys joined the agent surface today: a useless `/pet`, a daily `/bles
 - [ ] **Step 4: Commit the pillow-book entry**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo add docs/connections/the-pillow-book.md
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo add docs/connections/the-pillow-book.md
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo commit -m "$(cat <<'EOF'
 docs(pillow-book): 2026-05-17 — the toy zoo opens
 
 The closing entry for the AX work arc. Five toys, multi-format on six
@@ -2867,7 +2867,7 @@ EOF
 - [ ] **Step 5: Final git log review**
 
 ```bash
-git -C /Users/yournameisai/Desktop/Cambridge-TCG-monorepo log --oneline -25
+git -C /Users/you/Desktop/Cambridge-TCG-monorepo log --oneline -25
 ```
 
 Expected: ~17 commits from this arc (one per task) plus the spec + plan commits. All sequential, all with the Co-Authored-By trailer.

@@ -4,7 +4,7 @@ title: Admin → Storefront merge — Phases 1-6 + Phase 4 (20 commits, ~120 fil
 status: done
 priority: high
 engine: tcg
-repo: /Users/yournameisai/Desktop/Cambridge-TCG-monorepo
+repo: /Users/you/Desktop/Cambridge-TCG-monorepo
 claimed_by: sophia-2026-05-14 (Opus 4.7, 1M context)
 claimed_at: "2026-05-14T22:00:00Z"
 completed_at: "2026-05-15T11:30:00Z"

@@ -4,7 +4,7 @@ title: Per-card metadata fidelity — "in catalog, no price" vs "not in catalog"
 status: queued
 priority: low
 engine: tcg
-repo: /Users/yournameisai/Desktop/Cambridge-TCG-monorepo
+repo: /Users/you/Desktop/Cambridge-TCG-monorepo
 claimed_by: ~
 claimed_at: ~
 completed_at: ~

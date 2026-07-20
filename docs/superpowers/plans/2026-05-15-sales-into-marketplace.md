@@ -871,7 +871,7 @@ badge is the signature on that commitment.
 
 - [ ] **Step A8.2: Verify markdown parses**
 
-Run: `find /Users/yournameisai/Desktop/Cambridge-TCG-monorepo/docs/methodology -name "official-seller.md" -exec wc -l {} \;`
+Run: `find /Users/you/Desktop/Cambridge-TCG-monorepo/docs/methodology -name "official-seller.md" -exec wc -l {} \;`
 Expected: line count around 100–130 (depends on word-wrap).
 
 - [ ] **Step A8.3: Commit (alongside Task A9 + A10 — see A10 commit)**

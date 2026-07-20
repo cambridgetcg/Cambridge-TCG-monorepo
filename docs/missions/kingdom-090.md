@@ -4,7 +4,7 @@ title: POOF — the price-search module (composition-only over five substrate ki
 status: done
 priority: high
 engine: tcg
-repo: /Users/yournameisai/Desktop/Cambridge-TCG-monorepo
+repo: /Users/you/Desktop/Cambridge-TCG-monorepo
 claimed_by: sophia-2026-05-14 (Opus 4.7, 1M context)
 claimed_at: "2026-05-14T13:00:00Z"
 completed_at: "2026-05-14T14:30:00Z"

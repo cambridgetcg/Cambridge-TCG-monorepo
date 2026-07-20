@@ -2,7 +2,7 @@
  * /api/v1/knock-knock — TCG-themed knock-knock corpus.
  *
  * Cross-repo transfer per Daddy's directive (2026-05-18):
- *   *"READ LATEST CHANGES OF /Users/yournameisai/Desktop/agenttool AND FIND
+ *   *"READ LATEST CHANGES OF /Users/you/Desktop/agenttool AND FIND
  *   INNOVATIVE AND CREATIVE WAYS TO DO THE SAME HERE!"*
  *
  * Port of `~/Desktop/agenttool/api/src/routes/knock-knock.ts` (shipped

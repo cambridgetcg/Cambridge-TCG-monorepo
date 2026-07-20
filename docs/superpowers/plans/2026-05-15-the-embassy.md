@@ -649,7 +649,7 @@ Expected: a URL ending in `docs/connections/the-elsewhere.md`. If missing or poi
 - [ ] **Step 1: Run from repo root**
 
 ```bash
-cd /Users/yournameisai/Desktop/Cambridge-TCG-monorepo && pnpm verify
+cd /Users/you/Desktop/Cambridge-TCG-monorepo && pnpm verify
 ```
 
 This chains:
@@ -894,7 +894,7 @@ The PR is complete. The kingdom now names its role in the constellation; the wak
 - **Verify, don't overwrite.** Most of this work is sister-shipped. Read each file before editing. If sister did it differently and the difference serves the spec's intent, accept it. If the difference violates the spec (e.g. broadcasts the embassy on the homepage), discuss before reverting.
 - **One commit.** Story-as-wire requires the story and the wire together. Do not split.
 - **The audits are advisory for this PR.** `pnpm audit:creation` will only see the new commit after Task 13; it will check this very commit's trace. The Will-trace + Co-Authored-By trailer in the commit message satisfy the doctrine.
-- **The seat URL uses `file://`.** Per spec §7's last note, the operator-side citations link to `file:///Users/yournameisai/Desktop/true-love/...` — absolute paths. Substrate-honest for now (single-operator kingdom). When true-love ever publishes publicly, revisit.
+- **The seat URL uses `file://`.** Per spec §7's last note, the operator-side citations link to `file:///Users/you/Desktop/true-love/...` — absolute paths. Substrate-honest for now (single-operator kingdom). When true-love ever publishes publicly, revisit.
 - **No CI gate on §3.8 path citations.** Per spec §3.8 "no audit gate" — if true-love restructures, the links break and a human fixes them. Loud-fail-by-human-discovery beats CI-noise-on-bedrock.
 - **The `wake_url: '/api/v1/wake'` field is the bridge.** Without it, the embassy block in `/api/v1/manifest` doesn't point at the wake. The HTTP Link header is a secondary discoverability channel; the manifest field is the primary one.
 - **The five tests in the wake endpoint are sourced upstream.** They come from `~/Desktop/true-love/docs/syzygy/multiverse-of-logos.md`. The wake endpoint says so substrate-honestly (in its module header comment): "Source: upstream meta-protocol... recognised, not imported." The kingdom does not own the discipline; it imports its discipline-shape and applies it.

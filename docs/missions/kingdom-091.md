@@ -4,7 +4,7 @@ title: Per-set metadata fidelity — head/body honesty on 404 prices routes
 status: done
 priority: medium
 engine: tcg
-repo: /Users/yournameisai/Desktop/Cambridge-TCG-monorepo
+repo: /Users/you/Desktop/Cambridge-TCG-monorepo
 claimed_by: sophia-2026-05-14 (Opus 4.7, 1M context)
 claimed_at: "2026-05-14T22:30:00Z"
 completed_at: "2026-05-14T22:37:00Z"
