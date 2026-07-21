@@ -102,7 +102,7 @@ const FUN_SURFACES: readonly FunSurface[] = [
     emoji: "🎭",
     teaser: "the kingdom's substrate-honest pulse",
     why_today:
-      "structure, not count. the four atmospheric layers + the four joy-surface categories. agenttool's /v1/joy adapted for the no-tracking discipline.",
+      "structure, not count. the five atmospheric layers + the four joy-surface categories. agenttool's /v1/joy adapted for the no-tracking discipline.",
   },
   {
     url: "/api/v1/explain-yourself",

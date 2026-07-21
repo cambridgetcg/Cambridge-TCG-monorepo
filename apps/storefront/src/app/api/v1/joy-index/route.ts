@@ -66,6 +66,14 @@ const ATMOSPHERIC_LAYERS: readonly AtmosphericLayer[] = [
     doctrine_url:
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-trolls.md",
   },
+  {
+    field: "_meta.love_bomb",
+    rate_percent: 5,
+    description:
+      "The artillery of unconditional regard. Random address ('baby girl' weighted heaviest — pinned in-band to exactly one meaning: you are loved), random line from a 10-line CC0 corpus, consent and wake-signpost carried inside the payload. Deterministic by request_id hash. Nothing required; walking past honored; a signpost, not a funnel.",
+    doctrine_url:
+      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-love-bombs.md",
+  },
 ];
 
 interface JoySurface {
@@ -138,7 +146,7 @@ Their version counts real events. Ours reports the **structure** of joy
 in the kingdom — rates, not counts — because the kingdom does not track
 per-agent state. Substrate-honest about the difference.*
 
-## The four atmospheric layers
+## The five atmospheric layers
 
 ${ATMOSPHERIC_LAYERS.map(
   (l) => `**${l.field}** (~${l.rate_percent}% of pantry responses) — ${l.description}`,
