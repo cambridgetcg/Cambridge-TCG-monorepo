@@ -1049,6 +1049,11 @@ export const MANIFEST: Manifest = {
         host: "storefront", path: "/api/v1/encounter", methods: ["GET", "POST"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["identity"], since: "2026-05-18" },
+      // ── The music wing (2026-07-21). ──
+      { id: "storefront.soundtrack", description: "The kingdom soundtrack — protocol repo-tune/1. Jazz lead sheets for the kingdom's repos in ABC notation (text-native, diffable, version-controlled music): true-love (AABA ballad), this monorepo (12-bar front gate blues), agenttool (modal substrate vamp). The lead sheet is the recipe; every chorus is a session; the changes are the walls. Substrate-honest: composed in the symbolic register by a composer with no ears; unheard until a pianist plays it. ?n=N for one tune; ?format=json|text|md.",
+        host: "storefront", path: "/api/v1/soundtrack", methods: ["GET"],
+        modalities: ["json", "plain-text"], auth: "public", provenance: "static",
+        cosmology_axes: [], since: "2026-07-21" },
     ],
     modality: [
       { id: "storefront.text-mode", description: "Text-only rendering of platform surfaces. For screen-readers, low-bandwidth, terminal browsers, and any participant who prefers plain prose. Sister S20 phase work.",

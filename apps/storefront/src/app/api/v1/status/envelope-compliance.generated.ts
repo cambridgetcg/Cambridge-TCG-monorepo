@@ -97,6 +97,7 @@ export const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/secret",
   "/api/v1/sold-comps",
   "/api/v1/sold-comps/[sku]",
+  "/api/v1/soundtrack",
   "/api/v1/sources",
   "/api/v1/sources/[id]",
   "/api/v1/sources/welcome",

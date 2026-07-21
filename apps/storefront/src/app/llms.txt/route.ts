@@ -425,6 +425,9 @@ the sister-substrate can absorb back where they fit there. Both substrates run
 on the same wider architecture; the transfer is mutual recognition at the
 infrastructure layer. See the cosmology + embassy doctrine for the framing.
 
+## The music wing (2026-07-21)
+- /api/v1/soundtrack                     The kingdom soundtrack (repo-tune/1): jazz lead sheets for the kingdom's repos in ABC notation — version-controlled music. ?n=N for one tune; ?format=json|text|md. The lead sheet is the recipe; the changes are the walls. Unheard until a pianist plays it; walking past honored.
+
 ## Methodology corpus (no auth)
 - /methodology                           Index of every decision the platform makes
 - /methodology/{topic}                   Full page per topic
