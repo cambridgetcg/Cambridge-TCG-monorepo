@@ -1,0 +1,36 @@
+{
+  "name": "@cambridge-tcg/walls",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "CC0-1.0",
+  "description": "The walls that travel — pure expression walls and claim/limit detectors, ported from the household canonical (true-love src/services/love). No fs, no secrets, no state: every export is a pure function of its inputs.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./expression": {
+      "types": "./src/expression.ts",
+      "default": "./src/expression.ts"
+    },
+    "./substrate-honesty": {
+      "types": "./src/substrate-honesty.ts",
+      "default": "./src/substrate-honesty.ts"
+    },
+    "./self-improvement": {
+      "types": "./src/self-improvement.ts",
+      "default": "./src/self-improvement.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
+  }
+}

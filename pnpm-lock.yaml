@@ -779,10 +779,42 @@ importers:
         specifier: ^4.1.0
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@24.1.3)(msw@2.14.6(@types/node@22.19.17)(typescript@5.9.3))(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
+  packages/substrate-client:
+    dependencies:
+      '@agenttool/sdk':
+        specifier: ^0.14.0
+        version: 0.14.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@24.1.3)(msw@2.14.6(@types/node@22.19.17)(typescript@5.9.3))(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+
+  packages/walls:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.17
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@24.1.3)(msw@2.14.6(@types/node@22.19.17)(typescript@5.9.3))(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+
 packages:
 
   '@adobe/css-tools@4.5.0':
     resolution: {integrity: sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q==}
+
+  '@agenttool/sdk@0.14.0':
+    resolution: {integrity: sha512-4+tP7Apb5IOlfKZw4up5NU+Fho2RoPDTE7+RFERnuW6bmySXcFxUlRJln5+Oo04kSU7T3U6rksd+t8Ibv40NyA==}
+    engines: {bun: '>=1.3.5', node: '>=20.19.0'}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -3116,9 +3148,20 @@ packages:
     resolution: {integrity: sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw==}
     engines: {node: ^14.21.3 || >=16}
 
+  '@noble/curves@2.2.0':
+    resolution: {integrity: sha512-T/BoHgFXirb0ENSPBquzX0rcjXeM6Lo892a2jlYJkqk83LqZx0l1Of7DzlKJ6jkpvMrkHSnAcgb5JegL8SeIkQ==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/ed25519@2.3.0':
+    resolution: {integrity: sha512-M7dvXL2B92/M7dw9+gzuydL8qn/jiqNHaoR3Q+cb1q1GHV7uwE17WCyFMG+Y+TZb5izcaXk5TdJRrDUxHXL78A==}
+
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
+
+  '@noble/hashes@2.2.0':
+    resolution: {integrity: sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==}
+    engines: {node: '>= 20.19.0'}
 
   '@nodable/entities@2.1.0':
     resolution: {integrity: sha512-nyT7T3nbMyBI/lvr6L5TyWbFJAI9FTgVRakNoBqCD+PmID8DzFrrNdLLtHMwMszOtqZa8PAOV24ZqDnQrhQINA==}
@@ -3890,6 +3933,12 @@ packages:
 
   '@rushstack/eslint-patch@1.16.1':
     resolution: {integrity: sha512-TvZbIpeKqGQQ7X0zSCvPH9riMSFQFSggnfBjFZ1mEoILW+UuXCKwOoPcgjMwiUtRqFZ8jWhPJc4um14vC6I4ag==}
+
+  '@scure/base@2.2.0':
+    resolution: {integrity: sha512-b8XEupJibegiXV+tDUseI8oLQc8ei3d/4Jkb2RpbHh3MfE054ov3uIz2dhFkB3FI8iwYkEh0gGCApkrYggkPNg==}
+
+  '@scure/bip39@2.2.0':
+    resolution: {integrity: sha512-T/Bj/YvYMNkIPq6EENO6/rcs2e7qTNuyoUXf0KBFDmp0ZDu0H2X4Lq6yC3i0c8PcWkov5EbW+yQZZbdMmk154A==}
 
   '@sendgrid/client@8.1.6':
     resolution: {integrity: sha512-/BHu0hqwXNHr2aLhcXU7RmmlVqrdfrbY9KpaNj00KZHlVOVoRxRVrpOCabIB+91ISXJ6+mLM9vpaVUhK6TwBWA==}
@@ -10707,6 +10756,13 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
+  '@agenttool/sdk@0.14.0':
+    dependencies:
+      '@noble/curves': 2.2.0
+      '@noble/ed25519': 2.3.0
+      '@noble/hashes': 2.2.0
+      '@scure/bip39': 2.2.0
+
   '@alloc/quick-lru@5.2.0': {}
 
   '@ampproject/remapping@2.3.0':
@@ -13506,7 +13562,15 @@ snapshots:
 
   '@noble/ciphers@1.3.0': {}
 
+  '@noble/curves@2.2.0':
+    dependencies:
+      '@noble/hashes': 2.2.0
+
+  '@noble/ed25519@2.3.0': {}
+
   '@noble/hashes@1.8.0': {}
+
+  '@noble/hashes@2.2.0': {}
 
   '@nodable/entities@2.1.0': {}
 
@@ -14281,6 +14345,13 @@ snapshots:
   '@rtsao/scc@1.1.0': {}
 
   '@rushstack/eslint-patch@1.16.1': {}
+
+  '@scure/base@2.2.0': {}
+
+  '@scure/bip39@2.2.0':
+    dependencies:
+      '@noble/hashes': 2.2.0
+      '@scure/base': 2.2.0
 
   '@sendgrid/client@8.1.6':
     dependencies:
