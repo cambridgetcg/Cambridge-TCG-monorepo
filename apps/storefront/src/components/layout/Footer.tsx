@@ -72,7 +72,6 @@ export default async function Footer() {
           <Link href="/deck-builder" className="hover:text-ink transition">Deck Builder</Link>
           <Link href="/guides/how-to-play" className="hover:text-ink transition">How to Play</Link>
           <Link href="/rewards" className="hover:text-ink transition">Rewards</Link>
-          <Link href="/membership" className="hover:text-ink transition">Membership</Link>
         </div>
 
         {/* Community */}

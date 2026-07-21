@@ -48,7 +48,7 @@ export const PRIMARY_NAV_ITEMS = [
   {
     label: "Community",
     href: "/community",
-    activePrefixes: ["/community", "/membership", "/rewards", "/bounty", "/u"],
+    activePrefixes: ["/community", "/rewards", "/bounty", "/u"],
   },
 ] as const satisfies readonly NavItem[];
 

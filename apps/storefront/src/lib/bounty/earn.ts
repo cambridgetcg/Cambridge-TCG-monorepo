@@ -7,7 +7,6 @@
 // Totals are floored to an integer.
 
 import { query } from "@/lib/db";
-import { getUserPerks } from "@/lib/membership/db";
 import { bumpStreak } from "@/lib/membership/streak";
 
 export interface EarnBreakdown {
@@ -55,19 +54,18 @@ export async function calculateBerriesEarn(args: {
   // Bump the streak as a side-effect of this win (PVE counts as a daily visit).
   const streak = await bumpStreak(args.userId);
 
-  const perks = await getUserPerks(args.userId);
-  const tierMultiplier = perks.points_multiplier ?? 1.0;
-
+  // Membership tiers removed (2026-07-21) — no tier multiplier; base × daily
+  // curve × streak only.
   const total = Math.max(
     0,
-    Math.floor(base * dailyMultiplier * streak.multiplier * tierMultiplier),
+    Math.floor(base * dailyMultiplier * streak.multiplier),
   );
 
   return {
     base,
     dailyMultiplier,
     streakMultiplier: streak.multiplier,
-    tierMultiplier,
+    tierMultiplier: 1,
     total,
     clearsToday,
     currentStreak: streak.currentStreak,

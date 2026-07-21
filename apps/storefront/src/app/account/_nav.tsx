@@ -58,7 +58,6 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
       { href: "/account/swaps", label: "Swaps" },
       { href: "/account/refunds", label: "Payments & refunds" },
       { href: "/account/payouts", label: "Payouts" },
-      { href: "/account/membership", label: "Membership" },
     ],
   },
   {

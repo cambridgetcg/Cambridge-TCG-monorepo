@@ -586,17 +586,11 @@ export async function createSellerAuction(userId: string, data: {
 }): Promise<Auction> {
   const currentPrice = data.starting_price;
 
-  // Membership tier may grant auto-approval. We resolve it inline so the
-  // auction skips the manual review queue when applicable.
-  const tierRes = await query(
-    `SELECT t.auction_priority_approval AS auto_ok
-       FROM users u LEFT JOIN tiers t ON t.id = u.tier_id
-      WHERE u.id = $1`,
-    [userId]
-  );
-  const autoApprove = tierRes.rows[0]?.auto_ok === true;
-  const initialApproval = autoApprove ? "approved"        : "pending_review";
-  const initialStatus   = autoApprove ? "scheduled"      : "draft";
+  // Membership tiers were removed (2026-07-21) — no tier grants auto-approval,
+  // so every seller auction goes through the normal review queue (as most
+  // sellers already did).
+  const initialApproval = "pending_review";
+  const initialStatus   = "draft";
 
   const result = await query(
     `INSERT INTO auctions (title, description, sku, condition, auction_type, starting_price, reserve_price,
@@ -629,21 +623,8 @@ export async function createSellerAuction(userId: string, data: {
   postActivity(userId, "auction_listed", "Listed a card at auction").catch(() => {});
   awardAchievement(userId, "first_auction").catch(() => {});
 
-  // Auto-approval bypass: notify followers immediately since the listing is
-  // live (mirrors the post-approval notify in approveAuction). Without this,
-  // a Platinum seller's followers wouldn't get the inline broadcast.
-  if (autoApprove && auction.seller_user_id) {
-    const { notifyFollowersOfAuctionListing } = await import("@/lib/social/notify");
-    notifyFollowersOfAuctionListing({
-      sellerId: auction.seller_user_id,
-      auctionId: auction.id,
-      auctionTitle: auction.title,
-      imageUrl: null, // images attach after creation; will be missing on auto-approval
-      startingPrice: parseFloat(auction.starting_price),
-      buyNowPrice: auction.buy_now_price ? parseFloat(auction.buy_now_price) : null,
-      endsAt: auction.ends_at,
-    }).catch((err) => console.error("[auction] auto-approve follower notify failed:", err));
-  }
+  // (No auto-approval anymore — every auction goes through review, and the
+  // follower broadcast fires from approveAuction once it's approved.)
 
   return auction;
 }
@@ -913,31 +894,18 @@ export async function rejectOffer(auctionId: string, bidId: string): Promise<boo
 }
 
 export async function calculateSellerPayout(auctionId: string): Promise<{ payout: number; commission: number } | null> {
-  // JOIN seller's current tier so a tier upgrade between auction creation
-  // and payout retroactively reduces commission. Stored seller_commission_rate
-  // is the floor: min(stored, current tier rate). Tier downgrades never
-  // increase the rate.
   const result = await query(
-    `SELECT a.*, t.auction_commission_rate AS tier_rate
-       FROM auctions a
-       LEFT JOIN users u ON u.id = a.seller_user_id
-       LEFT JOIN tiers t ON t.id = u.tier_id
-      WHERE a.id = $1`,
+    `SELECT a.* FROM auctions a WHERE a.id = $1`,
     [auctionId]
   );
   if (result.rows.length === 0) return null;
   const auction = result.rows[0];
   // salePrice reads a.current_price at CALL time. Called from the auction
-  // 'paid' webhook branch, that is the FINAL winning price — not the
-  // starting price the admin-approve path read before any bids landed.
+  // 'paid' webhook branch, that is the FINAL winning price.
   const salePrice = parseFloat(auction.current_price);
-  const storedRate = parseFloat(auction.seller_commission_rate || "0.12");
-  const tierRate = auction.tier_rate ? parseFloat(auction.tier_rate) : null;
-  // Per-item commission cap (the fairness fix): the absolute cap in
-  // @cambridge-tcg/pricing bounds the auction fee after the tier discount.
-  // See /methodology/fees. Math extracted to resolveAuctionPayout (pure,
-  // unit-tested) — the numbers are unchanged.
-  const { rate, commission, payout } = resolveAuctionPayout({ salePrice, storedRate, tierRate });
+  // Cambridge TCG is free (2026-07-21) — no auction commission; the winner's
+  // full price goes to the seller. resolveAuctionPayout returns 0% regardless.
+  const { rate, commission, payout } = resolveAuctionPayout({ salePrice, storedRate: 0, tierRate: null });
 
   await query(
     `UPDATE auctions SET seller_payout = $1, seller_commission_rate = $2, updated_at = NOW() WHERE id = $3`,

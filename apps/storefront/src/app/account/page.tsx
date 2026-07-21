@@ -26,10 +26,7 @@ import Link from "next/link";
 import { signOut } from "@/lib/auth";
 import { getSessionUser } from "@/lib/auth/realms";
 import { query } from "@/lib/db";
-import { getMemberProfile } from "@/lib/membership/db";
-import type { MemberProfile } from "@/lib/membership/types";
 import { unreadConversationCount } from "@/lib/messages/db";
-import TierBadge from "@/components/membership/TierBadge";
 import {
   Audience,
   Badge,
@@ -243,13 +240,10 @@ export default async function AccountOverviewPage() {
   // collapses this to the same underlying invocation — no extra roundtrip.
   const user = (await getSessionUser())!;
 
-  const [standing, attention, recentOrders, membership, handle] = await Promise.all([
+  const [standing, attention, recentOrders, handle] = await Promise.all([
     loadStanding(user.id),
     loadAttention(user.id),
     loadRecentOrders(user.email),
-    // Same source as /account/membership (via /api/membership). null on
-    // failure — distinct from "no tier", which is a real profile state.
-    safe<MemberProfile | null>(() => getMemberProfile(user.id), null),
     // The public collector handle. A failed read hides the disclosure
     // line rather than claiming a name we couldn't fetch.
     safe<string | null>(async () => {
@@ -402,61 +396,6 @@ export default async function AccountOverviewPage() {
               </Link>
             ))}
           </div>
-        )}
-      </section>
-
-      {/* ── 5. Membership — real data from the same source as
-             /account/membership. Three honest states: loaded, no tier
-             yet, and read-failed (which never masquerades as either). ── */}
-      <section>
-        <h2 className="text-lg font-semibold text-ink mb-3">Membership</h2>
-        {membership === null ? (
-          <Card variant="subtle">
-            <p className="text-sm text-ink-faint">
-              Membership details are unavailable right now.{" "}
-              <Link href="/account/membership" className="text-accent hover:underline">
-                Open membership →
-              </Link>
-            </p>
-          </Card>
-        ) : membership.tier === null ? (
-          <Card variant="subtle">
-            <p className="text-sm text-ink-muted">
-              You&rsquo;re not on a membership tier yet.{" "}
-              <Link href="/account/membership" className="text-accent hover:underline">
-                See how tiers and rewards work →
-              </Link>
-            </p>
-          </Card>
-        ) : (
-          <Link href="/account/membership" className="block group">
-            <Card className="group-hover:border-border-strong transition">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <TierBadge
-                  name={membership.tier.name}
-                  color={membership.tier.color}
-                  size="md"
-                />
-                <div className="flex items-center gap-6">
-                  <div>
-                    <p className="text-xs text-ink-faint uppercase tracking-wider">Berries</p>
-                    <p className="text-lg font-bold text-accent">
-                      {membership.points_balance.toLocaleString("en-GB")}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-ink-faint uppercase tracking-wider">
-                      Store credit
-                    </p>
-                    <p className="text-lg font-bold text-ok">
-                      <MoneyDisplay value={membership.store_credit_balance} />
-                    </p>
-                  </div>
-                  <span className="text-ink-faint group-hover:text-accent transition">→</span>
-                </div>
-              </div>
-            </Card>
-          </Link>
         )}
       </section>
 
