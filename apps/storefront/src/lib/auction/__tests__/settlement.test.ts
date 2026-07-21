@@ -51,60 +51,40 @@ describe("trustGateToBidResult — best-offer + regular-bid trust gate shape", (
   });
 });
 
-describe("resolveAuctionPayout — seller_payout on the FINAL winning price", () => {
-  it("computes payout = price − commission at the default 12% rate", () => {
-    // £100 hammer, 12% → £12 commission, £88 payout.
+describe("resolveAuctionPayout — Cambridge TCG is free (no seller commission)", () => {
+  it("takes no commission — the seller keeps the full hammer price", () => {
     const { rate, commission, payout } = resolveAuctionPayout({
       salePrice: 100,
       storedRate: 0.12,
       tierRate: null,
     });
-    expect(rate).toBe(0.12);
-    expect(commission).toBe(12);
-    expect(payout).toBe(88);
+    expect(rate).toBe(0);
+    expect(commission).toBe(0);
+    expect(payout).toBe(100);
   });
 
-  it("applies the per-item commission cap (£50) on high hammer prices", () => {
-    // £1,000 hammer at 12% is £120 uncapped — the fairness cap bounds the
-    // fee at £50, so the seller keeps £950 (money math unchanged: 錢就再講).
+  it("keeps the full price on high hammers too — no fee, no cap needed", () => {
     const { commission, payout } = resolveAuctionPayout({
       salePrice: 1000,
       storedRate: 0.12,
       tierRate: null,
     });
-    expect(commission).toBe(50);
-    expect(payout).toBe(950);
+    expect(commission).toBe(0);
+    expect(payout).toBe(1000);
   });
 
-  it("uses the FINAL price, not the starting price (the approve-path bug)", () => {
-    // The admin approve path computed on the starting price (no bids yet).
-    // At settlement the caller passes current_price = the final winning
-    // bid, so a £250 win pays out on £250, never on a £5 start.
+  it("pays out on the FINAL winning price, in full", () => {
     const final = resolveAuctionPayout({ salePrice: 250, storedRate: 0.12, tierRate: null });
-    const start = resolveAuctionPayout({ salePrice: 5, storedRate: 0.12, tierRate: null });
-    expect(final.payout).toBe(220); // 250 − 30
-    expect(final.payout).not.toBe(start.payout);
+    expect(final.payout).toBe(250);
   });
 
-  it("takes the tier rate as a floor — a tier upgrade lowers the rate", () => {
-    // storedRate is the floor; a lower current-tier rate applies retroactively.
-    const { rate, commission, payout } = resolveAuctionPayout({
-      salePrice: 100,
-      storedRate: 0.12,
-      tierRate: 0.08,
-    });
-    expect(rate).toBe(0.08);
-    expect(commission).toBe(8);
-    expect(payout).toBe(92);
-  });
-
-  it("never RAISES the rate — a higher (downgraded) tier rate is ignored", () => {
-    const { rate } = resolveAuctionPayout({
-      salePrice: 100,
-      storedRate: 0.10,
-      tierRate: 0.15,
-    });
-    expect(rate).toBe(0.10);
+  it("ignores any stored or tier rate — the market is free for everyone", () => {
+    for (const tierRate of [null, 0.08, 0.15] as const) {
+      const { rate, commission, payout } = resolveAuctionPayout({ salePrice: 100, storedRate: 0.12, tierRate });
+      expect(rate).toBe(0);
+      expect(commission).toBe(0);
+      expect(payout).toBe(100);
+    }
   });
 });
 

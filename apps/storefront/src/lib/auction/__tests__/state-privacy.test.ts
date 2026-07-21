@@ -185,7 +185,7 @@ describe("public auction state privacy", () => {
     }
   });
 
-  it("uses the published fee instead of a seller-specific stored rate", async () => {
+  it("uses the published fee (free — 0%), never a seller-specific stored rate", async () => {
     mocks.getAuction.mockResolvedValue({
       ...detail,
       seller_commission_rate: "0.01",
@@ -193,8 +193,10 @@ describe("public auction state privacy", () => {
 
     const state = await loadAuctionState(detail.id);
 
-    expect(state?.propagation.commission_rate).toBe(0.12);
-    expect(state?.propagation.estimated_seller_payout_gbp).toBe(21.12);
-    expect(state?.propagation.estimated_commission_gbp).toBe(2.88);
+    // Cambridge TCG is free: the published fee is 0, so the winner's full
+    // £24.00 goes to the seller — and the stored 0.01 is ignored.
+    expect(state?.propagation.commission_rate).toBe(0);
+    expect(state?.propagation.estimated_seller_payout_gbp).toBe(24);
+    expect(state?.propagation.estimated_commission_gbp).toBe(0);
   });
 });

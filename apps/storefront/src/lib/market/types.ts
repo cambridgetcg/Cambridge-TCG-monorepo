@@ -176,21 +176,19 @@ export interface CardOrderBook {
   best_ask: string | null;
 }
 
-// Base commission rate — used as the default and as the ceiling for every
-// tier below. Tiered rates reward high-trust sellers and are resolved at
-// match time from the seller's current trust score.
-export const COMMISSION_RATE = 0.08; // 8% — "New" / "Starter" tiers
+// Cambridge TCG is free (2026-07-21) — no platform commission. Sellers keep
+// 100% of every sale. These constants stay at 0 so any display/quote reads
+// 0%; the charge itself is guaranteed 0 in computeCommissionAmount.
+export const COMMISSION_RATE = 0;
 
-// Trust-tier commission overrides. Keyed by the tier name in TRUST_TIERS
-// (src/lib/escrow/types). Missing tiers fall back to COMMISSION_RATE.
-// Rates compound the reputation flywheel: higher trust = more retained
-// earnings = stickier sellers.
+// Trust-tier commission overrides — all 0 now (the market is free). Kept for
+// shape; the trust tiers themselves remain as a reputation signal.
 export const COMMISSION_RATE_BY_TIER: Record<string, number> = {
-  New:     0.08,
-  Starter: 0.08,
-  Trusted: 0.07,  // 1% off
-  Veteran: 0.06,  // 2% off
-  Elite:   0.05,  // 3% off — meaningful on high-volume inventory
+  New:     0,
+  Starter: 0,
+  Trusted: 0,
+  Veteran: 0,
+  Elite:   0,
 };
 
 // Resolve a seller's commission rate from their trust score.

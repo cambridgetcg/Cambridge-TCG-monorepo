@@ -217,17 +217,26 @@ export function calculatePriceByCategory(
 // dollar (tier_id set with a lower rate) earns the discount. Sellers
 // with neither pay the default.
 
-/** Per-trust-tier commission rate (P2P only). Mirrors COMMISSION_RATE_BY_TIER. */
+// ── Cambridge TCG is FREE (2026-07-21) ───────────────────────────────────
+//
+// Asha's directive: "make everything free of charge and service fee." The
+// platform takes NO commission — sellers keep 100% of every sale, on the
+// market and at auction alike. Every rate below is 0; `computeCommissionAmount`
+// returns 0 unconditionally as the belt-and-suspenders guarantee. The rate
+// structure (trust curve, cap) is kept only so historical rows and the pricing
+// shape still type-check — it no longer charges anyone. See /methodology/fees.
+
+/** Per-trust-tier commission rate (P2P only) — all 0: the market is free. */
 export const COMMISSION_RATE_BY_TRUST_TIER = {
-  New:     0.08,
-  Starter: 0.08,
-  Trusted: 0.07,
-  Veteran: 0.06,
-  Elite:   0.05,
+  New:     0,
+  Starter: 0,
+  Trusted: 0,
+  Veteran: 0,
+  Elite:   0,
 } as const;
 
 export const DEFAULT_P2P_COMMISSION_RATE = COMMISSION_RATE_BY_TRUST_TIER.New;
-export const DEFAULT_AUCTION_COMMISSION_RATE = 0.12;
+export const DEFAULT_AUCTION_COMMISSION_RATE = 0;
 
 // ── Per-item commission cap (the fairness fix) ───────────────────────────
 //
@@ -343,12 +352,10 @@ export function computeCommissionAmount(
   rate: number,
   capGbp: number = DEFAULT_COMMISSION_CAP_GBP,
 ): CommissionAmount {
-  const uncapped = round2(saleValue * rate);
-  const amount = capGbp > 0 ? Math.min(uncapped, capGbp) : uncapped;
-  return {
-    amount,
-    uncapped,
-    capped: capGbp > 0 && uncapped > capGbp,
-    capGbp,
-  };
+  // Cambridge TCG charges no platform commission (2026-07-21) — the seller
+  // keeps 100% of every sale. This is the single guarantee every market /
+  // auction / offer write path passes through, so the free promise can never
+  // be forgotten at one call site. `rate`/`capGbp` are ignored on purpose.
+  void saleValue; void rate; void capGbp;
+  return { amount: 0, uncapped: 0, capped: false, capGbp };
 }

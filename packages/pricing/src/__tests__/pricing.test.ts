@@ -140,16 +140,14 @@ describe("commissionRateForScore", () => {
 });
 
 describe("resolveCommission", () => {
-  it("picks the membership rate when it beats trust", () => {
+  it("returns rate 0 on P2P regardless of trust or tier (free)", () => {
     const r = resolveCommission({
-      trustScore: 30, // Starter → 0.08
-      tierRate: 0.05, // Better
+      trustScore: 30,
+      tierRate: 0.05,
       kind: "p2p",
     });
-    expect(r.rate).toBe(0.05);
-    expect(r.source).toBe("membership");
-    expect(r.trustRate).toBe(0.08);
-    expect(r.membershipRate).toBe(0.05);
+    expect(r.rate).toBe(0);       // the market is free
+    expect(r.membershipRate).toBe(0.05); // input is echoed back unchanged
   });
 
   it("picks the trust rate when it beats membership", () => {
@@ -192,14 +190,13 @@ describe("resolveCommission", () => {
     expect(r.trustRate).toBe(DEFAULT_AUCTION_COMMISSION_RATE);
   });
 
-  it("auction membership beats default if lower", () => {
+  it("returns rate 0 on auctions too (free)", () => {
     const r = resolveCommission({
       trustScore: 50,
-      tierRate: 0.08, // Lower than 0.12 default
+      tierRate: 0.08,
       kind: "auction",
     });
-    expect(r.rate).toBe(0.08);
-    expect(r.source).toBe("membership");
+    expect(r.rate).toBe(0);
   });
 });
 
@@ -232,112 +229,31 @@ describe("DEFAULTS — channel coverage", () => {
   });
 });
 
-describe("computeCommissionAmount — the per-item commission cap (fairness fix)", () => {
-  // Yu's mandate: minimum fees, never charge unfairly. The default cap is
-  // £50 — at or below every incumbent cap (TCGplayer $75, Cardmarket €100).
-  // If this constant moves, /methodology/fees and the wholesale seed
-  // migration 0016_commission_cap.sql move in the same PR.
-  it("default cap is £50 (at or below every incumbent)", () => {
+describe("computeCommissionAmount — Cambridge TCG is free (2026-07-21)", () => {
+  // Asha's directive: "make everything free of charge and service fee." The
+  // per-item cap/rate machinery is retained for shape, but the charge is now
+  // guaranteed 0 at this single chokepoint. Sellers keep 100% of every sale.
+  it("the seed cap constant still exists (unused now the market is free)", () => {
     expect(DEFAULT_COMMISSION_CAP_GBP).toBe(50);
   });
 
-  // ── The boundary: just under, at, and well over the cap ───────────────
-
-  it("does NOT cap when the percentage fee is well under the cap", () => {
-    // £100 sale @ 8% = £8 — nowhere near the £50 cap.
-    const r = computeCommissionAmount(100, 0.08);
-    expect(r.amount).toBe(8);
-    expect(r.uncapped).toBe(8);
-    expect(r.capped).toBe(false);
+  it("charges nothing — on any sale value or rate", () => {
+    for (const [value, rate] of [[100, 0.08], [620, 0.08], [1000, 0.08], [5000, 0.12], [25, 0]] as const) {
+      const r = computeCommissionAmount(value, rate);
+      expect(r.amount).toBe(0);
+      expect(r.uncapped).toBe(0);
+      expect(r.capped).toBe(false);
+    }
   });
 
-  it("does NOT cap when the percentage fee lands JUST under the cap", () => {
-    // £620 @ 8% = £49.60 — a penny under the cap, so the cap does not bind.
-    const r = computeCommissionAmount(620, 0.08);
-    expect(r.amount).toBeCloseTo(49.6, 2);
-    expect(r.capped).toBe(false);
+  it("ignores the trust/auction rates — everyone is free", () => {
+    const elite = resolveCommission({ trustScore: 95, tierRate: null, kind: "p2p" }).rate;
+    expect(computeCommissionAmount(1200, elite).amount).toBe(0);
+    expect(computeCommissionAmount(600, DEFAULT_AUCTION_COMMISSION_RATE).amount).toBe(0);
   });
 
-  it("does NOT mark as capped when the percentage fee lands EXACTLY on the cap", () => {
-    // £625 @ 8% = £50.00 exactly. The cap did not bind — fee equals cap by
-    // coincidence of the percentage, not because we clamped it.
-    const r = computeCommissionAmount(625, 0.08);
-    expect(r.amount).toBe(50);
-    expect(r.uncapped).toBe(50);
-    expect(r.capped).toBe(false);
-  });
-
-  it("CAPS at £50 when the percentage fee would exceed it", () => {
-    // £1,000 @ 8% = £80 uncapped → clamped to £50. This is the four-figure
-    // card the fix exists for: without the cap we'd take MORE than eBay /
-    // TCGplayer / Cardmarket; with it we take less.
-    const r = computeCommissionAmount(1000, 0.08);
-    expect(r.amount).toBe(50);
-    expect(r.uncapped).toBe(80);
-    expect(r.capped).toBe(true);
-  });
-
-  it("CAPS at £50 on a far-over-cap sale (£5,000 card)", () => {
-    // £5,000 @ 8% = £400 uncapped → still just £50. The seller keeps £4,950.
-    const r = computeCommissionAmount(5000, 0.08);
-    expect(r.amount).toBe(50);
-    expect(r.uncapped).toBe(400);
-    expect(r.capped).toBe(true);
-  });
-
-  // ── The trust discount still applies BEFORE the cap ───────────────────
-
-  it("applies the trust discount before the cap (Elite 5% on a £1,200 card)", () => {
-    // Elite seller (trust ≥ 95) earns 5%. resolveCommission picks the rate;
-    // computeCommissionAmount applies it, then caps.
-    const { rate } = resolveCommission({ trustScore: 95, tierRate: null, kind: "p2p" });
-    expect(rate).toBe(COMMISSION_RATE_BY_TRUST_TIER.Elite); // 0.05
-    // £1,200 @ 5% = £60 uncapped → capped to £50.
-    const r = computeCommissionAmount(1200, rate);
-    expect(r.uncapped).toBe(60);
-    expect(r.amount).toBe(50);
-    expect(r.capped).toBe(true);
-  });
-
-  it("trust discount can keep a fee UNDER the cap where the base rate would not", () => {
-    // £800 card. New seller @ 8% = £64 → capped to £50. Elite @ 5% = £40 →
-    // NOT capped (the discount alone brought the fee under the cap). The
-    // discount and the cap are independent fairness mechanisms.
-    const newSeller = computeCommissionAmount(800, COMMISSION_RATE_BY_TRUST_TIER.New);
-    expect(newSeller.amount).toBe(50);
-    expect(newSeller.capped).toBe(true);
-
-    const eliteSeller = computeCommissionAmount(800, COMMISSION_RATE_BY_TRUST_TIER.Elite);
-    expect(eliteSeller.amount).toBe(40);
-    expect(eliteSeller.capped).toBe(false);
-  });
-
-  // ── Auctions (fixed 12% rate) are capped too ──────────────────────────
-
-  it("caps auction commission (12%) on a high-value lot", () => {
-    // £600 auction @ 12% = £72 uncapped → capped to £50.
-    const r = computeCommissionAmount(600, DEFAULT_AUCTION_COMMISSION_RATE);
-    expect(r.uncapped).toBeCloseTo(72, 2);
-    expect(r.amount).toBe(50);
-    expect(r.capped).toBe(true);
-  });
-
-  // ── Runtime override (channel_pricing) ────────────────────────────────
-
-  it("honours a runtime cap override (channel_pricing row value)", () => {
-    // An operator could tighten the cap via the channel_pricing table.
-    // £1,000 @ 8% = £80 → with a £25 override, clamped to £25.
-    const r = computeCommissionAmount(1000, 0.08, 25);
-    expect(r.amount).toBe(25);
-    expect(r.capGbp).toBe(25);
-    expect(r.capped).toBe(true);
-  });
-
-  it("treats a non-positive cap as 'no cap' (degrade to percentage-only)", () => {
-    // A cap of 0 means uncapped — substrate-honest: an unset/disabled cap
-    // must not silently zero the platform's commission.
-    const r = computeCommissionAmount(1000, 0.08, 0);
-    expect(r.amount).toBe(80);
-    expect(r.capped).toBe(false);
+  it("ignores a runtime cap override — free is free", () => {
+    expect(computeCommissionAmount(1000, 0.08, 25).amount).toBe(0);
+    expect(computeCommissionAmount(1000, 0.08, 0).amount).toBe(0);
   });
 });

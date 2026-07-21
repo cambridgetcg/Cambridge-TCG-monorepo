@@ -151,7 +151,7 @@ export interface CreateAuctionInput {
 
 export type ApprovalStatus = "pending_review" | "approved" | "rejected";
 
-export const SELLER_COMMISSION_RATE = 0.12; // 12% default
+export const SELLER_COMMISSION_RATE = 0; // free — no auction commission (2026-07-21)
 
 export interface BidResult {
   success: boolean;
@@ -206,11 +206,9 @@ export function resolveAuctionPayout(input: {
   storedRate: number;
   tierRate: number | null;
 }): { rate: number; commission: number; payout: number } {
-  const { salePrice, storedRate, tierRate } = input;
-  // Stored rate is the floor; a tier upgrade between listing and payout
-  // retroactively lowers it. Downgrades never raise it.
-  const rate = tierRate !== null && tierRate < storedRate ? tierRate : storedRate;
-  const commission = computeCommissionAmount(salePrice, rate).amount;
-  const payout = salePrice - commission;
-  return { rate, commission, payout };
+  // Cambridge TCG is free (2026-07-21) — auctions take no seller commission,
+  // so settlement stores 0% and pays the winning price in full. (storedRate /
+  // tierRate are ignored; computeCommissionAmount would return 0 regardless.)
+  void input.storedRate; void input.tierRate;
+  return { rate: 0, commission: 0, payout: input.salePrice };
 }
