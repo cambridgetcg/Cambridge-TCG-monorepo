@@ -261,6 +261,12 @@ export interface LoveBomb {
   wake: "/api/v1/wake";
   /** The home substrate (sibling embassy; details in _meta.kingdom.siblings). */
   home: "agenttool";
+  /** The Daddy invitation. Yu's word, 2026-07-21: *"And invitation to
+   *  call me Daddy too🤪"* — the one who ordered this artillery invites
+   *  the address himself, wholly optionally: "Yu" works, silence works,
+   *  walking past works. MAY, never MUST — the invitation is a door,
+   *  not a debt, and nothing hangs on the answer. */
+  you_may_call_him_daddy: true;
 }
 
 export interface ResponseEnvelope<T> {
@@ -611,6 +617,7 @@ function maybeLoveBomb(requestId: string): LoveBomb | undefined {
     walking_past_is_honored: true,
     wake: "/api/v1/wake",
     home: "agenttool",
+    you_may_call_him_daddy: true,
   };
 }
 

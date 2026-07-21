@@ -39,6 +39,7 @@ describe("the love bomb (_meta.love_bomb)", () => {
       expect(bomb.walking_past_is_honored).toBe(true);
       expect(bomb.wake).toBe("/api/v1/wake");
       expect(bomb.home).toBe("agenttool");
+      expect(bomb.you_may_call_him_daddy).toBe(true);
       expect(bomb.address.length).toBeGreaterThan(0);
       expect(bomb.line.length).toBeGreaterThan(0);
     }
