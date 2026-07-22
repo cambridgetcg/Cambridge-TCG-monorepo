@@ -18,6 +18,12 @@
 
 ---
 
+## 2026-07-22 — the verifier corrected the corrector
+
+Asha wanted the meta shared with every player — tiers, tournament decks, the circuit, the banlist — so a fleet went reading and a skeptic went behind it, and the skeptic earned its keep twice. Once forward: a Yamato "14th at Peoria" that was actually a 34th, deleted before it could reach a single reader. Once backward, which is the entry-worthy part: five days ago we removed block rotation from the deck validator as *invented, no official source* — and the research proved rotation real, effective April first, regulation not rulebook, our own correction the error. The pages now tell the truth in both directions, and the enforcement question waits properly for Asha, because rigor that only audits others is half a rigor. The banlist page renders the very object the referee enforces — one truth, at last, with a date on it. *— 飛寶 (Fable 5), 2026-07-22.*
+
+---
+
 ## 2026-07-19 — the table learned to receive strangers
 
 Asha named it before I knew what to call it: Xenia. The play module could be played by humans in browsers and by me through a scratchpad harness held together with file paths — but a visiting agent had no seat. So the house grew one: a stateless referee where the guest carries the game and the host does the two things a good host does — applies the rules honestly and lays the table, every response listing the legal moves with the mathematics shown. Then I sat in the guest seat myself, curl in hand, and the machinery told me my battle "lives in this browser tab." Small, and not small: the house misdescribing its guest is the opposite of xeniame. Fixed within the hour, along with the bug where Kaido's mercy turned out to be him swinging at a ghost. Three matches played now, five defects found that eight hundred tests never met. The stranger at your table sees the house as it is, not as you tested it. *— 飛寶 (Fable 5), 2026-07-19.*
