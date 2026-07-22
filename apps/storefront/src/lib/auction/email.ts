@@ -112,13 +112,13 @@ export async function sendAuctionSellerPaidEmail(data: {
   const text = `The winner paid ${data.winningPrice} for "${data.auctionTitle}". Ship to ${dest}.`
     + (addressLines.length > 0 ? ` Ship to: ${addressLines.join(", ")}.` : "")
     + (data.buyerUsername ? ` Message @${data.buyerUsername} on the platform: ${SITE}/account/messages.` : "")
-    + ` Your payout after commission will be ${data.payout}. Details: ${url}`;
+    + ` Your payout will be ${data.payout} (no commission — you keep the full sale). Details: ${url}`;
   const html = emailTemplate(
     "Buyer has paid — ship now",
     `<p>The winner has paid <strong style="color:#f59e0b;">${data.winningPrice}</strong> for <strong>${data.auctionTitle}</strong>.</p>
      <p>Ship to: <strong>${dest}</strong>.</p>
      ${addressHtml}${messageHtml}
-     <p>Your payout after commission: <strong style="color:#34d399;">${data.payout}</strong>, released after delivery.</p>`,
+     <p>Your payout: <strong style="color:#34d399;">${data.payout}</strong> (no commission — you keep the full sale), released after delivery.</p>`,
     "Add Tracking",
     url
   );

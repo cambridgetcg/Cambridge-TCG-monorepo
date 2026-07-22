@@ -321,9 +321,9 @@ function OfferComposer({
       )}
 
       <p className="text-[11px] text-ink-faint leading-relaxed">
-        You pay the agreed price if the seller accepts; the seller pays commission at their
-        resolved rate (5&ndash;8%, capped at &pound;50)
-        <WhyLink href="/methodology/offers" tooltip="How offers and their fees work" />
+        You pay the agreed price if the seller accepts; the seller keeps 100% — Cambridge TCG
+        takes no commission
+        <WhyLink href="/methodology/fees" tooltip="How the free platform works" />
         . Offers expire within the seller&rsquo;s response window (48h default).
       </p>
 

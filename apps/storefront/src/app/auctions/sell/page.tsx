@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { SELLER_COMMISSION_RATE } from "@/lib/auction/types";
-import { computeCommissionAmount } from "@cambridge-tcg/pricing";
 import { formatPrice } from "@/lib/format";
 import { WhyLink } from "@/lib/ui";
 import {
@@ -175,11 +173,9 @@ export default function SellAuctionPage() {
     auctionType === "buy_now"
       ? parseFloat(buyNowFixedPrice) || 0
       : parseFloat(startingPrice) || 0;
-  // Apply the per-item commission cap (the fairness fix) so the preview a
-  // seller sees matches what they'll actually be charged. See /methodology/fees.
-  const commissionPreview = computeCommissionAmount(previewPrice, SELLER_COMMISSION_RATE);
-  const commission = commissionPreview.amount;
-  const payout = previewPrice - commission;
+  // Cambridge TCG takes no commission, so the seller receives the full sale
+  // price. See /methodology/fees.
+  const payout = previewPrice;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -448,7 +444,7 @@ export default function SellAuctionPage() {
             </div>
             <div className="flex gap-3">
               <span className="shrink-0 w-6 h-6 rounded-full bg-accent-wash text-accent text-xs flex items-center justify-center font-bold">5</span>
-              <span>You ship directly to the winner (their address appears once payment clears); you&rsquo;re paid after they confirm receipt (Auction rail: 12%, capped at £50/item<WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />)</span>
+              <span>You ship directly to the winner (their address appears once payment clears); you&rsquo;re paid after they confirm receipt — with no commission, so you keep 100% of the sale<WhyLink href="/methodology/fees" tooltip="How the free platform works" /></span>
             </div>
           </div>
         </div>
@@ -722,10 +718,10 @@ export default function SellAuctionPage() {
             </p>
           </div>
 
-          {/* Commission preview */}
+          {/* Payout preview — Cambridge TCG takes no commission */}
           {previewPrice > 0 && (
             <div className="bg-surface rounded-lg p-4 border border-border-subtle">
-              <h3 className="text-sm font-bold text-ink-muted mb-3">Commission Preview</h3>
+              <h3 className="text-sm font-bold text-ink-muted mb-3">Payout preview</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-ink-muted">Sale price</span>
@@ -733,20 +729,11 @@ export default function SellAuctionPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-ink-muted">
-                    {commissionPreview.capped
-                      ? `Auction rail: 12% (capped at ${formatPrice(commissionPreview.capGbp)})`
-                      : "Auction rail: 12%"}
-                    <WhyLink href="/methodology/fees" tooltip="How is the commission and its cap decided?" />
+                    Commission — none
+                    <WhyLink href="/methodology/fees" tooltip="How the free platform works" />
                   </span>
-                  <span className="text-danger">-{formatPrice(commission)}</span>
+                  <span className="text-ok">{formatPrice(0)}</span>
                 </div>
-                {commissionPreview.capped && (
-                  <p className="text-xs text-ok">
-                    Per-item cap applied — without it the 12% fee would have been{" "}
-                    {formatPrice(commissionPreview.uncapped)}. We never charge more than{" "}
-                    {formatPrice(commissionPreview.capGbp)} on a single sale.
-                  </p>
-                )}
                 <div className="border-t border-border-subtle pt-2 flex justify-between">
                   <span className="text-ink-muted font-medium">You receive</span>
                   <span className="text-ok font-bold">{formatPrice(payout)}</span>

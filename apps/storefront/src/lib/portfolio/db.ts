@@ -209,7 +209,7 @@ export function getListingActions(card: ValuatedCard): ListingAction[] {
     actions.push({
       type: "market_ask",
       label: "Sell on Market",
-      description: `List at spot £${card.spot_price.toFixed(2)} or set your price. 8% commission.`,
+      description: `List at spot £${card.spot_price.toFixed(2)} or set your price. Free — no commission, keep 100%.`,
       estimated_return: Math.round(netAfterCommission * 100) / 100,
     });
   }
@@ -220,7 +220,7 @@ export function getListingActions(card: ValuatedCard): ListingAction[] {
     actions.push({
       type: "auction",
       label: "List at Auction",
-      description: `Let buyers compete. 12% commission on sale.`,
+      description: `Let buyers compete. Free — no commission, keep 100%.`,
       estimated_return: Math.round(netAfterCommission * 100) / 100,
     });
   }

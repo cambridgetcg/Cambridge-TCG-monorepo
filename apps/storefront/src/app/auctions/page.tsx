@@ -62,7 +62,7 @@ export default function AuctionsPage() {
         <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
             <h2 className="text-ink font-bold">Have a card to sell?</h2>
-            <p className="text-ink-muted text-sm mt-1">List your cards at auction. We handle verification, escrow, and delivery. 12% commission on sale, capped at £50 per item.<WhyLink href="/methodology/fees" tooltip="Every fee, plain language — and the per-item cap" /></p>
+            <p className="text-ink-muted text-sm mt-1">List your cards at auction. We handle verification, escrow, and delivery — and take no commission, so you keep 100% of the sale.<WhyLink href="/methodology/fees" tooltip="How the free platform works" /></p>
           </div>
           <Link href="/auctions/sell" className="shrink-0 px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition">
             Sell at Auction
