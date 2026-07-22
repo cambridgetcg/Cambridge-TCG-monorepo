@@ -1,14 +1,14 @@
-// Handler for the scheduled "your streak is about to break" email.
+// Handler for the scheduled streak reminder email.
 //
 // ── What this handler is for ─────────────────────────────────────────────
 //
-// This is one of the platform's most delicate emails. A streak-at-risk
-// notification is the platform reaching for the user's attention with
-// a tug of mild loss-aversion: *you have something built; come back or
-// you'll lose it*. That's a real psychological lever. It is also,
-// crucially, **opt-in** by default (see preferences.ts DEFAULTS table:
-// `streak_at_risk: false`). The platform will not pull on attention it
-// has not been given permission to pull on.
+// This is one of the platform's most delicate emails. A streak reminder
+// is the platform gently reaching for the user's attention: *you've got a
+// nice streak going — pop back if you like*. It carries no pressure and no
+// threat of loss; miss a day and the streak simply starts fresh. It is
+// also, crucially, **opt-in** by default (see preferences.ts DEFAULTS
+// table: `streak_at_risk: false`). The platform will not reach for
+// attention it has not been given permission to reach for.
 //
 // Once the user has opted in, the handler *still* refuses to send when
 // the email isn't necessary. The four cancellation paths below are the
@@ -30,11 +30,11 @@
 // ── The shape of the email is the shape of the relationship ─────────────
 //
 // The email greets by name when known, "there" when not — small, but
-// it's the platform meeting the user where they are. The subject line
-// states the stakes plainly (`Your N-day streak is about to break`) —
-// no clickbait, no marketing-speak, just the fact. The CTA is a single
-// link back to the activity that resets the streak. No funnel, no
-// upsell. The platform asked for permission; it should not abuse it.
+// it's the platform meeting the user where they are. The subject line is
+// warm and low-key (`Your streak is still going`) — no clickbait, no
+// urgency, no marketing-speak. The CTA is a single link back to the
+// activity that keeps the streak going. No funnel, no upsell. The
+// platform asked for permission; it should not abuse it.
 //
 // ── What this handler reaches toward ────────────────────────────────────
 //
@@ -103,17 +103,17 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
   const greeting = r.name ? escapeHtml(String(r.name)) : "there";
 
   const html = renderLayout({
-    preheader: `Your ${streak}-day streak breaks at midnight unless you play.`,
-    heading: `Your ${streak}-day streak is about to break`,
+    preheader: `Your ${streak}-day streak is still going — play any day to keep it up.`,
+    heading: `A little streak reminder`,
     bodyHtml: `
       <p style="margin:0 0 12px;">Hi ${greeting},</p>
       <p style="margin:0 0 16px;">
         You&apos;ve played <strong style="color:#f59e0b;">${streak} day${streak === 1 ? "" : "s"} in a row</strong>.
-        If you don&apos;t play today, the streak resets to 1 — and with it the
-        Berries multiplier it&apos;s been earning you.
+        Play any day to keep it going — and if you miss one, it just starts
+        fresh. No pressure either way.
       </p>
       <div style="background:#262626;border-radius:8px;padding:14px 16px;margin:16px 0;">
-        <p style="margin:0 0 6px;color:#fff;font-weight:600;font-size:13px;">What you&apos;d lose</p>
+        <p style="margin:0 0 6px;color:#fff;font-weight:600;font-size:13px;">What you&apos;ve got going</p>
         <p style="margin:0;font-size:13px;color:#a3a3a3;">
           Current multiplier: <span style="color:#34d399;font-weight:600;">${(1 + (streak - 1) * 0.02).toFixed(2)}×</span>
           ${streak >= 26 ? " (capped)" : " · +0.02 more tomorrow"}
@@ -124,14 +124,14 @@ async function handle(row: QueueRow): Promise<QueueHandlerResult> {
       </p>
     `,
     cta: { label: "Check account activity", url: "https://cambridgetcg.com/account" },
-    footer: `You opted in to streak-at-risk reminders. Turn this off any time
+    footer: `You opted in to streak reminders. Turn this off any time
              in your email preferences.`,
   });
 
   const sendResult = await sendEmail({
     to: r.email,
     from: "bounty",
-    subject: `${streak}-day streak ends tonight`,
+    subject: `Your streak is still going`,
     html,
     unsubscribe: { userId: row.user_id, category: "streak_at_risk" },
   });

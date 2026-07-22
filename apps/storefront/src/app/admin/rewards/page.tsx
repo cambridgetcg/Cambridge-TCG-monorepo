@@ -401,7 +401,6 @@ export default function AdminRewardsPage() {
                       onChange={(e) => setNewRaffle((p) => ({ ...p, prize_type: e.target.value }))}
                     >
                       <option value="physical">Physical Card/Product</option>
-                      <option value="credit">Store Credit</option>
                       <option value="points">Bonus Berries</option>
                       <option value="discount">Discount Code</option>
                     </select>

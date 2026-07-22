@@ -60,7 +60,7 @@ export interface MysteryBoxReward {
   box_id: string;
   name: string;
   description: string | null;
-  reward_type: string; // "points" | "credit" | "physical" | "discount"
+  reward_type: string; // "points" | "physical" | "discount"
   reward_value: string;
   image_url: string | null;
   probability: string;
@@ -91,7 +91,6 @@ export const RARITY_COLORS: Record<string, string> = {
 
 export const REWARD_TYPES = [
   { value: "points", label: "Bonus Berries" },
-  { value: "credit", label: "Store Credit" },
   { value: "physical", label: "Physical Card/Product" },
   { value: "discount", label: "Discount Code" },
 ] as const;

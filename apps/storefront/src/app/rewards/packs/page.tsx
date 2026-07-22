@@ -16,6 +16,7 @@ interface Pack {
   cost_points: number;
   total_opens: number;
   pool_size: number;
+  pull_rates?: { rarity: string; odds: number }[];
 }
 
 interface PulledCard {
@@ -372,8 +373,8 @@ export default function PacksPage() {
           </Link>
           <h1 className="text-3xl font-display font-semibold mb-2">Virtual Packs</h1>
           <p className="text-ink-muted">
-            Spend your Berries to rip virtual booster packs and win cards, credits,
-            and bonus rewards.
+            Spend your Berries to rip virtual booster packs and win cards and
+            bonus rewards.
           </p>
           {points !== null && (
             <div className="mt-4 inline-flex items-center gap-2 bg-accent-wash border border-accent/30 rounded-lg px-5 py-3">
@@ -520,6 +521,28 @@ export default function PacksPage() {
                 <p className="text-ink-muted mb-6">
                   {selectedPack.cost_points.toLocaleString()} Berries for 5 cards
                 </p>
+
+                {/* Pull rates — the pool's real odds by rarity, shown not hidden */}
+                {selectedPack.pull_rates && selectedPack.pull_rates.length > 0 && (
+                  <div className="mb-6 rounded-lg border border-border-subtle overflow-hidden text-left">
+                    <div className="bg-surface px-4 py-2.5 border-b border-border-subtle">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-ink-muted">
+                        Pull rates
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-border-subtle">
+                      {selectedPack.pull_rates.map((r) => (
+                        <div
+                          key={r.rarity}
+                          className="px-4 py-2 flex items-center justify-between text-sm"
+                        >
+                          <span className="text-ink font-medium">{r.rarity}</span>
+                          <span className="text-ink-muted">{(r.odds * 100).toFixed(1)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {error && (
                   <div className="mb-4 rounded-lg p-3 text-sm bg-danger/10 border border-danger/30 text-danger">
@@ -762,8 +785,6 @@ export default function PacksPage() {
                                 {card.card_number ? `#${card.card_number}` : ""}{" "}
                                 {card.reward_type === "points"
                                   ? `+${card.reward_value} Berries`
-                                  : card.reward_type === "credit"
-                                  ? `+£${card.reward_value.toFixed(2)} credit`
                                   : card.reward_type}
                               </p>
                             </div>
@@ -776,34 +797,27 @@ export default function PacksPage() {
                         ))}
                       </div>
 
-                      {/* Total value */}
+                      {/* What you got — a tally of the pulls, not a cash value */}
                       <div className="mt-4 pt-4 border-t border-border-subtle flex items-center justify-between">
                         <span className="text-ink-muted text-sm font-medium">
-                          Total Value
+                          What you got
                         </span>
                         <span className="text-accent font-bold text-lg">
                           {(() => {
                             const pointsTotal = cards
                               .filter((c) => c.reward_type === "points")
                               .reduce((s, c) => s + c.reward_value, 0);
-                            const creditTotal = cards
-                              .filter((c) => c.reward_type === "credit")
-                              .reduce((s, c) => s + c.reward_value, 0);
                             const parts: string[] = [];
                             if (pointsTotal > 0)
                               parts.push(`${pointsTotal.toLocaleString()} Berries`);
-                            if (creditTotal > 0)
-                              parts.push(`$${creditTotal.toFixed(2)} credit`);
                             const otherCount = cards.filter(
-                              (c) =>
-                                c.reward_type !== "points" &&
-                                c.reward_type !== "credit"
+                              (c) => c.reward_type !== "points"
                             ).length;
                             if (otherCount > 0)
                               parts.push(
-                                `${otherCount} reward${otherCount > 1 ? "s" : ""}`
+                                `${otherCount} card${otherCount > 1 ? "s" : ""}`
                               );
-                            return parts.join(" + ") || "No value";
+                            return parts.join(" + ") || "5 cards";
                           })()}
                         </span>
                       </div>

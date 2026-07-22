@@ -1,5 +1,4 @@
 import { query } from "@/lib/db";
-import { spendPoints, earnPoints, addCredit } from "@/lib/membership/db";
 import type { Raffle, RaffleEntry, MysteryBox, MysteryBoxReward, MysteryBoxOpen } from "./types";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 
@@ -278,8 +277,8 @@ export async function openMysteryBox(boxId: string, userId: string): Promise<{
     awardAchievement(userId, "mystery_legendary").catch(() => {});
   }
 
-  // Auto-fulfill points and credit rewards. Points go through the
-  // multiplier-aware helper so tier + streak boost the box's points payout.
+  // Auto-fulfill points rewards. Points go through the multiplier-aware
+  // helper so tier + streak boost the box's points payout.
   if (selectedReward.reward_type === "points") {
     const { earnRewardPoints } = await import("./earnings");
     await earnRewardPoints({
@@ -289,10 +288,6 @@ export async function openMysteryBox(boxId: string, userId: string): Promise<{
       description: `Won ${selectedReward.reward_value} Berries from "${box.title}"`,
       referenceId: openResult.rows[0].id,
     });
-    await query(`UPDATE mystery_box_opens SET fulfilled=true WHERE id=$1`, [openResult.rows[0].id]);
-  } else if (selectedReward.reward_type === "credit") {
-    await addCredit(userId, parseFloat(selectedReward.reward_value), "manual_adjustment",
-      `Won £${selectedReward.reward_value} credit from "${box.title}"`, openResult.rows[0].id);
     await query(`UPDATE mystery_box_opens SET fulfilled=true WHERE id=$1`, [openResult.rows[0].id]);
   }
 

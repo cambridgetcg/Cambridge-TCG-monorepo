@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { addCredit } from "@/lib/membership/db";
 import { bumpStreak } from "@/lib/membership/streak";
 import { query, transaction } from "@/lib/db";
 import { commitDraw, rollSlot, revealDraw } from "@/lib/provable-draw";
@@ -35,8 +34,13 @@ export async function GET() {
     streak = s.currentStreak;
   }
 
+  // Odds are shown, not hidden — the opposite of a slot machine. Normalize the
+  // per-segment weights to a fraction of the whole so the disclosed odds match
+  // the real draw (doSpin below also normalizes by the same total).
+  const totalProb = segments.reduce((sum, s) => sum + s.probability, 0) || 1;
+
   return NextResponse.json({
-    segments: segments.map(s => ({ label: s.label, color: s.color })), // hide probabilities
+    segments: segments.map(s => ({ label: s.label, color: s.color, odds: s.probability / totalProb })),
     freeSpinsPerDay: config?.free_spins_per_day || 1,
     premiumCost: config?.premium_cost_points || 500,
     spinsUsedToday: spinsToday,
@@ -128,9 +132,6 @@ export async function POST(request: Request) {
         type: "manual_credit",
         description: `Spin wheel: ${selected.label}`,
       });
-    } else if (selected.reward_type === "credit" && selected.reward_value > 0) {
-      await addCredit(userId, selected.reward_value, "manual_adjustment",
-        `Spin wheel: ${selected.label}`);
     }
 
     // Record result. Free spins fill in the placeholder row claimed above (so

@@ -43,6 +43,9 @@ export default function RewardsHubPage() {
           <p className="text-ink-muted mt-2">
             Earn Berries with daily spins and streaks. Spend them on packs, raffles, and mystery boxes.
           </p>
+          <p className="text-xs text-ink-faint mt-2">
+            Just for fun — Berries have no cash value and there&rsquo;s nothing to buy. Play for the reveals.
+          </p>
         </div>
 
         {/* Berries + Streak Bar */}
@@ -82,7 +85,7 @@ export default function RewardsHubPage() {
           {/* Daily Spin */}
           <Link href="/rewards/spin" className="group bg-surface border border-border-subtle rounded-lg p-5 hover:border-border-strong transition">
             <h2 className="text-lg font-bold text-ink group-hover:text-accent transition">Daily Spin</h2>
-            <p className="text-sm text-ink-muted mt-1">Spin the wheel for Berries, credit, and surprises. 1 free spin daily.</p>
+            <p className="text-sm text-ink-muted mt-1">Spin the wheel for Berries and surprises. 1 free spin daily.</p>
             <div className="mt-3 flex items-center gap-2">
               {canSpin ? (
                 <span className="text-xs bg-ok/10 text-ok px-2 py-0.5 rounded-full animate-pulse">Free spin ready!</span>
@@ -104,7 +107,7 @@ export default function RewardsHubPage() {
           {/* Mystery Boxes — anchors down to the inline list below */}
           <Link href="#mystery-boxes" className="group bg-surface border border-border-subtle rounded-lg p-5 hover:border-border-strong transition">
             <h2 className="text-lg font-bold text-ink group-hover:text-accent transition">Mystery Boxes</h2>
-            <p className="text-sm text-ink-muted mt-1">Every box is a winner. Berries, credit, or real cards.</p>
+            <p className="text-sm text-ink-muted mt-1">Every box is a winner. Berries or real cards.</p>
             <div className="mt-3">
               <span className="text-xs bg-surface-subtle text-ink-muted px-2 py-0.5 rounded-full">{boxes.length} available</span>
             </div>
