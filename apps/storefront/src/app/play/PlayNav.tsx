@@ -23,6 +23,7 @@ const NAV_LINKS = [
   { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
   { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
   { href: "/play/deck-check", label: "Deck Check", note: "Validate a deck" },
+  { href: "/play/meta", label: "Meta", note: "Tiers, tournaments, banlist" },
 ] as const;
 
 /** Match exactly OR a route's nested child (so /play/casual/foo highlights

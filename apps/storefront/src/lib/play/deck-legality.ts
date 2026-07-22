@@ -7,10 +7,17 @@
  * trail. Returns a structured result with typed violations rather than
  * throwing or asserting — callers decide how to surface findings.
  *
- * Note: the official game has ONE constructed ruleset plus the banlist.
- * An earlier revision of this file invented a Standard block rotation for
- * OP01-OP04; no official source exists for it and it was removed
- * (2026-07-17). The `format` field remains accepted for API compatibility.
+ * Note on rotation (corrected 2026-07-22): an earlier revision carried a
+ * Standard block rotation for OP01-OP04; it was removed on 2026-07-17 as
+ * unsourced because CR v1.2.0 (2026-01-16) says nothing about rotation.
+ * Research on 2026-07-22 confirmed rotation IS real — Bandai's first block
+ * rotation took effect 2026-04-01 as an organized-play regulation (Standard
+ * = Block 2+ pool; the Extra format keeps the full pool; see the official
+ * events pages, "Standard regulation as of April 1, 2026"). This validator
+ * still deliberately does NOT enforce set-rotation: which tables should
+ * demand Standard (vs. casual/Extra play, where our starters like ST-01
+ * remain fine) is a product decision awaiting the operator — recorded in
+ * the play-module ledger. The `format` field remains accepted.
  *
  * Used by:
  *   - POST /api/v1/play/deck/validate (the public endpoint exposing this)
