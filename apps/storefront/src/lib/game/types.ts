@@ -25,6 +25,8 @@ export interface GameCard {
    *  rule requires textAttribution rendered wherever this is shown. */
   textEn?: string | null;
   textAttribution?: string | null;
+  /** Illustrator credit where one exists — rendered as "illustrated by". */
+  artist?: string | null;
   /** Unconditionally possessed keywords (verified data); conditional
    *  grants are Phase-4 effects and absent here. */
   keywords?: ("rush" | "blocker" | "double_attack" | "banish")[];

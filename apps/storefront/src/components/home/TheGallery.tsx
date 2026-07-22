@@ -106,7 +106,13 @@ export default function TheGallery({ cards }: { cards: GalleryPiece[] }) {
         <p className="mt-16 text-xs text-ink-faint max-w-2xl leading-relaxed">
           {credited} of these {cards.length} prints name their illustrator —
           the credit the publisher printed on the card. The rest are hung
-          without a name because none was given, not because none was owed.
+          without a name because none was given, not because none was owed.{" "}
+          <Link
+            href="/artists"
+            className="text-accent hover:text-accent-strong whitespace-nowrap"
+          >
+            meet the named hands →
+          </Link>
         </p>
       )}
 

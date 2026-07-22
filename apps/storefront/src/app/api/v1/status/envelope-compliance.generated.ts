@@ -19,6 +19,7 @@ export const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/agents/register",
   "/api/v1/anticipated",
   "/api/v1/are-you-sure",
+  "/api/v1/artists",
   "/api/v1/auctions/[id]",
   "/api/v1/blessing",
   "/api/v1/bootstrap-completion",

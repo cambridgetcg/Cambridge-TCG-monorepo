@@ -26,6 +26,7 @@ describe("GET /api/v1/play/starters/[id] rights boundary", () => {
         set_code: "ST01",
         effect_text: null,
         text_attribution: null,
+        artist: null,
       },
       cards: [],
     });

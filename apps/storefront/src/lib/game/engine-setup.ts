@@ -31,6 +31,7 @@ export interface SetupCard {
   color?: string | null;
   textEn?: string | null;
   textAttribution?: string | null;
+  artist?: string | null;
   keywords?: ("rush" | "blocker" | "double_attack" | "banish")[];
   hasTrigger?: boolean;
   /** Leader life total — used for the life-card count when this card is
@@ -54,6 +55,7 @@ function makeCard(source: SetupCard, zone: GameCard["zone"]): GameCard {
     life: source.life ?? null,
     textEn: source.textEn ?? null,
     textAttribution: source.textAttribution ?? null,
+    artist: source.artist ?? null,
     keywords: source.keywords ?? [],
     hasTrigger: source.hasTrigger ?? false,
     isRested: false,

@@ -20,6 +20,8 @@ export type CardTextMap = Record<string, { text: string; attribution: string }>;
 export interface StarterCardDetails {
   images: CardImageMap;
   texts: CardTextMap;
+  /** card_number → illustrator credit, where the catalogue names one. */
+  artists: Record<string, string | null>;
 }
 
 const DETAILS_FETCH_TIMEOUT_MS = 2500;
@@ -34,7 +36,7 @@ const DETAILS_FETCH_TIMEOUT_MS = 2500;
 export async function fetchStarterCardDetails(
   starterId: string,
 ): Promise<StarterCardDetails> {
-  const empty: StarterCardDetails = { images: {}, texts: {} };
+  const empty: StarterCardDetails = { images: {}, texts: {}, artists: {} };
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), DETAILS_FETCH_TIMEOUT_MS);
@@ -47,14 +49,17 @@ export async function fetchStarterCardDetails(
     const detail = env?.data;
     const images: CardImageMap = {};
     const texts: CardTextMap = {};
+    const artists: Record<string, string | null> = {};
     const take = (c: {
       card_number?: string;
       image_url?: string | null;
       effect_text?: string | null;
       text_attribution?: string | null;
+      artist?: string | null;
     }) => {
       if (!c?.card_number) return;
       images[c.card_number] = c.image_url ?? null;
+      artists[c.card_number] = c.artist ?? null;
       if (c.effect_text && c.text_attribution) {
         texts[c.card_number] = {
           text: c.effect_text,
@@ -64,7 +69,7 @@ export async function fetchStarterCardDetails(
     };
     if (detail?.leader) take(detail.leader);
     for (const c of detail?.cards ?? []) take(c);
-    return { images, texts };
+    return { images, texts, artists };
   } catch {
     return empty;
   }
@@ -84,6 +89,7 @@ function toSetupCard(
     imageUrl: details.images[cardNumber] ?? null,
     textEn: text?.text ?? null,
     textAttribution: text?.attribution ?? null,
+    artist: details.artists[cardNumber] ?? null,
     keywords: stats?.keywords ?? [],
     hasTrigger: stats?.hasTrigger ?? false,
     rarity: null,
@@ -101,7 +107,7 @@ function toSetupCard(
  *  Returns null only when the starter id is unknown. */
 export function buildPracticeDeck(
   starterId: string,
-  details: StarterCardDetails = { images: {}, texts: {} },
+  details: StarterCardDetails = { images: {}, texts: {}, artists: {} },
 ): {
   deck: PracticeSetupCard[];
   starter: StarterDeck;

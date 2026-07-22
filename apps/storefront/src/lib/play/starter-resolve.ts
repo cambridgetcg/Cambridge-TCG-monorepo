@@ -6,6 +6,7 @@
 import { getStarterDeck, type StarterDeck } from "@/lib/play/starter-decks";
 import { fetchPrices } from "@/lib/wholesale/client";
 import { query } from "@/lib/db";
+import { SQL_ILLUST_PATTERN } from "@/lib/cards/illust-annotation";
 import { enCardKeyFromParts } from "@/lib/cards/en-card-data";
 
 // Same CDN base the museum gallery uses (src/lib/cards/gallery.ts) — the
@@ -76,6 +77,10 @@ export interface ResolvedStarterCard {
   effect_text: string | null;
   /** Copyright line for effect_text; NOT NULL in schema wherever text is. */
   text_attribution: string | null;
+  /** Illustrator credit where the catalogue names one — the printed hand.
+   *  Provenance: `illust:` annotations on special-art listings; see
+   *  src/lib/cards/artists.ts for the full provenance note. */
+  artist: string | null;
 }
 
 export interface ResolvedStarter {
@@ -95,6 +100,48 @@ const BUNDLED_SET_FOR: Record<string, string> = {
   ST23: "ST23-28", ST24: "ST23-28", ST25: "ST23-28",
   ST26: "ST23-28", ST27: "ST23-28", ST28: "ST23-28",
 };
+
+/**
+ * Illustrator credits by card number, from the catalogue's `illust:`
+ * annotations (the printed card-face credit, mirrored — see
+ * src/lib/cards/artists.ts for provenance).
+ *
+ * CONSERVATIVE by design (adversarial-review fix, 2026-07-22): the credit
+ * usually rides a special-art listing while this surface displays the
+ * BASE print, so naming the parallel's hand under base art would be
+ * misattribution. A credit is returned only when EVERY listing of the
+ * card number is annotated with the SAME hand — then whichever print
+ * shows, the credit is true. Failure-safe: an empty map means "no
+ * unambiguous credit", never an error.
+ */
+async function cardArtistFallbacks(
+  cardNumbers: string[],
+): Promise<Map<string, string>> {
+  if (cardNumbers.length === 0) return new Map();
+  try {
+    const { rows } = (await query(
+      `
+      WITH t AS (
+        SELECT split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) AS card_number,
+               trim((regexp_match(card_name, $2, 'i'))[1]) AS artist
+          FROM card_set_cards
+         WHERE split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) = ANY($1)
+      )
+      SELECT card_number, min(artist) AS artist
+        FROM t
+       GROUP BY card_number
+      HAVING count(*) = count(artist)
+         AND count(DISTINCT artist) = 1
+      `,
+      [cardNumbers, SQL_ILLUST_PATTERN],
+    )) as { rows: { card_number: string; artist: string | null }[] };
+    const out = new Map<string, string>();
+    for (const r of rows) if (r.artist) out.set(r.card_number, r.artist);
+    return out;
+  } catch {
+    return new Map();
+  }
+}
 
 /**
  * EN effect text from the legal collection. card_texts keys on the derived
@@ -201,6 +248,7 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
         set_code: null,
         effect_text: null,
         text_attribution: null,
+        artist: null,
       };
     }
     return {
@@ -215,6 +263,7 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
       set_code: cat.set_code ?? null,
       effect_text: null,
       text_attribution: null,
+      artist: null,
     };
   };
 
@@ -228,9 +277,10 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
   // Fill missing artwork + EN effect text from the legal EN collections.
   const all = [leader, ...cards];
   const needingArt = all.filter((c) => !c.image_url).map((c) => c.card_number);
-  const [artFallbacks, texts] = await Promise.all([
+  const [artFallbacks, texts, artists] = await Promise.all([
     cardImageFallbacks(needingArt),
     cardTextFallbacks(all.map((c) => c.card_number)),
+    cardArtistFallbacks(all.map((c) => c.card_number)),
   ]);
   for (const c of all) {
     if (!c.image_url) c.image_url = artFallbacks.get(c.card_number) ?? null;
@@ -239,6 +289,7 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
       c.effect_text = t.text;
       c.text_attribution = t.attribution;
     }
+    c.artist = artists.get(c.card_number) ?? null;
   }
 
   return { deck, leader, cards };

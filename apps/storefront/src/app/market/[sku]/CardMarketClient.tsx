@@ -18,6 +18,7 @@ import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import type { CatalogIdentity } from "@/lib/market/catalog-card";
+import { stripIllustAnnotation } from "@/lib/cards/illust-annotation";
 import type { EnCardText, CardAttributes } from "@/lib/cards/en-card-data";
 import { ListingsPanel, type TrustLimits } from "./ListingsPanel";
 import { tradeLimitWarning } from "./offer-guidance";
@@ -578,7 +579,11 @@ export default function CardMarketClient({
       // blank out a name or price the SSR already rendered.
       setBook({
         ...data,
-        card_name: data.card_name ?? identity.card_name,
+        // The live view reads raw catalogue titles — clean the illust
+        // annotation here too or the H1 reverts on the first poll.
+        card_name: data.card_name
+          ? stripIllustAnnotation(data.card_name)
+          : identity.card_name,
         card_number: data.card_number ?? identity.card_number,
         set_code: data.set_code ?? identity.set_code,
         set_name: data.set_name ?? identity.set_name,
@@ -849,6 +854,20 @@ export default function CardMarketClient({
                     <span className="text-xs text-ink-muted truncate">{book.set_name}</span>
                   )}
                 </div>
+                {identity.artist && (
+                  <p className="mt-1.5 text-xs italic">
+                    {identity.artist_slug ? (
+                      <Link
+                        href={`/artists/${identity.artist_slug}`}
+                        className="text-accent hover:text-accent-strong"
+                      >
+                        illustrated by {identity.artist}
+                      </Link>
+                    ) : (
+                      <span className="text-accent">illustrated by {identity.artist}</span>
+                    )}
+                  </p>
+                )}
               </div>
               {loggedIn && watching !== null && (
                 <button

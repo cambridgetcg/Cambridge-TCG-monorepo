@@ -24,6 +24,11 @@
 import { cache } from "react";
 import { query } from "@/lib/db";
 import {
+  extractIllustArtist,
+  slugifyHand,
+  stripIllustAnnotation,
+} from "@/lib/cards/illust-annotation";
+import {
   getEnCardData,
   type EnCardText,
   type CardAttributes,
@@ -49,6 +54,13 @@ export interface CatalogIdentity {
   // facts. Both null when unpublished — render only what is present.
   effect_text: EnCardText | null;
   attributes: CardAttributes | null;
+  // Illustrator credit when THIS printing's catalogue title carries the
+  // `illust:` annotation (the printed card-face credit, mirrored). Per-print:
+  // a base printing stays uncredited even when its parallel is credited.
+  artist: string | null;
+  // Slug into /artists/[slug] — precomputed server-side so the client
+  // component links without importing server-only card libs.
+  artist_slug: string | null;
 }
 
 export type IdentityResolution =
@@ -74,10 +86,16 @@ function rowToIdentity(row: {
   rarity: string | null;
   image_url: string | null;
 }): CatalogIdentity {
+  // Read the illustrator credit out of the product title and clean the
+  // display name — "Ace (illust:otton)" renders as "Ace" + a credit line,
+  // not as an annotation leaking into the H1. One shared grammar with the
+  // artist wing and the SQL extractors (src/lib/cards/illust-annotation.ts).
+  const artist = extractIllustArtist(row.card_name);
+  const cleanName = stripIllustAnnotation(row.card_name);
   return {
     sku: row.sku,
     card_number: row.card_number,
-    card_name: row.card_name,
+    card_name: cleanName,
     set_code: row.set_code,
     set_name: row.set_name ?? null,
     rarity: row.rarity ?? null,
@@ -90,6 +108,8 @@ function rowToIdentity(row: {
     // getEnCardData result in _resolveCardIdentity, not the catalogue row.
     effect_text: null,
     attributes: null,
+    artist,
+    artist_slug: artist ? slugifyHand(artist) : null,
   };
 }
 

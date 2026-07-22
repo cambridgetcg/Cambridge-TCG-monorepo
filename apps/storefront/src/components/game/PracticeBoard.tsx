@@ -717,6 +717,11 @@ function ActionSheet({
             )}
           </div>
         )}
+        {card.artist && (
+          <p className="mb-3 text-[10px] italic text-accent">
+            illustrated by {card.artist}
+          </p>
+        )}
         {options.length === 0 ? (
           <p className="text-ink-faint text-xs">
             {isMyTurn

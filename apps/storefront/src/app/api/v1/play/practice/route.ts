@@ -56,13 +56,14 @@ function err(code: string, message: string, status = 400) {
 /** Server-side art + rules-text enrichment via the same legal collections
  *  the starters API serves. Failure degrades to text faces, never blocks. */
 async function detailsFor(starterId: string): Promise<StarterCardDetails> {
-  const empty: StarterCardDetails = { images: {}, texts: {} };
+  const empty: StarterCardDetails = { images: {}, texts: {}, artists: {} };
   try {
     const resolved = await resolveStarter(starterId);
     if (!resolved) return empty;
-    const details: StarterCardDetails = { images: {}, texts: {} };
+    const details: StarterCardDetails = { images: {}, texts: {}, artists: {} };
     for (const c of [resolved.leader, ...resolved.cards]) {
       details.images[c.card_number] = c.image_url ?? null;
+      details.artists[c.card_number] = c.artist ?? null;
       if (c.effect_text && c.text_attribution) {
         details.texts[c.card_number] = {
           text: c.effect_text,

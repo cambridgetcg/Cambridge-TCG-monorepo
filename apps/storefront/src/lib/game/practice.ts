@@ -653,6 +653,7 @@ export interface PracticeSetupCard {
   life?: number | null;
   textEn?: string | null;
   textAttribution?: string | null;
+  artist?: string | null;
   keywords?: ("rush" | "blocker" | "double_attack" | "banish")[];
   hasTrigger?: boolean;
   isLeader?: boolean;

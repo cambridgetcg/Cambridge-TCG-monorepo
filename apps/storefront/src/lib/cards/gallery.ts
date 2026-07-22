@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { SQL_ILLUST_PATTERN } from "./illust-annotation";
 
 /**
  * The gallery's alternate-art wall — the pleasant rare prints.
@@ -13,13 +14,20 @@ import { query } from "@/lib/db";
  * Two honesty rules ride along, same as everywhere official art shows:
  *   - the copyright line (`attribution`, NOT NULL by schema) is carried on
  *     every piece and MUST render on its wall label; and
- *   - the illustrator is NAMED where — and only where — the publisher named
- *     them. Bandai embeds `illust:<name>` inside some card names; we read it
- *     out and credit the hand. It is sparse (a few hundred cards), so this is
- *     a credit-where-known, not a browse-by-artist index.
+ *   - the illustrator is NAMED where — and only where — a credit exists.
+ *     Provenance corrected 2026-07-22: the `illust:<name>` annotations live
+ *     in the JP wholesale catalogue's product titles (card_set_cards), NOT
+ *     in Bandai's digital card data — Bandai's databases carry no artist
+ *     field at all. The physical cards DO print the illustrator's name on
+ *     the card face; the catalogue annotation mirrors that printed credit
+ *     (extraction verified against Limitless's per-printing records and
+ *     the fan-kept directory at the artist wing's opening, 2026-07-22).
+ *     Sparse (~138 cards), so the wall is
+ *     credit-where-known; the browse-by-artist axis lives at /artists
+ *     (src/lib/cards/artists.ts).
  */
 
-const CARD_IMAGE_CDN = (
+export const CARD_IMAGE_CDN = (
   process.env.CTCG_CARD_IMAGE_CDN ||
   "https://ctcg-card-images.s3.us-east-1.amazonaws.com"
 ).replace(/\/$/, "");
@@ -44,7 +52,7 @@ export interface GalleryPiece {
 }
 
 /** The alternate print's kind, from its variant tail, in museum words. */
-function variantLabel(tail: string): string {
+export function variantLabel(tail: string): string {
   if (/^P\d+$/.test(tail)) return "Parallel Art";
   if (/^R\d+$/.test(tail)) return "Alternate Print";
   return "Alternate Art";
@@ -76,11 +84,11 @@ export async function getGalleryPieces(limit = 24): Promise<GalleryPiece[]> {
     WITH nm AS (
       SELECT split_part(sku, '-', 2) AS setc,
              split_part(sku, '-', 3) AS num,
-             (array_agg(card_name) FILTER (
+             (array_agg(card_name ORDER BY sku) FILTER (
                 WHERE card_name ~ '^[ -~]+$' AND card_name !~* 'illust'))[1] AS name,
              trim((regexp_match(
-                string_agg(card_name, ' | '),
-                'illust[:：]\\s*([^)/|]+)'))[1]) AS artist
+                string_agg(card_name, ' | ' ORDER BY sku),
+                $1, 'i'))[1]) AS artist
         FROM card_set_cards
        GROUP BY 1, 2
     )
@@ -102,6 +110,7 @@ export async function getGalleryPieces(limit = 24): Promise<GalleryPiece[]> {
        AND ci.s3_key IS NOT NULL
        AND ci.sku ~ '-EN-[A-Z0-9]+$'
     `,
+    [SQL_ILLUST_PATTERN],
   )) as { rows: Row[] };
 
   // A piece is worth hanging only if it has something to say on its label —
