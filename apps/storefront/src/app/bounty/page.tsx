@@ -20,7 +20,7 @@ export default function BountyRetiredPage() {
         </p>
         <p className="text-sm leading-relaxed text-ink-muted mb-8">
           Past draws stay honest: every historical pull keeps its published proof,
-          and any card already held for you remains yours to redeem from your account.
+          and your vault history stays in your account.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link

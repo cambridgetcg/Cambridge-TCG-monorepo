@@ -75,7 +75,7 @@ export default function AdminChargebacksPage() {
           <div>
             <h1 className="text-2xl font-bold">Chargebacks</h1>
             <p className="text-sm text-neutral-400">
-              Stripe disputes. Critical-severity auto-suspends the user via the fraud pipeline.
+              Stripe disputes. Recorded as an advisory fraud signal for human review — no automatic action is taken.
               <WhyLink href="/methodology/fraud-flag" label="how severity works" />
             </p>
           </div>

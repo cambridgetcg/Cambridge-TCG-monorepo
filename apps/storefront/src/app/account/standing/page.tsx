@@ -124,8 +124,8 @@ export default function AccountStandingPage() {
         <WhyLink href="/methodology/fraud-flag" tooltip="How does the platform flag accounts?" />
       </h1>
       <p className="text-sm text-ink-muted mb-6">
-        Here&rsquo;s what we&rsquo;ve noticed on your account and how support can help — nothing
-        here blocks you, and escrow protects your money either way. See your{" "}
+        Here&rsquo;s what we&rsquo;ve noticed on your account and how support can help. Escrow
+        protects your money on every trade, either way. See your{" "}
         <Link href="/account/trust" className="text-accent underline">trust score</Link>{" "}
         for the full breakdown.
       </p>
