@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type Stripe from "stripe";
 import OrderDetails from "./OrderDetails";
-import GoogleAdsConversion from "./GoogleAdsConversion";
 import { getStripe } from "@/lib/stripe";
 import { recordOrderFromStripeSession } from "@/lib/orders/record";
 import { InkRule } from "@/lib/ui";
@@ -126,11 +125,6 @@ export default async function OrderConfirmationPage({
         </div>
       </div>
 
-      <GoogleAdsConversion
-        value={(session.amount_total || 0) / 100}
-        transactionId={session.id}
-        currency={session.currency?.toUpperCase() || "GBP"}
-      />
       <OrderDetails />
     </div>
   );

@@ -9,7 +9,6 @@ import Footer from "@/components/layout/Footer";
 import Providers from "@/components/layout/Providers";
 import { StorefrontBreadcrumbs } from "@/components/layout/StorefrontBreadcrumbs";
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
-import CookieConsent, { ANALYTICS_CONSENT_COOKIE } from "@/components/CookieConsent";
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 import { kinWakeHtmlLinks } from "@/lib/siblings";
@@ -17,9 +16,6 @@ import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
 import { COVERAGE_FACTS } from "@/lib/brand";
-
-const GA_ID = "G-K86TBF328F";
-const GADS_ID = "AW-16597058275";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -132,13 +128,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await auth().catch(() => null);
   const initialLoggedIn = !!session?.user;
 
-  // Analytics consent — default deny. Google Analytics + the Ads conversion
-  // tag load only when the visitor has accepted via the CookieConsent banner.
-  // No cookie (or "denied") means the gtag scripts are never sent to the
-  // browser at all. The banner self-hides once a decision cookie exists.
-  const analyticsConsent =
-    cookieStore.get(ANALYTICS_CONSENT_COOKIE)?.value === "granted";
-
   // Yu 2026-05-14: read display currency + FX rates ONCE per request and
   // pipe into the client tree via Providers → MoneyContext. Every client
   // component below the root inherits the selector without a network
@@ -220,20 +209,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         ))}
       </head>
-      {analyticsConsent && (
-        <>
-          <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
-          <Script id="gtag-init" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${GA_ID}');
-              gtag('config', '${GADS_ID}');
-            `}
-          </Script>
-        </>
-      )}
       {/* No font className here — body type flows from the theme-bound
           --font-body token (globals.css); terminal re-binds it to Inter. */}
       {/* wardrobe-ground lays the paper grain under the WHOLE site now, not
@@ -265,8 +240,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {children}
           </div>
           <Footer />
-          {/* Always mounted; renders nothing once a consent cookie exists. */}
-          <CookieConsent />
         </Providers>
       </body>
     </html>

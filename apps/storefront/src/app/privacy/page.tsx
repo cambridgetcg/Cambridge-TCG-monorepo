@@ -7,7 +7,7 @@ import { PERSON_PUBLICATION_NOTICE } from "@/lib/social/publication";
  *
  * Written honestly rather than as boilerplate: every claim below maps to
  * something real in the codebase (magic-link auth, Stripe checkout, SES
- * email, consent-gated GA), and where practice isn't formalised yet the
+ * email), and where practice isn't formalised yet the
  * page says so instead of pretending. Contact-surface spec W6.
  */
 
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Privacy</h1>
         <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 13 July 2026.
+          Plain words, no boilerplate. Last updated 22 July 2026.
         </p>
 
         <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
@@ -81,13 +81,6 @@ export default function PrivacyPage() {
                 new numbers through it, and do not treat its existing records as
                 verified. A previously submitted number may remain with the
                 account until it is deleted.
-              </li>
-              <li>
-                <strong className="text-ink">Visit statistics, only if you say
-                yes.</strong>{" "}
-                We use Google Analytics to understand how people use the site —
-                but the script only loads after you accept the cookie banner.
-                Decline (or ignore it) and nothing is sent to Google.
               </li>
               <li>
                 <strong className="text-ink">Collector observations, only if
@@ -191,9 +184,9 @@ export default function PrivacyPage() {
               <li>
                 <strong className="text-ink">Marketing or ad-tracking
                 cookies.</strong>{" "}
-                No third-party ad trackers run here. The one Google Ads tag we
-                use records a purchase conversion after checkout, and like
-                Analytics it only runs if you accepted the banner.
+                None. No third-party ad trackers, no analytics, no marketing
+                cookies run here at all — and no banner to accept, because there
+                is nothing to consent to.
               </li>
               <li>
                 <strong className="text-ink">Anything to sell.</strong> We do
@@ -227,10 +220,6 @@ export default function PrivacyPage() {
                 application. Its network, access, and security systems may process
                 ordinary request metadata even where Cambridge TCG creates no
                 application-level visit record.
-              </li>
-              <li>
-                <strong className="text-ink">Google</strong> receives analytics
-                data — only after you consent, as above.
               </li>
             </ul>
           </section>
@@ -268,11 +257,6 @@ export default function PrivacyPage() {
                 removes these cookies.
               </li>
               <li>
-                <strong className="text-ink">analytics-consent</strong> — your
-                yes-or-no answer to the analytics banner, kept for one year so
-                we don&apos;t ask again.
-              </li>
-              <li>
                 <strong className="text-ink">banner-dev-notice</strong> —
                 remembers you dismissed the site notice; gone when you close
                 your browser.
@@ -284,9 +268,8 @@ export default function PrivacyPage() {
               </li>
             </ul>
             <p className="mt-3">
-              Google Analytics sets its own cookies <em>only</em> after you
-              accept the banner. Everything else above is functional, not
-              tracking.
+              Every cookie above is functional. We run no analytics or tracking
+              cookies at all.
             </p>
           </section>
 
@@ -319,10 +302,6 @@ export default function PrivacyPage() {
                 PVE guest records described above do not yet have a complete
                 automatic retention rule; their cleanup is being reviewed rather
                 than claimed as finished.
-              </li>
-              <li>
-                <strong className="text-ink">Analytics data</strong>: held by
-                Google under their retention settings; we keep no copy.
               </li>
               <li>
                 <strong className="text-ink">Collector observations</strong>:

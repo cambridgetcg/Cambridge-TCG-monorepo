@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
 import type { GameItem } from "@/lib/wholesale/client";
-import { trackAnalyticsEvent } from "@/lib/analytics/client";
 
 interface CardPriceSearchFormProps {
   games: GameItem[];
@@ -26,25 +24,11 @@ export function CardPriceSearchForm({
     (firstGame, secondGame) => secondGame.card_count - firstGame.card_count,
   );
 
-  const trackSearch = (event: FormEvent<HTMLFormElement>) => {
-    const formData = new FormData(event.currentTarget);
-    const selectedGame = String(formData.get("game") ?? "");
-    const cardQuery = String(formData.get("q") ?? "").trim();
-    const languageFilter = String(formData.get("lang") ?? "") || "any";
-    trackAnalyticsEvent("card_search_submit", {
-      search_surface: "price_search",
-      game: selectedGame,
-      query_length: cardQuery.length,
-      language_filter: languageFilter,
-    });
-  };
-
   return (
     <div className="space-y-3">
       <form
         action="/prices/search"
         method="get"
-        onSubmit={trackSearch}
         aria-label="Find a card price"
         className="grid grid-cols-2 gap-3 md:grid-cols-[180px_1fr_140px_auto] md:items-end"
       >

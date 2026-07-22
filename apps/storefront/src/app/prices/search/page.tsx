@@ -33,7 +33,6 @@ import {
 import { headers } from "next/headers";
 import { fetchGames } from "@/lib/wholesale/client";
 import { CardPriceSearchForm } from "@/app/prices/_components/CardPriceSearchForm";
-import CardSearchResultAnalytics from "@/components/analytics/CardSearchResultAnalytics";
 import {
   ReferenceComparison,
   ReferencePriceSummary,
@@ -676,21 +675,6 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
           browseHref="/prices#browse-by-game"
         />
       </Card>
-
-      {game && q && (
-        <CardSearchResultAnalytics
-          surface="price_search"
-          game={game}
-          resultCount={result?.data.summary.count ?? 0}
-          resultState={
-            !result
-              ? "error"
-              : result.data.summary.count > 0
-                ? "matches"
-                : "no_matches"
-          }
-        />
-      )}
 
       {/* Plain-language decoder — additive clarity for newcomers. Native
           <details>, no JS, closed by default so it never clutters. The
