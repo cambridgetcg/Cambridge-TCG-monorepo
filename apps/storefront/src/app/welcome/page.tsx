@@ -166,10 +166,10 @@ function BranchContent({ picked }: { picked: Audience }) {
           <h1 className="font-display font-semibold text-3xl mb-4">For traders.</h1>
           <p className="text-ink-muted leading-relaxed mb-8">
             Cambridge TCG runs a P2P order book — limit-orders by SKU, price-time priority,
-            escrow tier routing by trade value and counterparty trust. Your commission rate
-            is the better of your membership tier and your trust score; nothing rewards more
-            than reputation. Make offers, run pricing rules, watch for arbitrage between
-            channels.
+            escrow tier routing by trade value and counterparty trust. Selling is free — the
+            platform takes no commission, so you keep 100% of every sale; reputation still
+            opens doors, it just never costs you a cut. Make offers, run pricing rules, watch
+            for arbitrage between channels.
           </p>
           <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[

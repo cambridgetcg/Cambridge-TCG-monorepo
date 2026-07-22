@@ -41,12 +41,6 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
-    slug: "membership-tier",
-    title: "Membership tier",
-    blurb: "Bronze through OG. How tier is assigned (spend / subscription / manual) and what each tier unlocks.",
-    status: "published",
-  },
-  {
     slug: "payout-hold",
     title: "Payout hold",
     blurb: "How long after a sale your payout waits before being released. By trust tier for trades; flat 3 days for auctions.",
@@ -55,8 +49,8 @@ const TOPICS: Topic[] = [
   {
     slug: "commission-rate",
     title: "Commission rate",
-    blurb: "What the platform takes from a P2P sale or auction win. Function of membership tier × sale type.",
-    status: "stub",
+    blurb: "What the platform takes from a P2P sale or auction win: nothing. Commission is 0% for everyone — sellers keep 100%.",
+    status: "published",
   },
   {
     slug: "fees",

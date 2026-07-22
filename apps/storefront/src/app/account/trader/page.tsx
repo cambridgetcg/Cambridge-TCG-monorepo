@@ -269,10 +269,10 @@ function TrustSection({ d }: { d: TraderDashboard }) {
           }
         />
         <Card
-          label="Commission tier"
+          label="Reputation tier"
           value={d.trust.tier_label ?? "—"}
-          sub="Drives the commission rate"
-          whyLink={{ href: "/methodology/commission-rate" }}
+          sub="Your standing with other collectors"
+          whyLink={{ href: "/methodology/trust-score" }}
         />
       </div>
     </section>

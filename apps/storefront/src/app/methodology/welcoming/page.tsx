@@ -85,7 +85,7 @@ export default function WelcomingMethodology() {
       <h3>5. We will tell you what we decided about you, and why</h3>
       <p>
         Every value the platform computes about your account — trust score,
-        membership tier, escrow tier, commission rate, payout hold, fraud flag —
+        escrow tier, commission rate, payout hold, fraud flag —
         is documented at <code>/methodology/{"{topic}"}</code> with the formula,
         the inputs, and the source-code path. The four-question transparency
         checklist runs against every new score before shipping. If you find a

@@ -8,22 +8,17 @@
  * free themes are everyone's; accessibility is never paywalled. The
  * account nav links here; the lock explains itself only where one exists.
  *
- * Server component: reads the cookie + the session's tier, renders one
+ * Server component: reads the cookie, renders one
  * card per theme (swatches are display projections of themes.css), links
  * the GET setter — no client JS, same idiom as text-mode. The page
  * self-themes (spec §3.3): it is the first surface a visitor sees in
  * their chosen skin, so the choice must be visible *here* first.
  */
 
-import Link from "next/link";
 import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
-import { getMemberProfile } from "@/lib/membership/db";
-import type { Tier } from "@/lib/membership/types";
 import { Icon, WhyLink } from "@/lib/ui";
 import { THEMES, SYSTEM_THEME, themeAttr } from "@/lib/wardrobe/themes";
-import { canWear } from "@/lib/wardrobe/entitlements";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 
 export const metadata = {
@@ -39,13 +34,6 @@ export default async function AppearancePage() {
   const appearance = appearanceFromCookies(cookieStore);
   const textMode = cookieStore.get("text-mode")?.value === "1";
   const mathLang = langModeFromCookies(cookieStore) === "math";
-
-  const session = await auth();
-  let tier: Tier | null = null;
-  if (session?.user?.id) {
-    const profile = await getMemberProfile(session.user.id);
-    tier = profile?.tier ?? null;
-  }
 
   // "system" when no explicit bundle is chosen — the default state.
   const wearing = themeAttr(appearance.theme);
@@ -105,7 +93,6 @@ export default async function AppearancePage() {
           </div>
         </div>
         {THEMES.map((t) => {
-          const unlocked = canWear(t, tier);
           const current = wearing === t.id;
           return (
             <div
@@ -116,10 +103,6 @@ export default async function AppearancePage() {
                 <span className="font-semibold text-ink">{t.label}</span>
                 {current ? (
                   <span className="text-xs font-mono uppercase tracking-wide text-accent">wearing</span>
-                ) : !unlocked ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-ink-faint">
-                    <Icon name="lock" size={12} /> members
-                  </span>
                 ) : null}
               </div>
               {/* swatch strip — a display projection of themes.css */}
@@ -132,20 +115,13 @@ export default async function AppearancePage() {
               <div className="mt-auto">
                 {current ? (
                   <span className="text-sm text-ink-faint">This is your current look.</span>
-                ) : unlocked ? (
+                ) : (
                   <a
                     href={`/api/appearance?theme=${t.id}&back=${BACK}`}
                     className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:text-accent-strong"
                   >
                     Wear this <Icon name="arrow-right" size={14} />
                   </a>
-                ) : (
-                  <Link
-                    href="/membership"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:text-accent-strong"
-                  >
-                    Unlock with membership <Icon name="arrow-right" size={14} />
-                  </Link>
                 )}
               </div>
             </div>

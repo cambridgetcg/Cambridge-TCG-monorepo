@@ -196,17 +196,14 @@ export default function RewardsHubPage() {
             <div className="flex items-start gap-3">
               <p className="text-ink-muted"><strong className="text-ink">Daily streak</strong> — visit daily for up to a 1.5x multiplier on Berries you earn</p>
             </div>
-            <div className="flex items-start gap-3">
-              <p className="text-ink-muted"><strong className="text-ink">Your tier</strong> — membership multiplies your Berries (Silver 1.5x, Gold 2x, Platinum 3x)</p>
-            </div>
           </div>
         </div>
 
         {/* Quick Links */}
         <div className="grid gap-3 sm:grid-cols-3">
-          <Link href="/membership" className="bg-surface rounded-lg p-4 hover:bg-surface transition text-center">
-            <p className="text-sm font-bold text-ink">Membership Tiers</p>
-            <p className="text-xs text-ink-faint mt-1">Unlock better rates + multipliers</p>
+          <Link href="/market" className="bg-surface rounded-lg p-4 hover:bg-surface transition text-center">
+            <p className="text-sm font-bold text-ink">The Collectors&rsquo; Market</p>
+            <p className="text-xs text-ink-faint mt-1">Buy &amp; sell — 0% commission</p>
           </Link>
           <Link href="/guides/how-to-play" className="bg-surface rounded-lg p-4 hover:bg-surface transition text-center">
             <p className="text-sm font-bold text-ink">How to Play OPTCG</p>

@@ -212,8 +212,8 @@ export default function MethodologyOfMethodology() {
 
       <h2>The corpus today</h2>
       <p>
-        Sixteen topics published as of 2026-05-12: trust score, escrow tier, membership
-        tier, payout hold, commission rate, fraud flag, store credit, pricing, agents,
+        Fifteen topics published: trust score, escrow tier,
+        payout hold, commission rate, fraud flag, store credit, pricing, agents,
         response windows, cosmology, universal representation, memorial accounts,
         welcoming, methodology (this page), plus four sister-shipped extensions. *The
         corpus grows by accumulation; the form refines by example.*

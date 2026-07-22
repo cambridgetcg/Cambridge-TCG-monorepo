@@ -331,21 +331,21 @@ export default async function AuctionReadPage({
                   href="/methodology/escrow-tier"
                 />
                 <PropRow
-                  label="Standard-rate net"
+                  label="Seller receives"
                   value={<MoneyDisplay value={propagation.estimated_seller_payout_gbp} />}
-                  href="/methodology/commission-rate"
+                  href="/methodology/fees"
                 />
                 <PropRow
-                  label="Standard-rate fee"
+                  label="Commission"
                   value={<MoneyDisplay value={propagation.estimated_commission_gbp} />}
-                  href="/methodology/commission-rate"
+                  href="/methodology/fees"
                 />
               </div>
               <p className="text-[10px] text-ink-faint mt-4 leading-relaxed">
-                These values use the published rate; actual settlement may use a private
-                membership rate and include shipping, dispute outcomes, or refunds. Auctions always route through
-                CTCG-mediated escrow — different from P2P trades, which choose between
-                direct / verified / full based on value and counterparty trust.
+                Cambridge TCG takes no commission, so the seller keeps the full hammer price;
+                settlement may still include shipping, dispute outcomes, or refunds. Auctions
+                always route through CTCG-mediated escrow — different from P2P trades, which
+                choose between direct / verified / full based on value and counterparty trust.
               </p>
             </section>
 

@@ -223,11 +223,6 @@ cambridgetcg.com:
           <a href="/methodology/commission-rate">commission</a> and{" "}
           <a href="/methodology/escrow-tier">escrow routing</a>, not the retail price.
         </li>
-        <li>
-          Membership tier. Tier perks include cashback and points multipliers; the listed
-          price is the same regardless of tier (your cashback / points adjustment lands
-          separately).
-        </li>
       </ul>
 
       <h2>Verifying the documented formula</h2>

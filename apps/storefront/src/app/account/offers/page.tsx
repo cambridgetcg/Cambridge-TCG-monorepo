@@ -56,16 +56,10 @@ interface OfferRow {
 // The caller's OWN resolved P2P commission rate, served by the offers API
 // (the min(membership, trust) combine + per-item cap). Only meaningful
 // when the viewer is the seller of the trade being previewed.
-interface ViewerCommission {
-  rate: number;
-  source: "membership" | "trust" | "default";
-  capGbp: number;
-}
 
 export default function OffersPage() {
   const [tab, setTab] = useState<"incoming" | "outgoing">("incoming");
   const [offers, setOffers] = useState<OfferRow[]>([]);
-  const [viewerCommission, setViewerCommission] = useState<ViewerCommission | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +70,6 @@ export default function OffersPage() {
       .then((r) => r.json())
       .then((d) => {
         setOffers(d.offers || []);
-        if (d.viewerCommission) setViewerCommission(d.viewerCommission);
       })
       .catch(() => setError("Failed to load offers"))
       .finally(() => setLoading(false));
@@ -155,7 +148,6 @@ export default function OffersPage() {
               key={o.id}
               offer={o}
               perspective={tab === "incoming" ? "seller" : "buyer"}
-              viewerCommission={viewerCommission}
               busy={busy === o.id}
               onAct={(path, body) => act(o.id, path, body)}
             />
@@ -169,13 +161,11 @@ export default function OffersPage() {
 function OfferCard({
   offer,
   perspective,
-  viewerCommission,
   busy,
   onAct,
 }: {
   offer: OfferRow;
   perspective: "buyer" | "seller";
-  viewerCommission: ViewerCommission | null;
   busy: boolean;
   onAct: (path: string, body?: object) => void;
 }) {
@@ -218,38 +208,14 @@ function OfferCard({
     const gross = Math.round(price * qty * 100) / 100;
     const list: Consequence[] = [];
 
-    if (perspective === "seller" && viewerCommission) {
-      // Same formula acceptance applies server-side: min(gross × rate, cap).
-      const fee = Math.min(
-        Math.round(gross * viewerCommission.rate * 100) / 100,
-        viewerCommission.capGbp,
-      );
-      const sellerNet = Math.round((gross - fee) * 100) / 100;
-      const ratePct = `${+(viewerCommission.rate * 100).toFixed(2)}%`;
-      const rateLabel =
-        viewerCommission.source === "membership" ? `${ratePct} membership rate`
-        : viewerCommission.source === "trust" ? `${ratePct} trust rate`
-        : `${ratePct} base rate`;
+    if (perspective === "seller") {
+      // Cambridge TCG takes no commission — the seller keeps the full price.
       list.push({
-        label: `You receive (after ${rateLabel})`,
-        delta: <Money value={sellerNet} />,
-        tone: "emerald",
-        methodology: "/methodology/offers",
-        detail: (
-          <>
-            Gross <Money value={gross} /> − <Money value={fee} /> commission
-            {fee === viewerCommission.capGbp ? <> (capped at <Money value={viewerCommission.capGbp} />)</> : null}
-          </>
-        ),
-      });
-    } else if (perspective === "seller") {
-      // Rate not loaded (fetch raced or failed) — no number is better
-      // than a wrong one.
-      list.push({
-        label: "You receive the agreed price minus your resolved commission",
+        label: "You receive (no commission)",
         delta: <Money value={gross} />,
-        methodology: "/methodology/offers",
-        detail: "Your exact rate (5–8%, capped £50) depends on your trust score and membership tier.",
+        tone: "emerald",
+        methodology: "/methodology/fees",
+        detail: "You keep 100% of the sale — Cambridge TCG charges no commission.",
       });
     } else {
       list.push({

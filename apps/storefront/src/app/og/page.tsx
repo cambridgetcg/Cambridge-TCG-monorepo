@@ -2,14 +2,14 @@ import Link from "next/link";
 
 export const metadata = {
   title: "OG status - Cambridge TCG",
-  description: "Current status of Cambridge TCG OG membership claims.",
+  description: "Current status of Cambridge TCG OG status claims.",
 };
 
 export default function OGClaimPage() {
   return (
     <main className="min-h-screen bg-page">
       <div className="max-w-2xl mx-auto px-4 py-12">
-        <p className="text-sm font-semibold text-accent mb-3">OG membership</p>
+        <p className="text-sm font-semibold text-accent mb-3">OG status</p>
         <h1 className="text-3xl md:text-4xl font-display font-semibold text-ink mb-5">
           New claims are paused
         </h1>
@@ -26,7 +26,9 @@ export default function OGClaimPage() {
             ask us to correct or delete an old claim through the contact page.
           </p>
           <p>
-            Existing OG membership remains in place. This pause only affects new
+            Existing OG recognition stays as it is. OG is a founder badge from the
+            early days — and now that Cambridge TCG is free for everyone, it carries
+            no fees or perks, just the recognition. This pause only affects new
             self-submitted claims.
           </p>
         </div>
@@ -38,7 +40,7 @@ export default function OGClaimPage() {
             Sign in
           </Link>
           <Link href="/" className="text-ink-muted underline">
-            Back to shop
+            Back to home
           </Link>
         </div>
       </div>

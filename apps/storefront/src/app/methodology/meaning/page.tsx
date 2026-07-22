@@ -30,8 +30,8 @@ export default function MeaningMethodology() {
       <ul>
         <li>
           <strong>Node-view entries</strong> name what other modules secretly
-          need a node for (e.g. <em>the membership tier as the loyalty
-          rebate's anchor</em>, not as a user-facing decoration).
+          need a node for (e.g. <em>the escrow tier as the payout hold&rsquo;s
+          anchor</em>, not as a user-facing decoration).
         </li>
         <li>
           <strong>Story-arc entries</strong> trace one transaction or moment

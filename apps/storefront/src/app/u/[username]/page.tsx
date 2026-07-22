@@ -125,9 +125,6 @@ export default function UserProfilePage() {
     );
   }
 
-  // users.tier_color rides as a 2px underline accent only (design doc) —
-  // never as backgrounds or rings. Fallback: the quiet bronze.
-  const tierColor = profile.tier_color ?? "#96762f";
   const initial = (profile.name ?? profile.username ?? "?")[0].toUpperCase();
 
   return (
@@ -147,9 +144,8 @@ export default function UserProfilePage() {
             >
               {!profile.avatar_url && <span>{initial}</span>}
             </div>
-            {/* Trust score — distinct from membership tier (labelled below).
-                title + aria-label so the bare number isn't mistaken for a
-                rank or a count. */}
+            {/* Trust score — the reputation number. title + aria-label so the
+                bare number isn't mistaken for a rank or a count. */}
             <div
               className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-surface border border-border-strong flex items-center justify-center text-xs font-mono font-semibold text-ink"
               title={`Trust score: ${profile.trust_score}`}
@@ -164,20 +160,6 @@ export default function UserProfilePage() {
               <h1 className="text-2xl font-display font-semibold text-ink truncate">
                 <UserMention user={profile} form="third-person" fallback={profile.username ?? "user"} />
               </h1>
-              {/* Membership tier — a commercial standing (patronage), NOT the
-                  trust score (reputation) or the trust tier band. Labelled
-                  explicitly so the three vocabularies don't read as one soup,
-                  and linked to its own methodology, never trust-score. */}
-              {profile.tier_name && (
-                <span
-                  className="inline-flex items-center gap-1 pb-px text-xs font-semibold text-ink-muted"
-                  style={{ borderBottom: `2px solid ${tierColor}` }}
-                >
-                  <span className="font-normal text-ink-faint">Membership:</span>
-                  {profile.tier_name}
-                  <WhyLink href="/methodology/membership-tier" tooltip="How do membership tiers work?" />
-                </span>
-              )}
               <UserMention user={profile} form="pronouns-only" />
             </div>
             <p className="text-ink-faint text-sm mt-0.5">@{profile.username}</p>

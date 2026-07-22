@@ -85,10 +85,10 @@ export default function StartPage() {
           </p>
           <p>
             <strong className="text-ink">Selling a card:</strong> listing is
-            always free — you only pay commission if it actually sells. On the
-            market the seller pays <strong>5–8%</strong> (lower the more trust
-            you&apos;ve earned); at auction it&apos;s <strong>12%</strong> —
-            both capped at £50 per item.{" "}
+            always free — and so is selling. Cambridge TCG takes{" "}
+            <strong className="text-ok">no commission at all</strong>, on the
+            market or at auction, so you keep <strong>100%</strong> of every
+            sale.{" "}
             <Link href="/methodology/fees" className="text-accent underline">
               See every rail.
             </Link>

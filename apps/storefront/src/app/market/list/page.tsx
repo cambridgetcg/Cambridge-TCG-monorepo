@@ -15,7 +15,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { Icon, WhyLink } from "@/lib/ui";
-import { COMMISSION_RATE_BY_TIER } from "@/lib/market/types";
 import ListingWizard from "@/components/market/ListingWizard";
 import { catalogSourceBadges } from "@/components/market/source-provenance";
 import { DEFAULT_GAME } from "@/components/market/catalog";
@@ -36,11 +35,6 @@ export default async function MarketListPage({
   const session = await auth();
   const isSignedIn = !!session?.user?.id;
 
-  // Commission bounds from the tier table — copy stays true if tiers move.
-  const rates = Object.values(COMMISSION_RATE_BY_TIER);
-  const commissionMinPct = Math.round(Math.min(...rates) * 100);
-  const commissionMaxPct = Math.round(Math.max(...rates) * 100);
-
   const backHref = game !== DEFAULT_GAME ? `/market?game=${encodeURIComponent(game)}` : "/market";
 
   return (
@@ -59,8 +53,8 @@ export default async function MarketListPage({
           </h1>
           <p className="text-sm text-ink-muted">
             Pick the card, set your price, and it&rsquo;s live for every collector on its market
-            page. Free to list; commission applies only when a sale settles.{" "}
-            <WhyLink href="/methodology/commission-rate" tooltip="How commission is computed" />
+            page. Free to list, and free to sell — Cambridge TCG takes no commission.{" "}
+            <WhyLink href="/methodology/fees" tooltip="How the free platform works" />
           </p>
         </div>
 
@@ -68,8 +62,6 @@ export default async function MarketListPage({
           game={game}
           initialSku={initialSku}
           isSignedIn={isSignedIn}
-          commissionMinPct={commissionMinPct}
-          commissionMaxPct={commissionMaxPct}
           sourceBadges={catalogSourceBadges()}
         />
       </div>

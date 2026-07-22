@@ -1,8 +1,8 @@
 {
   "topic": "membership-tier",
-  "title": "Membership tier",
-  "url": "/methodology/membership-tier",
+  "title": "Membership tier (retired)",
+  "url": "/methodology/fees",
   "kind": "methodology-sidecar",
   "summary_url": "/methodology/membership-tier/summary.md",
-  "status": "stub"
+  "status": "retired"
 }
