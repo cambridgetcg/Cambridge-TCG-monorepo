@@ -1,14 +1,14 @@
-// Chargeback side effects: fraud signal + auto-suspend + governance
+// Chargeback side effects: honest fraud-signal record + governance
 // log + trust recompute.
 //
 // De-duped by the chargebacks.fraud_emitted column so webhook
 // re-delivery and reconciler catch-up share one-shot semantics.
-// Without this, a chronic webhook-retry loop would re-suspend the
-// same user repeatedly + spam the governance log.
+// Without this, a chronic webhook-retry loop would re-emit the same
+// record repeatedly + spam the governance log. Recording the
+// chargeback protects the counterparty; no person-level action is taken.
 
 import { query } from "@/lib/db";
 import { emitSignal, SIGNAL_DEFS } from "@/lib/fraud/detection";
-import { evaluateAutoSuspend } from "@/lib/fraud/auto-suspend";
 import { logAdminAction } from "@/lib/admin/governance-log";
 import { logChargebackTransition } from "./chargeback-log";
 
@@ -40,7 +40,9 @@ export async function handleNewChargeback(args: HandleNewChargebackArgs): Promis
 
   // Emit CHARGEBACK fraud signal (closes the documented gap in
   // SIGNAL_DEFS — taxonomy entry existed since Phase A of fraud module
-  // but had no producer).
+  // but had no producer). This is an honest record of what happened,
+  // surfaced for human review; it protects the counterparty and takes
+  // no automatic person-level action.
   const description = `Chargeback £${args.amountGbp.toFixed(2)} filed${args.stripeReason ? ` — ${args.stripeReason}` : ""}`;
   await emitSignal({
     userId: args.userId,
@@ -49,13 +51,8 @@ export async function handleNewChargeback(args: HandleNewChargebackArgs): Promis
     dedupeKey: `chargeback:${args.stripeDisputeId}`,
   });
 
-  // Auto-suspend evaluates whether to flip the user's is_suspended
-  // bit. CHARGEBACK is severity='critical' + autoAction='suspend'
-  // so this will always trip on a previously-clean user.
-  const sus = await evaluateAutoSuspend(args.userId).catch(() => ({ suspended: false }));
-
-  // Governance log row for the chargeback-driven action so /admin/
-  // governance ties the auto-suspend back to its origin.
+  // Governance log row for the chargeback so /admin/governance has an
+  // honest record of what happened and when.
   void logAdminAction({
     actorLabel: "system:chargeback-handler",
     targetUserId: args.userId,
@@ -65,7 +62,6 @@ export async function handleNewChargeback(args: HandleNewChargebackArgs): Promis
     afterValue: {
       stripe_dispute_id: args.stripeDisputeId,
       amount_gbp: args.amountGbp,
-      auto_suspended: sus.suspended,
     },
     reason: description,
   });
@@ -74,8 +70,7 @@ export async function handleNewChargeback(args: HandleNewChargebackArgs): Promis
     stripeDisputeId: args.stripeDisputeId,
     action: "fraud_emitted",
     actorLabel: "system:chargeback-handler",
-    reason: `Fraud signal emitted${sus.suspended ? "; user auto-suspended" : ""}`,
-    metadata: { auto_suspended: sus.suspended },
+    reason: "Chargeback recorded",
   });
 
   return { ran: true };

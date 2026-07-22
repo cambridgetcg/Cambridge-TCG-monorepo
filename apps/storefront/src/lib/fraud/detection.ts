@@ -13,7 +13,7 @@
 import { query } from "@/lib/db";
 
 export type SignalSeverity = "low" | "medium" | "high" | "critical";
-export type SignalAutoAction = "none" | "flag" | "hold_payout" | "suspend" | "block_trade";
+export type SignalAutoAction = "none" | "flag" | "hold_payout";
 
 export interface SignalDef {
   type: string;
@@ -23,9 +23,11 @@ export interface SignalDef {
 }
 
 /**
- * Signal taxonomy. Severity drives trust penalty (medium+ = -20 each)
- * and auto-action drives Phase C's auto-suspend gate. Every detection
- * pass picks one of these; the catalog is the source of truth.
+ * Signal taxonomy. Severity drives the trust penalty (medium+ = -20
+ * each) for genuine-fraud signals, so an honest trust score protects
+ * future counterparties. Signals are advisory records surfaced for
+ * human review — no automatic person-level action is taken. Every
+ * detection pass picks one of these; the catalog is the source of truth.
  */
 export const SIGNAL_DEFS = {
   RAPID_LISTING: {
@@ -37,14 +39,8 @@ export const SIGNAL_DEFS = {
   SELF_TRADING: {
     type: "self_trading",
     severity: "high" as const,
-    autoAction: "block_trade" as const,
+    autoAction: "flag" as const,
     description: "Detected possible self-trade between linked accounts",
-  },
-  REFUND_ABUSE: {
-    type: "refund_abuse",
-    severity: "high" as const,
-    autoAction: "hold_payout" as const,
-    description: "Pattern of repeated refunds initiated as buyer",
   },
   VELOCITY_SPIKE: {
     type: "velocity_spike",
@@ -55,7 +51,7 @@ export const SIGNAL_DEFS = {
   NEW_ACCOUNT_HIGH_VALUE: {
     type: "new_account_high_value",
     severity: "high" as const,
-    autoAction: "hold_payout" as const,
+    autoAction: "none" as const,
     description: "New account placing orders well above starter limits",
   },
   NEGATIVE_REVIEWS: {
@@ -67,13 +63,13 @@ export const SIGNAL_DEFS = {
   CHARGEBACK: {
     type: "chargeback",
     severity: "critical" as const,
-    autoAction: "suspend" as const,
+    autoAction: "none" as const,
     description: "Stripe chargeback received against a paid trade",
   },
   FAILED_PAYMENT_BURST: {
     type: "failed_payment_burst",
     severity: "high" as const,
-    autoAction: "block_trade" as const,
+    autoAction: "flag" as const,
     description: "Multiple Stripe payment failures in a short window — possible card testing",
   },
   BID_SNIPING: {
@@ -85,38 +81,14 @@ export const SIGNAL_DEFS = {
   AUCTION_DEFAULT: {
     type: "auction_default",
     severity: "high" as const,
-    autoAction: "block_trade" as const,
-    description: "Won an auction and let the 48h payment window lapse without paying",
-  },
-  AUCTION_CANCEL_ABUSE: {
-    type: "auction_cancel_abuse",
-    severity: "medium" as const,
     autoAction: "flag" as const,
-    description: "Repeated seller-initiated cancellations after bids landed — shill-cancel pattern (used to dodge low winning prices)",
+    description: "Won an auction and let the 48h payment window lapse without paying",
   },
   TRADE_PAYMENT_DEFAULT: {
     type: "trade_payment_default",
     severity: "high" as const,
-    autoAction: "block_trade" as const,
+    autoAction: "flag" as const,
     description: "Matched a market trade and let the 24h payment window lapse without paying",
-  },
-  TRADE_CANCEL_ABUSE: {
-    type: "trade_cancel_abuse",
-    severity: "medium" as const,
-    autoAction: "flag" as const,
-    description: "Repeated trade cancellations initiated by the same party — pattern of pulling out after match",
-  },
-  OFFER_LOWBALL_ABUSE: {
-    type: "offer_lowball_abuse",
-    severity: "low" as const,
-    autoAction: "flag" as const,
-    description: "Burst of offers at ≤30% of ask price across multiple listings — wasted-attention pattern that wears sellers down",
-  },
-  RETURN_ABUSE: {
-    type: "return_abuse",
-    severity: "medium" as const,
-    autoAction: "flag" as const,
-    description: "Repeated return requests from the same buyer — wardrobing or grading-arbitrage pattern",
   },
 } as const;
 

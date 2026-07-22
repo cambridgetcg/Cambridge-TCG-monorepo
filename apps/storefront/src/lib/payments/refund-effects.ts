@@ -1,6 +1,8 @@
-// Refund side effects — runs the refund-abuse pattern check after a
-// successful refund lands. Atomic gate via refunds.abuse_checked
-// column so re-delivery / reconciler catch-up don't re-trigger.
+// Refund side effects — records that a successful refund landed.
+// Atomic gate via refunds.abuse_checked column so re-delivery /
+// reconciler catch-up don't re-trigger. (The column name is legacy;
+// no person-level abuse action is taken — escrow already protects the
+// counterparty by holding funds until receipt is confirmed.)
 
 import { query } from "@/lib/db";
 import { logRefundTransition } from "./refund-log";
@@ -22,19 +24,11 @@ export async function handleRefundReceived(args: HandleRefundReceivedArgs): Prom
   );
   if (gateRes.rowCount === 0) return { ran: false };
 
-  // Re-run refund-abuse detection — Phase C of the refunds module
-  // replaces the placeholder pass in @/lib/fraud/passes that counted
-  // disputes only.
-  const { checkRefundAbuse } = await import("@/lib/fraud/passes");
-  await checkRefundAbuse(args.userId).catch((err) =>
-    console.error(`[refund-effects] abuse check failed for ${args.userId}:`, err),
-  );
-
   void logRefundTransition({
     stripeRefundId: args.stripeRefundId,
     action: "abuse_checked",
     actorLabel: "system:refund-effects",
-    reason: `Refund-abuse pattern check fired for user ${args.userId}`,
+    reason: `Refund recorded for user ${args.userId}`,
   });
 
   return { ran: true };

@@ -1,13 +1,16 @@
 // Automated payout cron.
 //
 // Runs from /api/cron/maintenance. Finds trades and auctions that are
-// (a) in a payout-eligible state, (b) past their hold period,
-// (c) owned by a seller with stripe_connect_payouts_enabled = true, and
-// (d) not fraud-held — seller isn't suspended and has no unresolved
-// fraud signal with auto_action='hold_payout' — then
-// calls the existing recordTradePayout / recordAuctionPayout with
+// (a) in a payout-eligible state, (b) past their hold period, and
+// (c) owned by a seller with stripe_connect_payouts_enabled = true —
+// then calls the existing recordTradePayout / recordAuctionPayout with
 // method='stripe_connect'. Those paths already handle the Stripe Transfer
 // (with idempotency keys), the DB stamp, and the seller email.
+//
+// Earned money is not automatically withheld from a seller by fraud
+// signal — escrow already protects the buyer (funds held until receipt
+// is confirmed; disputes refund the wronged party). The graduated
+// payout hold (tier payout_hold_days) is the protective delay.
 //
 // Failures are per-row — one seller's disabled account doesn't block the
 // rest of the sweep. Every run is rate-capped to keep the Stripe API
@@ -40,11 +43,10 @@ export async function runPayoutSweep(): Promise<PayoutSweepResult> {
 
   // ── Trades ──
   // completed_at + payout_hold_days < NOW() AND seller's Connect is live.
-  // Fraud enforcement ("gates fell — holds must hold", global-free-trade spec
-  // §2.2/§5a): suspended sellers and sellers carrying an unresolved fraud
-  // signal with auto_action='hold_payout' are skipped — this join is where
-  // the hold_payout auto-action actually bites. Rows stay eligible and pay
-  // out on a later sweep once the signal is resolved / suspension lifts.
+  // The graduated payout hold (payout_hold_days) is the protective delay;
+  // the legacy is_suspended skip is kept as a harmless no-op (nothing
+  // sets is_suspended any more). Earned money is not withheld by fraud
+  // signal — escrow already protects the buyer.
   const tradeRows = await query(
     `SELECT t.id
        FROM market_trades t
@@ -56,12 +58,6 @@ export async function runPayoutSweep(): Promise<PayoutSweepResult> {
         AND t.completed_at + make_interval(days => COALESCE(t.payout_hold_days, 0)) < NOW()
         AND u.stripe_connect_payouts_enabled = true
         AND COALESCE(tp.is_suspended, false) = false
-        AND NOT EXISTS (
-          SELECT 1 FROM fraud_signals f
-           WHERE f.user_id = t.seller_id
-             AND f.resolved = false
-             AND f.auto_action = 'hold_payout'
-        )
       ORDER BY t.completed_at ASC
       LIMIT $1`,
     [budget]
@@ -87,7 +83,7 @@ export async function runPayoutSweep(): Promise<PayoutSweepResult> {
 
   // ── Auctions ──
   // status='paid' AND paid_at + AUCTION_HOLD_DAYS < NOW() AND seller Connect live.
-  // Same suspension + hold_payout guard as the trades sweep above.
+  // Same protective hold + legacy is_suspended skip as the trades sweep above.
   const auctionRows = await query(
     `SELECT a.id
        FROM auctions a
@@ -100,12 +96,6 @@ export async function runPayoutSweep(): Promise<PayoutSweepResult> {
         AND a.paid_at + make_interval(days => $1) < NOW()
         AND u.stripe_connect_payouts_enabled = true
         AND COALESCE(tp.is_suspended, false) = false
-        AND NOT EXISTS (
-          SELECT 1 FROM fraud_signals f
-           WHERE f.user_id = a.seller_user_id
-             AND f.resolved = false
-             AND f.auto_action = 'hold_payout'
-        )
       ORDER BY a.paid_at ASC
       LIMIT $2`,
     [AUCTION_HOLD_DAYS, budget]

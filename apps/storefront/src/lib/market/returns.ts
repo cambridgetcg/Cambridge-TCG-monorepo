@@ -193,12 +193,6 @@ export async function requestReturn(input: {
     metadata: { trade_id: input.tradeId, message: input.message?.slice(0, 200) ?? null },
   });
 
-  // Return-abuse detector — serial returners. ≥4 returns in 30d is
-  // the threshold; same flag-only severity as cancel-abuse.
-  void detectReturnAbuse(input.buyerId).catch((err) =>
-    console.error("[returns] abuse detection failed:", err),
-  );
-
   return { ok: true, value: full! };
 }
 
@@ -537,30 +531,6 @@ export async function expireReturnRequests(): Promise<{ expired: number }> {
     });
   }
   return { expired: r.rows.length };
-}
-
-// Return-abuse detector. Pattern: ≥4 returns requested in 30d from
-// the same buyer. Lands a flag for admin review; same severity tier
-// as cancel-abuse and lowball-abuse.
-async function detectReturnAbuse(buyerId: string): Promise<void> {
-  const r = await query(
-    `SELECT COUNT(*)::int AS cnt
-       FROM market_returns
-      WHERE buyer_id = $1
-        AND created_at >= NOW() - INTERVAL '30 days'`, // audit:cadence-platform — anti-abuse heuristic, not a user deadline.
-    [buyerId],
-  );
-  const cnt = r.rows[0]?.cnt ?? 0;
-  if (cnt < 4) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const { emitSignal, SIGNAL_DEFS } = await import("@/lib/fraud/detection");
-  await emitSignal({
-    userId: buyerId,
-    def: SIGNAL_DEFS.RETURN_ABUSE,
-    description: `${cnt} return requests in the last 30 days`,
-    dedupeKey: `return-abuse:${buyerId}:${today}`,
-  });
 }
 
 // ── List queries for /account/returns ──

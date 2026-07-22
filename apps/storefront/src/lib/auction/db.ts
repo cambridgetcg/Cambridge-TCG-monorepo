@@ -1067,10 +1067,9 @@ async function sweepUnpaidEndedAuctions(): Promise<void> {
       }),
     );
 
-    // AUCTION_DEFAULT fraud signal — high severity, autoAction=
-    // block_trade. Repeat defaulters cross the auto-suspend threshold
-    // via the existing evaluateAutoSuspend gate; first-time defaults
-    // just lower trust + flag for admin review.
+    // AUCTION_DEFAULT fraud signal — high severity. Recorded as an
+    // advisory note that lowers trust and surfaces for human review;
+    // no automatic person-level action is taken.
     if (row.winner_user_id) {
       void (async () => {
         try {

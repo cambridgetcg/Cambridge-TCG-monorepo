@@ -94,7 +94,7 @@ export default function AdminFraudSignalsPage() {
           <div>
             <h1 className="text-2xl font-bold">Fraud Signals</h1>
             <p className="text-sm text-neutral-400">
-              Triage queue. Critical + suspend-action signals trigger auto-suspend on next cron tick.
+              Advisory signals for human review — no automatic action is taken.
               <WhyLink href="/methodology/fraud-flag" label="how severity works" />
             </p>
           </div>
@@ -148,7 +148,7 @@ export default function AdminFraudSignalsPage() {
                       <span className="text-xs font-mono text-neutral-300">{s.signal_type}</span>
                       {s.auto_action !== "none" && (
                         <span className="text-[10px] text-neutral-500">
-                          auto: {s.auto_action}
+                          advisory: {s.auto_action}
                         </span>
                       )}
                       {s.is_suspended && (

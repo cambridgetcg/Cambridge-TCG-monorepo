@@ -239,13 +239,6 @@ export async function makeOffer(input: {
     },
   });
 
-  // Lowball-abuse detector — fire-and-forget. Pattern: ≥10 offers in
-  // 7d where price ≤ 30% of ask. Same shape as the cancel-abuse and
-  // trade-default detectors; lands a flag for admin review.
-  void detectOfferLowballAbuse(input.buyerId).catch((err) =>
-    console.error("[offers] lowball detection failed:", err),
-  );
-
   // Pricing rules hook — evaluated INLINE and BEFORE we notify the seller
   // or return, so an auto-decline / auto-counter is reflected in both the
   // seller's bell and the POST response. If any rule matches, it calls
@@ -894,34 +887,6 @@ export async function expireOffers(): Promise<{ expired: number }> {
     });
   }
   return { expired: r.rows.length };
-}
-
-// Lowball-abuse detector. Pattern: ≥10 offers ≤30% of ask price in
-// the last 7d from the same buyer. Mirrors the trade-cancel-abuse
-// shape: dedup by buyer + day so one detector firing per day max.
-async function detectOfferLowballAbuse(buyerId: string): Promise<void> {
-  const r = await query(
-    `SELECT COUNT(*)::int AS cnt
-       FROM market_offer_lifecycle_log log
-       JOIN market_offers o ON o.id = log.offer_id
-      WHERE log.action = 'created'
-        AND o.buyer_id = $1
-        -- audit:cadence-platform — fraud heuristic window, not a user-response deadline.
-        AND log.created_at >= NOW() - INTERVAL '7 days'
-        AND COALESCE((log.metadata->>'offer_pct_of_ask')::int, 100) <= 30`,
-    [buyerId],
-  );
-  const cnt = r.rows[0]?.cnt ?? 0;
-  if (cnt < 10) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const { emitSignal, SIGNAL_DEFS } = await import("@/lib/fraud/detection");
-  await emitSignal({
-    userId: buyerId,
-    def: SIGNAL_DEFS.OFFER_LOWBALL_ABUSE,
-    description: `${cnt} offers ≤30% of ask in the last 7 days`,
-    dedupeKey: `offer-lowball:${buyerId}:${today}`,
-  });
 }
 
 // ── List queries for /account/offers ──

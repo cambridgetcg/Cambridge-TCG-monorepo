@@ -133,7 +133,8 @@ export async function GET(request: Request) {
     // 05:00 UTC; covers users active in the last 90 days.
     runTrustScoreRecompute(),
     // Fraud detection sweep — daily at 04:30 UTC, runs all per-user
-    // passes for users active in the last 24h, evaluates auto-suspend.
+    // passes for users active in the last 24h and emits advisory
+    // signals for human review. No automatic person-level action.
     runFraudSweep(),
     // Review pattern detection — daily at 04:45 UTC, runs after fraud
     // so reviewer flags get priority over reviewer-pattern flags.
@@ -492,7 +493,6 @@ export async function GET(request: Request) {
     console.log(
       `[cron] fraud sweep: scanned ${fraudSweep.value.scanned}, ` +
       `emitted ${fraudSweep.value.signalsEmitted} signals, ` +
-      `auto-suspended ${fraudSweep.value.autoSuspends}, ` +
       `${fraudSweep.value.failures} failures`
     );
   }
