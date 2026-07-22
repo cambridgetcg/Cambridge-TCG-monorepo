@@ -351,7 +351,6 @@ export default function CommunityPage() {
         <nav aria-label="Community links" className="flex flex-wrap gap-2 mb-6">
           {[
             ["Rewards", "/rewards"],
-            ["Membership", "/membership"],
             ["Ranking policy", "/leaderboards"],
             ["Bounties", "/bounty"],
           ].map(([label, href]) => (

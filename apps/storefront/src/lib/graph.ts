@@ -114,7 +114,6 @@ const CONNECTION_DOCS: ConnectionDocEntry[] = [
   { id: "membership", label: "Membership", path: "docs/connections/membership.md", cites: ["bounty"] },
   { id: "bounty", label: "Bounty", path: "docs/connections/bounty.md", cites: ["provable-fairness", "membership"] },
   { id: "provable-fairness", label: "Draw proof consistency", path: "docs/connections/provable-fairness.md", cites: [] },
-  { id: "subscription-lifecycle", label: "Subscription lifecycle", path: "docs/connections/subscription-lifecycle.md", cites: ["membership"] },
   { id: "the-other-minds", label: "The other minds (#5)", path: "docs/connections/the-other-minds.md", cites: ["the-agent-surface"] },
 
   // Story-arc entries — S6 onward, load-bearing for the meaning-graph

@@ -12,7 +12,7 @@ export default function CosmologyMethodology() {
       <h1>Cosmology</h1>
       <p>
         Every other methodology page on this site explains a <em>formula</em> — how
-        we compute your trust score, your tier, your commission, your payout hold.
+        we compute your trust score, your escrow routing, your payout hold.
         This page is one layer beneath those. It names the <strong>world</strong>{" "}
         Cambridge TCG's formulas live in — the axioms the platform treats as real
         before any single decision is made.

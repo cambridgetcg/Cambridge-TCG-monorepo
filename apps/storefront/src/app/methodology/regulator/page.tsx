@@ -77,16 +77,16 @@ export default function RegulatorMethodology() {
       <h2>How our revenue works now</h2>
       <ul>
         <li>
-          A <strong>commission</strong> on completed peer-to-peer trades (published rate,
-          capped per item).
+          <strong>No commission.</strong> As of 21 July 2026 the platform takes 0% on
+          completed peer-to-peer trades and auctions — sellers keep 100%.
           <WhyLink
-            href="/methodology/commission-rate"
-            label="how the rate is set"
-            tooltip="How the commission rate is set and capped"
+            href="/methodology/fees"
+            label="how the free platform works"
+            tooltip="Why Cambridge TCG charges no commission"
           />
         </li>
-        <li><strong>Membership</strong> subscriptions (optional perks).</li>
-        <li>Nothing else. No spread, no markup, no house position.</li>
+        <li><strong>No memberships.</strong> There are no paid tiers or subscriptions.</li>
+        <li>Nothing else. No spread, no markup, no house position — the platform charges collectors nothing. If that ever has to change to keep the lights on, it will be published here first, in plain terms, before it is switched on.</li>
       </ul>
       <p>
         Every number above is inspectable. If you find the platform holding an ask or a bid

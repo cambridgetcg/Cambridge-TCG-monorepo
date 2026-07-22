@@ -30,7 +30,7 @@ export default function StoreCreditMethodology() {
       </p>
       <h2>How credit was earned (shop era)</h2>
       <ul>
-        <li><strong>Cashback</strong> on B2C orders — % of the line total per your membership tier.</li>
+        <li><strong>Cashback</strong> on B2C orders — a % of the line total that scaled with the member&rsquo;s tier at the time (tiers have since been retired).</li>
         <li><strong>Trade-in (credit option)</strong> — accepting the credit quote instead of cash. (No trade-in was ever submitted.)</li>
         <li><strong>Bounty sell-back</strong> — selling a vault item back to the platform for 77% spot price.</li>
         <li><strong>Refunds to credit</strong> — when applicable, refunds could be issued as credit.</li>
@@ -58,7 +58,7 @@ export default function StoreCreditMethodology() {
         recursion={[
           { label: "/methodology/commission-rate", href: "/methodology/commission-rate" },
           { label: "/methodology/payout-hold", href: "/methodology/payout-hold" },
-          { label: "/methodology/membership-tier", href: "/methodology/membership-tier" },
+          { label: "/methodology/fees", href: "/methodology/fees" },
         ]}
       />
     </>

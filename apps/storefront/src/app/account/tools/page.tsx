@@ -190,11 +190,6 @@ const TOOL_GROUPS: ToolGroup[] = [
         description: "Choose which emails we send you.",
       },
       {
-        href: "/account/billing",
-        label: "Billing",
-        description: "Your membership subscription, invoices, and payment method.",
-      },
-      {
         href: "/account/chargebacks",
         label: "Chargebacks",
         description: "Bank disputes filed against charges on your account.",

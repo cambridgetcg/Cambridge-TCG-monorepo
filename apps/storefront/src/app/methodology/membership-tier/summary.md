@@ -1,5 +1,5 @@
-# Membership tier — TLDR
+# Membership tier — retired
 
-Bronze through OG. Tier is assigned by annual spend, subscription, or manual grant; it unlocks different commission rates, payout-hold durations, and reward access. Tier changes are recomputed nightly and surfaced on `/account/membership`.
+Membership tiers were retired on 21 July 2026 when Cambridge TCG went fully free. There are no paid tiers, no subscriptions, and no tier-based perks: commission is 0% for everyone and Berries earn at one flat rate. What a tier used to buy — a lower commission — is now simply free for all.
 
-Full page: [/methodology/membership-tier](/methodology/membership-tier).
+See [/methodology/fees](/methodology/fees).

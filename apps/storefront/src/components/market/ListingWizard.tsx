@@ -48,9 +48,6 @@ interface ListingWizardProps {
   /** ?sku= deep link — e.g. the "list yours" affordance on /market rows. */
   initialSku: string | null;
   isSignedIn: boolean;
-  /** Commission bounds (percent), resolved server-side from the tier table. */
-  commissionMinPct: number;
-  commissionMaxPct: number;
   /** Pre-rendered <Provenance> nodes, keyed by catalog source. */
   sourceBadges: Record<CatalogSource, ReactNode>;
 }
@@ -82,8 +79,6 @@ export default function ListingWizard({
   game,
   initialSku,
   isSignedIn,
-  commissionMinPct,
-  commissionMaxPct,
   sourceBadges,
 }: ListingWizardProps) {
   const [step, setStep] = useState<Step>("pick");
@@ -607,9 +602,9 @@ export default function ListingWizard({
           </button>
 
           <p className="text-xs text-ink-faint leading-relaxed mt-3">
-            Free to list. A commission of {commissionMinPct}–{commissionMaxPct}% (by trust tier)
-            is deducted when a sale settles
-            <WhyLink href="/methodology/commission-rate" tooltip="How commission is computed" />
+            Free to list, and free to sell — Cambridge TCG takes no commission, so you keep 100%
+            of every sale
+            <WhyLink href="/methodology/fees" tooltip="How the free platform works" />
             . If your price meets an open bid, it can fill the moment you post. Listings expire
             automatically — the exact date shows once posted — and you can cancel anytime from
             your trades page.

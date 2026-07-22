@@ -66,8 +66,8 @@ export default function AppearanceMethodology() {
         <li>
           <strong>If a skin is ever locked again</strong>, the check runs server-side
           when the cookie is set; a locked request changes nothing and shows no
-          error — the lock is explained only on the settings page, next to the path
-          to <Link href="/membership">membership</Link>.
+          error — the lock would be explained right on the settings page. Today
+          nothing is locked: every theme is free.
         </li>
         <li>
           <strong>Never paywalled</strong>: high contrast,{" "}

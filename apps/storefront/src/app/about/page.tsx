@@ -114,7 +114,7 @@ export default function AboutPage() {
             </div>
             <div className="bg-surface border border-border-subtle rounded-lg p-5">
               <p className="text-accent font-bold mb-1">Earn</p>
-              <p className="text-sm text-ink-muted">Every action earns Berries. Higher tiers unlock better rates, cashback, and exclusive rewards.</p>
+              <p className="text-sm text-ink-muted">Every action earns Berries — free to earn, at one flat rate for everyone, and spent on spins, packs, and raffles in the Rewards Hub.</p>
             </div>
             <div className="bg-surface border border-border-subtle rounded-lg p-5">
               <p className="text-accent font-bold mb-1">Connect</p>

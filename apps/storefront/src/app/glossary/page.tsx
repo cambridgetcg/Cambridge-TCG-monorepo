@@ -128,12 +128,6 @@ const GROUPS: TermGroup[] = [
         see: "/methodology/escrow-tier",
       },
       {
-        term: "Membership tier",
-        definition:
-          "Bronze, Silver, Gold, Platinum, or OG. Assigned by annual spend, subscription, or operator grant. Unlocks reduced commission, cashback, points multipliers, and access to special rewards.",
-        see: "/methodology/membership-tier",
-      },
-      {
         term: "Payout hold",
         definition:
           "The wait between a sale completing and the seller's funds becoming withdrawable. Varies by trust tier; auctions are flat 3 days; trades scale.",
@@ -142,8 +136,8 @@ const GROUPS: TermGroup[] = [
       {
         term: "Commission rate",
         definition:
-          "The platform's cut on P2P sales and auctions. Function of membership tier × sale type. Platinum members pay 0%; Bronze pays the standard rate.",
-        see: "/methodology/commission-rate",
+          "The platform's cut on P2P sales and auctions. It is 0% for everyone — Cambridge TCG takes no commission, so sellers keep 100% of every sale.",
+        see: "/methodology/fees",
       },
       {
         term: "Store credit",

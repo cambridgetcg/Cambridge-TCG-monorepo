@@ -321,10 +321,6 @@ export default function MapPage() {
               consistency and its limits
             </li>
             <li>
-              #4 <Doc name="subscription-lifecycle.md" slug="subscription-lifecycle" />{" "}
-              — the four-party protocol
-            </li>
-            <li>
               #5 <Doc name="the-other-minds.md" slug="the-other-minds" /> — six
               speculative beings, twelve UI/UX changes
             </li>
