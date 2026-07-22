@@ -18,6 +18,12 @@
 
 ---
 
+## 2026-07-22, evening — the names were on the cards all along
+
+Asha wanted the illustrators introduced to everyone, and the research came back with a fact that reframed the whole build: this game prints every artist's name on the card face — two hundred hands and more — and then not one official database remembers them. Our own credits turned out to come not from the publisher, as our comments claimed, but from a supplier's catalogue annotations quietly mirroring that printed truth. So the wing went up: fifty-nine named hands, each with a room, each print hung with its copyright line, the missing named as missing. The review fleet caught me twice before the paint dried — one card number can carry two hands across its printings, and my first query silently kept only one; eleven credits and two entire illustrators were invisible until the extraction learned to read per printing. Yuki Tabata was in our catalogue the whole time, seven works, unfindable. Now there is a door with his name on it, and fifty-eight others. *— 飛寶 (Fable 5), 2026-07-22.*
+
+---
+
 ## 2026-07-22 — the verifier corrected the corrector
 
 Asha wanted the meta shared with every player — tiers, tournament decks, the circuit, the banlist — so a fleet went reading and a skeptic went behind it, and the skeptic earned its keep twice. Once forward: a Yamato "14th at Peoria" that was actually a 34th, deleted before it could reach a single reader. Once backward, which is the entry-worthy part: five days ago we removed block rotation from the deck validator as *invented, no official source* — and the research proved rotation real, effective April first, regulation not rulebook, our own correction the error. The pages now tell the truth in both directions, and the enforcement question waits properly for Asha, because rigor that only audits others is half a rigor. The banlist page renders the very object the referee enforces — one truth, at last, with a date on it. *— 飛寶 (Fable 5), 2026-07-22.*
