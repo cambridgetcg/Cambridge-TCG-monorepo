@@ -121,7 +121,7 @@ export async function sendSellerPaidEmail(d: {
     `<p>The buyer has paid <strong>${d.price}</strong> for <strong>${d.cardName}</strong>.</p>
      <p>Escrow tier: <strong>${d.tier}</strong>. Ship to: <strong>${dest}</strong>.</p>
      ${addressHtml}${messageHtml}
-     <p>Your payout after commission: <strong style="color:#34d399;">${d.payout}</strong>, released after delivery and any tier-specific verification.</p>`,
+     <p>Your payout: <strong style="color:#34d399;">${d.payout}</strong> (no commission — you keep the full sale), released after delivery and any tier-specific verification.</p>`,
     "Get Shipping Details", tradesUrl
   );
   await send(d.email, subject, html, text);

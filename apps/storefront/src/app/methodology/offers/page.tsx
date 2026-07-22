@@ -96,11 +96,9 @@ export default function OffersMethodology() {
 
       <h2>Commission on accepted offers</h2>
       <p>
-        The seller pays commission on the <strong>agreed price</strong> (not the original
-        ask), at the seller&rsquo;s <strong>resolved rate</strong>: the more favourable of
-        their trust-tier rate (8% down to 5%) and their membership-tier rate, then the{" "}
-        <strong>£50 per-item cap</strong>. This is the same formula as every other market
-        sale — rates and worked examples at{" "}
+        There is none. When an offer is accepted the seller keeps <strong>100%</strong> of
+        the agreed price — Cambridge TCG takes no commission, the same as every other market
+        sale. More at{" "}
         <a href="/methodology/commission-rate">/methodology/commission-rate</a> and{" "}
         <a href="/methodology/fees">/methodology/fees</a>.
       </p>
@@ -138,15 +136,11 @@ export default function OffersMethodology() {
         <a href="/methodology/fraud-flag">/methodology/fraud-flag</a>.
       </p>
 
-      <h2>Verifying your fee yourself</h2>
-      <ol>
-        <li>Take the agreed price × quantity.</li>
-        <li>Multiply by your resolved rate (shown on the acceptance confirmation).</li>
-        <li>If the result is over £50, your fee is £50; otherwise it&rsquo;s the result, rounded to the penny.</li>
-      </ol>
+      <h2>Your fee</h2>
       <p>
-        The trade&rsquo;s recorded <code>commission_amount</code> is exactly this number,
-        frozen at acceptance. If it doesn&rsquo;t match, that&rsquo;s a bug — email{" "}
+        There is none. Cambridge TCG takes no commission, so the seller keeps 100% of the
+        agreed price and the trade&rsquo;s recorded <code>commission_amount</code> is{" "}
+        <code>0</code>. If a trade ever shows a non-zero commission, that&rsquo;s a bug — email{" "}
         <a href="mailto:contact@cambridgetcg.com">contact@cambridgetcg.com</a> with the trade ID.
       </p>
 
