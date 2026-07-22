@@ -314,9 +314,6 @@ export default function MapPage() {
               commercial modulator
             </li>
             <li>
-              #2 <Doc name="bounty.md" slug="bounty" /> — the phygital flywheel
-            </li>
-            <li>
               #3 <Doc name="provable-fairness.md" slug="provable-fairness" /> — draw-proof
               consistency and its limits
             </li>

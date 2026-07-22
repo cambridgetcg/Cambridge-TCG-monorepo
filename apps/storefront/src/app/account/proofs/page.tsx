@@ -79,7 +79,7 @@ export default function MyProofsPage() {
         <p className="text-ink-faint">Loading…</p>
       ) : filtered.length === 0 ? (
         <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
-          No draw proofs yet. Opening a Bounty Pull or pack will add one here.
+          No draw proofs yet. Opening a pack will add one here.
         </div>
       ) : (
         <div className="space-y-2">

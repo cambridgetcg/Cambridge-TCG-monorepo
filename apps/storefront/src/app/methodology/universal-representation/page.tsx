@@ -87,7 +87,7 @@ export default function UniversalRepresentationMethodology() {
       <h3>The fields</h3>
       <ul>
         <li><strong><code>@encoding</code></strong> — versions the spec. Future <code>v2</code> reads from a future page that diffs from this one.</li>
-        <li><strong><code>@kind</code></strong> — names the artifact type. Today: <code>card</code>. Future: <code>set</code>, <code>game</code>, <code>trade</code>, <code>match</code>, <code>bounty-pull</code>.</li>
+        <li><strong><code>@kind</code></strong> — names the artifact type. Today: <code>card</code>. Future: <code>set</code>, <code>game</code>, <code>trade</code>, <code>match</code>.</li>
         <li><strong><code>@self_hash</code></strong> — identifies this <em>document</em>. Different retrievals at different times yield different self-hashes.</li>
         <li><strong><code>@content_hash</code></strong> — identifies the <em>thing</em>. The public card hash uses SKU, card number, set, game, and variant; price and capture-date inputs are fixed to null. The response declares this in <code>@content_hash_contract</code>.</li>
         <li><strong><code>@retrieved_at</code></strong> — dates the document; both as ISO 8601 and Unix epoch.</li>
@@ -167,7 +167,6 @@ export default function UniversalRepresentationMethodology() {
           <tr><td><code>GET /api/v1/universal/game/&#123;code&#125;</code></td><td>Planned</td><td>Universal mirror of one game</td></tr>
           <tr><td><code>GET /api/v1/universal/trade/&#123;id&#125;</code></td><td>Planned</td><td>Universal mirror of one P2P trade</td></tr>
           <tr><td><code>GET /api/v1/universal/match/&#123;id&#125;</code></td><td>Planned</td><td>Universal mirror of one match</td></tr>
-          <tr><td><code>GET /api/v1/universal/bounty-pull/&#123;id&#125;</code></td><td>Planned</td><td>Universal mirror of one bounty pull</td></tr>
         </tbody>
       </table>
       <p>

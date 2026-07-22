@@ -4,7 +4,6 @@ const mocks = vi.hoisted(() => ({
   query: vi.fn(),
   earnPoints: vi.fn(),
   addCredit: vi.fn(),
-  grantPullToken: vi.fn(),
   calculateBerriesEarn: vi.fn(),
 }));
 
@@ -13,7 +12,6 @@ vi.mock("@/lib/membership/db", () => ({
   earnPoints: mocks.earnPoints,
   addCredit: mocks.addCredit,
 }));
-vi.mock("@/lib/bounty/db", () => ({ grantPullToken: mocks.grantPullToken }));
 vi.mock("@/lib/bounty/earn", () => ({
   calculateBerriesEarn: mocks.calculateBerriesEarn,
 }));
@@ -46,7 +44,6 @@ describe("PVE reward boundary", () => {
     expect(mocks.query).not.toHaveBeenCalled();
     expect(mocks.earnPoints).not.toHaveBeenCalled();
     expect(mocks.addCredit).not.toHaveBeenCalled();
-    expect(mocks.grantPullToken).not.toHaveBeenCalled();
     expect(mocks.calculateBerriesEarn).not.toHaveBeenCalled();
   });
 

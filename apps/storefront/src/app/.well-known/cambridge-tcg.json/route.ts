@@ -414,7 +414,7 @@ const MANIFEST: {
       endpoints: [
         {
           path: "/verify",
-          description: "Public verification surface for raffle draws, mystery boxes, bounty pulls.",
+          description: "Public verification surface for raffle draws, mystery boxes.",
           auth: "none",
           status: "stable",
         },

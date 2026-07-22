@@ -32,7 +32,6 @@ export default function StoreCreditMethodology() {
       <ul>
         <li><strong>Cashback</strong> on B2C orders — a % of the line total that scaled with the member&rsquo;s tier at the time (tiers have since been retired).</li>
         <li><strong>Trade-in (credit option)</strong> — accepting the credit quote instead of cash. (No trade-in was ever submitted.)</li>
-        <li><strong>Bounty sell-back</strong> — selling a vault item back to the platform for 77% spot price.</li>
         <li><strong>Refunds to credit</strong> — when applicable, refunds could be issued as credit.</li>
         <li><strong>Liquidity mining</strong> — the market-maker incentive program (paused 2026-07-06: it paid store credit, which no longer has a spending door).</li>
         <li><strong>Operator grants</strong> — staff or retention adjustments.</li>

@@ -357,14 +357,6 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
 
   // ── Other public detail paths ───────────────────────────────────────
   {
-    pattern: "/bounty/verify/:id",
-    renderedBy: "page",
-    steps: [
-      { label: "Bounty", href: "/bounty" },
-      { label: "Proof :id" },
-    ],
-  },
-  {
     pattern: "/c/:slug",
     renderedBy: "global",
     steps: [

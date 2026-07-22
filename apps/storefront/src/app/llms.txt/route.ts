@@ -362,11 +362,11 @@ strict identity use the SKU directly.
 - /verify                                Verification UI
 - /api/verify/chain                      Append-only Merkle digest chain
 - /api/verify/digests/[id]               One digest with proofs
-- /api/verify/pull/[id]                  Bounty pull verification
+- /api/verify/pull/[id]                  Draw pull verification
 - /api/verify/draw/[id]                  Generic verifiable draws
 - /api/verify/fairness                   Thresholded observed distributions (chi-squared etc)
 
-Recorded bounty and shared-draw outcomes expose reproducibility evidence. Generic
+Recorded draw and shared-draw outcomes expose reproducibility evidence. Generic
 draws use server-only entropy and no external pre-roll publication, so these
 receipts establish consistency, not proof that inputs were never preselected.
 Exact generic replay requires the ordered-weight array stored by newer receipts;

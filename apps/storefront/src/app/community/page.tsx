@@ -352,7 +352,6 @@ export default function CommunityPage() {
           {[
             ["Rewards", "/rewards"],
             ["Ranking policy", "/leaderboards"],
-            ["Bounties", "/bounty"],
           ].map(([label, href]) => (
             <Link
               key={href}

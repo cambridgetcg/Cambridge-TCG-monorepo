@@ -75,10 +75,10 @@ export default function PrivacyPage() {
                 support tools.
               </li>
               <li>
-                <strong className="text-ink">Old bounty phone submissions</strong>:
+                <strong className="text-ink">The retired Bounty Board&rsquo;s phone submissions</strong>:
                 an unfinished pilot accepted phone numbers without proving that
-                the account controlled them. We paused that endpoint, accept no
-                new numbers through it, and do not treat its existing records as
+                the account controlled them. We retired that endpoint, accepted no
+                new numbers through it, and never treated its existing records as
                 verified. A previously submitted number may remain with the
                 account until it is deleted.
               </li>

@@ -80,12 +80,6 @@ export default function AccountVaultPage() {
       <Audience kind="consumer" />
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-ink">Vault History</h1>
-        <Link
-          href="/bounty"
-          className="text-sm bg-ink hover:opacity-90 text-page font-semibold rounded-lg px-4 py-2 transition"
-        >
-          Bounty Board →
-        </Link>
       </div>
 
       {/* Summary strip */}
@@ -124,7 +118,7 @@ export default function AccountVaultPage() {
       ) : filtered.length === 0 ? (
         <div className="bg-surface border border-border-subtle rounded-lg p-6 text-center text-ink-faint text-sm">
           {filter === "all"
-            ? "No vault items yet — open a Bounty Pull to claim your first card."
+            ? "No vault items — this is a history of cards claimed here."
             : "Nothing in this category."}
         </div>
       ) : (
@@ -253,12 +247,6 @@ function VaultItemDetail({ item }: { item: VaultItem }) {
             <div>
               <h3 className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Expires</h3>
               <p className="text-sm">{new Date(item.expires_at).toLocaleDateString()}</p>
-              <Link
-                href="/bounty"
-                className="text-xs text-accent hover:text-accent-strong underline mt-2 inline-block"
-              >
-                Manage in Bounty Vault →
-              </Link>
             </div>
           )}
 

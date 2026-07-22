@@ -26,7 +26,6 @@ describe("PVE public boundary", () => {
       "src/app/play/adventure/[levelId]/page.tsx",
       "src/app/play/casual/page.tsx",
       "src/app/welcome/page.tsx",
-      "src/app/bounty/page.tsx",
       "src/app/llms.txt/route.ts",
       "src/app/privacy/page.tsx",
       "src/app/methodology/play-module/page.tsx",

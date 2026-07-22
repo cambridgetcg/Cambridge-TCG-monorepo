@@ -67,7 +67,7 @@ export default function RegulatorMethodology() {
       <p>
         About &pound;59,000 of inventory remains from the merchant era. It is{" "}
         <strong>never sold</strong> — selling it would re-enter the market we just left. It
-        becomes the <strong>prize economy</strong>: raffles, bounty pulls, mystery boxes,
+        becomes the <strong>prize economy</strong>: raffles, mystery boxes,
         reward packs — each leaves a reproducible draw record and can later enter a Merkle
         digest. These records check consistency; server-only entropy does not prove non-selection.
         The regulator gives its cards away rather than competing with the

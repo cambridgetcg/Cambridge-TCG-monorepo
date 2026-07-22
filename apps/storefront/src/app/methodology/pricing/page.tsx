@@ -244,12 +244,6 @@ cambridgetcg.com:
       <p>Some pricing aspects are still in motion. We name them rather than hide them:</p>
       <ul>
         <li>
-          <strong>Vault sell-back values are frozen at acquisition.</strong> When you redeem
-          a bounty pull into your vault, the sell-back-to-store-credit price is locked at
-          that moment's spot. If the market moves, your frozen value does not move with it.
-          This is intentional today; we may revisit.
-        </li>
-        <li>
           <strong>Channel parity is operator-set, not algorithmic.</strong> The
           eBay-vs-cambridgetcg-vs-Shopify multiplier difference is policy, not derived.
         </li>
