@@ -10,6 +10,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 interface Segment {
   label: string;
   color: string;
+  odds: number;
 }
 
 interface SpinConfig {
@@ -264,7 +265,7 @@ function StreakDisplay({ streak }: { streak: StreakInfo }) {
 
       <p className="text-xs text-ink-faint text-center">
         {streak.currentStreak > 0
-          ? "Keep your streak alive! Visit daily for bonus multiplier."
+          ? "Come back tomorrow for a little bonus — no pressure."
           : "Spin today to start a streak!"}
       </p>
     </div>
@@ -292,7 +293,7 @@ function ResultPanel({
 }) {
   if (!result) return null;
 
-  const isBigWin = result.reward.type === "credit" || result.reward.value >= 500;
+  const isBigWin = result.reward.value >= 500;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -535,7 +536,7 @@ export default function SpinWheelPage() {
           </Link>
           <h1 className="text-3xl font-display font-semibold mb-2">Daily Spin</h1>
           <p className="text-ink-muted">
-            Spin the wheel every day to win Berries, store credit, and more.
+            Spin the wheel every day to win Berries and surprises.
           </p>
         </div>
 
@@ -637,14 +638,39 @@ export default function SpinWheelPage() {
             {/* Streak */}
             {streak && <StreakDisplay streak={streak} />}
 
-            {/* Streak warning */}
+            {/* Prize odds — the wheel's real draw rates, shown not hidden */}
+            {config.segments.length > 0 && (
+              <div className="rounded-lg border border-border-subtle overflow-hidden">
+                <div className="bg-surface px-4 py-3 border-b border-border-subtle">
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-ink-muted">
+                    Prize Odds
+                  </h3>
+                </div>
+                <div className="divide-y divide-border-subtle">
+                  {config.segments.map((seg, i) => (
+                    <div key={i} className="px-4 py-2.5 flex items-center gap-3">
+                      <span
+                        className="w-3 h-3 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: seg.color }}
+                      />
+                      <span className="flex-1 text-sm text-ink truncate">{seg.label}</span>
+                      <span className="text-sm text-ink-muted flex-shrink-0">
+                        {(seg.odds * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Streak reminder — calm, no urgency */}
             {streak && streak.currentStreak > 0 && !canFreeSpin && noSpinsLeft && (
-              <div className="rounded-lg border border-accent/30 bg-accent-wash p-4">
-                <p className="text-sm text-accent font-semibold flex items-center gap-2">
-                  Streak at risk!
+              <div className="rounded-lg border border-border-subtle bg-surface-subtle p-4">
+                <p className="text-sm text-ink font-semibold">
+                  Your streak
                 </p>
                 <p className="text-xs text-ink-muted mt-1">
-                  Come back tomorrow to keep your {streak.currentStreak}-day streak alive.
+                  Pop back tomorrow if you like — your {streak.currentStreak}-day streak keeps going. Miss a day and it just starts fresh.
                 </p>
               </div>
             )}
@@ -666,9 +692,7 @@ export default function SpinWheelPage() {
                       <span className="text-ink font-medium truncate">{entry.label}</span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
-                          entry.type === "credit"
-                            ? "bg-ok/10 text-ok"
-                            : entry.type === "points"
+                          entry.type === "points"
                             ? "bg-accent-wash text-accent"
                             : "bg-[#6a5a8f]/15 text-[#6a5a8f]"
                         }`}

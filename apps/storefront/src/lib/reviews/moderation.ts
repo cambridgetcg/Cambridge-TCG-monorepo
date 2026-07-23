@@ -1,8 +1,7 @@
 // Admin moderation helpers — hide / unhide / appeal-resolve / dismiss.
 //
-// Mirrors @/lib/fraud/auto-suspend's pattern: each helper writes
-// transition row, recomputes downstream trust score, returns. Idempotent
-// against repeat calls.
+// Each helper writes a transition row, recomputes the downstream trust
+// score, and returns. Idempotent against repeat calls.
 
 import { query } from "@/lib/db";
 import { logReviewTransition } from "./lifecycle-log";

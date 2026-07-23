@@ -224,7 +224,6 @@ describe("residual privacy boundaries", () => {
   });
 
   it("uses opaque future seeds and narrow public proof payloads", () => {
-    expect(source("src/lib/bounty/resolver.ts")).toContain("`pull:${generateClientSeedSuffix()}`");
     expect(source("src/lib/provable-draw/index.ts")).toContain("`draw:${generateClientSeedSuffix()}`");
 
     const drawRoute = source("src/app/api/verify/draw/[id]/route.ts");
@@ -287,7 +286,6 @@ describe("residual privacy boundaries", () => {
     for (const route of [
       "src/app/api/verify/pull/[id]/route.ts",
       "src/app/api/verify/draw/[id]/route.ts",
-      "src/app/api/bounty/pulls/[id]/proof/route.ts",
     ]) {
       const contents = source(route);
       expect(contents).toContain('const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" }');

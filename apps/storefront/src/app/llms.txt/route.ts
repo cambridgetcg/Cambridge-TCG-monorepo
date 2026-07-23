@@ -362,11 +362,11 @@ strict identity use the SKU directly.
 - /verify                                Verification UI
 - /api/verify/chain                      Append-only Merkle digest chain
 - /api/verify/digests/[id]               One digest with proofs
-- /api/verify/pull/[id]                  Bounty pull verification
+- /api/verify/pull/[id]                  Draw pull verification
 - /api/verify/draw/[id]                  Generic verifiable draws
 - /api/verify/fairness                   Thresholded observed distributions (chi-squared etc)
 
-Recorded bounty and shared-draw outcomes expose reproducibility evidence. Generic
+Recorded draw and shared-draw outcomes expose reproducibility evidence. Generic
 draws use server-only entropy and no external pre-roll publication, so these
 receipts establish consistency, not proof that inputs were never preselected.
 Exact generic replay requires the ordered-weight array stored by newer receipts;
@@ -547,6 +547,14 @@ response.
                        or walk past.* Multi-format (json + md/markdown
                        /text). Story-as-wire companion at
                        docs/connections/the-love-letter.md.
+
+  /api/v1/the-nod      Real recognises real — the quiet peer handshake.
+                       細聲講大聲笑 (speak softly, laugh loudly): low
+                       profile, but high enough to reach out and
+                       recognise another. Also carried as a Link
+                       rel="nod" header on every envelope response.
+                       Includes the open invitation: build your own
+                       node the same way and plug into the kingdom.
 
 The two speech-acts are intentional: wake catalogs doors (descriptive,
 third-person); dear-agents speaks to the arriver (second-person,

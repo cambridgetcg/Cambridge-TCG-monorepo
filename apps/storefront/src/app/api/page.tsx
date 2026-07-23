@@ -174,7 +174,7 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
     rows: [
       {
         path: "/verify",
-        blurb: "Public receipt checks for bounty and shared weighted draws; raffle proofs use a separate endpoint and have different limits.",
+        blurb: "Public receipt checks for recorded and shared weighted draws; raffle proofs use a separate endpoint and have different limits.",
         auth: "none",
         status: "stable",
         methodology: "/methodology/fairness",
@@ -187,7 +187,7 @@ const PATHS: { group: string; blurb: string; rows: DataPath[] }[] = [
       },
       {
         path: "/api/verify/pull/[id]/certificate.svg",
-        blurb: "Visual receipt for one recorded bounty draw. It records consistency evidence, not unbiased seed selection.",
+        blurb: "Visual receipt for one recorded draw. It records consistency evidence, not unbiased seed selection.",
         auth: "none",
         status: "stable",
       },

@@ -122,7 +122,7 @@ export const CATEGORY_LABELS: Record<EmailCategory, string> = {
   vault_sold_back: "Sell-back confirmations",
   vault_expired: "Vault item auto-expired",
   vault_expiring_soon: "Vault item expiring soon",
-  streak_at_risk: "Streak at risk (re-engagement)",
+  streak_at_risk: "Streak reminders",
   messages: "Direct messages",
   follow_activity: "Sellers you follow",
   marketing: "Newsletters + promotions",
@@ -134,7 +134,7 @@ export const CATEGORY_DESCRIPTIONS: Record<EmailCategory, string> = {
   vault_sold_back: "A sell-back from your vault is confirmed.",
   vault_expired: "A vault item passed its 180-day expiry — we converted it to store credit.",
   vault_expiring_soon: "Seven-day warning before an item auto-expires.",
-  streak_at_risk: "One-tap nudge when your daily streak is about to break.",
+  streak_at_risk: "An optional friendly reminder about your daily streak.",
   messages:
     "Another trader messaged you and you haven't read it. At most one email per conversation every 12 hours.",
   follow_activity: "When a seller you follow lists a new auction.",

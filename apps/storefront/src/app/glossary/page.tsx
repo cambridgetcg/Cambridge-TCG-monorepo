@@ -146,11 +146,6 @@ const GROUPS: TermGroup[] = [
         see: "/methodology/store-credit",
       },
       {
-        term: "Bounty",
-        definition:
-          "A scheduled commitment to buy a set of specific cards at a published rate, drawn from a points-token system with a reproducible draw record. The phygital bridge between paid play and card acquisition.",
-      },
-      {
         term: "Trade-in",
         definition:
           "The platform's promise to buy any card on its buylist for store credit, unlimited quantity, instantly. Cambridge TCG acts as market-maker on every supported card.",

@@ -291,17 +291,17 @@ export default async function AccountOverviewPage() {
               }`}
             />
             {goodStanding ? (
-              <span className="text-ok">Good standing — no active flags</span>
+              <span className="text-ok">All clear — nothing needs your attention</span>
             ) : (
               <>
                 <span className="text-warning">
                   {standing.isSuspended
-                    ? `Account suspended${
+                    ? `Account on hold${
                         standing.flagCount > 0
-                          ? ` · ${standing.flagCount} active ${pluralize(standing.flagCount, "flag")}`
+                          ? ` · ${standing.flagCount} ${pluralize(standing.flagCount, "note")} to review`
                           : ""
                       }`
-                    : `${standing.flagCount} active ${pluralize(standing.flagCount, "flag")} on your account`}
+                    : `${standing.flagCount} ${pluralize(standing.flagCount, "note")} we noticed`}
                 </span>
                 {/* Transparency Ring 2: a flag is a user-affecting decision —
                     the affected party gets the methodology, same link the

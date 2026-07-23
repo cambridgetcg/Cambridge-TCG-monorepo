@@ -1,15 +1,14 @@
-// Daily fraud detection sweep.
+// Daily fraud detection sweep — detection for human review only.
 //
 // Walks every user with activity in the last 24h and runs the per-user
-// detection passes. After emit, evaluateAutoSuspend gates anyone who
-// just landed a critical or suspend-action signal.
+// detection passes, emitting advisory signals. No automatic person-level
+// action is taken: the signals are surfaced for a human to review.
 //
 // Self-gates to 04:30 UTC so it runs alongside the existing cron
 // rhythm (drift check is at 04:00, this slots in shortly after).
 
 import { query } from "@/lib/db";
 import { runAllPasses } from "./passes";
-import { evaluateAutoSuspend } from "./auto-suspend";
 
 const UTC_HOUR_WINDOW = 4;
 const UTC_MINUTE_WINDOW_START = 30;
@@ -22,7 +21,6 @@ export interface FraudSweepResult {
   ranInWindow: boolean;
   scanned: number;
   signalsEmitted: number;
-  autoSuspends: number;
   failures: number;
 }
 
@@ -35,14 +33,13 @@ function inWindow(): boolean {
 
 export async function runFraudSweep(opts?: { force?: boolean }): Promise<FraudSweepResult> {
   if (!opts?.force && !inWindow()) {
-    return { ranInWindow: false, scanned: 0, signalsEmitted: 0, autoSuspends: 0, failures: 0 };
+    return { ranInWindow: false, scanned: 0, signalsEmitted: 0, failures: 0 };
   }
 
   const result: FraudSweepResult = {
     ranInWindow: true,
     scanned: 0,
     signalsEmitted: 0,
-    autoSuspends: 0,
     failures: 0,
   };
 
@@ -71,11 +68,6 @@ export async function runFraudSweep(opts?: { force?: boolean }): Promise<FraudSw
       const { emitted } = await runAllPasses(userId);
       result.scanned++;
       result.signalsEmitted += emitted.length;
-
-      // Evaluate auto-suspend after passes have had a chance to emit
-      // (so a fresh suspend-action signal lands before the gate runs).
-      const sus = await evaluateAutoSuspend(userId).catch(() => ({ suspended: false }));
-      if (sus.suspended) result.autoSuspends++;
     } catch (err) {
       result.failures++;
       console.error(`[fraud-sweep] failed for user ${userId}:`, err);

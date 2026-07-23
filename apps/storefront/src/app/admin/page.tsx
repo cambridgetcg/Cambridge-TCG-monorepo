@@ -91,8 +91,6 @@ export default function AdminHome() {
       {/* Content — catalog, rewards, configuration */}
       <Section label="Content" hint="Catalog, rewards, config">
         <QueueCard href="/admin/rewards" title="Rewards" stats={[]} loading={loading} />
-        <QueueCard href="/admin/bounty/pull-tiers" title="Pull Tiers" stats={[]} loading={loading} />
-        <QueueCard href="/admin/bounty/grants" title="Token Grants" stats={[]} loading={loading} />
         <QueueCard href="/admin/market" title="Market" stats={[]} loading={loading} />
         <QueueCard href="/admin/tiers" title="Tiers" stats={[]} loading={loading} />
       </Section>

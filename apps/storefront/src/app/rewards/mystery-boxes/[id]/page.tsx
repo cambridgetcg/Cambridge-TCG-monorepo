@@ -30,12 +30,11 @@ export default function MysteryBoxDetailPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/rewards/mystery-boxes").then((r) => r.json()),
+      fetch(`/api/rewards/mystery-boxes/${id}`).then((r) => r.json()),
       fetch("/api/auth/session").then((r) => r.json()).catch(() => null),
       fetch("/api/membership").then((r) => r.json()).catch(() => null),
     ]).then(([boxData, session, memberData]) => {
-      const found = (boxData?.boxes ?? []).find((b: MysteryBox) => b.id === id);
-      setBox(found ?? null);
+      setBox(boxData?.box ?? null);
       if (session?.user?.email) setLoggedIn(true);
       if (memberData?.profile?.points_balance != null) setPoints(memberData.profile.points_balance);
       setLoading(false);

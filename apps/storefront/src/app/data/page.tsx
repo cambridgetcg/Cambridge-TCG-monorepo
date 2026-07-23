@@ -53,7 +53,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/api/verify/chain",
     title: "Draw digest chain",
     blurb:
-      "Hash-linked digest batches over revealed bounty_pulls and verifiable_draws collected by the job. Standalone raffle proofs are not included. The current feed can be recomputed for consistency; detecting a rewritten presentation requires an earlier tip retained outside Cambridge TCG.",
+      "Hash-linked digest batches over revealed draw pulls and verifiable_draws collected by the job. Standalone raffle proofs are not included. The current feed can be recomputed for consistency; detecting a rewritten presentation requires an earlier tip retained outside Cambridge TCG.",
     status: "shipped",
     auth: "none",
     shape: "JSON: { digests: [{ id, root, prev_hash, chain_hash, leaf_count, ... }], tip, count }",
@@ -74,7 +74,7 @@ const ENDPOINTS: Endpoint[] = [
   },
   {
     path: "/api/verify/pull/[id]",
-    title: "Bounty pull receipt",
+    title: "Draw pull receipt",
     blurb:
       "Given a pull id, returns its commitment, revealed server seed, outcome, and digest reference. Safe client seeds let anyone reproduce the stored outcome, not prove the inputs were independently witnessed before the roll. Legacy seeds containing an account ID are withheld from non-owners, so those public checks are partial.",
     status: "shipped",

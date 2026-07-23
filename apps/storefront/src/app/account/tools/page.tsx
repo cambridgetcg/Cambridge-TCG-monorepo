@@ -162,7 +162,7 @@ const TOOL_GROUPS: ToolGroup[] = [
       {
         href: "/account/vault",
         label: "Vault",
-        description: "Cards stored with us — history, redemptions, and sell-backs.",
+        description: "A history of cards claimed here.",
       },
       {
         href: "/account/proofs",

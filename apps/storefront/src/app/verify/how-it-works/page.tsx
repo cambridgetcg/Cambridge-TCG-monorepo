@@ -23,7 +23,7 @@ export default function HowItWorksPage() {
 
         <Section title="The problem we're solving">
           <p>
-            Every random-outcome feature — bounty pulls, pack opens, spin wheel, mystery boxes,
+            Every random-outcome feature — pack opens, spin wheel, mystery boxes,
             raffles — requires you to trust that we didn&apos;t nudge the result. &quot;Sorry, common
             pull&quot; is a reasonable answer on a 70%-common tier, but it&apos;s indistinguishable from
             a server that quietly down-weighted rares.

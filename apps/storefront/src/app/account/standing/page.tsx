@@ -33,32 +33,30 @@ const SEVERITY_TONE: Record<string, string> = {
   low:      "bg-surface-subtle text-ink-muted border-border-subtle",
 };
 
-// Plain-English guidance per signal_type — what triggered it, what to
-// do. Customers see THIS, not the cron's internal description.
+// Plain-English, supportive guidance per signal_type — what we noticed
+// and how support can help. Customers see THIS, not the internal
+// detection description. Nothing here is a penalty; these are notes for
+// a human, and escrow already protects everyone's money.
 const FLAG_GUIDANCE: Record<string, { headline: string; advice: string }> = {
   rapid_listing: {
-    headline: "Listing burst detected",
-    advice: "We saw a lot of orders placed in a short window. Pace your listings — we'll clear this once activity normalises.",
+    headline: "A busy listing spell",
+    advice: "We noticed a lot of orders in a short window. Nothing's blocked — this note clears on its own as activity settles, and support is happy to look if you'd like.",
   },
   self_trading: {
-    headline: "Possible self-trade pattern",
-    advice: "A recent counterparty shares a shipping address with you. If this is a household member, contact support and we'll clear it.",
-  },
-  refund_abuse: {
-    headline: "Multiple buyer-favour refunds",
-    advice: "You've had several disputes resolved in your favour recently. We'll clear this naturally as your dispute rate normalises, or contact support.",
+    headline: "A shared address with a recent counterparty",
+    advice: "A recent counterparty shares a shipping address with you. If that's a household member, just let support know and we'll clear the note.",
   },
   velocity_spike: {
-    headline: "Sudden volume spike",
-    advice: "Your trading volume jumped suddenly compared to your baseline. The flag clears as your activity stabilises.",
+    headline: "A jump in your trading volume",
+    advice: "Your volume rose sharply compared to your recent baseline. Nothing's held — the note clears as things level out.",
   },
   new_account_high_value: {
-    headline: "High-value order on a new account",
-    advice: "New accounts placing large orders trigger this automatically. Trust score grows with completed trades — flag clears at 7+ days old.",
+    headline: "A large order on a fresh account",
+    advice: "Welcome! A big first order simply gets noticed. Nothing is withheld — your trust score grows with every completed trade.",
   },
   chargeback: {
-    headline: "Chargeback received",
-    advice: "A bank chargeback was filed against a paid trade. Contact support to provide context and resolve.",
+    headline: "A chargeback came through",
+    advice: "A bank chargeback was filed against a paid trade. Reach out to support with any context — we'll help sort it out.",
   },
 };
 
@@ -126,39 +124,47 @@ export default function AccountStandingPage() {
         <WhyLink href="/methodology/fraud-flag" tooltip="How does the platform flag accounts?" />
       </h1>
       <p className="text-sm text-ink-muted mb-6">
-        Your active flags, suspension status, and how to clear them. See your{" "}
+        Here&rsquo;s what we&rsquo;ve noticed on your account and how support can help. Escrow
+        protects your money on every trade, either way. See your{" "}
         <Link href="/account/trust" className="text-accent underline">trust score</Link>{" "}
         for the full breakdown.
       </p>
 
       {/* Headline status */}
       <div className={`rounded-lg p-5 mb-6 border ${
-        standing.is_suspended ? "border-danger/40 bg-danger/5"
+        standing.is_suspended ? "border-accent/40 bg-accent-wash"
           : flags.length > 0 ? "border-accent/30 bg-accent-wash"
           : "border-ok/40 bg-ok/5"
       }`}>
         <div className="flex items-center gap-3">
           <span className={`text-3xl ${
-            standing.is_suspended ? "text-danger"
-              : flags.length > 0 ? "text-accent"
-              : "text-ok"
+            standing.is_suspended || flags.length > 0 ? "text-accent" : "text-ok"
           }`}>
-            {standing.is_suspended ? "✗" : flags.length > 0 ? "!" : "✓"}
+            {standing.is_suspended || flags.length > 0 ? "!" : "✓"}
           </span>
           <div>
             <p className="font-bold">
               {standing.is_suspended
-                ? "Account suspended"
+                ? "Your account is on hold"
                 : flags.length > 0
-                  ? `${flags.length} active flag${flags.length === 1 ? "" : "s"}`
-                  : "Good standing — no active flags"}
+                  ? "Here's what we noticed"
+                  : "All clear — nothing needs your attention"}
             </p>
             {standing.is_suspended && standing.suspended_reason && (
               <p className="text-xs text-ink-muted mt-0.5">{standing.suspended_reason}</p>
             )}
+            {standing.is_suspended && (
+              <p className="text-xs text-ink-muted mt-0.5">
+                Reach out to{" "}
+                <a href="mailto:support@cambridgetcg.com" className="text-accent underline">
+                  support
+                </a>{" "}
+                and we&rsquo;ll help you get trading again.
+              </p>
+            )}
             {standing.is_suspended && standing.suspended_at && (
               <p className="text-xs text-ink-faint mt-0.5">
-                Suspended {new Date(standing.suspended_at).toLocaleDateString("en-GB", {
+                On hold since {new Date(standing.suspended_at).toLocaleDateString("en-GB", {
                   day: "numeric", month: "long", year: "numeric",
                 })}
               </p>
@@ -171,7 +177,7 @@ export default function AccountStandingPage() {
       {flags.length > 0 && (
         <section>
           <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">
-            Active flags
+            What we noticed
           </h2>
           <div className="space-y-3">
             {flags.map((f) => {
@@ -189,10 +195,7 @@ export default function AccountStandingPage() {
                   </div>
                   <p className="text-sm mt-1 opacity-90">{guide.advice}</p>
                   <p className="text-[11px] opacity-60 mt-2">
-                    Raised {new Date(f.created_at).toLocaleDateString("en-GB")}
-                    {f.auto_action !== "none" && (
-                      <span className="ml-2">· auto-action: {f.auto_action.replace("_", " ")}</span>
-                    )}
+                    Noticed {new Date(f.created_at).toLocaleDateString("en-GB")}
                   </p>
                 </div>
               );
@@ -201,13 +204,14 @@ export default function AccountStandingPage() {
 
           <div className="mt-6 p-4 bg-surface border border-border-subtle rounded-lg text-sm text-ink-muted">
             <p>
-              <strong className="text-ink">Need help?</strong>{" "}
-              Most flags clear automatically as your activity normalises. For
-              a manual review, reach out at{" "}
+              <strong className="text-ink">Here to help.</strong>{" "}
+              These are notes for a person, not locks on your account — most settle on their
+              own as your activity carries on. If you&rsquo;d like a hand or want to add context,
+              reach out at{" "}
               <a href="mailto:support@cambridgetcg.com" className="text-accent underline">
                 support@cambridgetcg.com
               </a>{" "}
-              with your account email — include any context that explains the flagged behaviour.
+              with your account email — we&rsquo;re glad to take a look.
             </p>
           </div>
         </section>

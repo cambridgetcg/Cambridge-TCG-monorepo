@@ -45,7 +45,6 @@ describe("storefront breadcrumb registry", () => {
     const patterns = new Set(BREADCRUMB_REGISTRY.map((entry) => entry.pattern));
 
     for (const pattern of [
-      "/bounty/verify/:id",
       "/c/:slug",
       "/decks/:slug",
       "/product/:sku",

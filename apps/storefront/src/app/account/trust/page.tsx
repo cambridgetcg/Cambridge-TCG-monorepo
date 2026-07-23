@@ -421,8 +421,8 @@ export default function TrustProfilePage() {
                 : "No reviews yet"}
             </p>
             {profile.is_suspended && (
-              <p className="text-danger text-sm mt-2 font-medium">
-                Account suspended{profile.suspended_reason ? `: ${profile.suspended_reason}` : ""}
+              <p className="text-ink-muted text-sm mt-2 font-medium">
+                Account on hold{profile.suspended_reason ? `: ${profile.suspended_reason}` : ""} — contact support and we&rsquo;ll help you get trading again.
               </p>
             )}
           </div>

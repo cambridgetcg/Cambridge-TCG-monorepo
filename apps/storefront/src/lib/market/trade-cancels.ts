@@ -281,36 +281,7 @@ export async function approveCancel(
     );
   }
 
-  // Cancel-abuse detector — same pattern as auctions. Fires only on
-  // the requester (the one who initiated the back-out). Threshold
-  // ≥3 self-requested cancels in 14 days lands a flag.
-  void detectTradeCancelAbuse(c.requester_id).catch((err) =>
-    console.error("[trade-cancel] abuse detection failed:", err),
-  );
-
   return { ok: true, value: (await loadCancel(cancelId))! };
-}
-
-async function detectTradeCancelAbuse(requesterId: string): Promise<void> {
-  const r = await query(
-    `SELECT COUNT(*)::int AS cnt
-       FROM market_trade_cancellations
-      WHERE requester_id = $1
-        AND status = 'approved'
-        AND resolved_at >= NOW() - INTERVAL '14 days'`, // audit:cadence-platform — anti-abuse heuristic, not a user deadline.
-    [requesterId],
-  );
-  const cnt = r.rows[0]?.cnt ?? 0;
-  if (cnt < 3) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const { emitSignal, SIGNAL_DEFS } = await import("@/lib/fraud/detection");
-  await emitSignal({
-    userId: requesterId,
-    def: SIGNAL_DEFS.TRADE_CANCEL_ABUSE,
-    description: `${cnt} approved cancellations initiated in the last 14 days`,
-    dedupeKey: `trade-cancel-abuse:${requesterId}:${today}`,
-  });
 }
 
 // ── Decline (other side) ──

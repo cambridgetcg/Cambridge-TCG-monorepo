@@ -93,81 +93,6 @@ export async function checkSelfTrading(userId: string): Promise<boolean> {
 }
 
 /**
- * REFUND_ABUSE — composite signal across THREE pathways now that the
- * refunds + chargebacks tables exist (modules 12 + 13):
- *
- *   1. Buyer-favour DISPUTES resolved in last 60 days
- *      (refund_buyer / return_card / split): ≥3 → 1 unit each
- *   2. Successful Stripe REFUNDS in last 60 days that reference an
- *      order this user paid for: each = 1 unit
- *   3. CHARGEBACKS filed against the user in last 60 days: 3 units
- *      (chargebacks are far more severe than admin-issued refunds)
- *
- * Composite score ≥ 4 fires the signal. Pure refund-per-trade ratio
- * is ALSO checked — if a user has ≥30% refund rate on ≥10 trades,
- * fire regardless of absolute count (catches low-volume patterns).
- */
-export async function checkRefundAbuse(userId: string): Promise<boolean> {
-  const [disputeRes, refundRes, cbRes, tradeCountRes] = await Promise.all([
-    query(
-      `SELECT COUNT(*)::int AS n
-         FROM trade_disputes d
-         JOIN market_trades t ON t.id = d.trade_id
-        WHERE t.buyer_id = $1
-          AND d.resolved_at >= NOW() - INTERVAL '60 days'
-          AND d.resolution_type IN ('refund_buyer', 'return_card', 'split')`,
-      [userId],
-    ),
-    query(
-      `SELECT COUNT(*)::int AS n
-         FROM refunds
-        WHERE user_id = $1
-          AND stripe_status = 'succeeded'
-          AND created_at >= NOW() - INTERVAL '60 days'`,
-      [userId],
-    ),
-    query(
-      `SELECT COUNT(*)::int AS n
-         FROM chargebacks
-        WHERE user_id = $1
-          AND created_at >= NOW() - INTERVAL '60 days'`,
-      [userId],
-    ),
-    query(
-      `SELECT COUNT(*)::int AS n
-         FROM market_trades
-        WHERE buyer_id = $1
-          AND created_at >= NOW() - INTERVAL '60 days'`,
-      [userId],
-    ),
-  ]);
-
-  const disputes = disputeRes.rows[0]?.n ?? 0;
-  const refunds = refundRes.rows[0]?.n ?? 0;
-  const chargebacks = cbRes.rows[0]?.n ?? 0;
-  const trades = tradeCountRes.rows[0]?.n ?? 0;
-
-  const composite = disputes + refunds + chargebacks * 3;
-  const refundRatio = trades > 0 ? (refunds + disputes) / trades : 0;
-  const ratioTrigger = trades >= 10 && refundRatio >= 0.30;
-
-  if (composite >= 4 || ratioTrigger) {
-    const day = new Date().toISOString().slice(0, 10);
-    const desc = ratioTrigger
-      ? `${((refundRatio) * 100).toFixed(0)}% refund/dispute rate over ${trades} trades (60d)`
-      : `${disputes} disputes + ${refunds} refunds + ${chargebacks} chargebacks (60d composite=${composite})`;
-    await emitSignal({
-      userId,
-      def: SIGNAL_DEFS.REFUND_ABUSE,
-      description: desc,
-      dedupeKey: `${day}:refund-abuse`,
-    });
-    return true;
-  }
-  return false;
-}
-
-/**
  * VELOCITY_SPIKE — last-7-day trade volume is ≥10× the prior 7-day
  * baseline AND the recent volume exceeds £500. Catches sudden ramps
  * that may indicate burst-list-and-disappear behaviour.
@@ -269,7 +194,6 @@ export async function runAllPasses(userId: string): Promise<{ emitted: string[] 
   const emitted: string[] = [];
   if (await checkRapidListing(userId).catch(() => false)) emitted.push("rapid_listing");
   if (await checkSelfTrading(userId).catch(() => false)) emitted.push("self_trading");
-  if (await checkRefundAbuse(userId).catch(() => false)) emitted.push("refund_abuse");
   if (await checkVelocitySpike(userId).catch(() => false)) emitted.push("velocity_spike");
   if (await checkFailedPaymentBurst(userId).catch(() => false)) emitted.push("failed_payment_burst");
   return { emitted };

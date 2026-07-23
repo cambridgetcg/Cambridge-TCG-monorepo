@@ -338,7 +338,6 @@ const CONNECTION_DOC_DECLARATIONS: Record<string, Partial<{
   has_recursion_target: boolean;
 }>> = {
   "membership": { shape: "node-view", flavour: "node-view" },
-  "bounty": { shape: "node-view", flavour: "node-view" },
   "provable-fairness": { shape: "node-view", flavour: "node-view" },
   "the-other-minds": { shape: "node-view", flavour: "node-view", is_sister_paired: true, has_wiring_table: true, has_recursion_target: true },
   "the-nesting": { shape: "node-view", flavour: "node-view", is_sister_paired: true },

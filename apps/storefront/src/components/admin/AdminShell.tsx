@@ -28,12 +28,12 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/fraud",                 label: "Fraud",        group: "money" },
 
   { href: "/admin/rewards",               label: "Rewards",      group: "content" },
-  { href: "/admin/bounty/pull-tiers",     label: "Pull Tiers",   group: "content" },
   { href: "/admin/market",                label: "Market",       group: "content" },
   { href: "/admin/tiers",                 label: "Tiers",        group: "content" },
 
   { href: "/admin/emails",                label: "Emails",       group: "system" },
   { href: "/admin/og",                    label: "OG Cards",     group: "system" },
+  { href: "/admin/emergency",             label: "Emergency",    group: "system" },
 ];
 
 interface AdminShellProps {

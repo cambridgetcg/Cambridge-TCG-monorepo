@@ -243,6 +243,13 @@ export default function RaffleDetailPage() {
                   You have <span className="font-bold text-accent">{raffle.user_entries}</span>{" "}
                   {raffle.user_entries === 1 ? "entry" : "entries"}
                 </p>
+                {raffle.total_entries > 0 && (
+                  <p className="text-xs text-ink-muted mt-1">
+                    Your current chance:{" "}
+                    {((raffle.user_entries / raffle.total_entries) * 100).toFixed(1)}%
+                    <span className="text-ink-faint"> — changes as others enter.</span>
+                  </p>
+                )}
               </div>
             )}
 

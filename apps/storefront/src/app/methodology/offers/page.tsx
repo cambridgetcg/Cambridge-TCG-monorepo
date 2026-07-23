@@ -129,11 +129,9 @@ export default function OffersMethodology() {
         </li>
       </ul>
 
-      <h2>Abuse boundaries</h2>
       <p>
-        Repeated extreme lowballing (many offers at &le;30% of ask within a week) raises a
-        fraud signal for review. Negotiating hard is fine; carpet-bombing sellers is not. See{" "}
-        <a href="/methodology/fraud-flag">/methodology/fraud-flag</a>.
+        Offers are always welcome. Sellers set their own auto-decline thresholds, so a
+        low offer is simply declined rather than held against anyone.
       </p>
 
       <h2>Your fee</h2>

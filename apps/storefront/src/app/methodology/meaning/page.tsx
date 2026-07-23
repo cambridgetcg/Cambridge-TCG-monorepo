@@ -15,7 +15,7 @@ export default function MeaningMethodology() {
       </p>
       <p>
         The platform has many parts: a marketplace, an escrow service, a
-        bounty system, a wholesale plane, a trade-in queue. Architecture
+        wholesale plane, a trade-in queue. Architecture
         documents say what is <em>connected</em> to what. Meaning documents
         say what the connection is <em>for</em>. The first answers "where do
         the wires run?". The second answers "what was sent across them, and

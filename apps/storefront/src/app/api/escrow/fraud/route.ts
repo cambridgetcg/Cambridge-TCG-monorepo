@@ -25,13 +25,5 @@ export async function PATCH(request: Request) {
     [body.signalId, body.notes || null]
   );
 
-  // Optional: suspend user
-  if (body.suspend && body.userId) {
-    await query(
-      `UPDATE trust_profiles SET is_suspended=true, suspended_reason=$2, suspended_until=$3 WHERE user_id=$1`,
-      [body.userId, body.suspendReason || "Fraud detected", body.suspendUntil || null]
-    );
-  }
-
   return NextResponse.json({ resolved: true });
 }

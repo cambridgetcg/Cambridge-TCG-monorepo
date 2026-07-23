@@ -83,10 +83,8 @@ export default function AdminFraudPage() {
   const [userProfiles, setUserProfiles] = useState<Record<string, TrustProfile>>({});
   const [profileLoading, setProfileLoading] = useState<string | null>(null);
 
-  // Resolve / suspend state per signal
+  // Resolve state per signal
   const [resolveNotes, setResolveNotes] = useState<Record<string, string>>({});
-  const [suspendReason, setSuspendReason] = useState<Record<string, string>>({});
-  const [suspendDuration, setSuspendDuration] = useState<Record<string, string>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // External rep
@@ -193,34 +191,6 @@ export default function AdminFraudPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ signalId, notes }),
-      });
-      if (res.ok) {
-        setSignals((prev) => prev.filter((s) => s.id !== signalId));
-      }
-    } catch {
-      // ignore
-    } finally {
-      setActionLoading(null);
-    }
-  }
-
-  async function handleSuspend(signalId: string, userId: string) {
-    const reason = suspendReason[signalId]?.trim();
-    const notes = resolveNotes[signalId]?.trim() || reason;
-    if (!reason) return;
-    setActionLoading(signalId);
-    try {
-      const res = await fetch("/api/escrow/fraud", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          signalId,
-          notes,
-          suspend: true,
-          userId,
-          suspendReason: reason,
-          suspendDuration: suspendDuration[signalId] || "7d",
-        }),
       });
       if (res.ok) {
         setSignals((prev) => prev.filter((s) => s.id !== signalId));
@@ -392,7 +362,6 @@ export default function AdminFraudPage() {
             {filtered.map((s) => {
               const isExp = expanded === s.id;
               const profile = userProfiles[s.user_id];
-              const isBlocking = s.auto_action === "block_trade" || s.auto_action === "suspend";
 
               return (
                 <div key={s.id} className="bg-neutral-900 rounded-xl overflow-hidden">
@@ -421,15 +390,9 @@ export default function AdminFraudPage() {
                       <p className="text-sm text-neutral-500 mt-1 truncate">{s.description}</p>
                     </div>
 
-                    {/* Auto-action badge */}
-                    {s.auto_action && (
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
-                          isBlocking
-                            ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                            : "bg-neutral-700 text-neutral-300"
-                        }`}
-                      >
+                    {/* Advisory label — signals are for human review; no action is taken automatically */}
+                    {s.auto_action && s.auto_action !== "none" && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0 bg-neutral-700 text-neutral-300">
                         {s.auto_action}
                       </span>
                     )}
@@ -453,16 +416,6 @@ export default function AdminFraudPage() {
                         <div className="mb-4 text-sm">
                           <span className="text-neutral-500">Trade ID</span>
                           <p className="text-white font-mono text-xs mt-1">{s.trade_id}</p>
-                        </div>
-                      )}
-
-                      {/* Auto-action prominent display */}
-                      {isBlocking && (
-                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm">
-                          <span className="text-red-400 font-bold">Auto-action taken: {s.auto_action}</span>
-                          <p className="text-red-300 mt-1 text-xs">
-                            This action was applied automatically by the fraud detection system.
-                          </p>
                         </div>
                       )}
 
@@ -537,43 +490,6 @@ export default function AdminFraudPage() {
                             />
                           </div>
 
-                          {/* Suspend fields */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs text-neutral-500 block mb-1">
-                                Suspend Reason (optional)
-                              </label>
-                              <input
-                                type="text"
-                                value={suspendReason[s.id] ?? ""}
-                                onChange={(e) =>
-                                  setSuspendReason((prev) => ({ ...prev, [s.id]: e.target.value }))
-                                }
-                                placeholder="Reason for suspension..."
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-neutral-500 block mb-1">
-                                Suspend Duration
-                              </label>
-                              <select
-                                value={suspendDuration[s.id] ?? "7d"}
-                                onChange={(e) =>
-                                  setSuspendDuration((prev) => ({ ...prev, [s.id]: e.target.value }))
-                                }
-                                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 appearance-none"
-                              >
-                                <option value="1d">1 Day</option>
-                                <option value="3d">3 Days</option>
-                                <option value="7d">7 Days</option>
-                                <option value="14d">14 Days</option>
-                                <option value="30d">30 Days</option>
-                                <option value="permanent">Permanent</option>
-                              </select>
-                            </div>
-                          </div>
-
                           {/* Action buttons */}
                           <div className="flex gap-3 flex-wrap">
                             <button
@@ -582,13 +498,6 @@ export default function AdminFraudPage() {
                               className="px-5 py-2 bg-amber-500 text-black text-sm font-bold rounded-lg hover:bg-amber-400 transition disabled:opacity-50"
                             >
                               {actionLoading === s.id ? "..." : "Resolve"}
-                            </button>
-                            <button
-                              onClick={() => handleSuspend(s.id, s.user_id)}
-                              disabled={actionLoading === s.id || !suspendReason[s.id]?.trim()}
-                              className="px-5 py-2 bg-red-500 text-white text-sm font-bold rounded-lg hover:bg-red-400 transition disabled:opacity-50"
-                            >
-                              {actionLoading === s.id ? "..." : "Suspend User"}
                             </button>
                             <button
                               onClick={() => handleResolve(s.id, true)}

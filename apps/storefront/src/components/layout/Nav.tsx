@@ -22,10 +22,6 @@ import {
 } from "@/lib/nav/menu-config";
 import type { ThemeChoice } from "@/lib/wardrobe/themes";
 import { applyLightsFlip } from "@/lib/wardrobe/flip";
-import {
-  trackAnalyticsEvent,
-  type NavigationArea,
-} from "@/lib/analytics/client";
 
 function MessagesIndicator() {
   const [count, setCount] = useState(0);
@@ -131,27 +127,8 @@ export default function Nav({
     wearing === "system" ? systemDark : wearing === "midnight" || wearing === "terminal";
   const toggle = themeToggle(wearing, effectiveDark, pathname);
 
-  const trackNavClick = (
-    navArea: NavigationArea,
-    linkText: string,
-    linkUrl: string,
-  ) => {
-    trackAnalyticsEvent("nav_click", {
-      nav_area: navArea,
-      link_text: linkText,
-      link_url: linkUrl,
-      source_path: pathname || "/",
-    });
-  };
-
   const toggleMobileMenu = () => {
-    const opening = !menuOpen;
-    setMenuState({ pathname, open: opening });
-    if (opening) {
-      trackAnalyticsEvent("mobile_menu_open", {
-        source_path: pathname || "/",
-      });
-    }
+    setMenuState({ pathname, open: !menuOpen });
   };
 
   const flipLights = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -257,10 +234,7 @@ export default function Nav({
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link
           href="/"
-          onClick={() => {
-            trackNavClick("global_logo", "Cambridge TCG home", "/");
-            setMenuState({ pathname, open: false });
-          }}
+          onClick={() => setMenuState({ pathname, open: false })}
           aria-label="Cambridge TCG home"
           className="flex shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
@@ -284,9 +258,6 @@ export default function Nav({
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() =>
-                    trackNavClick("desktop_primary", item.label, item.href)
-                  }
                   aria-current={navItemAriaCurrent(item, pathname)}
                   className={activeLinkClass(active)}
                 >
@@ -300,9 +271,6 @@ export default function Nav({
           <div className="ml-2 flex items-center gap-0.5 border-l border-border-subtle pl-2">
             <Link
               href="/find"
-              onClick={() =>
-                trackNavClick("desktop_utility", "Search cards", "/find")
-              }
               aria-label="Search cards"
               aria-current={pathname === "/find" ? "page" : undefined}
               className={`rounded-full p-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
@@ -326,13 +294,6 @@ export default function Nav({
             )}
             <Link
               href={loggedIn ? "/account" : "/login"}
-              onClick={() =>
-                trackNavClick(
-                  "desktop_utility",
-                  loggedIn ? "Account" : "Sign in",
-                  loggedIn ? "/account" : "/login",
-                )
-              }
               className="rounded-full px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {loggedIn ? "Account" : "Sign in"}
@@ -341,12 +302,6 @@ export default function Nav({
             {loggedIn && <NotificationBell />}
             <Link
               href="/market/list"
-              onClick={() =>
-                trackAnalyticsEvent("list_card_click", {
-                  nav_area: "desktop_utility",
-                  source_path: pathname || "/",
-                })
-              }
               aria-label="List a card"
               aria-current={pathname === "/market/list" ? "page" : undefined}
               className="ml-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -359,13 +314,7 @@ export default function Nav({
         <div className="flex items-center gap-1 lg:hidden">
           <Link
             href="/market/list"
-            onClick={() => {
-              trackAnalyticsEvent("list_card_click", {
-                nav_area: "mobile_utility",
-                source_path: pathname || "/",
-              });
-              setMenuState({ pathname, open: false });
-            }}
+            onClick={() => setMenuState({ pathname, open: false })}
             aria-label="List a card"
             aria-current={pathname === "/market/list" ? "page" : undefined}
             className="rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -421,10 +370,7 @@ export default function Nav({
             <Link
               href="/find"
               aria-current={pathname === "/find" ? "page" : undefined}
-              onClick={() => {
-                trackNavClick("mobile_utility", "Search cards", "/find");
-                setMenuState({ pathname, open: false });
-              }}
+              onClick={() => setMenuState({ pathname, open: false })}
               className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface px-4 py-3 text-sm font-medium text-ink shadow-mat focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className="flex items-center gap-2.5">
@@ -441,10 +387,7 @@ export default function Nav({
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => {
-                      trackNavClick("mobile_primary", item.label, item.href);
-                      setMenuState({ pathname, open: false });
-                    }}
+                    onClick={() => setMenuState({ pathname, open: false })}
                     aria-current={navItemAriaCurrent(item, pathname)}
                     className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                       active
@@ -472,10 +415,7 @@ export default function Nav({
                         <li key={item.href}>
                           <Link
                             href={item.href}
-                            onClick={() => {
-                              trackNavClick("mobile_more", item.label, item.href);
-                              setMenuState({ pathname, open: false });
-                            }}
+                            onClick={() => setMenuState({ pathname, open: false })}
                             aria-current={navItemAriaCurrent(item, pathname)}
                             className={`flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
                               active
@@ -499,10 +439,7 @@ export default function Nav({
                   key={item.href}
                   href={item.href}
                   aria-current={navItemAriaCurrent(item, pathname)}
-                  onClick={() => {
-                    trackNavClick("mobile_more", item.label, item.href);
-                    setMenuState({ pathname, open: false });
-                  }}
+                  onClick={() => setMenuState({ pathname, open: false })}
                   className="flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {item.label} {item.href === "/map" ? "→" : ""}
@@ -514,14 +451,7 @@ export default function Nav({
               <div className="flex min-h-12 items-center justify-between">
                 <Link
                   href={loggedIn ? "/account" : "/login"}
-                  onClick={() => {
-                    trackNavClick(
-                      "mobile_utility",
-                      loggedIn ? "Account" : "Sign in",
-                      loggedIn ? "/account" : "/login",
-                    );
-                    setMenuState({ pathname, open: false });
-                  }}
+                  onClick={() => setMenuState({ pathname, open: false })}
                   className="flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {loggedIn ? "Account" : "Sign in"}
@@ -550,10 +480,7 @@ export default function Nav({
                 <Link
                   href="/appearance"
                   aria-current={pathname === "/appearance" ? "page" : undefined}
-                  onClick={() => {
-                    trackNavClick("mobile_utility", "Themes", "/appearance");
-                    setMenuState({ pathname, open: false });
-                  }}
+                  onClick={() => setMenuState({ pathname, open: false })}
                   className="rounded-lg px-2 py-3 text-xs font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   Themes →

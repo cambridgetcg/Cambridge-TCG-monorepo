@@ -3,13 +3,11 @@
 // Two paths:
 //   - Seller self-cancel: only allowed in pending_review, scheduled, or live
 //     with zero bids. Once any bid lands on a live auction, the seller can no
-//     longer rip the listing — admin override only. (Anti-shill-cancel rule;
-//     also enforced by AUCTION_CANCEL_ABUSE detector below.)
+//     longer rip the listing — admin override only. (Protects active bidders.)
 //   - Admin cancel: allowed at any pre-paid status with a reason.
 //
 // Side effects on success: lifecycle log row, governance log entry (admin
-// path), trust recompute, notification fan-out to active bidders, and a
-// fire-and-forget abuse-pattern detector for serial cancellers.
+// path), trust recompute, and notification fan-out to active bidders.
 //
 // Out of scope: refunds — admin cancels of paid auctions must run the
 // refund flow first (the gate below rejects paid auctions outright).
@@ -18,7 +16,6 @@ import { query } from "@/lib/db";
 import { logAuctionTransition } from "./lifecycle-log";
 import { logAdminAction } from "@/lib/admin/governance-log";
 import { calculateTrustScore } from "@/lib/escrow/trust-engine";
-import { emitSignal, SIGNAL_DEFS } from "@/lib/fraud/detection";
 import { notify } from "@/lib/notifications/db";
 
 export interface CancelResult {
@@ -148,40 +145,5 @@ export async function cancelAuction(opts: {
     void calculateTrustScore(a.seller_user_id).catch(() => { /* ignore */ });
   }
 
-  // Abuse pattern detector — serial cancels after bids land. Fire-and-
-  // forget; the signal lands a flag for admin review without blocking.
-  if (!opts.isAdmin && a.bid_count > 0 && a.seller_user_id) {
-    void detectAuctionCancelAbuse(a.seller_user_id).catch((err) =>
-      console.error("[auction/cancel] abuse detection failed:", err),
-    );
-  }
-
   return { ok: true };
-}
-
-// Pattern: ≥3 seller-initiated cancellations within the last 14 days
-// where the cancelled auction had ≥1 bid at cancel time. Idempotent
-// via a daily dedupe key.
-async function detectAuctionCancelAbuse(sellerUserId: string): Promise<void> {
-  const r = await query(
-    `SELECT COUNT(*)::int AS cnt
-       FROM auction_lifecycle_log log
-       JOIN auctions a ON a.id = log.auction_id
-      WHERE log.action = 'cancelled'
-        AND log.actor_label = 'seller:self'
-        AND a.seller_user_id = $1
-        AND log.created_at >= NOW() - INTERVAL '14 days' -- audit:cadence-platform — anti-abuse heuristic, not a user deadline.
-        AND COALESCE((log.metadata->>'bid_count_at_cancel')::int, 0) > 0`,
-    [sellerUserId],
-  );
-  const cnt = r.rows[0]?.cnt ?? 0;
-  if (cnt < 3) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  await emitSignal({
-    userId: sellerUserId,
-    def: SIGNAL_DEFS.AUCTION_CANCEL_ABUSE,
-    description: `${cnt} self-cancellations with bids in the last 14 days`,
-    dedupeKey: `auction-cancel-abuse:${sellerUserId}:${today}`,
-  });
 }

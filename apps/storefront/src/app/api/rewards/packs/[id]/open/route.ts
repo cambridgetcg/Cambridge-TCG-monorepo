@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { addCredit } from "@/lib/membership/db";
 import { query } from "@/lib/db";
 import { postActivity } from "@/lib/social/db";
 import { commitDraw, rollSlot, revealDraw } from "@/lib/provable-draw";
@@ -119,9 +118,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
             description: `Pack pull: ${selected.card_name}`,
             referenceId: packResult.rows[0].id,
           });
-        } else if (selected.reward_type === "credit") {
-          await addCredit(userId, parseFloat(selected.reward_value), "manual_adjustment",
-            `Pack pull: ${selected.card_name}`, packResult.rows[0].id);
         }
       }
 

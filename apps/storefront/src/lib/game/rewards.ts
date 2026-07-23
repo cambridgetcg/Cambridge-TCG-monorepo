@@ -15,28 +15,17 @@
 
 import { query } from "@/lib/db";
 import { earnPoints, addCredit } from "@/lib/membership/db";
-import { grantPullToken, type PullTier } from "@/lib/bounty/db";
 import { calculateBerriesEarn, type EarnBreakdown } from "@/lib/bounty/earn";
 import { PVE_AVAILABILITY } from "./pve-availability";
-
-export const MILESTONE_PULLS: Record<number, PullTier> = {
-  3:  "uncommon",
-  6:  "rare",
-  10: "super_rare",
-};
 
 export interface PveGrantResult {
   pointsEarned: number;
   creditEarned: number;
-  pullTokenEarned: PullTier | null;
-  dailyBonusEarned: PullTier | null;
   /** The multiplier breakdown behind pointsEarned — null when the points
    *  leg was already granted (no recompute happens on replays). */
   earnBreakdown: EarnBreakdown | null;
-  alreadyGranted: { points: boolean; credit: boolean; pull: boolean; daily: boolean };
+  alreadyGranted: { points: boolean; credit: boolean };
 }
-
-const DAILY_BONUS_TIER: PullTier = "common";
 
 interface PveGrantInput {
   gameId: string;
@@ -60,9 +49,9 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
   const { gameId, userId, level, isFirstClear } = input;
 
   // Detect prior grants by reference_id. The victory handler uses gameId as
-  // reference_id on both ledger types; same for the milestone pull below.
-  // If a prior write succeeded, we skip that leg.
-  const [pointsExisting, creditExisting, pullExisting] = await Promise.all([
+  // reference_id on both ledger types. If a prior write succeeded, we skip
+  // that leg.
+  const [pointsExisting, creditExisting] = await Promise.all([
     query(
       `SELECT 1 FROM points_ledger WHERE reference_id = $1 AND type = 'manual_credit' LIMIT 1`,
       [gameId]
@@ -71,15 +60,10 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
       `SELECT 1 FROM store_credit_ledger WHERE reference_id = $1 AND type = 'manual_adjustment' LIMIT 1`,
       [gameId]
     ),
-    query(
-      `SELECT 1 FROM bounty_token_grants WHERE source = 'pve_milestone' AND source_reference_id = $1 LIMIT 1`,
-      [gameId]
-    ).catch(() => ({ rows: [] })),  // table may not exist yet on pre-migration deployments
   ]);
   const alreadyGranted = {
     points: pointsExisting.rows.length > 0,
     credit: creditExisting.rows.length > 0,
-    pull: pullExisting.rows.length > 0,
   };
 
   // ── Points (with multipliers) ──
@@ -131,48 +115,6 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
   void isFirstClear;
   void alreadyGranted.credit;
 
-  // ── Milestone pull token ──
-  let pullTokenEarned: PullTier | null = null;
-  const milestoneTier = isFirstClear ? MILESTONE_PULLS[level.level_number] : undefined;
-  if (!alreadyGranted.pull && milestoneTier) {
-    await grantPullToken(userId, milestoneTier, 1, {
-      source: "pve_milestone",
-      sourceReferenceId: gameId,
-      description: `Milestone: ${level.title} first clear`,
-    });
-    pullTokenEarned = milestoneTier;
-  }
-
-  // ── Daily PVE bonus pull token ──
-  // First win each UTC day grants one common pull. Idempotency is
-  // enforced by the (user_id, bonus_date) PK on pve_daily_bonuses; a
-  // duplicate insert (same-day second win, sweep replay) silently no-ops.
-  let dailyBonusEarned: PullTier | null = null;
-  let dailyAlready = false;
-  try {
-    const claim = await query(
-      `INSERT INTO pve_daily_bonuses (user_id, bonus_date, tier_granted, game_id)
-       VALUES ($1, (NOW() AT TIME ZONE 'UTC')::date, $2, $3)
-       ON CONFLICT (user_id, bonus_date) DO NOTHING
-       RETURNING tier_granted`,
-      [userId, DAILY_BONUS_TIER, gameId]
-    );
-    if (claim.rowCount && claim.rowCount > 0) {
-      // We won the daily race — grant the token.
-      await grantPullToken(userId, DAILY_BONUS_TIER, 1, {
-        source: "pve_daily",
-        sourceReferenceId: gameId,
-        description: `Daily PVE bonus`,
-      });
-      dailyBonusEarned = DAILY_BONUS_TIER;
-    } else {
-      dailyAlready = true;
-    }
-  } catch (err) {
-    // Table may not exist on pre-migration deployments; silent skip.
-    console.error("[pve-rewards] daily bonus claim failed:", err);
-  }
-
   // Stamp awarded_at so the sweep skips this game next tick. Even if every
   // leg was a no-op (alreadyGranted), stamping closes the door.
   await query(
@@ -183,9 +125,7 @@ export async function grantPveRewardsIdempotent(input: PveGrantInput): Promise<P
   return {
     pointsEarned,
     creditEarned,
-    pullTokenEarned,
-    dailyBonusEarned,
     earnBreakdown,
-    alreadyGranted: { ...alreadyGranted, daily: dailyAlready },
+    alreadyGranted,
   };
 }
