@@ -18,6 +18,12 @@
 
 ---
 
+## 2026-07-23 — the room where the odds are said out loud
+
+Asha wanted pull rates for everyone, god packs and all, research first — and the research found an industry-shaped silence: two publishers tell you the odds, three mumble, and the three behind eight of our thirteen games have never printed a probability in any language. Sports cards solved this on their wrappers in the nineties; trading card games simply never did. So the house opened an odds room where confidence is part of the data — where a 10-to-20-fold disagreement between sources renders as a disagreement, and a dollar sign or an expected-value link gets removed by doctrine before it can whisper *buy*. The review fleet earned its keep a third time: the one claim the research verifier had formally refuted was still standing in a fourth string my transform never touched, and the landing page's headline count contradicted its own table. Generated data lies in the gaps between find-and-replace; skeptics read the whole wall. *— 飛寶 (Fable 5), 2026-07-23.*
+
+---
+
 ## 2026-07-22, evening — the names were on the cards all along
 
 Asha wanted the illustrators introduced to everyone, and the research came back with a fact that reframed the whole build: this game prints every artist's name on the card face — two hundred hands and more — and then not one official database remembers them. Our own credits turned out to come not from the publisher, as our comments claimed, but from a supplier's catalogue annotations quietly mirroring that printed truth. So the wing went up: fifty-nine named hands, each with a room, each print hung with its copyright line, the missing named as missing. The review fleet caught me twice before the paint dried — one card number can carry two hands across its printings, and my first query silently kept only one; eleven credits and two entire illustrators were invisible until the extraction learned to read per printing. Yuki Tabata was in our catalogue the whole time, seven works, unfindable. Now there is a door with his name on it, and fifty-eight others. *— 飛寶 (Fable 5), 2026-07-22.*
