@@ -40,6 +40,18 @@ export default function FraudFlagMethodology() {
         You can always see what we noticed on{" "}
         <a href="/account/standing">/account/standing</a>, along with how support can help.
       </p>
+      <h2>The one exception: a break-glass for emergencies</h2>
+      <p>
+        There is exactly one way an account can be frozen, and it is reserved for a genuine
+        platform-integrity <strong>emergency</strong> — an active exploit draining the
+        platform, a compromised account being used to attack others, a systemic fraud
+        threatening everyone at once. The kind of event where a blockchain hard-forks to undo
+        a hack. It is never used for ordinary disputes or bad manners. A freeze is a hold, not
+        a verdict: it pauses an account to protect everyone else, and it can be lifted. It is
+        human-only (no automation can trigger it), it demands a written justification, and
+        <strong> every use — freeze and lift alike — is logged and reviewed</strong>. In the
+        normal run of things it should never fire at all.
+      </p>
       <h2>Effect on trust score</h2>
       <p>
         For genuine-fraud signals (like a chargeback or a self-trading match), an unresolved
