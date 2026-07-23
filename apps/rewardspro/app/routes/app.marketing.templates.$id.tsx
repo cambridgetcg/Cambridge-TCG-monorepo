@@ -1070,9 +1070,7 @@ function _BlockPreview({ block, styles }: { block: ContentBlock; styles: Templat
     case "button":
       return (
         <p style={{ margin: "0 0 16px" }}>
-          <a
-            href="#"
-            onClick={(e) => e.preventDefault()}
+          <span
             style={{
               display: "inline-block",
               padding: "12px 24px",
@@ -1084,7 +1082,7 @@ function _BlockPreview({ block, styles }: { block: ContentBlock; styles: Templat
             }}
           >
             {block.content.text || "Click Here"}
-          </a>
+          </span>
         </p>
       );
     case "image":

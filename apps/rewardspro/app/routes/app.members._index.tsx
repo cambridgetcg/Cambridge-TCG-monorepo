@@ -2297,6 +2297,7 @@ function CustomersTableContent({
   const navigation = useNavigation();
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const customerCount = customers.length;
 
   const resourceName = {
     singular: 'customer',
@@ -2322,9 +2323,9 @@ function CustomersTableContent({
 
   // Stagger animation on mount
   useEffect(() => {
-    if (customers.length > 0) {
+    if (customerCount > 0) {
       const timers: NodeJS.Timeout[] = [];
-      customers.forEach((_, index) => {
+      Array.from({ length: customerCount }).forEach((_, index) => {
         const timer = setTimeout(() => {
           setVisibleRows(prev => [...prev, index]);
         }, index * 30);
@@ -2332,7 +2333,7 @@ function CustomersTableContent({
       });
       return () => timers.forEach(clearTimeout);
     }
-  }, [customers.length]);
+  }, [customerCount]);
 
   const rowMarkup = customers.map((customer, index) => {
     const isVisible = visibleRows.includes(index);
@@ -2670,9 +2671,12 @@ export default function Customers() {
 
   // Use enhanced customers if loaded, otherwise fall back to base customers
   // NOTE: Must be defined before callbacks that use it (handleSelectionChange)
-  const displayCustomers = enhancedDataLoaded
-    ? enhancedCustomers
-    : (data.customersData?.customers || []);
+  const displayCustomers = useMemo(
+    () => enhancedDataLoaded
+      ? enhancedCustomers
+      : (data.customersData?.customers || []),
+    [enhancedDataLoaded, enhancedCustomers, data.customersData?.customers]
+  );
 
   // Format currency helper
   const _formatAmount = useCallback((amount: number) => {

@@ -1625,7 +1625,7 @@ export default function OrdersPage() {
     }
 
     return actions;
-  }, [selectedResources, orders, submit, clearSelection]);
+  }, [selectedResources, orders, showSuccess]);
 
   // Handle clear filters
   const handleClearAll = useCallback(() => {
@@ -1719,7 +1719,7 @@ export default function OrdersPage() {
       setFetchingBalance(false);
       setIsCashbackModalOpen(true);
     }
-  }, [orders, fetcher]);
+  }, [orders, fetcher, showError]);
 
   // Submit cashback from modal
   const handleCashbackSubmit = useCallback((amount: number, reason: string) => {
@@ -1799,7 +1799,7 @@ export default function OrdersPage() {
       action: "process-all"
     });
     setShowConfirmModal(true);
-  }, [orders]);
+  }, [orders, showSuccess]);
 
   // Open order detail modal
   const handleViewOrder = useCallback((orderId: string) => {

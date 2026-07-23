@@ -1289,6 +1289,7 @@ export default function AnalyticsPage() {
                           ]}
                           rows={sortTiersByPriority(data.tierPerformance).map(tier => [
                             <TierBadge
+                              key={tier.id}
                               tierName={tier.name}
                               size="small"
                               showIcon={true}

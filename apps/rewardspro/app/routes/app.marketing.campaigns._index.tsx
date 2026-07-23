@@ -224,7 +224,7 @@ export default function CampaignsList() {
       </Text>
     </BlockStack>,
     getStatusBadge(campaign.status),
-    <Text as="p" variant="bodySm">
+    <Text key={`${campaign.id}-date`} as="p" variant="bodySm">
       {campaign.status === "sent"
         ? formatDate(campaign.sentAt)
         : campaign.status === "scheduled"
@@ -247,7 +247,7 @@ export default function CampaignsList() {
         —
       </Text>
     ),
-    <InlineStack gap="200" align="end">
+    <InlineStack key={`${campaign.id}-actions`} gap="200" align="end">
       <Button
         size="slim"
         onClick={() => navigate(`/app/marketing/campaigns/${campaign.id}`)}

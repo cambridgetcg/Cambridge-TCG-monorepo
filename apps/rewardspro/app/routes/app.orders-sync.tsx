@@ -113,14 +113,6 @@ export default function OrdersSyncPage() {
     };
   }, []);
 
-  // Start polling if there's an in-progress job
-  useEffect(() => {
-    if (data.currentJob?.status === 'IN_PROGRESS') {
-      setSyncStatus(data.currentJob as any);
-      processNextBatch(data.currentJob.jobId!);
-    }
-  }, []);
-
   const processNextBatch = useCallback(async (jobId: string) => {
     if (!jobId) return;
 
@@ -159,6 +151,14 @@ export default function OrdersSyncPage() {
       }
     }
   }, [revalidator]);
+
+  // Start polling if there's an in-progress job.
+  useEffect(() => {
+    if (data.currentJob?.status === 'IN_PROGRESS') {
+      setSyncStatus(data.currentJob as any);
+      processNextBatch(data.currentJob.jobId!);
+    }
+  }, [data.currentJob, processNextBatch]);
 
   const handleStartSync = useCallback(async () => {
     setConfirmModalOpen(false);

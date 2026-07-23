@@ -435,7 +435,7 @@ export default function MysteryBoxDetail() {
         setToastActive(true);
       }
     }
-  }, [actionData]);
+  }, [actionData, box.openCost, box.maxOpensPerCustomer]);
 
   const resetRewardForm = () => {
     setRewardName("");

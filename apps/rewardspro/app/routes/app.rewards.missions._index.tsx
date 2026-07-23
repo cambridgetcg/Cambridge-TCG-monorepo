@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Page,
   Layout,
@@ -515,13 +515,18 @@ export default function MissionsPage() {
   const [missionXpReward, setMissionXpReward] = useState("10");
 
   // Tab configuration
-  const tabs = [
+  const tabs = useMemo(() => [
     { id: "all", content: "All Missions", panelID: "all-missions" },
     { id: "daily", content: `Daily (${data.missions.daily.length})`, panelID: "daily-missions" },
     { id: "weekly", content: `Weekly (${data.missions.weekly.length})`, panelID: "weekly-missions" },
     { id: "monthly", content: `Monthly (${data.missions.monthly.length})`, panelID: "monthly-missions" },
     { id: "special", content: `Special (${data.missions.special.length})`, panelID: "special-missions" },
-  ];
+  ], [
+    data.missions.daily.length,
+    data.missions.weekly.length,
+    data.missions.monthly.length,
+    data.missions.special.length,
+  ]);
 
   // Get missions for current tab
   const getCurrentMissions = useCallback((): MissionData[] => {
@@ -571,6 +576,17 @@ export default function MissionsPage() {
     submit(formData, { method: "post" });
   };
 
+  // Reset create form
+  const resetCreateForm = useCallback(() => {
+    setMissionName("");
+    setMissionDescription("");
+    setMissionObjective("SPENDING");
+    setMissionTarget("100");
+    setMissionCadence("DAILY");
+    setMissionRarity("COMMON");
+    setMissionXpReward("10");
+  }, []);
+
   // Create mission handler
   const handleCreateMission = useCallback(() => {
     if (!missionName.trim()) {
@@ -592,18 +608,7 @@ export default function MissionsPage() {
     submit(formData, { method: "post" });
     setShowCreateModal(false);
     resetCreateForm();
-  }, [missionName, missionDescription, missionObjective, missionTarget, missionCadence, missionRarity, missionXpReward, submit]);
-
-  // Reset create form
-  const resetCreateForm = useCallback(() => {
-    setMissionName("");
-    setMissionDescription("");
-    setMissionObjective("SPENDING");
-    setMissionTarget("100");
-    setMissionCadence("DAILY");
-    setMissionRarity("COMMON");
-    setMissionXpReward("10");
-  }, []);
+  }, [missionName, missionDescription, missionObjective, missionTarget, missionCadence, missionRarity, missionXpReward, submit, resetCreateForm]);
 
   // Close modal and reset
   const handleCloseCreateModal = useCallback(() => {

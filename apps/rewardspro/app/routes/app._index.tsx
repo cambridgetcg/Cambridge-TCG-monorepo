@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useFetcher, useRouteError, isRouteErrorResponse } from "@remix-run/react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAnalytics } from "~/hooks/useAnalytics";
 import { useToast } from "~/hooks/useToast";
 
@@ -659,9 +659,13 @@ export default function Dashboard() {
 
   // Analytics tracking
   const { trackCustomEvent } = useAnalytics({ pageTitle: 'Dashboard' });
+  const hasTrackedDashboardView = useRef(false);
 
-  // Track dashboard view with metrics on mount
+  // Track dashboard view with the initial metrics once per component lifetime.
   useEffect(() => {
+    if (hasTrackedDashboardView.current) return;
+    hasTrackedDashboardView.current = true;
+
     console.log('[Dashboard] Mount useEffect - tracking analytics');
     try {
       trackCustomEvent('dashboard_view', {
@@ -672,7 +676,12 @@ export default function Dashboard() {
     } catch (err) {
       console.error('[Dashboard] Analytics tracking failed:', err);
     }
-  }, []); // Only track once on mount
+  }, [
+    data.monthlyOrderUsage?.planName,
+    data.monthlyOrderUsage?.orderCount,
+    data.webhookStats?.status,
+    trackCustomEvent,
+  ]);
 
   // Standardized toast notifications
   const { toast, showSuccess, showError, hideToast } = useToast();

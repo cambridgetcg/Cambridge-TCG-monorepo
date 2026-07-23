@@ -122,10 +122,10 @@ export default function EmailTemplates() {
       </Text>
     </BlockStack>,
     getTypeBadge(template.type),
-    <Text as="p" variant="bodySm" tone="subdued">
+    <Text key={`${template.id}-updated`} as="p" variant="bodySm" tone="subdued">
       {formatDate(template.updatedAt)}
     </Text>,
-    <InlineStack gap="200" align="end">
+    <InlineStack key={`${template.id}-actions`} gap="200" align="end">
       <Button size="slim" onClick={() => navigate(`/app/marketing/templates/${template.id}`)}>
         Edit
       </Button>

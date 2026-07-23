@@ -12,6 +12,31 @@ describe("RewardsPro application shell", () => {
     expect(rootSource).toMatch(/<html\b[^>]*\blang=["']en["']/);
   });
 
+  it("loads App Bridge synchronously, only for app routes, and before other scripts", () => {
+    expect(rootSource).toContain(
+      'requestUrl.pathname === "/app" || requestUrl.pathname.startsWith("/app/")',
+    );
+    expect(rootSource).toContain("apiKey && shouldLoadAppBridge");
+
+    const appBridgeScriptIndex = rootSource.indexOf(
+      'src="https://cdn.shopify.com/shopifycloud/app-bridge.js"',
+    );
+    const environmentScriptIndex = rootSource.indexOf(
+      "dangerouslySetInnerHTML",
+    );
+
+    expect(appBridgeScriptIndex).toBeGreaterThan(-1);
+    expect(environmentScriptIndex).toBeGreaterThan(-1);
+    expect(appBridgeScriptIndex).toBeLessThan(environmentScriptIndex);
+
+    const appBridgeScript = rootSource.slice(
+      rootSource.lastIndexOf("<script", appBridgeScriptIndex),
+      rootSource.indexOf("/>", appBridgeScriptIndex) + 2,
+    );
+    expect(appBridgeScript).not.toContain("async");
+    expect(appBridgeScript).not.toContain("defer");
+  });
+
   it("owns the single global Frame and uses its native content landmark", () => {
     expect(shellSource.match(/<Frame(?:\s|>)/g) ?? []).toHaveLength(1);
     expect(shellSource.match(/<\/Frame>/g) ?? []).toHaveLength(1);

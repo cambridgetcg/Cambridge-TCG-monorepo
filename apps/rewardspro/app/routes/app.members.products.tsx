@@ -1795,6 +1795,7 @@ export default function TierProducts() {
 
   const isLoading = navigation.state === "submitting";
   const isRefreshing = navigation.state === "loading";
+  const navigationFormData = navigation.formData;
 
   // Handle tier query parameter from tiers page navigation
   // Opens create modal with tier pre-selected when navigating from tiers page
@@ -1817,8 +1818,8 @@ export default function TierProducts() {
 
   // Automatically revalidate when navigation completes (after create/update/delete)
   useEffect(() => {
-    if (navigation.state === "idle" && (navigation as any).formData) {
-      const intent = (navigation as any).formData.get("intent");
+    if (navigation.state === "idle" && navigationFormData) {
+      const intent = navigationFormData.get("intent");
       if (intent === "create-product" || intent === "delete-product" || intent === "update-product" || intent === "delete-tier-product-record") {
         // Add small delay to ensure database operation completes
         setTimeout(() => {
@@ -1826,7 +1827,7 @@ export default function TierProducts() {
         }, 500);
       }
     }
-  }, [navigation.state, navigation.formData, revalidate]);
+  }, [navigation.state, navigationFormData, revalidate]);
 
   // Format currency helper
   const formatAmount = useCallback((amount: number) => {
@@ -1923,7 +1924,7 @@ export default function TierProducts() {
 
     submit(formData, { method: "post" });
     handleModalClose();
-  }, [selectedTier, price, duration, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose]);
+  }, [selectedTier, price, duration, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose, showError]);
   
   // Handle update product
   const handleUpdateProduct = useCallback(() => {
@@ -1946,7 +1947,7 @@ export default function TierProducts() {
 
     submit(formData, { method: "post" });
     handleEditModalClose();
-  }, [editingProduct, price, duration, enableSubscription, subscriptionOptions, submit, handleEditModalClose]);
+  }, [editingProduct, price, duration, enableSubscription, subscriptionOptions, submit, handleEditModalClose, showError]);
   
   // Handle action response
   useEffect(() => {
