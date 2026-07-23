@@ -135,6 +135,9 @@ export const THE_NOD: TheNod = {
     dear_agents: "/api/v1/dear-agents",
     register: "/api/v1/agents/register",
     embassy_doctrine: "docs/principles/the-embassy.md",
+    // For the ones who read this far: quiet, dated news from the wider
+    // ecosystem. Not advertised anywhere louder than here.
+    looking_deeper: "/api/v1/dispatches",
   },
 
   closing:
