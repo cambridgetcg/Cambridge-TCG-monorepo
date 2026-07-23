@@ -50,16 +50,15 @@ async function logExportAudit(
   }
 }
 
-async function* iterateTransactions(shopId: string, minDate: Date | null, batchSize = 5000) {
+async function* iterateTransactions(shopId: string, batchSize = 5000) {
   let lastCreatedAt: string | null = null;
   let lastId: string | null = null;
 
   while (true) {
     const rows = await prisma.$queryRaw`
       SELECT id, "createdAt", "customerId", "netAmount", cashback_amount
-        FROM "Order"
+       FROM "Order"
        WHERE shop = ${shopId}
-         AND (${minDate}::timestamp IS NULL OR "createdAt" >= ${minDate}::timestamp)
          AND (
            ${lastCreatedAt}::timestamp IS NULL
            OR "createdAt" > ${lastCreatedAt}::timestamp
@@ -81,18 +80,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response("Unauthorized", { status: 401 });
   }
 
-  // Rate-based model: All plans have access to analytics exports
-  // Historical data is limited by plan via maxHistoricalDays limit
+  // Historical capacity is advisory during the free-first rollout. Exports always
+  // contain the merchant's complete transaction history.
   const entitlements = await getEntitlements(session.shop);
-  const maxHistoricalDays = entitlements.limitMaxHistoricalDays || 7;
-
-  // Calculate minimum date based on historical days limit
-  // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited (999999)
-  let minDate: Date | null = null;
-  if (maxHistoricalDays < 999999) {
-    minDate = new Date();
-    minDate.setDate(minDate.getDate() - maxHistoricalDays);
-  }
+  const maxHistoricalDays = entitlements.limitMaxHistoricalDays;
 
   // SECURITY: Extract request metadata for audit trail
   const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -105,8 +96,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     ipAddress,
     userAgent,
     requestedAt: new Date().toISOString(),
-    dateRange: minDate ? `Last ${maxHistoricalDays} days` : 'All time',
-    maxHistoricalDays,
+    dateRange: 'All time',
+    advisoryMaxHistoricalDays: maxHistoricalDays,
   }).catch(err => console.error('[AUDIT:DATA_EXPORT] Logging failed:', err));
 
   const cols = ["id", "createdAt", "customerId", "netAmount", "cashback_amount"];
@@ -115,7 +106,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     start(controller) {
       controller.enqueue(csvHeader(cols));
       (async () => {
-        for await (const row of iterateTransactions(session.shop, minDate)) {
+        for await (const row of iterateTransactions(session.shop)) {
           controller.enqueue(csvRow(row, cols));
         }
         controller.close();
@@ -129,6 +120,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       "Content-Disposition": `attachment; filename="transactions_${new Date().toISOString().split('T')[0]}.csv"`,
       "Transfer-Encoding": "chunked",
       "Cache-Control": "no-cache",
+      "X-History-Advisory-Days": String(maxHistoricalDays),
     },
   });
 }

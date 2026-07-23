@@ -2833,8 +2833,8 @@ export default function Customers() {
         throw new Error(`Export failed: ${response.statusText}`);
       }
 
-      // Check for export limit warning from headers
-      const exportLimit = response.headers.get('X-Export-Limit');
+      // Capacity is advisory; the API always streams every matching row.
+      const exportLimit = response.headers.get('X-Export-Advisory-Limit');
       const plan = response.headers.get('X-Plan');
 
       // Get filename from Content-Disposition header or use default
@@ -2853,9 +2853,11 @@ export default function Customers() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      // Show success with export limit info if applicable
+      // Show the plan guideline without implying that the export was truncated.
       if (exportLimit && exportLimit !== 'Infinity' && plan) {
-        showSuccess(`${successMessage} (${plan} plan limit: ${parseInt(exportLimit).toLocaleString()} rows)`);
+        showSuccess(
+          `${successMessage} All rows were included. ${plan} advisory capacity: ${parseInt(exportLimit).toLocaleString()} rows.`,
+        );
       } else {
         showSuccess(successMessage);
       }

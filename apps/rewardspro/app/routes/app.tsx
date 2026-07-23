@@ -19,6 +19,7 @@ import prisma from "../db.server";
 import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
 import type { ShopEntitlements } from "@prisma/client";
+import { PRICING_PLANS } from "~/constants/pricing-contract";
 import {
   HOME_NAVIGATION,
   PRIMARY_NAVIGATION,
@@ -40,9 +41,6 @@ export interface AppLoaderData {
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
 ];
-
-// Plans that include email marketing feature
-const EMAIL_MARKETING_PLANS = ['RewardsPro Max', 'RewardsPro Max Annual', 'RewardsPro Ultra', 'RewardsPro Ultra Annual', 'RewardsPro Enterprise'];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { startTime, requestId } = await logRequest(request, 'App Route Loader');
@@ -150,7 +148,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             }
           });
           
-          if (monthlyUsage && monthlyUsage.orderCount >= 100) {
+          if (monthlyUsage && monthlyUsage.orderCount >= PRICING_PLANS.free.limits.orders) {
             console.log("[App Loader] Free plan limit reached, showing upgrade prompt");
             // Don't force redirect, just log - let them access billing page to upgrade
           }
@@ -191,13 +189,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Fetch shop settings to check feature flags (CACHED via shop-data-provider)
-    let emailMarketingEnabled = false;
     let currentPlanName = entitlements?.effectivePlan || '';
     try {
       const shopSettings = await getShopSettings(session.shop);
 
       if (shopSettings) {
-        emailMarketingEnabled = (shopSettings as any).emailMarketingEnabled || false;
         // Use entitlements as source of truth, fall back to shopSettings
         if (!currentPlanName) {
           currentPlanName = (shopSettings as any).currentPlanName || '';
@@ -228,10 +224,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       console.error("[App Loader] Error fetching shop settings:", settingsError);
     }
 
-    // Check if email marketing should be shown (from entitlements or legacy check)
-    const hasEmailMarketingAccess = entitlements?.featureCustomEmail ||
-      emailMarketingEnabled ||
-      EMAIL_MARKETING_PLANS.includes(currentPlanName);
+    // Marketing is a core capability on every current plan. A missing
+    // entitlement row must not hide it from a Free merchant.
+    const hasEmailMarketingAccess =
+      entitlements?.featureMarketingCampaigns ?? true;
 
     const response = json(
       {

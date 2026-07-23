@@ -14,7 +14,7 @@
  *   // Require a specific feature
  *   await requireFeatureAccess(session.shop, 'apiAccess');
  *
- *   // Or require within a limit
+ *   // Or report whether usage is at/above a plan capacity
  *   const tierCount = await getTierCount(session.shop);
  *   await requireWithinLimitAccess(session.shop, 'maxTiers', tierCount);
  *
@@ -33,6 +33,7 @@ import {
   type FeatureKey,
   type LimitKey,
 } from "~/services/entitlements.server";
+import { PRICING_PLANS } from "~/constants/pricing-contract";
 
 // Re-export types for convenience
 export type { FeatureKey, LimitKey };
@@ -69,35 +70,18 @@ export async function requireFeatureAccess(
 }
 
 /**
- * Require usage to be within plan limits or throw a JSON error response
+ * Report usage at/above a plan capacity without blocking the operation.
+ *
+ * The name is retained for compatibility with existing route guards. Capacity
+ * is advisory in the free-first model, so this function intentionally never
+ * throws when a numeric plan limit is reached.
  */
 export async function requireWithinLimitAccess(
   shop: string,
   limit: LimitKey,
   currentCount: number
 ): Promise<void> {
-  const maxLimit = await getLimit(shop, limit);
-
-  // 999999 is effectively unlimited
-  if (maxLimit < 999999 && currentCount >= maxLimit) {
-    const currentPlan = await getEffectivePlan(shop);
-
-    throw json(
-      {
-        error: 'Limit exceeded',
-        code: 'LIMIT_EXCEEDED',
-        limit,
-        currentCount,
-        maxLimit,
-        currentPlan,
-        message: `You have reached the ${formatLimitName(limit)} limit (${currentCount}/${maxLimit}) for the ${currentPlan} plan. Please upgrade to increase your limit.`,
-      },
-      {
-        status: 403,
-        statusText: 'Forbidden',
-      }
-    );
-  }
+  await checkLimitAccess(shop, limit, currentCount);
 }
 
 /**
@@ -137,15 +121,19 @@ export async function checkFeatureAccess(
 }
 
 /**
- * Check limit access without throwing
- * Returns { hasAccess: boolean, error?: object }
+ * Check numeric capacity without blocking.
+ *
+ * `hasAccess` is always true for numeric limits. The legacy `error` field is
+ * retained as an advisory payload so existing callers can continue displaying
+ * the current and recommended capacities without disabling their actions.
  */
 export async function checkLimitAccess(
   shop: string,
   limit: LimitKey,
   currentCount: number
 ): Promise<{
-  hasAccess: boolean;
+  hasAccess: true;
+  advisory?: boolean;
   error?: {
     limit: LimitKey;
     currentCount: number;
@@ -158,15 +146,21 @@ export async function checkLimitAccess(
 
   if (maxLimit < 999999 && currentCount >= maxLimit) {
     const currentPlan = await getEffectivePlan(shop);
+    const message = `Plan capacity advisory: ${formatLimitName(limit)} usage is ${currentCount}/${maxLimit} on ${currentPlan}. Processing remains available; consider a larger fixed plan if this is sustained.`;
+
+    console.warn(
+      `[Entitlements] ${message} shop=${shop} limit=${limit}`,
+    );
 
     return {
-      hasAccess: false,
+      hasAccess: true,
+      advisory: true,
       error: {
         limit,
         currentCount,
         maxLimit,
         currentPlan,
-        message: `You have reached the ${formatLimitName(limit)} limit (${currentCount}/${maxLimit}) for the ${currentPlan} plan.`,
+        message,
       },
     };
   }
@@ -315,46 +309,10 @@ function formatLimitName(limit: LimitKey): string {
 
 // Helper: Get required plan for a feature
 function getFeatureRequiredPlan(feature: FeatureKey): string {
-  // Map feature keys to the minimum plan that has them
-  const planRequirements: Record<FeatureKey, string> = {
-    // Core features
-    apiAccess: 'RewardsPro Ultra',
-    webhooks: 'RewardsPro Max',
-    whiteLabel: 'RewardsPro Max',
-    advancedReport: 'RewardsPro Pro',
-    customEmail: 'RewardsPro Max',
-    annualEval: 'RewardsPro Ultra',
-    bulkOps: 'RewardsPro Pro',
-    customBranding: 'RewardsPro Max',
-    prioritySupport: 'RewardsPro Max',
-    subscriptionTiers: 'RewardsPro Pro',
-    purchasableTiers: 'RewardsPro Max',
-    exportData: 'RewardsPro Pro',
-    customRewards: 'RewardsPro Pro',
-    // Integration features - Pro tier (P1)
-    integrationKlaviyo: 'RewardsPro Pro',
-    integrationSendgrid: 'RewardsPro Pro',
-    integrationJudgeme: 'RewardsPro Pro',
-    integrationSlack: 'RewardsPro Pro',
-    // Integration features - Max tier (P1)
-    integrationRecharge: 'RewardsPro Max',
-    integrationGorgias: 'RewardsPro Max',
-    integrationZapier: 'RewardsPro Max',
-    // Gamification features (P2)
-    raffles: 'RewardsPro Pro',
-    mysteryBoxes: 'RewardsPro Max',
-    challenges: 'RewardsPro Pro',
-    // Marketing features (P3)
-    marketingCampaigns: 'RewardsPro Pro',
-    marketingAutomation: 'RewardsPro Max',
-    aiRecommendations: 'RewardsPro Max',
-    // Analytics features (P4)
-    rfmSegmentation: 'RewardsPro Max',
-    programImpact: 'RewardsPro Pro',
-    realtimeAnalytics: 'RewardsPro Max',
-    cohortAnalysis: 'RewardsPro Ultra',
-  };
-  return planRequirements[feature] || 'RewardsPro Pro';
+  if (feature === "whiteLabel" || feature === "prioritySupport") {
+    return PRICING_PLANS.ultra.displayName;
+  }
+  return PRICING_PLANS.free.displayName;
 }
 
 /**
@@ -379,15 +337,17 @@ export function handleEntitlementError(error: unknown) {
   if (error instanceof LimitExceededError) {
     return json(
       {
-        error: 'Limit exceeded',
-        code: 'LIMIT_EXCEEDED',
+        error: null,
+        advisory: true,
+        allowed: true,
+        code: 'CAPACITY_ADVISORY',
         limit: error.limit,
         currentCount: error.currentCount,
         maxLimit: error.maxLimit,
         currentPlan: error.currentPlan,
-        message: error.message,
+        message: `${error.message}. Processing remains available.`,
       },
-      { status: 403 }
+      { status: 200 }
     );
   }
 

@@ -1,17 +1,13 @@
 /**
  * Atomic Limit Control
  *
- * Provides atomic check-and-create operations to prevent TOCTOU race conditions
- * in rate-based gating. Uses database transactions with conditional logic to
- * ensure limits are enforced even under concurrent requests.
+ * Provides atomic usage observation and create operations. Numeric plan
+ * capacities are advisory: the transaction gives us a consistent count for
+ * reporting, but reaching that count never prevents the requested write.
  *
- * Problem:
- *   Request A: count = 1 → check passes → (wait) → insert (count now 2)
- *   Request B: count = 1 → check passes → insert (count now 3!) ← EXCEEDED
- *
- * Solution:
- *   Use transactions with count check inside, or conditional INSERT statements
- *   that atomically verify the count before inserting.
+ * The transaction is still useful when two requests arrive together: it keeps
+ * the observed count and write ordered for accurate metrics, while both writes
+ * remain available regardless of the advisory threshold.
  */
 
 import prisma from "~/db.server";
@@ -23,10 +19,13 @@ import { json } from "@remix-run/node";
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /**
- * Error thrown when a limit is exceeded during atomic operations
+ * Legacy capacity error retained for compatibility with existing route catches.
+ *
+ * `atomicWithinLimit` no longer throws this error. If older code supplies one,
+ * its response is an advisory success rather than a blocking 403.
  */
 export class LimitExceededError extends Error {
-  public readonly code = "LIMIT_EXCEEDED";
+  public readonly code = "CAPACITY_ADVISORY";
 
   constructor(
     public readonly limit: LimitKey,
@@ -35,7 +34,7 @@ export class LimitExceededError extends Error {
     public readonly currentPlan: string
   ) {
     super(
-      `You have reached the ${formatLimitName(limit)} limit (${currentCount}/${maxLimit}) for the ${currentPlan} plan. Please upgrade to increase your limit.`
+      `Plan capacity advisory: ${formatLimitName(limit)} usage is ${currentCount}/${maxLimit} on ${currentPlan}. Processing remains available.`
     );
     this.name = "LimitExceededError";
   }
@@ -46,7 +45,9 @@ export class LimitExceededError extends Error {
   toJsonResponse() {
     return json(
       {
-        error: "Limit exceeded",
+        error: null,
+        advisory: true,
+        allowed: true,
         code: this.code,
         limit: this.limit,
         currentCount: this.currentCount,
@@ -54,7 +55,7 @@ export class LimitExceededError extends Error {
         currentPlan: this.currentPlan,
         message: this.message,
       },
-      { status: 403, statusText: "Forbidden" }
+      { status: 200 }
     );
   }
 }
@@ -81,19 +82,17 @@ function formatLimitName(limit: LimitKey): string {
 }
 
 /**
- * Atomically check a limit and perform an operation if within limits.
+ * Atomically observe a limit and perform an operation.
  *
  * This function wraps the count check and create operation in a database
- * transaction to prevent race conditions. The count is checked inside the
- * transaction, and if exceeded, the entire transaction is rolled back.
+ * transaction so advisory reporting uses a consistent count. A reached plan
+ * capacity is logged, but the create operation always proceeds.
  *
  * @param shop - The shop identifier
  * @param limit - The limit key to check
  * @param countFn - Function to count current usage (receives transaction client)
  * @param createFn - Function to create the resource (receives transaction client)
  * @returns The result of createFn
- * @throws LimitExceededError if the limit is exceeded
- *
  * @example
  * ```typescript
  * const tier = await atomicWithinLimit(
@@ -136,39 +135,34 @@ export async function atomicWithinLimit<T>(
     // Count inside transaction to get consistent view
     const currentCount = await countFn(tx);
 
-    console.log(`${LOG_PREFIX} Transaction: currentCount=${currentCount} maxLimit=${maxLimit} willBlock=${currentCount >= maxLimit}`);
+    const capacityReached = currentCount >= maxLimit;
 
-    // Check limit
-    if (currentCount >= maxLimit) {
-      console.warn(`${LOG_PREFIX} BLOCKED: ${limit} limit exceeded (${currentCount}/${maxLimit}) for ${shop} on ${currentPlan}`);
-      throw new LimitExceededError(limit, currentCount, maxLimit, currentPlan);
+    console.log(
+      `${LOG_PREFIX} Transaction: currentCount=${currentCount} maxLimit=${maxLimit} capacityReached=${capacityReached}`,
+    );
+
+    if (capacityReached) {
+      console.warn(
+        `${LOG_PREFIX} ADVISORY: ${limit} capacity reached (${currentCount}/${maxLimit}) for ${shop} on ${currentPlan}; creation remains available`,
+      );
     }
 
-    console.log(`${LOG_PREFIX} ALLOWED: Creating resource within limit`);
-    // Within limit - proceed with creation
+    console.log(`${LOG_PREFIX} ALLOWED: Creating resource`);
     return createFn(tx);
   });
 }
 
 /**
- * Atomically check a limit and throw a JSON response if exceeded.
- * Use this in route actions where you need to return a Response.
+ * Convert a legacy capacity error into a non-blocking advisory response.
  *
  * @example
  * ```typescript
- * try {
- *   const tier = await atomicWithinLimit(shop, 'maxTiers', countFn, createFn);
- * } catch (error) {
- *   if (error instanceof LimitExceededError) {
- *     throw error.toJsonResponse();
- *   }
- *   throw error;
- * }
+ * const response = handleLimitError(legacyCapacityError);
  * ```
  */
-export function handleLimitError(error: unknown): never {
+export function handleLimitError(error: unknown): Response {
   if (error instanceof LimitExceededError) {
-    throw error.toJsonResponse();
+    return error.toJsonResponse();
   }
   throw error;
 }

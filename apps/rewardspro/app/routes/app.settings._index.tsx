@@ -41,7 +41,14 @@ import { getCreditSyncStats } from "../services/credit-sync-job.server";
 import { getCustomerSyncStats } from "../services/customer-sync-job.server";
 import { getOrderSyncStats } from "../services/order-sync-job.server";
 import { createOrderSyncService } from "../services/order-sync.service";
-import { MANAGED_PLANS } from "~/constants/billing.constants";
+import { getPlanOrderLimit } from "~/constants/billing.constants";
+import {
+  PRICING_PLANS,
+  getPlanFeatureSummary,
+  getPlanKey,
+  getPlanPrice,
+  getPricingPlan,
+} from "~/constants/pricing-contract";
 import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
 import { formatCurrency } from "~/utils/currency";
 import { v4 as uuidv4 } from "uuid";
@@ -55,6 +62,12 @@ import {
   settingsPath,
 } from "~/navigation/routes";
 export { ErrorBoundary } from "../components/ErrorBoundary";
+
+function contractPriceForPlanName(planName: string | null | undefined): number {
+  const planKey = getPlanKey(planName);
+  const interval = planName?.toLowerCase().includes("annual") ? "year" : "month";
+  return getPlanPrice(planKey, interval);
+}
 
 // ============= TYPES =============
 type Currency =
@@ -666,25 +679,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Determine plan based on active subscription using shared plan constants
     // Priority: activeSubscription > subscriptionInfo (GraphQL) > Free plan default
-    let planLimit = MANAGED_PLANS["RewardsPro Free"].ordersIncluded; // 50
-    let planName = 'RewardsPro Free';
+    let planLimit: number = PRICING_PLANS.free.limits.orders;
+    let planName: string = PRICING_PLANS.free.billingName;
 
     // Try activeSubscription first (from billing.check)
     if (activeSubscription?.name) {
-      const planConfig = MANAGED_PLANS[activeSubscription.name];
-      if (planConfig) {
-        planLimit = planConfig.ordersIncluded;
-        planName = activeSubscription.name;
-      }
+      planLimit = getPlanOrderLimit(activeSubscription.name);
+      planName = activeSubscription.name;
     }
     // Fallback to subscriptionInfo from GraphQL (more reliable source)
     else if (subscriptionInfo?.name) {
-      const planConfig = MANAGED_PLANS[subscriptionInfo.name as string];
-      if (planConfig) {
-        planLimit = planConfig.ordersIncluded;
-        planName = subscriptionInfo.name;
-        console.log(`[Settings Page] Using subscriptionInfo for plan: ${planName}, limit: ${planLimit}`);
-      }
+      planLimit = getPlanOrderLimit(subscriptionInfo.name as string);
+      planName = subscriptionInfo.name;
+      console.log(`[Settings Page] Using subscriptionInfo for plan: ${planName}, limit: ${planLimit}`);
     }
 
     const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
@@ -3326,7 +3333,11 @@ export default function SettingsPage() {
                         <InlineStack gap="200" blockAlign="center">
                           <Text as="h2" variant="headingMd">Subscription & Billing</Text>
                           <Badge tone={(subscriptionInfo?.status === 'ACTIVE' || activeSubscription) ? 'success' : 'info'}>
-                            {subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'Free'}
+                            {getPricingPlan(
+                              subscriptionInfo?.name ||
+                              currentPlan?.planName ||
+                              activeSubscription?.name,
+                            ).displayName}
                           </Badge>
                         </InlineStack>
                         <Text as="p" variant="bodySm" tone="subdued">
@@ -3340,25 +3351,27 @@ export default function SettingsPage() {
                         status={subscriptionInfo?.inTrialPeriod ? 'trial' : subscriptionInfo?.status === 'ACTIVE' ? 'active' : activeSubscription?.status === 'ACTIVE' ? 'active' : currentPlan?.status === 'active' ? 'active' : 'active'}
                         price={
                           subscriptionInfo?.recurringCharge?.amount ? parseFloat(subscriptionInfo.recurringCharge.amount) :
-                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Pro') ? 39 :
-                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Max') ? 149 :
-                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Ultra') ? 499 : 0
+                          contractPriceForPlanName(
+                            subscriptionInfo?.name ||
+                            currentPlan?.planName ||
+                            activeSubscription?.name,
+                          )
                         }
                         interval={(subscriptionInfo?.recurringCharge?.interval || subscriptionInfo?.name || currentPlan?.planName)?.toLowerCase().includes('annual') ? 'annual' : 'monthly'}
                         periodEnd={subscriptionInfo?.currentPeriodEnd || currentPlan?.currentPeriodEnd || undefined}
                         usage={monthlyOrderUsage ? {
                           current: monthlyOrderUsage.orderCount,
-                          limit: monthlyOrderUsage.planLimit || 100,
+                          limit: monthlyOrderUsage.planLimit || PRICING_PLANS.free.limits.orders,
                           resource: 'orders',
                         } : undefined}
                         showManageButton={true}
                       />
 
                       {/* Usage Warning */}
-                      {monthlyOrderUsage && monthlyOrderUsage.orderCount >= (monthlyOrderUsage.planLimit || 100) * 0.8 && (
+                      {monthlyOrderUsage && monthlyOrderUsage.orderCount >= (monthlyOrderUsage.planLimit || PRICING_PLANS.free.limits.orders) * 0.8 && (
                         <UsageUpgradePrompt
                           current={monthlyOrderUsage.orderCount}
-                          limit={monthlyOrderUsage.planLimit || 100}
+                          limit={monthlyOrderUsage.planLimit || PRICING_PLANS.free.limits.orders}
                           resource="orders"
                           title="Monthly Order Usage"
                           warningThreshold={80}
@@ -3372,31 +3385,9 @@ export default function SettingsPage() {
                           <BlockStack gap="200">
                             {(() => {
                               const planName = subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'Free';
-                              const benefits = planName.includes('Ultra') ? [
-                                { label: 'Unlimited orders per month', included: true },
-                                { label: 'Unlimited customers', included: true },
-                                { label: 'All premium features', included: true },
-                                { label: 'Dedicated support', included: true },
-                                { label: 'Custom integrations', included: true },
-                              ] : planName.includes('Max') ? [
-                                { label: '2,000 orders per month', included: true },
-                                { label: 'Unlimited customers', included: true },
-                                { label: 'Tier memberships', included: true },
-                                { label: 'Priority support', included: true },
-                                { label: 'Advanced analytics', included: true },
-                              ] : planName.includes('Pro') ? [
-                                { label: '500 orders per month', included: true },
-                                { label: '2,000 customers', included: true },
-                                { label: 'Batch operations', included: true },
-                                { label: 'Email support', included: true },
-                                { label: 'Tier memberships', included: false },
-                              ] : [
-                                { label: '100 orders per month', included: true },
-                                { label: '500 customers', included: true },
-                                { label: 'Basic features', included: true },
-                                { label: 'Community support', included: true },
-                                { label: 'Advanced features', included: false },
-                              ];
+                              const benefits = getPlanFeatureSummary(
+                                getPlanKey(planName),
+                              ).map((label) => ({ label, included: true }));
 
                               return benefits.map((benefit, i) => (
                                 <InlineStack key={i} gap="200" blockAlign="center">
@@ -3422,8 +3413,10 @@ export default function SettingsPage() {
                         </BlockStack>
                       </Card>
 
-                      {/* Upgrade CTA for non-Ultra plans */}
-                      {!(subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || '').includes('Ultra') && (
+                      {/* Capacity CTA for public plans below Corporate */}
+                      {!['ultra', 'enterprise'].includes(
+                        getPlanKey(subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name),
+                      ) && (
                         <Card>
                           <BlockStack gap="400">
                             <InlineStack gap="300" blockAlign="center">
@@ -3439,9 +3432,9 @@ export default function SettingsPage() {
                                 <Text as="span" variant="headingLg">⭐</Text>
                               </div>
                               <BlockStack gap="050">
-                                <Text as="h3" variant="headingMd">Unlock More Features</Text>
+                                <Text as="h3" variant="headingMd">Need More Capacity?</Text>
                                 <Text as="p" variant="bodySm" tone="subdued">
-                                  Upgrade your plan to access advanced features and higher limits
+                                  Compare fixed-price plans with higher operating limits. Core loyalty features remain available on Free.
                                 </Text>
                               </BlockStack>
                             </InlineStack>

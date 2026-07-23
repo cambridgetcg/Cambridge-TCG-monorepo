@@ -10,7 +10,7 @@ import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { updatePlanLimit, unlockShop } from "~/utils/plan-access-control.server";
 import { isTestMode } from "~/utils/billing-test-mode.server";
-import { getOrderLimit } from "~/constants/plan-limits";
+import { PRICING_PLANS } from "~/constants/pricing-contract";
 
 // ============================================
 // TYPES & INTERFACES
@@ -23,12 +23,6 @@ export interface PlanConfig {
   orderLimit: number;        // 500
   description: string;
   isTest: boolean;
-  // Usage-based pricing (optional)
-  usageEnabled?: boolean;    // true if usage-based billing
-  usageRate?: number;        // Rate per order overage (e.g., 0.10 = $0.10/order)
-  usageCap?: number;         // Maximum usage charges per month
-  usageBatchSize?: number;   // Batch size for charging (e.g., 100 orders)
-  usageTerms?: string;       // Description shown to merchant
 }
 
 export interface BillingResult {
@@ -59,73 +53,53 @@ export interface SubscriptionStatus {
 export const PLAN_CONFIGS: Record<string, Omit<PlanConfig, 'isTest'>> = {
   free: {
     planId: "free",
-    planName: "RewardsPro Free",
-    price: 0,
-    get orderLimit() { return getOrderLimit("RewardsPro Free"); },
-    description: "Free plan with basic features"
+    planName: PRICING_PLANS.free.billingName,
+    price: PRICING_PLANS.free.monthlyPrice,
+    orderLimit: PRICING_PLANS.free.limits.orders,
+    description: PRICING_PLANS.free.description,
   },
   pro: {
     planId: "pro",
-    planName: "RewardsPro Pro",
-    price: 39.00,
-    get orderLimit() { return getOrderLimit("RewardsPro Pro"); },
-    description: "Pro plan with advanced features",
-    usageEnabled: true,
-    usageRate: 0.10,
-    usageCap: 50.00,
-    usageBatchSize: 100,
-    usageTerms: "$10 per 100 orders over 500/month limit (max $50/month)"
+    planName: PRICING_PLANS.pro.billingName,
+    price: PRICING_PLANS.pro.monthlyPrice,
+    orderLimit: PRICING_PLANS.pro.limits.orders,
+    description: PRICING_PLANS.pro.description,
   },
   "pro-annual": {
     planId: "pro-annual",
-    planName: "RewardsPro Pro Annual",
-    price: 336.00,
-    get orderLimit() { return getOrderLimit("RewardsPro Pro Annual"); },
-    description: "Pro plan with annual billing (save 28%)",
-    usageEnabled: true,
-    usageRate: 0.10,
-    usageCap: 50.00,
-    usageBatchSize: 100,
-    usageTerms: "$10 per 100 orders over 500/month limit (max $50/month)"
+    planName: PRICING_PLANS.pro.annualBillingName!,
+    price: PRICING_PLANS.pro.annualPrice!,
+    orderLimit: PRICING_PLANS.pro.limits.orders,
+    description: `${PRICING_PLANS.pro.description} with annual billing`,
   },
   max: {
     planId: "max",
-    planName: "RewardsPro Max",
-    price: 149.00,
-    get orderLimit() { return getOrderLimit("RewardsPro Max"); },
-    description: "Max plan for growing businesses",
-    usageEnabled: true,
-    usageRate: 0.05,
-    usageCap: 100.00,
-    usageBatchSize: 100,
-    usageTerms: "$5 per 100 orders over 2,000/month limit (max $100/month)"
+    planName: PRICING_PLANS.max.billingName,
+    price: PRICING_PLANS.max.monthlyPrice,
+    orderLimit: PRICING_PLANS.max.limits.orders,
+    description: PRICING_PLANS.max.description,
   },
   "max-annual": {
     planId: "max-annual",
-    planName: "RewardsPro Max Annual",
-    price: 1296.00,
-    get orderLimit() { return getOrderLimit("RewardsPro Max Annual"); },
-    description: "Max plan with annual billing (save 27%)",
-    usageEnabled: true,
-    usageRate: 0.05,
-    usageCap: 100.00,
-    usageBatchSize: 100,
-    usageTerms: "$5 per 100 orders over 2,000/month limit (max $100/month)"
+    planName: PRICING_PLANS.max.annualBillingName!,
+    price: PRICING_PLANS.max.annualPrice!,
+    orderLimit: PRICING_PLANS.max.limits.orders,
+    description: `${PRICING_PLANS.max.description} with annual billing`,
   },
   ultra: {
     planId: "ultra",
-    planName: "RewardsPro Ultra",
-    price: 499.00,
-    get orderLimit() { return getOrderLimit("RewardsPro Ultra"); },
-    description: "Unlimited everything"
+    planName: PRICING_PLANS.ultra.billingName,
+    price: PRICING_PLANS.ultra.monthlyPrice,
+    orderLimit: PRICING_PLANS.ultra.limits.orders,
+    description: PRICING_PLANS.ultra.description,
   },
   "ultra-annual": {
     planId: "ultra-annual",
-    planName: "RewardsPro Ultra Annual",
-    price: 4296.00,
-    get orderLimit() { return getOrderLimit("RewardsPro Ultra Annual"); },
-    description: "Unlimited everything with annual billing (save 28%)"
-  }
+    planName: PRICING_PLANS.ultra.annualBillingName!,
+    price: PRICING_PLANS.ultra.annualPrice!,
+    orderLimit: PRICING_PLANS.ultra.limits.orders,
+    description: `${PRICING_PLANS.ultra.description} with annual billing`,
+  },
 };
 
 // ============================================
@@ -461,22 +435,43 @@ export async function cancelSubscription(
   try {
     console.log(`[BillingService] Cancelling subscription for ${shop}`);
 
-    // Update database
-    await prisma.billingSubscription.updateMany({
-      where: { shop },
-      data: {
-        subscriptionStatus: "CANCELLED",
-        updatedAt: new Date()
-      }
-    });
-
-    // Downgrade to free plan
-    await updatePlanLimit(shop, "RewardsPro Free", getOrderLimit("RewardsPro Free"));
+    // Keep every local subscription projection aligned with Free.
+    await Promise.all([
+      prisma.billingSubscription.updateMany({
+        where: { shop },
+        data: {
+          subscriptionStatus: "CANCELLED",
+          updatedAt: new Date(),
+        },
+      }),
+      prisma.appSubscription.updateMany({
+        where: { shop, status: "ACTIVE" },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancellationReason: "MERCHANT_REQUESTED",
+        },
+      }),
+      prisma.shopSettings.updateMany({
+        where: { shop },
+        data: {
+          subscriptionStatus: "CANCELLED",
+          billingStatus: "INACTIVE",
+          currentPlan: "free",
+          currentPlanName: PRICING_PLANS.free.billingName,
+        },
+      }),
+      updatePlanLimit(
+        shop,
+        PRICING_PLANS.free.billingName,
+        PRICING_PLANS.free.limits.orders,
+      ),
+    ]);
 
     // Refresh entitlements to downgrade features immediately
     try {
       const { refreshEntitlements } = await import("~/services/entitlements.server");
-      await refreshEntitlements(shop);
+      await refreshEntitlements(shop, { force: true });
       console.log(`[BillingService] Entitlements refreshed after cancellation for ${shop}`);
     } catch (entitlementsError) {
       console.error(`[BillingService] Failed to refresh entitlements after cancel:`, entitlementsError);
@@ -486,7 +481,7 @@ export async function cancelSubscription(
 
     return {
       success: true,
-      planName: "RewardsPro Free"
+      planName: PRICING_PLANS.free.billingName,
     };
   } catch (error) {
     console.error(`[BillingService] Error cancelling subscription:`, error);

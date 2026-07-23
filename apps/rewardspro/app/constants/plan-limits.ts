@@ -1,18 +1,15 @@
 /**
- * Plan Limits - Single Source of Truth
- * All plan limit definitions MUST come from this file.
+ * Backwards-compatible plan-limit helpers.
  *
- * Phase 1C: Data Integrity Fix
- * Date: 2025-01-07
- *
- * IMPORTANT: Do NOT define plan limits elsewhere in the codebase.
- * This file is the canonical source for:
- * - Order limits per plan
- * - Tier limits per plan
- * - Automation limits
- * - Customer sync limits
- * - Historical data retention
+ * The mutable values live in pricing-contract.ts. Keep this module as the
+ * stable API used by entitlement and quota consumers.
  */
+
+import {
+  PLAN_HIERARCHY as CONTRACT_PLAN_HIERARCHY,
+  PRICING_PLANS,
+  getPlanKey,
+} from "./pricing-contract";
 
 // ============================================
 // PLAN DEFINITIONS
@@ -23,97 +20,15 @@
  * All plans have access to all features - differentiation is through LIMITS only.
  * This drives upgrade value: users experience the product, then need more capacity.
  *
- * Key principle: Free tier gets minimal but functional limits (taste the value)
+ * Key principle: Free is complete for ordinary small businesses. Paid plans
+ * provide more operational capacity; they do not unlock ordinary core loyalty.
  */
 export const PLAN_LIMITS = {
-  'RewardsPro Free': {
-    // Core limits - minimal but functional
-    orders: 50,
-    tiers: 2,
-    automations: 1,
-    customersSync: 500,
-    historicalDataDays: 7,
-    tierProducts: 1,
-    emails: 50,
-    memberExportRows: 100, // Export limit - taste the value
-    // Gamification limits
-    activeRaffles: 1,
-    activeMysteryBoxes: 1,
-    activeChallenges: 1,
-    // Marketing limits
-    campaigns: 1,
-    automationFlows: 1,
-    // All features enabled (rate-based model)
-    emailNotifications: true,
-    advancedAnalytics: true,
-    apiAccess: true,
-  },
-  'RewardsPro Pro': {
-    // Core limits - moderate for growing businesses
-    orders: 500,
-    tiers: 5,
-    automations: 5,
-    customersSync: 5000,
-    historicalDataDays: 30,
-    tierProducts: 3,
-    emails: 500,
-    memberExportRows: 1000, // Export limit
-    // Gamification limits
-    activeRaffles: 3,
-    activeMysteryBoxes: 2,
-    activeChallenges: 5,
-    // Marketing limits
-    campaigns: 5,
-    automationFlows: 3,
-    // All features enabled
-    emailNotifications: true,
-    advancedAnalytics: true,
-    apiAccess: true,
-  },
-  'RewardsPro Max': {
-    // Core limits - high for scale
-    orders: 2000,
-    tiers: 10,
-    automations: 20,
-    customersSync: 25000,
-    historicalDataDays: 90,
-    tierProducts: 10,
-    emails: 2000,
-    memberExportRows: 10000, // Export limit
-    // Gamification limits
-    activeRaffles: 10,
-    activeMysteryBoxes: 5,
-    activeChallenges: 15,
-    // Marketing limits
-    campaigns: 25,
-    automationFlows: 10,
-    // All features enabled
-    emailNotifications: true,
-    advancedAnalytics: true,
-    apiAccess: true,
-  },
-  'RewardsPro Ultra': {
-    // Unlimited everything
-    orders: Infinity,
-    tiers: Infinity,
-    automations: Infinity,
-    customersSync: Infinity,
-    historicalDataDays: Infinity,
-    tierProducts: Infinity,
-    emails: Infinity,
-    memberExportRows: Infinity, // Unlimited export
-    // Gamification limits - unlimited
-    activeRaffles: Infinity,
-    activeMysteryBoxes: Infinity,
-    activeChallenges: Infinity,
-    // Marketing limits - unlimited
-    campaigns: Infinity,
-    automationFlows: Infinity,
-    // All features enabled
-    emailNotifications: true,
-    advancedAnalytics: true,
-    apiAccess: true,
-  },
+  [PRICING_PLANS.free.billingName]: PRICING_PLANS.free.limits,
+  [PRICING_PLANS.pro.billingName]: PRICING_PLANS.pro.limits,
+  [PRICING_PLANS.max.billingName]: PRICING_PLANS.max.limits,
+  [PRICING_PLANS.ultra.billingName]: PRICING_PLANS.ultra.limits,
+  [PRICING_PLANS.enterprise.billingName]: PRICING_PLANS.enterprise.limits,
 } as const;
 
 // ============================================
@@ -152,65 +67,8 @@ export type FeaturePlanLimit = 'emailNotifications' | 'advancedAnalytics' | 'api
  * Handles legacy names, lowercase, missing prefix, etc.
  */
 export function normalizePlanName(planName: string | null | undefined): PlanName {
-  if (!planName) {
-    return 'RewardsPro Free';
-  }
-
-  const normalized = planName.trim();
-
-  // Direct match
-  if (normalized in PLAN_LIMITS) {
-    return normalized as PlanName;
-  }
-
-  // Case-insensitive matching
-  const lowerName = normalized.toLowerCase();
-
-  // Map common variations (including annual plans → base plan limits)
-  const nameMap: Record<string, PlanName> = {
-    'free': 'RewardsPro Free',
-    'rewardspro free': 'RewardsPro Free',
-    'rewards pro free': 'RewardsPro Free',
-
-    'pro': 'RewardsPro Pro',
-    'rewardspro pro': 'RewardsPro Pro',
-    'rewards pro pro': 'RewardsPro Pro',
-    'starter': 'RewardsPro Pro',          // Legacy bare name
-    'rewardspro starter': 'RewardsPro Pro', // Legacy prefixed name
-    'pro annual': 'RewardsPro Pro',
-    'pro-annual': 'RewardsPro Pro',
-    'rewardspro pro annual': 'RewardsPro Pro',
-    'rewards pro pro annual': 'RewardsPro Pro',
-
-    'max': 'RewardsPro Max',
-    'rewardspro max': 'RewardsPro Max',
-    'rewards pro max': 'RewardsPro Max',
-    'growth': 'RewardsPro Max',          // Legacy bare name
-    'rewardspro growth': 'RewardsPro Max', // Legacy prefixed name
-    'max annual': 'RewardsPro Max',
-    'max-annual': 'RewardsPro Max',
-    'rewardspro max annual': 'RewardsPro Max',
-    'rewards pro max annual': 'RewardsPro Max',
-
-    'ultra': 'RewardsPro Ultra',
-    'rewardspro ultra': 'RewardsPro Ultra',
-    'rewards pro ultra': 'RewardsPro Ultra',
-    'enterprise': 'RewardsPro Ultra',          // Legacy bare name
-    'rewardspro enterprise': 'RewardsPro Ultra', // Legacy prefixed name
-    'unlimited': 'RewardsPro Ultra',             // Legacy name
-    'ultra annual': 'RewardsPro Ultra',
-    'ultra-annual': 'RewardsPro Ultra',
-    'rewardspro ultra annual': 'RewardsPro Ultra',
-    'rewards pro ultra annual': 'RewardsPro Ultra',
-  };
-
-  if (lowerName in nameMap) {
-    return nameMap[lowerName];
-  }
-
-  // Default to Free for unknown plans
-  console.warn(`[PlanLimits] Unknown plan name: "${planName}", defaulting to Free`);
-  return 'RewardsPro Free';
+  const key = getPlanKey(planName);
+  return PRICING_PLANS[key].billingName as PlanName;
 }
 
 // ============================================
@@ -346,15 +204,15 @@ export function calculateUsageStatus(
 ): UsageStatus {
   const limit = getPlanLimit(planName, limitType);
 
-  // Handle unlimited plans
-  if (limit === Infinity) {
+  // The contract uses a database-safe sentinel for unlimited plans.
+  if (limit >= 999_999) {
     return {
       current,
-      limit: Infinity,
+      limit,
       percentage: 0,
       isAtLimit: false,
       isOverLimit: false,
-      remaining: Infinity,
+      remaining: limit,
     };
   }
 
@@ -382,7 +240,7 @@ export function wouldExceedLimit(
 ): boolean {
   const limit = getPlanLimit(planName, limitType);
 
-  if (limit === Infinity) {
+  if (limit >= 999_999) {
     return false;
   }
 
@@ -426,12 +284,9 @@ export function validatePlanConfiguration(): void {
 // PLAN COMPARISON
 // ============================================
 
-const PLAN_HIERARCHY: PlanName[] = [
-  'RewardsPro Free',
-  'RewardsPro Pro',
-  'RewardsPro Max',
-  'RewardsPro Ultra',
-];
+const PLAN_HIERARCHY: PlanName[] = CONTRACT_PLAN_HIERARCHY.map(
+  (key) => PRICING_PLANS[key].billingName as PlanName,
+);
 
 /**
  * Gets the tier level (0-3) for a plan.

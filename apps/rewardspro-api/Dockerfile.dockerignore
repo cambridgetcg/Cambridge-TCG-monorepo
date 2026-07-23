@@ -1,0 +1,14 @@
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!apps/
+!apps/rewardspro-api/
+!apps/rewardspro-api/package.json
+!apps/rewardspro-api/tsconfig.json
+!apps/rewardspro-api/certs/
+!apps/rewardspro-api/certs/**
+!apps/rewardspro-api/src/
+!apps/rewardspro-api/src/**
+!apps/rewardspro-api/migrations/
+!apps/rewardspro-api/migrations/**

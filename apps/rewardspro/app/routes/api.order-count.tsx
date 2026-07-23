@@ -8,19 +8,7 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { countOrdersDirectDataAPI, countOrdersWithFallback } from "../utils/order-count-strategies";
 import prisma from "../db.server";
-
-// Plan order limits (monthly)
-const PLAN_ORDER_LIMITS: Record<string, number> = {
-  free: 100,
-  starter: 500,
-  pro: 500,
-  proAnnual: 500,
-  max: 2000,
-  maxAnnual: 2000,
-  ultra: 999999, // Unlimited
-  ultraAnnual: 999999,
-};
-const DEFAULT_PLAN_LIMIT = 500;
+import { PRICING_PLANS } from "../constants/pricing-contract";
 
 // Helper to get current month name
 const getCurrentMonthName = () => {
@@ -28,14 +16,16 @@ const getCurrentMonthName = () => {
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
   ];
-  return months[new Date().getMonth()];
+  return months[new Date().getUTCMonth()];
 };
 
 // Calculate projected orders
 const calculateProjectedOrders = (currentOrders: number): number => {
   const now = new Date();
-  const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const currentDay = now.getDate();
+  const totalDaysInMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const currentDay = now.getUTCDate();
   const daysPassed = currentDay;
 
   if (daysPassed === 0) return currentOrders;
@@ -90,14 +80,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const projectedOrders = calculateProjectedOrders(orderCount);
 
     // Fetch plan limit from database based on shop's subscription
-    let planLimit = DEFAULT_PLAN_LIMIT;
+    let planLimit: number = PRICING_PLANS.free.limits.orders;
+    let currentPlan: string = PRICING_PLANS.free.billingName;
     try {
-      const subscription = await prisma.billingSubscription.findUnique({
+      const entitlements = await prisma.shopEntitlements.findUnique({
         where: { shop },
-        select: { planName: true, status: true }
+        select: {
+          effectivePlan: true,
+          limitMaxOrders: true,
+        },
       });
-      if (subscription?.status === 'ACTIVE' && subscription.planName) {
-        planLimit = PLAN_ORDER_LIMITS[subscription.planName] ?? DEFAULT_PLAN_LIMIT;
+      if (entitlements) {
+        currentPlan = entitlements.effectivePlan;
+        planLimit = entitlements.limitMaxOrders;
       }
     } catch (error) {
       console.warn('[API OrderCount] Failed to fetch plan, using default limit');
@@ -108,6 +103,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       orderCount,
       projectedOrders,
       planLimit,
+      currentPlan,
       currentMonth: getCurrentMonthName(),
       year,
       month: month + 1, // 1-indexed for display

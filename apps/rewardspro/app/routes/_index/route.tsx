@@ -3,6 +3,12 @@ import { redirect } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import { useState } from "react";
 import { login } from "../../shopify.server";
+import {
+  PRICING_PLANS,
+  PUBLIC_PLAN_KEYS,
+  formatPlanLimit,
+  getPlanFeatureSummary,
+} from "~/constants/pricing-contract";
 
 export const meta: MetaFunction = () => {
   return [
@@ -32,7 +38,7 @@ const faqs = [
   },
   {
     question: "Can I customize the reward tiers?",
-    answer: "Yes! You have full control over tier names, spending thresholds, and cashback percentages. Set up as many tiers as you want to match your business strategy."
+    answer: "Yes! You have full control over tier names, spending thresholds, and cashback percentages. Free includes five tiers, with more capacity on paid plans."
   },
   {
     question: "How do customers redeem their rewards?",
@@ -48,74 +54,22 @@ const faqs = [
   },
   {
     question: "Is there a free plan?",
-    answer: "Yes! Our free plan includes up to 200 orders per month, perfect for small stores just starting with loyalty programs."
+    answer: "Yes. Free Forever includes the complete core loyalty experience and up to 1,000 reward-eligible orders per month."
   }
 ];
 
-// Pricing plans data
-const pricingPlans = [
-  {
-    name: "Free",
-    price: "$0",
+const pricingPlans = PUBLIC_PLAN_KEYS.map((planKey) => {
+  const plan = PRICING_PLANS[planKey];
+  return {
+    name: plan.displayName,
+    price: `$${plan.monthlyPrice.toLocaleString("en-US")}`,
     period: "month",
-    ordersIncluded: "200 orders/month",
-    features: [
-      "Basic loyalty tiers",
-      "Store credit tracking",
-      "Customer dashboard",
-      "Email support"
-    ],
-    cta: "Start Free",
-    highlighted: false
-  },
-  {
-    name: "Starter",
-    price: "$49",
-    period: "month",
-    ordersIncluded: "500 orders/month",
-    features: [
-      "Everything in Free",
-      "Unlimited tiers",
-      "Custom emails",
-      "Priority support",
-      "Basic analytics"
-    ],
-    cta: "Start Trial",
-    highlighted: true
-  },
-  {
-    name: "Growth",
-    price: "$199",
-    period: "month",
-    ordersIncluded: "2,500 orders/month",
-    overageRate: "$20 per 100 additional",
-    features: [
-      "Everything in Starter",
-      "Advanced analytics",
-      "API webhooks",
-      "VIP tier features",
-      "Phone support"
-    ],
-    cta: "Start Trial",
-    highlighted: false
-  },
-  {
-    name: "Plus",
-    price: "$999",
-    period: "month",
-    ordersIncluded: "7,500 orders/month",
-    overageRate: "$5 per 100 additional",
-    features: [
-      "Everything in Growth",
-      "Custom reporting",
-      "Dedicated manager",
-      "White-glove setup",
-      "SLA guarantee"
-    ],
-    cta: "Contact Sales",
-    highlighted: false
-  }
-];
+    ordersIncluded: `${formatPlanLimit(plan.limits.orders)} reward-eligible orders/month`,
+    features: getPlanFeatureSummary(planKey),
+    cta: planKey === "free" ? "Start Free" : `Choose ${plan.displayName}`,
+    highlighted: planKey === "pro",
+  };
+});
 
 export default function LandingPage() {
   const { showForm } = useLoaderData<typeof loader>();
@@ -164,7 +118,7 @@ export default function LandingPage() {
               onClick={() => document.getElementById('get-started')?.scrollIntoView({ behavior: 'smooth' })}
               className="bg-purple-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-purple-700 transition-all transform hover:scale-105"
             >
-              Start Free Trial
+              Start Free
             </button>
             <a
               href="#how-it-works"
@@ -282,7 +236,7 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Tiered Rewards</h3>
-              <p className="text-gray-600">Create unlimited tiers with progressive cashback rates to incentivize higher spending</p>
+              <p className="text-gray-600">Create flexible progressive tiers with cashback rates that incentivize higher spending</p>
             </div>
 
             <div className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-shadow">
@@ -367,9 +321,6 @@ export default function LandingPage() {
                   <span className="text-gray-600">/{plan.period}</span>
                 </div>
                 <p className="text-gray-600 mb-2">{plan.ordersIncluded}</p>
-                {plan.overageRate && (
-                  <p className="text-sm text-gray-500 mb-4">{plan.overageRate}</p>
-                )}
                 <ul className="space-y-3 mb-6">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start">
@@ -478,7 +429,7 @@ export default function LandingPage() {
                 type="submit"
                 className="w-full bg-white text-purple-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105"
               >
-                Start Your Free Trial
+                Start Free
               </button>
             </Form>
           )}

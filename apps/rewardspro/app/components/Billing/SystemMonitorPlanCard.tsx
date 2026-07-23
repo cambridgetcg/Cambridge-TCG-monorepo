@@ -46,6 +46,7 @@ export function SystemMonitorPlanCard({
   activeSubscription,
   currentPlan,
   monthlyOrderUsage,
+  showUpgradeButton: _showUpgradeButton = true,
   showOverageBanner = true,
   onUpgrade,
 }: SystemMonitorPlanCardProps) {
@@ -224,7 +225,7 @@ export function SystemMonitorPlanCard({
                   <Divider />
                   <InlineStack align="space-between" blockAlign="center">
                     <Text variant="bodySm" as="span" tone="subdued">
-                      Projected overage
+                      Projected above capacity
                     </Text>
                     <Text variant="bodyMd" as="span" fontWeight="medium" tone="critical">
                       {(monthlyOrderUsage.projectedOrders - monthlyOrderUsage.planLimit).toLocaleString()} orders
@@ -238,7 +239,7 @@ export function SystemMonitorPlanCard({
           {/* Next Billing */}
           <Box
             padding="300"
-            background={projectedUtilization > 100 ? "bg-surface-critical" : "bg-surface"}
+            background={projectedUtilization > 100 ? "bg-surface-secondary" : "bg-surface"}
             borderRadius="200"
           >
             <BlockStack gap="100">
@@ -247,15 +248,15 @@ export function SystemMonitorPlanCard({
                   Next Billing Event
                 </Text>
                 {projectedUtilization > 100 && (
-                  <Badge tone="critical">Alert</Badge>
+                  <Badge tone="warning">Capacity</Badge>
                 )}
               </InlineStack>
               <Text variant="bodySm" as="span" tone="subdued">
                 {renewalDate} • ${planDetails.price}
               </Text>
               {projectedUtilization > 100 && monthlyOrderUsage && (
-                <Text variant="bodySm" as="span" tone="critical">
-                  Estimated overage: +${((monthlyOrderUsage.projectedOrders - monthlyOrderUsage.planLimit) * (planDetails.overageRate || 0.05)).toFixed(2)}
+                <Text variant="bodySm" as="span" tone="caution">
+                  No overage charge. Compare fixed plans for more monthly capacity.
                 </Text>
               )}
             </BlockStack>

@@ -7,11 +7,14 @@
     "dev:wholesale": "pnpm --filter ./apps/wholesale dev",
     "dev:storefront": "pnpm --filter ./apps/storefront dev",
     "dev:rewardspro": "pnpm --filter ./apps/rewardspro dev",
+    "dev:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api dev",
     "build:wholesale": "pnpm --filter ./apps/wholesale build",
     "build:storefront": "pnpm --filter ./apps/storefront build",
     "build:rewardspro": "pnpm --filter ./apps/rewardspro build",
+    "build:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api build",
     "test:answering-rhymes": "pnpm --filter @cambridge-tcg/answering-rhymes test",
     "test:rewardspro": "pnpm --filter rewardspro test:unit",
+    "test:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' --filter '!rewardspro-membership' -r exec tsc --noEmit",
     "audit:tracked-secrets": "node scripts/audit-tracked-secrets.mjs",
@@ -63,7 +66,7 @@
     "trace": "pnpm --filter cambridgetcg-storefront trace --",
     "agent-readiness": "pnpm --filter cambridgetcg-storefront agent-readiness",
     "audit:deps": "pnpm audit",
-    "verify": "pnpm typecheck && pnpm run audit && pnpm audit:cardrush-coverage:strict && pnpm test:answering-rhymes && pnpm --filter cambridgetcg-storefront test",
+    "verify": "pnpm typecheck && pnpm run audit && pnpm audit:cardrush-coverage:strict && pnpm test:answering-rhymes && pnpm test:rewardspro-api && pnpm --filter cambridgetcg-storefront test",
     "verify:fast": "pnpm typecheck"
   },
   "engines": {

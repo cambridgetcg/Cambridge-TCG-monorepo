@@ -7,22 +7,16 @@
 
 import prisma from "../../db.server";
 import { randomUUID } from "node:crypto";
+import { requireKnownPlanKey } from "../../constants/pricing-contract";
 
 /**
  * Map AppSubscription plan names to BillingSubscription planType
  * for backwards compatibility with Dashboard and Settings pages
  */
 function mapPlanNameToPlanType(planName: string): string {
-  // Remove "RewardsPro" prefix and get base plan name
-  const basePlan = planName.replace('RewardsPro ', '').toLowerCase();
-
-  if (basePlan.includes('free')) return 'free';
-  if (basePlan.includes('pro')) return 'pro';
-  if (basePlan.includes('max')) return 'max';
-  if (basePlan.includes('ultra')) return 'ultra';
-
-  // Default to free if unknown
-  return 'free';
+  // Active Shopify records must resolve strictly. Silently treating a new or
+  // misspelled paid plan as Free would corrupt the entitlement projection.
+  return requireKnownPlanKey(planName);
 }
 
 /**

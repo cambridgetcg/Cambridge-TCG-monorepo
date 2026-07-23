@@ -42,6 +42,10 @@ import { TierPerformanceChart } from "../components/analytics/TierPerformanceCha
 import { sortTiersByPriority } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import {
+  PRICING_PLANS,
+  UNLIMITED_PLAN_LIMIT,
+} from "../constants/pricing-contract";
 import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
@@ -259,8 +263,7 @@ interface AnalyticsData {
     status: string;
   }>;
 
-  // Rate-based limit: Historical data access limited by plan
-  // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited
+  // Advisory capacity guide; it never restricts access to existing history.
   maxHistoricalDays: number;
 
   // NEW: Insight Engine Data
@@ -372,9 +375,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       getEntitlements(shop),
     ]);
 
-    // Get the plan's historical days limit
-    // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited (999999)
-    const maxHistoricalDays = entitlements.limitMaxHistoricalDays || 7;
+    const maxHistoricalDays =
+      entitlements.limitMaxHistoricalDays ??
+      PRICING_PLANS.free.limits.historicalDataDays;
 
     // Debug: Log shopSettings to verify advancedAnalyticsEnabled is being returned
     console.log('[Analytics Loader] shopSettings:', JSON.stringify({
@@ -731,8 +734,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         advancedAnalyticsEnabled: (shopSettings as any).advancedAnalyticsEnabled ?? false,
       } : null,
 
-      // Rate-based limits: Historical data access limited by plan
-      // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited
+      // Advisory capacity guide; analytics queries and exports remain available.
       maxHistoricalDays,
 
       // Auto-calculated business metrics
@@ -1150,15 +1152,13 @@ export default function AnalyticsPage() {
       subtitle="See how your loyalty program is performing and what you can do to improve it"
     >
       <Layout>
-        {/* Historical Data Limit Notice - Rate-based gating */}
-        {data.maxHistoricalDays < 999999 && (
+        {/* Historical data capacity is advisory during the free-first rollout. */}
+        {data.maxHistoricalDays < UNLIMITED_PLAN_LIMIT && (
           <Layout.Section>
-            <Banner tone="info" title="Historical Data Access">
+            <Banner tone="info" title="Historical data capacity guide">
               <p>
-                Your current plan provides access to {data.maxHistoricalDays} days of historical data.
-                {data.maxHistoricalDays <= 7 && " Upgrade to Pro for 30 days, Max for 90 days, or Ultra for unlimited historical data."}
-                {data.maxHistoricalDays > 7 && data.maxHistoricalDays <= 30 && " Upgrade to Max for 90 days or Ultra for unlimited historical data."}
-                {data.maxHistoricalDays > 30 && data.maxHistoricalDays <= 90 && " Upgrade to Ultra for unlimited historical data."}
+                Your plan includes a {data.maxHistoricalDays}-day planning guide.
+                This is advisory during rollout; your existing history and exports remain available.
               </p>
             </Banner>
           </Layout.Section>

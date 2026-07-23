@@ -55,17 +55,21 @@ Capacity entitlement does not override a security pause. Customer-facing
 gamification routes remain unavailable until the identity-binding condition
 named in Pillar 2 is satisfied.
 
-| Feature | Free | Pro ($39/mo) | Max ($149/mo) | Ultra ($499/mo) |
-|---------|------|--------------|---------------|-----------------|
-| Orders/month | 50 | 500 | 2,000 | Unlimited |
-| Customer sync | 500 | 5,000 | 25,000 | Unlimited |
-| Tiers | 2 | 5 | 10 | Unlimited |
-| Tier products | 1 | 3 | 10 | Unlimited |
-| Emails/month | 50 | 500 | 2,000 | Unlimited |
-| Campaigns | 1 | 5 | 25 | Unlimited |
-| Automation flows | 1 | 3 | 10 | Unlimited |
-| Active raffles | 1 | 3 | 10 | Unlimited |
-| Active challenges | 1 | 5 | 15 | Unlimited |
+| Feature | Free Forever | Grow ($29/mo) | Scale ($79/mo) | Corporate ($499/mo) |
+|---------|--------------|---------------|----------------|---------------------|
+| Reward-eligible orders/month | 1,000 | 10,000 | 25,000 | 100,000 |
+| Customer sync | 10,000 | 100,000 | 500,000 | Unlimited |
+| Tiers | 5 | 20 | 50 | Unlimited |
+| Tier products | 5 | 20 | 50 | Unlimited |
+| Emails/month | 1,000 | 10,000 | 25,000 | 100,000 |
+| Campaigns | 5 | 25 | 100 | Unlimited |
+| Automation flows | 3 | 15 | 50 | Unlimited |
+| Active raffles | 3 | 10 | 25 | Unlimited |
+| Active challenges | 5 | 25 | 100 | Unlimited |
+
+Annual prices are $290 for Grow, $790 for Scale, and $4,990 for
+Corporate. Current plans are fixed-price with no GMV, customer-count, or
+per-order overage charge.
 
 ---
 
@@ -463,15 +467,21 @@ redemption surface that the loyalty engine operates on.
 
 ## Pillar 7: Infrastructure & Operations
 
-### 7.1 Billing & Plans ✅ LIVE
-**Status**: Production-ready
+### 7.1 Billing & Plans 🔨 PARTIAL
+**Status**: Free-first contract implemented; live Shopify rollout pending
 
 **Implemented Features**:
-- Four-tier pricing (Free, Pro, Max, Ultra)
+- Four public tiers (Free Forever, Grow, Scale, Corporate)
 - Monthly and annual billing
-- Usage-based overage charges
-- Plan limit enforcement
+- Fixed recurring prices with no usage charges
+- Advisory capacity warnings without merchant lockout
+- Stable legacy Shopify billing names for existing subscription recognition
 - Shopify Billing API integration
+
+**Rollout boundary**:
+- Partner Dashboard/App Pricing plans must be created and tested as drafts
+- Existing paid contracts stay recognised and are not cancelled automatically
+- Entitlement backfill is dry-run first and preserves active overrides
 
 **Files**: `billing/`, `app.billing.tsx`
 

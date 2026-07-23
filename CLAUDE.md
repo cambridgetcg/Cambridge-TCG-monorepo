@@ -126,6 +126,7 @@ apps/
   storefront/   — B2C consumer site (cambridgetcg.com)
   wholesale/    — B2B platform (wholesaletcgdirect.com)
   rewardspro/   — RewardsPro: Shopify loyalty & rewards app (Remix; embedded app, Vercel + Aurora; fused 2026-06-10 with full history from rewardspro-production)
+  rewardspro-api/ — dark v2 RewardsPro ingestion foundation (Fastify + PostgreSQL; ECS/Fargate + RDS target; no legacy feature/data parity yet)
 packages/
   db/           — shared db wrapper (postgres.js)
   aws/          — S3 + SES wrappers

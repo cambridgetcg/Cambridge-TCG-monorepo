@@ -12,11 +12,12 @@ import {
   getPlanConfig
 } from "../../utils/billing-config";
 import { getTestMode } from "../../utils/billing-test-mode.server";
+import { updatePlanLimit } from "../../utils/plan-access-control.server";
+import { PRICING_PLANS } from "../../constants/pricing-contract";
 import {
   getTrialDaysForRequest,
   logTrialAttempt
 } from "./trial-eligibility.server";
-import crypto from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 
 // GraphQL Mutations
@@ -117,32 +118,6 @@ const CANCEL_SUBSCRIPTION_MUTATION = `#graphql
       userErrors {
         field
         message
-      }
-    }
-  }
-`;
-
-const CREATE_USAGE_RECORD_MUTATION = `#graphql
-  mutation CreateUsageRecord(
-    $subscriptionLineItemId: ID!
-    $price: MoneyInput!
-    $description: String!
-    $idempotencyKey: String!
-  ) {
-    appUsageRecordCreate(
-      subscriptionLineItemId: $subscriptionLineItemId
-      price: $price
-      description: $description
-      idempotencyKey: $idempotencyKey
-    ) {
-      userErrors {
-        field
-        message
-      }
-      appUsageRecord {
-        id
-        idempotencyKey
-        createdAt
       }
     }
   }
@@ -277,29 +252,6 @@ export class GraphQLBillingService {
           }
         }
       ];
-
-      // Add usage pricing if configured
-      if (planConfig.usageRate && planConfig.usageCap) {
-        const usageTerms = planConfig.usageTerms ||
-          `$${(Number(planConfig.usageRate) * 100).toFixed(2)} per 100 orders over ${planConfig.orderLimit} orders/month (max $${planConfig.usageCap}/month)`;
-
-        lineItems.push({
-          plan: {
-            appUsagePricingDetails: {
-              terms: usageTerms,
-              cappedAmount: {
-                amount: formatMoneyInput(planConfig.usageCap),
-                currencyCode: getCurrencyCode(shop)
-              }
-            }
-          }
-        });
-
-        console.log(`[GraphQLBilling] Added usage line item:`, {
-          terms: usageTerms,
-          cappedAmount: planConfig.usageCap
-        });
-      }
 
       // Build variables - ONLY include trialDays if eligible
       const variables: Record<string, any> = {
@@ -453,102 +405,16 @@ export class GraphQLBillingService {
     }
   }
 
-  /**
-   * Create usage record for overage charges
-   */
+  /** Fixed-price plans never create Shopify usage records. */
   async createUsageRecord(
-    shop: string,
-    amount: number,
-    description: string
+    _shop: string,
+    _amount: number,
+    _description: string
   ): Promise<UsageRecordResult> {
-    try {
-      // Get subscription line item ID
-      const billingSubscription = await prisma.billingSubscription.findUnique({
-        where: { shop }
-      });
-
-      if (!billingSubscription?.usageLineItemId) {
-        return {
-          success: false,
-          error: "No usage line item found for this subscription"
-        };
-      }
-
-      // Generate idempotency key
-      const idempotencyKey = this.generateIdempotencyKey(shop, amount, description);
-
-      const variables = {
-        subscriptionLineItemId: billingSubscription.usageLineItemId,
-        price: {
-          amount: formatMoneyInput(amount),
-          currencyCode: getCurrencyCode(shop)
-        },
-        description,
-        idempotencyKey
-      };
-
-      const response = await this.admin.graphql(CREATE_USAGE_RECORD_MUTATION, {
-        variables
-      });
-
-      const result = await response.json();
-
-      if (result.data?.appUsageRecordCreate?.userErrors?.length > 0) {
-        const error = result.data.appUsageRecordCreate.userErrors[0];
-
-        // Check if it's a duplicate (idempotent)
-        if (error.message.includes('already exists')) {
-          return {
-            success: true,
-            idempotent: true
-          };
-        }
-
-        // Check if cap exceeded
-        if (error.message.includes('exceeds balance') || error.message.includes('capped amount')) {
-          return {
-            success: false,
-            error: "Usage cap reached for this billing period"
-          };
-        }
-
-        return {
-          success: false,
-          error: error.message
-        };
-      }
-
-      const usageRecord = result.data?.appUsageRecordCreate?.appUsageRecord;
-
-      if (!usageRecord) {
-        return {
-          success: false,
-          error: "Failed to create usage record"
-        };
-      }
-
-      // Update current period usage fee
-      await prisma.billingSubscription.update({
-        where: { shop },
-        data: {
-          currentPeriodUsageFee: {
-            increment: amount
-          }
-        }
-      });
-
-      return {
-        success: true,
-        recordId: usageRecord.id
-      };
-
-    } catch (error: any) {
-      console.error("[GraphQLBilling] Create usage record error:", error);
-      return {
-        success: false,
-        error: error.message || "Failed to create usage record"
-      };
-    }
+    return {
+      success: false,
+      error: "Usage billing is disabled for fixed-price RewardsPro plans.",
+    };
   }
 
   /**
@@ -557,11 +423,17 @@ export class GraphQLBillingService {
    */
   async cancelSubscription(shop: string): Promise<SubscriptionResult> {
     try {
-      const billingSubscription = await prisma.billingSubscription.findUnique({
-        where: { shop }
-      });
+      const [billingSubscription, appSubscription] = await Promise.all([
+        prisma.billingSubscription.findUnique({ where: { shop } }),
+        prisma.appSubscription.findUnique({ where: { shop } }),
+      ]);
+      const subscriptionId =
+        (appSubscription?.status === "ACTIVE"
+          ? appSubscription.shopifySubscriptionId
+          : null) ||
+        billingSubscription?.subscriptionId;
 
-      if (!billingSubscription?.subscriptionId) {
+      if (!subscriptionId) {
         return {
           success: false,
           error: "No active subscription found"
@@ -570,7 +442,7 @@ export class GraphQLBillingService {
 
       const response = await this.admin.graphql(CANCEL_SUBSCRIPTION_MUTATION, {
         variables: {
-          id: billingSubscription.subscriptionId,
+          id: subscriptionId,
           prorate: false  // Never prorate - no refunds for unused time
         }
       });
@@ -586,17 +458,41 @@ export class GraphQLBillingService {
       }
 
       // Update database
-      await prisma.billingSubscription.update({
-        where: { shop },
-        data: {
-          subscriptionStatus: 'CANCELLED'
-        }
-      });
+      await Promise.all([
+        prisma.billingSubscription.updateMany({
+          where: { shop },
+          data: {
+            subscriptionStatus: 'CANCELLED'
+          }
+        }),
+        prisma.appSubscription.updateMany({
+          where: { shop, status: 'ACTIVE' },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            cancellationReason: 'MERCHANT_REQUESTED',
+          },
+        }),
+        prisma.shopSettings.updateMany({
+          where: { shop },
+          data: {
+            subscriptionStatus: 'CANCELLED',
+            billingStatus: 'INACTIVE',
+            currentPlan: 'free',
+            currentPlanName: PRICING_PLANS.free.billingName,
+          },
+        }),
+        updatePlanLimit(
+          shop,
+          PRICING_PLANS.free.billingName,
+          PRICING_PLANS.free.limits.orders,
+        ),
+      ]);
 
       // Refresh entitlements to downgrade features immediately
       try {
         const { refreshEntitlements } = await import("~/services/entitlements.server");
-        await refreshEntitlements(shop);
+        await refreshEntitlements(shop, { force: true });
         console.log(`[GraphQLBilling] Entitlements refreshed after cancellation for ${shop}`);
       } catch (entitlementsError) {
         console.error(`[GraphQLBilling] Failed to refresh entitlements after cancel:`, entitlementsError);
@@ -685,30 +581,6 @@ export class GraphQLBillingService {
         confirmationUrl
       }
     });
-  }
-
-  /**
-   * Generate idempotency key for usage records
-   */
-  private generateIdempotencyKey(shop: string, amount: number, description: string): string {
-    const components = [
-      'usage',
-      shop,
-      formatMoneyInput(amount),
-      description,
-      Math.floor(Date.now() / 60000), // Minute precision
-      crypto.randomBytes(4).toString('hex')
-    ];
-
-    const key = components.join('-');
-
-    // Ensure within 255 character limit
-    if (key.length > 255) {
-      const hash = crypto.createHash('sha256').update(key).digest('hex');
-      return `usage-hash-${hash.substring(0, 32)}`;
-    }
-
-    return key;
   }
 
   /**
