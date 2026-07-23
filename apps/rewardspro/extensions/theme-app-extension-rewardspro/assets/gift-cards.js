@@ -8,8 +8,8 @@
  * Debug: localStorage.setItem('rp-debug', 'true')
  *
  * MIGRATION NOTE: Local helpers (sanitizeColor, sanitizeNumber, txt,
- * fetchWithRetry, cache) should delegate to `window.RPUtils.*`. rp-utils.js
- * is already loaded via the rp_utils_loader snippet. Follow the
+ * fetchWithRetry, cache) should delegate to `window.RPUtils.*`.
+ * rp-widget-loader.js guarantees RPUtils is ready first. Follow the
  * membership-widget.js port pattern.
  */
 (function () {
@@ -20,7 +20,7 @@
   // ────────────────────────────────────────────────────────────────────────
   if (!window.RPUtils || !window.RPUtils.VERSION) {
     console.error('[RP:GiftCards] window.RPUtils is missing. Ensure the ' +
-      '`rp_utils_loader` snippet is rendered before this script.');
+      '`rp-widget-loader.js` schema asset ordered-loads this runtime.');
     return;
   }
   const RP = window.RPUtils;
@@ -271,6 +271,9 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────
   async function init(el) {
+    if (el.dataset.initialized === 'true') return;
+    el.dataset.initialized = 'true';
+
     const state = el.dataset.state;
     const cfg = {
       primaryColor: el.dataset.primaryColor,
@@ -326,7 +329,23 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.rp-giftcards-root').forEach(init);
+  function initWidgets(scope) {
+    if (scope && scope.matches && scope.matches('.rp-giftcards-root')) {
+      init(scope);
+      return;
+    }
+
+    const rootScope = scope && scope.querySelectorAll ? scope : document;
+    rootScope.querySelectorAll('.rp-giftcards-root').forEach(init);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => initWidgets(document), { once: true });
+  } else {
+    initWidgets(document);
+  }
+
+  document.addEventListener('rewardspro:widget-ready', (event) => {
+    initWidgets(event.target);
   });
 })();

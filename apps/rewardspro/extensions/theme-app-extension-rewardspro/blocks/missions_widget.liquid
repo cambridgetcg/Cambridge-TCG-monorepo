@@ -1,6 +1,10 @@
 <!-- MOBILE-REVIEWED: 2026-03-22 -->
 <!-- Missions Widget Block -->
 {%- render 'rp_utils_loader' -%}
+{%- assign guest_cta_url = block.settings.guest_cta_url -%}
+{%- if guest_cta_url == blank or guest_cta_url == '/account/login' -%}
+  {%- assign guest_cta_url = routes.account_login_url -%}
+{%- endif -%}
 {% comment %}
   Gamified Missions Widget:
   - Detects customer login status automatically
@@ -18,6 +22,8 @@
   {% comment %} AUTHENTICATED STATE - Customer is logged in {% endcomment %}
   <div id="missions-widget-root"
        class="rp-missions-root"
+       data-rp-utils-src="{{ 'rp-utils.js' | asset_url }}"
+       data-rp-widget-src="{{ 'missions-widget.js' | asset_url }}"
        data-state="authenticated"
        data-customer-id="{{ customer.id }}"
        data-shop-domain="{{ shop.permanent_domain }}"
@@ -33,11 +39,13 @@
   {% comment %} GUEST STATE - Customer is NOT logged in {% endcomment %}
   <div id="missions-widget-root"
        class="rp-missions-root"
+       data-rp-utils-src="{{ 'rp-utils.js' | asset_url }}"
+       data-rp-widget-src="{{ 'missions-widget.js' | asset_url }}"
        data-state="guest"
        data-shop-domain="{{ shop.permanent_domain }}"
        data-message="{{ block.settings.guest_message | default: 'Complete missions to earn XP and level up!' }}"
        data-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
-       data-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
+       data-cta-url="{{ guest_cta_url }}">
     {% comment %} Guest placeholder - replaced by JavaScript {% endcomment %}
     <div class="rp-missions-guest">Sign in to view missions</div>
   </div>
@@ -48,9 +56,9 @@
   <div class="rp-missions-noscript">
     {% if customer %}
       Welcome back, {{ customer.first_name }}!
-      <a href="/account">Visit your account</a> to view missions.
+      <a href="{{ routes.account_url }}">Visit your account</a> to view missions.
     {% else %}
-      <a href="/account/login">Sign in</a> to view your missions.
+      <a href="{{ routes.account_login_url }}">Sign in</a> to view your missions.
     {% endif %}
   </div>
 </noscript>
@@ -60,7 +68,7 @@
   "name": "RewardsPro Missions",
   "target": "body",
   "stylesheet": "missions-widget.css",
-  "javascript": "missions-widget.js",
+  "javascript": "rp-widget-loader.js",
   "settings": [
     {
       "type": "header",
@@ -116,8 +124,7 @@
       "type": "text",
       "id": "guest_cta_url",
       "label": "Guest Button URL",
-      "default": "/account/login",
-      "info": "URL the sign-in button links to"
+      "info": "Optional custom URL. Leave blank to use the store's customer-account sign-in route."
     }
   ]
 }

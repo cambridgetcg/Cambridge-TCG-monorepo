@@ -8,8 +8,8 @@
  * Accessibility: Keyboard handlers on interactive elements, ARIA attributes
  *
  * MIGRATION NOTE: Local helpers (escapeHtml, sanitizeNumber, fetchWithRetry,
- * cache) should move to `window.RPUtils.*` — rp-utils.js is loaded via the
- * rp_utils_loader snippet. See membership-widget.js for the port pattern.
+ * cache) should move to `window.RPUtils.*`. rp-widget-loader.js guarantees
+ * RPUtils is ready first. See membership-widget.js for the port pattern.
  */
 
 /**
@@ -33,7 +33,7 @@
   // ────────────────────────────────────────────────────────────────────────
   if (!window.RPUtils || !window.RPUtils.VERSION) {
     console.error('[MissionsWidget] window.RPUtils is missing. Ensure the ' +
-      '`rp_utils_loader` snippet is rendered before this script.');
+      '`rp-widget-loader.js` schema asset ordered-loads this runtime.');
     return;
   }
   var RP = window.RPUtils;
@@ -877,10 +877,18 @@
   // INITIALIZATION
   // ============================================
 
-  function initWidget() {
-    var root = document.getElementById('missions-widget-root');
-    if (root && !root.dataset.initialized) {
-      new MissionsWidget(root).init();
+  function initWidget(candidate) {
+    var selector = '#missions-widget-root, .rp-missions-section-root';
+    var roots = candidate && candidate.matches && candidate.matches(selector)
+      ? [candidate]
+      : document.querySelectorAll(selector);
+    for (var i = 0; i < roots.length; i++) {
+      var isServerRenderedGuest =
+        roots[i].dataset.inline === 'true' &&
+        roots[i].dataset.state === 'guest';
+      if (!isServerRenderedGuest && !roots[i].dataset.initialized) {
+        new MissionsWidget(roots[i]).init();
+      }
     }
   }
 
@@ -895,5 +903,12 @@
     document.addEventListener('shopify:section:load', initWidget);
     document.addEventListener('shopify:section:reorder', initWidget);
   }
+
+  document.addEventListener('rewardspro:widget-ready', function(event) {
+    if (event.target && event.target.matches &&
+        event.target.matches('#missions-widget-root, .rp-missions-section-root')) {
+      initWidget(event.target);
+    }
+  });
 
 })();
