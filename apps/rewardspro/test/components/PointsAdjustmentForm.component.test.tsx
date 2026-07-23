@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 // Mock Polaris components
 vi.mock('@shopify/polaris', () => ({
@@ -83,17 +84,17 @@ describe('PointsAdjustmentForm', () => {
 
   it('should render without crash', () => {
     const { container } = render(<PointsAdjustmentForm {...defaultProps} />);
-    expect(container).toBeTruthy();
+    expect(container).toBeInTheDocument();
   });
 
   it('should show "Adding" for add type', () => {
     render(<PointsAdjustmentForm {...defaultProps} type="add" />);
-    expect(screen.getByTestId('banner-info')).toBeTruthy();
+    expect(screen.getByTestId('banner-info')).toBeInTheDocument();
   });
 
   it('should show "Removing" for remove type', () => {
     render(<PointsAdjustmentForm {...defaultProps} type="remove" />);
-    expect(screen.getByTestId('banner-info')).toBeTruthy();
+    expect(screen.getByTestId('banner-info')).toBeInTheDocument();
   });
 
   it('should show preset reasons matching type', () => {
@@ -101,7 +102,7 @@ describe('PointsAdjustmentForm', () => {
       <PointsAdjustmentForm {...defaultProps} type="add" />,
     );
     const addSelect = addContainer.querySelector('[data-testid="select-input-Reason"]') as HTMLSelectElement;
-    expect(addSelect).toBeTruthy();
+    expect(addSelect).toBeInTheDocument();
 
     // Add type should have "Customer service gesture" as first option
     const addOptions = Array.from(addSelect.options).map((o) => o.textContent);
@@ -109,37 +110,40 @@ describe('PointsAdjustmentForm', () => {
     expect(addOptions).toContain('Loyalty reward');
   });
 
-  it('should reject zero amount on submit', () => {
+  it('should reject zero amount on submit', async () => {
+    const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<PointsAdjustmentForm {...defaultProps} onSubmit={onSubmit} />);
 
     // Click submit without entering amount
     const submitBtn = screen.getByTestId('button-primary-success');
-    fireEvent.click(submitBtn);
+    await user.click(submitBtn);
 
     // onSubmit should NOT have been called
     expect(onSubmit).not.toHaveBeenCalled();
 
     // Should show error
-    expect(screen.getByTestId('error-Amount')).toBeTruthy();
+    expect(screen.getByTestId('error-Amount')).toBeInTheDocument();
   });
 
-  it('should reject non-integer amounts', () => {
+  it('should reject non-integer amounts', async () => {
+    const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<PointsAdjustmentForm {...defaultProps} onSubmit={onSubmit} />);
 
     const input = screen.getByTestId('input-Amount') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '10.5' } });
+    await user.type(input, '10.5');
 
     const submitBtn = screen.getByTestId('button-primary-success');
-    fireEvent.click(submitBtn);
+    await user.click(submitBtn);
 
     expect(onSubmit).not.toHaveBeenCalled();
     const errorEl = screen.getByTestId('error-Amount');
-    expect(errorEl.textContent).toContain('whole numbers');
+    expect(errorEl).toHaveTextContent('whole numbers');
   });
 
-  it('should reject amounts over balance for remove type', () => {
+  it('should reject amounts over balance for remove type', async () => {
+    const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(
       <PointsAdjustmentForm
@@ -151,54 +155,57 @@ describe('PointsAdjustmentForm', () => {
     );
 
     const input = screen.getByTestId('input-Amount') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '100' } });
+    await user.type(input, '100');
 
     const submitBtn = screen.getByTestId('button-primary-critical');
-    fireEvent.click(submitBtn);
+    await user.click(submitBtn);
 
     expect(onSubmit).not.toHaveBeenCalled();
     const errorEl = screen.getByTestId('error-Amount');
-    expect(errorEl.textContent).toContain('Cannot remove more than');
+    expect(errorEl).toHaveTextContent('Cannot remove more than');
   });
 
-  it('should call onSubmit with correct values for valid input', () => {
+  it('should call onSubmit with correct values for valid input', async () => {
+    const user = userEvent.setup();
     const onSubmit = vi.fn();
     render(<PointsAdjustmentForm {...defaultProps} onSubmit={onSubmit} />);
 
     const input = screen.getByTestId('input-Amount') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '100' } });
+    await user.type(input, '100');
 
     const submitBtn = screen.getByTestId('button-primary-success');
-    fireEvent.click(submitBtn);
+    await user.click(submitBtn);
 
     expect(onSubmit).toHaveBeenCalledWith(100, 'Customer service gesture');
   });
 
-  it('should call onCancel when cancel button clicked', () => {
+  it('should call onCancel when cancel button clicked', async () => {
+    const user = userEvent.setup();
     const onCancel = vi.fn();
     render(<PointsAdjustmentForm {...defaultProps} onCancel={onCancel} />);
 
     const cancelBtn = screen.getByTestId('button-default-default');
-    fireEvent.click(cancelBtn);
+    await user.click(cancelBtn);
 
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('should show custom reason field when "Other" selected', () => {
+  it('should show custom reason field when "Other" selected', async () => {
+    const user = userEvent.setup();
     render(<PointsAdjustmentForm {...defaultProps} />);
 
     const select = screen.getByTestId('select-input-Reason') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'other' } });
+    await user.selectOptions(select, 'other');
 
     // Should now show the "Specify reason" field
-    expect(screen.getByTestId('textfield-Specify reason')).toBeTruthy();
+    expect(screen.getByTestId('textfield-Specify reason')).toBeInTheDocument();
   });
 
   it('should disable inputs when loading', () => {
     render(<PointsAdjustmentForm {...defaultProps} loading={true} />);
 
     const input = screen.getByTestId('input-Amount') as HTMLInputElement;
-    expect(input.disabled).toBe(true);
+    expect(input).toBeDisabled();
   });
 
   it('should use default currency config when not provided', () => {
@@ -210,6 +217,6 @@ describe('PointsAdjustmentForm', () => {
     );
 
     // Should render without crash even with null currencyConfig
-    expect(screen.getByTestId('form-layout')).toBeTruthy();
+    expect(screen.getByTestId('form-layout')).toBeInTheDocument();
   });
 });

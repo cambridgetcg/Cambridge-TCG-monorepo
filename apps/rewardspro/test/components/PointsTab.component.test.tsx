@@ -175,13 +175,13 @@ describe('PointsTab', () => {
     render(<PointsTab {...defaultProps} />);
 
     // Should render the data table with transactions
-    expect(screen.getByTestId('data-table')).toBeTruthy();
+    expect(screen.getByTestId('data-table')).toBeInTheDocument();
   });
 
   it('should show empty state when no transactions', () => {
     render(<PointsTab {...defaultProps} initialTransactions={[]} />);
 
-    expect(screen.getByTestId('empty-state')).toBeTruthy();
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
   });
 
   it('should disable Remove button when balance is 0', () => {
@@ -193,8 +193,8 @@ describe('PointsTab', () => {
     );
 
     const removeBtn = screen.getByTestId('button-Remove-Stars');
-    expect(removeBtn).toBeTruthy();
-    expect((removeBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(removeBtn).toBeInTheDocument();
+    expect(removeBtn).toBeDisabled();
   });
 
   it('should handle search with null metadata.reason (Bug #1 regression)', () => {
@@ -246,7 +246,7 @@ describe('PointsTab', () => {
     render(<PointsTab {...defaultProps} expiringSoon={0} />);
 
     // Should still render, just without the expiring section
-    expect(screen.getByTestId('data-table')).toBeTruthy();
+    expect(screen.getByTestId('data-table')).toBeInTheDocument();
   });
 
   it('should show filtered-empty message for no search results', async () => {
@@ -254,7 +254,7 @@ describe('PointsTab', () => {
 
     // The search box is rendered
     const searchInput = screen.getByTestId('textfield-Search transactions');
-    expect(searchInput).toBeTruthy();
+    expect(searchInput).toBeInTheDocument();
   });
 
   it('should display banner on success response', () => {
@@ -262,7 +262,7 @@ describe('PointsTab', () => {
 
     render(<PointsTab {...defaultProps} />);
 
-    expect(screen.getByTestId('banner-success')).toBeTruthy();
+    expect(screen.getByTestId('banner-success')).toBeInTheDocument();
   });
 
   it('should display banner on error response', () => {
@@ -270,6 +270,6 @@ describe('PointsTab', () => {
 
     render(<PointsTab {...defaultProps} />);
 
-    expect(screen.getByTestId('banner-critical')).toBeTruthy();
+    expect(screen.getByTestId('banner-critical')).toBeInTheDocument();
   });
 });
