@@ -1,0 +1,22 @@
+# Safe first-bootstrap settings. This example contains no account identifiers,
+# certificate ARNs, hostnames, or secret material.
+environment                     = "dev"
+bootstrap_mode                  = true
+nat_gateway_count               = 1
+create_github_oidc_provider     = true
+github_oidc_provider_arn        = null
+certificate_arn                 = null
+public_hostname                = null
+alarm_action_arns               = []
+migration_query_timeout_ms      = 540000
+
+schedules = {
+  flush-outbox = {
+    schedule_expression          = "rate(1 minute)"
+    schedule_expression_timezone = "UTC"
+    payload                      = "{\"type\":\"command\",\"schemaVersion\":1,\"command\":\"flush_outbox\"}"
+    # Keep schedules off until the first image, migration, and secret bootstrap
+    # have completed; otherwise commands accumulate while worker capacity is zero.
+    enabled = false
+  }
+}

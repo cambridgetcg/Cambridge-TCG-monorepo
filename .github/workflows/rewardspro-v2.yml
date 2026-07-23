@@ -1,0 +1,1246 @@
+name: RewardsPro v2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/rewardspro-api/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".npmrc"
+      - ".github/workflows/rewardspro-v2.yml"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate API, migrations, and image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: rewardspro
+          POSTGRES_PASSWORD: ${{ github.run_id }}
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rewardspro"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:${{ github.run_id }}@127.0.0.1:5432/rewardspro
+      LOG_LEVEL: silent
+      NODE_ENV: test
+      OPERATOR_TOKEN: ci-operator-${{ github.run_id }}
+      PORT: "3000"
+      SHOPIFY_API_SECRET: ci-shopify-${{ github.run_id }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # pnpm/action-setup reads the exact version from packageManager.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: pnpm
+          node-version: "24"
+
+      - name: Install frozen workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @cambridge-tcg/rewardspro-api typecheck
+
+      - name: Build
+        run: pnpm --filter @cambridge-tcg/rewardspro-api build
+
+      - name: Run production migration entrypoint
+        run: |
+          pnpm --filter @cambridge-tcg/rewardspro-api db:migrate
+          pnpm --filter @cambridge-tcg/rewardspro-api db:migrate
+
+      - name: Test
+        run: pnpm --filter @cambridge-tcg/rewardspro-api test
+
+      - name: Probe built API
+        run: |
+          set -Eeuo pipefail
+
+          api_log="${RUNNER_TEMP}/rewardspro-v2-api.log"
+          node apps/rewardspro-api/dist/main.js >"${api_log}" 2>&1 &
+          api_pid=$!
+
+          cleanup() {
+            kill "${api_pid}" >/dev/null 2>&1 || true
+            wait "${api_pid}" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error \
+              --connect-timeout 1 \
+              --max-time 2 \
+              "http://127.0.0.1:${PORT}/health/live" >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "${api_pid}" >/dev/null 2>&1; then
+              echo "::error::The built API exited before becoming live."
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "${ready}" -ne 1 ]; then
+            echo "::error::The built API did not become live in time."
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            --connect-timeout 2 \
+            --max-time 5 \
+            "http://127.0.0.1:${PORT}/health/live" >/dev/null
+          curl --fail --silent --show-error \
+            --connect-timeout 2 \
+            --max-time 5 \
+            --header "Authorization: Bearer ${OPERATOR_TOKEN}" \
+            "http://127.0.0.1:${PORT}/health/ready" >/dev/null
+
+      - name: Build container image
+        run: >-
+          docker build
+          --file apps/rewardspro-api/Dockerfile
+          --platform linux/amd64
+          --tag "rewardspro-v2-ci:${GITHUB_SHA}"
+          .
+
+  deploy:
+    name: Deploy to AWS
+    needs:
+      - validate
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.REWARDSPRO_V2_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: rewardspro-v2-production
+    concurrency:
+      group: rewardspro-v2-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Validate deployment configuration
+        env:
+          REWARDSPRO_V2_API_SERVICE: ${{ vars.REWARDSPRO_V2_API_SERVICE }}
+          REWARDSPRO_V2_API_TASK_FAMILY: ${{ vars.REWARDSPRO_V2_API_TASK_FAMILY }}
+          REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY: ${{ vars.REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY }}
+          REWARDSPRO_V2_AWS_REGION: ${{ vars.REWARDSPRO_V2_AWS_REGION }}
+          REWARDSPRO_V2_AWS_ROLE_ARN: ${{ vars.REWARDSPRO_V2_AWS_ROLE_ARN }}
+          REWARDSPRO_V2_ECR_REPOSITORY: ${{ vars.REWARDSPRO_V2_ECR_REPOSITORY }}
+          REWARDSPRO_V2_ECS_CLUSTER: ${{ vars.REWARDSPRO_V2_ECS_CLUSTER }}
+          REWARDSPRO_V2_MIGRATION_TASK_FAMILY: ${{ vars.REWARDSPRO_V2_MIGRATION_TASK_FAMILY }}
+          REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY: ${{ vars.REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY }}
+          REWARDSPRO_V2_OPERATOR_TOKEN: ${{ secrets.REWARDSPRO_V2_OPERATOR_TOKEN }}
+          REWARDSPRO_V2_PUBLIC_BASE_URL: ${{ vars.REWARDSPRO_V2_PUBLIC_BASE_URL }}
+          REWARDSPRO_V2_WORKER_SERVICE: ${{ vars.REWARDSPRO_V2_WORKER_SERVICE }}
+          REWARDSPRO_V2_WORKER_TASK_FAMILY: ${{ vars.REWARDSPRO_V2_WORKER_TASK_FAMILY }}
+          REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY: ${{ vars.REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY }}
+        run: |
+          set -Eeuo pipefail
+
+          required=(
+            REWARDSPRO_V2_API_SERVICE
+            REWARDSPRO_V2_API_TASK_FAMILY
+            REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY
+            REWARDSPRO_V2_AWS_REGION
+            REWARDSPRO_V2_AWS_ROLE_ARN
+            REWARDSPRO_V2_ECR_REPOSITORY
+            REWARDSPRO_V2_ECS_CLUSTER
+            REWARDSPRO_V2_MIGRATION_TASK_FAMILY
+            REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY
+            REWARDSPRO_V2_OPERATOR_TOKEN
+            REWARDSPRO_V2_PUBLIC_BASE_URL
+            REWARDSPRO_V2_WORKER_SERVICE
+            REWARDSPRO_V2_WORKER_TASK_FAMILY
+            REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY
+          )
+
+          missing=0
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub deployment setting ${name}."
+              missing=1
+            fi
+          done
+          if [[ ! "${REWARDSPRO_V2_PUBLIC_BASE_URL:-}" =~ ^https://[^/?#]+/?$ ]]; then
+            echo "::error::REWARDSPRO_V2_PUBLIC_BASE_URL must be an HTTPS origin without a path, query, or fragment."
+            missing=1
+          fi
+
+          task_families=(
+            "${REWARDSPRO_V2_API_TASK_FAMILY:-}"
+            "${REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY:-}"
+            "${REWARDSPRO_V2_MIGRATION_TASK_FAMILY:-}"
+            "${REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY:-}"
+            "${REWARDSPRO_V2_WORKER_TASK_FAMILY:-}"
+            "${REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY:-}"
+          )
+          for family in "${task_families[@]}"; do
+            if [[ ! "${family}" =~ ^[A-Za-z0-9_-]{1,255}$ ]]; then
+              echo "::error::ECS task family settings must be bare family names without a revision or ARN."
+              missing=1
+            fi
+          done
+          unique_family_count="$(
+            printf '%s\n' "${task_families[@]}" |
+              sort -u |
+              wc -l |
+              tr -d '[:space:]'
+          )"
+          if [ "${unique_family_count}" != "6" ]; then
+            echo "::error::Terraform template and CI release task families must all be distinct."
+            missing=1
+          fi
+          exit "${missing}"
+
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
+        with:
+          aws-region: ${{ vars.REWARDSPRO_V2_AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: rewardspro-v2-${{ github.run_id }}
+          role-to-assume: ${{ vars.REWARDSPRO_V2_AWS_ROLE_ARN }}
+
+      - name: Push image, migrate, deploy, and verify
+        env:
+          REWARDSPRO_V2_API_SERVICE: ${{ vars.REWARDSPRO_V2_API_SERVICE }}
+          REWARDSPRO_V2_API_TASK_FAMILY: ${{ vars.REWARDSPRO_V2_API_TASK_FAMILY }}
+          REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY: ${{ vars.REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY }}
+          REWARDSPRO_V2_AWS_REGION: ${{ vars.REWARDSPRO_V2_AWS_REGION }}
+          REWARDSPRO_V2_ECR_REPOSITORY: ${{ vars.REWARDSPRO_V2_ECR_REPOSITORY }}
+          REWARDSPRO_V2_ECS_CLUSTER: ${{ vars.REWARDSPRO_V2_ECS_CLUSTER }}
+          REWARDSPRO_V2_MIGRATION_TASK_FAMILY: ${{ vars.REWARDSPRO_V2_MIGRATION_TASK_FAMILY }}
+          REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY: ${{ vars.REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY }}
+          REWARDSPRO_V2_OPERATOR_TOKEN: ${{ secrets.REWARDSPRO_V2_OPERATOR_TOKEN }}
+          REWARDSPRO_V2_PUBLIC_BASE_URL: ${{ vars.REWARDSPRO_V2_PUBLIC_BASE_URL }}
+          REWARDSPRO_V2_WORKER_SERVICE: ${{ vars.REWARDSPRO_V2_WORKER_SERVICE }}
+          REWARDSPRO_V2_WORKER_TASK_FAMILY: ${{ vars.REWARDSPRO_V2_WORKER_TASK_FAMILY }}
+          REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY: ${{ vars.REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY }}
+        run: |
+          set -Eeuo pipefail
+          export AWS_PAGER=""
+
+          work_dir="$(mktemp -d)"
+
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          aws_error="${work_dir}/aws-error"
+          repository_json="${work_dir}/repository.json"
+          if ! aws ecr describe-repositories \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --repository-names "${REWARDSPRO_V2_ECR_REPOSITORY}" \
+            --output json >"${repository_json}" 2>"${aws_error}"; then
+            fail "Unable to read the configured ECR repository."
+          fi
+
+          repository_uri="$(jq -r '.repositories[0].repositoryUri // empty' "${repository_json}")"
+          tag_mutability="$(jq -r '.repositories[0].imageTagMutability // empty' "${repository_json}")"
+          [ -n "${repository_uri}" ] || fail "The ECR repository response was incomplete."
+          [ "${tag_mutability}" = "IMMUTABLE" ] || fail "The ECR repository must enforce immutable tags."
+
+          image_tag="${repository_uri}:${GITHUB_SHA}"
+          image_json="${work_dir}/image.json"
+
+          # Build every run. If an immutable SHA tag already exists (for example,
+          # after a rerun), reuse its digest instead of attempting an overwrite.
+          if ! docker build \
+            --file apps/rewardspro-api/Dockerfile \
+            --platform linux/amd64 \
+            --tag "${image_tag}" \
+            . >"${work_dir}/docker-build.log" 2>&1; then
+            fail "The production image build failed."
+          fi
+
+          if ! aws ecr describe-images \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --repository-name "${REWARDSPRO_V2_ECR_REPOSITORY}" \
+            --image-ids "imageTag=${GITHUB_SHA}" \
+            --output json >"${image_json}" 2>"${aws_error}"; then
+            registry="${repository_uri%%/*}"
+            if ! aws ecr get-login-password \
+              --region "${REWARDSPRO_V2_AWS_REGION}" 2>"${aws_error}" |
+              docker login \
+                --username AWS \
+                --password-stdin \
+                "${registry}" >"${work_dir}/docker-login.log" 2>&1; then
+              fail "Unable to authenticate to ECR."
+            fi
+
+            if ! docker push "${image_tag}" >"${work_dir}/docker-push.log" 2>&1; then
+              fail "Unable to push the immutable SHA image to ECR."
+            fi
+
+            if ! aws ecr describe-images \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --repository-name "${REWARDSPRO_V2_ECR_REPOSITORY}" \
+              --image-ids "imageTag=${GITHUB_SHA}" \
+              --output json >"${image_json}" 2>"${aws_error}"; then
+              fail "Unable to resolve the pushed image digest."
+            fi
+          fi
+
+          image_digest="$(jq -r '.imageDetails[0].imageDigest // empty' "${image_json}")"
+          if ! [[ "${image_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            fail "ECR did not return a valid image digest."
+          fi
+          image_uri="${repository_uri}@${image_digest}"
+
+          services_json="${work_dir}/services.json"
+          if ! aws ecs describe-services \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --services \
+              "${REWARDSPRO_V2_API_SERVICE}" \
+              "${REWARDSPRO_V2_WORKER_SERVICE}" \
+            --output json >"${services_json}" 2>"${aws_error}"; then
+            fail "Unable to read the current ECS services."
+          fi
+
+          if ! jq -e \
+            --arg api "${REWARDSPRO_V2_API_SERVICE}" \
+            --arg worker "${REWARDSPRO_V2_WORKER_SERVICE}" '
+              (.failures | length) == 0
+              and ([.services[] | select(.serviceName == $api)] | length) == 1
+              and ([.services[] | select(.serviceName == $worker)] | length) == 1
+              and all(
+                .services[];
+                .launchType == "FARGATE"
+                and .deploymentController.type == "ECS"
+              )
+            ' "${services_json}" >/dev/null 2>&1; then
+            fail "The configured ECS services did not match the deployment contract."
+          fi
+
+          old_api_task="$(jq -r \
+            --arg service "${REWARDSPRO_V2_API_SERVICE}" \
+            '.services[] | select(.serviceName == $service) | .taskDefinition // empty' \
+            "${services_json}")"
+          old_worker_task="$(jq -r \
+            --arg service "${REWARDSPRO_V2_WORKER_SERVICE}" \
+            '.services[] | select(.serviceName == $service) | .taskDefinition // empty' \
+            "${services_json}")"
+          api_desired="$(jq -r \
+            --arg service "${REWARDSPRO_V2_API_SERVICE}" \
+            '.services[] | select(.serviceName == $service) | .desiredCount' \
+            "${services_json}")"
+          worker_desired="$(jq -r \
+            --arg service "${REWARDSPRO_V2_WORKER_SERVICE}" \
+            '.services[] | select(.serviceName == $service) | .desiredCount' \
+            "${services_json}")"
+          platform_version="$(jq -r \
+            --arg service "${REWARDSPRO_V2_API_SERVICE}" \
+            '.services[] | select(.serviceName == $service) | .platformVersion // "LATEST"' \
+            "${services_json}")"
+
+          [ -n "${old_api_task}" ] || fail "The API service has no task definition."
+          [ -n "${old_worker_task}" ] || fail "The worker service has no task definition."
+          [[ "${api_desired}" =~ ^[0-9]+$ ]] || fail "The API desired count is invalid."
+          [[ "${worker_desired}" =~ ^[0-9]+$ ]] || fail "The worker desired count is invalid."
+
+          # Never migrate underneath a partial bootstrap, an in-progress
+          # external deployment, or an already unhealthy service baseline.
+          if ! jq -e \
+            --arg api "${REWARDSPRO_V2_API_SERVICE}" \
+            --arg worker "${REWARDSPRO_V2_WORKER_SERVICE}" '
+              def zero_capacity($service):
+                $service.desiredCount == 0
+                and $service.runningCount == 0
+                and $service.pendingCount == 0;
+              def stable_capacity($service):
+                $service.desiredCount > 0
+                and $service.runningCount == $service.desiredCount
+                and $service.pendingCount == 0
+                and (
+                  [
+                    $service.deployments[]
+                    | select(
+                        .status == "PRIMARY"
+                        and .taskDefinition == $service.taskDefinition
+                        and .rolloutState == "COMPLETED"
+                      )
+                  ] | length
+                ) == 1;
+              ([.services[] | select(.serviceName == $api)][0]) as $api_service
+              | ([.services[] | select(.serviceName == $worker)][0]) as $worker_service
+              | (
+                  (
+                    zero_capacity($api_service)
+                    and zero_capacity($worker_service)
+                  )
+                  or (
+                    stable_capacity($api_service)
+                    and stable_capacity($worker_service)
+                  )
+                )
+            ' "${services_json}" >/dev/null 2>&1; then
+            fail "ECS services were not both stable or both at true zero-capacity bootstrap."
+          fi
+
+          network_json="${work_dir}/network.json"
+          if ! jq -e \
+            --arg service "${REWARDSPRO_V2_API_SERVICE}" '
+              .services[]
+              | select(.serviceName == $service)
+              | .networkConfiguration
+              | select(
+                  (.awsvpcConfiguration.subnets | length) > 0
+                  and (.awsvpcConfiguration.securityGroups | length) > 0
+                  and (
+                    .awsvpcConfiguration.assignPublicIp == "ENABLED"
+                    or .awsvpcConfiguration.assignPublicIp == "DISABLED"
+                  )
+                )
+            ' "${services_json}" >"${network_json}" 2>/dev/null; then
+            fail "The API service has no complete awsvpc network configuration."
+          fi
+
+          register_with_image() {
+            local label="$1"
+            local source_template_family="$2"
+            local release_family="$3"
+            local container_name="$4"
+            local result_name="$5"
+            local described="${work_dir}/${label}-described.json"
+            local existing_described="${work_dir}/${label}-existing-described.json"
+            local existing_normalized="${work_dir}/${label}-existing-normalized.json"
+            local register_input="${work_dir}/${label}-register.json"
+            local register_normalized="${work_dir}/${label}-register-normalized.json"
+            local registered
+            local source_template_arn
+
+            if ! aws ecs describe-task-definition \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --task-definition "${source_template_family}" \
+              --include TAGS \
+              --output json >"${described}" 2>"${aws_error}"; then
+              fail "Unable to read the latest ${label} Terraform template task definition."
+            fi
+
+            if ! jq \
+              --arg source_family "${source_template_family}" \
+              --arg release_family "${release_family}" \
+              --arg container "${container_name}" \
+              --arg image "${image_uri}" \
+              --arg source_commit "${GITHUB_SHA}" '
+                def upsert_tag($key; $value):
+                  map(select(.key != $key)) + [{ key: $key, value: $value }];
+                .taskDefinition.taskDefinitionArn as $source_template_arn
+                | if $source_family == $release_family then
+                  error("template and release families must differ")
+                elif .taskDefinition.family != $source_family then
+                  error("AWS returned an unexpected template family")
+                elif (
+                  [.tags[]? | select(.key == "ManagedBy" and .value == "Terraform")]
+                  | length
+                ) != 1 then
+                  error("template must be tagged ManagedBy=Terraform")
+                elif (
+                  [.tags[]? | select(.key == "TaskDefinitionRole" and .value == "Template")]
+                  | length
+                ) != 1 then
+                  error("template must be tagged TaskDefinitionRole=Template")
+                elif .taskDefinition.networkMode != "awsvpc" then
+                  error("task must use awsvpc")
+                elif (.taskDefinition.requiresCompatibilities // [] | index("FARGATE")) == null then
+                  error("task must require FARGATE")
+                elif .taskDefinition.runtimePlatform.cpuArchitecture != "X86_64" then
+                  error("task must use X86_64")
+                elif .taskDefinition.runtimePlatform.operatingSystemFamily != "LINUX" then
+                  error("task must use LINUX")
+                elif ([.taskDefinition.containerDefinitions[] | select(.name == $container)] | length) != 1 then
+                  error("target container must occur exactly once")
+                else
+                  (
+                    .taskDefinition
+                    | del(
+                        .compatibilities,
+                        .deregisteredAt,
+                        .registeredAt,
+                        .registeredBy,
+                        .requiresAttributes,
+                        .revision,
+                        .status,
+                        .taskDefinitionArn
+                      )
+                    | .family = $release_family
+                    | .containerDefinitions |= map(
+                        if .name == $container then .image = $image else . end
+                      )
+                  ) + {
+                    tags: (
+                      (.tags // [])
+                      | upsert_tag("ManagedBy"; "GitHubActions")
+                      | upsert_tag("TaskDefinitionRole"; "Release")
+                      | upsert_tag(
+                          "SourceTemplateArn";
+                          $source_template_arn
+                        )
+                      | upsert_tag("SourceCommit"; $source_commit)
+                    )
+                  }
+                end
+              ' "${described}" >"${register_input}" 2>/dev/null; then
+              fail "The latest ${label} Terraform template did not match its safe release contract."
+            fi
+
+            source_template_arn="$(
+              jq -r '.taskDefinition.taskDefinitionArn // empty' "${described}"
+            )"
+            [ -n "${source_template_arn}" ] ||
+              fail "The ${label} Terraform template response had no ARN."
+
+            # A GitHub rerun must reuse the exact release revision. Besides
+            # reducing revision churn, this keeps RunTask request parameters
+            # identical for ECS client-token reconciliation.
+            jq -S '
+              .tags |= sort_by([.key, .value])
+            ' "${register_input}" >"${register_normalized}"
+            if aws ecs describe-task-definition \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --task-definition "${release_family}" \
+              --include TAGS \
+              --output json >"${existing_described}" 2>/dev/null &&
+              jq -S '
+                (
+                  .taskDefinition
+                  | del(
+                      .compatibilities,
+                      .deregisteredAt,
+                      .registeredAt,
+                      .registeredBy,
+                      .requiresAttributes,
+                      .revision,
+                      .status,
+                      .taskDefinitionArn
+                    )
+                ) + { tags: ((.tags // []) | sort_by([.key, .value])) }
+              ' "${existing_described}" >"${existing_normalized}" 2>/dev/null &&
+              cmp -s "${register_normalized}" "${existing_normalized}"; then
+              registered="$(
+                jq -r '.taskDefinition.taskDefinitionArn // empty' \
+                  "${existing_described}"
+              )"
+              [ -n "${registered}" ] ||
+                fail "The reusable ${label} release revision had no ARN."
+              printf -v "${result_name}" '%s' "${registered}"
+              return 0
+            fi
+
+            if ! registered="$(aws ecs register-task-definition \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cli-input-json "file://${register_input}" \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text 2>"${aws_error}")"; then
+              fail "Unable to register the ${label} task definition."
+            fi
+            [ -n "${registered}" ] && [ "${registered}" != "None" ] ||
+              fail "AWS did not return the registered ${label} task definition."
+            printf -v "${result_name}" '%s' "${registered}"
+          }
+
+          # The migration task has its own role and RDS-admin secret. Runtime
+          # API/worker identities never receive migration credentials.
+          register_with_image \
+            "migration" \
+            "${REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY}" \
+            "${REWARDSPRO_V2_MIGRATION_TASK_FAMILY}" \
+            "migration" \
+            new_migration_task
+
+          overrides_json="${work_dir}/migration-overrides.json"
+          jq -n '{
+            containerOverrides: [
+              {
+                name: "migration",
+                command: ["node", "dist/migrate.js"]
+              }
+            ]
+          }' >"${overrides_json}"
+
+          migration_run_json="${work_dir}/migration-run.json"
+          migration_client_token="rp2-migration-${GITHUB_RUN_ID}"
+          migration_started_by="github-${GITHUB_RUN_ID}-migration"
+
+          run_migration_task() {
+            aws ecs run-task \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --task-definition "${new_migration_task}" \
+              --launch-type FARGATE \
+              --platform-version "${platform_version}" \
+              --network-configuration "file://${network_json}" \
+              --overrides "file://${overrides_json}" \
+              --client-token "${migration_client_token}" \
+              --started-by "${migration_started_by}" \
+              --count 1 \
+              --output json >"${migration_run_json}" 2>"${aws_error}"
+          }
+
+          migration_response_received=0
+          for _ in 1 2 3; do
+            if run_migration_task; then
+              migration_response_received=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "${migration_response_received}" -ne 1 ]; then
+            # A transport failure can occur after ECS accepted RunTask. The
+            # client token makes retries non-duplicating. If AWS still cannot
+            # return the original response, stop every still-running task
+            # carrying this run's unique startedBy marker before failing.
+            ambiguous_tasks_json="${work_dir}/ambiguous-migration-tasks.json"
+            if aws ecs list-tasks \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --started-by "${migration_started_by}" \
+              --output json >"${ambiguous_tasks_json}" 2>/dev/null; then
+              while IFS= read -r ambiguous_task; do
+                [ -n "${ambiguous_task}" ] || continue
+                aws ecs stop-task \
+                  --region "${REWARDSPRO_V2_AWS_REGION}" \
+                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                  --task "${ambiguous_task}" \
+                  --reason "GitHub could not reconcile migration RunTask" \
+                  >/dev/null 2>&1 || true
+                aws ecs wait tasks-stopped \
+                  --region "${REWARDSPRO_V2_AWS_REGION}" \
+                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                  --tasks "${ambiguous_task}" >/dev/null 2>&1 || true
+              done < <(jq -r '.taskArns[]?' "${ambiguous_tasks_json}")
+            fi
+            fail "Unable to reconcile the idempotent migration request; no service was changed and operator review is required."
+          fi
+
+          if ! jq -e '
+            (.failures | length) == 0
+            and (.tasks | length) == 1
+            and (.tasks[0].taskArn | type) == "string"
+            and (.tasks[0].taskArn | length) > 0
+          ' "${migration_run_json}" >/dev/null 2>&1; then
+            fail "ECS did not start exactly one migration task; services were not changed."
+          fi
+          migration_task="$(jq -r '.tasks[0].taskArn' "${migration_run_json}")"
+
+          # Idempotent RunTask retries may return a deliberately sparse task
+          # object. Resolve the authoritative task state before trusting its
+          # task definition or startedBy identity. ECS is eventually
+          # consistent, so a fresh ARN can transiently describe as MISSING.
+          migration_identity_json="${work_dir}/migration-identity.json"
+          migration_identity_verified=0
+          identity_delay=1
+          for _ in 1 2 3 4 5 6; do
+            if aws ecs describe-tasks \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --tasks "${migration_task}" \
+              --output json >"${migration_identity_json}" 2>"${aws_error}" &&
+              jq -e \
+                --arg task "${migration_task}" \
+                --arg task_definition "${new_migration_task}" \
+                --arg started_by "${migration_started_by}" '
+                  (.failures | length) == 0
+                  and (.tasks | length) == 1
+                  and .tasks[0].taskArn == $task
+                  and .tasks[0].taskDefinitionArn == $task_definition
+                  and .tasks[0].startedBy == $started_by
+                ' "${migration_identity_json}" >/dev/null 2>&1; then
+              migration_identity_verified=1
+              break
+            fi
+            sleep "${identity_delay}"
+            if [ "${identity_delay}" -lt 8 ]; then
+              identity_delay=$((identity_delay * 2))
+            fi
+          done
+          if [ "${migration_identity_verified}" -ne 1 ]; then
+            fail "The migration task identity did not match this deployment; services were not changed."
+          fi
+
+          if ! aws ecs wait tasks-stopped \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --tasks "${migration_task}" 2>"${aws_error}"; then
+            # The ECS waiter timing out must not leave unbounded DDL running
+            # after CI has already failed. Stop only the exact task this run
+            # created, then make a best-effort final wait/describe for audit
+            # state without exposing identifiers in the log.
+            aws ecs stop-task \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --task "${migration_task}" \
+              --reason "GitHub migration waiter timed out" >/dev/null 2>&1 || true
+            aws ecs wait tasks-stopped \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --tasks "${migration_task}" >/dev/null 2>&1 || true
+            aws ecs describe-tasks \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --tasks "${migration_task}" \
+              --output json >"${work_dir}/migration-timeout-result.json" 2>/dev/null || true
+            fail "The migration task exceeded its wait window and a stop was requested; services were not changed."
+          fi
+
+          migration_result_json="${work_dir}/migration-result.json"
+          if ! aws ecs describe-tasks \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --tasks "${migration_task}" \
+            --output json >"${migration_result_json}" 2>"${aws_error}"; then
+            fail "Unable to verify the migration task; services were not changed."
+          fi
+
+          migration_exit="$(jq -r '
+            [
+              .tasks[0].containers[]
+              | select(.name == "migration")
+              | .exitCode
+            ][0] // empty
+          ' "${migration_result_json}")"
+          if [ "${migration_exit}" != "0" ]; then
+            fail "The migration task failed; services were not changed. Inspect its CloudWatch log."
+          fi
+
+          register_with_image \
+            "API" \
+            "${REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY}" \
+            "${REWARDSPRO_V2_API_TASK_FAMILY}" \
+            "api" \
+            new_api_task
+          register_with_image \
+            "worker" \
+            "${REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY}" \
+            "${REWARDSPRO_V2_WORKER_TASK_FAMILY}" \
+            "worker" \
+            new_worker_task
+
+          # Terraform bootstrap mode intentionally holds both services at zero.
+          # Point the zero-capacity services at the staged digest so Terraform
+          # activation (which ignores task_definition) cannot start the base
+          # :bootstrap image. Never raise capacity from CI.
+          if [ "${api_desired}" -eq 0 ] && [ "${worker_desired}" -eq 0 ]; then
+            bootstrap_api_changed=0
+            bootstrap_worker_changed=0
+
+            # Invoked indirectly by the EXIT trap below.
+            # shellcheck disable=SC2329
+            rollback_bootstrap_pointers() {
+              local original_status=$?
+              local rollback_services_json="${work_dir}/bootstrap-rollback-services.json"
+              trap - EXIT
+              set +e
+
+              if [ "${bootstrap_worker_changed}" -eq 1 ]; then
+                aws ecs update-service \
+                  --region "${REWARDSPRO_V2_AWS_REGION}" \
+                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                  --service "${REWARDSPRO_V2_WORKER_SERVICE}" \
+                  --task-definition "${old_worker_task}" >/dev/null 2>&1
+              fi
+              if [ "${bootstrap_api_changed}" -eq 1 ]; then
+                aws ecs update-service \
+                  --region "${REWARDSPRO_V2_AWS_REGION}" \
+                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                  --service "${REWARDSPRO_V2_API_SERVICE}" \
+                  --task-definition "${old_api_task}" >/dev/null 2>&1
+              fi
+
+              aws ecs wait services-stable \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --services \
+                  "${REWARDSPRO_V2_API_SERVICE}" \
+                  "${REWARDSPRO_V2_WORKER_SERVICE}" >/dev/null 2>&1
+              aws ecs describe-services \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --services \
+                  "${REWARDSPRO_V2_API_SERVICE}" \
+                  "${REWARDSPRO_V2_WORKER_SERVICE}" \
+                --output json >"${rollback_services_json}" 2>/dev/null
+
+              if jq -e \
+                --arg api "${REWARDSPRO_V2_API_SERVICE}" \
+                --arg api_task "${old_api_task}" \
+                --arg worker "${REWARDSPRO_V2_WORKER_SERVICE}" \
+                --arg worker_task "${old_worker_task}" '
+                  (.failures | length) == 0
+                  and any(
+                    .services[];
+                    .serviceName == $api
+                    and .taskDefinition == $api_task
+                    and .desiredCount == 0
+                    and .runningCount == 0
+                    and .pendingCount == 0
+                  )
+                  and any(
+                    .services[];
+                    .serviceName == $worker
+                    and .taskDefinition == $worker_task
+                    and .desiredCount == 0
+                    and .runningCount == 0
+                    and .pendingCount == 0
+                  )
+                ' "${rollback_services_json}" >/dev/null 2>&1; then
+                echo "::warning::Bootstrap staging failed; prior zero-capacity service pointers were restored and verified."
+              else
+                echo "::error::Bootstrap staging failed and automatic pointer restoration was not verified; operator action is required."
+              fi
+              exit "${original_status}"
+            }
+            trap rollback_bootstrap_pointers EXIT
+
+            # Mark the request as potentially accepted before invoking AWS so
+            # an accepted request followed by a lost response is rolled back.
+            bootstrap_api_changed=1
+            if ! aws ecs update-service \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --service "${REWARDSPRO_V2_API_SERVICE}" \
+              --task-definition "${new_api_task}" >/dev/null 2>"${aws_error}"; then
+              fail "Unable to stage the API service task-definition pointer."
+            fi
+
+            bootstrap_worker_changed=1
+            if ! aws ecs update-service \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --service "${REWARDSPRO_V2_WORKER_SERVICE}" \
+              --task-definition "${new_worker_task}" >/dev/null 2>"${aws_error}"; then
+              fail "Unable to stage the worker service task-definition pointer."
+            fi
+
+            bootstrap_services_json="${work_dir}/bootstrap-services.json"
+            if ! aws ecs describe-services \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --services \
+                "${REWARDSPRO_V2_API_SERVICE}" \
+                "${REWARDSPRO_V2_WORKER_SERVICE}" \
+              --output json >"${bootstrap_services_json}" 2>"${aws_error}"; then
+              fail "Unable to verify the staged zero-capacity service pointers."
+            fi
+
+            if ! jq -e \
+              --arg api "${REWARDSPRO_V2_API_SERVICE}" \
+              --arg api_task "${new_api_task}" \
+              --arg worker "${REWARDSPRO_V2_WORKER_SERVICE}" \
+              --arg worker_task "${new_worker_task}" '
+                (.failures | length) == 0
+                and any(
+                  .services[];
+                  .serviceName == $api
+                  and .taskDefinition == $api_task
+                  and .desiredCount == 0
+                  and .runningCount == 0
+                  and .pendingCount == 0
+                )
+                and any(
+                  .services[];
+                  .serviceName == $worker
+                  and .taskDefinition == $worker_task
+                  and .desiredCount == 0
+                  and .runningCount == 0
+                  and .pendingCount == 0
+                )
+              ' "${bootstrap_services_json}" >/dev/null 2>&1; then
+              fail "Bootstrap task pointers or zero-capacity invariants did not hold."
+            fi
+
+            bootstrap_api_changed=0
+            bootstrap_worker_changed=0
+            trap - EXIT
+            {
+              echo "### RewardsPro v2 bootstrap staged"
+              echo
+              echo "- The immutable image for commit \`${GITHUB_SHA}\` is in ECR."
+              echo "- The migration completed successfully."
+              echo "- API and worker task revisions were registered and their zero-capacity service pointers were updated."
+              echo "- Desired, running, and pending capacity remain zero; no health probe ran."
+              echo "- Populate the application database secret, leave deployment disabled, and complete the reviewed Terraform activation before another deploy."
+            } >>"${GITHUB_STEP_SUMMARY}"
+            echo "::notice::Bootstrap staging completed; service pointers are digest-pinned and capacity remains zero pending reviewed activation."
+            exit 0
+          fi
+
+          api_changed=0
+          worker_changed=0
+
+          rollback() {
+            local original_status=$?
+            local rollback_services_json="${work_dir}/rollback-services.json"
+            trap - EXIT
+            set +e
+
+            if [ "${worker_changed}" -eq 1 ]; then
+              aws ecs update-service \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --service "${REWARDSPRO_V2_WORKER_SERVICE}" \
+                --task-definition "${old_worker_task}" \
+                --force-new-deployment >/dev/null 2>&1
+            fi
+            if [ "${api_changed}" -eq 1 ]; then
+              aws ecs update-service \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --service "${REWARDSPRO_V2_API_SERVICE}" \
+                --task-definition "${old_api_task}" \
+                --force-new-deployment >/dev/null 2>&1
+            fi
+
+            if [ "${api_changed}" -eq 1 ] || [ "${worker_changed}" -eq 1 ]; then
+              aws ecs wait services-stable \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --services \
+                  "${REWARDSPRO_V2_API_SERVICE}" \
+                  "${REWARDSPRO_V2_WORKER_SERVICE}" >/dev/null 2>&1
+              aws ecs describe-services \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --services \
+                  "${REWARDSPRO_V2_API_SERVICE}" \
+                  "${REWARDSPRO_V2_WORKER_SERVICE}" \
+                --output json >"${rollback_services_json}" 2>/dev/null
+
+              if jq -e \
+                --arg api "${REWARDSPRO_V2_API_SERVICE}" \
+                --arg api_task "${old_api_task}" \
+                --arg worker "${REWARDSPRO_V2_WORKER_SERVICE}" \
+                --arg worker_task "${old_worker_task}" '
+                  def restored($name; $task):
+                    .serviceName == $name
+                    and .taskDefinition == $task
+                    and .desiredCount > 0
+                    and .runningCount == .desiredCount
+                    and .pendingCount == 0
+                    and (
+                      [
+                        .deployments[]
+                        | select(
+                            .status == "PRIMARY"
+                            and .taskDefinition == $task
+                            and .rolloutState == "COMPLETED"
+                          )
+                      ] | length
+                    ) == 1;
+                  (.failures | length) == 0
+                  and any(.services[]; restored($api; $api_task))
+                  and any(.services[]; restored($worker; $worker_task))
+                ' "${rollback_services_json}" >/dev/null 2>&1; then
+                echo "::warning::Deployment failed; previous service revisions were restored and verified."
+              else
+                echo "::error::Deployment failed and automatic rollback was not verified at the previous service revisions; operator action is required."
+              fi
+            fi
+            exit "${original_status}"
+          }
+          trap rollback EXIT
+
+          # Set each flag before the API call. AWS may accept an update even
+          # when the client loses the response.
+          api_changed=1
+          if ! aws ecs update-service \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --service "${REWARDSPRO_V2_API_SERVICE}" \
+            --task-definition "${new_api_task}" \
+            --force-new-deployment >/dev/null 2>"${aws_error}"; then
+            fail "Unable to update the API service."
+          fi
+
+          worker_changed=1
+          if ! aws ecs update-service \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --service "${REWARDSPRO_V2_WORKER_SERVICE}" \
+            --task-definition "${new_worker_task}" \
+            --force-new-deployment >/dev/null 2>"${aws_error}"; then
+            fail "Unable to update the worker service."
+          fi
+
+          if ! aws ecs wait services-stable \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --services \
+              "${REWARDSPRO_V2_API_SERVICE}" \
+              "${REWARDSPRO_V2_WORKER_SERVICE}" >/dev/null 2>"${aws_error}"; then
+            fail "The ECS services did not become stable."
+          fi
+
+          deployed_services_json="${work_dir}/deployed-services.json"
+          if ! aws ecs describe-services \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --services \
+              "${REWARDSPRO_V2_API_SERVICE}" \
+              "${REWARDSPRO_V2_WORKER_SERVICE}" \
+            --output json >"${deployed_services_json}" 2>"${aws_error}"; then
+            fail "Unable to verify the stable service revisions."
+          fi
+
+          # services-stable can also succeed after ECS circuit-breaker rollback.
+          # Require identity, completed rollout, and running capacity for the
+          # exact revisions registered by this workflow before probing health.
+          if ! jq -e \
+            --arg api "${REWARDSPRO_V2_API_SERVICE}" \
+            --arg api_task "${new_api_task}" \
+            --arg worker "${REWARDSPRO_V2_WORKER_SERVICE}" \
+            --arg worker_task "${new_worker_task}" '
+              def deployed($name; $task):
+                .serviceName == $name
+                and .taskDefinition == $task
+                and .desiredCount > 0
+                and .runningCount == .desiredCount
+                and .pendingCount == 0
+                and (
+                  [
+                    .deployments[]
+                    | select(
+                        .status == "PRIMARY"
+                        and .taskDefinition == $task
+                        and .rolloutState == "COMPLETED"
+                      )
+                  ] | length
+                ) == 1;
+              (.failures | length) == 0
+              and any(.services[]; deployed($api; $api_task))
+              and any(.services[]; deployed($worker; $worker_task))
+          ' "${deployed_services_json}" >/dev/null 2>&1; then
+            fail "ECS did not retain the newly registered revisions at completed running capacity."
+          fi
+
+          # A stable ECS process is not sufficient proof for a queue worker.
+          # Run the candidate image's bounded probe under the worker task role.
+          # It creates an expiring DB row, publishes a typed SQS probe, and
+          # exits zero only after a running worker deletes the message and
+          # persists its acknowledgement. Failure is inside the rollback trap.
+          worker_probe_overrides_json="${work_dir}/worker-probe-overrides.json"
+          jq -n '{
+            containerOverrides: [
+              {
+                name: "worker",
+                command: ["node", "dist/worker-probe.js"]
+              }
+            ]
+          }' >"${worker_probe_overrides_json}"
+
+          worker_probe_run_json="${work_dir}/worker-probe-run.json"
+          worker_probe_client_token="rp2-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          worker_probe_started_by="github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-probe"
+
+          run_worker_probe_task() {
+            aws ecs run-task \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --task-definition "${new_worker_task}" \
+              --launch-type FARGATE \
+              --platform-version "${platform_version}" \
+              --network-configuration "file://${network_json}" \
+              --overrides "file://${worker_probe_overrides_json}" \
+              --client-token "${worker_probe_client_token}" \
+              --started-by "${worker_probe_started_by}" \
+              --count 1 \
+              --output json >"${worker_probe_run_json}" 2>"${aws_error}"
+          }
+
+          worker_probe_response_received=0
+          for _ in 1 2 3; do
+            if run_worker_probe_task; then
+              worker_probe_response_received=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "${worker_probe_response_received}" -ne 1 ]; then
+            ambiguous_tasks_json="${work_dir}/ambiguous-worker-probe-tasks.json"
+            if aws ecs list-tasks \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --started-by "${worker_probe_started_by}" \
+              --output json >"${ambiguous_tasks_json}" 2>/dev/null; then
+              while IFS= read -r ambiguous_task; do
+                [ -n "${ambiguous_task}" ] || continue
+                aws ecs stop-task \
+                  --region "${REWARDSPRO_V2_AWS_REGION}" \
+                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                  --task "${ambiguous_task}" \
+                  --reason "GitHub could not reconcile worker probe RunTask" \
+                  >/dev/null 2>&1 || true
+                aws ecs wait tasks-stopped \
+                  --region "${REWARDSPRO_V2_AWS_REGION}" \
+                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                  --tasks "${ambiguous_task}" >/dev/null 2>&1 || true
+              done < <(jq -r '.taskArns[]?' "${ambiguous_tasks_json}")
+            fi
+            fail "Unable to reconcile the worker end-to-end probe request."
+          fi
+
+          if ! jq -e '
+              (.failures | length) == 0
+              and (.tasks | length) == 1
+              and (.tasks[0].taskArn | type) == "string"
+              and (.tasks[0].taskArn | length) > 0
+            ' "${worker_probe_run_json}" >/dev/null 2>&1; then
+            fail "ECS did not start exactly one worker end-to-end probe task."
+          fi
+          worker_probe_task="$(jq -r '.tasks[0].taskArn' "${worker_probe_run_json}")"
+
+          worker_probe_identity_json="${work_dir}/worker-probe-identity.json"
+          worker_probe_identity_verified=0
+          identity_delay=1
+          for _ in 1 2 3 4 5 6; do
+            if aws ecs describe-tasks \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --tasks "${worker_probe_task}" \
+              --output json >"${worker_probe_identity_json}" 2>"${aws_error}" &&
+              jq -e \
+                --arg task "${worker_probe_task}" \
+                --arg task_definition "${new_worker_task}" \
+                --arg started_by "${worker_probe_started_by}" '
+                  (.failures | length) == 0
+                  and (.tasks | length) == 1
+                  and .tasks[0].taskArn == $task
+                  and .tasks[0].taskDefinitionArn == $task_definition
+                  and .tasks[0].startedBy == $started_by
+                ' "${worker_probe_identity_json}" >/dev/null 2>&1; then
+              worker_probe_identity_verified=1
+              break
+            fi
+            sleep "${identity_delay}"
+            if [ "${identity_delay}" -lt 8 ]; then
+              identity_delay=$((identity_delay * 2))
+            fi
+          done
+          if [ "${worker_probe_identity_verified}" -ne 1 ]; then
+            fail "The worker end-to-end probe identity did not match this deployment."
+          fi
+
+          if ! aws ecs wait tasks-stopped \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --tasks "${worker_probe_task}" 2>"${aws_error}"; then
+            aws ecs stop-task \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --task "${worker_probe_task}" \
+              --reason "GitHub worker probe waiter timed out" >/dev/null 2>&1 || true
+            aws ecs wait tasks-stopped \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --tasks "${worker_probe_task}" >/dev/null 2>&1 || true
+            fail "The worker end-to-end probe exceeded its wait window."
+          fi
+
+          worker_probe_result_json="${work_dir}/worker-probe-result.json"
+          if ! aws ecs describe-tasks \
+            --region "${REWARDSPRO_V2_AWS_REGION}" \
+            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+            --tasks "${worker_probe_task}" \
+            --output json >"${worker_probe_result_json}" 2>"${aws_error}"; then
+            fail "Unable to verify the worker end-to-end probe task."
+          fi
+
+          worker_probe_exit="$(jq -r '
+            [
+              .tasks[0].containers[]
+              | select(.name == "worker")
+              | .exitCode
+            ][0] // empty
+          ' "${worker_probe_result_json}")"
+          if [ "${worker_probe_exit}" != "0" ]; then
+            fail "The worker end-to-end queue/database probe failed. Inspect its restricted CloudWatch log."
+          fi
+
+          base_url="${REWARDSPRO_V2_PUBLIC_BASE_URL%/}"
+          case "${base_url}" in
+            https://*) ;;
+            *) fail "The production public base URL must use HTTPS." ;;
+          esac
+
+          probe_liveness() {
+            local status_code
+            for _ in $(seq 1 12); do
+              if status_code="$(curl --silent --show-error \
+                  --output /dev/null \
+                  --write-out '%{http_code}' \
+                  --connect-timeout 5 \
+                  --max-time 10 \
+                  "${base_url}/health/live" 2>/dev/null)" &&
+                [ "${status_code}" = "200" ]; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+
+          probe_readiness() {
+            local status_code
+            for _ in $(seq 1 12); do
+              if status_code="$(curl --silent --show-error \
+                  --output /dev/null \
+                  --write-out '%{http_code}' \
+                  --connect-timeout 5 \
+                  --max-time 10 \
+                  --header "Authorization: Bearer ${REWARDSPRO_V2_OPERATOR_TOKEN}" \
+                  "${base_url}/health/ready" 2>/dev/null)" &&
+                [ "${status_code}" = "200" ]; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+
+          if ! probe_liveness; then
+            fail "The public liveness probe failed."
+          fi
+
+          if ! probe_readiness; then
+            fail "The authenticated readiness probe failed."
+          fi
+
+          api_changed=0
+          worker_changed=0
+          trap - EXIT
+          echo "RewardsPro v2 services are stable and deployment probes passed."
