@@ -3,7 +3,7 @@ import { useNavigate, useActionData, useSubmit, useLoaderData } from "@remix-run
 import { useState, useCallback } from "react";
 import { SortableBlockList } from "~/components/EmailEditor";
 import type { ContentBlock, TemplateStyles } from "~/components/EmailEditor/types";
-import { BrandKitPanel, type BrandKit as ImportedBrandKit } from "~/components/BrandKit";
+import { BrandKitPanel } from "~/components/BrandKit";
 import { useAutosave, formatRelativeTime } from "~/hooks/useAutosave";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { TextFieldWithVariables } from "~/components/TextFieldWithVariables";
@@ -26,7 +26,6 @@ import {
   Badge,
   Tooltip,
   Collapsible,
-  Link,
 } from "@shopify/polaris";
 import {
   TextIcon,
@@ -36,15 +35,11 @@ import {
   ProductIcon,
   LinkIcon,
   HashtagIcon,
-  ViewIcon,
   MobileIcon,
   DesktopIcon,
   UndoIcon,
   RedoIcon,
-  DeleteIcon,
   PlusIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
   MinusIcon,
   EmailIcon,
   CheckIcon,
@@ -52,8 +47,6 @@ import {
   ClockIcon,
   ChatIcon,
   LayoutColumns2Icon,
-  StarIcon,
-  MagicIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
@@ -497,19 +490,6 @@ export default function CreateEmailTemplate() {
     saveToHistory(newBlocks);
   }, [blocks, saveToHistory]);
 
-  const moveBlock = useCallback((blockId: string, direction: "up" | "down") => {
-    const index = blocks.findIndex((b) => b.id === blockId);
-    if (index === -1) return;
-    if (direction === "up" && index === 0) return;
-    if (direction === "down" && index === blocks.length - 1) return;
-
-    const newBlocks = [...blocks];
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    [newBlocks[index], newBlocks[swapIndex]] = [newBlocks[swapIndex], newBlocks[index]];
-    setBlocks(newBlocks);
-    saveToHistory(newBlocks);
-  }, [blocks, saveToHistory]);
-
   const reorderBlocks = useCallback((newBlocks: ContentBlock[]) => {
     setBlocks(newBlocks);
     saveToHistory(newBlocks);
@@ -696,7 +676,7 @@ ${contentHtml}
                     Pick a template to get started quickly, or start from scratch
                   </Text>
                 </BlockStack>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: "16px" }}>
                   {STARTER_TEMPLATES.map((template) => {
                     const templateType = TEMPLATE_TYPES.find(t => t.value === template.type);
                     return (
@@ -753,7 +733,7 @@ ${contentHtml}
             <Card>
               <BlockStack gap="400">
                 <Text as="h2" variant="headingMd">Template Types Explained</Text>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "12px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))", gap: "12px" }}>
                   {TEMPLATE_TYPES.map((templateType) => (
                     <Box key={templateType.value} padding="300" background="bg-surface-secondary" borderRadius="150">
                       <BlockStack gap="100">
@@ -855,8 +835,8 @@ ${contentHtml}
           <Card>
             <BlockStack gap="400">
               <Text as="h2" variant="headingMd">Email Details</Text>
-              <InlineStack gap="400" wrap={false}>
-                <div style={{ flex: 1 }}>
+              <InlineStack gap="400" wrap>
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                   <TextField
                     label="Template Name"
                     value={name}
@@ -868,7 +848,7 @@ ${contentHtml}
                     helpText="Internal name to help you identify this template"
                   />
                 </div>
-                <div style={{ width: 200 }}>
+                <div style={{ flex: "1 1 200px" }}>
                   <Select
                     label="Template Type"
                     options={TEMPLATE_TYPES.map(t => ({ label: t.label, value: t.value }))}
@@ -933,7 +913,7 @@ ${contentHtml}
               </InlineStack>
               <Collapsible open={showVariablesHelp} id="variables-help">
                 <Box paddingBlockStart="200">
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))", gap: "8px" }}>
                     {PERSONALIZATION_VARIABLES.map((v) => (
                       <Box key={v.variable} padding="200" background="bg-surface-secondary" borderRadius="100">
                         <BlockStack gap="050">
@@ -952,7 +932,7 @@ ${contentHtml}
 
         {/* Editor - Simplified 2-column on smaller screens */}
         <Layout.Section>
-          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 260px", gap: "16px", minHeight: "450px" }}>
+          <div className="rp-editor-grid">
             {/* Left Sidebar - Blocks */}
             <Card>
               <BlockStack gap="300">
@@ -1237,7 +1217,7 @@ function getDefaultContent(blockType: string): Record<string, any> {
   }
 }
 
-function BlockPreview({ block, styles }: { block: ContentBlock; styles: TemplateStyles }) {
+function _BlockPreview({ block, styles }: { block: ContentBlock; styles: TemplateStyles }) {
   switch (block.type) {
     case "text":
       return (

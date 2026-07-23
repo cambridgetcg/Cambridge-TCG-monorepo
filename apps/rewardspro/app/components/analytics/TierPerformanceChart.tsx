@@ -9,8 +9,7 @@
 
 import { useMemo, memo, useState } from 'react';
 import { Bar } from 'react-chartjs-2';
-import { Card, Box, BlockStack, InlineStack, Text, Icon, Divider, Tabs } from '@shopify/polaris';
-import { TierBadge } from '../TierBadge';
+import { Card, Box, BlockStack, InlineStack, Text, Divider, Tabs } from '@shopify/polaris';
 import type { ChartOptions, ChartData } from 'chart.js';
 
 // ═══════════════════════════════════════════════════════════════════════════

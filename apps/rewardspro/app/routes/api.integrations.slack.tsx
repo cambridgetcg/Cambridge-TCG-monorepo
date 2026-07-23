@@ -11,12 +11,11 @@
  * Authentication: Slack request signature verification
  */
 
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { createLogger } from "~/services/logger.server";
-import { getIntegration } from "~/services/integrations/integration-manager.server";
 import {
   buildCustomerLookupResponse,
   buildPointsAwardedResponse,
@@ -121,7 +120,7 @@ async function findShopByTeamId(teamId: string): Promise<string | null> {
 // LOADER - GET requests
 // ═══════════════════════════════════════════════════════════════════════════
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader() {
   // Health check / info endpoint
   return json({
     provider: "SLACK",
@@ -205,13 +204,11 @@ async function handleCommand(payload: Record<string, unknown>) {
     command,
     text,
     user_name,
-    response_url,
   } = payload as {
     team_id: string;
     command: string;
     text: string;
     user_name: string;
-    response_url: string;
   };
 
   logger.info("Slack command received", {
@@ -466,14 +463,7 @@ async function handleStatsCommand(shop: string, args: string[]) {
   }
 
   // Fetch statistics
-  const [pointsStats, newMembers, tierUpgrades] = await Promise.all([
-    prisma.pointsLedger.aggregate({
-      where: {
-        shop,
-        createdAt: { gte: startDate },
-      },
-      _sum: { amount: true },
-    }),
+  const [newMembers, tierUpgrades] = await Promise.all([
     prisma.customer.count({
       where: {
         shop,
@@ -522,11 +512,10 @@ async function handleStatsCommand(shop: string, args: string[]) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function handleInteraction(payload: Record<string, unknown>) {
-  const { type, user, actions, response_url } = payload as {
+  const { type, user, actions } = payload as {
     type: string;
     user: { id: string; username: string; team_id: string };
     actions?: Array<{ action_id: string; value?: string }>;
-    response_url?: string;
   };
 
   logger.info("Slack interaction received", {

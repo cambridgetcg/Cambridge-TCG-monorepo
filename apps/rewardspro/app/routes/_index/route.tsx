@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { Form, useLoaderData, Link } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import { useState } from "react";
 import { login } from "../../shopify.server";
 
@@ -129,7 +129,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-purple-600">RewardsPro</h1>
+              <span className="text-2xl font-bold text-purple-600">RewardsPro</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-600 hover:text-purple-600 transition-colors">Features</a>
@@ -147,6 +147,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      <main id="main-content">
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 bg-gradient-to-br from-purple-50 to-white">
         <div className="max-w-7xl mx-auto text-center">
@@ -513,6 +514,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12 px-4">

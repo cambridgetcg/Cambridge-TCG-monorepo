@@ -10,9 +10,7 @@ import {
   Badge,
   Button,
   Tabs,
-  DataTable,
   EmptyState,
-  Select,
   InlineGrid,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";

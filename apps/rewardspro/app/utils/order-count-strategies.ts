@@ -3,6 +3,7 @@
  * Multiple approaches to work around AWS Data API date filtering issues
  */
 
+import * as crypto from 'node:crypto';
 import { db } from "../db.server";
 import { getAuroraClient } from "./aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
@@ -452,6 +453,3 @@ export async function incrementMonthlyOrderCount(
     // Don't throw - this is non-critical tracking that shouldn't fail webhooks
   }
 }
-
-// Helper for crypto
-import * as crypto from 'node:crypto';

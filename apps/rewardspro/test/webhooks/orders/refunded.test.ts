@@ -699,23 +699,7 @@ describe('Orders Refunded Webhook - Cashback Clawback', () => {
       toString: () => value.toString(),
     });
 
-    vi.mocked(db.$transaction).mockImplementation(async (callback: any) => {
-      const mockTx = {
-        order: {
-          findFirst: vi.fn().mockResolvedValue(mockOrder),
-        },
-        customer: {
-          findUnique: vi.fn().mockResolvedValue(mockCustomer),
-        },
-        tierPurchase: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          update: vi.fn(),
-        },
-        tierSubscription: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          update: vi.fn(),
-        },
-      };
+    vi.mocked(db.$transaction).mockImplementation(async (_callback: any) => {
       // Return the result object that the handler expects
       return {
         orderRecord: mockOrder,

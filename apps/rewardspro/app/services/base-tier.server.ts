@@ -9,7 +9,7 @@
  */
 
 import prisma from "~/db.server";
-import type { Tier, ShopSettings } from "@prisma/client";
+import type { Tier } from "@prisma/client";
 
 // ============================================
 // TYPES

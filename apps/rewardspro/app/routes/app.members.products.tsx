@@ -23,7 +23,6 @@ import {
   Divider,
   SkeletonBodyText,
   Toast,
-  Frame,
   Spinner,
 } from "@shopify/polaris";
 import {
@@ -2095,7 +2094,7 @@ export default function TierProducts() {
   }, []);
   
   return (
-    <Frame>
+    <>
       <Page
         title="Tier Products"
         subtitle="Create and manage purchasable membership products for your loyalty tiers"
@@ -2656,7 +2655,7 @@ export default function TierProducts() {
                 {/* Symmetric Product Cards Grid */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))',
                   gap: 'var(--p-space-400)',
                 }}>
                   {data.tierProducts.map((product) => {
@@ -3036,7 +3035,8 @@ export default function TierProducts() {
                               />
                               <div style={{ width: '120px' }}>
                                 <TextField
-                                  label=""
+                                  label="Monthly billing discount"
+                                  labelHidden
                                   type="number"
                                   value={subscriptionOptions.monthlyDiscount}
                                   onChange={(value) => setSubscriptionOptions({...subscriptionOptions, monthlyDiscount: value})}
@@ -3055,7 +3055,8 @@ export default function TierProducts() {
                               />
                               <div style={{ width: '120px' }}>
                                 <TextField
-                                  label=""
+                                  label="Annual billing discount"
+                                  labelHidden
                                   type="number"
                                   value={subscriptionOptions.annualDiscount}
                                   onChange={(value) => setSubscriptionOptions({...subscriptionOptions, annualDiscount: value})}
@@ -3284,6 +3285,6 @@ export default function TierProducts() {
           />
         )}
       </Page>
-    </Frame>
+    </>
   );
 }

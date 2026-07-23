@@ -17,15 +17,12 @@ interface PlanUsageProgressProps {
 export function PlanUsageProgress({
   usageMetrics,
   currentMonth,
-  showProjected = true,
   compact = false
 }: PlanUsageProgressProps) {
   const {
     currentUsage,
     planLimit,
-    projectedUsage,
     usagePercentage,
-    projectedPercentage,
     progressTone
   } = usageMetrics;
 

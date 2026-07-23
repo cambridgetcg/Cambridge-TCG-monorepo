@@ -54,7 +54,7 @@ import {
 // Helper to create mock admin context
 function createMockAdminContext(mockResponses: Record<string, any> = {}) {
   return {
-    graphql: vi.fn().mockImplementation(async (query: string, options?: any) => {
+    graphql: vi.fn().mockImplementation(async (query: string, _options?: any) => {
       // Return different responses based on query content
       if (query.includes('ordersCount')) {
         return {
@@ -683,7 +683,7 @@ describe('Order Sync Job Service', () => {
       }));
       (db.customer.findMany as Mock).mockResolvedValue([]);
 
-      const result = await resumeOrderSyncJob('job-123', mockAdmin);
+      await resumeOrderSyncJob('job-123', mockAdmin);
 
       // Verify the job was reset to IN_PROGRESS
       expect(db.orderSyncJob.update).toHaveBeenCalledWith({
@@ -723,7 +723,7 @@ describe('Order Sync Job Service', () => {
       }));
       (db.customer.findMany as Mock).mockResolvedValue([]);
 
-      const result = await resumeOrderSyncJob('job-123', mockAdmin);
+      await resumeOrderSyncJob('job-123', mockAdmin);
 
       expect(db.orderSyncJob.update).toHaveBeenCalledWith({
         where: { id: 'job-123' },

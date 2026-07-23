@@ -4,7 +4,6 @@ import {
   InlineStack,
   Text,
   View,
-  Button,
   Modal,
   Progress,
   Badge,

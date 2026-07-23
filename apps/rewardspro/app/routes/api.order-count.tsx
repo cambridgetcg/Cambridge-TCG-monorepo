@@ -91,14 +91,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Fetch plan limit from database based on shop's subscription
     let planLimit = DEFAULT_PLAN_LIMIT;
-    let currentPlan = 'free';
     try {
       const subscription = await prisma.billingSubscription.findUnique({
         where: { shop },
         select: { planName: true, status: true }
       });
       if (subscription?.status === 'ACTIVE' && subscription.planName) {
-        currentPlan = subscription.planName;
         planLimit = PLAN_ORDER_LIMITS[subscription.planName] ?? DEFAULT_PLAN_LIMIT;
       }
     } catch (error) {

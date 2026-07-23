@@ -33,7 +33,6 @@ import {
   type FeatureKey,
   type LimitKey,
 } from "~/services/entitlements.server";
-import { getRequiredPlan } from "~/utils/plan-limits";
 
 // Re-export types for convenience
 export type { FeatureKey, LimitKey };

@@ -60,7 +60,7 @@ interface OrderWebhook {
 // ============================================================================
 
 export async function action({ request }: ActionFunctionArgs) {
-  const { topic, shop, session, admin, payload } = await authenticate.webhook(request);
+  const { topic, shop, admin, payload } = await authenticate.webhook(request);
   
   if (!admin) {
     console.error('[OrdersCreateWebhook] No admin API access');

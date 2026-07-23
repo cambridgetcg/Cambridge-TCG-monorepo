@@ -16,11 +16,6 @@ const CONFIG = {
   ]
 };
 
-// Helper functions
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
 function randomFloat(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }
@@ -80,19 +75,6 @@ async function ensureTiersExist() {
   }
 
   return createdTiers;
-}
-
-function determineTierForSpending(totalSpent: number, tiers: any[]) {
-  // Sort tiers by minSpend descending
-  const sortedTiers = [...tiers].sort((a, b) => b.minSpend - a.minSpend);
-
-  for (const tier of sortedTiers) {
-    if (totalSpent >= tier.minSpend) {
-      return tier;
-    }
-  }
-
-  return sortedTiers[sortedTiers.length - 1]; // Return lowest tier if nothing matches
 }
 
 async function createCustomers(tiers: any[]) {

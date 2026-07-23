@@ -10,8 +10,7 @@ import {
 } from "@shopify/polaris";
 import {
   getPlanDetails,
-  calculateUsageMetrics,
-  type ManagedPlan
+  calculateUsageMetrics
 } from "~/constants/billing.constants";
 import { PlanOverLimitBanner } from "./PlanOverLimitBanner";
 import { PlanUsageProgress } from "./PlanUsageProgress";

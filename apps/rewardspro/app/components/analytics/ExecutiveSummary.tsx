@@ -47,7 +47,6 @@ export function ExecutiveSummary({
   summary,
   healthScore = 0,
   isLoading = false,
-  onRefresh,
 }: ExecutiveSummaryProps) {
   if (isLoading) {
     return (

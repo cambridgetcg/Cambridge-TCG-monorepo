@@ -17,7 +17,15 @@ vi.mock('@remix-run/react', () => ({
 vi.mock('@shopify/polaris', () => ({
   BlockStack: ({ children }: { children: React.ReactNode }) => <div data-testid="block-stack">{children}</div>,
   Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
-  Button: ({ children, onClick, disabled, icon, variant, tone, size }: any) => {
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    icon: _icon,
+    variant: _variant,
+    tone: _tone,
+    size: _size,
+  }: any) => {
     // Flatten children to a clean string for test ID
     const text = Array.isArray(children)
       ? children.filter(Boolean).join('').trim()
@@ -30,12 +38,24 @@ vi.mock('@shopify/polaris', () => ({
     );
   },
   InlineStack: ({ children }: { children: React.ReactNode }) => <div data-testid="inline-stack">{children}</div>,
-  Text: ({ children, tone, variant, fontWeight, alignment }: any) => (
+  Text: ({
+    children,
+    tone,
+    variant,
+    fontWeight: _fontWeight,
+    alignment: _alignment,
+  }: any) => (
     <span data-testid={`text-${variant || 'default'}`} data-tone={tone}>{children}</span>
   ),
   Box: ({ children }: { children: React.ReactNode }) => <div data-testid="box">{children}</div>,
   Modal: Object.assign(
-    ({ open, children, onClose, title, size }: any) => (
+    ({
+      open,
+      children,
+      onClose: _onClose,
+      title,
+      size: _size,
+    }: any) => (
       open ? <div data-testid="modal" data-title={title}>{children}</div> : null
     ),
     {
@@ -48,7 +68,16 @@ vi.mock('@shopify/polaris', () => ({
       <button data-testid="banner-dismiss" onClick={onDismiss}>Dismiss</button>
     </div>
   ),
-  TextField: ({ label, value, onChange, placeholder, prefix, clearButton, onClearButtonClick, ...rest }: any) => (
+  TextField: ({
+    label,
+    value,
+    onChange,
+    placeholder,
+    prefix: _prefix,
+    clearButton: _clearButton,
+    onClearButtonClick: _onClearButtonClick,
+    ..._rest
+  }: any) => (
     <input
       data-testid={`textfield-${label}`}
       value={value || ''}
@@ -57,7 +86,7 @@ vi.mock('@shopify/polaris', () => ({
       aria-label={label}
     />
   ),
-  Icon: ({ source }: any) => <span data-testid="icon" />,
+  Icon: ({ source: _source }: any) => <span data-testid="icon" />,
   Spinner: () => <div data-testid="spinner" />,
   Badge: ({ children, tone }: any) => <span data-testid={`badge-${tone || 'default'}`}>{children}</span>,
   Divider: () => <hr data-testid="divider" />,
@@ -221,7 +250,7 @@ describe('PointsTab', () => {
   });
 
   it('should show filtered-empty message for no search results', async () => {
-    const { container } = render(<PointsTab {...defaultProps} />);
+    render(<PointsTab {...defaultProps} />);
 
     // The search box is rendered
     const searchInput = screen.getByTestId('textfield-Search transactions');

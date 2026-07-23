@@ -44,10 +44,16 @@ function buildRawQuery(
  * Base model proxy that provides Prisma-like methods using Data API
  */
 export class DataAPIModelProxy<T = any> {
+  private tableName: string;
+  private client: AuroraDataAPI;
+
   constructor(
-    private tableName: string,
-    private client: AuroraDataAPI
-  ) {}
+    tableName: string,
+    client: AuroraDataAPI
+  ) {
+    this.tableName = tableName;
+    this.client = client;
+  }
 
   /**
    * Find many records with error handling

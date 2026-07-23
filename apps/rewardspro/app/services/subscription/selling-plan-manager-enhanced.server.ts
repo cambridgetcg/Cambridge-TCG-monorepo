@@ -4,7 +4,6 @@
  * Handles creation and management of Shopify selling plans for tier subscriptions
  */
 
-import { GraphqlQueryError } from "@shopify/shopify-api";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import { SUBSCRIPTION_CONFIG, type BillingInterval } from "./config.server";
@@ -91,7 +90,7 @@ export class SellingPlanManager {
 
       // Create selling plans for each interval
       const sellingPlansToCreate = Object.entries(SUBSCRIPTION_CONFIG.BILLING_INTERVALS).map(
-        ([key, interval]) => ({
+        ([, interval]) => ({
           name: `${interval.label} Membership`,
           options: [`Tier membership billed ${interval.label.toLowerCase()}`],
           position: interval.days, // Sort by duration
@@ -264,7 +263,6 @@ export class SellingPlanManager {
    * Update existing selling plan group with new products
    */
   private static async updateSellingPlanGroup({
-    shop,
     admin,
     existingGroup,
     productVariantMap,
@@ -418,11 +416,9 @@ export class SellingPlanManager {
    * NEW: From tier-products version
    */
   static async updateSellingPlanPricing({
-    shop,
     admin,
     sellingPlanId,
     newPrice,
-    reason = 'Manual price update',
   }: UpdatePricingInput): Promise<{ success: boolean; message: string }> {
     this.log(`Updating selling plan pricing: ${sellingPlanId}`);
 

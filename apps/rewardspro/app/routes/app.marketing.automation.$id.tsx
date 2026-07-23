@@ -15,7 +15,6 @@ import {
   Divider,
   Box,
   Icon,
-  Tooltip,
   ProgressBar,
   Modal,
 } from "@shopify/polaris";
@@ -26,7 +25,6 @@ import {
   PlayIcon,
   PauseCircleIcon,
   EmailIcon,
-  CheckCircleIcon,
   AlertCircleIcon,
   ViewIcon,
 } from "@shopify/polaris-icons";
@@ -321,7 +319,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 // ============================================
 
 export default function AutomationDetail() {
-  const { automation, templates, selectedTemplate } = useLoaderData<typeof loader>();
+  const { automation, templates } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>() as any;
   const navigate = useNavigate();
   const submit = useSubmit();

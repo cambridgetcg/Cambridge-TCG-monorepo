@@ -1,0 +1,3581 @@
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import {
+  useLoaderData,
+  useFetcher,
+  useNavigation,
+  useSearchParams,
+  useNavigate,
+  type ShouldRevalidateFunction,
+} from "@remix-run/react";
+import {
+  Page,
+  Layout,
+  Card,
+  FormLayout,
+  TextField,
+  Select,
+  RadioButton,
+  Button,
+  Banner,
+  BlockStack,
+  InlineStack,
+  InlineGrid,
+  Text,
+  Divider,
+  Box,
+  Badge,
+  Modal,
+  Checkbox,
+  Tabs,
+  Toast,
+} from "@shopify/polaris";
+import { RefreshIcon } from "~/utils/polaris-icons";
+import { SubscriptionCard, UsageUpgradePrompt } from "~/components/Billing/UpgradePrompt";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useToast } from "~/hooks/useToast";
+import { authenticate } from "../shopify.server";
+import prisma from "../db.server";
+import { invalidateShopSettings } from "../services/shop-data-provider.server";
+import { getCreditSyncStats } from "../services/credit-sync-job.server";
+import { getCustomerSyncStats } from "../services/customer-sync-job.server";
+import { getOrderSyncStats } from "../services/order-sync-job.server";
+import { createOrderSyncService } from "../services/order-sync.service";
+import { MANAGED_PLANS } from "~/constants/billing.constants";
+import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
+import { formatCurrency } from "~/utils/currency";
+import { v4 as uuidv4 } from "uuid";
+import { ColorPickerFieldInline } from "~/components/ColorPickerField";
+import { DEMO_VALUES } from "~/utils/angel-numbers";
+import { SyncActionCard } from "~/components/SyncActionCard";
+import {
+  SETTINGS_SECTIONS,
+  isSettingsSectionOnlyNavigation,
+  parseSettingsSearch,
+  settingsPath,
+} from "~/navigation/routes";
+export { ErrorBoundary } from "../components/ErrorBoundary";
+
+// ============= TYPES =============
+type Currency =
+  | "USD" | "EUR" | "GBP" | "CAD" | "AUD" | "JPY" | "CHF" | "CNY"
+  | "SEK" | "NZD" | "NOK" | "MXN" | "SGD" | "HKD" | "KRW" | "TRY"
+  | "INR" | "RUB" | "BRL" | "ZAR" | "AED" | "PLN" | "DKK" | "THB"
+  | "IDR" | "HUF" | "CZK" | "ILS" | "CLP" | "PHP" | "RON" | "MYR";
+
+type CurrencyDisplayType = "SYMBOL" | "CODE";
+
+type RecalculationFrequency = "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+
+type WidgetThemeMode = "LIGHT" | "DARK" | "CUSTOM";
+
+type ShopSettings = {
+  id: string;
+  shop: string;
+  storeName: string;
+  storeUrl: string;
+  storeCurrency: Currency;
+  currencyDisplayType: CurrencyDisplayType;
+  timezone: string;
+  tierRecalculationFrequency: RecalculationFrequency;
+  tierRecalculationEnabled: boolean;
+  tierRecalculationLastRun: string | null;
+  // Base Tier Settings
+  autoAssignBaseTier: boolean;
+  defaultBaseTierId: string | null;
+  // Tier Trial Abuse Prevention Settings
+  maxLifetimeTrialDays: number;
+  minDaysBetweenTrials: number;
+  allowMultipleTierTrials: boolean;
+  // Widget Theme Settings
+  widgetThemeMode: WidgetThemeMode;
+  widgetPrimaryColor: string | null;
+  widgetBackgroundColor: string | null;
+  widgetTextColor: string | null;
+  widgetAccentColor: string | null;
+  widgetSecondaryTextColor: string | null;
+  widgetBorderRadius: number | null;
+  widgetFontFamily: string | null;
+  // Store Business Metrics
+  averageProfitMargin: number | null;
+  averageCogsPercent: number | null;
+  averageShippingCost: number | null;
+  averageOrderValue: number | null;
+  targetRoiPercent: number | null;
+  metricsLastUpdated: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type OrderStats = {
+  orderCount: number;
+  customerCount: number;
+  totalCashback: number;
+  lastSync: string | null;
+  oldestOrder: string | null;
+  newestOrder: string | null;
+  discrepancies: number;
+};
+
+type BillingPlan = {
+  id: string;
+  shop: string;
+  planName: string;
+  status: string;
+  monthlyPrice: number;
+  usageCap: number | null;
+  currentPeriodEnd: string | null;
+  cap80AlertSent: boolean;
+  cap90AlertSent: boolean;
+  lastCapAlert: string | null;
+  metadata: any;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TierOption = {
+  id: string;
+  name: string;
+  minSpend: number;
+};
+
+type CreditSyncStats = {
+  customersWithCredit: number;
+  totalCreditBalance: number;
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: string | null;
+    updatedCount: number;
+    totalImported: number;
+  } | null;
+};
+
+type CustomerSyncStats = {
+  totalCustomers: number;
+  customersWithTier: number;
+  customersInitialSynced: boolean;
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: string | null;
+    createdCount: number;
+    updatedCount: number;
+    processedCount: number;
+  } | null;
+};
+
+type OrderSyncStats = {
+  totalOrders: number;
+  ordersWithCashback: number;
+  totalCashbackAmount: number;
+  dateRange: {
+    oldest: string | null;
+    newest: string | null;
+  };
+  lastSyncJob: {
+    id: string;
+    status: string;
+    completedAt: string | null;
+    createdCount: number;
+    updatedCount: number;
+    processedCount: number;
+  } | null;
+};
+
+type SubscriptionInfo = {
+  id: string;
+  name: string;
+  status: string;
+  test: boolean;
+  trialDays: number;
+  createdAt: string;
+  currentPeriodEnd: string | null;
+  inTrialPeriod: boolean;
+  remainingTrialDays: number;
+  usagePercentage: number;
+  recurringCharge: {
+    interval: string | null;
+    amount: string | null;
+    currencyCode: string | null;
+  } | null;
+  usageCharge: {
+    balanceUsed: { amount: string; currencyCode: string } | null;
+    cappedAmount: { amount: string; currencyCode: string } | null;
+  } | null;
+};
+
+type LoaderData = {
+  settings: ShopSettings;
+  shop: string;
+  shopifyTimezone?: string;
+  orderStats?: OrderStats;
+  // Tiers for base tier selection
+  tiers: TierOption[];
+  // Sync stats
+  creditSyncStats: CreditSyncStats;
+  customerSyncStats: CustomerSyncStats;
+  orderSyncStats: OrderSyncStats;
+  // Billing data
+  currentPlan?: BillingPlan | null;
+  activeSubscription?: any;
+  subscriptionInfo?: SubscriptionInfo | null; // Live subscription data from GraphQL
+  monthlyOrderUsage?: {
+    orderCount: number;
+    planLimit: number;
+    planName: string;
+    projectedOrders: number;
+  } | null;
+  currentMonth?: string;
+  daysRemaining?: number;
+};
+
+// ============= CONSTANTS =============
+const CURRENCY_OPTIONS = [
+  { label: "🇺🇸 US Dollar (USD)", value: "USD", symbol: "$" },
+  { label: "🇪🇺 Euro (EUR)", value: "EUR", symbol: "€" },
+  { label: "🇬🇧 British Pound (GBP)", value: "GBP", symbol: "£" },
+  { label: "🇨🇦 Canadian Dollar (CAD)", value: "CAD", symbol: "C$" },
+  { label: "🇦🇺 Australian Dollar (AUD)", value: "AUD", symbol: "A$" },
+  { label: "🇯🇵 Japanese Yen (JPY)", value: "JPY", symbol: "¥" },
+  { label: "🇨🇭 Swiss Franc (CHF)", value: "CHF", symbol: "CHF" },
+  { label: "🇨🇳 Chinese Yuan (CNY)", value: "CNY", symbol: "¥" },
+  { label: "🇸🇪 Swedish Krona (SEK)", value: "SEK", symbol: "kr" },
+  { label: "🇳🇿 New Zealand Dollar (NZD)", value: "NZD", symbol: "NZ$" },
+  { label: "🇳🇴 Norwegian Krone (NOK)", value: "NOK", symbol: "kr" },
+  { label: "🇲🇽 Mexican Peso (MXN)", value: "MXN", symbol: "$" },
+  { label: "🇸🇬 Singapore Dollar (SGD)", value: "SGD", symbol: "S$" },
+  { label: "🇭🇰 Hong Kong Dollar (HKD)", value: "HKD", symbol: "HK$" },
+  { label: "🇰🇷 South Korean Won (KRW)", value: "KRW", symbol: "₩" },
+  { label: "🇹🇷 Turkish Lira (TRY)", value: "TRY", symbol: "₺" },
+  { label: "🇮🇳 Indian Rupee (INR)", value: "INR", symbol: "₹" },
+  { label: "🇷🇺 Russian Ruble (RUB)", value: "RUB", symbol: "₽" },
+  { label: "🇧🇷 Brazilian Real (BRL)", value: "BRL", symbol: "R$" },
+  { label: "🇿🇦 South African Rand (ZAR)", value: "ZAR", symbol: "R" },
+  { label: "🇦🇪 UAE Dirham (AED)", value: "AED", symbol: "د.إ" },
+  { label: "🇵🇱 Polish Zloty (PLN)", value: "PLN", symbol: "zł" },
+  { label: "🇩🇰 Danish Krone (DKK)", value: "DKK", symbol: "kr" },
+  { label: "🇹🇭 Thai Baht (THB)", value: "THB", symbol: "฿" },
+  { label: "🇮🇩 Indonesian Rupiah (IDR)", value: "IDR", symbol: "Rp" },
+  { label: "🇭🇺 Hungarian Forint (HUF)", value: "HUF", symbol: "Ft" },
+  { label: "🇨🇿 Czech Koruna (CZK)", value: "CZK", symbol: "Kč" },
+  { label: "🇮🇱 Israeli Shekel (ILS)", value: "ILS", symbol: "₪" },
+  { label: "🇨🇱 Chilean Peso (CLP)", value: "CLP", symbol: "$" },
+  { label: "🇵🇭 Philippine Peso (PHP)", value: "PHP", symbol: "₱" },
+  { label: "🇷🇴 Romanian Leu (RON)", value: "RON", symbol: "lei" },
+  { label: "🇲🇾 Malaysian Ringgit (MYR)", value: "MYR", symbol: "RM" },
+];
+
+// ============= HELPERS =============
+const getCurrencySymbol = (currency: Currency): string => {
+  const option = CURRENCY_OPTIONS.find(opt => opt.value === currency);
+  return option?.symbol || currency;
+};
+
+const formatCurrencyExample = (currency: Currency, displayType: CurrencyDisplayType): string => {
+  const symbol = getCurrencySymbol(currency);
+  const amount = "100.00";
+
+  if (displayType === "SYMBOL") {
+    return `${symbol}${amount}`;
+  } else {
+    return `${currency} ${amount}`;
+  }
+};
+
+// getCurrentTimeInTimezone function removed - timezone display simplified
+
+const validateUrl = (url: string): boolean => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Billing Helper Functions
+const calculateDaysRemaining = (): number => {
+  const now = new Date();
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const diffTime = Math.abs(endOfMonth.getTime() - now.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
+const getCurrentMonthName = (): string => {
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  return months[new Date().getMonth()];
+};
+
+const calculateProjectedOrders = (currentOrders: number, daysRemaining: number): number => {
+  const now = new Date();
+  const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysPassed = totalDaysInMonth - daysRemaining;
+
+  if (daysPassed === 0) return currentOrders;
+
+  const dailyRate = currentOrders / daysPassed;
+  return Math.ceil(dailyRate * totalDaysInMonth);
+};
+
+// ============= RATE LIMITING =============
+// Self-cleaning rate limiter to prevent memory leaks
+// Entries are cleaned up every 5 minutes or when they expire
+const rateLimitMap = new Map<string, { timestamps: number[], lastCleanup: number }>();
+const MAX_ENTRIES = 1000; // Maximum shops to track
+const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+const cleanupRateLimitMap = (now: number) => {
+  const windowMs = 60000;
+  let entriesRemoved = 0;
+
+  for (const [key, data] of rateLimitMap.entries()) {
+    // Remove entries with no recent timestamps
+    const validTimestamps = data.timestamps.filter(t => now - t < windowMs);
+    if (validTimestamps.length === 0) {
+      rateLimitMap.delete(key);
+      entriesRemoved++;
+    } else {
+      data.timestamps = validTimestamps;
+    }
+  }
+
+  return entriesRemoved;
+};
+
+const checkRateLimit = (shop: string) => {
+  const now = Date.now();
+  const windowMs = 60000; // 1 minute window
+  const maxRequests = 10; // 10 requests per minute for settings
+
+  const key = `settings:${shop}`;
+  const data = rateLimitMap.get(key) || { timestamps: [], lastCleanup: now };
+
+  // Periodic cleanup to prevent memory leak
+  if (now - data.lastCleanup > CLEANUP_INTERVAL || rateLimitMap.size > MAX_ENTRIES) {
+    cleanupRateLimitMap(now);
+    data.lastCleanup = now;
+  }
+
+  const recentTimestamps = data.timestamps.filter(t => now - t < windowMs);
+
+  if (recentTimestamps.length >= maxRequests) {
+    throw new Response("Too many requests. Please wait a moment.", { status: 429 });
+  }
+
+  recentTimestamps.push(now);
+  rateLimitMap.set(key, { timestamps: recentTimestamps, lastCleanup: data.lastCleanup });
+};
+
+// ============= LOADER =============
+export const loader = async ({ request }: LoaderFunctionArgs) => {
+  const requestUrl = new URL(request.url);
+  const parsedSettingsSearch = parseSettingsSearch(requestUrl.searchParams);
+
+  if (!parsedSettingsSearch.isCanonical) {
+    return redirect(
+      settingsPath(parsedSettingsSearch.section, requestUrl.searchParams),
+    );
+  }
+
+  try {
+    const { session, admin, billing } = await authenticate.admin(request);
+
+    if (!session?.shop) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+
+    const shop = session.shop;
+
+    // Fetch shop details from Shopify to get timezone and currency
+    let shopifyTimezone = "America/New_York"; // Default fallback
+    let shopifyCurrency = "USD"; // Default fallback
+    let shopName = shop.split('.')[0];
+
+    try {
+      const shopQuery = `#graphql
+        query getShopDetails {
+          shop {
+            name
+            currencyCode
+            ianaTimezone
+            url
+            billingAddress {
+              country
+            }
+          }
+        }
+      `;
+
+      const response = await admin.graphql(shopQuery);
+      const shopData = await response.json();
+
+      if (shopData.data?.shop) {
+        shopifyTimezone = shopData.data.shop.ianaTimezone || shopifyTimezone;
+        shopifyCurrency = shopData.data.shop.currencyCode || shopifyCurrency;
+        shopName = shopData.data.shop.name || shopName;
+      }
+    } catch (error) {
+      console.error("Failed to fetch shop details from Shopify:", error);
+      // Continue with defaults
+    }
+
+    // Try to fetch existing settings
+    let settings = await prisma.shopSettings.findUnique({
+      where: { shop },
+    });
+
+    // If no settings exist, create with Shopify defaults
+    if (!settings) {
+      const now = new Date();
+      settings = await prisma.shopSettings.create({
+        data: {
+          id: crypto.randomUUID(),
+          shop,
+          storeName: shopName,
+          storeUrl: `https://${shop}`,
+          storeCurrency: shopifyCurrency as Currency,
+          currencyDisplayType: "SYMBOL",
+          timezone: shopifyTimezone,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+    } else {
+      // Update timezone if it differs from Shopify
+      if (settings.timezone !== shopifyTimezone) {
+        settings = await prisma.shopSettings.update({
+          where: { id: settings.id },
+          data: {
+            timezone: shopifyTimezone,
+            updatedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    // Fetch tiers for base tier selection
+    const tiers = await prisma.tier.findMany({
+      where: { shop },
+      select: {
+        id: true,
+        name: true,
+        minSpend: true,
+      },
+      orderBy: { minSpend: 'asc' }
+    });
+
+    // Fetch order statistics
+    let orderStats: OrderStats | undefined;
+    try {
+      const orderAggregates = await prisma.order.aggregate({
+        where: { shop },
+        _count: { id: true },
+        _sum: { cashbackAmount: true },
+        _max: { createdAt: true, shopifyCreatedAt: true },
+        _min: { shopifyCreatedAt: true }
+      });
+
+      const customerCount = await prisma.customer.count({
+        where: { shop }
+      });
+
+      // Check for discrepancies (simplified check)
+      // Count orders that have been processed but have no ledger entries
+      const processedOrders = await prisma.order.count({
+        where: {
+          shop,
+          cashbackProcessed: true
+        }
+      });
+
+      const ordersWithLedger = await prisma.storeCreditLedger.count({
+        where: {
+          shop,
+          orderId: { not: null },
+          type: 'CASHBACK_EARNED'
+        }
+      });
+
+      const discrepancies = processedOrders - ordersWithLedger;
+
+      orderStats = {
+        orderCount: orderAggregates._count.id || 0,
+        customerCount,
+        totalCashback: Number(orderAggregates._sum.cashbackAmount || 0),
+        lastSync: orderAggregates._max.createdAt?.toISOString() || null,
+        oldestOrder: orderAggregates._min.shopifyCreatedAt?.toISOString() || null,
+        newestOrder: orderAggregates._max.shopifyCreatedAt?.toISOString() || null,
+        discrepancies: discrepancies
+      };
+    } catch (error) {
+      console.error("Failed to fetch order statistics:", error);
+      // Continue without order stats
+    }
+
+    // Fetch billing data - include ALL plans (current + legacy)
+    const {
+      FREE_PLAN,
+      PRO_PLAN,
+      PRO_ANNUAL_PLAN,
+      MAX_PLAN,
+      MAX_ANNUAL_PLAN,
+      ULTRA_PLAN,
+      ULTRA_ANNUAL_PLAN,
+      // Legacy plans for backward compatibility
+      MONTHLY_PLAN,
+      ANNUAL_PLAN,
+      STARTER_PLAN,
+      GROWTH_PLAN,
+      ENTERPRISE_PLAN,
+    } = await import("../shopify.server");
+
+    let activeSubscription = null;
+    if (billing) {
+      try {
+        const { hasActivePayment, appSubscriptions } = await billing.check({
+          plans: [
+            // Current plans
+            FREE_PLAN,
+            PRO_PLAN,
+            PRO_ANNUAL_PLAN,
+            MAX_PLAN,
+            MAX_ANNUAL_PLAN,
+            ULTRA_PLAN,
+            ULTRA_ANNUAL_PLAN,
+            // Legacy plans
+            MONTHLY_PLAN,
+            ANNUAL_PLAN,
+            STARTER_PLAN,
+            GROWTH_PLAN,
+            ENTERPRISE_PLAN,
+          ],
+          isTest: process.env.NODE_ENV === 'development',
+        });
+
+        if (hasActivePayment && appSubscriptions?.length > 0) {
+          activeSubscription = appSubscriptions[0];
+        }
+      } catch (error) {
+        console.error("[Settings Page] Error checking subscription:", error);
+      }
+    }
+
+    // Fetch LIVE subscription details from Shopify GraphQL (same as billing page)
+    let subscriptionInfo = null;
+    try {
+      const {
+        getSubscriptionDetails,
+        getUsageLineItem,
+        getRecurringLineItem,
+        calculateUsagePercentage,
+        isInTrialPeriod,
+        getRemainingTrialDays,
+      } = await import("~/services/billing/subscription-details.server");
+
+      const subscriptionDetails = await getSubscriptionDetails(admin);
+      const detailedSubscription = subscriptionDetails?.currentAppInstallation.activeSubscriptions[0] || null;
+
+      if (detailedSubscription) {
+        const usageLineItem = getUsageLineItem(detailedSubscription);
+        const recurringLineItem = getRecurringLineItem(detailedSubscription);
+        const usagePercentage = calculateUsagePercentage(usageLineItem);
+        const inTrialPeriod = isInTrialPeriod(detailedSubscription);
+        const remainingTrialDays = getRemainingTrialDays(detailedSubscription);
+
+        subscriptionInfo = {
+          id: detailedSubscription.id,
+          name: detailedSubscription.name,
+          status: detailedSubscription.status,
+          test: detailedSubscription.test,
+          trialDays: detailedSubscription.trialDays,
+          createdAt: detailedSubscription.createdAt,
+          currentPeriodEnd: detailedSubscription.currentPeriodEnd,
+          inTrialPeriod,
+          remainingTrialDays,
+          usagePercentage,
+          recurringCharge: recurringLineItem ? {
+            interval: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+              ? recurringLineItem.plan.pricingDetails.interval
+              : null,
+            amount: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+              ? recurringLineItem.plan.pricingDetails.price.amount
+              : null,
+            currencyCode: recurringLineItem.plan.pricingDetails.__typename === 'AppRecurringPricing'
+              ? recurringLineItem.plan.pricingDetails.price.currencyCode
+              : null,
+          } : null,
+          usageCharge: usageLineItem ? {
+            balanceUsed: usageLineItem.plan.pricingDetails.__typename === 'AppUsagePricing'
+              ? usageLineItem.plan.pricingDetails.balanceUsed
+              : null,
+            cappedAmount: usageLineItem.plan.pricingDetails.__typename === 'AppUsagePricing'
+              ? usageLineItem.plan.pricingDetails.cappedAmount
+              : null,
+          } : null,
+        };
+        console.log('[Settings Page] Live subscription loaded:', subscriptionInfo.name, subscriptionInfo.status);
+      }
+    } catch (error) {
+      console.error("[Settings Page] Error fetching live subscription details:", error);
+    }
+
+    // Fetch billing subscription from database as fallback
+    const billingSubscription = await prisma.billingSubscription.findUnique({
+      where: { shop },
+    }).catch(() => null); // Gracefully handle if table doesn't exist yet
+
+    // Get monthly order usage
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const daysRemaining = calculateDaysRemaining();
+
+    // Count orders using multiple strategies (like billing-v2 does)
+    let orderCount = 0;
+    let orderCountStrategy = "unknown";
+
+    try {
+      console.log(`[Settings Page] Attempting to count orders for ${shop} - ${getCurrentMonthName()} ${year}`);
+
+      // Use countOrdersWithFallback which tries multiple strategies
+      // Note: countOrdersDateExtraction removed - causes SerializationException with Aurora Data API
+      const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+      const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+      const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
+      orderCount = result.count;
+      orderCountStrategy = result.strategy;
+
+      // If still 0, try pre-aggregated count
+      if (orderCount === 0) {
+        console.log("[Settings Page] Trying pre-aggregated count");
+        orderCount = await getOrCreateMonthlyCount(shop, year, month);
+        orderCountStrategy = "PreAggregated";
+      }
+    } catch (error) {
+      console.error("[Settings Page] Error counting orders:", error);
+      // Fallback to simple total count
+      orderCount = await prisma.order.count({ where: { shop } });
+      orderCountStrategy = "TotalFallback";
+    }
+
+    // Determine plan based on active subscription using shared plan constants
+    // Priority: activeSubscription > subscriptionInfo (GraphQL) > Free plan default
+    let planLimit = MANAGED_PLANS["RewardsPro Free"].ordersIncluded; // 50
+    let planName = 'RewardsPro Free';
+
+    // Try activeSubscription first (from billing.check)
+    if (activeSubscription?.name) {
+      const planConfig = MANAGED_PLANS[activeSubscription.name];
+      if (planConfig) {
+        planLimit = planConfig.ordersIncluded;
+        planName = activeSubscription.name;
+      }
+    }
+    // Fallback to subscriptionInfo from GraphQL (more reliable source)
+    else if (subscriptionInfo?.name) {
+      const planConfig = MANAGED_PLANS[subscriptionInfo.name as string];
+      if (planConfig) {
+        planLimit = planConfig.ordersIncluded;
+        planName = subscriptionInfo.name;
+        console.log(`[Settings Page] Using subscriptionInfo for plan: ${planName}, limit: ${planLimit}`);
+      }
+    }
+
+    const projectedOrders = calculateProjectedOrders(orderCount, daysRemaining);
+
+    const monthlyOrderUsage = {
+      orderCount,
+      planLimit,
+      planName,
+      projectedOrders,
+      countStrategy: orderCountStrategy // Include which strategy worked
+    };
+
+    console.log(`[Settings Page] Final count: ${orderCount} using strategy: ${orderCountStrategy}`);
+
+    // Serialize dates for JSON
+    const serializedSettings = {
+      ...settings,
+      createdAt: settings.createdAt instanceof Date
+        ? settings.createdAt.toISOString()
+        : settings.createdAt,
+      updatedAt: settings.updatedAt instanceof Date
+        ? settings.updatedAt.toISOString()
+        : settings.updatedAt,
+    };
+
+    // Serialize billing subscription (new GraphQL billing)
+    const serializedPlan = billingSubscription ? {
+      ...billingSubscription,
+      planName: billingSubscription.planName || planName,
+      cappedAmount: billingSubscription.cappedAmount ? Number(billingSubscription.cappedAmount) : null,
+      balanceUsed: billingSubscription.balanceUsed ? Number(billingSubscription.balanceUsed) : 0,
+      balanceRemaining: billingSubscription.balanceRemaining ? Number(billingSubscription.balanceRemaining) : null,
+      currentPeriodEnd: billingSubscription.currentPeriodEnd instanceof Date
+        ? billingSubscription.currentPeriodEnd.toISOString()
+        : billingSubscription.currentPeriodEnd,
+      createdAt: billingSubscription.createdAt instanceof Date
+        ? billingSubscription.createdAt.toISOString()
+        : String(billingSubscription.createdAt),
+      updatedAt: billingSubscription.updatedAt instanceof Date
+        ? billingSubscription.updatedAt.toISOString()
+        : String(billingSubscription.updatedAt),
+    } : null;
+
+    // Serialize tiers (minSpend is Decimal)
+    const serializedTiers = tiers.map(tier => ({
+      id: tier.id,
+      name: tier.name,
+      minSpend: Number(tier.minSpend),
+    }));
+
+    // Fetch credit sync stats
+    const creditSyncStatsRaw = await getCreditSyncStats(shop);
+    const creditSyncStats: CreditSyncStats = {
+      customersWithCredit: creditSyncStatsRaw.customersWithCredit,
+      totalCreditBalance: creditSyncStatsRaw.totalCreditBalance,
+      lastSyncJob: creditSyncStatsRaw.lastSyncJob ? {
+        id: creditSyncStatsRaw.lastSyncJob.id,
+        status: creditSyncStatsRaw.lastSyncJob.status,
+        completedAt: creditSyncStatsRaw.lastSyncJob.completedAt?.toISOString() || null,
+        updatedCount: creditSyncStatsRaw.lastSyncJob.updatedCount,
+        totalImported: creditSyncStatsRaw.lastSyncJob.totalImported,
+      } : null,
+    };
+
+    // Fetch customer sync stats
+    const customerSyncStatsRaw = await getCustomerSyncStats(shop);
+    const customerSyncStats: CustomerSyncStats = {
+      totalCustomers: customerSyncStatsRaw.totalCustomers,
+      customersWithTier: customerSyncStatsRaw.customersWithTier,
+      customersInitialSynced: customerSyncStatsRaw.customersInitialSynced,
+      lastSyncJob: customerSyncStatsRaw.lastSyncJob ? {
+        id: customerSyncStatsRaw.lastSyncJob.id,
+        status: customerSyncStatsRaw.lastSyncJob.status,
+        completedAt: customerSyncStatsRaw.lastSyncJob.completedAt?.toISOString() || null,
+        createdCount: customerSyncStatsRaw.lastSyncJob.createdCount,
+        updatedCount: customerSyncStatsRaw.lastSyncJob.updatedCount,
+        processedCount: customerSyncStatsRaw.lastSyncJob.processedCount,
+      } : null,
+    };
+
+    // Fetch order sync stats
+    const orderSyncStatsRaw = await getOrderSyncStats(shop);
+    const orderSyncStats: OrderSyncStats = {
+      totalOrders: orderSyncStatsRaw.totalOrders,
+      ordersWithCashback: orderSyncStatsRaw.ordersWithCashback,
+      totalCashbackAmount: orderSyncStatsRaw.totalCashbackAmount,
+      dateRange: {
+        oldest: orderSyncStatsRaw.dateRange.oldest?.toISOString() || null,
+        newest: orderSyncStatsRaw.dateRange.newest?.toISOString() || null,
+      },
+      lastSyncJob: orderSyncStatsRaw.lastSyncJob ? {
+        id: orderSyncStatsRaw.lastSyncJob.id,
+        status: orderSyncStatsRaw.lastSyncJob.status,
+        completedAt: orderSyncStatsRaw.lastSyncJob.completedAt?.toISOString() || null,
+        createdCount: orderSyncStatsRaw.lastSyncJob.createdCount,
+        updatedCount: orderSyncStatsRaw.lastSyncJob.updatedCount,
+        processedCount: orderSyncStatsRaw.lastSyncJob.processedCount,
+      } : null,
+    };
+
+    return json<LoaderData>({
+      settings: serializedSettings as ShopSettings,
+      shop,
+      shopifyTimezone, // Pass Shopify's timezone to show it's synced
+      orderStats,
+      // Tiers for base tier selection
+      tiers: serializedTiers,
+      // Sync stats
+      creditSyncStats,
+      customerSyncStats,
+      orderSyncStats,
+      // Billing data
+      currentPlan: serializedPlan,
+      activeSubscription,
+      subscriptionInfo, // Live data from Shopify GraphQL (most accurate)
+      monthlyOrderUsage,
+      currentMonth: getCurrentMonthName(),
+      daysRemaining,
+    });
+  } catch (error) {
+    console.error("Settings loader error:", error);
+    throw new Response("Failed to load settings", { status: 500 });
+  }
+};
+
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}) => {
+  if (
+    !formMethod &&
+    isSettingsSectionOnlyNavigation(currentUrl, nextUrl)
+  ) {
+    return false;
+  }
+
+  return defaultShouldRevalidate;
+};
+
+// ============= ACTION =============
+export const action = async ({ request }: ActionFunctionArgs) => {
+  try {
+    const { session, admin, billing } = await authenticate.admin(request);
+
+    if (!session?.shop) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+
+    const shop = session.shop;
+
+    // Get active subscription for downgrade handling
+    let activeSubscription = null;
+    if (billing) {
+      try {
+        const { appSubscriptions } = await billing.check({
+          plans: [],
+          isTest: process.env.NODE_ENV === 'development',
+        });
+        activeSubscription = appSubscriptions?.[0];
+      } catch (err) {
+        console.log("[Settings Action] Could not fetch active subscription");
+      }
+    }
+
+    // Rate limiting
+    checkRateLimit(shop);
+
+    const formData = await request.formData();
+    const intent = formData.get("intent") as string;
+
+    // Handle order sync
+    if (intent === "sync-orders") {
+      const syncRange = formData.get("syncRange") as string;
+
+      try {
+        // Calculate date range
+        let startDate = new Date();
+        if (syncRange === "30") {
+          startDate.setDate(startDate.getDate() - 30);
+        } else if (syncRange === "90") {
+          startDate.setDate(startDate.getDate() - 90);
+        } else if (syncRange === "365") {
+          startDate.setFullYear(startDate.getFullYear() - 1);
+        } else {
+          startDate = new Date("2020-01-01"); // Or shop creation date
+        }
+
+        // Create sync service
+        const syncService = await createOrderSyncService(admin, shop, {
+          batchSize: 50,
+          startDate,
+          endDate: new Date(),
+          onProgress: (progress) => {
+            console.log(`Order sync progress: ${progress.processed}/${progress.total}`);
+          }
+        });
+
+        // Start sync (in production, use job queue)
+        syncService.syncAllOrders()
+          .then(result => {
+            console.log("Order sync completed:", result.message);
+          })
+          .catch(error => {
+            console.error("Order sync failed:", error);
+          });
+
+        return json({
+          success: true,
+          message: "Order sync started in background. This may take several minutes.",
+          syncStarted: true
+        });
+      } catch (error) {
+        console.error("Failed to start order sync:", error);
+        return json({
+          error: error instanceof Error ? error.message : "Failed to start sync"
+        }, { status: 500 });
+      }
+    }
+
+    // Handle sync status check
+    if (intent === "check-sync-status") {
+      // In production, this would check a job queue or database
+      return json({
+        inProgress: false,
+        progress: 100
+      });
+    }
+
+    // Handle billing upgrade
+    if (intent === "upgrade") {
+      const planName = formData.get("plan") as string;
+
+      if (!billing) {
+        return json({ error: "Billing not configured" }, { status: 500 });
+      }
+
+      try {
+        // Import plan names
+        const { FREE_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } = await import("../shopify.server");
+
+        // Determine which plan to request
+        let requestPlan = MONTHLY_PLAN; // Default to monthly
+        if (planName === "RewardsPro Annual") {
+          requestPlan = ANNUAL_PLAN;
+        } else if (planName === "RewardsPro Free") {
+          requestPlan = FREE_PLAN;
+        }
+
+        // Request the billing plan
+        const billingResponse = await billing.request({
+          plan: requestPlan as any,
+          isTest: process.env.NODE_ENV === 'development',
+          returnUrl: `${process.env.SHOPIFY_APP_URL}${settingsPath("billing")}`,
+        });
+
+        // This will return a redirect response to Shopify's billing page
+        return billingResponse;
+      } catch (billingError: any) {
+        // If billing.request throws a Response, return it
+        if (billingError instanceof Response) {
+          console.log("[Settings Action] Billing request returned Response, forwarding it");
+          return billingError;
+        }
+
+        console.error("[Settings Action] Error requesting plan:", billingError);
+        return json({ error: "Failed to request billing plan" }, { status: 500 });
+      }
+    }
+
+    // Handle subscription cancellation
+    if (intent === "cancel-subscription") {
+      if (!admin) {
+        return json({ error: "Admin context not available" }, { status: 500 });
+      }
+
+      try {
+        console.log(`[Settings Action] ${shop} cancelling subscription`);
+
+        // Import and use GraphQL billing service
+        const { GraphQLBillingService } = await import("~/services/billing/graphql-billing.service");
+        const billingService = new GraphQLBillingService(admin);
+
+        // Cancel subscription via GraphQL
+        const result = await billingService.cancelSubscription(shop);
+
+        if (!result.success) {
+          return json({
+            error: result.error || "Failed to cancel subscription"
+          }, { status: 500 });
+        }
+
+        // Log the cancellation
+        await prisma.billingAuditLog.create({
+          data: {
+            id: uuidv4(),
+            shop,
+            action: "cancel-subscription",
+            planName: "Cancelled",
+            success: true,
+            ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+            userAgent: request.headers.get("user-agent") || "unknown",
+            attemptedAt: new Date()
+          }
+        });
+
+        return json({
+          success: true,
+          message: "Subscription cancelled successfully. You will be downgraded to the Free plan at the end of your billing period."
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error cancelling subscription:", error);
+        return json({
+          error: "Failed to cancel subscription. Please try again."
+        }, { status: 500 });
+      }
+    }
+
+    // Handle downgrade to free plan
+    if (intent === "downgrade-to-free") {
+      if (!billing) {
+        return json({ error: "Billing not configured" }, { status: 500 });
+      }
+
+      try {
+        console.log(`[Settings Action] ${shop} downgrading to Free plan`);
+
+        // Cancel current subscription if exists
+        if (activeSubscription) {
+          await billing.cancel({
+            subscriptionId: activeSubscription.id,
+            prorate: true
+          }).catch((_err: any) => {
+            console.log("[Settings Action] No active subscription to cancel or already on free plan");
+          });
+        }
+
+        // Log the downgrade
+        await prisma.billingAuditLog.create({
+          data: {
+            id: uuidv4(),
+            shop,
+            action: "downgrade-to-free",
+            planName: "RewardsPro Free",
+            success: true,
+            ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+            userAgent: request.headers.get("user-agent") || "unknown",
+            attemptedAt: new Date()
+          }
+        });
+
+        return json({
+          success: true,
+          message: "Successfully switched to Free plan"
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error downgrading to free:", error);
+        return json({
+          error: "Failed to downgrade to free plan. Please try again."
+        }, { status: 500 });
+      }
+    }
+
+    // Handle manual tier recalculation
+    if (intent === "recalculate-tiers") {
+      try {
+        console.log(`[Settings Action] ${shop} triggering manual tier recalculation`);
+
+        // Import the tier management service - use smart engine (same as cron job)
+        const { recalculateTiersSmart, refreshAnnualSpending } = await import("~/services/tier-management.server");
+
+        // CRITICAL: Refresh annual spending BEFORE tier recalculation
+        // This ensures ANNUAL evaluation period tiers use up-to-date spending data
+        console.log(`[Settings Action] Refreshing annual spending for ${shop}`);
+        const spendingResult = await refreshAnnualSpending(shop);
+        console.log(`[Settings Action] Annual spending refreshed: ${spendingResult.updated}/${spendingResult.processed} customers updated in ${spendingResult.duration}ms`);
+
+        // Use smart engine selection (auto-selects based on customer count)
+        // < 100: LEGACY, 100-499: OPTIMIZED, 500-2499: NEURAL_V2, 2500+: NEURAL_V3
+        const result = await recalculateTiersSmart(shop);
+
+        // Update last run timestamp
+        await prisma.shopSettings.update({
+          where: { shop },
+          data: {
+            tierRecalculationLastRun: new Date(),
+            updatedAt: new Date(),
+          },
+        });
+
+        console.log(`[Settings Action] Recalculation completed: ${result.processed} customers processed using ${result.engine} engine in ${result.timing?.totalMs || 'N/A'}ms`);
+
+        // Build detailed message with engine info
+        const engineLabel = result.engine === 'OPTIMIZED' ? 'Optimized' : 'Standard';
+        const timingInfo = result.timing?.totalMs ? ` (${(result.timing.totalMs / 1000).toFixed(1)}s)` : '';
+
+        return json({
+          recalculationComplete: true,
+          success: true,
+          message: `Tier recalculation completed${timingInfo}: ${result.upgraded} upgraded, ${result.downgraded} downgraded, ${result.unchanged} unchanged`,
+          result: {
+            ...result,
+            spendingRefresh: {
+              processed: spendingResult.processed,
+              updated: spendingResult.updated,
+              duration: spendingResult.duration,
+            },
+          },
+          engine: engineLabel,
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error recalculating tiers:", error);
+        return json({
+          recalculationComplete: true,
+          success: false,
+          error: "Failed to recalculate tiers. Please try again."
+        }, { status: 500 });
+      }
+    }
+
+    // Handle fetch Shopify currency
+    if (intent === "fetch-shopify-currency") {
+      try {
+        console.log(`[Settings Action] ${shop} fetching Shopify store currency`);
+
+        const shopQuery = `#graphql
+          query getShopCurrency {
+            shop {
+              name
+              currencyCode
+              ianaTimezone
+              url
+            }
+          }
+        `;
+        const response = await admin.graphql(shopQuery);
+        const shopData = await response.json() as { data: any; errors?: Array<{ message: string }> };
+
+        if (shopData.errors) {
+          console.error("[Settings Action] GraphQL errors fetching currency:", shopData.errors);
+          return json({
+            fetchCurrencyComplete: true,
+            success: false,
+            error: "Failed to fetch currency from Shopify"
+          }, { status: 500 });
+        }
+
+        const shopDetails = shopData.data?.shop || {};
+        const shopifyCurrency = shopDetails.currencyCode || "UNKNOWN";
+
+        // Get current settings for comparison
+        const currentSettings = await prisma.shopSettings.findUnique({
+          where: { shop },
+          select: { storeCurrency: true }
+        });
+
+        console.log(`[Settings Action] Shopify reports currency: ${shopifyCurrency}, Current setting: ${currentSettings?.storeCurrency}`);
+
+        return json({
+          fetchCurrencyComplete: true,
+          success: true,
+          shopifyCurrency,
+          currentCurrency: currentSettings?.storeCurrency || "NOT_SET",
+          shopName: shopDetails.name,
+          timezone: shopDetails.ianaTimezone,
+          message: shopifyCurrency === currentSettings?.storeCurrency
+            ? `Currency matches: ${shopifyCurrency}`
+            : `Shopify currency (${shopifyCurrency}) differs from current setting (${currentSettings?.storeCurrency})`
+        });
+      } catch (error: any) {
+        console.error("[Settings Action] Error fetching Shopify currency:", error);
+        return json({
+          fetchCurrencyComplete: true,
+          success: false,
+          error: "Failed to fetch currency from Shopify. Please try again."
+        }, { status: 500 });
+      }
+    }
+
+    if (intent !== "update") {
+      return json({ error: "Invalid action" }, { status: 400 });
+    }
+
+    // Extract and validate form data
+    const storeName = formData.get("storeName") as string;
+    const storeUrl = formData.get("storeUrl") as string;
+    const storeCurrency = formData.get("storeCurrency") as Currency;
+    const currencyDisplayType = formData.get("currencyDisplayType") as CurrencyDisplayType;
+    const tierRecalculationEnabled = formData.get("tierRecalculationEnabled") === "true";
+    const tierRecalculationFrequency = formData.get("tierRecalculationFrequency") as "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
+    // Base tier settings
+    const autoAssignBaseTier = formData.get("autoAssignBaseTier") === "true";
+    const defaultBaseTierIdRaw = formData.get("defaultBaseTierId") as string;
+    const defaultBaseTierId = defaultBaseTierIdRaw === "" || defaultBaseTierIdRaw === "auto" ? null : defaultBaseTierIdRaw;
+    // Trial abuse prevention settings
+    const maxLifetimeTrialDaysRaw = parseInt(formData.get("maxLifetimeTrialDays") as string);
+    const maxLifetimeTrialDays = (!isNaN(maxLifetimeTrialDaysRaw) && maxLifetimeTrialDaysRaw >= 7 && maxLifetimeTrialDaysRaw <= 90)
+      ? maxLifetimeTrialDaysRaw
+      : 30;
+    const minDaysBetweenTrialsRaw = parseInt(formData.get("minDaysBetweenTrials") as string);
+    const minDaysBetweenTrials = (!isNaN(minDaysBetweenTrialsRaw) && minDaysBetweenTrialsRaw >= 7 && minDaysBetweenTrialsRaw <= 365)
+      ? minDaysBetweenTrialsRaw
+      : 30;
+    const allowMultipleTierTrials = formData.get("allowMultipleTierTrials") === "true";
+    // Widget theme settings
+    const widgetThemeMode = formData.get("widgetThemeMode") as "LIGHT" | "DARK" | "CUSTOM";
+
+    // SECURITY: Validate color inputs to prevent XSS/CSS injection
+    const { sanitizeColor, DEFAULT_WIDGET_COLORS } = await import('~/utils/color-validation.server');
+
+    const widgetPrimaryColor = sanitizeColor(
+      formData.get("widgetPrimaryColor") as string,
+      DEFAULT_WIDGET_COLORS.primary
+    );
+    const widgetBackgroundColor = sanitizeColor(
+      formData.get("widgetBackgroundColor") as string,
+      DEFAULT_WIDGET_COLORS.background
+    );
+    const widgetTextColor = sanitizeColor(
+      formData.get("widgetTextColor") as string,
+      DEFAULT_WIDGET_COLORS.text
+    );
+    const widgetAccentColor = sanitizeColor(
+      formData.get("widgetAccentColor") as string,
+      DEFAULT_WIDGET_COLORS.accent
+    );
+    // Secondary text color is optional - empty string means "auto-derive from mode"
+    const widgetSecondaryTextColorRaw = formData.get("widgetSecondaryTextColor") as string;
+    const widgetSecondaryTextColor = widgetSecondaryTextColorRaw && widgetSecondaryTextColorRaw.trim()
+      ? sanitizeColor(widgetSecondaryTextColorRaw, undefined)
+      : null;
+
+    // Validate border radius bounds
+    const widgetBorderRadiusRaw = parseInt(formData.get("widgetBorderRadius") as string);
+    const widgetBorderRadius = (!isNaN(widgetBorderRadiusRaw) && widgetBorderRadiusRaw >= 0 && widgetBorderRadiusRaw <= 50)
+      ? widgetBorderRadiusRaw
+      : 12;
+    const widgetFontFamily = formData.get("widgetFontFamily") as string;
+
+    // DEBUG: Log widget theme settings being saved
+    console.log("[Settings] Widget theme settings to save:", {
+      widgetThemeMode,
+      widgetPrimaryColor,
+      widgetBackgroundColor,
+      widgetTextColor,
+      widgetAccentColor,
+      widgetSecondaryTextColor,
+      widgetBorderRadius,
+      widgetFontFamily
+    });
+    // Store business metrics
+    const averageProfitMarginStr = formData.get("averageProfitMargin") as string;
+    const averageCogsPercentStr = formData.get("averageCogsPercent") as string;
+    const averageShippingCostStr = formData.get("averageShippingCost") as string;
+    const averageOrderValueStr = formData.get("averageOrderValue") as string;
+    const targetRoiPercentStr = formData.get("targetRoiPercent") as string;
+
+    const averageProfitMargin = averageProfitMarginStr ? parseFloat(averageProfitMarginStr) : null;
+    const averageCogsPercent = averageCogsPercentStr ? parseFloat(averageCogsPercentStr) : null;
+    const averageShippingCost = averageShippingCostStr ? parseFloat(averageShippingCostStr) : null;
+    const averageOrderValue = averageOrderValueStr ? parseFloat(averageOrderValueStr) : null;
+    const targetRoiPercent = targetRoiPercentStr ? parseFloat(targetRoiPercentStr) : null;
+    // Timezone is now synced from Shopify and not editable
+
+    // Validation
+    const errors: string[] = [];
+
+    if (!storeName || storeName.trim().length === 0) {
+      errors.push("Store name is required");
+    } else if (storeName.length > 100) {
+      errors.push("Store name must be less than 100 characters");
+    }
+
+    if (!storeUrl || !validateUrl(storeUrl)) {
+      errors.push("Valid store URL is required");
+    }
+
+    if (!CURRENCY_OPTIONS.some(opt => opt.value === storeCurrency)) {
+      errors.push("Invalid currency selected");
+    }
+
+    if (!["SYMBOL", "CODE"].includes(currencyDisplayType)) {
+      errors.push("Invalid currency display type");
+    }
+
+    if (errors.length > 0) {
+      return json({ error: errors.join(", ") }, { status: 400 });
+    }
+
+    // Update settings (timezone stays as-is, synced from Shopify)
+    const now = new Date();
+    const updatedSettings = await prisma.shopSettings.update({
+      where: { shop },
+      data: {
+        storeName: storeName.trim(),
+        storeUrl: storeUrl.trim(),
+        storeCurrency,
+        currencyDisplayType,
+        tierRecalculationEnabled,
+        tierRecalculationFrequency,
+        // Base tier settings
+        autoAssignBaseTier,
+        defaultBaseTierId,
+        // Trial abuse prevention settings
+        maxLifetimeTrialDays,
+        minDaysBetweenTrials,
+        allowMultipleTierTrials,
+        // Widget theme settings
+        widgetThemeMode,
+        widgetPrimaryColor,
+        widgetBackgroundColor,
+        widgetTextColor,
+        widgetAccentColor,
+        widgetSecondaryTextColor,
+        widgetBorderRadius,
+        widgetFontFamily,
+        // Store business metrics
+        averageProfitMargin,
+        averageCogsPercent,
+        averageShippingCost,
+        averageOrderValue,
+        targetRoiPercent,
+        metricsLastUpdated: (averageProfitMargin !== null || averageCogsPercent !== null ||
+                            averageShippingCost !== null || averageOrderValue !== null ||
+                            targetRoiPercent !== null) ? now : undefined,
+        // timezone is synced from Shopify, not updated here
+        updatedAt: now,
+      },
+    });
+
+    // Invalidate cached shop settings
+    await invalidateShopSettings(shop);
+
+    return json({
+      success: true,
+      settings: updatedSettings
+    });
+  } catch (error) {
+    console.error("Settings action error:", error);
+
+    if (error instanceof Response) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      return json({ error: error.message }, { status: 400 });
+    }
+
+    return json({ error: "An unexpected error occurred" }, { status: 500 });
+  }
+};
+
+// ============= COMPONENT =============
+export default function SettingsPage() {
+  const {
+    settings,
+    shop,
+    shopifyTimezone,
+    orderStats,
+    tiers,
+    creditSyncStats,
+    customerSyncStats,
+    orderSyncStats,
+    currentPlan,
+    activeSubscription,
+    subscriptionInfo, // Live subscription data from GraphQL (most accurate)
+    monthlyOrderUsage,
+  } = useLoaderData<LoaderData>();
+  const fetcher = useFetcher();
+  const currencyFetcher = useFetcher();
+  const navigation = useNavigation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Toast notifications
+  const { toast, showInfo, showSuccess, showError, hideToast } = useToast();
+
+  // Derive the active tab from the URL so browser back/forward stays in sync.
+  const selectedSection = parseSettingsSearch(searchParams).section;
+  const selectedTab = SETTINGS_SECTIONS.indexOf(selectedSection);
+
+  // Form state
+  const [storeName, setStoreName] = useState(settings.storeName);
+  const [storeUrl, setStoreUrl] = useState(settings.storeUrl);
+  const [storeCurrency, setStoreCurrency] = useState<Currency>(settings.storeCurrency);
+  const [currencyDisplayType, setCurrencyDisplayType] = useState<CurrencyDisplayType>(settings.currencyDisplayType);
+  // Timezone is now read-only from Shopify
+  const timezone = shopifyTimezone || settings.timezone;
+
+  // Tier recalculation state
+  const [tierRecalculationEnabled, setTierRecalculationEnabled] = useState(settings.tierRecalculationEnabled);
+  const [tierRecalculationFrequency, setTierRecalculationFrequency] = useState<RecalculationFrequency>(settings.tierRecalculationFrequency);
+  const [showRecalculateModal, setShowRecalculateModal] = useState(false);
+
+  // Currency fetch state
+  const [isFetchingCurrency, setIsFetchingCurrency] = useState(false);
+  const [shopifyCurrencyResult, setShopifyCurrencyResult] = useState<{
+    shopifyCurrency: string;
+    currentCurrency: string;
+    message: string;
+  } | null>(null);
+
+  // Base tier settings state
+  const [autoAssignBaseTier, setAutoAssignBaseTier] = useState(settings.autoAssignBaseTier ?? true);
+  const [defaultBaseTierId, setDefaultBaseTierId] = useState<string>(settings.defaultBaseTierId || "");
+
+  // Tier trial abuse prevention settings state
+  const [maxLifetimeTrialDays, setMaxLifetimeTrialDays] = useState<string>(String(settings.maxLifetimeTrialDays ?? 30));
+  const [minDaysBetweenTrials, setMinDaysBetweenTrials] = useState<string>(String(settings.minDaysBetweenTrials ?? 30));
+  const [allowMultipleTierTrials, setAllowMultipleTierTrials] = useState(settings.allowMultipleTierTrials ?? false);
+
+  // Credit sync state
+  interface CreditSyncJob {
+    jobId: string;
+    status: string;
+    progress: {
+      processedCount: number;
+      totalCustomers: number | null;
+      updatedCount: number;
+      skippedCount: number;
+      errorCount: number;
+      percentComplete: number;
+      totalImported: number;
+    };
+    hasMore: boolean;
+    error?: string;
+  }
+  const [creditSyncJob, setCreditSyncJob] = useState<CreditSyncJob | null>(null);
+  const [isCreditSyncStarting, setIsCreditSyncStarting] = useState(false);
+  const [isCreditSyncPolling, setIsCreditSyncPolling] = useState(false);
+  const creditSyncPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const creditSyncProcessingRef = useRef(false);
+
+  // Customer sync state
+  interface CustomerSyncJob {
+    jobId: string;
+    status: string;
+    progress: {
+      processedCount: number;
+      totalCustomers: number | null;
+      createdCount: number;
+      updatedCount: number;
+      skippedCount: number;
+      errorCount: number;
+      percentComplete: number;
+    };
+    hasMore: boolean;
+    error?: string;
+    retryAfterMs?: number;
+    startedAt?: string;
+  }
+  const [customerSyncJob, setCustomerSyncJob] = useState<CustomerSyncJob | null>(null);
+  const [isCustomerSyncStarting, setIsCustomerSyncStarting] = useState(false);
+  const [isCustomerSyncPolling, setIsCustomerSyncPolling] = useState(false);
+  const customerSyncPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const customerSyncProcessingRef = useRef(false);
+
+  // Widget theme state
+  const [widgetThemeMode, setWidgetThemeMode] = useState<WidgetThemeMode>(settings.widgetThemeMode || "LIGHT");
+  const [widgetPrimaryColor, setWidgetPrimaryColor] = useState(settings.widgetPrimaryColor || "#5C6AC4");
+  const [widgetBackgroundColor, setWidgetBackgroundColor] = useState(settings.widgetBackgroundColor || "#FFFFFF");
+  const [widgetTextColor, setWidgetTextColor] = useState(settings.widgetTextColor || "#212B36");
+  const [widgetAccentColor, setWidgetAccentColor] = useState(settings.widgetAccentColor || "#008060");
+  const [widgetSecondaryTextColor, setWidgetSecondaryTextColor] = useState(settings.widgetSecondaryTextColor || "");
+  const [widgetBorderRadius, setWidgetBorderRadius] = useState(settings.widgetBorderRadius || 12);
+  const [widgetFontFamily, setWidgetFontFamily] = useState(settings.widgetFontFamily || "inherit");
+
+  // Store business metrics state
+  const [averageProfitMargin, setAverageProfitMargin] = useState<string>(
+    settings.averageProfitMargin?.toString() || ""
+  );
+  const [averageCogsPercent, setAverageCogsPercent] = useState<string>(
+    settings.averageCogsPercent?.toString() || ""
+  );
+  const [averageShippingCost, setAverageShippingCost] = useState<string>(
+    settings.averageShippingCost?.toString() || ""
+  );
+  const [averageOrderValue, setAverageOrderValue] = useState<string>(
+    settings.averageOrderValue?.toString() || ""
+  );
+  const [targetRoiPercent, setTargetRoiPercent] = useState<string>(
+    settings.targetRoiPercent?.toString() || ""
+  );
+
+  // Order sync state
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncRange, setSyncRange] = useState("365");
+  const [reconcileLedger, setReconcileLedger] = useState(false);
+  const [updateMetrics, setUpdateMetrics] = useState(true);
+
+  // Credit sync modal state
+  const [showCreditSyncModal, setShowCreditSyncModal] = useState(false);
+
+  // UI state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Calculate ETA for customer sync
+  const getCustomerSyncETA = useCallback(() => {
+    if (!customerSyncJob || !customerSyncJob.startedAt || !customerSyncJob.progress.totalCustomers) {
+      return null;
+    }
+
+    const processed = customerSyncJob.progress.processedCount;
+    const total = customerSyncJob.progress.totalCustomers;
+
+    if (processed === 0) return null;
+
+    const elapsed = Date.now() - new Date(customerSyncJob.startedAt).getTime();
+    const msPerCustomer = elapsed / processed;
+    const remaining = total - processed;
+    const etaMs = msPerCustomer * remaining;
+
+    const minutes = Math.ceil(etaMs / 60000);
+    if (minutes > 60) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `~${hours}h ${mins}m remaining`;
+    }
+    return `~${minutes}m remaining`;
+  }, [customerSyncJob]);
+
+
+  // Check for unsaved changes
+  useEffect(() => {
+    const hasChanges =
+      storeName !== settings.storeName ||
+      storeUrl !== settings.storeUrl ||
+      storeCurrency !== settings.storeCurrency ||
+      currencyDisplayType !== settings.currencyDisplayType ||
+      tierRecalculationEnabled !== settings.tierRecalculationEnabled ||
+      tierRecalculationFrequency !== settings.tierRecalculationFrequency ||
+      autoAssignBaseTier !== (settings.autoAssignBaseTier ?? true) ||
+      defaultBaseTierId !== (settings.defaultBaseTierId || "") ||
+      // Trial abuse prevention settings
+      maxLifetimeTrialDays !== String(settings.maxLifetimeTrialDays ?? 30) ||
+      minDaysBetweenTrials !== String(settings.minDaysBetweenTrials ?? 30) ||
+      allowMultipleTierTrials !== (settings.allowMultipleTierTrials ?? false) ||
+      // Widget theme settings
+      widgetThemeMode !== (settings.widgetThemeMode || "LIGHT") ||
+      widgetPrimaryColor !== (settings.widgetPrimaryColor || "#5C6AC4") ||
+      widgetBackgroundColor !== (settings.widgetBackgroundColor || "#FFFFFF") ||
+      widgetTextColor !== (settings.widgetTextColor || "#212B36") ||
+      widgetAccentColor !== (settings.widgetAccentColor || "#008060") ||
+      widgetSecondaryTextColor !== (settings.widgetSecondaryTextColor || "") ||
+      widgetBorderRadius !== (settings.widgetBorderRadius || 12) ||
+      widgetFontFamily !== (settings.widgetFontFamily || "inherit") ||
+      averageProfitMargin !== (settings.averageProfitMargin?.toString() || "") ||
+      averageCogsPercent !== (settings.averageCogsPercent?.toString() || "") ||
+      averageShippingCost !== (settings.averageShippingCost?.toString() || "") ||
+      averageOrderValue !== (settings.averageOrderValue?.toString() || "") ||
+      targetRoiPercent !== (settings.targetRoiPercent?.toString() || "");
+
+    setHasUnsavedChanges(hasChanges);
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetSecondaryTextColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, settings]);
+
+  // Handle currency fetch response
+  useEffect(() => {
+    if (currencyFetcher.state === "loading") {
+      setIsFetchingCurrency(true);
+    } else if (currencyFetcher.state === "idle" && currencyFetcher.data) {
+      setIsFetchingCurrency(false);
+      const data = currencyFetcher.data as {
+        fetchCurrencyComplete?: boolean;
+        success?: boolean;
+        shopifyCurrency?: string;
+        currentCurrency?: string;
+        message?: string;
+        error?: string;
+      };
+      if (data.fetchCurrencyComplete) {
+        if (data.success) {
+          setShopifyCurrencyResult({
+            shopifyCurrency: data.shopifyCurrency || "UNKNOWN",
+            currentCurrency: data.currentCurrency || "NOT_SET",
+            message: data.message || ""
+          });
+          if (data.shopifyCurrency === data.currentCurrency) {
+            showSuccess("Currency matches Shopify store settings");
+          } else {
+            showInfo(`Shopify currency: ${data.shopifyCurrency}`);
+          }
+        } else {
+          showError(data.error || "Failed to fetch currency");
+        }
+      }
+    }
+  }, [currencyFetcher.state, currencyFetcher.data, showSuccess, showInfo, showError]);
+
+  // Fetch Shopify currency handler
+  const handleFetchShopifyCurrency = useCallback(() => {
+    setShopifyCurrencyResult(null);
+    const formData = new FormData();
+    formData.append("intent", "fetch-shopify-currency");
+    currencyFetcher.submit(formData, { method: "post" });
+  }, [currencyFetcher]);
+
+  // Removed time display - timezone is now just shown as text
+
+  // Handle form submission
+  const handleSubmit = useCallback(() => {
+    console.log("[Settings UI] handleSubmit called with widgetThemeMode:", widgetThemeMode);
+    console.log("[Settings UI] Full theme state:", {
+      widgetThemeMode,
+      widgetPrimaryColor,
+      widgetBackgroundColor,
+      widgetTextColor,
+      widgetAccentColor
+    });
+
+    const formData = new FormData();
+    formData.append("intent", "update");
+    formData.append("storeName", storeName);
+    formData.append("storeUrl", storeUrl);
+    formData.append("storeCurrency", storeCurrency);
+    formData.append("currencyDisplayType", currencyDisplayType);
+    formData.append("tierRecalculationEnabled", String(tierRecalculationEnabled));
+    formData.append("tierRecalculationFrequency", tierRecalculationFrequency);
+    // Base tier settings
+    formData.append("autoAssignBaseTier", String(autoAssignBaseTier));
+    formData.append("defaultBaseTierId", defaultBaseTierId || "");
+    // Trial abuse prevention settings
+    formData.append("maxLifetimeTrialDays", maxLifetimeTrialDays);
+    formData.append("minDaysBetweenTrials", minDaysBetweenTrials);
+    formData.append("allowMultipleTierTrials", String(allowMultipleTierTrials));
+    // Widget theme settings
+    formData.append("widgetThemeMode", widgetThemeMode);
+    formData.append("widgetPrimaryColor", widgetPrimaryColor);
+    formData.append("widgetBackgroundColor", widgetBackgroundColor);
+    formData.append("widgetTextColor", widgetTextColor);
+    formData.append("widgetAccentColor", widgetAccentColor);
+    formData.append("widgetSecondaryTextColor", widgetSecondaryTextColor);
+    formData.append("widgetBorderRadius", String(widgetBorderRadius));
+    formData.append("widgetFontFamily", widgetFontFamily);
+    // Store business metrics
+    formData.append("averageProfitMargin", averageProfitMargin);
+    formData.append("averageCogsPercent", averageCogsPercent);
+    formData.append("averageShippingCost", averageShippingCost);
+    formData.append("averageOrderValue", averageOrderValue);
+    formData.append("targetRoiPercent", targetRoiPercent);
+    // Don't submit timezone - it's synced from Shopify
+
+    fetcher.submit(formData, { method: "post" });
+  }, [storeName, storeUrl, storeCurrency, currencyDisplayType, tierRecalculationEnabled, tierRecalculationFrequency, autoAssignBaseTier, defaultBaseTierId, maxLifetimeTrialDays, minDaysBetweenTrials, allowMultipleTierTrials, widgetThemeMode, widgetPrimaryColor, widgetBackgroundColor, widgetTextColor, widgetAccentColor, widgetSecondaryTextColor, widgetBorderRadius, widgetFontFamily, averageProfitMargin, averageCogsPercent, averageShippingCost, averageOrderValue, targetRoiPercent, fetcher]);
+
+  // Handle reset
+  const handleReset = useCallback(() => {
+    setStoreName(settings.storeName);
+    setStoreUrl(settings.storeUrl);
+    setStoreCurrency(settings.storeCurrency);
+    setCurrencyDisplayType(settings.currencyDisplayType);
+    setTierRecalculationEnabled(settings.tierRecalculationEnabled);
+    setTierRecalculationFrequency(settings.tierRecalculationFrequency);
+    // Base tier settings reset
+    setAutoAssignBaseTier(settings.autoAssignBaseTier ?? true);
+    setDefaultBaseTierId(settings.defaultBaseTierId || "");
+    // Trial abuse prevention settings reset
+    setMaxLifetimeTrialDays(String(settings.maxLifetimeTrialDays ?? 30));
+    setMinDaysBetweenTrials(String(settings.minDaysBetweenTrials ?? 30));
+    setAllowMultipleTierTrials(settings.allowMultipleTierTrials ?? false);
+    // Widget theme reset
+    setWidgetThemeMode(settings.widgetThemeMode || "LIGHT");
+    setWidgetPrimaryColor(settings.widgetPrimaryColor || "#5C6AC4");
+    setWidgetBackgroundColor(settings.widgetBackgroundColor || "#FFFFFF");
+    setWidgetTextColor(settings.widgetTextColor || "#212B36");
+    setWidgetAccentColor(settings.widgetAccentColor || "#008060");
+    setWidgetSecondaryTextColor(settings.widgetSecondaryTextColor || "");
+    setWidgetBorderRadius(settings.widgetBorderRadius || 12);
+    setWidgetFontFamily(settings.widgetFontFamily || "inherit");
+    // Store metrics reset
+    setAverageProfitMargin(settings.averageProfitMargin?.toString() || "");
+    setAverageCogsPercent(settings.averageCogsPercent?.toString() || "");
+    setAverageShippingCost(settings.averageShippingCost?.toString() || "");
+    setAverageOrderValue(settings.averageOrderValue?.toString() || "");
+    setTargetRoiPercent(settings.targetRoiPercent?.toString() || "");
+    // Timezone is read-only, no need to reset
+  }, [settings]);
+
+  // Handle order sync - fire and forget pattern
+  const handleStartSync = useCallback(() => {
+    // Close modal immediately
+    setShowSyncModal(false);
+
+    // Show immediate feedback
+    showInfo("Order sync started. You can continue working while this runs in the background.");
+
+    // Submit without blocking UI
+    const formData = new FormData();
+    formData.append("intent", "sync-orders");
+    formData.append("syncRange", syncRange);
+    formData.append("reconcile", String(reconcileLedger));
+    formData.append("updateMetrics", String(updateMetrics));
+
+    fetcher.submit(formData, { method: "post" });
+  }, [syncRange, reconcileLedger, updateMetrics, fetcher, showInfo]);
+
+
+  // Handle manual tier recalculation
+  const handleManualRecalculation = useCallback(() => {
+    setShowRecalculateModal(true);
+  }, []);
+
+  // Confirm and execute tier recalculation
+  const confirmRecalculation = useCallback(() => {
+    setShowRecalculateModal(false);
+
+    // Show immediate feedback - fire and forget pattern
+    showInfo("Tier recalculation started. This runs in the background and may take several minutes.");
+
+    // Submit without blocking UI
+    fetcher.submit(
+      { intent: "recalculate-tiers" },
+      { method: "post" }
+    );
+  }, [fetcher, showInfo]);
+
+  // Credit sync polling cleanup
+  useEffect(() => {
+    return () => {
+      if (creditSyncPollingRef.current) {
+        clearTimeout(creditSyncPollingRef.current);
+      }
+    };
+  }, []);
+
+  // Process credit sync batches when polling is active
+  useEffect(() => {
+    if (!isCreditSyncPolling || !creditSyncJob?.jobId || creditSyncProcessingRef.current) return;
+
+    const processNextBatch = async () => {
+      if (creditSyncProcessingRef.current) return;
+      creditSyncProcessingRef.current = true;
+
+      try {
+        const response = await fetch('/api/credit-sync/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: creditSyncJob.jobId })
+        });
+
+        const result = await response.json();
+        setCreditSyncJob(result);
+
+        if (result.hasMore && result.status === 'IN_PROGRESS') {
+          // Schedule next batch after a short delay
+          creditSyncPollingRef.current = setTimeout(() => {
+            creditSyncProcessingRef.current = false;
+            // This will trigger the useEffect again
+            setCreditSyncJob(prev => prev ? { ...prev } : null);
+          }, 500);
+        } else {
+          // Sync completed or failed
+          setIsCreditSyncPolling(false);
+          if (result.status === 'COMPLETED') {
+            showSuccess(`Store credit sync complete: ${result.progress.updatedCount} customers updated`);
+          } else if (result.status === 'FAILED') {
+            showError(`Store credit sync failed: ${result.error || 'Unknown error'}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing credit sync batch:', error);
+        setIsCreditSyncPolling(false);
+        showError('Network error during credit sync');
+      } finally {
+        creditSyncProcessingRef.current = false;
+      }
+    };
+
+    processNextBatch();
+  }, [isCreditSyncPolling, creditSyncJob?.jobId, creditSyncJob?.progress.processedCount, showSuccess, showError]);
+
+  // Handle start credit sync
+  const handleStartCreditSync = useCallback(async () => {
+    setShowCreditSyncModal(false);
+    setIsCreditSyncStarting(true);
+    showInfo("Store credit sync started...");
+
+    try {
+      const response = await fetch('/api/credit-sync/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: 'manual' })
+      });
+
+      const result = await response.json();
+      setCreditSyncJob(result);
+
+      if (result.success && result.hasMore) {
+        setIsCreditSyncPolling(true);
+      } else if (!result.success) {
+        showError(result.error || "Failed to start credit sync");
+      }
+    } catch (error) {
+      console.error('Error starting credit sync:', error);
+      showError("Failed to start credit sync. Please try again.");
+    } finally {
+      setIsCreditSyncStarting(false);
+    }
+  }, [showInfo, showError]);
+
+  // Handle cancel credit sync
+  const handleCancelCreditSync = useCallback(async () => {
+    if (!creditSyncJob?.jobId) return;
+
+    try {
+      await fetch('/api/credit-sync/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', jobId: creditSyncJob.jobId })
+      });
+
+      setIsCreditSyncPolling(false);
+      setCreditSyncJob(prev => prev ? { ...prev, status: 'CANCELLED', hasMore: false } : null);
+      showInfo("Store credit sync cancelled");
+    } catch (error) {
+      console.error('Error cancelling credit sync:', error);
+    }
+  }, [creditSyncJob?.jobId, showInfo]);
+
+  const isCreditSyncing = isCreditSyncPolling || isCreditSyncStarting;
+
+  // Customer sync polling cleanup
+  useEffect(() => {
+    return () => {
+      if (customerSyncPollingRef.current) {
+        clearTimeout(customerSyncPollingRef.current);
+      }
+    };
+  }, []);
+
+  // Process customer sync batches when polling is active
+  useEffect(() => {
+    if (!isCustomerSyncPolling || !customerSyncJob?.jobId || customerSyncProcessingRef.current) return;
+
+    const processNextBatch = async () => {
+      if (customerSyncProcessingRef.current) return;
+      customerSyncProcessingRef.current = true;
+
+      try {
+        const response = await fetch('/api/customer-sync/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: customerSyncJob.jobId })
+        });
+
+        const result = await response.json();
+        setCustomerSyncJob(result);
+
+        if (result.hasMore && result.status === 'IN_PROGRESS') {
+          // Schedule next batch after a short delay
+          customerSyncPollingRef.current = setTimeout(() => {
+            customerSyncProcessingRef.current = false;
+            // This will trigger the useEffect again
+            setCustomerSyncJob(prev => prev ? { ...prev } : null);
+          }, 500);
+        } else {
+          // Sync completed or failed
+          setIsCustomerSyncPolling(false);
+          if (result.status === 'COMPLETED') {
+            showSuccess(`Customer sync complete: ${result.progress.createdCount} created, ${result.progress.updatedCount} updated`);
+          } else if (result.status === 'FAILED') {
+            showError(`Customer sync failed: ${result.error || 'Unknown error'}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error processing customer sync batch:', error);
+        setIsCustomerSyncPolling(false);
+        showError('Network error during customer sync');
+      } finally {
+        customerSyncProcessingRef.current = false;
+      }
+    };
+
+    processNextBatch();
+  }, [isCustomerSyncPolling, customerSyncJob?.jobId, customerSyncJob?.progress?.processedCount, showSuccess, showError]);
+
+  // Handle start customer sync
+  const handleStartCustomerSync = useCallback(async () => {
+    setIsCustomerSyncStarting(true);
+    showInfo("Starting customer sync...");
+
+    try {
+      const response = await fetch('/api/customer-sync/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: 'manual' })
+      });
+
+      const result = await response.json();
+      console.log('[Customer Sync] Start response:', result);
+      setCustomerSyncJob(result);
+
+      // Start polling if there's more to process
+      // Handle both new jobs (success: true) and resuming existing jobs (status: IN_PROGRESS)
+      if (result.hasMore && (result.success || result.status === 'IN_PROGRESS')) {
+        setIsCustomerSyncPolling(true);
+        if (result.success) {
+          showInfo("Customer sync started");
+        } else {
+          showInfo("Resuming existing sync...");
+        }
+      } else if (!result.success && result.status !== 'IN_PROGRESS') {
+        // Only show error if it's not an "already in progress" situation
+        showError(result.error || "Failed to start customer sync");
+      } else if (!result.hasMore && result.status === 'COMPLETED') {
+        showSuccess("Customer sync already complete");
+      }
+    } catch (error) {
+      console.error('Error starting customer sync:', error);
+      showError("Failed to start customer sync. Please try again.");
+    } finally {
+      setIsCustomerSyncStarting(false);
+    }
+  }, [showInfo, showError, showSuccess]);
+
+  // Handle cancel customer sync
+  const handleCancelCustomerSync = useCallback(async () => {
+    if (!customerSyncJob?.jobId) return;
+
+    try {
+      await fetch('/api/customer-sync/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', jobId: customerSyncJob.jobId })
+      });
+
+      setIsCustomerSyncPolling(false);
+      setCustomerSyncJob(prev => prev ? { ...prev, status: 'CANCELLED', hasMore: false } : null);
+      showInfo("Customer sync cancelled");
+    } catch (error) {
+      console.error('Error cancelling customer sync:', error);
+    }
+  }, [customerSyncJob?.jobId, showInfo]);
+
+  const isCustomerSyncing = isCustomerSyncPolling || isCustomerSyncStarting;
+
+  // Calculate next scheduled run based on frequency and last run
+  const calculateNextRun = useCallback((lastRun: string | null, frequency: RecalculationFrequency): string => {
+    if (!lastRun) return "Next daily cron run";
+
+    const lastRunDate = new Date(lastRun);
+    const nextRun = new Date(lastRunDate);
+
+    switch (frequency) {
+      case 'DAILY':
+        nextRun.setDate(nextRun.getDate() + 1);
+        break;
+      case 'WEEKLY':
+        nextRun.setDate(nextRun.getDate() + 7);
+        break;
+      case 'MONTHLY':
+        nextRun.setDate(nextRun.getDate() + 30);
+        break;
+      case 'QUARTERLY':
+        nextRun.setDate(nextRun.getDate() + 90);
+        break;
+    }
+
+    return nextRun.toLocaleDateString();
+  }, []);
+
+  // Handle sync completion feedback
+  useEffect(() => {
+    const data = fetcher.data as {
+      syncStarted?: boolean;
+      success?: boolean;
+      message?: string;
+      error?: string;
+    } | undefined;
+
+    if (data?.syncStarted) {
+      if (data.success) {
+        showSuccess(data.message || "Order sync completed successfully.");
+      }
+    }
+  }, [fetcher.data, showSuccess]);
+
+  // Format date helper
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "Never";
+    return new Date(dateStr).toLocaleDateString();
+  };
+
+  // Show success/error messages
+  const actionData = fetcher.data as { error?: string; success?: boolean; message?: string } | undefined;
+  const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
+
+  // Reset unsaved changes flag on successful save
+  useEffect(() => {
+    if (actionData?.success) {
+      setHasUnsavedChanges(false);
+    }
+  }, [actionData]);
+
+  // Handle recalculation completion feedback
+  useEffect(() => {
+    const data = fetcher.data as {
+      recalculationComplete?: boolean;
+      success?: boolean;
+      message?: string;
+      error?: string;
+    } | undefined;
+
+    if (data?.recalculationComplete) {
+      if (data.success) {
+        showSuccess(data.message || "Tier recalculation completed successfully.");
+      } else {
+        showError(data.error || "Tier recalculation failed. Please try again.");
+      }
+    }
+  }, [fetcher.data, showSuccess, showError]);
+
+  // Tab definitions - consolidated for better UX
+  // Calculate tab status badges
+  const isCurrencyMismatch = shopifyCurrencyResult && shopifyCurrencyResult.shopifyCurrency !== shopifyCurrencyResult.currentCurrency;
+  const dataSyncHealth = (() => {
+    const hasPendingCustomerSync = !customerSyncStats.customersInitialSynced;
+    const hasNoOrders = orderSyncStats.totalOrders === 0;
+    if (hasPendingCustomerSync || hasNoOrders) return 'setup';
+    return 'healthy';
+  })();
+  const tierAutomationStatus = tierRecalculationEnabled ? 'active' : 'inactive';
+  const metricsCompleteness = (() => {
+    const hasMetrics = settings.averageProfitMargin || settings.averageCogsPercent || settings.averageOrderValue;
+    const hasAllMetrics = settings.averageProfitMargin && settings.averageCogsPercent && settings.averageOrderValue;
+    if (hasAllMetrics) return 'complete';
+    if (hasMetrics) return 'partial';
+    return 'empty';
+  })();
+  const widgetThemeStatus = widgetThemeMode;
+
+  const tabs = [
+    {
+      id: 'general',
+      content: 'General',
+      panelID: 'general-panel',
+    },
+    {
+      id: 'data-sync',
+      content: 'Data & Sync',
+      panelID: 'data-sync-panel',
+      badge: dataSyncHealth === 'setup' ? 'Setup' : undefined,
+    },
+    {
+      id: 'automation',
+      content: 'Tier Automation',
+      panelID: 'automation-panel',
+    },
+    {
+      id: 'store-metrics',
+      content: 'Store Metrics',
+      panelID: 'store-metrics-panel',
+      badge: metricsCompleteness === 'empty' ? 'Configure' : undefined,
+    },
+    {
+      id: 'appearance',
+      content: 'Appearance',
+      panelID: 'appearance-panel',
+    },
+    {
+      id: 'integrations',
+      content: 'Integrations',
+      panelID: 'integrations-panel',
+    },
+    {
+      id: 'billing',
+      content: 'Billing',
+      panelID: 'billing-panel',
+    },
+  ];
+
+  const handleTabChange = useCallback((selectedTabIndex: number) => {
+    const section = SETTINGS_SECTIONS[selectedTabIndex] ?? "general";
+    navigate(settingsPath(section, searchParams));
+  }, [navigate, searchParams]);
+
+  return (
+    <>
+      <Page
+        title="Store Settings"
+        primaryAction={{
+          content: "Save Settings",
+          onAction: handleSubmit,
+          loading: isLoading,
+          disabled: !hasUnsavedChanges,
+        }}
+        secondaryActions={[
+          {
+            content: "Reset",
+            onAction: handleReset,
+            disabled: !hasUnsavedChanges,
+          },
+        ]}
+      >
+      <Layout>
+        <Layout.Section>
+          <BlockStack gap="400">
+            {/* Status Messages */}
+            {actionData?.error && (
+              <Banner tone="critical">
+                <p>{actionData.error}</p>
+              </Banner>
+            )}
+            {actionData?.success && (
+              <Banner tone="success">
+                <p>{actionData.message || "Settings saved successfully!"}</p>
+              </Banner>
+            )}
+            {hasUnsavedChanges && (
+              <Banner tone="warning">
+                <p>You have unsaved changes</p>
+              </Banner>
+            )}
+
+            {/* Tabbed Interface */}
+            <Card>
+              <Tabs tabs={tabs} selected={selectedTab} onSelect={handleTabChange}>
+                <Box padding="400">
+                  {/* General Tab - Store Info, Currency, Timezone combined */}
+                  {selectedTab === 0 && (
+                    <BlockStack gap="500">
+                      {/* Store Information Section */}
+                      <BlockStack gap="300">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Store Information</Text>
+                          <Badge tone="success">Configured</Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Basic store details synced from Shopify
+                        </Text>
+                        <FormLayout>
+                          <FormLayout.Group>
+                            <TextField
+                              label="Store Name"
+                              value={storeName}
+                              onChange={setStoreName}
+                              autoComplete="off"
+                              helpText="Display name for your store"
+                            />
+                            <TextField
+                              label="Store URL"
+                              value={storeUrl}
+                              onChange={setStoreUrl}
+                              type="url"
+                              autoComplete="off"
+                              error={storeUrl && !validateUrl(storeUrl) ? "Please enter a valid URL" : undefined}
+                            />
+                          </FormLayout.Group>
+                          <FormLayout.Group>
+                            <TextField
+                              label="Shop Domain"
+                              value={shop}
+                              disabled
+                              autoComplete="off"
+                              helpText="Your Shopify domain (read-only)"
+                            />
+                            <TextField
+                              label="Timezone"
+                              value={shopifyTimezone || timezone}
+                              disabled
+                              autoComplete="off"
+                              helpText="Synced from Shopify settings"
+                            />
+                          </FormLayout.Group>
+                        </FormLayout>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Currency Section */}
+                      <BlockStack gap="300">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Currency</Text>
+                          {isCurrencyMismatch ? (
+                            <Badge tone="warning">Mismatch</Badge>
+                          ) : (
+                            <Badge tone="success">Synced</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Currency display format for loyalty rewards
+                        </Text>
+                        <FormLayout>
+                          <FormLayout.Group>
+                            <Select
+                              label="Store Currency"
+                              options={CURRENCY_OPTIONS}
+                              value={storeCurrency}
+                              onChange={(value) => setStoreCurrency(value as Currency)}
+                            />
+                            <BlockStack gap="200">
+                              <Text as="p" variant="bodyMd">Display Format</Text>
+                              <InlineStack gap="400">
+                                <RadioButton
+                                  label={`${getCurrencySymbol(storeCurrency)}100.00`}
+                                  checked={currencyDisplayType === "SYMBOL"}
+                                  id="symbol"
+                                  name="displayType"
+                                  onChange={() => setCurrencyDisplayType("SYMBOL")}
+                                />
+                                <RadioButton
+                                  label={`${storeCurrency} 100.00`}
+                                  checked={currencyDisplayType === "CODE"}
+                                  id="code"
+                                  name="displayType"
+                                  onChange={() => setCurrencyDisplayType("CODE")}
+                                />
+                              </InlineStack>
+                            </BlockStack>
+                          </FormLayout.Group>
+                        </FormLayout>
+                        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                          <InlineStack gap="200" blockAlign="center">
+                            <Text as="span" variant="bodySm" tone="subdued">Preview:</Text>
+                            <Text as="span" variant="headingMd">
+                              {formatCurrencyExample(storeCurrency, currencyDisplayType)}
+                            </Text>
+                          </InlineStack>
+                        </Box>
+
+                        {/* Fetch Shopify Currency Button */}
+                        <Box paddingBlockStart="200">
+                          <InlineStack gap="300" blockAlign="center">
+                            <Button
+                              onClick={handleFetchShopifyCurrency}
+                              loading={isFetchingCurrency}
+                              disabled={isFetchingCurrency}
+                              size="slim"
+                            >
+                              Fetch Shopify Store Currency
+                            </Button>
+                            {shopifyCurrencyResult && (
+                              <InlineStack gap="200" blockAlign="center">
+                                <Badge tone={shopifyCurrencyResult.shopifyCurrency === shopifyCurrencyResult.currentCurrency ? "success" : "warning"}>
+                                  {`Shopify: ${shopifyCurrencyResult.shopifyCurrency}`}
+                                </Badge>
+                                <Badge tone="info">
+                                  {`Current: ${shopifyCurrencyResult.currentCurrency}`}
+                                </Badge>
+                                {shopifyCurrencyResult.shopifyCurrency !== shopifyCurrencyResult.currentCurrency && (
+                                  <Text as="span" variant="bodySm" tone="caution">
+                                    Mismatch detected
+                                  </Text>
+                                )}
+                              </InlineStack>
+                            )}
+                          </InlineStack>
+                        </Box>
+                      </BlockStack>
+
+                      <Divider />
+
+                      {/* Settings Metadata */}
+                      <InlineStack gap="600" align="start">
+                        <BlockStack gap="100">
+                          <Text as="p" variant="bodySm" tone="subdued">Created</Text>
+                          <Text as="p" variant="bodyMd">{new Date(settings.createdAt).toLocaleDateString()}</Text>
+                        </BlockStack>
+                        <BlockStack gap="100">
+                          <Text as="p" variant="bodySm" tone="subdued">Last Updated</Text>
+                          <Text as="p" variant="bodyMd">{new Date(settings.updatedAt).toLocaleDateString()}</Text>
+                        </BlockStack>
+                        <BlockStack gap="100">
+                          <Text as="p" variant="bodySm" tone="subdued">Settings ID</Text>
+                          <Badge tone="info">{settings.id.slice(0, 8)}</Badge>
+                        </BlockStack>
+                      </InlineStack>
+                    </BlockStack>
+                  )}
+
+                  {/* Data Sync Tab - Stats Dashboard Layout */}
+                  {selectedTab === 1 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text variant="headingMd" as="h2">Data Synchronization</Text>
+                          {dataSyncHealth === 'setup' ? (
+                            <Badge tone="warning">Initial Setup</Badge>
+                          ) : (
+                            <Badge tone="success">Healthy</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {dataSyncHealth === 'setup'
+                            ? "Complete the initial sync to import your customers and orders into the loyalty program"
+                            : "Your customer and order data is synced. Run manual syncs to import recent changes."}
+                        </Text>
+                      </BlockStack>
+
+                      {/* First-time setup guidance */}
+                      {dataSyncHealth === 'setup' && (
+                        <Banner tone="info">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Welcome! Complete these steps to set up your loyalty program:
+                            </Text>
+                            <BlockStack gap="100">
+                              <InlineStack gap="200" blockAlign="center">
+                                {customerSyncStats.customersInitialSynced ? (
+                                  <Badge tone="success">✓</Badge>
+                                ) : (
+                                  <Badge tone="attention">1</Badge>
+                                )}
+                                <Text as="span" variant="bodySm">
+                                  Sync customers to import your existing customer base
+                                </Text>
+                              </InlineStack>
+                              <InlineStack gap="200" blockAlign="center">
+                                {orderSyncStats.totalOrders > 0 ? (
+                                  <Badge tone="success">✓</Badge>
+                                ) : (
+                                  <Badge tone="attention">2</Badge>
+                                )}
+                                <Text as="span" variant="bodySm">
+                                  Sync orders to calculate historical spending for tier assignment
+                                </Text>
+                              </InlineStack>
+                            </BlockStack>
+                          </BlockStack>
+                        </Banner>
+                      )}
+
+                      {/* Stats Summary Grid */}
+                      <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                        {/* Customers Stat */}
+                        <Card>
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between" blockAlign="center">
+                              <Text as="span" variant="bodySm" tone="subdued">Customers</Text>
+                              <Badge
+                                tone={customerSyncStats.customersInitialSynced ? "success" : "warning"}
+                                size="small"
+                              >
+                                {customerSyncStats.customersInitialSynced ? "Synced" : "Pending"}
+                              </Badge>
+                            </InlineStack>
+                            <Text as="p" variant="headingXl">{customerSyncStats.totalCustomers.toLocaleString()}</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              {customerSyncStats.customersWithTier} with tier assigned
+                            </Text>
+                          </BlockStack>
+                        </Card>
+
+                        {/* Orders Stat */}
+                        <Card>
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between" blockAlign="center">
+                              <Text as="span" variant="bodySm" tone="subdued">Orders</Text>
+                              <Badge
+                                tone={orderSyncStats.totalOrders > 0 ? "success" : "warning"}
+                                size="small"
+                              >
+                                {orderSyncStats.totalOrders > 0 ? "Synced" : "Pending"}
+                              </Badge>
+                            </InlineStack>
+                            <Text as="p" variant="headingXl">{orderSyncStats.totalOrders.toLocaleString()}</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              {formatCurrency(orderSyncStats.totalCashbackAmount, { storeCurrency, currencyDisplayType })} cashback earned
+                            </Text>
+                          </BlockStack>
+                        </Card>
+
+                        {/* Store Credit Stat */}
+                        <Card>
+                          <BlockStack gap="200">
+                            <InlineStack align="space-between" blockAlign="center">
+                              <Text as="span" variant="bodySm" tone="subdued">Store Credit</Text>
+                              <Badge
+                                tone={creditSyncStats.customersWithCredit > 0 ? "success" : "info"}
+                                size="small"
+                              >
+                                {creditSyncStats.customersWithCredit > 0 ? "Active" : "None"}
+                              </Badge>
+                            </InlineStack>
+                            <Text as="p" variant="headingXl">{formatCurrency(creditSyncStats.totalCreditBalance, { storeCurrency, currencyDisplayType })}</Text>
+                            <Text as="p" variant="bodySm" tone="subdued">
+                              {creditSyncStats.customersWithCredit} customers with credit
+                            </Text>
+                          </BlockStack>
+                        </Card>
+                      </InlineGrid>
+
+                      {/* Sync Actions */}
+                      <Card>
+                        <BlockStack gap="400">
+                          <Text as="h3" variant="headingSm">Sync Actions</Text>
+
+                          <InlineGrid columns={{ xs: 1, sm: 3 }} gap="400">
+                            {/* Customer Sync Action */}
+                            <SyncActionCard
+                              title="Customers"
+                              description="Import customer data and assign loyalty tiers"
+                              buttonText="Sync Customers"
+                              isSyncing={isCustomerSyncing || customerSyncJob?.status === 'IN_PROGRESS'}
+                              isStarting={isCustomerSyncing && !customerSyncJob}
+                              progress={customerSyncJob ? {
+                                processedCount: customerSyncJob.progress?.processedCount || 0,
+                                totalCount: customerSyncJob.progress?.totalCustomers || null,
+                                percentComplete: customerSyncJob.progress?.percentComplete || 0,
+                                createdCount: customerSyncJob.progress?.createdCount,
+                                updatedCount: customerSyncJob.progress?.updatedCount,
+                              } : null}
+                              onSync={handleStartCustomerSync}
+                              onCancel={handleCancelCustomerSync}
+                              eta={getCustomerSyncETA()}
+                              progressLabel="customers"
+                              variant="compact"
+                            />
+
+                            {/* Order Sync Action */}
+                            <SyncActionCard
+                              title="Orders"
+                              description="Import order history for spending calculations"
+                              buttonText="Sync Orders"
+                              isSyncing={false}
+                              onSync={() => setShowSyncModal(true)}
+                              variant="compact"
+                            />
+
+                            {/* Credit Sync Action */}
+                            <SyncActionCard
+                              title="Store Credit"
+                              description="Import existing Shopify credit balances"
+                              buttonText="Sync Credit"
+                              isSyncing={isCreditSyncing || creditSyncJob?.status === 'IN_PROGRESS'}
+                              isStarting={isCreditSyncStarting}
+                              progress={creditSyncJob ? {
+                                processedCount: creditSyncJob.progress?.processedCount || 0,
+                                totalCount: creditSyncJob.progress?.totalCustomers || null,
+                                percentComplete: creditSyncJob.progress?.percentComplete || 0,
+                                updatedCount: creditSyncJob.progress?.updatedCount,
+                              } : null}
+                              onSync={() => setShowCreditSyncModal(true)}
+                              onCancel={handleCancelCreditSync}
+                              progressLabel="customers"
+                              variant="compact"
+                            />
+                          </InlineGrid>
+                        </BlockStack>
+                      </Card>
+
+                      {/* Status Banners */}
+                      {customerSyncJob && customerSyncJob.status === 'COMPLETED' && (
+                        <Banner tone="success" onDismiss={() => setCustomerSyncJob(null)}>
+                          <Text as="p" variant="bodySm">
+                            Customer sync completed: {customerSyncJob.progress.createdCount} created, {customerSyncJob.progress.updatedCount} updated
+                          </Text>
+                        </Banner>
+                      )}
+                      {customerSyncJob && customerSyncJob.status === 'FAILED' && (
+                        <Banner tone="critical" onDismiss={() => setCustomerSyncJob(null)}>
+                          <Text as="p" variant="bodySm">
+                            Customer sync failed: {customerSyncJob.error || 'Unknown error'}
+                          </Text>
+                        </Banner>
+                      )}
+                      {customerSyncJob && customerSyncJob.error?.includes('Rate limited') && customerSyncJob.status === 'IN_PROGRESS' && (
+                        <Banner tone="warning">
+                          <Text as="p" variant="bodySm">
+                            Shopify rate limit reached. The sync will automatically retry in a few seconds.
+                          </Text>
+                        </Banner>
+                      )}
+                      {creditSyncJob && creditSyncJob.status === 'COMPLETED' && (
+                        <Banner tone="success" onDismiss={() => setCreditSyncJob(null)}>
+                          <Text as="p" variant="bodySm">
+                            Store credit sync completed: {creditSyncJob.progress.updatedCount} customers updated,
+                            {formatCurrency(creditSyncJob.progress.totalImported, { storeCurrency, currencyDisplayType })} imported.
+                          </Text>
+                        </Banner>
+                      )}
+                      {creditSyncJob && creditSyncJob.status === 'FAILED' && (
+                        <Banner tone="critical" onDismiss={() => setCreditSyncJob(null)}>
+                          <Text as="p" variant="bodySm">
+                            Store credit sync failed: {creditSyncJob.error || 'Unknown error'}
+                          </Text>
+                        </Banner>
+                      )}
+                      {!customerSyncStats.customersInitialSynced && (
+                        <Banner tone="warning">
+                          <Text as="p" variant="bodySm">
+                            Initial customer sync required. This imports your existing customers and assigns them to loyalty tiers.
+                          </Text>
+                        </Banner>
+                      )}
+                      {orderStats && orderStats.discrepancies > 0 && (
+                        <Banner tone="warning">
+                          Found {orderStats.discrepancies} ledger discrepancies.
+                          <Button variant="plain" onClick={() => navigate("/app/orders-sync")}>
+                            Review & Fix
+                          </Button>
+                        </Banner>
+                      )}
+
+                      {/* Last Sync Info */}
+                      <Box paddingBlockStart="200">
+                        <InlineStack gap="400" align="center">
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            Last customer sync: {customerSyncStats.lastSyncJob?.completedAt
+                              ? formatDate(customerSyncStats.lastSyncJob.completedAt)
+                              : "Never"}
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">|</Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            Last order sync: {orderSyncStats.lastSyncJob?.completedAt
+                              ? formatDate(orderSyncStats.lastSyncJob.completedAt)
+                              : "Never"}
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">|</Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            Last credit sync: {creditSyncStats.lastSyncJob?.completedAt
+                              ? formatDate(creditSyncStats.lastSyncJob.completedAt)
+                              : "Never"}
+                          </Text>
+                        </InlineStack>
+                      </Box>
+                    </BlockStack>
+                  )}
+
+                  {/* Tier Automation Tab */}
+                  {selectedTab === 2 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Automatic Tier Recalculation</Text>
+                          {tierAutomationStatus === 'active' ? (
+                            <Badge tone="success">Active</Badge>
+                          ) : (
+                            <Badge tone="info">Disabled</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {tierAutomationStatus === 'active'
+                            ? `Running ${tierRecalculationFrequency.toLowerCase()} to keep tier assignments accurate`
+                            : "Enable to automatically adjust customer tiers based on their spending"}
+                        </Text>
+                      </BlockStack>
+
+                      {/* Setup guidance when disabled and no tiers exist */}
+                      {!tierRecalculationEnabled && tiers.length === 0 && (
+                        <Banner tone="warning">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Create tiers first
+                            </Text>
+                            <Text as="p" variant="bodySm">
+                              Before enabling automatic recalculation, you need to set up your loyalty tiers. Go to Settings → Loyalty Tiers to create your tier structure.
+                            </Text>
+                            <Button size="slim" onClick={() => navigate("/app/members/tiers")}>
+                              Set Up Tiers
+                            </Button>
+                          </BlockStack>
+                        </Banner>
+                      )}
+
+                      <FormLayout>
+                        <Checkbox
+                          label="Enable automatic tier recalculation"
+                          checked={tierRecalculationEnabled}
+                          onChange={setTierRecalculationEnabled}
+                          helpText="Tiers will be recalculated automatically based on your selected frequency"
+                        />
+
+                        {tierRecalculationEnabled && (
+                          <Select
+                            label="Recalculation Frequency"
+                            options={[
+                              { label: 'Daily', value: 'DAILY' },
+                              { label: 'Weekly (Recommended)', value: 'WEEKLY' },
+                              { label: 'Monthly', value: 'MONTHLY' },
+                              { label: 'Quarterly', value: 'QUARTERLY' },
+                            ]}
+                            value={tierRecalculationFrequency}
+                            onChange={(value) => setTierRecalculationFrequency(value as RecalculationFrequency)}
+                          />
+                        )}
+                      </FormLayout>
+
+                      {/* Last Run Info & Manual Trigger */}
+                      <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                        <InlineStack align="space-between" blockAlign="center">
+                          <BlockStack gap="100">
+                            <Text as="span" variant="bodyMd" fontWeight="semibold">Manual Recalculation</Text>
+                            {settings.tierRecalculationLastRun ? (
+                              <Text as="span" variant="bodySm" tone="subdued">
+                                Last run: {formatDate(settings.tierRecalculationLastRun)} • Next: {calculateNextRun(settings.tierRecalculationLastRun, tierRecalculationFrequency)}
+                              </Text>
+                            ) : (
+                              <Text as="span" variant="bodySm" tone="subdued">Never run</Text>
+                            )}
+                          </BlockStack>
+                          <Button
+                            onClick={handleManualRecalculation}
+                            icon={RefreshIcon}
+                          >
+                            Recalculate Now
+                          </Button>
+                        </InlineStack>
+                      </Box>
+
+                      <Banner tone="info">
+                        <Text as="p" variant="bodyMd">
+                          Recalculation respects manual tier overrides, uses your tier's evaluation period (Annual/Lifetime),
+                          includes a grace period before downgrades, and logs all changes.
+                        </Text>
+                      </Banner>
+
+                      <Divider />
+
+                      {/* Default Base Tier Section */}
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Default Customer Tier</Text>
+                          {autoAssignBaseTier ? (
+                            <Badge tone="success">Enabled</Badge>
+                          ) : (
+                            <Badge tone="info">Disabled</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {autoAssignBaseTier
+                            ? "New customers are automatically enrolled in your loyalty program"
+                            : "Enable to automatically assign a base tier to new customers from day one"}
+                        </Text>
+                      </BlockStack>
+
+                      <FormLayout>
+                        <Checkbox
+                          label="Enable automatic base tier assignment"
+                          checked={autoAssignBaseTier}
+                          onChange={setAutoAssignBaseTier}
+                          helpText="New customers will be assigned a base tier if they don't qualify for any higher tier"
+                        />
+
+                        {autoAssignBaseTier && (
+                          <Select
+                            label="Default tier for new customers"
+                            options={[
+                              { label: 'Auto-detect (lowest minSpend tier)', value: '' },
+                              ...tiers.map(t => ({
+                                label: `${t.name} (min spend: ${formatCurrency(t.minSpend, { storeCurrency, currencyDisplayType })})`,
+                                value: t.id
+                              }))
+                            ]}
+                            value={defaultBaseTierId}
+                            onChange={setDefaultBaseTierId}
+                            helpText="Select a specific tier or let the system auto-detect the appropriate base tier"
+                          />
+                        )}
+                      </FormLayout>
+
+                      {autoAssignBaseTier && (
+                        <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                          <BlockStack gap="200">
+                            <Text as="span" variant="bodySm" fontWeight="semibold">
+                              Tier Priority (highest to lowest):
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              Manual Override → Subscription → Purchase → Spending-Based → Default Base Tier
+                            </Text>
+                            <Text as="span" variant="bodySm" tone="subdued">
+                              The base tier only applies when no other tier source qualifies.
+                            </Text>
+                          </BlockStack>
+                        </Box>
+                      )}
+
+                      {tiers.length === 0 && (
+                        <Banner tone="warning">
+                          <Text as="p" variant="bodyMd">
+                            No tiers configured yet. Create tiers in the Loyalty Tiers section before enabling base tier assignment.
+                          </Text>
+                        </Banner>
+                      )}
+
+                      <Divider />
+
+                      {/* Trial Abuse Prevention Section */}
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Trial Abuse Prevention</Text>
+                          <Badge tone="info">Protection</Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Control how tier subscription trials are granted to prevent abuse
+                        </Text>
+                      </BlockStack>
+
+                      <FormLayout>
+                        <Checkbox
+                          label="Allow multiple tier trials"
+                          checked={allowMultipleTierTrials}
+                          onChange={setAllowMultipleTierTrials}
+                          helpText="When enabled, customers can trial different tiers (one trial per tier). When disabled, customers get only one trial ever."
+                        />
+
+                        <FormLayout.Group>
+                          <TextField
+                            label="Maximum lifetime trial days"
+                            type="number"
+                            value={maxLifetimeTrialDays}
+                            onChange={setMaxLifetimeTrialDays}
+                            helpText="Total trial days a customer can accumulate across all tiers"
+                            min={7}
+                            max={90}
+                            suffix="days"
+                            autoComplete="off"
+                          />
+
+                          <TextField
+                            label="Minimum days between trials"
+                            type="number"
+                            value={minDaysBetweenTrials}
+                            onChange={setMinDaysBetweenTrials}
+                            helpText="Cooldown period before starting another tier trial"
+                            min={7}
+                            max={365}
+                            suffix="days"
+                            autoComplete="off"
+                          />
+                        </FormLayout.Group>
+                      </FormLayout>
+
+                      <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                        <BlockStack gap="200">
+                          <Text as="span" variant="bodySm" fontWeight="semibold">
+                            How Trial Protection Works:
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            • Customers are tracked for total trial days used across all tiers
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            • The cooldown period prevents rapid trial switching between tiers
+                          </Text>
+                          <Text as="span" variant="bodySm" tone="subdued">
+                            • Trial grants are logged for audit and compliance purposes
+                          </Text>
+                        </BlockStack>
+                      </Box>
+
+                      {/* Recalculate Confirmation Modal */}
+                      <Modal
+                        open={showRecalculateModal}
+                        onClose={() => setShowRecalculateModal(false)}
+                        title="Recalculate All Customer Tiers"
+                        primaryAction={{
+                          content: "Recalculate",
+                          onAction: confirmRecalculation,
+                          destructive: false,
+                        }}
+                        secondaryActions={[
+                          {
+                            content: "Cancel",
+                            onAction: () => setShowRecalculateModal(false),
+                          },
+                        ]}
+                      >
+                        <Modal.Section>
+                          <BlockStack gap="300">
+                            <Text as="p" variant="bodyMd">
+                              This will recalculate tiers for all customers in your store based on their spending history.
+                            </Text>
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              This may take several minutes depending on the number of customers. Manual tier overrides will be preserved.
+                            </Text>
+                          </BlockStack>
+                        </Modal.Section>
+                      </Modal>
+                    </BlockStack>
+                  )}
+
+                  {/* Store Metrics Tab */}
+                  {selectedTab === 3 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Store Business Metrics</Text>
+                          {metricsCompleteness === 'complete' ? (
+                            <Badge tone="success">Complete</Badge>
+                          ) : metricsCompleteness === 'partial' ? (
+                            <Badge tone="warning">Partial</Badge>
+                          ) : (
+                            <Badge tone="new">Configure</Badge>
+                          )}
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {metricsCompleteness === 'complete'
+                            ? "Your metrics are configured for accurate ROI calculations"
+                            : metricsCompleteness === 'partial'
+                              ? "Add more metrics for better analytics accuracy"
+                              : "Configure your financial metrics to unlock ROI and profitability insights"}
+                        </Text>
+                      </BlockStack>
+
+                      {/* Setup guidance when empty */}
+                      {metricsCompleteness === 'empty' && (
+                        <Banner tone="info">
+                          <BlockStack gap="200">
+                            <Text as="p" variant="bodyMd" fontWeight="semibold">
+                              Why configure these metrics?
+                            </Text>
+                            <Text as="p" variant="bodySm">
+                              Your business metrics help calculate the true ROI of your loyalty program. By knowing your profit margins and average order value, we can show you exactly how much revenue your tiers and cashback are generating.
+                            </Text>
+                          </BlockStack>
+                        </Banner>
+                      )}
+
+                      <FormLayout>
+                        <FormLayout.Group>
+                          <TextField
+                            label="Average Profit Margin"
+                            type="number"
+                            value={averageProfitMargin}
+                            onChange={setAverageProfitMargin}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            autoComplete="off"
+                            helpText="Your average profit margin after COGS (e.g., 45 for 45%)"
+                          />
+                          <TextField
+                            label="Average COGS"
+                            type="number"
+                            value={averageCogsPercent}
+                            onChange={setAverageCogsPercent}
+                            suffix="%"
+                            min={0}
+                            max={100}
+                            autoComplete="off"
+                            helpText="Cost of goods sold as % of revenue (e.g., 55 for 55%)"
+                          />
+                        </FormLayout.Group>
+
+                        <FormLayout.Group>
+                          <TextField
+                            label="Average Shipping Cost"
+                            type="number"
+                            value={averageShippingCost}
+                            onChange={setAverageShippingCost}
+                            prefix={getCurrencySymbol(storeCurrency)}
+                            min={0}
+                            autoComplete="off"
+                            helpText="Average shipping cost per order"
+                          />
+                          <TextField
+                            label="Average Order Value"
+                            type="number"
+                            value={averageOrderValue}
+                            onChange={setAverageOrderValue}
+                            prefix={getCurrencySymbol(storeCurrency)}
+                            min={0}
+                            autoComplete="off"
+                            helpText="Your historical average order value"
+                          />
+                        </FormLayout.Group>
+
+                        <TextField
+                          label="Target ROI"
+                          type="number"
+                          value={targetRoiPercent}
+                          onChange={setTargetRoiPercent}
+                          suffix="%"
+                          min={0}
+                          autoComplete="off"
+                          helpText="Your target return on investment for the loyalty program (e.g., 200 for 200% ROI)"
+                        />
+                      </FormLayout>
+
+                      {/* Metrics Summary */}
+                      {(averageProfitMargin || averageCogsPercent || averageOrderValue) && (
+                        <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                          <BlockStack gap="300">
+                            <Text as="p" variant="bodySm" tone="subdued">Metrics Summary</Text>
+                            <InlineStack gap="600">
+                              {averageProfitMargin && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">Profit Margin</Text>
+                                  <Text as="span" variant="headingSm">{averageProfitMargin}%</Text>
+                                </BlockStack>
+                              )}
+                              {averageCogsPercent && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">COGS</Text>
+                                  <Text as="span" variant="headingSm">{averageCogsPercent}%</Text>
+                                </BlockStack>
+                              )}
+                              {averageOrderValue && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">Avg Order</Text>
+                                  <Text as="span" variant="headingSm">{formatCurrency(averageOrderValue, { storeCurrency, currencyDisplayType })}</Text>
+                                </BlockStack>
+                              )}
+                              {targetRoiPercent && (
+                                <BlockStack gap="100">
+                                  <Text as="span" variant="bodySm" tone="subdued">Target ROI</Text>
+                                  <Text as="span" variant="headingSm">{targetRoiPercent}%</Text>
+                                </BlockStack>
+                              )}
+                            </InlineStack>
+                            {settings.metricsLastUpdated && (
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Last updated: {new Date(settings.metricsLastUpdated).toLocaleDateString()}
+                              </Text>
+                            )}
+                          </BlockStack>
+                        </Box>
+                      )}
+
+                      <Banner tone="info">
+                        <Text as="p" variant="bodyMd">
+                          These metrics are used to calculate loyalty program ROI, cashback profitability, and tier effectiveness in analytics.
+                          Leave fields empty if you don't have the data yet.
+                        </Text>
+                      </Banner>
+                    </BlockStack>
+                  )}
+
+                  {/* Appearance Tab */}
+                  {selectedTab === 4 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Widget Theme</Text>
+                          <Badge tone={widgetThemeStatus === 'CUSTOM' ? 'magic' : widgetThemeStatus === 'DARK' ? 'info' : 'success'}>
+                            {widgetThemeStatus === 'CUSTOM' ? 'Custom' : widgetThemeStatus === 'DARK' ? 'Dark Mode' : 'Light Mode'}
+                          </Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          {widgetThemeStatus === 'CUSTOM'
+                            ? "Using your custom brand colors for the loyalty widget"
+                            : widgetThemeStatus === 'DARK'
+                              ? "Dark theme for stores with dark backgrounds"
+                              : "Light theme for stores with light backgrounds"}
+                        </Text>
+                      </BlockStack>
+
+                      {/* Theme Mode Selection */}
+                      <InlineStack gap="300">
+                        {[
+                          { mode: "LIGHT" as const, icon: "☀️", label: "Light", bg: "#FFFFFF", textColor: "#212B36" },
+                          { mode: "DARK" as const, icon: "🌙", label: "Dark", bg: "#1A1A2E", textColor: "#F4F4F5" },
+                          { mode: "CUSTOM" as const, icon: "🎨", label: "Custom", bg: "linear-gradient(135deg, #5C6AC4 0%, #008060 100%)", textColor: "#FFFFFF" },
+                        ].map(({ mode, icon, label, bg, textColor }) => (
+                          <div
+                            key={mode}
+                            onClick={() => {
+                              console.log("[Settings UI] Theme mode clicked:", mode);
+                              setWidgetThemeMode(mode);
+                              if (mode === "LIGHT") {
+                                setWidgetPrimaryColor("#5C6AC4");
+                                setWidgetBackgroundColor("#FFFFFF");
+                                setWidgetTextColor("#212B36");
+                                setWidgetAccentColor("#008060");
+                              } else if (mode === "DARK") {
+                                console.log("[Settings UI] Setting DARK preset colors");
+                                setWidgetPrimaryColor("#9CA3FF");
+                                setWidgetBackgroundColor("#1A1A2E");
+                                setWidgetTextColor("#F4F4F5");
+                                setWidgetAccentColor("#34D399");
+                              }
+                            }}
+                            style={{
+                              cursor: "pointer",
+                              padding: "16px 24px",
+                              border: widgetThemeMode === mode ? "2px solid #5C6AC4" : "2px solid #E1E3E5",
+                              borderRadius: "8px",
+                              textAlign: "center",
+                              background: bg,
+                              flex: 1,
+                            }}
+                          >
+                            <BlockStack gap="100" inlineAlign="center">
+                              <span style={{ fontSize: "20px" }}>{icon}</span>
+                              <Text as="span" variant="bodySm" fontWeight={widgetThemeMode === mode ? "semibold" : "regular"}>
+                                <span style={{ color: textColor }}>{label}</span>
+                              </Text>
+                            </BlockStack>
+                          </div>
+                        ))}
+                      </InlineStack>
+
+                      {/* Custom Color Options */}
+                      {widgetThemeMode === "CUSTOM" && (
+                        <FormLayout>
+                          <FormLayout.Group>
+                            <ColorPickerFieldInline
+                              label="Primary"
+                              color={widgetPrimaryColor}
+                              onChange={setWidgetPrimaryColor}
+                            />
+                            <ColorPickerFieldInline
+                              label="Background"
+                              color={widgetBackgroundColor}
+                              onChange={setWidgetBackgroundColor}
+                            />
+                          </FormLayout.Group>
+                          <FormLayout.Group>
+                            <ColorPickerFieldInline
+                              label="Text"
+                              color={widgetTextColor}
+                              onChange={setWidgetTextColor}
+                            />
+                            <ColorPickerFieldInline
+                              label="Accent"
+                              color={widgetAccentColor}
+                              onChange={setWidgetAccentColor}
+                            />
+                          </FormLayout.Group>
+                          <FormLayout.Group>
+                            <ColorPickerFieldInline
+                              label="Secondary Text"
+                              color={widgetSecondaryTextColor || "rgba(0,0,0,0.6)"}
+                              onChange={setWidgetSecondaryTextColor}
+                            />
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                              <Text as="span" variant="bodySm" tone="subdued">Labels</Text>
+                              <Button
+                                size="slim"
+                                onClick={() => setWidgetSecondaryTextColor("")}
+                                disabled={!widgetSecondaryTextColor}
+                              >
+                                {widgetSecondaryTextColor ? "Reset to Auto" : "Auto (default)"}
+                              </Button>
+                            </div>
+                          </FormLayout.Group>
+                          <FormLayout.Group>
+                            <Select
+                              label="Border Radius"
+                              options={[
+                                { label: "None", value: "0" },
+                                { label: "Small", value: "4" },
+                                { label: "Medium", value: "8" },
+                                { label: "Large", value: "12" },
+                                { label: "Rounded", value: "24" },
+                              ]}
+                              value={String(widgetBorderRadius)}
+                              onChange={(value) => setWidgetBorderRadius(parseInt(value))}
+                            />
+                            <Select
+                              label="Font"
+                              options={[
+                                { label: "Inherit from Theme", value: "inherit" },
+                                { label: "System Default", value: "system-ui" },
+                                { label: "Inter", value: "Inter, sans-serif" },
+                              ]}
+                              value={widgetFontFamily}
+                              onChange={setWidgetFontFamily}
+                            />
+                          </FormLayout.Group>
+                        </FormLayout>
+                      )}
+
+                      {/* Widget Preview - Matches actual storefront widget */}
+                      {/* Secondary text color: use custom if set, else auto-derive from mode */}
+                      {(() => {
+                        const previewSecondaryColor = widgetSecondaryTextColor || (widgetThemeMode === "DARK" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)");
+                        const previewSecondaryLighter = widgetSecondaryTextColor || (widgetThemeMode === "DARK" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)");
+                        return (
+                      <Box padding="400" background="bg-surface-secondary" borderRadius="200">
+                        <BlockStack gap="300">
+                          <Text as="p" variant="bodySm" tone="subdued">Preview</Text>
+                          <div
+                            style={{
+                              backgroundColor: widgetBackgroundColor,
+                              borderRadius: `${widgetBorderRadius}px`,
+                              fontFamily: widgetFontFamily,
+                              border: `1px solid ${widgetThemeMode === "DARK" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+                              maxWidth: "320px",
+                              overflow: "hidden",
+                              boxShadow: widgetThemeMode === "DARK"
+                                ? "0 4px 12px rgba(0, 0, 0, 0.3)"
+                                : "0 4px 12px rgba(0, 0, 0, 0.08)"
+                            }}
+                          >
+                            {/* Header */}
+                            <div style={{
+                              background: `linear-gradient(135deg, ${widgetPrimaryColor} 0%, ${widgetPrimaryColor}dd 100%)`,
+                              padding: "12px 16px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "12px"
+                            }}>
+                              <div style={{
+                                width: "32px",
+                                height: "32px",
+                                borderRadius: "50%",
+                                backgroundColor: "rgba(255,255,255,0.2)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center"
+                              }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                </svg>
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ color: "#FFF", fontWeight: 600, fontSize: "14px" }}>{DEMO_VALUES.WIDGET_PREVIEW.tierName}</div>
+                                <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "12px" }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.credit, { storeCurrency, currencyDisplayType })} Store Credit</div>
+                              </div>
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2" style={{ opacity: 0.8 }}>
+                                <path d="M6 9l6 6 6-6"/>
+                              </svg>
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ padding: "16px" }}>
+                              {/* Balance Hero */}
+                              <div style={{ textAlign: "center", marginBottom: "16px" }}>
+                                <div style={{
+                                  color: previewSecondaryColor,
+                                  fontSize: "11px",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.5px",
+                                  marginBottom: "4px"
+                                }}>Store Credit Balance</div>
+                                <div style={{
+                                  color: widgetTextColor,
+                                  fontSize: "28px",
+                                  fontWeight: 700
+                                }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.credit, { storeCurrency, currencyDisplayType })}</div>
+                              </div>
+
+                              {/* Cards */}
+                              <div style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1fr 1fr",
+                                gap: "8px",
+                                marginBottom: "16px"
+                              }}>
+                                {/* Tier Card */}
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                                  borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
+                                  padding: "12px 8px",
+                                  textAlign: "center"
+                                }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={widgetAccentColor} strokeWidth="2" style={{ marginBottom: "4px" }}>
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                  </svg>
+                                  <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>Gold</div>
+                                  <div style={{ color: previewSecondaryLighter, fontSize: "10px" }}>Tier</div>
+                                </div>
+
+                                {/* Cashback Card */}
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                                  borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
+                                  padding: "12px 8px",
+                                  textAlign: "center"
+                                }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={widgetAccentColor} strokeWidth="2" style={{ marginBottom: "4px" }}>
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 6v6l4 2"/>
+                                  </svg>
+                                  <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>{DEMO_VALUES.WIDGET_PREVIEW.cashbackPercent}%</div>
+                                  <div style={{ color: previewSecondaryLighter, fontSize: "10px" }}>Cashback</div>
+                                </div>
+
+                                {/* Progress Card */}
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                                  borderRadius: `${Math.min(widgetBorderRadius, 8)}px`,
+                                  padding: "12px 8px",
+                                  textAlign: "center"
+                                }}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={widgetAccentColor} strokeWidth="2" style={{ marginBottom: "4px" }}>
+                                    <path d="M12 20V10M18 20V4M6 20v-4"/>
+                                  </svg>
+                                  <div style={{ color: widgetTextColor, fontWeight: 600, fontSize: "13px" }}>{DEMO_VALUES.WIDGET_PREVIEW.progress}%</div>
+                                  <div style={{ color: previewSecondaryLighter, fontSize: "10px" }}>Progress</div>
+                                </div>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div>
+                                <div style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  marginBottom: "6px",
+                                  fontSize: "11px"
+                                }}>
+                                  <span style={{ color: previewSecondaryColor }}>Next Tier Progress</span>
+                                  <span style={{ color: widgetAccentColor, fontWeight: 500 }}>{formatCurrency(DEMO_VALUES.WIDGET_PREVIEW.amountRemaining, { storeCurrency, currencyDisplayType })} to go</span>
+                                </div>
+                                <div style={{
+                                  backgroundColor: widgetThemeMode === "DARK" ? "rgba(255,255,255,0.15)" : "#E1E3E5",
+                                  borderRadius: "999px",
+                                  height: "6px",
+                                  overflow: "hidden"
+                                }}>
+                                  <div style={{
+                                    background: `linear-gradient(90deg, ${widgetAccentColor} 0%, ${widgetPrimaryColor} 100%)`,
+                                    width: `${DEMO_VALUES.WIDGET_PREVIEW.progress}%`,
+                                    height: "100%",
+                                    borderRadius: "999px"
+                                  }} />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </BlockStack>
+                      </Box>
+                        );
+                      })()}
+                    </BlockStack>
+                  )}
+
+                  {/* Integrations Tab */}
+                  {selectedTab === 5 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Integrations</Text>
+                          <Badge tone="info">Third-Party</Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Connect external services to extend your loyalty program
+                        </Text>
+                      </BlockStack>
+
+                      {/* Marketing Hub Mode */}
+                      <Card>
+                        <BlockStack gap="400">
+                          <InlineStack align="space-between" blockAlign="center">
+                            <BlockStack gap="100">
+                              <Text as="h3" variant="headingMd">Marketing Hub</Text>
+                              <Text as="p" variant="bodySm" tone="subdued">
+                                Choose how you want to handle email marketing and automations
+                              </Text>
+                            </BlockStack>
+                          </InlineStack>
+
+                          <BlockStack gap="300">
+                            <Box
+                              padding="400"
+                              background="bg-surface-secondary"
+                              borderRadius="200"
+                              borderWidth="025"
+                              borderColor="border"
+                            >
+                              <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                                <BlockStack gap="100">
+                                  <InlineStack gap="200" blockAlign="center">
+                                    <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                      In-House Email
+                                    </Text>
+                                    <Badge tone="success">Built-in</Badge>
+                                  </InlineStack>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    Use our built-in email campaigns and automations with no additional setup
+                                  </Text>
+                                </BlockStack>
+                                <Button
+                                  size="slim"
+                                  variant="primary"
+                                  onClick={() => navigate("/app/marketing")}
+                                >
+                                  Open Marketing Hub
+                                </Button>
+                              </InlineStack>
+                            </Box>
+
+                            <Box
+                              padding="400"
+                              background="bg-surface-secondary"
+                              borderRadius="200"
+                              borderWidth="025"
+                              borderColor="border"
+                            >
+                              <InlineStack align="space-between" blockAlign="center" wrap={false}>
+                                <BlockStack gap="100">
+                                  <InlineStack gap="200" blockAlign="center">
+                                    <Text as="span" variant="bodyMd" fontWeight="semibold">
+                                      Klaviyo Integration
+                                    </Text>
+                                    <Badge tone="magic">Advanced</Badge>
+                                  </InlineStack>
+                                  <Text as="span" variant="bodySm" tone="subdued">
+                                    Connect Klaviyo for powerful segmentation and marketing automation
+                                  </Text>
+                                </BlockStack>
+                                <Button
+                                  size="slim"
+                                  onClick={() => navigate("/app/marketing/klaviyo")}
+                                >
+                                  Configure Klaviyo
+                                </Button>
+                              </InlineStack>
+                            </Box>
+                          </BlockStack>
+                        </BlockStack>
+                      </Card>
+
+                      {/* Future Integrations */}
+                      <Card>
+                        <BlockStack gap="300">
+                          <Text as="h3" variant="headingMd">Coming Soon</Text>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            More integrations are on the way to help you connect your favorite tools
+                          </Text>
+
+                          <InlineStack gap="300" wrap>
+                            <Box padding="300" background="bg-surface-disabled" borderRadius="200">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="span" variant="bodySm" tone="subdued">Zapier</Text>
+                                <Badge>Soon</Badge>
+                              </InlineStack>
+                            </Box>
+                            <Box padding="300" background="bg-surface-disabled" borderRadius="200">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="span" variant="bodySm" tone="subdued">Slack</Text>
+                                <Badge>Soon</Badge>
+                              </InlineStack>
+                            </Box>
+                            <Box padding="300" background="bg-surface-disabled" borderRadius="200">
+                              <InlineStack gap="200" blockAlign="center">
+                                <Text as="span" variant="bodySm" tone="subdued">Google Analytics</Text>
+                                <Badge>Soon</Badge>
+                              </InlineStack>
+                            </Box>
+                          </InlineStack>
+                        </BlockStack>
+                      </Card>
+
+                      <Banner tone="info">
+                        <Text as="p" variant="bodyMd">
+                          <Text as="span" fontWeight="semibold">Need a specific integration?</Text>{" "}
+                          Let us know at support@rewardspro.app and we'll prioritize it.
+                        </Text>
+                      </Banner>
+                    </BlockStack>
+                  )}
+
+                  {/* Billing Tab */}
+                  {selectedTab === 6 && (
+                    <BlockStack gap="500">
+                      <BlockStack gap="200">
+                        <InlineStack gap="200" blockAlign="center">
+                          <Text as="h2" variant="headingMd">Subscription & Billing</Text>
+                          <Badge tone={(subscriptionInfo?.status === 'ACTIVE' || activeSubscription) ? 'success' : 'info'}>
+                            {subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'Free'}
+                          </Badge>
+                        </InlineStack>
+                        <Text as="p" variant="bodySm" tone="subdued">
+                          Manage your subscription plan and billing details
+                        </Text>
+                      </BlockStack>
+
+                      {/* Current Plan Card - Uses live subscriptionInfo data when available */}
+                      <SubscriptionCard
+                        planName={subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'RewardsPro Free'}
+                        status={subscriptionInfo?.inTrialPeriod ? 'trial' : subscriptionInfo?.status === 'ACTIVE' ? 'active' : activeSubscription?.status === 'ACTIVE' ? 'active' : currentPlan?.status === 'active' ? 'active' : 'active'}
+                        price={
+                          subscriptionInfo?.recurringCharge?.amount ? parseFloat(subscriptionInfo.recurringCharge.amount) :
+                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Pro') ? 39 :
+                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Max') ? 149 :
+                          (subscriptionInfo?.name || currentPlan?.planName)?.includes('Ultra') ? 499 : 0
+                        }
+                        interval={(subscriptionInfo?.recurringCharge?.interval || subscriptionInfo?.name || currentPlan?.planName)?.toLowerCase().includes('annual') ? 'annual' : 'monthly'}
+                        periodEnd={subscriptionInfo?.currentPeriodEnd || currentPlan?.currentPeriodEnd || undefined}
+                        usage={monthlyOrderUsage ? {
+                          current: monthlyOrderUsage.orderCount,
+                          limit: monthlyOrderUsage.planLimit || 100,
+                          resource: 'orders',
+                        } : undefined}
+                        showManageButton={true}
+                      />
+
+                      {/* Usage Warning */}
+                      {monthlyOrderUsage && monthlyOrderUsage.orderCount >= (monthlyOrderUsage.planLimit || 100) * 0.8 && (
+                        <UsageUpgradePrompt
+                          current={monthlyOrderUsage.orderCount}
+                          limit={monthlyOrderUsage.planLimit || 100}
+                          resource="orders"
+                          title="Monthly Order Usage"
+                          warningThreshold={80}
+                        />
+                      )}
+
+                      {/* Plan Benefits */}
+                      <Card>
+                        <BlockStack gap="400">
+                          <Text as="h3" variant="headingMd">Plan Benefits</Text>
+                          <BlockStack gap="200">
+                            {(() => {
+                              const planName = subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || 'Free';
+                              const benefits = planName.includes('Ultra') ? [
+                                { label: 'Unlimited orders per month', included: true },
+                                { label: 'Unlimited customers', included: true },
+                                { label: 'All premium features', included: true },
+                                { label: 'Dedicated support', included: true },
+                                { label: 'Custom integrations', included: true },
+                              ] : planName.includes('Max') ? [
+                                { label: '2,000 orders per month', included: true },
+                                { label: 'Unlimited customers', included: true },
+                                { label: 'Tier memberships', included: true },
+                                { label: 'Priority support', included: true },
+                                { label: 'Advanced analytics', included: true },
+                              ] : planName.includes('Pro') ? [
+                                { label: '500 orders per month', included: true },
+                                { label: '2,000 customers', included: true },
+                                { label: 'Batch operations', included: true },
+                                { label: 'Email support', included: true },
+                                { label: 'Tier memberships', included: false },
+                              ] : [
+                                { label: '100 orders per month', included: true },
+                                { label: '500 customers', included: true },
+                                { label: 'Basic features', included: true },
+                                { label: 'Community support', included: true },
+                                { label: 'Advanced features', included: false },
+                              ];
+
+                              return benefits.map((benefit, i) => (
+                                <InlineStack key={i} gap="200" blockAlign="center">
+                                  <div style={{
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    backgroundColor: benefit.included ? '#e3f1df' : '#f3f4f6',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '12px',
+                                  }}>
+                                    {benefit.included ? '✓' : '–'}
+                                  </div>
+                                  <Text as="span" variant="bodySm" tone={benefit.included ? 'base' : 'subdued'}>
+                                    {benefit.label}
+                                  </Text>
+                                </InlineStack>
+                              ));
+                            })()}
+                          </BlockStack>
+                        </BlockStack>
+                      </Card>
+
+                      {/* Upgrade CTA for non-Ultra plans */}
+                      {!(subscriptionInfo?.name || currentPlan?.planName || activeSubscription?.name || '').includes('Ultra') && (
+                        <Card>
+                          <BlockStack gap="400">
+                            <InlineStack gap="300" blockAlign="center">
+                              <div style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #d69e2e20, #d69e2e40)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}>
+                                <Text as="span" variant="headingLg">⭐</Text>
+                              </div>
+                              <BlockStack gap="050">
+                                <Text as="h3" variant="headingMd">Unlock More Features</Text>
+                                <Text as="p" variant="bodySm" tone="subdued">
+                                  Upgrade your plan to access advanced features and higher limits
+                                </Text>
+                              </BlockStack>
+                            </InlineStack>
+                            <Button variant="primary" onClick={() => navigate('/app/billing')}>
+                              View All Plans
+                            </Button>
+                          </BlockStack>
+                        </Card>
+                      )}
+
+                      {/* Billing Support */}
+                      <Banner tone="info">
+                        <Text as="p" variant="bodyMd">
+                          <Text as="span" fontWeight="semibold">Need billing help?</Text>{" "}
+                          Contact us at support@rewardspro.app for any subscription or billing questions.
+                        </Text>
+                      </Banner>
+                    </BlockStack>
+                  )}
+                </Box>
+              </Tabs>
+            </Card>
+          </BlockStack>
+        </Layout.Section>
+      </Layout>
+
+      {/* Order Sync Modal */}
+      <Modal
+        open={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+        title="Sync Order History"
+        primaryAction={{
+          content: "Start Sync",
+          onAction: handleStartSync,
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: () => setShowSyncModal(false),
+          }
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Banner tone="info">
+              <p>This will import all paid orders from your Shopify store to enable:</p>
+              <ul style={{ marginLeft: "20px", marginTop: "8px" }}>
+                <li>Fast tier calculations</li>
+                <li>Accurate cashback tracking</li>
+                <li>Complete order analytics</li>
+              </ul>
+            </Banner>
+
+            <Select
+              label="Date Range"
+              options={[
+                { label: "Last 30 days", value: "30" },
+                { label: "Last 90 days", value: "90" },
+                { label: "Last year", value: "365" },
+                { label: "All time", value: "all" }
+              ]}
+              value={syncRange}
+              onChange={setSyncRange}
+            />
+
+            <Checkbox
+              label="Reconcile existing ledger entries"
+              checked={reconcileLedger}
+              onChange={setReconcileLedger}
+              helpText="Check and fix any cashback discrepancies"
+            />
+
+            <Checkbox
+              label="Update customer metrics"
+              checked={updateMetrics}
+              onChange={setUpdateMetrics}
+              helpText="Recalculate totalSpent and orderCount"
+            />
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+
+      {/* Store Credit Sync Modal */}
+      <Modal
+        open={showCreditSyncModal}
+        onClose={() => setShowCreditSyncModal(false)}
+        title="Sync Store Credit"
+        primaryAction={{
+          content: "Start Sync",
+          onAction: handleStartCreditSync,
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: () => setShowCreditSyncModal(false),
+          }
+        ]}
+      >
+        <Modal.Section>
+          <BlockStack gap="400">
+            <Banner tone="info">
+              <p>This will import existing Shopify store credit balances for all customers.</p>
+            </Banner>
+
+            <BlockStack gap="200">
+              <Text as="p" variant="bodyMd">
+                The sync will:
+              </Text>
+              <ul style={{ marginLeft: "20px", marginTop: "4px" }}>
+                <li>Fetch store credit balances from Shopify</li>
+                <li>Update customer records with current balances</li>
+                <li>Track imported amounts for reconciliation</li>
+              </ul>
+            </BlockStack>
+
+            <Banner tone="warning">
+              <Text as="p" variant="bodySm">
+                Use this when first installing the app or to reconcile discrepancies between Shopify and your loyalty program.
+              </Text>
+            </Banner>
+          </BlockStack>
+        </Modal.Section>
+      </Modal>
+
+      {/* Toast notification */}
+      {toast.active && (
+        <Toast
+          content={toast.content}
+          error={toast.error}
+          duration={toast.duration}
+          onDismiss={hideToast}
+        />
+      )}
+      </Page>
+    </>
+  );
+}

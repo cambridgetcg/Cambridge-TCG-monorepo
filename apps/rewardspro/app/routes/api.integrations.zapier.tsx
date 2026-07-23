@@ -502,7 +502,7 @@ async function handleSetTier(
   }
 
   // Update customer's tier
-  const updatedCustomer = await prisma.customer.update({
+  await prisma.customer.update({
     where: { id: customer.id },
     data: { tierId: tier.id },
     include: { tier: true },

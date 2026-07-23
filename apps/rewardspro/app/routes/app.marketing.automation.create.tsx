@@ -15,7 +15,6 @@ import {
   TextField,
   Divider,
   InlineGrid,
-  RadioButton,
   Banner,
   Checkbox,
 } from "@shopify/polaris";
@@ -24,6 +23,11 @@ import prisma from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { checkLimitAccess } from "~/utils/require-feature.server";
 import { PageLimitStatus } from "~/components/Billing/UpgradePrompt";
+import {
+  ChoiceCardGroup,
+  type ChoiceCardOption,
+  type ChoiceCardSection,
+} from "~/components/ChoiceCardGroup";
 
 // ============================================
 // TYPES
@@ -53,6 +57,165 @@ interface LoaderData {
 }
 
 type AutomationStep = 1 | 2 | 3 | 4;
+
+type TriggerType =
+  | "tier_change"
+  | "purchase"
+  | "birthday"
+  | "inactive"
+  | "cashback_earned"
+  | "points_milestone"
+  | "raffle_entered"
+  | "raffle_won"
+  | "raffle_ending"
+  | "mystery_box_opened"
+  | "mystery_box_won"
+  | "rewards_dormant"
+  | "gift_card_purchased"
+  | "gift_card_received"
+  | "store_credit_earned"
+  | "store_credit_converted"
+  | "store_credit_milestone"
+  | "store_credit_balance_reminder";
+
+type ActionType = "send_email" | "add_tag" | "award_points" | "create_discount";
+
+const CUSTOMER_ACTIVITY_TRIGGERS = [
+  {
+    value: "tier_change",
+    label: "Tier Change",
+    description: "Triggered when a customer moves to a new tier",
+  },
+  {
+    value: "purchase",
+    label: "Purchase Made",
+    description: "Triggered after a customer completes a purchase",
+  },
+  {
+    value: "birthday",
+    label: "Customer Birthday",
+    description: "Triggered on the customer's birthday",
+  },
+  {
+    value: "inactive",
+    label: "Inactive Customer",
+    description: "Triggered when a customer hasn't purchased in 30+ days",
+  },
+  {
+    value: "cashback_earned",
+    label: "Cashback Earned",
+    description: "Triggered when a customer earns cashback",
+  },
+  {
+    value: "points_milestone",
+    label: "Points Milestone",
+    description: "Triggered when customer reaches specific points",
+  },
+] satisfies readonly ChoiceCardOption<TriggerType>[];
+
+const REWARDS_ENGAGEMENT_TRIGGERS = [
+  {
+    value: "raffle_entered",
+    label: "Raffle Entry",
+    description: "Triggered when customer enters a raffle",
+  },
+  {
+    value: "raffle_won",
+    label: "Raffle Win",
+    description: "Triggered when customer wins a raffle prize",
+  },
+  {
+    value: "raffle_ending",
+    label: "Raffle Ending Soon",
+    description: "Reminder when a raffle is about to close",
+  },
+  {
+    value: "mystery_box_opened",
+    label: "Mystery Box Opened",
+    description: "Triggered when customer opens a mystery box",
+  },
+  {
+    value: "mystery_box_won",
+    label: "Mystery Box Prize",
+    description: "Triggered when customer wins a prize",
+  },
+  {
+    value: "rewards_dormant",
+    label: "Rewards Dormant",
+    description: "Customer hasn't used rewards in a while",
+  },
+] satisfies readonly ChoiceCardOption<TriggerType>[];
+
+const STORE_VALUE_TRIGGERS = [
+  {
+    value: "gift_card_purchased",
+    label: "Gift Card Purchased",
+    description: "Triggered when customer buys a gift card",
+  },
+  {
+    value: "gift_card_received",
+    label: "Gift Card Received",
+    description: "Triggered when customer receives a gift card",
+  },
+  {
+    value: "store_credit_earned",
+    label: "Store Credit Earned",
+    description: "Triggered when customer earns store credit",
+  },
+  {
+    value: "store_credit_converted",
+    label: "Credit Converted",
+    description: "Store credit converted to gift card",
+  },
+  {
+    value: "store_credit_milestone",
+    label: "Store Credit Milestone",
+    description: "Customer reaches credit balance milestone",
+  },
+  {
+    value: "store_credit_balance_reminder",
+    label: "Balance Reminder",
+    description: "Remind about unused store credit",
+  },
+] satisfies readonly ChoiceCardOption<TriggerType>[];
+
+const TRIGGER_SECTIONS = [
+  {
+    heading: "Customer activity",
+    options: CUSTOMER_ACTIVITY_TRIGGERS,
+  },
+  {
+    heading: "Rewards engagement",
+    options: REWARDS_ENGAGEMENT_TRIGGERS,
+  },
+  {
+    heading: "Gift cards and store credit",
+    options: STORE_VALUE_TRIGGERS,
+  },
+] satisfies readonly ChoiceCardSection<TriggerType>[];
+
+const ACTION_OPTIONS = [
+  {
+    value: "send_email",
+    label: "Send Email",
+    description: "Send a templated email to the customer",
+  },
+  {
+    value: "add_tag",
+    label: "Add Customer Tag",
+    description: "Add a tag to the customer in Shopify",
+  },
+  {
+    value: "award_points",
+    label: "Award Bonus Points",
+    description: "Give the customer bonus loyalty points",
+  },
+  {
+    value: "create_discount",
+    label: "Create Discount Code",
+    description: "Generate a unique discount code for the customer",
+  },
+] satisfies readonly ChoiceCardOption<ActionType>[];
 
 // ============================================
 // LOADER
@@ -225,12 +388,12 @@ export default function CreateAutomation() {
   const [description, setDescription] = useState("");
 
   // Step 2: Trigger
-  const [trigger, setTrigger] = useState("tier_change");
+  const [trigger, setTrigger] = useState<TriggerType>("tier_change");
   const [tierFilter, setTierFilter] = useState("");
   const [minSpend, setMinSpend] = useState("");
 
   // Step 3: Action
-  const [action, setAction] = useState("send_email");
+  const [action, setAction] = useState<ActionType>("send_email");
   const [template, setTemplate] = useState("");
   const [delay, setDelay] = useState("immediate");
   const [respectBusinessHours, setRespectBusinessHours] = useState(false);
@@ -321,7 +484,7 @@ export default function CreateAutomation() {
           <Card>
             <BlockStack gap="500">
               {/* Progress Steps - Bordered Cards */}
-              <InlineGrid columns={4} gap="300">
+              <InlineGrid columns={{ xs: 1, sm: 2, md: 4 }} gap="300">
                 <Card background={(currentStep === 1 ? "bg-surface-brand-subdued" : currentStep > 1 ? "bg-surface-success-subdued" : "bg-surface") as any}>
                   <BlockStack gap="200">
                     <InlineStack align="space-between" blockAlign="center">
@@ -455,421 +618,13 @@ export default function CreateAutomation() {
                     <Divider />
 
                     <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">
-                        Trigger Type
-                      </Text>
-
-                      <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
-                        <div onClick={() => setTrigger("tier_change")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "tier_change" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "tier_change"}
-                                  onChange={() => setTrigger("tier_change")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Tier Change
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when a customer moves to a new tier
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("purchase")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "purchase" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "purchase"}
-                                  onChange={() => setTrigger("purchase")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Purchase Made
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered after a customer completes a purchase
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("birthday")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "birthday" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "birthday"}
-                                  onChange={() => setTrigger("birthday")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Customer Birthday
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered on the customer's birthday
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("inactive")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "inactive" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "inactive"}
-                                  onChange={() => setTrigger("inactive")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Inactive Customer
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when a customer hasn't purchased in 30+ days
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("cashback_earned")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "cashback_earned" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "cashback_earned"}
-                                  onChange={() => setTrigger("cashback_earned")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Cashback Earned
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when a customer earns cashback
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("points_milestone")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "points_milestone" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "points_milestone"}
-                                  onChange={() => setTrigger("points_milestone")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Points Milestone
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer reaches specific points
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-                      </InlineGrid>
-
-                      <Divider />
-                      <Text variant="headingSm" as="h3" fontWeight="semibold">
-                        Rewards Engagement Triggers
-                      </Text>
-
-                      <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
-                        <div onClick={() => setTrigger("raffle_entered")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "raffle_entered" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "raffle_entered"}
-                                  onChange={() => setTrigger("raffle_entered")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Raffle Entry
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer enters a raffle
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("raffle_won")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "raffle_won" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "raffle_won"}
-                                  onChange={() => setTrigger("raffle_won")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Raffle Win
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer wins a raffle prize
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("raffle_ending")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "raffle_ending" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "raffle_ending"}
-                                  onChange={() => setTrigger("raffle_ending")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Raffle Ending Soon
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Reminder when a raffle is about to close
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("mystery_box_opened")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "mystery_box_opened" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "mystery_box_opened"}
-                                  onChange={() => setTrigger("mystery_box_opened")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Mystery Box Opened
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer opens a mystery box
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("mystery_box_won")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "mystery_box_won" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "mystery_box_won"}
-                                  onChange={() => setTrigger("mystery_box_won")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Mystery Box Prize
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer wins a prize
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("rewards_dormant")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "rewards_dormant" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "rewards_dormant"}
-                                  onChange={() => setTrigger("rewards_dormant")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Rewards Dormant
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Customer hasn't used rewards in a while
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-                      </InlineGrid>
-
-                      <Divider />
-                      <Text variant="headingSm" as="h3" fontWeight="semibold">
-                        Gift Card & Store Credit Triggers
-                      </Text>
-
-                      <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
-                        <div onClick={() => setTrigger("gift_card_purchased")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "gift_card_purchased" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "gift_card_purchased"}
-                                  onChange={() => setTrigger("gift_card_purchased")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Gift Card Purchased
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer buys a gift card
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("gift_card_received")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "gift_card_received" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "gift_card_received"}
-                                  onChange={() => setTrigger("gift_card_received")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Gift Card Received
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer receives a gift card
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("store_credit_earned")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "store_credit_earned" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "store_credit_earned"}
-                                  onChange={() => setTrigger("store_credit_earned")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Store Credit Earned
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Triggered when customer earns store credit
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("store_credit_converted")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "store_credit_converted" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "store_credit_converted"}
-                                  onChange={() => setTrigger("store_credit_converted")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Credit Converted
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Store credit converted to gift card
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("store_credit_milestone")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "store_credit_milestone" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "store_credit_milestone"}
-                                  onChange={() => setTrigger("store_credit_milestone")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Store Credit Milestone
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Customer reaches credit balance milestone
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setTrigger("store_credit_balance_reminder")} style={{ cursor: "pointer" }}>
-                          <Card background={trigger === "store_credit_balance_reminder" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={trigger === "store_credit_balance_reminder"}
-                                  onChange={() => setTrigger("store_credit_balance_reminder")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Balance Reminder
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Remind about unused store credit
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-                      </InlineGrid>
+                      <ChoiceCardGroup
+                        legend="Trigger event"
+                        name="automation-trigger"
+                        value={trigger}
+                        sections={TRIGGER_SECTIONS}
+                        onChange={setTrigger}
+                      />
 
                       <Divider />
 
@@ -933,99 +688,13 @@ export default function CreateAutomation() {
                     <Divider />
 
                     <BlockStack gap="400">
-                      <Text variant="headingMd" as="h2">
-                        Action Type
-                      </Text>
-
-                      <InlineGrid columns={{ xs: 1, md: 2 }} gap="400">
-                        <div onClick={() => setAction("send_email")} style={{ cursor: "pointer" }}>
-                          <Card background={action === "send_email" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={action === "send_email"}
-                                  onChange={() => setAction("send_email")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Send Email
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Send a templated email to the customer
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setAction("add_tag")} style={{ cursor: "pointer" }}>
-                          <Card background={action === "add_tag" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={action === "add_tag"}
-                                  onChange={() => setAction("add_tag")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Add Customer Tag
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Add a tag to the customer in Shopify
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setAction("award_points")} style={{ cursor: "pointer" }}>
-                          <Card background={action === "award_points" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={action === "award_points"}
-                                  onChange={() => setAction("award_points")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Award Bonus Points
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Give the customer bonus loyalty points
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-
-                        <div onClick={() => setAction("create_discount")} style={{ cursor: "pointer" }}>
-                          <Card background={action === "create_discount" ? "bg-surface-brand" : "bg-surface"}>
-                            <BlockStack gap="300">
-                              <InlineStack gap="300" blockAlign="start">
-                                <RadioButton
-                                  label=""
-                                  checked={action === "create_discount"}
-                                  onChange={() => setAction("create_discount")}
-                                />
-                                <BlockStack gap="200">
-                                  <Text variant="headingSm" as="h3" fontWeight="semibold">
-                                    Create Discount Code
-                                  </Text>
-                                  <Text variant="bodySm" as="span" tone="subdued">
-                                    Generate a unique discount code for the customer
-                                  </Text>
-                                </BlockStack>
-                              </InlineStack>
-                            </BlockStack>
-                          </Card>
-                        </div>
-                      </InlineGrid>
+                      <ChoiceCardGroup
+                        legend="Action type"
+                        name="automation-action"
+                        value={action}
+                        options={ACTION_OPTIONS}
+                        onChange={setAction}
+                      />
 
                       <Divider />
 

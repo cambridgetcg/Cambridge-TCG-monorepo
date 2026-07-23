@@ -6,7 +6,7 @@
  */
 
 import { Session } from "@shopify/shopify-api";
-import { SessionStorage } from "@shopify/shopify-app-session-storage";
+import type { SessionStorage } from "@shopify/shopify-app-session-storage";
 import { getAuroraClient } from "./aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
 import { encrypt, decrypt } from "./encryption";
@@ -18,7 +18,6 @@ export class DataAPISessionStorage implements SessionStorage {
 
   async storeSession(session: Session): Promise<boolean> {
     const logger = new SessionLogger();
-    const startTime = Date.now();
     
     try {
       logger.logCreate(session.shop, session.id, session.isOnline || false);

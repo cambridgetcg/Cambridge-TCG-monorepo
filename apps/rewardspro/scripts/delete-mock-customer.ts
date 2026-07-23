@@ -3,8 +3,7 @@
  * Usage: npx tsx scripts/delete-mock-customer.ts
  */
 
-import * as dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
 
 import db from '../app/db.server';
 

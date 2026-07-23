@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useApiClient } from './useApiClient';
 import { logger } from '../utils/logger';
 
@@ -224,9 +224,6 @@ export function useRaffles({ shopDomain }: UseRafflesProps): UseRafflesReturn {
   // Free entry state
   const [isClaimingFreeEntry, setIsClaimingFreeEntry] = useState(false);
   const [freeEntryError, setFreeEntryError] = useState<string | null>(null);
-
-  // Activity polling reference
-  const activityPollRef = useRef<NodeJS.Timeout | null>(null);
 
   const apiClient = useApiClient({
     baseUrl: '/api/customer-account/raffles',

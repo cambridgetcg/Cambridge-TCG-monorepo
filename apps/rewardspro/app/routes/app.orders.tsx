@@ -24,9 +24,7 @@ import {
   Divider,
   SkeletonBodyText,
   Toast,
-  Frame,
   DescriptionList,
-  ButtonGroup,
   ProgressBar,
   useIndexResourceState,
 } from "@shopify/polaris";
@@ -2080,7 +2078,7 @@ export default function OrdersPage() {
   ));
 
   return (
-    <Frame>
+    <>
       <Page
         title="Orders"
         subtitle="Manage orders and cashback processing"
@@ -2157,7 +2155,8 @@ export default function OrdersPage() {
                   <InlineStack gap="300" align="start" blockAlign="center">
                     <Box width="100%">
                       <TextField
-                        label=""
+                        label="Search orders"
+                        labelHidden
                         placeholder="Search by order number or email"
                         value={queryValue}
                         onChange={handleSearch}
@@ -2168,7 +2167,8 @@ export default function OrdersPage() {
                       />
                     </Box>
                     <Select
-                      label=""
+                      label="Order status"
+                      labelHidden
                       options={[
                         { label: "All Statuses", value: "all" },
                         { label: "Paid", value: "PAID" },
@@ -2181,7 +2181,8 @@ export default function OrdersPage() {
                       onChange={(value) => handleStatusFilter([value])}
                     />
                     <Select
-                      label=""
+                      label="Cashback status"
+                      labelHidden
                       options={[
                         { label: "All Cashback", value: "all" },
                         { label: "Processed", value: "processed" },
@@ -2799,6 +2800,6 @@ export default function OrdersPage() {
           </Modal.Section>
         </Modal>
       </Page>
-    </Frame>
+    </>
   );
 }

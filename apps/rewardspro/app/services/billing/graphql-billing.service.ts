@@ -9,14 +9,12 @@ import {
   BillingConfig,
   formatMoneyInput,
   getCurrencyCode,
-  getPlanConfig,
-  isDevelopmentStore
+  getPlanConfig
 } from "../../utils/billing-config";
 import { getTestMode } from "../../utils/billing-test-mode.server";
 import {
   getTrialDaysForRequest,
-  logTrialAttempt,
-  type TrialEligibilityResult
+  logTrialAttempt
 } from "./trial-eligibility.server";
 import crypto from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -193,7 +191,11 @@ export interface UsageRecordResult {
 }
 
 export class GraphQLBillingService {
-  constructor(private admin: AdminApiContext) {}
+  private admin: AdminApiContext;
+
+  constructor(admin: AdminApiContext) {
+    this.admin = admin;
+  }
 
   /**
    * Create a new subscription

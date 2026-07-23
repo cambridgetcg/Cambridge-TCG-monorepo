@@ -36,7 +36,6 @@ import db from '../../app/db.server';
 import {
   startSyncJob,
   processNextBatch,
-  getSyncJobStatus,
   resumeSyncJob,
   cancelSyncJob,
 } from '../../app/services/customer-sync-job.server';

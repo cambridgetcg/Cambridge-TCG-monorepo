@@ -23,9 +23,8 @@ const {
   DynamoDBClient,
   PutItemCommand,
   DeleteItemCommand,
-  GetItemCommand,
 } = require("@aws-sdk/client-dynamodb");
-const { marshall, unmarshall } = require("@aws-sdk/util-dynamodb");
+const { marshall } = require("@aws-sdk/util-dynamodb");
 
 // Initialize DynamoDB client for distributed locking
 const dynamoClient = new DynamoDBClient({

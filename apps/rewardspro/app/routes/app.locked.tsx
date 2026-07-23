@@ -20,7 +20,6 @@ import {
   ProgressBar,
 } from "@shopify/polaris";
 import {
-  LockIcon,
   CheckCircleIcon,
   CalendarIcon,
   AlertTriangleIcon,

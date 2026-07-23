@@ -85,7 +85,7 @@ class WebhookProcessor {
       }
 
       // Create order
-      const order = await this.db.createOrder({
+      await this.db.createOrder({
         id: payload.id,
         customerId: payload.customer?.id,
         totalPrice: payload.total_price,
@@ -286,7 +286,7 @@ describe('Webhook Idempotency & Race Conditions', () => {
       };
 
       // Different webhook IDs but same order - race condition
-      const [result1, result2] = await Promise.all([
+      await Promise.all([
         processor.processOrderPaid('webhook-401', payload),
         processor.processOrderPaid('webhook-402', payload),
       ]);
@@ -457,13 +457,8 @@ describe('Webhook Idempotency & Race Conditions', () => {
         validHmac.slice(0, -1) + (validHmac.slice(-1) === 'A' ? 'B' : 'A');
 
       // Should still take same time to compare (timing-safe)
-      const start1 = process.hrtime.bigint();
       const result1 = verifyHMAC(body, validHmac, secret);
-      const end1 = process.hrtime.bigint();
-
-      const start2 = process.hrtime.bigint();
       const result2 = verifyHMAC(body, almostValidHmac, secret);
-      const end2 = process.hrtime.bigint();
 
       expect(result1).toBe(true);
       expect(result2).toBe(false);

@@ -16,7 +16,7 @@
  */
 
 import prisma from "../db.server";
-import { MysteryBoxActivityType, MysteryBoxRarity } from "@prisma/client";
+import type { MysteryBoxActivityType, MysteryBoxRarity } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxActivityFeed]";
 
@@ -92,7 +92,7 @@ export function formatTimeAgo(date: Date): string {
  */
 export function getActivityIconId(
   activityType: MysteryBoxActivityType,
-  rarity?: string
+  _rarity?: string
 ): string {
   switch (activityType) {
     case "BOX_OPENED":
@@ -120,8 +120,8 @@ export function getActivityIconId(
  * @deprecated Use getActivityIconId instead
  */
 export function getActivityEmoji(
-  activityType: MysteryBoxActivityType,
-  rarity?: string
+  _activityType: MysteryBoxActivityType,
+  _rarity?: string
 ): string {
   return ""; // Deprecated - use iconId
 }
@@ -148,7 +148,7 @@ export function getRarityIconId(rarity: string): string {
 /**
  * @deprecated Use getRarityIconId instead
  */
-export function getRarityEmoji(rarity: string): string {
+export function getRarityEmoji(_rarity: string): string {
   return ""; // Deprecated - use iconId
 }
 

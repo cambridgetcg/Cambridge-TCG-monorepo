@@ -31,7 +31,6 @@ import {
 import {
   ScenarioRunner,
   BuiltInScenarios,
-  type ScenarioDefinition,
 } from '../lib/scenario-runner.js';
 
 // ============================================================================
@@ -119,7 +118,7 @@ program
 // Webhook Commands
 // ============================================================================
 
-const webhookCmd = program
+program
   .command('webhook')
   .description('Send simulated webhooks with valid HMAC signatures')
   .argument('<topic>', `Webhook topic (${WEBHOOK_TOPICS.slice(0, 3).join(', ')}...)`)
@@ -625,7 +624,7 @@ program
   .description('Start extension preview server')
   .option('-p, --port <port>', 'Server port', '3001')
   .option('-s, --shop <domain>', 'Shop domain for context', config.defaultShop)
-  .action(async (options) => {
+  .action(async () => {
     console.log(chalk.yellow('\n⚠ Extension Preview Server'));
     console.log(chalk.gray('This feature is planned but not yet implemented.'));
     console.log(chalk.gray('For now, use Shopify CLI dev server for extension testing.'));

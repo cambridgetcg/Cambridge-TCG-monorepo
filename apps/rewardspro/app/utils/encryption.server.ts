@@ -12,7 +12,6 @@ import * as crypto from "node:crypto";
 const ENCRYPTION_PREFIX = "enc:v1:";
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // GCM recommended IV length
-const KEY_LENGTH = 32; // AES-256
 
 /**
  * Derive a 256-bit key from the environment variable using SHA-256.

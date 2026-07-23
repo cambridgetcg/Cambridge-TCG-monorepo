@@ -730,7 +730,7 @@ export async function recalculateTiersOptimized(
   // ═══════════════════════════════════════════════════════════════════════
   const updatesStart = Date.now();
 
-  const { updated, errors } = await applyTierChanges(allChanges, ctx);
+  const { errors } = await applyTierChanges(allChanges, ctx);
   await updateUnchangedCustomerStates(allChanges, ctx);
 
   updatesMs = Date.now() - updatesStart;

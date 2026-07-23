@@ -26,7 +26,6 @@ import {
   SkeletonBodyText,
   SkeletonDisplayText,
   Toast,
-  Frame,
   FormLayout,
   Checkbox,
   ChoiceList,
@@ -3218,7 +3217,7 @@ export default function Customers() {
   ) : null;
 
   return (
-    <Frame>
+    <>
       <Page
         title="Customers"
         subtitle="Manage customer tiers and store credit"
@@ -3455,7 +3454,8 @@ export default function Customers() {
               <InlineStack gap="300" align="start" blockAlign="center" wrap>
                 <div style={{ flex: '1 1 240px', maxWidth: '400px', minWidth: 0 }}>
                   <TextField
-                    label=""
+                    label="Search customers"
+                    labelHidden
                     placeholder="Search by name, email, or ID"
                     value={queryValue}
                     onChange={handleSearch}
@@ -3466,7 +3466,8 @@ export default function Customers() {
                   />
                 </div>
                 <Select
-                  label=""
+                  label="Customer tier"
+                  labelHidden
                   options={[
                     { label: "All Tiers", value: "all" },
                     { label: "No Tier", value: "none" },
@@ -3500,7 +3501,8 @@ export default function Customers() {
                         <InlineStack gap="200" blockAlign="center">
                           <Box width="120px">
                             <TextField
-                              label=""
+                              label="Minimum store credit"
+                              labelHidden
                               type="number"
                               value={creditMinFilter}
                               onChange={(value) => handleCreditRangeChange(value, creditMaxFilter)}
@@ -3512,7 +3514,8 @@ export default function Customers() {
                           <Text as="span" tone="subdued">to</Text>
                           <Box width="120px">
                             <TextField
-                              label=""
+                              label="Maximum store credit"
+                              labelHidden
                               type="number"
                               value={creditMaxFilter}
                               onChange={(value) => handleCreditRangeChange(creditMinFilter, value)}
@@ -3530,7 +3533,8 @@ export default function Customers() {
                       <BlockStack gap="200">
                         <Text variant="headingSm" as="h3">Manual Override</Text>
                         <ChoiceList
-                          title=""
+                          title="Manual override"
+                          titleHidden
                           choices={[
                             { label: "All customers", value: "all" },
                             { label: "With manual override", value: "yes" },
@@ -3547,7 +3551,7 @@ export default function Customers() {
                           Customer Activity
                         </Text>
                         <ChoiceList
-                          title=""
+                          title="Customer activity"
                           titleHidden
                           choices={[
                             { label: "All activity levels", value: "all" },
@@ -4042,6 +4046,6 @@ export default function Customers() {
       {toastMarkup}
       
       {/* Page animations handled by PageAnimation system - see app/components/PageAnimation */}
-    </Frame>
+    </>
   );
 }

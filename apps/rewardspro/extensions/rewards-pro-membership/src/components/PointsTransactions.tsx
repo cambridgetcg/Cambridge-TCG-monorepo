@@ -58,7 +58,6 @@ function formatDate(dateString: string, locale: string = 'en-US'): string {
 
 function TransactionRow({
   transaction,
-  currencyName,
   locale
 }: {
   transaction: PointsTransactionInfo;

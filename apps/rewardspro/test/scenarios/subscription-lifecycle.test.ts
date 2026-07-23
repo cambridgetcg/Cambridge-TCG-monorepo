@@ -317,13 +317,6 @@ describe('Subscription Lifecycle - Payment Failures', () => {
       netSpent: createDecimal(300), // Only qualifies for Bronze
     });
 
-    // Subscription cancelled due to payment failure
-    const subscription = createMockSubscription({
-      status: 'CANCELLED',
-      tierId: TIERS.GOLD.id,
-      endDate: new Date(),
-    });
-
     vi.mocked(db.customer.findUnique).mockResolvedValue(customer as any);
     vi.mocked(db.tierSubscription.findFirst).mockResolvedValue(null); // No active subscription
     vi.mocked(db.tierPurchase.findFirst).mockResolvedValue(null);
@@ -345,10 +338,6 @@ describe('Subscription Lifecycle - Payment Failures', () => {
   });
 
   it('should record billing failure event', async () => {
-    const subscription = createMockSubscription({
-      status: 'ACTIVE',
-    });
-
     vi.mocked(db.subscriptionBillingAttempt.create).mockResolvedValue({
       id: 'billing_fail_123',
       subscriptionId: TEST_SUBSCRIPTION_ID,

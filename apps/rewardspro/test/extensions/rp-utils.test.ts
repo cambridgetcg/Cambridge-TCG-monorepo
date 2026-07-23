@@ -7,7 +7,7 @@
  * VERSION in rp-utils.js and update the assertions here.
  */
 // @vitest-environment jsdom
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 

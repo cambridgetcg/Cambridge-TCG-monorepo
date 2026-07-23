@@ -90,8 +90,6 @@ async function main() {
   console.log('✅ Customer created/updated:', customer.id);
 
   // Add some test transactions
-  // Calculate running balances
-  let runningBalance = 0;
   const transactions = [
     {
       id: randomUUID(),

@@ -5,7 +5,6 @@
  */
 
 import { createDataAPIPrismaClient } from '../app/utils/prisma-data-api-adapter';
-import { randomUUID } from 'crypto';
 import 'dotenv/config';
 
 const prisma = createDataAPIPrismaClient();

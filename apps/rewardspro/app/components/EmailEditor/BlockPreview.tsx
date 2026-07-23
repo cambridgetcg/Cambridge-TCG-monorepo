@@ -4,7 +4,7 @@
  * Renders a visual preview of each block type in the editor.
  */
 
-import type { BlockPreviewProps, ContentBlock, TemplateStyles } from "./types";
+import type { BlockPreviewProps } from "./types";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 export function BlockPreview({ block, styles, isOverlay }: BlockPreviewProps) {

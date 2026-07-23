@@ -80,10 +80,7 @@ function groupProductsByTier(products: UpgradeProduct[]): Map<string, UpgradePro
 
 export function UpgradeSection({
   upgradeOptions,
-  currentTierName,
   isMaxTier,
-  translate,
-  currency,
   locale = 'en-US',
 }: UpgradeSectionProps) {
   // Don't render if at max tier or no upgrade options

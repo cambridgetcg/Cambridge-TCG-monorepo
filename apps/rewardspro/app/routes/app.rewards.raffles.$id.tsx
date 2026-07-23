@@ -15,7 +15,6 @@ import {
   Badge,
   Box,
   Toast,
-  Frame,
   TextField,
   Select,
   FormLayout,
@@ -28,16 +27,12 @@ import {
   ProgressBar,
   Popover,
   ActionList,
-  Icon,
 } from "@shopify/polaris";
 import {
   EditIcon,
   DeleteIcon,
   PlusIcon,
   PlayIcon,
-  PauseCircleIcon as PauseIcon,
-  CheckIcon,
-  XIcon,
 } from "~/utils/polaris-icons";
 import { ProductPicker, type SelectedProduct } from "~/components/ProductPicker";
 import { authenticate } from "../shopify.server";
@@ -57,7 +52,6 @@ import { getPointsConfig } from "../services/points-config.server";
 import {
   executeRaffleDraw,
   getRaffleWinners,
-  updateWinnerDeliveryStatus,
 } from "../services/raffle-drawing.server";
 import {
   deliverPrize,
@@ -842,7 +836,7 @@ export default function RaffleDetail() {
     : 0;
 
   return (
-    <Frame>
+    <>
       <Page
         title={raffle.name}
         subtitle={`${raffle.entryCost} ${pointsConfig.currencyName}/entry`}
@@ -1532,6 +1526,6 @@ export default function RaffleDetail() {
           onGetCollectionProducts={handleGetCollectionProducts}
         />
       </Page>
-    </Frame>
+    </>
   );
 }

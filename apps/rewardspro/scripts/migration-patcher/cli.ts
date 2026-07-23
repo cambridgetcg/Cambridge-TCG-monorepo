@@ -18,7 +18,7 @@ if (result.manifests.length === 0) {
     `No patches generated. ${
       target
         ? `No suggestions found for target "${target}".`
-        : "Run \`npm run migration:plan\` to see what's available."
+        : "Run `npm run migration:plan` to see what's available."
     }`
   );
   process.exit(0);

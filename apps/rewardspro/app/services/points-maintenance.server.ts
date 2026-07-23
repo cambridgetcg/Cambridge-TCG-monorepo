@@ -11,7 +11,7 @@
  */
 
 import prisma from "~/db.server";
-import { expirePoints, getExpiringPoints } from "./points-ledger.server";
+import { expirePoints } from "./points-ledger.server";
 import { getPointsConfig, getExpirationSettings } from "./points-config.server";
 import type { Prisma } from "@prisma/client";
 
@@ -203,7 +203,7 @@ async function queueExpirationWarningEmail(
   shop: string,
   customer: { id: string; email: string; firstName: string | null },
   expiring: { total: number; earliestExpiry: Date },
-  config: { currencyName: string; currencyNamePlural: string; currencyIcon: string }
+  _config: { currencyName: string; currencyNamePlural: string; currencyIcon: string }
 ): Promise<void> {
   // This integrates with the existing email system
   // For now, we'll log it - the actual email sending will use the email-notifications service

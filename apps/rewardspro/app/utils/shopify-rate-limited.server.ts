@@ -14,9 +14,8 @@
 
 import {
   createShopifyRateLimiter,
-  APIRateLimiter,
-  parseShopifyRateLimitHeader,
 } from "./api-rate-limiter.server";
+import type { APIRateLimiter } from "./api-rate-limiter.server";
 
 // =============================================================================
 // Types

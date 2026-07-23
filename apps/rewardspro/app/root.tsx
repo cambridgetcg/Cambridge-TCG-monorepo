@@ -65,6 +65,9 @@ export const links: LinksFunction = () => [
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   // Device detection for responsive behavior
   const device = detectDevice(request);
+  const requestUrl = new URL(request.url);
+  const shouldLoadAppBridge =
+    requestUrl.pathname === "/app" || requestUrl.pathname.startsWith("/app/");
   
   // Generate CSP nonce for inline scripts
   const nonce = crypto.randomBytes(16).toString('base64');
@@ -105,6 +108,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return json({
     apiKey: process.env.SHOPIFY_API_KEY || "",
     appUrl: process.env.SHOPIFY_APP_URL || "",
+    shouldLoadAppBridge,
     deviceType: device.type,
     viewport: device.viewport,
     nonce,
@@ -118,13 +122,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function App() {
-  const { apiKey, nonce, ga4MeasurementId, sentryDsn, nodeEnv, shopifyShop } = useLoaderData<typeof loader>();
+  const {
+    apiKey,
+    nonce,
+    shouldLoadAppBridge,
+    ga4MeasurementId,
+    sentryDsn,
+    nodeEnv,
+    shopifyShop,
+  } = useLoaderData<typeof loader>();
 
   return (
-    <html>
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
+        {/* App Bridge must be the first script and load synchronously. */}
+        {apiKey && shouldLoadAppBridge && (
+          <script
+            src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
+            data-api-key={apiKey}
+            nonce={nonce}
+          />
+        )}
         <link rel="preconnect" href="https://cdn.shopify.com/" />
         {/* Expose environment variables to client for Sentry */}
         <script
@@ -148,15 +168,6 @@ export default function App() {
           rel="stylesheet"
           href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
         />
-        {/* App Bridge script must load in head before other scripts */}
-        {apiKey && (
-          <script
-            src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
-            data-api-key={apiKey}
-            nonce={nonce}
-            defer
-          />
-        )}
         {/* Google Analytics 4 */}
         {ga4MeasurementId && (
           <GA4Script measurementId={ga4MeasurementId} nonce={nonce} />

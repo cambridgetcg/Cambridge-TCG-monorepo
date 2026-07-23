@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, Link } from "@remix-run/react";
-import { useState, useCallback } from "react";
+import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import { useCallback } from "react";
 import {
   Page,
   Layout,
@@ -15,7 +15,6 @@ import {
   EmptyState,
   Box,
   Toast,
-  Frame,
   Grid,
   ProgressBar,
   Divider,
@@ -24,7 +23,6 @@ import {
 import {
   SettingsIcon,
   StarIcon,
-  ChartVerticalIcon as ChartVerticalFilledIcon,
   GiftCardIcon,
   EmailIcon,
   AutomationIcon,
@@ -37,6 +35,7 @@ import { PointsIcon } from "~/components/PointsIcon";
 import { DEFAULT_ICON_CONFIG } from "~/utils/points-icon-library";
 import { getRaffleStats } from "../services/raffle-management.server";
 import { getMysteryBoxStats } from "../services/mystery-box-management.server";
+import { APP_ROUTES } from "~/navigation/routes";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -262,7 +261,7 @@ export default function PointsOverview() {
   // If not enabled, show setup prompt
   if (!config.isEnabled) {
     return (
-      <Frame>
+      <>
         <Page title="Points & Rewards">
           <Layout>
             <Layout.Section>
@@ -289,12 +288,12 @@ export default function PointsOverview() {
             </Layout.Section>
           </Layout>
         </Page>
-      </Frame>
+      </>
     );
   }
 
   return (
-    <Frame>
+    <>
       <Page
         title="Points & Rewards"
         subtitle={`${config.currencyNamePlural} Engagement System`}
@@ -838,7 +837,7 @@ export default function PointsOverview() {
                   <Button url="/app/rewards/config" variant="primary">
                     Configure Points
                   </Button>
-                  <Button url="/app/rewards/analytics">
+                  <Button url={APP_ROUTES.ANALYTICS}>
                     View Analytics
                   </Button>
                   <Button url="/app/members">
@@ -854,6 +853,6 @@ export default function PointsOverview() {
           <Toast content={toast.content} error={toast.error} onDismiss={hideToast} />
         )}
       </Page>
-    </Frame>
+    </>
   );
 }

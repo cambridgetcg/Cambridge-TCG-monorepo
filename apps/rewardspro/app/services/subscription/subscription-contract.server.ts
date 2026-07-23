@@ -6,9 +6,10 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import crypto from 'node:crypto';
-const uuidv4 = () => crypto.randomUUID();
 import { SUBSCRIPTION_CONFIG, getNextBillingDate, type BillingInterval } from "./config.server";
 import type { Customer, Tier } from "@prisma/client";
+
+const uuidv4 = () => crypto.randomUUID();
 
 interface CreateSubscriptionInput {
   shop: string;
@@ -19,16 +20,6 @@ interface CreateSubscriptionInput {
   variantId: string;
   billingInterval: BillingInterval;
   paymentMethodId?: string; // Optional, Shopify will use default if not provided
-}
-
-interface SubscriptionContract {
-  id: string;
-  status: string;
-  nextBillingDate: string;
-  customerPaymentMethod?: {
-    id: string;
-    instrument: any;
-  };
 }
 
 export class SubscriptionContractService {
@@ -385,7 +376,6 @@ export class SubscriptionContractService {
    */
   static async pauseSubscription({
     shop,
-    admin,
     subscriptionId,
   }: {
     shop: string;
@@ -423,7 +413,6 @@ export class SubscriptionContractService {
    */
   static async resumeSubscription({
     shop,
-    admin,
     subscriptionId,
   }: {
     shop: string;

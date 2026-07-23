@@ -26,13 +26,12 @@ import {
   Divider,
   Icon,
   InlineStack,
-  Pressable,
   SkeletonText,
   Text,
   View,
 } from "@shopify/ui-extensions-react/customer-account";
 import { formatCurrency, formatDate, formatMonthYear } from "../utils/format";
-import { isDataStale, getDataAgeMinutes, safeProgress } from "../utils/safeData";
+import { isDataStale, getDataAgeMinutes } from "../utils/safeData";
 import { MAX_TRANSACTIONS_DISPLAY } from "../config";
 import type {
   AllTierInfo,
@@ -46,11 +45,6 @@ import type {
   TierInfo,
   TransactionInfo,
 } from "../types/loyaltyData";
-
-/** Shared translate signature — identical to the one returned by
- *  `useTranslate()` in the orchestrator. Defined inline to avoid
- *  coupling this module to the hook. */
-type Translate = (key: string, substitutions?: Record<string, string | number>) => string;
 
 export function MembershipSkeleton() {
   return (
@@ -341,7 +335,7 @@ export interface WelcomeCardProps {
   translate: (key: string, options?: Record<string, string>) => string;
 }
 
-export function WelcomeCard({ customer, tier, currency, locale, translate }: WelcomeCardProps) {
+export function WelcomeCard({ customer, tier, translate }: WelcomeCardProps) {
   const displayName = customer.firstName || null;
 
   return (
@@ -493,7 +487,7 @@ export interface StarterTierCardProps {
   translate: (key: string, options?: Record<string, string>) => string;
 }
 
-export function StarterTierCard({ tier, progress, currency, locale, translate }: StarterTierCardProps) {
+export function StarterTierCard({ progress, currency, locale, translate }: StarterTierCardProps) {
   return (
     <View border="base" cornerRadius="base" padding="base" background="base">
       <BlockStack spacing="base">

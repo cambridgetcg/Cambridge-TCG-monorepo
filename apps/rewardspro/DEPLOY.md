@@ -1,5 +1,37 @@
 # RewardsPro Deployment Guide
 
+## Marketing site (`rewardspro.io`)
+
+The public marketing site is a separate Cloudflare Pages project named
+`rewardspro-landing`. Its source now lives at `landing/public`; it is not built
+from the Remix/Vercel application.
+
+Preview locally from `apps/rewardspro/landing`:
+
+```bash
+wrangler pages dev public
+```
+
+Deploy only after an explicit production release decision:
+
+```bash
+wrangler pages deploy public \
+  --project-name rewardspro-landing \
+  --branch main \
+  --skip-caching
+```
+
+`--skip-caching` is deliberate. A cached direct upload produced an empty
+deployment on 23 July 2026; forcing the three public assets plus `_headers`
+produced a byte-identical, healthy deployment.
+
+Verify the immutable `*.pages.dev` URL before checking the custom domain. Then
+verify `https://rewardspro.io`, `/privacy-policy`, `robots.txt`, `sitemap.xml`,
+external links, responsive layout, and the visible integration status labels.
+Cloudflare Pages retains earlier deployments for rollback.
+
+## Embedded Shopify application
+
 ## Pre-Push Checklist
 
 - [ ] `npm run build` passes with no errors

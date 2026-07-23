@@ -5,8 +5,7 @@
  * WARNING: This will delete ALL customers and their related data!
  */
 
-import * as dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
 
 import db from '../app/db.server';
 

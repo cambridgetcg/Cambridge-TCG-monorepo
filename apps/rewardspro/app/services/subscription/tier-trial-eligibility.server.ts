@@ -9,7 +9,6 @@
 
 import { db } from '~/db.server';
 import { subscriptionLogger } from './subscription-correlation.server';
-import { SUBSCRIPTION_NEURAL_CONFIG } from './subscription-neural-config.server';
 
 // ============================================================================
 // CONFIGURATION

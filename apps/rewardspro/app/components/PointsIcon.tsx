@@ -20,7 +20,7 @@
  */
 
 import { useMemo } from "react";
-import { getVectorIcon, getIconDisplay, DEFAULT_ICON_CONFIG } from "../utils/points-icon-library";
+import { getIconDisplay, DEFAULT_ICON_CONFIG } from "../utils/points-icon-library";
 import type { CurrencyIconType } from "../services/points-config.server";
 
 // Re-export DEFAULT_ICON_CONFIG for convenience

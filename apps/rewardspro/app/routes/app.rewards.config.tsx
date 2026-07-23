@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation, useActionData, useFetcher } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import { useAuthenticatedFetch } from "../components/AuthenticatedFetch";
 import {
@@ -9,7 +9,6 @@ import {
   Card,
   Button,
   TextField,
-  Banner,
   InlineStack,
   BlockStack,
   Text,
@@ -17,12 +16,8 @@ import {
   Select,
   Divider,
   Toast,
-  Frame,
   FormLayout,
-  ChoiceList,
-  Box,
   Badge,
-  Icon,
 } from "@shopify/polaris";
 import {
   GiftCardIcon,
@@ -38,7 +33,6 @@ import prisma from "../db.server";
 import { getPointsConfig, updatePointsConfig } from "../services/points-config.server";
 import { syncPointsConfigMetafield } from "../services/points-metafield-sync.server";
 import type { PointsRoundingMode } from "@prisma/client";
-import type { CurrencyIconType } from "../services/points-config.server";
 import { IconPicker, type IconPickerValue } from "../components/IconPicker";
 
 // ============================================
@@ -404,7 +398,7 @@ export default function PointsConfiguration() {
   }));
 
   return (
-    <Frame>
+    <>
       <Page
         title="Points Configuration"
         backAction={{ content: "Rewards", url: "/app/rewards" }}
@@ -704,6 +698,6 @@ export default function PointsConfiguration() {
           />
         )}
       </Page>
-    </Frame>
+    </>
   );
 }

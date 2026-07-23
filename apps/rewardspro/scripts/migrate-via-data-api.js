@@ -251,7 +251,6 @@ class DataAPIMigrator {
     for (let i = 0; i < sql.length; i++) {
       const char = sql[i];
       const nextChar = sql[i + 1];
-      const prevChar = sql[i - 1];
       
       // Handle line comments
       if (!inString && !inDollarQuote && !inBlockComment && char === '-' && nextChar === '-') {

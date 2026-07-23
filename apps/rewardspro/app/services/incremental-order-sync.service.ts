@@ -678,7 +678,7 @@ export class IncrementalOrderSync {
    * Find customer in database (without creating)
    * Returns customer ID if found, null if not found
    */
-  private async findCustomer(shop: string, customerData: any, orderEmail?: string): Promise<string | null> {
+  private async findCustomer(shop: string, customerData: any, _orderEmail?: string): Promise<string | null> {
     // Handle guest customers - skip them
     if (!customerData) {
       console.log(`[IncrementalSync] No customer data - skipping guest order`);

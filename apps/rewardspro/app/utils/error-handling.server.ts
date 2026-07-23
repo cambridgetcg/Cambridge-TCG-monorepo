@@ -305,7 +305,8 @@ export async function withRetry<T>(
         onRetry(lastError, attempt);
       }
 
-      await new Promise(resolve => setTimeout(resolve, currentDelay));
+      const retryDelay = currentDelay;
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
       currentDelay *= backoffMultiplier;
     }
   }

@@ -21,10 +21,8 @@ import {
   Icon,
   Box,
   Divider,
-  ProgressBar,
   Banner,
   Collapsible,
-  Link,
 } from "@shopify/polaris";
 import {
   CheckCircleIcon,

@@ -9,7 +9,6 @@ import {
   BlockStack,
   Select,
   Box,
-  Spinner,
   Badge,
   Divider
 } from "@shopify/polaris";
@@ -43,7 +42,6 @@ interface RefundToStoreCreditFormProps {
 }
 
 export function RefundToStoreCreditForm({
-  customer,
   orders,
   onSubmit,
   onCancel,
@@ -116,13 +114,6 @@ export function RefundToStoreCreditForm({
       onSubmit(selectedOrderId, getAmount(), reason);
     }
   }, [validate, selectedOrderId, getAmount, reason, onSubmit]);
-
-  // Filter to only show paid orders that haven't been fully refunded
-  // Shopify displayFinancialStatus returns human-readable values like "Paid", "Partially paid"
-  const refundableOrders = orders.filter(order => {
-    const status = (order.financialStatus || '').toUpperCase().replace(/\s+/g, '_');
-    return ['PAID', 'PARTIALLY_PAID', 'PARTIALLY_REFUNDED'].includes(status);
-  });
 
   if (orders.length === 0) {
     return (

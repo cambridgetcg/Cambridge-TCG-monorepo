@@ -156,23 +156,6 @@ export function getTimeAgo(date: Date): string {
   return date.toLocaleDateString();
 }
 
-/**
- * Format activity message from template
- */
-function formatActivityMessage(
-  activityType: RaffleActivityType,
-  data: ActivityData
-): string {
-  const config = ACTIVITY_CONFIG[activityType];
-  let message = config.template;
-
-  for (const [key, value] of Object.entries(data)) {
-    message = message.replace(`{${key}}`, String(value));
-  }
-
-  return message;
-}
-
 // ============================================
 // DATABASE OPERATIONS
 // ============================================

@@ -71,6 +71,7 @@
       "routes/api.cron.monthly-reset": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.raffle-status": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.cron.usage-billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/api.operator.readiness": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.order-sync.process": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/api.storefront.loyalty": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/webhooks.orders.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -112,41 +113,43 @@
       "routes/auth.login": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.mystery-boxes_.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.analytics_.export.csv": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.points_.mystery-boxes": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.points_.mystery-boxes.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.points_.raffles_.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.recalculate-cashback": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.analytics_.realtime": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.points_.challenges": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.points_.raffles": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.points_.raffles.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.analytics_.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.points_.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.tier-products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.orders-sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.monitoring": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.analytics.export.csv": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.analytics.realtime": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.analytics.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.customers": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.automation.workflows": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.automation.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.klaviyo_.connect": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.recommendations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.automation.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.analytics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.campaigns.smart-create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.campaigns._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.campaigns.create": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.campaigns.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.marketing.campaigns.$id._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.campaigns.$id.send": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.templates._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.templates.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.templates.new": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing.klaviyo": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.marketing.klaviyo.connect": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.marketing._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.settings": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings.store-metrics": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.settings.integrations": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.settings.integrations.$provider": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings.automation": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.settings._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.billing": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.members.gift-cards": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.members.products": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -155,11 +158,11 @@
       "routes/app.members.sync": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.mystery-boxes._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.mystery-boxes.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.challenges_.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.raffles._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.raffles.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.challenges": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.rewards.challenges.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
-      "routes/app.rewards.missions": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.rewards.missions._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.missions.$id": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards._index": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.rewards.config": "nodejs-eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -724,6 +727,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/api.operator.readiness": {
+        "id": "routes/api.operator.readiness",
+        "parentId": "root",
+        "file": "app/routes/api.operator.readiness.tsx",
+        "path": "api/operator/readiness",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/api.order-sync.process": {
         "id": "routes/api.order-sync.process",
         "parentId": "root",
@@ -1088,6 +1100,24 @@
         "path": "app",
         "config": {}
       },
+      "routes/app.points_.mystery-boxes_.$id": {
+        "id": "routes/app.points_.mystery-boxes_.$id",
+        "parentId": "routes/app",
+        "file": "app/routes/app.points_.mystery-boxes_.$id.tsx",
+        "path": "points/mystery-boxes/:id",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.analytics_.export.csv": {
+        "id": "routes/app.analytics_.export.csv",
+        "parentId": "routes/app",
+        "file": "app/routes/app.analytics_.export.csv.tsx",
+        "path": "analytics/export/csv",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.points_.mystery-boxes": {
         "id": "routes/app.points_.mystery-boxes",
         "parentId": "routes/app",
@@ -1097,18 +1127,29 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.points_.mystery-boxes.$id": {
-        "id": "routes/app.points_.mystery-boxes.$id",
-        "parentId": "routes/app.points_.mystery-boxes",
-        "file": "app/routes/app.points_.mystery-boxes.$id.tsx",
-        "path": ":id",
-        "config": {}
+      "routes/app.points_.raffles_.$id": {
+        "id": "routes/app.points_.raffles_.$id",
+        "parentId": "routes/app",
+        "file": "app/routes/app.points_.raffles_.$id.tsx",
+        "path": "points/raffles/:id",
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
         "parentId": "routes/app",
         "file": "app/routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.analytics_.realtime": {
+        "id": "routes/app.analytics_.realtime",
+        "parentId": "routes/app",
+        "file": "app/routes/app.analytics_.realtime.ts",
+        "path": "analytics/realtime",
         "config": {
           "runtime": "nodejs"
         }
@@ -1131,12 +1172,14 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.points_.raffles.$id": {
-        "id": "routes/app.points_.raffles.$id",
-        "parentId": "routes/app.points_.raffles",
-        "file": "app/routes/app.points_.raffles.$id.tsx",
-        "path": ":id",
-        "config": {}
+      "routes/app.analytics_.new": {
+        "id": "routes/app.analytics_.new",
+        "parentId": "routes/app",
+        "file": "app/routes/app.analytics_.new.tsx",
+        "path": "analytics/new",
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/app.points_.config": {
         "id": "routes/app.points_.config",
@@ -1183,27 +1226,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.analytics.export.csv": {
-        "id": "routes/app.analytics.export.csv",
-        "parentId": "routes/app.analytics",
-        "file": "app/routes/app.analytics.export.csv.tsx",
-        "path": "export/csv",
-        "config": {}
-      },
-      "routes/app.analytics.realtime": {
-        "id": "routes/app.analytics.realtime",
-        "parentId": "routes/app.analytics",
-        "file": "app/routes/app.analytics.realtime.ts",
-        "path": "realtime",
-        "config": {}
-      },
-      "routes/app.analytics.new": {
-        "id": "routes/app.analytics.new",
-        "parentId": "routes/app.analytics",
-        "file": "app/routes/app.analytics.new.tsx",
-        "path": "new",
-        "config": {}
-      },
       "routes/app.customers": {
         "id": "routes/app.customers",
         "parentId": "routes/app",
@@ -1234,6 +1256,15 @@
         "parentId": "routes/app.marketing",
         "file": "app/routes/app.marketing.automation.create.tsx",
         "path": "automation/create",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.marketing.klaviyo_.connect": {
+        "id": "routes/app.marketing.klaviyo_.connect",
+        "parentId": "routes/app.marketing",
+        "file": "app/routes/app.marketing.klaviyo_.connect.tsx",
+        "path": "klaviyo/connect",
         "config": {
           "runtime": "nodejs"
         }
@@ -1304,6 +1335,13 @@
         "parentId": "routes/app.marketing.campaigns",
         "file": "app/routes/app.marketing.campaigns.$id.tsx",
         "path": ":id",
+        "config": {}
+      },
+      "routes/app.marketing.campaigns.$id._index": {
+        "id": "routes/app.marketing.campaigns.$id._index",
+        "parentId": "routes/app.marketing.campaigns.$id",
+        "file": "app/routes/app.marketing.campaigns.$id._index.tsx",
+        "index": true,
         "config": {
           "runtime": "nodejs"
         }
@@ -1313,7 +1351,9 @@
         "parentId": "routes/app.marketing.campaigns.$id",
         "file": "app/routes/app.marketing.campaigns.$id.send.tsx",
         "path": "send",
-        "config": {}
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/app.marketing.templates": {
         "id": "routes/app.marketing.templates",
@@ -1367,13 +1407,6 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.marketing.klaviyo.connect": {
-        "id": "routes/app.marketing.klaviyo.connect",
-        "parentId": "routes/app.marketing.klaviyo",
-        "file": "app/routes/app.marketing.klaviyo.connect.tsx",
-        "path": "connect",
-        "config": {}
-      },
       "routes/app.marketing._index": {
         "id": "routes/app.marketing._index",
         "parentId": "routes/app.marketing",
@@ -1388,15 +1421,31 @@
         "parentId": "routes/app",
         "file": "app/routes/app.settings.tsx",
         "path": "settings",
-        "config": {
-          "runtime": "nodejs"
-        }
+        "config": {}
       },
       "routes/app.settings.store-metrics": {
         "id": "routes/app.settings.store-metrics",
         "parentId": "routes/app.settings",
         "file": "app/routes/app.settings.store-metrics.tsx",
         "path": "store-metrics",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.settings.integrations": {
+        "id": "routes/app.settings.integrations",
+        "parentId": "routes/app.settings",
+        "file": "app/routes/app.settings.integrations.tsx",
+        "path": "integrations",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.settings.integrations.$provider": {
+        "id": "routes/app.settings.integrations.$provider",
+        "parentId": "routes/app.settings.integrations",
+        "file": "app/routes/app.settings.integrations.$provider.tsx",
+        "path": ":provider",
         "config": {}
       },
       "routes/app.settings.automation": {
@@ -1404,7 +1453,18 @@
         "parentId": "routes/app.settings",
         "file": "app/routes/app.settings.automation.tsx",
         "path": "automation",
-        "config": {}
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/app.settings._index": {
+        "id": "routes/app.settings._index",
+        "parentId": "routes/app.settings",
+        "file": "app/routes/app.settings._index.tsx",
+        "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/app.billing": {
         "id": "routes/app.billing",
@@ -1493,6 +1553,15 @@
           "runtime": "nodejs"
         }
       },
+      "routes/app.rewards.challenges_.$id": {
+        "id": "routes/app.rewards.challenges_.$id",
+        "parentId": "routes/app.rewards",
+        "file": "app/routes/app.rewards.challenges_.$id.tsx",
+        "path": "challenges/:id",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.rewards.raffles._index": {
         "id": "routes/app.rewards.raffles._index",
         "parentId": "routes/app.rewards",
@@ -1521,18 +1590,18 @@
           "runtime": "nodejs"
         }
       },
-      "routes/app.rewards.challenges.$id": {
-        "id": "routes/app.rewards.challenges.$id",
-        "parentId": "routes/app.rewards.challenges",
-        "file": "app/routes/app.rewards.challenges.$id.tsx",
-        "path": ":id",
-        "config": {}
-      },
       "routes/app.rewards.missions": {
         "id": "routes/app.rewards.missions",
         "parentId": "routes/app.rewards",
         "file": "app/routes/app.rewards.missions.tsx",
         "path": "missions",
+        "config": {}
+      },
+      "routes/app.rewards.missions._index": {
+        "id": "routes/app.rewards.missions._index",
+        "parentId": "routes/app.rewards.missions",
+        "file": "app/routes/app.rewards.missions._index.tsx",
+        "index": true,
         "config": {
           "runtime": "nodejs"
         }
@@ -1542,7 +1611,9 @@
         "parentId": "routes/app.rewards.missions",
         "file": "app/routes/app.rewards.missions.$id.tsx",
         "path": ":id",
-        "config": {}
+        "config": {
+          "runtime": "nodejs"
+        }
       },
       "routes/app.rewards._index": {
         "id": "routes/app.rewards._index",
@@ -1619,9 +1690,9 @@
     }
   },
   "remixConfig": {
-    "appDirectory": "/Users/you/Desktop/rewardspro-production/app",
+    "appDirectory": "/Users/yuai/Projects/Cambridge-TCG-monorepo/apps/rewardspro/app",
     "basename": "/",
-    "buildDirectory": "/Users/you/Desktop/rewardspro-production/build",
+    "buildDirectory": "/Users/yuai/Projects/Cambridge-TCG-monorepo/apps/rewardspro/build",
     "future": {
       "v3_fetcherPersist": true,
       "v3_relativeSplatPath": true,
@@ -2005,6 +2076,12 @@
         "file": "routes/api.cron.usage-billing.tsx",
         "path": "api/cron/usage-billing"
       },
+      "routes/api.operator.readiness": {
+        "id": "routes/api.operator.readiness",
+        "parentId": "root",
+        "file": "routes/api.operator.readiness.tsx",
+        "path": "api/operator/readiness"
+      },
       "routes/api.order-sync.process": {
         "id": "routes/api.order-sync.process",
         "parentId": "root",
@@ -2257,23 +2334,41 @@
         "file": "routes/app.tsx",
         "path": "app"
       },
+      "routes/app.points_.mystery-boxes_.$id": {
+        "id": "routes/app.points_.mystery-boxes_.$id",
+        "parentId": "routes/app",
+        "file": "routes/app.points_.mystery-boxes_.$id.tsx",
+        "path": "points/mystery-boxes/:id"
+      },
+      "routes/app.analytics_.export.csv": {
+        "id": "routes/app.analytics_.export.csv",
+        "parentId": "routes/app",
+        "file": "routes/app.analytics_.export.csv.tsx",
+        "path": "analytics/export/csv"
+      },
       "routes/app.points_.mystery-boxes": {
         "id": "routes/app.points_.mystery-boxes",
         "parentId": "routes/app",
         "file": "routes/app.points_.mystery-boxes.tsx",
         "path": "points/mystery-boxes"
       },
-      "routes/app.points_.mystery-boxes.$id": {
-        "id": "routes/app.points_.mystery-boxes.$id",
-        "parentId": "routes/app.points_.mystery-boxes",
-        "file": "routes/app.points_.mystery-boxes.$id.tsx",
-        "path": ":id"
+      "routes/app.points_.raffles_.$id": {
+        "id": "routes/app.points_.raffles_.$id",
+        "parentId": "routes/app",
+        "file": "routes/app.points_.raffles_.$id.tsx",
+        "path": "points/raffles/:id"
       },
       "routes/app.recalculate-cashback": {
         "id": "routes/app.recalculate-cashback",
         "parentId": "routes/app",
         "file": "routes/app.recalculate-cashback.tsx",
         "path": "recalculate-cashback"
+      },
+      "routes/app.analytics_.realtime": {
+        "id": "routes/app.analytics_.realtime",
+        "parentId": "routes/app",
+        "file": "routes/app.analytics_.realtime.ts",
+        "path": "analytics/realtime"
       },
       "routes/app.points_.challenges": {
         "id": "routes/app.points_.challenges",
@@ -2287,11 +2382,11 @@
         "file": "routes/app.points_.raffles.tsx",
         "path": "points/raffles"
       },
-      "routes/app.points_.raffles.$id": {
-        "id": "routes/app.points_.raffles.$id",
-        "parentId": "routes/app.points_.raffles",
-        "file": "routes/app.points_.raffles.$id.tsx",
-        "path": ":id"
+      "routes/app.analytics_.new": {
+        "id": "routes/app.analytics_.new",
+        "parentId": "routes/app",
+        "file": "routes/app.analytics_.new.tsx",
+        "path": "analytics/new"
       },
       "routes/app.points_.config": {
         "id": "routes/app.points_.config",
@@ -2323,24 +2418,6 @@
         "file": "routes/app.analytics.tsx",
         "path": "analytics"
       },
-      "routes/app.analytics.export.csv": {
-        "id": "routes/app.analytics.export.csv",
-        "parentId": "routes/app.analytics",
-        "file": "routes/app.analytics.export.csv.tsx",
-        "path": "export/csv"
-      },
-      "routes/app.analytics.realtime": {
-        "id": "routes/app.analytics.realtime",
-        "parentId": "routes/app.analytics",
-        "file": "routes/app.analytics.realtime.ts",
-        "path": "realtime"
-      },
-      "routes/app.analytics.new": {
-        "id": "routes/app.analytics.new",
-        "parentId": "routes/app.analytics",
-        "file": "routes/app.analytics.new.tsx",
-        "path": "new"
-      },
       "routes/app.customers": {
         "id": "routes/app.customers",
         "parentId": "routes/app",
@@ -2364,6 +2441,12 @@
         "parentId": "routes/app.marketing",
         "file": "routes/app.marketing.automation.create.tsx",
         "path": "automation/create"
+      },
+      "routes/app.marketing.klaviyo_.connect": {
+        "id": "routes/app.marketing.klaviyo_.connect",
+        "parentId": "routes/app.marketing",
+        "file": "routes/app.marketing.klaviyo_.connect.tsx",
+        "path": "klaviyo/connect"
       },
       "routes/app.marketing.recommendations": {
         "id": "routes/app.marketing.recommendations",
@@ -2413,6 +2496,12 @@
         "file": "routes/app.marketing.campaigns.$id.tsx",
         "path": ":id"
       },
+      "routes/app.marketing.campaigns.$id._index": {
+        "id": "routes/app.marketing.campaigns.$id._index",
+        "parentId": "routes/app.marketing.campaigns.$id",
+        "file": "routes/app.marketing.campaigns.$id._index.tsx",
+        "index": true
+      },
       "routes/app.marketing.campaigns.$id.send": {
         "id": "routes/app.marketing.campaigns.$id.send",
         "parentId": "routes/app.marketing.campaigns.$id",
@@ -2455,12 +2544,6 @@
         "file": "routes/app.marketing.klaviyo.tsx",
         "path": "klaviyo"
       },
-      "routes/app.marketing.klaviyo.connect": {
-        "id": "routes/app.marketing.klaviyo.connect",
-        "parentId": "routes/app.marketing.klaviyo",
-        "file": "routes/app.marketing.klaviyo.connect.tsx",
-        "path": "connect"
-      },
       "routes/app.marketing._index": {
         "id": "routes/app.marketing._index",
         "parentId": "routes/app.marketing",
@@ -2479,11 +2562,29 @@
         "file": "routes/app.settings.store-metrics.tsx",
         "path": "store-metrics"
       },
+      "routes/app.settings.integrations": {
+        "id": "routes/app.settings.integrations",
+        "parentId": "routes/app.settings",
+        "file": "routes/app.settings.integrations.tsx",
+        "path": "integrations"
+      },
+      "routes/app.settings.integrations.$provider": {
+        "id": "routes/app.settings.integrations.$provider",
+        "parentId": "routes/app.settings.integrations",
+        "file": "routes/app.settings.integrations.$provider.tsx",
+        "path": ":provider"
+      },
       "routes/app.settings.automation": {
         "id": "routes/app.settings.automation",
         "parentId": "routes/app.settings",
         "file": "routes/app.settings.automation.tsx",
         "path": "automation"
+      },
+      "routes/app.settings._index": {
+        "id": "routes/app.settings._index",
+        "parentId": "routes/app.settings",
+        "file": "routes/app.settings._index.tsx",
+        "index": true
       },
       "routes/app.billing": {
         "id": "routes/app.billing",
@@ -2546,6 +2647,12 @@
         "file": "routes/app.rewards.mystery-boxes.$id.tsx",
         "path": "mystery-boxes/:id"
       },
+      "routes/app.rewards.challenges_.$id": {
+        "id": "routes/app.rewards.challenges_.$id",
+        "parentId": "routes/app.rewards",
+        "file": "routes/app.rewards.challenges_.$id.tsx",
+        "path": "challenges/:id"
+      },
       "routes/app.rewards.raffles._index": {
         "id": "routes/app.rewards.raffles._index",
         "parentId": "routes/app.rewards",
@@ -2565,17 +2672,17 @@
         "file": "routes/app.rewards.challenges.tsx",
         "path": "challenges"
       },
-      "routes/app.rewards.challenges.$id": {
-        "id": "routes/app.rewards.challenges.$id",
-        "parentId": "routes/app.rewards.challenges",
-        "file": "routes/app.rewards.challenges.$id.tsx",
-        "path": ":id"
-      },
       "routes/app.rewards.missions": {
         "id": "routes/app.rewards.missions",
         "parentId": "routes/app.rewards",
         "file": "routes/app.rewards.missions.tsx",
         "path": "missions"
+      },
+      "routes/app.rewards.missions._index": {
+        "id": "routes/app.rewards.missions._index",
+        "parentId": "routes/app.rewards.missions",
+        "file": "routes/app.rewards.missions._index.tsx",
+        "index": true
       },
       "routes/app.rewards.missions.$id": {
         "id": "routes/app.rewards.missions.$id",

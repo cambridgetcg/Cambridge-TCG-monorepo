@@ -49,23 +49,6 @@ interface ShopResult {
   durationMs: number;
 }
 
-// GraphQL query to check subscription contract status
-const SUBSCRIPTION_STATUS_QUERY = `#graphql
-  query GetSubscriptionStatus($id: ID!) {
-    node(id: $id) {
-      ... on SubscriptionContract {
-        id
-        status
-        nextBillingDate
-        customer {
-          id
-          email
-        }
-      }
-    }
-  }
-`;
-
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });

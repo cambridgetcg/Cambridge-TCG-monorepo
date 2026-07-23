@@ -14,10 +14,8 @@ import {
   InlineStack,
   InlineGrid,
   Icon,
-  Box,
   Badge,
   Toast,
-  Frame,
   Divider,
   Banner,
   Button,
@@ -28,9 +26,7 @@ import {
   ChartVerticalIcon,
   CashDollarIcon,
   DatabaseIcon,
-  RefreshIcon,
   CheckCircleIcon,
-  CreditCardIcon,
 } from "~/utils/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import prisma from "../db.server";
@@ -61,24 +57,6 @@ const calculateProjectedOrders = (currentOrders: number, daysRemaining: number):
 
   const dailyRate = currentOrders / daysPassed;
   return Math.ceil(dailyRate * totalDaysInMonth);
-};
-
-const formatTimeAgo = (dateString: string | null): string => {
-  if (!dateString) return 'Never';
-
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
 };
 
 // ============================================
@@ -613,7 +591,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export function shouldRevalidate({
-  formAction,
   formData,
   defaultShouldRevalidate,
 }: {
@@ -757,13 +734,13 @@ export default function Dashboard() {
   // Validate data exists (after all hooks to satisfy rules-of-hooks)
   if (!data) {
     return (
-      <Frame>
+      <>
         <Page title="Dashboard">
           <Banner title="Loading Error" tone="critical">
             <p>Failed to load dashboard data. Please refresh the page.</p>
           </Banner>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -804,7 +781,7 @@ export default function Dashboard() {
     : 0;
 
   return (
-    <Frame>
+    <>
       <Page title="Dashboard">
       <Layout>
         {/* Review Banner — compact */}
@@ -973,7 +950,7 @@ export default function Dashboard() {
       </Layout>
     </Page>
     {toastMarkup}
-  </Frame>
+  </>
   );
 }
 
@@ -995,7 +972,7 @@ export function ErrorBoundary() {
     });
 
     return (
-      <Frame>
+      <>
         <Page title="Dashboard Error">
           <Layout>
             <Layout.Section>
@@ -1007,7 +984,7 @@ export function ErrorBoundary() {
             </Layout.Section>
           </Layout>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -1019,7 +996,7 @@ export function ErrorBoundary() {
   console.error('[Dashboard ErrorBoundary] Stack trace:', errorStack);
 
   return (
-    <Frame>
+    <>
       <Page title="Dashboard Error">
         <Layout>
           <Layout.Section>
@@ -1031,6 +1008,6 @@ export function ErrorBoundary() {
           </Layout.Section>
         </Layout>
       </Page>
-    </Frame>
+    </>
   );
 }

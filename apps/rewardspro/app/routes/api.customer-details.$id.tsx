@@ -11,7 +11,7 @@ import { getPointsBalance, getTransactionHistory } from "../services/points-ledg
 import { getCurrencyBranding } from "../services/points-config.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
   
   if (!session?.shop) {
     throw new Response("Unauthorized", { status: 401 });

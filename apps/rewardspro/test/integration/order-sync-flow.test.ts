@@ -55,7 +55,6 @@ import db from '../../app/db.server';
 import {
   startOrderSyncJob,
   processOrderBatch,
-  getOrderSyncJobStatus,
   resumeOrderSyncJob,
   cancelOrderSyncJob,
 } from '../../app/services/order-sync-job.server';

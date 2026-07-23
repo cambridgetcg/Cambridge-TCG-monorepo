@@ -12,7 +12,7 @@ vi.mock('@shopify/polaris', () => ({
     <span data-testid={`text-${variant || 'default'}`}>{children}</span>,
   Badge: ({ children, tone }: { children: React.ReactNode, tone?: string }) => 
     <span data-testid={`badge-${tone || 'default'}`}>{children}</span>,
-  Button: ({ children, onClick, variant, tone }: any) => 
+  Button: ({ children, onClick, variant }: any) =>
     <button data-testid={`button-${variant || 'default'}`} onClick={onClick}>{children}</button>,
   Modal: ({ children, open, title }: any) =>
     open ? <div data-testid="modal"><span>{title}</span>{children}</div> : null,

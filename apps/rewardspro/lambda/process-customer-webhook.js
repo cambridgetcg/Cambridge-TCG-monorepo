@@ -8,7 +8,7 @@
  * Deploy this to AWS Lambda and configure EventBridge to trigger it.
  */
 
-const { RDSDataClient, ExecuteStatementCommand, BatchExecuteStatementCommand } = require("@aws-sdk/client-rds-data");
+const { RDSDataClient, ExecuteStatementCommand } = require("@aws-sdk/client-rds-data");
 const crypto = require('crypto');
 
 // Initialize RDS Data API client

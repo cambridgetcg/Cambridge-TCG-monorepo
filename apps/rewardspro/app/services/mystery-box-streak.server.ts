@@ -568,7 +568,7 @@ export async function resetPityCounter(customerId: string): Promise<void> {
  * Increment pity counter (called when customer wins common)
  */
 export async function incrementPityCounter(customerId: string): Promise<number> {
-  const result = await prisma.mysteryBoxStreak.updateMany({
+  await prisma.mysteryBoxStreak.updateMany({
     where: { customerId },
     data: { commonsSinceRare: { increment: 1 } },
   });

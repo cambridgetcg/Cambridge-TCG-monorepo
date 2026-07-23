@@ -8,7 +8,7 @@
  * - Collapsible sections
  */
 
-import { BlockStack, Text, Button, InlineStack, Collapsible, Icon } from "@shopify/polaris";
+import { BlockStack, Text, Button, InlineStack, Collapsible } from "@shopify/polaris";
 import { ChevronDownIcon, ChevronUpIcon, SettingsIcon } from "@shopify/polaris-icons";
 import { useState, useCallback, type ReactNode } from "react";
 

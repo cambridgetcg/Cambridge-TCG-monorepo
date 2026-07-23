@@ -16,7 +16,7 @@
  */
 
 import prisma from "../db.server";
-import { MysteryBoxBonusEventType } from "@prisma/client";
+import type { MysteryBoxBonusEventType } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxBonusEvents]";
 
@@ -102,7 +102,7 @@ export function getEventIconId(eventType: MysteryBoxBonusEventType): string {
 /**
  * @deprecated Use getEventIconId instead
  */
-export function getEventEmoji(eventType: MysteryBoxBonusEventType): string {
+export function getEventEmoji(_eventType: MysteryBoxBonusEventType): string {
   return ""; // Deprecated
 }
 

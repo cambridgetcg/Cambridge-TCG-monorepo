@@ -9,7 +9,6 @@ import {
   Text,
   Badge,
   Divider,
-  DataTable,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";

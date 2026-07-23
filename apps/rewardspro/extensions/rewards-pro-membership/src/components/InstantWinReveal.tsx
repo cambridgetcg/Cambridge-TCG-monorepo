@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   BlockStack,
   InlineStack,
   Text,
   View,
-  Button,
   Modal,
 } from '@shopify/ui-extensions-react/customer-account';
 
@@ -42,21 +41,6 @@ interface InstantWinRevealProps {
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
-
-function getRarityColor(rarity: string): string {
-  switch (rarity) {
-    case 'LEGENDARY':
-      return '#F59E0B'; // Gold
-    case 'EPIC':
-      return '#8B5CF6'; // Purple
-    case 'RARE':
-      return '#3B82F6'; // Blue
-    case 'UNCOMMON':
-      return '#10B981'; // Green
-    default:
-      return '#9CA3AF'; // Gray
-  }
-}
 
 function getRarityLabel(rarity: string): string {
   return rarity.charAt(0) + rarity.slice(1).toLowerCase();

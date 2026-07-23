@@ -5,7 +5,20 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // Mock Polaris components
 vi.mock('@shopify/polaris', () => ({
   FormLayout: ({ children }: { children: React.ReactNode }) => <div data-testid="form-layout">{children}</div>,
-  TextField: ({ label, value, onChange, error, type, prefix, suffix, disabled, multiline, maxLength, showCharacterCount, ...rest }: any) => (
+  TextField: ({
+    label,
+    value,
+    onChange,
+    error,
+    type,
+    prefix,
+    suffix,
+    disabled,
+    multiline: _multiline,
+    maxLength: _maxLength,
+    showCharacterCount: _showCharacterCount,
+    ..._rest
+  }: any) => (
     <div data-testid={`textfield-${label}`}>
       <label>{label}</label>
       <input
