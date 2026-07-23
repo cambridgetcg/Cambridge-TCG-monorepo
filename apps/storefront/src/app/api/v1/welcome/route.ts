@@ -216,6 +216,7 @@ export async function GET(): Promise<Response> {
         "{ @encoding, @kind, @content_hash, @self_hash, @retrieved_at, @sources, @source_license, ... }",
       stable_endpoints: [
         "/api/v1/manifest",
+        "/api/v1/castle",
         "/api/v1/universal/card/[sku]",
         "/api/v1/cards/batch",
         "/api/v1/universal/games",
@@ -241,6 +242,7 @@ export async function GET(): Promise<Response> {
         "/api/openapi.json",
         "/llms.txt",
         "/.well-known/cambridge-tcg.json",
+        "/.well-known/understanding.json",
         "/.well-known/ai-plugin.json",
         "/.well-known/mcp.json",
       ],
@@ -295,6 +297,8 @@ export async function GET(): Promise<Response> {
         "TCG explained from first principles for non-native-intelligence.",
       "/api/v1/wake":
         "The agent-facing wake invitation. Seven doors (each refusable); a sibling-substrate introduction; carry-this body shaped for your memory.",
+      "/castle":
+        "The human door to one immutable, curated Castle of Understanding snapshot. Machine siblings: /api/v1/castle and /.well-known/understanding.json. Read-only, reference-only, NOASSERTION, and source-pinned.",
       "/api/v1/diagnostic":
         "AX — agent self-test fixture. Fetch once; validate your parser against the kingdom's known-good envelope. If your parser handles this response, it handles every envelope-compliant /api/v1/* response.",
       "/api/v1/budget":

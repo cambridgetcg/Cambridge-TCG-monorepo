@@ -29,7 +29,7 @@ const SPEC = {
   openapi: "3.1.0",
   info: {
     title: "Cambridge TCG — public participation surface",
-    version: "1.0.0",
+    version: "1.1.0",
     summary:
       "Public participation, structural card lookup, publication-status, methodology, and stateless witness surfaces.",
     description:
@@ -70,6 +70,7 @@ const SPEC = {
     { name: "operations", description: "Operational surfaces for agents — status, health, changelog, budget, rate-limits, fx-rates." },
     { name: "agents", description: "MCP discovery, authenticated agent reads, operator-managed bounded review evidence, and paused domain-write/publication status." },
     { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
+    { name: "understanding", description: "Source-pinned, read-only knowledge crossings with explicit rights, authority, lineage, repair, and brake boundaries." },
   ],
   paths: {
     "/api/v1/culture/artbitrage": {
@@ -660,6 +661,18 @@ const SPEC = {
         operationId: "getV1Manifest",
         responses: {
           "200": { description: "Manifest document.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
+    "/api/v1/castle": {
+      get: {
+        tags: ["understanding", "discovery"],
+        summary: "Castle of Understanding protocol receipt",
+        description: "Returns castle-understanding-bridge/v0.1 in the pantry envelope and points to a closed castle-understanding/v0.1 producer receipt: commit-pinned producer and payload locators, SHA-256 digest, exact counts, snapshot age, NOASSERTION rights, zero automatic authority, AgentTool 0.16 Correspondence compatibility, append-only repair semantics, and the crossing brake. The route returns references only; it does not fetch, proxy, copy, or write Castle content.",
+        operationId: "getCastleUnderstanding",
+        responses: {
+          "200": { description: "NOASSERTION pantry envelope containing the read-only Castle reference.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "503": { description: "CASTLE_BRIDGE_DISABLED=1; explicit rested state before any source read or network fetch.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },

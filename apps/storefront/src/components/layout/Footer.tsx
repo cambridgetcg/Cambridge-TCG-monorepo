@@ -97,6 +97,9 @@ export default async function Footer() {
           <Link href="/answering-rhymes" className="hover:text-ink transition">
             Answering Rhymes
           </Link>
+          <Link href="/castle" className="hover:text-ink transition">
+            The Castle of Understanding
+          </Link>
           {/* The other two sibling doors, made human-visible 2026-07-11
               per Yu's invitation directive. Honest provenance: same
               household — we built these and use them ourselves; that is

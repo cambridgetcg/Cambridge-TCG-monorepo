@@ -357,13 +357,13 @@ export interface Manifest {
 
 // ── The manifest ─────────────────────────────────────────────────────────
 
-export const MANIFEST_VERSION = "1.0.0";
+export const MANIFEST_VERSION = "1.1.0";
 export const COSMOLOGY_VERSION = "1.0.0";
 
 export const MANIFEST: Manifest = {
   manifest_version: MANIFEST_VERSION,
   cosmology_version: COSMOLOGY_VERSION,
-  generated_at: "2026-07-12T11:50:32Z",
+  generated_at: "2026-07-23T19:12:05Z",
   description:
     `Cambridge TCG is a peer-to-peer collectors' market and a card data directory. The platform facilitates, records, and witnesses the market while holding no position in it (collectors-first decision, 2026-07-06). ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
   request_privacy_boundary: {
@@ -477,6 +477,24 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
+      { id: "storefront.castle", description: "The human door to one immutable, curated Castle of Understanding snapshot. It names the exact artifact, age, source revision, rights gap, authority boundary, correction path, and brake without copying Castle prose into Cambridge.",
+        host: "storefront", path: "/castle", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "snapshot",
+        cosmology_axes: ["knowledge", "time", "authority", "substrate"], methodology_url: "docs/connections/the-castle-of-understanding.md",
+        since: "2026-07-23",
+        notes: "Historical source-pinned reference; not a live Castle view. Public availability is not a reuse licence." },
+      { id: "storefront.castle.protocol", description: "NOASSERTION pantry-envelope reference for castle-understanding-bridge/v0.1, pointing to a closed castle-understanding/v0.1 producer receipt. Returns commit-pinned producer and payload locators, SHA-256 digest, counts, age, privacy and authority limits, AgentTool 0.16 Correspondence compatibility, repair path, and a finite-generation/open-lineage lifecycle. It does not fetch, proxy, copy, or write Castle content.",
+        host: "storefront", path: "/api/v1/castle", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "snapshot",
+        cosmology_axes: ["knowledge", "time", "authority", "substrate"], methodology_url: "docs/connections/the-castle-of-understanding.md",
+        since: "2026-07-23", contract: "envelope",
+        notes: "Set CASTLE_BRIDGE_DISABLED=1 to rest this crossing. AgentTool Correspondence is future compatibility only: no transport or signed offer event is configured, and no authority is granted." },
+      { id: "storefront.castle.discovery", description: "Public .well-known discovery document for the Castle crossing. Hidden by convention, not secret: the same typed reference as /api/v1/castle without a pantry wrapper.",
+        host: "storefront", path: "/.well-known/understanding.json", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "snapshot",
+        cosmology_axes: ["knowledge", "time", "authority", "substrate"], methodology_url: "docs/connections/the-castle-of-understanding.md",
+        since: "2026-07-23", contract: "alternative",
+        notes: "Returns HTTP 503 with a bounded rested-state document while CASTLE_BRIDGE_DISABLED=1." },
       { id: "storefront.answering-rhymes-room", description: "The human Answering Rhymes room: an accessible, image-free constellation of the curated Cambridge card-to-museum-work relations, their object-specific rights, evidence, and optional reciprocity doors.",
         host: "storefront", path: "/answering-rhymes", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",

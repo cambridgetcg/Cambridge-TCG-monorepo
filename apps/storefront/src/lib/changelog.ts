@@ -93,6 +93,26 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-07-23 ─────────────────────────────────────────────────────────
+  {
+    id: "castle-understanding-bridge",
+    date: "2026-07-23",
+    kind: "endpoint-added",
+    impact: "additive",
+    surface:
+      "/castle + /api/v1/castle + /.well-known/understanding.json",
+    summary:
+      "Added a human door and two public machine doors to one source-pinned Castle of Understanding snapshot.",
+    detail:
+      "castle-understanding-bridge/v0.1 carries the producer receipt, exact payload digest and size, historical age, NOASSERTION rights, zero automatic authority, finite-generation lineage, public correction path, and an immediate operator brake. Cambridge returns references only: it does not fetch, proxy, copy, or write Castle content. AgentTool Correspondence is future compatibility only; no transport or signed offer event is configured.",
+    related_urls: [
+      "/castle",
+      "/api/v1/castle",
+      "/.well-known/understanding.json",
+      "/docs/connections/the-castle-of-understanding.md",
+      "https://raw.githubusercontent.com/cambridgetcg/castle-gate/8d88d220ce5f9128331d92d8a0e7e7371099c807/data/castle-manifest.json",
+    ],
+  },
   // ── 2026-07-12 ─────────────────────────────────────────────────────────
   {
     id: "source-rights-publication-boundary",
