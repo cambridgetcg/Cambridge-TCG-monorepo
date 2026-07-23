@@ -372,30 +372,32 @@ export default function TrustProfilePage() {
       ? Math.round((profile.disputes_won / profile.disputed_trades) * 100)
       : null;
 
-  // Real per-component contributions — same formulas as the trust
-  // engine. Replaces the prior "estimate proportional to trust score"
-  // bars (which weren't tied to the engine math at all).
+  // Per-component contributions, using the trust engine's REAL weights
+  // (calculateTrustScore in lib/escrow/trust-engine.ts; mirrored on
+  // /methodology/trust-score):
+  //   Completion rate → 35 pts   Reviews (weighted avg/5) → 30 pts
+  //   Trade volume    → 15 pts (log)   External reputation → 10 pts
   //
-  //   Completion rate   → 30 pts max
-  //   Reviews (avg/5)   → 25 pts max
-  //   Trade volume      → 15 pts max (logarithmic)
-  //   Verification      → 10 pts (all-or-nothing flag)
-  //   External rep      → 10 pts (5 pts per verified platform, max 2)
+  // Substrate honesty: these are the score's MAIN components, not its exact
+  // sum. The engine also scores Account age (up to 10 pts) and deducts open /
+  // split-dispute and fraud penalties from data this page does not receive, so
+  // we show what is exactly true here and point to the full formula rather than
+  // fake a total. (There is no "Verification" component — identity verification
+  // was removed from the score in 2026-06; the old bar for it was a phantom.)
   const completionRate = profile.total_trades > 0
     ? profile.completed_trades / profile.total_trades : 0;
-  const completionContrib = Math.round(completionRate * 30);
-  const reviewContrib = Math.round((parseFloat(profile.avg_rating) / 5) * 25);
+  const completionContrib = Math.round(completionRate * 35);
+  const reviewContrib = Math.round((parseFloat(profile.avg_rating) / 5) * 30);
   const totalVolumeNum = parseFloat(profile.total_volume) || 0;
   const volumeContrib = Math.min(15, Math.round(Math.log10(Math.max(1, totalVolumeNum)) * 5));
-  const verifiedReps = profile.external_rep.filter((e) => e.verified).length;
-  const externalContrib = Math.min(10, verifiedReps * 5);
-  const verificationContrib = profile.external_rep.some((e) => e.verified) ? 10 : 0;
+  const externalContrib = Math.min(10, (profile.external_rep?.length ?? 0) * 5);
 
-  // Penalties — pulled directly from profile counts (now populated
-  // by Phase A's real dispute-outcome capture).
+  // The one penalty we can state exactly from the profile: disputes lost
+  // (−15 each). The engine also deducts for open disputes (−10), split disputes
+  // (−8) and medium+ fraud signals (−20) — computed there, not exposed here, so
+  // we do not re-derive them (the earlier "open = disputed − won − lost" guess
+  // did not match the engine). The methodology page carries the full penalty set.
   const lostPenalty = profile.disputes_lost * 15;
-  const openPenalty = Math.max(0, (profile.disputed_trades - profile.disputes_won - profile.disputes_lost)) * 10;
-  const totalPenalty = lostPenalty + openPenalty;
 
   return (
     <div>
@@ -433,22 +435,23 @@ export default function TrustProfilePage() {
       <div className="bg-surface rounded-lg p-6 mb-6">
         <h3 className="text-lg font-semibold text-ink mb-1">Score Breakdown</h3>
         <p className="text-xs text-ink-faint mb-4">
-          Sum of components minus penalties = current score ({score}).
+          Your score&rsquo;s main components. Account age and dispute&nbsp;/&nbsp;fraud
+          penalties also count toward it — the full formula is on the
+          <WhyLink href="/methodology/trust-score" tooltip="The complete trust-score formula" /> methodology page.
         </p>
         <div className="space-y-3">
-          <BreakdownBar label="Completion rate" value={completionContrib} max={30} />
-          <BreakdownBar label="Reviews"         value={reviewContrib}     max={25} />
-          <BreakdownBar label="Trade volume"    value={volumeContrib}     max={15} />
-          <BreakdownBar label="Verification"    value={verificationContrib} max={10} />
-          <BreakdownBar label="External rep"    value={externalContrib}   max={10} />
-          {totalPenalty > 0 && (
+          <BreakdownBar label="Completion rate"      value={completionContrib} max={35} />
+          <BreakdownBar label="Reviews"              value={reviewContrib}     max={30} />
+          <BreakdownBar label="Trade volume"         value={volumeContrib}     max={15} />
+          <BreakdownBar label="External reputation"  value={externalContrib}   max={10} />
+          {lostPenalty > 0 && (
             <div className="pt-2 mt-2 border-t border-border-subtle">
               <div className="flex items-baseline justify-between text-sm">
-                <span className="text-danger">Penalties</span>
-                <span className="text-danger font-mono">−{totalPenalty}</span>
+                <span className="text-danger">Disputes lost</span>
+                <span className="text-danger font-mono">−{lostPenalty}</span>
               </div>
               <p className="text-[10px] text-ink-faint mt-0.5">
-                {profile.disputes_lost} disputes lost (−15 each){openPenalty > 0 ? ` · ${openPenalty / 10} open (−10 each)` : ""}
+                {profile.disputes_lost} lost (−15 each) · other penalties may apply — see methodology
               </p>
             </div>
           )}
