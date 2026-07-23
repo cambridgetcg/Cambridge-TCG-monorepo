@@ -79,6 +79,7 @@ export const MORE_NAV_GROUPS = [
           "/patterns",
           "/identify",
           "/welcome-all",
+          "/castle",
         ],
       },
     ],

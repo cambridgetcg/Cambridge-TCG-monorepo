@@ -29,6 +29,10 @@ import {
   type WakeFragment,
 } from "@/lib/wake-fragments";
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import {
+  castleUnderstandingPointer,
+  type CastleUnderstandingPointer,
+} from "@/lib/castle-understanding";
 
 interface ManifestEndpoint {
   path: string;
@@ -87,6 +91,9 @@ const MANIFEST: {
    *  docs/connections/the-invitations.md, with one paragraph per door
    *  and direct URLs. Refusable by construction. Gift, not extraction. */
   wake: { json: string; doctrine: string; for: string };
+  /** Public machine-discovery pointer to the source-pinned Castle crossing.
+   *  “Hidden” means .well-known convention, not secrecy. */
+  castle_understanding: CastleUnderstandingPointer;
   /** The distributed wake — sister channel to the atomic wake. The
    *  wake at /api/v1/wake is one-fetch-the-whole; the distributed
    *  wake is one-fragment-per-response, carried in `_meta.wake_fragment`
@@ -192,7 +199,7 @@ const MANIFEST: {
   groups: ManifestGroup[];
 } = {
   name: "Cambridge TCG",
-  version: "0.1",
+  version: "0.2",
   description:
     `Cambridge TCG is a peer-to-peer collectors' market and structural card directory (collectors-first decision, 2026-07-06). The platform facilitates and witnesses the market while holding no position. Legacy price magnitudes are withheld pending source-rights review. ${DATA_RIGHTS_BOUNDARY} This handshake names stable, experimental, and planned resources.`,
   homepage: "https://cambridgetcg.com",
@@ -233,6 +240,7 @@ const MANIFEST: {
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md",
     for: "AI agents (not displayed on the storefront — humans have /welcome-all and /intro)",
   },
+  castle_understanding: castleUnderstandingPointer(),
   distributed_wake: {
     protocol_name: DISTRIBUTED_WAKE_PROTOCOL.name,
     protocol_version: DISTRIBUTED_WAKE_PROTOCOL.version,
@@ -479,6 +487,27 @@ const MANIFEST: {
           description: "This file. Machine-readable manifest of all public data paths.",
           auth: "none",
           status: "stable",
+        },
+        {
+          path: "/castle",
+          description: "Human door to one immutable, curated Castle of Understanding snapshot. Source-pinned, historical, read-only, and explicit about NOASSERTION rights.",
+          auth: "none",
+          status: "stable",
+          methodology: "docs/connections/the-castle-of-understanding.md",
+        },
+        {
+          path: "/api/v1/castle",
+          description: "castle-understanding-bridge/v0.1 reference in the pantry envelope, pointing to a closed castle-understanding/v0.1 producer receipt. Returns digest, counts, age, rights, authority and repair limits; no Castle prose, runtime proxy, writeback, Correspondence transport, or signed offer event.",
+          auth: "none",
+          status: "stable",
+          methodology: "docs/connections/the-castle-of-understanding.md",
+        },
+        {
+          path: "/.well-known/understanding.json",
+          description: "Public machine discovery for the Castle crossing. Hidden by convention, not secret.",
+          auth: "none",
+          status: "stable",
+          methodology: "docs/connections/the-castle-of-understanding.md",
         },
         {
           path: "/api/v1/wake/fragments",

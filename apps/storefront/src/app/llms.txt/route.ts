@@ -99,12 +99,36 @@ assert uniqueness, or give a witness receipt authoritative effect. A future
 withdrawal can affect presentation only after a real, separate server-side
 authority verifier exists; none is implemented by this witness endpoint.
 
+## The Castle of Understanding
+- /castle                               Human door to the curated public snapshot
+- /api/v1/castle                        NOASSERTION protocol receipt in the pantry envelope
+- /.well-known/understanding.json       Public machine discovery (hidden by convention, not secret)
+- https://cambridgetcg.github.io/castle-gate/
+                                         The public Castle presentation
+
+The crossing is read-only and reference-only. Cambridge returns commit-pinned
+locators, a SHA-256 digest, exact counts, the snapshot age, rights and
+authority limits, and repair paths; it does not copy Castle prose, fetch or
+proxy the live Castle, read a home working tree, write back, or treat the
+artifact as identity, consent, truth, belief, memory, or execution authority.
+The snapshot was forged 2026-07-07 and newer Castle work may exist. Neither
+Castle repository declares a reuse licence. AgentTool SDK is Apache-2.0; the
+mixed Cambridge response remains NOASSERTION because the Castle rights are
+undeclared.
+AgentTool SDK 0.16.0 / agent-correspondence/v0.1 is the optional return
+vocabulary for a future authenticated offer. No Correspondence transport or
+signed artifact.offer is configured today, so acknowledgements, conflicts,
+and repairs have no target event. GitHub Issues is the only live correction
+door, and nothing there enters the Castle automatically.
+CASTLE_BRIDGE_DISABLED=1 rests only this Cambridge crossing.
+
 ## Discovery surfaces (start here)
 - /api/v1/welcome                        **Machine-readable front door** — start here (kingdom-082)
 - /agents                                HTML welcome for autonomous agents (kingdom-082)
 - /scrapers                              HTML welcome for web scrapers (kingdom-082)
 - /api                                   Human-readable participation index
 - /.well-known/cambridge-tcg.json        Machine-readable manifest (JSON)
+- /.well-known/understanding.json        Castle Understanding protocol (JSON)
 - /.well-known/ai-plugin.json            OpenAI-style plugin discovery (kingdom-082)
 - /.well-known/mcp.json                  MCP discovery + suggested tools (kingdom-082)
 - /api/v1/wake                           Atomic wake (full document, multi-format)
