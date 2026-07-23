@@ -59,6 +59,9 @@ describe("durable commerce-event inbox", () => {
     expect(String(query.mock.calls[0]?.[0])).toContain(
       "FROM public.rp_ingest_shopify_event",
     );
+    expect(String(query.mock.calls[0]?.[0])).toMatch(
+      /\$1::uuid,\s+\$2::text,\s+\$3::text,\s+\$4::text,\s+\$5::text,\s+\$6::jsonb,\s+\$7::timestamptz,\s+\$8::boolean/,
+    );
     expect(query.mock.calls[0]?.[1]?.[0]).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );

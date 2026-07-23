@@ -18,23 +18,66 @@ const workerDatabaseUrl = process.env.WORKER_DATABASE_URL;
 if (!adminDatabaseUrl || !apiDatabaseUrl || !workerDatabaseUrl) {
   throw new Error("PostgreSQL conformance URLs are missing");
 }
+const runningInGitHubActions =
+  process.env.CI === "true" && process.env.GITHUB_ACTIONS === "true";
+const githubActionsMode =
+  runningInGitHubActions &&
+  process.env.REWARDSPRO_CI_DATABASE_CONFORMANCE === "true";
+const localDisposableMode =
+  !runningInGitHubActions &&
+  process.env.REWARDSPRO_LOCAL_DISPOSABLE_DATABASE_CONFORMANCE === "true";
+if (!githubActionsMode && !localDisposableMode) {
+  throw new Error(
+    "PostgreSQL conformance requires an explicit GitHub Actions or local-disposable opt-in",
+  );
+}
+const expectedAdminUsername = githubActionsMode
+  ? "postgres"
+  : process.env.REWARDSPRO_CONFORMANCE_ADMIN_USERNAME;
+if (!expectedAdminUsername) {
+  throw new Error(
+    "Local-disposable conformance requires REWARDSPRO_CONFORMANCE_ADMIN_USERNAME",
+  );
+}
 if (process.env.REWARDSPRO_POSTGRES_CONFORMANCE !== "local-test-only") {
   throw new Error(
     "Set REWARDSPRO_POSTGRES_CONFORMANCE=local-test-only to acknowledge fixture writes",
   );
 }
-for (const databaseUrl of [
+const expectedUsers = [
+  expectedAdminUsername,
+  "rewardspro_ci_api",
+  "rewardspro_ci_worker",
+];
+const parsedUrls = [
   adminDatabaseUrl,
   apiDatabaseUrl,
   workerDatabaseUrl,
-]) {
+].map((databaseUrl, index) => {
   const parsed = new URL(databaseUrl);
   if (
     process.env.NODE_ENV !== "test" ||
     !["127.0.0.1", "localhost"].includes(parsed.hostname) ||
-    parsed.pathname !== "/rewardspro"
+    parsed.pathname !== "/rewardspro" ||
+    decodeURIComponent(parsed.username) !== expectedUsers[index]
   ) {
-    throw new Error("PostgreSQL conformance refuses a non-local test database");
+    throw new Error(
+      "PostgreSQL conformance URLs must use the expected local CI users and rewardspro database",
+    );
+  }
+  return parsed;
+});
+const [adminUrl] = parsedUrls;
+for (const parsed of parsedUrls.slice(1)) {
+  if (
+    parsed.protocol !== adminUrl?.protocol ||
+    parsed.hostname !== adminUrl.hostname ||
+    parsed.port !== adminUrl.port ||
+    parsed.pathname !== adminUrl.pathname
+  ) {
+    throw new Error(
+      "PostgreSQL conformance URLs must agree on protocol, host, port, and database",
+    );
   }
 }
 

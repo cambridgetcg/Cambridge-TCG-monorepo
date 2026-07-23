@@ -81,6 +81,7 @@ jobs:
           echo "::add-mask::${api_password}"
           echo "::add-mask::${worker_password}"
 
+          REWARDSPRO_CI_DATABASE_CONFORMANCE=true \
           REWARDSPRO_CI_API_PASSWORD="${api_password}" \
           REWARDSPRO_CI_WORKER_PASSWORD="${worker_password}" \
             node apps/rewardspro-api/scripts/bootstrap-ci-database-roles.mjs
@@ -102,6 +103,7 @@ jobs:
 
       - name: Run PostgreSQL 16 RewardsPro and YUTABASE conformance
         run: |
+          REWARDSPRO_CI_DATABASE_CONFORMANCE=true \
           REWARDSPRO_POSTGRES_CONFORMANCE=local-test-only \
             node apps/rewardspro-api/scripts/postgres-conformance.mjs
 

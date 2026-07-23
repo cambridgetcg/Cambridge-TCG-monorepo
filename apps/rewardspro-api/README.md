@@ -110,6 +110,11 @@ membership direct: the API inherits only `yu_reader`; the worker inherits only
 separately:
 
 ```sql
+ALTER ROLE rewardspro_api
+  IN DATABASE rewardspro SET search_path = pg_catalog;
+ALTER ROLE rewardspro_worker
+  IN DATABASE rewardspro SET search_path = pg_catalog;
+
 GRANT USAGE ON SCHEMA public, commerce TO rewardspro_api, rewardspro_worker;
 
 GRANT yu_reader TO rewardspro_api
@@ -148,9 +153,10 @@ unbounded migration file.
 The authenticated API readiness endpoint and worker startup check inspect
 PostgreSQL catalogs without changing data. They require the pinned YUTABASE
 identity, registry, vocabulary, role graph and triggers; reject elevated,
-owner, schema-creation and cross-runtime powers; and enforce the required
-table-privilege matrix. A merely connectable, over-granted, partially migrated,
-or wrong-profile database is not reported ready.
+owner, schema-creation and cross-runtime powers; and enforce the exact
+relation, column, role-membership, and ingest-function capability boundary. A
+merely connectable, over-granted, partially migrated, or wrong-profile database
+is not reported ready.
 
 ## SQS worker delivery and deployment probe
 

@@ -29,6 +29,13 @@ const TABLE_PRIVILEGES = [
   "TRIGGER",
 ] as const;
 
+const COLUMN_PRIVILEGES = [
+  "SELECT",
+  "INSERT",
+  "UPDATE",
+  "REFERENCES",
+] as const;
+
 const PROTECTED_RELATIONS = [
   ["public", "rp_schema_migration"],
   ["public", "rp_workspace"],
@@ -43,6 +50,10 @@ const PROTECTED_RELATIONS = [
   ["yu", "standard_meta"],
   ["yu", "registry"],
   ["yu", "lexicon"],
+  ["yu", "lexicon_versions"],
+  ["yu", "sever_log"],
+  ["yu", "word_versions"],
+  ["yu", "thread_ids"],
   ["yu", "threads"],
 ] as const;
 
@@ -82,6 +93,72 @@ const YUTABASE_RELATION_REQUIREMENTS: readonly RelationRequirement[] = [
     privileges: ["SELECT"],
     schema: "yu",
     table: "lexicon",
+  },
+  {
+    columns: [
+      "version_id",
+      "word",
+      "gloss",
+      "inverse",
+      "changed_at",
+      "changed_by",
+    ],
+    privileges: ["SELECT"],
+    schema: "yu",
+    table: "lexicon_versions",
+  },
+  {
+    columns: [
+      "id",
+      "word",
+      "word_version",
+      "word_to_one",
+      "from_book",
+      "from_deck",
+      "from_id",
+      "to_book",
+      "to_deck",
+      "to_id",
+      "note",
+      "at",
+      "by",
+      "how",
+      "src",
+      "thread_at",
+      "thread_by",
+      "thread_how",
+      "thread_src",
+    ],
+    privileges: ["SELECT"],
+    schema: "yu",
+    table: "sever_log",
+  },
+  {
+    columns: [
+      "word",
+      "word_version",
+      "gloss",
+      "inverse",
+      "from_deck",
+      "to_deck",
+      "to_one",
+      "ttl",
+      "status",
+      "at",
+      "by",
+      "how",
+      "src",
+      "recorded_at",
+    ],
+    privileges: ["SELECT"],
+    schema: "yu",
+    table: "word_versions",
+  },
+  {
+    columns: ["id"],
+    privileges: ["SELECT"],
+    schema: "yu",
+    table: "thread_ids",
   },
   {
     columns: [
@@ -217,6 +294,11 @@ const WORKER_RELATION_REQUIREMENTS: readonly RelationRequirement[] = [
       "commerce_connection_id",
       "source_event_id",
       "external_order_id",
+      "external_customer_id",
+      "name",
+      "currency",
+      "total_amount",
+      "paid_at",
       "mapping",
       "at",
       "by",
@@ -233,7 +315,15 @@ const WORKER_RELATION_REQUIREMENTS: readonly RelationRequirement[] = [
       "workspace_id",
       "commerce_connection_id",
       "order_id",
+      "position",
       "external_line_item_id",
+      "external_product_id",
+      "external_variant_id",
+      "quantity",
+      "sku",
+      "title",
+      "unit_price_amount",
+      "unit_price_currency",
       "mapping",
       "at",
       "by",
@@ -324,6 +414,26 @@ export async function checkDatabase(
           .flatMap((requirement) => requirement.privileges),
       );
       return TABLE_PRIVILEGES.filter(
+        (privilege) => !allowed.has(privilege),
+      ).map(
+        (privilege) =>
+          `(${sqlLiteral(schema)}, ${sqlLiteral(table)}, ${sqlLiteral(
+            privilege,
+          )})`,
+      );
+    },
+  ).join(",\n");
+  const forbiddenColumnPrivilegeValues = PROTECTED_RELATIONS.flatMap(
+    ([schema, table]) => {
+      const allowed = new Set<string>(
+        requirements
+          .filter(
+            (requirement) =>
+              requirement.schema === schema && requirement.table === table,
+          )
+          .flatMap((requirement) => requirement.privileges),
+      );
+      return COLUMN_PRIVILEGES.filter(
         (privilege) => !allowed.has(privilege),
       ).map(
         (privilege) =>
@@ -464,25 +574,104 @@ export async function checkDatabase(
          )`;
   const runtimeIngestFunctionBoundary =
     runtime === "api"
-      ? `COALESCE(
-           has_function_privilege(
-             current_user,
-             to_regprocedure(
-               'public.rp_ingest_shopify_event(uuid,text,text,text,text,jsonb,timestamptz,boolean)'
-             ),
-             'EXECUTE'
-           ),
-           false
+      ? `EXISTS (
+           SELECT 1
+           FROM ingest_execute_acl acl
+           JOIN capability_roles roles
+             ON acl.grantee = roles.runtime_oid
+           WHERE NOT acl.is_grantable
+         )
+         AND EXISTS (
+           SELECT 1
+           FROM ingest_execute_acl acl
+           JOIN ingest_routine routine
+             ON acl.grantee = routine.owner_oid
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM ingest_execute_acl acl
+           CROSS JOIN ingest_routine routine
+           CROSS JOIN capability_roles roles
+           WHERE acl.grantee <> routine.owner_oid
+             AND (
+               acl.grantee <> roles.runtime_oid
+               OR acl.is_grantable
+             )
          )`
       : `NOT COALESCE(
-           has_function_privilege(
+           pg_catalog.has_function_privilege(
              current_user,
-             to_regprocedure(
+             pg_catalog.to_regprocedure(
                'public.rp_ingest_shopify_event(uuid,text,text,text,text,jsonb,timestamptz,boolean)'
              ),
              'EXECUTE'
            ),
            false
+         )
+         AND EXISTS (
+           SELECT 1
+           FROM ingest_execute_acl acl
+           JOIN ingest_routine routine
+             ON acl.grantee = routine.owner_oid
+         )
+         AND (
+           SELECT count(*) = 1
+           FROM ingest_execute_acl acl
+           CROSS JOIN ingest_routine routine
+           WHERE acl.grantee <> routine.owner_oid
+         )
+         AND EXISTS (
+           SELECT 1
+           FROM ingest_execute_acl acl
+           JOIN pg_catalog.pg_roles api_role
+             ON api_role.oid = acl.grantee
+           CROSS JOIN ingest_routine routine
+           CROSS JOIN capability_roles roles
+           WHERE acl.grantee <> routine.owner_oid
+             AND NOT acl.is_grantable
+             AND api_role.oid <> roles.runtime_oid
+             AND api_role.rolcanlogin
+             AND NOT api_role.rolsuper
+             AND NOT api_role.rolcreatedb
+             AND NOT api_role.rolcreaterole
+             AND NOT api_role.rolreplication
+             AND NOT api_role.rolbypassrls
+             AND COALESCE(
+               pg_catalog.pg_has_role(
+                 api_role.oid,
+                 roles.reader_oid,
+                 'MEMBER'
+               ),
+               false
+             )
+             AND NOT COALESCE(
+               pg_catalog.pg_has_role(
+                 api_role.oid,
+                 routine.owner_oid,
+                 'MEMBER'
+               ),
+               false
+             )
+             AND EXISTS (
+               SELECT 1
+               FROM pg_catalog.pg_auth_members membership
+               WHERE membership.member = api_role.oid
+                 AND membership.roleid = roles.reader_oid
+                 AND NOT membership.admin_option
+                 AND membership.inherit_option
+                 AND NOT membership.set_option
+             )
+             AND NOT EXISTS (
+               SELECT 1
+               FROM pg_catalog.pg_auth_members membership
+               WHERE membership.member = api_role.oid
+                 AND membership.roleid <> roles.reader_oid
+             )
+             AND NOT EXISTS (
+               SELECT 1
+               FROM pg_catalog.pg_auth_members membership
+               WHERE membership.roleid = api_role.oid
+             )
          )`;
 
   // The first query proves these relations are present and selectable before
@@ -515,6 +704,43 @@ export async function checkDatabase(
          ) AS safe_role_count
        FROM pg_catalog.pg_roles
      ),
+     ingest_routine AS (
+       SELECT
+         routine.oid,
+         routine.proowner AS owner_oid,
+         routine.proacl
+       FROM pg_catalog.pg_proc routine
+       JOIN pg_catalog.pg_namespace namespace
+         ON namespace.oid = routine.pronamespace
+       JOIN pg_catalog.pg_language language
+         ON language.oid = routine.prolang
+       WHERE routine.oid = pg_catalog.to_regprocedure(
+         'public.rp_ingest_shopify_event(uuid,text,text,text,text,jsonb,timestamptz,boolean)'
+       )
+         AND namespace.nspname = 'public'
+         AND language.lanname = 'plpgsql'
+         AND routine.prokind = 'f'
+         AND routine.provolatile = 'v'
+         AND routine.prosecdef
+         AND routine.proretset
+         AND routine.prorettype = 'record'::pg_catalog.regtype
+         AND pg_catalog.cardinality(routine.proconfig) = 2
+         AND routine.proconfig @> ARRAY[
+           'search_path=pg_catalog',
+           'row_security=off'
+         ]::text[]
+     ),
+     ingest_execute_acl AS (
+       SELECT acl.grantee, acl.is_grantable
+       FROM ingest_routine routine
+       CROSS JOIN LATERAL pg_catalog.aclexplode(
+         COALESCE(
+           routine.proacl,
+           pg_catalog.acldefault('f', routine.owner_oid)
+         )
+       ) acl
+       WHERE acl.privilege_type = 'EXECUTE'
+     ),
      required_trigger(schema_name, table_name, trigger_name) AS (
        VALUES
          ('yu', 'registry', 'registry_validate_physical_mapping'),
@@ -532,6 +758,9 @@ export async function checkDatabase(
      ),
      forbidden_privilege(schema_name, table_name, privilege) AS (
        VALUES ${forbiddenPrivilegeValues}
+     ),
+     forbidden_column_privilege(schema_name, table_name, privilege) AS (
+       VALUES ${forbiddenColumnPrivilegeValues}
      )
      SELECT
        EXISTS (
@@ -582,6 +811,11 @@ export async function checkDatabase(
                AND membership.set_option
            )
            AND ${runtimeCapabilityBoundary}
+           AND NOT EXISTS (
+             SELECT 1
+             FROM pg_catalog.pg_auth_members membership
+             WHERE membership.roleid = runtime_oid
+           )
          FROM capability_roles
        )
        AND NOT EXISTS (
@@ -677,25 +911,30 @@ export async function checkDatabase(
            false
          )
        )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM forbidden_column_privilege forbidden
+         WHERE COALESCE(
+           pg_catalog.has_any_column_privilege(
+             current_user,
+             pg_catalog.to_regclass(
+               pg_catalog.quote_ident(forbidden.schema_name)
+               || '.'
+               || pg_catalog.quote_ident(forbidden.table_name)
+             ),
+             forbidden.privilege
+           ),
+           false
+         )
+       )
        AND EXISTS (
          SELECT 1
-         FROM pg_catalog.pg_proc routine
-         JOIN pg_catalog.pg_namespace namespace
-           ON namespace.oid = routine.pronamespace
-         WHERE routine.oid = to_regprocedure(
-           'public.rp_ingest_shopify_event(uuid,text,text,text,text,jsonb,timestamptz,boolean)'
+         FROM ingest_routine routine
+         WHERE NOT pg_catalog.pg_has_role(
+           current_user,
+           routine.owner_oid,
+           'MEMBER'
          )
-           AND namespace.nspname = 'public'
-           AND routine.prosecdef
-           AND routine.proconfig @> ARRAY[
-             'search_path=pg_catalog',
-             'row_security=off'
-           ]::text[]
-           AND NOT pg_catalog.pg_has_role(
-             current_user,
-             routine.proowner,
-             'MEMBER'
-           )
        )
        AND ${runtimeIngestFunctionBoundary}
        AND NOT COALESCE(

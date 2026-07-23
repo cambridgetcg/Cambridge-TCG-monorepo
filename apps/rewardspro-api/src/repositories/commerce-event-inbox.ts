@@ -51,14 +51,14 @@ export class CommerceEventInbox {
          payload_sha256,
          duplicate
        FROM public.rp_ingest_shopify_event(
-         $1,
-         $2,
-         $3,
-         $4,
-         $5,
+         $1::uuid,
+         $2::text,
+         $3::text,
+         $4::text,
+         $5::text,
          $6::jsonb,
-         $7,
-         $8
+         $7::timestamptz,
+         $8::boolean
        )`,
       [
         uuidv7(),

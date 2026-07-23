@@ -254,9 +254,10 @@ Before activation, use a controlled one-off database client inside the VPC to:
    bypass-RLS, replication, role-creation, or database-creation capability;
 3. grant `yu_reader` directly to the API role and `yu_writer` directly to the
    worker role, with no admin option or other role memberships;
-4. grant only each process's `CONNECT`, schema `USAGE`, and table DML matrix
-   documented in the application README; do not use shared or blanket default
-   privileges—each future migration must update grants explicitly; and
+4. grant only each process's `CONNECT`, schema `USAGE`, documented relation
+   privileges, and (for the API) the narrow ingest-function `EXECUTE`
+   capability; do not use shared or blanket default privileges—each future
+   migration must update grants explicitly; and
 5. put the separate connections into `api_database_secret_arn` and
    `worker_database_secret_arn`.
 
@@ -409,7 +410,9 @@ compliance scope.
 The main fixed costs are a Multi-AZ RDS instance, one or two NAT gateways, the
 ALB, and continuously running Fargate capacity after activation. NAT data
 processing, CloudWatch ingestion/retention, RDS storage/backups, and image
-storage add usage costs.
+storage add usage costs. Secrets Manager billing covers five secrets: the
+RDS-managed master secret plus the four runtime secret placeholders listed
+above.
 
 The stack intentionally keeps Multi-AZ RDS, deletion protection, encryption,
 and backups enabled in every environment. Non-production may use one NAT

@@ -173,6 +173,7 @@ resources, or DNS automatically.
   slice at a time; historical data parity is explicitly out of scope.
 - The first v2 release is intentionally not feature-complete. Its honest claim
   is “deployable event-ingestion foundation,” not “RewardsPro rewritten.”
-- Operational tables and a semantic projection coexist deliberately, but both
-  use the same PostgreSQL connection and `pg` runtime. YOUSPEAK is not a second
-  production data-access path.
+- Operational tables and a semantic projection coexist deliberately in the
+  same RDS PostgreSQL database and `pg` runtime, but API and worker use separate
+  least-privilege roles and connections. YOUSPEAK is not a second production
+  data-access path.
