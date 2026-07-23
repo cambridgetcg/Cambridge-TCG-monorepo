@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach, Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
 
 // Mock the database
 vi.mock('../../../app/db.server', () => ({
