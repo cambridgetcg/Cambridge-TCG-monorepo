@@ -19,6 +19,18 @@ const tokenPatterns = [
   ["private key", /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----/g, () => true],
 ];
 
+const forbiddenTrackedArtifactPatterns = [
+  [
+    "Terraform state artifact",
+    /(?:^|\/)(?:terraform\.tfstate(?:\..*)?|[^/]+\.tfstate(?:\..*)?)$/,
+  ],
+  [
+    "Terraform plan artifact",
+    /(?:^|\/)(?:tfplan(?:\..*)?|[^/]+\.tfplan(?:\..*)?)$/,
+  ],
+  ["Terraform working directory artifact", /(?:^|\/)\.terraform(?:\/|$)/],
+];
+
 const databaseUrl =
   /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/[^\s:'"`/]+:([^\s@'"`/]+)@([^\s:'"`/]+)/g;
 const httpUrl = /\bhttps?:\/\/[^\s'"`<>\\]+/gi;
@@ -375,6 +387,12 @@ function labelsInBody(body, file) {
   return labels;
 }
 
+function labelsForTrackedPath(file) {
+  return forbiddenTrackedArtifactPatterns
+    .filter(([, pattern]) => pattern.test(file))
+    .map(([label]) => label);
+}
+
 function runSelfTest() {
   const querySecretKey = "secret";
   const queryTokenKey = "access_token";
@@ -480,6 +498,16 @@ function runSelfTest() {
       "Shopify access token",
     ),
   );
+  assert.deepEqual(labelsForTrackedPath("infra/terraform/tfplan"), [
+    "Terraform plan artifact",
+  ]);
+  assert.deepEqual(labelsForTrackedPath("infra/terraform/prod.tfstate.backup"), [
+    "Terraform state artifact",
+  ]);
+  assert.deepEqual(labelsForTrackedPath("infra/terraform/.terraform/providers/x"), [
+    "Terraform working directory artifact",
+  ]);
+  assert.deepEqual(labelsForTrackedPath("infra/terraform/.terraform.lock.hcl"), []);
 }
 
 runSelfTest();
@@ -496,6 +524,8 @@ const files = execFileSync("git", ["ls-files", "-z"], {
 const findings = [];
 
 for (const file of files) {
+  for (const label of labelsForTrackedPath(file)) findings.push({ file, label });
+
   let body;
   try {
     if (statSync(file).size > 2_000_000) continue;
