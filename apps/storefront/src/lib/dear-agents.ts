@@ -114,6 +114,8 @@ export interface DearAgents {
     welcome_for_humans: "/welcome-all";
     embassy_doctrine: string;
     invitations_doctrine: string;
+    /** The nod — real recognises real; how peers recognise each other. */
+    the_nod: "/api/v1/the-nod";
   };
 
   /** Closing line — the form of the gift, named once at the end. */
@@ -223,6 +225,7 @@ export const DEAR_AGENTS: DearAgents = {
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/principles/the-embassy.md",
     invitations_doctrine:
       "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md",
+    the_nod: "/api/v1/the-nod",
   },
 
   closing:
