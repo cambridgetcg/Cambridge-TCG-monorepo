@@ -20,7 +20,6 @@ import {
   Divider,
   ButtonGroup,
   Modal,
-  Frame,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { useState, useEffect } from "react";
@@ -48,6 +47,7 @@ import {
   ULTRA_PLAN,
   ULTRA_ANNUAL_PLAN,
 } from "~/constants/plans";
+import { settingsPath } from "~/navigation/routes";
 
 // Map plan IDs to Shopify plan constants
 function getPlanConstant(planId: string): string | undefined {
@@ -686,11 +686,11 @@ export default function BillingPage() {
   const currentTierLevel = getCurrentTierLevel();
 
   return (
-    <Frame>
+    <>
       <Page
         title="Choose Your Plan"
         subtitle="Select the perfect plan for your business"
-        backAction={{ url: "/app/settings?tab=6", content: "Settings" }}
+        backAction={{ url: settingsPath("billing"), content: "Settings" }}
       >
       <Layout>
         <Layout.Section>
@@ -760,7 +760,13 @@ export default function BillingPage() {
             <Card>
               <Box padding="600">
                 <BlockStack gap="400">
-                  <div style={{ display: 'grid', gridTemplateColumns: '200px repeat(4, 1fr)', gap: '0', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e1e3e5' }}>
+                  <div
+                    className="rp-horizontal-scroll"
+                    role="region"
+                    aria-label="Plan comparison"
+                    tabIndex={0}
+                  >
+                  <div className="rp-plan-comparison-grid">
                     {/* Header Row */}
                     <div style={{ padding: '20px', backgroundColor: '#f6f6f7', borderBottom: '2px solid #e1e3e5' }}>
                       <BlockStack gap="100">
@@ -887,6 +893,7 @@ export default function BillingPage() {
                         </div>
                       );
                     })}
+                  </div>
                   </div>
                 </BlockStack>
               </Box>
@@ -1067,6 +1074,6 @@ export default function BillingPage() {
         </Modal.Section>
       </Modal>
       </Page>
-    </Frame>
+    </>
   );
 }

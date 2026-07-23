@@ -198,7 +198,7 @@ export class ShopInspector {
    */
   async inspect(options: InspectionOptions): Promise<ShopInspectionResult> {
     // Validate shop domain
-    const shop = assertValidShopDomain(options.shop);
+    assertValidShopDomain(options.shop);
 
     const startTime = Date.now();
     const sections = options.sections || ['overview'];

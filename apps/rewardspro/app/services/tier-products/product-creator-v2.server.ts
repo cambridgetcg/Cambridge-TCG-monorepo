@@ -6,7 +6,6 @@
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
-import { v4 as uuidv4 } from "uuid";
 
 export interface ProductCreateConfig {
   title: string;

@@ -155,8 +155,6 @@ export class TierSubscriptionBridgeV2 {
    */
   static async handleTierSubscriptionPurchase({
     shop,
-    admin,
-    customerId,
     customerShopifyId,
     lineItem,
     orderId,
@@ -420,7 +418,7 @@ export class TierSubscriptionBridgeV2 {
   /**
    * Determine billing interval from selling plan
    */
-  private static determineBillingInterval(sellingPlanId: string): BillingInterval {
+  private static determineBillingInterval(_sellingPlanId: string): BillingInterval {
     // This would need to fetch from Shopify or database
     // For now, default to MONTHLY
     return "MONTHLY";

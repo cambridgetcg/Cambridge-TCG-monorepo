@@ -14,8 +14,8 @@
  */
 
 import prisma from "~/db.server";
-import type { PointsLedgerType, PointsRoundingMode, Prisma } from "@prisma/client";
-import { getPointsConfig, calculateExpirationDate, isPointsEnabled } from "./points-config.server";
+import type { PointsLedgerType, Prisma } from "@prisma/client";
+import { calculateExpirationDate, isPointsEnabled } from "./points-config.server";
 
 // ============================================
 // TYPES

@@ -32,6 +32,7 @@ describe('Logger', () => {
     it('respects minimum log level', () => {
       const logger = new Logger({ minLevel: 'warn', json: true });
 
+      // eslint-disable-next-line testing-library/no-debugging-utils -- This tests the app logger, not Testing Library debug output.
       logger.debug('debug message');
       logger.info('info message');
       logger.warn('warn message');
@@ -45,6 +46,7 @@ describe('Logger', () => {
     it('logs all levels when minLevel is debug', () => {
       const logger = new Logger({ minLevel: 'debug', json: true });
 
+      // eslint-disable-next-line testing-library/no-debugging-utils -- This tests the app logger, not Testing Library debug output.
       logger.debug('debug');
       logger.info('info');
       logger.warn('warn');

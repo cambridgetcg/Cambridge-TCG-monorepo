@@ -2,7 +2,7 @@
  * Tests for Connection Strategy
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   getConnectionStrategy,
   getDatabaseUrl,

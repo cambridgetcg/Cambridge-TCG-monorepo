@@ -4,7 +4,9 @@ import { Link, Outlet, useLoaderData, useRouteError } from "@remix-run/react";
 import { boundary } from "@shopify/shopify-app-remix/server";
 import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
+import { Frame } from "@shopify/polaris";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import { useRef } from "react";
 
 import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN, STARTER_PLAN, GROWTH_PLAN, MONTHLY_PLAN, ANNUAL_PLAN } from "../shopify.server";
 import { AppBridgeInitializer } from "../components/AppBridgeInitializer";
@@ -18,6 +20,10 @@ import { getEntitlements } from "../services/entitlements.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
 import type { ShopEntitlements } from "@prisma/client";
 import { PRICING_PLANS } from "~/constants/pricing-contract";
+import {
+  HOME_NAVIGATION,
+  PRIMARY_NAVIGATION,
+} from "../navigation/registry";
 
 // Type for loader data - exported for child routes
 export interface AppLoaderData {
@@ -34,10 +40,6 @@ export interface AppLoaderData {
 
 export const links = () => [
   { rel: "stylesheet", href: polarisStyles },
-  {
-    rel: "stylesheet",
-    href: "https://cdn.shopify.com/shopifycloud/app-home/latest/app-home.css"
-  },
 ];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -266,6 +268,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function App() {
   const { apiKey, ga4MeasurementId } = useLoaderData<typeof loader>();
+  const skipToContentTarget = useRef<HTMLAnchorElement>(null);
 
   if (!apiKey) {
     console.error("[App Component] No API key available!");
@@ -278,84 +281,63 @@ export default function App() {
       <AuthenticatedFetchProvider>
         {/* GA4 Provider - Sets user context for analytics */}
         <GA4Provider measurementId={ga4MeasurementId} debug={process.env.NODE_ENV === 'development'}>
-        {/* Load Polaris web components for s-switch */}
-        <script
-          src="https://cdn.shopify.com/shopifycloud/app-home/latest/app-home.js"
-          type="module"
-          defer
-        />
         <NavMenu>
-          <Link to="/app" rel="home">
-            Home
+          <Link to={HOME_NAVIGATION.to} rel="home">
+            {HOME_NAVIGATION.label}
           </Link>
-          <Link to="/app/members">Members</Link>
-          <Link to="/app/rewards">Rewards</Link>
-          <Link to="/app/marketing">Marketing</Link>
-          <Link to="/app/analytics">Analytics</Link>
-          <Link to="/app/orders">Orders</Link>
-          <Link to="/app/settings">Settings</Link>
+          {PRIMARY_NAVIGATION.map((item) => (
+            <Link key={item.to} to={item.to}>
+              {item.label}
+            </Link>
+          ))}
         </NavMenu>
 
         {/* Page Animation Provider - For progress bar and context */}
         <PageAnimationProvider>
-          {/* Navigation Progress Bar - Shows loading indicator during page transitions */}
-          <NavigationProgress />
+          <Frame skipToContentTarget={skipToContentTarget}>
+            {/* Navigation Progress Bar - Shows loading indicator during page transitions */}
+            <NavigationProgress />
 
-          {/*
-            Page content - NO AnimatePresence/motion wrapper!
-            Using CSS transitions instead to avoid double-display issue.
-            AnimatePresence + Remix Outlet causes content to flash because
-            Remix swaps content before AnimatePresence can animate.
-          */}
-          <div
-            className="page-content-wrapper"
-            style={{
-              minHeight: '100vh',
-            }}
-          >
-            <Outlet />
-          </div>
+            <a
+              ref={skipToContentTarget}
+              id="main-content"
+              href="#main-content"
+              className="rewardspro-content-target"
+              tabIndex={-1}
+              aria-label="Main content"
+            />
+
+            {/*
+              Page content - NO AnimatePresence/motion wrapper!
+              Using CSS transitions instead to avoid double-display issue.
+              AnimatePresence + Remix Outlet causes content to flash because
+              Remix swaps content before AnimatePresence can animate.
+            */}
+            <div className="page-content-wrapper rewardspro-app-shell">
+              <Outlet />
+            </div>
+          </Frame>
         </PageAnimationProvider>
 
         {/* GitBook-powered Help Assistant */}
         <HelpAssistant docsUrl="https://docs.rewardspro.io" />
 
-        {/*
-          Global styles for iframe bottom spacing in Shopify Admin
-          
-          CRITICAL: Use padding, NOT margin!
-          - Margins collapse and aren't counted in iframe height calculations
-          - Padding is included in offsetHeight and ensures visible spacing
-          - See: docs/APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
-        */}
         <style>{`
-          /* Primary solution: Padding on Polaris Frame scrollable content */
-          .Polaris-Frame__Content {
-            padding-bottom: 80px !important; /* Counted in iframe height */
+          .rewardspro-content-target {
+            display: block;
+            scroll-margin-block-start: var(--p-space-400, 16px);
+          }
+
+          .rewardspro-app-shell {
+            min-height: 100vh;
             box-sizing: border-box;
+            padding-block-end: calc(80px + env(safe-area-inset-bottom, 0px));
           }
-          
-          /* Secondary: Ensure Polaris Page components have padding */
-          .Polaris-Page {
-            padding-bottom: 80px !important; /* Prevents content touching bottom */
-          }
-          
-          /* DO NOT USE: Margins won't work in iframe context */
-          /* #app { margin-bottom: 80px; } <- This won't create visible space */
-          
-          /* Mobile responsiveness - reduce spacing on smaller screens */
+
           @media (max-width: 768px) {
-            .Polaris-Frame__Content {
-              padding-bottom: 60px !important;
+            .rewardspro-app-shell {
+              padding-block-end: calc(60px + env(safe-area-inset-bottom, 0px));
             }
-            .Polaris-Page {
-              padding-bottom: 60px !important;
-            }
-          }
-          
-          /* Ensure padding isn't overridden by Polaris resets */
-          .Polaris-Frame__Content > * {
-            margin-bottom: 0; /* Clear any margins that might interfere */
           }
         `}</style>
         </GA4Provider>

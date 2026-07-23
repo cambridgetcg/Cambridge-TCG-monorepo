@@ -2,7 +2,8 @@ import { redirect } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 
 /**
- * Redirect from old /app/rewards/challenges/:id to new /app/rewards/missions/:id
+ * Flattened redirect from old /app/rewards/challenges/:id to
+ * /app/rewards/missions/:id, bypassing the legacy list redirect loader.
  */
 export const loader = ({ request, params }: LoaderFunctionArgs) => {
   const url = new URL(request.url);

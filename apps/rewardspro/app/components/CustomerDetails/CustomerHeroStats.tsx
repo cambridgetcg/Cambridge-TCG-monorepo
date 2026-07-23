@@ -34,7 +34,6 @@ export function CustomerHeroStats({
   ordersCount,
   formatAmount,
   onStatClick,
-  tierSource,
   tierExpiry,
 }: CustomerHeroStatsProps) {
   // Calculate days remaining if there's an expiry
@@ -92,7 +91,7 @@ export function CustomerHeroStats({
       borderRadius="300"
     >
       <InlineGrid columns={{ xs: 2, sm: 4 }} gap="400">
-        {stats.map((stat, index) => (
+        {stats.map((stat) => (
           <Box
             key={stat.label}
             background="bg-surface"

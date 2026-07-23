@@ -119,7 +119,7 @@ export async function assignCustomerToTier(
     }
 
     // Update customer's tier
-    const updatedCustomer = await prisma.customer.update({
+    await prisma.customer.update({
       where: { id: customerId },
       data: {
         currentTierId: tierId,

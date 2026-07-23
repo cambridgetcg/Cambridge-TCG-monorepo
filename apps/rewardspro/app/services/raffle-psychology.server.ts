@@ -25,13 +25,11 @@ import {
   getRaffleStreakInfo,
   updateRaffleStreak,
   isStreakMilestone,
-  getStreakTier,
   type RaffleStreakInfo,
 } from "./raffle-streak.server";
 
 import {
   processInstantWin,
-  deliverInstantWinPrize,
   type InstantWinResult,
 } from "./raffle-instant-win.server";
 
@@ -44,6 +42,10 @@ import {
   getActivityFeed,
   type ActivityFeedItem,
 } from "./raffle-activity-feed.server";
+import {
+  checkLuckyNumber,
+  getUpcomingMilestones,
+} from "./raffle-lucky-numbers.server";
 
 // ============================================
 // BONUS EVENT TYPES & FUNCTIONS (inline, no separate table)
@@ -176,7 +178,7 @@ async function getActiveBonusEvents(
         raffle.earlyBirdEntryLimit > 0 &&
         raffle.totalEntries < raffle.earlyBirdEntryLimit) {
       const remaining = raffle.earlyBirdEntryLimit - raffle.totalEntries;
-      const { text, seconds } = formatTimeRemaining(raffle.endsAt);
+      const { seconds } = formatTimeRemaining(raffle.endsAt);
 
       events.push({
         id: `early-bird-${raffle.id}`,
@@ -200,12 +202,6 @@ async function getActiveBonusEvents(
 
   return events;
 }
-
-import {
-  checkLuckyNumber,
-  getUpcomingMilestones,
-  type LuckyNumberResult,
-} from "./raffle-lucky-numbers.server";
 
 const LOG_PREFIX = "[RafflePsychology]";
 

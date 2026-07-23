@@ -18,10 +18,8 @@ import type {
   TierProduct, 
   Tier, 
   ShopSettings,
-  BillingInterval,
   PurchaseType,
   ProductDuration,
-  Currency
 } from "@prisma/client";
 
 // ============================================

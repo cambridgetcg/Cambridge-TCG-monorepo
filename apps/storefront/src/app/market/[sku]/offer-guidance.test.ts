@@ -72,45 +72,43 @@ describe("tradeLimitWarning", () => {
 });
 
 describe("acceptedOfferEconomics", () => {
-  it("resolves the min(membership, trust) rate — trust path", () => {
-    // Trust 80 → Veteran 6%; no tier.
+  it("keeps the trust source visible while charging no service fee", () => {
     const e = acceptedOfferEconomics({
       agreedPrice: 100, quantity: 1, sellerTrustScore: 80, sellerTierRate: null,
     });
-    expect(e.rate).toBe(0.06);
+    expect(e.rate).toBe(0);
     expect(e.source).toBe("trust");
-    expect(e.commission).toBe(6);
-    expect(e.sellerPayout).toBe(94);
+    expect(e.commission).toBe(0);
+    expect(e.sellerPayout).toBe(100);
   });
 
-  it("takes the membership rate when it is more favourable", () => {
+  it("keeps the full offer value when membership metadata cannot lower zero", () => {
     const e = acceptedOfferEconomics({
       agreedPrice: 100, quantity: 2, sellerTrustScore: 10, sellerTierRate: 0.05,
     });
     expect(e.value).toBe(200);
-    expect(e.rate).toBe(0.05);
-    expect(e.source).toBe("membership");
-    expect(e.commission).toBe(10);
-    expect(e.sellerPayout).toBe(190);
+    expect(e.rate).toBe(0);
+    expect(e.source).toBe("default");
+    expect(e.commission).toBe(0);
+    expect(e.sellerPayout).toBe(200);
   });
 
-  it("applies the per-item commission cap after the discount", () => {
-    // £2,000 at the default 8% would be £160 — capped at £50.
+  it("does not invent a capped fee for a high-value offer", () => {
     const e = acceptedOfferEconomics({
       agreedPrice: 2000, quantity: 1, sellerTrustScore: 0, sellerTierRate: null,
     });
-    expect(e.rate).toBe(0.08);
-    expect(e.commission).toBe(50);
-    expect(e.sellerPayout).toBe(1950);
+    expect(e.rate).toBe(0);
+    expect(e.commission).toBe(0);
+    expect(e.sellerPayout).toBe(2000);
   });
 
-  it("charges the default rate for unknown sellers", () => {
+  it("charges no default fee for unknown sellers", () => {
     const e = acceptedOfferEconomics({
       agreedPrice: 10, quantity: 1, sellerTrustScore: 0, sellerTierRate: null,
     });
-    expect(e.rate).toBe(0.08);
+    expect(e.rate).toBe(0);
     expect(e.source).toBe("default");
-    expect(e.commission).toBe(0.8);
-    expect(e.sellerPayout).toBe(9.2);
+    expect(e.commission).toBe(0);
+    expect(e.sellerPayout).toBe(10);
   });
 });

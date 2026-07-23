@@ -1,5 +1,6 @@
 // Customer repository with caching and optimized queries
-import { BaseRepository, QueryOptions } from './base.repository';
+import { BaseRepository } from './base.repository';
+import type { QueryOptions } from './base.repository';
 import type { Customer, Tier, StoreCreditLedger, Prisma } from '@prisma/client';
 import prisma from '~/db.server';
 import { v4 as uuidv4 } from 'uuid';

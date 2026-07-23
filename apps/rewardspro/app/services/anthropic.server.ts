@@ -205,7 +205,7 @@ export async function generateSubjectLines(
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     // Remove numbered prefixes like "1." or "1)"
-    .map((line) => line.replace(/^\d+[\.\)]\s*/, ""))
+    .map((line) => line.replace(/^\d+[.)]\s*/, ""))
     // Remove bullet points
     .map((line) => line.replace(/^[-•]\s*/, ""))
     .filter((line) => line.length > 0 && line.length <= 80);

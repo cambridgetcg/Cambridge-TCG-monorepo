@@ -3,11 +3,11 @@
  * Multiple approaches to work around AWS Data API date filtering issues
  */
 
+import * as crypto from 'node:crypto';
 import { db } from "../db.server";
 import { getAuroraClient } from "./aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
 import { PRICING_PLANS } from "../constants/pricing-contract";
-import * as crypto from 'node:crypto';
 
 /**
  * Strategy 1: Direct Aurora Data API with proper parameters

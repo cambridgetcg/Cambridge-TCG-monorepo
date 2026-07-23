@@ -27,7 +27,6 @@ const KLAVIYO_CLIENT_SECRET = process.env.KLAVIYO_CLIENT_SECRET?.trim();
 
 const KLAVIYO_AUTH_URL = "https://www.klaviyo.com/oauth/authorize";
 const KLAVIYO_TOKEN_URL = "https://a.klaviyo.com/oauth/token";
-const KLAVIYO_REVOKE_URL = "https://a.klaviyo.com/oauth/revoke";
 
 // In-memory store for PKCE verifiers (in production, use Redis or similar)
 // Maps state -> { verifier, shop, createdAt }

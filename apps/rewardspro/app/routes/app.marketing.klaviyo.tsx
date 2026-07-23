@@ -28,16 +28,11 @@ import {
   Badge,
   Divider,
   Box,
-  Frame,
   Toast,
   FormLayout,
-  Icon,
   Collapsible,
   List,
 } from "@shopify/polaris";
-import {
-  CheckCircleIcon,
-} from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { KlaviyoService } from "~/services/klaviyo.server";
@@ -556,7 +551,7 @@ export default function KlaviyoSettings() {
   ];
 
   return (
-    <Frame>
+    <>
       <Page
         title="Klaviyo Integration"
         subtitle="Connect Klaviyo for advanced email marketing automation"
@@ -955,6 +950,6 @@ export default function KlaviyoSettings() {
           duration={toast.duration}
         />
       )}
-    </Frame>
+    </>
   );
 }

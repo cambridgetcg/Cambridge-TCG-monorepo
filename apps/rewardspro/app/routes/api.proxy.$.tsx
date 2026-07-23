@@ -604,7 +604,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           .filter((opt): opt is NonNullable<typeof opt> => opt !== null)
           .sort((a, b) => Number(a.minSpend) - Number(b.minSpend))
           .slice(0, 3)
-          .map(({ minSpend, ...rest }) => rest); // Remove minSpend from final output
+          .map(({ minSpend: _minSpend, ...rest }) => rest); // Remove minSpend from final output
 
         log.debug('=== UPGRADE OPTIONS ===', {
           currentTierMinSpend,

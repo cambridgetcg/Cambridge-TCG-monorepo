@@ -7,10 +7,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { discover } from "./discover";
-import { validate } from "./validate";
-import { mermaid } from "./diagram";
 import type { Architecture } from "./types";
-import type { DiscoverInputs, FileEntry } from "./discover";
+import type { FileEntry } from "./discover";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

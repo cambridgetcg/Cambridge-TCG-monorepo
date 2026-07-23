@@ -4,7 +4,8 @@
  * POST /api/email/test - Send a test email
  */
 
-import { json, ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import sendgrid from "~/services/sendgrid.server";
 

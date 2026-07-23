@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
 import prisma from "../db.server";
-import type { Decimal } from "@prisma/client/runtime/library";
 import { clawbackPoints } from "./points-ledger.server";
 import { isPointsEnabled } from "./points-config.server";
 

@@ -6,23 +6,13 @@ import {
   convertCurrency,
   roundToCurrencyPrecision,
   calculateCashback,
-  formatCurrency
 } from '~/utils/currency';
 
 import {
   FinancialDecimal,
   convertBetweenCurrencies,
-  calculateTieredCashback,
   calculateCashbackClawback,
-  isZeroAmount,
-  compareAmounts,
-  validateAmount
 } from '~/utils/financial-calculations';
-
-// Currency codes for testing
-const ZERO_DECIMAL_CURRENCIES = ['JPY', 'KRW', 'IDR', 'HUF', 'CLP'];
-const THREE_DECIMAL_CURRENCIES = ['BHD', 'KWD', 'OMR', 'JOD', 'TND'];
-const TWO_DECIMAL_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 
 describe('Financial Calculations - Property-Based Tests', () => {
   describe('Currency Conversion Properties', () => {

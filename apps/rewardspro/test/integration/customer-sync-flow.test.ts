@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach, Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
 
 /**
  * Integration Tests for Customer Sync Flow
@@ -36,7 +36,6 @@ import db from '../../app/db.server';
 import {
   startSyncJob,
   processNextBatch,
-  getSyncJobStatus,
   resumeSyncJob,
   cancelSyncJob,
 } from '../../app/services/customer-sync-job.server';

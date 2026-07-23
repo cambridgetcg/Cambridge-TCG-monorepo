@@ -166,7 +166,11 @@ export interface UsageRecordResult {
 }
 
 export class GraphQLBillingService {
-  constructor(private admin: AdminApiContext) {}
+  private admin: AdminApiContext;
+
+  constructor(admin: AdminApiContext) {
+    this.admin = admin;
+  }
 
   /**
    * Create a new subscription

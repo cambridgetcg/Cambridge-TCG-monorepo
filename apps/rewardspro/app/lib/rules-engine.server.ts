@@ -339,12 +339,12 @@ const conditionEvaluators: Record<ConditionType, ConditionEvaluator> = {
     return context.order?.isFirstOrder === true;
   },
 
-  referred_customer: (condition, context) => {
+  referred_customer: (_condition, _context) => {
     // Placeholder - will be implemented with referral system
     return false;
   },
 
-  custom: (condition, context) => {
+  custom: (_condition, _context) => {
     // Custom condition evaluation - extensibility point
     // Could call external webhook or custom function
     console.warn('[RulesEngine] Custom conditions not yet implemented');
@@ -617,7 +617,7 @@ class RulesEngine {
   /**
    * Get rules for a specific event
    */
-  private async getRulesForEvent(shop: string, event: RuleEvent): Promise<LoyaltyRule[]> {
+  private async getRulesForEvent(_shop: string, _event: RuleEvent): Promise<LoyaltyRule[]> {
     // TODO: Fetch from database when LoyaltyRule model is created
     // For now, return empty array (rules not yet stored in DB)
     return [];

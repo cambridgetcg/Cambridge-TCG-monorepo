@@ -71,8 +71,8 @@ describe("advisory-only plan capacities", () => {
   });
 
   it("never filters transaction history or analytics at plan capacity", () => {
-    const exportSource = read("routes/app.analytics.export.csv.tsx");
-    const analyticsSource = read("routes/app.analytics.new.tsx");
+    const exportSource = read("routes/app.analytics_.export.csv.tsx");
+    const analyticsSource = read("routes/app.analytics.tsx");
     const analyticsDashboardSource = read("routes/app.analytics.tsx");
 
     expect(exportSource).toContain(
@@ -85,7 +85,10 @@ describe("advisory-only plan capacities", () => {
       "Math.min(requestedDays, maxHistoricalDays)",
     );
     expect(analyticsSource).toContain(
-      "startDate.setUTCDate(startDate.getUTCDate() - requestedDays)",
+      "const days = parseInt(rangeDaysMatch[1], 10)",
+    );
+    expect(analyticsSource).toContain(
+      "new Date(end.getTime() - days * 24 * 60 * 60 * 1000)",
     );
     expect(analyticsDashboardSource).toContain(
       "your existing history and exports remain available",

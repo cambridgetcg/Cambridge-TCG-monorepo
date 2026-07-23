@@ -9,22 +9,16 @@ import {
   Button,
   Banner,
   InlineStack,
-  BlockStack,
   Text,
   Badge,
   EmptyState,
-  Box,
   Toast,
-  Frame,
   DataTable,
-  Thumbnail,
   Modal,
   TextField,
-  Select,
   FormLayout,
-  DatePicker,
 } from "@shopify/polaris";
-import { GiftCardIcon, PlusIcon } from "~/utils/polaris-icons";
+import { PlusIcon } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import {
   getRaffles,
@@ -365,7 +359,7 @@ export default function RafflesList() {
   // If points system is not enabled
   if (!rafflesEnabled) {
     return (
-      <Frame>
+      <>
         <Page
           title="Raffles"
           backAction={{ content: "Rewards", url: "/app/rewards" }}
@@ -398,7 +392,7 @@ export default function RafflesList() {
             </Layout.Section>
           </Layout>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -437,7 +431,7 @@ export default function RafflesList() {
   ]);
 
   return (
-    <Frame>
+    <>
       <Page
         title="Raffles"
         subtitle="Create and manage point-based raffles"
@@ -634,6 +628,6 @@ export default function RafflesList() {
           action="create"
         />
       </Page>
-    </Frame>
+    </>
   );
 }

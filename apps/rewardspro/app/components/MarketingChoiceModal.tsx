@@ -28,7 +28,6 @@ import {
   EmailIcon,
   AutomationIcon,
   TargetIcon,
-  ChartLineIcon,
   CheckCircleIcon,
   ExternalIcon,
 } from "@shopify/polaris-icons";

@@ -6,6 +6,7 @@
  */
 
 import type { InsightCategory, InsightSeverity, InsightType } from "./insight-engine.server";
+import { APP_ROUTES } from "~/navigation/routes";
 
 // ============================================================================
 // Types
@@ -69,7 +70,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Launch Campaign',
-      href: '/app/marketing/campaigns/new?type=multiplier',
+      href: `${APP_ROUTES.MARKETING.CAMPAIGNS.CREATE}?type=multiplier`,
       priority: 'high',
     },
     cooldownHours: 168, // 1 week
@@ -110,7 +111,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Redemption Campaign',
-      href: '/app/marketing/campaigns/new?type=redemption',
+      href: `${APP_ROUTES.MARKETING.CAMPAIGNS.CREATE}?type=redemption`,
       priority: 'high',
     },
     cooldownHours: 336, // 2 weeks
@@ -131,7 +132,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Send Reminder',
-      href: '/app/marketing/campaigns/new?type=reminder',
+      href: `${APP_ROUTES.MARKETING.CAMPAIGNS.CREATE}?type=reminder`,
       priority: 'medium',
     },
     cooldownHours: 168,
@@ -151,7 +152,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Send Expiry Reminder',
-      href: '/app/marketing/campaigns/new?type=expiry_reminder',
+      href: `${APP_ROUTES.MARKETING.CAMPAIGNS.CREATE}?type=expiry_reminder`,
       priority: 'high',
     },
     cooldownHours: 72, // 3 days
@@ -192,7 +193,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Review Tier Settings',
-      href: '/app/settings/tiers',
+      href: APP_ROUTES.MEMBERS.TIERS,
       priority: 'low',
     },
     cooldownHours: 336,
@@ -247,7 +248,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Review Tier Rules',
-      href: '/app/settings/tiers',
+      href: APP_ROUTES.MEMBERS.TIERS,
       priority: 'medium',
     },
     cooldownHours: 48,
@@ -272,7 +273,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Send Reminder',
-      href: '/app/marketing/campaigns/new?type=cashback_reminder',
+      href: `${APP_ROUTES.MARKETING.CAMPAIGNS.CREATE}?type=cashback_reminder`,
       priority: 'medium',
     },
     cooldownHours: 336,
@@ -292,7 +293,7 @@ export const INSIGHT_RULES: InsightRule[] = [
     },
     action: {
       label: 'Review Cashback Rates',
-      href: '/app/settings/cashback',
+      href: APP_ROUTES.REWARDS.CONFIG,
       priority: 'medium',
     },
     cooldownHours: 336,

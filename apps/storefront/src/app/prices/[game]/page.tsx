@@ -12,6 +12,7 @@
  */
 
 import type { Metadata } from "next";
+import { pullsForGame } from "@/lib/pulls/pull-rates";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -740,6 +741,14 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
                 className="text-sm text-info hover:underline"
               >
                 Price-movement publication status →
+              </Link>
+            )}
+            {pullsForGame(cfg.slug) && (
+              <Link
+                href={`/pulls/${cfg.slug}`}
+                className="text-sm text-info hover:underline"
+              >
+                What&apos;s actually in a booster box →
               </Link>
             )}
           </div>

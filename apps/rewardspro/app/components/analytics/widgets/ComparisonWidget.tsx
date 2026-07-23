@@ -2,7 +2,7 @@
  * ComparisonWidget - Period comparison visualization
  */
 
-import { Text, InlineStack, Badge, BlockStack, Select, Icon } from "@shopify/polaris";
+import { Text, InlineStack, BlockStack, Select, Icon } from "@shopify/polaris";
 import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from "@shopify/polaris-icons";
 import { useState, useCallback } from "react";
 import { BaseWidget, type WidgetSize } from "./BaseWidget";
@@ -88,7 +88,7 @@ export function ComparisonWidget({
 
   const periodSelector = (
     <Select
-      label=""
+      label="Comparison period"
       labelHidden
       options={periods}
       value={selectedPeriod}

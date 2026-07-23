@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useFetcher, useRouteError, isRouteErrorResponse } from "@remix-run/react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAnalytics } from "~/hooks/useAnalytics";
 import { useToast } from "~/hooks/useToast";
 
@@ -16,7 +16,6 @@ import {
   Icon,
   Badge,
   Toast,
-  Frame,
   Divider,
   Banner,
   Button,
@@ -599,7 +598,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export function shouldRevalidate({
-  formAction: _formAction,
   formData,
   defaultShouldRevalidate,
 }: {
@@ -655,9 +653,13 @@ export default function Dashboard() {
 
   // Analytics tracking
   const { trackCustomEvent } = useAnalytics({ pageTitle: 'Dashboard' });
+  const hasTrackedDashboardView = useRef(false);
 
-  // Track dashboard view with metrics on mount
+  // Track dashboard view with the initial metrics once per component lifetime.
   useEffect(() => {
+    if (hasTrackedDashboardView.current) return;
+    hasTrackedDashboardView.current = true;
+
     console.log('[Dashboard] Mount useEffect - tracking analytics');
     try {
       trackCustomEvent('dashboard_view', {
@@ -668,7 +670,12 @@ export default function Dashboard() {
     } catch (err) {
       console.error('[Dashboard] Analytics tracking failed:', err);
     }
-  }, []); // Only track once on mount
+  }, [
+    data.monthlyOrderUsage?.planName,
+    data.monthlyOrderUsage?.orderCount,
+    data.webhookStats?.status,
+    trackCustomEvent,
+  ]);
 
   // Standardized toast notifications
   const { toast, showSuccess, showError, hideToast } = useToast();
@@ -730,13 +737,13 @@ export default function Dashboard() {
   // Validate data exists (after all hooks to satisfy rules-of-hooks)
   if (!data) {
     return (
-      <Frame>
+      <>
         <Page title="Dashboard">
           <Banner title="Loading Error" tone="critical">
             <p>Failed to load dashboard data. Please refresh the page.</p>
           </Banner>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -777,7 +784,7 @@ export default function Dashboard() {
     : 0;
 
   return (
-    <Frame>
+    <>
       <Page title="Dashboard">
       <Layout>
         {/* Review Banner — compact */}
@@ -944,7 +951,7 @@ export default function Dashboard() {
       </Layout>
     </Page>
     {toastMarkup}
-  </Frame>
+  </>
   );
 }
 
@@ -966,7 +973,7 @@ export function ErrorBoundary() {
     });
 
     return (
-      <Frame>
+      <>
         <Page title="Dashboard Error">
           <Layout>
             <Layout.Section>
@@ -978,7 +985,7 @@ export function ErrorBoundary() {
             </Layout.Section>
           </Layout>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -990,7 +997,7 @@ export function ErrorBoundary() {
   console.error('[Dashboard ErrorBoundary] Stack trace:', errorStack);
 
   return (
-    <Frame>
+    <>
       <Page title="Dashboard Error">
         <Layout>
           <Layout.Section>
@@ -1002,6 +1009,6 @@ export function ErrorBoundary() {
           </Layout.Section>
         </Layout>
       </Page>
-    </Frame>
+    </>
   );
 }

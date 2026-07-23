@@ -168,7 +168,7 @@ function getImprovementSuggestion(dimension: DimensionKey, score: RatingScore): 
  */
 export function generateReport(evaluations: PromptEvaluation[]): EvaluationReport {
   const summary = calculateSummary(evaluations);
-  const recommendations = generateRecommendations(summary, evaluations);
+  const recommendations = generateRecommendations(summary);
 
   return {
     evaluations,
@@ -245,10 +245,7 @@ function calculateSummary(evaluations: PromptEvaluation[]): ReportSummary {
 /**
  * Generate actionable recommendations
  */
-function generateRecommendations(
-  summary: ReportSummary,
-  evaluations: PromptEvaluation[]
-): string[] {
+function generateRecommendations(summary: ReportSummary): string[] {
   const recommendations: string[] = [];
 
   // Based on weakest dimensions

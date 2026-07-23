@@ -532,12 +532,6 @@ export class GiftCardService {
           );
         }
 
-        // Get last ledger entry for running balance
-        const lastLedger = await tx.storeCreditLedger.findFirst({
-          where: { customerId: input.customerId },
-          orderBy: { createdAt: "desc" },
-        });
-
         const newBalance = currentBalance - input.amount;
 
         // Create ledger entry for the conversion (debit)

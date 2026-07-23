@@ -87,6 +87,7 @@ export const ENVELOPE_COMPLIANT_PATHS: ReadonlySet<string> = new Set([
   "/api/v1/prices/games/[game]",
   "/api/v1/prices/games/[game]/sets/[set]",
   "/api/v1/prices/games/[game]/sets/[set]/cards/[number]",
+  "/api/v1/pulls",
   "/api/v1/random-fun",
   "/api/v1/rate-limits",
   "/api/v1/recipe-template",

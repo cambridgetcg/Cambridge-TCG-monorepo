@@ -14,13 +14,11 @@ import {
   Badge,
   EmptyState,
   Toast,
-  Frame,
   DataTable,
   Divider,
   Modal,
   FormLayout,
   TextField,
-  Select,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
 import { getPointsConfig, getEnabledFeatures, updatePointsConfig } from "../services/points-config.server";
@@ -409,7 +407,7 @@ export default function MysteryBoxes() {
   // If feature not enabled, show setup prompt
   if (!mysteryBoxesEnabled) {
     return (
-      <Frame>
+      <>
         <Page
           title="Mystery Boxes"
           backAction={{ content: "Rewards", url: "/app/rewards" }}
@@ -459,14 +457,14 @@ export default function MysteryBoxes() {
           currentPlan={actionData?.currentPlan || 'Free'}
           action="create"
         />
-      </Frame>
+      </>
     );
   }
 
   // Feature enabled but no boxes yet
   if (boxes.length === 0) {
     return (
-      <Frame>
+      <>
         <Page
           title="Mystery Boxes"
           backAction={{ content: "Rewards", url: "/app/rewards" }}
@@ -640,7 +638,7 @@ export default function MysteryBoxes() {
           currentPlan={actionData?.currentPlan || 'Free'}
           action="create"
         />
-      </Frame>
+      </>
     );
   }
 
@@ -661,7 +659,7 @@ export default function MysteryBoxes() {
   ]);
 
   return (
-    <Frame>
+    <>
       <Page
         title="Mystery Boxes"
         backAction={{ content: "Rewards", url: "/app/rewards" }}
@@ -843,6 +841,6 @@ export default function MysteryBoxes() {
           action="create"
         />
       </Page>
-    </Frame>
+    </>
   );
 }

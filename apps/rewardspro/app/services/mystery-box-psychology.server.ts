@@ -14,7 +14,7 @@
  * - Celebration events
  */
 
-import { MysteryBoxRarity } from "@prisma/client";
+import type { MysteryBoxRarity } from "@prisma/client";
 import {
   getMysteryBoxStreak,
   updateMysteryBoxStreak,
@@ -236,7 +236,6 @@ export async function processPsychologyOnOpen(
     firstName,
     lastName,
     originalCost,
-    dailyFreeOpens,
     pityThreshold,
     enableStreakBonuses,
     enablePitySystem,
@@ -477,20 +476,14 @@ export function calculateNearMiss(
 
   // Calculate cumulative probability up to the won reward
   let cumulativeToWon = 0;
-  let cumulativeToNext = 0;
-
   for (const reward of availableRewards) {
     if (rarityOrder.indexOf(reward.rarity) <= wonIndex) {
       cumulativeToWon += reward.probability;
-    }
-    if (reward.id === nextReward.id) {
-      cumulativeToNext = cumulativeToWon + reward.probability;
     }
   }
 
   // If random value was close to the threshold, show near-miss
   const threshold = cumulativeToWon / 100;
-  const nextThreshold = cumulativeToNext / 100;
   const percentageAway = Math.round((threshold - randomValue) * 100 * 10) / 10;
 
   // Only show if within 10%

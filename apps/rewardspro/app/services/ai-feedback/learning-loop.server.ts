@@ -73,7 +73,6 @@ export async function runLearningCycle(): Promise<LearningCycleResult> {
   for (const [dimension, feedback] of Object.entries(feedbackByDimension)) {
     const total = feedback.length;
     const complete = feedback.filter((f) => f.rating === "complete").length;
-    const failed = feedback.filter((f) => f.rating === "failed").length;
 
     const successRate = total > 0 ? complete / total : 0;
 

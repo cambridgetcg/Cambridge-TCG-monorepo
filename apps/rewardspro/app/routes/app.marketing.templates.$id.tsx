@@ -1,4 +1,5 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs, redirect } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, useActionData, useSubmit } from "@remix-run/react";
 import { useState, useCallback } from "react";
 import {
@@ -31,15 +32,11 @@ import {
   MobileIcon,
   UndoIcon,
   RedoIcon,
-  DeleteIcon,
   PlusIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
   MinusIcon,
   ClockIcon,
   ChatIcon,
   LayoutColumns2Icon,
-  MagicIcon,
 } from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
@@ -47,7 +44,7 @@ import { v4 as uuidv4 } from "uuid";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 import { SortableBlockList } from "~/components/EmailEditor";
 import type { ContentBlock, TemplateStyles } from "~/components/EmailEditor/types";
-import { BrandKitPanel, type BrandKit as ImportedBrandKit } from "~/components/BrandKit";
+import { BrandKitPanel } from "~/components/BrandKit";
 import { useAutosave, formatRelativeTime } from "~/hooks/useAutosave";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { TextFieldWithVariables } from "~/components/TextFieldWithVariables";
@@ -56,20 +53,6 @@ import { AIAssistantPanel } from "~/components/AIEmailAssistant";
 // ============================================
 // TYPES
 // ============================================
-
-// ContentBlock and TemplateStyles imported from ~/components/EmailEditor/types
-
-interface Template {
-  id: string;
-  name: string;
-  type: string;
-  subject: string;
-  previewText: string | null;
-  bodyHtml: string;
-  content: { blocks: ContentBlock[]; styles: TemplateStyles } | null;
-  createdAt: string;
-  updatedAt: string;
-}
 
 // ============================================
 // LOADER
@@ -505,22 +488,6 @@ export default function EditEmailTemplate() {
     [blocks, saveToHistory]
   );
 
-  const moveBlock = useCallback(
-    (blockId: string, direction: "up" | "down") => {
-      const index = blocks.findIndex((b) => b.id === blockId);
-      if (index === -1) return;
-      if (direction === "up" && index === 0) return;
-      if (direction === "down" && index === blocks.length - 1) return;
-
-      const newBlocks = [...blocks];
-      const swapIndex = direction === "up" ? index - 1 : index + 1;
-      [newBlocks[index], newBlocks[swapIndex]] = [newBlocks[swapIndex], newBlocks[index]];
-      setBlocks(newBlocks);
-      saveToHistory(newBlocks);
-    },
-    [blocks, saveToHistory]
-  );
-
   const updateBlock = useCallback(
     (blockId: string, content: Record<string, any>) => {
       const newBlocks = blocks.map((b) =>
@@ -746,8 +713,8 @@ ${contentHtml}
               <Text as="h2" variant="headingMd">
                 Template Settings
               </Text>
-              <InlineStack gap="400" wrap={false}>
-                <div style={{ flex: 1 }}>
+              <InlineStack gap="400" wrap>
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                   <TextField
                     label="Template Name"
                     value={name}
@@ -757,7 +724,7 @@ ${contentHtml}
                     requiredIndicator
                   />
                 </div>
-                <div style={{ width: 200 }}>
+                <div style={{ flex: "1 1 200px" }}>
                   <Select
                     label="Template Type"
                     options={TEMPLATE_TYPES}
@@ -766,8 +733,8 @@ ${contentHtml}
                   />
                 </div>
               </InlineStack>
-              <InlineStack gap="400" wrap={false}>
-                <div style={{ flex: 1 }}>
+              <InlineStack gap="400" wrap>
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                   <TextField
                     label="Subject Line"
                     value={subject}
@@ -778,7 +745,7 @@ ${contentHtml}
                     helpText="Use {{customer_name}}, {{tier_name}}, {{store_credit}} for personalization"
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                   <TextField
                     label="Preview Text"
                     value={previewText}
@@ -794,14 +761,7 @@ ${contentHtml}
 
         {/* Editor */}
         <Layout.Section>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "260px 1fr 280px",
-              gap: "16px",
-              minHeight: "500px",
-            }}
-          >
+          <div className="rp-editor-grid">
             {/* Left Sidebar - Blocks */}
             <Card>
               <BlockStack gap="300">
@@ -1092,7 +1052,7 @@ function getDefaultContent(blockType: string): Record<string, any> {
   }
 }
 
-function BlockPreview({ block, styles }: { block: ContentBlock; styles: TemplateStyles }) {
+function _BlockPreview({ block, styles }: { block: ContentBlock; styles: TemplateStyles }) {
   switch (block.type) {
     case "text":
       return (
@@ -1110,9 +1070,7 @@ function BlockPreview({ block, styles }: { block: ContentBlock; styles: Template
     case "button":
       return (
         <p style={{ margin: "0 0 16px" }}>
-          <a
-            href="#"
-            onClick={(e) => e.preventDefault()}
+          <span
             style={{
               display: "inline-block",
               padding: "12px 24px",
@@ -1124,7 +1082,7 @@ function BlockPreview({ block, styles }: { block: ContentBlock; styles: Template
             }}
           >
             {block.content.text || "Click Here"}
-          </a>
+          </span>
         </p>
       );
     case "image":

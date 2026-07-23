@@ -53,8 +53,6 @@
     LEGENDARY: '#F59E0B'
   };
 
-  const RARITY_ORDER = ['LEGENDARY', 'EPIC', 'RARE', 'UNCOMMON', 'COMMON'];
-
   class MysteryBoxesWidget {
     constructor(rootElement) {
       this.root = rootElement;
@@ -211,10 +209,10 @@
         }
 
         // Update local state optimistically
-        this.updateLocalState(boxId, data.reward);
+        this.updateLocalState(boxId);
 
         // Show reveal animation
-        this.renderRewardReveal(data.reward, box);
+        this.renderRewardReveal(data.reward);
 
       } catch (error) {
         log.error('Open box error:', error.message);
@@ -224,7 +222,7 @@
       }
     }
 
-    updateLocalState(boxId, reward) {
+    updateLocalState(boxId) {
       if (!this.state.data) return;
 
       const box = this.state.data.find(b => b.id === boxId);
@@ -584,7 +582,7 @@
 
     // ─── Render: Reward Reveal ─────────────────────────────
 
-    renderRewardReveal(reward, box) {
+    renderRewardReveal(reward) {
       const rarityColor = RARITY_COLORS[reward.rarity] || RARITY_COLORS.COMMON;
       const rarityLabel = reward.rarity ? reward.rarity.charAt(0) + reward.rarity.slice(1).toLowerCase() : 'Common';
       const speedMs = CONFIG.ANIMATION_SPEEDS[this.config.animationSpeed] || CONFIG.ANIMATION_SPEEDS.normal;

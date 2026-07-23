@@ -21,7 +21,6 @@ import {
   sendTierExpiredEmail,
 } from "../services/email-notifications.server";
 import * as crypto from "node:crypto";
-import { Decimal } from "decimal.js";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 // Configuration
@@ -234,7 +233,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
       for (const purchase of expiringPurchases) {
         try {
           // Check if we've already sent this warning level
-          const warningKey = `EXPIRATION_WARNING_${warningDays}D`;
           const existingWarning = await prisma.emailEvent.findFirst({
             where: {
               shop: purchase.shop,

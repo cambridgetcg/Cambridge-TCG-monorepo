@@ -23,7 +23,6 @@ import type {
   TierProduct,
   TierSubscription,
   BillingInterval,
-  SubscriptionStatus,
 } from "@prisma/client";
 
 // ============================================
@@ -72,14 +71,6 @@ interface BillingAttemptResult {
   amount?: number;
   nextBillingDate?: Date;
   error?: string;
-}
-
-interface ContractUpdate {
-  contractId: string;
-  status?: SubscriptionStatus;
-  nextBillingDate?: Date;
-  pauseReason?: string;
-  cancellationReason?: string;
 }
 
 // ============================================

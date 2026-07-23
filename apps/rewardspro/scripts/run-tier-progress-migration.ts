@@ -4,8 +4,7 @@
  * Run with: npx tsx scripts/run-tier-progress-migration.ts
  */
 
-import * as dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
 
 import { RDSDataClient, ExecuteStatementCommand } from "@aws-sdk/client-rds-data";
 

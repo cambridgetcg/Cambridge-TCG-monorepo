@@ -267,8 +267,6 @@ export async function withDeduplicationLock<T>(
   const maxRetries = options?.maxRetries ?? SUBSCRIPTION_NEURAL_CONFIG.idempotency.maxRetries;
   const retryDelayMs = options?.retryDelayMs ?? SUBSCRIPTION_NEURAL_CONFIG.idempotency.retryDelayMs;
 
-  let lastError: Error | undefined;
-
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const lockResult = await acquireProcessingLock(key, operation, options?.metadata);
 

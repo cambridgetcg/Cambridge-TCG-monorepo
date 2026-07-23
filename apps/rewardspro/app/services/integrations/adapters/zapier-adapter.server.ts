@@ -17,8 +17,6 @@ import { registerAdapter } from "../integration-manager.server";
 import type { Integration } from "@prisma/client";
 import type {
   IntegrationConfig,
-  OAuthAuthorizationResult,
-  OAuthTokens,
   WebhookProcessingResult,
   EventDeliveryResult,
   ConnectionTestResult,

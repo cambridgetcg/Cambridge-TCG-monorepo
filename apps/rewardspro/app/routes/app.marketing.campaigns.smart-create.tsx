@@ -1,5 +1,6 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs, redirect } from "@remix-run/node";
-import { useLoaderData, useFetcher, useNavigate, useSearchParams } from "@remix-run/react";
+import { json, redirect } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
+import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -12,7 +13,6 @@ import {
   Banner,
   EmptyState,
   TextField,
-  Select,
   FormLayout,
   Checkbox,
 } from "@shopify/polaris";
@@ -177,7 +177,6 @@ export default function SmartCampaignCreator() {
   const data = useLoaderData<typeof loader>();
   const navigate = useNavigate();
   const fetcher = useFetcher();
-  const [searchParams] = useSearchParams();
 
   const handleCreateCampaign = (formData: FormData) => {
     formData.append("action", "create_campaign");

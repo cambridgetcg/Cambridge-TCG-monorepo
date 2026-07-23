@@ -11,7 +11,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   createWebhookTestContext,
-  TEST_WEBHOOK_SECRET,
 } from '../../helpers/webhook-test-client';
 import {
   createOrderPayload,

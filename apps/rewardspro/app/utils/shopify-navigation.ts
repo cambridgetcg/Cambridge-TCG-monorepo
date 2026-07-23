@@ -91,8 +91,8 @@ export function useShopifyNavigation() {
     if (isBrowser()) {
       // Dynamic require to avoid SSR issues
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { useAppBridge } = require('@shopify/app-bridge-react');
-      app = useAppBridge();
+      const { useAppBridge: getAppBridge } = require('@shopify/app-bridge-react');
+      app = getAppBridge();
     }
   } catch (error) {
     // App Bridge not available or not inside AppProvider

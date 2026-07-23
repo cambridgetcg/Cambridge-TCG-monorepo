@@ -8,7 +8,6 @@ import {
   getTierStyle,
   formatTierName,
   getTierIconId,
-  type TierStyle
 } from "~/utils/tier-styles";
 import { getVectorIcon } from "~/utils/points-icon-library";
 import type { ReactNode } from "react";
@@ -363,9 +362,6 @@ export function TierComparison({
   suggestedBenefits: { cashback: number; perks: string[] };
   onUpgrade?: () => void;
 }) {
-  const currentStyle = getTierStyle(currentTier);
-  const suggestedStyle = getTierStyle(suggestedTier);
-  
   return (
     <InlineStack gap="400">
       <Box width="50%">

@@ -12,7 +12,6 @@
 
 import prisma from "../db.server";
 import { earnPoints } from "./points-ledger.server";
-import type { MysteryBoxWinner } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxDelivery]";
 

@@ -139,11 +139,6 @@ describe('Refund Clawback Scenario - Full Order Refund', () => {
       cashbackProcessed: true,
     });
 
-    const mockCustomer = createMockCustomer({
-      storeCredit: 100,
-      totalCashbackEarned: 50,
-    });
-
     let clawbackAmount = 0;
     let newBalance = 0;
 
@@ -387,8 +382,6 @@ describe('Refund Clawback Scenario - Tier Product Refunds', () => {
       shopifyOrderId: TEST_SHOPIFY_ORDER_ID,
     };
 
-    let tierPurchaseUpdated = false;
-
     vi.mocked(db.$transaction).mockImplementation(async (callback: any) => {
       const mockTx = {
         order: {
@@ -400,9 +393,7 @@ describe('Refund Clawback Scenario - Tier Product Refunds', () => {
         },
         tierPurchase: {
           findFirst: vi.fn().mockResolvedValue(mockTierPurchase),
-          update: vi.fn().mockImplementation(() => {
-            tierPurchaseUpdated = true;
-          }),
+          update: vi.fn(),
         },
         tierSubscription: {
           findFirst: vi.fn().mockResolvedValue(null),

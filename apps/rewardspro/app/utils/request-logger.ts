@@ -128,15 +128,6 @@ export function logError(
   context: string = 'Unknown',
   requestId: string
 ): void {
-  const logEntry: LogEntry = {
-    timestamp: new Date().toISOString(),
-    type: 'ERROR',
-    method: 'ERROR',
-    url: context,
-    headers: {},
-    error: error.message || String(error),
-  };
-
   console.error(`\n${'='.repeat(80)}`);
   console.error(`[${requestId}] ❌ ERROR in ${context}`);
   console.error(`${'='.repeat(80)}`);

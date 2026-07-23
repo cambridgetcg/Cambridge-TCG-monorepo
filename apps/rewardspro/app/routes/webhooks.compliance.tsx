@@ -166,7 +166,7 @@ async function handleCustomerDataRequest(
     }
 
     // Compile customer data report
-    const customerDataReport = {
+    const _customerDataReport = {
       requestId: payload.data_request.id,
       generatedAt: new Date().toISOString(),
       customer: {

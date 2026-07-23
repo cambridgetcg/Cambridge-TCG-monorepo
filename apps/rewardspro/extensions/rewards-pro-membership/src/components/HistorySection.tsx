@@ -1,4 +1,5 @@
-import { useState, useCallback, ReactNode } from 'react';
+import { useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import {
   BlockStack,
   InlineStack,
@@ -106,7 +107,7 @@ export function MysteryBoxHistoryItem({
   pointsSpent,
   openedAt,
   locale,
-  translate,
+  translate: _translate,
 }: MysteryBoxHistoryItemProps) {
   const formattedDate = new Date(openedAt).toLocaleDateString(locale, {
     month: 'short',

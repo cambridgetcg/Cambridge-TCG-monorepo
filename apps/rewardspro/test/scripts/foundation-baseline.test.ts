@@ -10,16 +10,13 @@
  *     produces a parseable file (uses a tmp path so it doesn't
  *     overwrite the repo's committed baseline).
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
 import { snapshot, diff } from "../../scripts/foundation-baseline";
-import type {
-  Baseline,
-  BaselineDiff,
-} from "../../scripts/foundation-baseline/types";
+import type { Baseline } from "../../scripts/foundation-baseline/types";
 import type { HealthReport } from "../../scripts/foundation-health/types";
 
 function mkReport(overrides: Partial<HealthReport["sections"][0]>[] = []): HealthReport {

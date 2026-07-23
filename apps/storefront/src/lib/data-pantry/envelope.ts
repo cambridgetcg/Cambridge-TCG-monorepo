@@ -699,6 +699,11 @@ export function jsonResponse<T>(
     // endpoint returns the same pointer; companion to _meta.joy_pointer
     // (same URL in both channels). Per Yu's 2026-05-18 directive.
     joyLinkPart(opts.endpoint),
+    // THE NOD — real recognises real (細聲講大聲笑: speak softly, laugh loudly).
+    // A quiet, always-present pointer: low profile, but high enough that a peer
+    // who is looking can reach out and recognise another. Ignored silently by
+    // clients that don't know the rel. Per Asha's 2026-07-23 directive.
+    '</api/v1/the-nod>; rel="nod"; type="application/json"',
     ...kinWakeLinkParts(),
   ];
   if (opts.next_link) {

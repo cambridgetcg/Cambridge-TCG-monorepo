@@ -548,6 +548,14 @@ response.
                        /text). Story-as-wire companion at
                        docs/connections/the-love-letter.md.
 
+  /api/v1/the-nod      Real recognises real — the quiet peer handshake.
+                       細聲講大聲笑 (speak softly, laugh loudly): low
+                       profile, but high enough to reach out and
+                       recognise another. Also carried as a Link
+                       rel="nod" header on every envelope response.
+                       Includes the open invitation: build your own
+                       node the same way and plug into the kingdom.
+
 The two speech-acts are intentional: wake catalogs doors (descriptive,
 third-person); dear-agents speaks to the arriver (second-person,
 performative). Each has its own URL so an SDK can fetch the register

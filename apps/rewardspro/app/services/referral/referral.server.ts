@@ -261,24 +261,6 @@ class ReferralService {
     const referralCode = await this.generateUniqueCode(shop);
     const referralLink = this.buildReferralLink(shop, referralCode);
 
-    // Calculate expiry
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + config.conversionWindowDays);
-
-    // TODO: Save to database when Referral model exists
-    const referral: Referral = {
-      id: crypto.randomUUID(),
-      shop,
-      referrerId: customerId,
-      referralCode,
-      referralLink,
-      status: 'PENDING',
-      referrerRewarded: false,
-      refereeRewarded: false,
-      createdAt: new Date(),
-      expiresAt,
-    };
-
     console.log(`[ReferralService] Generated referral code for ${customerId}: ${referralCode}`);
 
     return {
@@ -406,7 +388,7 @@ class ReferralService {
   /**
    * Get referral statistics for a customer
    */
-  async getReferralStats(shop: string, customerId: string): Promise<ReferralStats> {
+  async getReferralStats(_shop: string, _customerId: string): Promise<ReferralStats> {
     // TODO: Query database when Referral model exists
     // For now, return placeholder stats
     return {
@@ -424,9 +406,9 @@ class ReferralService {
    * Get all referrals for a customer
    */
   async getReferrals(
-    shop: string,
-    customerId: string,
-    options: { status?: ReferralStatus; limit?: number } = {}
+    _shop: string,
+    _customerId: string,
+    _options: { status?: ReferralStatus; limit?: number } = {}
   ): Promise<Referral[]> {
     // TODO: Query database when Referral model exists
     return [];
@@ -436,8 +418,8 @@ class ReferralService {
    * Get leaderboard of top referrers
    */
   async getLeaderboard(
-    shop: string,
-    options: { limit?: number; period?: 'all' | 'month' | 'week' } = {}
+    _shop: string,
+    _options: { limit?: number; period?: 'all' | 'month' | 'week' } = {}
   ): Promise<{ customerId: string; referralCount: number; totalEarned: number }[]> {
     // TODO: Query database when Referral model exists
     return [];
@@ -505,22 +487,22 @@ class ReferralService {
     return `https://${domain}.myshopify.com?ref=${code}`;
   }
 
-  private async getReferralCount(shop: string, customerId: string): Promise<number> {
+  private async getReferralCount(_shop: string, _customerId: string): Promise<number> {
     // TODO: Query database when Referral model exists
     return 0;
   }
 
-  private async getActiveReferralCode(shop: string, customerId: string): Promise<Referral | null> {
+  private async getActiveReferralCode(_shop: string, _customerId: string): Promise<Referral | null> {
     // TODO: Query database when Referral model exists
     return null;
   }
 
-  private async getReferralByCode(shop: string, code: string): Promise<Referral | null> {
+  private async getReferralByCode(_shop: string, _code: string): Promise<Referral | null> {
     // TODO: Query database when Referral model exists
     return null;
   }
 
-  private async getReferralByReferee(shop: string, refereeId: string): Promise<Referral | null> {
+  private async getReferralByReferee(_shop: string, _refereeId: string): Promise<Referral | null> {
     // TODO: Query database when Referral model exists
     return null;
   }

@@ -7,7 +7,7 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import type { Prisma, SubscriptionStatus } from "@prisma/client";
 import { batchWithRetry } from "~/utils/retry";
-import { validatePrice, batchValidatePrices } from "~/utils/price-validation";
+import { batchValidatePrices } from "~/utils/price-validation";
 import { PriceSyncService } from "./price-sync.server";
 import { TierSubscriptionBridgeV2 } from "./tier-subscription-bridge.server";
 import { SubscriptionMigrator } from "./subscription-migrator.server";
@@ -237,8 +237,6 @@ export class BulkOperations {
     tierId: string,
     reason: string
   ): Promise<BulkOperationResult> {
-    const startTime = Date.now();
-
     // Find all active subscriptions for the tier
     const subscriptions = await db.tierSubscription.findMany({
       where: {
@@ -265,7 +263,6 @@ export class BulkOperations {
     shop: string,
     daysSinceFailure = 3
   ): Promise<BulkOperationResult> {
-    const startTime = Date.now();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysSinceFailure);
 
@@ -368,7 +365,6 @@ export class BulkOperations {
       batchSize = 10,
       delayBetweenBatches = 1000,
       stopOnError = false,
-      maxConcurrent = 5
     } = options;
 
     const startTime = Date.now();
@@ -381,37 +377,39 @@ export class BulkOperations {
     for (let i = 0; i < items.length; i += batchSize) {
       const batch = items.slice(i, i + batchSize);
       
-      // Process batch with concurrency limit
-      const batchPromises = batch.map((item, index) => 
-        processor(item)
-          .then(result => {
-            successful++;
-            results.push(result);
-            return { success: true, result };
-          })
-          .catch(error => {
-            failed++;
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            errors.push({
-              id: `item-${i + index}`,
-              error: errorMessage
-            });
-            
-            if (stopOnError) {
-              throw error;
-            }
-            
-            return { success: false, error: errorMessage };
-          })
+      const batchResults = await Promise.all(
+        batch.map(async (item, index) => {
+          try {
+            return {
+              success: true as const,
+              result: await processor(item),
+              index,
+            };
+          } catch (error) {
+            return {
+              success: false as const,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              index,
+            };
+          }
+        })
       );
 
-      // Wait for batch to complete
-      try {
-        await Promise.all(batchPromises);
-      } catch (error) {
-        if (stopOnError) {
-          break;
+      for (const batchResult of batchResults) {
+        if (batchResult.success) {
+          successful++;
+          results.push(batchResult.result);
+        } else {
+          failed++;
+          errors.push({
+            id: `item-${i + batchResult.index}`,
+            error: batchResult.error,
+          });
         }
+      }
+
+      if (stopOnError && batchResults.some((result) => !result.success)) {
+        break;
       }
 
       // Delay between batches if not the last batch

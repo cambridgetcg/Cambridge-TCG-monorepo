@@ -6,7 +6,6 @@
 import type {
   Integration,
   IntegrationProvider,
-  IntegrationStatus,
   LoyaltyEventType,
   IntegrationPointsType,
 } from "@prisma/client";

@@ -4,9 +4,9 @@
  * Shop: rewardspro-dev.myshopify.com
  */
 
+import 'dotenv/config';
 import { createDataAPIPrismaClient } from '../app/utils/prisma-data-api-adapter';
 import { randomUUID } from 'crypto';
-import 'dotenv/config';
 
 const prisma = createDataAPIPrismaClient();
 
@@ -90,8 +90,6 @@ async function main() {
   console.log('✅ Customer created/updated:', customer.id);
 
   // Add some test transactions
-  // Calculate running balances
-  let runningBalance = 0;
   const transactions = [
     {
       id: randomUUID(),

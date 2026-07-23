@@ -18,9 +18,8 @@ import {
   normalizeSku,
   findMatchingTierProduct,
   analyzeTierProductMismatch,
-  type TierProductMatchResult as UtilityMatchResult,
 } from "~/utils/shopify-id-normalizer";
-import type { TierProduct, Tier, PurchaseType } from "@prisma/client";
+import type { TierProduct, Tier } from "@prisma/client";
 
 // ============================================
 // TYPE DEFINITIONS

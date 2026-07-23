@@ -9,21 +9,15 @@ import {
   Divider,
   Box,
   Tabs,
-  DataTable,
   SkeletonBodyText,
   SkeletonDisplayText,
   Button,
   Icon,
   Banner,
-  Collapsible,
-  List,
   Select,
   IndexTable,
-  useIndexResourceState,
 } from '@shopify/polaris';
 import {
-  PersonIcon,
-  CashDollarIcon,
   CalendarIcon,
   PackageIcon,
   ClockIcon,
@@ -31,7 +25,6 @@ import {
   ChevronUpIcon,
   EmailIcon,
   HashtagIcon,
-  StarIcon,
 } from '@shopify/polaris-icons';
 import { formatCurrency } from '../utils/currency';
 import { StoreCreditTab } from './StoreCredit';
@@ -211,28 +204,19 @@ export function CustomerDetailModal({
   const [ordersPage, setOrdersPage] = useState(1);
   const [ordersPageSize, setOrdersPageSize] = useState(25);
 
-
-  // Fetch customer details when modal opens
-  useEffect(() => {
-    if (open && customerId) {
-      fetchCustomerDetails();
-      setSelectedTab(initialTab);
-    }
-  }, [open, customerId, initialTab]);
-
-  const fetchCustomerDetails = async () => {
+  const fetchCustomerDetails = useCallback(async () => {
     if (!customerId) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`/api/customer-details/${customerId}`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch customer details');
       }
-      
+
       const data = await response.json();
       setDetails(data);
     } catch (err) {
@@ -241,7 +225,15 @@ export function CustomerDetailModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
+
+  // Fetch customer details when modal opens
+  useEffect(() => {
+    if (open && customerId) {
+      void fetchCustomerDetails();
+      setSelectedTab(initialTab);
+    }
+  }, [open, customerId, initialTab, fetchCustomerDetails]);
 
   const toggleOrderExpansion = useCallback((orderId: string) => {
     setExpandedOrders(prev => {
@@ -254,16 +246,6 @@ export function CustomerDetailModal({
       return newSet;
     });
   }, []);
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const formatAmount = (amount: string | number) => {
     if (details?.shopSettings) {
@@ -302,30 +284,6 @@ export function CustomerDetailModal({
 
   // Note: getNextTierName, getNextTierThreshold, and isMaxTier are now provided by the API
   // See: api.customer-details.$id.tsx - returns nextTier, allTiers, and isMaxTier
-
-  const getLedgerTypeBadge = (type: string) => {
-    const toneMap: Record<string, 'success' | 'info' | 'warning' | 'critical'> = {
-      CASHBACK_EARNED: 'success',
-      ORDER_PAYMENT: 'info',
-      REFUND_CREDIT: 'warning',
-      MANUAL_ADJUSTMENT: 'info',
-      SHOPIFY_SYNC: 'info',
-    };
-    
-    const labelMap: Record<string, string> = {
-      CASHBACK_EARNED: 'Cashback',
-      ORDER_PAYMENT: 'Payment',
-      REFUND_CREDIT: 'Refund',
-      MANUAL_ADJUSTMENT: 'Adjustment',
-      SHOPIFY_SYNC: 'Sync',
-    };
-    
-    return (
-      <Badge tone={toneMap[type] || 'info'}>
-        {labelMap[type] || type}
-      </Badge>
-    );
-  };
 
   const tabs = [
     {

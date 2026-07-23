@@ -24,10 +24,14 @@ export interface UsageSummary {
  * stale callers fail safely, but none can call Shopify or write a charge.
  */
 export class UsageRecordService {
+  private readonly shop: string;
+
   constructor(
-    private readonly _admin: AdminApiContext,
-    private readonly shop: string,
-  ) {}
+    _admin: AdminApiContext,
+    shop: string,
+  ) {
+    this.shop = shop;
+  }
 
   async getUsageLineItemId(): Promise<null> {
     return null;

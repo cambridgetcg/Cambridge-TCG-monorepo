@@ -15,9 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   createWebhookTestContext,
-  createInvalidHmacRequest,
   executeWebhookAction,
-  TEST_WEBHOOK_SECRET,
 } from '../../helpers/webhook-test-client';
 import {
   createCustomerPayload,

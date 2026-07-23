@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach, Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
 
 // Mock the authentication module
 vi.mock('../../../app/shopify.server', () => ({
@@ -141,7 +141,7 @@ describe('Order Sync API Routes', () => {
         method: 'POST',
         body: { triggeredBy: 'install' },
       });
-      const response = await startAction({ request, params: {}, context: {} });
+      await startAction({ request, params: {}, context: {} });
 
       expect(startOrderSyncJob).toHaveBeenCalledWith(
         'test-shop.myshopify.com',
@@ -163,7 +163,7 @@ describe('Order Sync API Routes', () => {
         method: 'POST',
         body: { startDate, endDate },
       });
-      const response = await startAction({ request, params: {}, context: {} });
+      await startAction({ request, params: {}, context: {} });
 
       expect(startOrderSyncJob).toHaveBeenCalledWith(
         'test-shop.myshopify.com',
@@ -221,7 +221,6 @@ describe('Order Sync API Routes', () => {
 
       const request = createMockRequest({ method: 'GET' });
       const response = await processAction({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(405);
     });
@@ -273,7 +272,7 @@ describe('Order Sync API Routes', () => {
         method: 'POST',
         body: { jobId: 'job-123', resume: true },
       });
-      const response = await processAction({ request, params: {}, context: {} });
+      await processAction({ request, params: {}, context: {} });
 
       expect(resumeOrderSyncJob).toHaveBeenCalledWith('job-123', expect.any(Object));
       expect(processOrderBatch).not.toHaveBeenCalled();
@@ -307,7 +306,6 @@ describe('Order Sync API Routes', () => {
         url: 'http://localhost/api/order-sync/status',
       });
       const response = await statusLoader({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(401);
     });
@@ -382,7 +380,6 @@ describe('Order Sync API Routes', () => {
         body: { action: 'cancel', jobId: 'job-123' },
       });
       const response = await statusAction({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(401);
     });
@@ -439,7 +436,6 @@ describe('Order Sync API Routes', () => {
         body: { action: 'cancel' },
       });
       const response = await statusAction({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(400);
     });
@@ -464,7 +460,7 @@ describe('Order Sync API - Edge Cases', () => {
     });
 
     // Should use defaults when JSON parsing fails
-    const response = await startAction({ request, params: {}, context: {} });
+    await startAction({ request, params: {}, context: {} });
 
     // The handler catches JSON parse errors and uses defaults
     expect(startOrderSyncJob).toHaveBeenCalledWith(
@@ -485,7 +481,7 @@ describe('Order Sync API - Edge Cases', () => {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    const response = await startAction({ request, params: {}, context: {} });
+    await startAction({ request, params: {}, context: {} });
 
     // Should use defaults
     expect(startOrderSyncJob).toHaveBeenCalledWith(

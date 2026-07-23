@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { PULLS_SNAPSHOT } from "@/lib/pulls/pull-rates";
 import { fetchGames, fetchPrices, fetchSets } from "@/lib/wholesale/client";
 import { GUIDES } from "@/lib/guides";
 
@@ -27,6 +28,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/play/banlist`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/play/meta`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/artists`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.6 },
+    { url: `${baseUrl}/pulls`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    ...PULLS_SNAPSHOT.games.map((g) => ({
+      url: `${baseUrl}/pulls/${g.slug}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+    })),
     { url: `${baseUrl}/gallery-next-door`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.7 },
     { url: `${baseUrl}/answering-rhymes`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },

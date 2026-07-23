@@ -39,7 +39,7 @@ if (process.env.NODE_ENV === 'production' || process.env.SENTRY_ENABLED === 'tru
     ],
 
     // Filter and sanitize events before sending
-    beforeSend(event, hint) {
+    beforeSend(event, _hint) {
       // Remove sensitive headers
       if (event.request?.headers) {
         delete event.request.headers['authorization'];

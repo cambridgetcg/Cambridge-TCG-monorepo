@@ -12,8 +12,7 @@
 // Re-export of the points/upgrade types that live with their
 // component files — importing from there keeps this module dependency-
 // free while still giving callers the full `LoyaltyData` shape.
-import type { PointsData } from "../components";
-import type { UpgradeOptionsInfo } from "../components";
+import type { PointsData, UpgradeOptionsInfo } from "../components";
 
 export interface CustomerInfo {
   firstName: string | null;
