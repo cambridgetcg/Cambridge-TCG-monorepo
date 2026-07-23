@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { MANAGED_PLANS } from "~/constants/billing.constants";
@@ -197,6 +199,29 @@ describe("RewardsPro pricing contract", () => {
       expect(plan).not.toHaveProperty("usageRate");
       expect(plan).not.toHaveProperty("usageCap");
     }
+  });
+
+  it("keeps the public landing page synchronized with the pricing contract", () => {
+    const landing = readFileSync(
+      resolve(process.cwd(), "landing/public/index.html"),
+      "utf8",
+    );
+
+    for (const planKey of PUBLIC_PLAN_KEYS) {
+      const plan = PRICING_PLANS[planKey];
+      expect(landing).toContain(plan.displayName);
+      expect(landing).toContain(`>$${plan.monthlyPrice} <span>/ month</span>`);
+    }
+
+    expect(landing).toContain(
+      "Free Forever includes 1,000 reward-eligible orders each month.",
+    );
+    expect(landing).toMatch(
+      /No trials, usage charges, or overage\s+billing\./,
+    );
+    expect(landing).not.toContain("$39 ");
+    expect(landing).not.toContain("$149 ");
+    expect(landing).not.toContain("Trials are available");
   });
 
   it("rejects unknown plans at strict contract boundaries", () => {
