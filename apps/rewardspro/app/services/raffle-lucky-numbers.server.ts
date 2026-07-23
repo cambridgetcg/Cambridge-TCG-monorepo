@@ -141,8 +141,8 @@ export function getLuckyType(
  * Can be extended to read from database per-raffle config
  */
 export async function getLuckyConfig(
-  shop: string,
-  raffleId: string
+  _shop: string,
+  _raffleId: string
 ): Promise<LuckyNumberConfig> {
   // Future: Read from database configuration
   // For now, return default config
@@ -419,6 +419,6 @@ export function getLuckyIconId(type: string): string {
 /**
  * @deprecated Use getLuckyIconId instead
  */
-export function getLuckyEmoji(type: string): string {
+export function getLuckyEmoji(_type: string): string {
   return ""; // Deprecated
 }

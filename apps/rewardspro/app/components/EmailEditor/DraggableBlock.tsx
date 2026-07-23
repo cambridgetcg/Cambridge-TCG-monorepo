@@ -31,7 +31,6 @@ export function DraggableBlock({
   isFirst,
   isLast,
   onSelect,
-  onUpdate,
   onDelete,
   onDuplicate,
 }: DraggableBlockProps) {

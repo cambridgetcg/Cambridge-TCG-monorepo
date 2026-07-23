@@ -16,7 +16,7 @@ export function sanitizeString(input: string): string {
   
   // Remove dangerous characters that could be used in XSS
   sanitized = sanitized
-    .replace(/[<>\"']/g, '') // Remove quotes and brackets
+    .replace(/[<>"']/g, '') // Remove quotes and brackets
     .replace(/javascript:/gi, '') // Remove javascript: protocol
     .replace(/on\w+\s*=/gi, ''); // Remove event handlers
   

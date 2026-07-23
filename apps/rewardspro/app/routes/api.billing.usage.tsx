@@ -165,7 +165,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       console.log("[Usage Billing] Usage record stored in database");
       
       // Check if we're approaching usage caps
-      await checkUsageCaps(shop, billing);
+      await checkUsageCaps(shop);
       
       return json({
         success: true,
@@ -208,7 +208,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 /**
  * Check if merchant is approaching usage caps and send notifications
  */
-async function checkUsageCaps(shop: string, billing: any) {
+async function checkUsageCaps(shop: string) {
   try {
     // Calculate current month's usage
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);

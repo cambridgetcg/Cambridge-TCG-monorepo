@@ -72,6 +72,132 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
 }
 
+/*
+ * Three-pane editors need a real responsive layout rather than fixed columns.
+ * Keep the preview usable on wide screens and preserve document order when the
+ * available embedded-app viewport becomes narrow.
+ */
+.rp-editor-grid {
+  display: grid;
+  grid-template-columns:
+    minmax(12rem, 15rem)
+    minmax(20rem, 1fr)
+    minmax(13rem, 17.5rem);
+  gap: var(--p-space-400, 16px);
+  min-height: 28rem;
+  align-items: start;
+}
+
+.rp-horizontal-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: var(--p-border-radius-300, 12px);
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rp-horizontal-scroll:focus-visible {
+  outline: var(--p-border-width-050, 2px) solid
+    var(--p-color-border-focus);
+  outline-offset: var(--p-space-050, 2px);
+}
+
+.rp-plan-comparison-grid {
+  display: grid;
+  grid-template-columns: 12.5rem repeat(4, minmax(10rem, 1fr));
+  min-width: 52.5rem;
+  overflow: hidden;
+  border: var(--p-border-width-025, 1px) solid var(--p-color-border);
+  border-radius: inherit;
+}
+
+/* Section navigation follows the same horizontal bounds as Polaris Page. */
+.rp-secondary-nav-boundary {
+  box-sizing: border-box;
+  max-width: calc(
+    var(--pg-layout-width-primary-max) +
+    var(--pg-layout-width-secondary-max) +
+    var(--pg-layout-width-inner-spacing-base)
+  );
+  margin: 0 auto;
+  padding-block: var(--p-space-200, 8px) var(--p-space-400, 16px);
+}
+
+.rp-secondary-nav-viewport {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rp-secondary-nav-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.rp-secondary-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--p-space-100, 4px);
+  min-width: max-content;
+  padding: var(--p-space-100, 4px);
+  border-radius: var(--p-border-radius-300, 12px);
+  background: var(--p-color-bg-surface-secondary);
+}
+
+.rp-secondary-nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--p-space-150, 6px);
+  min-height: 2.25rem;
+  padding: var(--p-space-200, 8px) var(--p-space-400, 16px);
+  border-radius: var(--p-border-radius-200, 8px);
+  color: var(--p-color-text-secondary);
+  text-decoration: none;
+  transition:
+    color var(--p-motion-duration-100, 100ms) ease,
+    background-color var(--p-motion-duration-100, 100ms) ease,
+    box-shadow var(--p-motion-duration-100, 100ms) ease;
+}
+
+.rp-secondary-nav__link:hover {
+  color: var(--p-color-text);
+  background: var(--p-color-bg-surface-hover);
+}
+
+.rp-secondary-nav__link:focus-visible {
+  outline: var(--p-border-width-050, 2px) solid
+    var(--p-color-border-focus);
+  outline-offset: var(--p-space-050, 2px);
+}
+
+.rp-secondary-nav__link[aria-current="page"] {
+  color: var(--p-color-text);
+  background: var(--p-color-bg-surface);
+  box-shadow: var(--p-shadow-100);
+}
+
+.rp-secondary-nav__icon {
+  display: flex;
+  align-items: center;
+  color: var(--p-color-icon-secondary);
+}
+
+.rp-secondary-nav__link[aria-current="page"] .rp-secondary-nav__icon {
+  color: var(--p-color-icon-emphasis);
+}
+
+@media (min-width: 30.625em) {
+  .rp-secondary-nav-boundary {
+    padding-inline: var(--p-space-600);
+  }
+}
+
+@media (max-width: 64rem) {
+  .rp-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Container Queries for Components */
 @container (width > 400px) {
   .container-responsive {
@@ -192,8 +318,8 @@
 
 /* Mobile-specific optimizations */
 @media (max-width: 640px) {
-  /* Touch-friendly tap targets */
-  button, a, [role="button"] {
+  /* Opt-in utility for custom controls; Polaris controls size themselves. */
+  .rp-touch-target {
     min-height: 44px;
     min-width: 44px;
   }

@@ -9,7 +9,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import prisma from "~/db.server";
 import { encrypt, decrypt } from "~/utils/encryption";
 import { createLogger } from "~/services/logger.server";
-import type { Integration, IntegrationProvider } from "@prisma/client";
+import type { Integration } from "@prisma/client";
 import type {
   IntegrationConfig,
   IIntegrationAdapter,

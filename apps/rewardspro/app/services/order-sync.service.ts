@@ -783,7 +783,7 @@ export class OrderSyncService {
   /**
    * Update an existing order
    */
-  private async updateOrder(orderId: string, order: any, shopifyCustomerId: string | null): Promise<void> {
+  private async updateOrder(orderId: string, order: any, _shopifyCustomerId: string | null): Promise<void> {
     // Update order with latest data
     await (db as any).order.update({
       where: { id: orderId },

@@ -412,15 +412,6 @@ export async function processNextBatch(
         // Ensure orderCount is an integer (Data API adapter can pass as text otherwise)
         const ordersCount = parseInt(String(shopifyCustomer.numberOfOrders || 0), 10);
 
-        // Determine appropriate tier based on spending
-        let assignedTier = tiers[tiers.length - 1]; // Default to lowest
-        for (const tier of tiers) {
-          if (totalSpent >= parseFloat(tier.minSpend.toString())) {
-            assignedTier = tier;
-            break;
-          }
-        }
-
         // Check if customer exists
         const existingCustomer = await prisma.customer.findFirst({
           where: {

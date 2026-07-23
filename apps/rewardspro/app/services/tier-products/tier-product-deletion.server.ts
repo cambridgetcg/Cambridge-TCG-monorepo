@@ -531,10 +531,6 @@ export async function deleteTierProduct(
       where: { tierProductId: resolvedId }
     });
 
-    const subscriptionsCount = await prisma.tierSubscription.count({
-      where: { tierProductId: resolvedId }
-    });
-
     // 4a. Unlink subscriptions (set tierProductId to null) - do this even for soft delete
     // to prevent issues if product is restored
     const subscriptionsUnlinked = await prisma.tierSubscription.updateMany({

@@ -13,14 +13,12 @@ import {
   Text,
   Badge,
   Toast,
-  Frame,
   DataTable,
   Divider,
   Modal,
   FormLayout,
   TextField,
   Select,
-  ChoiceList,
   Checkbox,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
@@ -437,7 +435,7 @@ export default function MysteryBoxDetail() {
         setToastActive(true);
       }
     }
-  }, [actionData]);
+  }, [actionData, box.openCost, box.maxOpensPerCustomer]);
 
   const resetRewardForm = () => {
     setRewardName("");
@@ -641,7 +639,7 @@ export default function MysteryBoxDetail() {
   ]);
 
   return (
-    <Frame>
+    <>
       <Page
         title={box.name}
         backAction={{ content: "Mystery Boxes", url: "/app/rewards/mystery-boxes" }}
@@ -716,7 +714,7 @@ export default function MysteryBoxDetail() {
                     <InlineStack gap="200" blockAlign="center">
                       <div style={{ maxWidth: 100 }}>
                         <TextField
-                          label=""
+                          label={`Cost per open in ${pointsConfig.currencyPlural}`}
                           labelHidden
                           type="number"
                           value={inlineCost}
@@ -764,7 +762,7 @@ export default function MysteryBoxDetail() {
                       <InlineStack gap="200" blockAlign="center">
                         <div style={{ maxWidth: 80 }}>
                           <TextField
-                            label=""
+                            label="Maximum opens per customer"
                             labelHidden
                             type="number"
                             value={inlineLimit}
@@ -1061,6 +1059,6 @@ export default function MysteryBoxDetail() {
           <Toast content={toastMessage} error={toastError} onDismiss={dismissToast} />
         )}
       </Page>
-    </Frame>
+    </>
   );
 }

@@ -15,8 +15,7 @@ import { db } from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import type { 
   RetryStatus,
-  SubscriptionEventType,
-  SubscriptionStatus 
+  SubscriptionEventType
 } from "@prisma/client";
 
 // ============================================

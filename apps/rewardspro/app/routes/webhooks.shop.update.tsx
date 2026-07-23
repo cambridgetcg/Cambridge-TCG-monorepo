@@ -9,7 +9,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   console.log("=".repeat(60));
 
   try {
-    const { topic, shop, payload } = await authenticate.webhook(request);
+    const { shop, payload } = await authenticate.webhook(request);
     
     console.log(`[Shop Update] Shop ${shop} configuration changed`);
     console.log(`[Shop Update] New currency: ${payload.currency}`);

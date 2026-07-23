@@ -18,9 +18,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 import type {
   DimensionKey,
   DimensionRating,
@@ -39,12 +36,12 @@ import {
 } from './evaluator.js';
 import {
   getTemplate,
-  getTemplatesByCategory,
-  interpolateTemplate,
   listTemplates,
   PROMPT_TEMPLATES,
 } from './templates.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const EVALUATIONS_FILE = path.join(__dirname, 'evaluations.json');
 
 // Colors for terminal

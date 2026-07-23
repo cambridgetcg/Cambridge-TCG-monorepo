@@ -29,7 +29,6 @@ import {
   DeleteMessageCommand,
   ChangeMessageVisibilityCommand,
   GetQueueAttributesCommand,
-  type Message,
 } from "@aws-sdk/client-sqs";
 import { getSQSClient, getAWSConfig } from "~/utils/aws-clients.server";
 import { v4 as uuidv4 } from "uuid";
@@ -140,9 +139,6 @@ export class SQSOrderQueueService {
         traceId: uuidv4(),
       },
     };
-
-    // Generate deduplication ID based on content
-    const deduplicationId = webhookId || this.generateDeduplicationId(message);
 
     try {
       const client = getSQSClient();

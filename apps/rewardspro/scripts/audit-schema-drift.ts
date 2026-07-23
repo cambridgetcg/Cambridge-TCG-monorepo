@@ -79,7 +79,6 @@ function parseSchema(): Map<string, Set<string>> {
   while ((m = enumRe.exec(text)) !== null) enumNames.add(m[1]);
 
   // Re-walk to add enum-typed fields.
-  while ((m = blockRe.exec(text)) !== null) {} // reset
   const blockRe2 = /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm;
   while ((m = blockRe2.exec(text)) !== null) {
     const name = m[1];

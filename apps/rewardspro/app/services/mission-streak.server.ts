@@ -91,7 +91,7 @@ export function calculateStreakBonus(
 export function isToday(
   date: Date,
   resetHour: number,
-  timezone: string = "UTC"
+  _timezone: string = "UTC"
 ): boolean {
   const now = new Date();
   const resetTime = getResetTimeForDate(now, resetHour);

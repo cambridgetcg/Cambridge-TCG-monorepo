@@ -42,20 +42,6 @@ interface ShopifyRefund {
   }>;
 }
 
-interface ShopifyOrder {
-  id: number;
-  name: string;
-  total_price: string;
-  subtotal_price: string;
-  total_discounts: string;
-  currency: string;
-  financial_status: string;
-  customer?: {
-    id: number;
-    email: string;
-  };
-}
-
 // HMAC Verification
 // SECURITY FIX: Use SHOPIFY_WEBHOOK_SECRET, not SHOPIFY_API_SECRET
 // These are different secrets with different purposes:
@@ -184,7 +170,6 @@ export async function action({ request }: ActionFunctionArgs) {
 
       for (const refundItem of refund.refund_line_items) {
         const productId = refundItem.line_item.product_id?.toString();
-        const variantId = refundItem.line_item.variant_id?.toString();
 
         if (productId && tierProductIds.has(productId)) {
           tierProductRefunded = true;

@@ -20,7 +20,6 @@ import {
   hsbToHex,
   isValidHex,
   normalizeHex,
-  getContrastColor,
   type HSBColor,
 } from "~/utils/color-utils";
 
@@ -171,7 +170,7 @@ export function ColorPickerField({
         </Popover>
         <div style={{ flex: 1, maxWidth: "120px" }}>
           <TextField
-            label=""
+            label={`${label} hex color`}
             labelHidden
             value={inputValue}
             onChange={handleInputChange}

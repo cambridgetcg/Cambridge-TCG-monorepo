@@ -6,7 +6,7 @@
  */
 
 import prisma from "~/db.server";
-import type { AISession, AISessionAction, AILearningPattern, Prisma } from "@prisma/client";
+import type { AISession, AISessionAction, AILearningPattern } from "@prisma/client";
 
 // Types
 export interface SessionAction {
@@ -184,7 +184,7 @@ export async function getSessionContext(sessionId: string): Promise<SessionConte
 
   return {
     session: session || null,
-    actions: session?.actions || [],
+    actions,
     patternsSuggested: recentPatterns.map((p) => p.patternName),
     blindspotsToWatch: blindspots.map((p) => p.patternName),
   };

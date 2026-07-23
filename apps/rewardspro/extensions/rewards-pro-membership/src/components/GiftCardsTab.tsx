@@ -53,16 +53,6 @@ function fmtDate(iso: string): string {
   }
 }
 
-function statusTone(status: string): string {
-  switch (status) {
-    case 'ACTIVE': return 'success';
-    case 'REDEEMED': return 'info';
-    case 'EXPIRED': return 'warning';
-    case 'CANCELLED': return 'critical';
-    default: return 'info';
-  }
-}
-
 // ============================================
 // SUB-COMPONENTS
 // ============================================

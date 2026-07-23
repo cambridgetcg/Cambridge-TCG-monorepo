@@ -54,68 +54,6 @@ function getPreviousPeriod(): { year: number; month: number } {
 }
 
 /**
- * Calculate retention rate for a tier
- */
-async function calculateRetentionRate(
-  shop: string,
-  tierCustomerIds: string[],
-  currentMonthRange: { start: Date; end: Date },
-  previousMonthRange: { start: Date; end: Date }
-): Promise<number> {
-  // Get distinct customers who ordered in previous month for this tier
-  const previousMonthCustomers = await prisma.order.findMany({
-    where: {
-      shop,
-      customerId: { in: tierCustomerIds },
-      shopifyCreatedAt: {
-        gte: previousMonthRange.start,
-        lte: previousMonthRange.end,
-      },
-      financialStatus: {
-        in: ['PAID', 'PARTIALLY_PAID'],
-      },
-    },
-    distinct: ['customerId'],
-    select: {
-      customerId: true,
-    },
-  });
-
-  if (previousMonthCustomers.length === 0) {
-    return 0;
-  }
-
-  const previousCustomerIds = new Set(previousMonthCustomers.map(o => o.customerId));
-
-  // Get distinct customers who ordered in current month for this tier
-  const currentMonthCustomers = await prisma.order.findMany({
-    where: {
-      shop,
-      customerId: {
-        in: Array.from(previousCustomerIds), // Only check if they were in previous month
-      },
-      shopifyCreatedAt: {
-        gte: currentMonthRange.start,
-        lte: currentMonthRange.end,
-      },
-      financialStatus: {
-        in: ['PAID', 'PARTIALLY_PAID'],
-      },
-    },
-    distinct: ['customerId'],
-    select: {
-      customerId: true,
-    },
-  });
-
-  // Calculate retention rate
-  const retainedCount = currentMonthCustomers.length;
-  const retentionRate = (retainedCount / previousMonthCustomers.length) * 100;
-
-  return retentionRate;
-}
-
-/**
  * Fetch tier performance metrics for a specific period
  * OPTIMIZED: Batched queries instead of per-tier queries
  * Reduced from ~5N queries (N = number of tiers) to ~8 total queries
@@ -157,8 +95,6 @@ async function fetchTierPerformanceMetrics(
   const profitMargin = shopSettings?.averageProfitMargin
     ? Number(shopSettings.averageProfitMargin)
     : 40;
-
-  const tierIds = tiers.map(t => t.id);
 
   // OPTIMIZED: Use COUNT and AGGREGATE queries instead of fetching all customers
   // This avoids loading 100K+ customer records into memory

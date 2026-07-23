@@ -1,6 +1,7 @@
 node_modules
 build
 public/build
+test-results
 shopify-app-remix
 */*.yml
 .shopify

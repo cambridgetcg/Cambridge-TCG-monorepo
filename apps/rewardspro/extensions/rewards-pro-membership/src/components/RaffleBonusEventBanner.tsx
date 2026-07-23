@@ -82,6 +82,10 @@ function getBonusDescription(event: BonusEventInfo): string {
   return parts.join(' + ') || 'Bonus active';
 }
 
+function secondsUntil(endTime: number): number {
+  return Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+}
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -92,14 +96,13 @@ export function RaffleBonusEventBanner({
 }: RaffleBonusEventBannerProps) {
   // Use target timestamp to avoid drift from setInterval inaccuracy
   const endTime = new Date(event.endsAt).getTime();
-  const calcSecondsLeft = () => Math.max(0, Math.floor((endTime - Date.now()) / 1000));
 
-  const [secondsLeft, setSecondsLeft] = useState(calcSecondsLeft);
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(endTime));
 
   // Countdown timer - recalculates from wall clock each tick
   useEffect(() => {
     const timer = setInterval(() => {
-      const remaining = calcSecondsLeft();
+      const remaining = secondsUntil(endTime);
       setSecondsLeft(remaining);
       if (remaining <= 0) clearInterval(timer);
     }, 1000);

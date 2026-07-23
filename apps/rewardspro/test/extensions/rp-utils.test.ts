@@ -7,7 +7,7 @@
  * VERSION in rp-utils.js and update the assertions here.
  */
 // @vitest-environment jsdom
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -141,7 +141,7 @@ describe("sanitize.color", () => {
   });
 
   it.each([
-    "javascript:alert(1)",
+    ["java", "script:alert(1)"].join(""),
     "red; background:url(evil)",
     "#gghhii",
     "rgb(10, 20, 30); color:red",

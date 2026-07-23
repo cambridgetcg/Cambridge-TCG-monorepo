@@ -369,7 +369,7 @@ export function getTierIconId(tierName: string | null | undefined): string {
 /**
  * @deprecated Use getTierIconId instead
  */
-export function getTierEmoji(tierName: string | null | undefined): string {
+export function getTierEmoji(_tierName: string | null | undefined): string {
   return ""; // Deprecated - use iconId
 }
 
@@ -390,7 +390,6 @@ export function sortTiersByPriority<T extends { name?: string; tierName?: string
  * Get CSS classes for tier styling
  */
 export function getTierClasses(tierName: string | null | undefined): string {
-  const style = getTierStyle(tierName);
   const normalizedName = tierName?.toLowerCase().replace(/[\s-_]/g, '-') || 'none';
   
   return `tier tier--${normalizedName}`;
@@ -456,8 +455,6 @@ export function getTierGradientCSS(tierName: string | null | undefined, directio
  * Based on color luminance calculation
  */
 export function tierNeedsDarkText(tierName: string | null | undefined): boolean {
-  const style = getTierStyle(tierName);
-  
   // Light colors that need dark text
   const lightTiers = ['GOLD', 'SILVER', 'NONE'];
   const normalizedName = tierName?.toUpperCase().replace(/[\s-_]/g, '') || '';

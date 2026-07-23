@@ -5,8 +5,11 @@
  * Imports types from Prisma and extends with metadata.
  */
 
-import type { Currency, CurrencyDisplayType } from '@prisma/client';
-import type { ShopSettings } from '@prisma/client';
+import type {
+  Currency,
+  CurrencyDisplayType,
+  ShopSettings,
+} from '@prisma/client';
 
 // ============================================================================
 // TYPE GUARDS & VALIDATION

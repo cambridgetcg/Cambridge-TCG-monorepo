@@ -1,4 +1,5 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import {
   Page,
@@ -10,9 +11,7 @@ import {
   Badge,
   Button,
   Tabs,
-  DataTable,
   EmptyState,
-  Select,
   InlineGrid,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";

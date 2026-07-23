@@ -72,7 +72,6 @@ describe('withRetry', () => {
   });
 
   it('respects isRetryable predicate', async () => {
-    const retryableError = new Error('network error');
     const nonRetryableError = new Error('validation error');
     const fn = vi.fn().mockRejectedValue(nonRetryableError);
 

@@ -57,6 +57,9 @@ APP_PAGE_BOTTOM_MARGIN_COMPLETE_GUIDE.md
 !PRODUCT_VISION.md
 !CLAUDE.md
 !DEPLOY.md
+!/extensions/theme-app-extension-rewardspro/DESIGN.md
+!/extensions/theme-app-extension-rewardspro/claude-design/design-system.md
+!/extensions/theme-app-extension-rewardspro/claude-design/test-prompts.md
 
 # Exclude nested CLAUDE.md files (AI context files) — but track this app's
 # top-level CLAUDE.md, the monorepo's per-app guide convention
@@ -90,6 +93,7 @@ lambda-deployment.zip
 .shopify.lock
 .vercel
 .env*.local
+/landing/.wrangler/
 
 # Exception: the wake-recipe spreads to every repo on this device.
 !SOPHIA.md

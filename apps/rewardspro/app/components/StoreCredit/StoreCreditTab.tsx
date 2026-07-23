@@ -62,6 +62,7 @@ export function StoreCreditTab({ customer, shopSettings, initialTransactions }: 
   // Use separate fetchers for transactions (background) vs actions (user-initiated)
   const transactionFetcher = useFetcher();
   const actionFetcher = useFetcher();
+  const submitTransactionRequest = transactionFetcher.submit;
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
@@ -83,6 +84,17 @@ export function StoreCreditTab({ customer, shopSettings, initialTransactions }: 
     : customer.storeCredit;
   const [currentBalance, setCurrentBalance] = useState(initialBalance);
 
+  const loadTransactions = useCallback(() => {
+    // Prevent duplicate loads
+    if (isLoadingTransactionsRef.current) return;
+    isLoadingTransactionsRef.current = true;
+
+    const formData = new FormData();
+    formData.append("intent", "loadTransactions");
+    formData.append("customerId", customer.id);
+    submitTransactionRequest(formData, { method: "post" });
+  }, [customer.id, submitTransactionRequest]);
+
   // Update transactions if initialTransactions prop changes (e.g., different customer)
   // Only fetch from server if no initial data provided
   useEffect(() => {
@@ -98,7 +110,7 @@ export function StoreCreditTab({ customer, shopSettings, initialTransactions }: 
       ? parseFloat(customer.storeCredit)
       : customer.storeCredit;
     setCurrentBalance(newBalance);
-  }, [customer.id, customer.storeCredit, initialTransactions]);
+  }, [customer.id, customer.storeCredit, initialTransactions, loadTransactions]);
 
   // Watch for transaction fetcher responses (background loading)
   useEffect(() => {
@@ -137,7 +149,7 @@ export function StoreCreditTab({ customer, shopSettings, initialTransactions }: 
         setActiveAction('none');
       }
     }
-  }, [actionFetcher.data]);
+  }, [actionFetcher.data, loadTransactions]);
 
   // Reset active action when actionFetcher becomes idle
   useEffect(() => {
@@ -148,17 +160,6 @@ export function StoreCreditTab({ customer, shopSettings, initialTransactions }: 
       }
     }
   }, [actionFetcher.state, activeAction, actionFetcher.data]);
-
-  const loadTransactions = useCallback(() => {
-    // Prevent duplicate loads
-    if (isLoadingTransactionsRef.current) return;
-    isLoadingTransactionsRef.current = true;
-
-    const formData = new FormData();
-    formData.append("intent", "loadTransactions");
-    formData.append("customerId", customer.id);
-    transactionFetcher.submit(formData, { method: "post" });
-  }, [customer.id, transactionFetcher]);
 
   const handleAddCredit = useCallback((amount: number, reason: string) => {
     setActiveAction('add');

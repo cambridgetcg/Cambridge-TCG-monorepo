@@ -1,0 +1,1781 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rewards Pro — The Loyalty Engine for Modern Commerce</title>
+    <meta
+      name="description"
+      content="Run cashback, points, tiers, and customer engagement from one loyalty platform. Available on Shopify today, with more commerce connections next."
+    />
+    <meta name="theme-color" content="#09110f" />
+    <link rel="canonical" href="https://rewardspro.io/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Rewards Pro" />
+    <meta property="og:title" content="One loyalty engine. Every place you sell." />
+    <meta
+      property="og:description"
+      content="Run cashback, points, tiers, and customer engagement from one platform. Shopify is available today; more commerce connections are next."
+    />
+    <meta property="og:url" content="https://rewardspro.io/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Rewards Pro — Loyalty for Modern Commerce" />
+    <meta
+      name="twitter:description"
+      content="Shopify today. A platform for every commerce channel next."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23f3c85b'/%3E%3Cpath d='M19 19h26v8c0 7.2-5.8 13-13 13s-13-5.8-13-13v-8Z' fill='%2309110f'/%3E%3Cpath d='M25 40h14v6H25zM22 46h20v4H22z' fill='%2309110f'/%3E%3C/svg%3E"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Rewards Pro",
+        "applicationCategory": "BusinessApplication",
+        "description": "A loyalty and rewards platform available for Shopify merchants.",
+        "url": "https://rewardspro.io/",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "url": "https://apps.shopify.com/rewards-pro"
+        }
+      }
+    </script>
+    <style>
+      :root {
+        --ink: #09110f;
+        --ink-soft: #101b18;
+        --panel: #14211d;
+        --panel-light: #192a25;
+        --line: rgba(236, 245, 239, 0.11);
+        --line-strong: rgba(243, 200, 91, 0.34);
+        --paper: #f4f1e8;
+        --paper-muted: #b8c2bc;
+        --paper-faint: #7f9087;
+        --gold: #f3c85b;
+        --gold-soft: #ffe7a2;
+        --mint: #77d6ae;
+        --blue: #7fb7ff;
+        --coral: #ff9678;
+        --shadow: 0 30px 90px rgba(0, 0, 0, 0.28);
+        --radius: 22px;
+        --radius-sm: 14px;
+        --content: 1180px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        overflow-x: hidden;
+        background:
+          radial-gradient(circle at 78% 8%, rgba(119, 214, 174, 0.07), transparent 27rem),
+          radial-gradient(circle at 16% 20%, rgba(243, 200, 91, 0.06), transparent 30rem),
+          var(--ink);
+        color: var(--paper);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      :focus-visible {
+        outline: 3px solid var(--gold);
+        outline-offset: 4px;
+      }
+
+      .skip-link {
+        position: fixed;
+        left: 1rem;
+        top: 1rem;
+        z-index: 1000;
+        transform: translateY(-180%);
+        border-radius: 999px;
+        background: var(--gold);
+        color: var(--ink);
+        font-weight: 800;
+        padding: 0.7rem 1rem;
+        text-decoration: none;
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .shell {
+        width: min(calc(100% - 2rem), var(--content));
+        margin-inline: auto;
+      }
+
+      .site-nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 1px solid var(--line);
+        background: rgba(9, 17, 15, 0.84);
+        backdrop-filter: blur(18px);
+      }
+
+      .nav-inner {
+        min-height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7rem;
+        color: var(--paper);
+        font-size: 1rem;
+        font-weight: 780;
+        letter-spacing: -0.02em;
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: var(--gold);
+        color: var(--ink);
+        font-size: 0.72rem;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+      }
+
+      .brand span:last-child {
+        color: var(--gold);
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 1.6rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .nav-links a {
+        color: var(--paper-muted);
+        font-size: 0.9rem;
+        font-weight: 650;
+        text-decoration: none;
+        transition: color 160ms ease;
+      }
+
+      .nav-links a:hover {
+        color: var(--paper);
+      }
+
+      .button {
+        min-height: 46px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.92rem;
+        font-weight: 800;
+        line-height: 1;
+        text-decoration: none;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+      }
+
+      .button-primary {
+        background: var(--gold);
+        color: var(--ink);
+        box-shadow: 0 10px 30px rgba(243, 200, 91, 0.13);
+      }
+
+      .button-primary:hover {
+        box-shadow: 0 14px 36px rgba(243, 200, 91, 0.22);
+      }
+
+      .button-secondary {
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--paper);
+      }
+
+      .button-secondary:hover {
+        border-color: var(--line-strong);
+        background: rgba(243, 200, 91, 0.05);
+      }
+
+      .hero {
+        min-height: calc(100svh - 72px);
+        display: grid;
+        align-items: center;
+        padding: clamp(4.5rem, 9vw, 8rem) 0;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.04fr) minmax(420px, 0.96fr);
+        align-items: center;
+        gap: clamp(3rem, 8vw, 7rem);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        margin-bottom: 1.4rem;
+        color: var(--gold-soft);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 0 5px rgba(119, 214, 174, 0.1);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 760px;
+        margin-bottom: 1.35rem;
+        font-size: clamp(3rem, 7vw, 6.4rem);
+        font-weight: 860;
+        letter-spacing: -0.065em;
+        line-height: 0.96;
+      }
+
+      .hero-highlight {
+        color: var(--gold);
+      }
+
+      .hero-copy {
+        max-width: 650px;
+        margin-bottom: 2rem;
+        color: var(--paper-muted);
+        font-size: clamp(1.08rem, 2vw, 1.28rem);
+        line-height: 1.7;
+      }
+
+      .hero-copy strong {
+        color: var(--paper);
+        font-weight: 760;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+      }
+
+      .availability-note {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-top: 1.2rem;
+        color: var(--paper-faint);
+        font-size: 0.84rem;
+      }
+
+      .availability-note svg {
+        color: var(--mint);
+        flex: 0 0 auto;
+      }
+
+      .engine-visual {
+        position: relative;
+        min-height: 530px;
+        display: grid;
+        align-items: center;
+        isolation: isolate;
+      }
+
+      .engine-visual::before {
+        content: "";
+        position: absolute;
+        inset: 8% 5%;
+        z-index: -1;
+        border-radius: 50%;
+        background: rgba(243, 200, 91, 0.09);
+        filter: blur(70px);
+      }
+
+      .engine-card {
+        position: relative;
+        width: min(100%, 490px);
+        margin-inline: auto;
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 30px;
+        background:
+          linear-gradient(150deg, rgba(243, 200, 91, 0.1), transparent 38%),
+          linear-gradient(180deg, rgba(25, 42, 37, 0.96), rgba(16, 27, 24, 0.98));
+        box-shadow: var(--shadow);
+        padding: 1.2rem;
+      }
+
+      .engine-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--line);
+        padding: 0.35rem 0.35rem 1rem;
+      }
+
+      .engine-title {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+      }
+
+      .pulse {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 0 6px rgba(119, 214, 174, 0.09);
+      }
+
+      .engine-state {
+        color: var(--paper-faint);
+        font-size: 0.73rem;
+        font-weight: 760;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .connection-list {
+        display: grid;
+        gap: 0.75rem;
+        padding-top: 1rem;
+      }
+
+      .connection {
+        display: grid;
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: rgba(9, 17, 15, 0.38);
+        padding: 0.9rem;
+      }
+
+      .connection-icon {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        background: rgba(244, 241, 232, 0.06);
+        color: var(--paper);
+        font-size: 0.8rem;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+      }
+
+      .connection h3 {
+        margin-bottom: 0.1rem;
+        font-size: 0.98rem;
+        letter-spacing: -0.01em;
+      }
+
+      .connection p {
+        margin-bottom: 0;
+        color: var(--paper-faint);
+        font-size: 0.76rem;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        padding: 0.27rem 0.52rem;
+        font-size: 0.65rem;
+        font-weight: 850;
+        letter-spacing: 0.04em;
+        line-height: 1;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .status-available {
+        color: var(--mint);
+        background: rgba(119, 214, 174, 0.07);
+      }
+
+      .status-planned {
+        color: var(--gold);
+        background: rgba(243, 200, 91, 0.07);
+      }
+
+      .status-design {
+        color: var(--blue);
+        background: rgba(127, 183, 255, 0.07);
+      }
+
+      .status-exploring {
+        color: var(--paper-faint);
+        background: rgba(184, 194, 188, 0.04);
+      }
+
+      .proof-strip {
+        border-block: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.018);
+      }
+
+      .proof-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .proof {
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border-right: 1px solid var(--line);
+        padding: 1.5rem;
+      }
+
+      .proof:last-child {
+        border-right: 0;
+      }
+
+      .proof strong {
+        margin-bottom: 0.2rem;
+        color: var(--paper);
+        font-size: 1.05rem;
+        letter-spacing: -0.02em;
+      }
+
+      .proof span {
+        color: var(--paper-faint);
+        font-size: 0.82rem;
+      }
+
+      .section {
+        scroll-margin-top: 92px;
+        padding: clamp(5rem, 9vw, 8.5rem) 0;
+      }
+
+      .section-head {
+        max-width: 730px;
+        margin-bottom: 3rem;
+      }
+
+      .section-kicker {
+        margin-bottom: 0.8rem;
+        color: var(--gold);
+        font-size: 0.76rem;
+        font-weight: 850;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .section h2 {
+        margin-bottom: 1.1rem;
+        font-size: clamp(2.2rem, 5vw, 4.2rem);
+        font-weight: 840;
+        letter-spacing: -0.055em;
+        line-height: 1.02;
+      }
+
+      .section-intro {
+        margin-bottom: 0;
+        color: var(--paper-muted);
+        font-size: 1.05rem;
+        line-height: 1.72;
+      }
+
+      .platform-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+      }
+
+      .platform-stage {
+        position: relative;
+        min-height: 260px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        padding: 1.5rem;
+      }
+
+      .platform-stage:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        top: 50%;
+        right: -1.75rem;
+        z-index: 2;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: grid;
+        place-items: center;
+        transform: translateY(-50%);
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        background: var(--ink);
+        color: var(--gold);
+        font-weight: 900;
+      }
+
+      .stage-num {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 2rem;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        color: var(--gold);
+        font-size: 0.76rem;
+        font-weight: 850;
+      }
+
+      .platform-stage h3 {
+        margin-bottom: 0.65rem;
+        font-size: 1.16rem;
+        letter-spacing: -0.025em;
+      }
+
+      .platform-stage p {
+        margin-bottom: 0;
+        color: var(--paper-faint);
+        font-size: 0.88rem;
+        line-height: 1.65;
+      }
+
+      .rewards-section {
+        border-block: 1px solid var(--line);
+        background: var(--ink-soft);
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+      }
+
+      .feature-card {
+        min-height: 230px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.018);
+        padding: 1.55rem;
+        transition:
+          transform 180ms ease,
+          border-color 180ms ease,
+          background 180ms ease;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--line-strong);
+        background: rgba(243, 200, 91, 0.025);
+      }
+
+      .feature-icon {
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 1.4rem;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+        color: var(--gold);
+        font-size: 0.76rem;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+      }
+
+      .feature-card h3 {
+        margin-bottom: 0.6rem;
+        font-size: 1.1rem;
+        letter-spacing: -0.02em;
+      }
+
+      .feature-card .status {
+        margin: 0 0 0.9rem;
+      }
+
+      .feature-card p {
+        margin-bottom: 0;
+        color: var(--paper-faint);
+        font-size: 0.88rem;
+        line-height: 1.65;
+      }
+
+      .integrations-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+
+      .integration-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        padding: 1.65rem;
+      }
+
+      .integration-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .integration-name {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+      }
+
+      .integration-symbol {
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        background: var(--panel-light);
+        color: var(--paper);
+        font-size: 0.78rem;
+        font-weight: 900;
+      }
+
+      .integration-name h3 {
+        margin-bottom: 0.08rem;
+        font-size: 1.16rem;
+        letter-spacing: -0.02em;
+      }
+
+      .integration-name p {
+        margin-bottom: 0;
+        color: var(--paper-faint);
+        font-size: 0.75rem;
+      }
+
+      .integration-copy {
+        margin-bottom: 1.2rem;
+        color: var(--paper-muted);
+        font-size: 0.9rem;
+        line-height: 1.65;
+      }
+
+      .capabilities {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .capabilities li {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--paper-faint);
+        font-size: 0.7rem;
+        font-weight: 650;
+        padding: 0.35rem 0.58rem;
+      }
+
+      .status-note {
+        margin-top: 1.4rem;
+        border-left: 2px solid var(--gold);
+        color: var(--paper-faint);
+        font-size: 0.8rem;
+        line-height: 1.6;
+        padding-left: 0.9rem;
+      }
+
+      .pricing-section {
+        border-block: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(243, 200, 91, 0.035), transparent 35%),
+          var(--ink-soft);
+      }
+
+      .pricing-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+      }
+
+      .price-card {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        padding: 1.5rem;
+      }
+
+      .price-card-featured {
+        border-color: var(--line-strong);
+        background:
+          linear-gradient(165deg, rgba(243, 200, 91, 0.09), transparent 45%),
+          var(--panel);
+      }
+
+      .price-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        color: var(--paper-muted);
+        font-size: 0.77rem;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .popular {
+        border-radius: 999px;
+        background: var(--gold);
+        color: var(--ink);
+        font-size: 0.62rem;
+        padding: 0.27rem 0.5rem;
+      }
+
+      .price {
+        margin-bottom: 0.4rem;
+        font-size: 2.6rem;
+        font-weight: 850;
+        letter-spacing: -0.055em;
+        line-height: 1;
+      }
+
+      .price span {
+        color: var(--paper-faint);
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+
+      .price-summary {
+        min-height: 3.8rem;
+        margin-bottom: 1rem;
+        color: var(--paper-faint);
+        font-size: 0.82rem;
+      }
+
+      .price-list {
+        display: grid;
+        gap: 0.65rem;
+        margin: 0 0 1.5rem;
+        padding: 1.1rem 0 0;
+        border-top: 1px solid var(--line);
+        list-style: none;
+      }
+
+      .price-list li {
+        display: flex;
+        gap: 0.55rem;
+        color: var(--paper-muted);
+        font-size: 0.8rem;
+      }
+
+      .price-list li::before {
+        content: "✓";
+        color: var(--mint);
+        font-weight: 900;
+      }
+
+      .price-card .button {
+        width: 100%;
+        margin-top: auto;
+      }
+
+      .pricing-footnote {
+        margin: 1.4rem auto 0;
+        color: var(--paper-faint);
+        font-size: 0.8rem;
+        text-align: center;
+      }
+
+      .faq-wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+        gap: clamp(2rem, 7vw, 6rem);
+        align-items: start;
+      }
+
+      .faq-intro {
+        position: sticky;
+        top: 110px;
+      }
+
+      .faq-intro p {
+        color: var(--paper-muted);
+      }
+
+      .faq-list {
+        border-top: 1px solid var(--line);
+      }
+
+      details {
+        border-bottom: 1px solid var(--line);
+        padding: 1.2rem 0;
+      }
+
+      summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        color: var(--paper);
+        font-weight: 760;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      summary::after {
+        content: "+";
+        color: var(--gold);
+        font-size: 1.35rem;
+        font-weight: 500;
+      }
+
+      details[open] summary::after {
+        content: "−";
+      }
+
+      details p {
+        max-width: 680px;
+        margin: 0.8rem 2.5rem 0 0;
+        color: var(--paper-faint);
+        font-size: 0.9rem;
+        line-height: 1.7;
+      }
+
+      details a {
+        color: var(--gold);
+      }
+
+      .final-cta {
+        padding: 0 0 clamp(5rem, 9vw, 8.5rem);
+      }
+
+      .cta-card {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 2rem;
+        border: 1px solid var(--line-strong);
+        border-radius: 32px;
+        background:
+          radial-gradient(circle at 85% 50%, rgba(119, 214, 174, 0.12), transparent 23rem),
+          linear-gradient(135deg, rgba(243, 200, 91, 0.12), transparent 55%),
+          var(--panel);
+        padding: clamp(2rem, 6vw, 4.5rem);
+      }
+
+      .cta-card h2 {
+        max-width: 690px;
+        margin-bottom: 0.8rem;
+        font-size: clamp(2.25rem, 5vw, 4rem);
+        font-weight: 850;
+        letter-spacing: -0.055em;
+        line-height: 1;
+      }
+
+      .cta-card p {
+        max-width: 650px;
+        margin-bottom: 0;
+        color: var(--paper-muted);
+      }
+
+      .cta-actions {
+        display: grid;
+        gap: 0.7rem;
+        min-width: 210px;
+      }
+
+      footer {
+        border-top: 1px solid var(--line);
+        padding: 2.5rem 0;
+      }
+
+      .footer-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
+      }
+
+      .footer-copy {
+        color: var(--paper-faint);
+        font-size: 0.78rem;
+      }
+
+      .footer-copy strong {
+        display: block;
+        margin-bottom: 0.2rem;
+        color: var(--paper-muted);
+      }
+
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 1.2rem;
+      }
+
+      .footer-links a {
+        color: var(--paper-faint);
+        font-size: 0.78rem;
+        text-decoration: none;
+      }
+
+      .footer-links a:hover {
+        color: var(--gold);
+      }
+
+      @media (max-width: 1020px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          min-height: auto;
+        }
+
+        .hero-copy {
+          max-width: 760px;
+        }
+
+        .engine-visual {
+          min-height: auto;
+        }
+
+        .platform-grid,
+        .pricing-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .platform-stage:not(:last-child)::after {
+          display: none;
+        }
+
+        .feature-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .cta-card {
+          grid-template-columns: 1fr;
+        }
+
+        .cta-actions {
+          display: flex;
+          flex-wrap: wrap;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          width: min(calc(100% - 1.3rem), var(--content));
+        }
+
+        .nav-links {
+          display: none;
+        }
+
+        .nav-inner {
+          min-height: 64px;
+        }
+
+        .nav-inner > .button {
+          min-height: 40px;
+          padding: 0.65rem 0.9rem;
+          font-size: 0.78rem;
+        }
+
+        .hero {
+          padding: 4.2rem 0 5rem;
+        }
+
+        h1 {
+          font-size: clamp(3rem, 16vw, 4.8rem);
+        }
+
+        .proof-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .proof {
+          min-height: 105px;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .proof:nth-child(2) {
+          border-right: 0;
+        }
+
+        .proof:nth-child(n + 3) {
+          border-bottom: 0;
+        }
+
+        .platform-grid,
+        .feature-grid,
+        .integrations-grid,
+        .pricing-grid,
+        .faq-wrap {
+          grid-template-columns: 1fr;
+        }
+
+        .platform-stage,
+        .feature-card {
+          min-height: auto;
+        }
+
+        .faq-intro {
+          position: static;
+        }
+
+        .footer-inner {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .footer-links {
+          justify-content: flex-start;
+        }
+      }
+
+      @media (max-width: 500px) {
+        .brand-mark {
+          width: 30px;
+          height: 30px;
+        }
+
+        .hero-actions,
+        .hero-actions .button,
+        .cta-actions,
+        .cta-actions .button {
+          width: 100%;
+        }
+
+        .engine-card {
+          border-radius: 22px;
+          padding: 0.75rem;
+        }
+
+        .connection {
+          grid-template-columns: 38px minmax(0, 1fr);
+          padding: 0.75rem;
+        }
+
+        .connection-icon {
+          width: 38px;
+          height: 38px;
+        }
+
+        .connection .status {
+          grid-column: 2;
+          justify-self: start;
+        }
+
+        .proof {
+          padding: 1rem;
+        }
+
+        .integration-card-top {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-nav">
+      <div class="shell nav-inner">
+        <a class="brand" href="/" aria-label="Rewards Pro home">
+          <span class="brand-mark" aria-hidden="true">RP</span>
+          <span>Rewards <span>Pro</span></span>
+        </a>
+        <nav aria-label="Primary">
+          <ul class="nav-links">
+            <li><a href="#platform">Platform</a></li>
+            <li><a href="#rewards">Rewards</a></li>
+            <li><a href="#integrations">Integrations</a></li>
+            <li><a href="#pricing">Shopify pricing</a></li>
+          </ul>
+        </nav>
+        <a
+          class="button button-primary"
+          href="https://apps.shopify.com/rewards-pro"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Install on Shopify
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="shell hero-grid">
+          <div>
+            <div class="eyebrow">
+              <span class="eyebrow-dot" aria-hidden="true"></span>
+              Shopify available today
+            </div>
+            <h1 id="hero-title">
+              One loyalty engine.&nbsp;<span class="hero-highlight">Every place you sell.</span>
+            </h1>
+            <p class="hero-copy">
+              Rewards Pro is growing into a commerce-independent loyalty
+              platform. Run cashback, points, tiers, and customer engagement
+              from one engine—<strong>starting with Shopify</strong>.
+            </p>
+            <div class="hero-actions">
+              <a
+                class="button button-primary"
+                href="https://apps.shopify.com/rewards-pro"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Add to Shopify — free
+              </a>
+              <a class="button button-secondary" href="#platform">
+                Explore the platform
+              </a>
+            </div>
+            <div class="availability-note">
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="m5 12 4 4L19 6"></path>
+              </svg>
+              Free plan available. Trials are available on paid plans.
+            </div>
+          </div>
+
+          <div class="engine-visual" aria-label="Rewards Pro integration status">
+            <div class="engine-card">
+              <div class="engine-top">
+                <div class="engine-title">
+                  <span class="pulse" aria-hidden="true"></span>
+                  Rewards Pro engine
+                </div>
+                <span class="engine-state">Platform map</span>
+              </div>
+              <div class="connection-list">
+                <article class="connection">
+                  <div class="connection-icon" aria-hidden="true">S</div>
+                  <div>
+                    <h3>Shopify</h3>
+                    <p>Native commerce connection</p>
+                  </div>
+                  <span class="status status-available">Available</span>
+                </article>
+                <article class="connection">
+                  <div class="connection-icon" aria-hidden="true">Woo</div>
+                  <div>
+                    <h3>WooCommerce</h3>
+                    <p>First full expansion</p>
+                  </div>
+                  <span class="status status-planned">Planned</span>
+                </article>
+                <article class="connection">
+                  <div class="connection-icon" aria-hidden="true">{ }</div>
+                  <div>
+                    <h3>Headless API</h3>
+                    <p>Custom commerce stacks</p>
+                  </div>
+                  <span class="status status-design">Design phase</span>
+                </article>
+                <article class="connection">
+                  <div class="connection-icon" aria-hidden="true">St</div>
+                  <div>
+                    <h3>Stripe</h3>
+                    <p>Payment and subscription events</p>
+                  </div>
+                  <span class="status status-exploring">Exploring</span>
+                </article>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="proof-strip" aria-label="Product facts">
+        <div class="shell proof-grid">
+          <div class="proof">
+            <strong>Live on Shopify</strong>
+            <span>The production connector today</span>
+          </div>
+          <div class="proof">
+            <strong>One reward ledger</strong>
+            <span>The foundation for every channel</span>
+          </div>
+          <div class="proof">
+            <strong>Free plan available</strong>
+            <span>Capacity grows with your store</span>
+          </div>
+          <div class="proof">
+            <strong>No-code setup</strong>
+            <span>For the current Shopify app</span>
+          </div>
+        </div>
+      </div>
+
+      <section class="section" id="platform" aria-labelledby="platform-title">
+        <div class="shell">
+          <div class="section-head">
+            <p class="section-kicker">The platform layer</p>
+            <h2 id="platform-title">Loyalty should live above the storefront.</h2>
+            <p class="section-intro">
+              Your programme should not restart when your commerce stack
+              changes. Rewards Pro is separating the loyalty engine from the
+              channel adapters that feed it.
+            </p>
+          </div>
+          <div class="platform-grid" aria-label="How the loyalty platform works">
+            <article class="platform-stage">
+              <div class="stage-num">01</div>
+              <h3>Connect</h3>
+              <p>
+                A channel adapter authenticates the store and receives
+                customers, orders, refunds, products, and payment events.
+              </p>
+            </article>
+            <article class="platform-stage">
+              <div class="stage-num">02</div>
+              <h3>Normalize</h3>
+              <p>
+                Platform-specific payloads become one consistent identity and
+                commerce event model, with provenance and idempotency intact.
+              </p>
+            </article>
+            <article class="platform-stage">
+              <div class="stage-num">03</div>
+              <h3>Reward</h3>
+              <p>
+                The shared engine calculates points, cashback, tiers, missions,
+                entries, and unlocks from the same programme rules.
+              </p>
+            </article>
+            <article class="platform-stage">
+              <div class="stage-num">04</div>
+              <h3>Deliver</h3>
+              <p>
+                Each connector uses the best redemption surface it genuinely
+                supports—from native credit to coupons or custom checkout.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section rewards-section" id="rewards" aria-labelledby="rewards-title">
+        <div class="shell">
+          <div class="section-head">
+            <p class="section-kicker">The loyalty engine</p>
+            <h2 id="rewards-title">More than points. A reason to come back.</h2>
+            <p class="section-intro">
+              Build a programme that feels alive: useful value, visible
+              progress, and moments of surprise—all managed from one place.
+              Customer-facing activation state is labelled below.
+            </p>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">01</div>
+              <h3>Cashback &amp; points</h3>
+              <span class="status status-available">Available on Shopify</span>
+              <p>
+                Reward real customer activity with spendable value and a clear
+                ledger of what was earned, used, reversed, or expired.
+              </p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">02</div>
+              <h3>Membership tiers</h3>
+              <span class="status status-available">Available on Shopify</span>
+              <p>
+                Create progressive levels with thresholds, benefits, cashback
+                rates, and purchasable membership options.
+              </p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">03</div>
+              <h3>Missions &amp; challenges</h3>
+              <span class="status status-planned">Customer flow paused</span>
+              <p>
+                Merchant configuration, recurring missions, XP, and streak
+                logic exist. Customer-account participation is paused while
+                verified identity binding is completed.
+              </p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">04</div>
+              <h3>Raffles</h3>
+              <span class="status status-planned">Customer flow paused</span>
+              <p>
+                Merchant setup, automated drawings, winner records, and
+                delivery tracking exist. Customer-account entry is currently
+                paused pending verified identity binding.
+              </p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">05</div>
+              <h3>Mystery boxes</h3>
+              <span class="status status-planned">Customer flow paused</span>
+              <p>
+                Configure weighted reward pools and auditable outcomes.
+                Customer-account opening is currently paused pending verified
+                identity binding.
+              </p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon" aria-hidden="true">06</div>
+              <h3>Automation &amp; analytics</h3>
+              <span class="status status-available">Available on Shopify</span>
+              <p>
+                Trigger timely messages and understand engagement, tier
+                movement, redemption, retention, and loyalty ROI.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="integrations" aria-labelledby="integrations-title">
+        <div class="shell">
+          <div class="section-head">
+            <p class="section-kicker">Commerce connections</p>
+            <h2 id="integrations-title">Deep where it is live. Honest about what is next.</h2>
+            <p class="section-intro">
+              A status is a product promise. Only Shopify is available today;
+              the other cards describe direction, not shipped integrations.
+            </p>
+          </div>
+          <div class="integrations-grid">
+            <article class="integration-card">
+              <div class="integration-card-top">
+                <div class="integration-name">
+                  <div class="integration-symbol" aria-hidden="true">S</div>
+                  <div>
+                    <h3>Shopify</h3>
+                    <p>Production connector</p>
+                  </div>
+                </div>
+                <span class="status status-available">Available</span>
+              </div>
+              <p class="integration-copy">
+                The current production experience: embedded merchant
+                dashboard, order and customer sync, native store credit, core
+                loyalty storefront surfaces, and Shopify billing.
+              </p>
+              <ul class="capabilities" aria-label="Shopify capabilities">
+                <li>Native store credit</li>
+                <li>Order webhooks</li>
+                <li>Customer accounts</li>
+                <li>Theme widget</li>
+              </ul>
+            </article>
+
+            <article class="integration-card">
+              <div class="integration-card-top">
+                <div class="integration-name">
+                  <div class="integration-symbol" aria-hidden="true">Woo</div>
+                  <div>
+                    <h3>WooCommerce</h3>
+                    <p>First expansion target</p>
+                  </div>
+                </div>
+                <span class="status status-planned">Planned</span>
+              </div>
+              <p class="integration-copy">
+                Planned as the first full proof of the platform seam, with a
+                small WordPress connector for order events, customer identity,
+                wallet surfaces, and coupon-based redemption.
+              </p>
+              <ul class="capabilities" aria-label="Planned WooCommerce scope">
+                <li>REST + webhooks</li>
+                <li>Reconciliation</li>
+                <li>Wallet widget</li>
+                <li>Coupon redemption</li>
+              </ul>
+            </article>
+
+            <article class="integration-card">
+              <div class="integration-card-top">
+                <div class="integration-name">
+                  <div class="integration-symbol" aria-hidden="true">{ }</div>
+                  <div>
+                    <h3>Headless API</h3>
+                    <p>Custom commerce stacks</p>
+                  </div>
+                </div>
+                <span class="status status-design">Design phase</span>
+              </div>
+              <p class="integration-copy">
+                The event, identity, balance, and redemption contracts are
+                being defined. A public API will not be called available until
+                authentication, docs, sandboxing, and reference code exist.
+              </p>
+              <ul class="capabilities" aria-label="Headless API design scope">
+                <li>Identity linking</li>
+                <li>Order events</li>
+                <li>Balance reads</li>
+                <li>Redemption lifecycle</li>
+              </ul>
+            </article>
+
+            <article class="integration-card">
+              <div class="integration-card-top">
+                <div class="integration-name">
+                  <div class="integration-symbol" aria-hidden="true">St</div>
+                  <div>
+                    <h3>Stripe</h3>
+                    <p>Payments connector</p>
+                  </div>
+                </div>
+                <span class="status status-exploring">Exploring</span>
+              </div>
+              <p class="integration-copy">
+                Stripe is being considered first as a source of payment and
+                subscription events. Full loyalty needs a separate, proven
+                checkout redemption path.
+              </p>
+              <ul class="capabilities" aria-label="Exploratory Stripe scope">
+                <li>Payment events</li>
+                <li>Subscriptions</li>
+                <li>Customer mapping</li>
+                <li>Checkout research</li>
+              </ul>
+            </article>
+          </div>
+          <p class="status-note">
+            Want Rewards Pro on another platform? Tell us what you sell on and
+            how customers redeem today at
+            <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>.
+          </p>
+        </div>
+      </section>
+
+      <section class="section pricing-section" id="pricing" aria-labelledby="pricing-title">
+        <div class="shell">
+          <div class="section-head">
+            <p class="section-kicker">Shopify pricing</p>
+            <h2 id="pricing-title">Start free. Grow by capacity.</h2>
+            <p class="section-intro">
+              These plan names and prices apply to the Shopify app available
+              today. Shopify shows the current capacity, feature, trial, annual,
+              and usage terms before approval.
+            </p>
+          </div>
+          <div class="pricing-grid">
+            <article class="price-card">
+              <div class="price-label">Free</div>
+              <div class="price">$0 <span>/ month</span></div>
+              <p class="price-summary">A real programme for a smaller store. No card required.</p>
+              <ul class="price-list">
+                <li>No monthly subscription</li>
+                <li>Built for smaller Shopify stores</li>
+                <li>Automated loyalty foundations</li>
+                <li>Current limits shown in Shopify</li>
+              </ul>
+              <a
+                class="button button-secondary"
+                href="https://apps.shopify.com/rewards-pro"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Install free
+              </a>
+            </article>
+
+            <article class="price-card price-card-featured">
+              <div class="price-label">
+                Pro
+                <span class="popular">Popular</span>
+              </div>
+              <div class="price">$39 <span>/ month</span></div>
+              <p class="price-summary">For growing stores building repeat purchase habits.</p>
+              <ul class="price-list">
+                <li>Automated order cashback</li>
+                <li>Pro analytics dashboard</li>
+                <li>Membership tier tools</li>
+                <li>Current terms shown in Shopify</li>
+              </ul>
+              <a
+                class="button button-primary"
+                href="https://apps.shopify.com/rewards-pro"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View Pro plan
+              </a>
+            </article>
+
+            <article class="price-card">
+              <div class="price-label">Max</div>
+              <div class="price">$149 <span>/ month</span></div>
+              <p class="price-summary">More volume, reach, automation, and history.</p>
+              <ul class="price-list">
+                <li>Everything in Pro</li>
+                <li>Sell memberships as products</li>
+                <li>Higher-volume operations</li>
+                <li>Current terms shown in Shopify</li>
+              </ul>
+              <a
+                class="button button-secondary"
+                href="https://apps.shopify.com/rewards-pro"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View Max plan
+              </a>
+            </article>
+
+            <article class="price-card">
+              <div class="price-label">Ultra</div>
+              <div class="price">$499 <span>/ month</span></div>
+              <p class="price-summary">Unlimited capacity with dedicated support.</p>
+              <ul class="price-list">
+                <li>Unlimited-capacity plan</li>
+                <li>Current and future features</li>
+                <li>Annual membership evaluation</li>
+                <li>Current terms shown in Shopify</li>
+              </ul>
+              <a
+                class="button button-secondary"
+                href="https://apps.shopify.com/rewards-pro"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View Ultra plan
+              </a>
+            </article>
+          </div>
+          <p class="pricing-footnote">
+            USD. Plans are billed through Shopify. Shopify is the source of
+            truth for current limits, trials, annual options, and usage terms.
+          </p>
+        </div>
+      </section>
+
+      <section class="section" id="faq" aria-labelledby="faq-title">
+        <div class="shell faq-wrap">
+          <div class="faq-intro">
+            <p class="section-kicker">Straight answers</p>
+            <h2 id="faq-title">What changes—and what does not.</h2>
+            <p>
+              The platform is expanding, but the status of each surface remains
+              explicit.
+            </p>
+          </div>
+          <div class="faq-list">
+            <details>
+              <summary>Is Rewards Pro still a Shopify app?</summary>
+              <p>
+                Yes. Shopify is the only production, self-serve commerce
+                connector today and remains fully supported. The change is that
+                Shopify becomes the first connector to a broader loyalty engine,
+                rather than the permanent boundary of the product.
+              </p>
+            </details>
+            <details>
+              <summary>Can I install Rewards Pro on WooCommerce today?</summary>
+              <p>
+                Not yet. WooCommerce is the planned first full non-Shopify
+                connector. “Planned” describes a chosen direction, not a
+                released plugin or a delivery date.
+              </p>
+            </details>
+            <details>
+              <summary>Is there a public headless API now?</summary>
+              <p>
+                No standalone public platform API is being promised today. Its
+                contracts are in design. We will call it available only when it
+                has merchant authentication, versioned documentation,
+                idempotency, signed webhooks, and a working reference
+                integration.
+              </p>
+            </details>
+            <details>
+              <summary>Will every connector offer Shopify store credit?</summary>
+              <p>
+                No. Redemption capabilities differ by platform. Shopify can use
+                native store credit; an early WooCommerce connector may use
+                restricted single-use coupons. Rewards Pro will label the
+                mechanism instead of pretending every platform has parity.
+              </p>
+            </details>
+            <details>
+              <summary>Are raffles, mystery boxes, and missions live for customers?</summary>
+              <p>
+                Their merchant configuration and core engines exist, but their
+                Shopify customer-account participation routes are currently
+                paused until session-token identity is securely bound to the
+                correct shop and Rewards Pro customer. The page labels that
+                state rather than presenting configuration as a live customer
+                flow.
+              </p>
+            </details>
+            <details>
+              <summary>Will customers share one balance across stores?</summary>
+              <p>
+                A canonical identity and ledger make that direction possible,
+                but cross-store and cross-platform balances are not available
+                today. Identity linking, consent, currency, liability, and
+                redemption rules must be designed first.
+              </p>
+            </details>
+            <details>
+              <summary>How do I influence which connector comes next?</summary>
+              <p>
+                Email
+                <a href="mailto:contact@rewardspro.io">contact@rewardspro.io</a>
+                with your platform, monthly order volume, and current reward
+                flow. That context is more useful than a generic vote.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="final-cta" aria-labelledby="cta-title">
+        <div class="shell">
+          <div class="cta-card">
+            <div>
+              <p class="section-kicker">Available now</p>
+              <h2 id="cta-title">On Shopify today. Built to go further.</h2>
+              <p>
+                Launch the current Shopify experience now, or help shape the
+                next commerce connection.
+              </p>
+            </div>
+            <div class="cta-actions">
+              <a
+                class="button button-primary"
+                href="https://apps.shopify.com/rewards-pro"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Install on Shopify
+              </a>
+              <a class="button button-secondary" href="mailto:contact@rewardspro.io">
+                Request a connector
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="shell footer-inner">
+        <div class="footer-copy">
+          <strong>Rewards Pro</strong>
+          © 2026 Cambridge TCG Limited. Love is the design.
+        </div>
+        <nav class="footer-links" aria-label="Footer">
+          <a
+            href="https://apps.shopify.com/rewards-pro"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Shopify App Store
+          </a>
+          <a
+            href="https://docs.rewardspro.io"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Documentation
+          </a>
+          <a href="mailto:contact@rewardspro.io">Contact</a>
+          <a href="/privacy-policy/">Privacy</a>
+          <a href="#integrations">Integration status</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,10 +1,4 @@
-import {
-  Banner,
-  Text,
-  View,
-  BlockStack,
-  InlineStack,
-} from '@shopify/ui-extensions-react/customer-account';
+import { Banner } from '@shopify/ui-extensions-react/customer-account';
 
 export interface ExpiringPointsInfo {
   amount: number;

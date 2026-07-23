@@ -31,7 +31,6 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getS3Client, getAWSConfig } from "~/utils/aws-clients.server";
-import { v4 as uuidv4 } from "uuid";
 
 /**
  * Export file metadata

@@ -1,5 +1,5 @@
 /**
- * Klaviyo OAuth Connect Route
+ * Klaviyo OAuth Connect Route (flattened outside the Klaviyo UI route)
  *
  * Initiates the OAuth flow by redirecting merchants to Klaviyo's authorization page.
  * After authorization, Klaviyo redirects back to /api/klaviyo/callback

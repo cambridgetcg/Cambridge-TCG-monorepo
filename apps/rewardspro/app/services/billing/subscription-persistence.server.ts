@@ -6,7 +6,6 @@
  */
 
 import prisma from "../../db.server";
-import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { randomUUID } from "node:crypto";
 
 /**

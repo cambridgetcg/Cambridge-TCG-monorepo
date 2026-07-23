@@ -18,10 +18,10 @@ import {
   Badge,
   Box,
   Divider,
-  ProgressBar,
 } from "@shopify/polaris";
 import prisma from "../db.server";
 import { formatCurrency } from "~/utils/currency";
+import { settingsPath } from "~/navigation/routes";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
@@ -102,7 +102,7 @@ export default function RecalculateCashbackPage() {
   return (
     <Page
       title="Recalculate Cashback"
-      backAction={{ url: "/app/settings?tab=1", content: "Settings" }}
+      backAction={{ url: settingsPath("data-sync"), content: "Settings" }}
     >
       <Layout>
         <Layout.Section>

@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import type { Currency } from "@prisma/client";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import {
@@ -19,7 +20,6 @@ import {
   FormLayout,
   Divider,
   Toast,
-  Frame,
   Icon,
   EmptyState,
 } from "@shopify/polaris";
@@ -400,7 +400,7 @@ export default function GiftCardsConfigPage() {
   const navigation = useNavigation();
 
   const isSubmitting = navigation.state === "submitting";
-  const currency = (shopSettings?.storeCurrency || "USD") as import("@prisma/client").Currency;
+  const currency = (shopSettings?.storeCurrency || "USD") as Currency;
 
   // Toast state
   const [toastActive, setToastActive] = useState(false);
@@ -413,7 +413,7 @@ export default function GiftCardsConfigPage() {
   const [enableMembershipGifts, setEnableMembershipGifts] = useState(
     config?.enableMembershipGifts ?? true
   );
-  const [defaultTemplateSuffix, setDefaultTemplateSuffix] = useState(
+  const [defaultTemplateSuffix] = useState(
     config?.defaultTemplateSuffix || ""
   );
 
@@ -554,7 +554,7 @@ export default function GiftCardsConfigPage() {
   // No tiers setup
   if (tiers.length === 0) {
     return (
-      <Frame>
+      <>
         <Page title="Gift Cards" backAction={{ url: "/app/members", content: "Members" }}>
           <Layout>
             <Layout.Section>
@@ -576,7 +576,7 @@ export default function GiftCardsConfigPage() {
             </Layout.Section>
           </Layout>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -596,7 +596,7 @@ export default function GiftCardsConfigPage() {
   const tierOptions = tiers.map((t) => ({ label: t.name, value: t.id }));
 
   return (
-    <Frame>
+    <>
       <Page
         title="Gift Cards"
         subtitle="Configure tier-branded gift cards and membership bundles"
@@ -999,7 +999,7 @@ export default function GiftCardsConfigPage() {
           />
         )}
       </Page>
-    </Frame>
+    </>
   );
 }
 

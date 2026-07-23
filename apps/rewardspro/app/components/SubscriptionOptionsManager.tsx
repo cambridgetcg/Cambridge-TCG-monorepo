@@ -156,7 +156,8 @@ export function SubscriptionOptionsManager({
                 />
                 {options.enableMonthly && (
                   <TextField
-                    label=""
+                    label="Monthly discount"
+                    labelHidden
                     type="number"
                     value={options.monthlyDiscount}
                     onChange={(value) => handleDiscountChange('monthlyDiscount', value)}
@@ -179,7 +180,8 @@ export function SubscriptionOptionsManager({
                 />
                 {options.enableQuarterly && (
                   <TextField
-                    label=""
+                    label="Quarterly discount"
+                    labelHidden
                     type="number"
                     value={options.quarterlyDiscount}
                     onChange={(value) => handleDiscountChange('quarterlyDiscount', value)}
@@ -202,7 +204,8 @@ export function SubscriptionOptionsManager({
                 />
                 {options.enableAnnual && (
                   <TextField
-                    label=""
+                    label="Annual discount"
+                    labelHidden
                     type="number"
                     value={options.annualDiscount}
                     onChange={(value) => handleDiscountChange('annualDiscount', value)}

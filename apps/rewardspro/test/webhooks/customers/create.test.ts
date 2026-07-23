@@ -13,13 +13,10 @@
  * @module test/webhooks/customers/create
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   createWebhookTestContext,
-  createInvalidHmacRequest,
-  createNoHmacRequest,
   executeWebhookAction,
-  TEST_WEBHOOK_SECRET,
 } from '../../helpers/webhook-test-client';
 import {
   createCustomerPayload,
@@ -44,7 +41,7 @@ vi.mock('../../../app/services/webhook-customer-sync.server', () => ({
 
 // Mock PII masker
 vi.mock('../../../app/utils/pii-masker', () => ({
-  logSafeCustomer: vi.fn((id, email) => `Customer ID: ${id}`),
+  logSafeCustomer: vi.fn((id, _email) => `Customer ID: ${id}`),
 }));
 
 import { verifyWebhookHMAC } from '../../../app/utils/webhook-validation.server';

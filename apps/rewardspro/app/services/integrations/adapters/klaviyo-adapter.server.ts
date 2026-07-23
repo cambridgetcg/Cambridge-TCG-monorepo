@@ -7,7 +7,6 @@
  * @see https://developers.klaviyo.com/en/reference/api-overview
  */
 
-import { createHmac } from "node:crypto";
 import { BaseIntegrationAdapter } from "../base-adapter.server";
 import { registerAdapter } from "../integration-manager.server";
 import {
@@ -135,19 +134,6 @@ const KLAVIYO_CONFIG: IntegrationConfig = {
 // ═══════════════════════════════════════════════════════════════════════════
 // KLAVIYO API TYPES
 // ═══════════════════════════════════════════════════════════════════════════
-
-interface KlaviyoProfile {
-  type: "profile";
-  id: string;
-  attributes: {
-    email?: string;
-    phone_number?: string;
-    external_id?: string;
-    first_name?: string;
-    last_name?: string;
-    properties?: Record<string, unknown>;
-  };
-}
 
 interface KlaviyoEvent {
   type: "event";

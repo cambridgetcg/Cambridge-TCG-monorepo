@@ -3,6 +3,8 @@
  * Handles authentication errors, network failures, and session issues
  */
 
+import { useState, useCallback } from 'react';
+
 export enum ErrorCode {
   SESSION_EXPIRED = 'SESSION_EXPIRED',
   INVALID_TOKEN = 'INVALID_TOKEN',
@@ -300,6 +302,3 @@ export function useErrorRecovery() {
     clearError
   };
 }
-
-// Add React imports for the hook
-import { useState, useCallback } from 'react';

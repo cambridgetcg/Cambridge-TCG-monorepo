@@ -15,7 +15,6 @@
  */
 
 import prisma from "../db.server";
-import { getStreakIconInfo } from "../utils/points-icon-library";
 
 const LOG_PREFIX = "[RaffleStreak]";
 
@@ -174,7 +173,7 @@ function calculateHoursUntilStreakLoss(
  * Get default streak configuration
  * In the future, this could be shop-configurable
  */
-export async function getStreakConfig(shop: string): Promise<RaffleStreakConfig> {
+export async function getStreakConfig(_shop: string): Promise<RaffleStreakConfig> {
   // Could be extended to read from PointsConfig or a dedicated RaffleConfig
   return {
     streakBonusEnabled: true,

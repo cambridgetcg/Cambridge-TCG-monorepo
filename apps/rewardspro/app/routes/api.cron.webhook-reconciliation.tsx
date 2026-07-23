@@ -10,6 +10,7 @@ import { unauthenticated } from "../shopify.server";
 import { db } from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import * as crypto from "node:crypto";
 
 const JOB_NAME = "webhook-reconciliation";
 const LOCK_TTL_MINUTES = 30;
@@ -409,6 +410,3 @@ async function processReconciliationOrder(shop: string, order: any): Promise<voi
     console.log(`[WebhookReconciliation] Created order record for ${order.name}`);
   });
 }
-
-// Make crypto available
-import * as crypto from 'node:crypto';

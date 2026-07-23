@@ -10,8 +10,8 @@
  *   const result = await runner.run('newCustomerFirstOrder', 'shop.myshopify.com');
  */
 
-import { WebhookSimulator, type WebhookResult, type WebhookSimulatorConfig } from './webhook-simulator.js';
-import { ShopInspector, type ShopInspectionResult, type ShopInspectorConfig } from './shop-inspector.js';
+import { WebhookSimulator, type WebhookResult } from './webhook-simulator.js';
+import { ShopInspector, type ShopInspectionResult } from './shop-inspector.js';
 
 // ============================================================================
 // Types

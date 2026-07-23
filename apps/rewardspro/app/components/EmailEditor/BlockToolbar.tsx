@@ -11,8 +11,6 @@ import type { BlockToolbarProps } from "./types";
 export function BlockToolbar({
   onDelete,
   onDuplicate,
-  isFirst,
-  isLast,
 }: BlockToolbarProps) {
   return (
     <div

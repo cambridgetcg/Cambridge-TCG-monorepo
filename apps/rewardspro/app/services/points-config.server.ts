@@ -11,7 +11,7 @@
  */
 
 import prisma from "../db.server";
-import type { PointsConfig, PointsRoundingMode } from "@prisma/client";
+import type { PointsRoundingMode } from "@prisma/client";
 
 // ============================================
 // DEBUG LOGGING - Trace db object state

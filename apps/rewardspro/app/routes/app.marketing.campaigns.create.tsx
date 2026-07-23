@@ -1,4 +1,5 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs, redirect } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, Form, useActionData } from "@remix-run/react";
 import { useState } from "react";
 import {
@@ -15,15 +16,9 @@ import {
   Divider,
   Banner,
   Box,
-  InlineGrid,
   Badge,
-  Icon,
   FormLayout,
 } from "@shopify/polaris";
-import {
-  EmailIcon,
-  PersonIcon,
-} from "@shopify/polaris-icons";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
@@ -33,7 +28,7 @@ import {
   LimitExceededError,
 } from "~/utils/atomic-limit-control.server";
 import { checkLimitAccess } from "~/utils/require-feature.server";
-import { LimitHint, PageLimitStatus } from "~/components/Billing/UpgradePrompt";
+import { PageLimitStatus } from "~/components/Billing/UpgradePrompt";
 
 // ============================================
 // TYPES
@@ -171,7 +166,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const formData = await request.formData();
   const campaignName = formData.get("campaignName") as string;
-  const campaignGoal = formData.get("campaignGoal") as string;
   const contentMode = formData.get("contentMode") as string;
   const templateId = formData.get("templateId") as string;
   const segmentId = formData.get("segmentId") as string;
@@ -478,7 +472,8 @@ export default function CreateCampaign() {
                           >
                             <InlineStack gap="300" blockAlign="center">
                               <RadioButton
-                                label=""
+                                label={template.name}
+                                labelHidden
                                 checked={selectedTemplate === template.id}
                                 onChange={() => setSelectedTemplate(template.id)}
                                 name="templateRadio"
@@ -557,7 +552,8 @@ export default function CreateCampaign() {
                       <InlineStack align="space-between" blockAlign="center">
                         <InlineStack gap="300" blockAlign="center">
                           <RadioButton
-                            label=""
+                            label={segment.name}
+                            labelHidden
                             checked={selectedSegment === segment.id}
                             onChange={() => setSelectedSegment(segment.id)}
                             name="segmentRadio"
@@ -589,7 +585,8 @@ export default function CreateCampaign() {
                   >
                     <InlineStack gap="300" blockAlign="start">
                       <RadioButton
-                        label=""
+                        label="Send immediately"
+                        labelHidden
                         checked={scheduleType === "immediate"}
                         onChange={() => setScheduleType("immediate")}
                         name="scheduleRadio"
@@ -613,7 +610,8 @@ export default function CreateCampaign() {
                     <BlockStack gap="300">
                       <InlineStack gap="300" blockAlign="start">
                         <RadioButton
-                          label=""
+                          label="Schedule for later"
+                          labelHidden
                           checked={scheduleType === "scheduled"}
                           onChange={() => setScheduleType("scheduled")}
                           name="scheduleRadio"

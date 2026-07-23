@@ -4,9 +4,8 @@
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useActionData, useNavigation } from "@remix-run/react";
-import { StaggerChildren, PageLoader, usePageAnimation } from "~/components/PageAnimation";
 import {
   Page,
   Layout,
@@ -19,12 +18,9 @@ import {
   Badge,
   Box,
   Divider,
-  Icon,
   ButtonGroup,
   Modal,
-  Frame,
 } from "@shopify/polaris";
-import { CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { useState, useEffect } from "react";
 import prisma from "../db.server";
@@ -44,6 +40,7 @@ import {
   ULTRA_PLAN,
   ULTRA_ANNUAL_PLAN,
 } from "~/constants/plans";
+import { settingsPath } from "~/navigation/routes";
 
 // Map plan IDs to Shopify plan constants
 function getPlanConstant(planId: string): string {
@@ -661,10 +658,6 @@ export default function BillingPage() {
   // billing.check() can be slow to update after subscription approval
   const currentSubscription = data.appSubscriptions[0];
   const currentPlan = data.subscriptionInfo?.name || currentSubscription?.name;
-  const isCurrentPlanActive = data.subscriptionInfo?.status === 'ACTIVE' || data.hasActivePayment;
-
-  // Get detailed subscription data (pre-calculated in loader)
-  const subscriptionInfo = data.subscriptionInfo;
 
   // Define plan UI configurations with both monthly and annual pricing
   // tierLevel: 0 = Free, 1 = Pro, 2 = Max, 3 = Ultra (used for upgrade/downgrade logic)
@@ -763,11 +756,11 @@ export default function BillingPage() {
   const currentTierLevel = getCurrentTierLevel();
 
   return (
-    <Frame>
+    <>
       <Page
         title="Choose Your Plan"
         subtitle="Select the perfect plan for your business"
-        backAction={{ url: "/app/settings?tab=6", content: "Settings" }}
+        backAction={{ url: settingsPath("billing"), content: "Settings" }}
       >
       <Layout>
         <Layout.Section>
@@ -847,7 +840,13 @@ export default function BillingPage() {
             <Card>
               <Box padding="600">
                 <BlockStack gap="400">
-                  <div style={{ display: 'grid', gridTemplateColumns: '200px repeat(4, 1fr)', gap: '0', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e1e3e5' }}>
+                  <div
+                    className="rp-horizontal-scroll"
+                    role="region"
+                    aria-label="Plan comparison"
+                    tabIndex={0}
+                  >
+                  <div className="rp-plan-comparison-grid">
                     {/* Header Row */}
                     <div style={{ padding: '20px', backgroundColor: '#f6f6f7', borderBottom: '2px solid #e1e3e5' }}>
                       <BlockStack gap="100">
@@ -979,6 +978,7 @@ export default function BillingPage() {
                         </div>
                       );
                     })}
+                  </div>
                   </div>
                 </BlockStack>
               </Box>
@@ -1146,6 +1146,6 @@ export default function BillingPage() {
         </Modal.Section>
       </Modal>
       </Page>
-    </Frame>
+    </>
   );
 }

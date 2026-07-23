@@ -141,8 +141,6 @@ export async function reconcileLocalState(shop: string): Promise<ReconciliationR
       }
     }
 
-    // Determine if auto-fix is possible
-    const canAutoFix = mismatches.every(m => m.severity !== "CRITICAL");
     const hasHighSeverity = mismatches.some(m => m.severity === "HIGH" || m.severity === "CRITICAL");
 
     return {

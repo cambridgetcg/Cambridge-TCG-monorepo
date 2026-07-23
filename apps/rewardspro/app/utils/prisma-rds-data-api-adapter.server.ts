@@ -377,12 +377,19 @@ class RdsDataApiTransaction {
   readonly provider = "postgres" as const;
   readonly adapterName = "rds-data-api" as const;
   readonly options = { usePhantomQuery: false };
+  private readonly client: RDSDataClient;
+  private readonly config: { resourceArn: string; secretArn: string; database: string };
+  private readonly transactionId: string;
 
   constructor(
-    private readonly client: RDSDataClient,
-    private readonly config: { resourceArn: string; secretArn: string; database: string },
-    private readonly transactionId: string,
-  ) {}
+    client: RDSDataClient,
+    config: { resourceArn: string; secretArn: string; database: string },
+    transactionId: string,
+  ) {
+    this.client = client;
+    this.config = config;
+    this.transactionId = transactionId;
+  }
 
   async queryRaw(query: PrismaSqlQuery): Promise<PrismaSqlResultSet> {
     const { records, columnMetadata } = await executeStatement(

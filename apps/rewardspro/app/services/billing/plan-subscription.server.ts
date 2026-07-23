@@ -419,7 +419,7 @@ async function saveBillingSubscription(
   shop: string,
   planType: string,
   subscriptionId: string,
-  planName: string
+  _planName: string
 ): Promise<void> {
   try {
     await prisma.billingSubscription.upsert({
@@ -456,7 +456,7 @@ async function saveBillingSubscription(
  */
 export async function cancelSubscription(
   shop: string,
-  billing: any
+  _billing: any
 ): Promise<BillingResult> {
   try {
     console.log(`[BillingService] Cancelling subscription for ${shop}`);

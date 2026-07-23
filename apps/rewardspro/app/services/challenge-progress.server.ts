@@ -15,7 +15,7 @@ import type {
   ChallengeParticipantStatus,
   ObjectiveConfig,
 } from "./challenge-management.server";
-import { processMissionCompletion, type MissionCompletionResult } from "./mission-stats.server";
+import { processMissionCompletion } from "./mission-stats.server";
 
 const LOG_PREFIX = "[ChallengeProgress]";
 
@@ -111,8 +111,6 @@ export async function updateChallengeProgress(
       challengeId_customerId: { challengeId, customerId },
     },
   });
-
-  const wasNewParticipant = !participant;
 
   if (!participant) {
     // Auto-enroll the customer

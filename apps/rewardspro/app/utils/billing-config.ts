@@ -268,7 +268,7 @@ export function formatMoneyInput(amount: number | string): string {
 /**
  * Get currency code (could be extended to support multiple currencies)
  */
-export function getCurrencyCode(shop?: string): string {
+export function getCurrencyCode(_shop?: string): string {
   // TODO: Could look up shop settings for currency
   return "USD";
 }

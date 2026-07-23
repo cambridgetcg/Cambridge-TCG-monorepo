@@ -223,7 +223,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
         });
 
         // Process daily usage batch
-        const appUrl = process.env.SHOPIFY_APP_URL!;
         const usageService = new UsageRecordService(
           { graphql: adminClient.query.bind(adminClient) } as any,
           subscription.shop

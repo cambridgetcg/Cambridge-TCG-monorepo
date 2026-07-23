@@ -1,3 +1,4 @@
+// Resource route kept outside the analytics UI route while preserving its public URL.
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { analytics } from "../services/analytics/aggregator.service";

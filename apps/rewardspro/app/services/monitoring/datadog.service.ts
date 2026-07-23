@@ -117,7 +117,7 @@ export class DatadogService {
     },
 
     // Tier change metrics
-    trackTierChange(fromTier: string, toTier: string, customerId: string) {
+    trackTierChange(fromTier: string, toTier: string, _customerId: string) {
       this.increment('loyalty.tier.change', 1, [
         `from_tier:${fromTier}`,
         `to_tier:${toTier}`,

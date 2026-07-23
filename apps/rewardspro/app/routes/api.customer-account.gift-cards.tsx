@@ -27,7 +27,6 @@ import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-r
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { customerActionRateLimit } from "~/utils/rate-limiter-redis";
-import { GiftCardService } from "~/services/gift-card";
 
 // ============================================================================
 // Configurable Logging
@@ -297,7 +296,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return json({ error: "Invalid JSON body" }, { status: 400, headers });
   }
 
-  const { action: actionType, customer_id, amount, recipient_email, message } = body;
+  const { action: actionType, customer_id, amount, recipient_email } = body;
 
   if (!customer_id) {
     return json({ error: "Customer ID required" }, { status: 400, headers });
@@ -334,12 +333,6 @@ export async function action({ request }: ActionFunctionArgs) {
         { status: 400, headers }
       );
     }
-
-    // Get shop settings for currency
-    const shopSettings = await prisma.shopSettings.findUnique({
-      where: { shop },
-      select: { storeCurrency: true },
-    });
 
     // Get admin API context for gift card creation
     // Note: This requires admin API access which we don't have in customer account context

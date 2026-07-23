@@ -1,7 +1,6 @@
 import {
   BlockStack,
   Box,
-  Button,
   Card,
   Divider,
   InlineStack,
@@ -47,7 +46,6 @@ export function SystemMonitorPlanCard({
   activeSubscription,
   currentPlan,
   monthlyOrderUsage,
-  showUpgradeButton = true,
   showOverageBanner = true,
   onUpgrade,
 }: SystemMonitorPlanCardProps) {
@@ -64,8 +62,6 @@ export function SystemMonitorPlanCard({
   const averageDailyOrders = monthlyOrderUsage?.orderCount
     ? (monthlyOrderUsage.orderCount / (daysInCycle - daysRemaining))
     : 0;
-
-  const peakDailyOrders = Math.ceil(averageDailyOrders * 1.8); // Estimate peak as 180% of average
 
   // Calculate days to limit
   const remainingOrders = (monthlyOrderUsage?.planLimit || 0) - (monthlyOrderUsage?.orderCount || 0);

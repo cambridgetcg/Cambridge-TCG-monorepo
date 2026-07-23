@@ -6,8 +6,6 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import { db } from "~/db.server";
 import type { BillingInterval } from "@prisma/client";
-type Decimal = number | string | { toNumber(): number };
-import { GraphqlQueryError } from "@shopify/shopify-api";
 
 interface UpdatePricingInput {
   shop: string;
@@ -393,7 +391,6 @@ export class SubscriptionPricingManager {
     shop,
     sellingPlanId,
     newPrice,
-    discountPercentage,
   }: {
     shop: string;
     sellingPlanId: string;
@@ -632,7 +629,6 @@ export class SubscriptionPricingManager {
    * Update individual subscription contract in Shopify
    */
   private static async updateSubscriptionContract({
-    admin,
     contractId,
     newPrice,
     effectiveDate,

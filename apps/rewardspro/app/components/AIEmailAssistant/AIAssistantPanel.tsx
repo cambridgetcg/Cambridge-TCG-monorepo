@@ -35,6 +35,12 @@ import { useAIAssistant, type AIContext } from "~/hooks/useAIAssistant";
 
 type AIMode = "generate" | "enhance" | "subject";
 
+const MODE_TABS = [
+  { id: "generate", content: "Generate", accessibilityLabel: "Generate new content" },
+  { id: "enhance", content: "Enhance", accessibilityLabel: "Enhance existing content" },
+  { id: "subject", content: "Subjects", accessibilityLabel: "Generate subject lines" },
+];
+
 interface AIAssistantPanelProps {
   /** Current template type (tier_welcome, promotional, etc.) */
   templateType: string;
@@ -192,22 +198,15 @@ export function AIAssistantPanel({
     }
   }, [streamedContent]);
 
-  // Mode tabs
-  const modeTabs = [
-    { id: "generate", content: "Generate", accessibilityLabel: "Generate new content" },
-    { id: "enhance", content: "Enhance", accessibilityLabel: "Enhance existing content" },
-    { id: "subject", content: "Subjects", accessibilityLabel: "Generate subject lines" },
-  ];
-
-  const selectedTabIndex = modeTabs.findIndex(t => t.id === mode);
+  const selectedTabIndex = MODE_TABS.findIndex(t => t.id === mode);
 
   const handleTabChange = useCallback((index: number) => {
-    const newMode = modeTabs[index].id as AIMode;
+    const newMode = MODE_TABS[index].id as AIMode;
     setMode(newMode);
     reset();
     setGeneratedSubjects([]);
     setPrompt("");
-  }, [modeTabs, reset]);
+  }, [reset]);
 
   // Disabled state
   if (disabled) {
@@ -234,7 +233,7 @@ export function AIAssistantPanel({
       </InlineStack>
 
       {/* Mode Tabs */}
-      <Tabs tabs={modeTabs} selected={selectedTabIndex} onSelect={handleTabChange} fitted />
+      <Tabs tabs={MODE_TABS} selected={selectedTabIndex} onSelect={handleTabChange} fitted />
 
       <Divider />
 

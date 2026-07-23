@@ -25,10 +25,16 @@ export interface Generator {
 }
 
 export class AnthropicGenerator implements Generator {
+  private readonly model: string;
+  private readonly maxTokens: number;
+
   constructor(
-    private readonly model: string = "claude-opus-4-7",
-    private readonly maxTokens: number = 8192
-  ) {}
+    model: string = "claude-opus-4-7",
+    maxTokens: number = 8192
+  ) {
+    this.model = model;
+    this.maxTokens = maxTokens;
+  }
 
   async generate(systemPrompt: string, userPrompt: string): Promise<GenerationResult> {
     const client = new Anthropic();
@@ -60,7 +66,12 @@ export class AnthropicGenerator implements Generator {
  * the scorer can be regression-tested.
  */
 export class MockGenerator implements Generator {
-  constructor(private readonly fixture: string) {}
+  private readonly fixture: string;
+
+  constructor(fixture: string) {
+    this.fixture = fixture;
+  }
+
   async generate(): Promise<GenerationResult> {
     return {
       text: this.fixture,

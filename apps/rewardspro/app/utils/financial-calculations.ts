@@ -97,7 +97,6 @@ export class FinancialDecimal {
     if (decimals === this.decimals) return this;
 
     const currentDivisor = Math.pow(10, this.decimals);
-    const newMultiplier = Math.pow(10, decimals);
     const value = Number(this.cents) / currentDivisor;
 
     return new FinancialDecimal(value, decimals);

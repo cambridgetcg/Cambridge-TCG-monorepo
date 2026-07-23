@@ -7,7 +7,8 @@
  * GET /api/email/domain - Get domain status
  */
 
-import { json, ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import sendgrid from "~/services/sendgrid.server";

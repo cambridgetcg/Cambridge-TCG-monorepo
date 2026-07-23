@@ -165,7 +165,6 @@ export class NarrativeGenerator {
     comparison?: ComparisonResult
   ): MetricNarrative {
     const explanation = METRIC_EXPLANATIONS[metric];
-    const formattedValue = this.formatValue(metric, value);
 
     const summary = this.generateMetricSummary(metric, value, comparison);
     const context = explanation
@@ -219,9 +218,7 @@ export class NarrativeGenerator {
     // Find notable points
     const values = dataPoints.map(d => d.value);
     const max = Math.max(...values);
-    const min = Math.min(...values);
     const maxIndex = values.indexOf(max);
-    const minIndex = values.indexOf(min);
 
     const keyPoints: string[] = [];
     const metricLabel = this.formatMetricLabel(metric);

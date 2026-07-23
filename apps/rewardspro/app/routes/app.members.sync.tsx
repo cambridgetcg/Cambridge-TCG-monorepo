@@ -4,7 +4,6 @@ import { useLoaderData } from "@remix-run/react";
 import {
   Page,
   Card,
-  Button,
   Text,
   Box,
   InlineStack,
@@ -13,9 +12,8 @@ import {
   Badge,
   List,
   Toast,
-  Frame,
 } from "@shopify/polaris";
-import { SyncProgressCard, type SyncStatus } from "~/components/SyncActionCard";
+import { SyncProgressCard } from "~/components/SyncActionCard";
 import { useToast } from "~/hooks/useToast";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
@@ -335,7 +333,7 @@ export default function CustomersSyncPage() {
   };
 
   return (
-    <Frame>
+    <>
       <Page
         title="Customer Sync"
         subtitle="Import and update customer data from Shopify"
@@ -596,6 +594,6 @@ export default function CustomersSyncPage() {
         onDismiss={hideToast}
       />
     )}
-    </Frame>
+    </>
   );
 }

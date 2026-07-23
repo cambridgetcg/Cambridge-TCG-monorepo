@@ -234,7 +234,6 @@ export interface PageAnimationState {
  */
 export function usePageAnimation(): PageAnimationState {
   const navigation = useNavigation();
-  const location = useLocation();
   const reducedMotion = useReducedMotion();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [navigationProgress, setNavigationProgress] = useState(0);

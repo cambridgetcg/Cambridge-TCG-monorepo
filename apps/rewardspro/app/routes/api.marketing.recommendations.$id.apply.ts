@@ -1,4 +1,5 @@
-import { json, ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
 import prisma from "~/db.server";

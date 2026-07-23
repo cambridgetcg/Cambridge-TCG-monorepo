@@ -15,7 +15,6 @@ const {
   DynamoDBClient,
   GetItemCommand,
   PutItemCommand,
-  UpdateItemCommand,
 } = require("@aws-sdk/client-dynamodb");
 
 // =============================================================================

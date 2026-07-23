@@ -159,7 +159,6 @@ function MysteryBoxCard({
   box,
   pointsBalance,
   currencyName,
-  currencyIcon,
   onOpen,
   isOpening,
   translate,

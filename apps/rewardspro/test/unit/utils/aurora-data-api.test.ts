@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
 import {
   RDSDataClient,
@@ -274,7 +274,7 @@ describe('Aurora Data API Client', () => {
 
       let executionCount = 0;
 
-      await client.transaction(async (txId) => {
+      await client.transaction(async (_txId) => {
         // Simulate multiple operations within transaction
         executionCount++;
 

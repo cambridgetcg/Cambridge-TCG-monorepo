@@ -189,7 +189,7 @@ export function parseCurrencyString(
   currency?: Currency
 ): number {
   // Remove currency symbols and spaces
-  let cleaned = value.replace(/[^\d.,\-]/g, '');
+  let cleaned = value.replace(/[^\d.,-]/g, '');
 
   // Handle different decimal separators (. vs ,)
   // Assume last separator is decimal point

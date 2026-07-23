@@ -18,6 +18,11 @@ import {
   GROWTH_PLAN,
 } from "~/constants/plans";
 import {
+  getOrderLimit,
+  getTierLimit,
+  getPlanLimit,
+} from '~/constants/plan-limits';
+import {
   getCachedEntitlements,
   setCachedEntitlements,
   invalidateEntitlementsCache,
@@ -82,14 +87,6 @@ export type LimitKey =
   // Marketing limits (P3)
   | 'maxCampaigns'
   | 'maxAutomationFlows';
-
-// Plan limits are derived from plan-limits.ts (single source of truth)
-import {
-  getOrderLimit,
-  getTierLimit,
-  getPlanLimit,
-  normalizePlanName as normalizeToPlanLimitsName,
-} from '~/constants/plan-limits';
 
 // DEPRECATED: Use getOrderLimit() from plan-limits.ts directly.
 // Kept for backward compatibility — will be removed in future cleanup.

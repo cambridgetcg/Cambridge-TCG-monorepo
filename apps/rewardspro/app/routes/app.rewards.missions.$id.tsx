@@ -13,14 +13,12 @@ import {
   Text,
   Badge,
   Toast,
-  Frame,
   Divider,
   Modal,
   FormLayout,
   TextField,
   Select,
   Checkbox,
-  ProgressBar,
   Box,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
@@ -32,7 +30,6 @@ import {
   deleteChallenge,
   transitionChallengeStatus,
   setChallengeReward,
-  type ChallengeStatus,
   type ChallengeObjectiveType,
   type ChallengeRewardType,
 } from "../services/challenge-management.server";
@@ -558,7 +555,7 @@ export default function ChallengeDetailPage() {
   };
 
   return (
-    <Frame>
+    <>
       <Page
         title={data.isNew ? "Create Mission" : challenge?.name || "Mission"}
         subtitle={data.isNew ? "Set up a new mission for your customers" : `${getObjectiveLabel(objectiveType)} mission`}
@@ -963,6 +960,6 @@ export default function ChallengeDetailPage() {
           onDismiss={() => setToastActive(false)}
         />
       )}
-    </Frame>
+    </>
   );
 }
