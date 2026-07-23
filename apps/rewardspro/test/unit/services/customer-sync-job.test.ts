@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach, Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
 
 // Mock the database
 vi.mock('../../../app/db.server', () => ({
@@ -522,7 +522,7 @@ describe('Customer Sync Job Service', () => {
       (db.customer.create as Mock).mockResolvedValue({});
       (db.customerSyncJob.update as Mock).mockResolvedValue(updatedJob);
 
-      const result = await processNextBatch('job-123', mockAdmin);
+      await processNextBatch('job-123', mockAdmin);
 
       expect(db.customerSyncJob.update).toHaveBeenCalledWith({
         where: { id: 'job-123' },

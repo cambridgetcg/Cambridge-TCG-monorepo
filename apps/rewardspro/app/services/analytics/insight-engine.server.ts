@@ -10,6 +10,7 @@
 
 import { db } from "~/db.server";
 import { getCached, setCache } from "~/utils/analytics-cache.server";
+import { APP_ROUTES } from "~/navigation/routes";
 
 // Cache TTL constants
 const INSIGHTS_CACHE_TTL = 60_000; // 60 seconds
@@ -463,7 +464,7 @@ export class InsightEngine {
           value: tierStats.upgradeRate,
           action: {
             label: 'Review Tier Settings',
-            href: '/app/settings/tiers',
+            href: APP_ROUTES.MEMBERS.TIERS,
             priority: 'low',
           },
           context: {

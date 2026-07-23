@@ -2,7 +2,6 @@
  * WidgetRegistry - Central registry of all available dashboard widgets
  */
 
-import type { ComponentType } from "react";
 import type { WidgetSize } from "./BaseWidget";
 
 export type WidgetCategory = 'kpi' | 'chart' | 'table' | 'insight' | 'comparison';

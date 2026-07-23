@@ -8,21 +8,18 @@
  *   npx tsx scripts/claude-design-bridge/cli.ts score <file>
  *   npx tsx scripts/claude-design-bridge/cli.ts test
  */
+import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import * as dotenv from "dotenv";
-
-// Load .env before importing anything that reads process.env at construct-
-// time (Anthropic SDK picks up ANTHROPIC_API_KEY when new Anthropic() is
-// called, which happens inside generator.ts — so this order matters).
-dotenv.config();
 
 import { loadHandoff } from "./handoff";
 import { PROMPTS, getPrompt } from "./prompts";
 import { AnthropicGenerator, extractCode } from "./generator";
 import { score, formatScoreCard } from "./scorer";
 
+// dotenv/config is imported first so the Anthropic SDK can read
+// ANTHROPIC_API_KEY when the generator constructs its client.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUTS = path.resolve(__dirname, "outputs");
 

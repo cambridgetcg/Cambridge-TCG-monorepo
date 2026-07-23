@@ -9,8 +9,6 @@
  * for calculations, then convert back for display.
  */
 
-import type { Currency } from '@prisma/client';
-
 /**
  * Exchange rates: How much 1 unit of foreign currency equals in USD
  * E.g., EUR: 1.09 means €1 = $1.09 USD

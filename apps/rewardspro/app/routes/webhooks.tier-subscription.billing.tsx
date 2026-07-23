@@ -76,11 +76,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             return new Response("OK", { status: 200 });
           }
 
-          // Fetch related data
-          const [customer, tier] = await Promise.all([
-            prisma.customer.findUnique({ where: { id: subscription.customerId } }),
-            prisma.tier.findUnique({ where: { id: subscription.tierId } }),
-          ]);
+          // Fetch related customer data
+          const customer = await prisma.customer.findUnique({
+            where: { id: subscription.customerId },
+          });
 
           if (isSuccess) {
             await handleSuccessfulBilling(shop, subscription, billingAttempt, idempotencyKey, customer);

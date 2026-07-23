@@ -147,7 +147,6 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
     championsCount,
     loyalCount,
     hibernatingCount,
-    redeemingCustomers,
   ] = await Promise.all([
     // Active in last 30 days
     prisma.customer.count({
@@ -186,10 +185,6 @@ async function fetchCustomerBehaviourData(shop: string): Promise<CustomerBehavio
     prisma.customer.count({
       where: { shop, lastOrderDate: { lt: ninetyDaysAgo }, totalSpent: { lt: ltvThreshold * 0.3 } },
     }),
-    // Customers who used store credit
-    prisma.customer.count({
-      where: { shop, storeCredit: { lt: 0 } },
-    }).catch(() => 0),
   ]);
 
   console.log(`[RFM Segmentation] RFM counts fetched`);

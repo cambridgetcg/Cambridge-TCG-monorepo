@@ -41,7 +41,6 @@
   }
   var RP = window.RPUtils;
   var log = RP.logger('RafflesWidget');
-  var sanitizeColor = RP.sanitize.color;
   var sanitizeNumber = RP.sanitize.number;
 
   // Widget-specific tuning. HTTP defaults come from RP.fetchWithRetry;

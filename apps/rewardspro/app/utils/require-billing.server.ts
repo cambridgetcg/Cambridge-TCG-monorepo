@@ -17,7 +17,9 @@ import {
   MAX_ANNUAL_PLAN,
   ULTRA_PLAN,
   ULTRA_ANNUAL_PLAN,
+  ENTERPRISE_PLAN,
 } from "~/constants/plans";
+import { getPlanKey } from "~/constants/pricing-contract";
 
 // Type for the billing object from authenticate.admin()
 type BillingContext = {
@@ -59,7 +61,7 @@ export async function requireActiveSubscription(
   }
 ): Promise<void> {
   await billing.require({
-    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN],
+    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
     isTest: options?.isTest ?? process.env.NODE_ENV === "development",
     onFailure: async () => redirect(options?.redirectTo ?? "/app/billing"),
   });
@@ -85,7 +87,7 @@ export async function requireProOrHigher(
   }
 ): Promise<void> {
   await billing.require({
-    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN],
+    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
     isTest: options?.isTest ?? process.env.NODE_ENV === "development",
     onFailure: async () => redirect(options?.redirectTo ?? "/app/billing?upgrade=pro"),
   });
@@ -111,7 +113,7 @@ export async function requireMaxOrHigher(
   }
 ): Promise<void> {
   await billing.require({
-    plans: [MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN],
+    plans: [MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
     isTest: options?.isTest ?? process.env.NODE_ENV === "development",
     onFailure: async () => redirect(options?.redirectTo ?? "/app/billing?upgrade=max"),
   });
@@ -137,7 +139,7 @@ export async function requireUltra(
   }
 ): Promise<void> {
   await billing.require({
-    plans: [ULTRA_PLAN, ULTRA_ANNUAL_PLAN],
+    plans: [ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
     isTest: options?.isTest ?? process.env.NODE_ENV === "development",
     onFailure: async () => redirect(options?.redirectTo ?? "/app/billing?upgrade=ultra"),
   });
@@ -162,7 +164,7 @@ export async function checkBillingStatus(
   }
 ): Promise<boolean> {
   const billingCheck = await billing.check({
-    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN],
+    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
     isTest: options?.isTest ?? process.env.NODE_ENV === "development",
   });
 
@@ -186,12 +188,12 @@ export async function getCurrentPlan(
   }
 ): Promise<{
   name: string | null;
-  tier: "free" | "pro" | "max" | "ultra";
+  tier: "free" | "pro" | "max" | "ultra" | "enterprise";
   isAnnual: boolean;
   test: boolean;
 } | null> {
   const billingCheck = await billing.check({
-    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN],
+    plans: [PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, ENTERPRISE_PLAN],
     isTest: options?.isTest ?? process.env.NODE_ENV === "development",
   });
 
@@ -203,19 +205,8 @@ export async function getCurrentPlan(
   const planName = subscription.name;
 
   // Determine tier and if annual
-  let tier: "free" | "pro" | "max" | "ultra" = "free";
-  let isAnnual = false;
-
-  if (planName.includes("Ultra")) {
-    tier = "ultra";
-    isAnnual = planName.includes("Annual");
-  } else if (planName.includes("Max")) {
-    tier = "max";
-    isAnnual = planName.includes("Annual");
-  } else if (planName.includes("Pro")) {
-    tier = "pro";
-    isAnnual = planName.includes("Annual");
-  }
+  const tier = getPlanKey(planName);
+  const isAnnual = planName.includes("Annual");
 
   return {
     name: planName,
@@ -232,13 +223,13 @@ export async function getCurrentPlan(
  */
 
 /**
- * Require white-label email features (Max+)
+ * Require white-label email features (Corporate+)
  */
 export async function requireWhiteLabelEmail(
   billing: BillingContext,
   options?: { redirectTo?: string; isTest?: boolean }
 ): Promise<void> {
-  await requireMaxOrHigher(billing, {
+  await requireUltra(billing, {
     redirectTo: options?.redirectTo ?? "/app/billing?feature=email",
     isTest: options?.isTest,
   });

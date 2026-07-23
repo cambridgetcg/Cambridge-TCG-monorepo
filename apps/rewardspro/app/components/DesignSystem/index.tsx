@@ -3,7 +3,7 @@
  * Reusable components following our design system guidelines
  */
 
-import React, { useState, useCallback, useEffect, ReactNode } from 'react';
+import React from 'react';
 import {
   Page,
   Layout,
@@ -17,7 +17,6 @@ import {
   Grid,
   SkeletonBodyText,
   SkeletonDisplayText,
-  Spinner,
   EmptyState,
   Icon,
   Divider,
@@ -25,28 +24,17 @@ import {
   TextField,
   Select,
   DataTable,
-  Thumbnail,
   Avatar,
   Banner,
-  Modal,
-  FormLayout,
-  Tabs,
-  Tooltip,
 } from '@shopify/polaris';
 import {
-  PersonIcon,
   CashDollarIcon,
-  StarIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   SearchIcon,
-  FilterIcon,
-  ExportIcon,
-  ImportIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
   InfoIcon,
-  RewardIcon,
 } from '@shopify/polaris-icons';
 // IconSource is replaced with Icon component in newer Polaris
 
@@ -175,17 +163,8 @@ export function EnhancedDataTable({
   columns,
   rows,
   loading = false,
-  selectable = false,
-  onSelectionChange,
   emptyState,
 }: EnhancedDataTableProps) {
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-
-  const handleSelectionChange = useCallback((selected: string[]) => {
-    setSelectedItems(selected);
-    onSelectionChange?.(selected);
-  }, [onSelectionChange]);
-
   if (loading) {
     return (
       <Card>
@@ -374,7 +353,8 @@ export function SearchFilterBar({
           <InlineStack gap="300" align="space-between" blockAlign="center">
             <div style={{ flex: 1, maxWidth: '400px' }}>
               <TextField
-                label=""
+                label="Search"
+                labelHidden
                 value={searchValue}
                 onChange={onSearchChange}
                 placeholder="Search..."

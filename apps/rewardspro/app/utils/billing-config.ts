@@ -3,13 +3,16 @@
  * Centralized configuration for GraphQL billing migration
  */
 
+import {
+  PRICING_PLANS,
+  getPlanFeatureSummary,
+  type PlanKey,
+} from "~/constants/pricing-contract";
+
 export interface PlanConfig {
   name: string;
   price: string; // String format for MoneyInput
   orderLimit: number;
-  usageRate?: string; // Price per order overage
-  usageCap?: string; // Maximum usage charge per month
-  usageTerms?: string; // Description of usage pricing
   features: string[];
   trialDays?: number;
 }
@@ -27,6 +30,52 @@ export interface BillingConfigType {
   migrationDeadline: Date;
 }
 
+function createPlanConfig(
+  planKey: PlanKey,
+  interval: "month" | "year" = "month",
+): PlanConfig {
+  const plan = PRICING_PLANS[planKey];
+  const annualPrice = plan.annualPrice;
+  const isAnnual = interval === "year" && annualPrice !== null;
+
+  return {
+    name: isAnnual && plan.annualBillingName
+      ? plan.annualBillingName
+      : plan.billingName,
+    price: (isAnnual ? annualPrice : plan.monthlyPrice).toFixed(2),
+    orderLimit: plan.limits.orders,
+    features: getPlanFeatureSummary(planKey),
+    trialDays: plan.trialDays,
+  };
+}
+
+function createBillingPlans(): Record<string, PlanConfig> {
+  const free = createPlanConfig("free");
+  const pro = createPlanConfig("pro");
+  const max = createPlanConfig("max");
+  const ultra = createPlanConfig("ultra");
+  const enterprise = createPlanConfig("enterprise");
+
+  return {
+    free,
+    pro,
+    proAnnual: createPlanConfig("pro", "year"),
+    max,
+    maxAnnual: createPlanConfig("max", "year"),
+    ultra,
+    ultraAnnual: createPlanConfig("ultra", "year"),
+    enterprise,
+
+    // Compatibility aliases. They create the current fixed-price plans while
+    // legacy subscription names remain readable through the plan normalizer.
+    starter: { ...pro },
+    growth: { ...max },
+    grow: { ...pro },
+    scale: { ...max },
+    corporate: { ...ultra },
+  };
+}
+
 /**
  * Main billing configuration
  * Controls feature flags and plan definitions
@@ -36,170 +85,12 @@ export const BillingConfig: BillingConfigType = {
   useNewBilling: process.env.USE_NEW_BILLING === 'true',
   isDevelopment: process.env.NODE_ENV === 'development',
 
-  // Plan definitions - RATE-BASED MODEL
-  // All plans have access to all features - differentiation is through LIMITS
-  plans: {
-    free: {
-      name: "RewardsPro Free",
-      price: "0.00",
-      orderLimit: 50,
-      features: [
-        "All features included",
-        "50 orders/month",
-        "500 customers",
-        "50 emails/month",
-        "2 membership tiers",
-        "7 days analytics history"
-      ]
-    },
-    pro: {
-      name: "RewardsPro Pro",
-      price: "39.00",
-      orderLimit: 500,
-      usageRate: "0.10", // $0.10 per order over limit ($10 per 100 orders)
-      usageCap: "50.00", // Max $50 additional charges
-      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $50/month)",
-      features: [
-        "All features included",
-        "500 orders/month",
-        "5,000 customers",
-        "500 emails/month",
-        "5 membership tiers",
-        "30 days analytics history"
-      ],
-      trialDays: 7
-    },
-    proAnnual: {
-      name: "RewardsPro Pro Annual",
-      price: "336.00", // $28/month billed annually - 28% discount
-      orderLimit: 500,
-      usageRate: "0.10",
-      usageCap: "50.00",
-      usageTerms: "$10 per 100 additional orders over 500 orders/month (max $50/month)",
-      features: [
-        "All features included",
-        "500 orders/month",
-        "5,000 customers",
-        "500 emails/month",
-        "5 membership tiers",
-        "30 days analytics history",
-        "💰 Save $132/year (28% discount)"
-      ],
-      trialDays: 7
-    },
-    max: {
-      name: "RewardsPro Max",
-      price: "149.00",
-      orderLimit: 2000,
-      usageRate: "0.05", // $0.05 per order over limit ($5 per 100 orders)
-      usageCap: "100.00", // Max $100 additional charges
-      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $100/month)",
-      features: [
-        "All features included",
-        "2,000 orders/month",
-        "25,000 customers",
-        "2,000 emails/month",
-        "10 membership tiers",
-        "90 days analytics history"
-      ],
-      trialDays: 7
-    },
-    maxAnnual: {
-      name: "RewardsPro Max Annual",
-      price: "1296.00", // $108/month billed annually - 27% discount
-      orderLimit: 2000,
-      usageRate: "0.05",
-      usageCap: "100.00",
-      usageTerms: "$5 per 100 additional orders over 2,000 orders/month (max $100/month)",
-      features: [
-        "All features included",
-        "2,000 orders/month",
-        "25,000 customers",
-        "2,000 emails/month",
-        "10 membership tiers",
-        "90 days analytics history",
-        "💰 Save $492/year (27% discount)"
-      ],
-      trialDays: 7
-    },
-    ultra: {
-      name: "RewardsPro Ultra",
-      price: "499.00",
-      orderLimit: 999999, // Effectively unlimited
-      features: [
-        "All features included",
-        "Unlimited orders",
-        "Unlimited customers",
-        "Unlimited emails",
-        "Unlimited tiers",
-        "Unlimited analytics history",
-        "Dedicated support"
-      ],
-      trialDays: 14
-    },
-    ultraAnnual: {
-      name: "RewardsPro Ultra Annual",
-      price: "4296.00", // $358/month billed annually - 28% discount
-      orderLimit: 999999,
-      features: [
-        "All features included",
-        "Unlimited orders",
-        "Unlimited customers",
-        "Unlimited emails",
-        "Unlimited tiers",
-        "Unlimited analytics history",
-        "Dedicated support",
-        "💰 Save $1,692/year (28% discount)"
-      ],
-      trialDays: 14
-    },
-    // Legacy plans - keeping for backward compatibility
-    starter: {
-      name: "Starter Plan",
-      price: "49.00",
-      orderLimit: 1000,
-      usageRate: "0.001",
-      usageCap: "50.00",
-      features: [
-        "1,000 orders/month",
-        "Advanced tiers",
-        "Priority email support",
-        "Analytics dashboard"
-      ],
-      trialDays: 7
-    },
-    growth: {
-      name: "Growth Plan",
-      price: "99.00",
-      orderLimit: 10000,
-      usageRate: "0.001",
-      usageCap: "100.00",
-      features: [
-        "10,000 orders/month",
-        "Unlimited tiers",
-        "Priority support",
-        "Advanced analytics",
-        "Custom branding"
-      ],
-      trialDays: 7
-    },
-    enterprise: {
-      name: "Enterprise",
-      price: "299.00",
-      orderLimit: -1,
-      features: [
-        "Unlimited orders",
-        "Dedicated support",
-        "Custom features",
-        "API access",
-        "White-label options"
-      ],
-      trialDays: 14
-    }
-  },
+  // Fixed recurring plans only. Legacy IDs below resolve to a current plan;
+  // no path creates a new usage-priced subscription.
+  plans: createBillingPlans(),
 
   // Global trial period (can be overridden per plan)
-  trialDays: 7,
+  trialDays: 0,
 
   // Replacement behavior for plan changes
   replacementBehavior: {
@@ -268,7 +159,7 @@ export function formatMoneyInput(amount: number | string): string {
 /**
  * Get currency code (could be extended to support multiple currencies)
  */
-export function getCurrencyCode(shop?: string): string {
+export function getCurrencyCode(_shop?: string): string {
   // TODO: Could look up shop settings for currency
   return "USD";
 }

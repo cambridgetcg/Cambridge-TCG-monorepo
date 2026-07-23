@@ -529,7 +529,6 @@ export function MissionsTab({
   pendingEvents,
   isLoading,
   error,
-  config,
   message,
   onClaimReward,
   onAcknowledgeEvents,

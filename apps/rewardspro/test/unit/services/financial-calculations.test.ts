@@ -40,11 +40,10 @@ function calculateCashback(
 // Convert between currencies
 function convertCurrency(
   amount: number,
-  fromCurrency: string,
+  _fromCurrency: string,
   toCurrency: string,
   exchangeRate: number
 ): number {
-  const fromDecimals = CURRENCY_DECIMALS[fromCurrency] ?? 2;
   const toDecimals = CURRENCY_DECIMALS[toCurrency] ?? 2;
 
   // Convert to base currency value

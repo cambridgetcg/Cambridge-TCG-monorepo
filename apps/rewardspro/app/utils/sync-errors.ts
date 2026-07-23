@@ -155,7 +155,7 @@ export class ErrorAggregator {
   getSummary(): string[] {
     const summary: string[] = [];
     
-    for (const [key, data] of this.errors.entries()) {
+    for (const data of this.errors.values()) {
       const message = getUserFriendlyErrorMessage(data.lastError);
       if (data.count > 1) {
         summary.push(`${message} (occurred ${data.count} times)`);

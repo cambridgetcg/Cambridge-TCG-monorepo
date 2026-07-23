@@ -8,6 +8,7 @@ import {
 } from "@shopify/shopify-app-remix/server";
 import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
 import { syncCustomersInBackground } from "./services/background-customer-sync.server";
+import { PRICING_PLANS } from "./constants/pricing-contract";
 
 // Import and re-export billing plan names from shared constants
 import {
@@ -23,7 +24,6 @@ import {
   GROWTH_PLAN,
   MONTHLY_PLAN,
   ANNUAL_PLAN,
-  USAGE_PLAN,
 } from "./constants/plans";
 
 // Re-export for backward compatibility
@@ -40,7 +40,6 @@ export {
   GROWTH_PLAN,
   MONTHLY_PLAN,
   ANNUAL_PLAN,
-  USAGE_PLAN,
 };
 
 const shopify = shopifyApp({
@@ -52,7 +51,8 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: createDataAPISessionStorage(),
   distribution: AppDistribution.AppStore,
-  // Billing configuration for managed pricing
+  // Manual Billing API compatibility catalogue. Every selectable current plan
+  // is fixed recurring; legacy names remain only for subscription recognition.
   billing: {
     // Free plan - permanently free
     [FREE_PLAN]: {
@@ -64,104 +64,71 @@ const shopify = shopifyApp({
         }
       ],
     },
-    // Pro plan - $39/month + usage charges
+    // Grow public plan. The stable Shopify name preserves legacy recognition.
     [PRO_PLAN]: {
       lineItems: [
         {
-          amount: 39,
+          amount: PRICING_PLANS.pro.monthlyPrice,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
-        },
-        {
-          amount: 200, // Usage cap
-          currencyCode: 'USD',
-          interval: BillingInterval.Usage,
-          terms: "$10 per 100 additional orders over 500 orders/month (max $200/month)"
         }
       ],
-      trialDays: 7,
     },
-    // Pro Annual - $336/year (28% discount - save $132/year) + usage charges
-    // Monthly equivalent: $28/month
+    // Grow annual. Fixed recurring pricing means no surprise usage bill.
     [PRO_ANNUAL_PLAN]: {
       lineItems: [
         {
-          amount: 336,
+          amount: PRICING_PLANS.pro.annualPrice!,
           currencyCode: 'USD',
           interval: BillingInterval.Annual,
-        },
-        {
-          amount: 200, // Usage cap
-          currencyCode: 'USD',
-          interval: BillingInterval.Usage,
-          terms: "$10 per 100 additional orders over 500 orders/month (max $200/month)"
         }
       ],
-      trialDays: 7,
     },
-    // Max plan - $149/month + usage charges
+    // Scale public plan.
     [MAX_PLAN]: {
       lineItems: [
         {
-          amount: 149,
+          amount: PRICING_PLANS.max.monthlyPrice,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
-        },
-        {
-          amount: 500, // Usage cap
-          currencyCode: 'USD',
-          interval: BillingInterval.Usage,
-          terms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)"
         }
       ],
-      trialDays: 7,
     },
-    // Max Annual - $1,296/year (27% discount - save $492/year) + usage charges
-    // Monthly equivalent: $108/month
+    // Scale annual.
     [MAX_ANNUAL_PLAN]: {
       lineItems: [
         {
-          amount: 1296,
+          amount: PRICING_PLANS.max.annualPrice!,
           currencyCode: 'USD',
           interval: BillingInterval.Annual,
-        },
-        {
-          amount: 500, // Usage cap
-          currencyCode: 'USD',
-          interval: BillingInterval.Usage,
-          terms: "$5 per 100 additional orders over 2,000 orders/month (max $500/month)"
         }
       ],
-      trialDays: 7,
     },
-    // Ultra plan - $499/month (unlimited everything - no usage charges)
+    // Corporate public plan.
     [ULTRA_PLAN]: {
       lineItems: [
         {
-          amount: 499,
+          amount: PRICING_PLANS.ultra.monthlyPrice,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
         }
       ],
-      trialDays: 14,
     },
-    // Ultra Annual - $4,296/year (28% discount - save $1,692/year)
-    // Monthly equivalent: $358/month (unlimited everything - no usage charges)
+    // Corporate annual.
     [ULTRA_ANNUAL_PLAN]: {
       lineItems: [
         {
-          amount: 4296,
+          amount: PRICING_PLANS.ultra.annualPrice!,
           currencyCode: 'USD',
           interval: BillingInterval.Annual,
         }
       ],
-      trialDays: 14,
     },
-    // Enterprise plan - Custom pricing (placeholder - actual pricing negotiated)
+    // Enterprise is retained for private/manual legacy contracts.
     [ENTERPRISE_PLAN]: {
       lineItems: [
         {
-          amount: 999, // Placeholder - custom pricing negotiated per client
+          amount: PRICING_PLANS.enterprise.monthlyPrice,
           currencyCode: 'USD',
           interval: BillingInterval.Every30Days,
         }
@@ -206,27 +173,12 @@ const shopify = shopifyApp({
         }
       ],
     },
-    // Usage-based billing for overages
-    [USAGE_PLAN]: {
-      lineItems: [
-        {
-          amount: 0.01, // Per order overage charge
-          currencyCode: 'USD',
-          interval: BillingInterval.Usage,
-          terms: "Per order overage charge",
-        }
-      ],
-    },
   },
   webhooks: {
     // Billing-related webhooks
     APP_SUBSCRIPTIONS_UPDATE: {
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/app-subscriptions-update",
-    },
-    APP_SUBSCRIPTIONS_APPROACHING_CAPPED_AMOUNT: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/subscriptions/approaching-cap",
     },
     APP_UNINSTALLED: {
       deliveryMethod: DeliveryMethod.Http,

@@ -5,16 +5,12 @@
  * based on the deployment environment.
  */
 
-import { config } from "dotenv";
+import "dotenv/config";
+
 import {
   getConnectionStrategy,
-  getDatabaseUrl,
-  shouldUseDataAPI,
   logConnectionStrategy,
 } from "./app/utils/connection-strategy";
-
-// Load environment variables
-config();
 
 async function testConnectionStrategy() {
   console.log("🧪 Testing Connection Strategy\n");

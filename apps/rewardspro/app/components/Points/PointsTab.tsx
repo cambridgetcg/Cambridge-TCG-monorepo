@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useFetcher } from "@remix-run/react";
 import {
   BlockStack,
@@ -11,7 +11,6 @@ import {
   Banner,
   TextField,
   Icon,
-  Spinner,
   Badge,
   Divider,
   Select,

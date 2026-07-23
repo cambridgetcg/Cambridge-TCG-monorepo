@@ -254,7 +254,6 @@ export class AnalyticsRecommendationsService {
     });
 
     if (inactiveCustomers.length > 10) {
-      const avgSpent = inactiveCustomers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0) / inactiveCustomers.length;
       const predictedRevenue = inactiveCustomers.length * inactiveRate.rate * avgOrderValue.value;
 
       insights.push({

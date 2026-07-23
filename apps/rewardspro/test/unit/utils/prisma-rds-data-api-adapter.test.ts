@@ -14,10 +14,34 @@ const sendMock = vi.fn();
 vi.mock("@aws-sdk/client-rds-data", () => {
   class FakeClient { send = sendMock }
   // Capture the input passed to each command for assertions.
-  class ExecuteStatementCommand { constructor(public input: any) {} }
-  class BeginTransactionCommand { constructor(public input: any) {} }
-  class CommitTransactionCommand { constructor(public input: any) {} }
-  class RollbackTransactionCommand { constructor(public input: any) {} }
+  class ExecuteStatementCommand {
+    public input: any;
+
+    constructor(input: any) {
+      this.input = input;
+    }
+  }
+  class BeginTransactionCommand {
+    public input: any;
+
+    constructor(input: any) {
+      this.input = input;
+    }
+  }
+  class CommitTransactionCommand {
+    public input: any;
+
+    constructor(input: any) {
+      this.input = input;
+    }
+  }
+  class RollbackTransactionCommand {
+    public input: any;
+
+    constructor(input: any) {
+      this.input = input;
+    }
+  }
   return {
     RDSDataClient: FakeClient,
     ExecuteStatementCommand,

@@ -799,7 +799,7 @@ export default function MarketingHub() {
         <Layout.Section>
           <InlineStack align="end">
             <Select
-              label=""
+              label="Reporting period"
               labelHidden
               options={[
                 { label: "Last 7 days", value: "7" },

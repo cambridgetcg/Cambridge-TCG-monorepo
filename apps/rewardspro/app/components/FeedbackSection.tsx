@@ -13,7 +13,6 @@ import {
   StarIcon,
   StarFilledIcon,
   ExternalIcon,
-  QuestionCircleIcon,
 } from "@shopify/polaris-icons";
 
 interface FeedbackSectionProps {

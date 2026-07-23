@@ -118,11 +118,10 @@ export async function sendWelcomeEmailNotification(
     return { success: true, skipped: true, reason: "Email not enabled" };
   }
 
-  // Check email usage limit (rate-based gating)
+  // Report capacity without blocking the notification.
   const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailNotifications] Email limit reached for shop ${shop}: ${usageCheck.message}`);
-    return { success: true, skipped: true, reason: usageCheck.message };
+  if (usageCheck.capacityExceeded) {
+    console.warn(`[EmailNotifications] ${usageCheck.message}`);
   }
 
   try {
@@ -203,11 +202,10 @@ export async function sendTierUpgradeEmailNotification(
     return { success: true, skipped: true, reason: "No tier change" };
   }
 
-  // Check email usage limit (rate-based gating)
+  // Report capacity without blocking the notification.
   const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailNotifications] Email limit reached for shop ${shop}: ${usageCheck.message}`);
-    return { success: true, skipped: true, reason: usageCheck.message };
+  if (usageCheck.capacityExceeded) {
+    console.warn(`[EmailNotifications] ${usageCheck.message}`);
   }
 
   try {
@@ -287,8 +285,8 @@ export async function sendTierDowngradeEmailNotification(
   }
 
   const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    return { success: true, skipped: true, reason: usageCheck.message };
+  if (usageCheck.capacityExceeded) {
+    console.warn(`[EmailNotifications] ${usageCheck.message}`);
   }
 
   try {
@@ -760,11 +758,10 @@ export async function sendTierExpirationWarningEmail(
     return { success: true, skipped: true, reason: "No email address" };
   }
 
-  // Check email usage limit (rate-based gating)
+  // Report capacity without blocking the notification.
   const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailNotifications] Email limit reached for shop ${shop}: ${usageCheck.message}`);
-    return { success: true, skipped: true, reason: usageCheck.message };
+  if (usageCheck.capacityExceeded) {
+    console.warn(`[EmailNotifications] ${usageCheck.message}`);
   }
 
   try {
@@ -865,11 +862,10 @@ export async function sendTierExpiredEmail(
     return { success: true, skipped: true, reason: "No email address" };
   }
 
-  // Check email usage limit (rate-based gating)
+  // Report capacity without blocking the notification.
   const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailNotifications] Email limit reached for shop ${shop}: ${usageCheck.message}`);
-    return { success: true, skipped: true, reason: usageCheck.message };
+  if (usageCheck.capacityExceeded) {
+    console.warn(`[EmailNotifications] ${usageCheck.message}`);
   }
 
   try {

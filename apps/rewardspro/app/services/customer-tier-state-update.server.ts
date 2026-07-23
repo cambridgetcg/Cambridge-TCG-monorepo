@@ -316,17 +316,32 @@ export async function batchUpdateCustomerTierState(
   for (let i = 0; i < customerIds.length; i += batchSize) {
     const batch = customerIds.slice(i, i + batchSize);
 
-    await Promise.all(
+    const batchResults = await Promise.all(
       batch.map(async (customerId) => {
         try {
           await updateCustomerTierState(shop, customerId);
-          updated++;
-        } catch (error: any) {
-          failed++;
-          errors.push({ customerId, error: error.message || 'Unknown error' });
+          return { customerId, success: true as const };
+        } catch (error) {
+          return {
+            customerId,
+            success: false as const,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          };
         }
       })
     );
+
+    for (const batchResult of batchResults) {
+      if (batchResult.success) {
+        updated++;
+      } else {
+        failed++;
+        errors.push({
+          customerId: batchResult.customerId,
+          error: batchResult.error,
+        });
+      }
+    }
   }
 
   return { updated, failed, errors };

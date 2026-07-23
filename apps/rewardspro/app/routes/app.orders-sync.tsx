@@ -4,7 +4,6 @@ import { useLoaderData, useRevalidator } from "@remix-run/react";
 import {
   Page,
   Card,
-  Button,
   Text,
   Box,
   InlineStack,
@@ -14,12 +13,12 @@ import {
   InlineCode,
   List,
   Modal,
-  Frame,
 } from "@shopify/polaris";
-import { SyncProgressCard, type SyncStatus } from "~/components/SyncActionCard";
+import { SyncProgressCard } from "~/components/SyncActionCard";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { useState, useCallback, useEffect, useRef } from "react";
+import { settingsPath } from "~/navigation/routes";
 
 interface SyncJobProgress {
   processedCount: number;
@@ -104,8 +103,6 @@ export default function OrdersSyncPage() {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const isSyncing = syncStatus?.status === 'IN_PROGRESS';
-  const isFailed = syncStatus?.status === 'FAILED';
-  const isCompleted = syncStatus?.status === 'COMPLETED';
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -114,14 +111,6 @@ export default function OrdersSyncPage() {
         clearTimeout(pollingRef.current);
       }
     };
-  }, []);
-
-  // Start polling if there's an in-progress job
-  useEffect(() => {
-    if (data.currentJob?.status === 'IN_PROGRESS') {
-      setSyncStatus(data.currentJob as any);
-      processNextBatch(data.currentJob.jobId!);
-    }
   }, []);
 
   const processNextBatch = useCallback(async (jobId: string) => {
@@ -162,6 +151,14 @@ export default function OrdersSyncPage() {
       }
     }
   }, [revalidator]);
+
+  // Start polling if there's an in-progress job.
+  useEffect(() => {
+    if (data.currentJob?.status === 'IN_PROGRESS') {
+      setSyncStatus(data.currentJob as any);
+      processNextBatch(data.currentJob.jobId!);
+    }
+  }, [data.currentJob, processNextBatch]);
 
   const handleStartSync = useCallback(async () => {
     setConfirmModalOpen(false);
@@ -244,11 +241,11 @@ export default function OrdersSyncPage() {
   }, [syncStatus?.jobId, revalidator]);
 
   return (
-    <Frame>
+    <>
       <Page
         title="Order Sync"
         subtitle="Import historical orders from Shopify"
-        backAction={{ url: "/app/settings?tab=1", content: "Settings" }}
+        backAction={{ url: settingsPath("data-sync"), content: "Settings" }}
         primaryAction={{
           content: isSyncing ? "Syncing..." : "Sync Orders",
           onAction: () => setConfirmModalOpen(true),
@@ -408,6 +405,6 @@ export default function OrdersSyncPage() {
         </Modal.Section>
       </Modal>
       </Page>
-    </Frame>
+    </>
   );
 }

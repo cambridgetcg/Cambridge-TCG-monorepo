@@ -12,7 +12,7 @@
  * @module test/webhooks/orders/refunded.clawback
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleRefundClawback } from '../../../app/services/refund-handler.server';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -241,6 +241,7 @@ describe('Cashback Clawback - Partial Refund', () => {
     expect(result.success).toBe(true);
     // 50% of $100 order = 50% of $10 cashback = $5
     expect(result.clawbackAmount).toBe(5);
+    expect(capturedClawbackAmount).toBe(5);
   });
 
   it('should cap clawback to remaining cashback on partial refund', async () => {
@@ -608,7 +609,7 @@ describe('Cashback Clawback - Customer Balance Updates', () => {
       return callback(mockTx);
     });
 
-    const result = await handleRefundClawback(TEST_ORDER_ID, TEST_SHOP, 100, true);
+    await handleRefundClawback(TEST_ORDER_ID, TEST_SHOP, 100, true);
 
     expect(capturedCustomerUpdate).not.toBeNull();
     expect(capturedCustomerUpdate.data.storeCredit).toBe(40); // 50 - 10 = 40

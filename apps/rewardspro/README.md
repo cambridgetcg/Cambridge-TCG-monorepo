@@ -1,6 +1,14 @@
 # RewardsPro
 
-A Shopify loyalty and rewards app built with Remix, TypeScript, Prisma, and Aurora Serverless.
+A loyalty and rewards platform built with Remix, TypeScript, Prisma, and Aurora
+Serverless. Shopify is the production commerce connector today; the platform is
+being separated from Shopify-specific authentication, billing, delivery, and
+storefront surfaces so additional connectors can follow.
+
+The source-controlled marketing site for `rewardspro.io` lives in
+[`landing/public`](./landing/public). The platform expansion decision and
+truthful connector statuses are recorded in
+[`../../docs/decisions/2026-07-23-rewardspro-platform.md`](../../docs/decisions/2026-07-23-rewardspro-platform.md).
 
 ## Features
 
@@ -52,7 +60,7 @@ Press `P` to open your app in the Shopify admin.
 | **ORM** | Prisma |
 | **Hosting** | Vercel |
 | **UI** | Shopify Polaris |
-| **API** | Shopify GraphQL (2025-07) |
+| **Commerce connector** | Shopify GraphQL (2026-01) |
 
 ## Project Structure
 

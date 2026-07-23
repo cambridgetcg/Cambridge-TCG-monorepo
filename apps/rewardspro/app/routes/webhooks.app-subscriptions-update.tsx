@@ -7,6 +7,10 @@ import { refreshEntitlements } from "~/services/entitlements.server";
 import { markTrialUsed } from "~/services/billing/trial-eligibility.server";
 import { invalidateShopSettings, invalidateShopBilling, invalidateShopEntitlements } from "~/services/shop-data-provider.server";
 import {
+  requireKnownPlanKey,
+  tryGetPlanKey,
+} from "~/constants/pricing-contract";
+import {
   checkWebhookIdempotency,
   markWebhookCompleted,
   markWebhookFailed,
@@ -19,13 +23,20 @@ import {
  * Map AppSubscription plan names to BillingSubscription planType
  * for consistency with subscription-persistence.server.ts
  */
-function mapPlanNameToPlanType(planName: string): string {
-  const basePlan = planName.replace('RewardsPro ', '').toLowerCase();
-  if (basePlan.includes('free')) return 'free';
-  if (basePlan.includes('pro')) return 'pro';
-  if (basePlan.includes('max')) return 'max';
-  if (basePlan.includes('ultra')) return 'ultra';
-  return 'free';
+function mapPlanNameToPlanType(
+  planName: string,
+  status?: string,
+  previousPlanType: string | null = null,
+): string | null {
+  const normalizedStatus = (status || "ACTIVE").toUpperCase();
+  if (normalizedStatus === "ACTIVE" || normalizedStatus === "TRIAL") {
+    return requireKnownPlanKey(planName);
+  }
+
+  // Cancellation and expiry must always be recordable, even if Shopify sends a
+  // retired or otherwise unknown SKU. Preserve the audit projection while the
+  // inactive status makes entitlement resolution fall back to Free.
+  return tryGetPlanKey(planName) ?? previousPlanType;
 }
 
 /**
@@ -233,7 +244,15 @@ export async function action({ request }: ActionFunctionArgs) {
 
       // Update BillingSubscription for usage tracking
       // FIX: Now includes ALL fields to prevent stale data
-      const planType = mapPlanNameToPlanType(subscription.name || "Free");
+      const existingBillingSubscription = await tx.billingSubscription.findUnique({
+        where: { shop: shopDomain },
+        select: { planType: true },
+      });
+      const planType = mapPlanNameToPlanType(
+        subscription.name || "Unknown",
+        subscription.status,
+        existingBillingSubscription?.planType ?? null,
+      );
       const trialEndsAt = calculateTrialEndsAt(subscription.trial_days, subscription.created_at);
       const currentPeriodEnd = subscription.current_period_end
         ? new Date(subscription.current_period_end)
@@ -342,7 +361,7 @@ export async function action({ request }: ActionFunctionArgs) {
     let entitlementsRefreshed = false;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await refreshEntitlements(shopDomain);
+        await refreshEntitlements(shopDomain, { force: true });
         entitlementsRefreshed = true;
         console.log(`[APP_SUBSCRIPTIONS_UPDATE] Refreshed entitlements for ${shopDomain}`);
         break;

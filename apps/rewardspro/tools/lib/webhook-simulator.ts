@@ -14,12 +14,10 @@
 import crypto from 'crypto';
 import {
   assertValidShopDomain,
-  assertValidWebhookSecret,
   assertValidWebhookTopic,
   assertValidUrl,
   assertValidPayload,
   validateWebhookSecret,
-  type ValidWebhookTopic,
 } from './validation.js';
 import {
   withRetry,
@@ -571,6 +569,8 @@ export function generateRefundPayload(
  * Generate app uninstalled payload
  */
 export function generateAppUninstalledPayload(shop: string): Record<string, unknown> {
+  const liquidAmount = '{{amount}}';
+
   return {
     id: Math.floor(Math.random() * 1000000000),
     name: shop.replace('.myshopify.com', ''),
@@ -590,8 +590,8 @@ export function generateAppUninstalledPayload(shop: string): Record<string, unkn
     timezone: '(GMT-08:00) Pacific Time (US & Canada)',
     iana_timezone: 'America/Los_Angeles',
     shop_owner: 'Test Owner',
-    money_format: '${{amount}}',
-    money_with_currency_format: '${{amount}} USD',
+    money_format: `$${liquidAmount}`,
+    money_with_currency_format: `$${liquidAmount} USD`,
     created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
     updated_at: new Date().toISOString(),
   };

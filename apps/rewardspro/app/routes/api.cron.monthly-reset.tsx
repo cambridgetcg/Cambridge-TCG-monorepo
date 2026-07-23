@@ -12,6 +12,8 @@ import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "~/services/cron-lock.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { getPlanOrderLimit } from "~/constants/billing.constants";
+import { PRICING_PLANS, tryGetPlanKey } from "~/constants/pricing-contract";
 
 const JOB_NAME = "monthly-reset";
 const LOCK_TTL_MINUTES = 30; // 30 minutes for monthly reset
@@ -61,8 +63,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   try {
   // 3. Get current month info
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // 1-12
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1; // 1-12
   const currentMonthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   log('info', `Processing monthly reset for ${currentMonthName}`, {
@@ -117,7 +119,91 @@ export async function loader({ request }: LoaderFunctionArgs) {
         continue;
       }
 
-      // Create new month record with reset count and unlocked state
+      const [
+        appSubscription,
+        billingSubscription,
+        shopSettings,
+        entitlements,
+      ] = await Promise.all([
+        prisma.appSubscription.findUnique({
+          where: { shop: usage.shop },
+          select: { planName: true, status: true },
+        }),
+        prisma.billingSubscription.findUnique({
+          where: { shop: usage.shop },
+          select: {
+            planType: true,
+            planName: true,
+            subscriptionStatus: true,
+            status: true,
+          },
+        }),
+        prisma.shopSettings.findUnique({
+          where: { shop: usage.shop },
+          select: {
+            currentPlan: true,
+            currentPlanName: true,
+            subscriptionStatus: true,
+            billingStatus: true,
+          },
+        }),
+        prisma.shopEntitlements.findUnique({
+          where: { shop: usage.shop },
+          select: {
+            effectivePlan: true,
+            limitMaxOrders: true,
+            hasOverride: true,
+            overrideExpiry: true,
+          },
+        }),
+      ]);
+      const billingActive =
+        billingSubscription?.subscriptionStatus === "ACTIVE" ||
+        billingSubscription?.status === "ACTIVE";
+      const appActive = appSubscription?.status === "ACTIVE";
+      const settingsStatus =
+        shopSettings?.subscriptionStatus || shopSettings?.billingStatus;
+      const settingsActive = ["ACTIVE", "TRIAL"].includes(
+        settingsStatus?.toUpperCase() || "",
+      );
+      const activeOverride = Boolean(
+        entitlements?.hasOverride &&
+        (!entitlements.overrideExpiry || entitlements.overrideExpiry > now),
+      );
+      const candidatePlan =
+        (appActive ? appSubscription?.planName : null) ||
+        (billingActive
+          ? billingSubscription?.planType || billingSubscription?.planName
+          : null) ||
+        (settingsActive
+          ? shopSettings?.currentPlanName || shopSettings?.currentPlan
+          : null);
+      const knownPlan = candidatePlan
+        ? tryGetPlanKey(candidatePlan)
+        : undefined;
+
+      let planName: string = PRICING_PLANS.free.billingName;
+      let planLimit: number = PRICING_PLANS.free.limits.orders;
+      if (activeOverride && entitlements) {
+        planName = entitlements.effectivePlan;
+        planLimit = entitlements.limitMaxOrders;
+      } else if (knownPlan) {
+        planName = PRICING_PLANS[knownPlan].billingName;
+        planLimit = getPlanOrderLimit(candidatePlan);
+      } else if (candidatePlan) {
+        // Do not silently downgrade a live unknown SKU.
+        planName = usage.planName;
+        planLimit = usage.planLimit;
+      }
+
+      if (candidatePlan && !knownPlan) {
+        log("warn", "Preserving unknown legacy plan snapshot", {
+          shop: usage.shop,
+          candidatePlan,
+        });
+      }
+
+      // Create new month record with reset count and advisory state.
       await prisma.monthlyOrderUsage.create({
         data: {
           id: uuidv4(),
@@ -125,10 +211,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
           year,
           month,
           orderCount: 0, // Reset to zero
-          planLimit: usage.planLimit, // Keep same plan limit
-          planName: usage.planName, // Keep same plan name
-          // Note: isLocked/lockedAt/lockReason columns not yet in production DB
-          // Will be added when migration is applied
+          planLimit,
+          planName,
+          isLocked: false,
+          lockedAt: null,
+          lockReason: null,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -140,8 +227,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       log('info', `Reset ${usage.shop}`, {
         shop: usage.shop,
         oldUsage: usage.orderCount,
-        planLimit: usage.planLimit
-        // wasLocked: usage.isLocked - column not yet in production
+        planLimit,
+        planName,
       });
 
     } catch (error: any) {

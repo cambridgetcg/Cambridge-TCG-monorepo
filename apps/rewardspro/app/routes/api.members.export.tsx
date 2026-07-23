@@ -20,11 +20,9 @@ import { getMemberExportRowsLimit } from "~/constants/plan-limits";
  * SCALABILITY: Uses streaming to handle large datasets without memory issues.
  * Data is fetched in batches and streamed to the client progressively.
  *
- * ENTITLEMENTS: Export row count is limited by plan:
- * - Free: 100 rows
- * - Pro: 1,000 rows
- * - Max: 10,000 rows
- * - Ultra: Unlimited
+ * ENTITLEMENTS: The plan's export capacity is reported for observability, but
+ * never truncates merchant data. Free Forever's advisory capacity is 10,000
+ * rows; larger fixed plans provide progressively more headroom.
  *
  * Supports filtering by:
  * - tier: Filter by tier ID or "none" for no tier
@@ -101,23 +99,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
         // Stream data in batches using cursor-based pagination
         while (hasMore) {
-          // Check if we've hit the export limit
-          if (totalExported >= maxExportRows) {
-            console.log(`[Members Export] Hit export limit of ${maxExportRows} rows for plan ${entitlements.effectivePlan}`);
-            break;
-          }
-
-          // Calculate how many more rows we can export
-          const remainingRows = maxExportRows - totalExported;
-          const batchLimit = Math.min(BATCH_SIZE, remainingRows);
-
           const customers = await prisma.customer.findMany({
             where: whereClause,
             include: {
               currentTier: true,
             },
             orderBy: { id: 'asc' }, // Consistent ordering for cursor pagination
-            take: batchLimit,
+            take: BATCH_SIZE,
             ...(cursor ? {
               skip: 1, // Skip the cursor record itself
               cursor: { id: cursor }
@@ -148,7 +136,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           cursor = customers[customers.length - 1].id;
 
           // Check if we have more records
-          hasMore = customers.length === batchLimit && totalExported < maxExportRows;
+          hasMore = customers.length === BATCH_SIZE;
 
           // Log progress for large exports
           if (totalExported % 5000 === 0) {
@@ -156,12 +144,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           }
         }
 
-        // Log completion with limit info if applicable
-        if (totalExported >= maxExportRows && maxExportRows !== Infinity) {
-          console.log(`[Members Export] Complete: ${totalExported} records exported (limited by ${entitlements.effectivePlan} plan)`);
-        } else {
-          console.log(`[Members Export] Complete: ${totalExported} records exported`);
-        }
+        console.log(
+          `[Members Export] Complete: ${totalExported} records exported; advisory capacity=${maxExportRows} for ${entitlements.effectivePlan}`,
+        );
 
         controller.close();
       } catch (error: unknown) {
@@ -176,13 +161,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     },
   });
 
-  // Add export limit header for client awareness
+  // Report capacity for UI guidance without implying that rows were omitted.
   const responseHeaders: HeadersInit = {
     'Content-Type': 'text/csv; charset=utf-8',
     'Content-Disposition': `attachment; filename="${filename}"`,
     'Cache-Control': 'no-cache',
     'Transfer-Encoding': 'chunked',
-    'X-Export-Limit': maxExportRows.toString(),
+    'X-Export-Advisory-Limit': maxExportRows.toString(),
     'X-Plan': entitlements.effectivePlan,
   };
 

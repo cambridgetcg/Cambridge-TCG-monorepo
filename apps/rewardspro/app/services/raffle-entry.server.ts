@@ -10,7 +10,7 @@
 
 import type { RafflePrizeType } from "@prisma/client";
 import prisma from "../db.server";
-import { spendPoints, earnPoints, getPointsBalance, adjustPoints } from "./points-ledger.server";
+import { spendPoints, earnPoints, getPointsBalance } from "./points-ledger.server";
 import { checkRaffleEligibility, type RaffleStatus } from "./raffle-management.server";
 import { trackRaffleEntered, trackPointsSpent } from "./klaviyo-events.server";
 import {
@@ -174,7 +174,7 @@ export async function purchaseRaffleEntries(
 
     // 7. Atomic entry creation + limit enforcement + raffle stats update
     // Transaction prevents race conditions where concurrent requests exceed entry limits
-    const { entry, isNewEntrant } = await prisma.$transaction(async (tx) => {
+    const { entry } = await prisma.$transaction(async (tx) => {
       // Re-check entry count inside transaction (prevents TOCTOU race)
       const txExistingEntry = await tx.raffleEntry.findFirst({
         where: { raffleId, customerId },
@@ -250,7 +250,7 @@ export async function purchaseRaffleEntries(
         },
       });
 
-      return { entry: txEntry, isNewEntrant: txIsNewEntrant };
+      return { entry: txEntry };
     });
 
     // 8. Record points transaction (deduct points) — already atomic via spendPoints

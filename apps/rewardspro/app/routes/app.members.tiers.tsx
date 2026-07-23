@@ -18,7 +18,6 @@ import {
   Modal,
   FormLayout,
   Toast,
-  Frame,
   Icon,
 } from "@shopify/polaris";
 import {
@@ -426,7 +425,7 @@ export default function TiersPage() {
   }, []);
 
   return (
-    <Frame>
+    <>
       <Page
         title="Loyalty Tiers"
         subtitle="Define membership tiers with spending thresholds and cashback rates"
@@ -739,6 +738,6 @@ export default function TiersPage() {
           />
         )}
       </Page>
-    </Frame>
+    </>
   );
 }

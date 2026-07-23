@@ -28,6 +28,8 @@ import {
 import { createLogger } from "../services/logger.server";
 import { SentryService } from "../services/monitoring/sentry.service";
 import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
+import { getPlanOrderLimit } from "../constants/billing.constants";
+import { incrementMonthlyOrderCount } from "../utils/order-count-strategies";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'node:crypto';
@@ -345,7 +347,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           console.log(`[OrderPaid] ℹ️ See line items inspection above for tier product details`);
           console.log('========================================\n');
-          return { success: true, results: [] };
+          return { success: true, results: [], usageEligible: false };
         }
 
         // Step 3: Process special line items (subscriptions, tier products)
@@ -653,7 +655,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // Don't fail the whole webhook - order is already created
         }
 
-        return { success: true, results };
+        return {
+          success: true,
+          results,
+          usageEligible: Boolean(
+            order.customer?.id &&
+            !order.test &&
+            !order.cancelled_at &&
+            Number.parseFloat(order.total_price || "0") > 0
+          ),
+        };
       },
       {
         maxAttempts: 2,
@@ -670,6 +681,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Webhook was already recorded at the start (atomic insert) for idempotency
     logger.debug('Webhook processing completed successfully');
+
+    if (result.usageEligible) {
+      try {
+        const entitlements = await db.shopEntitlements.findUnique({
+          where: { shop: shop! },
+          select: {
+            effectivePlan: true,
+            limitMaxOrders: true,
+          },
+        });
+        const planName =
+          entitlements?.effectivePlan || "RewardsPro Free";
+        const planLimit =
+          entitlements?.limitMaxOrders ?? getPlanOrderLimit(planName);
+        await incrementMonthlyOrderCount(
+          shop!,
+          order.created_at,
+          planLimit,
+          planName,
+        );
+        logger.info("Reward-eligible order added to monthly capacity", {
+          orderId: order.id,
+          planName,
+        });
+      } catch (usageError) {
+        logger.warn("Could not update advisory order capacity", {
+          orderId: order.id,
+          error: usageError instanceof Error ? usageError.message : String(usageError),
+        });
+      }
+    }
 
     // Track successful webhook processing in Sentry
     const durationMs = Date.now() - startTime;
@@ -1681,4 +1723,3 @@ async function checkTierProgression(_dbOrTx: any, params: {
     // Don't throw - we don't want tier resolution errors to fail the webhook
   }
 }
-

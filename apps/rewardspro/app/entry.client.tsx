@@ -1,6 +1,14 @@
-import { RemixBrowser } from "@remix-run/react";
-import { startTransition, StrictMode } from "react";
+import {
+  RemixBrowser,
+  useLocation,
+  useNavigationType,
+} from "@remix-run/react";
+import { startTransition, StrictMode, useEffect } from "react";
 import { hydrateRoot } from "react-dom/client";
+import {
+  createRoutesFromChildren,
+  matchRoutes,
+} from "react-router-dom";
 import * as Sentry from "@sentry/remix";
 
 // Initialize Sentry for browser-side error tracking
@@ -26,7 +34,7 @@ if (process.env.NODE_ENV === 'production') {
         ],
         // Track route changes
         routingInstrumentation: Sentry.reactRouterV6Instrumentation(
-          React.useEffect,
+          useEffect,
           useLocation,
           useNavigationType,
           createRoutesFromChildren,
@@ -53,7 +61,7 @@ if (process.env.NODE_ENV === 'production') {
     ],
 
     // Sanitize data before sending
-    beforeSend(event, hint) {
+    beforeSend(event, _hint) {
       // Remove sensitive data from URLs
       if (event.request?.url) {
         event.request.url = event.request.url.replace(
@@ -121,14 +129,6 @@ declare global {
     };
   }
 }
-
-// Import required for Sentry routing instrumentation
-import { useLocation, useNavigationType } from "@remix-run/react";
-import {
-  createRoutesFromChildren,
-  matchRoutes
-} from "react-router-dom";
-import React from "react";
 
 startTransition(() => {
   hydrateRoot(

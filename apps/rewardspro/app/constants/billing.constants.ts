@@ -1,250 +1,162 @@
-// Billing plan definitions and utilities
-// IMPORTANT: Order limits are derived from plan-limits.ts (single source of truth)
-
-import { getOrderLimit } from "./plan-limits";
+import {
+  PRICING_PLANS,
+  PUBLIC_PLAN_KEYS,
+  UNLIMITED_PLAN_LIMIT,
+  formatPlanLimit,
+  getPlanFeatureSummary,
+  getPlanKey,
+  type PlanInterval,
+  type PlanKey,
+} from "./pricing-contract";
 
 export interface ManagedPlan {
   name: string;
   displayName: string;
   price: number;
-  interval: "month" | "year";
+  interval: PlanInterval;
   ordersIncluded: number;
-  overageRate: number;
+  /**
+   * @deprecated New RewardsPro plans never create usage charges.
+   * Retained as zero for older UI consumers during migration.
+   */
+  overageRate: 0;
   features: string[];
   isFree?: boolean;
 }
 
-/**
- * RATE-BASED GATING MODEL
- * All plans have access to all features - differentiation is through LIMITS.
- * Features listed here emphasize capacity/limits rather than feature availability.
- *
- * NOTE: ordersIncluded is derived from plan-limits.ts via getOrderLimit().
- * Do NOT hardcode order limits here — update plan-limits.ts instead.
- */
-export const MANAGED_PLANS: Record<string, ManagedPlan> = {
-  // Free plan - Hidden from billing pages but still functional for existing users
-  "RewardsPro Free": {
-    name: "RewardsPro Free",
-    displayName: "Rewards Free",
-    price: 0,
-    interval: "month",
-    get ordersIncluded() { return getOrderLimit("RewardsPro Free"); },
-    overageRate: 0,
-    features: [
-      "All features included",
-      "50 orders/month",
-      "500 customers",
-      "50 emails/month",
-      "2 membership tiers",
-      "7 days analytics history",
-      "Email support"
-    ],
-    isFree: true
-  },
-  "RewardsPro Pro": {
-    name: "RewardsPro Pro",
-    displayName: "Rewards Pro",
-    price: 39,
-    interval: "month",
-    get ordersIncluded() { return getOrderLimit("RewardsPro Pro"); },
-    overageRate: 0.10, // $10 per 100 orders = $0.10 per order
-    features: [
-      "All features included",
-      "500 orders/month",
-      "5,000 customers",
-      "500 emails/month",
-      "5 membership tiers",
-      "30 days analytics history",
-      "Priority support"
-    ],
-    isFree: false
-  },
-  "RewardsPro Pro Annual": {
-    name: "RewardsPro Pro Annual",
-    displayName: "Rewards Pro Annual",
-    price: 336,
-    interval: "year",
-    get ordersIncluded() { return getOrderLimit("RewardsPro Pro Annual"); },
-    overageRate: 0.10,
-    features: [
-      "All features included",
-      "500 orders/month",
-      "5,000 customers",
-      "500 emails/month",
-      "5 membership tiers",
-      "30 days analytics history",
-      "Priority support",
-      "💰 Save $132/year (28% discount)"
-    ],
-    isFree: false
-  },
-  "RewardsPro Max": {
-    name: "RewardsPro Max",
-    displayName: "Rewards Max",
-    price: 149,
-    interval: "month",
-    get ordersIncluded() { return getOrderLimit("RewardsPro Max"); },
-    overageRate: 0.05, // $5 per 100 orders = $0.05 per order
-    features: [
-      "All features included",
-      "2,000 orders/month",
-      "25,000 customers",
-      "2,000 emails/month",
-      "10 membership tiers",
-      "90 days analytics history",
-      "Advanced support"
-    ],
-    isFree: false
-  },
-  "RewardsPro Max Annual": {
-    name: "RewardsPro Max Annual",
-    displayName: "Rewards Max Annual",
-    price: 1296,
-    interval: "year",
-    get ordersIncluded() { return getOrderLimit("RewardsPro Max Annual"); },
-    overageRate: 0.05,
-    features: [
-      "All features included",
-      "2,000 orders/month",
-      "25,000 customers",
-      "2,000 emails/month",
-      "10 membership tiers",
-      "90 days analytics history",
-      "Advanced support",
-      "💰 Save $492/year (27% discount)"
-    ],
-    isFree: false
-  },
-  "RewardsPro Ultra": {
-    name: "RewardsPro Ultra",
-    displayName: "Rewards Ultra",
-    price: 499,
-    interval: "month",
-    get ordersIncluded() { return getOrderLimit("RewardsPro Ultra"); },
-    overageRate: 0,
-    features: [
-      "All features included",
-      "Unlimited orders",
-      "Unlimited customers",
-      "Unlimited emails",
-      "Unlimited tiers",
-      "Unlimited analytics history",
-      "Dedicated support"
-    ],
-    isFree: false
-  },
-  "RewardsPro Ultra Annual": {
-    name: "RewardsPro Ultra Annual",
-    displayName: "Rewards Ultra Annual",
-    price: 4296,
-    interval: "year",
-    get ordersIncluded() { return getOrderLimit("RewardsPro Ultra Annual"); },
-    overageRate: 0,
-    features: [
-      "All features included",
-      "Unlimited orders",
-      "Unlimited customers",
-      "Unlimited emails",
-      "Unlimited tiers",
-      "Unlimited analytics history",
-      "Dedicated support",
-      "💰 Save $1,692/year (28% discount)"
-    ],
-    isFree: false
+function toManagedPlan(
+  planKey: PlanKey,
+  interval: PlanInterval,
+): ManagedPlan | null {
+  const plan = PRICING_PLANS[planKey];
+  const isAnnual = interval === "year";
+
+  if (isAnnual && (!plan.annualBillingName || plan.annualPrice === null)) {
+    return null;
   }
-};
+
+  return {
+    name: isAnnual ? plan.annualBillingName! : plan.billingName,
+    displayName: `${plan.displayName}${isAnnual ? " Annual" : ""}`,
+    price: isAnnual ? plan.annualPrice! : plan.monthlyPrice,
+    interval,
+    ordersIncluded: plan.limits.orders,
+    overageRate: 0,
+    features: getPlanFeatureSummary(planKey),
+    isFree: planKey === "free",
+  };
+}
+
+const managedPlans = [
+  ...PUBLIC_PLAN_KEYS.flatMap((planKey) => {
+    const monthly = toManagedPlan(planKey, "month");
+    const annual = toManagedPlan(planKey, "year");
+    return [monthly, annual].filter((plan): plan is ManagedPlan => plan !== null);
+  }),
+  toManagedPlan("enterprise", "month"),
+].filter((plan): plan is ManagedPlan => plan !== null);
 
 /**
- * Get the order limit for a given plan name
- * @param planName - Plan name (e.g., "RewardsPro Pro", "RewardsPro Free")
- * @returns Order limit for the plan, defaults to 100 (Free plan)
+ * Current plans keyed by stable Shopify billing names.
+ *
+ * `getPlanDetails` and `getPlanOrderLimit` normalize recognized legacy aliases
+ * through pricing-contract.ts. There are no usage line items or overage rates
+ * on new contracts.
  */
-export function getPlanOrderLimit(planName: string | null | undefined): number {
-  if (!planName) return 50; // Default to Free plan limit
+export const MANAGED_PLANS: Record<string, ManagedPlan> = Object.fromEntries(
+  managedPlans.map((plan) => [plan.name, plan]),
+);
 
-  const plan = MANAGED_PLANS[planName];
-  return plan?.ordersIncluded ?? 50; // Default to Free plan if not found
+export function getPlanOrderLimit(planName: string | null | undefined): number {
+  return PRICING_PLANS[getPlanKey(planName)].limits.orders;
+}
+
+function comparisonValue(
+  planKey: (typeof PUBLIC_PLAN_KEYS)[number],
+  limit: keyof typeof PRICING_PLANS.free.limits,
+): string {
+  const value = PRICING_PLANS[planKey].limits[limit];
+  return typeof value === "number" ? formatPlanLimit(value) : value ? "✓" : "—";
 }
 
 /**
- * Plan comparison table - RATE-BASED MODEL
- * All plans have access to all features - differentiation is through LIMITS
- * This drives upgrade value by showing capacity differences
+ * Comparison data retained for existing UI consumers.
+ * `pro`, `max`, and `ultra` are stable internal keys; their public labels are
+ * Grow, Scale, and Corporate.
  */
 export const PLAN_COMPARISON = [
   {
-    feature: "Orders/Month",
-    free: "50",
-    pro: "500",
-    max: "2,000",
-    ultra: "Unlimited",
+    feature: "Reward-eligible Orders/Month",
+    free: comparisonValue("free", "orders"),
+    pro: comparisonValue("pro", "orders"),
+    max: comparisonValue("max", "orders"),
+    ultra: comparisonValue("ultra", "orders"),
   },
   {
     feature: "Customer Sync",
-    free: "500",
-    pro: "5,000",
-    max: "25,000",
-    ultra: "Unlimited",
+    free: comparisonValue("free", "customersSync"),
+    pro: comparisonValue("pro", "customersSync"),
+    max: comparisonValue("max", "customersSync"),
+    ultra: comparisonValue("ultra", "customersSync"),
   },
   {
     feature: "Membership Tiers",
-    free: "2",
-    pro: "5",
-    max: "10",
-    ultra: "Unlimited",
+    free: comparisonValue("free", "tiers"),
+    pro: comparisonValue("pro", "tiers"),
+    max: comparisonValue("max", "tiers"),
+    ultra: comparisonValue("ultra", "tiers"),
   },
   {
     feature: "Tier Products",
-    free: "1",
-    pro: "3",
-    max: "10",
-    ultra: "Unlimited",
+    free: comparisonValue("free", "tierProducts"),
+    pro: comparisonValue("pro", "tierProducts"),
+    max: comparisonValue("max", "tierProducts"),
+    ultra: comparisonValue("ultra", "tierProducts"),
   },
   {
-    feature: "Emails/Month",
-    free: "50",
-    pro: "500",
-    max: "2,000",
-    ultra: "Unlimited",
+    feature: "Reward Emails/Month",
+    free: comparisonValue("free", "emails"),
+    pro: comparisonValue("pro", "emails"),
+    max: comparisonValue("max", "emails"),
+    ultra: comparisonValue("ultra", "emails"),
   },
   {
     feature: "Active Raffles",
-    free: "1",
-    pro: "3",
-    max: "10",
-    ultra: "Unlimited",
+    free: comparisonValue("free", "activeRaffles"),
+    pro: comparisonValue("pro", "activeRaffles"),
+    max: comparisonValue("max", "activeRaffles"),
+    ultra: comparisonValue("ultra", "activeRaffles"),
   },
   {
     feature: "Active Challenges",
-    free: "1",
-    pro: "5",
-    max: "15",
-    ultra: "Unlimited",
+    free: comparisonValue("free", "activeChallenges"),
+    pro: comparisonValue("pro", "activeChallenges"),
+    max: comparisonValue("max", "activeChallenges"),
+    ultra: comparisonValue("ultra", "activeChallenges"),
   },
   {
     feature: "Campaigns",
-    free: "1",
-    pro: "5",
-    max: "25",
-    ultra: "Unlimited",
+    free: comparisonValue("free", "campaigns"),
+    pro: comparisonValue("pro", "campaigns"),
+    max: comparisonValue("max", "campaigns"),
+    ultra: comparisonValue("ultra", "campaigns"),
   },
   {
     feature: "Automations",
-    free: "1",
-    pro: "5",
-    max: "20",
-    ultra: "Unlimited",
+    free: comparisonValue("free", "automations"),
+    pro: comparisonValue("pro", "automations"),
+    max: comparisonValue("max", "automations"),
+    ultra: comparisonValue("ultra", "automations"),
   },
   {
     feature: "Analytics History",
-    free: "7 days",
-    pro: "30 days",
-    max: "90 days",
-    ultra: "Unlimited",
+    free: `${PRICING_PLANS.free.limits.historicalDataDays} days`,
+    pro: "Full",
+    max: "Full",
+    ultra: "Full",
   },
   {
-    feature: "All Features",
+    feature: "All Core Features",
     free: "✓",
     pro: "✓",
     max: "✓",
@@ -252,23 +164,29 @@ export const PLAN_COMPARISON = [
   },
   {
     feature: "Support",
-    free: "Email",
-    pro: "Priority",
-    max: "Advanced",
-    ultra: "Dedicated",
+    free: "Standard",
+    pro: "Standard",
+    max: "Standard",
+    ultra: "Corporate",
   },
 ];
 
-// Helper function to get plan details
 export function getPlanDetails(
   activeSubscription?: { name: string; status: string } | null,
-  currentPlan?: { planName: string; status: string } | null
+  currentPlan?: { planName: string; status: string } | null,
 ): ManagedPlan {
-  const activePlanName = activeSubscription?.name || currentPlan?.planName || "RewardsPro Free";
-  return MANAGED_PLANS[activePlanName as keyof typeof MANAGED_PLANS] || MANAGED_PLANS["RewardsPro Free"];
+  const activePlanName =
+    activeSubscription?.name ||
+    currentPlan?.planName ||
+    PRICING_PLANS.free.billingName;
+  const directMatch = MANAGED_PLANS[activePlanName];
+
+  if (directMatch) return directMatch;
+
+  const canonical = PRICING_PLANS[getPlanKey(activePlanName)];
+  return MANAGED_PLANS[canonical.billingName];
 }
 
-// Helper function to calculate usage metrics
 export interface UsageMetrics {
   currentUsage: number;
   planLimit: number;
@@ -286,24 +204,28 @@ export function calculateUsageMetrics(
     planLimit: number;
     projectedOrders: number;
   } | null,
-  planDetails?: ManagedPlan
+  planDetails?: ManagedPlan,
 ): UsageMetrics {
   const currentUsage = monthlyOrderUsage?.orderCount || 0;
-  const planLimit = monthlyOrderUsage?.planLimit || planDetails?.ordersIncluded || 50;
+  const planLimit =
+    monthlyOrderUsage?.planLimit ||
+    planDetails?.ordersIncluded ||
+    PRICING_PLANS.free.limits.orders;
   const projectedUsage = monthlyOrderUsage?.projectedOrders || 0;
+  const unlimited = planLimit >= UNLIMITED_PLAN_LIMIT;
 
-  const usagePercentage = Math.min(Math.round((currentUsage / planLimit) * 100), 100);
-  const projectedPercentage = Math.min(Math.round((projectedUsage / planLimit) * 100), 100);
+  const usagePercentage = unlimited
+    ? 0
+    : Math.min(Math.round((currentUsage / planLimit) * 100), 100);
+  const projectedPercentage = unlimited
+    ? 0
+    : Math.min(Math.round((projectedUsage / planLimit) * 100), 100);
+  const isOverLimit = !unlimited && currentUsage >= planLimit;
+  const ordersNotCounted = isOverLimit ? Math.max(0, currentUsage - planLimit) : 0;
 
-  const isOverLimit = currentUsage >= planLimit;
-  const ordersNotCounted = Math.max(0, currentUsage - planLimit);
-
-  let progressTone: "success" | "warning" | "critical" = "success";
-  if (usagePercentage >= 100) {
-    progressTone = "critical";
-  } else if (usagePercentage >= 80) {
-    progressTone = "warning";
-  }
+  let progressTone: UsageMetrics["progressTone"] = "success";
+  if (usagePercentage >= 100) progressTone = "critical";
+  else if (usagePercentage >= 80) progressTone = "warning";
 
   return {
     currentUsage,
@@ -313,6 +235,6 @@ export function calculateUsageMetrics(
     projectedPercentage,
     isOverLimit,
     ordersNotCounted,
-    progressTone
+    progressTone,
   };
 }

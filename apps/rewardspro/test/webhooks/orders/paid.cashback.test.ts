@@ -14,7 +14,6 @@ import {
 } from '../../helpers/webhook-test-client';
 import {
   createOrderPayload,
-  createMultiItemOrderPayload,
   createMultiCurrencyOrderPayload,
 } from '../../factories/order.factory';
 import {
@@ -696,10 +695,6 @@ describe('Webhook: orders/paid - Cashback Processing', () => {
       });
 
       await ctx.execute(action);
-
-      // Should still process (using base tier or shop default)
-      const ledgerCalls = (mockPrisma.storeCreditLedger.create as ReturnType<typeof vi.fn>).mock.calls;
-      // May or may not create cashback depending on implementation
     });
   });
 

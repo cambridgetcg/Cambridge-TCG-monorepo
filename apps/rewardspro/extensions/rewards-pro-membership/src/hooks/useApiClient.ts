@@ -10,6 +10,9 @@ import { createApiClient, type ApiClient, type ApiClientConfig } from '../utils/
 export function useApiClient(config?: Partial<ApiClientConfig>): ApiClient {
   return useMemo(
     () => createApiClient(config),
+    // Config objects are commonly created inline; these scalar fields are the
+    // complete ApiClientConfig contract and intentionally control identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [config?.baseUrl, config?.timeout, config?.enableDebugLogs, config?.shopDomain]
   );
 }

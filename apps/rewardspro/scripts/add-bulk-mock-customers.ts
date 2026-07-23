@@ -5,11 +5,10 @@
  * Requires: DATABASE_URL environment variable
  */
 
-import * as dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
+import { randomUUID } from 'crypto';
 
 import db from '../app/db.server';
-import { randomUUID } from 'crypto';
 
 const SHOP = 'themetester222.myshopify.com';
 const COUNT = parseInt(process.argv[2] || '100');

@@ -184,7 +184,6 @@ class CashbackService {
     customerLifetimeSpend: Decimal
   ): CashbackCalculation {
     // Find appropriate tier based on lifetime spend
-    let selectedTier: Tier | null = null;
     let highestQualifiedTier: Tier | null = null;
 
     for (const tier of this.tiers.values()) {

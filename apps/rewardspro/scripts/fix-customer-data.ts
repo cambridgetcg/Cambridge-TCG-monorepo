@@ -6,7 +6,6 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { shopifyApi } from '@shopify/shopify-api';
 
 const prisma = new PrismaClient();
 

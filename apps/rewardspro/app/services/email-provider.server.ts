@@ -133,6 +133,17 @@ export async function shouldUseSendGridForTransactional(
 // UNIFIED EMAIL OPERATIONS
 // ============================================
 
+async function reportEmailCapacity(
+  shop: string,
+  count: number,
+): Promise<void> {
+  const usage = await checkEmailLimit(shop, count);
+
+  if (usage.capacityExceeded) {
+    console.warn(`[EmailProvider] ${usage.message}`);
+  }
+}
+
 /**
  * Send a transactional email
  * Uses SendGrid for SENDGRID and HYBRID modes
@@ -142,15 +153,7 @@ export async function sendTransactionalEmail(
   shop: string,
   params: SendEmailParams
 ): Promise<EmailResult> {
-  // Check email limit before sending
-  const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
-    return {
-      success: false,
-      error: usageCheck.message,
-    };
-  }
+  await reportEmailCapacity(shop, 1);
 
   const providerType = await getEmailProviderType(shop);
 
@@ -216,12 +219,7 @@ export async function sendWelcomeEmailUnified(
   shop: string,
   params: WelcomeEmailParams
 ): Promise<boolean> {
-  // Check email limit before sending
-  const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
-    return false;
-  }
+  await reportEmailCapacity(shop, 1);
 
   const { customer, tierName, cashbackPercent } = params;
   const providerType = await getEmailProviderType(shop);
@@ -283,12 +281,7 @@ export async function sendTierUpgradeEmailUnified(
   shop: string,
   params: TierUpgradeEmailParams
 ): Promise<boolean> {
-  // Check email limit before sending
-  const usageCheck = await checkEmailLimit(shop, 1);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
-    return false;
-  }
+  await reportEmailCapacity(shop, 1);
 
   const { customer, previousTier, newTier, qualifyingOrderId } = params;
   const providerType = await getEmailProviderType(shop);
@@ -425,15 +418,7 @@ export async function sendBatchMarketingEmails(
 ): Promise<EmailResult> {
   const recipientCount = params.recipients.length;
 
-  // Check email limit before sending batch
-  const usageCheck = await checkEmailLimit(shop, recipientCount);
-  if (!usageCheck.allowed) {
-    console.log(`[EmailProvider] Email limit reached for ${shop}: ${usageCheck.message}`);
-    return {
-      success: false,
-      error: usageCheck.message,
-    };
-  }
+  await reportEmailCapacity(shop, recipientCount);
 
   const useKlaviyo = await shouldUseKlaviyoForMarketing(shop);
 

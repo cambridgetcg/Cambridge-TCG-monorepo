@@ -26,7 +26,6 @@ import {
   SkeletonBodyText,
   SkeletonDisplayText,
   Toast,
-  Frame,
   FormLayout,
   Checkbox,
   ChoiceList,
@@ -2298,6 +2297,7 @@ function CustomersTableContent({
   const navigation = useNavigation();
   const [visibleRows, setVisibleRows] = useState<number[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const customerCount = customers.length;
 
   const resourceName = {
     singular: 'customer',
@@ -2323,9 +2323,9 @@ function CustomersTableContent({
 
   // Stagger animation on mount
   useEffect(() => {
-    if (customers.length > 0) {
+    if (customerCount > 0) {
       const timers: NodeJS.Timeout[] = [];
-      customers.forEach((_, index) => {
+      Array.from({ length: customerCount }).forEach((_, index) => {
         const timer = setTimeout(() => {
           setVisibleRows(prev => [...prev, index]);
         }, index * 30);
@@ -2333,7 +2333,7 @@ function CustomersTableContent({
       });
       return () => timers.forEach(clearTimeout);
     }
-  }, [customers.length]);
+  }, [customerCount]);
 
   const rowMarkup = customers.map((customer, index) => {
     const isVisible = visibleRows.includes(index);
@@ -2671,9 +2671,12 @@ export default function Customers() {
 
   // Use enhanced customers if loaded, otherwise fall back to base customers
   // NOTE: Must be defined before callbacks that use it (handleSelectionChange)
-  const displayCustomers = enhancedDataLoaded
-    ? enhancedCustomers
-    : (data.customersData?.customers || []);
+  const displayCustomers = useMemo(
+    () => enhancedDataLoaded
+      ? enhancedCustomers
+      : (data.customersData?.customers || []),
+    [enhancedDataLoaded, enhancedCustomers, data.customersData?.customers]
+  );
 
   // Format currency helper
   const _formatAmount = useCallback((amount: number) => {
@@ -2830,8 +2833,8 @@ export default function Customers() {
         throw new Error(`Export failed: ${response.statusText}`);
       }
 
-      // Check for export limit warning from headers
-      const exportLimit = response.headers.get('X-Export-Limit');
+      // Capacity is advisory; the API always streams every matching row.
+      const exportLimit = response.headers.get('X-Export-Advisory-Limit');
       const plan = response.headers.get('X-Plan');
 
       // Get filename from Content-Disposition header or use default
@@ -2850,9 +2853,11 @@ export default function Customers() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      // Show success with export limit info if applicable
+      // Show the plan guideline without implying that the export was truncated.
       if (exportLimit && exportLimit !== 'Infinity' && plan) {
-        showSuccess(`${successMessage} (${plan} plan limit: ${parseInt(exportLimit).toLocaleString()} rows)`);
+        showSuccess(
+          `${successMessage} All rows were included. ${plan} advisory capacity: ${parseInt(exportLimit).toLocaleString()} rows.`,
+        );
       } else {
         showSuccess(successMessage);
       }
@@ -3218,7 +3223,7 @@ export default function Customers() {
   ) : null;
 
   return (
-    <Frame>
+    <>
       <Page
         title="Customers"
         subtitle="Manage customer tiers and store credit"
@@ -3455,7 +3460,8 @@ export default function Customers() {
               <InlineStack gap="300" align="start" blockAlign="center" wrap>
                 <div style={{ flex: '1 1 240px', maxWidth: '400px', minWidth: 0 }}>
                   <TextField
-                    label=""
+                    label="Search customers"
+                    labelHidden
                     placeholder="Search by name, email, or ID"
                     value={queryValue}
                     onChange={handleSearch}
@@ -3466,7 +3472,8 @@ export default function Customers() {
                   />
                 </div>
                 <Select
-                  label=""
+                  label="Customer tier"
+                  labelHidden
                   options={[
                     { label: "All Tiers", value: "all" },
                     { label: "No Tier", value: "none" },
@@ -3500,7 +3507,8 @@ export default function Customers() {
                         <InlineStack gap="200" blockAlign="center">
                           <Box width="120px">
                             <TextField
-                              label=""
+                              label="Minimum store credit"
+                              labelHidden
                               type="number"
                               value={creditMinFilter}
                               onChange={(value) => handleCreditRangeChange(value, creditMaxFilter)}
@@ -3512,7 +3520,8 @@ export default function Customers() {
                           <Text as="span" tone="subdued">to</Text>
                           <Box width="120px">
                             <TextField
-                              label=""
+                              label="Maximum store credit"
+                              labelHidden
                               type="number"
                               value={creditMaxFilter}
                               onChange={(value) => handleCreditRangeChange(creditMinFilter, value)}
@@ -3530,7 +3539,8 @@ export default function Customers() {
                       <BlockStack gap="200">
                         <Text variant="headingSm" as="h3">Manual Override</Text>
                         <ChoiceList
-                          title=""
+                          title="Manual override"
+                          titleHidden
                           choices={[
                             { label: "All customers", value: "all" },
                             { label: "With manual override", value: "yes" },
@@ -3547,7 +3557,7 @@ export default function Customers() {
                           Customer Activity
                         </Text>
                         <ChoiceList
-                          title=""
+                          title="Customer activity"
                           titleHidden
                           choices={[
                             { label: "All activity levels", value: "all" },
@@ -4042,6 +4052,6 @@ export default function Customers() {
       {toastMarkup}
       
       {/* Page animations handled by PageAnimation system - see app/components/PageAnimation */}
-    </Frame>
+    </>
   );
 }

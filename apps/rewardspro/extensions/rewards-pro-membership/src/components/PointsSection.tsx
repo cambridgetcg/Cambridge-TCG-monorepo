@@ -31,7 +31,6 @@ interface PointsSectionProps {
 
 export function PointsSection({
   points,
-  shopCurrency,
   locale,
   translate,
 }: PointsSectionProps) {

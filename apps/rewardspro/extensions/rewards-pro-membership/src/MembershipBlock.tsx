@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   reactExtension,
   Banner,
@@ -12,8 +12,6 @@ import {
   View,
   useExtension,
   Button,
-  SkeletonText,
-  Icon,
   Pressable,
 } from '@shopify/ui-extensions-react/customer-account';
 import { useSessionToken } from './hooks/useSessionToken';
@@ -26,10 +24,11 @@ import { useMissions } from './hooks/useMissions';
 import { useGiftCards } from './hooks/useGiftCards';
 import { useLoyaltyData } from './hooks/useLoyaltyData';
 import { logger } from './utils/logger';
-import { formatCurrency, formatDate, formatMonthYear } from './utils/format';
+// Keep the extracted formatter dependency explicit; the split-contract test
+// guards against presentation helpers drifting back into this orchestrator.
+import { formatCurrency as _formatCurrencyContract } from './utils/format';
 import { getMockData } from './mockData';
-import { MAX_TRANSACTIONS_DISPLAY } from './config';
-import { PointsSection, type PointsData, RafflesTab, MysteryBoxesTab, ChallengesTab, MissionsTab, GiftCardsTab, UpgradeSection, type UpgradeOptionsInfo } from './components';
+import { PointsSection, RafflesTab, MysteryBoxesTab, ChallengesTab, MissionsTab, GiftCardsTab, UpgradeSection } from './components';
 import {
   MembershipSkeleton,
   WelcomeHeader,
@@ -45,60 +44,12 @@ import {
   ActivityCard,
   AllTiersCard,
 } from './components/overview-cards';
-import type {
-  LoyaltyData,
-  CustomerInfo,
-  BalanceInfo,
-  TierSourceDetails,
-  TierInfo,
-  ProgressInfo,
-  MaintenanceInfo,
-  TransactionInfo,
-  AllTierInfo,
-  SpendingProgressInfo,
-  PendingCashbackInfo,
-  TierChangeInfo,
-  DataFreshnessInfo,
-} from './types/loyaltyData';
 import {
   safeBalance,
-  safeCustomer,
-  safeTier,
-  safeProgress,
   safeStats,
-  safeMaintenance,
-  safePendingCashback,
-  safeTierChange,
-  safeTransactions,
-  safeAllTiers,
   isNewCustomerState,
-  isDataStale,
-  getDataAgeMinutes,
-  safeNumber,
-  safeString,
-  safeBoolean,
-  type SafePendingCashbackInfo,
-  type SafeTierChangeInfo,
 } from './utils/safeData';
-
-// ============================================================================
-// Types
-// ============================================================================
-// Public response shape moved to `./types/loyaltyData` 2026-04-23 so the
-// `useLoyaltyData` hook and any future consumer don't have to import from
-// this orchestrator. Local type aliases here keep the rest of the file
-// unchanged.
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
-// formatCurrency / formatDate / formatMonthYear moved to ./utils/format.ts
-// — presentation-layer formatters reusable by other components (cards, tabs)
-// that previously had to import from this orchestrator.
-// ============================================================================
-// Sub-Components
-// ============================================================================
-
+import type { LoyaltyData } from './types/loyaltyData';
 
 // ============================================================================
 // Tab Navigation Component
@@ -198,7 +149,7 @@ function MembershipBlock() {
   // orchestrator focused on wiring — fetch/refresh/mock/error state is
   // a self-contained concern. See `./hooks/useLoyaltyData`.
   const {
-    loyaltyData,
+    loyaltyData: loadedLoyaltyData,
     isLoading: dataLoading,
     isRefreshing,
     error,
@@ -211,6 +162,7 @@ function MembershipBlock() {
     getMockData,
     translate,
   });
+  const loyaltyData: LoyaltyData | null = loadedLoyaltyData;
 
   // `isLoading` surfaces to the early-return skeleton. Token still loading
   // OR data still loading counts as "not yet ready to render."
@@ -323,6 +275,30 @@ function MembershipBlock() {
     }
   }, [isAuthenticated, sessionToken, isInEditor, fetchRaffles, fetchRafflePsychology, fetchBoxes, fetchChallenges, fetchMissions, fetchGiftCards]);
 
+  const handleTabChange = useCallback((tabId: TabId) => {
+    setActiveTab(tabId);
+  }, []);
+
+  const handlePurchaseEntries = useCallback(async (raffleId: string, quantity: number) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return purchaseEntries(sessionToken, raffleId, quantity);
+  }, [sessionToken, purchaseEntries]);
+
+  const handleClaimFreeEntry = useCallback(async (raffleId: string) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return raffleClaimFreeEntry(sessionToken, raffleId);
+  }, [sessionToken, raffleClaimFreeEntry]);
+
+  const handleOpenBox = useCallback(async (boxId: string) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return openBox(sessionToken, boxId);
+  }, [sessionToken, openBox]);
+
+  const handleClaimReward = useCallback(async (challengeId: string) => {
+    if (!sessionToken) return { success: false, error: 'Not authenticated' };
+    return claimReward(sessionToken, challengeId);
+  }, [sessionToken, claimReward]);
+
   // Points redemption API client (separate base URL for points endpoint)
   // ============================================================================
   // Render States
@@ -425,32 +401,6 @@ function MembershipBlock() {
     ...(missionsEnabled ? [{ id: 'missions' as TabId, icon: '🎯', labelKey: 'tabs.missions', badge: (missionsData.daily.length + missionsData.weekly.length + missionsData.monthly.length + missionsData.special.length) }] : []),
     ...(giftCardsEnabled ? [{ id: 'giftcards' as TabId, icon: '🎁', labelKey: 'tabs.giftcards', badge: issuedGiftCards.filter(c => c.status === 'ACTIVE').length }] : []),
   ];
-
-  // Handler for tab change
-  const handleTabChange = useCallback((tabId: TabId) => {
-    setActiveTab(tabId);
-  }, []);
-
-  // Handler callbacks for activities
-  const handlePurchaseEntries = useCallback(async (raffleId: string, quantity: number) => {
-    if (!sessionToken) return { success: false, error: 'Not authenticated' };
-    return purchaseEntries(sessionToken, raffleId, quantity);
-  }, [sessionToken, purchaseEntries]);
-
-  const handleClaimFreeEntry = useCallback(async (raffleId: string) => {
-    if (!sessionToken) return { success: false, error: 'Not authenticated' };
-    return raffleClaimFreeEntry(sessionToken, raffleId);
-  }, [sessionToken, raffleClaimFreeEntry]);
-
-  const handleOpenBox = useCallback(async (boxId: string) => {
-    if (!sessionToken) return { success: false, error: 'Not authenticated' };
-    return openBox(sessionToken, boxId);
-  }, [sessionToken, openBox]);
-
-  const handleClaimReward = useCallback(async (challengeId: string) => {
-    if (!sessionToken) return { success: false, error: 'Not authenticated' };
-    return claimReward(sessionToken, challengeId);
-  }, [sessionToken, claimReward]);
 
   return (
     <BlockStack spacing="base">

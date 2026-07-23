@@ -30,6 +30,7 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { customerActionRateLimit } from "~/utils/rate-limiter-redis";
 
 // ============================================================================
 // Configurable Logging
@@ -45,12 +46,6 @@ const log = {
   warn: (...args: unknown[]) => console.warn('[CustomerAccount]', ...args),
   error: (...args: unknown[]) => console.error('[CustomerAccount]', ...args),
 };
-
-// ============================================================================
-// Rate Limiting - Redis-backed for serverless environments
-// ============================================================================
-
-import { customerActionRateLimit } from "~/utils/rate-limiter-redis";
 
 function getTransactionDescription(transaction: any): string {
   const metadata = transaction.metadata as any;

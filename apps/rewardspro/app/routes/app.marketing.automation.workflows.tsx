@@ -1,5 +1,6 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, Form, useActionData, useSubmit } from "@remix-run/react";
+import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
+import { useLoaderData, useNavigate, useActionData, useSubmit } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -13,7 +14,6 @@ import {
   Box,
   Icon,
   Tooltip,
-  ProgressBar,
   Tabs,
 } from "@shopify/polaris";
 import {
@@ -510,7 +510,7 @@ export default function AutomationWorkflows() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
                         gap: "16px",
                       }}
                     >

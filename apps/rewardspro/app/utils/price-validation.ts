@@ -266,7 +266,7 @@ export function sanitizePriceInput(
   currency: Currency | string
 ): number | null {
   // Remove currency symbols and whitespace
-  const cleaned = input.replace(/[^\d.,\-]/g, '');
+  const cleaned = input.replace(/[^\d.,-]/g, '');
   
   // Replace comma with period for decimal
   const normalized = cleaned.replace(',', '.');

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 // Mock Polaris components
 vi.mock('@shopify/polaris', () => ({
@@ -12,7 +13,7 @@ vi.mock('@shopify/polaris', () => ({
     <span data-testid={`text-${variant || 'default'}`}>{children}</span>,
   Badge: ({ children, tone }: { children: React.ReactNode, tone?: string }) => 
     <span data-testid={`badge-${tone || 'default'}`}>{children}</span>,
-  Button: ({ children, onClick, variant, tone }: any) => 
+  Button: ({ children, onClick, variant }: any) =>
     <button data-testid={`button-${variant || 'default'}`} onClick={onClick}>{children}</button>,
   Modal: ({ children, open, title }: any) =>
     open ? <div data-testid="modal"><span>{title}</span>{children}</div> : null,
@@ -123,50 +124,52 @@ describe('TierCard', () => {
   it('renders tier information correctly', () => {
     const { container } = render(<TierCard tier={mockTier} />);
 
-    expect(container.textContent).toContain('Gold');
-    expect(container.textContent).toContain('$1,000+ annual spending');
-    expect(container.textContent).toContain('5% cashback');
-    expect(container.textContent).toContain('150 customers');
+    expect(container).toHaveTextContent('Gold');
+    expect(container).toHaveTextContent('$1,000+ annual spending');
+    expect(container).toHaveTextContent('5% cashback');
+    expect(container).toHaveTextContent('150 customers');
   });
 
-  it('calls onEdit when edit button is clicked', () => {
+  it('calls onEdit when edit button is clicked', async () => {
+    const user = userEvent.setup();
     const onEdit = vi.fn();
     render(<TierCard tier={mockTier} onEdit={onEdit} />);
 
     const editButton = screen.getByTestId('button-plain');
-    fireEvent.click(editButton);
+    await user.click(editButton);
     
     expect(onEdit).toHaveBeenCalledWith(mockTier);
   });
 
-  it('shows delete confirmation modal', () => {
+  it('shows delete confirmation modal', async () => {
+    const user = userEvent.setup();
     const onDelete = vi.fn();
     const { container } = render(<TierCard tier={mockTier} onDelete={onDelete} />);
 
     const deleteButton = screen.getByTestId('button-critical');
-    fireEvent.click(deleteButton);
-    
-    expect(container.textContent).toContain('Delete tier?');
+    await user.click(deleteButton);
+
+    expect(container).toHaveTextContent('Delete tier?');
     
     const confirmButton = screen.getByText('Confirm');
-    fireEvent.click(confirmButton);
+    await user.click(confirmButton);
     
     expect(onDelete).toHaveBeenCalledWith('1');
   });
 
   it('displays correct icon based on tier level', () => {
     const { rerender } = render(<TierCard tier={{ ...mockTier, name: 'Bronze' }} />);
-    expect(screen.getByTestId('bronze-icon')).toBeTruthy();
+    expect(screen.getByTestId('bronze-icon')).toBeInTheDocument();
     
     rerender(<TierCard tier={{ ...mockTier, name: 'Diamond' }} />);
-    expect(screen.getByTestId('diamond-icon')).toBeTruthy();
+    expect(screen.getByTestId('diamond-icon')).toBeInTheDocument();
   });
 
   it('handles lifetime evaluation period', () => {
     const lifetimeTier = { ...mockTier, evaluationPeriod: 'LIFETIME' as const };
     const { container } = render(<TierCard tier={lifetimeTier} />);
     
-    expect(container.textContent).toContain('$1,000+ lifetime spending');
+    expect(container).toHaveTextContent('$1,000+ lifetime spending');
   });
 
   it('renders without customer count', () => {
@@ -175,6 +178,6 @@ describe('TierCard', () => {
     
     const { container } = render(<TierCard tier={tierWithoutCount} />);
     
-    expect(container.textContent).not.toContain('customers');
+    expect(container).not.toHaveTextContent('customers');
   });
 });

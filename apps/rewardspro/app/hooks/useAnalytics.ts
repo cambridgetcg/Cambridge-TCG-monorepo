@@ -9,10 +9,10 @@
  *   trackEvent({ name: 'tier_upgrade', params: { ... } });
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from '@remix-run/react';
-import { useRouteLoaderData } from '@remix-run/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useRouteLoaderData } from '@remix-run/react';
 import type { AppLoaderData } from '~/routes/app';
+import type { ga4 as GA4Client } from '~/services/analytics/ga4.client';
 import type { GA4Event, RewardsProDimensions } from '~/services/analytics/ga4.types';
 
 // ============================================
@@ -42,18 +42,25 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
   const prevPathRef = useRef<string>('');
 
   // State for lazy-loaded GA4 module (client-only)
-  const [ga4, setGa4] = useState<typeof import('~/services/analytics/ga4.client').ga4 | null>(null);
+  const [ga4, setGa4] = useState<typeof GA4Client | null>(null);
   const [isClientReady, setIsClientReady] = useState(false);
 
   // Get app-level data (shop, entitlements, etc.)
   const appData = useRouteLoaderData<AppLoaderData>('routes/app');
 
   // Build base dimensions for all events
-  const baseDimensions: Partial<RewardsProDimensions> = {
-    shop_domain: appData?.shop || '',
-    current_plan: appData?.currentPlan || '',
-    customer_tier: appData?.entitlements?.effectivePlan || undefined,
-  };
+  const baseDimensions = useMemo<Partial<RewardsProDimensions>>(
+    () => ({
+      shop_domain: appData?.shop || '',
+      current_plan: appData?.currentPlan || '',
+      customer_tier: appData?.entitlements?.effectivePlan || undefined,
+    }),
+    [
+      appData?.shop,
+      appData?.currentPlan,
+      appData?.entitlements?.effectivePlan,
+    ]
+  );
 
   // ============================================
   // Load GA4 module on client only
@@ -89,7 +96,14 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
     const title = pageTitle || document.title || getPageTitleFromPath(location.pathname);
 
     ga4.trackPageView(title, location.pathname, baseDimensions);
-  }, [location.pathname, autoTrackPageViews, pageTitle, ga4, isClientReady]);
+  }, [
+    location.pathname,
+    autoTrackPageViews,
+    pageTitle,
+    ga4,
+    isClientReady,
+    baseDimensions,
+  ]);
 
   // ============================================
   // Event Tracking Functions

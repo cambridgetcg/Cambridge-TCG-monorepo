@@ -19,7 +19,6 @@
 const {
   RDSDataClient,
   ExecuteStatementCommand,
-  BatchExecuteStatementCommand,
 } = require("@aws-sdk/client-rds-data");
 const crypto = require("crypto");
 

@@ -1,6 +1,6 @@
 /**
  * Plan-Based Access Control
- * Enforces order limits based on merchant subscription plans
+ * Reports order capacity without locking merchant access.
  */
 
 import prisma from "~/db.server";
@@ -25,12 +25,15 @@ export interface AccessCheckResult {
  */
 export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
 
   // Calculate current month name and days remaining
-  const currentMonth = now.toLocaleDateString('en-US', { month: 'long' });
-  const endOfMonth = new Date(year, month, 0);
+  const currentMonth = now.toLocaleDateString('en-US', {
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  const endOfMonth = new Date(Date.UTC(year, month, 1));
   const daysRemaining = Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
   // Get or create current month's usage record
@@ -54,7 +57,7 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
         year,
         month,
         orderCount: 0,
-        planLimit: 50, // Free plan default (matches plan-limits.ts)
+        planLimit: getOrderLimit('RewardsPro Free'),
         planName: 'RewardsPro Free',
         isLocked: false,
         createdAt: new Date(),
@@ -63,66 +66,40 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
     });
   }
 
-  const usagePercentage = usage.planLimit > 0
-    ? Math.min((usage.orderCount / usage.planLimit) * 100, 100)
+  // Preserve larger legacy/custom snapshots while repairing stale low defaults.
+  const contractLimit = getOrderLimit(usage.planName);
+  const planLimit = Math.max(usage.planLimit, contractLimit);
+  const usagePercentage = planLimit > 0
+    ? Math.min((usage.orderCount / planLimit) * 100, 100)
     : 0;
 
-  // Check if already locked
-  if (usage.isLocked) {
-    console.log(`[PlanAccess] Shop ${shop} is LOCKED: ${usage.lockReason}`);
-
-    return {
-      hasAccess: false,
-      isLocked: true,
-      orderCount: usage.orderCount,
-      planLimit: usage.planLimit,
-      planName: usage.planName,
-      reason: usage.lockReason || 'Monthly order limit reached',
-      usagePercentage,
-      currentMonth,
-      daysRemaining
-    };
-  }
-
-  // Check if limit reached (auto-lock if needed)
-  if (usage.orderCount >= usage.planLimit) {
-    console.log(`[PlanAccess] Shop ${shop} reached limit (${usage.orderCount}/${usage.planLimit}), auto-locking...`);
-
-    // Auto-lock the shop
-    const lockReason = `Order limit reached (${usage.orderCount}/${usage.planLimit})`;
-
+  // Clear old hard-lock state and repair the contract snapshot. Capacity is
+  // advisory: admin access, balances, and loyalty processing remain available.
+  if (usage.isLocked || usage.planLimit !== planLimit) {
     await prisma.monthlyOrderUsage.update({
       where: { id: usage.id },
       data: {
-        isLocked: true,
-        lockedAt: new Date(),
-        lockReason,
-        updatedAt: new Date()
+        planLimit,
+        isLocked: false,
+        lockedAt: null,
+        lockReason: null,
+        updatedAt: new Date(),
       }
     });
-
-    return {
-      hasAccess: false,
-      isLocked: true,
-      orderCount: usage.orderCount,
-      planLimit: usage.planLimit,
-      planName: usage.planName,
-      reason: lockReason,
-      usagePercentage: 100,
-      currentMonth,
-      daysRemaining
-    };
   }
 
-  // Has access
-  console.log(`[PlanAccess] Shop ${shop} has access (${usage.orderCount}/${usage.planLimit} = ${usagePercentage.toFixed(1)}%)`);
+  const overCapacity = usage.orderCount >= planLimit;
+  console.log(`[PlanAccess] Shop ${shop} usage ${usage.orderCount}/${planLimit} (${usagePercentage.toFixed(1)}%); advisory=${overCapacity}`);
 
   return {
     hasAccess: true,
     isLocked: false,
     orderCount: usage.orderCount,
-    planLimit: usage.planLimit,
+    planLimit,
     planName: usage.planName,
+    reason: overCapacity
+      ? `Monthly plan capacity reached (${usage.orderCount}/${planLimit}); consider a larger plan.`
+      : undefined,
     usagePercentage,
     currentMonth,
     daysRemaining
@@ -134,8 +111,8 @@ export async function checkPlanAccess(shop: string): Promise<AccessCheckResult> 
  */
 export async function unlockShop(shop: string): Promise<void> {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
 
   console.log(`[PlanAccess] Unlocking shop ${shop} for ${year}-${month.toString().padStart(2, '0')}`);
 
@@ -166,8 +143,8 @@ export async function updatePlanLimit(
   newLimit: number
 ): Promise<void> {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
 
   console.log(`[PlanAccess] Updating ${shop} to ${newPlanName} (limit: ${newLimit})`);
 
@@ -181,25 +158,18 @@ export async function updatePlanLimit(
     }
   });
 
-  // Determine if we should unlock (new limit > current usage)
-  const shouldUnlock = usage
-    ? newLimit > usage.orderCount
-    : true;
-
-  console.log(`[PlanAccess] Current usage: ${usage?.orderCount || 0}, New limit: ${newLimit}, Will unlock: ${shouldUnlock}`);
+  console.log(`[PlanAccess] Current usage: ${usage?.orderCount || 0}, New limit: ${newLimit}`);
 
   if (usage) {
-    // Update existing record and unlock if new limit exceeds current usage
+    // Plan changes update the reporting snapshot and always clear old locks.
     await prisma.monthlyOrderUsage.update({
       where: { id: usage.id },
       data: {
         planName: newPlanName,
         planLimit: newLimit,
-        ...(shouldUnlock ? {
-          isLocked: false,
-          lockedAt: null,
-          lockReason: null,
-        } : {}),
+        isLocked: false,
+        lockedAt: null,
+        lockReason: null,
         updatedAt: new Date()
       }
     });

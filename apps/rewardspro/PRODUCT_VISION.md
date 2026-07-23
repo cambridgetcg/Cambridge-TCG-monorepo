@@ -1,11 +1,24 @@
 # RewardsPro: Product Vision & Roadmap
 
-> **Last Updated**: January 2026
+> **Last Updated**: July 2026
 > **Status**: Living Document
 
 ## Executive Summary
 
-RewardsPro is the **definitive loyalty platform for Shopify merchants**—a system that transforms customer relationships through intelligent rewards, personalized engagement, and measurable ROI. This document outlines both **implemented features** and **future vision** organized into strategic pillars.
+RewardsPro is becoming a **commerce-independent loyalty platform**—a system
+that transforms customer relationships through intelligent rewards,
+personalized engagement, and measurable ROI. Shopify is the only production,
+self-serve commerce connector today and becomes the reference connector rather
+than the permanent product boundary.
+
+The expansion is a direction, not a shipped-feature claim. WooCommerce is
+planned as the first full non-Shopify connector, the headless API is in design,
+and Stripe/POS connections are exploratory. The decision and migration shape
+are recorded in
+[`../../docs/decisions/2026-07-23-rewardspro-platform.md`](../../docs/decisions/2026-07-23-rewardspro-platform.md).
+
+This document outlines both **implemented features** and **future vision**
+organized into strategic pillars.
 
 ### Implementation Status Legend
 
@@ -20,14 +33,16 @@ RewardsPro is the **definitive loyalty platform for Shopify merchants**—a syst
 
 ## Current Product Overview
 
-### What's Live Today
+### Current Production State
 
 RewardsPro currently offers:
 
 - **Tier-Based Loyalty**: Spending-based, manual, product purchase, and subscription-based tier assignment
 - **Store Credit/Cashback**: Automatic cashback on purchases synced to Shopify
 - **Points System**: Earn and redeem points with configurable rules
-- **Gamification**: Raffles and Mystery Boxes for engagement
+- **Gamification**: Merchant configuration and engines exist for raffles,
+  mystery boxes, and missions; Shopify customer-account participation is
+  paused pending verified identity binding
 - **Marketing**: Email campaigns, templates, and automation workflows
 - **Analytics**: Revenue tracking, cohort analysis, RFM segmentation
 - **Integrations**: Klaviyo, SendGrid, Zapier, Slack
@@ -36,17 +51,25 @@ RewardsPro currently offers:
 
 All plans access all features—differentiation is through capacity limits:
 
-| Feature | Free | Pro ($39/mo) | Max ($149/mo) | Ultra ($499/mo) |
-|---------|------|--------------|---------------|-----------------|
-| Orders/month | 50 | 500 | 2,000 | Unlimited |
-| Customer sync | 500 | 5,000 | 25,000 | Unlimited |
-| Tiers | 2 | 5 | 10 | Unlimited |
-| Tier products | 1 | 3 | 10 | Unlimited |
-| Emails/month | 50 | 500 | 2,000 | Unlimited |
-| Campaigns | 1 | 5 | 25 | Unlimited |
-| Automation flows | 1 | 3 | 10 | Unlimited |
-| Active raffles | 1 | 3 | 10 | Unlimited |
-| Active challenges | 1 | 5 | 15 | Unlimited |
+Capacity entitlement does not override a security pause. Customer-facing
+gamification routes remain unavailable until the identity-binding condition
+named in Pillar 2 is satisfied.
+
+| Feature | Free Forever | Grow ($29/mo) | Scale ($79/mo) | Corporate ($499/mo) |
+|---------|--------------|---------------|----------------|---------------------|
+| Reward-eligible orders/month | 1,000 | 10,000 | 25,000 | 100,000 |
+| Customer sync | 10,000 | 100,000 | 500,000 | Unlimited |
+| Tiers | 5 | 20 | 50 | Unlimited |
+| Tier products | 5 | 20 | 50 | Unlimited |
+| Emails/month | 1,000 | 10,000 | 25,000 | 100,000 |
+| Campaigns | 5 | 25 | 100 | Unlimited |
+| Automation flows | 3 | 15 | 50 | Unlimited |
+| Active raffles | 3 | 10 | 25 | Unlimited |
+| Active challenges | 5 | 25 | 100 | Unlimited |
+
+Annual prices are $290 for Grow, $790 for Scale, and $4,990 for
+Corporate. Current plans are fixed-price with no GMV, customer-count, or
+per-order overage charge.
 
 ---
 
@@ -60,13 +83,15 @@ All plans access all features—differentiation is through capacity limits:
 5. **Privacy & Security** - PII protection, session isolation
 6. **Scalability** - Async processing, pagination, chunking
 7. **Auditability** - Complete change logs and trails
-8. **Deep Integrations** - Native Shopify experience
+8. **Deep Connectors** - Native Shopify depth today, equivalent honesty per future platform
 
 ### Evolving Principles
 9. **Intelligence** - AI-powered insights and automation
 10. **Engagement** - Gamification that drives behavior
 11. **Omnichannel** - Seamless experience across touchpoints
 12. **Community** - Loyalty as social connection
+13. **Connector Honesty** - Every platform capability and limitation is explicit
+14. **Portable Core** - Identity, ledgers, rules, and events do not belong to one channel
 
 ---
 
@@ -360,6 +385,21 @@ model CustomerChallenge {
 
 ## Pillar 5: Integrations
 
+### 5.0 Commerce Platform Connectors
+
+| Connector | Status | Scope |
+|-----------|--------|-------|
+| Shopify | ✅ LIVE | Full production application and native redemption |
+| WooCommerce | 📋 PLANNED | First full non-Shopify connector |
+| Headless API | 💡 DESIGN | Canonical identity, event, balance, and redemption contracts |
+| Stripe | 💡 EXPLORING | Payment/subscription earning connector first |
+| POS providers | 💡 EXPLORING | Later omnichannel work |
+
+The statuses above are deliberately narrower than the third-party app
+integrations below. A marketing integration such as Klaviyo consumes loyalty
+events; a commerce connector supplies the customers, orders, refunds, and
+redemption surface that the loyalty engine operates on.
+
 ### 5.1 Current Integrations ✅ LIVE
 
 | Integration | Status | Purpose |
@@ -427,15 +467,21 @@ model CustomerChallenge {
 
 ## Pillar 7: Infrastructure & Operations
 
-### 7.1 Billing & Plans ✅ LIVE
-**Status**: Production-ready
+### 7.1 Billing & Plans 🔨 PARTIAL
+**Status**: Free-first contract implemented; live Shopify rollout pending
 
 **Implemented Features**:
-- Four-tier pricing (Free, Pro, Max, Ultra)
+- Four public tiers (Free Forever, Grow, Scale, Corporate)
 - Monthly and annual billing
-- Usage-based overage charges
-- Plan limit enforcement
+- Fixed recurring prices with no usage charges
+- Advisory capacity warnings without merchant lockout
+- Stable legacy Shopify billing names for existing subscription recognition
 - Shopify Billing API integration
+
+**Rollout boundary**:
+- Partner Dashboard/App Pricing plans must be created and tested as drafts
+- Existing paid contracts stay recognised and are not cancelled automatically
+- Entitlement backfill is dry-run first and preserves active overrides
 
 **Files**: `billing/`, `app.billing.tsx`
 

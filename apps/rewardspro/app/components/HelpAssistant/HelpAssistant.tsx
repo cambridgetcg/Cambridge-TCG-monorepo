@@ -13,7 +13,6 @@ import {
   Badge,
 } from "@shopify/polaris";
 import {
-  QuestionCircleIcon,
   XIcon,
   SendIcon,
   ChatIcon,
@@ -259,8 +258,8 @@ export function HelpAssistant({
       <div
         style={{
           position: "fixed",
-          bottom: "20px",
-          right: "20px",
+          bottom: "max(20px, env(safe-area-inset-bottom, 0px))",
+          right: "max(16px, env(safe-area-inset-right, 0px))",
           zIndex: 1000,
         }}
       >
@@ -280,10 +279,10 @@ export function HelpAssistant({
         <div
           style={{
             position: "fixed",
-            bottom: "80px",
-            right: "20px",
-            width: "380px",
-            maxHeight: "500px",
+            bottom: "max(80px, calc(env(safe-area-inset-bottom, 0px) + 68px))",
+            right: "max(16px, env(safe-area-inset-right, 0px))",
+            width: "min(380px, calc(100vw - 32px))",
+            maxHeight: "min(500px, calc(100dvh - 112px))",
             backgroundColor: "var(--p-color-bg-surface)",
             borderRadius: "12px",
             boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
@@ -647,7 +646,7 @@ export function HelpAssistant({
             >
               <div style={{ flex: 1 }}>
                 <TextField
-                  label=""
+                  label="Ask Rewards Pro Assistant"
                   labelHidden
                   value={question}
                   onChange={setQuestion}

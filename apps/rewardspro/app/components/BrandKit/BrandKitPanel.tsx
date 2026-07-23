@@ -190,16 +190,15 @@ export function BrandKitPanel({
               >
                 Sample text content
               </p>
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
+              <span
                 style={{
                   color: currentStyles.linkColor,
                   fontSize: "14px",
+                  textDecoration: "underline",
                 }}
               >
                 Sample link
-              </a>
+              </span>
               <div style={{ marginTop: "8px" }}>
                 <span
                   style={{

@@ -15,6 +15,23 @@ if (typeof BigInt !== 'undefined') {
   };
 }
 
+// Polaris responsive utilities subscribe to matchMedia in component tests.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
 // MSW Server Setup
 beforeAll(() => {
   // Start the MSW server before all tests

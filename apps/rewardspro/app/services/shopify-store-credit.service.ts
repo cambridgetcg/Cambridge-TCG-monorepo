@@ -215,7 +215,7 @@ export class ShopifyStoreCreditService {
     customerId: string,
     amount: number,
     currency: string = 'USD',
-    description?: string
+    _description?: string
   ): Promise<StoreCreditResult> {
     const formattedAmount = formatForShopify(amount);
 
@@ -375,7 +375,7 @@ export class ShopifyStoreCreditService {
     customerId: string,
     amount: number,
     currency: string = 'USD',
-    description?: string
+    _description?: string
   ): Promise<StoreCreditResult> {
     const formattedAmount = formatForShopify(amount);
 

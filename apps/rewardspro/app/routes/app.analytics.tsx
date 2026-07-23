@@ -42,6 +42,10 @@ import { TierPerformanceChart } from "../components/analytics/TierPerformanceCha
 import { sortTiersByPriority } from "../utils/tier-styles";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import {
+  PRICING_PLANS,
+  UNLIMITED_PLAN_LIMIT,
+} from "../constants/pricing-contract";
 import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
@@ -259,8 +263,7 @@ interface AnalyticsData {
     status: string;
   }>;
 
-  // Rate-based limit: Historical data access limited by plan
-  // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited
+  // Advisory capacity guide; it never restricts access to existing history.
   maxHistoricalDays: number;
 
   // NEW: Insight Engine Data
@@ -372,9 +375,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       getEntitlements(shop),
     ]);
 
-    // Get the plan's historical days limit
-    // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited (999999)
-    const maxHistoricalDays = entitlements.limitMaxHistoricalDays || 7;
+    const maxHistoricalDays =
+      entitlements.limitMaxHistoricalDays ??
+      PRICING_PLANS.free.limits.historicalDataDays;
 
     // Debug: Log shopSettings to verify advancedAnalyticsEnabled is being returned
     console.log('[Analytics Loader] shopSettings:', JSON.stringify({
@@ -731,8 +734,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         advancedAnalyticsEnabled: (shopSettings as any).advancedAnalyticsEnabled ?? false,
       } : null,
 
-      // Rate-based limits: Historical data access limited by plan
-      // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited
+      // Advisory capacity guide; analytics queries and exports remain available.
       maxHistoricalDays,
 
       // Auto-calculated business metrics
@@ -1150,15 +1152,13 @@ export default function AnalyticsPage() {
       subtitle="See how your loyalty program is performing and what you can do to improve it"
     >
       <Layout>
-        {/* Historical Data Limit Notice - Rate-based gating */}
-        {data.maxHistoricalDays < 999999 && (
+        {/* Historical data capacity is advisory during the free-first rollout. */}
+        {data.maxHistoricalDays < UNLIMITED_PLAN_LIMIT && (
           <Layout.Section>
-            <Banner tone="info" title="Historical Data Access">
+            <Banner tone="info" title="Historical data capacity guide">
               <p>
-                Your current plan provides access to {data.maxHistoricalDays} days of historical data.
-                {data.maxHistoricalDays <= 7 && " Upgrade to Pro for 30 days, Max for 90 days, or Ultra for unlimited historical data."}
-                {data.maxHistoricalDays > 7 && data.maxHistoricalDays <= 30 && " Upgrade to Max for 90 days or Ultra for unlimited historical data."}
-                {data.maxHistoricalDays > 30 && data.maxHistoricalDays <= 90 && " Upgrade to Ultra for unlimited historical data."}
+                Your plan includes a {data.maxHistoricalDays}-day planning guide.
+                This is advisory during rollout; your existing history and exports remain available.
               </p>
             </Banner>
           </Layout.Section>
@@ -1205,7 +1205,7 @@ export default function AnalyticsPage() {
                     </Banner>
 
                     {/* 4 Key Metrics */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '16px' }}>
                       <Card>
                         <Box padding="400">
                           <BlockStack gap="200">
@@ -1289,6 +1289,7 @@ export default function AnalyticsPage() {
                           ]}
                           rows={sortTiersByPriority(data.tierPerformance).map(tier => [
                             <TierBadge
+                              key={tier.id}
                               tierName={tier.name}
                               size="small"
                               showIcon={true}
@@ -1336,7 +1337,7 @@ export default function AnalyticsPage() {
                       {/* Metrics Grid */}
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
                         gap: '16px',
                         marginBottom: '20px'
                       }}>
@@ -1406,7 +1407,7 @@ export default function AnalyticsPage() {
                       {/* Historical Data Charts */}
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 500px), 1fr))',
                         gap: '24px',
                         marginTop: '16px'
                       }}>
@@ -1571,7 +1572,7 @@ export default function AnalyticsPage() {
                       {data.recommendations && data.recommendations.length > 0 && (
                         <div style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
                           gap: '12px',
                           marginTop: '8px'
                         }}>
@@ -1634,7 +1635,7 @@ export default function AnalyticsPage() {
                     ) : (
                       <div style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))',
                         gap: '20px',
                         marginTop: '16px'
                       }}>
@@ -1741,7 +1742,7 @@ export default function AnalyticsPage() {
                             </Text>
                           </BlockStack>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))', gap: '16px' }}>
                             {/* Habit Strength */}
                             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                               <BlockStack gap="200">
@@ -1855,7 +1856,7 @@ export default function AnalyticsPage() {
                             </Text>
                           </BlockStack>
 
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                             {/* Champions */}
                             <Box padding="300" background="bg-fill-success-secondary" borderRadius="200">
                               <BlockStack gap="100">
@@ -1957,7 +1958,7 @@ export default function AnalyticsPage() {
                     </Card>
 
                     {/* Engagement Metrics */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
                       {/* Activity Breakdown */}
                       <Card>
                         <Box padding="400">
@@ -2144,7 +2145,7 @@ export default function AnalyticsPage() {
                           <Text variant="headingSm" as="h3">
                             💡 Psychology-Based Tips to Increase Loyalty
                           </Text>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '16px' }}>
                             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                               <BlockStack gap="100">
                                 <Text variant="bodyMd" as="p" fontWeight="semibold">🎯 Loss Aversion</Text>
@@ -2202,7 +2203,7 @@ export default function AnalyticsPage() {
                     </BlockStack>
 
                     {/* Summary Metrics Cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '16px' }}>
                       {/* Retention Summary */}
                       <Card>
                         <Box padding="400">
@@ -2563,7 +2564,7 @@ export default function AnalyticsPage() {
                           <Text variant="headingMd" as="h3">
                             📊 Cohort Analysis Insights
                           </Text>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
                             <Box padding="300" background="bg-surface-secondary" borderRadius="200">
                               <BlockStack gap="200">
                                 <Text variant="bodyMd" as="p" fontWeight="semibold">🔄 Retention Benchmark</Text>
@@ -2630,4 +2631,3 @@ export default function AnalyticsPage() {
 }
 
                     <Divider />
-

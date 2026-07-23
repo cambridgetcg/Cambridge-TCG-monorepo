@@ -1,8 +1,14 @@
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { Form, useLoaderData, Link } from "@remix-run/react";
+import { Form, useLoaderData } from "@remix-run/react";
 import { useState } from "react";
 import { login } from "../../shopify.server";
+import {
+  PRICING_PLANS,
+  PUBLIC_PLAN_KEYS,
+  formatPlanLimit,
+  getPlanFeatureSummary,
+} from "~/constants/pricing-contract";
 
 export const meta: MetaFunction = () => {
   return [
@@ -32,7 +38,7 @@ const faqs = [
   },
   {
     question: "Can I customize the reward tiers?",
-    answer: "Yes! You have full control over tier names, spending thresholds, and cashback percentages. Set up as many tiers as you want to match your business strategy."
+    answer: "Yes! You have full control over tier names, spending thresholds, and cashback percentages. Free includes five tiers, with more capacity on paid plans."
   },
   {
     question: "How do customers redeem their rewards?",
@@ -48,74 +54,22 @@ const faqs = [
   },
   {
     question: "Is there a free plan?",
-    answer: "Yes! Our free plan includes up to 200 orders per month, perfect for small stores just starting with loyalty programs."
+    answer: "Yes. Free Forever includes the complete core loyalty experience and up to 1,000 reward-eligible orders per month."
   }
 ];
 
-// Pricing plans data
-const pricingPlans = [
-  {
-    name: "Free",
-    price: "$0",
+const pricingPlans = PUBLIC_PLAN_KEYS.map((planKey) => {
+  const plan = PRICING_PLANS[planKey];
+  return {
+    name: plan.displayName,
+    price: `$${plan.monthlyPrice.toLocaleString("en-US")}`,
     period: "month",
-    ordersIncluded: "200 orders/month",
-    features: [
-      "Basic loyalty tiers",
-      "Store credit tracking",
-      "Customer dashboard",
-      "Email support"
-    ],
-    cta: "Start Free",
-    highlighted: false
-  },
-  {
-    name: "Starter",
-    price: "$49",
-    period: "month",
-    ordersIncluded: "500 orders/month",
-    features: [
-      "Everything in Free",
-      "Unlimited tiers",
-      "Custom emails",
-      "Priority support",
-      "Basic analytics"
-    ],
-    cta: "Start Trial",
-    highlighted: true
-  },
-  {
-    name: "Growth",
-    price: "$199",
-    period: "month",
-    ordersIncluded: "2,500 orders/month",
-    overageRate: "$20 per 100 additional",
-    features: [
-      "Everything in Starter",
-      "Advanced analytics",
-      "API webhooks",
-      "VIP tier features",
-      "Phone support"
-    ],
-    cta: "Start Trial",
-    highlighted: false
-  },
-  {
-    name: "Plus",
-    price: "$999",
-    period: "month",
-    ordersIncluded: "7,500 orders/month",
-    overageRate: "$5 per 100 additional",
-    features: [
-      "Everything in Growth",
-      "Custom reporting",
-      "Dedicated manager",
-      "White-glove setup",
-      "SLA guarantee"
-    ],
-    cta: "Contact Sales",
-    highlighted: false
-  }
-];
+    ordersIncluded: `${formatPlanLimit(plan.limits.orders)} reward-eligible orders/month`,
+    features: getPlanFeatureSummary(planKey),
+    cta: planKey === "free" ? "Start Free" : `Choose ${plan.displayName}`,
+    highlighted: planKey === "pro",
+  };
+});
 
 export default function LandingPage() {
   const { showForm } = useLoaderData<typeof loader>();
@@ -129,7 +83,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-purple-600">RewardsPro</h1>
+              <span className="text-2xl font-bold text-purple-600">RewardsPro</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-600 hover:text-purple-600 transition-colors">Features</a>
@@ -147,6 +101,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      <main id="main-content">
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 bg-gradient-to-br from-purple-50 to-white">
         <div className="max-w-7xl mx-auto text-center">
@@ -163,7 +118,7 @@ export default function LandingPage() {
               onClick={() => document.getElementById('get-started')?.scrollIntoView({ behavior: 'smooth' })}
               className="bg-purple-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-purple-700 transition-all transform hover:scale-105"
             >
-              Start Free Trial
+              Start Free
             </button>
             <a
               href="#how-it-works"
@@ -281,7 +236,7 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Tiered Rewards</h3>
-              <p className="text-gray-600">Create unlimited tiers with progressive cashback rates to incentivize higher spending</p>
+              <p className="text-gray-600">Create flexible progressive tiers with cashback rates that incentivize higher spending</p>
             </div>
 
             <div className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-shadow">
@@ -366,9 +321,6 @@ export default function LandingPage() {
                   <span className="text-gray-600">/{plan.period}</span>
                 </div>
                 <p className="text-gray-600 mb-2">{plan.ordersIncluded}</p>
-                {plan.overageRate && (
-                  <p className="text-sm text-gray-500 mb-4">{plan.overageRate}</p>
-                )}
                 <ul className="space-y-3 mb-6">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start">
@@ -477,7 +429,7 @@ export default function LandingPage() {
                 type="submit"
                 className="w-full bg-white text-purple-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105"
               >
-                Start Your Free Trial
+                Start Free
               </button>
             </Form>
           )}
@@ -513,6 +465,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12 px-4">
@@ -559,18 +512,18 @@ export default function LandingPage() {
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400">© 2025 RewardsPro. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <span className="text-gray-400">
                 <span className="sr-only">Twitter</span>
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
                 </svg>
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              </span>
+              <span className="text-gray-400">
                 <span className="sr-only">LinkedIn</span>
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                 </svg>
-              </a>
+              </span>
             </div>
           </div>
         </div>

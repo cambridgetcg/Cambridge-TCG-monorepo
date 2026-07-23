@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useNavigate, useFetcher, useRouteError, isRouteErrorResponse } from "@remix-run/react";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAnalytics } from "~/hooks/useAnalytics";
 import { useToast } from "~/hooks/useToast";
 
@@ -14,10 +14,8 @@ import {
   InlineStack,
   InlineGrid,
   Icon,
-  Box,
   Badge,
   Toast,
-  Frame,
   Divider,
   Banner,
   Button,
@@ -28,13 +26,16 @@ import {
   ChartVerticalIcon,
   CashDollarIcon,
   DatabaseIcon,
-  RefreshIcon,
   CheckCircleIcon,
-  CreditCardIcon,
 } from "~/utils/polaris-icons";
 import { authenticate, FREE_PLAN, PRO_PLAN, PRO_ANNUAL_PLAN, MAX_PLAN, MAX_ANNUAL_PLAN, ULTRA_PLAN, ULTRA_ANNUAL_PLAN, STARTER_PLAN, GROWTH_PLAN, ENTERPRISE_PLAN } from "../shopify.server";
 import prisma from "../db.server";
-import { MANAGED_PLANS } from "~/constants/billing.constants";
+import { getPlanOrderLimit } from "~/constants/billing.constants";
+import {
+  PRICING_PLANS,
+  getPlanKey,
+  getPricingPlan,
+} from "~/constants/pricing-contract";
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
 import { FeatureTogglesList } from "~/components/DesignSystem";
 
@@ -43,42 +44,31 @@ import { FeatureTogglesList } from "~/components/DesignSystem";
 // ============================================
 
 const getCurrentMonthName = (): string => {
-  return new Date().toLocaleDateString('en-US', { month: 'long' });
+  return new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    timeZone: 'UTC',
+  });
 };
 
 const calculateDaysRemaining = (): number => {
   const now = new Date();
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const endOfMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+  );
   return Math.ceil((endOfMonth.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 };
 
 const calculateProjectedOrders = (currentOrders: number, daysRemaining: number): number => {
   const now = new Date();
-  const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const totalDaysInMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0),
+  ).getUTCDate();
   const daysPassed = totalDaysInMonth - daysRemaining;
 
   if (daysPassed === 0) return currentOrders;
 
   const dailyRate = currentOrders / daysPassed;
   return Math.ceil(dailyRate * totalDaysInMonth);
-};
-
-const formatTimeAgo = (dateString: string | null): string => {
-  if (!dateString) return 'Never';
-
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
 };
 
 // ============================================
@@ -255,8 +245,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Simple direct order count for current month
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth() + 1;
     const currentMonth = getCurrentMonthName();
     const daysRemaining = calculateDaysRemaining();
 
@@ -277,8 +267,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         console.log(`[Dashboard] Using cached order count: ${orderCount}`);
       } else {
         // Simple direct count from Order table for current month
-        const startOfMonth = new Date(year, month - 1, 1);
-        const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+        const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
+        const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
         orderCount = await prisma.order.count({
           where: {
@@ -297,18 +287,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Determine plan and limits (prefer GraphQL subscription name)
-    let planLimit = MANAGED_PLANS["RewardsPro Free"].ordersIncluded;
-    let planName = 'RewardsPro Free';
+    let planLimit: number = PRICING_PLANS.free.limits.orders;
+    let planName: string = PRICING_PLANS.free.billingName;
 
     if (subscriptionName) {
-      const planConfig = MANAGED_PLANS[subscriptionName];
-      if (planConfig) {
-        planLimit = planConfig.ordersIncluded;
-        planName = subscriptionName;
-        console.log('[Dashboard] Using plan:', planName, 'with limit:', planLimit);
-      } else {
-        console.warn('[Dashboard] Plan not found in MANAGED_PLANS:', subscriptionName);
-      }
+      planLimit = getPlanOrderLimit(subscriptionName);
+      planName = subscriptionName;
+      console.log('[Dashboard] Using plan:', planName, 'with limit:', planLimit);
     } else {
       console.log('[Dashboard] No active subscription found, using Free plan');
     }
@@ -613,7 +598,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // ============================================
 
 export function shouldRevalidate({
-  formAction,
   formData,
   defaultShouldRevalidate,
 }: {
@@ -640,8 +624,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const fetcher = useFetcher();
 
-  // Review banner state: 'idle' | 'leaving' | 'claimed'
-  const [reviewBannerState, setReviewBannerState] = useState<'idle' | 'leaving' | 'claimed'>('idle');
+  // Review prompts are neutral and never linked to billing or plan rewards.
+  const [reviewBannerState, setReviewBannerState] = useState<'idle' | 'leaving' | 'recorded'>('idle');
   const [reviewBannerVisible, setReviewBannerVisible] = useState(!data?.reviewBannerDismissed);
   const reviewFetcher = useFetcher();
 
@@ -650,28 +634,15 @@ export default function Dashboard() {
     setReviewBannerState('leaving');
   }, []);
 
-  const handleReviewClaimed = useCallback(() => {
-    setReviewBannerState('claimed');
+  const handleReviewRecorded = useCallback(() => {
+    setReviewBannerState('recorded');
     reviewFetcher.submit({}, { method: 'POST', action: '/api/review-claimed' });
   }, [reviewFetcher]);
 
-  // Watch for the confirmationUrl coming back from the review-claimed API
+  // Hide the neutral review prompt after its dismissal is recorded.
   useEffect(() => {
     if (reviewFetcher.state === 'idle' && reviewFetcher.data) {
-      const d = reviewFetcher.data as {
-        success?: boolean;
-        confirmationUrl?: string;
-        billingError?: string;
-        alreadyClaimed?: boolean;
-        skipped?: boolean;
-      };
-      if (d.confirmationUrl) {
-        // Redirect merchant to Shopify billing confirmation page
-        window.location.href = d.confirmationUrl;
-      } else {
-        // Billing failed or skipped — still hide the banner after a beat
-        setTimeout(() => setReviewBannerVisible(false), 3000);
-      }
+      setTimeout(() => setReviewBannerVisible(false), 1200);
     }
   }, [reviewFetcher.state, reviewFetcher.data]);
 
@@ -682,9 +653,13 @@ export default function Dashboard() {
 
   // Analytics tracking
   const { trackCustomEvent } = useAnalytics({ pageTitle: 'Dashboard' });
+  const hasTrackedDashboardView = useRef(false);
 
-  // Track dashboard view with metrics on mount
+  // Track dashboard view with the initial metrics once per component lifetime.
   useEffect(() => {
+    if (hasTrackedDashboardView.current) return;
+    hasTrackedDashboardView.current = true;
+
     console.log('[Dashboard] Mount useEffect - tracking analytics');
     try {
       trackCustomEvent('dashboard_view', {
@@ -695,7 +670,12 @@ export default function Dashboard() {
     } catch (err) {
       console.error('[Dashboard] Analytics tracking failed:', err);
     }
-  }, []); // Only track once on mount
+  }, [
+    data.monthlyOrderUsage?.planName,
+    data.monthlyOrderUsage?.orderCount,
+    data.webhookStats?.status,
+    trackCustomEvent,
+  ]);
 
   // Standardized toast notifications
   const { toast, showSuccess, showError, hideToast } = useToast();
@@ -757,13 +737,13 @@ export default function Dashboard() {
   // Validate data exists (after all hooks to satisfy rules-of-hooks)
   if (!data) {
     return (
-      <Frame>
+      <>
         <Page title="Dashboard">
           <Banner title="Loading Error" tone="critical">
             <p>Failed to load dashboard data. Please refresh the page.</p>
           </Banner>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -804,7 +784,7 @@ export default function Dashboard() {
     : 0;
 
   return (
-    <Frame>
+    <>
       <Page title="Dashboard">
       <Layout>
         {/* Review Banner — compact */}
@@ -812,18 +792,18 @@ export default function Dashboard() {
           <Layout.Section>
             <Banner
               title={
-                reviewBannerState === 'claimed'
-                  ? 'Thank you! Setting up 3 months of Pro…'
+                reviewBannerState === 'recorded'
+                  ? 'Thank you for sharing your experience.'
                   : reviewBannerState === 'leaving'
                     ? 'Done writing your review?'
-                    : 'Enjoying Rewards Pro? Get 3 months of Pro free.'
+                    : 'Enjoying RewardsPro?'
               }
               tone="info"
               action={
-                reviewBannerState === 'claimed'
+                reviewBannerState === 'recorded'
                   ? undefined
                   : reviewBannerState === 'leaving'
-                    ? { content: "I've left my review", onAction: handleReviewClaimed }
+                    ? { content: "I've left my review", onAction: handleReviewRecorded }
                     : { content: '⭐ Leave a Review', onAction: handleLeaveReview }
               }
               secondaryAction={
@@ -833,11 +813,11 @@ export default function Dashboard() {
                     ? { content: 'Not yet', onAction: handleDismissReviewBanner }
                     : undefined
               }
-              onDismiss={reviewBannerState !== 'claimed' ? handleDismissReviewBanner : undefined}
+              onDismiss={reviewBannerState !== 'recorded' ? handleDismissReviewBanner : undefined}
             >
               {reviewBannerState === 'idle' && (
                 <Text as="p" variant="bodySm">
-                  Share your experience on the Shopify App Store and we'll upgrade you for free.
+                  If you have a moment, share your honest experience on the Shopify App Store.
                 </Text>
               )}
             </Banner>
@@ -851,16 +831,14 @@ export default function Dashboard() {
               <InlineStack align="space-between" blockAlign="center">
                 <BlockStack gap="050">
                   <Text variant="headingLg" as="h2" fontWeight="bold">
-                    {data.activeSubscription?.name
-                      ? data.activeSubscription.name.replace('RewardsPro ', '')
-                      : 'Free Plan'}
+                    {getPricingPlan(data.activeSubscription?.name).displayName}
                   </Text>
                   <Text variant="bodySm" as="span" tone="subdued">
                     {data.currentMonth} • {data.daysRemaining}d remaining in cycle
                   </Text>
                 </BlockStack>
                 <Button variant="plain" onClick={() => navigate('/app/billing')}>
-                  {data.activeSubscription?.name?.includes('Ultra') ? 'Manage Plan' : 'Upgrade'}
+                  {getPlanKey(data.activeSubscription?.name) === 'ultra' ? 'Manage Plan' : 'View Plans'}
                 </Button>
               </InlineStack>
 
@@ -877,7 +855,7 @@ export default function Dashboard() {
                 </BlockStack>
                 <BlockStack gap="050">
                   <Text variant="heading2xl" as="p" fontWeight="bold">
-                    {data.monthlyOrderUsage?.planLimit || 100}
+                    {data.monthlyOrderUsage?.planLimit || PRICING_PLANS.free.limits.orders}
                   </Text>
                   <Text variant="bodySm" as="span" tone="subdued">
                     Plan limit
@@ -973,7 +951,7 @@ export default function Dashboard() {
       </Layout>
     </Page>
     {toastMarkup}
-  </Frame>
+  </>
   );
 }
 
@@ -995,7 +973,7 @@ export function ErrorBoundary() {
     });
 
     return (
-      <Frame>
+      <>
         <Page title="Dashboard Error">
           <Layout>
             <Layout.Section>
@@ -1007,7 +985,7 @@ export function ErrorBoundary() {
             </Layout.Section>
           </Layout>
         </Page>
-      </Frame>
+      </>
     );
   }
 
@@ -1019,7 +997,7 @@ export function ErrorBoundary() {
   console.error('[Dashboard ErrorBoundary] Stack trace:', errorStack);
 
   return (
-    <Frame>
+    <>
       <Page title="Dashboard Error">
         <Layout>
           <Layout.Section>
@@ -1031,6 +1009,6 @@ export function ErrorBoundary() {
           </Layout.Section>
         </Layout>
       </Page>
-    </Frame>
+    </>
   );
 }

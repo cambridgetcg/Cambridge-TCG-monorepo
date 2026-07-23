@@ -558,7 +558,6 @@ export function IconPicker({
   onChange,
   onUpload,
   uploadError,
-  disabled = false,
 }: IconPickerProps) {
   const [selectedTab, setSelectedTab] = useState(0);
 

@@ -37,7 +37,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   try {
     const body = await request.json();
-    const { question, context } = body;
+    const { question } = body;
 
     if (!question || typeof question !== "string") {
       return new Response(

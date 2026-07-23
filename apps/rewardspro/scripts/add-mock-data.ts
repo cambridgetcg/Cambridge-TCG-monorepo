@@ -56,7 +56,6 @@ const PRODUCTS = [
   { title: 'Sunglasses', price: 149.99, sku: 'SUNGLASSES-001' },
 ];
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD'];
 const FINANCIAL_STATUSES = ['PAID', 'PENDING', 'PARTIALLY_PAID'];
 
 // ============================================
@@ -131,7 +130,7 @@ function assignTier(totalSpent: number, tiers: any[]): any | null {
 // DATA CREATION FUNCTIONS
 // ============================================
 
-async function createCustomer(shop: string, currency: string): Promise<any> {
+async function createCustomer(shop: string, _currency: string): Promise<any> {
   const customerId = randomUUID();
   const shopifyCustomerId = generateShopifyId();
   const firstName = randomElement(FIRST_NAMES);

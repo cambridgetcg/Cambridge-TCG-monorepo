@@ -3,9 +3,6 @@ import Decimal from 'decimal.js';
 import {
   formatCurrency,
   roundToCurrencyPrecision,
-  parseCurrencyAmount,
-  CURRENCY_DECIMALS,
-  getCurrencySymbol
 } from '~/utils/currency';
 
 // Configure Decimal for financial precision
@@ -81,15 +78,6 @@ describe('Currency Formatter - All 33 Currencies', () => {
         });
 
         it(`should round ${currency} correctly at the ${config.decimals} decimal boundary`, () => {
-          // Test rounding at the boundary
-          const testCases = [
-            { input: 10.444, expected: config.decimals === 0 ? 10 : 10.44 },
-            { input: 10.445, expected: config.decimals === 0 ? 10 : 10.45 },
-            { input: 10.4444, expected: config.decimals === 3 ? 10.444 : config.decimals === 0 ? 10 : 10.44 },
-            { input: 10.4445, expected: config.decimals === 3 ? 10.445 : config.decimals === 0 ? 10 : 10.44 },
-            { input: 10.4455, expected: config.decimals === 3 ? 10.446 : config.decimals === 0 ? 10 : 10.45 },
-          ];
-
           if (config.decimals === 0) {
             // Special cases for 0-decimal currencies
             expect(roundToCurrencyPrecision(9.4, currency)).toBe(9);

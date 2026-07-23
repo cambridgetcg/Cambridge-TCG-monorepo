@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach, Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
 
 // Mock the authentication module
 vi.mock('../../../app/shopify.server', () => ({
@@ -140,7 +140,7 @@ describe('Customer Sync API Routes', () => {
         method: 'POST',
         body: { triggeredBy: 'install' },
       });
-      const response = await startAction({ request, params: {}, context: {} });
+      await startAction({ request, params: {}, context: {} });
 
       expect(startSyncJob).toHaveBeenCalledWith(
         'test-shop.myshopify.com',
@@ -187,7 +187,7 @@ describe('Customer Sync API Routes', () => {
         body: 'not-valid-json',
       });
 
-      const response = await startAction({ request, params: {}, context: {} });
+      await startAction({ request, params: {}, context: {} });
 
       // Should use default triggeredBy
       expect(startSyncJob).toHaveBeenCalledWith(
@@ -207,7 +207,7 @@ describe('Customer Sync API Routes', () => {
         headers: { 'Content-Type': 'application/json' },
       });
 
-      const response = await startAction({ request, params: {}, context: {} });
+      await startAction({ request, params: {}, context: {} });
 
       expect(startSyncJob).toHaveBeenCalledWith(
         'test-shop.myshopify.com',
@@ -234,7 +234,6 @@ describe('Customer Sync API Routes', () => {
 
       const request = createMockRequest({ method: 'GET' });
       const response = await processAction({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(405);
     });
@@ -286,7 +285,7 @@ describe('Customer Sync API Routes', () => {
         method: 'POST',
         body: { jobId: 'job-123', resume: true },
       });
-      const response = await processAction({ request, params: {}, context: {} });
+      await processAction({ request, params: {}, context: {} });
 
       expect(resumeSyncJob).toHaveBeenCalledWith('job-123', expect.any(Object));
       expect(processNextBatch).not.toHaveBeenCalled();
@@ -335,7 +334,6 @@ describe('Customer Sync API Routes', () => {
         url: 'http://localhost/api/customer-sync/status',
       });
       const response = await statusLoader({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(401);
     });
@@ -425,7 +423,6 @@ describe('Customer Sync API Routes', () => {
         body: { action: 'cancel', jobId: 'job-123' },
       });
       const response = await statusAction({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(401);
     });
@@ -435,7 +432,6 @@ describe('Customer Sync API Routes', () => {
 
       const request = createMockRequest({ method: 'GET' });
       const response = await statusAction({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(405);
     });
@@ -492,7 +488,6 @@ describe('Customer Sync API Routes', () => {
         body: { action: 'cancel' },
       });
       const response = await statusAction({ request, params: {}, context: {} });
-      const data = await response.json();
 
       expect(response.status).toBe(400);
     });

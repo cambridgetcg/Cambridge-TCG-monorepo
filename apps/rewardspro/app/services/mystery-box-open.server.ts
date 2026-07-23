@@ -10,6 +10,20 @@
 
 import * as crypto from "node:crypto";
 import prisma from "../db.server";
+import { spendPoints, getPointsBalance } from "./points-ledger.server";
+import { checkMysteryBoxEligibility } from "./mystery-box-management.server";
+import { trackMysteryBoxOpened, trackMysteryBoxWon, trackPointsSpent } from "./klaviyo-events.server";
+import {
+  processPsychologyOnOpen,
+  calculateNearMiss,
+  type PsychologyContext,
+  type CelebrationEvent,
+  type NearMissInfo,
+  type PsychologyBonuses,
+} from "./mystery-box-psychology.server";
+import { getPityInfo, calculatePityMinimumRarity } from "./mystery-box-streak.server";
+import { calculateDiscountedCost, getBestBonusEvent } from "./mystery-box-bonus-events.server";
+import type { MysteryBoxReward, MysteryBoxRarity } from "@prisma/client";
 
 /**
  * Cryptographically secure random number in [0, 1).
@@ -18,22 +32,6 @@ import prisma from "../db.server";
 function cryptoRandom(): number {
   return crypto.randomBytes(4).readUInt32BE(0) / 0x100000000;
 }
-import { spendPoints, earnPoints, getPointsBalance } from "./points-ledger.server";
-import { checkMysteryBoxEligibility } from "./mystery-box-management.server";
-import { trackMysteryBoxOpened, trackMysteryBoxWon, trackPointsSpent } from "./klaviyo-events.server";
-import {
-  processPsychologyOnOpen,
-  calculateNearMiss,
-  processFreeOpen,
-  type PsychologyContext,
-  type BoxOpenResult,
-  type CelebrationEvent,
-  type NearMissInfo,
-  type PsychologyBonuses,
-} from "./mystery-box-psychology.server";
-import { getPityInfo, calculatePityMinimumRarity } from "./mystery-box-streak.server";
-import { calculateDiscountedCost, getBestBonusEvent } from "./mystery-box-bonus-events.server";
-import type { MysteryBoxReward, MysteryBoxOpen, MysteryBoxWinner, MysteryBoxRarity } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxOpen]";
 

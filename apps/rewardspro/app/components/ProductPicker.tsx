@@ -22,13 +22,11 @@ import {
   BlockStack,
   InlineStack,
   Badge,
-  Button,
   EmptyState,
   Spinner,
   Select,
   Box,
   Tabs,
-  Filters,
 } from "@shopify/polaris";
 import { SearchIcon } from "@shopify/polaris-icons";
 

@@ -21,8 +21,6 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { v4 as uuidv4 } from 'uuid';
-import { incrementMonthlyOrderCount } from "~/utils/order-count-strategies";
-import { getPlanOrderLimit } from "~/constants/billing.constants";
 import { logSafeCustomer } from "~/utils/pii-masker";
 import { invalidateShopCache } from "~/utils/analytics-cache.server";
 
@@ -60,7 +58,7 @@ interface OrderWebhook {
 // ============================================================================
 
 export async function action({ request }: ActionFunctionArgs) {
-  const { topic, shop, session, admin, payload } = await authenticate.webhook(request);
+  const { topic, shop, admin, payload } = await authenticate.webhook(request);
   
   if (!admin) {
     console.error('[OrdersCreateWebhook] No admin API access');
@@ -95,30 +93,10 @@ export async function action({ request }: ActionFunctionArgs) {
       }
     }
 
-    // Increment monthly order count for ALL orders (including guest orders)
-    try {
-      // Fetch the shop's current subscription to get the correct plan limit
-      const subscription = await prisma.appSubscription.findUnique({
-        where: { shop },
-        select: { planName: true }
-      });
-
-      const planLimit = getPlanOrderLimit(subscription?.planName);
-      const planName = subscription?.planName || "RewardsPro Free";
-
-      console.log(`[OrdersCreateWebhook] Using plan limit for ${shop}:`, { planName, planLimit });
-
-      await incrementMonthlyOrderCount(shop, order.created_at, planLimit, planName);
-      console.log(`[OrdersCreateWebhook] ✅ Monthly order count incremented for ${shop}`);
-    } catch (error) {
-      console.error(`[OrdersCreateWebhook] ⚠️ Failed to increment monthly count (non-critical):`, error);
-      // Continue - this is just usage tracking, don't fail the webhook
-    }
-
     // Skip customer credit sync if no customer (guest checkout)
     if (!order.customer || !order.customer.id) {
       console.log('[OrdersCreateWebhook] Guest order - no customer credit sync needed');
-      return json({ success: true, message: 'Guest order counted' });
+      return json({ success: true, message: 'Guest order ignored for loyalty capacity' });
     }
     
     const shopifyCustomerId = String(order.customer.id);

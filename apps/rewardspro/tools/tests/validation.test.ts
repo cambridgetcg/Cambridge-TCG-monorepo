@@ -7,13 +7,10 @@ import {
   validateShopDomain,
   assertValidShopDomain,
   validateWebhookSecret,
-  assertValidWebhookSecret,
   validateWebhookTopic,
   assertValidWebhookTopic,
   validateUrl,
-  assertValidUrl,
   validateDatabaseUrl,
-  assertValidDatabaseUrl,
   validatePayload,
   assertValidPayload,
   validateShopifyId,
@@ -108,7 +105,7 @@ describe('validateWebhookSecret', () => {
   });
 
   it('rejects non-strings', () => {
-    expect(validateWebhookSecret(12345678901234567890).valid).toBe(false);
+    expect(validateWebhookSecret(1234567890).valid).toBe(false);
   });
 });
 

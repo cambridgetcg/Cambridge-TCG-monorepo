@@ -331,7 +331,7 @@ export class AuroraDataAPI {
    * @param value Parameter value
    * @param options Optional configuration (e.g., isTimestamp flag)
    */
-  static buildParameter(name: string, value: any, options?: { isTimestamp?: boolean }): SqlParameter {
+  static buildParameter(name: string, value: any, _options?: { isTimestamp?: boolean }): SqlParameter {
     const param: SqlParameter = { name };
 
     if (value === null || value === undefined) {

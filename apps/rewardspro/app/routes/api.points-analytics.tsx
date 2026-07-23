@@ -399,7 +399,6 @@ async function getRedemptionAnalytics(shop: string) {
 
   // Calculate overall stats
   const totalRedemptions = redemptions.length;
-  const totalPoints = redemptions.reduce((sum, r) => sum + Math.abs(r.points), 0);
   const totalDiscount = redemptions.reduce((sum, r) => {
     const metadata = r.metadata as Record<string, any> | null;
     return sum + (metadata?.discountValue || 0);

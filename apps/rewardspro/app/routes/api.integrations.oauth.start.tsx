@@ -12,6 +12,7 @@ import { redirect, json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { initiateOAuth } from "~/services/integrations/oauth-handler.server";
 import type { IntegrationProvider } from "@prisma/client";
+import { oauthSettingsErrorPath } from "~/navigation/routes";
 
 // Valid OAuth providers
 const OAUTH_PROVIDERS: IntegrationProvider[] = [
@@ -61,7 +62,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     if (!result.success || !result.authorizationUrl) {
       console.error(`[OAuth Start] Failed to initiate OAuth:`, result.error);
       return redirect(
-        `/app/settings/integrations?error=${encodeURIComponent(result.error || "oauth_init_failed")}`
+        oauthSettingsErrorPath(result.error || "oauth_init_failed", {
+          provider,
+        }),
       );
     }
 
@@ -72,9 +75,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   } catch (error) {
     console.error("[OAuth Start] Unexpected error:", error);
     return redirect(
-      `/app/settings/integrations?error=${encodeURIComponent(
-        error instanceof Error ? error.message : "oauth_init_failed"
-      )}`
+      oauthSettingsErrorPath(
+        error instanceof Error ? error.message : "oauth_init_failed",
+        { provider },
+      ),
     );
   }
 }

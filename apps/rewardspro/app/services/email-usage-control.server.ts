@@ -1,14 +1,18 @@
 /**
  * Email Usage Control Service
  *
- * Tracks and enforces email sending limits based on the rate-based gating model.
- * Free: 50/month, Pro: 500/month, Max: 2000/month, Ultra: unlimited
+ * Tracks monthly email usage and reports plan-capacity advisories. Email
+ * capacities never pause delivery; merchants can move to a larger fixed plan
+ * when sustained volume calls for it.
  *
  * @module email-usage-control.server
  */
 
 import prisma from "../db.server";
+import { PRICING_PLANS } from "~/constants/pricing-contract";
 import { getLimit, getEffectivePlan } from "./entitlements.server";
+
+const FREE_EMAIL_LIMIT = PRICING_PLANS.free.limits.emails;
 
 // ============================================
 // TYPES
@@ -17,13 +21,16 @@ import { getLimit, getEffectivePlan } from "./entitlements.server";
 export type EmailType = "campaign" | "automation" | "transactional";
 
 export interface EmailUsageResult {
-  allowed: boolean;
+  allowed: true;
   currentUsage: number;
   limit: number;
   percentage: number;
   remaining: number;
   message: string;
-  upgradeRequired?: boolean;
+  capacityExceeded: boolean;
+  advisory?: boolean;
+  /** @deprecated Email capacity never requires an upgrade to continue. */
+  upgradeRequired?: false;
 }
 
 export interface EmailUsageStats {
@@ -35,7 +42,14 @@ export interface EmailUsageStats {
   percentage: number;
   remaining: number;
   isLocked: boolean;
+  legacyLockRecorded?: boolean;
   planName: string;
+}
+
+function getCapacityPercentage(currentUsage: number, limit: number): number {
+  if (limit >= 999999) return 0;
+  if (limit <= 0) return currentUsage > 0 ? 100 : 0;
+  return Math.min(100, Math.round((currentUsage / limit) * 100));
 }
 
 // ============================================
@@ -83,11 +97,11 @@ async function getOrCreateMonthlyUsage(shop: string) {
 }
 
 /**
- * Check if a shop can send more emails
+ * Check current email capacity without blocking delivery.
  *
  * @param shop - Shop domain
  * @param count - Number of emails to send (default 1)
- * @returns Usage result with allowed status and details
+ * @returns Usage result with advisory status and details
  */
 export async function checkEmailLimit(
   shop: string,
@@ -101,9 +115,8 @@ export async function checkEmailLimit(
 
     const currentUsage = usage.emailCount;
     const remaining = Math.max(0, limit - currentUsage);
-    const percentage = limit >= 999999 ? 0 : Math.round((currentUsage / limit) * 100);
+    const percentage = getCapacityPercentage(currentUsage, limit);
 
-    // Unlimited plan (999999)
     if (limit >= 999999) {
       return {
         allowed: true,
@@ -112,32 +125,31 @@ export async function checkEmailLimit(
         percentage: 0,
         remaining: 999999,
         message: "Unlimited emails available",
+        capacityExceeded: false,
       };
     }
 
-    // Check if adding count would exceed limit
-    if (currentUsage + count > limit) {
-      return {
-        allowed: false,
-        currentUsage,
-        limit,
-        percentage,
-        remaining,
-        message: `Email limit reached (${currentUsage}/${limit}). Upgrade your plan for more emails.`,
-        upgradeRequired: true,
-      };
-    }
+    const capacityExceeded = currentUsage + count > limit;
 
-    // Check if already locked
     if (usage.isLocked) {
+      console.warn(
+        `[EmailUsageControl] Ignoring legacy email lock for ${shop}; delivery remains available`,
+      );
+    }
+
+    if (capacityExceeded) {
+      const message = `Email capacity advisory: ${currentUsage}/${limit} emails used this month and ${count} requested. Sending remains available; consider a larger fixed plan if this is sustained.`;
+      console.warn(`[EmailUsageControl] ${message} shop=${shop}`);
+
       return {
-        allowed: false,
+        allowed: true,
         currentUsage,
         limit,
         percentage,
         remaining,
-        message: `Email sending is paused. ${usage.lockReason || "Contact support for assistance."}`,
-        upgradeRequired: true,
+        message,
+        capacityExceeded: true,
+        advisory: true,
       };
     }
 
@@ -148,6 +160,7 @@ export async function checkEmailLimit(
       percentage,
       remaining,
       message: `${remaining} emails remaining this month`,
+      capacityExceeded: false,
     };
   } catch (error) {
     console.error("[EmailUsageControl] Error checking limit:", error);
@@ -159,6 +172,7 @@ export async function checkEmailLimit(
       percentage: 0,
       remaining: 999999,
       message: "Unable to verify limit - allowing email",
+      capacityExceeded: false,
     };
   }
 }
@@ -235,7 +249,13 @@ export async function getEmailUsageStats(shop: string): Promise<EmailUsageStats>
     ]);
 
     const remaining = Math.max(0, limit - usage.emailCount);
-    const percentage = limit >= 999999 ? 0 : Math.round((usage.emailCount / limit) * 100);
+    const percentage = getCapacityPercentage(usage.emailCount, limit);
+
+    if (usage.isLocked) {
+      console.warn(
+        `[EmailUsageControl] Legacy lock recorded for ${shop}; reporting it as non-blocking`,
+      );
+    }
 
     return {
       totalEmails: usage.emailCount,
@@ -245,7 +265,8 @@ export async function getEmailUsageStats(shop: string): Promise<EmailUsageStats>
       limit,
       percentage,
       remaining,
-      isLocked: usage.isLocked,
+      isLocked: false,
+      legacyLockRecorded: usage.isLocked,
       planName,
     };
   } catch (error) {
@@ -256,83 +277,51 @@ export async function getEmailUsageStats(shop: string): Promise<EmailUsageStats>
       campaignEmails: 0,
       automationEmails: 0,
       transactionalEmails: 0,
-      limit: 50, // Default to free plan limit
+      limit: FREE_EMAIL_LIMIT,
       percentage: 0,
-      remaining: 50,
+      remaining: FREE_EMAIL_LIMIT,
       isLocked: false,
-      planName: "Free",
+      planName: PRICING_PLANS.free.displayName,
     };
   }
 }
 
 /**
  * Check and record email in one atomic operation
- * Returns whether the email can be sent
+ * Records the send after checking advisory capacity.
  *
  * @param shop - Shop domain
  * @param count - Number of emails to send
  * @param type - Type of email
- * @returns Whether the email(s) can be sent
+ * @returns Non-blocking usage and capacity details
  */
 export async function checkAndRecordEmail(
   shop: string,
   count: number = 1,
   type: EmailType = "transactional"
 ): Promise<EmailUsageResult> {
-  // First check if allowed
   const result = await checkEmailLimit(shop, count);
 
-  // If allowed, record the usage
-  if (result.allowed) {
-    await recordEmailSent(shop, count, type);
-    // Update remaining count
-    result.remaining = Math.max(0, result.remaining - count);
-    result.currentUsage += count;
-  }
+  await recordEmailSent(shop, count, type);
+  result.remaining = Math.max(0, result.remaining - count);
+  result.currentUsage += count;
 
   return result;
 }
 
 /**
- * Lock email sending for a shop (admin action)
+ * Legacy compatibility no-op.
  *
- * @param shop - Shop domain
- * @param reason - Reason for locking
+ * Capacity controls no longer lock email sending. Existing persisted lock
+ * metadata is left untouched for audit/history and is ignored by send checks.
  */
 export async function lockEmailSending(
   shop: string,
   reason: string
 ): Promise<void> {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-
-  await prisma.monthlyEmailUsage.upsert({
-    where: {
-      shop_year_month: { shop, year, month },
-    },
-    update: {
-      isLocked: true,
-      lockedAt: now,
-      lockReason: reason,
-    },
-    create: {
-      shop,
-      year,
-      month,
-      emailCount: 0,
-      planLimit: 50,
-      planName: "Free",
-      isLocked: true,
-      lockedAt: now,
-      lockReason: reason,
-      campaignEmails: 0,
-      automationEmails: 0,
-      transactionalEmails: 0,
-    },
-  });
-
-  console.log(`[EmailUsageControl] Locked email sending for ${shop}: ${reason}`);
+  console.warn(
+    `[EmailUsageControl] Ignored legacy lock request for ${shop}: ${reason}`,
+  );
 }
 
 /**

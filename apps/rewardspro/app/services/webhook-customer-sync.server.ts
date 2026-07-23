@@ -7,7 +7,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '~/db.server';
-import { hasManualOverride } from './manual-tier-assignment.server';
 import { sendWelcomeEmailNotification } from './email-notifications.server';
 import { processAutomationTrigger } from './automation-trigger.server';
 import { updateCustomerToEffectiveTier } from './tier-resolution.server';
@@ -218,7 +217,7 @@ export async function handleCustomerDelete(
   const shopifyCustomerId = String(payload.id);
   
   // We don't actually delete, just mark as deleted
-  const customer = await prisma.customer.updateMany({
+  await prisma.customer.updateMany({
     where: {
       shop: shopDomain,
       shopifyCustomerId: shopifyCustomerId,
@@ -254,7 +253,7 @@ async function updateCustomer(
   const updatedTotalSpent = customerData.totalSpent;
   const currentTotalRefunded = Number(existingCustomer?.totalRefunded || 0);
 
-  const customer = await prisma.customer.update({
+  await prisma.customer.update({
     where: {
       id: customerId,
     },

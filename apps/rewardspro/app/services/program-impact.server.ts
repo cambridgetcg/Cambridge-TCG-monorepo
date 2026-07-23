@@ -20,37 +20,6 @@ export interface MonthlyImpactData {
 }
 
 /**
- * Get start and end dates for a given month
- */
-function getMonthRange(year: number, month: number): { start: Date; end: Date } {
-  const start = new Date(year, month - 1, 1); // month is 1-indexed
-  const end = new Date(year, month, 0, 23, 59, 59, 999); // Last day of month
-  return { start, end };
-}
-
-/**
- * Get current month and year
- */
-function getCurrentPeriod(): { year: number; month: number } {
-  const now = new Date();
-  return {
-    year: now.getFullYear(),
-    month: now.getMonth() + 1, // Convert to 1-indexed
-  };
-}
-
-/**
- * Get previous month and year
- */
-function getPreviousPeriod(): { year: number; month: number } {
-  const now = new Date();
-  const prevMonth = now.getMonth(); // This gives us 0-indexed previous month
-  const year = prevMonth === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const month = prevMonth === 0 ? 12 : prevMonth;
-  return { year, month };
-}
-
-/**
  * Calculate reward usage rate
  * Usage Rate = (Total Earned - Current Balance) / Total Earned * 100
  */
@@ -105,12 +74,9 @@ async function fetchProgramImpactMetrics(shop: string): Promise<ProgramImpactMet
   console.log(`[Program Impact] Fetching metrics for ${shop}`);
 
   // Calculate current and previous usage rates in parallel
-  const [currentUsageRate, totalInfluencedSales, previousUsageRate] = await Promise.all([
+  const [currentUsageRate, totalInfluencedSales] = await Promise.all([
     calculateUsageRate(shop),
     calculateInfluencedSales(shop),
-    // For simplicity, we're using current rate vs current rate as baseline
-    // In a full implementation, you'd track historical usage rates
-    calculateUsageRate(shop),
   ]);
 
   // For now, calculate a representative change

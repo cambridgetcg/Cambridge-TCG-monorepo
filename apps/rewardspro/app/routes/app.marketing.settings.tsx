@@ -1,4 +1,5 @@
-import { json, ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "~/hooks/useToast";
@@ -14,14 +15,12 @@ import {
   FormLayout,
   Checkbox,
   Select,
-  Frame,
   Toast,
   Banner,
   Divider,
   Badge,
   Box,
   Modal,
-  Spinner,
   Icon,
   List,
   Collapsible,
@@ -39,7 +38,7 @@ import {
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { getMarketingModeInfo, switchMarketingMode } from "~/services/marketing-mode.server";
-import { getEmailUsageStats, type EmailUsageStats } from "~/services/email-usage-control.server";
+import { getEmailUsageStats } from "~/services/email-usage-control.server";
 import type { MarketingHubMode } from "@prisma/client";
 import { LimitHint } from "~/components/Billing/UpgradePrompt";
 
@@ -443,7 +442,7 @@ export default function EmailSettings() {
   };
 
   return (
-    <Frame>
+    <>
       <Page
         title="Email Settings"
         subtitle="Configure sender, domain authentication, and compliance settings"
@@ -966,7 +965,7 @@ export default function EmailSettings() {
                           }}
                         />
                         <TextField
-                          label=""
+                          label="Primary color"
                           labelHidden
                           value={formValues.primaryColor}
                           onChange={handleChange("primaryColor")}
@@ -992,7 +991,7 @@ export default function EmailSettings() {
                           }}
                         />
                         <TextField
-                          label=""
+                          label="Secondary color"
                           labelHidden
                           value={formValues.secondaryColor}
                           onChange={handleChange("secondaryColor")}
@@ -1247,7 +1246,7 @@ export default function EmailSettings() {
           onDismiss={hideToast}
         />
       )}
-    </Frame>
+    </>
   );
 }
 

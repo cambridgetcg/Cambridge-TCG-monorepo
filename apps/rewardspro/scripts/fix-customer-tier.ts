@@ -9,8 +9,7 @@
  * Example: npx tsx scripts/fix-customer-tier.ts 7891422871817
  */
 
-import * as dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
 
 import { createDataAPIPrismaClient } from '../app/utils/prisma-data-api-adapter';
 

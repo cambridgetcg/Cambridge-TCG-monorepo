@@ -3,8 +3,8 @@
 *.tfstate.*
 *.tfstate.backup
 
-# Terraform lock file
-.terraform.lock.hcl
+# Terraform provider lock files are intentionally committed. They pin reviewed
+# provider checksums and are not state.
 
 # Terraform directory
 .terraform/
@@ -25,6 +25,10 @@ override.tf.json
 
 # Sensitive outputs
 lambda_placeholder.zip
+tfplan
+tfplan.*
+*.tfplan
+*.tfplan.*
 
 # CLI configuration files
 .terraformrc

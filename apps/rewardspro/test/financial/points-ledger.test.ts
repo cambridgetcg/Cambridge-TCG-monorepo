@@ -42,17 +42,6 @@ interface PointsCustomer {
   lifetimePoints: number;
 }
 
-const EARNING_TYPES: PointsLedgerType[] = [
-  'ORDER_EARNED', 'CHALLENGE_COMPLETED', 'SPIN_WHEEL_WIN',
-  'SCRATCH_CARD_WIN', 'MYSTERY_BOX_WIN', 'BONUS_EVENT',
-  'REFERRAL_BONUS', 'MANUAL_CREDIT', 'STREAK_BONUS',
-];
-
-const SPENDING_TYPES: PointsLedgerType[] = [
-  'RAFFLE_ENTRY', 'MYSTERY_BOX_OPEN', 'PREMIUM_SPIN',
-  'GIVEBACK_DONATION', 'MANUAL_DEBIT',
-];
-
 /**
  * In-memory Points Ledger for property-based testing.
  * Mirrors the real service's invariants:

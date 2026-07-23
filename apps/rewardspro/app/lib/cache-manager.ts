@@ -1,5 +1,6 @@
 // Multi-layer cache manager for optimized data access
 import { LRUCache } from 'lru-cache';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface CacheOptions {
   ttl?: number;                // Time to live in milliseconds
@@ -300,9 +301,6 @@ class NamespacedCacheManager {
 // Export global instances
 export const cache = new CacheManager();
 export const namespacedCache = new NamespacedCacheManager();
-
-// React hook for cache
-import { useState, useEffect, useCallback } from 'react';
 
 export function useCache<T>(
   key: string,

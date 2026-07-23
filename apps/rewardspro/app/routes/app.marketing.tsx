@@ -1,11 +1,6 @@
 import { Outlet } from "@remix-run/react";
 import { SecondaryNav } from "~/components/SecondaryNav";
-import {
-  ChartVerticalIcon,
-  EmailIcon,
-  ThemeTemplateIcon,
-  AutomationIcon,
-} from "@shopify/polaris-icons";
+import { SECTION_NAVIGATION } from "~/navigation/registry";
 
 /**
  * Marketing Section Layout
@@ -20,16 +15,12 @@ import {
  * and an Outlet for child routes.
  */
 export default function MarketingLayout() {
-  const navItems = [
-    { label: "Overview", to: "/app/marketing", icon: ChartVerticalIcon },
-    { label: "Campaigns", to: "/app/marketing/campaigns", icon: EmailIcon },
-    { label: "Templates", to: "/app/marketing/templates", icon: ThemeTemplateIcon },
-    { label: "Automations", to: "/app/marketing/automation/workflows", icon: AutomationIcon },
-  ];
-
   return (
     <>
-      <SecondaryNav items={navItems} />
+      <SecondaryNav
+        ariaLabel="Marketing"
+        items={SECTION_NAVIGATION.marketing}
+      />
       <Outlet />
     </>
   );
