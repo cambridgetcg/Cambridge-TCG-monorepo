@@ -141,7 +141,7 @@ describe("sanitize.color", () => {
   });
 
   it.each([
-    "java" + "script:alert(1)",
+    ["java", "script:alert(1)"].join(""),
     "red; background:url(evil)",
     "#gghhii",
     "rgb(10, 20, 30); color:red",

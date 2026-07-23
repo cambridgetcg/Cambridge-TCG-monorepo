@@ -176,17 +176,17 @@ describe("renderMarkdown() — PR-review formatting", () => {
       ],
       now: FROZEN,
     });
-    const md = renderMarkdown(m);
-    expect(md).toContain("# Migration: `.rp-mb-card` → `.rp-card`");
-    expect(md).toContain("1 edit(s) across 1 file(s)");
-    expect(md).toContain("`a.css`");
-    expect(md).toMatch(/Line 1: replace `rp-mb-card` with `rp-card`/);
+    const view = renderMarkdown(m);
+    expect(view).toContain("# Migration: `.rp-mb-card` → `.rp-card`");
+    expect(view).toContain("1 edit(s) across 1 file(s)");
+    expect(view).toContain("`a.css`");
+    expect(view).toMatch(/Line 1: replace `rp-mb-card` with `rp-card`/);
   });
 
   it("renders caveats in their own section", () => {
     const m = patch({ source: "rp-x", target: "rp-y", files: [], now: FROZEN });
-    const md = renderMarkdown(m);
-    expect(md).toContain("## Caveats");
+    const view = renderMarkdown(m);
+    expect(view).toContain("## Caveats");
   });
 });
 

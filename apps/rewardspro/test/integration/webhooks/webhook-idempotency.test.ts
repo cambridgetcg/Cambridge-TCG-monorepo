@@ -50,7 +50,11 @@ class MockDatabase {
 
 // Webhook processor with idempotency
 class WebhookProcessor {
-  constructor(private db: MockDatabase) {}
+  private db: MockDatabase;
+
+  constructor(db: MockDatabase) {
+    this.db = db;
+  }
 
   async processOrderPaid(webhookId: string, payload: any) {
     // Check for duplicate webhook

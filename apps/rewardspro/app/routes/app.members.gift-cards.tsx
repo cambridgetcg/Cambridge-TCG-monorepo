@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import type { Currency } from "@prisma/client";
 import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import {
@@ -399,7 +400,7 @@ export default function GiftCardsConfigPage() {
   const navigation = useNavigation();
 
   const isSubmitting = navigation.state === "submitting";
-  const currency = (shopSettings?.storeCurrency || "USD") as import("@prisma/client").Currency;
+  const currency = (shopSettings?.storeCurrency || "USD") as Currency;
 
   // Toast state
   const [toastActive, setToastActive] = useState(false);

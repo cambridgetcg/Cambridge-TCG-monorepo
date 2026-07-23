@@ -1,4 +1,5 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs, redirect } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { useNavigate, useActionData, useSubmit, useLoaderData } from "@remix-run/react";
 import { useState, useCallback } from "react";
 import { SortableBlockList } from "~/components/EmailEditor";

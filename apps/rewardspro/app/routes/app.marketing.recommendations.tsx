@@ -1,4 +1,5 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
 import {
   Page,

@@ -4,8 +4,8 @@
  * Shop: rewardspro-dev.myshopify.com
  */
 
-import { createDataAPIPrismaClient } from '../app/utils/prisma-data-api-adapter';
 import 'dotenv/config';
+import { createDataAPIPrismaClient } from '../app/utils/prisma-data-api-adapter';
 
 const prisma = createDataAPIPrismaClient();
 

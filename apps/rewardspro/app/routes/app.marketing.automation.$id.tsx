@@ -1,4 +1,5 @@
-import { json, LoaderFunctionArgs, ActionFunctionArgs, redirect } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useNavigate, useActionData, useSubmit } from "@remix-run/react";
 import {
   Page,

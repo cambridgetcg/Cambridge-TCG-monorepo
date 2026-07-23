@@ -1,4 +1,5 @@
-import { json, ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { json } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useFetcher } from "@remix-run/react";
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "~/hooks/useToast";
