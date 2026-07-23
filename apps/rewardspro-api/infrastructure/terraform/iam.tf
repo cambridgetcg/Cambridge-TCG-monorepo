@@ -148,10 +148,28 @@ data "aws_iam_policy_document" "migration_task" {
       aws_db_instance.database.master_user_secret[0].secret_arn,
     ]
   }
+
+  dynamic "statement" {
+    for_each = var.bootstrap_mode ? [1] : []
+
+    content {
+      sid    = "BootstrapRuntimeDatabaseSecrets"
+      effect = "Allow"
+      actions = [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:PutSecretValue",
+      ]
+      resources = [
+        aws_secretsmanager_secret.api_database.arn,
+        aws_secretsmanager_secret.worker_database.arn,
+      ]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "migration_task" {
-  name   = "read-rds-admin-secret"
+  name   = "database-maintenance"
   policy = data.aws_iam_policy_document.migration_task.json
   role   = aws_iam_role.migration_task.id
 }

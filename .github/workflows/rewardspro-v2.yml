@@ -76,8 +76,8 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          api_password="$(openssl rand -hex 24)"
-          worker_password="$(openssl rand -hex 24)"
+          api_password="$(openssl rand -hex 32)"
+          worker_password="$(openssl rand -hex 32)"
           echo "::add-mask::${api_password}"
           echo "::add-mask::${worker_password}"
 
@@ -559,9 +559,10 @@ jobs:
             [ -n "${source_template_arn}" ] ||
               fail "The ${label} Terraform template response had no ARN."
 
-            # A GitHub rerun must reuse the exact release revision. Besides
-            # reducing revision churn, this keeps RunTask request parameters
-            # identical for ECS client-token reconciliation.
+            # Reuse the exact release revision whenever its normalized
+            # definition matches. This reduces revision churn and keeps
+            # transport retries within one run attempt parameter-identical;
+            # deliberate reruns use a distinct attempt-aware client token.
             jq -S '
               .tags |= sort_by([.key, .value])
             ' "${register_input}" >"${register_normalized}"
@@ -617,160 +618,235 @@ jobs:
             "migration" \
             new_migration_task
 
-          overrides_json="${work_dir}/migration-overrides.json"
-          jq -n '{
-            containerOverrides: [
-              {
-                name: "migration",
-                command: ["node", "dist/migrate.js"]
-              }
-            ]
-          }' >"${overrides_json}"
+          run_database_task() {
+            local phase="$1"
+            local command_path="$2"
+            local overrides_json="${work_dir}/${phase}-overrides.json"
+            local run_json="${work_dir}/${phase}-run.json"
+            local identity_json="${work_dir}/${phase}-identity.json"
+            local result_json="${work_dir}/${phase}-result.json"
+            local ambiguous_tasks_json="${work_dir}/${phase}-ambiguous-tasks.json"
+            local client_token="rp2-${phase}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            local started_by="r${GITHUB_RUN_ID}a${GITHUB_RUN_ATTEMPT}-${phase}"
+            local response_received=0
+            local identity_verified=0
+            local identity_delay=1
+            local task
+            local task_exit
 
-          migration_run_json="${work_dir}/migration-run.json"
-          migration_client_token="rp2-migration-${GITHUB_RUN_ID}"
-          migration_started_by="github-${GITHUB_RUN_ID}-migration"
+            case "${phase}:${command_path}" in
+              migration:dist/migrate.js | roles:dist/bootstrap-database-roles.js) ;;
+              *) fail "Unsupported database release task phase." ;;
+            esac
+            [ "${#client_token}" -le 64 ] ||
+              fail "The ${phase} ECS client token exceeded its service limit."
+            [ "${#started_by}" -le 36 ] ||
+              fail "The ${phase} ECS startedBy marker exceeded its service limit."
 
-          run_migration_task() {
-            aws ecs run-task \
+            jq -n --arg command_path "${command_path}" '{
+              containerOverrides: [
+                {
+                  name: "migration",
+                  command: ["node", $command_path]
+                }
+              ]
+            }' >"${overrides_json}"
+
+            for _ in 1 2 3; do
+              if aws ecs run-task \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --task-definition "${new_migration_task}" \
+                --launch-type FARGATE \
+                --platform-version "${platform_version}" \
+                --network-configuration "file://${network_json}" \
+                --overrides "file://${overrides_json}" \
+                --client-token "${client_token}" \
+                --started-by "${started_by}" \
+                --count 1 \
+                --output json >"${run_json}" 2>"${aws_error}"; then
+                response_received=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "${response_received}" -ne 1 ]; then
+              # A transport failure can occur after ECS accepted RunTask. The
+              # attempt-aware client token makes transport retries
+              # non-duplicating while a deliberate GitHub rerun starts a new
+              # checksum/conformance task.
+              if aws ecs list-tasks \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --started-by "${started_by}" \
+                --output json >"${ambiguous_tasks_json}" 2>/dev/null; then
+                while IFS= read -r ambiguous_task; do
+                  [ -n "${ambiguous_task}" ] || continue
+                  aws ecs stop-task \
+                    --region "${REWARDSPRO_V2_AWS_REGION}" \
+                    --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                    --task "${ambiguous_task}" \
+                    --reason "GitHub could not reconcile ${phase} RunTask" \
+                    >/dev/null 2>&1 || true
+                  aws ecs wait tasks-stopped \
+                    --region "${REWARDSPRO_V2_AWS_REGION}" \
+                    --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                    --tasks "${ambiguous_task}" >/dev/null 2>&1 || true
+                done < <(jq -r '.taskArns[]?' "${ambiguous_tasks_json}")
+              fi
+              fail "Unable to reconcile the idempotent ${phase} request; no service was changed and operator review is required."
+            fi
+
+            if ! jq -e '
+              (.failures | length) == 0
+              and (.tasks | length) == 1
+              and (.tasks[0].taskArn | type) == "string"
+              and (.tasks[0].taskArn | length) > 0
+            ' "${run_json}" >/dev/null 2>&1; then
+              fail "ECS did not start exactly one ${phase} task; services were not changed."
+            fi
+            task="$(jq -r '.tasks[0].taskArn' "${run_json}")"
+
+            # Idempotent RunTask retries may return a deliberately sparse task
+            # object. Resolve authoritative identity and the exact command
+            # override before trusting the task.
+            for _ in 1 2 3 4 5 6; do
+              if aws ecs describe-tasks \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --tasks "${task}" \
+                --output json >"${identity_json}" 2>"${aws_error}" &&
+                jq -e \
+                  --arg task "${task}" \
+                  --arg task_definition "${new_migration_task}" \
+                  --arg started_by "${started_by}" \
+                  --arg command_path "${command_path}" '
+                    (.failures | length) == 0
+                    and (.tasks | length) == 1
+                    and .tasks[0].taskArn == $task
+                    and .tasks[0].taskDefinitionArn == $task_definition
+                    and .tasks[0].startedBy == $started_by
+                    and (
+                      [
+                        .tasks[0].overrides.containerOverrides[]?
+                        | select(
+                            .name == "migration"
+                            and .command == ["node", $command_path]
+                          )
+                      ] | length
+                    ) == 1
+                  ' "${identity_json}" >/dev/null 2>&1; then
+                identity_verified=1
+                break
+              fi
+              sleep "${identity_delay}"
+              if [ "${identity_delay}" -lt 8 ]; then
+                identity_delay=$((identity_delay * 2))
+              fi
+            done
+            if [ "${identity_verified}" -ne 1 ]; then
+              # A task whose authoritative identity cannot be established must
+              # not outlive the failed release job. Stop only the ARN returned
+              # to this request, then make a best-effort bounded wait.
+              aws ecs stop-task \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --task "${task}" \
+                --reason "GitHub could not verify ${phase} task identity" \
+                >/dev/null 2>&1 || true
+              aws ecs wait tasks-stopped \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --tasks "${task}" >/dev/null 2>&1 || true
+              fail "The ${phase} task identity did not match this deployment; services were not changed."
+            fi
+
+            if ! aws ecs wait tasks-stopped \
               --region "${REWARDSPRO_V2_AWS_REGION}" \
               --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-              --task-definition "${new_migration_task}" \
-              --launch-type FARGATE \
-              --platform-version "${platform_version}" \
-              --network-configuration "file://${network_json}" \
-              --overrides "file://${overrides_json}" \
-              --client-token "${migration_client_token}" \
-              --started-by "${migration_started_by}" \
-              --count 1 \
-              --output json >"${migration_run_json}" 2>"${aws_error}"
+              --tasks "${task}" 2>"${aws_error}"; then
+              aws ecs stop-task \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --task "${task}" \
+                --reason "GitHub ${phase} waiter timed out" >/dev/null 2>&1 || true
+              aws ecs wait tasks-stopped \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --tasks "${task}" >/dev/null 2>&1 || true
+              aws ecs describe-tasks \
+                --region "${REWARDSPRO_V2_AWS_REGION}" \
+                --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+                --tasks "${task}" \
+                --output json >"${work_dir}/${phase}-timeout-result.json" \
+                2>/dev/null || true
+              fail "The ${phase} task exceeded its wait window and a stop was requested; services were not changed."
+            fi
+
+            if ! aws ecs describe-tasks \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --tasks "${task}" \
+              --output json >"${result_json}" 2>"${aws_error}"; then
+              fail "Unable to verify the ${phase} task; services were not changed."
+            fi
+            task_exit="$(jq -r '
+              [
+                .tasks[0].containers[]
+                | select(.name == "migration")
+                | .exitCode
+              ][0] // empty
+            ' "${result_json}")"
+            if [ "${task_exit}" != "0" ]; then
+              fail "The ${phase} task failed; services were not changed. Inspect its CloudWatch log."
+            fi
           }
 
-          migration_response_received=0
-          for _ in 1 2 3; do
-            if run_migration_task; then
-              migration_response_received=1
-              break
+          require_unchanged_zero_capacity() {
+            local label="$1"
+            local result_json="${work_dir}/${label}-zero-capacity.json"
+            if ! aws ecs describe-services \
+              --region "${REWARDSPRO_V2_AWS_REGION}" \
+              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
+              --services \
+                "${REWARDSPRO_V2_API_SERVICE}" \
+                "${REWARDSPRO_V2_WORKER_SERVICE}" \
+              --output json >"${result_json}" 2>"${aws_error}"; then
+              fail "Unable to revalidate zero-capacity services during ${label}."
             fi
-            sleep 2
-          done
-
-          if [ "${migration_response_received}" -ne 1 ]; then
-            # A transport failure can occur after ECS accepted RunTask. The
-            # client token makes retries non-duplicating. If AWS still cannot
-            # return the original response, stop every still-running task
-            # carrying this run's unique startedBy marker before failing.
-            ambiguous_tasks_json="${work_dir}/ambiguous-migration-tasks.json"
-            if aws ecs list-tasks \
-              --region "${REWARDSPRO_V2_AWS_REGION}" \
-              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-              --started-by "${migration_started_by}" \
-              --output json >"${ambiguous_tasks_json}" 2>/dev/null; then
-              while IFS= read -r ambiguous_task; do
-                [ -n "${ambiguous_task}" ] || continue
-                aws ecs stop-task \
-                  --region "${REWARDSPRO_V2_AWS_REGION}" \
-                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-                  --task "${ambiguous_task}" \
-                  --reason "GitHub could not reconcile migration RunTask" \
-                  >/dev/null 2>&1 || true
-                aws ecs wait tasks-stopped \
-                  --region "${REWARDSPRO_V2_AWS_REGION}" \
-                  --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-                  --tasks "${ambiguous_task}" >/dev/null 2>&1 || true
-              done < <(jq -r '.taskArns[]?' "${ambiguous_tasks_json}")
+            if ! jq -e \
+              --arg api "${REWARDSPRO_V2_API_SERVICE}" \
+              --arg api_task "${old_api_task}" \
+              --arg worker "${REWARDSPRO_V2_WORKER_SERVICE}" \
+              --arg worker_task "${old_worker_task}" '
+                (.failures | length) == 0
+                and any(
+                  .services[];
+                  .serviceName == $api
+                  and .taskDefinition == $api_task
+                  and .desiredCount == 0
+                  and .runningCount == 0
+                  and .pendingCount == 0
+                )
+                and any(
+                  .services[];
+                  .serviceName == $worker
+                  and .taskDefinition == $worker_task
+                  and .desiredCount == 0
+                  and .runningCount == 0
+                  and .pendingCount == 0
+                )
+              ' "${result_json}" >/dev/null 2>&1; then
+              fail "Service state changed during ${label}; no service pointer was updated."
             fi
-            fail "Unable to reconcile the idempotent migration request; no service was changed and operator review is required."
-          fi
+          }
 
-          if ! jq -e '
-            (.failures | length) == 0
-            and (.tasks | length) == 1
-            and (.tasks[0].taskArn | type) == "string"
-            and (.tasks[0].taskArn | length) > 0
-          ' "${migration_run_json}" >/dev/null 2>&1; then
-            fail "ECS did not start exactly one migration task; services were not changed."
-          fi
-          migration_task="$(jq -r '.tasks[0].taskArn' "${migration_run_json}")"
-
-          # Idempotent RunTask retries may return a deliberately sparse task
-          # object. Resolve the authoritative task state before trusting its
-          # task definition or startedBy identity. ECS is eventually
-          # consistent, so a fresh ARN can transiently describe as MISSING.
-          migration_identity_json="${work_dir}/migration-identity.json"
-          migration_identity_verified=0
-          identity_delay=1
-          for _ in 1 2 3 4 5 6; do
-            if aws ecs describe-tasks \
-              --region "${REWARDSPRO_V2_AWS_REGION}" \
-              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-              --tasks "${migration_task}" \
-              --output json >"${migration_identity_json}" 2>"${aws_error}" &&
-              jq -e \
-                --arg task "${migration_task}" \
-                --arg task_definition "${new_migration_task}" \
-                --arg started_by "${migration_started_by}" '
-                  (.failures | length) == 0
-                  and (.tasks | length) == 1
-                  and .tasks[0].taskArn == $task
-                  and .tasks[0].taskDefinitionArn == $task_definition
-                  and .tasks[0].startedBy == $started_by
-                ' "${migration_identity_json}" >/dev/null 2>&1; then
-              migration_identity_verified=1
-              break
-            fi
-            sleep "${identity_delay}"
-            if [ "${identity_delay}" -lt 8 ]; then
-              identity_delay=$((identity_delay * 2))
-            fi
-          done
-          if [ "${migration_identity_verified}" -ne 1 ]; then
-            fail "The migration task identity did not match this deployment; services were not changed."
-          fi
-
-          if ! aws ecs wait tasks-stopped \
-            --region "${REWARDSPRO_V2_AWS_REGION}" \
-            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-            --tasks "${migration_task}" 2>"${aws_error}"; then
-            # The ECS waiter timing out must not leave unbounded DDL running
-            # after CI has already failed. Stop only the exact task this run
-            # created, then make a best-effort final wait/describe for audit
-            # state without exposing identifiers in the log.
-            aws ecs stop-task \
-              --region "${REWARDSPRO_V2_AWS_REGION}" \
-              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-              --task "${migration_task}" \
-              --reason "GitHub migration waiter timed out" >/dev/null 2>&1 || true
-            aws ecs wait tasks-stopped \
-              --region "${REWARDSPRO_V2_AWS_REGION}" \
-              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-              --tasks "${migration_task}" >/dev/null 2>&1 || true
-            aws ecs describe-tasks \
-              --region "${REWARDSPRO_V2_AWS_REGION}" \
-              --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-              --tasks "${migration_task}" \
-              --output json >"${work_dir}/migration-timeout-result.json" 2>/dev/null || true
-            fail "The migration task exceeded its wait window and a stop was requested; services were not changed."
-          fi
-
-          migration_result_json="${work_dir}/migration-result.json"
-          if ! aws ecs describe-tasks \
-            --region "${REWARDSPRO_V2_AWS_REGION}" \
-            --cluster "${REWARDSPRO_V2_ECS_CLUSTER}" \
-            --tasks "${migration_task}" \
-            --output json >"${migration_result_json}" 2>"${aws_error}"; then
-            fail "Unable to verify the migration task; services were not changed."
-          fi
-
-          migration_exit="$(jq -r '
-            [
-              .tasks[0].containers[]
-              | select(.name == "migration")
-              | .exitCode
-            ][0] // empty
-          ' "${migration_result_json}")"
-          if [ "${migration_exit}" != "0" ]; then
-            fail "The migration task failed; services were not changed. Inspect its CloudWatch log."
+          run_database_task "migration" "dist/migrate.js"
+          if [ "${api_desired}" -eq 0 ] && [ "${worker_desired}" -eq 0 ]; then
+            require_unchanged_zero_capacity "pre-role-bootstrap"
+            run_database_task "roles" "dist/bootstrap-database-roles.js"
+            require_unchanged_zero_capacity "post-role-bootstrap"
           fi
 
           register_with_image \
@@ -791,6 +867,7 @@ jobs:
           # activation (which ignores task_definition) cannot start the base
           # :bootstrap image. Never raise capacity from CI.
           if [ "${api_desired}" -eq 0 ] && [ "${worker_desired}" -eq 0 ]; then
+            require_unchanged_zero_capacity "pre-pointer-staging"
             bootstrap_api_changed=0
             bootstrap_worker_changed=0
 
@@ -927,9 +1004,10 @@ jobs:
               echo
               echo "- The immutable image for commit \`${GITHUB_SHA}\` is in ECR."
               echo "- The migration completed successfully."
+              echo "- Separate API and worker database roles passed their runtime permission checks, and their managed secret versions are populated."
               echo "- API and worker task revisions were registered and their zero-capacity service pointers were updated."
               echo "- Desired, running, and pending capacity remain zero; no health probe ran."
-              echo "- Populate the separate API and worker database secrets, leave deployment disabled, and complete the reviewed Terraform activation before another deploy."
+              echo "- Populate the Shopify and operator secrets, leave deployment disabled, and complete the reviewed Terraform activation before another deploy."
             } >>"${GITHUB_STEP_SUMMARY}"
             echo "::notice::Bootstrap staging completed; service pointers are digest-pinned and capacity remains zero pending reviewed activation."
             exit 0
