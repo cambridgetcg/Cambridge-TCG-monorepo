@@ -10,8 +10,7 @@ import {
 } from "@shopify/polaris";
 import {
   getPlanDetails,
-  calculateUsageMetrics,
-  type ManagedPlan
+  calculateUsageMetrics
 } from "~/constants/billing.constants";
 import { PlanOverLimitBanner } from "./PlanOverLimitBanner";
 import { PlanUsageProgress } from "./PlanUsageProgress";
@@ -270,29 +269,6 @@ export function CurrentPlanCard({
                 </>
               )}
 
-              {/* Overage Information */}
-              {!compact && usageMetrics.isOverLimit && planDetails.overageRate > 0 && (
-                <>
-                  <Divider />
-                  <Box paddingBlock="200">
-                    <BlockStack gap="200">
-                      <Text as="p" variant="headingSm" tone="critical">
-                        Overage charges
-                      </Text>
-                      <Text as="p" variant="bodyMd">
-                        You've exceeded your plan limit of {usageData?.planLimit.toLocaleString()} orders.
-                        Additional orders are charged at ${planDetails.overageRate} per order.
-                      </Text>
-                      {usageMetrics.currentUsage > usageMetrics.planLimit && (
-                        <Text as="p" variant="bodyMd" tone="critical">
-                          Estimated overage: ${((usageMetrics.currentUsage - usageMetrics.planLimit) * planDetails.overageRate).toFixed(2)}
-                        </Text>
-                      )}
-                    </BlockStack>
-                  </Box>
-                </>
-              )}
-
               {/* Compact Upgrade Button */}
               {compact && showUpgradeButton && onUpgrade && (
                 <Button
@@ -300,7 +276,7 @@ export function CurrentPlanCard({
                   onClick={onUpgrade}
                   variant={usageMetrics.isOverLimit ? "primary" : "plain"}
                 >
-                  {usageMetrics.isOverLimit ? "Upgrade now" : "View plans"}
+                  {usageMetrics.isOverLimit ? "Compare capacity" : "View plans"}
                 </Button>
               )}
             </BlockStack>

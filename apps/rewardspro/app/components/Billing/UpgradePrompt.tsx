@@ -30,6 +30,11 @@ import {
   CreditCardIcon,
   ArrowUpIcon,
 } from '~/utils/polaris-icons';
+import {
+  PRICING_PLANS,
+  getPlanFeatureSummary,
+  getPlanKey,
+} from "~/constants/pricing-contract";
 
 // ============================================
 // TYPES
@@ -110,34 +115,31 @@ export interface SubscriptionCardProps {
 
 const PLAN_DETAILS: Record<PlanTier, { name: string; color: string; features: string[] }> = {
   free: {
-    name: 'Free',
+    name: PRICING_PLANS.free.displayName,
     color: '#6b7280',
-    features: ['100 orders/month', '500 customers', 'Basic features'],
+    features: getPlanFeatureSummary("free"),
   },
   pro: {
-    name: 'Pro',
+    name: PRICING_PLANS.pro.displayName,
     color: '#059669',
-    features: ['500 orders/month', '2,000 customers', 'Advanced analytics', 'Batch operations'],
+    features: getPlanFeatureSummary("pro"),
   },
   max: {
-    name: 'Max',
+    name: PRICING_PLANS.max.displayName,
     color: '#d97706',
-    features: ['2,000 orders/month', 'Unlimited customers', 'Tier memberships', 'Priority support'],
+    features: getPlanFeatureSummary("max"),
   },
   ultra: {
-    name: 'Ultra',
+    name: PRICING_PLANS.ultra.displayName,
     color: '#7c3aed',
-    features: ['Unlimited orders', 'All features', 'Dedicated support', 'Custom integrations'],
+    features: getPlanFeatureSummary("ultra"),
   },
 };
 
 function getPlanTier(planName?: string): PlanTier {
   if (!planName) return 'free';
-  const lower = planName.toLowerCase();
-  if (lower.includes('ultra')) return 'ultra';
-  if (lower.includes('max')) return 'max';
-  if (lower.includes('pro')) return 'pro';
-  return 'free';
+  const planKey = getPlanKey(planName);
+  return planKey === "enterprise" ? "ultra" : planKey;
 }
 
 function getPlanBadgeTone(plan: PlanTier): 'info' | 'success' | 'attention' | 'warning' {
@@ -160,7 +162,7 @@ export function UpgradePrompt({
   title,
   description,
   requiredPlan = 'pro',
-  currentPlan,
+  currentPlan: _currentPlan,
   ctaText = 'Upgrade Now',
   upgradeUrl = '/app/billing',
   dismissible = false,
@@ -388,7 +390,7 @@ export function SubscriptionCard({
               <Icon source={CreditCardIcon} tone="base" />
             </div>
             <BlockStack gap="0">
-              <Text variant="bodyMd" fontWeight="semibold" as="span">{planName}</Text>
+              <Text variant="bodyMd" fontWeight="semibold" as="span">{planDetails.name}</Text>
               <Text variant="bodySm" tone="subdued" as="span">
                 {price > 0 ? `$${price}/${interval === 'annual' ? 'year' : 'mo'}` : 'Free'}
               </Text>
@@ -424,7 +426,7 @@ export function SubscriptionCard({
             </div>
             <BlockStack gap="050">
               <InlineStack gap="200" blockAlign="center">
-                <Text variant="headingMd" as="h3">{planName}</Text>
+                <Text variant="headingMd" as="h3">{planDetails.name}</Text>
                 <Badge tone={statusBadge.tone}>{statusBadge.label}</Badge>
               </InlineStack>
               <Text variant="bodySm" tone="subdued" as="p">
@@ -623,7 +625,7 @@ export function LimitHint({
   }
 
   // Auto-calculate next tier info if not provided
-  const upgradeTierName = nextTierName || 'Pro';
+  const upgradeTierName = nextTierName || PRICING_PLANS.pro.displayName;
   const upgradeTierLimit = nextTierLimit || limit * 3; // Rough estimate
 
   // Color based on usage
@@ -808,7 +810,7 @@ export function PageLimitStatus({
   resource,
   action = 'create',
   nextTierLimit,
-  nextTierName = 'Pro',
+  nextTierName = PRICING_PLANS.pro.displayName,
 }: PageLimitStatusProps) {
   const navigate = useNavigate();
   const isAtLimit = current >= limit;
@@ -891,7 +893,7 @@ export function LimitAwareButton({
   children,
   variant = 'primary',
   nextTierLimit,
-  nextTierName = 'Pro',
+  nextTierName = PRICING_PLANS.pro.displayName,
 }: LimitAwareButtonProps) {
   const navigate = useNavigate();
   const isAtLimit = current >= limit;
@@ -966,40 +968,40 @@ const UPGRADE_INCENTIVES: Record<string, {
   highlight: string;
 }> = {
   pro: {
-    name: 'Pro',
-    price: '$39/mo',
+    name: PRICING_PLANS.pro.displayName,
+    price: `$${PRICING_PLANS.pro.monthlyPrice}/mo`,
     incentives: {
-      mysteryBoxes: 2,
-      raffles: 3,
-      challenges: 5,
-      campaigns: 5,
-      automationFlows: 5,
+      mysteryBoxes: PRICING_PLANS.pro.limits.activeMysteryBoxes,
+      raffles: PRICING_PLANS.pro.limits.activeRaffles,
+      challenges: PRICING_PLANS.pro.limits.activeChallenges,
+      campaigns: PRICING_PLANS.pro.limits.campaigns,
+      automationFlows: PRICING_PLANS.pro.limits.automationFlows,
     },
-    highlight: 'Perfect for growing stores',
+    highlight: PRICING_PLANS.pro.description,
   },
   max: {
-    name: 'Max',
-    price: '$149/mo',
+    name: PRICING_PLANS.max.displayName,
+    price: `$${PRICING_PLANS.max.monthlyPrice}/mo`,
     incentives: {
-      mysteryBoxes: 5,
-      raffles: 10,
-      challenges: 15,
-      campaigns: 25,
-      automationFlows: 20,
+      mysteryBoxes: PRICING_PLANS.max.limits.activeMysteryBoxes,
+      raffles: PRICING_PLANS.max.limits.activeRaffles,
+      challenges: PRICING_PLANS.max.limits.activeChallenges,
+      campaigns: PRICING_PLANS.max.limits.campaigns,
+      automationFlows: PRICING_PLANS.max.limits.automationFlows,
     },
-    highlight: 'Best for scaling businesses',
+    highlight: PRICING_PLANS.max.description,
   },
   ultra: {
-    name: 'Ultra',
-    price: '$499/mo',
+    name: PRICING_PLANS.ultra.displayName,
+    price: `$${PRICING_PLANS.ultra.monthlyPrice}/mo`,
     incentives: {
-      mysteryBoxes: 999999,
-      raffles: 999999,
-      challenges: 999999,
-      campaigns: 999999,
-      automationFlows: 999999,
+      mysteryBoxes: PRICING_PLANS.ultra.limits.activeMysteryBoxes,
+      raffles: PRICING_PLANS.ultra.limits.activeRaffles,
+      challenges: PRICING_PLANS.ultra.limits.activeChallenges,
+      campaigns: PRICING_PLANS.ultra.limits.campaigns,
+      automationFlows: PRICING_PLANS.ultra.limits.automationFlows,
     },
-    highlight: 'Unlimited everything',
+    highlight: PRICING_PLANS.ultra.description,
   },
 };
 
@@ -1034,7 +1036,7 @@ export function LimitExceededModal({
   open,
   onClose,
   resource,
-  current,
+  current: _current,
   limit,
   currentPlan = 'Free',
   action = 'create',
@@ -1058,7 +1060,7 @@ export function LimitExceededModal({
   const nextTierLimit = upgradeInfo.incentives[resourceKey];
 
   // Format the limit for display
-  const formatLimit = (n: number) => n >= 999999 ? 'Unlimited' : n.toString();
+  const formatLimit = (n: number) => n >= 999999 ? 'Unlimited' : n.toLocaleString("en-US");
 
   const handleUpgrade = () => {
     navigate('/app/billing');
@@ -1164,8 +1166,8 @@ export function LimitExceededModal({
             <InlineStack gap="200" blockAlign="center">
               <Text as="span" variant="headingLg">💡</Text>
               <Text variant="bodySm" as="p">
-                <strong>Pro tip:</strong> Stores using multiple gamification features see
-                <strong> 2.3x higher customer retention</strong> on average.
+                Plan changes preserve loyalty configuration, customer balances,
+                and history. Paid plans add capacity without per-order charges.
               </Text>
             </InlineStack>
           </Box>

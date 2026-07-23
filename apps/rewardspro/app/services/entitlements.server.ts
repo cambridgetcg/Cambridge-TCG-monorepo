@@ -18,6 +18,18 @@ import {
   GROWTH_PLAN,
 } from "~/constants/plans";
 import {
+  getOrderLimit,
+  getTierLimit,
+} from '~/constants/plan-limits';
+import {
+  entitlementValuesForKnownPlan,
+  entitlementValuesForPlan,
+} from "~/constants/entitlement-contract";
+import {
+  PRICING_PLANS,
+  tryGetPlanKey,
+} from "~/constants/pricing-contract";
+import {
   getCachedEntitlements,
   setCachedEntitlements,
   invalidateEntitlementsCache,
@@ -25,6 +37,7 @@ import {
   getEntitlementsCacheStats,
   getEntitlementsCacheBackend,
 } from "./entitlements-cache-redis.server";
+import { invalidateShopEntitlements } from "./shop-data-provider.server";
 
 // Feature keys that map to ShopEntitlements columns
 export type FeatureKey =
@@ -83,14 +96,6 @@ export type LimitKey =
   | 'maxCampaigns'
   | 'maxAutomationFlows';
 
-// Plan limits are derived from plan-limits.ts (single source of truth)
-import {
-  getOrderLimit,
-  getTierLimit,
-  getPlanLimit,
-  normalizePlanName as normalizeToPlanLimitsName,
-} from '~/constants/plan-limits';
-
 // DEPRECATED: Use getOrderLimit() from plan-limits.ts directly.
 // Kept for backward compatibility — will be removed in future cleanup.
 export const PLAN_ORDER_LIMITS: Record<string, number> = {
@@ -114,73 +119,11 @@ export const PLAN_TIER_LIMITS: Record<string, number> = {
   get [ENTERPRISE_PLAN]() { return getTierLimit(ENTERPRISE_PLAN); },
 };
 
-// Default entitlements for new shops (Free plan)
-// RATE-BASED GATING MODEL: All features enabled, limits differentiate plans
+// Default entitlements for new shops are a direct projection of Free Forever.
 const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' | 'updatedAt'> = {
-  effectivePlan: FREE_PLAN,
+  effectivePlan: FREE_PLAN as string,
   planSource: 'DEFAULT' as EntitlementSource,
-
-  // Feature flags - ALL ENABLED (rate-based model: differentiate by limits, not features)
-  // Core features
-  featureApiAccess: true,
-  featureWebhooks: true,
-  featureWhiteLabel: true,
-  featureAdvancedReport: true,
-  featureCustomEmail: true,
-  featureAnnualEval: true,
-  featureBulkOps: true,
-  featureCustomBranding: true,
-  featurePrioritySupport: true,
-  featureSubscriptionTiers: true,
-  featurePurchasableTiers: true,
-  featureExportData: true,
-  featureCustomRewards: true,
-
-  // Integration features - ALL ENABLED
-  featureIntegrationKlaviyo: true,
-  featureIntegrationSendgrid: true,
-  featureIntegrationJudgeme: true,
-  featureIntegrationSlack: true,
-  featureIntegrationRecharge: true,
-  featureIntegrationGorgias: true,
-  featureIntegrationZapier: true,
-
-  // Gamification features - ALL ENABLED
-  featureRaffles: true,
-  featureMysteryBoxes: true,
-  featureChallenges: true,
-
-  // Marketing features - ALL ENABLED
-  featureMarketingCampaigns: true,
-  featureMarketingAutomation: true,
-  featureAiRecommendations: true,
-
-  // Analytics features - ALL ENABLED
-  featureRfmSegmentation: true,
-  featureProgramImpact: true,
-  featureRealtimeAnalytics: true,
-  featureCohortAnalysis: true,
-
-  // Numeric limits (Free plan) - THESE DIFFERENTIATE THE PLANS
-  // Core limits - Free gets minimal but functional
-  limitMaxTiers: 2,
-  limitMaxOrders: 50,
-  limitMaxEmails: 50,
-
-  // Operational limits - Free tier minimums
-  limitMaxAutomations: 1,
-  limitMaxCustomersSync: 500,
-  limitMaxTierProducts: 1,
-  limitMaxHistoricalDays: 7,
-
-  // Gamification limits - Free gets 1 of each
-  limitMaxActiveRaffles: 1,
-  limitMaxActiveMysteryBoxes: 1,
-  limitMaxActiveChallenges: 1,
-
-  // Marketing limits - Free gets 1 of each
-  limitMaxCampaigns: 1,
-  limitMaxAutomationFlows: 1,
+  ...entitlementValuesForPlan(FREE_PLAN),
 
   // Override fields
   hasOverride: false,
@@ -193,74 +136,15 @@ const DEFAULT_ENTITLEMENTS: Omit<ShopEntitlements, 'id' | 'shop' | 'createdAt' |
   resolvedFrom: null,
 };
 
-// All features enabled for rate-based model (shared across all plans)
-const ALL_FEATURES_ENABLED = {
-  featureApiAccess: true,
-  featureWebhooks: true,
-  featureWhiteLabel: true,
-  featureAdvancedReport: true,
-  featureCustomEmail: true,
-  featureAnnualEval: true,
-  featureBulkOps: true,
-  featureCustomBranding: true,
-  featurePrioritySupport: true,
-  featureSubscriptionTiers: true,
-  featurePurchasableTiers: true,
-  featureExportData: true,
-  featureCustomRewards: true,
-  featureIntegrationKlaviyo: true,
-  featureIntegrationSendgrid: true,
-  featureIntegrationJudgeme: true,
-  featureIntegrationSlack: true,
-  featureIntegrationRecharge: true,
-  featureIntegrationGorgias: true,
-  featureIntegrationZapier: true,
-  featureRaffles: true,
-  featureMysteryBoxes: true,
-  featureChallenges: true,
-  featureMarketingCampaigns: true,
-  featureMarketingAutomation: true,
-  featureAiRecommendations: true,
-  featureRfmSegmentation: true,
-  featureProgramImpact: true,
-  featureRealtimeAnalytics: true,
-  featureCohortAnalysis: true,
-} as const;
-
-/**
- * Derive entitlement limits from plan-limits.ts (single source of truth).
- * Uses 999999 instead of Infinity for database compatibility.
- */
-function limitsForPlan(planName: string): Partial<ShopEntitlements> {
-  const cap = (v: number) => v === Infinity ? 999999 : v;
-  return {
-    limitMaxTiers: cap(getPlanLimit(planName, 'tiers') as number),
-    limitMaxOrders: cap(getPlanLimit(planName, 'orders') as number),
-    limitMaxEmails: cap(getPlanLimit(planName, 'emails') as number),
-    limitMaxAutomations: cap(getPlanLimit(planName, 'automations') as number),
-    limitMaxCustomersSync: cap(getPlanLimit(planName, 'customersSync') as number),
-    limitMaxTierProducts: cap(getPlanLimit(planName, 'tierProducts') as number),
-    limitMaxHistoricalDays: cap(getPlanLimit(planName, 'historicalDataDays') as number),
-    limitMaxActiveRaffles: cap(getPlanLimit(planName, 'activeRaffles') as number),
-    limitMaxActiveMysteryBoxes: cap(getPlanLimit(planName, 'activeMysteryBoxes') as number),
-    limitMaxActiveChallenges: cap(getPlanLimit(planName, 'activeChallenges') as number),
-    limitMaxCampaigns: cap(getPlanLimit(planName, 'campaigns') as number),
-    limitMaxAutomationFlows: cap(getPlanLimit(planName, 'automationFlows') as number),
-  };
-}
-
-// Feature mapping from plan to entitlements
-// RATE-BASED GATING MODEL: All features enabled for all plans
-// Limits are derived from plan-limits.ts (single source of truth)
+// Compatibility lookup for callers that still use stable legacy billing names.
 const PLAN_FEATURES: Record<string, Partial<ShopEntitlements>> = {
-  [FREE_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(FREE_PLAN) },
-  [PRO_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(PRO_PLAN) },
-  [MAX_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(MAX_PLAN) },
-  [ULTRA_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(ULTRA_PLAN) },
-  [ENTERPRISE_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(ENTERPRISE_PLAN) },
-  // Legacy plans map to their equivalent tiers
-  [STARTER_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(STARTER_PLAN) },
-  [GROWTH_PLAN]: { ...ALL_FEATURES_ENABLED, ...limitsForPlan(GROWTH_PLAN) },
+  [FREE_PLAN]: entitlementValuesForPlan(FREE_PLAN),
+  [PRO_PLAN]: entitlementValuesForPlan(PRO_PLAN),
+  [MAX_PLAN]: entitlementValuesForPlan(MAX_PLAN),
+  [ULTRA_PLAN]: entitlementValuesForPlan(ULTRA_PLAN),
+  [ENTERPRISE_PLAN]: entitlementValuesForPlan(ENTERPRISE_PLAN),
+  [STARTER_PLAN]: entitlementValuesForPlan(STARTER_PLAN),
+  [GROWTH_PLAN]: entitlementValuesForPlan(GROWTH_PLAN),
 };
 
 /**
@@ -373,20 +257,24 @@ export async function getEffectivePlan(shop: string): Promise<string> {
  * Refresh entitlements from the current subscription state
  * Call this after subscription changes (upgrades, downgrades, etc.)
  */
-export async function refreshEntitlements(shop: string): Promise<ShopEntitlements> {
+export async function refreshEntitlements(
+  shop: string,
+  options: { force?: boolean } = {},
+): Promise<ShopEntitlements> {
   console.log(`[Entitlements] Refreshing entitlements for ${shop}`);
 
   // Debounce: skip refresh if last resolved within 5 seconds (prevents callback/webhook race)
-  const recentCheck = await prisma.shopEntitlements.findUnique({
-    where: { shop },
-    select: { lastResolvedAt: true },
-  });
-  if (recentCheck?.lastResolvedAt) {
-    const msSinceLastRefresh = Date.now() - recentCheck.lastResolvedAt.getTime();
-    if (msSinceLastRefresh < 5000) {
-      console.log(`[Entitlements] Skipping refresh for ${shop} - last resolved ${msSinceLastRefresh}ms ago (debounce)`);
-      // Return current entitlements from cache or DB
-      return getEntitlements(shop);
+  if (!options.force) {
+    const recentCheck = await prisma.shopEntitlements.findUnique({
+      where: { shop },
+      select: { lastResolvedAt: true },
+    });
+    if (recentCheck?.lastResolvedAt) {
+      const msSinceLastRefresh = Date.now() - recentCheck.lastResolvedAt.getTime();
+      if (msSinceLastRefresh < 5000) {
+        console.log(`[Entitlements] Skipping refresh for ${shop} - last resolved ${msSinceLastRefresh}ms ago (debounce)`);
+        return getEntitlements(shop);
+      }
     }
   }
 
@@ -394,7 +282,11 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   // Previously, another instance could read stale cache between invalidation and write.
 
   // Get current subscription state
-  const [billingSubscription, shopSettings] = await Promise.all([
+  const [appSubscription, billingSubscription, shopSettings] = await Promise.all([
+    prisma.appSubscription.findFirst({
+      where: { shop, status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+    }),
     prisma.billingSubscription.findFirst({
       where: { shop, subscriptionStatus: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
@@ -405,22 +297,36 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   ]);
 
   // Determine effective plan from subscription
-  let effectivePlan = FREE_PLAN;
+  let effectivePlan: string = FREE_PLAN;
   let planSource: EntitlementSource = 'DEFAULT';
   let resolvedFrom: string | null = null;
+  const legacyPlanActive = ['ACTIVE', 'TRIAL'].includes(
+    (
+      shopSettings?.subscriptionStatus ||
+      shopSettings?.billingStatus ||
+      ''
+    ).toUpperCase(),
+  );
+  const legacyPlanName =
+    shopSettings?.currentPlanName || shopSettings?.currentPlan;
 
-  if (billingSubscription?.planType) {
-    effectivePlan = normalizePlanName(billingSubscription.planType);
+  if (appSubscription?.planName) {
+    effectivePlan = normalizeKnownPlanName(appSubscription.planName);
+    planSource = 'SUBSCRIPTION';
+    resolvedFrom = `AppSubscription:${appSubscription.id}`;
+  } else if (billingSubscription?.planType || billingSubscription?.planName) {
+    effectivePlan = normalizeKnownPlanName(
+      billingSubscription.planType || billingSubscription.planName!,
+    );
     planSource = 'SUBSCRIPTION';
     resolvedFrom = `BillingSubscription:${billingSubscription.id}`;
-  } else if (shopSettings?.currentPlan) {
-    effectivePlan = normalizePlanName(shopSettings.currentPlan);
+  } else if (legacyPlanActive && legacyPlanName) {
+    effectivePlan = normalizeKnownPlanName(legacyPlanName);
     planSource = 'LEGACY';
     resolvedFrom = `ShopSettings:${shopSettings.id}`;
   }
 
-  // Get plan features
-  const planFeatures = PLAN_FEATURES[effectivePlan] || PLAN_FEATURES[FREE_PLAN];
+  const planFeatures = entitlementValuesForKnownPlan(effectivePlan);
 
   // Filter out columns that haven't been migrated to production yet
   // This prevents "column does not exist" errors with Aurora Data API
@@ -449,6 +355,15 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
       planSource,
       ...safePlanFeatures,
     });
+
+    if (existing?.hasOverride) {
+      Object.assign(updateData, {
+        hasOverride: false,
+        overrideExpiry: null,
+        overrideNote: null,
+        overrideBy: null,
+      });
+    }
   }
 
   // Upsert the entitlements record
@@ -469,7 +384,10 @@ export async function refreshEntitlements(shop: string): Promise<ShopEntitlement
   // Invalidate stale cache AFTER DB write, then set fresh cache atomically.
   // This prevents the race condition where another instance reads stale data
   // between invalidation and DB write.
-  await invalidateEntitlementsCache(shop);
+  await Promise.all([
+    invalidateEntitlementsCache(shop),
+    invalidateShopEntitlements(shop),
+  ]);
   await setCachedEntitlements(shop, entitlements);
 
   console.log(`[Entitlements] Refreshed: ${shop} -> ${entitlements.effectivePlan} (source: ${entitlements.planSource})`);
@@ -506,8 +424,9 @@ export async function setOverride(
 
   // Apply plan if specified
   if (overrides.effectivePlan) {
-    const planFeatures = PLAN_FEATURES[overrides.effectivePlan] || {};
-    updateData.effectivePlan = overrides.effectivePlan;
+    const normalizedPlan = normalizeKnownPlanName(overrides.effectivePlan);
+    const planFeatures = entitlementValuesForKnownPlan(normalizedPlan);
+    updateData.effectivePlan = normalizedPlan;
     Object.assign(updateData, planFeatures);
   }
 
@@ -544,7 +463,10 @@ export async function setOverride(
   });
 
   // Invalidate stale cache AFTER DB write, then set fresh cache
-  await invalidateEntitlementsCache(shop);
+  await Promise.all([
+    invalidateEntitlementsCache(shop),
+    invalidateShopEntitlements(shop),
+  ]);
   await setCachedEntitlements(shop, entitlements);
 
   console.log(`[Entitlements] Override applied: ${shop} -> ${entitlements.effectivePlan}`);
@@ -570,7 +492,7 @@ export async function removeOverride(shop: string): Promise<ShopEntitlements> {
   });
 
   // Then refresh from subscription
-  return refreshEntitlements(shop);
+  return refreshEntitlements(shop, { force: true });
 }
 
 /**
@@ -579,7 +501,10 @@ export async function removeOverride(shop: string): Promise<ShopEntitlements> {
  * Use when you know entitlements have changed externally
  */
 export async function invalidateCache(shop: string): Promise<void> {
-  await invalidateEntitlementsCache(shop);
+  await Promise.all([
+    invalidateEntitlementsCache(shop),
+    invalidateShopEntitlements(shop),
+  ]);
 }
 
 /**
@@ -616,51 +541,17 @@ function capitalize(str: string): string {
 }
 
 /**
- * Columns added in migrations that may not exist in production yet.
- * These are filtered out during upsert operations to prevent errors.
- *
- * IMPORTANT: Run migrations on production before removing columns from this set!
- * To check if migration is applied, run in production DB:
- * SELECT column_name FROM information_schema.columns WHERE table_name = 'ShopEntitlements';
+ * The checked-in schema contains every entitlement field used by the contract.
+ * Production rollout is intentionally blocked on a schema preflight rather
+ * than silently dropping fields and accepting contradictory database defaults.
  */
-const UNMIGRATED_COLUMNS = new Set<string>([
-  // From 20260123000000_add_integration_features_and_sync_limits
-  // Feature flags
-  'featureIntegrationKlaviyo',
-  'featureIntegrationSendgrid',
-  'featureIntegrationJudgeme',
-  'featureIntegrationSlack',
-  'featureIntegrationRecharge',
-  'featureIntegrationGorgias',
-  'featureIntegrationZapier',
-  // Limit columns (these were missing from original list!)
-  'limitMaxAutomations',
-  'limitMaxCustomersSync',
-  'limitMaxTierProducts',
-  'limitMaxHistoricalDays',
-  // From 20260123000001_add_gamification_marketing_analytics_features
-  'featureRaffles',
-  'featureMysteryBoxes',
-  'featureChallenges',
-  'featureMarketingCampaigns',
-  'featureMarketingAutomation',
-  'featureAiRecommendations',
-  'featureRfmSegmentation',
-  'featureProgramImpact',
-  'featureRealtimeAnalytics',
-  'featureCohortAnalysis',
-  'limitMaxActiveRaffles',
-  'limitMaxActiveMysteryBoxes',
-  'limitMaxActiveChallenges',
-  'limitMaxCampaigns',
-  'limitMaxAutomationFlows',
-]);
+const UNMIGRATED_COLUMNS = new Set<string>();
 
 /**
  * Filter out columns that haven't been migrated to production yet
  * This prevents "column does not exist" errors when using Aurora Data API
  */
-function filterUnmigratedColumns<T extends Record<string, unknown>>(data: T): Partial<T> {
+function filterUnmigratedColumns<T extends object>(data: T): Partial<T> {
   const filtered: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
     if (!UNMIGRATED_COLUMNS.has(key)) {
@@ -670,25 +561,14 @@ function filterUnmigratedColumns<T extends Record<string, unknown>>(data: T): Pa
   return filtered as Partial<T>;
 }
 
-// Helper: Normalize plan names to canonical form
-function normalizePlanName(planName: string): string {
-  const lower = planName.toLowerCase();
-
-  // Handle various plan name formats
-  if (lower === 'free' || lower.includes('free')) return FREE_PLAN;
-  if (lower === 'starter' || lower.includes('starter')) return STARTER_PLAN;
-  if (lower === 'pro' || lower.includes('pro')) return PRO_PLAN;
-  if (lower === 'growth' || lower.includes('growth')) return GROWTH_PLAN;
-  if (lower === 'max' || lower.includes('max')) return MAX_PLAN;
-  if (lower === 'ultra' || lower.includes('ultra')) return ULTRA_PLAN;
-  if (lower === 'enterprise' || lower.includes('enterprise')) return ENTERPRISE_PLAN;
-
-  // If it's already a valid plan constant, return as-is
-  if (Object.keys(PLAN_FEATURES).includes(planName)) {
-    return planName;
+function normalizeKnownPlanName(planName: string): string {
+  const planKey = tryGetPlanKey(planName);
+  if (!planKey) {
+    throw new Error(
+      `[Entitlements] Refusing to resolve unknown active plan "${planName}"`,
+    );
   }
-
-  return FREE_PLAN;
+  return PRICING_PLANS[planKey].billingName;
 }
 
 /**
@@ -733,8 +613,10 @@ export async function requireFeature(shop: string, feature: FeatureKey): Promise
 }
 
 /**
- * Require within limit or throw
- * Use in actions/loaders for server-side enforcement
+ * Report a reached numeric capacity without blocking the operation.
+ *
+ * The compatibility name is retained for existing callers. Numeric plan
+ * capacities are advisory during the free-first rollout.
  */
 export async function requireWithinLimit(
   shop: string,
@@ -744,6 +626,8 @@ export async function requireWithinLimit(
   const maxLimit = await getLimit(shop, limit);
   if (maxLimit < 999999 && currentCount >= maxLimit) {
     const plan = await getEffectivePlan(shop);
-    throw new LimitExceededError(limit, currentCount, maxLimit, plan);
+    console.warn(
+      `[Entitlements] Capacity advisory: ${limit} usage is ${currentCount}/${maxLimit} for ${shop} on ${plan}; processing remains available`,
+    );
   }
 }

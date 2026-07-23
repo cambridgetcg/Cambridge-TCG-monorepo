@@ -3,7 +3,7 @@
  * Enforces plan-based access control for app routes
  */
 
-import { redirect, json } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "~/shopify.server";
 import { checkPlanAccess, type AccessCheckResult } from "./plan-access-control.server";
@@ -55,12 +55,6 @@ export function withPlanAccess<T>(
 
     // Log access check for debugging
     console.log(`[ProtectedLoader] ${pathname} - Shop: ${session.shop}, Locked: ${accessCheck.isLocked}, Bypass: ${isBillingRoute || isLockedRoute || isApiRoute}`);
-
-    // If locked and not on an exempt route, redirect to locked page
-    if (accessCheck.isLocked && !isBillingRoute && !isLockedRoute && !isApiRoute) {
-      console.log(`[ProtectedLoader] Redirecting ${session.shop} to /app/locked`);
-      return redirect('/app/locked');
-    }
 
     // Pass access check and session to loader
     return loaderFn({

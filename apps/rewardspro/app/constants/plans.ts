@@ -4,15 +4,17 @@
  * Should match Partner Dashboard configuration
  */
 
+import { PRICING_PLANS } from "./pricing-contract";
+
 // Current plans
-export const FREE_PLAN = "RewardsPro Free";
-export const PRO_PLAN = "RewardsPro Pro";
-export const PRO_ANNUAL_PLAN = "RewardsPro Pro Annual";
-export const MAX_PLAN = "RewardsPro Max";
-export const MAX_ANNUAL_PLAN = "RewardsPro Max Annual";
-export const ULTRA_PLAN = "RewardsPro Ultra";
-export const ULTRA_ANNUAL_PLAN = "RewardsPro Ultra Annual";
-export const ENTERPRISE_PLAN = "RewardsPro Enterprise";
+export const FREE_PLAN = PRICING_PLANS.free.billingName;
+export const PRO_PLAN = PRICING_PLANS.pro.billingName;
+export const PRO_ANNUAL_PLAN = PRICING_PLANS.pro.annualBillingName;
+export const MAX_PLAN = PRICING_PLANS.max.billingName;
+export const MAX_ANNUAL_PLAN = PRICING_PLANS.max.annualBillingName;
+export const ULTRA_PLAN = PRICING_PLANS.ultra.billingName;
+export const ULTRA_ANNUAL_PLAN = PRICING_PLANS.ultra.annualBillingName;
+export const ENTERPRISE_PLAN = PRICING_PLANS.enterprise.billingName;
 
 // Legacy plans - keeping for backward compatibility
 export const STARTER_PLAN = "RewardsPro Starter";

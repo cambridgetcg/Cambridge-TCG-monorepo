@@ -6,6 +6,8 @@
 import { db } from "../db.server";
 import { getAuroraClient } from "./aurora-data-api";
 import type { SqlParameter } from "@aws-sdk/client-rds-data";
+import { PRICING_PLANS } from "../constants/pricing-contract";
+import * as crypto from 'node:crypto';
 
 /**
  * Strategy 1: Direct Aurora Data API with proper parameters
@@ -219,8 +221,8 @@ export async function getOrCreateMonthlyCount(
           year,
           month,
           orderCount: count,
-          planLimit: 1000,
-          planName: "Current Plan",
+          planLimit: PRICING_PLANS.free.limits.orders,
+          planName: PRICING_PLANS.free.billingName,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -363,11 +365,11 @@ export async function countOrdersWithFallback(
 
 /**
  * Increment monthly order count for real-time usage tracking
- * Called from orders.create webhook to track all orders
+ * Called after a unique, participating paid order is persisted.
  *
  * @param shop - Shop domain
  * @param orderCreatedAt - When the order was created in Shopify (from webhook payload)
- * @param planLimit - Optional plan limit to set (defaults to existing or 100)
+ * @param planLimit - Optional plan limit to set (defaults to Free Forever)
  * @param planName - Optional plan name to set (defaults to existing or "RewardsPro Free")
  */
 export async function incrementMonthlyOrderCount(
@@ -379,8 +381,8 @@ export async function incrementMonthlyOrderCount(
   try {
     // Parse the order creation date
     const orderDate = new Date(orderCreatedAt);
-    const year = orderDate.getFullYear();
-    const month = orderDate.getMonth() + 1; // 1-12
+    const year = orderDate.getUTCFullYear();
+    const month = orderDate.getUTCMonth() + 1; // 1-12
 
     console.log(`[IncrementOrderCount] Processing order for ${shop}`, {
       orderDate: orderDate.toISOString(),
@@ -410,6 +412,10 @@ export async function incrementMonthlyOrderCount(
           // Optionally update plan info if provided
           ...(planLimit !== undefined && { planLimit }),
           ...(planName !== undefined && { planName }),
+          isLocked: false,
+          lockedAt: null,
+          lockReason: null,
+          lastOrderDate: orderDate,
           updatedAt: new Date()
         }
       });
@@ -421,9 +427,7 @@ export async function incrementMonthlyOrderCount(
         planName: planName ?? existing.planName
       });
     } else {
-      // Create new record starting at 1
-      // Note: isLocked, lockedAt, lockReason, lastOrderDate columns may not exist in production yet
-      // These fields have defaults in the schema and will be added when migrations are applied
+      // Create new advisory usage record starting at 1.
       await db.monthlyOrderUsage.create({
         data: {
           id: crypto.randomUUID(),
@@ -431,8 +435,10 @@ export async function incrementMonthlyOrderCount(
           year,
           month,
           orderCount: 1,
-          planLimit: planLimit ?? 100, // Default to Free plan
-          planName: planName ?? "RewardsPro Free",
+          planLimit: planLimit ?? PRICING_PLANS.free.limits.orders,
+          planName: planName ?? PRICING_PLANS.free.billingName,
+          isLocked: false,
+          lastOrderDate: orderDate,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -442,8 +448,8 @@ export async function incrementMonthlyOrderCount(
         year,
         month,
         orderCount: 1,
-        planLimit: planLimit ?? 100,
-        planName: planName ?? "RewardsPro Free"
+        planLimit: planLimit ?? PRICING_PLANS.free.limits.orders,
+        planName: planName ?? PRICING_PLANS.free.billingName,
       });
     }
 
@@ -452,6 +458,3 @@ export async function incrementMonthlyOrderCount(
     // Don't throw - this is non-critical tracking that shouldn't fail webhooks
   }
 }
-
-// Helper for crypto
-import * as crypto from 'node:crypto';

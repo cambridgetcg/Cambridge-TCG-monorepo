@@ -27,7 +27,6 @@ import {
 } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { getEntitlements } from "../services/entitlements.server";
 import { formatCurrency } from "../utils/currency";
 import { analytics } from "../services/analytics/aggregator.service";
 import { ClientOnly } from "../components/charts/ClientOnly";
@@ -64,27 +63,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw new Response("Unauthorized", { status: 401 });
   }
 
-  // Rate-based model: All plans have access to analytics
-  // Historical data is limited by plan via maxHistoricalDays limit
+  const shopSettings = await prisma.shopSettings.findUnique({
+    where: { shop: session.shop },
+  }).catch(() => null);
 
-  // Get shop settings and entitlements in parallel
-  const [shopSettings, entitlements] = await Promise.all([
-    prisma.shopSettings.findUnique({
-      where: { shop: session.shop },
-    }).catch(() => null),
-    getEntitlements(session.shop),
-  ]);
-
-  // Enforce historical days limit based on plan
-  // Free: 7 days, Pro: 30 days, Max: 90 days, Ultra: unlimited (999999)
-  const maxHistoricalDays = entitlements.limitMaxHistoricalDays || 7;
+  // The dashboard defaults to a 30-day view for readability. Plan history
+  // capacity is advisory and never clamps a merchant's requested range.
   const requestedDays = 30; // Default request
-  const allowedDays = Math.min(requestedDays, maxHistoricalDays);
 
-  // Date range (limited by plan's maxHistoricalDays)
+  // Date range
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - allowedDays);
+  startDate.setUTCDate(startDate.getUTCDate() - requestedDays);
   const range = { start: startDate, end: endDate };
 
   // Fetch analytics data in parallel
@@ -146,7 +136,7 @@ function MetricCard({ title, value, trend, icon }: any) {
 function RevenueChart({ data }: { data: Array<{ day: string; revenue: number }> }) {
   return (
     <ChartContainer height={260}>
-      {({ width, height }) => (
+      {({ height }) => (
         <LineChartVisx data={data} xKey="day" yKey="revenue" height={height} />
       )}
     </ChartContainer>
@@ -156,7 +146,7 @@ function RevenueChart({ data }: { data: Array<{ day: string; revenue: number }> 
 function TierDistributionChart({ data }: { data: Array<{ tier: string; customers: number }> }) {
   return (
     <ChartContainer height={260}>
-      {({ width, height }) => (
+      {({ height }) => (
         <BarChartVisx data={data} xKey="tier" yKey="customers" height={height} />
       )}
     </ChartContainer>

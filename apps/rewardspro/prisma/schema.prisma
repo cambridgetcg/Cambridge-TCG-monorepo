@@ -162,71 +162,71 @@ model ShopEntitlements {
   shop String @unique
 
   // Resolved plan (single source of truth)
-  effectivePlan String            @default("free") // free, pro, max, ultra, enterprise
+  effectivePlan String            @default("RewardsPro Free")
   planSource    EntitlementSource @default(DEFAULT)
 
   // Feature flags (boolean) - Core features
-  featureApiAccess         Boolean @default(false)
-  featureWebhooks          Boolean @default(false)
+  featureApiAccess         Boolean @default(true)
+  featureWebhooks          Boolean @default(true)
   featureWhiteLabel        Boolean @default(false)
   featureAdvancedReport    Boolean @default(true)
-  featureCustomEmail       Boolean @default(false)
-  featureAnnualEval        Boolean @default(false)
-  featureBulkOps           Boolean @default(false)
-  featureCustomBranding    Boolean @default(false)
+  featureCustomEmail       Boolean @default(true)
+  featureAnnualEval        Boolean @default(true)
+  featureBulkOps           Boolean @default(true)
+  featureCustomBranding    Boolean @default(true)
   featurePrioritySupport   Boolean @default(false)
-  featureSubscriptionTiers Boolean @default(false)
-  featurePurchasableTiers  Boolean @default(false)
-  featureExportData        Boolean @default(false)
-  featureCustomRewards     Boolean @default(false)
+  featureSubscriptionTiers Boolean @default(true)
+  featurePurchasableTiers  Boolean @default(true)
+  featureExportData        Boolean @default(true)
+  featureCustomRewards     Boolean @default(true)
 
   // Feature flags (boolean) - Integrations (P1)
-  featureIntegrationKlaviyo  Boolean @default(false) // Pro+
-  featureIntegrationSendgrid Boolean @default(false) // Pro+
-  featureIntegrationJudgeme  Boolean @default(false) // Pro+
-  featureIntegrationSlack    Boolean @default(false) // Pro+
-  featureIntegrationRecharge Boolean @default(false) // Max+
-  featureIntegrationGorgias  Boolean @default(false) // Max+
-  featureIntegrationZapier   Boolean @default(false) // Max+
+  featureIntegrationKlaviyo  Boolean @default(true)
+  featureIntegrationSendgrid Boolean @default(true)
+  featureIntegrationJudgeme  Boolean @default(true)
+  featureIntegrationSlack    Boolean @default(true)
+  featureIntegrationRecharge Boolean @default(true)
+  featureIntegrationGorgias  Boolean @default(true)
+  featureIntegrationZapier   Boolean @default(true)
 
   // Feature flags (boolean) - Gamification (P2)
-  featureRaffles      Boolean @default(false) // Pro+
-  featureMysteryBoxes Boolean @default(false) // Max+
-  featureChallenges   Boolean @default(false) // Pro+
+  featureRaffles      Boolean @default(true)
+  featureMysteryBoxes Boolean @default(true)
+  featureChallenges   Boolean @default(true)
 
   // Feature flags (boolean) - Marketing (P3)
-  featureMarketingCampaigns  Boolean @default(false) // Pro+
-  featureMarketingAutomation Boolean @default(false) // Max+
-  featureAiRecommendations   Boolean @default(false) // Max+
+  featureMarketingCampaigns  Boolean @default(true)
+  featureMarketingAutomation Boolean @default(true)
+  featureAiRecommendations   Boolean @default(true)
 
   // Feature flags (boolean) - Analytics (P4)
-  featureRfmSegmentation   Boolean @default(false) // Max+
-  featureProgramImpact     Boolean @default(false) // Pro+
-  featureRealtimeAnalytics Boolean @default(false) // Max+
-  featureCohortAnalysis    Boolean @default(false) // Ultra
+  featureRfmSegmentation   Boolean @default(true)
+  featureProgramImpact     Boolean @default(true)
+  featureRealtimeAnalytics Boolean @default(true)
+  featureCohortAnalysis    Boolean @default(true)
 
   // Numeric limits - Core
-  limitMaxTiers  Int @default(2)
-  limitMaxOrders Int @default(50)
-  limitMaxEmails Int @default(0)
+  limitMaxTiers  Int @default(5)
+  limitMaxOrders Int @default(1000)
+  limitMaxEmails Int @default(1000)
 
   // Numeric limits - Sync with plan-limits.ts (P0)
-  limitMaxAutomations    Int @default(1) // Free: 1, Pro: 5, Max: 20, Ultra: 999999
-  limitMaxCustomersSync  Int @default(1000) // Free: 1K, Pro: 10K, Max: 50K, Ultra: 999999
-  limitMaxTierProducts   Int @default(2) // Free: 2, Pro: 5, Max: 10, Ultra: 999999
-  limitMaxHistoricalDays Int @default(30) // Free: 30, Pro: 90, Max: 365, Ultra: 999999
+  limitMaxAutomations    Int @default(5)
+  limitMaxCustomersSync  Int @default(10000)
+  limitMaxTierProducts   Int @default(5)
+  limitMaxHistoricalDays Int @default(365)
 
   // Numeric limits - Gamification (P2)
   // IMPORTANT: All plans get at least 1 (rate-based gating model)
   // See app/constants/plan-limits.ts for canonical values
-  limitMaxActiveRaffles      Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
-  limitMaxActiveMysteryBoxes Int @default(1) // Free: 1, Pro: 2, Max: 5, Ultra: 999999
-  limitMaxActiveChallenges   Int @default(1) // Free: 1, Pro: 5, Max: 15, Ultra: 999999
+  limitMaxActiveRaffles      Int @default(3)
+  limitMaxActiveMysteryBoxes Int @default(3)
+  limitMaxActiveChallenges   Int @default(5)
 
   // Numeric limits - Marketing (P3)
   // IMPORTANT: All plans get at least 1 (rate-based gating model)
-  limitMaxCampaigns       Int @default(1) // Free: 1, Pro: 5, Max: 25, Ultra: 999999
-  limitMaxAutomationFlows Int @default(1) // Free: 1, Pro: 3, Max: 10, Ultra: 999999
+  limitMaxCampaigns       Int @default(5)
+  limitMaxAutomationFlows Int @default(3)
 
   // Override support (for custom deals / grandfathered plans)
   hasOverride    Boolean   @default(false)

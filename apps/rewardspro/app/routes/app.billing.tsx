@@ -4,9 +4,8 @@
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
+import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useActionData, useNavigation } from "@remix-run/react";
-import { StaggerChildren, PageLoader, usePageAnimation } from "~/components/PageAnimation";
 import {
   Page,
   Layout,
@@ -19,22 +18,27 @@ import {
   Badge,
   Box,
   Divider,
-  Icon,
   ButtonGroup,
   Modal,
   Frame,
 } from "@shopify/polaris";
-import { CheckCircleIcon } from "@shopify/polaris-icons";
 import { authenticate } from "../shopify.server";
 import { useState, useEffect } from "react";
 import prisma from "../db.server";
-import {
-  getAllPlans,
-} from "~/services/billing/plan-subscription.server";
 import { detectNewSubscription } from "~/utils/billing-success-detection.server";
 import { isTestMode } from "~/utils/billing-test-mode.server";
-import { getPlanOrderLimit } from "~/constants/billing.constants";
-import { checkTrialEligibility } from "~/services/billing/trial-eligibility.server";
+import {
+  PLAN_COMPARISON,
+  getPlanOrderLimit,
+} from "~/constants/billing.constants";
+import {
+  PLAN_HIERARCHY,
+  PRICING_PLANS,
+  PUBLIC_PLAN_KEYS,
+  getAnnualSavings,
+  getPlanFeatureSummary,
+  getPlanKey,
+} from "~/constants/pricing-contract";
 import {
   FREE_PLAN,
   PRO_PLAN,
@@ -46,7 +50,7 @@ import {
 } from "~/constants/plans";
 
 // Map plan IDs to Shopify plan constants
-function getPlanConstant(planId: string): string {
+function getPlanConstant(planId: string): string | undefined {
   const planMap: Record<string, string> = {
     'free': FREE_PLAN,
     'pro': PRO_PLAN,
@@ -56,7 +60,7 @@ function getPlanConstant(planId: string): string {
     'ultra': ULTRA_PLAN,
     'ultra-annual': ULTRA_ANNUAL_PLAN,
   };
-  return planMap[planId] || PRO_PLAN;
+  return planMap[planId];
 }
 
 // ============================================
@@ -247,7 +251,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             let entitlementsRefreshed = false;
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
-                await refreshEntitlements(session.shop);
+                await refreshEntitlements(session.shop, { force: true });
                 entitlementsRefreshed = true;
                 console.log('[Billing Loader] ✅ Entitlements refreshed!');
                 break;
@@ -299,7 +303,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           const { refreshEntitlements } = await import("~/services/entitlements.server");
           for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-              await refreshEntitlements(session.shop);
+              await refreshEntitlements(session.shop, { force: true });
               console.log('[Billing Loader] ✅ Entitlements refreshed (fallback)!');
               break;
             } catch (refreshError) {
@@ -353,9 +357,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       newSubscriptionPlan: justSubscribed ? billingCheck.appSubscriptions[0]?.name : null,
     });
 
-    // Get all available plans for UI
-    const plans = getAllPlans();
-
     // Fetch usage metrics for dashboard-style card
     const now = new Date();
     const year = now.getFullYear();
@@ -406,14 +407,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       // Continue without usage metrics
     }
 
-    // Check trial eligibility for display purposes
-    const trialEligibility = await checkTrialEligibility(session.shop);
-    console.log('[Billing Loader] Trial eligibility:', {
-      eligible: trialEligibility.eligible,
-      reason: trialEligibility.reason,
-      hasUsedTrial: trialEligibility.details.hasUsedTrial
-    });
-
     const loaderData = {
       hasActivePayment: billingCheck.hasActivePayment,
       appSubscriptions: billingCheck.appSubscriptions,
@@ -422,17 +415,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       justSubscribed,
       cancelled,
       newSubscriptionPlan: justSubscribed ? billingCheck.appSubscriptions[0]?.name : null,
-      plans,
       shop: session.shop,
       usageMetrics,
-      trialEligibility: {
-        eligible: trialEligibility.eligible,
-        reason: trialEligibility.reason,
-        message: trialEligibility.message,
-        hasUsedTrial: trialEligibility.details.hasUsedTrial,
-        isCurrentlyInTrial: trialEligibility.details.isCurrentlyInTrial,
-        trialDaysRemaining: trialEligibility.details.trialDaysRemaining,
-      },
     };
 
     console.log('[Billing Loader] Returning loader data:', {
@@ -491,22 +475,27 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
   }
 
-  // Extract plan ID from action (e.g., "subscribe-pro" -> "pro")
-  const planId = action?.replace("subscribe-", "");
-
-  if (!planId) {
+  // Extract a known public plan ID from an exact subscribe action. Never
+  // default a crafted or stale action to a paid plan.
+  if (typeof action !== "string" || !action.startsWith("subscribe-")) {
     return json({
       success: false,
       error: "Invalid action"
+    }, { status: 400 });
+  }
+  const planId = action.slice("subscribe-".length);
+  const planConstant = getPlanConstant(planId);
+
+  if (!planConstant || planId === "free") {
+    return json({
+      success: false,
+      error: "Unknown paid plan",
     }, { status: 400 });
   }
 
   console.log(`[Billing Action] Shop ${session.shop} requesting ${planId} plan`);
 
   try {
-    // Map plan ID to plan constant
-    const planConstant = getPlanConstant(planId);
-
     console.log(`[Billing Action] Requesting billing for plan: ${planConstant}`);
 
     // Use centralized test mode detection
@@ -661,104 +650,38 @@ export default function BillingPage() {
   // billing.check() can be slow to update after subscription approval
   const currentSubscription = data.appSubscriptions[0];
   const currentPlan = data.subscriptionInfo?.name || currentSubscription?.name;
-  const isCurrentPlanActive = data.subscriptionInfo?.status === 'ACTIVE' || data.hasActivePayment;
+  const planCards = PUBLIC_PLAN_KEYS.map((planKey, tierLevel) => {
+    const plan = PRICING_PLANS[planKey];
+    const annualMonthly = plan.annualPrice === null
+      ? plan.monthlyPrice
+      : plan.annualPrice / 12;
 
-  // Get detailed subscription data (pre-calculated in loader)
-  const subscriptionInfo = data.subscriptionInfo;
-
-  // Define plan UI configurations with both monthly and annual pricing
-  // tierLevel: 0 = Free, 1 = Pro, 2 = Max, 3 = Ultra (used for upgrade/downgrade logic)
-  // Feature values sourced from plan-limits.ts
-  const planCards = [
-    {
-      id: "free",
-      idAnnual: "free",
-      name: "Free",
-      tierLevel: 0,
-      monthlyPrice: "$0",
-      annualPrice: "$0",
-      annualMonthlyEquivalent: "$0",
-      annualSavings: "",
-      description: "Get started with the essentials and familiarise with the function",
-      features: [
-        "50 orders/month",
-        "Up to 500 customers",
-        "2 tiers, 1 tier product",
-        "50 emails/month",
-        "Email support"
-      ],
-      recommended: false,
-      isFree: true,
-    },
-    {
-      id: "pro",
-      idAnnual: "pro-annual",
-      name: "Pro",
-      tierLevel: 1,
-      monthlyPrice: "$39",
-      annualPrice: "$336",
-      annualMonthlyEquivalent: "$28",
-      annualSavings: "Save $132/year",
-      description: "Everything you need to grow your loyalty program",
-      features: [
-        "7-day free trial",
-        "500 orders/month",
-        "Up to 5,000 customers",
-        "5 tiers, 3 tier products",
-        "500 emails/month",
-        "$10 per 100 extra orders"
-      ],
-      recommended: false,
-    },
-    {
-      id: "max",
-      idAnnual: "max-annual",
-      name: "Max",
-      tierLevel: 2,
-      monthlyPrice: "$149",
-      annualPrice: "$1,296",
-      annualMonthlyEquivalent: "$108",
-      annualSavings: "Save $492/year",
-      description: "For established businesses with advanced needs",
-      features: [
-        "7-day free trial",
-        "2,000 orders/month",
-        "Up to 25,000 customers",
-        "10 tiers, 10 tier products",
-        "2,000 emails/month",
-        "$5 per 100 extra orders"
-      ],
-      recommended: true,
-    },
-    {
-      id: "ultra",
-      idAnnual: "ultra-annual",
-      name: "Ultra",
-      tierLevel: 3,
-      monthlyPrice: "$499",
-      annualPrice: "$4,296",
-      annualMonthlyEquivalent: "$358",
-      annualSavings: "Save $1,692/year",
-      description: "Unlimited everything for growing enterprises",
-      features: [
-        "7-day free trial",
-        "Unlimited orders",
-        "Unlimited customers",
-        "Unlimited tiers & products",
-        "Unlimited emails",
-        "No overage charges"
-      ],
-      recommended: false,
-    },
-  ];
+    return {
+      id: planKey,
+      idAnnual: plan.annualBillingName ? `${planKey}-annual` : planKey,
+      name: plan.displayName,
+      tierLevel,
+      monthlyPrice: `$${plan.monthlyPrice.toLocaleString("en-US")}`,
+      annualPrice: plan.annualPrice === null
+        ? `$${plan.monthlyPrice.toLocaleString("en-US")}`
+        : `$${plan.annualPrice.toLocaleString("en-US")}`,
+      annualMonthlyEquivalent: `$${annualMonthly.toLocaleString("en-US", {
+        maximumFractionDigits: 2,
+      })}`,
+      annualSavings: getAnnualSavings(planKey) > 0
+        ? `Save $${getAnnualSavings(planKey).toLocaleString("en-US")}/year`
+        : "",
+      description: plan.description,
+      features: getPlanFeatureSummary(planKey),
+      recommended: planKey === "pro",
+      isFree: planKey === "free",
+    };
+  });
 
   // Determine current plan's tier level
   const getCurrentTierLevel = (): number => {
-    if (!currentPlan) return 0; // Free plan
-    if (currentPlan.includes('Ultra')) return 3;
-    if (currentPlan.includes('Max')) return 2;
-    if (currentPlan.includes('Pro')) return 1;
-    return 0; // Free plan
+    if (!currentPlan) return 0;
+    return PLAN_HIERARCHY.indexOf(getPlanKey(currentPlan));
   };
   const currentTierLevel = getCurrentTierLevel();
 
@@ -813,16 +736,6 @@ export default function BillingPage() {
               </Banner>
             )}
 
-            {/* Trial Eligibility Banner */}
-            {data.trialEligibility && !data.trialEligibility.eligible && data.trialEligibility.hasUsedTrial && (
-              <Banner tone="info">
-                <Text as="p">
-                  <strong>Free trial already used</strong> - Your store has already used its free trial period.
-                  New subscriptions will begin billing immediately.
-                </Text>
-              </Banner>
-            )}
-
             {/* Billing Interval Toggle */}
             <InlineStack align="end" blockAlign="center">
               <ButtonGroup variant="segmented">
@@ -853,10 +766,7 @@ export default function BillingPage() {
                       <BlockStack gap="100">
                         <Text as="span" variant="headingMd">Compare Plans</Text>
                         <Text as="span" variant="bodySm" tone="subdued">
-                          {data.trialEligibility?.eligible
-                            ? "All paid plans include a 7-day free trial"
-                            : "Your free trial has been used - billing starts immediately"
-                          }
+                          Fixed prices, no overage charges, and all core loyalty features on Free.
                         </Text>
                       </BlockStack>
                     </div>
@@ -891,35 +801,24 @@ export default function BillingPage() {
                       );
                     })}
 
-                    {/* Feature Rows - Values from plan-limits.ts */}
-                    {[
-                      { label: 'Monthly orders', values: ['50', '500', '2,000', '∞ Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Customer sync limit', values: ['500', '5,000', '25,000', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Tiers', values: ['2', '5', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Tier products', values: ['1', '3', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Monthly emails', values: ['50', '500', '2,000', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Campaigns', values: ['1', '5', '25', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Automation flows', values: ['1', '3', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Active raffles', values: ['1', '3', '10', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Active challenges', values: ['1', '5', '15', 'Unlimited'], icons: ['limit', 'limit', 'limit', 'unlimited'] },
-                      { label: 'Store credit system', values: ['✓', '✓', '✓', '✓'], icons: ['check', 'check', 'check', 'check'] },
-                      { label: 'Advanced analytics', values: ['✓', '✓', '✓', '✓'], icons: ['check', 'check', 'check', 'check'] },
-                      { label: 'Support', values: ['Email', 'Priority', 'Phone', 'Dedicated'], icons: ['text', 'text', 'text', 'text'] },
-                      {
-                        label: 'Free trial',
-                        values: data.trialEligibility?.eligible
-                          ? ['—', '7 days', '7 days', '7 days']
-                          : ['—', 'Used', 'Used', 'Used'],
-                        icons: data.trialEligibility?.eligible
-                          ? ['x', 'check', 'check', 'check']
-                          : ['x', 'x', 'x', 'x']
-                      },
-                    ].map((row, idx) => (
+                    {/* Feature rows are derived from the pricing contract. */}
+                    {PLAN_COMPARISON.map((row, idx) => {
+                      const values = planCards.map((plan) =>
+                        (row as Record<string, string>)[plan.id],
+                      );
+                      const icons = values.map((value) => {
+                        if (value === "✓") return "check";
+                        if (value === "—") return "x";
+                        if (value.toLowerCase().includes("unlimited")) return "unlimited";
+                        return "text";
+                      });
+
+                      return (
                       <>
                         <div key={`c3-label-${idx}`} style={{ padding: '14px 20px', backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa', display: 'flex', alignItems: 'center' }}>
-                          <Text as="span" variant="bodyMd">{row.label}</Text>
+                          <Text as="span" variant="bodyMd">{row.feature}</Text>
                         </div>
-                        {row.values.map((val, i) => (
+                        {values.map((val, i) => (
                           <div key={`c3-val-${idx}-${i}`} style={{
                             padding: '14px 20px',
                             backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
@@ -929,25 +828,28 @@ export default function BillingPage() {
                             justifyContent: 'center',
                             gap: '6px'
                           }}>
-                            {row.icons[i] === 'check' && <span style={{ color: '#008060' }}>✓</span>}
-                            {row.icons[i] === 'x' && <span style={{ color: '#8c9196' }}>—</span>}
-                            {(row.icons[i] === 'text' || row.icons[i] === 'limit' || row.icons[i] === 'unlimited') && (
-                              <Text as="span" variant="bodyMd" tone={row.icons[i] === 'unlimited' ? 'success' : undefined}>
+                            {icons[i] === 'check' && <span style={{ color: '#008060' }}>✓</span>}
+                            {icons[i] === 'x' && <span style={{ color: '#8c9196' }}>—</span>}
+                            {(icons[i] === 'text' || icons[i] === 'unlimited') && (
+                              <Text as="span" variant="bodyMd" tone={icons[i] === 'unlimited' ? 'success' : undefined}>
                                 {val}
                               </Text>
                             )}
                           </div>
                         ))}
                       </>
-                    ))}
+                      );
+                    })}
 
                     {/* Button Row */}
                     <div style={{ padding: '20px', backgroundColor: '#f6f6f7' }}></div>
                     {planCards.map((plan) => {
                       const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
-                      const planConstantMonthly = getPlanConstant(plan.id);
-                      const planConstantAnnual = getPlanConstant(plan.idAnnual);
-                      const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
+                      const selectedPlanConstant = getPlanConstant(planIdToUse);
+                      const isCurrentPlan = currentPlan === selectedPlanConstant;
+                      const isSameTier = Boolean(
+                        currentPlan && getPlanKey(currentPlan) === plan.id,
+                      );
                       const isFree = 'isFree' in plan && plan.isFree;
                       const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
 
@@ -973,7 +875,13 @@ export default function BillingPage() {
                                 }
                               }}
                             >
-                              {isCurrentPlan ? "Current Plan" : plan.tierLevel > currentTierLevel ? "Upgrade" : "Downgrade"}
+                              {isCurrentPlan
+                                ? "Current Plan"
+                                : isSameTier
+                                  ? `Switch to ${billingInterval === "annual" ? "annual" : "monthly"}`
+                                  : plan.tierLevel > currentTierLevel
+                                    ? "Upgrade"
+                                    : "Downgrade"}
                             </Button>
                           )}
                         </div>
@@ -1009,7 +917,10 @@ export default function BillingPage() {
                         What's the difference between monthly and annual billing?
                       </Text>
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        Annual plans charge the yearly total up front (e.g., Pro Annual is $336/year instead of $39/month) and offer significant savings—up to 28% off. When you switch from monthly to annual or vice versa, Shopify automatically handles proration of your existing subscription. The new billing agreement starts immediately.
+                        Annual plans charge the yearly total up front. Grow is $290/year,
+                        Scale is $790/year, and Corporate is $4,990/year. Shopify
+                        shows the exact timing and any applicable billing adjustment
+                        before you approve a change.
                       </Text>
                     </BlockStack>
 
@@ -1017,10 +928,12 @@ export default function BillingPage() {
 
                     <BlockStack gap="200">
                       <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        What are overage/usage charges?
+                        Are there overage or usage charges?
                       </Text>
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        Pro and Max plans include usage-based billing for orders beyond your monthly limit. Pro: $10 per 100 orders over 500 (capped at $50/month). Max: $5 per 100 orders over 2,000 (capped at $100/month). These charges appear as usage line items on your Shopify invoice. Ultra plan has unlimited orders with no overage charges.
+                        No. Current plans use fixed recurring prices only. We show
+                        capacity usage so you can plan ahead, but RewardsPro does not
+                        create surprise per-order or GMV charges.
                       </Text>
                     </BlockStack>
 
@@ -1031,7 +944,9 @@ export default function BillingPage() {
                         Can I upgrade or downgrade my plan at any time?
                       </Text>
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        Yes! Plan changes take effect immediately. Upgrades remove any "plan locked" state instantly and increase your order limit right away. Downgrades or returns to the free plan also apply instantly, though you may be locked again if your current usage exceeds the new limit.
+                        Yes. Shopify shows when the change takes effect before you
+                        approve it. Your loyalty data and customer balances remain
+                        intact through plan changes.
                       </Text>
                     </BlockStack>
 
@@ -1042,7 +957,10 @@ export default function BillingPage() {
                         What happens when I reach my order limit?
                       </Text>
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        When you hit your order limit, your store is automatically locked and the dashboard will prompt you to upgrade. Premium features will be locked or greyed out. Upgrading instantly unlocks your store and raises the limit. Pro and Max plans with usage billing will continue processing orders and charge the overage rate (up to the monthly cap).
+                        We warn you as you approach the plan's reward-eligible order
+                        capacity and recommend a larger plan when needed. We do not
+                        lock merchant admin access, delete loyalty data, or add an
+                        automatic overage charge.
                       </Text>
                     </BlockStack>
 
@@ -1053,7 +971,10 @@ export default function BillingPage() {
                         What happens after I cancel my subscription?
                       </Text>
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        Cancellation instantly reverts your account to the Free plan with a 100 order/month limit. Your existing configuration (tiers, rewards, etc.) stays intact, but premium features lock or grey out once the free plan limit is reached. No data is lost—you can re-upgrade anytime.
+                        After Shopify confirms cancellation, your account returns to
+                        Free Forever with 1,000 reward-eligible orders per month. Your
+                        configuration, customer balances, and loyalty history stay
+                        intact.
                       </Text>
                     </BlockStack>
 
@@ -1139,8 +1060,8 @@ export default function BillingPage() {
             </Text>
             <Text as="p" tone="subdued">
               {pendingDowngrade?.isFree
-                ? "Your current subscription will be cancelled immediately. You will lose access to premium features and be limited to 100 orders per month."
-                : "Your current subscription will be changed. You may lose access to some features available in your current plan."}
+                ? "Your paid subscription will be cancelled through Shopify. Free Forever keeps the core loyalty experience and 1,000 reward-eligible orders per month."
+                : "Shopify will show the billing timing before you approve the change. Your loyalty data and customer balances stay intact."}
             </Text>
           </BlockStack>
         </Modal.Section>
