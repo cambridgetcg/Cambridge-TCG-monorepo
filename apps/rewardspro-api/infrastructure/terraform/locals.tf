@@ -36,7 +36,7 @@ locals {
   github_oidc_provider_arn = var.create_github_oidc_provider ? one(aws_iam_openid_connect_provider.github[*].arn) : var.github_oidc_provider_arn
 
   api_secret_arns = [
-    aws_secretsmanager_secret.application_database.arn,
+    aws_secretsmanager_secret.api_database.arn,
     aws_secretsmanager_secret.shopify_api.arn,
     aws_secretsmanager_secret.operator_token.arn,
   ]
@@ -55,16 +55,16 @@ locals {
       value = var.aws_region
     },
     {
-      name  = "DB_SECRET_ARN"
-      value = aws_secretsmanager_secret.application_database.arn
-    },
-    {
       name  = "DB_SSL_ROOT_CERT"
       value = "/app/certs/eu-west-2-bundle.pem"
     },
   ]
 
   api_environment = concat(local.common_service_environment, [
+    {
+      name  = "DB_SECRET_ARN"
+      value = aws_secretsmanager_secret.api_database.arn
+    },
     {
       name  = "PORT"
       value = tostring(var.container_port)
@@ -84,6 +84,10 @@ locals {
   ])
 
   worker_environment = concat(local.common_service_environment, [
+    {
+      name  = "DB_SECRET_ARN"
+      value = aws_secretsmanager_secret.worker_database.arn
+    },
     {
       name  = "SQS_QUEUE_URL"
       value = aws_sqs_queue.worker.url

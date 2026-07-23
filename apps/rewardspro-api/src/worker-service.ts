@@ -93,6 +93,7 @@ export async function runDatabaseWorker(
   let consecutiveErrors = 0;
   while (!signal.aborted) {
     try {
+      await sweepExpiredPayloads(options);
       const result = await options.processor.processNext();
       consecutiveErrors = 0;
       if (result === "noop") {
@@ -127,6 +128,7 @@ export async function runSqsWorker(
   while (!signal.aborted) {
     let messages: Message[];
     try {
+      await sweepExpiredPayloads(options);
       await recoverStrandedEvents(options.processor, options.batchSize);
       await options.outboxPublisher.flushPending(options.batchSize);
       const response = await options.sqs.send(
@@ -212,6 +214,23 @@ export async function recoverStrandedEvents(
     recovered += 1;
   }
   return recovered;
+}
+
+async function sweepExpiredPayloads(
+  options: Pick<WorkerServiceOptions, "batchSize" | "logger" | "processor">,
+): Promise<void> {
+  const result = await options.processor.sweepExpiredPayloads(
+    options.batchSize,
+  );
+  if (result.deletedPayloads > 0) {
+    options.logger.info(
+      {
+        deletedPayloads: result.deletedPayloads,
+        terminalizedEvents: result.terminalizedEvents,
+      },
+      "expired commerce payloads deleted",
+    );
+  }
 }
 
 export async function consumeSqsMessage(

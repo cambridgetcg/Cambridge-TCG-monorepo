@@ -187,9 +187,14 @@ output "rds_master_secret_arn" {
   value       = aws_db_instance.database.master_user_secret[0].secret_arn
 }
 
-output "application_database_secret_arn" {
-  description = "Empty least-privilege runtime database secret placeholder ARN."
-  value       = aws_secretsmanager_secret.application_database.arn
+output "api_database_secret_arn" {
+  description = "Empty least-privilege API database secret placeholder ARN."
+  value       = aws_secretsmanager_secret.api_database.arn
+}
+
+output "worker_database_secret_arn" {
+  description = "Empty least-privilege worker database secret placeholder ARN."
+  value       = aws_secretsmanager_secret.worker_database.arn
 }
 
 output "shopify_api_secret_arn" {

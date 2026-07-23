@@ -105,7 +105,7 @@ data "aws_iam_policy_document" "worker_task" {
       "secretsmanager:DescribeSecret",
       "secretsmanager:GetSecretValue",
     ]
-    resources = [aws_secretsmanager_secret.application_database.arn]
+    resources = [aws_secretsmanager_secret.worker_database.arn]
   }
 
   statement {

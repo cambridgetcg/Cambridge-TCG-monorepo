@@ -49,6 +49,10 @@ function sqsOptions(
     processor: {
       processById: vi.fn(async () => result),
       processNextRecoverable: vi.fn(async () => "noop"),
+      sweepExpiredPayloads: vi.fn(async () => ({
+        deletedPayloads: 0,
+        terminalizedEvents: 0,
+      })),
     },
     queueUrl: "https://sqs.eu-west-2.amazonaws.com/123/events",
     sqs: { send } as unknown as SQSClient,
@@ -210,6 +214,56 @@ describe("SQS worker message acknowledgement", () => {
 });
 
 describe("worker recovery and liveness", () => {
+  it("runs the bounded payload-retention sweep in the database lane", async () => {
+    const abortController = new AbortController();
+    const sweepExpiredPayloads = vi.fn(async () => ({
+      deletedPayloads: 1,
+      terminalizedEvents: 1,
+    }));
+    const processor = {
+      processNext: vi.fn(async () => {
+        abortController.abort();
+        return "noop" as const;
+      }),
+      sweepExpiredPayloads,
+    };
+
+    await runDatabaseWorker(
+      {
+        batchSize: 7,
+        logger: {
+          error: vi.fn(),
+          info: vi.fn(),
+          warn: vi.fn(),
+        },
+        maxConsecutiveErrors: 2,
+        pollMs: 1,
+        processor,
+        visibilityTimeoutSeconds: 120,
+      } as never,
+      abortController.signal,
+    );
+
+    expect(sweepExpiredPayloads).toHaveBeenCalledWith(7);
+  });
+
+  it("runs the bounded payload-retention sweep in the SQS lane", async () => {
+    const abortController = new AbortController();
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof ReceiveMessageCommand) {
+        abortController.abort();
+        return { Messages: [] };
+      }
+      return {};
+    });
+    const options = sqsOptions("normalized", send);
+    options.batchSize = 6;
+
+    await runSqsWorker(options, abortController.signal);
+
+    expect(options.processor.sweepExpiredPayloads).toHaveBeenCalledWith(6);
+  });
+
   it("drains recoverable events up to the batch limit", async () => {
     const processNextRecoverable = vi
       .fn()
@@ -228,6 +282,10 @@ describe("worker recovery and liveness", () => {
       processNext: vi.fn(async () => {
         throw new Error("database unavailable");
       }),
+      sweepExpiredPayloads: vi.fn(async () => ({
+        deletedPayloads: 0,
+        terminalizedEvents: 0,
+      })),
     };
 
     await expect(
@@ -366,8 +424,9 @@ describe("worker recovery and liveness", () => {
       sqs: { send } as unknown as SQSClient,
     });
 
-    expect(query).toHaveBeenCalledOnce();
+    expect(query).toHaveBeenCalledTimes(2);
     expect(String(query.mock.calls[0]?.[0])).toContain("has_table_privilege");
+    expect(String(query.mock.calls[1]?.[0])).toContain("yu.standard_meta");
     expect(send).toHaveBeenCalledOnce();
   });
 

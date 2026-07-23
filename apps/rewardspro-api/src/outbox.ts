@@ -76,18 +76,26 @@ export class PostgresOutboxStore implements OutboxStore {
   async claim(eventId: string): Promise<OutboxClaim | null> {
     const leaseToken = randomUUID();
     const result = await this.pool.query<OutboxClaimRow>(
-      `UPDATE rp_commerce_event
-          SET dispatch_lease_token = $2,
-              dispatch_lease_until = now() + ($3 * interval '1 second'),
-              dispatch_attempt_count = dispatch_attempt_count + 1
-        WHERE id = $1
-          AND dispatch_state = 'pending'
-          AND next_dispatch_at <= now()
-          AND (
-            dispatch_lease_until IS NULL
-            OR dispatch_lease_until < now()
-          )
-      RETURNING id, commerce_connection_id`,
+      `WITH claimed AS (
+         UPDATE public.rp_commerce_event_state
+            SET dispatch_lease_token = $2,
+                dispatch_lease_until = now() + ($3 * interval '1 second'),
+                dispatch_attempt_count = dispatch_attempt_count + 1
+          WHERE event_id = $1
+            AND dispatch_state = 'pending'
+            AND next_dispatch_at <= now()
+            AND (
+              dispatch_lease_until IS NULL
+              OR dispatch_lease_until < now()
+            )
+        RETURNING event_id
+       )
+       SELECT
+         event.id,
+         event.commerce_connection_id
+       FROM claimed
+       JOIN commerce.events event
+         ON event.id = claimed.event_id`,
       [eventId, leaseToken, this.leaseSeconds],
     );
     const row = result.rows[0];
@@ -102,15 +110,17 @@ export class PostgresOutboxStore implements OutboxStore {
 
   async listPending(limit: number): Promise<string[]> {
     const result = await this.pool.query<{ id: string }>(
-      `SELECT id
-         FROM rp_commerce_event
-        WHERE dispatch_state = 'pending'
-          AND next_dispatch_at <= now()
+      `SELECT event.id
+         FROM public.rp_commerce_event_state state
+         JOIN commerce.events event
+           ON event.id = state.event_id
+        WHERE state.dispatch_state = 'pending'
+          AND state.next_dispatch_at <= now()
           AND (
-            dispatch_lease_until IS NULL
-            OR dispatch_lease_until < now()
+            state.dispatch_lease_until IS NULL
+            OR state.dispatch_lease_until < now()
           )
-        ORDER BY next_dispatch_at, received_at
+        ORDER BY state.next_dispatch_at, event.received_at
         LIMIT $1`,
       [limit],
     );
@@ -119,13 +129,13 @@ export class PostgresOutboxStore implements OutboxStore {
 
   async markPublished(claim: OutboxClaim): Promise<void> {
     await this.pool.query(
-      `UPDATE rp_commerce_event
+      `UPDATE public.rp_commerce_event_state
           SET dispatch_state = 'queued',
               dispatch_lease_token = NULL,
               dispatch_lease_until = NULL,
               dispatched_at = now(),
               last_dispatch_error_code = NULL
-        WHERE id = $1
+        WHERE event_id = $1
           AND dispatch_state = 'pending'
           AND dispatch_lease_token = $2`,
       [claim.eventId, claim.leaseToken],
@@ -134,7 +144,7 @@ export class PostgresOutboxStore implements OutboxStore {
 
   async markFailed(claim: OutboxClaim): Promise<void> {
     await this.pool.query(
-      `UPDATE rp_commerce_event
+      `UPDATE public.rp_commerce_event_state
           SET dispatch_lease_token = NULL,
               dispatch_lease_until = NULL,
               last_dispatch_error_code = 'sqs_publish_failed',
@@ -143,7 +153,7 @@ export class PostgresOutboxStore implements OutboxStore {
                   LEAST(300, power(2, LEAST(dispatch_attempt_count, 8))) *
                   interval '1 second'
                 )
-        WHERE id = $1
+        WHERE event_id = $1
           AND dispatch_state = 'pending'
           AND dispatch_lease_token = $2`,
       [claim.eventId, claim.leaseToken],

@@ -32,8 +32,8 @@ The deploy source is this monorepo. The protected path is
   `X86_64` contract. A future Graviton change must update and validate both
   sides together.
 - API, worker, and migration are separate ECS task definitions. Only the
-  `migration` task may receive the RDS-admin secret. API and worker use the
-  least-privilege application database secret.
+  `migration` task may receive the RDS-admin secret. API and worker use
+  separate least-privilege database login roles and secrets.
 - Terraform owns distinct `*-template` task-definition families. On every
   deployment, CI reads each latest active, explicitly Terraform-tagged
   template and clones its complete roles, environment, limits, logging, and
@@ -64,17 +64,21 @@ GitHub documents the OIDC and protected-environment pattern in
 
 ## GitHub configuration
 
-Create the `rewardspro-v2-production` environment, restrict its deployment
-branches to `main`, require human approval, and prevent approval bypass where
-the repository's governance permits it. Make
+Verify the existing `rewardspro-v2-production` environment remains restricted
+to `main` and requires human approval. Prevent approval bypass where the
+repository's governance permits it. Make
 `Validate API, migrations, and image` a required `main` branch check so
 changes to the v2 paths cannot merge around this workflow.
 
-The environment did not exist when this foundation was prepared on
-2026-07-23. Create and protect it before setting the deploy-enabled variable.
-Terraform also constrains AWS OIDC to the immutable repository/owner IDs,
-`refs/heads/main`, and the `RewardsPro v2` workflow name, so a same-named
-environment referenced from another branch cannot assume the role.
+The environment was created on 2026-07-23 with a `main`-only deployment policy
+and required approval by `cambridgetcg`. Because that is currently the only
+eligible collaborator, self-review remains allowed and administrators can
+bypass protection. Add a distinct eligible reviewer, enable
+`prevent_self_review`, disable admin bypass, and protect `main` with the
+workflow's validation check before production activation. Terraform also
+constrains AWS OIDC to the immutable repository/owner IDs, `refs/heads/main`,
+and the `RewardsPro v2` workflow name, so a same-named environment referenced
+from another branch cannot assume the role.
 
 Configure these names. Keep their values in GitHub settings and operator
 records, not in this repository.
@@ -156,16 +160,21 @@ least-privilege database credential does not exist yet.
    capacity, the three Terraform `*-template` families exist and carry the
    required ownership tags, ECR is immutable, and the RDS managed admin secret
    exists.
-3. Request/validate the ACM certificate for the reviewed public hostname and
+3. Prove the dark RDS target is a fresh baseline before its first migration:
+   it must contain neither legacy RewardsPro tables nor unnamespaced
+   `rp_schema_migration` rows. Retain that query evidence with the release.
+   The migration entrypoint also checks this condition before applying the
+   pinned YUTABASE SQL and fails closed on disagreement.
+4. Request/validate the ACM certificate for the reviewed public hostname and
    create the DNS alias to the Terraform ALB outputs. Confirm the resulting
    `api_base_url` is HTTPS. This establishes the health-probe destination; it
    does not move Shopify traffic.
-4. Populate the Shopify and operator secrets required by the API. Do not put
+5. Populate the Shopify and operator secrets required by the API. Do not put
    their values in Terraform plans, shell history, CI logs, or this repository.
-5. Configure the GitHub environment above. Temporarily set
+6. Configure the GitHub environment above. Temporarily set
    `REWARDSPRO_V2_DEPLOY_ENABLED` to `true`, then run the protected workflow
    for an approved `main` commit.
-6. In bootstrap mode the workflow:
+7. In bootstrap mode the workflow:
    - pushes the immutable SHA image;
    - clones the latest Terraform migration template into the release family;
    - registers and runs the dedicated migration task with a stable,
@@ -176,26 +185,27 @@ least-privilege database credential does not exist yet.
    - updates both zero-capacity service pointers to those revisions;
    - verifies desired, running, and pending counts remain zero, then stops
      without changing capacity or claiming worker/API health.
-7. Set `REWARDSPRO_V2_DEPLOY_ENABLED` back to a non-`true` value.
-8. Create the least-privilege application database role after the migration
-   has established the schema, then populate the application DB secret. Verify
-   that the API/worker task roles cannot read the RDS-admin secret and the
-   migration task cannot assume an application runtime identity.
-9. Prepare a saved Terraform plan with `bootstrap_mode=false`, review its
+8. Set `REWARDSPRO_V2_DEPLOY_ENABLED` back to a non-`true` value.
+9. Create the separate least-privilege API and worker database roles after the
+   migration has established the schema, then populate their separate database
+   secrets. Verify each task reads only its own connection, neither can read
+   the RDS-admin secret, and the migration task cannot assume a runtime
+   identity.
+10. Prepare a saved Terraform plan with `bootstrap_mode=false`, review its
    resource changes, and apply that exact plan. The Terraform service lifecycle
    preserves the digest task revisions staged by CI; Application Auto Scaling
    raises capacity to the configured minima.
-10. Re-enable the repository gate for a short approved window and rerun the
+11. Re-enable the repository gate for a short approved window and rerun the
    protected workflow for the same commit. It reuses the immutable SHA image,
    executes the idempotent migration runner, updates both services, waits for
    stability, proves the worker's queue-to-database path, and probes API
    health.
-11. Disable the repository gate again and retain the workflow and Terraform
+12. Disable the repository gate again and retain the workflow and Terraform
     plan records with the release evidence.
 
-Do not make service capacity nonzero until the application DB secret has a
-tested, least-privilege value. Do not make the first workflow change capacity
-to work around bootstrap mode.
+Do not make service capacity nonzero until both runtime DB secrets have tested,
+least-privilege values. Do not make the first workflow change capacity to work
+around bootstrap mode.
 
 ## Normal deployment
 

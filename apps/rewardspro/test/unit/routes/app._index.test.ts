@@ -269,7 +269,7 @@ describe('app._index (dashboard) loader', () => {
 
     expect(data.monthlyOrderUsage).toMatchObject({
       orderCount: 42,
-      planLimit: 100, // Free plan limit
+      planLimit: 1000, // Free plan limit
       planName: 'RewardsPro Free',
     });
     expect(data.currentMonth).toBeDefined();

@@ -1,7 +1,7 @@
 # RewardsPro v2 runs on ECS/Fargate and RDS PostgreSQL
 
-**Status:** accepted for a dark foundation; production traffic and data cutover
-remain gated.
+**Status:** accepted for a fresh dark foundation; production traffic remains
+gated.
 
 **Will trace:** Yu, 2026-07-23 — “need migrate the database to new infra, maybe
 railway or fly? Or new aws. Lets do the backend from scratch and handle the
@@ -32,6 +32,12 @@ RewardsPro records points, cashback, store credit, subscriptions, and other
 financially meaningful state. Its database needs managed backups, tested
 recovery, a single canonical writer, and an auditable migration path.
 
+On 2026-07-23 Yu explicitly chose a fresh start because the old database is no
+longer available. A read-only account audit found no RDS or Aurora source to
+copy. It also found a separate, still-active legacy serverless footprint in
+`eu-north-1`; that footprint is not a database source and is not authorized for
+deletion by this decision.
+
 ## Decision
 
 Build a commerce-independent backend alongside the current Shopify application:
@@ -46,6 +52,13 @@ headless clients ──┘       │                    │                    �
                                          │
                                    SQS + dead letter
 ```
+
+The verified inbox remains operational authority. A pinned YUTABASE candidate
+binding adds a rebuildable semantic projection for selected commerce events,
+orders, line items, and their governed relations. It does not own tenant
+isolation, leases, queues, retention, or authorization. The detailed boundary
+is recorded in
+[`2026-07-23-rewardspro-yutabase-projection.md`](./2026-07-23-rewardspro-yutabase-projection.md).
 
 The target runtime is:
 
@@ -90,32 +103,32 @@ or global-replication requirements justify it.
 
 ## Rollout
 
-This is a strangler migration, not a big-bang rewrite.
+This is a clean bootstrap followed by a connector cutover. There is no source
+database migration or legacy data-parity claim.
 
-1. **Dark foundation.** Ship liveness, authenticated readiness, migrations,
-   connector-safe event contracts, an idempotent inbox, and the API/worker
+1. **Dark foundation.** Ship liveness, authenticated readiness, checksummed
+   application and YUTABASE migrations, connector-safe event contracts, an
+   idempotent inbox, enforced raw-payload retention, and the API/worker
    deployment path. It receives no production Shopify traffic.
-2. **Source audit.** Restore authorized access to the old AWS account. Record
-   engine/version, extensions, database size, live schema, migration ledger,
-   largest tables, row counts, and write rate. Treat the live database and a
-   logical dump as truth.
-3. **Compatibility schema.** Restore the legacy schema into the target and add
-   v2 tables through append-only migrations. Backfill workspaces, commerce
-   connections, and external identities without renaming live columns.
-4. **Shadow/replay.** Translate copied Shopify events into normalized events and
-   compare resulting points/cashback/tier decisions with the legacy path. No v2
-   financial writes are authoritative.
-5. **CDC and cutover.** Use `pg_dump`/`pg_restore` plus a write pause for a small
-   database, or AWS DMS full-load plus CDC for low downtime. Stop old schedulers
-   and workers, reach zero lag, validate counts/checksums and critical ledger
-   invariants, then switch exactly one writer.
-6. **Rollback window.** Keep the old database read-only and retain a final
-   immutable backup. Keep the old webhook receiver/forwarder available beyond
-   Shopify’s retry window. A database rollback after new writes requires
-   reverse replication or explicit reconciliation, not a DNS flip.
+2. **RDS conformance.** Run the exact migrations on the target RDS PostgreSQL
+   16 instance, twice. Verify role separation, the pinned YUTABASE identity,
+   projection threads, retention, restore posture, and exact numeric IDs.
+3. **Fresh configuration.** Create only new workspaces, commerce connections,
+   secrets, schedules, and operator access. Do not invent or silently
+   reconstruct old balances, customers, subscriptions, or ledger state.
+4. **Shadow input.** Forward or replay newly received Shopify events into v2
+   and compare normalized contracts with the current application. No v2
+   financial write is authoritative.
+5. **Connector cutover.** Pause the current webhook/scheduler writers, confirm
+   v2 readiness and queue drain, then switch one connector at a time. Exactly
+   one system may author each financial domain.
+6. **Rollback window.** Keep the prior receiver available beyond Shopify's
+   retry window. A rollback after new v2 financial writes requires explicit
+   reconciliation; it is not a DNS-only operation.
 
 Every stage has an explicit go/no-go record. No deploy job changes the Shopify
-application URL, webhook subscriptions, extensions, or DNS automatically.
+application URL, webhook subscriptions, extensions, legacy `eu-north-1`
+resources, or DNS automatically.
 
 ## Deployment invariants
 
@@ -133,24 +146,33 @@ application URL, webhook subscriptions, extensions, or DNS automatically.
 - Secret values, database URLs, raw customer payloads, and AWS identifiers are
   never printed by CI diagnostics.
 
-## Known blocker
+## Known activation blockers
 
-The old Aurora database cannot yet be introspected or exported from this
-machine. The AWS credentials currently configured for the deployed app are
-rejected, and its authenticated readiness probe is unavailable. Building and
-validating the dark target is safe; copying data or claiming migration
-readiness is not.
-
-Source-account access must be restored or a new least-privilege migration role
-must be issued before the source-audit gate can pass.
+- The current local AWS session resolves to the account root principal.
+  Terraform must run through the existing IAM Identity Center administrator
+  assignment or another scoped role, never as root.
+- `eu-west-2` has no ACM certificate. Production needs a chosen hostname,
+  regional certificate, and DNS validation.
+- A dedicated versioned and encrypted Terraform state bucket and protected
+  lock table must exist before the application stack is initialized.
+- The GitHub `rewardspro-v2-production` environment exists with a reviewer and
+  a `main`-only deployment policy, but production activation still requires a
+  distinct eligible reviewer, prevention of self-review and administrator
+  bypass, and a required `main` validation check.
+- The pinned YUTABASE binding has PostgreSQL 16/17 conformance evidence but not
+  yet an RDS conformance run.
+- The still-running legacy serverless stack requires a separate retirement
+  decision. Its existence neither blocks the dark v2 stack nor authorizes
+  deleting it.
 
 ## Consequences
 
 - We accept more infrastructure and cost than Railway or Fly in exchange for a
   mature database recovery contract and native queue/scheduler integration.
-- The current app stays live while v2 proves parity one vertical slice at a
-  time.
+- The current app stays live while v2 proves one newly configured vertical
+  slice at a time; historical data parity is explicitly out of scope.
 - The first v2 release is intentionally not feature-complete. Its honest claim
   is “deployable event-ingestion foundation,” not “RewardsPro rewritten.”
-- Two database access patterns coexist temporarily. That cost ends only after
-  all authoritative paths leave the Data API and the legacy runtime is retired.
+- Operational tables and a semantic projection coexist deliberately, but both
+  use the same PostgreSQL connection and `pg` runtime. YOUSPEAK is not a second
+  production data-access path.

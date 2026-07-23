@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.5.7, < 2.0.0"
+  required_version = ">= 1.5.7, < 1.6.0"
 
   # Supply bucket, key, region, and DynamoDB lock-table settings at init time.
   # Keeping account-specific values out of source makes this a partial backend.

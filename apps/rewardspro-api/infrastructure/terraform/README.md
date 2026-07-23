@@ -36,7 +36,7 @@ This stack deliberately does not:
 - create the S3 state bucket or DynamoDB state-lock table inside the state they
   protect;
 - write any secret value into Terraform state;
-- create the least-privilege PostgreSQL runtime role;
+- create the separate least-privilege PostgreSQL API and worker roles;
 - deploy the first container image; or
 - choose or roll out live application release revisions.
 
@@ -51,13 +51,28 @@ roles, limits, logging, or health configuration cannot be silently dropped.
 
 ## Prerequisites
 
-- Terraform `>= 1.5.7`
+- Terraform `>= 1.5.7, < 1.6.0` for this reviewed backend contract
 - AWS credentials authorized to plan/apply this stack
 - an ACM certificate in the target region and a DNS hostname for production
 - control of DNS so that hostname can alias the ALB
 - the GitHub repository Environment `rewardspro-v2-production`
 
 The default region is `eu-west-2`.
+
+For every local state, plan, or apply command, establish and verify the named
+Identity Center profile first. The preflight refuses the account root, the
+wrong account, or the wrong region:
+
+```sh
+export AWS_PROFILE=rewardspro-admin
+export AWS_REGION=eu-west-2
+export REWARDSPRO_AWS_ACCOUNT_ID="<reviewed-12-digit-account-id>"
+bash ../scripts/assert-local-aws-identity.sh
+```
+
+Keep those variables in the current shell for all commands below. GitHub
+Actions uses its environment-scoped OIDC role instead and does not use this
+local profile.
 
 ## 1. Bootstrap remote state
 
@@ -71,6 +86,9 @@ Create the backend separately before initializing this directory:
 Keep this state infrastructure outside the application stack so destroying or
 recovering the application cannot delete its own history.
 
+The reviewable CloudFormation bootstrap and operator commands live in
+[`../bootstrap`](../bootstrap/README.md).
+
 Create an ignored local `backend.hcl`:
 
 ```hcl
@@ -80,14 +98,25 @@ region         = "eu-west-2"
 dynamodb_table = "<state-lock-table>"
 ```
 
+Every environment must have a distinct state key. Never reuse or relabel one
+environment's key for another.
+
 Then initialize:
 
 ```sh
-terraform init -reconfigure -backend-config=backend.hcl
+terraform init -backend-config=backend.hcl
 ```
 
 The committed `backend "s3"` block is intentionally partial. Do not commit
 `backend.hcl`, state, plans, credentials, account IDs, or bucket/table names.
+Do not use `-reconfigure` when changing a bucket or state key: back up and
+inspect the source, use `terraform init -migrate-state`, and verify lineage and
+serial at the destination before planning. `-reconfigure` is only for stale
+local metadata when the reviewed backend destination is unchanged.
+
+Terraform 1.5 uses DynamoDB locking. Upgrade the tested toolchain and backend
+deliberately to S3 native `use_lockfile=true` before DynamoDB locking support
+is removed; do not mix lock mechanisms ad hoc during an active operation.
 
 ## 2. Choose GitHub OIDC ownership
 
@@ -220,24 +249,27 @@ fields, the migration task also receives non-secret `DB_HOST`, `DB_PORT`, and
 Before activation, use a controlled one-off database client inside the VPC to:
 
 1. authenticate with the RDS-managed master secret;
-2. create a distinct login role such as `rewardspro_app` with a generated
-   password and no superuser, role-creation, or database-creation capability;
-3. grant only `CONNECT` on the application database, `USAGE` on its schema,
-   required table DML, and required sequence usage;
-4. set equivalent default privileges for future tables/sequences created by
-   the migration owner; and
-5. put the runtime connection into `application_database_secret_arn`.
+2. create distinct login roles such as `rewardspro_api` and
+   `rewardspro_worker`, each with its own generated password and no superuser,
+   bypass-RLS, replication, role-creation, or database-creation capability;
+3. grant `yu_reader` directly to the API role and `yu_writer` directly to the
+   worker role, with no admin option or other role memberships;
+4. grant only each process's `CONNECT`, schema `USAGE`, and table DML matrix
+   documented in the application README; do not use shared or blanket default
+   privileges—each future migration must update grants explicitly; and
+5. put the separate connections into `api_database_secret_arn` and
+   `worker_database_secret_arn`.
 
 Use parameterized client variables or a secure secret handoff; never paste the
 runtime password into Terraform, SQL history, shell history, a plan, or Git.
-The application database secret accepts a PostgreSQL URL or JSON shaped like:
+Each database secret accepts a PostgreSQL URL or JSON shaped like:
 
 ```json
 {
   "host": "<private-rds-host>",
   "port": 5432,
   "dbname": "rewardspro",
-  "username": "rewardspro_app",
+  "username": "rewardspro_api",
   "password": "<generated-out-of-band>"
 }
 ```
@@ -251,14 +283,16 @@ than silently weakening certificate verification when the path is absent.
 
 Terraform creates placeholders but intentionally creates no secret versions:
 
-- `application_database_secret_arn`
+- `api_database_secret_arn`
+- `worker_database_secret_arn`
 - `shopify_api_secret_arn`
 - `operator_token_secret_arn`
 
-Populate all three through an approved secret-management channel before
+Populate all four through an approved secret-management channel before
 activation. The Shopify and operator secrets can be raw strings or the JSON
-shapes accepted by the application. The API role can read those three runtime
-secrets. The worker can read only the application database secret.
+shapes accepted by the application. The API task can read only its database,
+Shopify, and operator secrets. The worker task can read only its own database
+secret.
 
 The API still receives `SQS_QUEUE_URL` as a non-secret dispatch-mode marker,
 but its IAM role has no SQS actions. It commits incoming events as pending.
@@ -289,8 +323,8 @@ deployment-only probe covers the fleet's IAM, queue, and database path.
 ## 6. Activate production capacity
 
 Keep scheduler entries disabled through bootstrap so commands do not
-accumulate. After the migration succeeds, the runtime database role exists,
-all three runtime secret versions are populated, DNS resolves, and the new task
+accumulate. After the migration succeeds, both runtime database roles exist,
+all four runtime secret versions are populated, DNS resolves, and the new task
 revisions are registered, enable schedules and plan. Before doing so, verify
 that each zero-count ECS service already points at its expected digest task
 revision; merely registering a newer family revision is not sufficient.

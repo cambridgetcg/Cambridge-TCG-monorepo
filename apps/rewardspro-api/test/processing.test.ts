@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  CommerceProjectionConflictError,
   CommerceEventProcessor,
   type ClaimedCommerceEvent,
   type ProcessingStore,
@@ -29,6 +30,10 @@ function store(event: ClaimedCommerceEvent | null): ProcessingStore {
     completeFailed: vi.fn(async () => undefined),
     completeIgnored: vi.fn(async () => undefined),
     completeNormalized: vi.fn(async () => undefined),
+    sweepExpiredPayloads: vi.fn(async () => ({
+      deletedPayloads: 0,
+      terminalizedEvents: 0,
+    })),
   };
 }
 
@@ -81,6 +86,21 @@ describe("commerce-event processor", () => {
     expect(processingStore.completeFailed).toHaveBeenCalledWith(
       event,
       "invalid_provider_payload",
+    );
+  });
+
+  it("terminalizes a valid event that conflicts with an existing projection", async () => {
+    const event = claimed();
+    const processingStore = store(event);
+    processingStore.completeNormalized = vi.fn(async () => {
+      throw new CommerceProjectionConflictError("projection conflict");
+    });
+    const processor = new CommerceEventProcessor(processingStore);
+
+    await expect(processor.processNext()).resolves.toBe("failed");
+    expect(processingStore.completeFailed).toHaveBeenCalledWith(
+      event,
+      "projection_conflict",
     );
   });
 

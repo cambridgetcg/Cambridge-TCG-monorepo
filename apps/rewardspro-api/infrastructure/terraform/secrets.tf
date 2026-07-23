@@ -1,8 +1,14 @@
 # These resources intentionally have no aws_secretsmanager_secret_version.
 # Operators populate values out-of-band so plaintext never enters Terraform state.
-resource "aws_secretsmanager_secret" "application_database" {
-  name                    = "${local.name}/database/application"
-  description             = "Least-privilege RewardsPro runtime PostgreSQL connection; never the RDS master credential"
+resource "aws_secretsmanager_secret" "api_database" {
+  name                    = "${local.name}/database/api"
+  description             = "Least-privilege RewardsPro API PostgreSQL connection; never the RDS master credential"
+  recovery_window_in_days = local.is_production ? 30 : 7
+}
+
+resource "aws_secretsmanager_secret" "worker_database" {
+  name                    = "${local.name}/database/worker"
+  description             = "Least-privilege RewardsPro worker PostgreSQL connection; never the RDS master credential"
   recovery_window_in_days = local.is_production ? 30 : 7
 }
 

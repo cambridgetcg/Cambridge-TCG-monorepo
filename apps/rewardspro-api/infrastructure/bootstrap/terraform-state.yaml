@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Dedicated eu-west-2 remote-state storage and locking for the RewardsPro API
+  Terraform stack. This template intentionally contains no application resources.
+
+Parameters:
+  StateBucketName:
+    Type: String
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$"
+    ConstraintDescription: >-
+      Use a globally unique, lowercase, hyphen-only S3 bucket name between 3
+      and 63 characters.
+    Description: Globally unique S3 bucket name for Terraform state.
+  LockTableName:
+    Type: String
+    MinLength: 3
+    MaxLength: 255
+    AllowedPattern: "^[A-Za-z0-9_.-]+$"
+    ConstraintDescription: >-
+      Use 3-255 letters, numbers, underscores, hyphens, or periods.
+    Description: DynamoDB table name for Terraform state locks.
+
+Resources:
+  StateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref StateBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: RewardsPro
+        - Key: Component
+          Value: TerraformState
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: DataClassification
+          Value: Confidential
+
+  StateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref StateBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt StateBucket.Arn
+              - !Sub "${StateBucket.Arn}/*"
+            Condition:
+              Bool:
+                "aws:SecureTransport": "false"
+
+  LockTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Ref LockTableName
+      AttributeDefinitions:
+        - AttributeName: LockID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: LockID
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: RewardsPro
+        - Key: Component
+          Value: TerraformStateLock
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: DataClassification
+          Value: Confidential
+
+Outputs:
+  StateBucketName:
+    Description: S3 bucket to place in backend.hcl.
+    Value: !Ref StateBucket
+  StateBucketArn:
+    Description: ARN of the Terraform state bucket.
+    Value: !GetAtt StateBucket.Arn
+  LockTableName:
+    Description: DynamoDB table to place in backend.hcl.
+    Value: !Ref LockTable
+  LockTableArn:
+    Description: ARN of the Terraform state lock table.
+    Value: !GetAtt LockTable.Arn
+  StateRegion:
+    Description: AWS region containing both state resources.
+    Value: !Ref AWS::Region

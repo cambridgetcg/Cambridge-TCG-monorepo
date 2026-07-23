@@ -1,6 +1,19 @@
 # RewardsPro database migration and cutover runbook
 
-## Current status: blocked before source audit
+## Current status: superseded by the fresh-start decision
+
+Yu chose a clean RewardsPro v2 database on 2026-07-23. The authorized AWS
+inventory found no source RDS or Aurora database, so no legacy rows will be
+copied and no historical parity claim will be made. Follow
+[`docs/decisions/2026-07-23-rewardspro-runtime-v2.md`](../../../docs/decisions/2026-07-23-rewardspro-runtime-v2.md)
+for the active bootstrap and connector-cutover sequence.
+
+This document is retained only as a fail-closed contingency if an authorized
+source database or immutable backup is later recovered. Do not resume it
+merely because the still-active `eu-north-1` Lambda/SQS/EventBridge footprint
+exists; that footprint is not a database and has its own retirement decision.
+
+## Historical status: blocked before source audit
 
 As observed on 2026-07-23:
 

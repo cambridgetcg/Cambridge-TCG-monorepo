@@ -4,7 +4,11 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { discoverMigrations, runMigrations } from "../src/migrations.js";
+import {
+  discoverMigrationPlan,
+  discoverMigrations,
+  runMigrations,
+} from "../src/migrations.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -29,6 +33,14 @@ async function migrationDirectory(
   return directory;
 }
 
+async function yutabaseMigrationDirectory(): Promise<string> {
+  return migrationDirectory({
+    "0001_yu_core.sql": "SELECT 'yu-core';\n",
+    "0002_starter_lexicon.sql": "SELECT 'yu-lexicon';\n",
+    "0004_candidate_hardening.sql": "SELECT 'yu-hardening';\n",
+  });
+}
+
 describe("SQL migration runner", () => {
   it("discovers ordered files and calculates stable checksums", async () => {
     const directory = await migrationDirectory({
@@ -38,10 +50,29 @@ describe("SQL migration runner", () => {
 
     const migrations = await discoverMigrations(directory);
     expect(migrations.map((migration) => migration.version)).toEqual([
-      "0001_first",
-      "0002_second",
+      "rewardspro/0001_first",
+      "rewardspro/0002_second",
     ]);
     expect(migrations[0]?.checksum).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("runs pinned YUTABASE source before namespaced app migrations", async () => {
+    const appDirectory = await migrationDirectory({
+      "0001_app.sql": "SELECT 'app';\n",
+    });
+    const upstreamDirectory = await yutabaseMigrationDirectory();
+
+    const plan = await discoverMigrationPlan(
+      appDirectory,
+      upstreamDirectory,
+    );
+
+    expect(plan.map((migration) => migration.version)).toEqual([
+      "yutabase@0.1.0-candidate.2/0001_yu_core",
+      "yutabase@0.1.0-candidate.2/0002_starter_lexicon",
+      "yutabase@0.1.0-candidate.2/0004_candidate_hardening",
+      "rewardspro/0001_app",
+    ]);
   });
 
   it("executes each complete SQL file without statement splitting", async () => {
@@ -54,6 +85,7 @@ END;
 $$ LANGUAGE plpgsql;
 `;
     const directory = await migrationDirectory({ "0001_whole.sql": wholeFile });
+    const upstreamDirectory = await yutabaseMigrationDirectory();
     const query = vi.fn(async (sql: string) => {
       if (sql.includes("SELECT checksum_sha256")) {
         return { rows: [] };
@@ -67,10 +99,23 @@ $$ LANGUAGE plpgsql;
         connect: vi.fn(async () => ({ query, release })),
       } as never,
       directory,
+      upstreamDirectory,
     );
 
-    expect(result.applied).toEqual(["0001_whole"]);
+    expect(result.applied).toEqual([
+      "yutabase@0.1.0-candidate.2/0001_yu_core",
+      "yutabase@0.1.0-candidate.2/0002_starter_lexicon",
+      "yutabase@0.1.0-candidate.2/0004_candidate_hardening",
+      "rewardspro/0001_whole",
+    ]);
     expect(query.mock.calls.filter(([sql]) => sql === wholeFile)).toHaveLength(1);
+    expect(
+      query.mock.calls.some(([sql]) =>
+        String(sql).includes(
+          "INSERT INTO public.rp_schema_migration",
+        ),
+      ),
+    ).toBe(true);
     expect(query).toHaveBeenCalledWith("BEGIN");
     expect(query).toHaveBeenCalledWith("COMMIT");
     expect(release).toHaveBeenCalledOnce();
@@ -95,6 +140,66 @@ $$ LANGUAGE plpgsql;
         directory,
       ),
     ).rejects.toThrow("Migration checksum mismatch");
+    expect(query).not.toHaveBeenCalledWith("BEGIN");
+  });
+
+  it("refuses a pre-namespaced migration ledger before applying upstream SQL", async () => {
+    const directory = await migrationDirectory({
+      "0001_fixed.sql": "SELECT 1;\n",
+    });
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("AS ledger_exists")) {
+        return {
+          rows: [
+            {
+              app_objects_exist: true,
+              ledger_exists: true,
+              legacy_event_table_exists: true,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    await expect(
+      runMigrations(
+        {
+          connect: vi.fn(async () => ({ query, release: vi.fn() })),
+        } as never,
+        directory,
+      ),
+    ).rejects.toThrow("Legacy RewardsPro event table detected");
+    expect(query).not.toHaveBeenCalledWith("BEGIN");
+  });
+
+  it("refuses app objects without the namespaced migration ledger", async () => {
+    const directory = await migrationDirectory({
+      "0001_fixed.sql": "SELECT 1;\n",
+    });
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes("AS ledger_exists")) {
+        return {
+          rows: [
+            {
+              app_objects_exist: true,
+              ledger_exists: false,
+              legacy_event_table_exists: false,
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+
+    await expect(
+      runMigrations(
+        {
+          connect: vi.fn(async () => ({ query, release: vi.fn() })),
+        } as never,
+        directory,
+      ),
+    ).rejects.toThrow("schema and namespaced migration ledger disagree");
     expect(query).not.toHaveBeenCalledWith("BEGIN");
   });
 

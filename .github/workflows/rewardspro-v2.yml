@@ -72,6 +72,39 @@ jobs:
           pnpm --filter @cambridge-tcg/rewardspro-api db:migrate
           pnpm --filter @cambridge-tcg/rewardspro-api db:migrate
 
+      - name: Bootstrap distinct CI runtime database roles
+        run: |
+          set -Eeuo pipefail
+
+          api_password="$(openssl rand -hex 24)"
+          worker_password="$(openssl rand -hex 24)"
+          echo "::add-mask::${api_password}"
+          echo "::add-mask::${worker_password}"
+
+          REWARDSPRO_CI_API_PASSWORD="${api_password}" \
+          REWARDSPRO_CI_WORKER_PASSWORD="${worker_password}" \
+            node apps/rewardspro-api/scripts/bootstrap-ci-database-roles.mjs
+
+          api_database_url="postgresql://rewardspro_ci_api:${api_password}@127.0.0.1:5432/rewardspro"
+          worker_database_url="postgresql://rewardspro_ci_worker:${worker_password}@127.0.0.1:5432/rewardspro"
+          echo "::add-mask::${api_database_url}"
+          echo "::add-mask::${worker_database_url}"
+          {
+            echo "API_DATABASE_URL=${api_database_url}"
+            echo "WORKER_DATABASE_URL=${worker_database_url}"
+          } >>"${GITHUB_ENV}"
+
+      - name: Verify the worker database boundary
+        run: |
+          DATABASE_RUNTIME=worker \
+          DATABASE_URL="${WORKER_DATABASE_URL}" \
+            node apps/rewardspro-api/scripts/check-runtime-database.mjs
+
+      - name: Run PostgreSQL 16 RewardsPro and YUTABASE conformance
+        run: |
+          REWARDSPRO_POSTGRES_CONFORMANCE=local-test-only \
+            node apps/rewardspro-api/scripts/postgres-conformance.mjs
+
       - name: Test
         run: pnpm --filter @cambridge-tcg/rewardspro-api test
 
@@ -80,7 +113,8 @@ jobs:
           set -Eeuo pipefail
 
           api_log="${RUNNER_TEMP}/rewardspro-v2-api.log"
-          node apps/rewardspro-api/dist/main.js >"${api_log}" 2>&1 &
+          DATABASE_URL="${API_DATABASE_URL}" \
+            node apps/rewardspro-api/dist/main.js >"${api_log}" 2>&1 &
           api_pid=$!
 
           cleanup() {
@@ -893,7 +927,7 @@ jobs:
               echo "- The migration completed successfully."
               echo "- API and worker task revisions were registered and their zero-capacity service pointers were updated."
               echo "- Desired, running, and pending capacity remain zero; no health probe ran."
-              echo "- Populate the application database secret, leave deployment disabled, and complete the reviewed Terraform activation before another deploy."
+              echo "- Populate the separate API and worker database secrets, leave deployment disabled, and complete the reviewed Terraform activation before another deploy."
             } >>"${GITHUB_STEP_SUMMARY}"
             echo "::notice::Bootstrap staging completed; service pointers are digest-pinned and capacity remains zero pending reviewed activation."
             exit 0

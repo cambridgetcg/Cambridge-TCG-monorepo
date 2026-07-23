@@ -1,6 +1,5 @@
-import { randomUUID } from "node:crypto";
-
 import type pg from "pg";
+import { uuidv7 } from "yutabase/uuidv7";
 
 export interface IngestCommerceEventInput {
   dispatch: boolean;
@@ -20,15 +19,11 @@ export interface IngestCommerceEventResult {
   workspaceId: string;
 }
 
-interface ConnectionRow extends pg.QueryResultRow {
-  id: string;
-  workspace_id: string;
-}
-
 interface EventIdentityRow extends pg.QueryResultRow {
   commerce_connection_id: string;
+  duplicate: boolean;
   external_event_type: string;
-  id: string;
+  event_id: string;
   payload_sha256: string;
   workspace_id: string;
 }
@@ -42,116 +37,60 @@ export class CommerceEventConflictError extends Error {
 }
 
 export class CommerceEventInbox {
-  constructor(private readonly pool: Pick<pg.Pool, "connect">) {}
+  constructor(private readonly pool: Pick<pg.Pool, "query">) {}
 
   async ingest(
     input: IngestCommerceEventInput,
   ): Promise<IngestCommerceEventResult> {
-    const client = await this.pool.connect();
-    try {
-      await client.query("BEGIN");
-      const connectionResult = await client.query<ConnectionRow>(
-        `SELECT id, workspace_id
-           FROM rp_commerce_connection
-          WHERE provider = $1
-            AND external_account_id = $2
-            AND status = 'active'
-          FOR SHARE`,
-        [input.provider, input.sourceAccountId],
+    const result = await this.pool.query<EventIdentityRow>(
+      `SELECT
+         event_id,
+         workspace_id,
+         commerce_connection_id,
+         external_event_type,
+         payload_sha256,
+         duplicate
+       FROM public.rp_ingest_shopify_event(
+         $1,
+         $2,
+         $3,
+         $4,
+         $5,
+         $6::jsonb,
+         $7,
+         $8
+       )`,
+      [
+        uuidv7(),
+        input.sourceAccountId,
+        input.externalEventId,
+        input.externalEventType,
+        input.payloadSha256,
+        input.payloadJson,
+        input.occurredAt,
+        input.dispatch,
+      ],
+    );
+    const event = result.rows[0];
+    if (!event) {
+      throw new CommerceConnectionNotFoundError(
+        "Commerce connection is not configured",
       );
-      const connection = connectionResult.rows[0];
-      if (!connection) {
-        throw new CommerceConnectionNotFoundError(
-          "Commerce connection is not configured",
-        );
-      }
-
-      const eventId = randomUUID();
-      const inserted = await client.query<EventIdentityRow>(
-        `INSERT INTO rp_commerce_event (
-           id,
-           workspace_id,
-           commerce_connection_id,
-           external_event_id,
-           external_event_type,
-           payload,
-           payload_sha256,
-           occurred_at,
-           dispatch_state
-         )
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
-         ON CONFLICT (commerce_connection_id, external_event_id) DO NOTHING
-         RETURNING
-           id,
-           workspace_id,
-           commerce_connection_id,
-           external_event_type,
-           payload_sha256`,
-        [
-          eventId,
-          connection.workspace_id,
-          connection.id,
-          input.externalEventId,
-          input.externalEventType,
-          input.payloadJson,
-          input.payloadSha256,
-          input.occurredAt,
-          input.dispatch ? "pending" : "disabled",
-        ],
-      );
-
-      let duplicate = false;
-      let event = inserted.rows[0];
-      if (!event) {
-        duplicate = true;
-        const existing = await client.query<EventIdentityRow>(
-          `SELECT
-             id,
-             workspace_id,
-             commerce_connection_id,
-             external_event_type,
-             payload_sha256
-           FROM rp_commerce_event
-           WHERE commerce_connection_id = $1 AND external_event_id = $2`,
-          [connection.id, input.externalEventId],
-        );
-        event = existing.rows[0];
-        if (
-          !event ||
-          event.workspace_id !== connection.workspace_id ||
-          event.commerce_connection_id !== connection.id ||
-          event.external_event_type !== input.externalEventType ||
-          event.payload_sha256.trim() !== input.payloadSha256
-        ) {
-          throw new CommerceEventConflictError(
-            "Event id was previously used for different content",
-          );
-        }
-        if (input.dispatch) {
-          await client.query(
-            `UPDATE rp_commerce_event
-                SET dispatch_state = 'pending',
-                    next_dispatch_at = now()
-              WHERE id = $1
-                AND dispatch_state = 'disabled'
-                AND processing_state IN ('received', 'processing')`,
-            [event.id],
-          );
-        }
-      }
-
-      await client.query("COMMIT");
-      return {
-        commerceConnectionId: event.commerce_connection_id,
-        duplicate,
-        eventId: event.id,
-        workspaceId: event.workspace_id,
-      };
-    } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
     }
+    if (
+      event.external_event_type !== input.externalEventType ||
+      event.payload_sha256.trim() !== input.payloadSha256
+    ) {
+      throw new CommerceEventConflictError(
+        "Event id was previously used for different content",
+      );
+    }
+
+    return {
+      commerceConnectionId: event.commerce_connection_id,
+      duplicate: event.duplicate,
+      eventId: event.event_id,
+      workspaceId: event.workspace_id,
+    };
   }
 }

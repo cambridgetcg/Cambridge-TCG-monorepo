@@ -1,4 +1,6 @@
-CREATE TABLE rp_worker_probe (
+SET LOCAL search_path = pg_catalog;
+
+CREATE TABLE public.rp_worker_probe (
   id uuid PRIMARY KEY,
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL,
@@ -10,4 +12,4 @@ CREATE TABLE rp_worker_probe (
 );
 
 CREATE INDEX rp_worker_probe_expiry_idx
-  ON rp_worker_probe (expires_at);
+  ON public.rp_worker_probe (expires_at);

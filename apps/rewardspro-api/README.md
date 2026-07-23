@@ -10,18 +10,30 @@ It provides:
 - a raw-body Shopify webhook receiver with HMAC verification and a durable,
   idempotent PostgreSQL commerce-event inbox;
 - a worker that turns supported inbox records into a versioned
-  `order.paid` document with explicit source provenance;
+  `order.paid` document and typed `commerce.orders` /
+  `commerce.line_items` projections with field-level source mappings;
 - optional SQS delivery backed by database outbox state. PostgreSQL remains
   authoritative, and duplicate SQS delivery is safe;
-- a checksum-verified, advisory-locked SQL migration runner.
+- a checksum-verified, advisory-locked SQL migration runner that installs the
+  exact `yutabase@0.1.0-candidate.2` PostgreSQL binding before app migrations.
 
 No financial ledger is created or mutated by this foundation.
 The inbox gives PostgreSQL the verified raw JSON text directly, and processing
 reads `jsonb` back as text before decoding it, so Shopify's 64-bit numeric IDs
 are preserved as exact decimal strings instead of rounded JavaScript numbers.
-Raw webhook payloads carry an explicit 30-day retention deadline in the inbox
-schema. A production retention sweeper is still required to enforce deletion
-at that deadline.
+Verified event metadata is an immutable YUTABASE card. Raw webhook JSON is a
+separate payload row with an exact 30-day retention deadline, while processing,
+dispatch, and lease fields remain ordinary mutable PostgreSQL state. Every
+database and SQS worker maintenance loop runs a bounded `SKIP LOCKED` sweep:
+expired unprocessed events become terminal before only their payload row is
+deleted. Immutable event metadata and completed projections remain.
+
+Completed `orders/paid` normalization writes the order, line items,
+`derived_from` order-to-event thread, `contains` order-to-line-item threads,
+and terminal processing state in the same lease-owning transaction. The
+YUTABASE package supplies the pinned migrations and UUIDv7 generator only; the
+runtime continues to use its existing `pg` pool and does not instantiate
+postgres.js or YOUSPEAK.
 
 ## Local PostgreSQL
 
@@ -61,8 +73,8 @@ entrypoint loads only database configuration.
 RDS JSON fields (`host`, `port`, `username`, `password`, and
 `dbname`/`database`). AWS-managed RDS master secrets contain only credentials;
 the migration task must pair those with non-secret `DB_HOST`, `DB_PORT`, and
-`DB_NAME` environment values. API and worker deployments should use a
-least-privilege application database secret. The RDS master secret is only
+`DB_NAME` environment values. API and worker deployments use separate,
+least-privilege database secrets and login roles. The RDS master secret is only
 appropriate for the separately controlled migration task.
 
 In `NODE_ENV=production`, every non-loopback `DATABASE_URL` (including a raw
@@ -75,17 +87,56 @@ worker, and migration tasks. Loopback URLs remain usable for local containers.
 
 ## Migration and runtime database roles
 
-Run `node dist/migrate.js` with a separately controlled migration role that
-owns, or can create and alter, the `rp_*` objects. Do not give those DDL
-credentials to the API or worker. After migrations, an application role used
-by both runtime processes needs the following table-level grants (substitute
-the actual role name and grant database `CONNECT` separately):
+Run `node dist/migrate.js` with the RDS administrative migration identity. The
+runner applies the pinned upstream files `0001`, `0002`, and `0004` first,
+records them under `yutabase@0.1.0-candidate.2/*`, then records app files under
+`rewardspro/*`. The upstream binding creates the `pg_trgm` extension and three
+cluster-wide NOLOGIN capability roles (`yu_reader`, `yu_writer`, and
+`yu_lexicographer`), so the migration identity must be able to create supported
+extensions and roles. The RDS master identity used by the dedicated migration
+task is the intended conformance path; do not give those DDL/role credentials
+to API or worker tasks.
+
+The checked-in `0001` and `0002` files are the fresh-install baseline, not
+forward migrations for a database that consumed an earlier branch version.
+Before applying any upstream SQL, the runner rejects legacy unnamespaced
+ledger entries, the old `rp_commerce_event` table, and app-schema/ledger
+disagreement. Rebuild a disposable dark target that trips this guard, or write
+reviewed additive migrations for a durable target; never bypass the ledger.
+
+After migrations, create separate API and worker login roles. Keep role
+membership direct: the API inherits only `yu_reader`; the worker inherits only
+`yu_writer`. Substitute the actual role names and grant database `CONNECT`
+separately:
 
 ```sql
-GRANT USAGE ON SCHEMA public TO rewardspro_app;
-GRANT SELECT ON TABLE rp_commerce_connection TO rewardspro_app;
-GRANT SELECT, INSERT, UPDATE ON TABLE rp_commerce_event TO rewardspro_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE rp_worker_probe TO rewardspro_app;
+GRANT USAGE ON SCHEMA public, commerce TO rewardspro_api, rewardspro_worker;
+
+GRANT yu_reader TO rewardspro_api
+  WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT EXECUTE ON FUNCTION public.rp_ingest_shopify_event(
+  uuid,
+  text,
+  text,
+  text,
+  text,
+  jsonb,
+  timestamptz,
+  boolean
+) TO rewardspro_api;
+
+GRANT yu_writer TO rewardspro_worker
+  WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT SELECT ON TABLE public.rp_commerce_connection TO rewardspro_worker;
+GRANT SELECT ON TABLE commerce.events TO rewardspro_worker;
+GRANT SELECT, DELETE
+  ON TABLE commerce.event_payloads TO rewardspro_worker;
+GRANT SELECT, UPDATE
+  ON TABLE public.rp_commerce_event_state TO rewardspro_worker;
+GRANT SELECT, INSERT
+  ON TABLE commerce.orders, commerce.line_items TO rewardspro_worker;
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON TABLE public.rp_worker_probe TO rewardspro_worker;
 ```
 
 Migration files have their own `MIGRATION_QUERY_TIMEOUT_MS` budget, defaulting
@@ -95,13 +146,17 @@ workflow's ECS waiter horizon; use staged/online data moves rather than one
 unbounded migration file.
 
 The authenticated API readiness endpoint and worker startup check inspect
-PostgreSQL catalogs without changing data. They require the expected columns
-and the exact runtime DML grants above, so a merely connectable but unmigrated
-or under-granted database is not reported ready.
+PostgreSQL catalogs without changing data. They require the pinned YUTABASE
+identity, registry, vocabulary, role graph and triggers; reject elevated,
+owner, schema-creation and cross-runtime powers; and enforce the required
+table-privilege matrix. A merely connectable, over-granted, partially migrated,
+or wrong-profile database is not reported ready.
 
 ## SQS worker delivery and deployment probe
 
-With SQS enabled, PostgreSQL outbox state remains authoritative. The worker
+With SQS enabled, PostgreSQL outbox state remains authoritative. Both worker
+lanes enforce raw-payload retention in bounded batches before claiming work.
+The worker
 does not delete malformed, unsupported, actively leased, or otherwise
 non-terminal messages; SQS visibility retry and the queue redrive policy must
 route repeated failures to a DLQ. Each loop also recovers expired processing
