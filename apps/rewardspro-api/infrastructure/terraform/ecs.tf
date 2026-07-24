@@ -212,44 +212,60 @@ resource "aws_ecs_task_definition" "migration" {
 
       readonlyRootFilesystem = true
 
-      environment = [
-        {
-          name  = "NODE_ENV"
-          value = "production"
-        },
-        {
-          name  = "LOG_LEVEL"
-          value = var.log_level
-        },
-        {
-          name  = "AWS_REGION"
-          value = var.aws_region
-        },
-        {
-          name  = "DB_SECRET_ARN"
-          value = aws_db_instance.database.master_user_secret[0].secret_arn
-        },
-        {
-          name  = "DB_HOST"
-          value = aws_db_instance.database.address
-        },
-        {
-          name  = "DB_PORT"
-          value = tostring(aws_db_instance.database.port)
-        },
-        {
-          name  = "DB_NAME"
-          value = var.db_name
-        },
-        {
-          name  = "DB_SSL_ROOT_CERT"
-          value = "/app/certs/eu-west-2-bundle.pem"
-        },
-        {
-          name  = "MIGRATION_QUERY_TIMEOUT_MS"
-          value = tostring(var.migration_query_timeout_ms)
-        },
-      ]
+      environment = concat(
+        [
+          {
+            name  = "NODE_ENV"
+            value = "production"
+          },
+          {
+            name  = "LOG_LEVEL"
+            value = var.log_level
+          },
+          {
+            name  = "AWS_REGION"
+            value = var.aws_region
+          },
+          {
+            name  = "DB_SECRET_ARN"
+            value = aws_db_instance.database.master_user_secret[0].secret_arn
+          },
+          {
+            name  = "DB_HOST"
+            value = aws_db_instance.database.address
+          },
+          {
+            name  = "DB_PORT"
+            value = tostring(aws_db_instance.database.port)
+          },
+          {
+            name  = "DB_NAME"
+            value = var.db_name
+          },
+          {
+            name  = "DB_SSL_ROOT_CERT"
+            value = "/app/certs/eu-west-2-bundle.pem"
+          },
+          {
+            name  = "MIGRATION_QUERY_TIMEOUT_MS"
+            value = tostring(var.migration_query_timeout_ms)
+          },
+        ],
+        var.bootstrap_mode ? [
+          {
+            name  = "API_DATABASE_SECRET_ARN"
+            value = aws_secretsmanager_secret.api_database.arn
+          },
+          {
+            name  = "WORKER_DATABASE_SECRET_ARN"
+            value = aws_secretsmanager_secret.worker_database.arn
+          },
+          {
+            name  = "REWARDSPRO_DATABASE_ROLE_BOOTSTRAP"
+            value = "initial-zero-capacity"
+          },
+        ] : [],
+      )
 
       linuxParameters = {
         initProcessEnabled = true

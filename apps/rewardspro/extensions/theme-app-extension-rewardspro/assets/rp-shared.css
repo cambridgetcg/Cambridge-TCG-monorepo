@@ -1,7 +1,7 @@
 /*
  * RewardsPro — shared storefront styles.
  *
- * Loaded once per page by the `rp_utils_loader` snippet so every widget
+ * Linked by the legacy-named `rp_utils_loader` snippet so every widget
  * picks up identical design tokens, loading/empty/error shells, and
  * accessibility defaults. Widget-specific styles live in each widget's
  * own CSS file; this file is the single source of truth for anything

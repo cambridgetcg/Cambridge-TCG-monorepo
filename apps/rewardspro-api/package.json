@@ -15,6 +15,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "node -e \"require('node:fs').rmSync('dist', { force: true, recursive: true })\"",
+    "db:bootstrap-roles": "node dist/bootstrap-database-roles.js",
     "db:migrate": "node dist/migrate.js",
     "db:migrate:dev": "tsx src/migrate.ts",
     "dev": "tsx watch src/main.ts",

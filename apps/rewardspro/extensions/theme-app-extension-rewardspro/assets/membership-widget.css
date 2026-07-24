@@ -3025,7 +3025,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
    UI pass (2026-04-23) — membership-specific additions.
    Shared primitives (.rp-skel*, .rp-btn-link, .rp-sr-only, .rp-empty-state*)
-   live in assets/rp-shared.css, loaded on every page via rp_utils_loader.
+   live in assets/rp-shared.css, linked by the rp_utils_loader snippet.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* Skeleton state — disable pointer events on both header and body. */
@@ -3087,4 +3087,3 @@
 
 /* Not-found state: slot the "View account" link under the message. */
 .rp-widget__not-found .rp-btn-link { margin-top: 12px; }
-

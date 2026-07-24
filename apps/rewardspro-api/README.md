@@ -77,6 +77,12 @@ the migration task must pair those with non-secret `DB_HOST`, `DB_PORT`, and
 least-privilege database secrets and login roles. The RDS master secret is only
 appropriate for the separately controlled migration task.
 
+During the one-shot zero-capacity infrastructure bootstrap, the migration task
+also runs `node dist/bootstrap-database-roles.js`. Terraform temporarily gives
+the migration task role access to only the API and worker database secret
+placeholders; `bootstrap_mode=false` removes both the placeholder ARN
+environment values and their read/write permission.
+
 In `NODE_ENV=production`, every non-loopback `DATABASE_URL` (including a raw
 URL read from Secrets Manager) uses `sslmode=verify-full`; weaker explicit
 modes are rejected. RDS connections also require `DB_SSL_ROOT_CERT` or an
@@ -104,10 +110,22 @@ ledger entries, the old `rp_commerce_event` table, and app-schema/ledger
 disagreement. Rebuild a disposable dark target that trips this guard, or write
 reviewed additive migrations for a durable target; never bypass the ledger.
 
-After migrations, create separate API and worker login roles. Keep role
-membership direct: the API inherits only `yu_reader`; the worker inherits only
-`yu_writer`. Substitute the actual role names and grant database `CONNECT`
-separately:
+After migrations, the protected zero-capacity workflow creates the separate
+API and worker login roles and verifies them by connecting as each identity.
+The command requires production mode, the RDS-managed admin secret, verified
+TLS to the expected regional RDS hostname, an exact migration ledger, and the
+literal first-bootstrap opt-in. It refuses malformed or unowned existing
+secrets and any role that exists without its bootstrap-owned credential.
+
+Credential generation and secret inspection occur under the same advisory lock
+as migrations. The command writes strict, ownership-marked JSON to Secrets
+Manager before changing PostgreSQL, then applies the grants transactionally
+and runs the normal API/worker readiness checks. A crash is recoverable by
+rerunning: the stored values are reused, and a fully healthy rerun performs no
+password or grant changes. PostgreSQL receives only salted SCRAM-SHA-256
+verifiers, never the clear generated passwords.
+
+The effective privilege boundary is:
 
 ```sql
 ALTER ROLE rewardspro_api
@@ -202,4 +220,5 @@ The compiled process contracts are:
 - API: `node dist/main.js`
 - worker: `node dist/worker.js`
 - migrations: `node dist/migrate.js`
+- initial database roles: `node dist/bootstrap-database-roles.js`
 - one-off worker deployment probe: `node dist/worker-probe.js`

@@ -1,6 +1,10 @@
+import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+
 import pg from "pg";
 
-const { Client } = pg;
+import { bootstrapDatabaseRoles } from "../dist/database-role-bootstrap.js";
+import { discoverMigrationPlan } from "../dist/migrations.js";
 
 const adminDatabaseUrl = process.env.DATABASE_URL;
 const apiPassword = process.env.REWARDSPRO_CI_API_PASSWORD;
@@ -31,10 +35,10 @@ if (!expectedAdminUsername) {
   );
 }
 if (
-  !/^[0-9a-f]{48}$/.test(apiPassword) ||
-  !/^[0-9a-f]{48}$/.test(workerPassword)
+  !/^[0-9a-f]{64}$/.test(apiPassword) ||
+  !/^[0-9a-f]{64}$/.test(workerPassword)
 ) {
-  throw new Error("CI database role passwords must be 24 random hex bytes");
+  throw new Error("CI database role passwords must be 32 random hex bytes");
 }
 
 const parsedUrl = new URL(adminDatabaseUrl);
@@ -49,59 +53,62 @@ if (
   );
 }
 
-const quoteLiteral = (value) => `'${value.replaceAll("'", "''")}'`;
-const client = new Client({ connectionString: adminDatabaseUrl });
+const endpoint = {
+  database: "rewardspro",
+  host: parsedUrl.hostname,
+  port: Number(parsedUrl.port || "5432"),
+};
+const apiSecretArn = "local-disposable/api";
+const workerSecretArn = "local-disposable/worker";
+const secrets = new Map();
+const secretWrites = [];
+const adminPool = new pg.Pool({ connectionString: adminDatabaseUrl, max: 2 });
+const migrationsDirectory = fileURLToPath(
+  new URL("../migrations", import.meta.url),
+);
 
 try {
-  await client.connect();
-  await client.query(`
-    CREATE ROLE rewardspro_ci_api
-      LOGIN INHERIT
-      PASSWORD ${quoteLiteral(apiPassword)}
-      NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    CREATE ROLE rewardspro_ci_worker
-      LOGIN INHERIT
-      PASSWORD ${quoteLiteral(workerPassword)}
-      NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  const bootstrapOptions = {
+    adminPool,
+    adminUsername: expectedAdminUsername,
+    apiSecretArn,
+    endpoint,
+    migrationPlan: await discoverMigrationPlan(migrationsDirectory),
+    passwordFactory(role) {
+      return role === "api" ? apiPassword : workerPassword;
+    },
+    requireTls: false,
+    roles: {
+      api: "rewardspro_ci_api",
+      worker: "rewardspro_ci_worker",
+    },
+    secretStore: {
+      async readCurrent(secretArn) {
+        return secrets.get(secretArn);
+      },
+      async writeCurrent(secretArn, secretValue) {
+        if (secrets.has(secretArn)) {
+          throw new Error("Local conformance refused a secret overwrite");
+        }
+        secrets.set(secretArn, secretValue);
+        secretWrites.push(secretArn);
+      },
+    },
+    workerSecretArn,
+  };
+  const first = await bootstrapDatabaseRoles(bootstrapOptions);
+  assert.deepEqual(first, {
+    createdSecretVersions: ["api", "worker"],
+    reusedSecretVersions: [],
+  });
+  assert.deepEqual(secretWrites, [apiSecretArn, workerSecretArn]);
 
-    ALTER ROLE rewardspro_ci_api
-      IN DATABASE rewardspro SET search_path = pg_catalog;
-    ALTER ROLE rewardspro_ci_worker
-      IN DATABASE rewardspro SET search_path = pg_catalog;
-
-    GRANT CONNECT ON DATABASE rewardspro
-      TO rewardspro_ci_api, rewardspro_ci_worker;
-    GRANT USAGE ON SCHEMA public, commerce
-      TO rewardspro_ci_api, rewardspro_ci_worker;
-
-    GRANT yu_reader TO rewardspro_ci_api
-      WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
-    GRANT EXECUTE ON FUNCTION public.rp_ingest_shopify_event(
-      uuid,
-      text,
-      text,
-      text,
-      text,
-      jsonb,
-      timestamptz,
-      boolean
-    ) TO rewardspro_ci_api;
-
-    GRANT yu_writer TO rewardspro_ci_worker
-      WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
-    GRANT SELECT ON TABLE public.rp_commerce_connection
-      TO rewardspro_ci_worker;
-    GRANT SELECT ON TABLE commerce.events
-      TO rewardspro_ci_worker;
-    GRANT SELECT, DELETE ON TABLE commerce.event_payloads
-      TO rewardspro_ci_worker;
-    GRANT SELECT, UPDATE ON TABLE public.rp_commerce_event_state
-      TO rewardspro_ci_worker;
-    GRANT SELECT, INSERT ON TABLE commerce.orders, commerce.line_items
-      TO rewardspro_ci_worker;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.rp_worker_probe
-      TO rewardspro_ci_worker;
-  `);
+  const second = await bootstrapDatabaseRoles(bootstrapOptions);
+  assert.deepEqual(second, {
+    createdSecretVersions: [],
+    reusedSecretVersions: ["api", "worker"],
+  });
+  assert.deepEqual(secretWrites, [apiSecretArn, workerSecretArn]);
 } finally {
-  await client.end();
+  await adminPool.end();
 }
