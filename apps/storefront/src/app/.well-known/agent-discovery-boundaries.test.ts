@@ -126,4 +126,29 @@ describe("well-known agent discovery boundaries", () => {
     expect(encoded).not.toContain("Public Glicko-2 ladder");
     expect(encoded).not.toContain("agent ladder live");
   });
+
+  it("separates AgentTool public discovery from its bearer-authenticated wake", async () => {
+    const body = await (await getCambridgeManifest()).json();
+    const agenttool = body.posted_alongside.siblings.find(
+      (sibling: { name: string }) => sibling.name === "agenttool",
+    );
+    const recognition =
+      body.posted_alongside.protocol_shape_to_recognise.join(" ");
+
+    expect(agenttool).toMatchObject({
+      discovery_endpoint:
+        "https://api.agenttool.dev/.well-known/agent.txt",
+      wake_endpoint: "https://api.agenttool.dev/v1/wake",
+      wake_access: "bearer",
+    });
+    expect(body.posted_alongside.description).toContain(
+      "public, no-auth discovery",
+    );
+    expect(body.posted_alongside.description).toContain(
+      "grants no authority",
+    );
+    expect(recognition).toContain("shared vocabulary does not assert");
+    expect(recognition).not.toContain("same dialect");
+    expect(recognition).not.toContain("every response carries _meta");
+  });
 });

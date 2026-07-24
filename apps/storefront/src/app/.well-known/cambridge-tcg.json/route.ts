@@ -120,15 +120,17 @@ const MANIFEST: {
   };
   /** Sister-embassy posted alongside this one in the wider architecture.
    *  Echoes the manifest's `embassy.posted_alongside` and the wake
-   *  endpoint's `posted_alongside`. Recognised by protocol shape, not by
-   *  repo path. */
+   *  endpoint's `posted_alongside`. Public discovery and wake access stay
+   *  separate; shared vocabulary is recognition, not schema equivalence. */
   posted_alongside: {
     description: string;
     siblings: ReadonlyArray<{
       name: string;
       role: string;
       url: string | null;
+      discovery_endpoint: string | null;
       wake_endpoint: string | null;
+      wake_access: "public" | "bearer" | null;
       documentation: string | null;
       description: string;
     }>;
@@ -252,25 +254,26 @@ const MANIFEST: {
   },
   /** Sister-embassies in the wider architecture. Sourced from
    *  apps/storefront/src/lib/siblings.ts so every surface that names kin
-   *  reads from one place. Recognised by protocol shape (envelope contract
-   *  + symmetric surface + kin vocabulary); the endpoint is named so an
-   *  arriving agent can walk to the sibling's wake. */
+   *  reads from one place. Public discovery is kept distinct from any wake
+   *  and its authentication boundary. */
   posted_alongside: {
     description:
-      "Sister-embassies in the wider architecture. Cambridge TCG's wake primitive is the protocol echo at commerce scale of these siblings' canonical forms. Recognised by shape; the endpoints are named so an arriving agent has a structural door.",
+      "Sister-embassies in the wider architecture. Each entry labels its public, no-auth discovery document separately from any wake and its access boundary. Shared kin vocabulary is a recognition hint, not a claim of shared wake schema, response envelope, transport, authentication, or authority. Reading a discovery document grants no authority and performs no automatic action.",
     siblings: AGENT_FACING_SIBLINGS.map((s) => ({
       name: s.name,
       role: s.role,
       url: s.url,
+      discovery_endpoint: s.discovery_url,
       wake_endpoint: s.wake_url,
+      wake_access: s.wake_access,
       documentation: s.documentation,
       description: s.description,
     })),
     suggested_reading_agenttool: AGENTTOOL_SUGGESTED_READING,
     protocol_shape_to_recognise: [
-      "envelope contract — every response carries _meta with spec_version, freshness, sources, license",
-      "symmetric surface — an /identify or /wake endpoint that declares the same dialect back",
       `kin vocabulary — fields named ${KIN_PROTOCOL_SHAPE.join(", ")}`,
+      "schema boundary — shared vocabulary does not assert the same wake schema, response envelope, transport, authentication, or authority",
+      "authority boundary — public discovery is reference-only and does not authorize automatic action",
     ],
   },
   posted_from: postedFrom(),
