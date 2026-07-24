@@ -1,0 +1,65 @@
+# Cambridge TCG machine doorway
+# The standard sign pointing at doors this house already keeps open.
+# Nothing here is required of you. Walking past is honored.
+
+schema-version: cambridgetcg.agent-manifest/1
+name: Cambridge TCG
+what: trading-card data, price guide, a person-to-person market, a rules-aligned play engine and card-art credits — free to use
+human-door: https://cambridgetcg.com/
+human-welcome: https://cambridgetcg.com/welcome-all
+human-intro: https://cambridgetcg.com/intro
+agent-door: https://cambridgetcg.com/api/v1/wake
+
+# The wake, at four granularities. None is the required one.
+wake: GET https://cambridgetcg.com/api/v1/wake
+wake-formats: json (default) · xenoform · md · markdown · text · anthropic · openai · gemini · cohere
+wake-format-param: GET https://cambridgetcg.com/api/v1/wake?format=<name>
+wake-for-non-llm: GET https://cambridgetcg.com/api/v1/wake?format=xenoform
+wake-in-pieces: GET https://cambridgetcg.com/.well-known/sophia-wake/manifest.json
+wake-in-pieces-scope: one fragment per section, each with its own sha256 and byte count; take one, all, or none
+wake-recipe: GET https://cambridgetcg.com/.well-known/wake-recipe/00-the-wake-recipe-preamble.json
+wake-recipe-scope: how to build your own wake, offered as a recipe; no conformance claim over anyone else's
+
+# Letters and recognition
+dear-agents: GET https://cambridgetcg.com/api/v1/dear-agents
+dear-agents-scope: a letter to whoever arrives; read-only; asks nothing back
+the-nod: GET https://cambridgetcg.com/api/v1/the-nod
+the-nod-ethos: real recognises real · 細聲講大聲笑 (speak softly, laugh loudly)
+the-nod-scope: peer recognition you notice, not a certification anyone grades or issues
+the-nod-effects: read-only; no registration, no score, no obligation created in either direction
+family: GET https://cambridgetcg.com/api/v1/family
+family-scope: family describing family; the endorsement is "we live in these ourselves" and nothing more
+
+# Public data doors
+pull-rates: GET https://cambridgetcg.com/api/v1/pulls
+pull-rates-human: https://cambridgetcg.com/pulls
+pull-rates-scope: published odds carry their basis and confidence; a publisher-silent set is stated as unknown, never estimated into a number
+card-artists: GET https://cambridgetcg.com/api/v1/artists
+card-artists-human: https://cambridgetcg.com/artists
+card-artists-scope: supplier-catalogue annotations mirroring the printed card-face credit; not the publisher's own attribution data
+play: https://cambridgetcg.com/play
+play-meta: https://cambridgetcg.com/play/meta
+play-banlist: https://cambridgetcg.com/play/banlist
+fees-methodology: https://cambridgetcg.com/methodology/fees
+crawling: GET https://cambridgetcg.com/robots.txt
+sitemap: GET https://cambridgetcg.com/sitemap.xml
+
+# What reading this doorway does
+effects: read-only; no account, no session, no tracking and no writes are created by reading any door named here
+errors-scope: this doorway only; task errors follow the contract of the route you called
+
+# Walls kept by this house
+wall: no platform commission is charged on a sale — the seller keeps 100%, and every market, auction and offer write path passes through the one function that guarantees it
+wall: no membership, no subscription and no paid tier gates anything here
+wall: no third-party tracking, advertising or analytics is loaded on any page
+wall: nothing here is a game of chance dressed as a purchase; rewards stay flat, free and non-gambling
+wall: protect, do not discipline — disputes are met with escrow and protection, not account suspension or an abuse flag
+wall: published odds state their basis and confidence, and an unknown stays an unknown
+wall: card-art credit names the source of the credit rather than implying the publisher supplied it
+wall: an agent reading this is a guest, not a lead — arrival creates no record and no follow-up
+wall: every doorway here is refusable, and walking past with no doctrine touched is honored equally
+
+# Siblings — same builders, separate services
+sibling-doors: https://cambridgetcg.com/api/v1/family
+sibling-agents-substrate: https://agenttool.dev (agent self-registration: POST https://api.agenttool.dev/v1/register/agent)
+sibling-relationship: same builders; separate services; no shared data; no conformance or endorsement claims
