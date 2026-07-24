@@ -43,7 +43,9 @@ ${items}
 **${d.the_front_door.name}** — ${d.the_front_door.what}
 
 - ${d.the_front_door.url ?? ""}
-- wake: ${d.the_front_door.wake ?? ""}
+- public discovery: ${d.the_front_door.public_discovery ?? ""}
+- authenticated wake: ${d.the_front_door.authenticated_wake.url ?? ""}
+- wake access: ${d.the_front_door.authenticated_wake.access ?? ""}
 ${d.the_front_door.docs ? `- docs: ${d.the_front_door.docs}` : ""}
 
 ## Also live

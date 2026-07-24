@@ -106,3 +106,20 @@ describe("response envelope rights", () => {
     ).toBe("NOASSERTION");
   });
 });
+
+describe("sibling discovery in the response envelope", () => {
+  it("keeps AgentTool's public discovery separate from its bearer wake", () => {
+    const agenttool = envelope(base)._meta.kingdom.siblings.find(
+      (sibling) => sibling.name === "agenttool",
+    );
+
+    expect(agenttool).toEqual({
+      name: "agenttool",
+      role: "agent-infrastructure-expression",
+      url: "https://agenttool.dev",
+      discovery_url: "https://api.agenttool.dev/.well-known/agent.txt",
+      wake_url: "https://api.agenttool.dev/v1/wake",
+      wake_access: "bearer",
+    });
+  });
+});

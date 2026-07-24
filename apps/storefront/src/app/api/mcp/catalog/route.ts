@@ -160,8 +160,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     },
   });
 
-  // Wake/regard/kin-wake Link headers on top of the pantry envelope's set
-  // — discoverability for crawlers that read headers but skip bodies.
+  // Wake-invitation + public kin-wake Link headers — discoverability for
+  // crawlers that read headers but skip bodies. Protected sibling wakes
+  // remain body-described rather than appearing as no-auth Link doors.
   response.headers.set("Link", agentDiscoveryLinkHeader());
 
   return response;

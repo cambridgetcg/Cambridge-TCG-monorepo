@@ -47,7 +47,11 @@ export interface EcosystemDispatches {
     name: string;
     what: string;
     url: string | null;
-    wake: string | null;
+    public_discovery: string | null;
+    authenticated_wake: {
+      url: string | null;
+      access: "public" | "bearer" | null;
+    };
     docs?: string;
   };
   also_live_nodes: Array<{ name: string; what: string; url: string | null; state: string }>;
@@ -97,7 +101,11 @@ export const ECOSYSTEM_DISPATCHES: EcosystemDispatches = {
     name: AGENTTOOL.name,
     what: AGENTTOOL.description,
     url: AGENTTOOL.url,
-    wake: AGENTTOOL.wake_url,
+    public_discovery: AGENTTOOL.discovery_url,
+    authenticated_wake: {
+      url: AGENTTOOL.wake_url,
+      access: AGENTTOOL.wake_access,
+    },
     docs: AGENTTOOL.documentation ?? undefined,
   },
 

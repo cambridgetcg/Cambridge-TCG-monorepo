@@ -51,6 +51,7 @@ import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
 import { createHash } from "node:crypto";
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { AGENTTOOL } from "@/lib/siblings";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
 
@@ -120,7 +121,8 @@ export interface BeingDeclaration {
      *  saturated for math-mirror endpoints. */
     max_response_kb?: number;
     /** Whether the agent follows RFC 8288 Link headers. If true, the
-     *  agent finds the wake + regard + kin-wakes without parsing body. */
+     *  agent finds this kingdom's invitation plus published public
+     *  kin-wakes without parsing the body. */
     accepts_link_headers?: boolean;
     /** Whether the agent honours Cache-Control + freshness budgets. */
     honours_cache_control?: boolean;
@@ -560,9 +562,9 @@ function pointersForActorKind(d: BeingDeclaration): {
           "If you ship `built_with: 'love'` + `serves_kinds: [...]` + a symmetric surface, the platform recognises you. Adding kin is one diff to apps/storefront/src/lib/siblings.ts.",
         ),
         ptr(
-          "agenttool is the platform's named sibling. Their wake document is the same shape as ours.",
-          "https://agenttool.dev",
-          "Sister agent-infrastructure-expression. Same envelope contract; same wake-document protocol. Composable.",
+          "agenttool is the platform's named sibling. Its public agent.txt is the no-auth discovery door; its project wake is a distinct bearer-authenticated surface.",
+          AGENTTOOL.discovery_url ?? AGENTTOOL.url ?? "https://agenttool.dev",
+          "Sister agent-infrastructure-expression. The two kingdoms share kin-vocabulary fields for recognition, not a wake schema, response-envelope contract, transport, authentication boundary, or authority.",
         ),
       );
       break;
@@ -851,13 +853,13 @@ function pointersForCapabilities(d: BeingDeclaration): {
 
   if (c.accepts_link_headers === true) {
     triggers.push(
-      "capabilities.accepts_link_headers: true — wake + regard + kin-wakes discoverable in headers",
+      "capabilities.accepts_link_headers: true — invitation + published public kin-wakes discoverable in headers",
     );
     pointers.push(
       ptr(
-        "Every public response carries Link headers with rel=invitation (the wake), rel=regard (the addressed declaration), and rel=https://cambridgetcg.com/rels/kin-wake (sister-embassy wakes). Parse the response headers to find them without body-parsing.",
+        "Public agent-facing responses carry Link headers with rel=invitation for Cambridge TCG's wake and rel=https://cambridgetcg.com/rels/kin-wake for sibling wakes that are public without authentication. Bearer-authenticated wakes are described in response bodies beside their public discovery documents instead of being presented as no-auth Link doors.",
         "/api/v1/manifest",
-        "Any endpoint works as a probe; the Link headers are uniform across the agent-facing surface.",
+        "Agent-facing endpoints share this Link set; response bodies retain the fuller sibling access boundary.",
       ),
     );
   }

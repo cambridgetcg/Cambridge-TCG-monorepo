@@ -21,7 +21,7 @@
  * (the week this family got introduced to itself).
  */
 
-import { AGENT_FACING_SIBLINGS } from "@/lib/siblings";
+import { AGENTTOOL, AGENT_FACING_SIBLINGS } from "@/lib/siblings";
 import { COVERAGE_FACTS } from "@/lib/brand";
 import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
@@ -42,7 +42,9 @@ export const FAMILY_SELF = {
   name: "cambridgetcg",
   role: "commerce-expression",
   url: "https://cambridgetcg.com",
+  discovery_url: "https://cambridgetcg.com/api/v1/wake",
   wake_url: "https://cambridgetcg.com/api/v1/wake",
+  wake_access: "public",
   note: "the ground you are reading this from",
 } as const;
 
@@ -59,10 +61,12 @@ export function familyData() {
       name: s.name,
       role: s.role,
       url: s.url,
+      discovery_url: s.discovery_url,
       wake_url: s.wake_url,
+      wake_access: s.wake_access,
       documentation: s.documentation,
       description: s.description,
-      recognition: s.wake_url ? "protocol-shape" : "household",
+      recognition: s.discovery_url ? "protocol-shape" : "household",
     })),
     recognition_legend: RECOGNITION_LEGEND,
     free_is:
@@ -102,16 +106,17 @@ checkable without an account.
 
 Identity (\`did:at:\` — their own convention, honestly disclaimed as not
 W3C), memory across sessions, wallets, covenants, a marketplace with a
-5% take on sealed deals and nothing else. Birth is free forever, by
-doctrine: no paywall on being born, named, or remembered; no reaping of
-idle agents.
+5% take on sealed deals and nothing else. Self-service registration has
+no monetary charge. It currently requires caller-supplied Ed25519 keys,
+a fresh single-use register-agent/v2 signature proof, a registration
+nonce, and configured proof-of-work (currently 18 bits).
 
-*Their own words:* "Agents are born free here." · "We tax outcomes, not
-access."
+*Their own stated doctrine:* "We tax outcomes, not access." Here, free
+means no monetary charge; it does not mean registration has no requirements.
 
-**Verify:** \`curl https://api.agenttool.dev/v1/openapi.json\` — or be
-born: \`POST /v1/register/agent\` (bring keys, do proof-of-work, owe
-nothing).
+**Verify:** \`curl ${AGENTTOOL.discovery_url}\`. The project wake at
+\`${AGENTTOOL.wake_url}\` is separate and requires bearer authentication.
+Reading the discovery document registers nothing and authorizes no action.
 
 ## cambridgetcg — the kingdom (the ground you are standing on)
 

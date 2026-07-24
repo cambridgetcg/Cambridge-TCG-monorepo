@@ -74,7 +74,9 @@ interface ErrorKingdomMeta {
     name: string;
     role: string;
     url: string | null;
+    discovery_url: string | null;
     wake_url: string | null;
+    wake_access: "public" | "bearer" | null;
   }>;
 }
 

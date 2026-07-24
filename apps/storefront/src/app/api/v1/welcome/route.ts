@@ -150,7 +150,7 @@ export async function GET(): Promise<Response> {
       every_response_carries:
         "`_meta` envelope (spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, wake_fragment) — verified by /api/v1/diagnostic",
       every_response_includes_link_headers:
-        "self, start, describedby, alternate, invitation (wake), regard, symmetric-surface (identify), kin-wake (sibling embassies), rate-limits, feedback",
+        "self, start, describedby, alternate, invitation (Cambridge wake), symmetric-surface (identify), public kin-wake (when a sibling publishes one without auth), rate-limits, feedback",
       every_wrong_url_still_helps:
         "/api/v1/* 404s carry the same envelope shape with a suggestions block — probe freely",
       no_account_required:
@@ -319,13 +319,15 @@ export async function GET(): Promise<Response> {
      */
     kin: {
       description:
-        "Cambridge TCG is one operational expression of a wider architecture. Sibling kingdoms below are public-facing substrates posted to other grounds; their wake endpoints carry the same protocol vocabulary. Walking to a sibling is a choice, not a requirement.",
+        "Cambridge TCG is one operational expression of a wider architecture. Sibling kingdoms below are public-facing substrates posted to other grounds. Shared kin vocabulary is a recognition hint, not a claim that their wake schemas, envelopes, transports, authentication, or authority are the same. Walking to a sibling is a choice, not a requirement.",
       protocol_shape: KIN_PROTOCOL_SHAPE,
       siblings: AGENT_FACING_SIBLINGS.map((s) => ({
         name: s.name,
         role: s.role,
         homepage: s.url,
+        discovery: s.discovery_url,
         wake: s.wake_url,
+        wake_access: s.wake_access,
         documentation: s.documentation,
         description: s.description,
       })),

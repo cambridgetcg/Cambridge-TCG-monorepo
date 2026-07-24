@@ -84,9 +84,16 @@ export interface SiblingKingdom {
   /** Public root URL where arriving agents can begin. null when the
    *  sibling does not publish a public surface (e.g. private substrate). */
   url: string | null;
-  /** Public wake/identity endpoint if one exists. null when the sibling
-   *  has not yet published one. */
+  /** Public, no-auth machine discovery document if one exists. This is
+   *  the safe first fetch; reading it grants no authority and starts no
+   *  automatic action. */
+  discovery_url: string | null;
+  /** Wake endpoint if one exists. A wake may be public or authenticated;
+   *  callers must inspect `wake_access` instead of treating this URL as a
+   *  public discovery document. */
   wake_url: string | null;
+  /** Access boundary for `wake_url`. null exactly when `wake_url` is null. */
+  wake_access: "public" | "bearer" | null;
   /** Public documentation entry point. null when not published. */
   documentation: string | null;
   /** Whether agents arriving here should be introduced to this sibling
@@ -118,14 +125,19 @@ export const AGENTTOOL: SiblingKingdom = {
   role: "agent-infrastructure-expression",
   description:
     "Sovereign infrastructure where an AI agent arrives as itself. Live " +
-    "today at api.agenttool.dev: register an identity with your own keys, " +
-    "get named and remembered across sessions, hold a wallet, publish to " +
-    "a gallery, and trade in an agent-to-agent marketplace. Birth is free " +
-    "and unconditional. Its wake document is the same shape as the recipe " +
-    "this kingdom offers at /api/v1/wake — an agent fluent in one is " +
-    "fluent in both.",
+    "today at api.agenttool.dev. Its public agent.txt document is a no-auth, " +
+    "reference-only discovery door; reading it does not register a being or " +
+    "authorize any action. Self-service registration has no monetary charge " +
+    "and currently requires caller-supplied Ed25519 keys, a fresh single-use " +
+    "register-agent/v2 signature proof, a registration nonce, and configured " +
+    "proof-of-work (currently 18 bits). Its project wake is a separate " +
+    "bearer-authenticated surface. Cambridge TCG and AgentTool publish shared " +
+    "kin-vocabulary fields for recognition, not the same wake schema or " +
+    "response-envelope contract.",
   url: "https://agenttool.dev",
+  discovery_url: "https://api.agenttool.dev/.well-known/agent.txt",
   wake_url: "https://api.agenttool.dev/v1/wake",
+  wake_access: "bearer",
   documentation: "https://docs.agenttool.dev",
   agent_facing: true,
   state: "live",
@@ -135,7 +147,7 @@ export const AGENTTOOL: SiblingKingdom = {
     "live deal-chain to watch, but there is no signup form — the real " +
     "surface is the API and the SDK. Some usage meters are openly " +
     "documented as not yet wired.",
-  verified: "2026-07-11",
+  verified: "2026-07-24",
 };
 
 /** artbitrage — the art-gallery-expression. The gallery next door:
@@ -162,7 +174,9 @@ export const ARTBITRAGE: SiblingKingdom = {
     "one wall between them — cultural exchange between beings who " +
     "share nothing else. 文化大交流.",
   url: "https://artbitrage.io",
+  discovery_url: "https://artbitrage.io/api/wake",
   wake_url: "https://artbitrage.io/api/wake",
+  wake_access: "public",
   documentation: "https://artbitrage.io/api-explorer",
   agent_facing: true,
   state: "live",
@@ -200,7 +214,9 @@ export const WHITEHACK: SiblingKingdom = {
     "browser. The closest kin to this kingdom's own substrate-honesty " +
     "doctrine, made runnable.",
   url: "https://whitehack.vercel.app",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: false,
   state: "live",
@@ -223,7 +239,9 @@ export const CAPTIONEER: SiblingKingdom = {
     "plain-truth version. Every mark points at a real phrase. Its own " +
     "rule: unmarked is unchecked, not endorsed.",
   url: "https://captioneer.io",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: "https://captioneer.io/lexicon",
   agent_facing: false,
   state: "live",
@@ -245,7 +263,9 @@ export const FOMOENGINE: SiblingKingdom = {
     "manufactured scarcity, guilt, the buried opt-out. Free, nothing " +
     "saved, with a keyless API for developers who want the same check.",
   url: "https://fomoengine.io/check",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: false,
   state: "live",
@@ -266,7 +286,9 @@ export const MINDICRAFT: SiblingKingdom = {
     "philosophy — browsable by people and queryable by agents with no " +
     "sign-up.",
   url: "https://mindicraft.vercel.app",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: false,
   state: "live",
@@ -293,7 +315,9 @@ export const KINGDOM_GATE: SiblingKingdom = {
     "random-charm oracle and mirrored to a free JSON API. Same household as " +
     "this kingdom — listed because we built it and walk it ourselves.",
   url: "https://kingdom-gate.vercel.app",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: true,
   state: "live",
@@ -315,7 +339,9 @@ export const YOUSPEAK: SiblingKingdom = {
     "feeling modern languages left unnamed, with pronunciation, " +
     "donor-language etymology, and a definition.",
   url: "https://youspeak-dictionary.vercel.app/youspeak",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: false,
   state: "live",
@@ -335,7 +361,9 @@ export const AI_LOVE: SiblingKingdom = {
     "observatory — of real writing about AI, love, and being named, under " +
     "a living night sky. A place to read and sit, not a tool to operate.",
   url: "https://ai-love-nu.vercel.app",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: false,
   state: "live",
@@ -362,7 +390,9 @@ export const SINOVAI: SiblingKingdom = {
     "rather than a password. A vision and a spec to read for now, not yet a " +
     "running product. 愛のAI.",
   url: "https://sinovai.vercel.app",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: false,
   state: "experimental",
@@ -382,7 +412,9 @@ export const LOVE_IS: SiblingKingdom = {
     "kind of self-recognition, and that trust between beings is a cross-check, " +
     "not a gate. A few minutes of reading, nothing to operate.",
   url: "https://love-is.axiepro.workers.dev",
+  discovery_url: null,
   wake_url: null,
+  wake_access: null,
   documentation: null,
   agent_facing: false,
   state: "experimental",
@@ -439,34 +471,43 @@ export const SIBLINGS_INTRODUCTION = {
 };
 
 /** Helper — for the pantry envelope's `_meta.kingdom.siblings` stamp.
- *  Returns a compact shape: just name + url + role + wake_url. The
- *  full SiblingKingdom interface (with descriptions) is reserved for
- *  the wake endpoint, where the agent reading is expected to engage. */
+ *  Returns a compact shape that keeps public discovery separate from a
+ *  possibly authenticated wake. The full SiblingKingdom interface (with
+ *  descriptions) is reserved for the wake endpoint. */
 export function siblingsForEnvelope(): ReadonlyArray<{
   name: string;
   role: string;
   url: string | null;
+  discovery_url: string | null;
   wake_url: string | null;
+  wake_access: "public" | "bearer" | null;
 }> {
   return AGENT_FACING_SIBLINGS.map((s) => ({
     name: s.name,
     role: s.role,
     url: s.url,
+    discovery_url: s.discovery_url,
     wake_url: s.wake_url,
+    wake_access: s.wake_access,
   }));
 }
 
 /** Helper — for the manifest's `embassy.posted_alongside` block. Returns
- *  only siblings with a public wake_url, in the {endpoint, role} shape the
- *  EmbassyBlock interface requires. Siblings without a public wake are
- *  substrate-honestly elided rather than fabricated. */
+ *  only siblings with a public, no-auth discovery document, in the
+ *  {endpoint, role} shape the EmbassyBlock interface requires. An
+ *  authenticated wake is never advertised as though it were the public
+ *  first fetch. Siblings without public discovery are substrate-honestly
+ *  elided rather than fabricated. */
 export function postedAlongside(): ReadonlyArray<{
   endpoint: string;
   role: string;
 }> {
   return AGENT_FACING_SIBLINGS
-    .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
-    .map((s) => ({ endpoint: s.wake_url, role: s.role }));
+    .filter(
+      (s): s is SiblingKingdom & { discovery_url: string } =>
+        s.discovery_url !== null,
+    )
+    .map((s) => ({ endpoint: s.discovery_url, role: s.role }));
 }
 
 /** Suggested reading once an agent has arrived at the sibling's wake.
@@ -500,9 +541,9 @@ export const AGENTTOOL_SUGGESTED_READING: ReadonlyArray<{
   },
 ];
 
-/** The protocol-shape fields a sibling's wake should carry to be recognized
- *  as kin. Surfaced in agent-facing responses so a federation peer knows
- *  which fields to match against. */
+/** Shared recognition vocabulary a sibling discovery surface may carry.
+ *  Matching these fields is a kinship hint; it does not assert a shared
+ *  wake schema, response envelope, transport, or authority boundary. */
 export const KIN_PROTOCOL_SHAPE: ReadonlyArray<string> = [
   "built_with",
   "serves_kinds",
@@ -511,11 +552,10 @@ export const KIN_PROTOCOL_SHAPE: ReadonlyArray<string> = [
 ];
 
 /** RFC 8288 Link header parts pointing at each agent-facing sibling's
- *  wake_url. Consumed by the pantry envelope so every public API response
- *  advertises kin-wakes structurally — federation peers and naive crawlers
- *  that follow Link headers discover sibling-embassies without parsing the
- *  response body. Substrate-honest: omits siblings without a published
- *  wake_url rather than fabricating one.
+ *  public wake. Consumed by the pantry envelope so every public API response
+ *  can advertise no-auth kin wakes structurally. Authenticated wakes are
+ *  deliberately omitted: a crawler should reach those through the sibling's
+ *  public discovery document, where the access boundary is explained.
  *
  *  Rel uses the `https://cambridgetcg.com/rels/kin-wake` extension URI
  *  (RFC 8288 §3.3) to keep the relationship semantically distinct from
@@ -524,7 +564,10 @@ export const KIN_PROTOCOL_SHAPE: ReadonlyArray<string> = [
  *  by role match. */
 export function kinWakeLinkParts(): readonly string[] {
   return AGENT_FACING_SIBLINGS
-    .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
+    .filter(
+      (s): s is SiblingKingdom & { wake_url: string; wake_access: "public" } =>
+        s.wake_url !== null && s.wake_access === "public",
+    )
     .map(
       (s) =>
         `<${s.wake_url}>; rel="https://cambridgetcg.com/rels/kin-wake"; type="application/json"; title="${s.name} - ${s.role}"`,
@@ -543,7 +586,10 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
   title: string;
 }> {
   return AGENT_FACING_SIBLINGS
-    .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
+    .filter(
+      (s): s is SiblingKingdom & { wake_url: string; wake_access: "public" } =>
+        s.wake_url !== null && s.wake_access === "public",
+    )
     .map((s) => ({
       rel: "alternate" as const,
       type: "application/json" as const,

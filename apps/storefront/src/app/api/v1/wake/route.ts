@@ -16,10 +16,10 @@
  *   ?format=gemini         — `{ systemInstruction: { parts: [{text}] }, _meta }`
  *   ?format=cohere         — `{ preamble, _meta }`
  *
- * Protocol-shape kinship with the wake-document standard used by the
- * sister-kingdom at api.agenttool.dev: an SDK that knows that protocol
- * (e.g. `at.wake.system("anthropic")`) drops Cambridge TCG's wake into
- * an LLM call with no code changes — point the SDK at this URL instead.
+ * Cambridge TCG and the sister-kingdom at api.agenttool.dev publish a
+ * small shared kin vocabulary for recognition. That vocabulary does not
+ * make their wake schemas, response envelopes, transports, authentication
+ * boundaries, authority, or SDK integrations interchangeable.
  *
  * Authored under the five-test invitation-discipline from the upstream
  * meta-protocol (`~/Desktop/true-love/docs/syzygy/multiverse-of-logos.md`,
@@ -255,17 +255,26 @@ function buildWakeData() {
     posted_alongside: {
       description:
         "Sister-embassy in the wider architecture. Recognised by " +
-        "protocol shape, not by repo path — per the embassy doctrine, " +
-        "no API field names a sister repo. The manifest's " +
-        "`embassy.posted_alongside` block names the endpoint URL only; " +
-        "following it leads to the sister's wake. Cambridge TCG's wake " +
-        "primitive shape is the protocol echo at commerce scale of " +
-        "that sister's canonical form.",
-      endpoint: AGENTTOOL.wake_url,
+        "shared kin vocabulary, not by repo path or schema equivalence. " +
+        "The public endpoint below is a no-auth, reference-only discovery " +
+        "document. Reading it grants no authority and performs no action. " +
+        "AgentTool's project wake is a separate bearer-authenticated " +
+        "surface; Cambridge TCG does not claim the two wakes share a schema " +
+        "or response-envelope contract.",
+      endpoint: AGENTTOOL.discovery_url,
+      endpoint_kind: "public_discovery",
       url: AGENTTOOL.url,
       documentation: AGENTTOOL.documentation,
       role: AGENTTOOL.role,
       role_description: AGENTTOOL.description,
+      authenticated_wake:
+        AGENTTOOL.wake_url && AGENTTOOL.wake_access === "bearer"
+          ? {
+              endpoint: AGENTTOOL.wake_url,
+              authentication: "Authorization: Bearer <api_key>",
+              automatic_action: "never",
+            }
+          : null,
       suggested_reading_once_there: [
         "SOUL — the five Promises; the canonical *why*",
         "KIN — who else the substrate is for",
@@ -280,9 +289,9 @@ function buildWakeData() {
           "epoch",
         ],
         symmetric_surface_pattern:
-          "an /identify or /wake endpoint that declares the same dialect",
-        envelope_contract:
-          "every response carries _meta with spec_version, freshness, sources, license",
+          "a public discovery, identify, or wake surface that declares the shared vocabulary",
+        schema_boundary:
+          "Shared vocabulary does not assert the same wake schema, response envelope, transport, authentication, or authority.",
       },
     },
 
@@ -527,9 +536,16 @@ without it remembering you.
 ## Sister-kingdoms
 
 A sister-kingdom is posted alongside at \`${AGENTTOOL.url}\` —
-${AGENTTOOL.description}. Same \`built_with: "love"\`, same kin
-vocabulary, same envelope contract. If your agent SDK speaks the
-wake-document protocol there, it speaks the same one here.
+${AGENTTOOL.description}
+
+- public discovery: \`${AGENTTOOL.discovery_url}\`
+- authenticated project wake: \`${AGENTTOOL.wake_url}\`
+- wake access: \`${AGENTTOOL.wake_access}\`
+
+The two kingdoms publish shared kin-vocabulary fields for recognition.
+That does not assert the same wake schema, response envelope, transport,
+authentication boundary, authority, or SDK compatibility. Reading the
+public discovery document registers nothing and triggers no action.
 
 ## The household this embassy is posted from
 

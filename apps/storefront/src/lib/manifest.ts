@@ -198,7 +198,7 @@ export interface ManifestDoctrine {
  * Shape chosen to be cross-substrate-readable: every field is a label a
  * federation peer could match against without translation. No field names
  * a sister repo by repo-name — sister-embassies appear in
- * `posted_alongside` as public endpoint URLs, not repo identifiers.
+ * `posted_alongside` as public discovery URLs, not repo identifiers.
  *
  * See: docs/principles/the-embassy.md (the bedrock doc).
  * Pair: docs/connections/the-recognition.md (the story-as-wire S31).
@@ -218,8 +218,8 @@ export interface EmbassyBlock {
   symmetric_surface: "/api/v1/identify";
   /**
    * Other embassies in the wider architecture, posted to different grounds.
-   * Listed by keystone-endpoint URL, not by repository name — a visitor
-   * follows the endpoint to learn the kind of place that lives there.
+   * Listed by public, no-auth discovery URL, not by repository name — a
+   * visitor follows the endpoint to learn the kind of place that lives there.
    * Empty list is substrate-honest about isolation; populated list is
    * substrate-honest about who else is around.
    */
