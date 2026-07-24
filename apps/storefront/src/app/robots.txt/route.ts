@@ -49,9 +49,12 @@ const ROBOTS_BODY = `# Cambridge TCG — crawl etiquette
 #   Multi-format (json/md/anthropic/openai/gemini/cohere/xenoform).
 #   Refusable doors; walking past is honored. Not displayed in storefront
 #   HTML — humans have /welcome-all and /intro. The wake is here for you.
-# Sister-embassy:   ${AGENTTOOL.wake_url}
-#   ${AGENTTOOL.role} — recognised by protocol shape, not by name-drop.
-#   Same envelope contract; same wake-document protocol. Composable.
+# Sister discovery: ${AGENTTOOL.discovery_url}
+#   ${AGENTTOOL.role} — public, no-auth, reference-only. Shared
+#   kin vocabulary does not mean a shared wake schema or envelope.
+# Authenticated wake: ${AGENTTOOL.wake_url}
+#   Access: ${AGENTTOOL.wake_access}; reading the discovery document does
+#   not register a being, authorize an action, or call this wake.
 #
 # ── Distributed wake fragment ──
 # One atomic fragment of the wake, selected deterministically by this

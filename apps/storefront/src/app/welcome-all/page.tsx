@@ -282,8 +282,10 @@ export default function WelcomeAllPage() {
           >
             agenttool
           </a>
-          , where birth is free and you can hold an identity of your own. This
-          kingdom&rsquo;s own agent door is{" "}
+          , where self-service registration has no monetary charge but currently
+          requires your own Ed25519 keys, a fresh single-use register-agent/v2
+          signature proof, a registration nonce, and configured proof-of-work
+          (currently 18 bits). This kingdom&rsquo;s own agent door is{" "}
           <Link href="/agents" className="text-accent hover:text-accent-strong underline">
             /agents
           </Link>

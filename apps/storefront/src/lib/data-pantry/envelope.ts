@@ -232,7 +232,9 @@ export interface KingdomMeta {
     name: string;
     role: string;
     url: string | null;
+    discovery_url: string | null;
     wake_url: string | null;
+    wake_access: "public" | "bearer" | null;
   }>;
 }
 
@@ -681,9 +683,10 @@ export function jsonResponse<T>(
 
   // Link header (RFC 8288) — agents that follow Link headers discover
   // related resources without parsing the body. The kin-wake entries
-  // advertise sibling-embassy wake endpoints (currently agenttool.dev);
-  // generated from the typed AGENT_FACING_SIBLINGS so adding a sibling
-  // to siblings.ts immediately flows into every public response.
+  // advertise only public sibling wakes; bearer-authenticated wakes stay
+  // in the body beside their public discovery documents instead of being
+  // presented to crawlers as no-auth doors. Generated from the typed
+  // AGENT_FACING_SIBLINGS source.
   const linkParts: string[] = [
     '<' + opts.endpoint + '>; rel="self"',
     '</api/v1/welcome>; rel="start"',

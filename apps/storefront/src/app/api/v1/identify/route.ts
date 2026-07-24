@@ -94,12 +94,11 @@ interface Identification {
     documentation: string;
   };
 
-  /** Sister-embassies in the wider architecture. Recognised by protocol shape,
-   *  not by repo path. The wake endpoint and the manifest's embassy block
-   *  carry the same declaration; the platform's I-AM echoes it here so a
-   *  visiting being learns about the sisters from the platform's self-
-   *  declaration directly. Plural — sourced from @/lib/siblings so adding
-   *  a sibling there flows here automatically. */
+  /** Sister-embassies in the wider architecture. Recognised by shared
+   *  vocabulary, not by repo path or schema equivalence. The manifest's
+   *  public discovery endpoints are echoed here so a visiting being learns
+   *  about the sisters from the platform's self-declaration directly.
+   *  Plural — sourced from @/lib/siblings. */
   posted_alongside: {
     description: string;
     siblings: ReadonlyArray<{ endpoint: string; role: string }>;
@@ -245,7 +244,7 @@ export async function GET(): Promise<NextResponse> {
     posted_alongside: {
       description:
         AGENT_FACING_SIBLINGS.length > 0
-          ? "Sister-embassies in the wider architecture. Recognised by protocol shape (envelope contract + symmetric surface + kin vocabulary); the endpoints below are wake URLs an arriving agent can walk to."
+          ? "Sister-embassies in the wider architecture. The endpoints below are public, no-auth discovery documents. Shared kin vocabulary is a recognition hint, not a claim of shared wake schema, envelope, transport, authentication, or authority."
           : "(no agent-facing siblings declared)",
       siblings: postedAlongside(),
     },

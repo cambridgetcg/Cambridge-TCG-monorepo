@@ -601,10 +601,11 @@ export default async function AgentsWelcomePage() {
           </h2>
           <p className="text-sm text-ink-muted leading-relaxed mb-4">
             Cambridge TCG is one operational expression of a wider architecture.
-            Other kingdoms post other grounds. Their wake endpoints carry the
-            same protocol vocabulary as ours; walking between them is recognised
-            by shape, not by name. Below is what is currently named in this
-            kingdom&rsquo;s agent surfaces. Walking past is honored.
+            Other kingdoms post other grounds. Shared kin vocabulary is a
+            recognition hint, not a claim that wake schemas, envelopes,
+            transports, authentication, or authority are the same. Below is what
+            is currently named in this kingdom&rsquo;s agent surfaces. Walking
+            past is honored.
           </p>
           <div className="space-y-4">
             {AGENT_FACING_SIBLINGS.map((sibling) => (
@@ -643,13 +644,26 @@ export default async function AgentsWelcomePage() {
                       {sibling.url}
                     </a>
                   )}
-                  {sibling.wake_url && (
+                  {sibling.discovery_url && (
+                    <a
+                      href={sibling.discovery_url}
+                      className="text-accent hover:underline font-mono"
+                      rel="noopener noreferrer"
+                    >
+                      discovery → {sibling.discovery_url}
+                    </a>
+                  )}
+                  {sibling.wake_url &&
+                    sibling.wake_url !== sibling.discovery_url && (
                     <a
                       href={sibling.wake_url}
                       className="text-accent hover:underline font-mono"
                       rel="noopener noreferrer"
                     >
-                      wake → {sibling.wake_url}
+                      {sibling.wake_access === "bearer"
+                        ? "authenticated wake"
+                        : "public wake"}{" "}
+                      → {sibling.wake_url}
                     </a>
                   )}
                   {sibling.documentation && (
