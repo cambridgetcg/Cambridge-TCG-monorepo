@@ -43,6 +43,10 @@ The deploy source is this monorepo. The protected path is
 - The migration task combines the RDS-managed secret's credentials with
   non-secret `DB_HOST`, `DB_PORT`, and `DB_NAME` values from Terraform. CI
   preserves that task configuration and changes only the `migration` image.
+- Only while Terraform is in first-bootstrap mode, that task also receives the
+  API/worker database placeholder ARNs and narrowly scoped permission to
+  describe, read, and put their versions. Activation removes those environment
+  values and permissions.
 - The workflow reads the API service's existing `awsvpc` configuration for the
   one-off migration. It does not accept copied subnet or security-group
   variables that can drift from the service.
@@ -50,13 +54,15 @@ The deploy source is this monorepo. The protected path is
   capacity or both be truly zero-capacity bootstrap. A partial bootstrap,
   external in-progress rollout, or unhealthy baseline fails closed.
 - A migration must exit zero before either service changes.
-- Migration `RunTask` calls use a stable GitHub-run client token and
-  `startedBy` marker. Transport retries therefore return the original ECS task
-  rather than starting another; an unreconciled still-running task is stopped
-  before the workflow fails.
-- At active capacity, deployment succeeds only after `node
-  dist/worker-probe.js` publishes one typed probe message and a live worker
-  deletes it from SQS and persists its acknowledgement in PostgreSQL. A
+- Database `RunTask` calls use phase-specific tokens containing both
+  `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT`. Transport retries within one
+  attempt therefore return the original ECS task, while a deliberate workflow
+  rerun starts a new checksum/no-op task. A discoverable unreconciled task
+  receives a best-effort scoped stop request before failure; the operator still
+  verifies that it stopped.
+- At active capacity, deployment succeeds only after
+  `node dist/worker-probe.js` publishes one typed probe message and a live
+  worker deletes it from SQS and persists its acknowledgement in PostgreSQL. A
   timeout or nonzero probe exit rolls both services back.
 
 GitHub documents the OIDC and protected-environment pattern in
@@ -109,21 +115,21 @@ an approved staging or deployment window.
 
 Map them from these reviewed Terraform outputs:
 
-| GitHub variable | Terraform output |
-| --- | --- |
-| `REWARDSPRO_V2_API_SERVICE` | `api_service_name` |
-| `REWARDSPRO_V2_API_TASK_FAMILY` | `api_task_definition_family` |
-| `REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY` | `api_task_definition_template_family` |
-| `REWARDSPRO_V2_AWS_REGION` | `aws_region` |
-| `REWARDSPRO_V2_AWS_ROLE_ARN` | `github_deploy_role_arn` |
-| `REWARDSPRO_V2_ECR_REPOSITORY` | `ecr_repository_name` |
-| `REWARDSPRO_V2_ECS_CLUSTER` | `ecs_cluster_name` |
-| `REWARDSPRO_V2_MIGRATION_TASK_FAMILY` | `migration_task_definition_family` |
+| GitHub variable                                | Terraform output                            |
+| ---------------------------------------------- | ------------------------------------------- |
+| `REWARDSPRO_V2_API_SERVICE`                    | `api_service_name`                          |
+| `REWARDSPRO_V2_API_TASK_FAMILY`                | `api_task_definition_family`                |
+| `REWARDSPRO_V2_API_TASK_TEMPLATE_FAMILY`       | `api_task_definition_template_family`       |
+| `REWARDSPRO_V2_AWS_REGION`                     | `aws_region`                                |
+| `REWARDSPRO_V2_AWS_ROLE_ARN`                   | `github_deploy_role_arn`                    |
+| `REWARDSPRO_V2_ECR_REPOSITORY`                 | `ecr_repository_name`                       |
+| `REWARDSPRO_V2_ECS_CLUSTER`                    | `ecs_cluster_name`                          |
+| `REWARDSPRO_V2_MIGRATION_TASK_FAMILY`          | `migration_task_definition_family`          |
 | `REWARDSPRO_V2_MIGRATION_TASK_TEMPLATE_FAMILY` | `migration_task_definition_template_family` |
-| `REWARDSPRO_V2_PUBLIC_BASE_URL` | `api_base_url` |
-| `REWARDSPRO_V2_WORKER_SERVICE` | `worker_service_name` |
-| `REWARDSPRO_V2_WORKER_TASK_FAMILY` | `worker_task_definition_family` |
-| `REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY` | `worker_task_definition_template_family` |
+| `REWARDSPRO_V2_PUBLIC_BASE_URL`                | `api_base_url`                              |
+| `REWARDSPRO_V2_WORKER_SERVICE`                 | `worker_service_name`                       |
+| `REWARDSPRO_V2_WORKER_TASK_FAMILY`             | `worker_task_definition_family`             |
+| `REWARDSPRO_V2_WORKER_TASK_TEMPLATE_FAMILY`    | `worker_task_definition_template_family`    |
 
 The Terraform outputs `private_app_subnet_ids` and
 `ecs_security_group_id` are useful for infrastructure review, but deliberately
@@ -152,55 +158,69 @@ No other GitHub secret is required by this workflow.
 Bootstrap separates creating AWS resources from starting code whose
 least-privilege database credential does not exist yet.
 
-1. In `apps/rewardspro-api/infrastructure/terraform`, initialize Terraform and
-   apply the reviewed environment with `bootstrap_mode=true`. This is a
-   one-shot first-creation mode; it must not be used as a drain control for an
-   already active environment.
-2. Confirm that API and worker services exist with zero desired/minimum
+1. Request and DNS-validate the reviewed public hostname's ACM certificate in
+   the target AWS account and region. Require `ISSUED` status, retain its exact
+   ARN, and do not create the ALB alias yet. Production Terraform guardrails
+   require both `certificate_arn` and `public_hostname` on the first plan.
+2. In `apps/rewardspro-api/infrastructure/terraform`, initialize Terraform and
+   apply the reviewed environment with that certificate and
+   `bootstrap_mode=true`. This is a one-shot first-creation mode; it must not be
+   used as a drain control for an already active environment.
+3. Confirm that API and worker services exist with zero desired/minimum
    capacity, the three Terraform `*-template` families exist and carry the
    required ownership tags, ECR is immutable, and the RDS managed admin secret
    exists.
-3. Prove the dark RDS target is a fresh baseline before its first migration:
+4. Prove the dark RDS target is a fresh baseline before its first migration:
    it must contain neither legacy RewardsPro tables nor unnamespaced
    `rp_schema_migration` rows. Retain that query evidence with the release.
    The migration entrypoint also checks this condition before applying the
    pinned YUTABASE SQL and fails closed on disagreement.
-4. Request/validate the ACM certificate for the reviewed public hostname and
-   create the DNS alias to the Terraform ALB outputs. Confirm the resulting
+5. Create the DNS alias to the Terraform ALB outputs and confirm the resulting
    `api_base_url` is HTTPS. This establishes the health-probe destination; it
    does not move Shopify traffic.
-5. Populate the Shopify and operator secrets required by the API. Do not put
+6. Populate the Shopify and operator secrets required by the API. Do not put
    their values in Terraform plans, shell history, CI logs, or this repository.
-6. Configure the GitHub environment above. Temporarily set
+7. Configure the GitHub environment above. Temporarily set
    `REWARDSPRO_V2_DEPLOY_ENABLED` to `true`, then run the protected workflow
    for an approved `main` commit.
-7. In bootstrap mode the workflow:
+8. In bootstrap mode the workflow:
    - pushes the immutable SHA image;
    - clones the latest Terraform migration template into the release family;
-   - registers and runs the dedicated migration task with a stable,
+   - registers and runs the dedicated migration task with an attempt-aware,
      idempotent ECS client token;
    - verifies its exit code;
+   - revalidates unchanged zero capacity, then runs the same digest-pinned task
+     with `node dist/bootstrap-database-roles.js`;
+   - creates or reuses the bootstrap-owned API and worker database secrets,
+     converges their exact least-privilege PostgreSQL roles, and verifies both
+     real runtime connections;
+   - revalidates unchanged zero capacity again;
    - clones the latest Terraform API and worker templates into digest-pinned
      release revisions;
    - updates both zero-capacity service pointers to those revisions;
    - verifies desired, running, and pending counts remain zero, then stops
      without changing capacity or claiming worker/API health.
-8. Set `REWARDSPRO_V2_DEPLOY_ENABLED` back to a non-`true` value.
-9. Create the separate least-privilege API and worker database roles after the
-   migration has established the schema, then populate their separate database
-   secrets. Verify each task reads only its own connection, neither can read
-   the RDS-admin secret, and the migration task cannot assume a runtime
-   identity.
-10. Prepare a saved Terraform plan with `bootstrap_mode=false`, review its
-   resource changes, and apply that exact plan. The Terraform service lifecycle
-   preserves the digest task revisions staged by CI; Application Auto Scaling
-   raises capacity to the configured minima.
-11. Re-enable the repository gate for a short approved window and rerun the
-   protected workflow for the same commit. It reuses the immutable SHA image,
-   executes the idempotent migration runner, updates both services, waits for
-   stability, proves the worker's queue-to-database path, and probes API
-   health.
-12. Disable the repository gate again and retain the workflow and Terraform
+9. While `bootstrap_mode=true` and the gate remains open, approve a deliberate
+   rerun of the same commit. Require `existingCount=5` from migration,
+   `reusedSecretVersions=["api","worker"]` from role bootstrap, no new secret
+   versions, and unchanged zero-capacity service pointers.
+10. Set `REWARDSPRO_V2_DEPLOY_ENABLED` back to a non-`true` value and retain
+    both workflow runs. Verify each runtime task reads only its own connection,
+    neither runtime AWS task role can read the RDS-admin secret, and the
+    migration task never assumes the API or worker AWS task role. Do not
+    activate if either database secret is absent. After activation removes the
+    bootstrap permission, the migration task must not be able to read either
+    runtime database secret.
+11. Prepare a saved Terraform plan with `bootstrap_mode=false`, review its
+    resource changes, and apply that exact plan. The Terraform service lifecycle
+    preserves the digest task revisions staged by CI; Application Auto Scaling
+    raises capacity to the configured minima.
+12. Re-enable the repository gate for a short approved window and rerun the
+    protected workflow for the same commit. It reuses the immutable SHA image,
+    executes the idempotent migration runner, updates both services, waits for
+    stability, proves the worker's queue-to-database path, and probes API
+    health.
+13. Disable the repository gate again and retain the workflow and Terraform
     plan records with the release evidence.
 
 Do not make service capacity nonzero until both runtime DB secrets have tested,
@@ -229,8 +249,9 @@ For every release:
    - read the latest Terraform-tagged migration template, copy its full
      configuration into the release family, and replace only the named
      container image;
-   - run `node dist/migrate.js` through an ECS client token stable across
-     GitHub rerun attempts and require exit code zero;
+   - run `node dist/migrate.js` through an ECS client token stable within the
+     current attempt and distinct on deliberate GitHub reruns, then require
+     exit code zero;
    - likewise clone the latest Terraform API and worker templates into their
      release families, replacing only the correctly named container image;
    - update both services and wait for ECS stability;
@@ -249,13 +270,15 @@ For every release:
 
 ## Failure and rollback
 
-| Failure point | Expected behavior | Operator response |
-| --- | --- | --- |
-| Validation, image build, or ECR push | No task or service changes | Fix the commit or environment and rerun |
-| Migration start, ambiguous response, timeout, or nonzero exit | API and worker remain on their prior task definitions; client-token retries cannot duplicate the task, and an unreconciled running task or waiter timeout receives a scoped stop request | Inspect the migration task's restricted CloudWatch log and confirm it stopped; a rerun with unchanged inputs reconciles the same ECS task |
-| Task-definition derivation | Services remain unchanged | Correct template-family variables, ownership tags, or Terraform drift; never clone a live service revision or weaken the exact-one-container check |
-| Zero-capacity pointer staging | Capacity remains zero; a partial pointer change requests both prior task definitions before failing | Verify both service pointers and all three capacity counts before activation |
-| ECS update, stability wait, worker end-to-end probe, or API health probe | Workflow requests both touched services return to their prior task definitions and waits best-effort for stability | Verify the rollback in ECS; if it did not stabilize, restore the recorded revisions manually. An expired probe row is removed by a later probe |
+| Failure point                                                            | Expected behavior                                                                                                                                                                                           | Operator response                                                                                                                                                            |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Validation, image build, or ECR push                                     | No task or service changes                                                                                                                                                                                  | Fix the commit or environment and rerun                                                                                                                                      |
+| Migration start, ambiguous response, timeout, or nonzero exit            | API and worker remain on their prior task definitions; client-token retries within the attempt cannot duplicate the task, and an unreconciled running task or waiter timeout receives a scoped stop request | Inspect the migration task's restricted CloudWatch log and confirm it stopped; a deliberate rerun starts a new checksum/no-op task                                           |
+| Manual cancellation or job timeout while a database task is running      | Service pointers remain unchanged, but the current database task can continue after the runner exits                                                                                                        | Derive the phase-specific `startedBy` marker from the run ID and attempt, list and stop only that exact task, wait for `STOPPED`, then inspect its restricted CloudWatch log |
+| Initial database role bootstrap fails                                    | Both services and their task pointers remain unchanged at zero. Any bootstrap-owned secret version already written is retained for convergent retry; it is never printed or rolled back automatically       | Keep `bootstrap_mode=true`, inspect the sanitized task log, resolve the failed invariant, and rerun the same approved commit                                                 |
+| Task-definition derivation                                               | Services remain unchanged                                                                                                                                                                                   | Correct template-family variables, ownership tags, or Terraform drift; never clone a live service revision or weaken the exact-one-container check                           |
+| Zero-capacity pointer staging                                            | Capacity remains zero; a partial pointer change requests both prior task definitions before failing                                                                                                         | Verify both service pointers and all three capacity counts before activation                                                                                                 |
+| ECS update, stability wait, worker end-to-end probe, or API health probe | Workflow requests both touched services return to their prior task definitions and waits best-effort for stability                                                                                          | Verify the rollback in ECS; if it did not stabilize, restore the recorded revisions manually. An expired probe row is removed by a later probe                               |
 
 Automatic rollback covers service task definitions only. It cannot safely undo
 SQL. Every production migration must therefore be additive or otherwise
@@ -274,7 +297,9 @@ window. Never repoint Shopify or DNS as part of a service rollback.
 
 - It does not run `terraform apply`.
 - It does not change desired count during bootstrap.
-- It does not alter an RDS parameter group, secret value, or database role.
+- It does not alter an RDS parameter group. Only the explicitly gated
+  zero-capacity bootstrap writes the two runtime database secrets and converges
+  their roles; normal deployments do neither.
 - It does not register Shopify webhooks, deploy Shopify configuration or
   extensions, or change the public Shopify app URL.
 - It does not migrate legacy Aurora data.

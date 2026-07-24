@@ -216,24 +216,29 @@ zero. The deployment workflow then:
 1. builds explicitly for `linux/amd64`;
 2. pushes an immutable commit-SHA image to `ecr_repository_url`;
 3. clones the latest Terraform migration template into its CI release family,
-   runs `node dist/migrate.js` with an idempotent ECS client token, and requires
-   exit zero;
-4. clones the latest Terraform API and worker templates into their CI release
+   runs `node dist/migrate.js` with an attempt-aware idempotent ECS client
+   token, and requires exit zero;
+4. while both services are still at true zero capacity, runs
+   `node dist/bootstrap-database-roles.js` as a second one-off task, requires
+   both least-privilege runtime identities to pass the real database boundary
+   checks, and revalidates that service state did not change;
+5. clones the latest Terraform API and worker templates into their CI release
    families using the same image digest;
-5. updates the zero-count API and worker service `taskDefinition` pointers to
+6. updates the zero-count API and worker service `taskDefinition` pointers to
    those digest revisions without raising desired capacity;
-6. verifies desired, running, and pending counts all remain zero; and
-7. exits successfully without API or worker probes while service desired counts are
+7. verifies desired, running, and pending counts all remain zero; and
+8. exits successfully without API or worker probes while service desired counts are
    zero.
 
 Stable containers and commands are:
 
-| Container | Command |
-| --- | --- |
-| `api` | `node dist/main.js` |
-| `worker` | `node dist/worker.js` |
-| worker deployment probe | `node dist/worker-probe.js` |
-| `migration` | `node dist/migrate.js` |
+| Container                       | Command                                 |
+| ------------------------------- | --------------------------------------- |
+| `api`                           | `node dist/main.js`                     |
+| `worker`                        | `node dist/worker.js`                   |
+| worker deployment probe         | `node dist/worker-probe.js`             |
+| `migration`                     | `node dist/migrate.js`                  |
+| initial database role bootstrap | `node dist/bootstrap-database-roles.js` |
 
 The API listens on port `3000`. The ALB checks `/health/live`; authenticated
 operational readiness remains `/health/ready`.
@@ -246,34 +251,47 @@ RDS-managed secret does not reliably carry connection location/database
 fields, the migration task also receives non-secret `DB_HOST`, `DB_PORT`, and
 `DB_NAME` values directly from the RDS resource.
 
-Before activation, use a controlled one-off database client inside the VPC to:
+During `bootstrap_mode=true`, the migration task role temporarily receives
+`DescribeSecret`, `GetSecretValue`, and `PutSecretValue` only for the API and
+worker database placeholders. The protected workflow uses that task to:
 
-1. authenticate with the RDS-managed master secret;
-2. create distinct login roles such as `rewardspro_api` and
-   `rewardspro_worker`, each with its own generated password and no superuser,
-   bypass-RLS, replication, role-creation, or database-creation capability;
-3. grant `yu_reader` directly to the API role and `yu_writer` directly to the
-   worker role, with no admin option or other role memberships;
-4. grant only each process's `CONNECT`, schema `USAGE`, documented relation
-   privileges, and (for the API) the narrow ingest-function `EXECUTE`
-   capability; do not use shared or blanket default privileges—each future
-   migration must update grants explicitly; and
-5. put the separate connections into `api_database_secret_arn` and
-   `worker_database_secret_arn`.
+1. authenticate with the RDS-managed master secret and acquire the same
+   advisory lock as the migration runner;
+2. verify PostgreSQL 16, TLS, the exact checksummed migration ledger, and a
+   writable expected target;
+3. create distinct `rewardspro_api` and `rewardspro_worker` logins with
+   cryptographically generated credentials and no superuser, bypass-RLS,
+   replication, role-creation, or database-creation capability;
+4. grant `yu_reader` only to the API and `yu_writer` only to the worker, plus
+   the documented direct relation/function privileges;
+5. connect as both roles and run the same database-boundary checks used by
+   service readiness; and
+6. converge safely on retry without rotating a healthy existing credential.
 
-Use parameterized client variables or a secure secret handoff; never paste the
-runtime password into Terraform, SQL history, shell history, a plan, or Git.
-Each database secret accepts a PostgreSQL URL or JSON shaped like:
+The clear passwords never enter SQL: the command sends PostgreSQL salted
+SCRAM-SHA-256 verifiers and writes the clear values only to their exact
+Secrets Manager placeholders. Existing malformed, mismatched, or unowned
+secret values and roles without managed secrets fail closed.
+
+The command owns a strict JSON shape:
 
 ```json
 {
+  "engine": "postgres",
   "host": "<private-rds-host>",
   "port": 5432,
   "dbname": "rewardspro",
   "username": "rewardspro_api",
-  "password": "<generated-out-of-band>"
+  "password": "<generated>",
+  "managedBy": "rewardspro-runtime-bootstrap",
+  "schemaVersion": 1
 }
 ```
+
+Changing to `bootstrap_mode=false` removes both the runtime-secret environment
+references and their read/write IAM permissions from the migration task.
+Password rotation is a separate reviewed operation, not a side effect of
+normal deployments.
 
 All three task types use `sslmode=verify-full` and the reviewed regional RDS
 root bundle packaged at `/app/certs/eu-west-2-bundle.pem`. Terraform passes
@@ -282,18 +300,21 @@ than silently weakening certificate verification when the path is absent.
 
 ### Runtime secrets
 
-Terraform creates placeholders but intentionally creates no secret versions:
+Terraform creates placeholders but intentionally puts no secret material in
+state:
 
 - `api_database_secret_arn`
 - `worker_database_secret_arn`
 - `shopify_api_secret_arn`
 - `operator_token_secret_arn`
 
-Populate all four through an approved secret-management channel before
-activation. The Shopify and operator secrets can be raw strings or the JSON
-shapes accepted by the application. The API task can read only its database,
-Shopify, and operator secrets. The worker task can read only its own database
-secret.
+The zero-capacity workflow populates the API and worker database versions after
+migration and verifies both identities before staging service pointers.
+Populate the Shopify and operator versions through an approved
+secret-management channel before activation. They can be raw strings or the
+JSON shapes accepted by the application. The API task can read only its
+database, Shopify, and operator secrets. The worker task can read only its own
+database secret.
 
 The API still receives `SQS_QUEUE_URL` as a non-secret dispatch-mode marker,
 but its IAM role has no SQS actions. It commits incoming events as pending.

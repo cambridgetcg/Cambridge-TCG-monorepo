@@ -1,6 +1,10 @@
 <!-- MOBILE-REVIEWED: 2026-03-22 -->
 <!-- RewardsPro Missions Section Block -->
 {%- render 'rp_utils_loader' -%}
+{%- assign guest_cta_url = block.settings.guest_cta_url -%}
+{%- if guest_cta_url == blank or guest_cta_url == '/account/login' -%}
+  {%- assign guest_cta_url = routes.account_login_url -%}
+{%- endif -%}
 {% comment %}
   Inline section version of the Missions widget.
   Use this on the /pages/missions page template.
@@ -9,6 +13,8 @@
 
 {% if customer %}
   <div class="rp-missions-section-root"
+       data-rp-utils-src="{{ 'rp-utils.js' | asset_url }}"
+       data-rp-widget-src="{{ 'missions-widget.js' | asset_url }}"
        data-state="authenticated"
        data-customer-id="{{ customer.id }}"
        data-shop-domain="{{ shop.permanent_domain }}"
@@ -30,7 +36,7 @@
         <span class="rp-missions-section-guest__icon" aria-hidden="true">🎯</span>
         <h2 class="rp-missions-section-guest__title">{{ block.settings.heading | default: 'Complete Missions. Earn Rewards.' }}</h2>
         <p class="rp-missions-section-guest__subtitle">{{ block.settings.guest_message | default: 'Sign in to unlock daily, weekly, and special missions. Earn XP, level up your tier, and claim exclusive rewards.' }}</p>
-        <a href="{{ block.settings.guest_cta_url | default: '/account/login' }}"
+        <a href="{{ guest_cta_url }}"
            class="rp-missions-section-guest__cta">
           {{ block.settings.guest_cta_text | default: 'Sign In to Start' }}
           <span aria-hidden="true">→</span>
@@ -82,9 +88,9 @@
 
 <noscript>
   {% if customer %}
-    <p>Loading your missions… <a href="/account">View account</a></p>
+    <p>Loading your missions… <a href="{{ routes.account_url }}">View account</a></p>
   {% else %}
-    <p><a href="/account/login">Sign in</a> to view missions and earn rewards.</p>
+    <p><a href="{{ routes.account_login_url }}">Sign in</a> to view missions and earn rewards.</p>
   {% endif %}
 </noscript>
 
@@ -93,7 +99,7 @@
   "name": "RP Missions Section",
   "target": "section",
   "stylesheet": "missions-widget.css",
-  "javascript": "missions-widget.js",
+  "javascript": "rp-widget-loader.js",
   "settings": [
     {
       "type": "text",
@@ -116,8 +122,7 @@
     {
       "type": "text",
       "id": "guest_cta_url",
-      "label": "Sign-in URL",
-      "default": "/account/login"
+      "label": "Optional custom sign-in URL"
     },
     {
       "type": "range",

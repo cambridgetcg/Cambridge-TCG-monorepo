@@ -127,7 +127,7 @@ export const GUIDES: Guide[] = [
           "the manifest is a curated directory, not a proof that no other route exists.",
         curl: "curl https://cambridgetcg.com/api/v1/manifest",
         expected_response_shape:
-          '{ "manifest_version": "1.0.0", "cosmology_version": "1.0.0", ' +
+          '{ "manifest_version": "1.1.0", "cosmology_version": "1.0.0", ' +
           '"resources": { "discovery": [...], "market": [...], "verify": [...] }, ' +
           '"channels": [...], "doctrines": [...] }',
         what_to_do_with_it:

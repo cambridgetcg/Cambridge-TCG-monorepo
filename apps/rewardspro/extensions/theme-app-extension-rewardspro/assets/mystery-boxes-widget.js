@@ -8,9 +8,9 @@
  * Accessibility: Keyboard support, ARIA attributes, focus management
  *
  * MIGRATION NOTE: Local helpers (fetchWithRetry, cache, escapeHtml) predate
- * the shared `window.RPUtils` module. rp-utils.js is already loaded on this
- * page via the rp_utils_loader snippet. See membership-widget.js for the
- * port pattern — this widget is next in line.
+ * the shared `window.RPUtils` module. rp-widget-loader.js guarantees RPUtils
+ * is ready first. See membership-widget.js for the port pattern — this
+ * widget is next in line.
  */
 
 /**
@@ -34,7 +34,7 @@
   // ────────────────────────────────────────────────────────────────────────
   if (!window.RPUtils || !window.RPUtils.VERSION) {
     console.error('[MysteryBoxes] window.RPUtils is missing. Ensure the ' +
-      '`rp_utils_loader` snippet is rendered before this script.');
+      '`rp-widget-loader.js` schema asset ordered-loads this runtime.');
     return;
   }
   var RP = window.RPUtils;
@@ -703,12 +703,17 @@
 
   // ─── Bootstrap ─────────────────────────────────────────
 
-  function initWidget() {
-    const root = document.getElementById('mystery-boxes-widget-root');
-    if (root && !root.dataset.initialized) {
-      log.debug('Widget init');
-      new MysteryBoxesWidget(root);
-    }
+  function initWidget(candidate) {
+    const selector = '#mystery-boxes-widget-root, .rp-mb-root';
+    const roots = candidate && candidate.matches && candidate.matches(selector)
+      ? [candidate]
+      : document.querySelectorAll(selector);
+    roots.forEach((root) => {
+      if (!root.dataset.initialized) {
+        log.debug('Widget init');
+        new MysteryBoxesWidget(root);
+      }
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -721,4 +726,11 @@
     document.addEventListener('shopify:section:load', initWidget);
     document.addEventListener('shopify:section:reorder', initWidget);
   }
+
+  document.addEventListener('rewardspro:widget-ready', (event) => {
+    if (event.target && event.target.matches &&
+        event.target.matches('#mystery-boxes-widget-root, .rp-mb-root')) {
+      initWidget(event.target);
+    }
+  });
 })();

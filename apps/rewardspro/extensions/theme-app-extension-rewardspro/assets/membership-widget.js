@@ -5,7 +5,7 @@
  * and renders the floating tier + store-credit badge. Serves as the
  * reference implementation for other widgets: all shared helpers
  * (sanitize, fetch+retry, cache, escapeHtml, logger) come from
- * `window.RPUtils` — loaded by the `rp_utils_loader` Liquid snippet.
+ * `window.RPUtils`, ordered before this runtime by rp-widget-loader.js.
  */
 
 (function() {
@@ -17,8 +17,8 @@
   if (!window.RPUtils || !window.RPUtils.VERSION) {
     // Fail loudly but don't crash the page. The widget simply won't render.
     console.error('[RewardsWidget] window.RPUtils is missing. Ensure the ' +
-      '`rp_utils_loader` snippet is rendered before this script. See the ' +
-      'extension README for details.');
+      '`rp-widget-loader.js` schema asset ordered-loads this runtime. See ' +
+      'the extension README for details.');
     return;
   }
   var RP = window.RPUtils;
@@ -1105,8 +1105,11 @@
   /**
    * Initialize widget when DOM is ready
    */
-  function initWidget() {
-    const root = document.getElementById('membership-widget-root');
+  function initWidget(candidate) {
+    const root = candidate && candidate.matches &&
+      candidate.matches('#membership-widget-root')
+      ? candidate
+      : document.getElementById('membership-widget-root');
     if (root && !root.dataset.initialized) {
       log.info('Widget init');
       new MembershipWidget(root);
@@ -1125,4 +1128,11 @@
     document.addEventListener('shopify:section:load', initWidget);
     document.addEventListener('shopify:section:reorder', initWidget);
   }
+
+  document.addEventListener('rewardspro:widget-ready', (event) => {
+    if (event.target && event.target.matches &&
+        event.target.matches('#membership-widget-root')) {
+      initWidget(event.target);
+    }
+  });
 })();

@@ -7,9 +7,8 @@
  *
  * Why a global, not an ES module:
  *   Shopify theme app extensions cannot host ES modules without a bundler.
- *   Regular <script> tags execute in document order, so loading this file
- *   before the widget JS (via the `rp_utils_loader` snippet) guarantees
- *   `window.RPUtils` is defined by the time a widget constructs.
+ *   `rp-widget-loader.js` ordered-loads this file before a widget runtime,
+ *   then every runtime consumes the same versioned global.
  *
  * Adding to the API:
  *   1. Append the function below.

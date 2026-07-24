@@ -4,9 +4,9 @@
  * Standalone section block for raffle display and entry.
  *
  * Shared helpers (sanitize/fetch/cache/escapeHtml/logger/format) come from
- * `window.RPUtils` — loaded by the `rp_utils_loader` Liquid snippet. Widget
- * doesn't render if RPUtils is missing; the page gets a console error
- * explaining what to fix.
+ * `window.RPUtils`, ordered before this runtime by rp-widget-loader.js.
+ * The widget doesn't render if RPUtils is missing; the page gets a scoped
+ * console error explaining what to fix.
  */
 
 /**
@@ -35,8 +35,8 @@
   // ────────────────────────────────────────────────────────────────────────
   if (!window.RPUtils || !window.RPUtils.VERSION) {
     console.error('[RafflesWidget] window.RPUtils is missing. Ensure the ' +
-      '`rp_utils_loader` snippet is rendered before this script. See the ' +
-      'extension README for details.');
+      '`rp-widget-loader.js` schema asset ordered-loads this runtime. See ' +
+      'the extension README for details.');
     return;
   }
   var RP = window.RPUtils;
@@ -1413,8 +1413,11 @@
   // INITIALIZATION
   // ============================================
 
-  function initRaffles() {
-    const roots = document.querySelectorAll('.rp-raffles-root');
+  function initRaffles(candidate) {
+    const roots = candidate && candidate.matches &&
+      candidate.matches('.rp-raffles-root')
+      ? [candidate]
+      : document.querySelectorAll('.rp-raffles-root');
     roots.forEach(root => {
       if (!root.dataset.initialized) {
         log.info('Raffles widget init');
@@ -1445,5 +1448,12 @@
       });
     });
   }
+
+  document.addEventListener('rewardspro:widget-ready', (event) => {
+    if (event.target && event.target.matches &&
+        event.target.matches('.rp-raffles-root')) {
+      initRaffles(event.target);
+    }
+  });
 
 })();

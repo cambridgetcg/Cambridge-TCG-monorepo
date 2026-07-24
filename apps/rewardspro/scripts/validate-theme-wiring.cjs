@@ -6,7 +6,7 @@
  * Static analysis that verifies:
  * 1. Liquid data-*-endpoint attributes resolve to valid proxy routes
  * 2. JS fallback endpoint defaults match the same routes
- * 3. Schema "javascript" / "stylesheet" reference existing asset files
+ * 3. Schema/loader "javascript" / "stylesheet" references exist
  * 4. TOML [[extensions.targeting]] modules reference existing Liquid blocks
  * 5. Liquid element IDs match JS getElementById() calls
  *
@@ -104,7 +104,22 @@ function parseLiquidBlocks() {
       }
     }
 
-    blocks.push({ file, filePath, content, endpoints, ids, schema });
+    // RewardsPro blocks use one small schema loader and provide the actual
+    // widget runtime as a Shopify CDN URL in Liquid.
+    const runtimeMatch = content.match(
+      /data-rp-widget-src\s*=\s*"\{\{\s*'([^']+)'\s*\|\s*asset_url\s*\}\}"/
+    );
+    const runtimeJavascript = runtimeMatch?.[1] || schema?.javascript || null;
+
+    blocks.push({
+      file,
+      filePath,
+      content,
+      endpoints,
+      ids,
+      schema,
+      runtimeJavascript,
+    });
   }
   return blocks;
 }
@@ -214,6 +229,15 @@ function run() {
       }
     }
 
+    if (block.runtimeJavascript && block.runtimeJavascript !== javascript) {
+      const runtimePath = path.join(ASSETS_DIR, block.runtimeJavascript);
+      if (fs.existsSync(runtimePath)) {
+        pass(`${block.file} data-rp-widget-src="${block.runtimeJavascript}" exists`);
+      } else {
+        fail(`${block.file} data-rp-widget-src="${block.runtimeJavascript}" — FILE NOT FOUND at assets/${block.runtimeJavascript}`);
+      }
+    }
+
     if (stylesheet) {
       const cssPath = path.join(ASSETS_DIR, stylesheet);
       if (fs.existsSync(cssPath)) {
@@ -259,7 +283,7 @@ function run() {
 
   for (const block of blocks) {
     if (!block.schema) continue;
-    const jsFile = block.schema.javascript;
+    const jsFile = block.runtimeJavascript;
     if (!jsFile) continue;
 
     const asset = jsAssets.find((a) => a.file === jsFile);
@@ -269,10 +293,11 @@ function run() {
     const uniqueIds = [...new Set(block.ids)];
 
     for (const id of uniqueIds) {
-      if (asset.elementIds.includes(id)) {
-        pass(`${block.file} id="${id}" found in ${asset.file} getElementById()`);
+      const selectorReference = asset.content.includes(`#${id}`);
+      if (asset.elementIds.includes(id) || selectorReference) {
+        pass(`${block.file} id="${id}" found in ${asset.file} DOM selector`);
       } else {
-        fail(`${block.file} id="${id}" — NOT referenced in ${asset.file} getElementById()`);
+        fail(`${block.file} id="${id}" — NOT referenced in ${asset.file} DOM selectors`);
       }
     }
 
@@ -297,7 +322,7 @@ function run() {
 
   for (const block of blocks) {
     if (!block.schema) continue;
-    const jsFile = block.schema.javascript;
+    const jsFile = block.runtimeJavascript;
     if (!jsFile) continue;
     const asset = jsAssets.find((a) => a.file === jsFile);
     if (!asset) continue;
@@ -308,8 +333,12 @@ function run() {
     let m;
     while ((m = dataAttrRe.exec(block.content)) !== null) {
       const attrName = m[1];
-      // Skip data-state and data-initialized (internal, not config)
-      if (attrName === "state" || attrName === "initialized") continue;
+      // Loader metadata is consumed by rp-widget-loader.js rather than the
+      // feature runtime selected above.
+      if (attrName === "state" ||
+          attrName === "initialized" ||
+          attrName === "rp-utils-src" ||
+          attrName === "rp-widget-src") continue;
       const dsKey = dataAttrToDatasetKey("data-" + attrName);
       dataAttrs.push({ attr: "data-" + attrName, dsKey });
     }
