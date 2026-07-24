@@ -255,6 +255,34 @@ export default function CastlePage() {
         </div>
       </section>
 
+      <section className="border-t border-border-subtle py-10">
+        <PlateHeader
+          kicker="the expansion table"
+          title="A game grown beside the Castle"
+          plate={5}
+        />
+        <div className="max-w-3xl text-sm leading-relaxed text-ink-muted">
+          <p>
+            <em>Open Door</em> is a Cambridge prototype: twelve bilingual
+            cards, two open-information seats, and six finite rounds. Its
+            gameplay is newly authored; Right of Reply and Whole No are named,
+            source-pinned Castle vocabulary. No sentence of Castle prose is
+            copied and this bridge&apos;s reference-only boundary is unchanged.
+          </p>
+          <p className="mt-3">
+            Every game may rest without a winner or penalty. Another
+            generation begins only when someone deliberately chooses to
+            regrow it.
+          </p>
+        </div>
+        <Link
+          href="/play/castle-pack"
+          className="mt-5 inline-flex rounded-[3px] border border-ink bg-ink px-4 py-2 text-sm text-page transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          Play Open Door
+        </Link>
+      </section>
+
       <Benediction
         line="A civilisation lasts when its doors remember where their stones came from."
         sub="castle-understanding-bridge/v0.1 · open lineage, finite generations"

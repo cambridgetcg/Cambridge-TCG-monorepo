@@ -22,6 +22,7 @@ const NAV_LINKS = [
   { href: "/play/adventure", label: "Adventure", note: "PVE level status; battles paused" },
   { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
   { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
+  { href: "/play/castle-pack", label: "Open Door", note: "A finite Castle expansion game" },
   { href: "/play/deck-check", label: "Deck Check", note: "Validate a deck" },
   { href: "/play/meta", label: "Meta", note: "Tiers, tournaments, banlist" },
 ] as const;

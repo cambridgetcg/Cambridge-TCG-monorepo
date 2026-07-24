@@ -342,6 +342,68 @@ const SPEC = {
         },
       },
     },
+    "/api/v1/play/castle-pack": {
+      get: {
+        tags: ["play"],
+        summary: "Open Door finite-game contract",
+        description: "Describes the 12-card Castle of Understanding prototype, its Cambridge-authored gameplay, two source-attributed Castle vocabulary titles, six-round rules, stateless custody boundary, fixed limits, and POST operations. No sentence of Castle prose is copied into the game.",
+        operationId: "getCastlePack",
+        responses: {
+          "200": { description: "Card set, rules, custody boundary, legal operation shapes, and discovery links.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+      post: {
+        tags: ["play"],
+        summary: "Referee one Open Door generation",
+        description: "Start a seeded game, apply exactly one enumerated move to caller-carried state, or deliberately regrow a completed/rested generation. The route stores nothing and results have no standing.",
+        operationId: "postCastlePack",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                oneOf: [
+                  {
+                    type: "object",
+                    required: ["op"],
+                    properties: {
+                      op: { const: "new" },
+                      seed: { type: "string", maxLength: 80 },
+                    },
+                    additionalProperties: false,
+                  },
+                  {
+                    type: "object",
+                    required: ["op", "game", "move"],
+                    properties: {
+                      op: { const: "move" },
+                      game: { type: "object" },
+                      move: { type: "object" },
+                    },
+                    additionalProperties: false,
+                  },
+                  {
+                    type: "object",
+                    required: ["op", "game"],
+                    properties: {
+                      op: { const: "regrow" },
+                      game: { type: "object" },
+                      seed: { type: "string", maxLength: 80 },
+                    },
+                    additionalProperties: false,
+                  },
+                ],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Updated game, deterministic receipt, legal actions, and explicit terminal state.", content: { "application/json": { schema: { type: "object" } } } },
+          "400": { description: "Malformed operation, invalid caller-carried state, or non-legal move.", content: { "application/json": { schema: { type: "object" } } } },
+          "413": { description: "Request body exceeds the fixed 128 KiB limit.", content: { "application/json": { schema: { type: "object" } } } },
+        },
+      },
+    },
     "/api/v1/play/tutorial/{section_id}": {
       get: {
         tags: ["play"],

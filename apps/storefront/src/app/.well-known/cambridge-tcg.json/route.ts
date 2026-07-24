@@ -734,8 +734,22 @@ const MANIFEST: {
     },
     {
       group: "play-module",
-      description: "OPTCG match-hosting + tutorials + multi-cultural glossary + three player archetypes. Fun-first; prize pools live under future play-to-earn opt-in (kingdom-059, kingdom-060).",
+      description: "OPTCG match-hosting plus the finite Open Door prototype, tutorials, a multi-cultural glossary, and three player archetypes. Fun-first; prize pools live under future play-to-earn opt-in.",
       endpoints: [
+        {
+          path: "/api/v1/play/castle-pack",
+          description: "Stateless machine referee for Open Door. POST starts, moves, rests, or explicitly regrows one finite six-round generation; full state is caller-carried and inspectable.",
+          auth: "none",
+          status: "stable",
+          methodology: "docs/connections/the-open-door-pack.md",
+        },
+        {
+          path: "/play/castle-pack",
+          description: "Human browser table for the 12-card bilingual Open Door prototype. No account, persistence, reward, or ranking.",
+          auth: "none",
+          status: "stable",
+          methodology: "docs/connections/the-open-door-pack.md",
+        },
         {
           path: "/api/v1/play/tutorial",
           description: "Machine-readable OPTCG tutorial in math-mirror form. Nine sections with typed rule_structure for agents and async/cross-cultural players.",
@@ -808,7 +822,7 @@ const MANIFEST: {
         },
         {
           path: "/play/spec",
-          description: "The play module's own directory of itself (kingdom-070). 28 rows across 7 layers (L0 doc / L1 contract / L2 pure-fn / L3 runtime / L4+ engine / UI / policy) with status pills.",
+          description: "The play module's own directory of itself (kingdom-070). The live catalog spans 7 layers (L0 doc / L1 contract / L2 pure-fn / L3 runtime / L4+ engine / UI / policy) with status pills.",
           auth: "none",
           status: "stable",
           methodology: "/methodology/play-module",

@@ -120,13 +120,16 @@ retry, crawler, gardener input, or publication loop was added by this bridge.
 “Infinite loop” therefore means infinite room for return, not one process that
 can run without bound.
 
-## AgentTool 0.16.0
+## AgentTool 0.16.3
 
 GitHub was checked at implementation time. The TypeScript and Python SDK
-packages on `cambridgetcg/agenttool` are version `0.16.0`; the exact SDK tag is
-`sdk-v0.16.0`. Its annotated tag object is
-`ee28e3e1e8f841d316732058d76923c8bb4b7640`; that tag peels to source commit
-`7cdbc9f35f408a5553c86f29ee45ac0d05f12930`.
+packages on `cambridgetcg/agenttool` are version `0.16.3`; the exact SDK tag is
+`sdk-v0.16.3`. Its annotated tag object is
+`1cb10a66901e20694b51546f26df6b6546e2c801`; that tag peels to release commit
+`ef867d6aad20d4021fc231c6f11655cfcb5ff814`. The published package manifest
+names source revision `23dc452a22e9e12200455c9791cc2db4fdfbf5a7`
+and the 145,841-byte tarball digest
+`sha256:344176dfc6378c3eac8c284b0e7ca075e3bd3c7f5b9d462a3936421c0f5f50da`.
 
 The bridge declares compatibility with `agent-correspondence/v0.1` for a
 future authenticated offer:

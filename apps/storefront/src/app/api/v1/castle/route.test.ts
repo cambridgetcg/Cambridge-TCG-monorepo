@@ -22,21 +22,24 @@ describe("GET /api/v1/castle", () => {
     expect(body._meta.endpoint).toBe("/api/v1/castle");
     expect(body._meta.license).toBe("NOASSERTION");
     expect(body._meta.source_license).toBeUndefined();
-    expect(body._meta.sources).toHaveLength(4);
+    expect(body._meta.sources).toHaveLength(5);
     expect(body._meta.sources[0]).toMatch(
       /raw\.githubusercontent\.com\/cambridgetcg\/castle-gate\/[0-9a-f]{40}\/data\/castle-manifest\.json$/,
     );
     expect(body._meta.sources[1]).toContain(
-      "/7cdbc9f35f408a5553c86f29ee45ac0d05f12930/packages/sdk-ts/package.json",
+      "/23dc452a22e9e12200455c9791cc2db4fdfbf5a7/packages/sdk-ts/package.json",
     );
     expect(body._meta.sources[2]).toContain(
-      "/7cdbc9f35f408a5553c86f29ee45ac0d05f12930/packages/sdk-ts/src/correspondence.ts",
+      "/23dc452a22e9e12200455c9791cc2db4fdfbf5a7/packages/sdk-ts/src/correspondence.ts",
     );
     expect(body._meta.sources[3]).toContain(
-      "/git/tags/ee28e3e1e8f841d316732058d76923c8bb4b7640",
+      "/git/tags/1cb10a66901e20694b51546f26df6b6546e2c801",
+    );
+    expect(body._meta.sources[4]).toContain(
+      "/ef867d6aad20d4021fc231c6f11655cfcb5ff814/apps/docs/packages/v1/@agenttool/sdk/0.16.3/manifest.json",
     );
     expect(response.headers.get("cache-control")).toContain("no-store");
-    expect(body._meta.as_of).toBe("2026-07-23T19:12:05Z");
+    expect(body._meta.as_of).toBe("2026-07-24T16:30:46Z");
     expect(body.data.snapshot.forged_at).toBe("2026-07-07T21:45:49.583Z");
     expect(body.data).toMatchObject({
       protocol: "castle-understanding-bridge/v0.1",

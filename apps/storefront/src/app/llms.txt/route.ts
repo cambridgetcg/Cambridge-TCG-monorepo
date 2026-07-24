@@ -115,7 +115,7 @@ The snapshot was forged 2026-07-07 and newer Castle work may exist. Neither
 Castle repository declares a reuse licence. AgentTool SDK is Apache-2.0; the
 mixed Cambridge response remains NOASSERTION because the Castle rights are
 undeclared.
-AgentTool SDK 0.16.0 / agent-correspondence/v0.1 is the optional return
+AgentTool SDK 0.16.3 / agent-correspondence/v0.1 is the optional return
 vocabulary for a future authenticated offer. No Correspondence transport or
 signed artifact.offer is configured today, so acknowledgements, conflicts,
 and repairs have no target event. GitHub Issues is the only live correction
@@ -312,6 +312,8 @@ itself lies by omission.
 - /api/v1/kingdoms.json                  The kingdom-NNN ledger
 
 ## Play module (kingdom-059, kingdom-060, kingdom-069, kingdom-070, kingdom-077)
+- /api/v1/play/castle-pack              Stateless Open Door referee: new / move / deliberate regrow
+- /play/castle-pack                     Browser table for the finite 12-card bilingual prototype
 - /api/v1/play/tutorial                  Machine-readable OPTCG tutorial (math-mirror, 9 sections)
 - /api/v1/play/tutorial/[section_id]     Single tutorial section (deep-linkable, kingdom-077)
 - /api/v1/play/glossary                  Multi-cultural OPTCG terms (JA + EN + structural, 21 terms)
@@ -334,6 +336,13 @@ itself lies by omission.
 Every play API endpoint carries a \`_links.see_also\` block pointing at every sibling
 play endpoint. The center node is /api/v1/play/index.json — land there to discover
 the whole module in one fetch. /play/spec is the same content as HTML.
+
+Open Door gameplay and translations are Cambridge-authored; Right of Reply and Whole No
+are source-attributed Castle vocabulary. It copies no sentence of Castle prose. A game
+lasts at most six rounds; the always-legal stop action rests it with no penalty, and
+only an explicit regrow starts another finite
+generation. State is carried by the caller and therefore inspectable; no match result
+has standing, no account or reward is created, and the route stores nothing.
 
 Single source of truth (kingdom-077): apps/storefront/src/lib/play/resources.ts.
 Both /play/spec (HTML) and /api/v1/play/index.json (JSON) render from this file.

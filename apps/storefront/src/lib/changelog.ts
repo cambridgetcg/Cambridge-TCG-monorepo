@@ -93,6 +93,24 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-07-24 ─────────────────────────────────────────────────────────
+  {
+    id: "castle-open-door-pack",
+    date: "2026-07-24",
+    kind: "endpoint-added",
+    impact: "additive",
+    surface: "/play/castle-pack + /api/v1/play/castle-pack",
+    summary:
+      "Opened a finite, stateless table for the 12-card Castle of Understanding — Open Door prototype.",
+    detail:
+      "Cambridge authored the gameplay, Traditional Chinese translations, and ten names; Right of Reply and Whole No are source-attributed Castle vocabulary. The fixed set has no assigned rarity, copies no sentence of Castle prose, and infers no reuse rights. Every game lasts at most six rounds; rest is always legal and unpenalized; another generation starts only through explicit regrow. Caller-carried state is inspectable, nothing is persisted, and results have no standing, rewards, ranking, or commerce meaning.",
+    related_urls: [
+      "/play/castle-pack",
+      "/api/v1/play/castle-pack",
+      "/api/v1/play/index.json",
+      "/docs/connections/the-open-door-pack.md",
+    ],
+  },
   // ── 2026-07-23 ─────────────────────────────────────────────────────────
   {
     id: "castle-understanding-bridge",

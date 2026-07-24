@@ -744,6 +744,27 @@ export default function PlayPage() {
           )}
         </section>
 
+        <section className="rounded-lg border border-accent/40 bg-accent-wash p-5 sm:flex sm:items-center sm:justify-between sm:gap-8">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-accent">
+              expansion table · no deck needed
+            </p>
+            <h2 className="mt-1 font-display text-2xl font-semibold text-ink">
+              Castle of Understanding — Open Door
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
+              Two local seats, twelve provenance-labelled cards, six finite
+              rounds. Rest whenever you wish; nobody loses for leaving whole.
+            </p>
+          </div>
+          <Link
+            href="/play/castle-pack"
+            className="mt-4 inline-flex shrink-0 rounded-lg border border-ink bg-ink px-5 py-2.5 text-sm font-semibold text-page transition hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:mt-0"
+          >
+            Open the table
+          </Link>
+        </section>
+
         {/* ============================================================ */}
         {/*  Utility row — quick links                                   */}
         {/* ============================================================ */}

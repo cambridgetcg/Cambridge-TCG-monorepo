@@ -38,7 +38,7 @@ export const CASTLE_UNDERSTANDING = {
   protocol: CASTLE_UNDERSTANDING_BRIDGE_PROTOCOL,
   kind: "read_only_reference_bridge",
   status: "active",
-  checked_at: "2026-07-23T19:12:05Z",
+  checked_at: "2026-07-24T16:30:46Z",
   name: "The Castle of Understanding",
   summary:
     "A source-pinned door from Cambridge TCG to one curated public Castle snapshot. Causes, limits, and repair paths travel with the reference.",
@@ -136,12 +136,21 @@ export const CASTLE_UNDERSTANDING = {
   },
   agenttool: {
     package: "@agenttool/sdk",
-    version: "0.16.0",
+    version: "0.16.3",
     license: "Apache-2.0",
-    git_tag: "sdk-v0.16.0",
-    git_revision: "7cdbc9f35f408a5553c86f29ee45ac0d05f12930",
-    git_tag_object: "ee28e3e1e8f841d316732058d76923c8bb4b7640",
+    git_tag: "sdk-v0.16.3",
+    git_revision: "23dc452a22e9e12200455c9791cc2db4fdfbf5a7",
+    git_tag_revision: "ef867d6aad20d4021fc231c6f11655cfcb5ff814",
+    git_tag_object: "1cb10a66901e20694b51546f26df6b6546e2c801",
     repository: "https://github.com/cambridgetcg/agenttool",
+    package_manifest:
+      "https://raw.githubusercontent.com/cambridgetcg/agenttool/ef867d6aad20d4021fc231c6f11655cfcb5ff814/apps/docs/packages/v1/@agenttool/sdk/0.16.3/manifest.json",
+    artifact: {
+      media_type: "application/gzip",
+      bytes: 145_841,
+      digest:
+        "sha256:344176dfc6378c3eac8c284b0e7ca075e3bd3c7f5b9d462a3936421c0f5f50da",
+    },
     protocol: "agent-correspondence/v0.1",
     mode: "future_client_compatibility",
     runtime_dependency: false,

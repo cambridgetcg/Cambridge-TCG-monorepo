@@ -73,6 +73,7 @@ export async function GET() {
           effect_grammar: PLAY_API_SIBLINGS.effect_grammar,
           deck_validate: PLAY_API_SIBLINGS.deck_validate,
           example_match: PLAY_API_SIBLINGS.example_match,
+          castle_pack: PLAY_API_SIBLINGS.castle_pack,
         },
         openapi: "/api/openapi.json#/paths/~1api~1v1~1play~1index.json/get",
       },

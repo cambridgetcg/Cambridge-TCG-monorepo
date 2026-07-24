@@ -32,6 +32,7 @@ export const metadata: Metadata = {
     "play:effect_grammar_json": "/api/v1/play/effect-grammar",
     "play:deck_validate_json": "/api/v1/play/deck/validate",
     "play:example_match_json": "/api/v1/play/example-match",
+    "play:castle_pack_json": "/api/v1/play/castle-pack",
     "play:methodology": "/methodology/play-module",
     "play:manifest": "/api/v1/manifest",
     "play:fun_first": "true",

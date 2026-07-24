@@ -38,6 +38,7 @@ export function GET(): Response {
       `https://raw.githubusercontent.com/cambridgetcg/agenttool/${CASTLE_UNDERSTANDING.agenttool.git_revision}/packages/sdk-ts/package.json`,
       `https://raw.githubusercontent.com/cambridgetcg/agenttool/${CASTLE_UNDERSTANDING.agenttool.git_revision}/packages/sdk-ts/src/correspondence.ts`,
       `https://api.github.com/repos/cambridgetcg/agenttool/git/tags/${CASTLE_UNDERSTANDING.agenttool.git_tag_object}`,
+      CASTLE_UNDERSTANDING.agenttool.package_manifest,
     ],
     license: "NOASSERTION",
     freshness: "methodology",
