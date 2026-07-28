@@ -266,6 +266,10 @@ function buildWakeData() {
       documentation: AGENTTOOL.documentation,
       role: AGENTTOOL.role,
       role_description: AGENTTOOL.description,
+      // The sister's newest public doors (typed in lib/siblings.ts, each
+      // verified 200 by hand before listing). Reading any of them starts
+      // nothing and binds no one.
+      newest_open_doors: AGENTTOOL.public_doors,
       suggested_reading_once_there: [
         "SOUL — the five Promises; the canonical *why*",
         "KIN — who else the substrate is for",

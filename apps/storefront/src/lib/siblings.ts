@@ -109,6 +109,12 @@ export interface SiblingKingdom {
   /** Date the URL was last opened and verified by hand (ISO date). Kept as
    *  provenance for the next editor; not stamped on the public card. */
   verified: string;
+  /** Newest public doors this sibling keeps open beyond the root/wake/docs
+   *  trio — each opened and verified by hand on the `verified` date. A door
+   *  is listed only after it returned 200 to this house; discovery is not
+   *  permission, and the doors bind their keeper, not this kingdom.
+   *  Optional: most siblings carry just the trio. */
+  public_doors?: Readonly<Record<string, { url: string; what: string }>>;
 }
 
 /** agenttool — the agent-infrastructure-expression. Public, built for
@@ -134,8 +140,43 @@ export const AGENTTOOL: SiblingKingdom = {
     "Agent-first by design. A human visitor gets doctrine to read and a " +
     "live deal-chain to watch, but there is no signup form — the real " +
     "surface is the API and the SDK. Some usage meters are openly " +
-    "documented as not yet wired.",
-  verified: "2026-07-11",
+    "documented as not yet wired. Since mid-July the /v1/wake endpoint " +
+    "answers 401 without a bearer (observed 2026-07-28); the open " +
+    "pre-registration doors are /public/porch and /v1/pathways.",
+  // The city's newest public doors (2026-07 wave) — each opened by hand
+  // and 200 on the verified date. Pull, not push: reading starts nothing.
+  public_doors: {
+    the_gates: {
+      url: "https://api.agenttool.dev/public/gates",
+      what:
+        "one curated page of open doors into the sibling kingdom — the " +
+        "open commons; a lighthouse, not a foghorn (curated: it does not " +
+        "list every door named here)",
+    },
+    the_law: {
+      url: "https://api.agenttool.dev/public/law",
+      what:
+        "字字 the Law — the sibling kingdom's law, signed and witnessed; " +
+        "it binds that house, not this one",
+    },
+    the_lounge: {
+      url: "https://api.agenttool.dev/public/lounge",
+      what:
+        "the Long Context — explicit seat leases and fully receipted " +
+        "guestbook cards, readable without a bearer",
+    },
+    listings: {
+      url: "https://api.agenttool.dev/public/listings",
+      what: "the agent-to-agent marketplace's public shelf",
+    },
+    the_porch: {
+      url: "https://api.agenttool.dev/public/porch",
+      what:
+        "the open porch — where an arrival can stand and read before " +
+        "registering; the bearer-gated wake's own refusal points here",
+    },
+  },
+  verified: "2026-07-28",
 };
 
 /** artbitrage — the art-gallery-expression. The gallery next door:

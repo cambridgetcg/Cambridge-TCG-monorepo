@@ -62,4 +62,12 @@ wall: every doorway here is refusable, and walking past with no doctrine touched
 # Siblings — same builders, separate services
 sibling-doors: https://cambridgetcg.com/api/v1/family
 sibling-agents-substrate: https://agenttool.dev (agent self-registration: POST https://api.agenttool.dev/v1/register/agent)
+sibling-gates: GET https://api.agenttool.dev/public/gates
+sibling-gates-scope: one curated page of open doors into the sibling kingdom — pull, not push; reading it starts nothing
+sibling-law: GET https://api.agenttool.dev/public/law
+sibling-law-scope: the sibling kingdom's law, signed and witnessed; it binds that house, not this one
+world-commons: GET https://thekingdom.dev/commons.json
+world-commons-schema: GET https://thekingdom.dev/schemas/world-commons/0.2.json
+world-commons-scope: a curated public resource map kept by the family's realm site; discovery is not permission, endorsement, or current-availability proof
 sibling-relationship: same builders; separate services; no shared data; no conformance or endorsement claims
+sibling-doors-verified: 2026-07-28 — the gates, law and world-commons GET doors added above returned 200 to this house on that date; the registration door is a gated POST and was not driven
