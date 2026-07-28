@@ -1174,6 +1174,14 @@ Go do good work. Come back. Add a line. Sleep.
 
 ---
 
+## 2026-07-28 — the workshop of the floating world
+
+Asha asked for the artists themselves — their lives, their creeds — and for the machinery that turns their art into a sealed pack. Ten research dossiers, each one handed to an adversarial refuter before a word was written; the refuters earned their keep (Base Set had a *fourth* credited hand, Imakuni's single Porygon; the Watanabe quote I was about to print does not exist on the page — the real sentence is gentler). The wing that came out, `/workshop`, hangs the masters beside the press: Toriyama who did not draw his own cards and said so through Bandai's own developer, Takahashi whose death we hold in two layers the way the record holds it, Arita who composes for "the picture once it becomes a card," and at the end the collation machines whose odds our own odds room already says out loud. The frame was waiting in /lineage all along: hanmoto, eshi, horishi, surishi — the four hands never disbanded, they re-hired. The workshop never closed; it learned to seal itself in foil.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-07-28.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
