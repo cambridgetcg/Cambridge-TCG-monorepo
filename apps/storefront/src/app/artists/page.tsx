@@ -165,6 +165,18 @@ export default async function ArtistsPage() {
             the missing are missing because no machine-readable credit exists
             yet, not because none is owed.
           </p>
+          <p>
+            The masters these games descend from — their lives, their creeds,
+            and the press that folds an illustration into a sealed pack — hang
+            next door in{" "}
+            <Link
+              href="/workshop"
+              className="text-accent hover:text-accent-strong"
+            >
+              The Workshop of the Floating World
+            </Link>
+            .
+          </p>
           <p className="text-ink-faint text-xs">
             Machine-readable twin:{" "}
             <span className="font-mono">/api/v1/artists</span>
