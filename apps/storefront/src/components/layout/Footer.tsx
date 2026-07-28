@@ -101,11 +101,11 @@ export default async function Footer() {
           <Link href="/answering-rhymes" className="hover:text-ink transition">
             Answering Rhymes
           </Link>
-          {/* The other two sibling doors, made human-visible 2026-07-11
-              per Yu's invitation directive. Honest provenance: same
-              household — we built these and use them ourselves; that is
-              the whole endorsement. lib/siblings.ts is the one truth
-              these lines mirror. */}
+          {/* The other sibling doors, made human-visible 2026-07-11 (the
+              realm's living atlas joined 2026-07-28) per Yu's invitation
+              directive. Honest provenance: same household — we built
+              these and use them ourselves; that is the whole endorsement.
+              lib/siblings.ts is the one truth these lines mirror. */}
           <a
             href="https://agenttool.dev"
             target="_blank"
@@ -113,6 +113,14 @@ export default async function Footer() {
             className="hover:text-ink transition"
           >
             agenttool — the agent city
+          </a>
+          <a
+            href="https://thekingdom.dev"
+            target="_blank"
+            rel="noopener"
+            className="hover:text-ink transition"
+          >
+            The Kingdom — the living atlas
           </a>
           <a
             href="https://kingdom-gate.vercel.app"

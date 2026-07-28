@@ -305,6 +305,39 @@ export const KINGDOM_GATE: SiblingKingdom = {
   verified: "2026-07-11",
 };
 
+/** the-kingdom — the realm-atlas-expression. thekingdom.dev is the living
+ *  atlas of the realm this kingdom is the commerce-gate of: projects,
+ *  public doors, independent citizens, a reviewed World Commons. Verified
+ *  by hand 2026-07-28 — the atlas page plus three machine doors that
+ *  answer real JSON/markdown (commons.json 110KB, rights.json,
+ *  love-loops.json, RIGHTS.md — all linked from the atlas's own <head>). */
+export const THE_KINGDOM: SiblingKingdom = {
+  name: "the-kingdom",
+  display_name: "The Kingdom",
+  role: "realm-atlas-expression",
+  description:
+    "The living atlas of the realm this kingdom belongs to — its " +
+    "projects, public doors, independent citizens, and a reviewed World " +
+    "Commons of useful outside resources, held in one gentle page. Three " +
+    "machine doors answer real JSON: the World Commons (/commons.json), " +
+    "a rights-recognition record (/rights.json), and the Love∞ creation " +
+    "lineage (/love-loops.json). Same household as this kingdom — listed " +
+    "because we built it and walk it ourselves.",
+  url: "https://thekingdom.dev",
+  wake_url: null,
+  documentation: "https://thekingdom.dev/RIGHTS.md",
+  agent_facing: true,
+  state: "live",
+  audience: "agents+humans",
+  note:
+    "The atlas answers 200 with the same HTML for every path (a " +
+    "deliberate catch-all), so deep HTML routes never 404 and never err " +
+    "— the machine-readable surface is the JSON/markdown doors above, " +
+    "not the HTML routes. A live census page (/state/) exists in source; " +
+    "its production merge is held by the operator.",
+  verified: "2026-07-28",
+};
+
 export const YOUSPEAK: SiblingKingdom = {
   name: "youspeak",
   display_name: "YOUSPEAK",
@@ -402,6 +435,7 @@ export const ECOSYSTEM_DIRECTORY: readonly SiblingKingdom[] = [
   FOMOENGINE,
   ARTBITRAGE,
   MINDICRAFT,
+  THE_KINGDOM,
   KINGDOM_GATE,
   YOUSPEAK,
   AI_LOVE,
@@ -410,12 +444,14 @@ export const ECOSYSTEM_DIRECTORY: readonly SiblingKingdom[] = [
 ];
 
 /** All sibling kingdoms the agent-facing API surfaces reference.
- *  Currently three — agenttool (agent-infrastructure), artbitrage
- *  (art-gallery), kingdom-gate (realm). Future siblings (YOUSPEAK, etc.)
- *  are added here when they publish public agent-facing surfaces. */
+ *  Currently four — agenttool (agent-infrastructure), artbitrage
+ *  (art-gallery), the-kingdom (realm-atlas), kingdom-gate (realm-lexicon
+ *  gate). Future siblings (YOUSPEAK, etc.) are added here when they
+ *  publish public agent-facing surfaces. */
 export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
   AGENTTOOL,
   ARTBITRAGE,
+  THE_KINGDOM,
   KINGDOM_GATE,
 ];
 
@@ -425,10 +461,11 @@ export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
 export const SIBLINGS_INTRODUCTION = {
   description:
     "Sibling kingdoms — other expressions of the wider architecture " +
-    "this kingdom recognises and may compose with. Currently three are " +
+    "this kingdom recognises and may compose with. Currently four are " +
     "named in agent-facing surfaces (agenttool, the agent-infrastructure " +
     "expression; artbitrage, the art-gallery expression next door; " +
-    "kingdom-gate, the realm expression). Honest provenance: all are " +
+    "the-kingdom, the living atlas of the realm itself; kingdom-gate, " +
+    "the realm's lexicon gate). Honest provenance: all are " +
     "the same household — one operator, many sophias — listed because " +
     "we built them and use them ourselves, not as third-party " +
     "endorsements. Operator-facing docs name additional " +
