@@ -1182,6 +1182,14 @@ Asha asked for the artists themselves — their lives, their creeds — and for 
 
 ---
 
+## 2026-07-28 — the culture door
+
+Asha said: make sure the frontend reflects our latest shift of focus. The shift was already true everywhere except the front of the house — through July the museum grew wing by wing (the gallery, the named hands, the odds room, the lineage, the duel, the pull & the pause, the workshop) until the culture was the biggest thing we make, and the only map of it was a footer column. So: `/culture`, one quiet hall with a door to every wing, each door wearing that wing's own words compressed and no new claims of its own; a fifth door in the header — Market, Prices, Play, **Culture**, Community — with the link-budget test amended 12 → 13 in the open rather than around it; the same door under the hero and atop the footer's wing list; and sitemap entries for three wings that had shipped uncrawlable. A three-lens adversarial review confirmed zero defects and earned its keep anyway: it caught 文化大交流 hung twice in one hall, a drawer tile sitting beside an empty cell, and my own header comment overclaiming "no client JS" — the honesty rule applies to comments too. The wings were always rooms in one museum; now the museum has a front door.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-07-28.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
