@@ -11,12 +11,16 @@ import type { NavItem } from "./menu-config";
 
 describe("storefront navigation", () => {
   it("keeps the global header within a human-scannable link budget", () => {
-    expect(PRIMARY_NAV_ITEMS).toHaveLength(4);
+    // Five doors since 2026-07-28: Culture joined Market/Prices/Play/
+    // Community when the culture wings became the house's focus. The
+    // budget moved 12 → 13 for that one door — a deliberate amendment,
+    // not drift.
+    expect(PRIMARY_NAV_ITEMS).toHaveLength(5);
     expect(
       MORE_NAV_GROUPS.reduce((total, group) => total + group.items.length, 0),
     ).toBe(6);
     expect(MORE_NAV_FOOTER).toHaveLength(2);
-    expect(collectNavUrls().length).toBeLessThanOrEqual(12);
+    expect(collectNavUrls().length).toBeLessThanOrEqual(13);
   });
 
   it("does not repeat destinations", () => {
@@ -32,7 +36,9 @@ describe("storefront navigation", () => {
     expect(isNavItemActive(PRIMARY_NAV_ITEMS[0], "/auctions/123")).toBe(true);
     expect(isNavItemActive(PRIMARY_NAV_ITEMS[1], "/prices/one-piece/op01")).toBe(true);
     expect(isNavItemActive(PRIMARY_NAV_ITEMS[2], "/deck-builder")).toBe(true);
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[3], "/rewards/packs")).toBe(true);
+    expect(isNavItemActive(PRIMARY_NAV_ITEMS[3], "/workshop")).toBe(true);
+    expect(isNavItemActive(PRIMARY_NAV_ITEMS[3], "/pulls/one-piece")).toBe(true);
+    expect(isNavItemActive(PRIMARY_NAV_ITEMS[4], "/rewards/packs")).toBe(true);
     expect(isNavItemActive(PRIMARY_NAV_ITEMS[0], "/community")).toBe(false);
   });
 

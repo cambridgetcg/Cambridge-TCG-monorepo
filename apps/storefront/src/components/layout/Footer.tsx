@@ -84,7 +84,9 @@ export default async function Footer() {
               lineage), the deep culture behind Yu-Gi-Oh (ancient games, Egypt,
               the duel of souls), the feeling of the game made to touch
               (the pull & the pause), and the masters + the press that folds
-              their art into packs (the workshop). */}
+              their art into packs (the workshop). /culture is their hub —
+              the header's fifth door since 2026-07-28. */}
+          <Link href="/culture" className="hover:text-ink transition">Culture — the museum&apos;s wings</Link>
           <Link href="/lineage" className="hover:text-ink transition">The Lineage of the Line</Link>
           <Link href="/duel-of-souls" className="hover:text-ink transition">The Duel of Souls</Link>
           <Link href="/pull-and-pause" className="hover:text-ink transition">The Pull &amp; the Pause</Link>

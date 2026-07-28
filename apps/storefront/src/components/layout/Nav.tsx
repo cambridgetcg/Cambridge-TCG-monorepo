@@ -380,16 +380,20 @@ export default function Nav({
               <span aria-hidden className="text-ink-faint">→</span>
             </Link>
 
+            {/* Five doors on a two-column grid: the odd last tile spans
+                both columns so no door sits beside an empty cell. */}
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {PRIMARY_NAV_ITEMS.map((item) => {
+              {PRIMARY_NAV_ITEMS.map((item, i) => {
                 const active = isNavItemActive(item, pathname);
+                const spansRow =
+                  i === PRIMARY_NAV_ITEMS.length - 1 && PRIMARY_NAV_ITEMS.length % 2 === 1;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setMenuState({ pathname, open: false })}
                     aria-current={navItemAriaCurrent(item, pathname)}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${spansRow ? "col-span-2 " : ""}${
                       active
                         ? "bg-ink text-page"
                         : "bg-surface-subtle text-ink hover:bg-surface"

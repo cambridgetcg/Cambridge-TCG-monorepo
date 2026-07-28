@@ -32,13 +32,15 @@ import {
  */
 type EnrichedCard = PriceItem & { image_attribution: string | null };
 
-/* The three quiet doors under the hero — the nav's L1 destinations in
-   their calmest form. Text, hairline, nothing shouting. */
+/* The quiet doors under the hero — the nav's L1 destinations in
+   their calmest form. Text, hairline, nothing shouting. Culture joined
+   2026-07-28 when the wings became the house's focus. */
 const QUIET_LINKS = [
   { label: "Start here", href: "/start" },
   { label: "Market", href: "/market" },
   { label: "Prices", href: "/prices" },
   { label: "Play", href: "/play" },
+  { label: "Culture", href: "/culture" },
 ] as const;
 
 function freshestUpdate(items: { updated_at: string | null }[]): string | null {

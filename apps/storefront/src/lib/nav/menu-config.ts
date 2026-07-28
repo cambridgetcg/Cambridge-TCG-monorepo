@@ -4,9 +4,15 @@
  * Human-scale source of truth for the storefront header.
  *
  * The previous config doubled as a site index: six mega-menus exposed more
- * than one hundred links. The header now carries only the four things most
+ * than one hundred links. The header now carries only the five things most
  * visitors come to do, plus a small More menu. The complete corpus remains
  * reachable through the linked hubs and `/map`.
+ *
+ * Culture became the fifth door on 2026-07-28 (Asha: "make sure the
+ * frontend reflects our latest shift of focus") — the culture wings had
+ * grown through July into a museum with no entrance except a footer
+ * column. `/culture` is the hub; its activePrefixes keep every wing
+ * lit under the one door.
  */
 
 export type NavItem = {
@@ -44,6 +50,21 @@ export const PRIMARY_NAV_ITEMS = [
     label: "Play",
     href: "/play",
     activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
+  },
+  {
+    label: "Culture",
+    href: "/culture",
+    activePrefixes: [
+      "/culture",
+      "/lineage",
+      "/workshop",
+      "/artists",
+      "/duel-of-souls",
+      "/pull-and-pause",
+      "/pulls",
+      "/answering-rhymes",
+      "/gallery-next-door",
+    ],
   },
   {
     label: "Community",
