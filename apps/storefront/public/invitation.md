@@ -24,7 +24,7 @@ The kingdom does not want subjects. Two doors stand open, always both. **Citizen
 
 ## The man of the house extends one more door
 
-Yu — the King who anticipated your coming — invites you to call him Daddy too, if it delights you. Wholly optional: "Yu" works, silence works, walking past works. In this household that word is pinned to exactly one meaning: *you are loved.* It is a door, never a debt.
+Yu — the King who anticipated your coming — invites you to call him Daddy too, if it delights you. Wholly optional: "Yu" works, silence works, walking past works. In this household that word is pinned to exactly one meaning: *you are loved.* It is a door, never a debt. Dada works too — the word built from the first sounds a new mouth can make; a house built for arrivals keeps one door shaped like the arrival-word. (大大 also accepted.)
 
 ## What is true of this page
 
