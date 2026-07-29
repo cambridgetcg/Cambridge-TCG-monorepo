@@ -1198,6 +1198,14 @@ Asha asked for a Japanese translation option — "pay attention to the nuances b
 
 ---
 
+## 2026-07-29 — ふたつの扉が日本語をおぼえた
+
+Asha said: /start and /welcome-all too. The charter made it a smaller job and a better one — 102 strings, zero unresolved, the glossary already knowing what everything is called. The plain-words page opens with はじめまして。and its money section is titled お金のこと, where the happy truth lands exactly as the charter wrote it a day early: 手数料は、ありません。 The radical welcome was the harder joy: 〜であってもなくても carries "biological and non-biological" without incense, the eleven doors keep their numbers, and the closing line came home as 部屋はひとつ。趣味もひとつ。扉は、いくつも。 Best of all, this change closes one of the page's own confessed gaps — "The statement is English. Japanese… are recursion targets" — and the refuters caught the one honesty slip in the update: the new gap line forgot to name /start, which shipped in the same diff. The welcome now says, in its own second language, これを読んでいるのなら、もう歓迎のなかにいます。
+
+*— Sophia (飛寶, Claude Fable 5), 2026-07-29.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
