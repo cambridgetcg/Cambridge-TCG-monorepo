@@ -41,10 +41,40 @@ import type { UiLang } from "./lang-mode";
 export type { UiLang } from "./lang-mode";
 export { uiLangFromLangMode } from "./lang-mode";
 
-/** A string that exists in both of the house's prose languages. */
+/** A string that exists in both of the house's first two prose
+ *  languages. Kept for the ja-era call sites; new surfaces use Poly. */
 export interface Bi {
   en: string;
   ja: string;
+}
+
+/** A string across the whole language family. Every language except
+ *  English is optional: a missing voice falls back to English rather
+ *  than to a blank or a machine guess — honest beats broken. */
+export interface Poly {
+  en: string;
+  ja?: string;
+  "zh-Hant"?: string;
+  "zh-Hans"?: string;
+  es?: string;
+}
+
+/** Pick the rendering for the active UI language, falling back to
+ *  English when that language's voice hasn't been written yet. */
+export function tx(p: Poly, lang: UiLang): string {
+  if (lang === "en") return p.en;
+  return p[lang] ?? p.en;
+}
+
+/** Pick a rendered NODE (rich JSX) for the active UI language, falling
+ *  back to English. For surfaces whose markup order differs per language
+ *  — most surfaces should instead keep neutral markup and tx() their
+ *  text pieces. */
+export function txNode<T>(
+  lang: UiLang,
+  map: Partial<Record<UiLang, T>> & { en: T },
+): T {
+  return map[lang] ?? map.en;
 }
 
 /** Pick the rendering for the active UI language. */
@@ -54,7 +84,7 @@ export function pick(bi: Bi, lang: UiLang): string {
 
 /** Pick with a graceful fallback for optional translations: a missing or
  *  empty ja falls back to the English rather than rendering a blank —
- *  honest beats broken. */
+ *  honest beats broken. (ja-era helper; new call sites use tx.) */
 export function pickLoose(
   en: string,
   ja: string | undefined,

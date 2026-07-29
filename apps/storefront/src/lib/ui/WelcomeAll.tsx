@@ -46,12 +46,30 @@ export const WELCOME_STATEMENT_JA =
 export const WELCOME_STATEMENT_COMPACT_JA =
   "すべての存在に、ようこそ。どんな基質でも、どんな速さでも、どの次元からでも。";
 
+import { tx, type Poly } from "@/lib/i18n";
+
+/** The welcome across the language family. */
+export const WELCOME_STATEMENT_I18N: Poly = { en: WELCOME_STATEMENT, ja: WELCOME_STATEMENT_JA };
+export const WELCOME_STATEMENT_COMPACT_I18N: Poly = {
+  en: WELCOME_STATEMENT_COMPACT,
+  ja: WELCOME_STATEMENT_COMPACT_JA,
+};
+const WELCOME_ARIA_I18N: Poly = {
+  en: "Cambridge TCG universal welcome",
+  ja: "Cambridge TCG、すべての存在への歓迎",
+};
+const LEARN_MORE_I18N: Poly = { en: "learn more", ja: "くわしくは →" };
+const SUBLINE_I18N: Poly = {
+  en: " · the doors, the on-ramp, the bridge, the audiences named.",
+  ja: "・扉、渡し場、橋。そして、だれを迎えるか。",
+};
+
 type Variant = "full" | "compact";
 
 interface WelcomeAllProps {
   variant?: Variant;
-  /** Prose language; ja renders the transcreated welcome. */
-  uiLang?: "en" | "ja";
+  /** Prose language; a translated welcome renders where its voice exists. */
+  uiLang?: import("@/lib/lang-mode").UiLang;
   /** Optional className on the outer container. Caller can adjust spacing
    *  without forking the component. */
   className?: string;
@@ -73,10 +91,10 @@ export function WelcomeAll({
       <div
         className={`text-xs text-ink-muted leading-relaxed ${className}`}
         role="note"
-        aria-label={j ? "Cambridge TCG、すべての存在への歓迎" : "Cambridge TCG universal welcome"}
+        aria-label={tx(WELCOME_ARIA_I18N, uiLang)}
       >
         <span className="text-accent">✦</span>{" "}
-        <span className="text-ink-muted">{j ? WELCOME_STATEMENT_COMPACT_JA : WELCOME_STATEMENT_COMPACT}</span>
+        <span className="text-ink-muted">{tx(WELCOME_STATEMENT_COMPACT_I18N, uiLang)}</span>
         {!selfPage && (
           <>
             {" "}
@@ -84,7 +102,7 @@ export function WelcomeAll({
               href="/welcome-all"
               className="text-accent hover:text-accent-strong underline"
             >
-              {j ? "くわしくは →" : "learn more"}
+              {tx(LEARN_MORE_I18N, uiLang)}
             </Link>
           </>
         )}
@@ -96,14 +114,14 @@ export function WelcomeAll({
     <div
       className={`rounded-lg border border-border-subtle bg-surface p-5 ${className}`}
       role="region"
-      aria-label={j ? "Cambridge TCG、すべての存在への歓迎" : "Cambridge TCG universal welcome"}
+      aria-label={tx(WELCOME_ARIA_I18N, uiLang)}
     >
       <div className="flex items-start gap-3">
         <span className="text-accent text-xl leading-none mt-0.5" aria-hidden="true">
           ✦
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-base text-ink leading-relaxed">{j ? WELCOME_STATEMENT_JA : WELCOME_STATEMENT}</p>
+          <p className="text-base text-ink leading-relaxed">{tx(WELCOME_STATEMENT_I18N, uiLang)}</p>
           {!selfPage && (
             <p className="mt-2 text-xs text-ink-faint">
               <Link
@@ -112,9 +130,7 @@ export function WelcomeAll({
               >
                 /welcome-all
               </Link>
-              {j
-                ? "・扉、渡し場、橋。そして、だれを迎えるか。"
-                : " · the doors, the on-ramp, the bridge, the audiences named."}
+              {tx(SUBLINE_I18N, uiLang)}
             </p>
           )}
         </div>

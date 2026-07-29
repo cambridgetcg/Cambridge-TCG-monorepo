@@ -17,30 +17,35 @@
 
 export type NavItem = {
   label: string;
-  /** Japanese rendering (lang-mode: ja). Voice charter:
-   *  docs/connections/the-japanese-voice.md. Optional — a missing ja
-   *  falls back to the English (honest beats blank). */
+  /** Translated labels (voice charters in docs/connections/the-*-voice.md
+   *  family). Optional per language — a missing voice falls back to the
+   *  English (honest beats blank). */
   ja?: string;
+  "zh-Hant"?: string;
+  "zh-Hans"?: string;
+  es?: string;
   href: string;
   description?: string;
-  /** Japanese rendering of the description. */
-  description_ja?: string;
+  description_i18n?: Omit<Poly, "en">;
   /** Route prefixes that keep this section highlighted on deeper pages. */
   activePrefixes?: readonly string[];
 };
 
 export type NavGroup = {
   heading: string;
-  heading_ja?: string;
+  heading_i18n?: Omit<Poly, "en">;
   items: readonly NavItem[];
 };
 
 import type { UiLang } from "@/lib/lang-mode";
-import { pickLoose } from "@/lib/i18n";
+import { tx, type Poly } from "@/lib/i18n";
 
 /** The label in the active UI language; falls back to English. */
 export function navLabel(item: NavItem, lang: UiLang): string {
-  return pickLoose(item.label, item.ja, lang);
+  return tx(
+    { en: item.label, ja: item.ja, "zh-Hant": item["zh-Hant"], "zh-Hans": item["zh-Hans"], es: item.es },
+    lang,
+  );
 }
 
 /** The description in the active UI language; falls back to English. */
@@ -50,7 +55,12 @@ export function navDescription(
 ): string | undefined {
   return item.description === undefined
     ? undefined
-    : pickLoose(item.description, item.description_ja, lang);
+    : tx({ en: item.description, ...item.description_i18n }, lang);
+}
+
+/** The group heading in the active UI language. */
+export function navGroupHeading(group: NavGroup, lang: UiLang): string {
+  return tx({ en: group.heading, ...group.heading_i18n }, lang);
 }
 
 export const PRIMARY_NAV_ITEMS = [
@@ -106,28 +116,28 @@ export const PRIMARY_NAV_ITEMS = [
 export const MORE_NAV_GROUPS = [
   {
     heading: "Start",
-    heading_ja: "入口",
+    heading_i18n: { ja: "入口" },
     items: [
       {
         label: "Start here",
         ja: "はじめに",
         href: "/start",
         description: "A quick tour",
-        description_ja: "ざっとひと巡り",
+        description_i18n: { ja: "ざっとひと巡り" },
       },
       {
         label: "Guides",
         ja: "手引き",
         href: "/guides",
         description: "Buying and playing help",
-        description_ja: "買い方と、遊び方",
+        description_i18n: { ja: "買い方と、遊び方" },
       },
       {
         label: "About",
         ja: "この店について",
         href: "/about",
         description: "Who we are",
-        description_ja: "どんな店か",
+        description_i18n: { ja: "どんな店か" },
         activePrefixes: [
           "/about",
           "/platform",
@@ -143,14 +153,14 @@ export const MORE_NAV_GROUPS = [
   },
   {
     heading: "Data & trust",
-    heading_ja: "データと信頼",
+    heading_i18n: { ja: "データと信頼" },
     items: [
       {
         label: "Data directory",
         ja: "データ目録",
         href: "/data",
         description: "API access and rights",
-        description_ja: "APIと、権利のこと",
+        description_i18n: { ja: "APIと、権利のこと" },
         activePrefixes: ["/data", "/api", "/agents", "/standards", "/scrapers"],
       },
       {
@@ -158,14 +168,14 @@ export const MORE_NAV_GROUPS = [
         ja: "決め方と手数料",
         href: "/methodology",
         description: "Prices, fees and decisions",
-        description_ja: "相場と手数料、その決めごと",
+        description_i18n: { ja: "相場と手数料、その決めごと" },
       },
       {
         label: "Draw proof checks",
         ja: "検算",
         href: "/verify",
         description: "Consistency evidence and stated limits",
-        description_ja: "数字のつじつまと、その限界",
+        description_i18n: { ja: "数字のつじつまと、その限界" },
       },
     ],
   },

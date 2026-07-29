@@ -272,6 +272,42 @@
   letter-spacing: 0.04em;
 }
 
+/* ── 中文 — the Chinese rendering wardrobe (lang-mode: zh-Hant / zh-Hans) ─
+ * Same discipline as Japanese: generous leading, upright glyphs (no
+ * slanted hanzi — 「」 and wording carry emphasis), full-width 約物.
+ * :lang(zh) is a language range and matches both scripts; the script-
+ * specific rules bind the right system hands (Songti/PingFang for
+ * Traditional, their SC siblings for Simplified). The display chain
+ * keeps the house serif voice via each platform's serif CJK face. */
+:lang(zh) body {
+  font-family: var(--font-schibsted), "PingFang TC", "PingFang SC",
+    "Microsoft JhengHei", "Microsoft YaHei", var(--font-body, sans-serif);
+  line-height: 1.85;
+}
+:lang(zh) em,
+:lang(zh) i,
+:lang(zh) .italic {
+  font-style: normal;
+}
+:lang(zh-Hant) body {
+  font-family: var(--font-schibsted), "PingFang TC", "Microsoft JhengHei",
+    "Noto Sans TC", var(--font-body, sans-serif);
+}
+:lang(zh-Hant) .font-display {
+  font-family: "Songti TC", "Noto Serif TC", var(--font-display, serif);
+}
+:lang(zh-Hans) body {
+  font-family: var(--font-schibsted), "PingFang SC", "Microsoft YaHei",
+    "Noto Sans SC", var(--font-body, sans-serif);
+}
+:lang(zh-Hans) .font-display {
+  font-family: "Songti SC", "Noto Serif SC", var(--font-display, serif);
+}
+
+/* Español needs no script wardrobe — Latin rides the house faces — but
+ * questions keep their opening ¿ and the house's no-exclamation law
+ * holds in every language: quiet is quiet en todas partes. */
+
 /* The mat — a framed card image: hairline + warm shadow + white mount. */
 .wardrobe-mat {
   background-color: var(--color-surface);

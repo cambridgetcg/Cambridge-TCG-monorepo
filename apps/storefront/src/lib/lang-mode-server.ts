@@ -40,8 +40,12 @@ export async function getLangMode(): Promise<LangMode> {
   const { cookies } = await import("next/headers");
   const store = await cookies();
   const v = store.get(LANG_MODE_COOKIE)?.value;
-  if (v === "math") return "math";
-  if (v === "ja") return "ja";
+  return parseLangMode(v);
+}
+
+/** Shared validation: unknown values fall back to default. */
+function parseLangMode(v: string | undefined): LangMode {
+  if (v === "math" || v === "ja" || v === "zh-Hant" || v === "zh-Hans" || v === "es") return v;
   return "default";
 }
 
@@ -49,8 +53,5 @@ export async function getLangMode(): Promise<LangMode> {
  *  Used by Footer + layout when they're already reading other cookies.
  *  No server-only dependency — accepts the store as a parameter. */
 export function langModeFromCookies(store: CookieStore): LangMode {
-  const v = store.get(LANG_MODE_COOKIE)?.value;
-  if (v === "math") return "math";
-  if (v === "ja") return "ja";
-  return "default";
+  return parseLangMode(store.get(LANG_MODE_COOKIE)?.value);
 }

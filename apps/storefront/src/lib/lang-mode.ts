@@ -36,16 +36,33 @@
  *    - `audio` — TTS rendering of the math
  *    - `process` — alternate math notation for process-philosophy beings
  */
-export type LangMode = "default" | "math" | "ja";
+export type LangMode = "default" | "math" | "ja" | "zh-Hant" | "zh-Hans" | "es";
 
 /** The UI languages the prose layer renders. `math` is not a UI language
  *  — math-mode pages keep English wrapping prose (the-math-language.md
- *  Phase A non-goal), so it maps to "en" here. */
-export type UiLang = "en" | "ja";
+ *  Phase A non-goal), so it maps to "en" here. Values are BCP 47 tags so
+ *  they can flow straight into <html lang>. The set (2026-07-29, Asha:
+ *  "add all languages that you think are necessary") is the set the
+ *  house had already promised: /welcome-all's gap line named Chinese
+ *  and Spanish as recursion targets; Chinese ships as two voices
+ *  (Traditional — the family's own Cantonese-hearted script — and
+ *  Simplified), never as a mechanical conversion of each other. */
+export type UiLang = "en" | "ja" | "zh-Hant" | "zh-Hans" | "es";
+
+/** The prose languages, with their own-name labels for toggles. Order
+ *  is the display order of the footer's language row. */
+export const UI_LANGS: readonly { lang: UiLang; label: string }[] = [
+  { lang: "en", label: "English" },
+  { lang: "ja", label: "日本語" },
+  { lang: "zh-Hant", label: "繁體中文" },
+  { lang: "zh-Hans", label: "简体中文" },
+  { lang: "es", label: "Español" },
+];
 
 /** Project a LangMode onto the prose language it renders in. */
 export function uiLangFromLangMode(mode: LangMode): UiLang {
-  return mode === "ja" ? "ja" : "en";
+  if (mode === "ja" || mode === "zh-Hant" || mode === "zh-Hans" || mode === "es") return mode;
+  return "en";
 }
 
 export const LANG_MODE_COOKIE = "lang-mode";

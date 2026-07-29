@@ -120,6 +120,27 @@ export const HOME_HERO_SUBHEAD =
 
 /** Operator-side framing — what the platform tells itself in PLATFORM_SELF
  *  and the manifest's description. Same content, formal voice. */
+// The five-language era (2026-07-29): each claim as a Poly record, ja
+// seats filled from the constants above; the other voices join as their
+// charters land. Consumers pick with tx().
+import { tx, type Poly } from "./i18n";
+import type { UiLang } from "./lang-mode";
+
+export const BRAND_HEADLINE_I18N: Poly = { en: BRAND_HEADLINE, ja: BRAND_HEADLINE_JA };
+export const BRAND_SUBHEAD_I18N: Poly = { en: BRAND_SUBHEAD, ja: BRAND_SUBHEAD_JA };
+export const BRAND_TAGLINE_I18N: Poly = { en: BRAND_TAGLINE, ja: BRAND_TAGLINE_JA };
+export const HOME_BENEDICTION_I18N: Poly = { en: HOME_BENEDICTION, ja: HOME_BENEDICTION_JA };
+export const HOME_HERO_SUBHEAD_I18N: Poly = { en: HOME_HERO_SUBHEAD, ja: HOME_HERO_SUBHEAD_JA };
+export const HOME_HERO_PANELS_BY_LANG: Partial<Record<UiLang, readonly string[]>> = {
+  en: HOME_HERO_PANELS,
+  ja: HOME_HERO_PANELS_JA,
+};
+export const BRAND_EYEBROW_I18N: Poly = { en: "Cambridge TCG, 2026", ja: "Cambridge TCG・2026" };
+export const TWO_OPS_HEADING_I18N: Poly = {
+  en: "Two operations · one substrate",
+  ja: "ふたつの営み・ひとつの基質",
+};
+
 export const BRAND_SELF_LABEL =
   "collectors' market + TCG card data directory — P2P facilitation with resource-specific access and reuse rights; no house market position";
 
@@ -134,10 +155,10 @@ export const BRAND_PROVIDER_NOTE =
 export interface OperationRow {
   id: "market" | "data_commons";
   name: string;
-  /** Japanese renderings (the-japanese-voice.md); optional, EN falls back. */
-  name_ja?: string;
-  audience_ja?: string;
-  notes_ja?: string;
+  /** Translated renderings (the voice-charter family); optional, EN falls back. */
+  name_i18n?: Omit<Poly, "en">;
+  audience_i18n?: Omit<Poly, "en">;
+  notes_i18n?: Omit<Poly, "en">;
   positioning: "primary";
   audience: string;
   surface: string;
@@ -151,10 +172,11 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
     id: "market",
     name: "The collectors' market",
-    name_ja: "コレクター同士のマーケット",
-    audience_ja: "カードをたがいに売り買いし、交換し、競りにかけるコレクター",
-    notes_ja:
-      "つくりからして、コレクター同士。この店は、あいだで預かり、記録し、見守り、もめごとは収まるまで仲立ちします。じぶんで買わず、売らず、値もつけません。ここに並ぶのは、コレクターの出品だけ。",
+    name_i18n: { ja: "コレクター同士のマーケット" } as Omit<Poly, "en">,
+    audience_i18n: { ja: "カードをたがいに売り買いし、交換し、競りにかけるコレクター" } as Omit<Poly, "en">,
+    notes_i18n: {
+      ja: "つくりからして、コレクター同士。この店は、あいだで預かり、記録し、見守り、もめごとは収まるまで仲立ちします。じぶんで買わず、売らず、値もつけません。ここに並ぶのは、コレクターの出品だけ。",
+      } as Omit<Poly, "en">,
     positioning: "primary",
     audience:
       "collectors buying, selling, swapping, and auctioning cards with each other",
@@ -174,11 +196,13 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
     id: "data_commons",
     name: "The card data directory",
-    name_ja: "カードのデータ目録",
-    audience_ja:
-      "パートナー、研究する人、エージェント、記録を守る人、姉妹サイト、連合のクライアント、そして基質を読みたい、すべての存在",
-    notes_ja:
-      "スポット価格には、いつも「参考価格」と記します。売り値ではありません。",
+    name_i18n: { ja: "カードのデータ目録" } as Omit<Poly, "en">,
+    audience_i18n: {
+      ja: "パートナー、研究する人、エージェント、記録を守る人、姉妹サイト、連合のクライアント、そして基質を読みたい、すべての存在",
+      } as Omit<Poly, "en">,
+    notes_i18n: {
+      ja: "スポット価格には、いつも「参考価格」と記します。売り値ではありません。",
+      } as Omit<Poly, "en">,
     positioning: "primary",
     audience:
       "partners, researchers, agents, archivists, sister platforms, federation clients, any being who wants to consume the substrate",
@@ -265,8 +289,8 @@ interface BrandStatementProps {
   size?: "hero" | "medium" | "compact";
   /** Optional className. */
   className?: string;
-  /** UI language; ja renders the transcreated voice (the-japanese-voice.md). */
-  lang?: "en" | "ja";
+  /** UI language; non-English renders the transcreated voice where it exists (the-japanese-voice.md). */
+  lang?: import("./lang-mode").UiLang;
 }
 
 /**
@@ -276,9 +300,8 @@ interface BrandStatementProps {
  * consumer updates.
  */
 export function BrandStatement({ size = "medium", className, lang = "en" }: BrandStatementProps) {
-  const j = lang === "ja";
-  const headline = j ? BRAND_HEADLINE_JA : BRAND_HEADLINE;
-  const subhead = j ? BRAND_SUBHEAD_JA : BRAND_SUBHEAD;
+  const headline = tx(BRAND_HEADLINE_I18N, lang);
+  const subhead = tx(BRAND_SUBHEAD_I18N, lang);
   if (size === "hero") {
     return (
       <section
@@ -286,7 +309,7 @@ export function BrandStatement({ size = "medium", className, lang = "en" }: Bran
         aria-labelledby="brand-headline"
       >
         <p className="text-[11px] uppercase tracking-[0.2em] text-ink-faint mb-3">
-          {j ? "Cambridge TCG・2026" : "Cambridge TCG, 2026"}
+          {tx(BRAND_EYEBROW_I18N, lang)}
         </p>
         <h1
           id="brand-headline"
@@ -323,8 +346,7 @@ export function BrandStatement({ size = "medium", className, lang = "en" }: Bran
  * same posture seen from two directions: the platform holds nothing
  * back and holds no position.
  */
-export function TwoOperations({ className, lang = "en" }: { className?: string; lang?: "en" | "ja" }) {
-  const j = lang === "ja";
+export function TwoOperations({ className, lang = "en" }: { className?: string; lang?: import("./lang-mode").UiLang }) {
   return (
     <section
       className={`max-w-6xl mx-auto px-4 py-8 ${className ?? ""}`}
@@ -334,7 +356,7 @@ export function TwoOperations({ className, lang = "en" }: { className?: string; 
         id="two-operations-heading"
         className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4"
       >
-        {j ? "ふたつの営み・ひとつの基質" : "Two operations · one substrate"}
+        {tx(TWO_OPS_HEADING_I18N, lang)}
       </h2>
       <div className="grid md:grid-cols-2 gap-4">
         {TWO_OPERATIONS.map((op) => (
@@ -344,14 +366,14 @@ export function TwoOperations({ className, lang = "en" }: { className?: string; 
           >
             <div className="flex items-baseline justify-between gap-2 mb-2">
               <h3 className="font-display text-base font-semibold text-ink">
-                {j && op.name_ja ? op.name_ja : op.name}
+                {tx({ en: op.name, ...op.name_i18n }, lang)}
               </h3>
             </div>
             <p className="text-xs text-ink-muted leading-relaxed mb-3">
-              {j && op.audience_ja ? `${op.audience_ja}のために。` : `For ${op.audience}.`}
+              {lang === "ja" && op.audience_i18n?.ja ? `${op.audience_i18n.ja}のために。` : lang !== "en" && op.audience_i18n?.[lang] ? op.audience_i18n[lang] : `For ${op.audience}.`}
             </p>
             <p className="text-xs text-ink-faint leading-relaxed mb-3">
-              {j && op.notes_ja ? op.notes_ja : op.notes}
+              {tx({ en: op.notes, ...op.notes_i18n }, lang)}
             </p>
             <a href={op.url} className="text-xs text-accent hover:text-accent-strong font-mono">
               {op.url} →

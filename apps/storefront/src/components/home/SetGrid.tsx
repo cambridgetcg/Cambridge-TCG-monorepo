@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { tx } from "@/lib/i18n";
 import Image from "next/image";
 import type { SetItem, PriceItem } from "@/lib/wholesale/client";
 import { PlateHeader } from "@/lib/ui";
@@ -54,7 +55,7 @@ export default function SetGrid({
     <section className={`max-w-7xl mx-auto px-4 py-16 sm:py-20 ${weatherClass(gameSlug)}`}>
       <PlateHeader
         title={plateHeading}
-        kicker={j ? "新展・new exhibition" : "new exhibition · 新展"}
+        kicker={tx({ en: "new exhibition · 新展", ja: "新展・new exhibition" }, uiLang)}
         plate={3}
         rule
         action={
@@ -62,7 +63,7 @@ export default function SetGrid({
             href={`/market?game=${gameSlug}`}
             className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
           >
-            {j ? "セットの一覧 →" : "View all sets →"}
+            {tx({ en: "View all sets →", ja: "セットの一覧 →" }, uiLang)}
           </Link>
         }
       />
@@ -95,7 +96,7 @@ export default function SetGrid({
               {/* NEW chip for first set */}
               {i === 0 && (
                 <span className="absolute top-3 right-3 rounded px-1.5 py-0.5 bg-accent-wash text-accent border border-accent/30 text-[10px] font-semibold uppercase tracking-wide">
-                  {j ? "新着" : "New"}
+                  {tx({ en: "New", ja: "新着" }, uiLang)}
                 </span>
               )}
             </div>
@@ -106,7 +107,7 @@ export default function SetGrid({
                 {set.name}
               </h3>
               <p className="text-xs text-ink-muted font-mono tabular-nums mt-1">
-                {set.card_count}{j ? "枚" : " cards"}
+                {set.card_count}{tx({ en: " cards", ja: "枚" }, uiLang)}
               </p>
               {/* Wall label — the cover art's copyright line, co-located
                   with the print, shown only when official art is. */}

@@ -17,11 +17,13 @@ import {
   isNavItemActive,
   MORE_NAV_FOOTER,
   MORE_NAV_GROUPS,
+  navGroupHeading,
   navItemAriaCurrent,
   navLabel,
   PRIMARY_NAV_ITEMS,
 } from "@/lib/nav/menu-config";
 import type { UiLang } from "@/lib/lang-mode";
+import { tx } from "@/lib/i18n";
 import type { ThemeChoice } from "@/lib/wardrobe/themes";
 import { applyLightsFlip } from "@/lib/wardrobe/flip";
 
@@ -67,7 +69,7 @@ function MessagesIndicator({ uiLang = "en" }: { uiLang?: UiLang }) {
   return (
     <Link
       href="/account/messages"
-      aria-label={uiLang === "ja" ? `メッセージ${count > 0 ? `（未読${count}件）` : ""}` : `Messages${count > 0 ? ` (${count} unread conversation${count === 1 ? "" : "s"})` : ""}`}
+      aria-label={uiLang === "ja" ? `メッセージ${count > 0 ? `（未読${count}件）` : ""}` : `${tx(CHROME.messages, uiLang)}${count > 0 ? ` (${count})` : ""}`}
       className="relative rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <Icon name="message" size={21} />
@@ -89,8 +91,8 @@ function themeToggle(theme: ThemeChoice, effectiveDark: boolean, pathname: strin
     hidden: false as const,
     target,
     label: effectiveDark
-      ? (uiLang === "ja" ? CHROME.lightsOn.ja : CHROME.lightsOn.en)
-      : (uiLang === "ja" ? CHROME.lightsOff.ja : CHROME.lightsOff.en),
+      ? (tx(CHROME.lightsOn, uiLang))
+      : (tx(CHROME.lightsOff, uiLang)),
     href: `/api/appearance?theme=${target}&back=${encodeURIComponent(pathname || "/")}`,
     isDark: effectiveDark,
   };
@@ -247,14 +249,14 @@ export default function Nav({
 
   return (
     <nav
-      aria-label={uiLang === "ja" ? CHROME.primary.ja : CHROME.primary.en}
+      aria-label={tx(CHROME.primary, uiLang)}
       className="sticky top-0 z-[60] border-b border-border-subtle bg-page/95 backdrop-blur"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link
           href="/"
           onClick={() => setMenuState({ pathname, open: false })}
-          aria-label={uiLang === "ja" ? CHROME.home.ja : CHROME.home.en}
+          aria-label={tx(CHROME.home, uiLang)}
           className="flex shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <Image
@@ -290,7 +292,7 @@ export default function Nav({
           <div className="ml-2 flex items-center gap-0.5 border-l border-border-subtle pl-2">
             <Link
               href="/find"
-              aria-label={uiLang === "ja" ? CHROME.search.ja : CHROME.search.en}
+              aria-label={tx(CHROME.search, uiLang)}
               aria-current={pathname === "/find" ? "page" : undefined}
               className={`rounded-full p-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                 pathname === "/find"
@@ -321,11 +323,11 @@ export default function Nav({
             {loggedIn && <NotificationBell />}
             <Link
               href="/market/list"
-              aria-label={uiLang === "ja" ? CHROME.list.ja : CHROME.list.en}
+              aria-label={tx(CHROME.list, uiLang)}
               aria-current={pathname === "/market/list" ? "page" : undefined}
               className="ml-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              {uiLang === "ja" ? "出品する" : "List card"}
+              {tx({ en: "List card", ja: "出品する" }, uiLang)}
             </Link>
           </div>
         </div>
@@ -334,11 +336,11 @@ export default function Nav({
           <Link
             href="/market/list"
             onClick={() => setMenuState({ pathname, open: false })}
-            aria-label={uiLang === "ja" ? CHROME.list.ja : CHROME.list.en}
+            aria-label={tx(CHROME.list, uiLang)}
             aria-current={pathname === "/market/list" ? "page" : undefined}
             className="rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            {uiLang === "ja" ? "出品する" : "List card"}
+            {tx({ en: "List card", ja: "出品する" }, uiLang)}
           </Link>
           <button
             id="mobile-navigation-trigger"
@@ -346,7 +348,7 @@ export default function Nav({
             type="button"
             onClick={toggleMobileMenu}
             className="rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            aria-label={menuOpen ? (uiLang === "ja" ? CHROME.menuClose.ja : CHROME.menuClose.en) : (uiLang === "ja" ? CHROME.menuOpen.ja : CHROME.menuOpen.en)}
+            aria-label={menuOpen ? (tx(CHROME.menuClose, uiLang)) : (tx(CHROME.menuOpen, uiLang))}
             aria-controls="mobile-navigation"
             aria-expanded={menuOpen}
           >
@@ -427,9 +429,9 @@ export default function Nav({
 
             <div className="mt-4 grid grid-cols-2 gap-5 border-t border-border-subtle pt-4">
               {MORE_NAV_GROUPS.map((group) => (
-                <section key={uiLang === "ja" && group.heading_ja ? group.heading_ja : group.heading}>
+                <section key={navGroupHeading(group, uiLang)}>
                   <h2 className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
-                    {uiLang === "ja" && group.heading_ja ? group.heading_ja : group.heading}
+                    {navGroupHeading(group, uiLang)}
                   </h2>
                   <ul className="space-y-0.5">
                     {group.items.map((item) => {

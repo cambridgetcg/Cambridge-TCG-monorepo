@@ -15,8 +15,9 @@
  */
 
 import Link from "next/link";
+import { tx } from "@/lib/i18n";
 import { usePathname } from "next/navigation";
-import type { UiLang } from "@/lib/lang-mode";
+import { UI_LANGS, type UiLang } from "@/lib/lang-mode";
 
 interface FooterTogglesProps {
   mathLang: boolean;
@@ -33,17 +34,20 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
 
   return (
     <div className="flex items-center gap-4">
-      {/* The language door: always offers the language you are NOT in.
-          From math mode it offers both prose languages' default. */}
-      <a
-        href={`/api/lang-mode?mode=${j ? "default" : "ja"}&back=${back}`}
-        className="hover:text-ink transition underline underline-offset-2"
-      >
-        {/* No aria-label: the visible word, in its own language, IS the
-            accessible name (label-in-name); the span scopes the speech
-            engine to the right language. */}
-        <span lang={j ? "en" : "ja"}>{j ? "English" : "日本語"}</span>
-      </a>
+      {/* The language doors: every voice the house speaks, minus the one
+          you are in. Each label is its own language's name for itself —
+          the visible word IS the accessible name (label-in-name), and
+          the lang attribute scopes the speech engine per link. English
+          maps to mode=default (one cookie, one shape). */}
+      {UI_LANGS.filter((l) => l.lang !== uiLang).map((l) => (
+        <a
+          key={l.lang}
+          href={`/api/lang-mode?mode=${l.lang === "en" ? "default" : l.lang}&back=${back}`}
+          className="hover:text-ink transition underline underline-offset-2"
+        >
+          <span lang={l.lang}>{l.label}</span>
+        </a>
+      ))}
       <a
         href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=${back}`}
         className="hover:text-ink transition underline underline-offset-2"
@@ -70,9 +74,9 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
       <Link
         href="/appearance"
         className="hover:text-ink transition underline underline-offset-2"
-        aria-label={j ? "装いを選ぶ（明るく・暗く・端末に合わせる、ほか）" : "Choose a theme and tone — light, dark, follow system, and more"}
+        aria-label={tx({ en: "Choose a theme and tone — light, dark, follow system, and more", ja: "装いを選ぶ（明るく・暗く・端末に合わせる、ほか）" }, uiLang)}
       >
-        {j ? "装い" : "Appearance"}
+        {tx({ en: "Appearance", ja: "装い" }, uiLang)}
       </Link>
     </div>
   );

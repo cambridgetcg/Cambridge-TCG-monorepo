@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { tx } from "@/lib/i18n";
 import type { GameItem } from "@/lib/wholesale/client";
 import type { UiLang } from "@/lib/lang-mode";
 
@@ -29,15 +30,13 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: GameIt
   const j = uiLang === "ja";
 
   return (
-    <section aria-label={j ? "カードをさがす" : "Find any card"} className="max-w-7xl mx-auto px-4 py-6">
+    <section aria-label={tx({ en: "Find any card", ja: "カードをさがす" }, uiLang)} className="max-w-7xl mx-auto px-4 py-6">
       <div className="wardrobe-mat rounded-xl p-5 sm:p-7">
         <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-          {j ? "カードをさがす" : "Find any card"}
+          {tx({ en: "Find any card", ja: "カードをさがす" }, uiLang)}
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
-          {j
-            ? "相場も、やり取りの記録も、出どころも、どの言語の版も、ひと目で。アカウントは要りません。見るのに、お金はかかりません。あとは、さがすだけ。"
-            : "Price, transaction history, every source, every language — in one view. No account, no fee to look. Just find what you need."}
+          {tx({ en: "Price, transaction history, every source, every language — in one view. No account, no fee to look. Just find what you need.", ja: "相場も、やり取りの記録も、出どころも、どの言語の版も、ひと目で。アカウントは要りません。見るのに、お金はかかりません。あとは、さがすだけ。" }, uiLang)}
         </p>
         <form
           method="get"
@@ -45,7 +44,7 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: GameIt
           className="mt-4 flex flex-col sm:flex-row gap-3"
         >
           <label className="sr-only" htmlFor="finder-game">
-            {j ? "ゲーム" : "Game"}
+            {tx({ en: "Game", ja: "ゲーム" }, uiLang)}
           </label>
           <select
             id="finder-game"
@@ -60,20 +59,20 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: GameIt
             ))}
           </select>
           <label className="sr-only" htmlFor="finder-q">
-            {j ? "カード番号" : "Card number"}
+            {tx({ en: "Card number", ja: "カード番号" }, uiLang)}
           </label>
           <input
             id="finder-q"
             name="q"
             required
-            placeholder={j ? "カード番号（例：OP01-001）" : "Card number — e.g. OP01-001"}
+            placeholder={tx({ en: "Card number — e.g. OP01-001", ja: "カード番号（例：OP01-001）" }, uiLang)}
             className="flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition"
           />
           <button
             type="submit"
             className="rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-page hover:opacity-90 transition"
           >
-            {j ? "さがす →" : "Find →"}
+            {tx({ en: "Find →", ja: "さがす →" }, uiLang)}
           </button>
         </form>
         <p className="mt-2.5 text-xs text-ink-faint">
@@ -94,7 +93,7 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: GameIt
             href="/prices"
             className="text-accent hover:text-accent-strong underline"
           >
-            {j ? "ゲームからさがす →" : "browse by game →"}
+            {tx({ en: "browse by game →", ja: "ゲームからさがす →" }, uiLang)}
           </Link>
         </p>
       </div>

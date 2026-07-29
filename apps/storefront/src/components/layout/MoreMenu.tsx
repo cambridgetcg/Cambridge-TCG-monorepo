@@ -9,10 +9,12 @@ import {
   MORE_NAV_FOOTER,
   MORE_NAV_GROUPS,
   navDescription,
+  navGroupHeading,
   navItemAriaCurrent,
   navLabel,
 } from "@/lib/nav/menu-config";
 import type { UiLang } from "@/lib/lang-mode";
+import { tx } from "@/lib/i18n";
 
 const PANEL_ID = "more-navigation";
 
@@ -80,7 +82,7 @@ export function MoreMenu({ uiLang = "en" }: { uiLang?: UiLang }) {
             : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
         }`}
       >
-        {uiLang === "ja" ? "そのほか" : "More"}
+        {tx({ en: "More", ja: "そのほか" }, uiLang)}
         {active && <span className="sr-only"> — contains current location</span>}
         <svg
           viewBox="0 0 12 12"
@@ -107,7 +109,7 @@ export function MoreMenu({ uiLang = "en" }: { uiLang?: UiLang }) {
                     id={`more-${group.heading.replaceAll(" ", "-").toLowerCase()}`}
                     className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted"
                   >
-                    {uiLang === "ja" && group.heading_ja ? group.heading_ja : group.heading}
+                    {navGroupHeading(group, uiLang)}
                   </h2>
                   <ul className="space-y-0.5">
                     {group.items.map((item) => {

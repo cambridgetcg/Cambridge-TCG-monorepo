@@ -21,7 +21,13 @@ export async function GET(req: Request) {
   const back = safeRelativeRedirectPath(url.searchParams.get("back"), "/");
 
   const res = NextResponse.redirect(new URL(back, url.origin));
-  if (mode === "math" || mode === "ja") {
+  if (
+    mode === "math" ||
+    mode === "ja" ||
+    mode === "zh-Hant" ||
+    mode === "zh-Hans" ||
+    mode === "es"
+  ) {
     res.cookies.set(LANG_MODE_COOKIE, mode, {
       httpOnly: false, // user-readable so the Footer toggle reflects state
       sameSite: "lax",

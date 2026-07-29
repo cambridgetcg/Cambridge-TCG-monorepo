@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { tx } from "@/lib/i18n";
 import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 import { summarizeGameCoverage } from "@/lib/prices/game-context";
 import { PlateHeader } from "@/lib/ui";
@@ -47,7 +48,7 @@ export default function PriceGuideStrip({ uiLang = "en" }: { uiLang?: UiLang } =
   return (
     <section className="max-w-7xl mx-auto px-4 py-12">
       <PlateHeader
-        title={j ? "英国の相場帖" : "UK Price Guides"}
+        title={tx({ en: "UK Price Guides", ja: "英国の相場帖" }, uiLang)}
         plate={2}
         rule
         action={
@@ -55,7 +56,7 @@ export default function PriceGuideStrip({ uiLang = "en" }: { uiLang?: UiLang } =
             href="/prices"
             className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
           >
-            {j ? "相場帖の一覧 →" : "All price guides →"}
+            {tx({ en: "All price guides →", ja: "相場帖の一覧 →" }, uiLang)}
           </Link>
         }
       />
@@ -86,7 +87,7 @@ export default function PriceGuideStrip({ uiLang = "en" }: { uiLang?: UiLang } =
                 </h3>
                 {!summary.confirmed && (
                   <span className="rounded border border-border-subtle bg-surface-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warning">
-                    {j ? "これから" : "anticipated"}
+                    {tx({ en: "anticipated", ja: "これから" }, uiLang)}
                   </span>
                 )}
               </div>

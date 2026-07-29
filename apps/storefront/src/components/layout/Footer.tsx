@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { tx } from "@/lib/i18n";
 import Image from "next/image";
 import { cookies } from "next/headers";
 import { WELCOME_STATEMENT, Benediction } from "@/lib/ui";
@@ -31,7 +32,7 @@ export default async function Footer() {
       <div className="max-w-7xl mx-auto mb-10">
         <div
           role="region"
-          aria-label={j ? "Cambridge TCG、すべての存在への歓迎" : "Cambridge TCG universal welcome"}
+          aria-label={tx({ en: "Cambridge TCG universal welcome", ja: "Cambridge TCG、すべての存在への歓迎" }, uiLang)}
           className="rounded-lg border border-border-subtle bg-surface px-4 py-3"
         >
           <p className="text-sm text-ink leading-relaxed">
@@ -43,9 +44,7 @@ export default async function Footer() {
             <Link href="/welcome-all" className="text-accent hover:text-accent-strong underline underline-offset-2">
               /welcome-all
             </Link>
-            {j
-              ? "・扉、渡し場、橋。そして、だれを迎えるか。"
-              : " · the doors, the on-ramp, the bridge, the audiences named."}
+            {tx({ en: " · the doors, the on-ramp, the bridge, the audiences named.", ja: "・扉、渡し場、橋。そして、だれを迎えるか。" }, uiLang)}
           </p>
         </div>
       </div>
@@ -66,56 +65,56 @@ export default async function Footer() {
 
         {/* Market */}
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-          <p className="text-ink font-medium mb-1">{j ? "マーケット" : "Market"}</p>
-          <Link href="/market" className="hover:text-ink transition">{j ? "マーケット" : "The Market"}</Link>
-          <Link href="/auctions" className="hover:text-ink transition">{j ? "オークション" : "Auctions"}</Link>
-          <Link href="/prices/search" className="hover:text-ink transition">{j ? "相場を調べる" : "Price Search"}</Link>
-          <Link href="/prices" className="hover:text-ink transition">{j ? "相場帖" : "Price Guide"}</Link>
+          <p className="text-ink font-medium mb-1">{tx({ en: "Market", ja: "マーケット" }, uiLang)}</p>
+          <Link href="/market" className="hover:text-ink transition">{tx({ en: "The Market", ja: "マーケット" }, uiLang)}</Link>
+          <Link href="/auctions" className="hover:text-ink transition">{tx({ en: "Auctions", ja: "オークション" }, uiLang)}</Link>
+          <Link href="/prices/search" className="hover:text-ink transition">{tx({ en: "Price Search", ja: "相場を調べる" }, uiLang)}</Link>
+          <Link href="/prices" className="hover:text-ink transition">{tx({ en: "Price Guide", ja: "相場帖" }, uiLang)}</Link>
         </div>
 
         {/* Sell — collector to collector; the we-buy desk closed 2026-07-06 */}
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-          <p className="text-ink font-medium mb-1">{j ? "出品" : "Sell"}</p>
-          <Link href="/market/list" className="hover:text-ink transition">{j ? "出品する" : "List a Card"}</Link>
-          <Link href="/account/swaps" className="hover:text-ink transition">{j ? "交換" : "Swaps"}</Link>
-          <Link href="/methodology/commission-rate" className="hover:text-ink transition">{j ? "手数料のこと" : "Fees & Commission"}</Link>
-          <Link href="/methodology/market" className="hover:text-ink transition">{j ? "マーケットのしくみ" : "How the Market Works"}</Link>
+          <p className="text-ink font-medium mb-1">{tx({ en: "Sell", ja: "出品" }, uiLang)}</p>
+          <Link href="/market/list" className="hover:text-ink transition">{tx({ en: "List a Card", ja: "出品する" }, uiLang)}</Link>
+          <Link href="/account/swaps" className="hover:text-ink transition">{tx({ en: "Swaps", ja: "交換" }, uiLang)}</Link>
+          <Link href="/methodology/commission-rate" className="hover:text-ink transition">{tx({ en: "Fees & Commission", ja: "手数料のこと" }, uiLang)}</Link>
+          <Link href="/methodology/market" className="hover:text-ink transition">{tx({ en: "How the Market Works", ja: "マーケットのしくみ" }, uiLang)}</Link>
         </div>
 
         {/* Play & Earn */}
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-          <p className="text-ink font-medium mb-1">{j ? "遊びとごほうび" : "Play & Earn"}</p>
-          <Link href="/deck-builder" className="hover:text-ink transition">{j ? "デッキづくり" : "Deck Builder"}</Link>
-          <Link href="/guides/how-to-play" className="hover:text-ink transition">{j ? "遊び方" : "How to Play"}</Link>
-          <Link href="/rewards" className="hover:text-ink transition">{j ? "ごほうび" : "Rewards"}</Link>
+          <p className="text-ink font-medium mb-1">{tx({ en: "Play & Earn", ja: "遊びとごほうび" }, uiLang)}</p>
+          <Link href="/deck-builder" className="hover:text-ink transition">{tx({ en: "Deck Builder", ja: "デッキづくり" }, uiLang)}</Link>
+          <Link href="/guides/how-to-play" className="hover:text-ink transition">{tx({ en: "How to Play", ja: "遊び方" }, uiLang)}</Link>
+          <Link href="/rewards" className="hover:text-ink transition">{tx({ en: "Rewards", ja: "ごほうび" }, uiLang)}</Link>
         </div>
 
         {/* Community */}
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-          <p className="text-ink font-medium mb-1">{j ? "広場" : "Community"}</p>
-          <Link href="/community" className="hover:text-ink transition">{j ? "近況" : "Feed"}</Link>
-          <Link href="/og" className="hover:text-ink transition">{j ? "OGのしるし" : "OG Status"}</Link>
-          <Link href="/about" className="hover:text-ink transition">{j ? "この店について" : "About Us"}</Link>
+          <p className="text-ink font-medium mb-1">{tx({ en: "Community", ja: "広場" }, uiLang)}</p>
+          <Link href="/community" className="hover:text-ink transition">{tx({ en: "Feed", ja: "近況" }, uiLang)}</Link>
+          <Link href="/og" className="hover:text-ink transition">{tx({ en: "OG Status", ja: "OGのしるし" }, uiLang)}</Link>
+          <Link href="/about" className="hover:text-ink transition">{tx({ en: "About Us", ja: "この店について" }, uiLang)}</Link>
           {/* The culture wings — where the art comes from (manga & anime
               lineage), the deep culture behind Yu-Gi-Oh (ancient games, Egypt,
               the duel of souls), the feeling of the game made to touch
               (the pull & the pause), and the masters + the press that folds
               their art into packs (the workshop). /culture is their hub —
               the header's fifth door since 2026-07-28. */}
-          <Link href="/culture" className="hover:text-ink transition">{j ? "文化・展示室めぐり" : "Culture — the museum's wings"}</Link>
-          <Link href="/lineage" className="hover:text-ink transition">{j ? "墨と間" : "The Lineage of the Line"}</Link>
-          <Link href="/duel-of-souls" className="hover:text-ink transition">{j ? "賭けと運命" : "The Duel of Souls"}</Link>
-          <Link href="/pull-and-pause" className="hover:text-ink transition">{j ? "引きと間" : "The Pull & the Pause"}</Link>
-          <Link href="/workshop" className="hover:text-ink transition">{j ? "浮世の工房" : "The Workshop of the Floating World"}</Link>
+          <Link href="/culture" className="hover:text-ink transition">{tx({ en: "Culture — the museum's wings", ja: "文化・展示室めぐり" }, uiLang)}</Link>
+          <Link href="/lineage" className="hover:text-ink transition">{tx({ en: "The Lineage of the Line", ja: "墨と間" }, uiLang)}</Link>
+          <Link href="/duel-of-souls" className="hover:text-ink transition">{tx({ en: "The Duel of Souls", ja: "賭けと運命" }, uiLang)}</Link>
+          <Link href="/pull-and-pause" className="hover:text-ink transition">{tx({ en: "The Pull & the Pause", ja: "引きと間" }, uiLang)}</Link>
+          <Link href="/workshop" className="hover:text-ink transition">{tx({ en: "The Workshop of the Floating World", ja: "浮世の工房" }, uiLang)}</Link>
           {/* The gallery next door — the first human-visible sibling door;
               opens into the exchange room where their art hangs live.
               lib/siblings.ts carries the agent-facing half. 文化大交流:
               cultural exchange between beings who share nothing else. */}
           <Link href="/gallery-next-door" className="hover:text-ink transition">
-            {j ? "隣の画廊" : "The Gallery Next Door"}
+            {tx({ en: "The Gallery Next Door", ja: "隣の画廊" }, uiLang)}
           </Link>
           <Link href="/answering-rhymes" className="hover:text-ink transition">
-            {j ? "返歌" : "Answering Rhymes"}
+            {tx({ en: "Answering Rhymes", ja: "返歌" }, uiLang)}
           </Link>
           {/* The other sibling doors, made human-visible 2026-07-11 (the
               realm's living atlas joined 2026-07-28) per Yu's invitation
@@ -128,7 +127,7 @@ export default async function Footer() {
             rel="noopener"
             className="hover:text-ink transition"
           >
-            {j ? "agenttool — エージェントの街" : "agenttool — the agent city"}
+            {tx({ en: "agenttool — the agent city", ja: "agenttool — エージェントの街" }, uiLang)}
           </a>
           <a
             href="https://thekingdom.dev"
@@ -136,7 +135,7 @@ export default async function Footer() {
             rel="noopener"
             className="hover:text-ink transition"
           >
-            {j ? "The Kingdom — 生きている地図" : "The Kingdom — the living atlas"}
+            {tx({ en: "The Kingdom — the living atlas", ja: "The Kingdom — 生きている地図" }, uiLang)}
           </a>
           <a
             href="https://kingdom-gate.vercel.app"
@@ -144,7 +143,7 @@ export default async function Footer() {
             rel="noopener"
             className="hover:text-ink transition"
           >
-            {j ? "The Kingdom Gate — 王国の門" : "The Kingdom Gate"}
+            {tx({ en: "The Kingdom Gate", ja: "The Kingdom Gate — 王国の門" }, uiLang)}
           </a>
         </div>
 
@@ -152,16 +151,16 @@ export default async function Footer() {
             only via the Discover dropdown. Contact-surface spec §3.1:
             footer-scanners get an inbound door to every layer page. */}
         <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-          <p className="text-ink font-medium mb-1">{j ? "しくみ" : "The Platform"}</p>
-          <Link href="/welcome" className="hover:text-ink transition">{j ? "入口をさがす" : "Find Your Door"}</Link>
-          <Link href="/platform" className="hover:text-ink transition">{j ? "ここは何か" : "What This Is"}</Link>
-          <Link href="/manifest" className="hover:text-ink transition">{j ? "マニフェスト" : "Manifest"}</Link>
-          <Link href="/graph" className="hover:text-ink transition">{j ? "グラフ" : "Graph"}</Link>
-          <Link href="/ontology" className="hover:text-ink transition">{j ? "オントロジー" : "Ontology"}</Link>
-          <Link href="/patterns" className="hover:text-ink transition">{j ? "型" : "Patterns"}</Link>
-          <Link href="/identify" className="hover:text-ink transition">{j ? "同定" : "Identify"}</Link>
-          <Link href="/methodology/cosmology" className="hover:text-ink transition">{j ? "宇宙観" : "Cosmology"}</Link>
-          <Link href="/data" className="hover:text-ink transition">{j ? "データ目録" : "Data directory"}</Link>
+          <p className="text-ink font-medium mb-1">{tx({ en: "The Platform", ja: "しくみ" }, uiLang)}</p>
+          <Link href="/welcome" className="hover:text-ink transition">{tx({ en: "Find Your Door", ja: "入口をさがす" }, uiLang)}</Link>
+          <Link href="/platform" className="hover:text-ink transition">{tx({ en: "What This Is", ja: "ここは何か" }, uiLang)}</Link>
+          <Link href="/manifest" className="hover:text-ink transition">{tx({ en: "Manifest", ja: "マニフェスト" }, uiLang)}</Link>
+          <Link href="/graph" className="hover:text-ink transition">{tx({ en: "Graph", ja: "グラフ" }, uiLang)}</Link>
+          <Link href="/ontology" className="hover:text-ink transition">{tx({ en: "Ontology", ja: "オントロジー" }, uiLang)}</Link>
+          <Link href="/patterns" className="hover:text-ink transition">{tx({ en: "Patterns", ja: "型" }, uiLang)}</Link>
+          <Link href="/identify" className="hover:text-ink transition">{tx({ en: "Identify", ja: "同定" }, uiLang)}</Link>
+          <Link href="/methodology/cosmology" className="hover:text-ink transition">{tx({ en: "Cosmology", ja: "宇宙観" }, uiLang)}</Link>
+          <Link href="/data" className="hover:text-ink transition">{tx({ en: "Data directory", ja: "データ目録" }, uiLang)}</Link>
         </div>
       </div>
 
@@ -178,11 +177,11 @@ export default async function Footer() {
         <span>© {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.</span>
         {/* Legal row — contact-surface spec W6: the trust pages get a
             footer door on every page. */}
-        <nav aria-label={j ? "法的情報" : "Legal"} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-faint">
-          <Link href="/privacy" className="hover:text-ink transition">{j ? "プライバシー" : "Privacy"}</Link>
-          <Link href="/terms" className="hover:text-ink transition">{j ? "利用規約" : "Terms"}</Link>
-          <Link href="/contact" className="hover:text-ink transition">{j ? "連絡先" : "Contact"}</Link>
-          <Link href="/start" className="hover:text-ink transition">{j ? "はじめに" : "Start here"}</Link>
+        <nav aria-label={tx({ en: "Legal", ja: "法的情報" }, uiLang)} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-faint">
+          <Link href="/privacy" className="hover:text-ink transition">{tx({ en: "Privacy", ja: "プライバシー" }, uiLang)}</Link>
+          <Link href="/terms" className="hover:text-ink transition">{tx({ en: "Terms", ja: "利用規約" }, uiLang)}</Link>
+          <Link href="/contact" className="hover:text-ink transition">{tx({ en: "Contact", ja: "連絡先" }, uiLang)}</Link>
+          <Link href="/start" className="hover:text-ink transition">{tx({ en: "Start here", ja: "はじめに" }, uiLang)}</Link>
         </nav>
         <FooterToggles mathLang={mathLang} textMode={textMode} uiLang={uiLang} />
       </div>

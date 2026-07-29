@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { tx } from "@/lib/i18n";
 import type { GameItem } from "@/lib/wholesale/client";
 import { PlateHeader } from "@/lib/ui";
 import { weatherClass } from "@/lib/wardrobe/weather";
@@ -19,7 +20,7 @@ export default function GameGrid({ games, uiLang = "en" }: { games: GameItem[]; 
   const j = uiLang === "ja";
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <PlateHeader title={j ? "ゲームの扉" : "Browse by Game"} plate={1} rule />
+      <PlateHeader title={tx({ en: "Browse by Game", ja: "ゲームの扉" }, uiLang)} plate={1} rule />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {games.map((g) => (
           <Link
@@ -31,7 +32,7 @@ export default function GameGrid({ games, uiLang = "en" }: { games: GameItem[]; 
               {g.name}
             </span>
             <span className="mt-3 text-xs text-ink-faint font-mono tabular-nums">
-              {g.card_count.toLocaleString()}{j ? "枚" : " cards"}
+              {g.card_count.toLocaleString()}{tx({ en: " cards", ja: "枚" }, uiLang)}
             </span>
           </Link>
         ))}

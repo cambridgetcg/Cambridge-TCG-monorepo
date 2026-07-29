@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { tx } from "@/lib/i18n";
 import { cookies } from "next/headers";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
@@ -19,13 +20,10 @@ import {
   BrandStatement,
   TwoOperations,
   HOME_HERO_PANELS,
-  HOME_HERO_PANELS_JA,
+  HOME_HERO_PANELS_BY_LANG,
   HOME_HERO_HEADLINE,
-  HOME_HERO_HEADLINE_JA,
-  HOME_HERO_SUBHEAD,
-  HOME_HERO_SUBHEAD_JA,
-  HOME_BENEDICTION,
-  HOME_BENEDICTION_JA,
+  HOME_HERO_SUBHEAD_I18N,
+  HOME_BENEDICTION_I18N,
 } from "@/lib/brand";
 
 /**
@@ -43,11 +41,11 @@ type EnrichedCard = PriceItem & { image_attribution: string | null };
    their calmest form. Text, hairline, nothing shouting. Culture joined
    2026-07-28 when the wings became the house's focus. */
 const QUIET_LINKS = [
-  { label: "Start here", ja: "はじめに", href: "/start" },
-  { label: "Market", ja: "マーケット", href: "/market" },
-  { label: "Prices", ja: "相場", href: "/prices" },
-  { label: "Play", ja: "遊ぶ", href: "/play" },
-  { label: "Culture", ja: "文化", href: "/culture" },
+  { label: "Start here", i18n: { ja: "はじめに" }, href: "/start" },
+  { label: "Market", i18n: { ja: "マーケット" }, href: "/market" },
+  { label: "Prices", i18n: { ja: "相場" }, href: "/prices" },
+  { label: "Play", i18n: { ja: "遊ぶ" }, href: "/play" },
+  { label: "Culture", i18n: { ja: "文化" }, href: "/culture" },
 ] as const;
 
 function freshestUpdate(items: { updated_at: string | null }[]): string | null {
@@ -153,7 +151,7 @@ export default async function Home() {
             href="/welcome-all"
             className="text-accent hover:text-accent-strong underline ml-auto"
           >
-            {j ? "扉へ →" : "the doors →"}
+            {tx({ en: "the doors →", ja: "扉へ →" }, uiLang)}
           </Link>
           {/* /welcome asks who you are and routes you; /intro explains the
               game form itself. The old single "new to TCG?" label sent human
@@ -163,13 +161,13 @@ export default async function Home() {
             href="/welcome"
             className="text-ink-muted hover:text-accent underline"
           >
-            {j ? "自分の道へ" : "find your path"}
+            {tx({ en: "find your path", ja: "自分の道へ" }, uiLang)}
           </Link>
           <Link
             href="/intro"
             className="text-ink-faint hover:text-accent underline"
           >
-            {j ? "TCGって、なんだろう" : "what's a TCG?"}
+            {tx({ en: "what's a TCG?", ja: "TCGって、なんだろう" }, uiLang)}
           </Link>
         </div>
       </div>
@@ -201,19 +199,19 @@ export default async function Home() {
             one accessible sentence — screen readers and no-JS read
             HOME_HERO_HEADLINE unchanged; the split is presentation. */}
         <h1 className="relative font-display text-4xl sm:text-5xl font-medium tracking-tight text-ink leading-[1.08] max-w-3xl">
-          <span className="sr-only">{j ? HOME_HERO_HEADLINE_JA : HOME_HERO_HEADLINE}</span>
+          <span className="sr-only">{uiLang === "en" ? HOME_HERO_HEADLINE : (HOME_HERO_PANELS_BY_LANG[uiLang] ?? HOME_HERO_PANELS).join("")}</span>
           <span aria-hidden="true" className="wardrobe-breathe">
-            {(j ? HOME_HERO_PANELS_JA : HOME_HERO_PANELS).map((panel) => (
+            {(HOME_HERO_PANELS_BY_LANG[uiLang] ?? HOME_HERO_PANELS).map((panel) => (
               <span key={panel} className="block">{panel}</span>
             ))}
           </span>
         </h1>
         <p className="relative mt-5 max-w-2xl text-base sm:text-lg text-ink-muted leading-relaxed">
-          {j ? HOME_HERO_SUBHEAD_JA : HOME_HERO_SUBHEAD}
+          {tx(HOME_HERO_SUBHEAD_I18N, uiLang)}
         </p>
         <InkRule className="relative mt-8 max-w-3xl" />
         <p className="relative mt-6 font-mono text-xs text-ink-faint">
-          <span className="wardrobe-bob inline-block">{j ? "↓ 物語のなかへ" : "↓ enter the story"}</span>
+          <span className="wardrobe-bob inline-block">{tx({ en: "↓ enter the story", ja: "↓ 物語のなかへ" }, uiLang)}</span>
         </p>
       </header>
 
@@ -232,7 +230,7 @@ export default async function Home() {
             href={l.href}
             className="rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm text-ink-muted hover:text-ink hover:border-border-strong transition-colors"
           >
-            {j ? l.ja : l.label}
+            {tx({ en: l.label, ...l.i18n }, uiLang)}
           </Link>
         ))}
       </nav>
@@ -281,7 +279,7 @@ export default async function Home() {
           above) — the heading says so instead of implying every game's
           latest sets. */}
       <div className="wardrobe-rise" style={{ "--rise-delay": "180ms" } as Record<string, string>}>
-        <SetGrid sets={setsWithArt} gameSlug="one-piece" heading={j ? "ワンピースカードゲームの新着セット" : "Latest One Piece Sets"} uiLang={uiLang} />
+        <SetGrid sets={setsWithArt} gameSlug="one-piece" heading={tx({ en: "Latest One Piece Sets", ja: "ワンピースカードゲームの新着セット" }, uiLang)} uiLang={uiLang} />
       </div>
       <div className="wardrobe-rise" style={{ "--rise-delay": "240ms" } as Record<string, string>}>
         <StorySection uiLang={uiLang} />
@@ -298,10 +296,10 @@ export default async function Home() {
           at={freshUpdate}
           cadence="daily"
         />
-        <WhyLink href="/methodology/pricing" label={j ? "相場のしくみ" : "how prices work"} />
+        <WhyLink href="/methodology/pricing" label={tx({ en: "how prices work", ja: "相場のしくみ" }, uiLang)} />
       </div>
       <FeaturedCards cards={featuredCards} />
-      <Benediction line={j ? HOME_BENEDICTION_JA : HOME_BENEDICTION} />
+      <Benediction line={tx(HOME_BENEDICTION_I18N, uiLang)} />
     </main>
   );
 }
