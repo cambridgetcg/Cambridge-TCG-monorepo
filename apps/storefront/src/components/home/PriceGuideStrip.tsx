@@ -33,7 +33,10 @@ const PATTERN_TONE: Record<string, string> = {
   "single-lang": "text-ink-muted",
 };
 
-export default function PriceGuideStrip() {
+import type { UiLang } from "@/lib/lang-mode";
+
+export default function PriceGuideStrip({ uiLang = "en" }: { uiLang?: UiLang } = {}) {
+  const j = uiLang === "ja";
   const sorted = [...PRICE_GUIDE_GAMES].sort(
     (a, b) => a.display_priority - b.display_priority,
   );
@@ -44,7 +47,7 @@ export default function PriceGuideStrip() {
   return (
     <section className="max-w-7xl mx-auto px-4 py-12">
       <PlateHeader
-        title="UK Price Guides"
+        title={j ? "英国の相場帖" : "UK Price Guides"}
         plate={2}
         rule
         action={
@@ -52,14 +55,20 @@ export default function PriceGuideStrip() {
             href="/prices"
             className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
           >
-            All price guides →
+            {j ? "相場帖の一覧 →" : "All price guides →"}
           </Link>
         }
       />
       <p className="-mt-3 mb-6 text-sm text-ink-muted">
-        {observedCount} game guides currently have observed catalog rows;
-        {" "}{sorted.length - observedCount} more routes are explicitly anticipated.
-        Each page shows only rows held, with source state and rights beside them.
+        {j ? (
+          <>目録に実際の行があるのは、いま{observedCount}タイトル。あとの{sorted.length - observedCount}タイトルは、「これから」とはっきり書いてあります。どのページも、手もとにある行だけを。出どころの状態と権利は、そのとなりに。</>
+        ) : (
+          <>
+            {observedCount} game guides currently have observed catalog rows;
+            {" "}{sorted.length - observedCount} more routes are explicitly anticipated.
+            Each page shows only rows held, with source state and rights beside them.
+          </>
+        )}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {sorted.map((g) => {
@@ -77,7 +86,7 @@ export default function PriceGuideStrip() {
                 </h3>
                 {!summary.confirmed && (
                   <span className="rounded border border-border-subtle bg-surface-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warning">
-                    anticipated
+                    {j ? "これから" : "anticipated"}
                   </span>
                 )}
               </div>

@@ -23,13 +23,30 @@
  *                structural enumerations. Every value carries an
  *                unambiguous structural representation.
  *
+ *  - `ja`      — Japanese rendering. Shipped 2026-07-29 (Asha: "a
+ *                japanese translation option... pay attention to the
+ *                nuances behind japanese culture at the language
+ *                expression level"). Coverage grows door by door from
+ *                the front of the house — see lib/i18n.ts for the
+ *                voice charter reference and the honest-boundary rule.
+ *
  *  Future modes (recursion targets in the-math-language.md):
- *    - `ja` / `zh` / `es` — natural-language translations (kingdom-075
- *      has the resolver shipped; lang-mode could thread into it)
+ *    - `zh` / `es` — further natural-language translations (kingdom-075
+ *      has the card-name resolver shipped; lang-mode threads into it)
  *    - `audio` — TTS rendering of the math
  *    - `process` — alternate math notation for process-philosophy beings
  */
-export type LangMode = "default" | "math";
+export type LangMode = "default" | "math" | "ja";
+
+/** The UI languages the prose layer renders. `math` is not a UI language
+ *  — math-mode pages keep English wrapping prose (the-math-language.md
+ *  Phase A non-goal), so it maps to "en" here. */
+export type UiLang = "en" | "ja";
+
+/** Project a LangMode onto the prose language it renders in. */
+export function uiLangFromLangMode(mode: LangMode): UiLang {
+  return mode === "ja" ? "ja" : "en";
+}
 
 export const LANG_MODE_COOKIE = "lang-mode";
 

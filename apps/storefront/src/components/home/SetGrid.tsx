@@ -25,10 +25,13 @@ interface SetWithThumb extends SetItem {
  * on the mount — never a bare empty frame. Where official art shows, its
  * copyright line hangs with it as a small wall label (the honesty rule).
  */
+import type { UiLang } from "@/lib/lang-mode";
+
 export default function SetGrid({
   sets,
   gameSlug,
-  heading = "Latest Sets",
+  heading,
+  uiLang = "en",
 }: {
   sets: SetWithThumb[];
   gameSlug: string;
@@ -36,7 +39,10 @@ export default function SetGrid({
    *  game ("Latest One Piece Sets") — a bare "Latest Sets" over one
    *  game's shelf implies catalog-wide coverage it doesn't have. */
   heading?: string;
+  uiLang?: UiLang;
 }) {
+  const j = uiLang === "ja";
+  const plateHeading = heading ?? (j ? "新着セット" : "Latest Sets");
   if (!sets.length) return null;
 
   return (
@@ -47,8 +53,8 @@ export default function SetGrid({
        skies only read against blank ground. */
     <section className={`max-w-7xl mx-auto px-4 py-16 sm:py-20 ${weatherClass(gameSlug)}`}>
       <PlateHeader
-        title={heading}
-        kicker="new exhibition · 新展"
+        title={plateHeading}
+        kicker={j ? "新展・new exhibition" : "new exhibition · 新展"}
         plate={3}
         rule
         action={
@@ -56,7 +62,7 @@ export default function SetGrid({
             href={`/market?game=${gameSlug}`}
             className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
           >
-            View all sets →
+            {j ? "セットの一覧 →" : "View all sets →"}
           </Link>
         }
       />
@@ -89,7 +95,7 @@ export default function SetGrid({
               {/* NEW chip for first set */}
               {i === 0 && (
                 <span className="absolute top-3 right-3 rounded px-1.5 py-0.5 bg-accent-wash text-accent border border-accent/30 text-[10px] font-semibold uppercase tracking-wide">
-                  New
+                  {j ? "新着" : "New"}
                 </span>
               )}
             </div>
@@ -100,7 +106,7 @@ export default function SetGrid({
                 {set.name}
               </h3>
               <p className="text-xs text-ink-muted font-mono tabular-nums mt-1">
-                {set.card_count} cards
+                {set.card_count}{j ? "枚" : " cards"}
               </p>
               {/* Wall label — the cover art's copyright line, co-located
                   with the print, shown only when official art is. */}

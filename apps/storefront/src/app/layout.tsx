@@ -12,6 +12,8 @@ import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
 import { kinWakeHtmlLinks } from "@/lib/siblings";
+import { langModeFromCookies } from "@/lib/lang-mode-server";
+import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
@@ -135,9 +137,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const displayCurrency = displayCurrencyFromCookies(cookieStore);
   const fxRates = await fetchRates();
 
+  // The language of the document, from the same lang-mode cookie the
+  // math toggle uses (one cookie, one shape — the-math-language.md).
+  // ja renders the translated chrome; untranslated interior pages keep
+  // their English copy under lang="ja" until their doors are translated
+  // — an honest, named gap, not a claim of full coverage.
+  const uiLang = uiLangFromLangMode(langModeFromCookies(cookieStore));
+
   return (
     <html
-      lang="en"
+      lang={uiLang}
       data-theme={themeAttr(appearance.theme)}
       className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${notoSerifJp.variable} ${inter.variable}`}
     >
@@ -232,7 +241,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* Nav gets the effective theme so its lights toggle knows which
               glyph to show and which bundle to target — same server-read,
               threaded-down pattern as Providers → MoneyContext above. */}
-          <Nav theme={themeAttr(appearance.theme)} initialLoggedIn={initialLoggedIn} />
+          <Nav theme={themeAttr(appearance.theme)} initialLoggedIn={initialLoggedIn} uiLang={uiLang} />
           <div id="main-content">
             <Suspense fallback={null}>
               <StorefrontBreadcrumbs />

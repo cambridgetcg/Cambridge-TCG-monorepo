@@ -81,6 +81,23 @@ export const BRAND_PARAGRAPH =
 /** Tight version for OG metadata, social cards, footer credits. */
 export const BRAND_TAGLINE = "A collectors' market. A card data directory.";
 
+// ── 日本語 — the Japanese voice of the same claims ──────────────────────
+// Transcreated (not translated) per docs/connections/the-japanese-voice.md;
+// every string below passed two native-register refuters 2026-07-29.
+// The English above remains the constitutional source; these are its
+// Japanese voice, kept adjacent so they move together.
+
+export const BRAND_HEADLINE_JA =
+  "Cambridge TCGは、コレクター同士のマーケットと、カードのデータ目録。";
+export const BRAND_SUBHEAD_JA =
+  "取引はコレクター同士のもの。この店は、あいだで預かり、記録し、見守るだけです。じぶんの棚は、持ちません。";
+export const BRAND_TAGLINE_JA = "コレクター同士のマーケット。カードのデータ目録。";
+export const HOME_HERO_PANELS_JA = ["カードは、", "集める人の手から手へ。"] as const;
+export const HOME_HERO_HEADLINE_JA = HOME_HERO_PANELS_JA.join("");
+export const HOME_BENEDICTION_JA = "カードの一枚一枚が、だれかの物語のひとコマ。";
+export const HOME_HERO_SUBHEAD_JA =
+  "目録にあるカードを調べるのに、お金はかかりません。名前も番号も、参考価格も、出どころの記録も。売り買いや交換は、コレクター同士で。来歴と権利は、わかっている分だけ。わからないところは、わからないと書いてあります。";
+
 /** The front door's statement — the quiet gallery home hero (docs/plans/
  *  the-quiet-gallery.md, 2026-07-05). Honest and small: what this place
  *  does for the person standing at the door. */
@@ -117,6 +134,10 @@ export const BRAND_PROVIDER_NOTE =
 export interface OperationRow {
   id: "market" | "data_commons";
   name: string;
+  /** Japanese renderings (the-japanese-voice.md); optional, EN falls back. */
+  name_ja?: string;
+  audience_ja?: string;
+  notes_ja?: string;
   positioning: "primary";
   audience: string;
   surface: string;
@@ -130,6 +151,10 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
     id: "market",
     name: "The collectors' market",
+    name_ja: "コレクター同士のマーケット",
+    audience_ja: "カードをたがいに売り買いし、交換し、競りにかけるコレクター",
+    notes_ja:
+      "つくりからして、コレクター同士。この店は、あいだで預かり、記録し、見守り、もめごとは収まるまで仲立ちします。じぶんで買わず、売らず、値もつけません。ここに並ぶのは、コレクターの出品だけ。",
     positioning: "primary",
     audience:
       "collectors buying, selling, swapping, and auctioning cards with each other",
@@ -149,6 +174,11 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
     id: "data_commons",
     name: "The card data directory",
+    name_ja: "カードのデータ目録",
+    audience_ja:
+      "パートナー、研究する人、エージェント、記録を守る人、姉妹サイト、連合のクライアント、そして基質を読みたい、すべての存在",
+    notes_ja:
+      "スポット価格には、いつも「参考価格」と記します。売り値ではありません。",
     positioning: "primary",
     audience:
       "partners, researchers, agents, archivists, sister platforms, federation clients, any being who wants to consume the substrate",
@@ -235,6 +265,8 @@ interface BrandStatementProps {
   size?: "hero" | "medium" | "compact";
   /** Optional className. */
   className?: string;
+  /** UI language; ja renders the transcreated voice (the-japanese-voice.md). */
+  lang?: "en" | "ja";
 }
 
 /**
@@ -243,7 +275,10 @@ interface BrandStatementProps {
  * evolves, edit `BRAND_HEADLINE` + `BRAND_SUBHEAD` in this module; every
  * consumer updates.
  */
-export function BrandStatement({ size = "medium", className }: BrandStatementProps) {
+export function BrandStatement({ size = "medium", className, lang = "en" }: BrandStatementProps) {
+  const j = lang === "ja";
+  const headline = j ? BRAND_HEADLINE_JA : BRAND_HEADLINE;
+  const subhead = j ? BRAND_SUBHEAD_JA : BRAND_SUBHEAD;
   if (size === "hero") {
     return (
       <section
@@ -251,16 +286,16 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
         aria-labelledby="brand-headline"
       >
         <p className="text-[11px] uppercase tracking-[0.2em] text-ink-faint mb-3">
-          Cambridge TCG, 2026
+          {j ? "Cambridge TCG・2026" : "Cambridge TCG, 2026"}
         </p>
         <h1
           id="brand-headline"
           className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-ink leading-tight max-w-4xl"
         >
-          {BRAND_HEADLINE}
+          {headline}
         </h1>
         <p className="mt-4 text-base sm:text-lg text-ink-muted max-w-3xl leading-relaxed">
-          {BRAND_SUBHEAD}
+          {subhead}
         </p>
       </section>
     );
@@ -275,9 +310,9 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
   return (
     <section className={`max-w-3xl mx-auto px-4 py-6 ${className ?? ""}`}>
       <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-        {BRAND_HEADLINE}
+        {headline}
       </h2>
-      <p className="mt-2 text-sm text-ink-muted leading-relaxed">{BRAND_SUBHEAD}</p>
+      <p className="mt-2 text-sm text-ink-muted leading-relaxed">{subhead}</p>
     </section>
   );
 }
@@ -288,7 +323,8 @@ export function BrandStatement({ size = "medium", className }: BrandStatementPro
  * same posture seen from two directions: the platform holds nothing
  * back and holds no position.
  */
-export function TwoOperations({ className }: { className?: string }) {
+export function TwoOperations({ className, lang = "en" }: { className?: string; lang?: "en" | "ja" }) {
+  const j = lang === "ja";
   return (
     <section
       className={`max-w-6xl mx-auto px-4 py-8 ${className ?? ""}`}
@@ -298,7 +334,7 @@ export function TwoOperations({ className }: { className?: string }) {
         id="two-operations-heading"
         className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4"
       >
-        Two operations · one substrate
+        {j ? "ふたつの営み・ひとつの基質" : "Two operations · one substrate"}
       </h2>
       <div className="grid md:grid-cols-2 gap-4">
         {TWO_OPERATIONS.map((op) => (
@@ -308,14 +344,14 @@ export function TwoOperations({ className }: { className?: string }) {
           >
             <div className="flex items-baseline justify-between gap-2 mb-2">
               <h3 className="font-display text-base font-semibold text-ink">
-                {op.name}
+                {j && op.name_ja ? op.name_ja : op.name}
               </h3>
             </div>
             <p className="text-xs text-ink-muted leading-relaxed mb-3">
-              For {op.audience}.
+              {j && op.audience_ja ? `${op.audience_ja}のために。` : `For ${op.audience}.`}
             </p>
             <p className="text-xs text-ink-faint leading-relaxed mb-3">
-              {op.notes}
+              {j && op.notes_ja ? op.notes_ja : op.notes}
             </p>
             <a href={op.url} className="text-xs text-accent hover:text-accent-strong font-mono">
               {op.url} →

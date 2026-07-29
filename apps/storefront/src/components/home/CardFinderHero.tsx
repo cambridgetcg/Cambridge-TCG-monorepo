@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { GameItem } from "@/lib/wholesale/client";
+import type { UiLang } from "@/lib/lang-mode";
 
 /**
  * CardFinderHero — the front door for "find what you need".
@@ -23,18 +24,20 @@ import type { GameItem } from "@/lib/wholesale/client";
  * white mount, hairline border, ink primary button. rounded-xl is the
  * hero-card exception the design doc reserves.
  */
-export default function CardFinderHero({ games }: { games: GameItem[] }) {
+export default function CardFinderHero({ games, uiLang = "en" }: { games: GameItem[]; uiLang?: UiLang }) {
   const sorted = [...games].sort((a, b) => b.card_count - a.card_count);
+  const j = uiLang === "ja";
 
   return (
-    <section aria-label="Find any card" className="max-w-7xl mx-auto px-4 py-6">
+    <section aria-label={j ? "カードをさがす" : "Find any card"} className="max-w-7xl mx-auto px-4 py-6">
       <div className="wardrobe-mat rounded-xl p-5 sm:p-7">
         <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-          Find any card
+          {j ? "カードをさがす" : "Find any card"}
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Price, transaction history, every source, every language — in one
-          view. No account, no fee to look. Just find what you need.
+          {j
+            ? "相場も、やり取りの記録も、出どころも、どの言語の版も、ひと目で。アカウントは要りません。見るのに、お金はかかりません。あとは、さがすだけ。"
+            : "Price, transaction history, every source, every language — in one view. No account, no fee to look. Just find what you need."}
         </p>
         <form
           method="get"
@@ -42,7 +45,7 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
           className="mt-4 flex flex-col sm:flex-row gap-3"
         >
           <label className="sr-only" htmlFor="finder-game">
-            Game
+            {j ? "ゲーム" : "Game"}
           </label>
           <select
             id="finder-game"
@@ -57,31 +60,41 @@ export default function CardFinderHero({ games }: { games: GameItem[] }) {
             ))}
           </select>
           <label className="sr-only" htmlFor="finder-q">
-            Card number
+            {j ? "カード番号" : "Card number"}
           </label>
           <input
             id="finder-q"
             name="q"
             required
-            placeholder="Card number — e.g. OP01-001"
+            placeholder={j ? "カード番号（例：OP01-001）" : "Card number — e.g. OP01-001"}
             className="flex-1 rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-accent/50 transition"
           />
           <button
             type="submit"
             className="rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-page hover:opacity-90 transition"
           >
-            Find →
+            {j ? "さがす →" : "Find →"}
           </button>
         </form>
         <p className="mt-2.5 text-xs text-ink-faint">
-          The card number is the small code on the card — usually bottom-left,
-          like <span className="font-mono text-ink-muted">OP01-001</span>. Don&rsquo;t
-          have it?{" "}
+          {j ? (
+            <>
+              カード番号は、カードのすみにある小さなコード。たいてい左下に、
+              <span className="font-mono text-ink-muted">OP01-001</span>
+              のように書いてあります。番号が手もとにないときは、
+            </>
+          ) : (
+            <>
+              The card number is the small code on the card — usually bottom-left,
+              like <span className="font-mono text-ink-muted">OP01-001</span>. Don&rsquo;t
+              have it?{" "}
+            </>
+          )}
           <Link
             href="/prices"
             className="text-accent hover:text-accent-strong underline"
           >
-            browse by game →
+            {j ? "ゲームからさがす →" : "browse by game →"}
           </Link>
         </p>
       </div>

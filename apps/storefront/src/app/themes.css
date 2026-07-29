@@ -247,6 +247,31 @@
   font-weight: 400;
 }
 
+/* ── 日本語 — the Japanese rendering wardrobe (lang-mode: ja) ──────────
+ * Applied when <html lang="ja"> (the lang-mode cookie's ja mode).
+ * Japanese type breathes differently: more leading; no italics (the
+ * copy carries 「」 instead — Japanese does not slant); phrase-aware
+ * line breaking where the engine offers it (auto-phrase is progressive
+ * — engines without it ignore the declaration and keep normal); and
+ * proportional kana (palt) in DISPLAY sizes only — body kana keeps its
+ * full-width rhythm. The body falls through Schibsted for Latin to the
+ * system gothic hands for kana·kanji; display keeps the 明朝 chain. */
+:lang(ja) body {
+  font-family: var(--font-schibsted), "Hiragino Kaku Gothic ProN",
+    "Hiragino Sans", "Yu Gothic", var(--font-body, sans-serif);
+  line-height: 1.9;
+  word-break: auto-phrase;
+}
+:lang(ja) em,
+:lang(ja) i,
+:lang(ja) .italic {
+  font-style: normal;
+}
+:lang(ja) .font-display {
+  font-feature-settings: "palt" 1;
+  letter-spacing: 0.04em;
+}
+
 /* The mat — a framed card image: hairline + warm shadow + white mount. */
 .wardrobe-mat {
   background-color: var(--color-surface);

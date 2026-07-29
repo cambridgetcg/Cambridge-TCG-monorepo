@@ -8,12 +8,15 @@ import {
   isNavItemActive,
   MORE_NAV_FOOTER,
   MORE_NAV_GROUPS,
+  navDescription,
   navItemAriaCurrent,
+  navLabel,
 } from "@/lib/nav/menu-config";
+import type { UiLang } from "@/lib/lang-mode";
 
 const PANEL_ID = "more-navigation";
 
-export function MoreMenu() {
+export function MoreMenu({ uiLang = "en" }: { uiLang?: UiLang }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,7 +80,7 @@ export function MoreMenu() {
             : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
         }`}
       >
-        More
+        {uiLang === "ja" ? "そのほか" : "More"}
         {active && <span className="sr-only"> — contains current location</span>}
         <svg
           viewBox="0 0 12 12"
@@ -104,7 +107,7 @@ export function MoreMenu() {
                     id={`more-${group.heading.replaceAll(" ", "-").toLowerCase()}`}
                     className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted"
                   >
-                    {group.heading}
+                    {uiLang === "ja" && group.heading_ja ? group.heading_ja : group.heading}
                   </h2>
                   <ul className="space-y-0.5">
                     {group.items.map((item) => {
@@ -121,10 +124,10 @@ export function MoreMenu() {
                           >
                             <span>
                               <span className="block text-sm font-medium text-ink">
-                                {item.label}
+                                {navLabel(item, uiLang)}
                               </span>
                               <span className="mt-0.5 block text-xs text-ink-muted">
-                                {item.description}
+                                {navDescription(item, uiLang)}
                               </span>
                             </span>
                             <Icon
@@ -150,7 +153,7 @@ export function MoreMenu() {
                   onClick={() => setOpen(false)}
                   className="flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  {item.label} {item.href === "/map" ? "→" : ""}
+                  {navLabel(item, uiLang)} {item.href === "/map" ? "→" : ""}
                 </Link>
               ))}
             </div>

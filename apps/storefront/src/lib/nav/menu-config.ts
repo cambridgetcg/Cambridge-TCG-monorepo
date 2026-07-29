@@ -17,25 +17,52 @@
 
 export type NavItem = {
   label: string;
+  /** Japanese rendering (lang-mode: ja). Voice charter:
+   *  docs/connections/the-japanese-voice.md. Optional — a missing ja
+   *  falls back to the English (honest beats blank). */
+  ja?: string;
   href: string;
   description?: string;
+  /** Japanese rendering of the description. */
+  description_ja?: string;
   /** Route prefixes that keep this section highlighted on deeper pages. */
   activePrefixes?: readonly string[];
 };
 
 export type NavGroup = {
   heading: string;
+  heading_ja?: string;
   items: readonly NavItem[];
 };
+
+import type { UiLang } from "@/lib/lang-mode";
+import { pickLoose } from "@/lib/i18n";
+
+/** The label in the active UI language; falls back to English. */
+export function navLabel(item: NavItem, lang: UiLang): string {
+  return pickLoose(item.label, item.ja, lang);
+}
+
+/** The description in the active UI language; falls back to English. */
+export function navDescription(
+  item: NavItem,
+  lang: UiLang,
+): string | undefined {
+  return item.description === undefined
+    ? undefined
+    : pickLoose(item.description, item.description_ja, lang);
+}
 
 export const PRIMARY_NAV_ITEMS = [
   {
     label: "Market",
+    ja: "マーケット",
     href: "/market",
     activePrefixes: ["/market", "/auctions"],
   },
   {
     label: "Prices",
+    ja: "相場",
     href: "/prices",
     activePrefixes: [
       "/prices",
@@ -48,11 +75,13 @@ export const PRIMARY_NAV_ITEMS = [
   },
   {
     label: "Play",
+    ja: "遊ぶ",
     href: "/play",
     activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
   },
   {
     label: "Culture",
+    ja: "文化",
     href: "/culture",
     activePrefixes: [
       "/culture",
@@ -68,6 +97,7 @@ export const PRIMARY_NAV_ITEMS = [
   },
   {
     label: "Community",
+    ja: "広場",
     href: "/community",
     activePrefixes: ["/community", "/rewards", "/u"],
   },
@@ -76,21 +106,28 @@ export const PRIMARY_NAV_ITEMS = [
 export const MORE_NAV_GROUPS = [
   {
     heading: "Start",
+    heading_ja: "入口",
     items: [
       {
         label: "Start here",
+        ja: "はじめに",
         href: "/start",
         description: "A quick tour",
+        description_ja: "ざっとひと巡り",
       },
       {
         label: "Guides",
+        ja: "手引き",
         href: "/guides",
         description: "Buying and playing help",
+        description_ja: "買い方と、遊び方",
       },
       {
         label: "About",
+        ja: "この店について",
         href: "/about",
         description: "Who we are",
+        description_ja: "どんな店か",
         activePrefixes: [
           "/about",
           "/platform",
@@ -106,30 +143,37 @@ export const MORE_NAV_GROUPS = [
   },
   {
     heading: "Data & trust",
+    heading_ja: "データと信頼",
     items: [
       {
         label: "Data directory",
+        ja: "データ目録",
         href: "/data",
         description: "API access and rights",
+        description_ja: "APIと、権利のこと",
         activePrefixes: ["/data", "/api", "/agents", "/standards", "/scrapers"],
       },
       {
         label: "Methods & fees",
+        ja: "決め方と手数料",
         href: "/methodology",
         description: "Prices, fees and decisions",
+        description_ja: "相場と手数料、その決めごと",
       },
       {
         label: "Draw proof checks",
+        ja: "検算",
         href: "/verify",
         description: "Consistency evidence and stated limits",
+        description_ja: "数字のつじつまと、その限界",
       },
     ],
   },
 ] as const satisfies readonly NavGroup[];
 
 export const MORE_NAV_FOOTER = [
-  { label: "Contact", href: "/contact" },
-  { label: "Platform map", href: "/map" },
+  { label: "Contact", ja: "連絡先", href: "/contact" },
+  { label: "Platform map", ja: "案内図", href: "/map" },
 ] as const satisfies readonly NavItem[];
 
 export function isNavItemActive(item: NavItem, pathname: string): boolean {

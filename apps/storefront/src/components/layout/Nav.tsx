@@ -18,12 +18,27 @@ import {
   MORE_NAV_FOOTER,
   MORE_NAV_GROUPS,
   navItemAriaCurrent,
+  navLabel,
   PRIMARY_NAV_ITEMS,
 } from "@/lib/nav/menu-config";
+import type { UiLang } from "@/lib/lang-mode";
 import type { ThemeChoice } from "@/lib/wardrobe/themes";
 import { applyLightsFlip } from "@/lib/wardrobe/flip";
 
-function MessagesIndicator() {
+/** Chrome labels in both prose languages (the-japanese-voice.md). */
+const CHROME = {
+  primary: { en: "Primary navigation", ja: "メインナビゲーション" },
+  home: { en: "Cambridge TCG home", ja: "Cambridge TCGのホーム" },
+  search: { en: "Search cards", ja: "カードをさがす" },
+  list: { en: "List a card", ja: "出品する" },
+  menuOpen: { en: "Open menu", ja: "メニューを開く" },
+  menuClose: { en: "Close menu", ja: "メニューを閉じる" },
+  lightsOn: { en: "Lights on", ja: "明かりをつける" },
+  lightsOff: { en: "Lights off", ja: "明かりを消す" },
+  messages: { en: "Messages", ja: "メッセージ" },
+} as const;
+
+function MessagesIndicator({ uiLang = "en" }: { uiLang?: UiLang }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -52,7 +67,7 @@ function MessagesIndicator() {
   return (
     <Link
       href="/account/messages"
-      aria-label={`Messages${count > 0 ? ` (${count} unread conversation${count === 1 ? "" : "s"})` : ""}`}
+      aria-label={uiLang === "ja" ? `メッセージ${count > 0 ? `（未読${count}件）` : ""}` : `Messages${count > 0 ? ` (${count} unread conversation${count === 1 ? "" : "s"})` : ""}`}
       className="relative rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <Icon name="message" size={21} />
@@ -65,7 +80,7 @@ function MessagesIndicator() {
   );
 }
 
-function themeToggle(theme: ThemeChoice, effectiveDark: boolean, pathname: string) {
+function themeToggle(theme: ThemeChoice, effectiveDark: boolean, pathname: string, uiLang: UiLang) {
   if (theme === "high-contrast") {
     return { hidden: true as const, target: "", label: "", href: "", isDark: false };
   }
@@ -73,7 +88,9 @@ function themeToggle(theme: ThemeChoice, effectiveDark: boolean, pathname: strin
   return {
     hidden: false as const,
     target,
-    label: effectiveDark ? "Lights on" : "Lights off",
+    label: effectiveDark
+      ? (uiLang === "ja" ? CHROME.lightsOn.ja : CHROME.lightsOn.en)
+      : (uiLang === "ja" ? CHROME.lightsOff.ja : CHROME.lightsOff.en),
     href: `/api/appearance?theme=${target}&back=${encodeURIComponent(pathname || "/")}`,
     isDark: effectiveDark,
   };
@@ -104,9 +121,11 @@ function readSystemDark(): boolean {
 export default function Nav({
   theme,
   initialLoggedIn = false,
+  uiLang = "en",
 }: {
   theme: ThemeChoice;
   initialLoggedIn?: boolean;
+  uiLang?: UiLang;
 }) {
   const [loggedIn, setLoggedIn] = useState(initialLoggedIn);
   const [wearing, setWearing] = useState<ThemeChoice>(theme);
@@ -125,7 +144,7 @@ export default function Nav({
   );
   const effectiveDark =
     wearing === "system" ? systemDark : wearing === "midnight" || wearing === "terminal";
-  const toggle = themeToggle(wearing, effectiveDark, pathname);
+  const toggle = themeToggle(wearing, effectiveDark, pathname, uiLang);
 
   const toggleMobileMenu = () => {
     setMenuState({ pathname, open: !menuOpen });
@@ -228,14 +247,14 @@ export default function Nav({
 
   return (
     <nav
-      aria-label="Primary navigation"
+      aria-label={uiLang === "ja" ? CHROME.primary.ja : CHROME.primary.en}
       className="sticky top-0 z-[60] border-b border-border-subtle bg-page/95 backdrop-blur"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link
           href="/"
           onClick={() => setMenuState({ pathname, open: false })}
-          aria-label="Cambridge TCG home"
+          aria-label={uiLang === "ja" ? CHROME.home.ja : CHROME.home.en}
           className="flex shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <Image
@@ -261,17 +280,17 @@ export default function Nav({
                   aria-current={navItemAriaCurrent(item, pathname)}
                   className={activeLinkClass(active)}
                 >
-                  {item.label}
+                  {navLabel(item, uiLang)}
                 </Link>
               );
             })}
-            <MoreMenu key={pathname} />
+            <MoreMenu key={pathname} uiLang={uiLang} />
           </div>
 
           <div className="ml-2 flex items-center gap-0.5 border-l border-border-subtle pl-2">
             <Link
               href="/find"
-              aria-label="Search cards"
+              aria-label={uiLang === "ja" ? CHROME.search.ja : CHROME.search.en}
               aria-current={pathname === "/find" ? "page" : undefined}
               className={`rounded-full p-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                 pathname === "/find"
@@ -298,15 +317,15 @@ export default function Nav({
             >
               {loggedIn ? "Account" : "Sign in"}
             </Link>
-            {loggedIn && <MessagesIndicator />}
+            {loggedIn && <MessagesIndicator uiLang={uiLang} />}
             {loggedIn && <NotificationBell />}
             <Link
               href="/market/list"
-              aria-label="List a card"
+              aria-label={uiLang === "ja" ? CHROME.list.ja : CHROME.list.en}
               aria-current={pathname === "/market/list" ? "page" : undefined}
               className="ml-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              List card
+              {uiLang === "ja" ? "出品する" : "List card"}
             </Link>
           </div>
         </div>
@@ -315,11 +334,11 @@ export default function Nav({
           <Link
             href="/market/list"
             onClick={() => setMenuState({ pathname, open: false })}
-            aria-label="List a card"
+            aria-label={uiLang === "ja" ? CHROME.list.ja : CHROME.list.en}
             aria-current={pathname === "/market/list" ? "page" : undefined}
             className="rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            List card
+            {uiLang === "ja" ? "出品する" : "List card"}
           </Link>
           <button
             id="mobile-navigation-trigger"
@@ -327,7 +346,7 @@ export default function Nav({
             type="button"
             onClick={toggleMobileMenu}
             className="rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-label={menuOpen ? (uiLang === "ja" ? CHROME.menuClose.ja : CHROME.menuClose.en) : (uiLang === "ja" ? CHROME.menuOpen.ja : CHROME.menuOpen.en)}
             aria-controls="mobile-navigation"
             aria-expanded={menuOpen}
           >
@@ -399,7 +418,7 @@ export default function Nav({
                         : "bg-surface-subtle text-ink hover:bg-surface"
                     }`}
                   >
-                    {item.label}
+                    {navLabel(item, uiLang)}
                     <span aria-hidden className={active ? "text-page/60" : "text-ink-faint"}>→</span>
                   </Link>
                 );
@@ -408,9 +427,9 @@ export default function Nav({
 
             <div className="mt-4 grid grid-cols-2 gap-5 border-t border-border-subtle pt-4">
               {MORE_NAV_GROUPS.map((group) => (
-                <section key={group.heading}>
+                <section key={uiLang === "ja" && group.heading_ja ? group.heading_ja : group.heading}>
                   <h2 className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
-                    {group.heading}
+                    {uiLang === "ja" && group.heading_ja ? group.heading_ja : group.heading}
                   </h2>
                   <ul className="space-y-0.5">
                     {group.items.map((item) => {
@@ -427,7 +446,7 @@ export default function Nav({
                                 : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
                             }`}
                           >
-                            {item.label}
+                            {navLabel(item, uiLang)}
                           </Link>
                         </li>
                       );
@@ -446,7 +465,7 @@ export default function Nav({
                   onClick={() => setMenuState({ pathname, open: false })}
                   className="flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  {item.label} {item.href === "/map" ? "→" : ""}
+                  {navLabel(item, uiLang)} {item.href === "/map" ? "→" : ""}
                 </Link>
               ))}
             </div>
@@ -462,7 +481,7 @@ export default function Nav({
                 </Link>
                 {loggedIn && (
                   <div className="flex items-center">
-                    <MessagesIndicator />
+                    <MessagesIndicator uiLang={uiLang} />
                     <NotificationBell />
                   </div>
                 )}

@@ -13,10 +13,13 @@ import { weatherClass } from "@/lib/wardrobe/weather";
  * The game weather (spec 2026-07-07) keeps that line: each door wears
  * its game's sky as material texture — ink weather, not imagery.
  */
-export default function GameGrid({ games }: { games: GameItem[] }) {
+import type { UiLang } from "@/lib/lang-mode";
+
+export default function GameGrid({ games, uiLang = "en" }: { games: GameItem[]; uiLang?: UiLang }) {
+  const j = uiLang === "ja";
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <PlateHeader title="Browse by Game" plate={1} rule />
+      <PlateHeader title={j ? "ゲームの扉" : "Browse by Game"} plate={1} rule />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {games.map((g) => (
           <Link
@@ -28,7 +31,7 @@ export default function GameGrid({ games }: { games: GameItem[] }) {
               {g.name}
             </span>
             <span className="mt-3 text-xs text-ink-faint font-mono tabular-nums">
-              {g.card_count.toLocaleString()} cards
+              {g.card_count.toLocaleString()}{j ? "枚" : " cards"}
             </span>
           </Link>
         ))}

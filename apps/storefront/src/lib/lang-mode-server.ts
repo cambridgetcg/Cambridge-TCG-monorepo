@@ -41,6 +41,7 @@ export async function getLangMode(): Promise<LangMode> {
   const store = await cookies();
   const v = store.get(LANG_MODE_COOKIE)?.value;
   if (v === "math") return "math";
+  if (v === "ja") return "ja";
   return "default";
 }
 
@@ -50,5 +51,6 @@ export async function getLangMode(): Promise<LangMode> {
 export function langModeFromCookies(store: CookieStore): LangMode {
   const v = store.get(LANG_MODE_COOKIE)?.value;
   if (v === "math") return "math";
+  if (v === "ja") return "ja";
   return "default";
 }

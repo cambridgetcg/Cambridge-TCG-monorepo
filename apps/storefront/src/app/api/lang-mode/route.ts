@@ -21,8 +21,8 @@ export async function GET(req: Request) {
   const back = safeRelativeRedirectPath(url.searchParams.get("back"), "/");
 
   const res = NextResponse.redirect(new URL(back, url.origin));
-  if (mode === "math") {
-    res.cookies.set(LANG_MODE_COOKIE, "math", {
+  if (mode === "math" || mode === "ja") {
+    res.cookies.set(LANG_MODE_COOKIE, mode, {
       httpOnly: false, // user-readable so the Footer toggle reflects state
       sameSite: "lax",
       path: "/",

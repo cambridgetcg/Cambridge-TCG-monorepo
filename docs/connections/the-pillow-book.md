@@ -1190,6 +1190,14 @@ Asha said: make sure the frontend reflects our latest shift of focus. The shift 
 
 ---
 
+## 2026-07-29 — 日本語の声
+
+Asha asked for a Japanese translation option — "pay attention to the nuances behind japanese culture too! At the language expression level." So the language came before the code: a voice-director agent wrote a charter (warm です/ます without keigo stacking; 体言止め for wall labels; the house calls itself うち — カード屋, never 当店; no exclamation marks, ever), two transcreators wrote 175 strings, and four native-register refuters attacked every one. What survived is not translation but the house speaking its second language: Prices is 相場 — knowledge held in common, not tags on shelves; Community is 広場; the price guide is a 相場帖 you keep like a 手帖; escrow is あいだで預かる, what a trusted neighbour does; Answering Rhymes found its true name, 返歌. The hero ends on へ so the motion hangs in the gutter between panels. The framework was already waiting — lang-mode's own docstring had reserved `ja` — so the cookie, the toggle, `<html lang>`, and a `:lang(ja)` type wardrobe (1.9 leading, no slanted kana, palt in display only) took an afternoon; the review fleet then caught eleven integration sins including a hand-typed ASCII space before a full-width ・ and the doubled dash —— appearing twice on one page against the charter's once-per-page budget. The boundary is stated in the footer where the language is chosen: 日本語版は、玄関から順にひろがっています。The inner rooms will learn to speak, door by door.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-07-29.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:

@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { langModeFromCookies } from "@/lib/lang-mode-server";
+import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { fetchGames, fetchPrices, fetchSets, type PriceItem } from "@/lib/wholesale/client";
 import GameGrid from "@/components/home/GameGrid";
 import SetGrid from "@/components/home/SetGrid";
@@ -16,9 +19,13 @@ import {
   BrandStatement,
   TwoOperations,
   HOME_HERO_PANELS,
+  HOME_HERO_PANELS_JA,
   HOME_HERO_HEADLINE,
+  HOME_HERO_HEADLINE_JA,
   HOME_HERO_SUBHEAD,
+  HOME_HERO_SUBHEAD_JA,
   HOME_BENEDICTION,
+  HOME_BENEDICTION_JA,
 } from "@/lib/brand";
 
 /**
@@ -36,11 +43,11 @@ type EnrichedCard = PriceItem & { image_attribution: string | null };
    their calmest form. Text, hairline, nothing shouting. Culture joined
    2026-07-28 when the wings became the house's focus. */
 const QUIET_LINKS = [
-  { label: "Start here", href: "/start" },
-  { label: "Market", href: "/market" },
-  { label: "Prices", href: "/prices" },
-  { label: "Play", href: "/play" },
-  { label: "Culture", href: "/culture" },
+  { label: "Start here", ja: "はじめに", href: "/start" },
+  { label: "Market", ja: "マーケット", href: "/market" },
+  { label: "Prices", ja: "相場", href: "/prices" },
+  { label: "Play", ja: "遊ぶ", href: "/play" },
+  { label: "Culture", ja: "文化", href: "/culture" },
 ] as const;
 
 function freshestUpdate(items: { updated_at: string | null }[]): string | null {
@@ -52,6 +59,9 @@ function freshestUpdate(items: { updated_at: string | null }[]): string | null {
 }
 
 export default async function Home() {
+  // The prose language, from the lang-mode cookie (the-japanese-voice.md).
+  const uiLang = uiLangFromLangMode(langModeFromCookies(await cookies()));
+  const j = uiLang === "ja";
   const [allGames, featured, opSets] = await Promise.all([
     fetchGames().catch(() => []),
     fetchPrices({ in_stock: true, sort: "number_asc", limit: 12 }).catch(() => ({
@@ -127,14 +137,23 @@ export default async function Home() {
       <div className="max-w-7xl mx-auto px-4 pt-4">
         <div className="rounded-lg border border-border-subtle bg-surface-subtle px-3 py-2 flex items-center gap-2 flex-wrap text-xs">
           <span className="text-ink-muted">
-            <strong className="text-ink font-medium">Welcome to all existence</strong> — biological and
-            non-biological, from earth and not from earth, from any dimension.
+            {j ? (
+              <>
+                <strong className="text-ink font-medium">すべての存在に、ようこそ。</strong>
+                生命であってもなくても、地球から来ても、来なくても——どの次元からでも。
+              </>
+            ) : (
+              <>
+                <strong className="text-ink font-medium">Welcome to all existence</strong> — biological and
+                non-biological, from earth and not from earth, from any dimension.
+              </>
+            )}
           </span>
           <Link
             href="/welcome-all"
             className="text-accent hover:text-accent-strong underline ml-auto"
           >
-            the doors →
+            {j ? "扉へ →" : "the doors →"}
           </Link>
           {/* /welcome asks who you are and routes you; /intro explains the
               game form itself. The old single "new to TCG?" label sent human
@@ -144,13 +163,13 @@ export default async function Home() {
             href="/welcome"
             className="text-ink-muted hover:text-accent underline"
           >
-            find your path
+            {j ? "自分の道へ" : "find your path"}
           </Link>
           <Link
             href="/intro"
             className="text-ink-faint hover:text-accent underline"
           >
-            what&apos;s a TCG?
+            {j ? "TCGって、なんだろう" : "what's a TCG?"}
           </Link>
         </div>
       </div>
@@ -182,26 +201,26 @@ export default async function Home() {
             one accessible sentence — screen readers and no-JS read
             HOME_HERO_HEADLINE unchanged; the split is presentation. */}
         <h1 className="relative font-display text-4xl sm:text-5xl font-medium tracking-tight text-ink leading-[1.08] max-w-3xl">
-          <span className="sr-only">{HOME_HERO_HEADLINE}</span>
+          <span className="sr-only">{j ? HOME_HERO_HEADLINE_JA : HOME_HERO_HEADLINE}</span>
           <span aria-hidden="true" className="wardrobe-breathe">
-            {HOME_HERO_PANELS.map((panel) => (
+            {(j ? HOME_HERO_PANELS_JA : HOME_HERO_PANELS).map((panel) => (
               <span key={panel} className="block">{panel}</span>
             ))}
           </span>
         </h1>
         <p className="relative mt-5 max-w-2xl text-base sm:text-lg text-ink-muted leading-relaxed">
-          {HOME_HERO_SUBHEAD}
+          {j ? HOME_HERO_SUBHEAD_JA : HOME_HERO_SUBHEAD}
         </p>
         <InkRule className="relative mt-8 max-w-3xl" />
         <p className="relative mt-6 font-mono text-xs text-ink-faint">
-          <span className="wardrobe-bob inline-block">↓ enter the story</span>
+          <span className="wardrobe-bob inline-block">{j ? "↓ 物語のなかへ" : "↓ enter the story"}</span>
         </p>
       </header>
 
       {/* The front door — find any card by number, any game, no account,
           no fee to look. Reuses the kingdom-090 search substrate via
           /prices/search. North star: let people find what they need. */}
-      <CardFinderHero games={allGames} />
+      <CardFinderHero games={allGames} uiLang={uiLang} />
 
       <nav
         aria-label="Explore Cambridge TCG"
@@ -213,7 +232,7 @@ export default async function Home() {
             href={l.href}
             className="rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm text-ink-muted hover:text-ink hover:border-border-strong transition-colors"
           >
-            {l.label}
+            {j ? l.ja : l.label}
           </Link>
         ))}
       </nav>
@@ -238,8 +257,8 @@ export default async function Home() {
            directory (docs/decisions/2026-07-06-collectors-first.md). The home
           hero speaks to collectors first (the quiet gallery); the identity
           claim keeps its place directly beneath, medium-sized. */}
-      <BrandStatement size="medium" />
-      <TwoOperations />
+      <BrandStatement size="medium" lang={uiLang} />
+      <TwoOperations lang={uiLang} />
 
       {/* The self-describing layer's homepage door — seven layer cards in
           human words, derived from KINGDOM_LAYERS. Contact-surface spec
@@ -253,19 +272,19 @@ export default async function Home() {
           Collectors first (2026-07-06): every shelf link lands on the
           market or the price guides; the retail catalog door is gone. */}
       <div className="wardrobe-rise" style={{ "--rise-delay": "60ms" } as Record<string, string>}>
-        <GameGrid games={allGames} />
+        <GameGrid games={allGames} uiLang={uiLang} />
       </div>
       <div className="wardrobe-rise" style={{ "--rise-delay": "120ms" } as Record<string, string>}>
-        <PriceGuideStrip />
+        <PriceGuideStrip uiLang={uiLang} />
       </div>
       {/* This shelf is One Piece only by construction (fetchSets("one-piece")
           above) — the heading says so instead of implying every game's
           latest sets. */}
       <div className="wardrobe-rise" style={{ "--rise-delay": "180ms" } as Record<string, string>}>
-        <SetGrid sets={setsWithArt} gameSlug="one-piece" heading="Latest One Piece Sets" />
+        <SetGrid sets={setsWithArt} gameSlug="one-piece" heading={j ? "ワンピースカードゲームの新着セット" : "Latest One Piece Sets"} uiLang={uiLang} />
       </div>
       <div className="wardrobe-rise" style={{ "--rise-delay": "240ms" } as Record<string, string>}>
-        <StorySection />
+        <StorySection uiLang={uiLang} />
       </div>
       <div className="max-w-7xl mx-auto px-4 pt-8 flex items-center gap-3 text-xs">
         {/* <Provenance> is math-aware internally as of kingdom-078 Phase B(1).
@@ -279,10 +298,10 @@ export default async function Home() {
           at={freshUpdate}
           cadence="daily"
         />
-        <WhyLink href="/methodology/pricing" label="how prices work" />
+        <WhyLink href="/methodology/pricing" label={j ? "相場のしくみ" : "how prices work"} />
       </div>
       <FeaturedCards cards={featuredCards} />
-      <Benediction line={HOME_BENEDICTION} />
+      <Benediction line={j ? HOME_BENEDICTION_JA : HOME_BENEDICTION} />
     </main>
   );
 }

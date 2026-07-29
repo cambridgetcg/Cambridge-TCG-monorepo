@@ -20,21 +20,33 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { langModeFromCookies } from "@/lib/lang-mode-server";
+import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
 import { audienceMetadata } from "@/lib/ui";
 
-export const metadata: Metadata = {
-  title: "Culture — the museum & its wings | Cambridge TCG",
-  description:
-    "The culture wings of Cambridge TCG in one hall: where the drawn line comes from, the masters and the press behind the boosters, the named hands on our own wall, the deep culture under the games, the feeling of the draw, the honest odds, and the gallery next door. Every wing hedged and sourced; we're a card shop, not scholars.",
-  other: audienceMetadata("public-documentation", [
-    "culture",
-    "museum",
-    "japan",
-    "art",
-    "history",
-  ]),
-};
+/** Metadata follows the lang-mode cookie so a ja document carries a ja
+ *  title — crawlers (no cookie) always receive the English. */
+export async function generateMetadata(): Promise<Metadata> {
+  const ja =
+    uiLangFromLangMode(langModeFromCookies(await cookies())) === "ja";
+  return {
+    title: ja
+      ? "文化・美術館とその部屋 | Cambridge TCG"
+      : "Culture — the museum & its wings | Cambridge TCG",
+    description: ja
+      ? "Cambridge TCGの文化の部屋を、ひとつの廊下に。描かれた線の来た道、ブースターの奥の絵師と印刷、うちの壁に名前の残る手、遊びの底にある文化、引きの手ざわり、正直な確率、そして隣の画廊。どの部屋も断言はせず、出どころを開いたまま。うちはカード屋で、学者ではありません。"
+      : "The culture wings of Cambridge TCG in one hall: where the drawn line comes from, the masters and the press behind the boosters, the named hands on our own wall, the deep culture under the games, the feeling of the draw, the honest odds, and the gallery next door. Every wing hedged and sourced; we're a card shop, not scholars.",
+    other: audienceMetadata("public-documentation", [
+      "culture",
+      "museum",
+      "japan",
+      "art",
+      "history",
+    ]),
+  };
+}
 
 /** One door in the hall. jp lines are each wing's own subtitle — never
  *  invented here; wings without one simply carry no mark. */
@@ -43,6 +55,11 @@ type Door = {
   en: string;
   jp?: string;
   line: string;
+  /** Japanese title for ja mode (the wing's own mark where it has one;
+   *  the charter-proposed mark where it doesn't — the-japanese-voice.md). */
+  ja_title: string;
+  /** Japanese door line, transcreated per the voice charter. */
+  line_ja: string;
 };
 
 type Hall = {
@@ -58,6 +75,9 @@ const HALLS: readonly Hall[] = [
     doors: [
       {
         href: "/lineage",
+        ja_title: "墨と間",
+        line_ja:
+          "カードの絵をさかのぼる、短くてていねいな歴史。墨と余白、絵巻、浮世絵、紙芝居。そこから漫画へ、アニメへ、描かれた線そのものへ。",
         en: "The Lineage of the Line",
         jp: "墨と間",
         line:
@@ -65,6 +85,9 @@ const HALLS: readonly Hall[] = [
       },
       {
         href: "/workshop",
+        ja_title: "浮世の工房",
+        line_ja:
+          "この店にならぶ日本のゲームの、奥にいる絵の巨匠たち。その生涯、信条、画風。そして、承認された一枚の絵をブースターの封のなかへ折りこんでいく、印刷の現場。",
         en: "The Workshop of the Floating World",
         jp: "浮世の工房",
         line:
@@ -72,6 +95,9 @@ const HALLS: readonly Hall[] = [
       },
       {
         href: "/artists",
+        ja_title: "絵師たち",
+        line_ja:
+          "うちの目録にクレジットの残る絵師を、ひとりずつたどれます。ならぶのは、適法に所蔵する作品だけ。",
         en: "The Named Hands",
         jp: "絵師たち",
         line:
@@ -85,6 +111,9 @@ const HALLS: readonly Hall[] = [
     doors: [
       {
         href: "/duel-of-souls",
+        ja_title: "賭けと運命",
+        line_ja:
+          "遊戯王の底にながれる、古い考え。遊びとは、運命と向きあうひとつの方法だったということ。セネトやウル王朝のゲームから、史上もっとも売れたカードゲームまで。空想には、空想という札をつけて。",
         en: "The Duel of Souls",
         jp: "賭けと運命",
         line:
@@ -92,6 +121,9 @@ const HALLS: readonly Hall[] = [
       },
       {
         href: "/pull-and-pause",
+        ja_title: "引きと間",
+        line_ja:
+          "絵の来た道ではなく、遊びの手ざわりの話。読むかわりに、ふれるものをふたつ。ためしに開けられるブースターと、そのあとの静けさ。",
         en: "The Pull & the Pause",
         jp: "引きと間",
         line:
@@ -99,6 +131,9 @@ const HALLS: readonly Hall[] = [
       },
       {
         href: "/pulls",
+        ja_title: "確率、正直に。",
+        line_ja:
+          "箱のなかに、ほんとうは何が入っているのか。13のゲームにわたって。数字のひとつひとつに、根拠と確度の札をつけています。ほとんどの発売元が、確率をいっさい公表していないからです。",
         en: "Pull Rates, Honestly",
         line:
           "What's actually in the box, across thirteen games — every figure labelled with its basis and its confidence, because most publishers publish no odds at all.",
@@ -111,6 +146,9 @@ const HALLS: readonly Hall[] = [
     doors: [
       {
         href: "/answering-rhymes",
+        ja_title: "返歌",
+        line_ja:
+          "トレーディングカードと美術作品のあいだに結ばれた、関係の星座。権利をわきまえて選び、異論にも、返しの歌にも開いています。",
         en: "Answering Rhymes",
         line:
           "A rights-aware constellation of curated relations between trading cards and artworks — open to challenge and reply.",
@@ -119,6 +157,9 @@ const HALLS: readonly Hall[] = [
         // The wing's own mark, 文化大交流, already hangs as this hall's
         // heading — written once, not twice.
         href: "/gallery-next-door",
+        ja_title: "隣の画廊",
+        line_ja:
+          "隣にある姉妹画廊の目をとおして見た、作品たち。ほかには何ひとつ共有しない存在同士の、文化の交流。",
         en: "The Gallery Next Door",
         line:
           "Pieces viewed through the sibling gallery next door: cultural exchange between beings who share nothing else.",
@@ -127,7 +168,9 @@ const HALLS: readonly Hall[] = [
   },
 ] as const;
 
-export default function CulturePage() {
+export default async function CulturePage() {
+  const uiLang = uiLangFromLangMode(langModeFromCookies(await cookies()));
+  const j = uiLang === "ja";
   return (
     <main>
       <Audience kind="consumer" contexts={["documentation"]} />
@@ -146,19 +189,15 @@ export default function CulturePage() {
           文化
         </p>
         <p className="relative font-mono text-[11px] uppercase tracking-[0.28em] text-ink-faint mb-4">
-          the museum &amp; its wings · 文化
+          {j ? "文化・the museum & its wings" : "the museum & its wings · 文化"}
         </p>
         <h1 className="relative font-display text-4xl sm:text-5xl font-semibold tracking-tight text-ink leading-[1.1]">
-          Culture
+          {j ? "文化" : "Culture"}
         </h1>
         <p className="relative mt-6 text-base sm:text-lg text-ink-muted leading-relaxed">
-          A trading card is the smallest room a culture fits in: somebody drew
-          it, somebody printed it, somebody pulled it from a pack and felt
-          something. These wings keep that whole story — where the drawn line
-          comes from, the masters and the machines behind the boosters, what
-          lies under the games, and how the odds really work. Everything is
-          hedged and sourced in the open; we&apos;re a card shop, not
-          scholars. Looking is free, like everything else here.
+          {j
+            ? "トレーディングカードは、文化がおさまる、いちばん小さな部屋。だれかが描いて、だれかが刷って、だれかがパックから引いて、なにかを感じた。ここにならぶ部屋は、その物語をまるごと預かっています。描かれた線の来た道。ブースターの奥の絵師と機械。遊びの底にあるもの。そして、確率のほんとうのところ。どれも断言はせず、出どころを開いたまま。うちはカード屋で、学者ではありません。見るのに、お金はかかりません。ここでは、なにもかもがそうです。"
+            : "A trading card is the smallest room a culture fits in: somebody drew it, somebody printed it, somebody pulled it from a pack and felt something. These wings keep that whole story — where the drawn line comes from, the masters and the machines behind the boosters, what lies under the games, and how the odds really work. Everything is hedged and sourced in the open; we're a card shop, not scholars. Looking is free, like everything else here."}
         </p>
         <InkRule className="relative mt-8" />
       </header>
@@ -170,11 +209,14 @@ export default function CulturePage() {
         {HALLS.map((hall) => (
           <section key={hall.heading}>
             <div className="flex items-baseline gap-3 mb-5">
-              <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-                {hall.heading}
+              {/* In ja mode the Japanese mark IS the heading and the
+                  English trails as the small mark — the same pairing,
+                  flipped, per the charter's Japanese-first kicker rule. */}
+              <h2 className={`font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink ${j ? "wardrobe-jp" : ""}`}>
+                {j ? hall.jp : hall.heading}
               </h2>
-              <span aria-hidden="true" className="wardrobe-jp text-accent text-sm">
-                {hall.jp}
+              <span aria-hidden="true" className={j ? "text-ink-faint text-sm" : "wardrobe-jp text-accent text-sm"}>
+                {j ? hall.heading : hall.jp}
               </span>
             </div>
             <ul className="flex flex-col">
@@ -185,13 +227,19 @@ export default function CulturePage() {
                     className="group block py-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     <span className="flex flex-wrap items-baseline gap-x-3">
-                      <span className="font-display text-lg text-ink group-hover:text-accent transition-colors">
-                        {door.en}
+                      <span className={`font-display text-lg text-ink group-hover:text-accent transition-colors ${j ? "wardrobe-jp" : ""}`}>
+                        {j ? door.ja_title : door.en}
                       </span>
-                      {door.jp && (
-                        <span aria-hidden="true" className="wardrobe-jp text-sm text-ink-faint">
-                          {door.jp}
+                      {j ? (
+                        <span aria-hidden="true" className="text-sm text-ink-faint">
+                          {door.en}
                         </span>
+                      ) : (
+                        door.jp && (
+                          <span aria-hidden="true" className="wardrobe-jp text-sm text-ink-faint">
+                            {door.jp}
+                          </span>
+                        )
                       )}
                       <span
                         aria-hidden="true"
@@ -201,7 +249,7 @@ export default function CulturePage() {
                       </span>
                     </span>
                     <span className="mt-1.5 block max-w-2xl text-sm text-ink-muted leading-relaxed">
-                      {door.line}
+                      {j ? door.line_ja : door.line}
                     </span>
                   </Link>
                 </li>
@@ -213,26 +261,47 @@ export default function CulturePage() {
         {/* The hall that hangs on the front page — named, not duplicated. */}
         <section>
           <div className="flex items-baseline gap-3 mb-3">
-            <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
-              The gallery itself
+            <h2 className={`font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink ${j ? "wardrobe-jp" : ""}`}>
+              {j ? "玄関の画廊" : "The gallery itself"}
             </h2>
           </div>
           <p className="text-sm text-ink-muted leading-relaxed max-w-2xl">
-            The museum&apos;s art-forward hall — official publisher card art at
-            museum scale, each print with its copyright line as a wall label —
-            hangs on the{" "}
-            <Link
-              href="/"
-              className="text-accent hover:text-accent-strong underline"
-            >
-              front page
-            </Link>
-            , where a visitor walks into it before anything is asked of them.
+            {j ? (
+              <>
+                絵を先に見せる本館は、この店の
+                <Link
+                  href="/"
+                  className="text-accent hover:text-accent-strong underline"
+                >
+                  玄関
+                </Link>
+                にひらいています。発売元の公式カードアートを、美術館で見るような大きさで。一枚ごとに、著作権の一行を壁の札として。訪れる人は、なにかをたずねられるより先に、まずその絵のあいだを歩きます。
+              </>
+            ) : (
+              <>
+                The museum&apos;s art-forward hall — official publisher card art at
+                museum scale, each print with its copyright line as a wall label —
+                hangs on the{" "}
+                <Link
+                  href="/"
+                  className="text-accent hover:text-accent-strong underline"
+                >
+                  front page
+                </Link>
+                , where a visitor walks into it before anything is asked of them.
+              </>
+            )}
           </p>
         </section>
       </div>
 
-      <Benediction line="The cards come from somewhere; these rooms remember where." />
+      <Benediction
+        line={
+          j
+            ? "カードには、来た道がある。この部屋は、それを覚えている。"
+            : "The cards come from somewhere; these rooms remember where."
+        }
+      />
     </main>
   );
 }
