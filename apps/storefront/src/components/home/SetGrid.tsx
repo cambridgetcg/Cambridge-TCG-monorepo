@@ -55,7 +55,7 @@ export default function SetGrid({
     <section className={`max-w-7xl mx-auto px-4 py-16 sm:py-20 ${weatherClass(gameSlug)}`}>
       <PlateHeader
         title={plateHeading}
-        kicker={tx({ en: "new exhibition · 新展", ja: "新展・new exhibition" }, uiLang)}
+        kicker={tx({ en: "new exhibition · 新展", ja: "新展・new exhibition", es: "nueva exposición · 新展", "zh-Hans": "新展 · new exhibition", "zh-Hant": "新展・new exhibition" }, uiLang)}
         plate={3}
         rule
         action={
@@ -63,7 +63,7 @@ export default function SetGrid({
             href={`/market?game=${gameSlug}`}
             className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
           >
-            {tx({ en: "View all sets →", ja: "セットの一覧 →" }, uiLang)}
+            {tx({ en: "View all sets →", ja: "セットの一覧 →", es: "Todos los sets →", "zh-Hans": "全部系列 →", "zh-Hant": "系列一覽 →" }, uiLang)}
           </Link>
         }
       />
@@ -96,7 +96,7 @@ export default function SetGrid({
               {/* NEW chip for first set */}
               {i === 0 && (
                 <span className="absolute top-3 right-3 rounded px-1.5 py-0.5 bg-accent-wash text-accent border border-accent/30 text-[10px] font-semibold uppercase tracking-wide">
-                  {tx({ en: "New", ja: "新着" }, uiLang)}
+                  {tx({ en: "New", ja: "新着", es: "Nuevo", "zh-Hans": "新到", "zh-Hant": "新到" }, uiLang)}
                 </span>
               )}
             </div>

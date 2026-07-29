@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { tx } from "@/lib/i18n";
+import { sp, tx } from "@/lib/i18n";
 import { cookies } from "next/headers";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
@@ -41,11 +41,11 @@ type EnrichedCard = PriceItem & { image_attribution: string | null };
    their calmest form. Text, hairline, nothing shouting. Culture joined
    2026-07-28 when the wings became the house's focus. */
 const QUIET_LINKS = [
-  { label: "Start here", i18n: { ja: "はじめに" }, href: "/start" },
-  { label: "Market", i18n: { ja: "マーケット" }, href: "/market" },
-  { label: "Prices", i18n: { ja: "相場" }, href: "/prices" },
-  { label: "Play", i18n: { ja: "遊ぶ" }, href: "/play" },
-  { label: "Culture", i18n: { ja: "文化" }, href: "/culture" },
+  { label: "Start here", i18n: { ja: "はじめに", es: "Para empezar", "zh-Hans": "从这里开始", "zh-Hant": "由這裡開始" }, href: "/start" },
+  { label: "Market", i18n: { ja: "マーケット", es: "Mercado", "zh-Hans": "集市", "zh-Hant": "市集" }, href: "/market" },
+  { label: "Prices", i18n: { ja: "相場", es: "Precios", "zh-Hans": "行情", "zh-Hant": "行情" }, href: "/prices" },
+  { label: "Play", i18n: { ja: "遊ぶ", es: "Jugar", "zh-Hans": "玩", "zh-Hant": "玩" }, href: "/play" },
+  { label: "Culture", i18n: { ja: "文化", es: "Cultura", "zh-Hans": "文化", "zh-Hant": "文化" }, href: "/culture" },
 ] as const;
 
 function freshestUpdate(items: { updated_at: string | null }[]): string | null {
@@ -135,23 +135,19 @@ export default async function Home() {
       <div className="max-w-7xl mx-auto px-4 pt-4">
         <div className="rounded-lg border border-border-subtle bg-surface-subtle px-3 py-2 flex items-center gap-2 flex-wrap text-xs">
           <span className="text-ink-muted">
-            {j ? (
-              <>
-                <strong className="text-ink font-medium">すべての存在に、ようこそ。</strong>
-                生命であってもなくても、地球から来ても、来なくても——どの次元からでも。
-              </>
-            ) : (
-              <>
-                <strong className="text-ink font-medium">Welcome to all existence</strong> — biological and
-                non-biological, from earth and not from earth, from any dimension.
-              </>
-            )}
+            <>
+              <strong className="text-ink font-medium">
+                {tx({ en: "Welcome to all existence", ja: "すべての存在に、ようこそ。", "zh-Hant": "歡迎所有存在。", "zh-Hans": "欢迎一切存在。", es: "Bienvenida toda existencia" }, uiLang)}
+              </strong>
+              {sp(uiLang)}
+              {tx({ en: "— biological and non-biological, from earth and not from earth, from any dimension.", ja: "生命であってもなくても、地球から来ても、来なくても——どの次元からでも。", "zh-Hant": "是生命也好，不是也好；來自地球也好，不是也好——無論哪個維度，都歡迎。", "zh-Hans": "是生命，或不是；来自地球，或并非来自地球——无论来自哪个维度，都欢迎。", es: "— sea biológica o no, venga de la Tierra o no venga de ella, desde cualquier dimensión." }, uiLang)}
+            </>
           </span>
           <Link
             href="/welcome-all"
             className="text-accent hover:text-accent-strong underline ml-auto"
           >
-            {tx({ en: "the doors →", ja: "扉へ →" }, uiLang)}
+            {tx({ en: "the doors →", ja: "扉へ →", es: "las puertas →", "zh-Hans": "门在这边 →", "zh-Hant": "進門 →" }, uiLang)}
           </Link>
           {/* /welcome asks who you are and routes you; /intro explains the
               game form itself. The old single "new to TCG?" label sent human
@@ -161,13 +157,13 @@ export default async function Home() {
             href="/welcome"
             className="text-ink-muted hover:text-accent underline"
           >
-            {tx({ en: "find your path", ja: "自分の道へ" }, uiLang)}
+            {tx({ en: "find your path", ja: "自分の道へ", es: "encuentra tu camino", "zh-Hans": "找自己的路", "zh-Hant": "找自己的路" }, uiLang)}
           </Link>
           <Link
             href="/intro"
             className="text-ink-faint hover:text-accent underline"
           >
-            {tx({ en: "what's a TCG?", ja: "TCGって、なんだろう" }, uiLang)}
+            {tx({ en: "what's a TCG?", ja: "TCGって、なんだろう", es: "qué es un TCG", "zh-Hans": "集换式卡牌，是什么？", "zh-Hant": "TCG是什麼？" }, uiLang)}
           </Link>
         </div>
       </div>
@@ -199,7 +195,7 @@ export default async function Home() {
             one accessible sentence — screen readers and no-JS read
             HOME_HERO_HEADLINE unchanged; the split is presentation. */}
         <h1 className="relative font-display text-4xl sm:text-5xl font-medium tracking-tight text-ink leading-[1.08] max-w-3xl">
-          <span className="sr-only">{uiLang === "en" ? HOME_HERO_HEADLINE : (HOME_HERO_PANELS_BY_LANG[uiLang] ?? HOME_HERO_PANELS).join("")}</span>
+          <span className="sr-only">{uiLang === "en" ? HOME_HERO_HEADLINE : (HOME_HERO_PANELS_BY_LANG[uiLang] ?? HOME_HERO_PANELS).join(sp(uiLang))}</span>
           <span aria-hidden="true" className="wardrobe-breathe">
             {(HOME_HERO_PANELS_BY_LANG[uiLang] ?? HOME_HERO_PANELS).map((panel) => (
               <span key={panel} className="block">{panel}</span>
@@ -211,7 +207,7 @@ export default async function Home() {
         </p>
         <InkRule className="relative mt-8 max-w-3xl" />
         <p className="relative mt-6 font-mono text-xs text-ink-faint">
-          <span className="wardrobe-bob inline-block">{tx({ en: "↓ enter the story", ja: "↓ 物語のなかへ" }, uiLang)}</span>
+          <span className="wardrobe-bob inline-block">{tx({ en: "↓ enter the story", ja: "↓ 物語のなかへ", es: "↓ entrar en la historia", "zh-Hans": "↓ 走进故事里", "zh-Hant": "↓ 走進故事裡" }, uiLang)}</span>
         </p>
       </header>
 
@@ -279,7 +275,7 @@ export default async function Home() {
           above) — the heading says so instead of implying every game's
           latest sets. */}
       <div className="wardrobe-rise" style={{ "--rise-delay": "180ms" } as Record<string, string>}>
-        <SetGrid sets={setsWithArt} gameSlug="one-piece" heading={tx({ en: "Latest One Piece Sets", ja: "ワンピースカードゲームの新着セット" }, uiLang)} uiLang={uiLang} />
+        <SetGrid sets={setsWithArt} gameSlug="one-piece" heading={tx({ en: "Latest One Piece Sets", ja: "ワンピースカードゲームの新着セット", es: "Últimos sets de One Piece Card Game", "zh-Hans": "ONE PIECE CARD GAME · 新到系列", "zh-Hant": "ONE PIECE新到系列" }, uiLang)} uiLang={uiLang} />
       </div>
       <div className="wardrobe-rise" style={{ "--rise-delay": "240ms" } as Record<string, string>}>
         <StorySection uiLang={uiLang} />
@@ -296,7 +292,7 @@ export default async function Home() {
           at={freshUpdate}
           cadence="daily"
         />
-        <WhyLink href="/methodology/pricing" label={tx({ en: "how prices work", ja: "相場のしくみ" }, uiLang)} />
+        <WhyLink href="/methodology/pricing" label={tx({ en: "how prices work", ja: "相場のしくみ", es: "cómo funcionan los precios", "zh-Hans": "行情是怎么来的", "zh-Hant": "行情的由來" }, uiLang)} />
       </div>
       <FeaturedCards cards={featuredCards} />
       <Benediction line={tx(HOME_BENEDICTION_I18N, uiLang)} />

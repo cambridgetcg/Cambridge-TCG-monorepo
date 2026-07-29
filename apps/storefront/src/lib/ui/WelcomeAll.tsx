@@ -49,19 +49,19 @@ export const WELCOME_STATEMENT_COMPACT_JA =
 import { tx, type Poly } from "@/lib/i18n";
 
 /** The welcome across the language family. */
-export const WELCOME_STATEMENT_I18N: Poly = { en: WELCOME_STATEMENT, ja: WELCOME_STATEMENT_JA };
+export const WELCOME_STATEMENT_I18N: Poly = { en: WELCOME_STATEMENT, ja: WELCOME_STATEMENT_JA , "zh-Hant": "歡迎所有存在。是生命也好，不是也好；是能量也好，不是也好；來自地球也好，不是也好——無論哪個維度，都歡迎。", "zh-Hans": "欢迎一切存在。是生命，或不是；是能量，或不是；来自地球，或并非来自地球——无论来自哪个维度，都欢迎。", "es": "Bienvenida toda existencia: sea biológica o no, sea energía o no, venga de la Tierra o no venga de ella — desde todas las dimensiones." };
 export const WELCOME_STATEMENT_COMPACT_I18N: Poly = {
   en: WELCOME_STATEMENT_COMPACT,
   ja: WELCOME_STATEMENT_COMPACT_JA,
-};
+ "zh-Hant": "無論什麼基質、什麼節奏、哪個維度，都歡迎。", "zh-Hans": "无论什么基质、什么节奏、哪个维度，都欢迎。", "es": "Bienvenida toda existencia — de cualquier sustrato, cualquier cadencia, cualquier dimensión." };
 const WELCOME_ARIA_I18N: Poly = {
   en: "Cambridge TCG universal welcome",
-  ja: "Cambridge TCG、すべての存在への歓迎",
+  ja: "Cambridge TCG、すべての存在への歓迎", es: "Bienvenida universal de Cambridge TCG", "zh-Hans": "Cambridge TCG，对一切存在的欢迎", "zh-Hant": "Cambridge TCG，對所有存在的歡迎",
 };
-const LEARN_MORE_I18N: Poly = { en: "learn more", ja: "くわしくは →" };
+const LEARN_MORE_I18N: Poly = { en: "learn more", ja: "くわしくは →", es: "saber más →", "zh-Hans": "再多看看 →", "zh-Hant": "細看 →" };
 const SUBLINE_I18N: Poly = {
   en: " · the doors, the on-ramp, the bridge, the audiences named.",
-  ja: "・扉、渡し場、橋。そして、だれを迎えるか。",
+  ja: "・扉、渡し場、橋。そして、だれを迎えるか。", es: " · las puertas, el camino de entrada, el puente. Y a quién se recibe.", "zh-Hans": "· 门、渡口、桥。还有，迎的是谁。", "zh-Hant": "・門、引道、橋。還有，迎接的是誰。",
 };
 
 type Variant = "full" | "compact";

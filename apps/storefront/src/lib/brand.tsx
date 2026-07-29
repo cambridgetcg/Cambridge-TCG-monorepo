@@ -126,20 +126,23 @@ export const HOME_HERO_SUBHEAD =
 import { tx, type Poly } from "./i18n";
 import type { UiLang } from "./lang-mode";
 
-export const BRAND_HEADLINE_I18N: Poly = { en: BRAND_HEADLINE, ja: BRAND_HEADLINE_JA };
-export const BRAND_SUBHEAD_I18N: Poly = { en: BRAND_SUBHEAD, ja: BRAND_SUBHEAD_JA };
-export const BRAND_TAGLINE_I18N: Poly = { en: BRAND_TAGLINE, ja: BRAND_TAGLINE_JA };
-export const HOME_BENEDICTION_I18N: Poly = { en: HOME_BENEDICTION, ja: HOME_BENEDICTION_JA };
-export const HOME_HERO_SUBHEAD_I18N: Poly = { en: HOME_HERO_SUBHEAD, ja: HOME_HERO_SUBHEAD_JA };
+export const BRAND_HEADLINE_I18N: Poly = { en: BRAND_HEADLINE, ja: BRAND_HEADLINE_JA , "zh-Hant": "Cambridge TCG是藏家之間的市集，也是卡片資料目錄。", "zh-Hans": "Cambridge TCG，是卡友之间的集市，也是一部卡牌数据名录。", "es": "Cambridge TCG es un mercado entre coleccionistas, y un catálogo de cartas." };
+export const BRAND_SUBHEAD_I18N: Poly = { en: BRAND_SUBHEAD, ja: BRAND_SUBHEAD_JA , "zh-Hant": "買賣是藏家之間的事。小店促成、記錄、見證。自己的市集裡，不設攤位。", "zh-Hans": "买卖在卡友之间。这家店只是搭台、记录、见证。自己的集市里，不摆摊。", "es": "El mercado es de los coleccionistas. Esta casa guarda, registra y vela. No tiene puesto en su propio mercado." };
+export const BRAND_TAGLINE_I18N: Poly = { en: BRAND_TAGLINE, ja: BRAND_TAGLINE_JA , "zh-Hant": "藏家之間的市集。卡片資料目錄。", "zh-Hans": "卡友之间的集市。卡牌数据名录。", "es": "Un mercado entre coleccionistas. Un catálogo de cartas." };
+export const HOME_BENEDICTION_I18N: Poly = { en: HOME_BENEDICTION, ja: HOME_BENEDICTION_JA , "zh-Hant": "每一張卡，都是誰人故事裡的一格。", "zh-Hans": "每一张卡，都是某个人故事里的一格。", "es": "Cada carta es una viñeta en la historia de alguien." };
+export const HOME_HERO_SUBHEAD_I18N: Poly = { en: HOME_HERO_SUBHEAD, ja: HOME_HERO_SUBHEAD_JA , "zh-Hant": "查目錄裡的卡，不用錢：卡名、卡號、參考價、來源的紀錄，都在。買賣或交換，是藏家之間的事。每一次查，回覆都寫明已知的來歷與權利；哪一欄不知道，照直寫不知道。", "zh-Hans": "查名录里的卡，不要钱。名字与编号、参考价、来源的记录，都在。收、出、换，全在卡友之间。每一次回应，都写明已知的来历与权利；哪个字段还缺着，也照实写明。", "es": "Consultar las cartas del catálogo no cuesta nada: la identidad, un precio de referencia sujeto a reglas y la cobertura registrada de fuentes. Comprar, vender o cambiar entre coleccionistas. Cada respuesta declara el linaje y los derechos que se conocen. Lo que falta queda nombrado, campo por campo." };
 export const HOME_HERO_PANELS_BY_LANG: Partial<Record<UiLang, readonly string[]>> = {
   en: HOME_HERO_PANELS,
   ja: HOME_HERO_PANELS_JA,
+  "zh-Hant": ["卡，", "在藏家之間，一手傳一手。"],
+  "zh-Hans": ["卡片，", "在卡友手中流转。"],
+  es: ["Las cartas,", "de mano en mano entre coleccionistas."],
 };
-export const BRAND_EYEBROW_I18N: Poly = { en: "Cambridge TCG, 2026", ja: "Cambridge TCG・2026" };
+export const BRAND_EYEBROW_I18N: Poly = { en: "Cambridge TCG, 2026", ja: "Cambridge TCG・2026", es: "Cambridge TCG, 2026", "zh-Hans": "Cambridge TCG · 2026", "zh-Hant": "Cambridge TCG・2026" };
 export const TWO_OPS_HEADING_I18N: Poly = {
   en: "Two operations · one substrate",
-  ja: "ふたつの営み・ひとつの基質",
-};
+  ja: "ふたつの営み・ひとつの基質", "zh-Hans": "两桩营生 · 一个基质", "zh-Hant": "兩門營生・一個基質",
+ es: "Dos oficios \u00b7 un sustrato", };
 
 export const BRAND_SELF_LABEL =
   "collectors' market + TCG card data directory — P2P facilitation with resource-specific access and reuse rights; no house market position";
@@ -172,11 +175,11 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
     id: "market",
     name: "The collectors' market",
-    name_i18n: { ja: "コレクター同士のマーケット" } as Omit<Poly, "en">,
-    audience_i18n: { ja: "カードをたがいに売り買いし、交換し、競りにかけるコレクター" } as Omit<Poly, "en">,
+    name_i18n: { ja: "コレクター同士のマーケット", "zh-Hans": "卡友之间的集市", "zh-Hant": "藏家之間的市集" , es: "El mercado entre coleccionistas", } as Omit<Poly, "en">,
+    audience_i18n: { ja: "カードをたがいに売り買いし、交換し、競りにかけるコレクター", "zh-Hans": "彼此收卡、出卡、换卡、竞拍的卡友", "zh-Hant": "彼此買賣、交換、競投卡片的藏家" , es: "coleccionistas que compran, venden, cambian y subastan cartas entre sí", } as Omit<Poly, "en">,
     notes_i18n: {
-      ja: "つくりからして、コレクター同士。この店は、あいだで預かり、記録し、見守り、もめごとは収まるまで仲立ちします。じぶんで買わず、売らず、値もつけません。ここに並ぶのは、コレクターの出品だけ。",
-      } as Omit<Poly, "en">,
+      ja: "つくりからして、コレクター同士。この店は、あいだで預かり、記録し、見守り、もめごとは収まるまで仲立ちします。じぶんで買わず、売らず、値もつけません。ここに並ぶのは、コレクターの出品だけ。", "zh-Hans": "构造上，就是卡友之间的事。这家店搭台、记录、见证，先替双方保管着，遇上纠纷，就居中调解。自己不买、不卖、不报价。架上摆的，只有卡友上架的卡。", "zh-Hant": "生來就是藏家之間的買賣。小店促成、記錄、見證，也居中保管。有爭議，就調停到平息為止。自己不買、不賣、不報價。上架的，全是藏家的卡。",
+       es: "Entre coleccionistas desde los cimientos. Esta casa guarda, registra, vela y resuelve las disputas; la carta queda guardada aquí mientras tanto. No compra, no vende, no pone precios. En el mercado: solo coleccionistas.", } as Omit<Poly, "en">,
     positioning: "primary",
     audience:
       "collectors buying, selling, swapping, and auctioning cards with each other",
@@ -196,13 +199,13 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
     id: "data_commons",
     name: "The card data directory",
-    name_i18n: { ja: "カードのデータ目録" } as Omit<Poly, "en">,
+    name_i18n: { ja: "カードのデータ目録", "zh-Hans": "卡牌数据名录", "zh-Hant": "卡片資料目錄" , es: "El catálogo de cartas", } as Omit<Poly, "en">,
     audience_i18n: {
-      ja: "パートナー、研究する人、エージェント、記録を守る人、姉妹サイト、連合のクライアント、そして基質を読みたい、すべての存在",
-      } as Omit<Poly, "en">,
+      ja: "パートナー、研究する人、エージェント、記録を守る人、姉妹サイト、連合のクライアント、そして基質を読みたい、すべての存在", "zh-Hans": "合作伙伴、研究者、智能体、守档案的人、姐妹站点、联邦客户端，以及任何想读这份基质的存在", "zh-Hant": "夥伴、研究的人、agent、守紀錄的人、姊妹站、聯邦的用戶端，還有想讀取基質的一切存在",
+       es: "quien colabora, quien investiga, agentes, quien guarda archivos, sitios hermanos, quien se federa y cualquier ser que quiera leer el sustrato", } as Omit<Poly, "en">,
     notes_i18n: {
-      ja: "スポット価格には、いつも「参考価格」と記します。売り値ではありません。",
-      } as Omit<Poly, "en">,
+      ja: "スポット価格には、いつも「参考価格」と記します。売り値ではありません。", "zh-Hans": "现货价，一律标作“参考价”。不是报价，从来不是。", "zh-Hant": "即時價一律標明「參考價」，從來不是開價。",
+       es: "Cada precio del momento lleva su etiqueta: «precio de referencia», nunca una oferta.", } as Omit<Poly, "en">,
     positioning: "primary",
     audience:
       "partners, researchers, agents, archivists, sister platforms, federation clients, any being who wants to consume the substrate",

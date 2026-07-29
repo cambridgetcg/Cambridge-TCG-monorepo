@@ -20,7 +20,7 @@ export default function GameGrid({ games, uiLang = "en" }: { games: GameItem[]; 
   const j = uiLang === "ja";
   return (
     <section className="max-w-7xl mx-auto px-4 py-14">
-      <PlateHeader title={tx({ en: "Browse by Game", ja: "ゲームの扉" }, uiLang)} plate={1} rule />
+      <PlateHeader title={tx({ en: "Browse by Game", ja: "ゲームの扉", es: "Las puertas de los juegos", "zh-Hans": "游戏的门", "zh-Hant": "遊戲的門" }, uiLang)} plate={1} rule />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {games.map((g) => (
           <Link

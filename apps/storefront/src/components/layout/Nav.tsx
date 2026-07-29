@@ -29,15 +29,15 @@ import { applyLightsFlip } from "@/lib/wardrobe/flip";
 
 /** Chrome labels in both prose languages (the-japanese-voice.md). */
 const CHROME = {
-  primary: { en: "Primary navigation", ja: "メインナビゲーション" },
-  home: { en: "Cambridge TCG home", ja: "Cambridge TCGのホーム" },
-  search: { en: "Search cards", ja: "カードをさがす" },
-  list: { en: "List a card", ja: "出品する" },
-  menuOpen: { en: "Open menu", ja: "メニューを開く" },
-  menuClose: { en: "Close menu", ja: "メニューを閉じる" },
-  lightsOn: { en: "Lights on", ja: "明かりをつける" },
-  lightsOff: { en: "Lights off", ja: "明かりを消す" },
-  messages: { en: "Messages", ja: "メッセージ" },
+  primary: { en: "Primary navigation", ja: "メインナビゲーション", es: "Navegación principal", "zh-Hans": "主导航", "zh-Hant": "主導覽" },
+  home: { en: "Cambridge TCG home", ja: "Cambridge TCGのホーム", es: "Inicio de Cambridge TCG", "zh-Hans": "Cambridge TCG首页", "zh-Hant": "Cambridge TCG首頁" },
+  search: { en: "Search cards", ja: "カードをさがす", "zh-Hant": "搜尋卡片", "zh-Hans": "搜索卡牌", es: "Buscar cartas" },
+  list: { en: "List a card", ja: "出品する", "zh-Hant": "把卡片上架", "zh-Hans": "上架一张卡", es: "Poner una carta a la venta" },
+  menuOpen: { en: "Open menu", ja: "メニューを開く", es: "Abrir el menú", "zh-Hans": "打开菜单", "zh-Hant": "打開選單" },
+  menuClose: { en: "Close menu", ja: "メニューを閉じる", es: "Cerrar el menú", "zh-Hans": "关闭菜单", "zh-Hant": "關閉選單" },
+  lightsOn: { en: "Lights on", ja: "明かりをつける", es: "Encender la luz", "zh-Hans": "开灯", "zh-Hant": "開燈" },
+  lightsOff: { en: "Lights off", ja: "明かりを消す", es: "Apagar la luz", "zh-Hans": "关灯", "zh-Hant": "關燈" },
+  messages: { en: "Messages", ja: "メッセージ", es: "Mensajes", "zh-Hans": "消息", "zh-Hant": "訊息" },
 } as const;
 
 function MessagesIndicator({ uiLang = "en" }: { uiLang?: UiLang }) {
@@ -327,7 +327,7 @@ export default function Nav({
               aria-current={pathname === "/market/list" ? "page" : undefined}
               className="ml-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              {tx({ en: "List card", ja: "出品する" }, uiLang)}
+              {tx({ en: "List card", ja: "出品する", es: "Poner una carta a la venta", "zh-Hans": "上架一张卡", "zh-Hant": "把卡上架" }, uiLang)}
             </Link>
           </div>
         </div>
@@ -340,7 +340,7 @@ export default function Nav({
             aria-current={pathname === "/market/list" ? "page" : undefined}
             className="rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            {tx({ en: "List card", ja: "出品する" }, uiLang)}
+            {tx({ en: "List card", ja: "出品する", es: "Poner una carta a la venta", "zh-Hans": "上架一张卡", "zh-Hant": "把卡上架" }, uiLang)}
           </Link>
           <button
             id="mobile-navigation-trigger"

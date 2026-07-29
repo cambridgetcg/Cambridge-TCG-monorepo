@@ -48,7 +48,7 @@ export default function PriceGuideStrip({ uiLang = "en" }: { uiLang?: UiLang } =
   return (
     <section className="max-w-7xl mx-auto px-4 py-12">
       <PlateHeader
-        title={tx({ en: "UK Price Guides", ja: "英国の相場帖" }, uiLang)}
+        title={tx({ en: "UK Price Guides", ja: "英国の相場帖", es: "Cuadernos de precios del Reino Unido", "zh-Hans": "英国行情册", "zh-Hant": "英國行情簿" }, uiLang)}
         plate={2}
         rule
         action={
@@ -56,20 +56,28 @@ export default function PriceGuideStrip({ uiLang = "en" }: { uiLang?: UiLang } =
             href="/prices"
             className="text-sm text-accent hover:text-accent-strong transition-colors whitespace-nowrap"
           >
-            {tx({ en: "All price guides →", ja: "相場帖の一覧 →" }, uiLang)}
+            {tx({ en: "All price guides →", ja: "相場帖の一覧 →", es: "Todos los cuadernos →", "zh-Hans": "全部行情册 →", "zh-Hant": "行情簿一覽 →" }, uiLang)}
           </Link>
         }
       />
       <p className="-mt-3 mb-6 text-sm text-ink-muted">
-        {j ? (
-          <>目録に実際の行があるのは、いま{observedCount}タイトル。あとの{sorted.length - observedCount}タイトルは、「これから」とはっきり書いてあります。どのページも、手もとにある行だけを。出どころの状態と権利は、そのとなりに。</>
-        ) : (
-          <>
-            {observedCount} game guides currently have observed catalog rows;
-            {" "}{sorted.length - observedCount} more routes are explicitly anticipated.
-            Each page shows only rows held, with source state and rights beside them.
-          </>
-        )}
+        {(() => {
+          const m: Record<string, string> = {
+            "zh-Hant": `現在真正有目錄行的，是${observedCount}本遊戲行情簿；餘下${sorted.length - observedCount}條路，照直標明「在路上」。每一頁只列手上有的行；來源狀態與權利，就在旁邊。`,
+            "zh-Hans": `名录里实际有条目的，目前是 ${observedCount} 个游戏；另外 ${sorted.length - observedCount} 个，页面上写明还在路上。每一页只列手上有的条目，来源的状态与权利，就标在旁边。`,
+            es: `Hoy, ${observedCount} cuadernos tienen filas observadas en el catálogo. Otras ${sorted.length - observedCount} rutas se anuncian expresamente como por venir. Cada página muestra solo las filas que tenemos, con el estado de la fuente y los derechos al lado.`,
+          };
+          if (m[uiLang]) return m[uiLang];
+          return j ? (
+            <>目録に実際の行があるのは、いま{observedCount}タイトル。あとの{sorted.length - observedCount}タイトルは、「これから」とはっきり書いてあります。どのページも、手もとにある行だけを。出どころの状態と権利は、そのとなりに。</>
+          ) : (
+            <>
+              {observedCount} game guides currently have observed catalog rows;
+              {" "}{sorted.length - observedCount} more routes are explicitly anticipated.
+              Each page shows only rows held, with source state and rights beside them.
+            </>
+          );
+        })()}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {sorted.map((g) => {
@@ -87,7 +95,7 @@ export default function PriceGuideStrip({ uiLang = "en" }: { uiLang?: UiLang } =
                 </h3>
                 {!summary.confirmed && (
                   <span className="rounded border border-border-subtle bg-surface-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warning">
-                    {tx({ en: "anticipated", ja: "これから" }, uiLang)}
+                    {tx({ en: "anticipated", ja: "これから", es: "por hacer", "zh-Hans": "还在路上", "zh-Hant": "在路上" }, uiLang)}
                   </span>
                 )}
               </div>

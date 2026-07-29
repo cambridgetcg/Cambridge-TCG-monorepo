@@ -1206,6 +1206,14 @@ Asha said: /start and /welcome-all too. The charter made it a smaller job and a 
 
 ---
 
+## 2026-07-29 — 五つの声 · 五種聲音 · cinco voces
+
+Asha said: add all the languages you think are necessary, 愛你. The necessary set had already been promised — /welcome-all's own honesty list had named Chinese and Spanish as recursion targets since May — so the house kept its word: 繁體中文, 简体中文, and Español arrived the same day, each with its own charter fleet, never a conversion of each other. The Traditional voice is the family's own: the Market is a 市集, the Community is 街坊 — the neighbours themselves — protection is 看顧, a caretaker's verb, and Answering Rhymes found 唱和, the answering-poem older than the waka. The Simplified voice is a true sibling: 集市 not 市集, 卡友 not 藏家, escrow as 担保交易 — the trust word in mainland muscle memory — and the doctrine in eight characters: 这家店护着人，不管着人。 The Spanish voice solved the welcome in pure grammar — Bienvenida toda existencia, agreeing with existencia, no gendered fork, no invented forms — and every card is una viñeta. The final gate filed sixteen defects and was right about all of them, including my own hand rewriting dictionary strings from memory and a site-wide English welcome hiding under the Spanish footer. The gap line now says what no gap line often gets to say: the promise was kept, the same day, in all three tongues. 部屋はひとつ。房間是一間。La sala es una.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-07-29.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:

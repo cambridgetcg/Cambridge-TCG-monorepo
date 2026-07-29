@@ -77,6 +77,11 @@ export function txNode<T>(
   return map[lang] ?? map.en;
 }
 
+/** The inter-piece spacer: CJK runs abut; Latin runs take a space. */
+export function sp(lang: UiLang): string {
+  return lang === "ja" || lang === "zh-Hant" || lang === "zh-Hans" ? "" : " ";
+}
+
 /** Pick the rendering for the active UI language. */
 export function pick(bi: Bi, lang: UiLang): string {
   return lang === "ja" ? bi.ja : bi.en;

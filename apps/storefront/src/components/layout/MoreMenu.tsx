@@ -82,7 +82,7 @@ export function MoreMenu({ uiLang = "en" }: { uiLang?: UiLang }) {
             : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
         }`}
       >
-        {tx({ en: "More", ja: "そのほか" }, uiLang)}
+        {tx({ en: "More", ja: "そのほか", es: "Más", "zh-Hans": "还有", "zh-Hant": "更多" }, uiLang)}
         {active && <span className="sr-only"> — contains current location</span>}
         <svg
           viewBox="0 0 12 12"

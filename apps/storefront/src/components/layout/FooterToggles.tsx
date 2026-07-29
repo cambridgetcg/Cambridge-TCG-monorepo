@@ -53,30 +53,30 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
         className="hover:text-ink transition underline underline-offset-2"
         aria-label={
           mathLang
-            ? (j ? "ふだんの表示に戻す" : "Switch back to default English rendering")
-            : (j ? "数のことばに切り替える（比率・内容ハッシュ・ISO時刻）" : "Switch to math-mirror rendering (ratios, content hashes, ISO timestamps)")
+            ? tx({ en: "Switch back to default English rendering", ja: "ふだんの表示に戻す", "zh-Hant": "切回平常的顯示", "zh-Hans": "切换回平常的显示", es: "Volver a la vista de siempre" }, uiLang)
+            : tx({ en: "Switch to math-mirror rendering (ratios, content hashes, ISO timestamps)", ja: "数のことばに切り替える（比率・内容ハッシュ・ISO時刻）", "zh-Hant": "切換到數的語言（比率、內容雜湊、ISO時間戳）", "zh-Hans": "切换到数的语言（比率、内容哈希、ISO时间戳）", es: "Cambiar a la lengua de los números (proporciones, hashes de contenido, marcas de tiempo ISO)" }, uiLang)
         }
         title="See docs/connections/the-math-language.md (#27)"
       >
-        {mathLang ? (j ? "ふだんのことば" : "Default language") : (j ? "数のことば" : "Math language")}
+        {mathLang ? tx({ en: "Default language", ja: "ふだんのことば", "zh-Hant": "平常的語言", "zh-Hans": "平常的语言", es: "La lengua de siempre" }, uiLang) : tx({ en: "Math language", ja: "数のことば", "zh-Hant": "數的語言", "zh-Hans": "数的语言", es: "La lengua de los números" }, uiLang)}
       </a>
       <a
         href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=${back}`}
         className="hover:text-ink transition underline underline-offset-2"
         aria-label={
           textMode
-            ? (j ? "もとの表示に戻す" : "Switch back to the visual layout")
-            : (j ? "文字だけの表示に切り替える（軽く、読み上げにもやさしい）" : "Switch to a text-only reading layout (low bandwidth, screen reader friendly)")
+            ? tx({ en: "Switch back to the visual layout", ja: "もとの表示に戻す", "zh-Hant": "切回原本的版面", "zh-Hans": "切换回图文显示", es: "Volver a la vista original" }, uiLang)
+            : tx({ en: "Switch to a text-only reading layout (low bandwidth, screen reader friendly)", ja: "文字だけの表示に切り替える（軽く、読み上げにもやさしい）", "zh-Hant": "切換到純文字閱讀版面（省流量，也方便螢幕閱讀器）", "zh-Hans": "切换到纯文字显示（省流量，对读屏也友好）", es: "Cambiar a la vista de solo texto (ligera, amable con los lectores de pantalla)" }, uiLang)
         }
       >
-        {textMode ? (j ? "もとの表示" : "Visual layout") : (j ? "文字だけの表示" : "Text-only layout")}
+        {textMode ? tx({ en: "Visual layout", ja: "もとの表示", "zh-Hant": "原本的版面", "zh-Hans": "图文显示", es: "Vista original" }, uiLang) : tx({ en: "Text-only layout", ja: "文字だけの表示", "zh-Hant": "純文字版面", "zh-Hans": "纯文字显示", es: "Solo texto" }, uiLang)}
       </a>
       <Link
         href="/appearance"
         className="hover:text-ink transition underline underline-offset-2"
-        aria-label={tx({ en: "Choose a theme and tone — light, dark, follow system, and more", ja: "装いを選ぶ（明るく・暗く・端末に合わせる、ほか）" }, uiLang)}
+        aria-label={tx({ en: "Choose a theme and tone — light, dark, follow system, and more", ja: "装いを選ぶ（明るく・暗く・端末に合わせる、ほか）", es: "Elegir tema y tono: claro, oscuro, según el sistema, y más", "zh-Hans": "选一个主题和色调（亮、暗、跟随系统，还有别的）", "zh-Hant": "選擇主題與色調（淺色、深色、跟隨系統等）" }, uiLang)}
       >
-        {tx({ en: "Appearance", ja: "装い" }, uiLang)}
+        {tx({ en: "Appearance", ja: "装い", es: "Apariencia", "zh-Hans": "外观", "zh-Hant": "外觀" }, uiLang)}
       </Link>
     </div>
   );
