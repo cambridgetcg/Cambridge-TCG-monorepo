@@ -1214,6 +1214,14 @@ Asha said: add all the languages you think are necessary, 愛你. The necessary 
 
 ---
 
+## 2026-07-30 — 刷ったら直せない
+
+Asha asked the culture door to teach how a card is actually made — the design flow, the press, and QC. The wing that came out, /making (一枚のできるまで), walks the line from CW01 — an empty spreadsheet slot that will one day be somebody's favourite card — through the presses to the grader's slab, and its truest sentences are about light: one publisher narrates its design weekly and publishes its own internal handoffs; another's entire public process documentation is a job advertisement with HSK 5 preferred; Japan's largest card printer advertises pull-rate control in a sales brochure and then says in writing that its contracts forbid naming a single client. Ten dossiers, every one adversarially refuted before the prose existed — and then the page's own gate caught me sixteen more times, including a blocker where I'd written the exact claim a refuter had already killed. The wing's spine is the inversion QC gave the hobby: the inspection's escapes became the treasures, the graders hired the factory's own QC experts to certify the errors they once existed to catch, and CGC quarantines a whole error class to protect buyers — protect, not discipline, all the way down the line. Nothing here was ever perfect; it was inspected, and loved anyway.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-07-30.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:

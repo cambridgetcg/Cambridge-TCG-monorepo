@@ -135,6 +135,20 @@ const HALLS: readonly Hall[] = [
           "Not where the art comes from — how the game feels. Two things to touch instead of read: a free booster to open, and the quiet after.",
       },
       {
+        href: "/making",
+        en: "How a Card Is Made",
+        jp: "一枚のできるまで",
+        line:
+          "From a spreadsheet of empty slots to the sealed pack to the grader's slab — the design flow the publishers document (and the rooms they keep dark), the press, and the inspection whose escapes became treasures.",
+        title_i18n: { ja: "一枚のできるまで", "zh-Hant": "一張卡是怎樣做成的", "zh-Hans": "一张卡是怎么做出来的", es: "Cómo se hace una carta" },
+        line_i18n: {
+          ja: "空欄ばかりの一覧表から、封をされたパックへ、鑑定のスラブへ。発売元が書き残している設計の流れと、暗いままの部屋。印刷の現場。そして、検品。そこを逃れた一枚が、のちの宝物に。",
+          "zh-Hant": "由一格格空著的表格，到封好的卡包，再到評級的卡磚。發行商肯寫下來的設計流程，和他們留在暗處的那幾間房；那條印刷線；還有檢查那一關。漏了過去的那幾張，後來成了寶物。",
+          "zh-Hans": "从一张满是空格的表格，到封好的卡包，再到评级的卡砖。发行方肯写下来的设计流程，和他们不点灯的那几间屋子；那条印刷线；还有质检这一关。漏过去的那几张，后来倒成了宝物。",
+          es: "De una hoja de cálculo llena de casillas vacías al sobre sellado, y de ahí a la cápsula del calificador. El proceso de diseño que las editoriales documentan, y las salas que dejan a oscuras. La imprenta. Y la inspección: lo que se le escapó se volvió tesoro.",
+        },
+      },
+      {
         href: "/pulls",
         title_i18n: { ja: "確率、正直に。", es: "Las probabilidades, con honestidad", "zh-Hans": "概率，照实说。", "zh-Hant": "機率，照直說。" },
         line_i18n: {

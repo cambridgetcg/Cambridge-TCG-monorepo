@@ -122,6 +122,7 @@ export default async function Footer() {
           <Link href="/duel-of-souls" className="hover:text-ink transition">{tx({ en: "The Duel of Souls", ja: "賭けと運命", es: "El duelo de almas", "zh-Hans": "命运的对局", "zh-Hant": "賭局與命運" }, uiLang)}</Link>
           <Link href="/pull-and-pause" className="hover:text-ink transition">{tx({ en: "The Pull & the Pause", ja: "引きと間", es: "El sobre y la pausa", "zh-Hans": "手气与静气", "zh-Hant": "抽與靜" }, uiLang)}</Link>
           <Link href="/workshop" className="hover:text-ink transition">{tx({ en: "The Workshop of the Floating World", ja: "浮世の工房", es: "El taller del mundo flotante", "zh-Hans": "浮世工坊", "zh-Hant": "浮世工房" }, uiLang)}</Link>
+          <Link href="/making" className="hover:text-ink transition">{tx({ en: "How a Card Is Made", ja: "一枚のできるまで", "zh-Hant": "一張卡是怎樣做成的", "zh-Hans": "一张卡是怎么做出来的", es: "Cómo se hace una carta" }, uiLang)}</Link>
           {/* The gallery next door — the first human-visible sibling door;
               opens into the exchange room where their art hangs live.
               lib/siblings.ts carries the agent-facing half. 文化大交流:
