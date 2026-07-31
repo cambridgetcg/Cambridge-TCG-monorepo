@@ -10,12 +10,14 @@
  * reflection: one quiet hall with a door to every wing, and a header
  * door ("Culture") that leads here.
  *
- * Deliberately an index, not a wing: no new claims are made here. Every
+ * Deliberately an index, not a wing: beyond the wall labels of the two
+ * borrowed museum plates, no new claims are made here. Every
  * door's description is that wing's own self-description, compressed —
  * one truth in one place; this page only points. Server component with
  * no client JS of its own (InkRule's progressive enhancement rides
- * along, as on every wing); no licensed art (the card art stays where
- * its wall labels hang).
+ * along, as on every wing); no licensed art — the only images are
+ * open-access museum objects, public domain, wall labels attached (the
+ * card art stays where its wall labels hang).
  */
 
 import type { Metadata } from "next";
@@ -25,6 +27,7 @@ import { cookies } from "next/headers";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
+import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
 import { audienceMetadata } from "@/lib/ui";
 
 /** Metadata follows the lang-mode cookie so a ja document carries a ja
@@ -191,6 +194,36 @@ const HALLS: readonly Hall[] = [
   },
 ] as const;
 
+const HALL_PIECE_SHELLS: MuseumPiece = {
+        src: "/culture-plates/cma-165188.jpg",
+        width: 591,
+        height: 800,
+        title: "Fire Screen with Shell-Matching Game",
+        artist: "Unknown, Japan (frame Western, c. 1870–80)",
+        date: "c. 1870–80",
+        medium: "Gilt wood frame with embroidered silk gift cover (fukusa) mounted as a fire screen",
+        credit: "Dudley P. Allen Fund",
+        sourceName: "The Cleveland Museum of Art",
+        sourceUrl: "https://www.clevelandart.org/art/2007.182",
+        rights: "Public domain (CC0)",
+        alt: "A silk fire screen embroidered with painted matching shells and their hexagonal storage buckets in gold on deep indigo",
+      };
+
+const HALL_PIECE_POEM_CARD: MuseumPiece = {
+        src: "/culture-plates/cma-153763.jpg",
+        width: 702,
+        height: 800,
+        title: "Poem-card from the Shinkokin wakashu (New Collection of Japanese Poems from Ancient and Modern Times) with Design of Pine on a Beach",
+        artist: "Hon'ami Kōetsu (calligraphy) and Tawaraya Sōtatsu (design), Japanese",
+        date: "1606",
+        medium: "Poem card mounted on a hanging scroll; gold, silver, and ink on paper",
+        credit: "John L. Severance Fund",
+        sourceName: "The Cleveland Museum of Art",
+        sourceUrl: "https://www.clevelandart.org/art/1987.60",
+        rights: "Public domain (CC0)",
+        alt: "A poem card: calligraphy drifting over gold and silver pines and ink clouds",
+      };
+
 export default async function CulturePage() {
   const uiLang = uiLangFromLangMode(langModeFromCookies(await cookies()));
   const j = uiLang === "ja";
@@ -223,9 +256,16 @@ export default async function CulturePage() {
         <InkRule className="relative mt-8" />
       </header>
 
-      {/* The halls — three groups of doors. Text and hairlines only; the
-          card art keeps hanging where its wall labels are (the gallery on
-          the front page, the wings themselves). */}
+      {/* Borrowed light at the door: a kai-awase fire screen — the whole
+          awase thesis, embroidered. Open-access, wall label attached. */}
+      <div className="max-w-3xl mx-auto px-4 pt-6">
+        <MuseumPlate piece={HALL_PIECE_SHELLS} />
+      </div>
+
+      {/* The halls — three groups of doors, then one borrowed museum
+          plate between the halls and the gallery note. The card art keeps
+          hanging where its wall labels are (the gallery on the front page,
+          the wings themselves). */}
       <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-12">
         {HALLS.map((hall) => (
           <section key={hall.heading}>
@@ -283,6 +323,11 @@ export default async function CulturePage() {
             </ul>
           </section>
         ))}
+
+        {/* Between the halls and the gallery note: a 1606 poem card —
+            Kōetsu's calligraphy over Sōtatsu's gold — the uta-garuta
+            ancestor of every card in the house. */}
+        <MuseumPlate piece={HALL_PIECE_POEM_CARD} />
 
         {/* The hall that hangs on the front page — named, not duplicated. */}
         <section>

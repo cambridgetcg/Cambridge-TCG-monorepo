@@ -10,7 +10,9 @@
  *
  * Asha's brief 2026-07-16: "yugioh lah! Deep culture."
  *
- * House vows kept: a quiet room (no licensed art, no game logos — words and
+ * House vows kept: a quiet room (no licensed art, no game logos; the only
+ * images are open-access museum objects, public domain, each with its
+ * wall label — words and
  * the 明朝 hand carry it); the fantasy-Egypt is marked as fantasy, not
  * Egyptology; contested claims are hedged in the open; sources named at the
  * foot. Facts fact-checked against those sources; the hedges follow current
@@ -21,6 +23,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
+import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -50,12 +53,29 @@ type Movement = {
   en: string;
   /** The prose — kept short; hedges woven in. */
   body: ReactNode;
+
+  /** Borrowed light: an open-access museum object hung beside this plate. */
+  piece?: MuseumPiece;
 };
 
 const MOVEMENTS: Movement[] = [
   {
     chapter: "第一",
     jp: "賭けと運命",
+    piece: {
+        src: "/culture-plates/met-543867.jpg",
+        width: 465,
+        height: 624,
+        title: "Game of Hounds and Jackals",
+        artist: "Unknown, Egyptian (Middle Kingdom, reign of Amenemhat IV, Thebes)",
+        date: "ca. 1814–1805 B.C.",
+        medium: "Ebony, ivory",
+        credit: "Purchase, Edward S. Harkness Gift, 1926 (26.7.1287a-k); Gift of Lord Carnarvon, 2012 (2012.508)",
+        sourceName: "The Metropolitan Museum of Art",
+        sourceUrl: "https://www.metmuseum.org/art/collection/search/543867",
+        rights: "Public domain (Met Open Access)",
+        alt: "A small game table on carved legs, a palm tree on its shield-shaped top, with ivory pegs carved as hound and jackal heads standing in rows of drilled holes",
+      },
     romaji: "kake to unmei",
     en: "Games Against Fate",
     body: (
@@ -66,13 +86,29 @@ const MOVEMENTS: Movement[] = [
         buried in a Mesopotamian royal grave around 2600 BCE. A Babylonian
         tablet from far later — 177 BCE — records its rules and notes that its
         squares were also read for fortune-telling. A race of counters, and a
-        way to ask the future a question.
+        way to ask the future a question. Egypt kept boards for the same
+        wager — like the hounds-and-jackals game below, almost four millennia
+        old, its pegs racing a course no player could force.
       </>
     ),
   },
   {
     chapter: "第二",
     jp: "セネト",
+    piece: {
+        src: "/culture-plates/met-553268.jpg",
+        width: 600,
+        height: 422,
+        title: "Game Box for Playing Senet and Twenty Squares",
+        artist: "Unknown, Egyptian",
+        date: "ca. 1580–1458 BCE",
+        medium: "Ivory, copper alloy, modern wood",
+        credit: "Rogers Fund, 1916",
+        sourceName: "The Metropolitan Museum of Art",
+        sourceUrl: "https://www.metmuseum.org/art/collection/search/553268",
+        rights: "Public domain (Met Open Access)",
+        alt: "An ancient Egyptian ivory-veneered game box with a small drawer, its top ruled into the thirty squares of senet, gaming pieces beside it",
+      },
     romaji: "senet",
     en: "The Board That Was a Passage",
     body: (
@@ -170,6 +206,20 @@ const MOVEMENTS: Movement[] = [
   {
     chapter: "第七",
     jp: "魂",
+    piece: {
+        src: "/culture-plates/met-544775.jpg",
+        width: 600,
+        height: 413,
+        title: "Gameboard and Gaming Pieces",
+        artist: "Unknown, Egyptian",
+        date: "ca. 1479–1425 BCE",
+        medium: "Faience, modern wood",
+        credit: "Gift of Egypt Exploration Fund, 1901",
+        sourceName: "The Metropolitan Museum of Art",
+        sourceUrl: "https://www.metmuseum.org/art/collection/search/544775",
+        rights: "Public domain (Met Open Access)",
+        alt: "A blue-green faience game board with its set of gaming pieces, some standing on the ruled squares and others beside the board",
+      },
     romaji: "tamashii",
     en: "The Duel of Souls",
     body: (
@@ -268,6 +318,7 @@ export default function DuelOfSoulsPage() {
               <p className="mt-4 text-base text-ink-muted leading-relaxed">
                 {m.body}
               </p>
+              {m.piece && <MuseumPlate piece={m.piece} />}
             </div>
           </section>
         ))}
@@ -305,7 +356,9 @@ export default function DuelOfSoulsPage() {
           <Link href="/lineage" className="text-accent hover:text-accent-strong underline underline-offset-2">
             the lineage of manga &amp; anime <span className="wardrobe-jp">線の系譜</span>
           </Link>
-          . No artwork is reproduced here; the only pictures we hang are the
+          . No licensed artwork is reproduced here — apart from the museum
+          plates above (open-access, public domain, wall labels attached),
+          the only pictures we hang are the
           cards themselves.
         </p>
       </div>

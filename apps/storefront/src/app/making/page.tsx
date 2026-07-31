@@ -11,7 +11,8 @@
  * Asha's brief 2026-07-30: "introduce ppl to the production process
  * and QC of trading cards, as well as design flow."
  *
- * House vows kept: a quiet room (no licensed art — words carry it);
+ * House vows kept: a quiet room (no licensed art; the only images are
+ * open-access museum objects, public domain, wall labels attached);
  * every claim hedged to exactly its evidence level; quotes only where
  * verified against the cited source; "the publisher doesn't say" is
  * printed as the finding it is; sources named at the foot. Researched
@@ -25,6 +26,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
+import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -48,6 +50,9 @@ type Plate = {
   romaji: string;
   en: string;
   body: ReactNode;
+
+  /** Borrowed light: an open-access museum object hung beside this plate. */
+  piece?: MuseumPiece;
 };
 
 const PROLOGUE: Plate = {
@@ -299,6 +304,20 @@ const PRESS: Plate[] = [
   {
     chapter: "第七",
     jp: "誰が刷るのか",
+    piece: {
+        src: "/culture-plates/artic-18897.jpg",
+        width: 538,
+        height: 800,
+        title: "The actors Ichikawa Omezo I (R) as Tomita Hyotaro and Otani Oniji III (L) as Kawashima Jibugoro",
+        artist: "Tōshūsai Sharaku; Publisher: Tsutaya Jūzaburō",
+        date: "1794",
+        medium: "Color woodblock print; oban",
+        credit: "Clarence Buckingham Collection",
+        sourceName: "The Art Institute of Chicago",
+        sourceUrl: "https://www.artic.edu/artworks/18897",
+        rights: "Public domain",
+        alt: "Two kabuki actors in a tense scene, the publisher's ivy-leaf seal and the round censor seal printed at the left edge",
+      },
     romaji: "dare ga suru no ka",
     en: "Who Prints the Cards",
     body: (
@@ -375,6 +394,20 @@ const PRESS: Plate[] = [
   {
     chapter: "第九",
     jp: "光る層",
+    piece: {
+        src: "/culture-plates/met-37359.jpg",
+        width: 422,
+        height: 625,
+        title: "Bandō Hikosaburō III as Sagisaka Sanai in the Play \"Koinyōbō Somewake Tazuna\"",
+        artist: "Tōshūsai Sharaku",
+        date: "1794",
+        medium: "Woodblock print; ink, color, white mica on paper",
+        credit: "Henry L. Phillips Collection, Bequest of Henry L. Phillips, 1939",
+        sourceName: "The Metropolitan Museum of Art",
+        sourceUrl: "https://www.metmuseum.org/art/collection/search/37359",
+        rights: "Public domain (Met Open Access)",
+        alt: "A kabuki actor half-length portrait holding a lantern, a maroon robe over a yellow under-robe, against a shimmering ground of white mica",
+      },
     romaji: "hikaru sō",
     en: "The Layer That Shines",
     body: (
@@ -403,9 +436,10 @@ const PRESS: Plate[] = [
         gesture rather than a statement: when a fan reported that foils had
         finally stopped curling, Magic&apos;s head designer replied
         &quot;High fives to be passed along&quot; — the closest thing to an
-        official acknowledgment the curl ever received. The older shine — the
-        mica grounds of the woodblock print shops — is another wing&apos;s
-        story: see <Link href="/lineage" className="text-accent hover:text-accent-strong underline">The Lineage of the Line</Link>.
+        official acknowledgment the curl ever received. The older shine hangs
+        just below: a Sharaku portrait of 1794 on a ground of white mica, the
+        mineral brushed on so the paper itself glimmered — the same chase, two
+        centuries early.
       </>
     ),
   },
@@ -616,6 +650,7 @@ function PlateSection({ plate, index }: { plate: Plate; index: number }) {
         <p className="mt-4 text-base text-ink-muted leading-relaxed">
           {plate.body}
         </p>
+        {plate.piece && <MuseumPlate piece={plate.piece} />}
       </div>
     </section>
   );
