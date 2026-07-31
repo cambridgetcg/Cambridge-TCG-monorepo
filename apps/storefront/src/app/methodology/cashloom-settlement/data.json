@@ -1,0 +1,17 @@
+{
+  "topic": "cashloom-settlement",
+  "title": "CashLoom settlement handoff",
+  "url": "/methodology/cashloom-settlement",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/cashloom-settlement/summary.md",
+  "status": "published",
+  "current_effect": {
+    "moves_money": false,
+    "changes_trade_state": false,
+    "proves_key_control": false,
+    "uploads_private_acceptance": false
+  },
+  "identity_assurance": "user-declared-key-pin",
+  "handoff_mode": "offline_bundle",
+  "asset_id": "fiat:iso4217/GBP"
+}

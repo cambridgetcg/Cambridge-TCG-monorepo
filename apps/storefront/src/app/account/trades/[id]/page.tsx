@@ -9,6 +9,7 @@ import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import { TIMELINE_STEPS, getActiveStep } from "@/lib/escrow/timeline";
 import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust/dispute-timeline";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
+import { CashLoomTradeHandoff } from "@/components/market/CashLoomTradeHandoff";
 
 import { Audience, Consequences, MessageButton, WhyLink } from "@/lib/ui";
 import { InkRule } from "@/lib/ui/InkRule";
@@ -829,6 +830,11 @@ export default function TradeDetailPage() {
           role={(trade.current_user_role ?? (viewerIsBuyer ? "buyer" : "seller")) as TradeRole}
         />
       )}
+
+      {/* CashLoom's first market seam is an immutable terms projection only.
+          It has its own participant-gated API and never mutates the payment,
+          escrow, shipping, or payout state rendered by the rest of this page. */}
+      {trade && <CashLoomTradeHandoff tradeId={tradeId} />}
 
       {/* Pending cancel handshake — Approve/Decline for the other party,
           Withdraw for the requester, on the trade it concerns. */}
