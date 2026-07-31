@@ -6,6 +6,8 @@ import { recordOrderFromStripeSession } from "@/lib/orders/record";
 import { InkRule } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { checkoutSessionBelongsToAccount } from "@/lib/privacy/checkout-session";
+import { findStripeMarketCheckoutBinding } from "@/lib/market/stripe-checkout-attempts";
+import { checkoutSessionOwner } from "@/lib/payments/checkout-session-kind";
 
 export default async function OrderConfirmationPage({
   searchParams,
@@ -22,7 +24,8 @@ export default async function OrderConfirmationPage({
   try {
     const stripe = getStripe();
     session = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ["line_items", "collected_information"],
+      // collected_information is inline; Stripe rejects it as an expand path.
+      expand: ["line_items"],
     });
   } catch {
     notFound();
@@ -39,6 +42,19 @@ export default async function OrderConfirmationPage({
   })) {
     notFound();
   }
+
+  // This page is the retail-only fallback writer. A write-once local market
+  // binding outranks removed/edited Stripe metadata, while any declared
+  // dedicated flow also fails closed. Never let the browser-return path mint
+  // a customer_orders row for a market, B2B, subscription, or auction charge.
+  let marketBinding: Awaited<ReturnType<typeof findStripeMarketCheckoutBinding>> = null;
+  try {
+    marketBinding = await findStripeMarketCheckoutBinding(session);
+  } catch (error) {
+    console.error(`[order-confirmation] ownership lookup failed for ${session.id}:`, error);
+    notFound();
+  }
+  if (marketBinding || checkoutSessionOwner(session) !== "retail") notFound();
 
   // Defensive backup: also record the order here. The webhook is the
   // primary writer (and the only path that commits stock + sends email
