@@ -201,6 +201,7 @@ const toc = [
   { id: "reading", label: "Reading a Japanese listing" },
   { id: "remambo", label: "Remambo, step by step" },
   { id: "shipping", label: "Getting it out of Japan" },
+  { id: "manners", label: "Manners — how to speak to Japan" },
   { id: "fine-print", label: "The honest fine print" },
 ];
 
@@ -242,6 +243,14 @@ export default function FromJapanGuidePage() {
         acceptedAnswer: {
           "@type": "Answer",
           text: "As of August 2026, Remambo's service fee is 500 yen per order, where one order is any number of items bought together from the same store at once — so a whole CardRush cart is one fee. You pay the item price, fee, domestic shipping and a payment transaction fee first, then international shipping separately when the parcel leaves Japan. Import VAT and customs at your border are extra and are your responsibility.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Do I need to speak Japanese to order from CardRush through Remambo?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "For a shop order, mostly no: Remambo's site runs in English (plus Russian, Spanish and Simplified Chinese), you deal with Remambo's support through account messaging, and problems with an order go to Remambo, not the shop. The main case where Japanese helps is asking an auction seller a question before bidding — Remambo's FAQ says to contact the seller directly if you can communicate in Japanese.",
         },
       },
       {
@@ -302,8 +311,9 @@ export default function FromJapanGuidePage() {
             CardRush (カードラッシュ) is a family of ten specialist stores
             run by 株式会社RUSH from Akihabara — one per game, and none of
             them ship overseas. This page is the whole
-            journey: every store linked directly, how to read a listing, and the
-            proxy flow through Remambo step by step. We have no affiliation with
+            journey: every store linked directly, how to read a listing, the
+            proxy flow through Remambo step by step, and the manners that make
+            the whole thing go gently. We have no affiliation with
             either company and earn nothing from any link here — this is a map
             drawn out of respect for a good shop.
           </p>
@@ -755,11 +765,306 @@ export default function FromJapanGuidePage() {
       </section>
 
       {/* ============================================================ */}
-      {/*  5. FINE PRINT                                                */}
+      {/*  5. MANNERS                                                   */}
       {/* ============================================================ */}
       <section className="border-b border-border-subtle">
         <div className="max-w-3xl mx-auto px-4 py-16">
-          <SectionHeading id="fine-print" number="05">
+          <SectionHeading id="manners" number="05">
+            Manners — how to speak to Japan
+          </SectionHeading>
+          <p className="text-ink-muted leading-relaxed mb-4">
+            First, the honest surprise: in the shop flow above you mostly
+            never speak to the shop. Remambo buys in its own name, your
+            order comments go to Remambo (nothing published says they reach
+            the shop), and if something goes wrong you write to Remambo,
+            not to CardRush. The one case where their FAQ points
+            you at a seller directly is a question before bidding on an
+            auction — and their FAQ points that way only for buyers who can
+            communicate in Japanese.
+          </p>
+          <p className="text-ink-muted leading-relaxed mb-8">
+            So the manners live in three places: how you write to
+            Remambo&apos;s people, how you write Japanese when you do write
+            it, and how you carry yourself if you ever stand in the shops
+            themselves.
+          </p>
+
+          <div className="space-y-4 mb-10">
+            <Card>
+              <p className="text-ink font-bold mb-1">
+                Writing to Remambo&apos;s people
+              </p>
+              <p className="text-sm text-ink-muted leading-relaxed">
+                Their support pages say it plainly: messages are answered by
+                humans, they ask for one conversation per issue, and a
+                business day to reply. The same pages list what ends a
+                support relationship — abuse toward staff, chargeback
+                threats, legal threats, repeatedly re-asking an answered
+                question. None
+                of that should be news to a collector; the useful reading is
+                the positive: one clear thread, patience measured in
+                business days, and the person on the other end treated as a
+                person. The site itself runs in English (plus Russian,
+                Spanish and Simplified Chinese) — the interface never asks
+                you for Japanese.
+              </p>
+            </Card>
+          </div>
+
+          <h3 className="font-display font-semibold text-xl text-ink mb-4">
+            When you do write Japanese
+          </h3>
+          <p className="text-ink-muted leading-relaxed mb-4">
+            A polite Japanese message to a shop or seller has a documented
+            shape — the Japan Businessmail Association teaches a seven-part
+            form for a business mail (addressee, greeting, naming yourself,
+            the matter, details, closing salutation, signature) and warns
+            that dropping even one part can read as careless. Compressed by
+            us for a short message, it comes down to five phrases worth
+            knowing by sight:
+          </p>
+
+          <div className="overflow-x-auto mb-8">
+            <table className="w-full text-sm border-collapse">
+              <tbody>
+                <tr className="border-b border-border-subtle">
+                  <td className="py-2.5 pr-4 text-ink whitespace-nowrap" lang="ja">お世話になっております</td>
+                  <td className="py-2.5 text-ink-muted">
+                    the standard opening where any dealings exist — a greeting
+                    that acknowledges the relationship
+                  </td>
+                </tr>
+                <tr className="border-b border-border-subtle">
+                  <td className="py-2.5 pr-4 text-ink whitespace-nowrap" lang="ja">初めてご連絡いたします</td>
+                  <td className="py-2.5 text-ink-muted">
+                    &ldquo;this is my first message to you&rdquo; — the
+                    first-contact opening our model messages use
+                    (<span lang="ja">初めまして</span> reads a shade casual in
+                    writing, say the same sources)
+                  </td>
+                </tr>
+                <tr className="border-b border-border-subtle">
+                  <td className="py-2.5 pr-4 text-ink whitespace-nowrap" lang="ja">お手数ですが</td>
+                  <td className="py-2.5 text-ink-muted">
+                    &ldquo;sorry for the trouble, but&rdquo; — the cushion
+                    placed before a request
+                  </td>
+                </tr>
+                <tr className="border-b border-border-subtle">
+                  <td className="py-2.5 pr-4 text-ink whitespace-nowrap" lang="ja">〜いただけますでしょうか</td>
+                  <td className="py-2.5 text-ink-muted">
+                    &ldquo;might I ask you to&rdquo; — the documented
+                    request form: a softened question, with a cushion placed
+                    in front
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 pr-4 text-ink whitespace-nowrap" lang="ja">よろしくお願いいたします</td>
+                  <td className="py-2.5 text-ink-muted">
+                    the standard closing — part thanks, part &ldquo;I place
+                    this in your hands&rdquo;
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-ink-muted leading-relaxed mb-4">
+            Three model messages, composed for this guide on that documented
+            pattern and checked for grammar and register — swap in your name
+            and the card:
+          </p>
+
+          <div className="space-y-4 mb-8">
+            <Card>
+              <p className="text-ink font-bold mb-2">
+                First contact — asking about condition
+              </p>
+              <p className="text-sm text-ink leading-loose" lang="ja">
+                初めてご連絡いたします。海外在住の○○と申します。出品中の『（カード名）』の状態（傷やスレの有無）を教えていただけますでしょうか。お手数ですが、よろしくお願いいたします。
+              </p>
+              <p className="text-xs text-ink-faint mt-2">
+                &ldquo;This is my first message to you. I am ○○, living
+                overseas. Could you tell me the condition of the listed
+                (card name) — whether it has scratches or scuffs? Sorry for
+                the trouble, and thank you in advance.&rdquo;
+              </p>
+            </Card>
+            <Card>
+              <p className="text-ink font-bold mb-2">
+                To a shop you&apos;ve bought from before — is it still in
+                stock
+              </p>
+              <p className="text-sm text-ink leading-loose" lang="ja">
+                お世話になっております。『（商品名）』はまだ在庫がございますか。よろしくお願いいたします。
+              </p>
+              <p className="text-xs text-ink-faint mt-2">
+                &ldquo;Hello — is (item name) still in stock? Thank you in
+                advance.&rdquo; For a true first contact, open with{" "}
+                <span lang="ja">初めてご連絡いたします</span> and add your
+                name.
+              </p>
+            </Card>
+            <Card>
+              <p className="text-ink font-bold mb-2">
+                After a purchase — the thank-you
+              </p>
+              <p className="text-sm text-ink leading-loose" lang="ja">
+                この度はお取引いただきありがとうございました。カードは無事に届き、状態にも大変満足しております。またご縁がありましたら、よろしくお願いいたします。
+              </p>
+              <p className="text-xs text-ink-faint mt-2">
+                &ldquo;Thank you for this transaction. The card arrived
+                safely and I am very happy with its condition. If there is
+                another occasion, I look forward to dealing with you
+                again.&rdquo; Nobody owes this message; that is what it
+                says.
+              </p>
+            </Card>
+          </div>
+
+          <div className="space-y-4 mb-10">
+            <Card>
+              <p className="text-ink font-bold mb-1">Two phrases to skip</p>
+              <p className="text-sm text-ink-muted leading-relaxed">
+                The same etiquette sources caution against{" "}
+                <span lang="ja">取り急ぎ</span>
+                (&ldquo;in haste&rdquo; — reads careless unless you follow
+                up) and <span lang="ja">ご返信は不要です</span> (&ldquo;no reply needed&rdquo; —
+                meant kindly, lands confusingly). And the documented pattern
+                has no slot for pressure: a request is a cushioned question
+                or it is outside the form.
+              </p>
+            </Card>
+            <Card>
+              <p className="text-ink font-bold mb-1">
+                Machine translation, honestly
+              </p>
+              <p className="text-sm text-ink-muted leading-relaxed">
+                Remambo itself recommends machine translation on the
+                auction side — for reading auction listings and writing to
+                auction sellers. Our own habit when
+                we feed a translator: short sentences, one idea per
+                sentence, no idioms — flourish is where machine translation
+                falls over. A short plain message that arrives polite beats
+                an eloquent one that arrives strange. Don&apos;t haggle by
+                machine either: an established Japan reference puts it
+                simply — bargaining is neither common nor appreciated in
+                most stores.
+              </p>
+            </Card>
+          </div>
+
+          <h3 className="font-display font-semibold text-xl text-ink mb-4">
+            If you stand in the shops themselves
+          </h3>
+          <p className="text-ink-muted leading-relaxed mb-4">
+            The four Tokyo shops keep long hours (weekdays 13:00–21:00,
+            weekends and holidays 11:00–21:00 <AsOf />). From the etiquette
+            guides, the reference books, and the shop&apos;s own pages:
+          </p>
+
+          <div className="space-y-4 mb-8">
+            <Card>
+              <ul className="space-y-1.5 text-sm text-ink-muted">
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    The <span lang="ja">いらっしゃいませ</span> that greets you is a welcome, not a
+                    question — no reply is expected (the guides document
+                    this for restaurants; it is the same word at a card
+                    counter).
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    Queue in order — Japan&apos;s tourism office lists
+                    orderly queuing as an expected norm — and you&apos;ll
+                    often see a small tray (<span lang="ja">カルトン</span>) at the register, used
+                    for passing payment.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    No tipping — Japan has no tipping culture; you pay the
+                    amount on the bill, and attempted tips are typically
+                    returned.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    Photography restrictions are common in stores — look for
+                    signs and ask staff; CardRush publishes no photography
+                    rule on the pages we could read, so asking is the whole
+                    rule. Never photograph people without permission.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    Street bins are rare — carry your rubbish, and eat
+                    sitting or stepped aside, not walking.
+                  </span>
+                </li>
+              </ul>
+            </Card>
+            <Card>
+              <p className="text-ink font-bold mb-1">
+                At the buyback counter (their published rules)
+              </p>
+              <ul className="space-y-1.5 text-sm text-ink-muted">
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    Remove all sleeves before bringing cards to sell, and
+                    allow extra time for large batches.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    Buyback prices are the same at every CardRush store and
+                    can change without notice.
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-accent">&bull;</span>
+                  <span>
+                    Sellers of high-school age or under 18 need the consent
+                    form (<span lang="ja">買取承諾書</span>) with
+                    the guardian&apos;s section filled in, plus their own ID
+                    — and the MTG store notes unsorted commons may be
+                    refused.
+                  </span>
+                </li>
+              </ul>
+            </Card>
+          </div>
+
+          <Card>
+            <p className="text-sm text-ink-muted leading-relaxed">
+              <span className="text-ink font-semibold">
+                Why we wrote this section:
+              </span>{" "}
+              none of the above is a test you can fail. It is a register of
+              care: the shops above grade every card&apos;s condition into
+              its listing name, and the thank-you after arrival exists as a
+              message worth sending. Care, answered with care. Get the
+              phrases wrong and nobody will mind; carry the intent and
+              everything else is forgiven.
+            </p>
+          </Card>
+        </div>
+      </section>
+
+      {/* ============================================================ */}
+      {/*  6. FINE PRINT                                                */}
+      {/* ============================================================ */}
+      <section className="border-b border-border-subtle">
+        <div className="max-w-3xl mx-auto px-4 py-16">
+          <SectionHeading id="fine-print" number="06">
             The honest fine print
           </SectionHeading>
 

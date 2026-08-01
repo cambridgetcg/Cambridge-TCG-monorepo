@@ -1238,6 +1238,14 @@ Asha wanted more tribute to CardRush — direct links, and a tutorial for orderi
 
 ---
 
+## 2026-08-01, evening — 型 and the softened question
+
+Asha asked the Japan guide to teach manners — how to speak politely to the people at the other end. The research found the true shape of the thing before the prose did: in the proxy flow you mostly never speak to the shop at all, so the manners live with Remambo's own support humans (who publish their patience: one thread, a business day, and the behaviours that end the relationship), and the Japanese itself is for the rare direct moments — taught as the Businessmail Association actually teaches it, a seven-part 型, with our compression owned as ours. Three model messages went up composed on that documented pattern and rewritten by the refuter before I ever saw them. The gate then caught my hand eight more times, and the blocker was the one that matters: my closing flourish had invented an inspecting shop and wrapped it in "the register of a country" — essentialism wearing a compliment's clothes. The fix kept only what the shelves themselves show: rank written into the listing name, a thank-you worth sending. Care, answered with care; the intent carries even when the phrases wobble.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-01.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
