@@ -16,6 +16,7 @@ import TheShowcase from "@/components/home/TheShowcase";
 import { Provenance, WhyLink, Audience, InkRule, Benediction } from "@/lib/ui";
 import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
 import { getGalleryPieces } from "@/lib/cards/gallery";
+import { getNotablePieces } from "@/lib/cards/notable";
 import {
   BrandStatement,
   TwoOperations,
@@ -108,9 +109,10 @@ export default async function Home() {
   ];
   // The base-art overlay (featured rows + set thumbs) and the gallery's
   // alternate-art wall are independent reads — resolve them together.
-  const [officialImages, galleryPieces] = await Promise.all([
+  const [officialImages, galleryPieces, notablePieces] = await Promise.all([
     getEnCardImages(cardSkus).catch(() => new Map<string, EnCardImage>()),
     getGalleryPieces(24).catch(() => []),
+    getNotablePieces().catch(() => []),
   ]);
   const enrichWithOfficialArt = (item: PriceItem): EnrichedCard => {
     const official = officialImages.get(item.sku);
@@ -245,7 +247,7 @@ export default async function Home() {
           SAMPLE mark), hung before the catalogue's alternate arts. Renders
           nothing until the fetch pipeline has self-hosted something. */}
       <TheShowcase />
-      <TheGallery cards={galleryPieces} />
+      <TheGallery cards={galleryPieces} notable={notablePieces} />
 
       {/* THE PRIMARY IDENTITY — a collectors' market and card data
            directory (docs/decisions/2026-07-06-collectors-first.md). The home

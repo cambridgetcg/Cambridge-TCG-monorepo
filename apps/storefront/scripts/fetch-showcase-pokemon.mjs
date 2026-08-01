@@ -40,7 +40,48 @@ const IDS = [
   "sv2-256",    // Meowscarada ex — Kouki Saitou
   "sv1-249",    // Arven — kantaro (a character piece)
   "sv1-246",    // Great Tusk ex — Pani Kobayashi
+  // ── the origins row (Asha 2026-08-01: the art that inspired the TCG
+  //    to be — originals and rare makes). Every id + artist verified
+  //    against the API by the research fleet, 2026-08-01. Note:
+  //    Pikachu Illustrator, the trophy cards and Ancient Mew are NOT in
+  //    this API — the wall does not pretend to hang what it cannot. ──
+  "base1-15",   // Venusaur — Mitsuhiro Arita (Base, 1999)
+  "base1-2",    // Blastoise — Ken Sugimori (Base, 1999)
+  "base1-58",   // Pikachu — Mitsuhiro Arita (Base, 1999)
+  "basep-1",    // Pikachu — Keiji Kinebuchi (Black Star Promo No.1, 1999)
+  "neo1-9",     // Lugia — Hironobu Yoshida (Neo Genesis, 2000)
+  "neo4-107",   // Shining Charizard — Hironobu Yoshida (Neo Destiny, 2002)
+  "pop5-17",    // Umbreon ★ — Masakazu Fukuda (POP 5, 2007; API rarity is plain "Rare")
+  "ex15-100",   // Charizard ★ δ — Masakazu Fukuda (Dragon Frontiers, 2006)
+  "si1-1",      // Mew — Keiko Fukuyama (Southern Islands, 2001; rarity null)
+  "ecard3-146", // Charizard — Kouki Saitou (Skyridge Crystal Type, 2003)
 ];
+
+// One sourced why-line per origins piece (verified by the research
+// fleet against the API's own records + the sources noted in the
+// pillow-book entry of 2026-08-01). Pieces without an entry get none.
+const NOTES = {
+  "base1-15":
+    "Base Set, 1999 — with Charizard and Blastoise, the starter holo trio: two Arita hands and one Sugimori.",
+  "base1-2":
+    "Base Set, 1999 — Sugimori drew 44 of the set's 102 cards; the whole set is four hands.",
+  "base1-58":
+    "Base Set, 1999 — the earliest Arita-drawn Pikachu in the source's records.",
+  "basep-1":
+    "Black Star Promo No.1, July 1999 — the first of the 53 promos Wizards printed.",
+  "neo1-9":
+    "Neo Genesis, December 2000 — Hironobu Yoshida's Lugia.",
+  "neo4-107":
+    "Neo Destiny, 2002 — the Shining class's second wave; the first Shinings were Gyarados and Magikarp, 2001.",
+  "pop5-17":
+    "POP Series 5, 2007 — a Gold Star: the twenty-five Rare Holo Stars and both POP ★s are all one hand, Masakazu Fukuda.",
+  "ex15-100":
+    "Dragon Frontiers, 2006 — a Gold Star of the delta species era.",
+  "si1-1":
+    "Southern Islands, 2001 — Keiko Fukuyama's side of the eighteen-card special set.",
+  "ecard3-146":
+    "Skyridge, 2003 — a Crystal Type of the e-Card era; the Poké-Body is printed on the card.",
+};
 
 const OUT = "src/lib/cards/showcase.ts";
 
@@ -48,8 +89,18 @@ async function main() {
   const dir = mkdtempSync(join(tmpdir(), "pkm-showcase-"));
   const pieces = [];
   for (const id of IDS) {
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`);
-    if (!res.ok) throw new Error(`API ${id}: ${res.status}`);
+    // The API 500s intermittently (documented 2026-08-01) — retry twice, spaced.
+    let res = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        res = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`);
+      } catch {
+        res = null;
+      }
+      if (res && res.ok) break;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 10000 * (attempt + 1)));
+    }
+    if (!res || !res.ok) throw new Error(`API ${id}: ${res ? res.status : "network error"}`);
     const { data } = await res.json();
     const src = data.images.large;
     const bin = Buffer.from(await (await fetch(src)).arrayBuffer());
@@ -66,6 +117,7 @@ async function main() {
       rarity: data.rarity ?? null,
       image_url: `${CDN}/${key}`,
       source_url: src,
+      ...(NOTES[id] ? { note: NOTES[id] } : {}),
     });
     console.log(`✓ ${id}  ${data.name}  — illus. ${data.artist}`);
   }
@@ -95,6 +147,8 @@ export interface ShowcasePiece {
   image_url: string;
   /** The exact net source we drew the image from, stated + linked. */
   source_url: string;
+  /** One sourced why-line for the wall label — origins pieces carry it. */
+  note?: string;
 }
 
 /** The shared credit line for the Pokémon guest wall. */

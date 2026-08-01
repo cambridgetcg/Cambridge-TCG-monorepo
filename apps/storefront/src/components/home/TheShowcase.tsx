@@ -72,6 +72,11 @@ export default function TheShowcase() {
                 {p.set_name}
                 <span className="text-ink-faint"> · №{p.number}</span>
               </p>
+              {p.note && (
+                <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
+                  {p.note}
+                </p>
+              )}
               {p.artist && (
                 <p className="mt-1.5 text-xs italic text-accent">
                   illustrated by {p.artist}

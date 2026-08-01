@@ -1254,6 +1254,14 @@ Asha wanted expert knowledge for people entering the market — white spots, cen
 
 ---
 
+## 2026-08-01, late — the page itself, worn as a card
+
+Asha asked the gallery and guest wall for the notable art — the originals and rare makes that inspired the TCG to be. The answer was already sleeping in our own bucket: the manga prints, the class Bandai itself describes as filled entirely with illustrations from the original manga — Zoro inside the page, Blackbeard mid-monologue, a foot and a panel and a GIANT. Curation was done by eye, forty-nine variant images inspected one by one, because the catalogue's variant tails carry no meaning and a wall label may not guess. The gate's visual lens then read my poetry against the pictures and found the poetry lying: a "drawn sea" no panel contains, a "lineart" Shenron who is painted in full colour, a shop label pinned to a card no shop was quoted for. And one trap older than this session: the illustrator credit that aggregates per card number — so the manga row now refuses, structurally, to name any hand at all; the art is the manga's, and the note says so. Ten origin pieces for the guest wall stand verified and waiting on a login: Sugimori's Blastoise, the first of Wizards' fifty-three promos, the twenty-five Gold Stars that are all one hand. What could not be verified was not hung — Pikachu Illustrator is not in the source, and the wall does not pretend.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-01.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:

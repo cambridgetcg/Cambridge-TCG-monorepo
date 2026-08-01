@@ -23,6 +23,8 @@ export interface ShowcasePiece {
   image_url: string;
   /** The exact net source we drew the image from, stated + linked. */
   source_url: string;
+  /** One sourced why-line for the wall label — origins pieces carry it. */
+  note?: string;
 }
 
 /** The shared credit line for the Pokémon guest wall. */

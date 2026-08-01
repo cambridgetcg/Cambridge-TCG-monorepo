@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { GalleryPiece } from "@/lib/cards/gallery";
+import type { NotablePiece } from "@/lib/cards/notable";
 
 /**
  * TheGallery — the art-forward centerpiece. A quiet museum for TCG.
@@ -18,8 +19,14 @@ import type { GalleryPiece } from "@/lib/cards/gallery";
  * their self-hosted official images (getGalleryPieces).
  */
 
-export default function TheGallery({ cards }: { cards: GalleryPiece[] }) {
-  if (cards.length === 0) return null;
+export default function TheGallery({
+  cards,
+  notable = [],
+}: {
+  cards: GalleryPiece[];
+  notable?: NotablePiece[];
+}) {
+  if (cards.length === 0 && notable.length === 0) return null;
 
   const credited = cards.filter((c) => c.artist).length;
 
@@ -57,6 +64,74 @@ export default function TheGallery({ cards }: { cards: GalleryPiece[] }) {
           </p>
         </div>
       </header>
+
+      {/* The notable makes lead — the manga prints, curated by eye
+          (lib/cards/notable.ts). One Piece's class is Bandai's own words;
+          the Dragon Ball pieces carry the shops'-label hedge on their
+          notes. Labels ride the same honesty rules as the wall below. */}
+      {notable.length > 0 && (
+        <div className="mb-16 sm:mb-20">
+          <div className="mb-8 max-w-2xl">
+            <h3 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-ink">
+              The Manga Prints
+              <span className="wardrobe-jp text-ink-muted text-xl sm:text-2xl font-normal"> · 原作の絵</span>
+            </h3>
+            <p className="mt-3 text-ink-muted leading-relaxed text-sm sm:text-base">
+              The prints where the card art is the source itself. For One
+              Piece, Bandai&apos;s own words for the class: a design filled
+              entirely with illustrations from the original manga. Panels,
+              speech bubbles and all — the page itself, worn as a card. The
+              community calls them コミパラ; the art that inspired the game,
+              printed on the game. The two Dragon Ball pieces carry the
+              manga-illustration label as the Japanese shops write it, not
+              as Bandai&apos;s.
+            </p>
+          </div>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-14 sm:gap-y-16">
+            {notable.map((card) => {
+              const label = card.name ?? card.card_number;
+              return (
+                <li key={card.sku}>
+                  <Link href={`/market/${card.sku}`} className="group block">
+                    <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat">
+                      <Image
+                        src={card.image_url}
+                        alt={label}
+                        fill
+                        className="object-contain p-3 sm:p-4"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
+                    </div>
+                    <div className="mt-4 px-1">
+                      <p className="font-display text-base text-ink leading-snug transition-colors group-hover:text-accent">
+                        {label}
+                      </p>
+                      <p className="mt-0.5 text-sm text-ink-muted">
+                        {card.variant_label}
+                        <span className="text-ink-faint"> · {card.set_code}-{card.card_number}</span>
+                      </p>
+                      <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
+                        {card.note}
+                      </p>
+                      <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
+                        {card.attribution}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {cards.length > 0 && (
+            <div className="mt-16 mb-2 max-w-2xl">
+              <h3 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink">
+                The Alternate Arts
+                <span className="wardrobe-jp text-ink-muted text-lg sm:text-xl font-normal"> · 別絵</span>
+              </h3>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Museum scale: three across at most, wide gutters, room to linger. */}
       <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-14 sm:gap-y-16">
