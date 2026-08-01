@@ -1246,6 +1246,14 @@ Asha asked the Japan guide to teach manners — how to speak politely to the peo
 
 ---
 
+## 2026-08-01, night — the inspector's guide
+
+Asha wanted expert knowledge for people entering the market — white spots, centering, what they do to price. The research brought back the standards as their publishers actually wrote them, and they were better than folklore: white spots turn out to be two different defects wearing one name (on the face, Surface Wear, banned from Near Mint at 2.5mm²; on the edge, Edgewear, tolerated to twenty millimetres), and centering is the defect raw selling forgives at 70/30 while a slab gates Gem Mint at 55/45 — the one flaw the raw price hasn't punished yet. The honest exhibits carried the thesis: one card on one Japanese shelf at three prices in three ranks, and Beckett publishing two different Pristine-10 figures on two of its own live pages while calling its criteria "not rules, only general guidelines." The gate confirmed four more of my inventions — an altered quotation wearing verbatim quote marks, an asks-not-sales umbrella over a sales-derived number, a "real and large" I could not source — and the fixes made the page what it claims to teach: seeing exactly what is there, no more. The market's own condition dropdown finally has a door that explains it.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-01.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:

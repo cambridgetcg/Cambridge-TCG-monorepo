@@ -77,8 +77,15 @@ export function ListingsPanel({
         Open Asks — Negotiate or Message
       </h2>
       <p className="text-xs text-ink-faint mb-3">
-        Each row is one listing. Make an offer below the ask, or use its
-        listing-scoped contact before you trade.
+        Each row is one listing (NM/LP/MP/HP —{" "}
+        <Link
+          href="/guides/condition"
+          className="text-accent hover:text-accent-strong underline underline-offset-2"
+        >
+          what conditions mean
+        </Link>
+        ). Make an offer below the ask, or use its listing-scoped contact
+        before you trade.
       </p>
       <div className="space-y-2">
         {asks.map((ask) => (
@@ -90,7 +97,12 @@ export function ListingsPanel({
               <span className="text-xs text-ink-muted font-mono tabular-nums">
                 ×{ask.remaining}
               </span>
-              <span className="text-xs text-ink-faint">{ask.condition}</span>
+              <span
+                className="text-xs text-ink-faint"
+                title="Listed condition — see the condition & grading guide under Guides"
+              >
+                {ask.condition}
+              </span>
               {ask.accepts_returns && (
                 <span
                   className="text-[10px] px-1.5 py-0.5 rounded-full bg-ok/10 text-ok border border-ok/30"

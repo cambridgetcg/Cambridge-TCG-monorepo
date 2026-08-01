@@ -1086,7 +1086,16 @@ export default function CardMarketClient({
                 </div>
 
                 <div>
-                  <label className="block text-xs text-ink-faint mb-1">Condition</label>
+                  <label className="block text-xs text-ink-faint mb-1">
+                    Condition{" "}
+                    <Link
+                      href="/guides/condition"
+                      className="text-accent hover:text-accent-strong underline underline-offset-2"
+                      title="What NM / LP / MP / HP actually mean — the condition & grading guide"
+                    >
+                      (what these mean)
+                    </Link>
+                  </label>
                   <select
                     value={condition}
                     onChange={(e) => setCondition(e.target.value as typeof condition)}

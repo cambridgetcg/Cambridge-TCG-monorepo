@@ -758,7 +758,16 @@ export default function BuyingGuidePage() {
           <p className="text-ink-muted leading-relaxed mb-8">
             Grading (a &ldquo;rate slip&rdquo;) is when a third party
             authenticates your card, scores its condition 1&#8211;10, and seals
-            it in a slab with a cert number. It&apos;s worth doing when a
+            it in a slab with a cert number. (What the graders actually
+            measure — the centering tables, the defect vocabulary, what
+            separates a 10 from a 9 — lives in{" "}
+            <Link
+              href="/guides/condition"
+              className="text-accent hover:text-accent-strong underline underline-offset-2"
+            >
+              Condition &amp; grading
+            </Link>
+            .) It&apos;s worth doing when a
             top-grade version of the card is worth at least around{" "}
             <span className="text-ink font-medium">three times the grading cost</span>{" "}
             — because the grade is never guaranteed, and a card can come back

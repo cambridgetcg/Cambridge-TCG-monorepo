@@ -490,7 +490,15 @@ export default function FromJapanGuidePage() {
                 <span className="font-mono text-xs">[EX+]</span>. The One
                 Piece store and the flagship publish their own condition
                 guides — we read both — so read the guide of the store
-                you&apos;re buying from, not a general one.
+                you&apos;re buying from, not a general one. (How these ranks
+                sit beside NM/LP and the grading houses&apos; scales:{" "}
+                <Link
+                  href="/guides/condition"
+                  className="text-accent hover:text-accent-strong underline underline-offset-2"
+                >
+                  Condition &amp; grading
+                </Link>
+                .)
               </p>
             </Card>
             <Card>
