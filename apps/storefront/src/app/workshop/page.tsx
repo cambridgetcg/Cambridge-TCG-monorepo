@@ -19,7 +19,9 @@
  * found no scholar who draws that line to a booster pack, so the
  * parallel is offered as this house's own reading, hedged in the open.
  *
- * House vows kept: a quiet room (no licensed art — words and the 明朝
+ * House vows kept: a quiet room (no licensed art; the only images are
+ * open-access museum objects, public domain, wall labels attached — words
+ * and the 明朝
  * hand carry it); contested claims hedged in the open; quotes only
  * where verified against the cited source, translations marked;
  * deceased artists handled by officially announced fact, attributed
@@ -32,6 +34,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
+import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -62,11 +65,28 @@ type Plate = {
   en: string;
   /** The prose — hedges woven in, quotes only where verified. */
   body: ReactNode;
+
+  /** Borrowed light: an open-access museum object hung beside this plate. */
+  piece?: MuseumPiece;
 };
 
 const PROLOGUE: Plate = {
   chapter: "序",
   jp: "四人の手",
+  piece: {
+        src: "/culture-plates/met-55723.jpg",
+        width: 600,
+        height: 289,
+        title: "Artisans, from the series \"An Up-to-Date Parody of the Four Classes\"",
+        artist: "Utagawa Kunisada",
+        date: "19th century",
+        medium: "Triptych of woodblock prints; ink and color on paper",
+        credit: "Gift of Cole J. Younger, 1975",
+        sourceName: "The Metropolitan Museum of Art",
+        sourceUrl: "https://www.metmuseum.org/art/collection/search/55723",
+        rights: "Public domain (Met Open Access)",
+        alt: "A woodblock triptych of women at every station of a print workshop — carving blocks, rubbing impressions, hanging printed sheets to dry",
+      },
   romaji: "yonin no te",
   en: "The Four Hands",
   body: (
@@ -373,6 +393,20 @@ const PRESS: Plate[] = [
   {
     chapter: "第九",
     jp: "刷りと箔",
+    piece: {
+        src: "/culture-plates/cma-173975.jpg",
+        width: 900,
+        height: 506,
+        title: "Print Block",
+        artist: "Unrecorded carver, Japan, Edo period (1615–1868)",
+        date: "1700s",
+        medium: "Woodblock (carved wood with ink residue); average 17.2 x 33.7 cm",
+        credit: "Gift of the John Huntington Art and Polytechnic Trust",
+        sourceName: "The Cleveland Museum of Art",
+        sourceUrl: "https://clevelandart.org/art/1917.835",
+        rights: "Public domain (CC0)",
+        alt: "An Edo-period carved wooden printing block, figures cut in relief with dark ink still held in the grain",
+      },
     romaji: "suri to haku",
     en: "Ink, Foil, Blade",
     body: (
@@ -543,6 +577,7 @@ function PlateSection({ plate, index }: { plate: Plate; index: number }) {
         <p className="mt-4 text-base text-ink-muted leading-relaxed">
           {plate.body}
         </p>
+        {plate.piece && <MuseumPlate piece={plate.piece} />}
       </div>
     </section>
   );
@@ -650,7 +685,9 @@ export default function WorkshopPage() {
           </div>
         ))}
         <p className="mt-6 text-xs text-ink-faint leading-relaxed">
-          No artwork is reproduced here — the only pictures we hang are the
+          No licensed artwork is reproduced here — apart from the museum
+          plates above (open-access, public domain, each with its wall label
+          and canonical record), the only pictures we hang are the
           cards themselves, in{" "}
           <Link
             href="/"

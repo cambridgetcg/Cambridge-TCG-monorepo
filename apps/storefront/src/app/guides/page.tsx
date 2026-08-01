@@ -21,6 +21,18 @@ const guides = [
       "Trade here, buy across Europe on Cardmarket, order from Japan via a proxy, or grade a card. Real costs, real waits, and where the import fees hide.",
   },
   {
+    href: "/guides/condition",
+    title: "Condition & grading",
+    blurb:
+      "The inspector's guide — white spots, centering, the marketplaces' condition ladders and the grading houses' published standards, with dated evidence of what each defect does to price.",
+  },
+  {
+    href: "/guides/from-japan",
+    title: "Ordering from Japan",
+    blurb:
+      "Every CardRush store linked directly, and the Remambo proxy flow step by step — fees, condition ranks, consolidation, shipping and the traps.",
+  },
+  {
     href: "/guides/how-to-play",
     title: "How to play One Piece TCG",
     blurb:

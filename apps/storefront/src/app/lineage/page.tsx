@@ -9,7 +9,9 @@
  * Asha's brief 2026-07-15: "integrate Japanese culture and history — the
  * origin of manga and anime, what leads to them, ancient forms, expression."
  *
- * House vows kept: this is a quiet room (no licensed art, no saturated colour
+ * House vows kept: this is a quiet room (no licensed art; the only images
+ * are open-access museum objects, public domain, each with its wall label;
+ * no saturated colour
  * — the words and the 明朝 hand carry it); we are a card shop, not scholars,
  * so the contested claims are hedged in the open and the sources are named.
  * Server-rendered, no client JS. Facts fact-checked against the sources at
@@ -20,6 +22,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
+import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -49,12 +52,28 @@ type Movement = {
   en: string;
   /** The prose — kept short; hedges woven in. */
   body: ReactNode;
+  /** Borrowed light: an open-access museum object hung beside this plate. */
+  piece?: MuseumPiece;
 };
 
 const MOVEMENTS: Movement[] = [
   {
     chapter: "第一",
     jp: "墨と間",
+    piece: {
+        src: "/culture-plates/artic-11054.jpg",
+        width: 843,
+        height: 536,
+        title: "No. 32: Seba, from the series \"Sixty-nine Stations of the Kisokaido (Kisokaido rokujukyu tsugi no uchi)\"",
+        artist: "Utagawa Hiroshige 歌川 広重 (Japanese, 1797–1858)",
+        date: "c. 1835/38",
+        medium: "Color woodblock print; oban",
+        credit: "Gift of H. R. Warner",
+        sourceName: "The Art Institute of Chicago",
+        sourceUrl: "https://www.artic.edu/artworks/11054",
+        rights: "Public domain",
+        alt: "A full moon over Seba: two poled boats on a river between wind-bent reeds, the sky graded from pale gold to deep blue",
+      },
     romaji: "sumi to ma",
     en: "The Brush & the Space Between",
     body: (
@@ -109,6 +128,20 @@ const MOVEMENTS: Movement[] = [
   {
     chapter: "第四",
     jp: "浮世絵と「漫画」",
+    piece: {
+        src: "/culture-plates/cma-152473.jpg",
+        width: 900,
+        height: 385,
+        title: "Sketch Page with Birds and Spider",
+        artist: "Katsushika Hokusai (Japanese, 1760–1849)",
+        date: "c. 1780s–1849",
+        medium: "red ink on paper",
+        credit: "The Kelvin Smith Collection, given by Mrs. Kelvin Smith",
+        sourceName: "The Cleveland Museum of Art",
+        sourceUrl: "https://clevelandart.org/art/1985.298",
+        rights: "Public domain (CC0)",
+        alt: "A working sketch page in red ink: quick brush studies of birds in flight and at rest, with a small spider among them",
+      },
     romaji: "ukiyo-e to “manga”",
     en: "The Floating World & the Word",
     body: (
@@ -144,11 +177,28 @@ const MOVEMENTS: Movement[] = [
   {
     chapter: "第六",
     jp: "漫画とアニメの誕生",
+    piece: {
+        src: "/culture-plates/artic-13133.jpg",
+        width: 843,
+        height: 654,
+        title: "Double-page Illustration from Vol. 2 of \"Picture Book of Spring Brocades (Ehon haru no nishiki)\"",
+        artist: "Suzuki Harunobu 鈴木 春信 (Japanese, 1725(?)–1770)",
+        date: "1771",
+        medium: "Color woodblock print; double-page illustration from book",
+        credit: "Gift of Chester W. Wright",
+        sourceName: "The Art Institute of Chicago",
+        sourceUrl: "https://www.artic.edu/artworks/13133",
+        rights: "Public domain",
+        alt: "A double-page woodblock book opening: figures in an interior scene composed continuously across the fold of two pages",
+      },
     romaji: "manga to anime no tanjō",
     en: "Cartoon, Camera, Atom",
     body: (
       <>
-        The modern form arrived when Western cartooning met the Japanese brush.
+        The modern form arrived when Western cartooning met the Japanese
+        brush — a brush the picture-book had already trained: e-hon like the
+        1771 opening below had composed a drawn scene across a full printed
+        spread for over a century.
         Around 1902, <span className="italic">Kitazawa Rakuten</span> fixed the
         modern sense of 漫画 — the serialized comic strip; in 1917 the first
         Japanese animators drew their first shorts. Then Tezuka Osamu (手塚治虫),
@@ -257,6 +307,7 @@ export default function LineagePage() {
               <p className="mt-4 text-base text-ink-muted leading-relaxed">
                 {m.body}
               </p>
+              {m.piece && <MuseumPlate piece={m.piece} />}
             </div>
           </section>
         ))}
@@ -291,7 +342,9 @@ export default function LineagePage() {
         <p className="mt-4 text-xs text-ink-faint leading-relaxed">
           Further in print: Frederik L. Schodt, <span className="italic">Manga! Manga! The World of Japanese Comics</span> (1983);
           Adam L. Kern, <span className="italic">Manga from the Floating World</span>.
-          No artwork is reproduced here — the only pictures we hang are the cards
+          No licensed artwork is reproduced here — apart from the museum
+          plates above (open-access, public domain, each with its wall label
+          and canonical record), the only pictures we hang are the cards
           themselves, in <Link href="/" className="text-accent hover:text-accent-strong underline underline-offset-2">the gallery</Link>.
           A companion piece follows the line of the <span className="italic">game</span> instead —{" "}
           <Link href="/duel-of-souls" className="text-accent hover:text-accent-strong underline underline-offset-2">

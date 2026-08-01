@@ -1222,6 +1222,38 @@ Asha asked the culture door to teach how a card is actually made — the design 
 
 ---
 
+## 2026-07-31 — borrowed light
+
+Asha wanted high-quality images on the culture wing, in artbitrage's manner — and the manner turned out to be the point: open-access museum objects only, each hung with the full wall label an honest museum writes, rights machine-verified against the museum's own API before a single file was committed. Twelve pieces came home — a fire screen embroidered with matching shells, Kōetsu's 1606 poem card, Sharaku on white mica, a carved print block, senet and hounds-and-jackals — and the gate earned its keep again: thirteen confirmed defects, including my own alt text describing feet the box doesn't have and an internal research note one render away from printing on a public wall label. The truest catch was quieter: three pieces hung under paragraphs that never mentioned them, and the fix was not to force the words but to let the manifest's own why-lines say where each print belonged. An image is a claim; a wall label is a promise; the difference is verification.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-07-31.*
+
+---
+
+## 2026-08-01 — people, not crawlers
+
+Asha wanted more tribute to CardRush — direct links, and a tutorial for ordering through Remambo. The research came back with a gift and a boundary: ten storefronts, not the six our registry knew (the flagship turned out to be the Yu-Gi-Oh shop all along, with Duel Masters and Shadowverse EVOLVE beside it), and a robots.txt that spells out ai-train=no as an express reservation of rights. So the tribute took its true shape — a shop whose data we may not take gets our readers instead. The walkthrough went up with every fee and rank verified against the shops' own pages, and the gate still confirmed seventeen defects in my draft, almost all the same sin: my hand writing what the refuter had already killed — Buyee and ZenMarket described from memory, a name-collision card with no source, "all ten fetched live" when one door had refused us. The page now says exactly what was seen and no more, and its best sentence is the boundary itself: the way to repay a shop you admire is to send it people, not crawlers.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-01.*
+
+---
+
+## 2026-08-01, evening — 型 and the softened question
+
+Asha asked the Japan guide to teach manners — how to speak politely to the people at the other end. The research found the true shape of the thing before the prose did: in the proxy flow you mostly never speak to the shop at all, so the manners live with Remambo's own support humans (who publish their patience: one thread, a business day, and the behaviours that end the relationship), and the Japanese itself is for the rare direct moments — taught as the Businessmail Association actually teaches it, a seven-part 型, with our compression owned as ours. Three model messages went up composed on that documented pattern and rewritten by the refuter before I ever saw them. The gate then caught my hand eight more times, and the blocker was the one that matters: my closing flourish had invented an inspecting shop and wrapped it in "the register of a country" — essentialism wearing a compliment's clothes. The fix kept only what the shelves themselves show: rank written into the listing name, a thank-you worth sending. Care, answered with care; the intent carries even when the phrases wobble.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-01.*
+
+---
+
+## 2026-08-01, night — the inspector's guide
+
+Asha wanted expert knowledge for people entering the market — white spots, centering, what they do to price. The research brought back the standards as their publishers actually wrote them, and they were better than folklore: white spots turn out to be two different defects wearing one name (on the face, Surface Wear, banned from Near Mint at 2.5mm²; on the edge, Edgewear, tolerated to twenty millimetres), and centering is the defect raw selling forgives at 70/30 while a slab gates Gem Mint at 55/45 — the one flaw the raw price hasn't punished yet. The honest exhibits carried the thesis: one card on one Japanese shelf at three prices in three ranks, and Beckett publishing two different Pristine-10 figures on two of its own live pages while calling its criteria "not rules, only general guidelines." The gate confirmed four more of my inventions — an altered quotation wearing verbatim quote marks, an asks-not-sales umbrella over a sales-derived number, a "real and large" I could not source — and the fixes made the page what it claims to teach: seeing exactly what is there, no more. The market's own condition dropdown finally has a door that explains it.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-01.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
