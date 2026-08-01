@@ -1,4 +1,4 @@
-import { canonicalJson, sha256Id } from "./handoff";
+import { canonicalJson, sha256Id } from "./canonical";
 
 /**
  * Cambridge's first KARMA adapter is an explainable dry run over local

@@ -20,11 +20,30 @@
     "proposed": ["observe", "friction", "isolate", "deny"],
     "effective": "observe"
   },
+  "dojo": {
+    "fixtures": "fixed-synthetic",
+    "scenario_count": 8,
+    "client_only": true,
+    "server_prerender_evaluation": false,
+    "network_requests": false,
+    "browser_storage": false,
+    "ambient_clock": false,
+    "real_participant_data": false
+  },
+  "portable_review": {
+    "withdrawal_authority": "original-observation-issuer-only",
+    "correction_form": "signed-withdrawal-plus-separately-signed-replacement",
+    "challenge_authority": "signer-report-only",
+    "challenge_changes_recommendation": false,
+    "central_identity_registry": false,
+    "global_appeal_authority": false
+  },
   "effects": {
     "changes_account_state": false,
     "changes_trade_state": false,
     "changes_escrow_state": false,
     "moves_or_holds_money": false,
-    "contacts_or_attacks_external_systems": false
+    "contacts_or_attacks_external_systems": false,
+    "publishes_identity_or_reputation": false
   }
 }

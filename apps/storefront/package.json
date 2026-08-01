@@ -73,6 +73,7 @@
     "@cambridge-tcg/pricing": "workspace:^",
     "@cambridge-tcg/sku": "workspace:^",
     "@cambridge-tcg/stock": "workspace:^",
+    "@noble/hashes": "2.2.0",
     "@stripe/react-stripe-js": "^5.6.1",
     "@stripe/stripe-js": "^8.11.0",
     "drizzle-orm": "^0.36.0",

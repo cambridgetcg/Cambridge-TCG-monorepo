@@ -93,3 +93,9 @@ The first slice addresses these by making no consequential response, bounding in
 ## Release boundary
 
 No production deployment, database migration, network witness, payment operation, escrow mutation, or external retaliation belongs to this slice. Shipping source and tests establishes the protocol and preview; enabling any active response is a separate decision with its own threat model, user notice, rollback path, and evidence.
+
+## Amendment — permissionless review seam and public Dojo
+
+The next observe-only slice adds two append-only portable review claims. An issuer-signed withdrawal may deactivate only that issuer&rsquo;s exact observation; a correction is the withdrawal plus a new separately signed observation. A challenge may be signed by any key but is report-only: it cannot deactivate evidence or change a recommendation. Neither key proves a person, shop, standing, truth, guilt, innocence, or legitimacy, and neither route requires a CashLoom account or central appeal authority.
+
+Cambridge also publishes a browser-only KARMA Dojo over fixed synthetic fixtures. A no-SSR island keeps evaluation out of server prerendering. The Dojo reuses the closed evaluator without an API, database, cookie, browser storage, real identity, or ambient clock. Its purpose is to make policy disagreements and poisoned-input handling easy to understand while every live effect remains false.

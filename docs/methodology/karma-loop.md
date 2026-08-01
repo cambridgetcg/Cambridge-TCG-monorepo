@@ -17,6 +17,12 @@ Only signal types in a closed, versioned local catalog can become findings, and 
 
 The evaluator accepts at most 64 observations and considers at most the previous 90 days. A future-dated, malformed, sparse, or truncated evidence set is not treated as clean evidence. It produces an `evidence-invalid` result and a conservative isolation proposal.
 
+## Public synthetic Dojo
+
+The public methodology page contains an interactive KARMA Dojo with eight fixed synthetic bundles. Scenario selection is component state only. A no-SSR island gives server prerender an inert placeholder; the same pure evaluator loads only after browser hydration using browser-safe canonical JSON and SHA-256 code. It makes no request, invokes no server action, reads or writes no cookie or browser storage, and receives no real participant data. Every fixture pins `evaluated_at` to `2026-08-01T10:00:00.000Z`, so a visitor&rsquo;s clock and the passage of time cannot silently change the replay.
+
+The Dojo shows supplied, accepted, and ignored evidence counts; proposed and effective responses; and all six false effect flags. It is an inspectable policy fixture, not a live safety check or verdict about anyone.
+
 ## What the result means
 
 The policy maps each observation severity to a proposed response:
@@ -56,11 +62,19 @@ CashLoom&rsquo;s portable form uses self-certifying issuers and signed observati
 
 Cambridge&rsquo;s current adapter is deliberately narrower: private, local, unsigned, and participant-specific. It publishes nothing to other nodes. A later portable path must use context-scoped subject commitments and explicit disclosure; stable account or wallet identifiers must never become ambient reputation keys.
 
+## Withdrawal, correction, and challenge
+
+CashLoom observations remain immutable. The original observation issuer can append a signed withdrawal naming the exact observation. Local review preserves the original and withdrawal record identifiers for audit, then excludes that claim from active rule matching. It does not erase history, recover a compromised key, or establish that the subject is innocent. A corrected observation is a separate signed replacement after the original is withdrawn; nothing is edited in place.
+
+Any signing key can append a digest-only, report-only challenge naming one exact observation. A challenge proves only control of its signing key, not that the signer is the subject, that different keys are independent people, or that the challenge is true. Challenges are surfaced as claims and cannot remove observations, change matched rules, or alter a recommendation. This prevents challenge spam or a Sybil swarm from becoming an automatic appeal authority while still giving participants portable infrastructure for disagreement.
+
+Both records are closed schemas with content-digest evidence only: no free-text accusation, URL, identity, party role, guilt, innocence, legitimacy, or platform-approved field exists. Consumers retain their own policy and due-diligence responsibility; CashLoom provides no central judge or challenge registry.
+
 ## Poisoning and false positives
 
 Attacker-supplied evidence and lifecycle logs are claims, not truth. Future policies must pin accepted issuers, deduplicate signed record IDs and interaction commitments, bound age and bundle size, and refuse automatic learning. A learned detector can propose a test or policy change, but cannot promote itself into enforcement.
 
-Every affected participant must be able to inspect the observation class, time, policy version, proposed response, effective response, and limits. Challenge and correction remain necessary before any consequential mode exists.
+Every affected participant must be able to inspect the observation class, time, policy version, proposed response, effective response, limits, and exact signed review records. The portable challenge/correction seam now exists, but a participant-facing submission and disclosure workflow remains necessary before any consequential mode exists.
 
 ## Next gates
 
@@ -70,4 +84,4 @@ Every affected participant must be able to inspect the observation class, time, 
 4. Require independent review before any deny path can affect real accounts or trades.
 5. Convert each observed exploit into a quarantined regression test; never execute it against the source.
 
-The source implementation is `apps/storefront/src/lib/cashloom/karma.ts`; the participant-only adapter is `apps/storefront/src/lib/cashloom/karma-db.ts`.
+The source implementation is `apps/storefront/src/lib/cashloom/karma.ts`; the participant-only adapter is `apps/storefront/src/lib/cashloom/karma-db.ts`; the fixed replay matrix is `apps/storefront/src/app/methodology/karma-loop/karma-dojo.ts`.

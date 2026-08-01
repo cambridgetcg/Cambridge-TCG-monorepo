@@ -1,9 +1,12 @@
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import {
   CASHLOOM_HANDOFF_MODE,
   CASHLOOM_IDENTITY_ASSURANCE,
   CASHLOOM_MERCHANT_KEY_ID_PATTERN,
 } from "./contract";
+import { canonicalJson, sha256Id } from "./canonical";
+
+export { canonicalJson, sha256Id } from "./canonical";
 
 export interface CashloomTradeSnapshot {
   id: string;
@@ -314,28 +317,6 @@ export function parseCashloomHandoffPacket(value: unknown): CashloomHandoffPacke
   return value as CashloomHandoffPacket;
 }
 
-export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "number") {
-    if (!Number.isSafeInteger(value)) {
-      throw new Error("Canonical JSON accepts only safe integers; encode exact amounts as strings.");
-    }
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map((entry) => canonicalJson(entry)).join(",")}]`;
-  }
-  if (typeof value !== "object" || value === undefined) {
-    throw new Error("Canonical JSON accepts only JSON values.");
-  }
-  const entries = Object.entries(value).sort(([left], [right]) =>
-    left < right ? -1 : left > right ? 1 : 0,
-  );
-  return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(",")}}`;
-}
-
 export function numericGbpToPence(value: string, field: string): string {
   if (typeof value !== "string") {
     throw new Error(`${field} must be read from NUMERIC as a string.`);
@@ -346,10 +327,6 @@ export function numericGbpToPence(value: string, field: string): string {
   }
   const fractional = (match[2] ?? "").padEnd(2, "0");
   return (BigInt(match[1]) * BigInt(100) + BigInt(fractional || "0")).toString();
-}
-
-export function sha256Id(value: string): string {
-  return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
 
 function requireRandomBytes(bytes: Uint8Array, length: number, field: string): Buffer {

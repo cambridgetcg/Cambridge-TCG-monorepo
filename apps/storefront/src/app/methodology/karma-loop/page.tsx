@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { audienceMetadata, TypeSignature } from "@/lib/ui";
+import KarmaDojoIsland from "./KarmaDojoIsland";
 
 export const metadata: Metadata = {
   title: "KARMA defence loop",
@@ -22,6 +23,8 @@ export default function KarmaLoopMethodology() {
         <strong>Current effect:</strong> observe only. The policy can show what it would propose,
         but it cannot change an account, trust score, trade, escrow state, payment, refund, or payout.
       </blockquote>
+
+      <KarmaDojoIsland />
 
       <h2>How the preview works</h2>
       <p>
@@ -56,6 +59,21 @@ export default function KarmaLoopMethodology() {
         issuer&rsquo;s claim. Every participant chooses which issuers and rules they accept, so two
         honest nodes may reach different recommendations from the same bundle. No corporate
         CashLoom account, central identity provider, universal blacklist, or global vote is required.
+      </p>
+
+      <h2>How a claim can be challenged or corrected</h2>
+      <p>
+        The portable protocol keeps the original observation immutable. Its original issuer may
+        append a signed withdrawal that names the exact observation; the history stays visible,
+        but local evaluation no longer uses that withdrawn claim. A correction is a withdrawal
+        followed by a separately signed replacement, never an invisible edit.
+      </p>
+      <p>
+        Any signing key may append a report-only challenge to an exact observation. That proves
+        only that the key made the challenge: it does not prove that the signer is the affected
+        trader, that the observation is false, or that anyone is innocent or guilty. Challenges
+        remain visible metadata and never change a recommendation automatically. Each participant
+        decides which issuers, challengers, and surrounding evidence matter to their own policy.
       </p>
 
       <h2>What “attackers attack themselves” means</h2>
