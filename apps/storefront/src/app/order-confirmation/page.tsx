@@ -6,6 +6,7 @@ import { recordOrderFromStripeSession } from "@/lib/orders/record";
 import { InkRule } from "@/lib/ui";
 import { auth } from "@/lib/auth";
 import { checkoutSessionBelongsToAccount } from "@/lib/privacy/checkout-session";
+import { isLegacyRetailCheckoutSession } from "@/lib/payments/checkout-session-kind";
 
 export default async function OrderConfirmationPage({
   searchParams,
@@ -27,6 +28,11 @@ export default async function OrderConfirmationPage({
   } catch {
     notFound();
   }
+
+  // This page belongs only to the retired retail till. A paid market,
+  // auction, membership, B2B, or future Checkout Session must return to
+  // its owning surface instead of inheriting retail confirmation copy.
+  if (!isLegacyRetailCheckoutSession(session)) notFound();
 
   // Unpaid session — nothing to confirm. The retail till this page
   // used to bounce back to is retired (collectors-first, 2026-07-06);

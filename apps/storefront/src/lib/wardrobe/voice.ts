@@ -129,12 +129,12 @@ const STRINGS = {
     plain: "No trade history yet.",
   },
   "trades.paid.title": {
-    standard: "Payment sent — the escrow desk takes the next panel.",
-    plain: "Payment sent.",
+    standard: "Back from checkout — checking the next panel.",
+    plain: "Returned from checkout.",
   },
   "trades.paid.sub": {
-    standard: "Stripe has your payment; the status here shows it once it's confirmed.",
-    plain: "The trade status updates when the payment is confirmed.",
+    standard: "The participant trade record, not this return link, decides what happens next.",
+    plain: "This return link does not confirm payment.",
   },
   "trades.completed.benediction": {
     standard: "The card changes hands; the story turns the page.",

@@ -210,10 +210,26 @@ async function loadRecentOrders(email: string): Promise<RecentOrder[]> {
     // Same source as /api/account/orders (customer_orders by email),
     // but only the three newest and only the columns this card shows.
     const r = await query(
-      `SELECT id, status, total_gbp, created_at, items
-         FROM customer_orders
-        WHERE customer_email = $1
-        ORDER BY created_at DESC
+      `SELECT co.id, co.status, co.total_gbp, co.created_at, co.items
+         FROM customer_orders co
+        WHERE co.customer_email = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM market_trades t
+             WHERE t.stripe_session_id = co.stripe_session_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM market_lot_trades t
+             WHERE t.stripe_session_id = co.stripe_session_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM auctions a
+             WHERE a.stripe_session_id = co.stripe_session_id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM b2b_orders b
+             WHERE b.stripe_session_id = co.stripe_session_id
+          )
+        ORDER BY co.created_at DESC
         LIMIT 3`,
       [email],
     );

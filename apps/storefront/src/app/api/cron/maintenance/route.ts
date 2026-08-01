@@ -543,5 +543,11 @@ export async function GET(request: Request) {
   }
   // Touch unused destructure to satisfy noUnusedLocals if enabled.
 
-  return NextResponse.json(status);
+  // Market maintenance is now the only automatic order-expiry writer. Keep
+  // the other independent pipelines running, but make this cron invocation
+  // fail visibly when that critical lane rejects so platform monitoring can
+  // alert/retry instead of accepting a misleading green 200.
+  return NextResponse.json(status, {
+    status: market.status === "rejected" ? 503 : 200,
+  });
 }

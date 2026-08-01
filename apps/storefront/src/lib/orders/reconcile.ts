@@ -82,6 +82,7 @@
  */
 
 import { getStripe } from "@/lib/stripe";
+import { isLegacyRetailCheckoutSession } from "@/lib/payments/checkout-session-kind";
 import { recordOrderFromStripeSession } from "./record";
 
 /** How far back we sweep on each run. 48h gives plenty of headroom for
@@ -100,6 +101,7 @@ export interface ReconcileSummary {
   paid: number;
   recorded: number;
   skipped: number;
+  nonRetailSkipped: number;
   errors: number;
 }
 
@@ -108,7 +110,7 @@ export async function reconcileStripeOrders(): Promise<ReconcileSummary> {
   const since = Math.floor((Date.now() - LOOKBACK_HOURS * 3600 * 1000) / 1000);
 
   const summary: ReconcileSummary = {
-    scanned: 0, paid: 0, recorded: 0, skipped: 0, errors: 0,
+    scanned: 0, paid: 0, recorded: 0, skipped: 0, nonRetailSkipped: 0, errors: 0,
   };
 
   let starting_after: string | undefined;
@@ -126,7 +128,17 @@ export async function reconcileStripeOrders(): Promise<ReconcileSummary> {
       if (session.status !== "complete" || session.payment_status !== "paid") {
         continue;
       }
+      // Preserve the monitor's historical meaning: every paid Session seen,
+      // even when its owning flow correctly keeps it out of customer_orders.
       summary.paid += 1;
+      // customer_orders is the retired first-party retail ledger. Named
+      // marketplace, auction, membership, B2B, and future flows have their
+      // own ownership/state. Letting one leak through here creates a phantom
+      // shop order and can double-count spend or derive ownership from email.
+      if (!isLegacyRetailCheckoutSession(session)) {
+        summary.nonRetailSkipped += 1;
+        continue;
+      }
       try {
         // Re-fetch with line_items + collected_information so the record
         // helper has the full shipping payload.
