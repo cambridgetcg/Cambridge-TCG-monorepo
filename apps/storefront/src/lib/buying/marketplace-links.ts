@@ -84,7 +84,7 @@ export function buildCardRushSearch(
     href: `https://www.${cfg.cardrush.subdomain}/product-list?keyword=${encodeURIComponent(card.card_number)}`,
     kind: "search",
     region: "Japan",
-    note: "Japanese-language store, prices in yen — reached through a proxy. See the buying guide.",
+    note: "Japanese-language store, prices in yen — reached through a proxy; see Guides, Ordering from Japan.",
   };
 }
 

@@ -511,24 +511,35 @@ export default function BuyingGuidePage() {
             CardRush — buying from Japan
           </SectionHeading>
           <p className="text-ink-muted leading-relaxed mb-8">
-            CardRush (カードラッシュ, operated by 株式会社RUSH) is one of
-            Japan&apos;s largest low-price card chains, based around Tokyo
+            CardRush (カードラッシュ, operated by 株式会社RUSH) is a
+            low-price card chain that calls itself among Japan&apos;s
+            largest, based around Tokyo
             (Akihabara and Ikebukuro). It&apos;s a family of per-game stores —{" "}
-            <span className="font-mono text-ink-muted">cardrush-op.jp</span>{" "}
+            <a href="https://www.cardrush-op.jp/" target="_blank" rel="noopener noreferrer" className="font-mono text-accent hover:text-accent-strong underline underline-offset-2">cardrush-op.jp</a>{" "}
             (One Piece),{" "}
-            <span className="font-mono text-ink-muted">cardrush-pokemon.jp</span>{" "}
+            <a href="https://www.cardrush-pokemon.jp/" target="_blank" rel="noopener noreferrer" className="font-mono text-accent hover:text-accent-strong underline underline-offset-2">cardrush-pokemon.jp</a>{" "}
             (Pokémon),{" "}
-            <span className="font-mono text-ink-muted">cardrush-db.jp</span>{" "}
-            (Dragon Ball). Everything is in Japanese, priced in yen — and it does
-            not ship internationally, so a UK buyer reaches it through a proxy
-            (next section).
+            <a href="https://www.cardrush-db.jp/" target="_blank" rel="noopener noreferrer" className="font-mono text-accent hover:text-accent-strong underline underline-offset-2">cardrush-db.jp</a>{" "}
+            (Dragon Ball) — ten stores in all, from Yu-Gi-Oh to Duel Masters.
+            Everything is in Japanese, priced in yen — and it does not ship
+            internationally, so a UK buyer reaches it through a proxy (next
+            section). The full shelf directory, with every store linked and the
+            listing vocabulary explained, lives in{" "}
+            <Link
+              href="/guides/from-japan"
+              className="text-accent hover:text-accent-strong underline underline-offset-2"
+            >
+              Ordering from Japan
+            </Link>
+            .
           </p>
 
           <div className="space-y-4 mb-8">
             <Card>
               <p className="text-ink font-bold mb-1">How we link you</p>
               <p className="text-sm text-ink-muted leading-relaxed">
-                From any One Piece, Pokémon or Dragon Ball card here, a{" "}
+                From any card here whose game CardRush carries (the full store
+                directory is in Ordering from Japan), a{" "}
                 <span className="text-ink font-medium">Search CardRush (Japan)</span>{" "}
                 link opens that game&apos;s store filtered to the card&apos;s
                 number — so you can copy a clean product link and hand it to a
@@ -579,11 +590,19 @@ export default function BuyingGuidePage() {
             Order from Japan with a proxy
           </SectionHeading>
           <p className="text-ink-muted leading-relaxed mb-8">
-            A proxy service (Remambo is the classic example; ZenMarket, Buyee and
-            FromJapan work the same way) buys a card in Japan on your behalf,
-            holds it, and reships it to the UK. It&apos;s how you reach stores
-            like CardRush that don&apos;t post abroad. Here&apos;s the whole
-            chain, honest to the door.
+            A proxy service buys a card in Japan on your behalf, holds it, and
+            reships it to the UK. It&apos;s how you reach stores like CardRush
+            that don&apos;t post abroad. Remambo is the one we&apos;ve walked —
+            the step-by-step, with fees, consolidation and the traps, is in{" "}
+            <Link
+              href="/guides/from-japan"
+              className="text-accent hover:text-accent-strong underline underline-offset-2"
+            >
+              Ordering from Japan
+            </Link>{" "}
+            — other names you may hear we have not walked or verified, so we
+            describe only Remambo. Here&apos;s the whole chain, honest to the
+            door.
           </p>
 
           <div className="space-y-5 mb-8">
@@ -602,9 +621,9 @@ export default function BuyingGuidePage() {
             <Step n={3}>
               <p className="text-ink font-bold">It lands at their warehouse</p>
               <p className="text-sm text-ink-muted mt-1">
-                Remambo stores it free for up to 60 days and consolidates
-                multiple orders into one parcel at no charge — worth it if
-                you&apos;re buying several cards.
+                Remambo holds it and can combine several orders into one
+                parcel — the storage window and consolidation rules are in the
+                walkthrough.
               </p>
             </Step>
             <Step n={4}>

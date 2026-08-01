@@ -439,6 +439,24 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
             />
             <WhyLink href="/methodology/pricing" label="price publication boundary" />
             <CurrencyWhyLink />
+            {cfg.cardrush?.confirmed && (
+              <a
+                href={`https://www.${cfg.cardrush.subdomain}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-accent hover:text-accent-strong transition"
+              >
+                the CardRush shelf itself &#8599;
+              </a>
+            )}
+            {cfg.cardrush && (
+              <Link
+                href="/guides/from-japan"
+                className="text-xs text-ink-faint hover:text-accent transition"
+              >
+                ordering from Japan &rarr;
+              </Link>
+            )}
             {cfg.cardrush && !cfg.cardrush.confirmed && (
               <span
                 className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-accent-wash text-accent border border-accent/30 rounded"
