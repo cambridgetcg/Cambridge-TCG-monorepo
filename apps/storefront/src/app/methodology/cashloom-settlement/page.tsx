@@ -109,7 +109,8 @@ export default function CashLoomSettlementMethodology() {
       <p>
         The full architecture and rollout guardrails live in the repository decision record.
         In your account, visit <Link href="/account/cashloom">CashLoom</Link> to manage the
-        optional declaration.
+        optional declaration. Its <Link href="/methodology/karma-loop">KARMA defence preview</Link>{" "}
+        remains observe-only and cannot affect this settlement handoff.
       </p>
 
       <TypeSignature
@@ -122,6 +123,7 @@ export default function CashLoomSettlementMethodology() {
           { label: "/methodology/trade-completion", href: "/methodology/trade-completion" },
           { label: "/methodology/fx-rates", href: "/methodology/fx-rates" },
           { label: "/methodology/payout-hold", href: "/methodology/payout-hold" },
+          { label: "/methodology/karma-loop", href: "/methodology/karma-loop" },
         ]}
       />
     </>

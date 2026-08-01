@@ -6,6 +6,7 @@ import {
   saveCashloomSettlementProfile,
 } from "@/lib/cashloom/db";
 import { parseCashloomProfileWrite } from "@/lib/cashloom/contract";
+import { getCashloomKarmaDecision } from "@/lib/cashloom/karma-db";
 import {
   cashloomError,
   cashloomPrivateJson,
@@ -29,8 +30,14 @@ export async function GET() {
   }
 
   try {
-    const profile = await getCashloomSettlementProfile(session.user.id);
-    return cashloomPrivateJson({ profile });
+    const [profile, karma] = await Promise.all([
+      getCashloomSettlementProfile(session.user.id),
+      getCashloomKarmaDecision(
+        session.user.id,
+        "account.cashloom-profile",
+      ),
+    ]);
+    return cashloomPrivateJson({ profile, karma });
   } catch (error) {
     if (isCashloomSettlementMigrationMissing(error)) return unavailable();
     console.error("[cashloom/profile] read failed:", error);

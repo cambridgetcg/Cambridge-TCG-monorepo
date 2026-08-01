@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Audience, Consequences, PageHeader, WhyLink } from "@/lib/ui";
+import type { CashloomKarmaDecision } from "@/lib/cashloom/karma";
 
 interface CashLoomProfile {
   merchant_key_id: string;
@@ -30,6 +31,7 @@ async function responseError(response: Response, fallback: string): Promise<stri
 
 export default function CashLoomAccountPage() {
   const [profile, setProfile] = useState<CashLoomProfile | null>(null);
+  const [karma, setKarma] = useState<CashloomKarmaDecision | null>(null);
   const [merchantKeyId, setMerchantKeyId] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [acknowledgeLinkability, setAcknowledgeLinkability] = useState(false);
@@ -51,6 +53,7 @@ export default function CashLoomAccountPage() {
         if (!active) return;
         const next = (body?.profile ?? null) as CashLoomProfile | null;
         setProfile(next);
+        setKarma((body?.karma ?? null) as CashloomKarmaDecision | null);
         setMerchantKeyId(next?.merchant_key_id ?? "");
         setEnabled(next?.enabled ?? false);
       })
@@ -142,6 +145,53 @@ export default function CashLoomAccountPage() {
           <p className="mt-1 text-xs text-ink-muted">Packets cannot mark a trade paid or unlock shipping.</p>
         </div>
       </div>
+
+      {karma && (
+        <section className="rounded-lg border border-accent/25 bg-accent-wash p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-ink">
+                  KARMA defence preview
+                </h2>
+                <WhyLink
+                  href="/methodology/karma-loop"
+                  tooltip="How local observations propose a response without acting on your account or money"
+                />
+              </div>
+              <p className="mt-1 text-sm text-ink-muted">
+                {karma.state === "evaluated"
+                  ? "Cambridge evaluated only your own unresolved local observations."
+                  : "Cambridge could not form a valid local evidence bundle; the state is shown below rather than presented as all-clear."}{" "}
+                Your signed-in account selects the private local rows, but no account identifier is
+                emitted into this decision or its evidence hash. No shared blacklist or other
+                trader&rsquo;s private evidence is used.
+              </p>
+            </div>
+            <span className="rounded-full border border-info/30 bg-info/10 px-2.5 py-1 text-[11px] font-semibold text-info">
+              Observe-only
+            </span>
+          </div>
+          <dl className="mt-4 grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-3 gap-y-2 text-xs">
+            <dt className="text-ink-faint">Evidence state</dt>
+            <dd className="font-mono text-ink">{karma.state}</dd>
+            <dt className="text-ink-faint">Local observations</dt>
+            <dd className="font-mono text-ink">
+              {karma.evidence_count} accepted / {karma.supplied_evidence_count} supplied
+            </dd>
+            <dt className="text-ink-faint">Policy proposal</dt>
+            <dd className="font-mono text-warning">{karma.proposed_response}</dd>
+            <dt className="text-ink-faint">Effective response</dt>
+            <dd className="font-mono text-ok">{karma.effective_response}</dd>
+          </dl>
+          <p className="mt-3 text-xs text-ink-muted">
+            A proposal is a policy dry run, not a verdict. This release cannot suspend the
+            account, alter trust or escrow, hold money, contact an attack source, or publish
+            reputation. If observations exist, you can inspect their human-facing context on
+            your <Link href="/account/standing" className="text-accent hover:underline">account standing</Link> page.
+          </p>
+        </section>
+      )}
 
       <section className="rounded-lg border border-border-subtle bg-surface p-5 space-y-4">
         <div>

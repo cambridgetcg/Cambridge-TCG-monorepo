@@ -5,6 +5,7 @@ import {
   isCashloomSettlementMigrationMissing,
   prepareCashloomTradeHandoff,
 } from "@/lib/cashloom/db";
+import { getCashloomKarmaDecision } from "@/lib/cashloom/karma-db";
 import { GET, POST } from "./route";
 
 const authMocks = vi.hoisted(() => ({ auth: vi.fn() }));
@@ -16,6 +17,9 @@ vi.mock("@/lib/cashloom/db", () => ({
   isCashloomSettlementMigrationMissing: vi.fn(),
   prepareCashloomTradeHandoff: vi.fn(),
 }));
+vi.mock("@/lib/cashloom/karma-db", () => ({
+  getCashloomKarmaDecision: vi.fn(),
+}));
 
 const TRADE_ID = "123e4567-e89b-42d3-a456-426614174001";
 const SESSION = {
@@ -26,6 +30,12 @@ const VIEW = {
   handoff: null,
   role: "seller" as const,
   can_prepare: true,
+};
+const KARMA = {
+  schema: "cashloom.karma-decision/v1" as const,
+  state: "evaluated" as const,
+  proposed_response: "observe" as const,
+  effective_response: "observe" as const,
 };
 
 function context(id = TRADE_ID) {
@@ -45,6 +55,7 @@ beforeEach(() => {
   authMocks.auth.mockResolvedValue(SESSION);
   vi.mocked(authorizeCashloomTradeSeller).mockResolvedValue({ ok: true });
   vi.mocked(isCashloomSettlementMigrationMissing).mockReturnValue(false);
+  vi.mocked(getCashloomKarmaDecision).mockResolvedValue(KARMA as never);
 });
 
 describe("/api/market/trades/[id]/cashloom", () => {
@@ -54,6 +65,7 @@ describe("/api/market/trades/[id]/cashloom", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(getCashloomTradeHandoffView).not.toHaveBeenCalled();
+    expect(getCashloomKarmaDecision).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed dynamic UUID before querying Postgres", async () => {
@@ -61,6 +73,7 @@ describe("/api/market/trades/[id]/cashloom", () => {
     expect(response.status).toBe(422);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(getCashloomTradeHandoffView).not.toHaveBeenCalled();
+    expect(getCashloomKarmaDecision).not.toHaveBeenCalled();
   });
 
   it("enforces participant-only reads", async () => {
@@ -71,6 +84,7 @@ describe("/api/market/trades/[id]/cashloom", () => {
     const response = await GET(new Request("https://example.test"), context());
     expect(response.status).toBe(403);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(getCashloomKarmaDecision).not.toHaveBeenCalled();
   });
 
   it("returns the stable handoff readiness shape", async () => {
@@ -78,13 +92,18 @@ describe("/api/market/trades/[id]/cashloom", () => {
     const response = await GET(new Request("https://example.test"), context());
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(await response.json()).toEqual(VIEW);
+    expect(await response.json()).toEqual({ ...VIEW, karma: KARMA });
+    expect(getCashloomKarmaDecision).toHaveBeenCalledWith(
+      SESSION.user.id,
+      "market.cashloom-handoff",
+    );
   });
 
   it("accepts only the closed prepare action", async () => {
     const response = await POST(postRequest({ action: "prepare", pay: true }), context());
     expect(response.status).toBe(422);
     expect(prepareCashloomTradeHandoff).not.toHaveBeenCalled();
+    expect(getCashloomKarmaDecision).not.toHaveBeenCalled();
   });
 
   it("authorizes the seller before reading any request body bytes", async () => {
@@ -127,6 +146,7 @@ describe("/api/market/trades/[id]/cashloom", () => {
       can_prepare: false,
       unavailable_reason: "handoff_already_prepared",
       reused: true,
+      karma: KARMA,
     });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Consequences, WhyLink } from "@/lib/ui";
+import type { CashloomKarmaDecision } from "@/lib/cashloom/karma";
 
 type UnavailableReason =
   | "seller_only"
@@ -70,6 +71,41 @@ interface HandoffView {
   can_prepare: boolean;
   unavailable_reason?: UnavailableReason;
   reused?: boolean;
+  karma: CashloomKarmaDecision;
+}
+
+function KarmaDecisionPreview({ decision }: { decision: CashloomKarmaDecision }) {
+  return (
+    <div className="rounded-lg border border-info/30 bg-info/10 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+            KARMA defence · your local view
+          </p>
+          <WhyLink
+            href="/methodology/karma-loop"
+            tooltip="Why this proposed response cannot affect the live trade in observe-only mode"
+          />
+        </div>
+        <span className="font-mono text-[10px] text-info">observe-only</span>
+      </div>
+      <p className="mt-2 text-xs text-ink-muted">
+        {decision.state === "evaluated" ? (
+          <>
+            Policy proposed <strong className="font-mono text-warning">{decision.proposed_response}</strong>{" "}
+            from {decision.evidence_count} current local observation{decision.evidence_count === 1 ? "" : "s"};{" "}
+          </>
+        ) : (
+          <>
+            Evidence state is <strong className="font-mono text-warning">{decision.state}</strong>;
+            the conservative proposal is <strong className="font-mono text-warning">{decision.proposed_response}</strong>.{" "}
+          </>
+        )}
+        Effective response is <strong className="font-mono text-ok">observe</strong>.
+        It cannot block this handoff, move money, change escrow, or reveal the other participant&rsquo;s evidence.
+      </p>
+    </div>
+  );
 }
 
 function poundsFromPence(value: string): string {
@@ -193,6 +229,10 @@ export function CashLoomTradeHandoff({ tradeId }: { tradeId: string }) {
             : "Freeze this trade’s exact GBP and fulfilment terms into one immutable, participant-only packet."}
         </p>
 
+        <div className="mt-4">
+          <KarmaDecisionPreview decision={view.karma} />
+        </div>
+
         {view.role === "seller" && (needsProfile || profileDisabled) && (
           <Link href="/account/cashloom" className="mt-3 inline-block text-sm font-semibold text-accent hover:underline">
             {needsProfile ? "Declare an optional CashLoom key →" : "Enable terms-only handoffs →"}
@@ -259,6 +299,8 @@ export function CashLoomTradeHandoff({ tradeId }: { tradeId: string }) {
           <p className="mt-1 font-mono text-sm text-ink">{poundsFromPence(economics.seller_payout_pence)}</p>
         </div>
       </div>
+
+      <KarmaDecisionPreview decision={view.karma} />
 
       <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-2 text-xs">
         <dt className="text-ink-faint">Declared merchant key</dt>

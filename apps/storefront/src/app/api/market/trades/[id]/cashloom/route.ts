@@ -8,6 +8,7 @@ import {
   type CashloomTradeAccessFailure,
 } from "@/lib/cashloom/db";
 import { parseCashloomPrepareAction, parseCashloomTradeId } from "@/lib/cashloom/contract";
+import { getCashloomKarmaDecision } from "@/lib/cashloom/karma-db";
 import {
   cashloomError,
   cashloomPrivateJson,
@@ -77,7 +78,11 @@ export async function GET(_request: Request, { params }: RouteContext) {
   try {
     const result = await getCashloomTradeHandoffView(id.value, session.user.id);
     if (!result.ok) return accessFailure(result);
-    return cashloomPrivateJson(result.value);
+    const karma = await getCashloomKarmaDecision(
+      session.user.id,
+      "market.cashloom-handoff",
+    );
+    return cashloomPrivateJson({ ...result.value, karma });
   } catch (error) {
     if (isCashloomSettlementMigrationMissing(error)) return unavailable();
     console.error("[cashloom/trade] read failed:", error);
@@ -133,7 +138,11 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     const result = await prepareCashloomTradeHandoff(id.value, session.user.id);
     if (!result.ok) return prepareFailure(result);
-    return cashloomPrivateJson({ ...result.value, reused: result.reused });
+    const karma = await getCashloomKarmaDecision(
+      session.user.id,
+      "market.cashloom-handoff",
+    );
+    return cashloomPrivateJson({ ...result.value, reused: result.reused, karma });
   } catch (error) {
     if (isCashloomSettlementMigrationMissing(error)) return unavailable();
     console.error("[cashloom/trade] prepare failed:", error);

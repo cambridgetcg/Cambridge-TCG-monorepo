@@ -1,0 +1,30 @@
+{
+  "topic": "karma-loop",
+  "title": "KARMA defence loop",
+  "url": "/methodology/karma-loop",
+  "kind": "methodology-sidecar",
+  "status": "observe-only",
+  "policy_id": "cambridgetcg.cashloom-observe-only/1",
+  "activation": "preview-only-never-enforce",
+  "evidence": {
+    "selection_scope": "current-authenticated-participant",
+    "decision_scope": "current-account-unresolved-advisory",
+    "account_identifier_in_decision_or_hash": false,
+    "closed_signal_catalog": true,
+    "maximum_records": 64,
+    "maximum_age_days": 90,
+    "global_subject_identifier": false,
+    "publishes_reputation": false
+  },
+  "responses": {
+    "proposed": ["observe", "friction", "isolate", "deny"],
+    "effective": "observe"
+  },
+  "effects": {
+    "changes_account_state": false,
+    "changes_trade_state": false,
+    "changes_escrow_state": false,
+    "moves_or_holds_money": false,
+    "contacts_or_attacks_external_systems": false
+  }
+}

@@ -5,6 +5,7 @@ import {
   isCashloomSettlementMigrationMissing,
   saveCashloomSettlementProfile,
 } from "@/lib/cashloom/db";
+import { getCashloomKarmaDecision } from "@/lib/cashloom/karma-db";
 import { DELETE, GET, PUT } from "./route";
 
 const authMocks = vi.hoisted(() => ({ auth: vi.fn() }));
@@ -15,6 +16,9 @@ vi.mock("@/lib/cashloom/db", () => ({
   getCashloomSettlementProfile: vi.fn(),
   isCashloomSettlementMigrationMissing: vi.fn(),
   saveCashloomSettlementProfile: vi.fn(),
+}));
+vi.mock("@/lib/cashloom/karma-db", () => ({
+  getCashloomKarmaDecision: vi.fn(),
 }));
 
 const SESSION = {
@@ -32,6 +36,12 @@ const PROFILE = {
   created_at: "2026-07-31T12:00:00.000Z",
   updated_at: "2026-07-31T12:00:00.000Z",
 };
+const KARMA = {
+  schema: "cashloom.karma-decision/v1" as const,
+  state: "evaluated" as const,
+  proposed_response: "observe" as const,
+  effective_response: "observe" as const,
+};
 
 function putRequest(body: unknown) {
   return new Request("https://example.test/api/account/cashloom", {
@@ -45,6 +55,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   authMocks.auth.mockResolvedValue(SESSION);
   vi.mocked(isCashloomSettlementMigrationMissing).mockReturnValue(false);
+  vi.mocked(getCashloomKarmaDecision).mockResolvedValue(KARMA as never);
 });
 
 describe("/api/account/cashloom", () => {
@@ -54,6 +65,7 @@ describe("/api/account/cashloom", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(getCashloomSettlementProfile).not.toHaveBeenCalled();
+    expect(getCashloomKarmaDecision).not.toHaveBeenCalled();
   });
 
   it("returns only the stable profile DTO", async () => {
@@ -61,8 +73,12 @@ describe("/api/account/cashloom", () => {
     const response = await GET();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(await response.json()).toEqual({ profile: PROFILE });
+    expect(await response.json()).toEqual({ profile: PROFILE, karma: KARMA });
     expect(getCashloomSettlementProfile).toHaveBeenCalledWith(SESSION.user.id);
+    expect(getCashloomKarmaDecision).toHaveBeenCalledWith(
+      SESSION.user.id,
+      "account.cashloom-profile",
+    );
   });
 
   it("rejects unknown fields before persistence", async () => {
