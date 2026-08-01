@@ -21,8 +21,9 @@ export default function CashLoomSettlementMethodology() {
       <blockquote>
         <strong>The short version.</strong> You may pin a CashLoom merchant-key fingerprint to
         your own Cambridge account. For one of your matched trades, Cambridge can then freeze
-        the exact GBP and fulfilment terms into a participant-only packet. Making or reading
-        that packet moves no money and changes no trade state.
+        the exact GBP and fulfilment terms into a participant-only packet. The buyer may also
+        record one host-local preparation receipt for those exact bytes. Neither action moves
+        money, chooses a rail, accepts the packet, or changes the trade.
       </blockquote>
 
       <h2>What the account pin proves</h2>
@@ -53,6 +54,27 @@ export default function CashLoomSettlementMethodology() {
         same stored packet; later profile edits cannot rewrite it.
       </p>
 
+      <h2>The buyer preparation receipt</h2>
+      <p>
+        When the deployment&rsquo;s writer is explicitly enabled, the signed-in buyer may move one
+        Cambridge-local evidence record from <code>absent</code> to <code>prepared</code>. The
+        request binds the trade, immutable handoff, terms hash, expected awaiting-payment state,
+        and a one-operation retry key. The server rechecks the buyer, payment window, and exact
+        packet while holding the trade row lock; the database repeats the buyer and state guard.
+      </p>
+      <p>
+        This authority is the Cambridge database session. It is not the buyer&rsquo;s CashLoom key,
+        wallet, legal identity, or provider account. The receipt is therefore evidence that one
+        host account prepared one packet—not evidence of protocol acceptance or ability to pay.
+        Buyer and seller may read the receipt; nobody can update or ordinarily delete it. The
+        raw retry key is not stored.
+      </p>
+      <p>
+        New writes default to disabled on every deployment. Disabling the writer leaves existing
+        participant receipts readable. Rollback removes the application writer and retains the
+        inert evidence rather than silently rewriting history.
+      </p>
+
       <h2>What it deliberately does not do</h2>
       <ul>
         <li>It does not create, sign, broadcast, confirm, refund, or reverse a payment.</li>
@@ -60,7 +82,23 @@ export default function CashLoomSettlementMethodology() {
         <li>It does not choose between CashLoom and Stripe or stop the existing Stripe payment path.</li>
         <li>It does not mark the trade paid, unlock shipping, start a dispute clock, or release a payout.</li>
         <li>It is not escrow, chain-finality proof, identity verification, or an exchange-rate quote.</li>
+        <li>A preparation receipt is not consent signed by a CashLoom key or a reservation of funds.</li>
       </ul>
+
+      <h2>How an executable payment must differ</h2>
+      <p>
+        A future rail starts with one durable settlement reservation before any processor session
+        or wallet submission exists. Every retry must address that same reservation. Provider
+        callbacks then enter an append-only inbox, are deduplicated, and must match the reserved
+        trade, rail, amount, asset, payer, and provider object before a compare-and-set transition.
+        A browser redirect and a payer&rsquo;s own broadcast claim are never settlement evidence.
+      </p>
+      <p>
+        Refunds, reversals, and chargebacks become linked adjustment records; they do not rewrite
+        the original payment into a different historical event. Shipping, dispute, and payout
+        transitions consume reconciled settlement facts through their own guarded state machine.
+        No generic account or trade update endpoint should collapse those stages into “paid.”
+      </p>
 
       <h2>Why GBP does not silently become Bitcoin</h2>
       <p>

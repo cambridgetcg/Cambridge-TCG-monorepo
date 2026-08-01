@@ -367,6 +367,14 @@ Touches the storefront RDS + Stripe + SES + Wholesale API client. Check `apps/st
 
 `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUCTION_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WHOLESALE_API_URL`, `WHOLESALE_API_KEY`, `CRON_SECRET`, `ADMIN_PASSWORD`, `AUTH_FROM_EMAIL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `TRADEIN_FROM_EMAIL`, `STORE_NOTIFICATION_EMAIL`.
 
+`CASHLOOM_PAYMENT_PREPARATION_MODE` is an optional rollout gate, not a secret.
+Unset, empty, or any value other than exact `record_only` disables new buyer
+preparation receipts. Apply and verify migrations 0127 and 0128 before deploying
+the preparation route, including a disabled deployment. Production `record_only`
+also remains blocked until retention/legal basis, erasure handling, and live-DB
+checks are approved. Disabling writes retains participant reads and existing
+immutable evidence; see `docs/decisions/2026-08-01-cashloom-payment-preparation.md`.
+
 ### `cambridgetcg-admin` (production)
 
 Reads both RDSs. Doesn't touch payments or external APIs.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Consequences, WhyLink } from "@/lib/ui";
 import type { CashloomKarmaDecision } from "@/lib/cashloom/karma";
@@ -74,6 +74,56 @@ interface HandoffView {
   karma: CashloomKarmaDecision;
 }
 
+type PreparationUnavailableReason =
+  | "buyer_only"
+  | "self_trade"
+  | "handoff_required"
+  | "trade_not_awaiting_payment"
+  | "payment_window_expired"
+  | "preparation_already_recorded"
+  | "writes_disabled";
+
+interface CashLoomPreparationReceipt {
+  schema: "cambridgetcg.cashloom-payment-preparation/v1";
+  preparation_id: string;
+  handoff_id: string;
+  terms_hash: string;
+  state: "prepared";
+  actor_role: "buyer";
+  authority: "cambridge_database_session";
+  disclosure_notice_version: "cashloom-preparation-retention-v1";
+  created_at: string;
+  effects: {
+    moves_money: false;
+    selects_settlement_rail: false;
+    changes_trade_state: false;
+    unlocks_shipping: false;
+    changes_payout: false;
+  };
+  nonclaims: {
+    is_cashloom_v2_record: false;
+    is_payment_or_acceptance: false;
+    proves_cashloom_key_control: false;
+    creates_escrow: false;
+    observes_settlement: false;
+  };
+}
+
+interface PreparationView {
+  preparation: CashLoomPreparationReceipt | null;
+  role: "buyer" | "seller";
+  mode: "disabled" | "record_only";
+  can_record_preparation: boolean;
+  unavailable_reason?: PreparationUnavailableReason;
+  reused?: boolean;
+}
+
+interface PreparationResult {
+  handoffId: string;
+  view: PreparationView | null;
+  error: string | null;
+}
+
 function KarmaDecisionPreview({ decision }: { decision: CashloomKarmaDecision }) {
   return (
     <div className="rounded-lg border border-info/30 bg-info/10 p-3">
@@ -136,11 +186,20 @@ async function readError(response: Response, fallback: string): Promise<string> 
 }
 
 export function CashLoomTradeHandoff({ tradeId }: { tradeId: string }) {
+  // A dynamic-route navigation may reuse this component instance. Key the
+  // stateful implementation so no trade-local view can cross that boundary.
+  return <CashLoomTradeHandoffForTrade key={tradeId} tradeId={tradeId} />;
+}
+
+function CashLoomTradeHandoffForTrade({ tradeId }: { tradeId: string }) {
   const [view, setView] = useState<HandoffView | null>(null);
   const [loading, setLoading] = useState(true);
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [preparationResult, setPreparationResult] = useState<PreparationResult | null>(null);
+  const [preparationSubmitting, setPreparationSubmitting] = useState(false);
+  const preparationRetry = useRef<{ scope: string; key: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -156,6 +215,43 @@ export function CashLoomTradeHandoff({ tradeId }: { tradeId: string }) {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [tradeId]);
+
+  const handoffId = view?.handoff?.handoff_id ?? null;
+  useEffect(() => {
+    if (!handoffId) {
+      return;
+    }
+    let active = true;
+    fetch(`/api/market/trades/${tradeId}/cashloom/preparation`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(await readError(response, "Could not load the preparation receipt."));
+        }
+        return response.json();
+      })
+      .then((body: PreparationView) => {
+        if (active) setPreparationResult({ handoffId, view: body, error: null });
+      })
+      .catch((reason: unknown) => {
+        if (active) {
+          setPreparationResult({
+            handoffId,
+            view: null,
+            error: reason instanceof Error
+              ? reason.message
+              : "Could not load the preparation receipt.",
+          });
+        }
+      });
+    return () => { active = false; };
+  }, [tradeId, handoffId]);
+
+  const currentPreparation = preparationResult?.handoffId === handoffId
+    ? preparationResult
+    : null;
+  const preparationView = currentPreparation?.view ?? null;
+  const preparationError = currentPreparation?.error ?? null;
+  const preparationLoading = handoffId !== null && currentPreparation === null;
 
   async function prepare() {
     setPreparing(true);
@@ -182,6 +278,53 @@ export function CashLoomTradeHandoff({ tradeId }: { tradeId: string }) {
       window.setTimeout(() => setCopied(null), 1800);
     } catch {
       setError("Clipboard access was refused. Select and copy the value manually.");
+    }
+  }
+
+  async function recordPreparation(handoff: CashLoomHandoff) {
+    setPreparationSubmitting(true);
+    setPreparationResult((current) => current?.handoffId === handoff.handoff_id
+      ? { ...current, error: null }
+      : current);
+    try {
+      // Keep one retry key for this exact trade/handoff/terms scope. A lost
+      // response can replay the operation, while a changed scope cannot reuse it.
+      const retryScope = `${tradeId}:${handoff.handoff_id}:${handoff.terms_hash}`;
+      if (preparationRetry.current?.scope !== retryScope) {
+        preparationRetry.current = {
+          scope: retryScope,
+          key: crypto.randomUUID().toLowerCase(),
+        };
+      }
+      const response = await fetch(`/api/market/trades/${tradeId}/cashloom/preparation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "record_preparation",
+          handoff_id: handoff.handoff_id,
+          terms_hash: handoff.terms_hash,
+          expected_trade_state: "awaiting_payment",
+          expected_preparation_state: "none",
+          disclosure_notice_version: "cashloom-preparation-retention-v1",
+          idempotency_key: preparationRetry.current.key,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readError(response, "Could not record preparation."));
+      }
+      setPreparationResult({
+        handoffId: handoff.handoff_id,
+        view: await response.json(),
+        error: null,
+      });
+    } catch (reason: unknown) {
+      setPreparationResult((current) => ({
+        handoffId: handoff.handoff_id,
+        view: current?.handoffId === handoff.handoff_id ? current.view : null,
+        error: reason instanceof Error ? reason.message : "Could not record preparation.",
+      }));
+    } finally {
+      setPreparationSubmitting(false);
     }
   }
 
@@ -301,6 +444,99 @@ export function CashLoomTradeHandoff({ tradeId }: { tradeId: string }) {
       </div>
 
       <KarmaDecisionPreview decision={view.karma} />
+
+      <div className="rounded-lg border border-border-subtle bg-page p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+              Buyer preparation receipt
+            </p>
+            <WhyLink
+              href="/methodology/cashloom-settlement"
+              tooltip="Why this Cambridge-account receipt is not a payment or CashLoom-key signature"
+            />
+          </div>
+          {preparationView?.preparation && (
+            <span className="rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] font-semibold text-warning">
+              Prepared locally · no payment
+            </span>
+          )}
+        </div>
+
+        {preparationLoading ? (
+          <p className="mt-2 text-xs text-ink-muted">Loading the participant-only receipt…</p>
+        ) : preparationView?.preparation ? (
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-ink-muted">
+              The buyer&rsquo;s Cambridge database session recorded preparation for this exact
+              handoff {new Date(preparationView.preparation.created_at).toLocaleString("en-GB")}.
+              This is host-local account evidence, not a CashLoom payer signature.
+            </p>
+            <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-2 text-xs">
+              <dt className="text-ink-faint">Receipt ID</dt>
+              <dd
+                className="break-all font-mono text-ink"
+                title={preparationView.preparation.preparation_id}
+              >
+                {shortHash(preparationView.preparation.preparation_id)}
+              </dd>
+              <dt className="text-ink-faint">Authority</dt>
+              <dd className="font-mono text-ink">Cambridge account session</dd>
+            </dl>
+            <Consequences
+              items={[
+                { label: "Money / rail", delta: "none sent or selected", tone: "emerald" },
+                { label: "Escrow / settlement", delta: "not created or observed", tone: "emerald" },
+                { label: "Shipping / payout", delta: "unchanged", tone: "emerald" },
+              ]}
+            />
+          </div>
+        ) : preparationView?.role === "buyer" && preparationView.can_record_preparation ? (
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-ink-muted">
+              Record that your signed-in Cambridge account prepared this exact packet. It does
+              not prove CashLoom key control and is not acceptance or payment. Both trade
+              participants can read the retained, identity-linked receipt. Its production
+              retention and erasure policy is still under review.
+            </p>
+            <Consequences
+              items={[
+                { label: "Account evidence", delta: "one immutable receipt", tone: "amber" },
+                { label: "Visibility", delta: "buyer + seller", tone: "amber" },
+                { label: "Money / rail", delta: "none sent or selected", tone: "emerald" },
+                { label: "Trade / payout", delta: "unchanged", tone: "emerald" },
+              ]}
+            />
+            <button
+              type="button"
+              onClick={() => recordPreparation(handoff)}
+              disabled={preparationSubmitting}
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:opacity-50"
+            >
+              {preparationSubmitting ? "Recording…" : "Record account preparation"}
+            </button>
+          </div>
+        ) : preparationView?.role === "seller" ? (
+          <p className="mt-2 text-xs text-ink-muted">
+            The buyer has not recorded account-local preparation. Absence is not refusal, and a
+            future receipt would still not be payment or acceptance.
+          </p>
+        ) : preparationView?.unavailable_reason === "writes_disabled" ? (
+          <p className="mt-2 text-xs text-ink-muted">
+            This deployment is read-only for new preparation receipts. Existing receipts remain visible.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-ink-muted">
+            No preparation receipt can be recorded in the trade&rsquo;s current state.
+          </p>
+        )}
+
+        {preparationError && (
+          <p role="alert" className="mt-3 text-xs text-warning">
+            {preparationError} The terms packet above remains usable and unchanged.
+          </p>
+        )}
+      </div>
 
       <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-2 text-xs">
         <dt className="text-ink-faint">Declared merchant key</dt>
