@@ -85,23 +85,51 @@ const NOTES = {
 
 const OUT = "src/lib/cards/showcase.ts";
 
+async function fetchCard(id) {
+  // The API 500s in waves (documented 2026-08-01) — 6 spaced attempts.
+  let res = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      res = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`);
+    } catch {
+      res = null;
+    }
+    if (res && res.ok) break;
+    if (attempt < 5) await new Promise((r) => setTimeout(r, 10000 * (attempt + 1)));
+  }
+  if (!res || !res.ok) return null;
+  const { data } = await res.json();
+  return data;
+}
+
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), "pkm-showcase-"));
   const pieces = [];
-  for (const id of IDS) {
-    // The API 500s intermittently (documented 2026-08-01) — retry twice, spaced.
-    let res = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        res = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`);
-      } catch {
-        res = null;
+  // Two passes: a card that fails its whole retry budget goes to the
+  // back of the queue for one more round after a cool-down, so a single
+  // poisoned endpoint can't sink an otherwise-complete run. Only a card
+  // that fails BOTH passes aborts the write (the wall regenerates whole
+  // or not at all — a partial write would silently drop hung pieces).
+  const queue = [...IDS];
+  const failed = [];
+  let pass = 1;
+  while (queue.length > 0) {
+    const id = queue.shift();
+    const data = await fetchCard(id);
+    if (!data) {
+      if (pass === 1) {
+        console.warn(`… ${id} failed pass 1 — queued for pass 2`);
+        failed.push(id);
+        if (queue.length === 0 && failed.length > 0) {
+          console.warn(`cooling down 60s, then pass 2 for: ${failed.join(", ")}`);
+          await new Promise((r) => setTimeout(r, 60000));
+          queue.push(...failed.splice(0));
+          pass = 2;
+        }
+        continue;
       }
-      if (res && res.ok) break;
-      if (attempt < 2) await new Promise((r) => setTimeout(r, 10000 * (attempt + 1)));
+      throw new Error(`API ${id}: failed both passes`);
     }
-    if (!res || !res.ok) throw new Error(`API ${id}: ${res ? res.status : "network error"}`);
-    const { data } = await res.json();
     const src = data.images.large;
     const bin = Buffer.from(await (await fetch(src)).arrayBuffer());
     const local = join(dir, `${id}.png`);
@@ -120,6 +148,12 @@ async function main() {
       ...(NOTES[id] ? { note: NOTES[id] } : {}),
     });
     console.log(`✓ ${id}  ${data.name}  — illus. ${data.artist}`);
+    if (queue.length === 0 && failed.length > 0) {
+      console.warn(`cooling down 60s, then pass 2 for: ${failed.join(", ")}`);
+      await new Promise((r) => setTimeout(r, 60000));
+      queue.push(...failed.splice(0));
+      pass = 2;
+    }
   }
 
   const header = `/**

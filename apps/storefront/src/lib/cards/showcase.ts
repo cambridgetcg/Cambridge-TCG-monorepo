@@ -194,5 +194,115 @@ export const GALLERY_SHOWCASE: ShowcasePiece[] = [
     "rarity": "Special Illustration Rare",
     "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/sv1-246.png",
     "source_url": "https://images.pokemontcg.io/sv1/246_hires.png"
+  },
+  {
+    "id": "base1-15",
+    "name": "Venusaur",
+    "set_name": "Base",
+    "number": "15",
+    "artist": "Mitsuhiro Arita",
+    "rarity": "Rare Holo",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/base1-15.png",
+    "source_url": "https://images.pokemontcg.io/base1/15_hires.png",
+    "note": "Base Set, 1999 — with Charizard and Blastoise, the starter holo trio: two Arita hands and one Sugimori."
+  },
+  {
+    "id": "base1-2",
+    "name": "Blastoise",
+    "set_name": "Base",
+    "number": "2",
+    "artist": "Ken Sugimori",
+    "rarity": "Rare Holo",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/base1-2.png",
+    "source_url": "https://images.pokemontcg.io/base1/2_hires.png",
+    "note": "Base Set, 1999 — Sugimori drew 44 of the set's 102 cards; the whole set is four hands."
+  },
+  {
+    "id": "base1-58",
+    "name": "Pikachu",
+    "set_name": "Base",
+    "number": "58",
+    "artist": "Mitsuhiro Arita",
+    "rarity": "Common",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/base1-58.png",
+    "source_url": "https://images.pokemontcg.io/base1/58_hires.png",
+    "note": "Base Set, 1999 — the earliest Arita-drawn Pikachu in the source's records."
+  },
+  {
+    "id": "basep-1",
+    "name": "Pikachu",
+    "set_name": "Wizards Black Star Promos",
+    "number": "1",
+    "artist": "Keiji Kinebuchi",
+    "rarity": "Promo",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/basep-1.png",
+    "source_url": "https://images.pokemontcg.io/basep/1_hires.png",
+    "note": "Black Star Promo No.1, July 1999 — the first of the 53 promos Wizards printed."
+  },
+  {
+    "id": "neo1-9",
+    "name": "Lugia",
+    "set_name": "Neo Genesis",
+    "number": "9",
+    "artist": "Hironobu Yoshida",
+    "rarity": "Rare Holo",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/neo1-9.png",
+    "source_url": "https://images.pokemontcg.io/neo1/9_hires.png",
+    "note": "Neo Genesis, December 2000 — Hironobu Yoshida's Lugia."
+  },
+  {
+    "id": "neo4-107",
+    "name": "Shining Charizard",
+    "set_name": "Neo Destiny",
+    "number": "107",
+    "artist": "Hironobu Yoshida",
+    "rarity": "Rare Shining",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/neo4-107.png",
+    "source_url": "https://images.pokemontcg.io/neo4/107_hires.png",
+    "note": "Neo Destiny, 2002 — the Shining class's second wave; the first Shinings were Gyarados and Magikarp, 2001."
+  },
+  {
+    "id": "pop5-17",
+    "name": "Umbreon ★",
+    "set_name": "POP Series 5",
+    "number": "17",
+    "artist": "Masakazu Fukuda",
+    "rarity": "Rare",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/pop5-17.png",
+    "source_url": "https://images.pokemontcg.io/pop5/17_hires.png",
+    "note": "POP Series 5, 2007 — a Gold Star: the twenty-five Rare Holo Stars and both POP ★s are all one hand, Masakazu Fukuda."
+  },
+  {
+    "id": "ex15-100",
+    "name": "Charizard ★ δ",
+    "set_name": "Dragon Frontiers",
+    "number": "100",
+    "artist": "Masakazu Fukuda",
+    "rarity": "Rare Holo Star",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/ex15-100.png",
+    "source_url": "https://images.pokemontcg.io/ex15/100_hires.png",
+    "note": "Dragon Frontiers, 2006 — a Gold Star of the delta species era."
+  },
+  {
+    "id": "si1-1",
+    "name": "Mew",
+    "set_name": "Southern Islands",
+    "number": "1",
+    "artist": "Keiko Fukuyama",
+    "rarity": null,
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/si1-1.png",
+    "source_url": "https://images.pokemontcg.io/si1/1_hires.png",
+    "note": "Southern Islands, 2001 — Keiko Fukuyama's side of the eighteen-card special set."
+  },
+  {
+    "id": "ecard3-146",
+    "name": "Charizard",
+    "set_name": "Skyridge",
+    "number": "146",
+    "artist": "Kouki Saitou",
+    "rarity": "Rare Secret",
+    "image_url": "https://ctcg-card-images.s3.us-east-1.amazonaws.com/community/pkm/ecard3-146.png",
+    "source_url": "https://images.pokemontcg.io/ecard3/146_hires.png",
+    "note": "Skyridge, 2003 — a Crystal Type of the e-Card era; the Poké-Body is printed on the card."
   }
 ];
