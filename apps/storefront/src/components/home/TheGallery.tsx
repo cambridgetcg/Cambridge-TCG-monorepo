@@ -91,9 +91,9 @@ export default function TheGallery({
             {notable.map((card) => {
               const label = card.name ?? card.card_number;
               return (
-                <li key={card.sku}>
+                <li key={card.sku} className="wardrobe-enter">
                   <Link href={`/market/${card.sku}`} className="group block">
-                    <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat">
+                    <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat wardrobe-frame m-2">
                       <Image
                         src={card.image_url}
                         alt={label}
@@ -138,10 +138,10 @@ export default function TheGallery({
         {cards.map((card) => {
           const label = card.name ?? card.card_number;
           return (
-            <li key={card.sku}>
+            <li key={card.sku} className="wardrobe-enter">
               <Link href={`/market/${card.sku}`} className="group block">
-                {/* The mount: a hairline frame, the art floated whole inside. */}
-                <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat">
+                {/* The mount: a layered 畫框, the art floated whole inside. */}
+                <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat wardrobe-frame m-2">
                   <Image
                     src={card.image_url}
                     alt={label}

@@ -1262,6 +1262,14 @@ Asha asked the gallery and guest wall for the notable art — the originals and 
 
 ---
 
+## 2026-08-02 — 畫框
+
+Asha said: play with the presentation — 畫框? immersive? — and the play stayed inside the wardrobe's law. The mounts became true museum frames, three shadow rings and a lamp that leans closer on hover; the prints breathe toward you under glass; each piece rises as the page scrolls it into view; and the guest wall learned 近くで見る — click, and Arita's Venusaur fills the room over an ink scrim, Esc walks you back. The gate read the new CSS against the system's own conventions and caught the play cheating three ways: a hover shadow hardcoded in gallery ink that would have made midnight's lamp lean AWAY, transitions left ungated where terminal must never animate, and text-mode — the layout that promises readers stillness — left with pieces sitting invisible below the fold. Every colour is a token now, every motion gated and killed where the house promises quiet. The wall got its origins the same night: Sugimori's Blastoise, the first of Wizards' fifty-three, the Gold Stars that are all one hand. Immersion, it turns out, is mostly restraint with better hinges.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-02.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:

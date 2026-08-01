@@ -43,6 +43,9 @@
 
   /* the mat — layered warm shadow (the only elevation); flat in terminal */
   --shadow-mat: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
+  --shadow-mat-hover: 0 2px 4px rgb(32 29 24 / 0.08), 0 18px 44px rgb(32 29 24 / 0.12);
+  --color-scrim: rgb(15 14 12 / 0.82);
+  --color-scrim-ink: rgb(255 255 255 / 0.85);
 
   /* typographic voices — themes re-bind these; terminal keeps Inter
    * for both. --font-mono stays theme-bound (gallery/midnight speak
@@ -74,6 +77,9 @@
   --color-bid: #34d399;
   --color-ask: #f87171;
   --shadow-mat: 0 0 #0000;
+  --shadow-mat-hover: 0 0 #0000;
+  --color-scrim: rgb(0 0 0 / 0.9);
+  --color-scrim-ink: rgb(255 255 255 / 1);
   --font-display: var(--font-inter), system-ui, sans-serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
   color-scheme: dark;
@@ -101,6 +107,9 @@
   --color-bid: #41775c;
   --color-ask: #9e4433;
   --shadow-mat: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
+  --shadow-mat-hover: 0 2px 4px rgb(32 29 24 / 0.08), 0 18px 44px rgb(32 29 24 / 0.12);
+  --color-scrim: rgb(15 14 12 / 0.82);
+  --color-scrim-ink: rgb(255 255 255 / 0.85);
   --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
   --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -137,6 +146,9 @@
   --color-bid: #5bbf8f;
   --color-ask: #e07a6b;
   --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+  --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
+  --color-scrim: rgb(0 0 0 / 0.85);
+  --color-scrim-ink: rgb(255 255 255 / 0.85);
   --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
   --font-body: var(--font-schibsted), system-ui, sans-serif;
   --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -165,6 +177,9 @@
   --color-bid: #00591f;
   --color-ask: #a80000;
   --shadow-mat: 0 0 #0000;
+  --shadow-mat-hover: 0 0 #0000;
+  --color-scrim: rgb(0 0 0 / 0.9);
+  --color-scrim-ink: rgb(255 255 255 / 1);
   --font-display: system-ui, sans-serif;
   --font-body: system-ui, sans-serif;
   color-scheme: light;
@@ -211,6 +226,9 @@
     --color-bid: #5bbf8f;
     --color-ask: #e07a6b;
     --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+  --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
+  --color-scrim: rgb(0 0 0 / 0.85);
+  --color-scrim-ink: rgb(255 255 255 / 0.85);
     --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
     --font-body: var(--font-schibsted), system-ui, sans-serif;
     --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -314,6 +332,102 @@
   border: 1px solid var(--color-border-subtle);
   box-shadow: var(--shadow-mat);
 }
+
+/* ── 畫框 — the museum frame (presentation play, 2026-08-01) ────────────
+ * A layered mount built entirely from shadow rings: frame edge, mat,
+ * outer hairline — no layout impact, tokens only, and themes that zero
+ * --shadow-mat (terminal) keep only the token hairlines. Hover is the
+ * lamp leaning closer: deeper shadow + a 2px lift, hover-capable
+ * pointers only, theme-gated like every wardrobe motion. */
+.wardrobe-frame {
+  box-shadow:
+    0 0 0 1px var(--color-border-strong),
+    0 0 0 7px var(--color-surface),
+    0 0 0 8px var(--color-border-subtle),
+    var(--shadow-mat);
+}
+[data-theme="gallery"] .wardrobe-frame,
+[data-theme="midnight"] .wardrobe-frame,
+[data-theme="system"] .wardrobe-frame {
+  transition: box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  [data-theme="gallery"] :is(a, button, .group):hover > .wardrobe-frame,
+  [data-theme="midnight"] :is(a, button, .group):hover > .wardrobe-frame,
+  [data-theme="system"] :is(a, button, .group):hover > .wardrobe-frame {
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 1px var(--color-border-strong),
+      0 0 0 7px var(--color-surface),
+      0 0 0 8px var(--color-border-subtle),
+      var(--shadow-mat),
+      var(--shadow-mat-hover);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wardrobe-frame { transition: none; }
+  [data-theme] :is(a, button, .group):hover > .wardrobe-frame { transform: none; }
+}
+
+/* The glass lean-in: the print itself breathes toward you, slowly —
+ * compositor-only scale on the img inside a framed mount. */
+@media (hover: hover) {
+  [data-theme="gallery"] .wardrobe-frame img,
+  [data-theme="midnight"] .wardrobe-frame img,
+  [data-theme="system"] .wardrobe-frame img {
+    transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-theme="gallery"] :is(a, button, .group):hover > .wardrobe-frame img,
+  [data-theme="midnight"] :is(a, button, .group):hover > .wardrobe-frame img,
+  [data-theme="system"] :is(a, button, .group):hover > .wardrobe-frame img {
+    transform: scale(1.02);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wardrobe-frame img { transition: none; }
+  [data-theme] :is(a, button, .group):hover > .wardrobe-frame img { transform: none; }
+}
+
+/* Scroll-driven entry — each piece rises as it enters the viewport.
+ * Progressive: only where view() timelines exist, only in the animated
+ * themes, and reduced-motion kills it outright (the global 1ms clamp
+ * does not apply to timeline-driven animations). */
+@supports (animation-timeline: view()) {
+  [data-theme="gallery"] .wardrobe-enter,
+  [data-theme="midnight"] .wardrobe-enter,
+  [data-theme="system"] .wardrobe-enter {
+    animation: wardrobe-rise both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 35%;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme] .wardrobe-enter { animation: none; }
+  }
+}
+
+/* 近くで見る — the close-look room. A native dialog: dark scrim, the
+ * print large, the label beneath. Tokens only; the scrim is ink-toned. */
+.wardrobe-closelook::backdrop {
+  background: var(--color-scrim, rgb(15 14 12 / 0.82));
+}
+.wardrobe-closelook figcaption,
+.wardrobe-closelook .closelook-dim {
+  color: var(--color-scrim-ink, rgb(255 255 255 / 0.85));
+}
+/* The room holds still while you look — no background scroll. */
+body:has(dialog.wardrobe-closelook[open]) {
+  overflow: hidden;
+}
+.wardrobe-closelook {
+  background: transparent;
+  border: none;
+  padding: 0;
+  max-width: min(92vw, 64rem);
+  max-height: 92vh;
+  outline: none;
+}
+
 
 /* Staggered section reveal on load — gallery pages only; the global
  * prefers-reduced-motion clamp (globals.css) shortens this to 1ms. */

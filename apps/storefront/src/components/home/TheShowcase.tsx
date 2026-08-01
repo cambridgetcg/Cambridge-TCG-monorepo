@@ -1,4 +1,5 @@
 import Image from "next/image";
+import CloseLook from "./CloseLook";
 import {
   GALLERY_SHOWCASE,
   SHOWCASE_ATTRIBUTION,
@@ -53,17 +54,23 @@ export default function TheShowcase() {
 
       <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-14 sm:gap-y-16">
         {GALLERY_SHOWCASE.map((p) => (
-          <li key={p.id}>
-            {/* The mount: a hairline frame, the art floated whole inside. */}
-            <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat">
-              <Image
-                src={p.image_url}
-                alt={p.name}
-                fill
-                className="object-contain p-3 sm:p-4"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              />
-            </div>
+          <li key={p.id} className="wardrobe-enter">
+            {/* The mount: a layered 畫框 now — click to walk up close. */}
+            <CloseLook
+              src={p.image_url}
+              alt={p.name}
+              caption={`${p.name} — ${p.set_name} №${p.number}${p.artist ? ` · illus. ${p.artist}` : ""} · ${SHOWCASE_ATTRIBUTION}`}
+            >
+              <div className="relative aspect-[3/4] overflow-hidden wardrobe-mat wardrobe-frame m-2">
+                <Image
+                  src={p.image_url}
+                  alt={p.name}
+                  fill
+                  className="object-contain p-3 sm:p-4"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                />
+              </div>
+            </CloseLook>
 
             {/* The wall label: the piece, its set, the hand, and the source. */}
             <div className="mt-4 px-1">

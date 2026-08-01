@@ -169,6 +169,20 @@ body.text-mode .wardrobe-speedlines {
   animation: none !important;
 }
 
+/* Presentation play (2026-08-01): the frame, the lean-in, the scroll
+ * entry and the close-look scrim all go still/readable in text-mode. */
+body.text-mode .wardrobe-enter {
+  animation: none !important;
+}
+body.text-mode .wardrobe-frame,
+body.text-mode .wardrobe-frame img {
+  transition: none !important;
+  transform: none !important;
+}
+body.text-mode .wardrobe-closelook::backdrop {
+  background: rgb(255 255 255 / 0.95) !important;
+}
+
 /* The universal text-mode flatten targets elements; pseudo-element
  * textures need their own kill. The manga layer reads as bare
  * black-on-white text, as promised. */
