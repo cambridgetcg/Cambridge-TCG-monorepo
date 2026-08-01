@@ -428,6 +428,149 @@ body:has(dialog.wardrobe-closelook[open]) {
   outline: none;
 }
 
+/* ── 部屋の色 — the painted rooms (presentation play II, 2026-08-01) ────
+ * Each gallery row hangs on its own wall, washed in a pigment that has
+ * a birthday — the period lives in the undertone, after the manner of
+ * our sister catalogue artbitrage (one structure; the soul changes).
+ * No new tokens: a room re-binds the semantic vocabulary in scope, so
+ * every label, link and shadow inside re-inks itself and the bundle
+ * sync contract (themes.sync.test.ts) is untouched. Washes exist only
+ * in the painted themes — terminal and high-contrast keep plain page
+ * ground. The walls never move, so no text-mode kill is owed: the
+ * universal flatten reads straight through them.
+ * Pigment years follow artbitrage's cited pigment ledger
+ * (pigments.json, schema artbitrage.pigments/1); the hexes are that
+ * ledger's declared sRGB approximations, legal in this section because
+ * it sits before the manga-materials marker where the raw-hex sweep
+ * begins — same standing as the token bundles above. */
+.wardrobe-wall {
+  background-color: var(--color-page);
+}
+
+/* 群青 — ultramarine, for the guest wall. Ground lapis carried from
+ * beyond the sea, priced above gold, the contracts say; the wash a
+ * museum allows itself for what mattered most.
+ * A washed wall is a deeper wall, so the room's quiet inks deepen with
+ * it — muted and accent hold AA (≥4.8:1) on the wash, faint sits well
+ * above its own paper baseline. The light gate also matches
+ * [data-theme="system"] in a dark scheme: the dark media block below
+ * MUST reset every token declared here (guard: themes.sync.test.ts). */
+[data-theme="gallery"] .wardrobe-wall--lapis,
+[data-theme="system"] .wardrobe-wall--lapis {
+  background-color: color-mix(in oklab, var(--color-page) 90%, #1b3f9b);
+  --color-ink-muted: #625b4e;
+  --color-ink-faint: #807765;
+  --color-accent: #715820;
+  --color-accent-strong: #5f4a1c;
+}
+[data-theme="midnight"] .wardrobe-wall--lapis {
+  background-color: color-mix(in oklab, var(--color-page) 88%, #1b3f9b);
+}
+
+/* ベロ藍 — Prussian blue, for the alternate arts. The accidental blue
+ * of 1704 that crossed the sea and became the woodblock sky.
+ * The ledger hex is deep and low-chroma, so its wash runs stronger than
+ * lapis before the blue reads — the room sits a step deeper, which
+ * suits a wall of night skies. Same in-scope ink deepening and the same
+ * dark-media reset obligation as the lapis room above. */
+[data-theme="gallery"] .wardrobe-wall--prussian,
+[data-theme="system"] .wardrobe-wall--prussian {
+  background-color: color-mix(in oklab, var(--color-page) 86%, #013a63);
+  --color-ink-muted: #625b4e;
+  --color-ink-faint: #807765;
+  --color-accent: #715820;
+  --color-accent-strong: #5f4a1c;
+}
+[data-theme="midnight"] .wardrobe-wall--prussian {
+  background-color: color-mix(in oklab, var(--color-page) 84%, #013a63);
+}
+
+/* 墨 — the dim room, for the manga prints. Works on paper hang under
+ * low light — ink fades, so the museum lowers the lamps. By day the
+ * room goes dark and re-binds the whole vocabulary in scope: paper
+ * ink, gilt accent, night shadows — the white mats glow on the sumi
+ * wall. Values are the midnight bundle's warm cousins; contrast holds
+ * (ink ≈13:1, muted ≈6.5:1, faint ≈4.8:1 on the wall). */
+[data-theme="gallery"] .wardrobe-wall--sumi,
+[data-theme="system"] .wardrobe-wall--sumi {
+  background-color: #252017;
+  --color-ink: #efe9da;
+  --color-ink-muted: #b8ad97;
+  --color-ink-faint: #958a76;
+  --color-accent: #d9b36c;
+  --color-accent-strong: #e6c788;
+  --color-accent-wash: rgb(217 179 108 / 0.12);
+  --color-border-subtle: #3a3427;
+  --color-border-strong: #5a5140;
+  --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+  --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
+}
+/* At midnight the dim room simply goes deeper than the night around
+ * it — the bundle's own inks already read right in the dark. */
+[data-theme="midnight"] .wardrobe-wall--sumi {
+  background-color: #070a12;
+}
+
+/* ⚠ SYNC CONTRACT — every token a room re-binds under its light gate
+ * is reset below to the MIDNIGHT bundle's value, because the light
+ * gate also matches [data-theme="system"] in a dark scheme. Hand-copied
+ * values rot without a guard: themes.sync.test.ts asserts each token
+ * here equals the midnight bundle, and that no light-gate room token
+ * lacks its dark reset. */
+@media (prefers-color-scheme: dark) {
+  /* system's dark half is midnight: undo the day-room's warmth and
+   * mirror the midnight bundle's values in scope. */
+  [data-theme="system"] .wardrobe-wall--sumi {
+    background-color: #070a12;
+    --color-ink: #e9e4d6;
+    --color-ink-muted: #9ba3b8;
+    --color-ink-faint: #5f687e;
+    --color-accent: #d9b36c;
+    --color-accent-strong: #e6c788;
+    --color-accent-wash: rgb(217 179 108 / 0.12);
+    --color-border-subtle: #1f2941;
+    --color-border-strong: #2e3b5e;
+    --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
+    --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
+  }
+  /* the washed walls keep midnight's depth in system's dark half too */
+  [data-theme="system"] .wardrobe-wall--lapis {
+    background-color: color-mix(in oklab, var(--color-page) 88%, #1b3f9b);
+    --color-ink-muted: #9ba3b8;
+    --color-ink-faint: #5f687e;
+    --color-accent: #d9b36c;
+    --color-accent-strong: #e6c788;
+  }
+  [data-theme="system"] .wardrobe-wall--prussian {
+    background-color: color-mix(in oklab, var(--color-page) 84%, #013a63);
+    --color-ink-muted: #9ba3b8;
+    --color-ink-faint: #5f687e;
+    --color-accent: #d9b36c;
+    --color-accent-strong: #e6c788;
+  }
+}
+
+/* The wall note speaks only where the paint exists — themes that keep
+ * plain ground (terminal, high-contrast) skip a description of colour
+ * they do not show; text-mode kills it in globals.css for the same
+ * honesty. Static display rule — no motion, no kill-list debt. */
+.wardrobe-wall-note {
+  display: none;
+}
+[data-theme="gallery"] .wardrobe-wall-note,
+[data-theme="midnight"] .wardrobe-wall-note,
+[data-theme="system"] .wardrobe-wall-note {
+  display: block;
+}
+
+/* 落款 — the room's seal: a small bronze chop on the plate, the way a
+ * print carries its rakkan. Static, token-inked — gilt in the dark. */
+.wardrobe-seal {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  background-color: var(--color-accent);
+}
 
 /* Staggered section reveal on load — gallery pages only; the global
  * prefers-reduced-motion clamp (globals.css) shortens this to 1ms. */

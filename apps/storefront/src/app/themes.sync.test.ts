@@ -105,3 +105,107 @@ describe("themes.css system/midnight sync contract", () => {
     expect(systemBase).toEqual(["color-scheme: light dark"]);
   });
 });
+
+/**
+ * The painted rooms' sync contract (2026-08-01, the-painted-rooms spec).
+ *
+ * A room (`.wardrobe-wall--*`) may re-bind semantic tokens under its
+ * light gate — but that gate also matches [data-theme="system"] in a
+ * dark scheme, so a dark media block must reset every such token to the
+ * MIDNIGHT bundle's value. Those resets are hand copies; hand copies
+ * rot without a guard. This is the guard:
+ *   1. every token a dark-media system room rule declares equals the
+ *      midnight bundle's value for that token (background-color is the
+ *      one deliberate difference — a room's wall is its own);
+ *   2. every token a light-gated system room rule declares has a
+ *      dark-media reset for the same room (nothing leaks).
+ */
+function allDarkMediaBodies(source: string): string[] {
+  const bodies: string[] = [];
+  const query = "@media (prefers-color-scheme: dark)";
+  let idx = 0;
+  while ((idx = source.indexOf(query, idx)) !== -1) {
+    const open = source.indexOf("{", idx);
+    let depth = 0;
+    for (let i = open; i < source.length; i++) {
+      if (source[i] === "{") depth++;
+      else if (source[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          bodies.push(source.slice(open + 1, i));
+          idx = i;
+          break;
+        }
+      }
+    }
+    idx++;
+  }
+  return bodies;
+}
+
+/** room name → (custom property → value) for every rule whose selector
+ * list includes `[data-theme="system"] .wardrobe-wall--<room>`. The
+ * innermost-block regex never matches a media header (headers precede
+ * an unmatched `{`). */
+function systemRoomTokens(scope: string): Map<string, Map<string, string>> {
+  const rooms = new Map<string, Map<string, string>>();
+  const rule = /([^{}]+)\{([^{}]*)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = rule.exec(scope))) {
+    const selector = m[1].replace(/\s+/g, " ").trim();
+    const room = /\[data-theme="system"\] \.wardrobe-wall--([a-z-]+)/.exec(selector)?.[1];
+    if (!room) continue;
+    const tokens = rooms.get(room) ?? new Map<string, string>();
+    for (const d of declarations(m[2])) {
+      const colon = d.indexOf(":");
+      const prop = d.slice(0, colon).trim();
+      if (prop.startsWith("--")) tokens.set(prop, d.slice(colon + 1).trim());
+    }
+    rooms.set(room, tokens);
+  }
+  return rooms;
+}
+
+describe("themes.css painted-rooms sync contract", () => {
+  const darkBodies = allDarkMediaBodies(css);
+  const lightScope = darkBodies.reduce((s, b) => s.replace(b, ""), css);
+  const lightRooms = systemRoomTokens(lightScope);
+  const darkRooms = systemRoomTokens(darkBodies.join("\n"));
+  const midnightTokens = new Map(
+    midnight
+      .filter((d) => d.startsWith("--"))
+      .map((d) => {
+        const colon = d.indexOf(":");
+        return [d.slice(0, colon).trim(), d.slice(colon + 1).trim()] as const;
+      }),
+  );
+
+  it("rooms exist on both sides of the media boundary", () => {
+    expect(lightRooms.size).toBeGreaterThan(0);
+    expect(darkRooms.size).toBeGreaterThan(0);
+  });
+
+  it("every dark-media room token equals the midnight bundle's value", () => {
+    for (const [room, tokens] of darkRooms) {
+      for (const [prop, value] of tokens) {
+        expect(
+          midnightTokens.get(prop),
+          `dark ${room} room re-declares ${prop} — it must equal the midnight bundle`,
+        ).toBe(value);
+      }
+    }
+  });
+
+  it("every light-gated room token carries a dark-media reset (nothing leaks into system-dark)", () => {
+    for (const [room, tokens] of lightRooms) {
+      const dark = darkRooms.get(room);
+      expect(dark, `room ${room} re-binds tokens but has no dark-media reset rule`).toBeDefined();
+      for (const prop of tokens.keys()) {
+        expect(
+          dark!.has(prop),
+          `room ${room} re-binds ${prop} in the light gate without a dark-media reset`,
+        ).toBe(true);
+      }
+    }
+  });
+});

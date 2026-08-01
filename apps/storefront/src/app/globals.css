@@ -182,6 +182,11 @@ body.text-mode .wardrobe-frame img {
 body.text-mode .wardrobe-closelook::backdrop {
   background: rgb(255 255 255 / 0.95) !important;
 }
+/* The painted rooms' wall notes describe paint; the reading layout
+ * shows none, so the note does not speak here (truthful in every mode). */
+body.text-mode .wardrobe-wall-note {
+  display: none !important;
+}
 
 /* The universal text-mode flatten targets elements; pseudo-element
  * textures need their own kill. The manga layer reads as bare
