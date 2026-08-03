@@ -100,6 +100,7 @@ export const PRIMARY_NAV_ITEMS = [
       "/artists",
       "/duel-of-souls",
       "/pull-and-pause",
+      "/mekiki",
       "/making",
       "/pulls",
       "/answering-rhymes",

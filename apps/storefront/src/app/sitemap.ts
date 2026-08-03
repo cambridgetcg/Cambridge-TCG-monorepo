@@ -42,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/lineage`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/duel-of-souls`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/pull-and-pause`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    { url: `${baseUrl}/mekiki`, lastModified: new Date(), changeFrequency: "daily", priority: 0.6 },
     { url: `${baseUrl}/pulls`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     ...PULLS_SNAPSHOT.games.map((g) => ({
       url: `${baseUrl}/pulls/${g.slug}`,

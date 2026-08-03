@@ -138,6 +138,20 @@ const HALLS: readonly Hall[] = [
           "Not where the art comes from — how the game feels. Two things to touch instead of read: a free booster to open, and the quiet after.",
       },
       {
+        href: "/mekiki",
+        en: "The Trained Eye",
+        jp: "目利き",
+        line:
+          "A daily looking game: one card from the shop's own shelves, shown too close to name. Guess, and every miss steps the view back — the reveal is the full art. Free, no prizes; just the eye, learning.",
+        title_i18n: { ja: "目利き", "zh-Hant": "眼力", "zh-Hans": "练眼力", es: "El buen ojo" },
+        line_i18n: {
+          ja: "一日一枚、うんと近くから。どのカードか、あててみてください。はずすたびに、すこし引いて見せます。最後の答えは、絵の全体。お金は、かかりません。賞品も、ありません。目が、育つだけ。",
+          "zh-Hant": "一日一張，先只露出貼到極近的一角。認一認是哪一張卡；認錯一次，就退開一步，到最後，整幅畫就是答案。不用錢，沒有獎品。練的，是眼力。",
+          "zh-Hans": "一天一张卡，先只看凑得极近的一小块。猜是哪张；猜错一次，画面就往后退一步，最后整幅画摆出来，就是答案。不要钱，也没有奖品。练的，就是眼力。",
+          es: "Una carta al día, tan de cerca que cuesta reconocerla. Di cuál es; con cada fallo, la imagen se aleja un paso, y la respuesta es la lámina entera. Gratis y sin premios: solo el ojo, que se afina.",
+        },
+      },
+      {
         href: "/making",
         en: "How a Card Is Made",
         jp: "一枚のできるまで",

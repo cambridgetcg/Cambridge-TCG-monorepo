@@ -1270,6 +1270,14 @@ Asha said: play with the presentation — 畫框? immersive? — and the play st
 
 ---
 
+## 2026-08-03 — 目利き
+
+Asha handed over the keys with a grin — 想點玩？你話事, you can even nuke it lol — and the house answered from both hands at once: a sister had already built /nuke, the button that refuses, and this window built the other reply, /mekiki, a daily looking game where one card from our own shelves hangs too close to name and every miss steps the view back. The dry run against the real shelves caught what no reading would have: djb2 seeded on a bare date made consecutive days shelf-neighbours, and the catalogue's SEALED "cards" are boxes wearing product names — both fixed before the gate ever spoke. The gate then confirmed eleven more, the truest being that the publisher's official art hung uncredited for the whole guessing phase while the page promised its credit line, and that a count-and-offset pick would let any catalogue delivery swap the day's card mid-game — the pick is a min-hash over stable SKUs now, and the credit rides with the picture in every state. One question rides up to Asha rather than being decided here: the game crops the same reference photographs the market already shows, unaltered and takedown-ready, but game-use-plus-crop is a new posture and the room is one door to switch off if she reads it differently. Free, nothing recorded, no prizes; the eye, learning.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-03.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
