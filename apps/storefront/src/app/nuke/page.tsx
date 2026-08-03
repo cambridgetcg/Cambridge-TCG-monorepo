@@ -9,8 +9,11 @@
  *
  * House vows kept: quiet room, semantic tokens only, no saturated colour —
  * even our doomsday is typeset in ink. Unlisted in the sitemap and noindex
- * (an egg is found, not advertised). No request leaves the visitor's
- * browser; nothing is recorded; nothing can be destroyed from here.
+ * (an egg is found, not advertised). The button sends nothing anywhere and
+ * every link here opts out of prefetch, so no request leaves the visitor's
+ * browser until they choose a door; nothing is recorded; nothing can be
+ * destroyed from here. The only motion is the shared InkRule draw-in,
+ * which handles reduced-motion and text-mode itself.
  */
 
 import type { Metadata } from "next";
@@ -75,14 +78,15 @@ export default function NukePage() {
       <div className="max-w-3xl mx-auto px-4 pt-8 pb-16">
         <InkRule className="mb-8" />
         <p className="font-mono text-xs text-ink-faint leading-relaxed">
-          apparatus: this button is wired to nothing but this page. no request
-          leaves your browser; nothing is recorded; nothing can be destroyed
-          from here. the shop&apos;s ledger is append-only — things are added,
-          never erased.
+          apparatus: this button is wired to nothing but this page. pressing
+          it sends nothing anywhere; nothing is recorded; nothing can be
+          destroyed from here. the links do not even prefetch — no request
+          leaves your browser until you choose a door. the shop&apos;s ledger
+          is append-only — things are added, never erased.
         </p>
         <p className="mt-4 text-sm text-ink-faint leading-relaxed">
           Done here? The{" "}
-          <Link href="/" className="text-accent hover:text-accent-strong underline underline-offset-2">
+          <Link href="/" prefetch={false} className="text-accent hover:text-accent-strong underline underline-offset-2">
             gallery is still hanging <span className="wardrobe-jp">帰る</span>
           </Link>
           .

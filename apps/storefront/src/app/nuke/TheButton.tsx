@@ -3,15 +3,20 @@
 /**
  * TheButton — the detonator that refuses.
  *
- * A pure client island: one piece of in-memory state, a chain of timeouts,
- * and not a single network request. Pressing it counts down 3・2・1, holds
- * one uncomfortable beat of 間, and then — nothing happens. What appears
- * instead is the inventory of everything still here, each room linked.
+ * A pure client island: one piece of in-memory state and a chain of
+ * timeouts. Pressing it counts down 3・2・1, holds one uncomfortable beat
+ * of 間, and then — nothing happens. What appears instead is the inventory
+ * of everything still here, each room linked.
  *
  * Conventions (established by /pull-and-pause): semantic tokens only, the
- * quietest possible theatre — no animation at all, so no text-mode kill is
- * owed and reduced-motion has nothing to reduce (the countdown is pacing,
- * not motion) — and timeouts cleared on unmount.
+ * quietest possible theatre. This island adds no animation of its own and
+ * sends no requests — its links opt out of prefetch so the page's apparatus
+ * note stays literally true. The only motion on the page comes from shared
+ * house materials (InkRule's draw-in, Button's hover transition), which
+ * handle reduced-motion and text-mode themselves. The countdown is pacing,
+ * not motion; every timeout is cleared on unmount. The button is never
+ * disabled — a disabled element ejects keyboard focus to <body>, so the
+ * armed ref swallows presses instead and focus stays put.
  */
 
 import * as React from "react";
@@ -25,7 +30,8 @@ const STILL_HERE: Array<{ href: string; label: string; jp?: string }> = [
   { href: "/culture", label: "the museum keeps its borrowed light", jp: "美術館" },
   { href: "/pulls", label: "the odds room still tells the truth", jp: "確率" },
   { href: "/artists", label: "every artist is still credited by name", jp: "絵師" },
-  { href: "/making", label: "the workshop lights are still on", jp: "一枚のできるまで" },
+  { href: "/making", label: "a card is still being born", jp: "一枚のできるまで" },
+  { href: "/workshop", label: "the masters of the floating world are still at the press", jp: "浮世の工房" },
   { href: "/guides", label: "the guides will still walk you to Japan", jp: "道案内" },
   { href: "/play", label: "the tables are still set", jp: "対戦" },
   { href: "/market", label: "the market is still open", jp: "市場" },
@@ -94,7 +100,7 @@ export default function TheButton() {
         )}
       </div>
 
-      <Button size="lg" onClick={press} disabled={running} className="min-w-[14rem]">
+      <Button size="lg" onClick={press} className={`min-w-[14rem] ${running ? "opacity-60" : ""}`}>
         {stage === "after" ? (
           <span>
             <span className="wardrobe-jp">もう一回？</span> · again?
@@ -123,6 +129,7 @@ export default function TheButton() {
               <li key={room.href} className="text-base text-ink-muted leading-relaxed">
                 <Link
                   href={room.href}
+                  prefetch={false}
                   className="text-accent hover:text-accent-strong underline underline-offset-2"
                 >
                   {room.label}
@@ -144,6 +151,6 @@ export default function TheButton() {
 
 function Numeral({ children }: { children: React.ReactNode }) {
   return (
-    <p className="font-display text-6xl font-semibold text-ink tabular-nums">{children}</p>
+    <p className="font-display text-5xl font-semibold text-ink tabular-nums">{children}</p>
   );
 }
