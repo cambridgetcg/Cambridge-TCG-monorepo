@@ -6,6 +6,8 @@ import { formatDateTime } from "@/lib/format";
 import { Badge, Palettes, Money, MessageButton } from "@/lib/ui";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { MarketOrder, MarketTrade, EscrowStatus } from "@/lib/market/types";
+import { requestMarketTradeCheckout } from "@/lib/market/payment-client";
+import { isPaymentWindowOpen } from "@/lib/market/payment-return";
 import { DISPUTE_REASONS } from "@/lib/trust/types";
 import PaidReturnBanner from "./PaidReturnBanner";
 
@@ -41,16 +43,20 @@ const formatDate = formatDateTime;
 // Payment-window countdown for awaiting_payment trades. Rendered as a
 // small pill the user can't miss — goes amber < 6h, red < 1h, neutral
 // grey once the window has already expired (sweep hasn't yet run).
-function PaymentCountdown({ expiresAt, sellerView = false }: { expiresAt: string; sellerView?: boolean }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-  const msLeft = new Date(expiresAt).getTime() - now;
-  if (msLeft <= 0) {
+function PaymentCountdown({
+  expiresAt,
+  nowMs,
+  sellerView = false,
+}: {
+  expiresAt: string;
+  nowMs: number;
+  sellerView?: boolean;
+}) {
+  const deadline = new Date(expiresAt).getTime();
+  const msLeft = deadline - nowMs;
+  if (!Number.isFinite(deadline) || msLeft <= 0) {
     return (
-      <span className="text-[10px] text-ink-faint font-mono">Window elapsed — will cancel shortly.</span>
+      <span className="text-[10px] text-ink-faint font-mono">Window elapsed — reconciliation pending.</span>
     );
   }
   const hours = Math.floor(msLeft / 3_600_000);
@@ -192,6 +198,8 @@ export default function TradesPage() {
   const [cancels, setCancels] = useState<PendingCancel[]>([]);
   const [meId, setMeId] = useState<string | null>(null);
   const [paying, setPaying] = useState<string | null>(null);
+  const [payErrors, setPayErrors] = useState<Record<string, string>>({});
+  const [paymentClockNow, setPaymentClockNow] = useState(() => Date.now());
   const [disputeFor, setDisputeFor] = useState<TradeWithRole | null>(null);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeDescription, setDisputeDescription] = useState("");
@@ -229,6 +237,26 @@ export default function TradesPage() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setPaymentClockNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, []);
+
+  async function handlePay(tradeId: string) {
+    setPaying(tradeId);
+    setPayErrors((current) => ({ ...current, [tradeId]: "" }));
+    try {
+      const result = await requestMarketTradeCheckout(tradeId);
+      if (result.ok) {
+        window.location.href = result.url;
+        return;
+      }
+      setPayErrors((current) => ({ ...current, [tradeId]: result.message }));
+    } finally {
+      setPaying(null);
+    }
+  }
+
   function handleCancel(orderId: string) {
     setPendingAction(() => async () => {
       setCancelling(orderId);
@@ -264,7 +292,16 @@ export default function TradesPage() {
     (t) =>
       t.current_user_role === "buyer" &&
       t.escrow_status === "awaiting_payment" &&
-      (!t.payment_expires_at || new Date(t.payment_expires_at) > new Date())
+      isPaymentWindowOpen(t.payment_expires_at, paymentClockNow)
+  );
+
+  // Expired matched trades are deliberately held for provider reconciliation,
+  // not cancelled/relisted from a deadline guess. Keep that state visible.
+  const paymentReviewNeeded = trades.filter(
+    (t) =>
+      t.current_user_role === "buyer" &&
+      t.escrow_status === "awaiting_payment" &&
+      !isPaymentWindowOpen(t.payment_expires_at, paymentClockNow)
   );
 
   // Seller legs ready to ship where NO photos are required (photo trades
@@ -283,6 +320,7 @@ export default function TradesPage() {
   const hasActions =
     photosNeeded.length > 0 ||
     paymentNeeded.length > 0 ||
+    paymentReviewNeeded.length > 0 ||
     shipNeeded.length > 0 ||
     cancelDecisions.length > 0;
 
@@ -313,22 +351,18 @@ export default function TradesPage() {
                   Pay for {t.card_name || t.sku}
                 </p>
                 {t.payment_expires_at && (
-                  <PaymentCountdown expiresAt={t.payment_expires_at} />
+                  <PaymentCountdown expiresAt={t.payment_expires_at} nowMs={paymentClockNow} />
+                )}
+                {payErrors[t.id] && (
+                  <p className="mt-1 max-w-xl text-xs text-danger" role="alert">
+                    {payErrors[t.id]}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={async () => {
-                    setPaying(t.id);
-                    try {
-                      const res = await fetch(`/api/market/trades/${t.id}/pay`, { method: "POST" });
-                      const data = await res.json().catch(() => null);
-                      if (res.ok && data?.url) window.location.href = data.url;
-                    } finally {
-                      setPaying(null);
-                    }
-                  }}
-                  disabled={paying === t.id}
+                  onClick={() => void handlePay(t.id)}
+                  disabled={paying === t.id || Boolean(payErrors[t.id])}
                   className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
                 >
                   {paying === t.id ? "..." : "Pay now"}
@@ -340,6 +374,28 @@ export default function TradesPage() {
                   Details →
                 </Link>
               </div>
+            </div>
+          ))}
+
+          {paymentReviewNeeded.map((t) => (
+            <div
+              key={`pay-review-${t.id}`}
+              className="bg-surface border border-warning/30 rounded-lg p-4 mb-3 flex items-center justify-between gap-3 flex-wrap"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-ink truncate">
+                  Payment reconciliation needed · {t.card_name || t.sku}
+                </p>
+                <p className="mt-0.5 max-w-2xl text-xs text-ink-muted">
+                  Do not start another payment. Check the trade timeline, then contact support with the trade reference if it has not advanced.
+                </p>
+              </div>
+              <Link
+                href={`/account/trades/${t.id}`}
+                className="text-xs font-medium text-accent hover:text-accent-strong"
+              >
+                Check trade →
+              </Link>
             </div>
           ))}
 
@@ -527,10 +583,14 @@ export default function TradesPage() {
                     const isBuyer = trade.current_user_role === "buyer";
                     const counterpartyId = isBuyer ? trade.seller_id : trade.buyer_id;
                     const counterpartyName = isBuyer ? trade.seller_username : trade.buyer_username;
+                    const paymentWindowOpen = isPaymentWindowOpen(
+                      trade.payment_expires_at,
+                      paymentClockNow,
+                    );
                     const canPay =
                       isBuyer &&
                       trade.escrow_status === "awaiting_payment" &&
-                      (!trade.payment_expires_at || new Date(trade.payment_expires_at) > new Date());
+                      paymentWindowOpen;
                     return (
                       <tr key={trade.id} className="border-b border-border-subtle hover:bg-surface-subtle transition">
                         <td className="p-4">
@@ -582,29 +642,41 @@ export default function TradesPage() {
                             {canPay && trade.payment_expires_at && (
                               <>
                                 <button
-                                  onClick={async () => {
-                                    setPaying(trade.id);
-                                    try {
-                                      const res = await fetch(`/api/market/trades/${trade.id}/pay`, { method: "POST" });
-                                      const data = await res.json();
-                                      if (res.ok && data.url) window.location.href = data.url;
-                                    } finally {
-                                      setPaying(null);
-                                    }
-                                  }}
-                                  disabled={paying === trade.id}
+                                  onClick={() => void handlePay(trade.id)}
+                                  disabled={paying === trade.id || Boolean(payErrors[trade.id])}
                                   className="px-3 py-1 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
                                 >
                                   {paying === trade.id ? "..." : "Pay Now"}
                                 </button>
-                                <PaymentCountdown expiresAt={trade.payment_expires_at} />
+                                <PaymentCountdown
+                                  expiresAt={trade.payment_expires_at}
+                                  nowMs={paymentClockNow}
+                                />
+                                {payErrors[trade.id] && (
+                                  <span className="max-w-xs text-[10px] text-danger" role="alert">
+                                    {payErrors[trade.id]}
+                                  </span>
+                                )}
                               </>
                             )}
                             {trade.escrow_status === "awaiting_payment" && !isBuyer && trade.payment_expires_at && (
                               <>
-                                <span className="text-[10px] text-ink-faint">Awaiting buyer payment</span>
-                                <PaymentCountdown expiresAt={trade.payment_expires_at} sellerView />
+                                <span className="text-[10px] text-ink-faint">
+                                  {paymentWindowOpen
+                                    ? "Awaiting buyer payment"
+                                    : "Payment deadline passed — reconciliation pending"}
+                                </span>
+                                <PaymentCountdown
+                                  expiresAt={trade.payment_expires_at}
+                                  nowMs={paymentClockNow}
+                                  sellerView
+                                />
                               </>
+                            )}
+                            {isBuyer && trade.escrow_status === "awaiting_payment" && !paymentWindowOpen && (
+                              <span className="max-w-xs text-[10px] text-warning">
+                                Reconciliation pending — do not pay again
+                              </span>
                             )}
                             {/* Dispute is meaningful when money has changed hands but the trade
                                 isn't yet closed. Both parties can raise. */}

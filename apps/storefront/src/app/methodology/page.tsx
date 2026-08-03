@@ -29,6 +29,18 @@ interface Topic {
 
 const TOPICS: Topic[] = [
   {
+    slug: "cashloom-settlement",
+    title: "CashLoom settlement handoff",
+    blurb: "The optional self-certifying key pin and exact trade-terms packet: what they bind, what Cambridge stores, and why they do not yet move money or change escrow state.",
+    status: "published",
+  },
+  {
+    slug: "karma-loop",
+    title: "KARMA defence loop",
+    blurb: "The observe-only adversary-containment preview: bounded local observations, participant-chosen policy, proposed responses, and the hard no-hack-back/no-money boundary.",
+    status: "published",
+  },
+  {
     slug: "trust-score",
     title: "Trust score",
     blurb: "The 0–100 number that summarises your track record on Cambridge TCG. Drives trade limits, escrow tier, and payout hold.",

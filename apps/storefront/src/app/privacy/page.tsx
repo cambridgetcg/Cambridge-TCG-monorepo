@@ -311,6 +311,14 @@ export default function PrivacyPage() {
                 copies held by other people cannot be recalled.
               </li>
               <li>
+                <strong className="text-ink">CashLoom buyer preparation receipts</strong>:
+                new production writes are disabled while the retention/legal basis and
+                account-erasure design are reviewed. If a reviewed environment enables the
+                writer, both trade participants can read the identity-linked receipt and the
+                current database retains it as immutable trade evidence; there is not yet an
+                automatic deletion or unlinking path. We do not claim that review is complete.
+              </li>
+              <li>
                 <strong className="text-ink">Coverage Hunt turns</strong>:
                 the voluntarily submitted evidence remains as the game&apos;s
                 review record. When the human-run account-erasure process

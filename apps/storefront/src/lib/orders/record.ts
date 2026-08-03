@@ -29,6 +29,7 @@
 
 import type Stripe from "stripe";
 import { query } from "@/lib/db";
+import { isLegacyRetailCheckoutSession } from "@/lib/payments/checkout-session-kind";
 
 export interface RecordResult {
   /** true if a new row was inserted, false if a row already existed. */
@@ -46,9 +47,18 @@ export interface RecordResult {
 export async function recordOrderFromStripeSession(
   session: Stripe.Checkout.Session,
 ): Promise<RecordResult> {
+  // Defence at the shared writer, not only at its current callers. A user can
+  // navigate to the legacy confirmation page with an arbitrary Session ID,
+  // and future reconcilers can forget a route-level filter. Named/B2B flows
+  // own separate ledgers and must never acquire email-derived retail identity.
+  if (!isLegacyRetailCheckoutSession(session)) {
+    throw new Error(
+      `Checkout Session ${session.id} belongs to a non-retail flow and cannot be recorded in customer_orders.`,
+    );
+  }
+
   // Stripe types treat shipping_details as deprecated in newer versions
   // but it's still populated; collected_information is the newer path.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const shipping =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (session as any).collected_information?.shipping_details ??

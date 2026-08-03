@@ -10,36 +10,56 @@ import {
 } from "@/lib/market/completion";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 
-// GET — participant view of a single trade. Usernames + user ids instead
-// of counterparty emails (contact goes through platform messaging — global
-// free trade §2.3). The buyer's shipping_address (migration 0105) rides
-// along for both parties: the seller reads their ship-to, the buyer reads
-// the address they themselves entered at checkout.
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
+
+// GET — allowlisted participant view of a single trade. Provider identifiers,
+// payout references, admin notes, and unrelated operator fields never leave
+// this route. Usernames + user ids support the trade-scoped message channel;
+// shipping_address is shared only with the two participants so the seller can
+// fulfil and the buyer can review the address they supplied.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Sign in required." },
+      { status: 401, headers: PRIVATE_NO_STORE },
+    );
   }
 
   const { id } = await params;
   const result = await query(
-    `SELECT t.*,
-       bu.name as buyer_name, bu.username as buyer_username,
-       su.name as seller_name, su.username as seller_username,
-       o.card_name, o.image_url
+    `SELECT
+       t.id, t.buyer_id, t.seller_id, t.sku, t.price, t.quantity,
+       t.seller_payout, t.escrow_status::text AS escrow_status,
+       t.seller_shipped_at, t.shipped_to_buyer_at,
+       t.tracking_to_buyer, t.carrier,
+       t.escrow_tier, t.requires_photos, t.seller_ships_to,
+       t.dispute_window_hours, t.payout_hold_days,
+       t.payment_expires_at, t.shipping_address,
+       t.accepts_returns, t.return_window_days, t.created_at,
+       bu.username AS buyer_username,
+       su.username AS seller_username,
+       o.card_name
      FROM market_trades t
      LEFT JOIN users bu ON t.buyer_id = bu.id
      LEFT JOIN users su ON t.seller_id = su.id
      LEFT JOIN market_orders o ON t.bid_order_id = o.id
-     WHERE t.id = $1`,
-    [id]
+     WHERE t.id = $1
+       AND (t.buyer_id = $2 OR t.seller_id = $2)`,
+    [id, session.user.id]
   );
   if (result.rows.length === 0) {
-    return NextResponse.json({ error: "Trade not found." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Trade not found." },
+      { status: 404, headers: PRIVATE_NO_STORE },
+    );
   }
   const trade = result.rows[0];
   if (trade.buyer_id !== session.user.id && trade.seller_id !== session.user.id) {
-    return NextResponse.json({ error: "Not your trade." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Trade not found." },
+      { status: 404, headers: PRIVATE_NO_STORE },
+    );
   }
 
   // Same role annotation as the list endpoint so clients share one contract.
@@ -61,7 +81,38 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     )?.toISOString() ?? null;
   }
 
-  return NextResponse.json({ trade: { ...trade, current_user_role, auto_complete_at } });
+  const participantTrade = {
+    id: trade.id,
+    buyer_id: trade.buyer_id,
+    seller_id: trade.seller_id,
+    sku: trade.sku,
+    price: trade.price,
+    quantity: trade.quantity,
+    seller_payout: trade.seller_payout,
+    escrow_status: trade.escrow_status,
+    tracking_to_buyer: trade.tracking_to_buyer,
+    carrier: trade.carrier,
+    escrow_tier: trade.escrow_tier,
+    requires_photos: trade.requires_photos,
+    seller_ships_to: trade.seller_ships_to,
+    dispute_window_hours: trade.dispute_window_hours,
+    payout_hold_days: trade.payout_hold_days,
+    payment_expires_at: trade.payment_expires_at,
+    shipping_address: trade.shipping_address,
+    accepts_returns: trade.accepts_returns,
+    return_window_days: trade.return_window_days,
+    created_at: trade.created_at,
+    buyer_username: trade.buyer_username,
+    seller_username: trade.seller_username,
+    card_name: trade.card_name,
+    current_user_role,
+    auto_complete_at,
+  };
+
+  return NextResponse.json(
+    { trade: participantTrade },
+    { headers: PRIVATE_NO_STORE },
+  );
 }
 
 // PATCH — admin: update escrow status, or bulk-review all unreviewed photos.

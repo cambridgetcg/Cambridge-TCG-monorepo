@@ -11,20 +11,7 @@ import {
   holderForStripeSession,
 } from "@/lib/stock/reservations";
 import { recordOrderFromStripeSession } from "@/lib/orders/record";
-
-// Checkout sessions minted by the membership/P2P flows carry a
-// metadata.type and are fulfilled by their dedicated branches in the
-// checkout.session.completed handler; the retired retail checkout's
-// sessions carry no type. The legacy retail fulfilment branch must skip
-// every tagged type, or subscription/auction/trade payments also mint
-// customer_orders rows and earn retail points/cashback.
-const NON_RETAIL_SESSION_TYPES = new Set([
-  "tier_subscription",
-  "platinum_subscription",
-  "market_trade_payment",
-  "market_lot_payment",
-  "auction_payment",
-]);
+import { isLegacyRetailCheckoutSession } from "@/lib/payments/checkout-session-kind";
 
 export async function POST(request: Request) {
   // Order matters: gate the request on configuration + signature
@@ -480,8 +467,7 @@ export async function POST(request: Request) {
 
     // Legacy retail fulfilment — pre-retirement retail sessions only
     // (they never set metadata.type).
-    const sessionType = session.metadata?.type;
-    if (!sessionType || !NON_RETAIL_SESSION_TYPES.has(sessionType)) {
+    if (isLegacyRetailCheckoutSession(session)) {
       try {
         const skus: { sku: string; qty: number; price_gbp: number; name?: string }[] = session.metadata?.skus
           ? JSON.parse(session.metadata.skus)

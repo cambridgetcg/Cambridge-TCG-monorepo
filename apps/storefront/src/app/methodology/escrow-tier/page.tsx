@@ -15,6 +15,12 @@ export default function EscrowTierMethodology() {
         three escrow tiers. The tier determines how the card moves between buyer and seller,
         whether Cambridge TCG inspects it in transit, and what guarantees both parties have.
       </p>
+      <p>
+        These are primarily <strong>card-fulfilment routes</strong>. The label does not by
+        itself prove regulated money safeguarding. Today the separate Stripe-backed payment
+        and payout records determine how money moves; a future direct CashLoom payment would
+        need different language and must not inherit an escrow claim from the card route.
+      </p>
       <blockquote>
         <strong>Where this lives in code.</strong>{" "}
         <code>apps/storefront/src/lib/escrow/trust-engine.ts</code> (tier routing),{" "}
@@ -26,9 +32,12 @@ export default function EscrowTierMethodology() {
 
       <h3>Direct</h3>
       <p>
-        Seller ships straight to the buyer. Cambridge TCG holds the buyer's payment in
-        escrow until the buyer confirms receipt. Used when both buyer and seller have
-        sufficient trust scores and the trade value is below the inspection threshold.
+        Seller ships straight to the buyer. In the current Stripe flow, Cambridge records the
+        collected payment and delays the seller payout until the completion and hold rules
+        allow release. That operational delay is not a promise that Cambridge is a regulated
+        escrow provider. Direct CashLoom settlement is not enabled. This route is used when
+        both buyer and seller have sufficient trust scores and the trade value is below the
+        inspection threshold.
       </p>
 
       <h3>Verified</h3>
@@ -79,6 +88,15 @@ export default function EscrowTierMethodology() {
         <a href="/account/trades">/account/trades</a>. The escrow status (Awaiting Payment →
         Paid → Awaiting Shipment → … → Completed) follows a tier-specific lifecycle, and the
         page shows you exactly where you are.
+      </p>
+
+      <h2>Card custody is not money custody</h2>
+      <p>
+        A Full-tier card may physically pass through Cambridge for inspection while a payment
+        provider remains the authority for collection, refunds, and payout. Conversely, a
+        provider can hold money without inspecting a card. Read the two axes separately. See{" "}
+        <a href="/methodology/cashloom-settlement">/methodology/cashloom-settlement</a> for the
+        non-custodial and provider-backed paths being designed.
       </p>
     
 
