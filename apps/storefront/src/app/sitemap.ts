@@ -33,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/artists`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.6 },
     { url: `${baseUrl}/workshop`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/making`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    { url: `${baseUrl}/empty-frames`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     // The human guides — the map, not the merchant.
     { url: `${baseUrl}/guides`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/guides/buying`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },

@@ -256,6 +256,12 @@ export default function TheGallery({
             <span className="wardrobe-jp"> 引きと間</span> →
           </Link>
         </p>
+        <p className="mt-2 text-sm text-ink-muted">
+          <Link href="/empty-frames" className="text-accent hover:text-accent-strong underline underline-offset-2">
+            And some cards we can only hang as empty frames
+            <span className="wardrobe-jp"> 幻の間</span> →
+          </Link>
+        </p>
       </div>
     </section>
   );

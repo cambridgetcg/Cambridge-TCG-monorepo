@@ -105,6 +105,7 @@ export const PRIMARY_NAV_ITEMS = [
       "/pulls",
       "/answering-rhymes",
       "/gallery-next-door",
+      "/empty-frames",
     ],
   },
   {

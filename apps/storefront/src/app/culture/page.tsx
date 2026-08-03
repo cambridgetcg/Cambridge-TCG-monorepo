@@ -166,6 +166,20 @@ const HALLS: readonly Hall[] = [
         },
       },
       {
+        href: "/empty-frames",
+        en: "The Empty Frames",
+        jp: "幻の間",
+        line:
+          "The phantom cards our archive cannot show — the Illustrator, the trophy Trainers, the parent-and-child Kangaskhan — hung as empty frames with true wall labels. An exhibition of absences; nothing pretended.",
+        title_i18n: { ja: "幻の間", "zh-Hant": "空畫框", "zh-Hans": "空画框", es: "Los marcos vacíos" },
+        line_i18n: {
+          ja: "幻のカードは、うちの棚にはありません。それでも部屋はあります。空の額縁と、正直な札だけ。ないものは、ないまま。",
+          "zh-Hant": "有些卡，小店掛不出來。房間照樣留了：空框照掛，標籤照寫；沒有的，照直說沒有。",
+          "zh-Hans": "有些卡，这家店挂不出来。屋子还是留了：框子空着挂，标签照实写；没有，就说没有。",
+          es: "Hay cartas que esta casa no puede colgar. La sala existe igual: marcos vacíos, etiquetas verdaderas. Lo que no está, se dice.",
+        },
+      },
+      {
         href: "/pulls",
         title_i18n: { ja: "確率、正直に。", es: "Las probabilidades, con honestidad", "zh-Hans": "概率，照实说。", "zh-Hant": "機率，照直說。" },
         line_i18n: {
