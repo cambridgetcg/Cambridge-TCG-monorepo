@@ -1,11 +1,10 @@
 import { query, transaction } from "@/lib/db";
 import type { MarketOrder, MarketTrade, OrderBookEntry, OrderBookSummary, CardOrderBook } from "./types";
 import { COMPLETED_TRADE_PUBLICATION } from "./publication";
-import { COMMISSION_RATE, commissionRateForScore } from "./types";
 import { resolveCommission, computeCommissionAmount } from "@cambridge-tcg/pricing";
 import { postActivity, awardAchievement } from "@/lib/social/db";
 import { routeTrade } from "@/lib/escrow/service-tiers";
-import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
+import { sendBuyerMatchEmail, sendSellerMatchEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
 
@@ -107,9 +106,10 @@ export async function countDuplicateOpenAsks(
 }
 
 // ── Lazy expiry sweep ──
-// Cheap idempotent maintenance fired from any market read. Marks orders past
-// their TTL as expired, and cancels trades whose buyer never paid in time
-// (restoring the maker's filled_quantity so the order can match again).
+// Cheap idempotent order maintenance fired from market reads. Matched-trade
+// payment expiry is deliberately frozen: without a durable provider attempt,
+// a deadline alone cannot distinguish abandonment from paid-but-not-yet-
+// reconciled. Neither reads nor cron may cancel/relist/penalise that ambiguity.
 //
 // Behavior policy:
 //   - The cron entry point (runMarketMaintenance) calls this directly and
@@ -148,115 +148,10 @@ async function sweepExpired(force = false): Promise<void> {
     });
   }
 
-  // Trades whose payment window elapsed: cancel them and roll back the
-  // maker order's filled_quantity so the listing returns to the book.
-  const expiredTrades = await query(
-    `SELECT id, bid_order_id, ask_order_id, quantity, buyer_id, seller_id
-       FROM market_trades
-      WHERE escrow_status = 'awaiting_payment'
-        AND payment_expires_at IS NOT NULL
-        AND payment_expires_at <= NOW()`
-  );
-
-  for (const t of expiredTrades.rows) {
-    // Flip + restores commit together: a crash between them would leave the
-    // ask stranded as 'filled' with no live trade, and the sweep would never
-    // revisit (the trade is already 'cancelled'). Mirrors approveCancel.
-    const cancelled = await transaction(async (q) => {
-      const upd = await q(
-        `UPDATE market_trades SET escrow_status = 'cancelled', updated_at = NOW()
-          WHERE id = $1 AND escrow_status = 'awaiting_payment' RETURNING id`,
-        [t.id]
-      );
-      if (upd.rows.length === 0) return false;
-      // Restore both orders. Taker order is the one created at match time —
-      // the cleanest behaviour is to restore qty on both and let either side
-      // re-match if still active.
-      for (const orderId of [t.bid_order_id, t.ask_order_id]) {
-        await q(
-          `UPDATE market_orders
-              SET filled_quantity = GREATEST(filled_quantity - $1, 0),
-                  status = CASE
-                    WHEN GREATEST(filled_quantity - $1, 0) = 0 THEN 'open'
-                    WHEN GREATEST(filled_quantity - $1, 0) < quantity THEN 'partially_filled'
-                    ELSE status
-                  END,
-                  updated_at = NOW()
-            WHERE id = $2 AND status IN ('filled', 'partially_filled')`,
-          [t.quantity, orderId]
-        );
-      }
-      return true;
-    });
-    if (!cancelled) continue;
-
-    // Notify both parties about the cancellation — email + in-app.
-    // The seller is the one owed money, so their bell also lights up.
-    const participants = await query(
-      `SELECT u.id, u.email, t.sku, COALESCE(o.card_name, t.sku) AS card_name
-         FROM market_trades t
-         JOIN users u ON u.id = ANY(ARRAY[t.buyer_id, t.seller_id])
-         LEFT JOIN market_orders o ON o.id = t.bid_order_id
-        WHERE t.id = $1`,
-      [t.id]
-    );
-    // Copy stays window-agnostic: each trade's deadline is its own
-    // payment_expires_at (the buyer's declared cadence or the flow
-    // default), so naming a fixed hour count here would lie for
-    // slow-clock buyers.
-    for (const p of participants.rows) {
-      sendCancelEmail({
-        email: p.email,
-        cardName: p.card_name,
-        reason: "Buyer did not pay within the payment window.",
-      }).catch((err) => console.error("[market] Cancel email failed:", err));
-
-      const isBuyer = p.id === t.buyer_id;
-      await notify({
-        userId: p.id,
-        kind: "market.payment_timeout",
-        title: isBuyer
-          ? `Your trade for ${p.card_name} was cancelled — payment window missed`
-          : `Trade cancelled — ${p.card_name} buyer did not pay in time`,
-        body: isBuyer
-          ? "You did not complete payment within your payment window. The seller's listing is back on the book."
-          : "The payment window elapsed. Your listing has been returned to the order book.",
-        linkUrl: "/account/trades",
-        referenceType: "market_trade",
-        referenceId: `${t.id}:payment_timeout`,
-      });
-    }
-
-    // Lifecycle row for the cancellation. System-actor; no user
-    // initiated it. Mirrors auctions' unpaid_lapsed lifecycle row.
-    void import("./lifecycle-log").then(({ logTradeTransition }) =>
-      logTradeTransition({
-        tradeId: t.id,
-        action: "cancelled",
-        actorLabel: "system:market-sweep",
-        reason: "Payment window elapsed without buyer payment",
-        metadata: { reason_code: "payment_timeout" },
-      }),
-    );
-
-    // Buyer-default fraud signal — same severity tier as auction
-    // default. The trust engine + auto-suspend stack picks it up.
-    void import("@/lib/fraud/detection").then(async ({ emitSignal, SIGNAL_DEFS }) => {
-      const today = new Date().toISOString().slice(0, 10);
-      await emitSignal({
-        userId: t.buyer_id,
-        def: SIGNAL_DEFS.TRADE_PAYMENT_DEFAULT,
-        tradeId: t.id,
-        description: "Buyer let the trade payment window elapse",
-        dedupeKey: `trade-default:${t.id}:${today}`,
-      });
-    }).catch((err) => console.error("[market/sweep] default signal failed:", err));
-
-    // Trust recompute — buyer's reliability score slips.
-    void import("@/lib/escrow/trust-engine").then(({ calculateTrustScore }) =>
-      calculateTrustScore(t.buyer_id).catch(() => { /* ignore */ }),
-    );
-  }
+  // Intentionally no market_trades mutation here. The executable attempt
+  // ledger must make provider settlement, expiry, relisting, and any trust
+  // effect one coordinated decision. Until then an overdue awaiting_payment
+  // trade remains held for reconciliation instead of guessing who defaulted.
 }
 
 // ── Place order + attempt match ──
@@ -760,13 +655,16 @@ export async function getUserOrders(userId: string, status?: string): Promise<Ma
 
 export async function getUserTrades(userId: string): Promise<MarketTrade[]> {
   await sweepExpiredBestEffort();
-  // No counterparty emails here — usernames + user ids are what the
-  // parties get; contact goes through platform messaging (global free
-  // trade §2.3). buyer_id/seller_id ride along via t.*.
+  // Participant summary only. Provider ids, payout references, shipping,
+  // admin notes, and operator-only lifecycle fields belong to the detail or
+  // admin projections, never the account list.
   const result = await query(
-    `SELECT t.*,
-       bu.name as buyer_name, bu.username as buyer_username,
-       su.name as seller_name, su.username as seller_username,
+    `SELECT
+       t.id, t.buyer_id, t.seller_id, t.sku, t.price, t.quantity,
+       t.escrow_status::text AS escrow_status,
+       t.escrow_tier, t.requires_photos, t.payment_expires_at, t.created_at,
+       bu.username AS buyer_username,
+       su.username AS seller_username,
        o.card_name, o.image_url
      FROM market_trades t
      LEFT JOIN users bu ON t.buyer_id = bu.id

@@ -1,0 +1,31 @@
+{
+  "topic": "cashloom-settlement",
+  "title": "CashLoom settlement handoff",
+  "url": "/methodology/cashloom-settlement",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/cashloom-settlement/summary.md",
+  "status": "published",
+  "current_effect": {
+    "moves_money": false,
+    "selects_settlement_rail": false,
+    "changes_trade_state": false,
+    "proves_key_control": false,
+    "uploads_private_acceptance": false,
+    "unlocks_shipping": false,
+    "changes_payout": false
+  },
+  "identity_assurance": "user-declared-key-pin",
+  "handoff_mode": "offline_bundle",
+  "buyer_preparation": {
+    "schema": "cambridgetcg.cashloom-payment-preparation/v1",
+    "authority": "cambridge_database_session",
+    "transition": "absent-to-prepared",
+    "disclosure_notice_version": "cashloom-preparation-retention-v1",
+    "default_write_mode": "disabled",
+    "enabled_write_mode": "record_only",
+    "participant_readable": true,
+    "cashloom_v2_record": false,
+    "payment_or_acceptance": false
+  },
+  "asset_id": "fiat:iso4217/GBP"
+}

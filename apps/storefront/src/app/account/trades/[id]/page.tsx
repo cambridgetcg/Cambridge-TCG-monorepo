@@ -9,6 +9,9 @@ import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import { TIMELINE_STEPS, getActiveStep } from "@/lib/escrow/timeline";
 import { DISPUTE_TIMELINE, getDisputeStep, isDisputeTerminal } from "@/lib/trust/dispute-timeline";
 import { buildTrackingUrl } from "@/lib/shipping/carriers";
+import { CashLoomTradeHandoff } from "@/components/market/CashLoomTradeHandoff";
+import { requestMarketTradeCheckout } from "@/lib/market/payment-client";
+import { isPaymentWindowOpen } from "@/lib/market/payment-return";
 
 import { Audience, Consequences, MessageButton, WhyLink } from "@/lib/ui";
 import { InkRule } from "@/lib/ui/InkRule";
@@ -374,6 +377,7 @@ export default function TradeDetailPage() {
   // Pay-now (buyer, while awaiting_payment)
   const [payingNow, setPayingNow] = useState(false);
   const [payError, setPayError] = useState("");
+  const [paymentClockNow, setPaymentClockNow] = useState(() => Date.now());
 
   // Confirm-received (buyer, once the card has shipped)
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
@@ -400,6 +404,12 @@ export default function TradeDetailPage() {
       })
       .catch(() => setLoggedIn(false));
   }, []);
+
+  useEffect(() => {
+    if (trade?.escrow_status !== "awaiting_payment") return;
+    const id = setInterval(() => setPaymentClockNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, [trade?.escrow_status]);
 
   async function loadPendingCancel() {
     try {
@@ -658,13 +668,12 @@ export default function TradeDetailPage() {
     setPayingNow(true);
     setPayError("");
     try {
-      const res = await fetch(`/api/market/trades/${tradeId}/pay`, { method: "POST" });
-      const data = await res.json().catch(() => null);
-      if (res.ok && data?.url) {
-        window.location.href = data.url;
+      const result = await requestMarketTradeCheckout(tradeId);
+      if (result.ok) {
+        window.location.href = result.url;
         return;
       }
-      setPayError(data?.error || "Failed to start payment.");
+      setPayError(result.message);
     } finally {
       setPayingNow(false);
     }
@@ -830,6 +839,11 @@ export default function TradeDetailPage() {
         />
       )}
 
+      {/* CashLoom's first market seam is an immutable terms projection only.
+          It has its own participant-gated API and never mutates the payment,
+          escrow, shipping, or payout state rendered by the rest of this page. */}
+      {trade && <CashLoomTradeHandoff tradeId={tradeId} />}
+
       {/* Pending cancel handshake — Approve/Decline for the other party,
           Withdraw for the requester, on the trade it concerns. */}
       {pendingCancel && trade && trade.escrow_status !== "cancelled" && (
@@ -946,28 +960,46 @@ export default function TradeDetailPage() {
           const isBuyer = sessionUserId && trade.buyer_id === sessionUserId;
           const isSeller = sessionUserId && trade.seller_id === sessionUserId;
           if (isBuyer) {
+            const paymentWindowExpired = !isPaymentWindowOpen(
+              trade.payment_expires_at,
+              paymentClockNow,
+            );
             return (
               <div className="bg-accent-wash border-2 border-accent/30 rounded-lg p-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-accent font-bold text-base">Payment required</p>
+                    <p className="text-accent font-bold text-base">
+                      {paymentWindowExpired ? "Payment window ended" : "Payment required"}
+                    </p>
                     <p className="text-ink-muted text-sm mt-0.5">
-                      Pay by card via Stripe Checkout to move this trade forward.
+                      {paymentWindowExpired
+                        ? "Do not start a new payment. If you already finished checkout, wait for reconciliation or contact support with this trade reference."
+                        : "Continue to Stripe Checkout. The trade moves forward only after payment is reconciled here."}
                     </p>
                   </div>
-                  <button
-                    onClick={handlePayNow}
-                    disabled={payingNow}
-                    className="shrink-0 px-4 py-2 rounded-lg font-semibold text-sm bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
-                  >
-                    {payingNow ? "..." : "Pay Now →"}
-                  </button>
+                  {!paymentWindowExpired && (
+                    <button
+                      onClick={handlePayNow}
+                      disabled={payingNow || Boolean(payError)}
+                      className="shrink-0 px-4 py-2 rounded-lg font-semibold text-sm bg-ink text-page hover:opacity-90 transition disabled:opacity-50"
+                    >
+                      {payingNow ? "..." : "Pay Now →"}
+                    </button>
+                  )}
                 </div>
-                {payError && <p className="text-xs text-danger mt-2">{payError}</p>}
+                {payError && (
+                  <p className="text-xs text-danger mt-2" role="alert">
+                    {payError}
+                  </p>
+                )}
               </div>
             );
           }
           if (isSeller) {
+            const paymentWindowExpired = !isPaymentWindowOpen(
+              trade.payment_expires_at,
+              paymentClockNow,
+            );
             return (
               <div className="bg-surface border border-warning/30 rounded-lg p-5 flex items-center gap-3">
                 <span className="relative flex h-3 w-3">
@@ -975,7 +1007,9 @@ export default function TradeDetailPage() {
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-warning" />
                 </span>
                 <p className="text-warning text-sm font-medium">
-                  Waiting for buyer payment...
+                  {paymentWindowExpired
+                    ? "Payment deadline passed — reconciliation pending. Do not relist yet."
+                    : "Waiting for buyer payment..."}
                 </p>
               </div>
             );

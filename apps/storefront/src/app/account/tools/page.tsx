@@ -40,6 +40,11 @@ const TOOL_GROUPS: ToolGroup[] = [
     label: "Selling & trading",
     links: [
       {
+        href: "/account/cashloom",
+        label: "CashLoom",
+        description: "Declare a CashLoom key fingerprint and prepare exact, non-executing trade handoffs.",
+      },
+      {
         href: "/account/trader",
         label: "Trader dashboard",
         description: "Your selling overview — exposure, performance, fees, and listings that need attention.",

@@ -118,19 +118,27 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ url: checkoutSession.url });
   } catch (err) {
     console.error("[market] Pay session error:", err);
-    // Honest failure. Two truths the buyer needs: (1) this is our side,
-    // not theirs, and (2) the payment window does NOT pause while checkout
-    // is down — it still ends at the trade's real payment_expires_at. We
-    // name that time rather than inventing a grace period the sweep won't
-    // honour. The dev-only STRIPE_SECRET_KEY message stays server-side.
+    // This catch spans provider egress and the following DB write. Once the
+    // request may have reached Stripe, a 503 cannot prove that no Checkout
+    // Session exists. Until the durable attempt ledger lands, never invite a
+    // second POST here: it could mint a second payable Session. The dev-only
+    // STRIPE_SECRET_KEY detail stays server-side.
     const unconfigured = err instanceof Error && /STRIPE_SECRET_KEY/.test(err.message);
     const whenIso: string | null = trade.payment_expires_at ?? null;
     const whenLabel = whenIso ? formatDateTime(whenIso) : null;
-    const error = whenLabel
-      ? `Payments are temporarily unavailable — this is on our side, not yours. Your payment window is unchanged: it still closes ${whenLabel} and does not pause while checkout is down. Please try again in a few minutes; if it keeps failing, contact support before the window closes.`
-      : `Payments are temporarily unavailable — this is on our side, not yours. Your payment window is unchanged and does not pause while checkout is down. Please try again shortly, and contact support if it persists.`;
+    const error = unconfigured
+      ? whenLabel
+        ? `Checkout could not start because payments are not configured. No request was sent to the payment provider. Refresh this trade later; its deadline remains ${whenLabel}.`
+        : "Checkout could not start because payments are not configured. No request was sent to the payment provider. Refresh this trade later."
+      : whenLabel
+        ? `Checkout start could not be confirmed. The request may have reached the payment provider. Do not try again. Check this trade's status, then contact support with the trade reference before its ${whenLabel} deadline if it is still unclear.`
+        : `Checkout start could not be confirmed. The request may have reached the payment provider. Do not try again. Check this trade's status, then contact support with the trade reference if it is still unclear.`;
     return NextResponse.json(
-      { error, code: unconfigured ? "payments_unconfigured" : "payments_unavailable", payment_expires_at: whenIso },
+      {
+        error,
+        code: unconfigured ? "payments_unconfigured" : "checkout_outcome_unknown",
+        payment_expires_at: whenIso,
+      },
       { status: 503 },
     );
   }

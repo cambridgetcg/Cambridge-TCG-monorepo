@@ -460,6 +460,9 @@ importers:
       '@cambridge-tcg/stock':
         specifier: workspace:^
         version: link:../../packages/stock
+      '@noble/hashes':
+        specifier: 2.2.0
+        version: 2.2.0
       '@stripe/react-stripe-js':
         specifier: ^5.6.1
         version: 5.6.1(@stripe/stripe-js@8.11.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
