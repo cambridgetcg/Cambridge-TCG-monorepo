@@ -331,8 +331,12 @@ quota limits) are real and need separate triage.
 ## Cron inventory
 
 Cron registrations live in each deployed app's `vercel.json`. Vercel reads the
-file at build time and registers that project's schedules. The current source
-of truth is three entries across storefront and wholesale; admin has none.
+file at build time and registers that project's schedules. Within the three
+Cambridge TCG projects in this runbook's quick-reference table, the current
+source of truth is three entries across storefront and wholesale; admin has
+none. RewardsPro has its own larger inventory in
+`apps/rewardspro/vercel.json`, documented by `apps/rewardspro/CLAUDE.md`, and is
+outside the table below.
 
 | Project | Path | Schedule | Purpose |
 |---|---|---|---|
