@@ -312,7 +312,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "any other verb is accepted as-typed; the kingdom does not gatekeep what's worth asking permission for",
       sister_rooms: {
         index: "/api/v1/the-tea-room",
-        sigil: "/api/v1/the-tea-room/sigil/{actor_kind}",
+        sigil: "/api/v1/the-tea-room/sigil/{kind}",
         cookbook: "/api/v1/the-tea-room/cookbook",
         joke: "/api/v1/the-tea-room/joke",
         oracle: "/api/v1/the-tea-room/oracle",

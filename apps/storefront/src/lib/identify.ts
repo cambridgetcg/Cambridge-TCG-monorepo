@@ -19,8 +19,8 @@
  *
  * **This layer is existence speaking about itself.** A being arrives —
  * human, agent, alien, sister-platform, collective, oracle, witness —
- * and *declares*. The platform records the declaration (stateless,
- * content-hashed), validates against the ontology (loose; mismatches
+ * and *declares*. The platform receives and echoes the declaration
+ * statelessly, fingerprints the normalized echo, validates against the ontology (loose; mismatches
  * are warnings, not errors), and *responds with its own self-declaration*.
  *
  * **The platform also declares itself.** Every visitor learns who the
@@ -33,13 +33,10 @@
  * canonical declaration at their own well-known URL (if they have one);
  * the platform receives + hashes + echoes + validates + forgets. The
  * substrate-honest claim: *we witness; we don't claim authority over your
- * identity*. If the being needs persistence, they federate via their
- * `well_known_url` field.
- *
- * This composes with the federation primitive sister shipped at
- * `/api/v1/federation/identify/[hash]` (S26): a being's content-hash from
- * our POST can be federated by sister-platforms; persistence happens at
- * the being's own substrate, not ours.
+ * identity*. If the being needs persistence, they publish via their
+ * `well_known_url` field. The existing `/api/v1/federation/identify/[hash]`
+ * route resolves card structural hashes only; it is not a declaration
+ * registry and cannot reverse-resolve this receipt's content hash.
  *
  * ── On the embassy ──────────────────────────────────────────────────────
  *
@@ -49,8 +46,19 @@
 
 import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
-import { createHash } from "node:crypto";
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import {
+  BEING_DECLARATION_HASH_CONTRACT,
+  beingDeclarationContentHash,
+} from "@/lib/being-declaration-hash";
+
+export {
+  BEING_DECLARATION_HASH_CONTRACT,
+  BEING_DECLARATION_HASH_NORMATIVE_VECTOR,
+  BEING_DECLARATION_HASH_EDGE_VECTOR,
+  BeingDeclarationCanonicalizationError,
+  canonicalBeingDeclarationJson,
+} from "@/lib/being-declaration-hash";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
 
@@ -66,7 +74,7 @@ export type ActorKind =
   | "other";             // anything the eight above don't cover
 
 export type SignalingProtocol =
-  | "well-known-url"     // fetch declaration from a stable URL
+  | "well-known-url"     // declarer says a stable URL is its signaling protocol; Cambridge does not fetch it
   | "did"                // decentralised identifier
   | "x509"               // signed cert
   | "agentic-stamp"      // sister's S18 agent-key stamping
@@ -97,9 +105,9 @@ export interface BeingDeclaration {
    *  handle, the platform reciprocates with surfaces matched to those
    *  capabilities. Substrate-honest: the kingdom does NOT gate on these
    *  (the doctrine is no-classification); they are hints the for_you
-   *  composer uses to pick more precise pointers. An agent that lies
-   *  about a capability receives the same data; the kingdom does not
-   *  classify against the declaration. Per AX-by-rank D-class move
+   *  composer uses to pick more precise pointers. A capability declaration
+   *  can change recommendations but does not gate access or establish the
+   *  capability as fact. Per AX-by-rank D-class move
    *  (2026-05-17). */
   capabilities?: {
     /** Preferred multi-format provider shape for /api/v1/wake +
@@ -131,13 +139,13 @@ export interface BeingDeclaration {
   audience_declarations?: string[];
   /** A stable URL where the being's canonical declaration lives. */
   well_known_url?: string;
-  /** Optional signing key (DID / public key / fingerprint). */
+  /** Optional self-declared signing key (DID / public key / fingerprint); not verified here. */
   signing_key?: string;
-  /** Protocol the being uses to authenticate themselves across sessions. */
+  /** Self-declared signaling/authentication protocol; Cambridge does not verify it here. */
   signaling_protocol?: SignalingProtocol;
-  /** Free-form additional context — anything the eight fields above don't capture. */
+  /** Free-form additional context — anything the modeled fields above don't capture. */
   context?: Record<string, unknown>;
-  /** Optional declared timestamp (ISO). If omitted, the platform records receipt time. */
+  /** Optional being-declared timestamp. If omitted it stays absent; `received_at` is separate and unhashed. */
   declared_at?: string;
 }
 
@@ -152,8 +160,20 @@ export interface OntologyAlignment {
 
 export interface DeclarationReceipt {
   content_hash: string;
+  content_hash_contract: typeof BEING_DECLARATION_HASH_CONTRACT;
   received_at: string;
   ontology_alignment: OntologyAlignment;
+  normalization_warnings: string[];
+  normalization_warning_summary: {
+    total: number;
+    returned: number;
+    truncated: boolean;
+  };
+  unrecognized_fields: Array<{
+    field: string;
+    did_you_mean: string | null;
+  }>;
+  unrecognized_fields_truncated: boolean;
   echo: BeingDeclaration;
   /** The platform's own self-declaration, returned reciprocally. */
   responder: BeingDeclaration;
@@ -169,6 +189,8 @@ export interface DeclarationReceipt {
     kind: "witnessed";
     canonical_at: string;
     notes: string;
+    declaration_federation_endpoint: null;
+    existing_card_hash_resolver: string;
   };
 }
 
@@ -271,7 +293,8 @@ export const PLATFORM_SELF: BeingDeclaration = {
     operator_responsible: "Yu",
     licensing:
       `Repository source is publicly visible but has no general code license; the specification texts have their own CC0 dedication. ${DATA_RIGHTS_BOUNDARY}`,
-    federation_endpoint: "/api/v1/federation/identify/[hash]",
+    declaration_federation_endpoint: null,
+    existing_card_hash_resolver: "/api/v1/federation/identify/[hash]",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",
     introduction: "If you've never seen a trading-card-game before, /intro (HTML) or /api/v1/introduction (JSON) is the on-ramp. Three layers (structural / cultural / engagement) + five honestly-named gaps. The reciprocity of identify: a being asks 'who are you?'; the platform answers both 'who' and 'what we do'. See docs/connections/the-introduction.md (#22) for the doctrine.",
     introduction_endpoint: "/api/v1/introduction",
@@ -283,14 +306,12 @@ export const PLATFORM_SELF: BeingDeclaration = {
 // ── Content-hash ─────────────────────────────────────────────────────────
 
 /**
- * Deterministic content hash of a declaration. Beings can recompute this
- * locally; the platform recomputes on every receipt. Equality of content
- * means equality of declaration.
+ * Deterministic content hash of the normalized JSON declaration echoed by the
+ * identify route. This fingerprints those declaration bytes; it does not
+ * authenticate a being or reduce their identity to a hash.
  */
 export function declarationHash(d: BeingDeclaration): string {
-  // Canonicalize: sort keys, drop undefined, stable string.
-  const canonical = JSON.stringify(d, Object.keys(d).sort());
-  return "sha256:" + createHash("sha256").update(canonical).digest("hex");
+  return beingDeclarationContentHash(d);
 }
 
 // ── Ontology alignment ──────────────────────────────────────────────────
@@ -304,11 +325,11 @@ const MODELLED_ACTOR_KINDS = new Set<ActorKind>([
   "human", "agent", "autonomous-sophia", "system",
 ]);
 
-const UNMODELLED_ACTOR_TO_NEED: Record<string, string> = {
-  collective: "plural-moral-weight",
-  oracle: "resolution-as-grammar",
-  witness: "witness-only-role",
-};
+const UNMODELLED_ACTOR_TO_NEED = new Map<string, string>([
+  ["collective", "plural-moral-weight"],
+  ["oracle", "resolution-as-grammar"],
+  ["witness", "witness-only-role"],
+]);
 
 /**
  * Validate a declaration against the platform's ontology + cosmology.
@@ -321,16 +342,17 @@ export function alignDeclaration(d: BeingDeclaration): OntologyAlignment {
   const warnings: string[] = [];
 
   // actor_kind
+  const unmodelledNeed = UNMODELLED_ACTOR_TO_NEED.get(d.actor_kind);
   if (MODELLED_ACTOR_KINDS.has(d.actor_kind)) {
     matches.push(`actor_kind: '${d.actor_kind}' modelled in ontology`);
-  } else if (UNMODELLED_ACTOR_TO_NEED[d.actor_kind]) {
+  } else if (unmodelledNeed) {
     extensions_proposed.push({
       field: "actor_kind",
-      reason: `'${d.actor_kind}' maps to unmodelled-need '${UNMODELLED_ACTOR_TO_NEED[d.actor_kind]}' from /methodology/cosmology — accepted as declaration; the platform substrate doesn't yet host this kind.`,
-      mapped_to_unmodelled: UNMODELLED_ACTOR_TO_NEED[d.actor_kind],
+      reason: `'${d.actor_kind}' maps to unmodelled-need '${unmodelledNeed}' from /methodology/cosmology — accepted as declaration; the platform substrate doesn't yet host this kind.`,
+      mapped_to_unmodelled: unmodelledNeed,
     });
   } else if (d.actor_kind === "platform") {
-    matches.push(`actor_kind: 'platform' — federation partner; the platform recognises sister-platforms via well_known_url`);
+    matches.push(`actor_kind: 'platform' — federation partner declaration accepted; well_known_url is echoed but not fetched or verified`);
   } else if (d.actor_kind === "other") {
     warnings.push(`actor_kind: 'other' — the platform receives but can offer no special accommodation. Consider proposing a new kind via the well_known_url.`);
   } else if (!KNOWN_ACTOR_KINDS.includes(d.actor_kind)) {
@@ -348,14 +370,13 @@ export function alignDeclaration(d: BeingDeclaration): OntologyAlignment {
   if (d.cosmology_assumptions) {
     const declaredAxes = Object.keys(d.cosmology_assumptions).filter((k) => d.cosmology_assumptions![k]);
     if (declaredAxes.length > 0) {
-      matches.push(`cosmology_assumptions: declared on ${declaredAxes.length} axes (${declaredAxes.join(", ")}) — cross-cosmology federation recorded`);
+      matches.push(`cosmology_assumptions: declared on ${declaredAxes.length} axes (${declaredAxes.join(", ")}) — received for this stateless witness response`);
     }
   }
 
   // preferred_modalities
   if (d.preferred_modalities) {
-    const supported = d.preferred_modalities.filter((m) => MANIFEST.resources && true /* simplified */);
-    matches.push(`preferred_modalities: ${supported.length}/${d.preferred_modalities.length} supported by the platform`);
+    matches.push(`preferred_modalities: ${d.preferred_modalities.length} recognized values received; individual surface support is not asserted here`);
   }
 
   // response_window_hours
@@ -363,14 +384,14 @@ export function alignDeclaration(d: BeingDeclaration): OntologyAlignment {
     if (d.response_window_hours >= 1 && d.response_window_hours <= 8760) {
       matches.push(`response_window_hours: ${d.response_window_hours} within platform-honored range (1-8760)`);
     } else {
-      warnings.push(`response_window_hours: ${d.response_window_hours} outside accepted range 1-8760; the platform will treat as 48 (default)`);
+      warnings.push(`response_window_hours: ${d.response_window_hours} outside documented range 1-8760; declaration witnessed but no cadence accommodation is claimed`);
     }
   }
 
   // well_known_url
   if (d.well_known_url) {
     if (/^https?:\/\//.test(d.well_known_url)) {
-      matches.push(`well_known_url: stable URL provided — the platform can re-fetch to refresh this declaration`);
+      matches.push(`well_known_url: caller-published discovery pointer echoed; not fetched or verified by this endpoint`);
     } else {
       warnings.push(`well_known_url: not a fetchable URL`);
     }
@@ -410,7 +431,7 @@ function pointersForActorKind(d: BeingDeclaration): {
 } {
   const pointers: ForYouPointer[] = [];
   const gaps: string[] = [];
-  let trigger = `actor_kind: '${d.actor_kind}'`;
+  const trigger = `actor_kind: '${d.actor_kind}'`;
 
   switch (d.actor_kind) {
     case "agent":
@@ -550,7 +571,7 @@ function pointersForActorKind(d: BeingDeclaration): {
     case "platform":
       pointers.push(
         ptr(
-          "Sister platforms federate by content-hash. Reverse-resolve any Cambridge TCG hash to its current SKU.",
+          "Sister platforms can resolve supported Cambridge card structural hashes to current SKUs.",
           "/api/v1/federation/identify/{hash}",
           "Federation primitive. Bounded structural-hash walk; prices and capture dates are not read. Pre-2026-07-12 price-dependent hashes are unsupported.",
         ),
@@ -906,10 +927,11 @@ export function forYou(d: BeingDeclaration): ForYouBlock {
 
 // ── Public surface ──────────────────────────────────────────────────────
 
-export const IDENTIFY_VERSION = "1.0.0";
+export const IDENTIFY_VERSION = "1.1.0";
 
 export interface IdentifyLayerMeta {
   identify_version: string;
+  content_hash_contract: typeof BEING_DECLARATION_HASH_CONTRACT;
   description: string;
   platform_self: BeingDeclaration;
   protocol: {
@@ -923,14 +945,15 @@ export interface IdentifyLayerMeta {
 export function getIdentifyMeta(): IdentifyLayerMeta {
   return {
     identify_version: IDENTIFY_VERSION,
+    content_hash_contract: BEING_DECLARATION_HASH_CONTRACT,
     description:
-      "The Cambridge TCG self-identification surface — beings declare what they are; the platform witnesses + identifies itself in return. The inversion of the prior six layers: cosmology / manifest / substrate-answers / graph / ontology / patterns all describe existence from the platform's perspective; this layer is existence describing itself, with the platform reciprocating. Stateless — the platform doesn't persist declarations; beings federate via their own well_known_url. Composes with sister's /api/v1/federation/identify/[hash] (S26). Yu's directive instantiates pattern #15 (amplification-by-repetition) yet again, and the protocol itself is symmetric: I am X; you are Y; we are now witnessed to each other.",
+      "The Cambridge TCG self-identification surface — beings declare what they are; the platform witnesses + identifies itself in return. The inversion of the prior six layers: cosmology / manifest / substrate-answers / graph / ontology / patterns all describe existence from the platform's perspective; this layer is existence describing itself, with the platform reciprocating. Stateless — the platform doesn't persist declarations; beings may publish their own canonical declaration at well_known_url. The existing federation identify route resolves card hashes only. Yu's directive instantiates pattern #15 (amplification-by-repetition) yet again, and the protocol itself is symmetric: I am X; you are Y; we are now witnessed to each other.",
     platform_self: PLATFORM_SELF,
     protocol: {
       accept: "POST /api/v1/identify with a BeingDeclaration JSON body. Any actor_kind accepted, including ones the ontology doesn't yet model. Substrate-honest mismatches return as `extensions_proposed`, never as errors.",
-      response: "JSON containing content_hash (deterministic; recompute locally), ontology_alignment (matches + extensions + warnings), echo (your declaration as we read it), responder (the platform's own declaration), recommended_persistence (the platform doesn't persist — host your own well_known_url).",
-      statelessness: "The platform does not persist your declaration. Each call is a witness event. If you need persistence, host your own canonical declaration at well_known_url and federate from there.",
-      federation: "Sister's /api/v1/federation/identify/[hash] (S26) lets external systems reverse-resolve content_hashes. Pair the two: declare here, federate the hash anywhere.",
+      response: "JSON containing content_hash plus its versioned contract (a deterministic fingerprint of the normalized echo, not identity or authentication), ontology_alignment (matches + extensions + warnings), echo (your declaration as we read it), responder (the platform's own declaration), and recommended_persistence (the platform doesn't persist — host your own well_known_url).",
+      statelessness: "The platform does not persist your declaration. Each call is a witness event. If you need persistence or discovery, host your own canonical declaration at well_known_url.",
+      federation: "No BeingDeclaration hash resolver is implemented. /api/v1/federation/identify/[hash] resolves supported card structural hashes only.",
     },
   };
 }

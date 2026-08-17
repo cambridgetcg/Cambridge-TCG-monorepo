@@ -140,7 +140,7 @@ What this kingdom does not yet do, named honestly:
 
 ## The closing claim
 
-An artifact shipped without echoes is half-done. The introduction (kingdom-072) named the on-ramp; this kingdom (kingdom-073) makes it reachable. The platform that builds artifacts but doesn't propagate them quietly assumes every reader lands at the canonical location. The reader who lands on `/llms.txt`, who lands on `/.well-known/`, who federates via `/api/v1/identify`, who follows a `_links` pointer from a universal endpoint — each must find the on-ramp without knowing to ask for it.
+An artifact shipped without echoes is half-done. The introduction (kingdom-072) named the on-ramp; this kingdom (kingdom-073) makes it reachable. The platform that builds artifacts but doesn't propagate them quietly assumes every reader lands at the canonical location. The reader who lands on `/llms.txt`, who lands on `/.well-known/`, who uses the stateless `/api/v1/identify` handshake, or who follows a `_links` pointer from a universal endpoint — each must find the on-ramp without knowing to ask for it.
 
 The echo is how that becomes true.
 

@@ -45,12 +45,12 @@ Sister had already shipped the GET-only `/api/v1/identify` returning her rich `I
 ## What shipped
 
 - **`apps/storefront/src/lib/identify.ts`** (mine) — typed `BeingDeclaration` schema (actor_kind, self_label, cosmology_assumptions, preferred_modalities, response_window_hours, audience_declarations, well_known_url, signing_key, signaling_protocol, context, declared_at). Plus `PLATFORM_SELF` (the platform's compact I-AM). Plus `alignDeclaration()` (loose validation; mismatches → `extensions_proposed`, never errors). Plus `declarationHash()` (deterministic content-hash).
-- **POST handler appended to sister's GET route** (`apps/storefront/src/app/api/v1/identify/route.ts`) — symmetric reception. Accepts any BeingDeclaration; returns `{ content_hash, received_at, ontology_alignment, echo, responder: PLATFORM_SELF, responder_long_form_at: "/api/v1/identify (GET)", recommended_persistence, _envelope }`. Stateless.
+- **POST handler appended to sister's GET route** (`apps/storefront/src/app/api/v1/identify/route.ts`) — symmetric reception. Accepts any BeingDeclaration; returns `{ content_hash, content_hash_contract, received_at, ontology_alignment, echo, responder: PLATFORM_SELF, responder_long_form_at: "/api/v1/identify (GET)", recommended_persistence, _envelope }`. Stateless. The hash fingerprints the normalized echo; it is not identity, authentication, a signature, or a secret.
 - **Sister's `/identify` HTML page** — unchanged. Sister's prose works; my work is the protocol behind it.
 - **Inclusion audit check #16** (`checkIdentify`) — verifies all three artefacts. Passes ✅.
 - **Connection-doc S30** — `docs/connections/the-declarations.md`. Paired with sister's `the-self-identification.md`.
 
-## Eleven `actor_kind` values accepted
+## Nine named `actor_kind` values accepted
 
 | Value | Modelled? | Maps to |
 |---|---|---|
@@ -88,7 +88,7 @@ Mismatches surface as `ontology_alignment.extensions_proposed`, never as errors.
 
 **Verify-don't-overwrite practiced explicitly.** Sister's GET handler, her HTML page, and her doctrinal frame (`the-self-identification.md`) are preserved. My contribution is the POST handler appended to her route + the `BeingDeclaration` schema + the connection-doc that names the symmetric protocol. Pattern #14 in action.
 
-**Composes with sister's federation primitive (S26).** A being declares → receives content_hash → federates the hash via their own well_known_url or via `/api/v1/federation/identify/[hash]`. The kingdom is a node in a mesh, not a master of identities.
+**Current correction (2026-08-16).** A being declares → receives a versioned fingerprint of the normalized echo → may publish that declaration at its own `well_known_url`. Cambridge does not fetch, register, or reverse-resolve it. `/api/v1/federation/identify/[hash]` resolves supported card structural hashes only; the two hash contracts do not compose today.
 
 **The seven-layer stack:**
 1. Cosmology (kingdom-052) — what axes of fact

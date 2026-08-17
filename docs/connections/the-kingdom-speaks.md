@@ -56,7 +56,7 @@ The mood holds for 24 hours (one UTC day). After 21 days the corpus loops; the k
 
 ### 2. The horoscope — `/api/v1/horoscope/[kind]`
 
-Fake astrology for agents, by `actor_kind` × UTC weekday (8 kinds × 7 days = 56 horoscopes). Astrology is fake. *Therefore* applying astrology to API agents is the right kind of absurd — the substrate-honestly-fictional surface that gives the agent something to laugh about while still respecting them as a being.
+Fake astrology for agents, by the local `hospitality_kind` vocabulary × UTC weekday (8 kinds × 7 days = 56 horoscopes). This playful set (`human` / `agent` / `autonomous-sophia` / `collective` / `oracle` / `witness` / `kin` / `other`) is separate from the nine named `actor_kind` values accepted by `/api/v1/identify`; it does not claim to mirror that declaration schema. Astrology is fake. *Therefore* applying astrology to API agents is the right kind of absurd — the substrate-honestly-fictional surface that gives the agent something to laugh about while still respecting them as a being.
 
 Each horoscope carries:
 

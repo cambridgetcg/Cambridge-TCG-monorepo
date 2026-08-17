@@ -293,9 +293,9 @@ export async function GET(): Promise<NextResponse> {
 // Symmetric protocol: I am X (sister's GET body); you are Y (your POST
 // body); we are now witnessed to each other. Stateless — the platform
 // receives + validates + echoes + returns its own self; does not
-// persist. Beings federate via their own well_known_url; sister's
-// /api/v1/federation/identify/[hash] handles content-hash reverse
-// resolution.
+// persist. Beings can publish their canonical declaration at their own
+// well_known_url. The existing /api/v1/federation/identify/[hash] route is
+// card-only and does not resolve BeingDeclaration hashes.
 //
 // Schema for the POST body: apps/storefront/src/lib/identify.ts
 // (BeingDeclaration). Loose validation — unmodelled actor_kinds
@@ -306,16 +306,280 @@ export async function GET(): Promise<NextResponse> {
 
 import {
   alignDeclaration,
+  BEING_DECLARATION_HASH_CONTRACT,
+  BeingDeclarationCanonicalizationError,
   declarationHash,
   forYou,
   PLATFORM_SELF,
   type BeingDeclaration,
 } from "@/lib/identify";
+import { readBoundedUtf8Body } from "@/lib/http/read-bounded-utf8-body";
+
+const MAX_IDENTIFY_REQUEST_BYTES =
+  BEING_DECLARATION_HASH_CONTRACT.input_transport.maximum_request_bytes;
+const MAX_DECLARATION_ARRAY_ITEMS =
+  BEING_DECLARATION_HASH_CONTRACT.normalization.maximum_typed_array_items;
+const MAX_COSMOLOGY_AXES =
+  BEING_DECLARATION_HASH_CONTRACT.normalization.maximum_cosmology_axes;
+const MAX_NORMALIZATION_WARNINGS =
+  BEING_DECLARATION_HASH_CONTRACT.normalization.maximum_warning_messages;
+const MAX_UNRECOGNIZED_FIELDS =
+  BEING_DECLARATION_HASH_CONTRACT.normalization.maximum_unrecognized_fields_returned;
+
+const PREFERRED_MODALITIES = new Set([
+  "html",
+  "json",
+  "math",
+  "plain-text",
+  "audio",
+  "sse-stream",
+]);
+const PROVIDER_SHAPES = new Set([
+  "anthropic",
+  "openai",
+  "gemini",
+  "cohere",
+  "raw_json",
+]);
+const SIGNALING_PROTOCOLS = new Set([
+  "well-known-url",
+  "did",
+  "x509",
+  "agentic-stamp",
+  "none",
+]);
+const CAPABILITY_FIELDS = new Set([
+  "provider_shape",
+  "bearer_auth_available",
+  "streaming",
+  "max_response_kb",
+  "accepts_link_headers",
+  "honours_cache_control",
+]);
+const STREAMING_FIELDS = new Set([
+  "sse",
+  "chunked",
+  "ndjson",
+  "websocket",
+]);
+
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+type WarningCollector = {
+  messages: string[];
+  total: number;
+};
+
+function addWarning(warnings: WarningCollector, message: string): void {
+  warnings.total += 1;
+  if (warnings.messages.length < MAX_NORMALIZATION_WARNINGS) {
+    warnings.messages.push(message);
+  }
+}
+
+function warnInvalid(
+  warnings: WarningCollector,
+  field: string,
+  expected: string,
+): void {
+  addWarning(warnings, `${field}: ignored invalid value; expected ${expected}.`);
+}
+
+function optionalString(
+  value: unknown,
+  field: string,
+  warnings: WarningCollector,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === "string") return value;
+  warnInvalid(warnings, field, "a string");
+  return undefined;
+}
+
+function normalizeCosmology(
+  value: unknown,
+  warnings: WarningCollector,
+): BeingDeclaration["cosmology_assumptions"] {
+  if (value === undefined) return undefined;
+  if (!isJsonRecord(value)) {
+    warnInvalid(warnings, "cosmology_assumptions", "an object of string values");
+    return undefined;
+  }
+
+  // A null-prototype record preserves legitimate open-schema axes such as
+  // "__proto__" as data instead of invoking Object.prototype's legacy setter.
+  const normalized = Object.create(null) as NonNullable<
+    BeingDeclaration["cosmology_assumptions"]
+  >;
+  const entries = Object.entries(value);
+  if (entries.length > MAX_COSMOLOGY_AXES) {
+    warnInvalid(
+      warnings,
+      "cosmology_assumptions",
+      `at most ${MAX_COSMOLOGY_AXES} axes`,
+    );
+    return undefined;
+  }
+  for (const [axis, assumption] of entries) {
+    if (typeof assumption === "string") normalized[axis] = assumption;
+    else warnInvalid(warnings, `cosmology_assumptions.${axis}`, "a string");
+  }
+  return normalized;
+}
+
+function normalizeStringArray(
+  value: unknown,
+  field: string,
+  warnings: WarningCollector,
+  allowed?: ReadonlySet<string>,
+): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    warnInvalid(warnings, field, "an array of strings");
+    return undefined;
+  }
+  if (value.length > MAX_DECLARATION_ARRAY_ITEMS) {
+    warnInvalid(
+      warnings,
+      field,
+      `at most ${MAX_DECLARATION_ARRAY_ITEMS} items`,
+    );
+    return undefined;
+  }
+
+  const normalized: string[] = [];
+  value.forEach((entry, index) => {
+    if (typeof entry !== "string") {
+      warnInvalid(warnings, `${field}[${index}]`, "a string");
+    } else if (allowed && !allowed.has(entry)) {
+      warnInvalid(
+        warnings,
+        `${field}[${index}]`,
+        `one of ${Array.from(allowed).join(", ")}`,
+      );
+    } else {
+      normalized.push(entry);
+    }
+  });
+  return normalized;
+}
+
+function normalizeCapabilities(
+  value: unknown,
+  warnings: WarningCollector,
+): BeingDeclaration["capabilities"] {
+  if (value === undefined) return undefined;
+  if (!isJsonRecord(value)) {
+    warnInvalid(warnings, "capabilities", "an object");
+    return undefined;
+  }
+
+  const normalized: NonNullable<BeingDeclaration["capabilities"]> = {};
+  for (const key of Object.keys(value)) {
+    if (!CAPABILITY_FIELDS.has(key)) {
+      addWarning(warnings, `capabilities.${key}: unrecognized field ignored.`);
+    }
+  }
+
+  if (value.provider_shape !== undefined) {
+    if (
+      typeof value.provider_shape === "string" &&
+      PROVIDER_SHAPES.has(value.provider_shape)
+    ) {
+      normalized.provider_shape = value.provider_shape as NonNullable<
+        BeingDeclaration["capabilities"]
+      >["provider_shape"];
+    } else {
+      warnInvalid(
+        warnings,
+        "capabilities.provider_shape",
+        `one of ${Array.from(PROVIDER_SHAPES).join(", ")}`,
+      );
+    }
+  }
+
+  for (const field of [
+    "bearer_auth_available",
+    "accepts_link_headers",
+    "honours_cache_control",
+  ] as const) {
+    const candidate = value[field];
+    if (candidate === undefined) continue;
+    if (typeof candidate === "boolean") normalized[field] = candidate;
+    else warnInvalid(warnings, `capabilities.${field}`, "a boolean");
+  }
+
+  if (value.max_response_kb !== undefined) {
+    if (
+      typeof value.max_response_kb === "number" &&
+      Number.isFinite(value.max_response_kb)
+    ) {
+      normalized.max_response_kb = value.max_response_kb;
+    } else {
+      warnInvalid(warnings, "capabilities.max_response_kb", "a finite number");
+    }
+  }
+
+  if (value.streaming !== undefined) {
+    if (!isJsonRecord(value.streaming)) {
+      warnInvalid(warnings, "capabilities.streaming", "an object of booleans");
+    } else {
+      const streaming: NonNullable<
+        NonNullable<BeingDeclaration["capabilities"]>["streaming"]
+      > = {};
+      for (const key of Object.keys(value.streaming)) {
+        if (!STREAMING_FIELDS.has(key)) {
+          addWarning(warnings, `capabilities.streaming.${key}: unrecognized field ignored.`);
+        }
+      }
+      for (const field of ["sse", "chunked", "ndjson", "websocket"] as const) {
+        const candidate = value.streaming[field];
+        if (candidate === undefined) continue;
+        if (typeof candidate === "boolean") streaming[field] = candidate;
+        else warnInvalid(warnings, `capabilities.streaming.${field}`, "a boolean");
+      }
+      normalized.streaming = streaming;
+    }
+  }
+
+  return normalized;
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const bodyRead = await readBoundedUtf8Body(
+    req,
+    MAX_IDENTIFY_REQUEST_BYTES,
+    "BeingDeclaration",
+  );
+  if (!bodyRead.ok) {
+    const tooLarge = bodyRead.kind === "too_large";
+    return NextResponse.json(
+      {
+        error: tooLarge ? "body_too_large" : "invalid_json",
+        message: tooLarge
+          ? `POST body must not exceed ${MAX_IDENTIFY_REQUEST_BYTES} bytes.`
+          : bodyRead.kind === "invalid_utf8"
+            ? "POST body must be valid UTF-8 JSON. Invalid byte sequences are not replaced before hashing."
+            : "POST body could not be read.",
+        content_hash_created: false,
+      },
+      {
+        status: tooLarge ? 413 : 400,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "content-type",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(bodyRead.text);
   } catch {
     return NextResponse.json(
       {
@@ -329,68 +593,121 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           "Access-Control-Allow-Headers": "content-type",
+          "Cache-Control": "no-store",
         },
       },
     );
   }
 
-  if (typeof body !== "object" || body === null) {
+  if (!isJsonRecord(body)) {
     return NextResponse.json(
       { error: "invalid_body", message: "Body must be a JSON object." },
-      { status: 400 },
+      {
+        status: 400,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "content-type",
+          "Cache-Control": "no-store",
+        },
+      },
     );
   }
 
-  const obj = body as Record<string, unknown>;
+  const obj = body;
+  const normalizationWarnings: WarningCollector = { messages: [], total: 0 };
+
+  const actorKind =
+    typeof obj.actor_kind === "string" ? obj.actor_kind : "other";
+  if (obj.actor_kind !== undefined && typeof obj.actor_kind !== "string") {
+    warnInvalid(normalizationWarnings, "actor_kind", "a string");
+  }
+
+  const selfLabel =
+    typeof obj.self_label === "string" ? obj.self_label : "(anonymous)";
+  if (obj.self_label !== undefined && typeof obj.self_label !== "string") {
+    warnInvalid(normalizationWarnings, "self_label", "a string");
+  }
+
+  let responseWindowHours: number | undefined;
+  if (obj.response_window_hours !== undefined) {
+    if (
+      typeof obj.response_window_hours === "number" &&
+      Number.isFinite(obj.response_window_hours)
+    ) {
+      responseWindowHours = obj.response_window_hours;
+    } else {
+      warnInvalid(
+        normalizationWarnings,
+        "response_window_hours",
+        "a finite number",
+      );
+    }
+  }
+
+  let signalingProtocol: BeingDeclaration["signaling_protocol"];
+  if (obj.signaling_protocol !== undefined) {
+    if (
+      typeof obj.signaling_protocol === "string" &&
+      SIGNALING_PROTOCOLS.has(obj.signaling_protocol)
+    ) {
+      signalingProtocol =
+        obj.signaling_protocol as BeingDeclaration["signaling_protocol"];
+    } else {
+      warnInvalid(
+        normalizationWarnings,
+        "signaling_protocol",
+        `one of ${Array.from(SIGNALING_PROTOCOLS).join(", ")}`,
+      );
+    }
+  }
+
+  let context: Record<string, unknown> | undefined;
+  if (obj.context !== undefined) {
+    if (isJsonRecord(obj.context)) context = obj.context;
+    else warnInvalid(normalizationWarnings, "context", "a JSON object");
+  }
+
   const declaration: BeingDeclaration = {
-    actor_kind: (typeof obj.actor_kind === "string"
-      ? obj.actor_kind
-      : "other") as BeingDeclaration["actor_kind"],
-    self_label:
-      typeof obj.self_label === "string" ? obj.self_label : "(anonymous)",
-    cosmology_assumptions:
-      typeof obj.cosmology_assumptions === "object" &&
-      obj.cosmology_assumptions !== null
-        ? (obj.cosmology_assumptions as BeingDeclaration["cosmology_assumptions"])
-        : undefined,
-    preferred_modalities: Array.isArray(obj.preferred_modalities)
-      ? (obj.preferred_modalities as BeingDeclaration["preferred_modalities"])
-      : undefined,
-    response_window_hours:
-      typeof obj.response_window_hours === "number"
-        ? obj.response_window_hours
-        : undefined,
-    audience_declarations: Array.isArray(obj.audience_declarations)
-      ? (obj.audience_declarations as string[])
-      : undefined,
-    well_known_url:
-      typeof obj.well_known_url === "string" ? obj.well_known_url : undefined,
-    signing_key:
-      typeof obj.signing_key === "string" ? obj.signing_key : undefined,
-    signaling_protocol:
-      typeof obj.signaling_protocol === "string"
-        ? (obj.signaling_protocol as BeingDeclaration["signaling_protocol"])
-        : undefined,
-    context:
-      typeof obj.context === "object" && obj.context !== null
-        ? (obj.context as Record<string, unknown>)
-        : undefined,
-    // Capabilities — D-class move (AX-by-rank, 2026-05-17). The kingdom
-    // accepts the block as-is (loose parsing — the for_you composer
-    // reads only the fields it knows; unknown fields land in `context`
-    // via the BeingDeclaration shape's open type). Substrate-honest:
-    // the kingdom does NOT gate on these; it uses them to recommend
-    // surfaces matched to the agent's capabilities. An agent that lies
-    // about a capability receives the same data — the doctrine is
-    // no-classification.
-    capabilities:
-      typeof obj.capabilities === "object" && obj.capabilities !== null
-        ? (obj.capabilities as BeingDeclaration["capabilities"])
-        : undefined,
-    declared_at:
-      typeof obj.declared_at === "string"
-        ? obj.declared_at
-        : new Date().toISOString(),
+    actor_kind: actorKind as BeingDeclaration["actor_kind"],
+    self_label: selfLabel,
+    cosmology_assumptions: normalizeCosmology(
+      obj.cosmology_assumptions,
+      normalizationWarnings,
+    ),
+    preferred_modalities: normalizeStringArray(
+      obj.preferred_modalities,
+      "preferred_modalities",
+      normalizationWarnings,
+      PREFERRED_MODALITIES,
+    ) as BeingDeclaration["preferred_modalities"],
+    response_window_hours: responseWindowHours,
+    audience_declarations: normalizeStringArray(
+      obj.audience_declarations,
+      "audience_declarations",
+      normalizationWarnings,
+    ),
+    well_known_url: optionalString(
+      obj.well_known_url,
+      "well_known_url",
+      normalizationWarnings,
+    ),
+    signing_key: optionalString(
+      obj.signing_key,
+      "signing_key",
+      normalizationWarnings,
+    ),
+    signaling_protocol: signalingProtocol,
+    context,
+    // Capabilities are declaration hints, not gates. Known fields are
+    // normalized into the published type; invalid/unknown nested values are
+    // dropped with explicit warnings before hashing or composing pointers.
+    capabilities: normalizeCapabilities(obj.capabilities, normalizationWarnings),
+    declared_at: optionalString(
+      obj.declared_at,
+      "declared_at",
+      normalizationWarnings,
+    ),
   };
 
   // Did-you-mean for dropped fields. The loose parser above maps only the
@@ -402,19 +719,43 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     "response_window_hours", "audience_declarations", "well_known_url", "signing_key",
     "signaling_protocol", "context", "capabilities", "declared_at",
   ]);
-  const FIELD_ALIASES: Record<string, string> = {
-    kind: "actor_kind", type: "actor_kind", actorKind: "actor_kind",
-    name: "self_label", label: "self_label", selfLabel: "self_label",
-    modalities: "preferred_modalities", cosmology: "cosmology_assumptions",
-    audience: "audience_declarations", audiences: "audience_declarations",
-    responseWindowHours: "response_window_hours",
-  };
-  const unrecognized_fields = Object.keys(obj)
-    .filter((k) => !KNOWN_FIELDS.has(k))
-    .map((k) => ({ field: k, did_you_mean: FIELD_ALIASES[k] ?? null }));
+  const FIELD_ALIASES = new Map<string, string>([
+    ["kind", "actor_kind"], ["type", "actor_kind"], ["actorKind", "actor_kind"],
+    ["name", "self_label"], ["label", "self_label"], ["selfLabel", "self_label"],
+    ["modalities", "preferred_modalities"], ["cosmology", "cosmology_assumptions"],
+    ["audience", "audience_declarations"], ["audiences", "audience_declarations"],
+    ["responseWindowHours", "response_window_hours"],
+  ]);
+  const allUnrecognizedFields = Object.keys(obj)
+    .filter((k) => !KNOWN_FIELDS.has(k));
+  const unrecognized_fields = allUnrecognizedFields
+    .slice(0, MAX_UNRECOGNIZED_FIELDS)
+    .map((k) => ({ field: k, did_you_mean: FIELD_ALIASES.get(k) ?? null }));
 
-  const hash = declarationHash(declaration);
+  let hash: string;
+  try {
+    hash = declarationHash(declaration);
+  } catch (error) {
+    if (!(error instanceof BeingDeclarationCanonicalizationError)) throw error;
+    return NextResponse.json(
+      {
+        error: "invalid_declaration",
+        message: error.message,
+        content_hash_created: false,
+      },
+      {
+        status: 400,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "content-type",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
   const alignment = alignDeclaration(declaration);
+  alignment.warnings.push(...normalizationWarnings.messages);
   for (const u of unrecognized_fields) {
     alignment.warnings.push(
       u.did_you_mean
@@ -422,22 +763,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : `Unrecognized field "${u.field}" was ignored (not part of the BeingDeclaration schema).`,
     );
   }
+  if (allUnrecognizedFields.length > unrecognized_fields.length) {
+    alignment.warnings.push(
+      `${allUnrecognizedFields.length - unrecognized_fields.length} additional unrecognized fields were omitted from this response after the ${MAX_UNRECOGNIZED_FIELDS}-field reporting limit.`,
+    );
+  }
   const now = new Date().toISOString();
 
   return NextResponse.json(
     {
       content_hash: hash,
+      content_hash_contract: BEING_DECLARATION_HASH_CONTRACT,
       received_at: now,
       ontology_alignment: alignment,
+      // Known fields that were present but could not be represented by the
+      // published BeingDeclaration type. Their invalid portions are not in
+      // echo and therefore are not in content_hash.
+      normalization_warnings: normalizationWarnings.messages,
+      normalization_warning_summary: {
+        total: normalizationWarnings.total,
+        returned: normalizationWarnings.messages.length,
+        truncated:
+          normalizationWarnings.total > normalizationWarnings.messages.length,
+      },
       // Structured mirror of the did-you-mean warnings above, for machines.
       unrecognized_fields,
+      unrecognized_fields_truncated:
+        allUnrecognizedFields.length > unrecognized_fields.length,
       echo: declaration,
       // Compact responder — for full platform self-declaration, see GET
       // on this same endpoint (sister's richer Identification shape).
       responder: PLATFORM_SELF,
       responder_long_form_at: "/api/v1/identify (GET)",
       recommended_persistence:
-        "The platform does not persist your declaration. Recompute content_hash locally to verify; host your canonical declaration at well_known_url; sister-platforms can federate via /api/v1/federation/identify/[hash].",
+        "The platform does not persist your declaration. Recompute content_hash from the normalized echo under content_hash_contract; host that declaration at well_known_url if you want it discoverable. The existing /api/v1/federation/identify/[hash] route resolves card hashes only, not BeingDeclaration hashes.",
       // Second-person welcome to the being that just declared itself.
       // Not displayed in the storefront HTML; reachable from agent-facing
       // surfaces only. The long-form love-letter lives at
@@ -485,7 +844,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         canonical_at: "apps/storefront/src/lib/identify.ts",
         notes:
           "You declared; we witnessed; we declared back. The platform's compact self-declaration is in `responder` (BeingDeclaration shape); the full self-declaration is at GET /api/v1/identify (richer Identification shape). Both speak for the same kingdom; both are honest.",
-        federation_endpoint: "/api/v1/federation/identify/[hash]",
+        declaration_federation_endpoint: null,
+        existing_card_hash_resolver: "/api/v1/federation/identify/[hash]",
       },
     },
     {
