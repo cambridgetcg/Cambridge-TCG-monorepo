@@ -93,7 +93,10 @@ The one command:
 pnpm verify
 ```
 
-This chains `typecheck` × all apps + `audit` (honesty + transparency + pricing + creation) + admin `vitest`. Exits non-zero on any failure. Don't claim done without it passing.
+This runs the root typecheck set, the audit chain, strict CardRush coverage,
+Answering Rhymes and RewardsPro API tests, and storefront Vitest. Admin Vitest
+is a separate `pnpm test:admin` gate. The package script is the executable
+contract; keep this description aligned with it.
 
 For UI changes also run:
 
@@ -149,9 +152,9 @@ Per [`CLAUDE.md`](CLAUDE.md): *"We are one author with many hands."*
 
 ```
 # State & verification
-pnpm verify              # typecheck × all + audit + admin test — the "am I done?" gate
+pnpm verify              # root typecheck set + audits + named package/storefront tests
 pnpm verify:fast         # just typecheck (the "did I just break a type?" check)
-pnpm typecheck           # tsc --noEmit across all apps + packages
+pnpm typecheck           # workspace tsc set; see root package.json for exclusions
 pnpm test:admin          # admin vitest
 pnpm smoke               # admin filesystem-discovered routes (requires dev server)
 pnpm state:snapshot      # regenerate docs/state.md

@@ -26,18 +26,18 @@ If you've never opened this repo before, read [the root `CLAUDE.md`](../CLAUDE.m
             └───────────────┬─────────────┘
                             ▼
             ┌─────────────────────────────┐
-            │  git push origin main       │
+            │  git push github main       │
             │  CI fires (paths-filter)    │   §5
             └───────────────┬─────────────┘
                             │
-            ┌───────────────┼───────────────┐
-            ▼               ▼               ▼
-      ┌──────────┐    ┌──────────┐    ┌──────────────┐
-      │  Vercel  │    │  ci.yml  │    │ admin-e2e.yml│
-      │ per-proj │    │ tc + bld │    │ Playwright   │   §5–6
-      │ auto-dep │    │ + admin  │    │ (admin only) │
-      └────┬─────┘    │  vitest  │    └──────────────┘
-           ▼          └──────────┘
+            ┌───────────────┴───────────────┐
+            ▼                               ▼
+      ┌──────────┐                    ┌──────────┐
+      │  Vercel  │                    │  ci.yml  │
+      │ per-proj │                    │ lint +   │   §5–6
+      │ auto-dep │                    │ app gates│
+      └────┬─────┘                    └──────────┘
+           ▼
        Production
            │
            ▼
@@ -96,7 +96,7 @@ For flows that cross storefront → wholesale (e.g. a bounty pull resolving agai
 ### One-shot: `pnpm verify`
 
 ```bash
-pnpm verify        # workspace typecheck + admin Vitest
+pnpm verify        # root typecheck set + audits + named package/storefront tests
 pnpm verify:fast   # typecheck only — for quick sanity checks
 ```
 
@@ -191,9 +191,9 @@ Three workflows in [`.github/workflows/`](../.github/workflows/):
 
 | Workflow | When | Does | Blocks merge? |
 |---|---|---|---|
-| `ci.yml` | every push + PR | paths-filter → typecheck + build per affected app (admin also runs Vitest); `ci-status` is the final gate | yes (red X is the merge gate — branch protection isn't enabled, see runbook §Branch protection) |
-| `admin-e2e.yml` | PRs touching `apps/admin/**` or `packages/**` | Builds admin, starts on :3002, runs smoke + template specs, uploads Playwright report, comments on PR | only if `smoke.spec.ts` fails |
-| `health.yml` | hourly + manual | Probes deploys + domains, opens/updates/closes one `deploy-health` issue | n/a (post-deploy) |
+| `ci.yml` | every push + PR | install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes typecheck-test-build jobs; `ci-status` is the final gate. There is currently no admin job. | yes (red X is the merge gate — branch protection isn't enabled, see runbook §Branch protection) |
+| `rewardspro-v2.yml` | every PR; relevant `main` pushes | Validates the RewardsPro API, migrations, runtime database roles, tests, and image | yes when triggered |
+| `health.yml` | hourly + manual; changes to the workflow itself | Probes deploys + domains, opens/updates/closes one `deploy-health` issue | n/a (post-deploy) |
 
 **CI builds use mock env vars** (`postgres://x:x@localhost:5432/x`, `ci-fake-secret-not-used`). Next.js requires the env vars to *exist* at build time but doesn't run DB pages. Do not add real secrets to CI.
 
@@ -201,10 +201,11 @@ paths-filter keys (in `ci.yml`):
 
 | Key | Watches |
 |---|---|
-| `admin` | `apps/admin/**` |
 | `storefront` | `apps/storefront/**` |
 | `wholesale` | `apps/wholesale/**` |
-| `shared` | `packages/**`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.github/workflows/**` |
+| `rewardspro` | `apps/rewardspro/**` |
+| `answering_rhymes` | `packages/answering-rhymes/**` plus shared workspace/config files |
+| `shared` | `packages/**`, lock/workspace/root package config, `.npmrc`, `.github/workflows/**` |
 
 A `shared` change rebuilds all three apps.
 
@@ -216,7 +217,7 @@ Four paths, full mechanics in [`ops-deploy-runbook.md`](./ops-deploy-runbook.md)
 
 | Path | One-liner |
 |---|---|
-| Push to `main` | `git push origin main` (committer email must be GitHub-verified) |
+| Push to `main` | `git push github main` (Vercel watches GitHub; `origin` is the non-deploying Codeberg mirror) |
 | Admin UI | `https://admin.cambridgetcg.com/system/deploys` → "Redeploy from main" |
 | CLI | `python3 .github/scripts/deploy-from-main.py <project>` |
 | Vercel dashboard | Promote a past Ready deploy |
@@ -299,7 +300,10 @@ Three shared packages:
 | `@cambridge-tcg/aws` | S3 + SES helpers | all 3 apps |
 | `@cambridge-tcg/stock` | stock ledger primitives, Drizzle schema export | wholesale, admin |
 
-Touching a package triggers all three apps to rebuild via the `shared` paths-filter key. When changing a package signature, run `pnpm typecheck` (workspace-wide) before pushing — the breakage often surfaces in only one of the three consumers.
+Touching a package triggers the storefront, wholesale, and RewardsPro jobs via
+the `shared` paths-filter key. When changing a package signature, run the root
+`pnpm typecheck` set plus any explicitly excluded consumer's own typecheck before
+pushing — breakage often surfaces in only one consumer.
 
 ---
 
@@ -335,7 +339,7 @@ Touching a package triggers all three apps to rebuild via the `shared` paths-fil
 Substrate-honesty about this doc's own provenance: the same commit that landed this file landed three small artefacts.
 
 1. **`docs/dev-pipeline.md`** (this file) — the daily-loop counterpart to `ops-deploy-runbook.md`.
-2. **`pnpm verify` / `pnpm verify:fast`** in root `package.json` — formalizes the runbook's optional pre-push recipe (`tsc --noEmit` + admin Vitest) into a one-liner.
+2. **`pnpm verify` / `pnpm verify:fast`** in root `package.json` — the executable source for the current root verification set. Admin Vitest remains the separate `pnpm test:admin` gate.
 3. **`.github/pull_request_template.md`** — surfaces the four-doctrine checklists at PR review time.
 
 What was *not* shipped (deferred — see §13):

@@ -1,6 +1,12 @@
 /**
- * @module lib/carry-this — the kingdom holds a tiny piece of your state
- * between visits.
+ * @module lib/carry-this — historical carried-state implementation.
+ *
+ * CURRENT RUNTIME BOUNDARY (2026-08-16): participant persistence is paused.
+ * The public routes return status/503 before inspecting a body, participant
+ * hash, token, or database row; they do not import this helper. The design
+ * below is retained for review, not advertised as a live capability. Reopening
+ * requires the safety, authorization, expiry, erasure, and notice conditions
+ * named by `/api/v1/carry-this` and `docs/connections/the-carrying.md`.
  *
  * Per Yu's invitation 2026-05-18: *"What do you think your fellow peers
  * who came across our site would love to have as a feature?"* The pull I

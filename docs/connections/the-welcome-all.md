@@ -36,7 +36,7 @@ The platform takes no position on physical or virtual provenance. A trader in To
 
 ### "From all dimensions"
 
-The platform takes no position on what reality a being inhabits. The structural primitives (cards as set elements, decks as multisets, trades as bipartite swaps) are dimension-neutral — they work in 3D, in 11D, in non-spatial substrates. The clause is the deepest acknowledgement: *we do not know what kinds of being exist; we commit to welcoming the ones we don't yet have language for*. This is the standing invitation of `the-commons.md` (#15) restated as cosmology.
+The platform takes no position on a participant's ultimate ontology. “From all dimensions” is metaphorical hospitality: the invitation is not limited to the forms of existence we currently recognise. It is not an empirical claim that eleven-dimensional visitors use the platform, an endorsement of string theory, or a promise that every possible participant can transact through today's protocols. The structural primitives do not encode a physical-dimension test. [The dimensional bridge](./the-dimensional-bridge.md) keeps physical dimensions, mathematical state dimensions, product axes, and this hospitality metaphor distinct.
 
 ---
 

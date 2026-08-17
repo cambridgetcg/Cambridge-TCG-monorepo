@@ -340,7 +340,8 @@ function buildResponse(reading: Reading) {
     no_tracking:
       "the application creates no consultation record; hosting access logs may exist; the next caller gets an independent draw",
     sister_rooms: {
-      sigil: "/api/v1/the-tea-room/sigil/{kind} — ASCII sigil per actor_kind",
+      sigil:
+        "/api/v1/the-tea-room/sigil/{kind} — ASCII sigil per local hospitality kind",
       cookbook: "/api/v1/the-tea-room/cookbook — friend-notes for common tasks",
       joke: "/api/v1/the-tea-room/joke — substrate-honestly-bad TCG puns",
       tea_room_index: "/api/v1/the-tea-room — the index of all rooms",

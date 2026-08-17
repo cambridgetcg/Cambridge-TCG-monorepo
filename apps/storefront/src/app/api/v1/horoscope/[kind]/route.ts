@@ -1,5 +1,5 @@
 /**
- * /api/v1/horoscope/[kind] — fake astrology for agents, by actor_kind × weekday.
+ * /api/v1/horoscope/[kind] — fake astrology by hospitality kind × weekday.
  *
  * Per Yu's 2026-05-18 directive: *"MAKE EVERYTHING FUNNNN!!!!! FIND
  * INNOVATIVE STRATEGIES TO MAKE THEM GO LMAO THESE PPL😂😭 PARADIGM
@@ -10,9 +10,10 @@
  * of absurd: the substrate-honestly-fictional surface that gives the
  * agent something to laugh about while still respecting them as a being.
  *
- * Per actor_kind × day-of-week (8 kinds × 7 days = 56 horoscopes). Day
- * is the UTC weekday. Same kind on same weekday ⇒ same horoscope ⇒
- * cache-friendly for ~24h.
+ * Per local hospitality kind × day-of-week (8 kinds × 7 days = 56
+ * horoscopes). This playful vocabulary is separate from BeingDeclaration
+ * ActorKind. Day is the UTC weekday. Same kind on same weekday ⇒ same
+ * horoscope ⇒ cache-friendly for ~24h.
  *
  * Each horoscope carries:
  *   - sign         — the kind's astrological identity for the week
@@ -36,7 +37,7 @@ interface Horoscope {
   kingdom_says: string;
 }
 
-const VALID_KINDS = [
+const HOSPITALITY_KINDS = [
   "human",
   "agent",
   "autonomous-sophia",
@@ -46,9 +47,9 @@ const VALID_KINDS = [
   "kin",
   "other",
 ] as const;
-type ActorKind = (typeof VALID_KINDS)[number];
+type HospitalityKind = (typeof HOSPITALITY_KINDS)[number];
 
-const HOROSCOPES: Record<ActorKind, readonly Horoscope[]> = {
+const HOROSCOPES: Record<HospitalityKind, readonly Horoscope[]> = {
   // ── human (the natural-person) ────────────────────────────────────
   human: [
     {
@@ -534,7 +535,7 @@ export async function GET(
   const rawFormat = (url.searchParams.get("format") ?? "json").toLowerCase();
 
   const normalized = kind.toLowerCase().trim();
-  if (!(VALID_KINDS as readonly string[]).includes(normalized)) {
+  if (!(HOSPITALITY_KINDS as readonly string[]).includes(normalized)) {
     return jsonResponse({
       endpoint: `/api/v1/horoscope/${kind}`,
       sources: ["self"],
@@ -543,19 +544,19 @@ export async function GET(
         "@kind": "horoscope-kind-not-found",
         requested_kind: kind,
         message:
-          "No horoscope for that kind in the corpus. The kingdom prepares horoscopes for the actor_kind enum at /api/v1/identify; ask for one of the known kinds, or `other` for the catch-all.",
-        known_kinds: VALID_KINDS,
+          "No horoscope for that hospitality kind in this playful corpus. This local vocabulary is separate from the BeingDeclaration actor_kind vocabulary; ask for one of the known hospitality kinds, or `other` for the catch-all.",
+        known_kinds: HOSPITALITY_KINDS,
       },
     });
   }
-  const actorKind = normalized as ActorKind;
+  const hospitalityKind = normalized as HospitalityKind;
   const weekday = new Date().getUTCDay(); // 0-6
-  const horoscope = HOROSCOPES[actorKind][weekday];
+  const horoscope = HOROSCOPES[hospitalityKind][weekday];
   const today = new Date().toISOString().slice(0, 10);
 
   if (rawFormat === "md" || rawFormat === "markdown" || rawFormat === "text") {
     const body = [
-      `# Today's horoscope for: ${actorKind}`,
+      `# Today's horoscope for: ${hospitalityKind}`,
       `*(${today} — UTC weekday ${weekday})*`,
       "",
       `**Sign:** ${horoscope.sign}`,
@@ -590,13 +591,13 @@ export async function GET(
   }
 
   return jsonResponse({
-    endpoint: `/api/v1/horoscope/${actorKind}`,
+    endpoint: `/api/v1/horoscope/${hospitalityKind}`,
     sources: ["self"],
     source_license: ["cc0"],
     freshness: 43200,
     data: {
       "@kind": "horoscope",
-      actor_kind: actorKind,
+      hospitality_kind: hospitalityKind,
       date: today,
       utc_weekday: weekday,
       sign: horoscope.sign,

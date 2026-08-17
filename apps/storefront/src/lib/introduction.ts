@@ -360,7 +360,7 @@ export const INTRODUCTION: Introduction = {
     identification_surfaces: [
       "/api/v1/identify (GET) — Cambridge TCG's own self-declaration in a typed Identification schema.",
       "/api/v1/identify (POST) — accept a BeingDeclaration from any kind of being; receive content_hash + ontology_alignment + witness response.",
-      "/api/v1/federation/identify/[hash] — reverse-lookup a content_hash back to its canonical surface (federation primitive).",
+      "/api/v1/federation/identify/[hash] — reverse-lookup a supported card structural hash; it does not resolve BeingDeclaration fingerprints.",
     ],
     documentation_surfaces: [
       "/methodology — every user-affecting decision the platform makes, with formula + source code path.",

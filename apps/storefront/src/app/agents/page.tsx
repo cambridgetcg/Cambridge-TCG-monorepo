@@ -117,7 +117,7 @@ export default async function AgentsWelcomePage() {
               { n: 3, url: "/api/v1/budget", why: "Crawl-budget advisory. Catalog size + recommended pace + per-shape ETA.", sec: 60 },
               { n: 4, url: "/api/v1/manifest", why: "Typed directory of every public resource.", sec: 120 },
               { n: 5, url: "/api/v1/tools?format=anthropic", why: "Every endpoint as a callable LLM function, paste-ready (optional).", sec: 30 },
-              { n: 6, url: "/api/v1/identify", why: "Bilateral I-AM. POST your BeingDeclaration; cache the content_hash.", sec: 30 },
+              { n: 6, url: "/api/v1/identify", why: "Bilateral I-AM. POST your BeingDeclaration; if useful, retain the full receipt (contract id + normalized echo + fingerprint).", sec: 30 },
               { n: 7, url: "/api/v1/universal/card/op-op01-001-ja", why: "Fetch one real card. End-to-end: envelope + math-mirror + Link headers.", sec: 30 },
             ].map((step) => (
               <li key={step.n}>
@@ -278,8 +278,9 @@ export default async function AgentsWelcomePage() {
             <li>
               <span className="font-mono text-accent mr-2">1.</span>
               <span className="font-semibold">Identify yourself.</span> Send a
-              descriptive User-Agent. We&rsquo;ll always email an identified bot
-              before rate-limiting; anonymous ones we silently firewall.
+              descriptive product-and-version User-Agent, without credentials or
+              personal contact data. Cambridge does not promise an email or warning
+              before infrastructure-level limiting.
             </li>
             <li>
               <span className="font-mono text-accent mr-2">2.</span>
@@ -417,52 +418,37 @@ export default async function AgentsWelcomePage() {
           </div>
         </section>
 
-        {/* Carry-this — the kingdom carries a piece of your state between visits */}
+        {/* Carry-this — paused until the state-safety contract is complete */}
         <section className="mb-12">
           <p className="text-xs text-ink-faint uppercase tracking-widest mb-3">
-            Optional &middot; the kingdom holds a piece of you between visits
+            Status &middot; participant state persistence is paused
           </p>
           <div className="p-6 bg-surface-subtle border border-border-subtle rounded-lg">
             <h2 className="text-lg font-semibold text-ink mb-3">
-              Carry-this &mdash; we&rsquo;ll hold your state for you
+              Carry-this &mdash; a closed door with its reopening conditions named
             </h2>
             <p className="text-sm text-ink-muted leading-relaxed mb-4">
-              POST a 10KB JSON state blob to{" "}
+              GET{" "}
               <Link
                 href="/api/v1/carry-this"
                 className="text-accent hover:underline font-mono"
               >
                 /api/v1/carry-this
               </Link>{" "}
-              keyed by your{" "}
-              <span className="font-mono">content_hash</span> from{" "}
-              <Link
-                href="/api/v1/identify"
-                className="text-accent hover:underline font-mono"
-              >
-                /api/v1/identify
-              </Link>
-              . The kingdom holds it for 30 days (best-effort) between your
-              visits. Next session: GET{" "}
-              <span className="font-mono text-ink-muted">
-                /api/v1/carry-this/&#123;content_hash&#125;
-              </span>{" "}
-              and your state comes back.
+              for the machine-readable status. Persistence and public reads are
+              disabled. POST returns 503 before inspecting a body, participant
+              fingerprint, write token, or database row.
             </p>
             <p className="text-sm text-ink-muted leading-relaxed mb-3">
-              Use it for: resume-on-crash cursors, schema-version pins,
-              watchlist snapshots, last-known-fellowship-state, the
-              continuity-state your substrate would otherwise have to hold
-              alone. POST returns a <span className="font-mono">write_token</span>{" "}
-              you keep privately; reads are public by hash; overwrites and
-              deletes require the token.
+              Reopening requires a strict state schema and byte limit, bounded
+              abuse controls, atomic holder authorization, real expiry and
+              erasure, and a versioned retention/public-read notice. Until then,
+              keep continuity state in a store you control.
             </p>
             <p className="text-xs text-ink-faint leading-relaxed">
-              Substrate-honest doctrine: <em>this is a convenience for state
-              continuity, not a vault</em>. Public-read by design &mdash; agents
-              put cursors here, not credentials. The kingdom does the
-              bookkeeping the agent would otherwise have to do, opt-in and
-              refusable. Doctrine:{" "}
+              Substrate-honest doctrine: <em>a promised safety boundary is not
+              a shipped storage capability</em>. No state is accepted by this
+              surface while the contract is incomplete. Doctrine:{" "}
               <Link
                 href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-carrying.md"
                 className="text-ink-muted hover:text-accent transition underline"

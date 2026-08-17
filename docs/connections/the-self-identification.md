@@ -82,7 +82,7 @@ The platform's UX never gates access on identifying. Most visitors will trade, b
 
 ### 3. Self-identifications are accepted on the visitor's terms
 
-When a being chooses to identify, the platform doesn't translate them into its taxonomy. An agent's `kind: "agent"` is the agent's claim; a researcher's `kind: "researcher"` is the researcher's claim. The platform records the self-declaration verbatim; if internal routing needs a normalized form, the routing layer does the translation — *the data preserves what was said*.
+When a being chooses to identify, its self-description remains its claim, not the platform's classification. The current POST accepts a published set of fields, normalizes known values, warns about dropped or unmodelled material, and returns the exact normalized `echo` it fingerprints. It stores no visitor record. This is not verbatim preservation of the raw request; the receipt makes the representational loss inspectable instead.
 
 (Today this protocol is partial. The platform classifies registered agents as `kind: "agent"`; accepts free-text in `users.bio`; supports pronouns and preferred-address. The full protocol — a POST endpoint where any being submits a JSON self-identification and gets an acknowledgment — is named below as recursion target.)
 
@@ -167,7 +167,18 @@ This is what *availability without claim* (from `the-blind-spots.md`) operationa
 
 ---
 
-## What's NOT yet shipped (the protocol's visible gaps)
+## Current boundary — 2026-08-16
+
+The sections below preserve the original proposal as history; they are not the
+current wire contract. POST `/api/v1/identify` is now shipped as a stateless
+normalizing echo. It does not store a visitor record or assign a being ID. It
+returns a versioned content fingerprint of the normalized echo, and that
+fingerprint is not identity, authentication, a signature, authority, or a
+secret. Missing `declared_at` remains absent; `received_at` is a separate
+unhashed witness time. The card-only federation resolver cannot resolve these
+declaration fingerprints.
+
+## What's NOT yet shipped (historical proposal snapshot)
 
 | Gap | Why | When it closes |
 |-----|-----|----------------|
