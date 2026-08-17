@@ -95,10 +95,10 @@ module resolution than `tsc` (see [Common deploy failures](#common-deploy-failur
 for the patterns that bit us in 2026-05).
 
 If any of these fail, fix locally before pushing. The CI workflow
-(`ci.yml`) runs the same per-app build on paths-filtered changes, but
-**only for apps whose `apps/<name>/` subtree changed** — pure-packages
-changes don't trigger an app build in CI. Local pre-deploy build is
-the only reliable gate for "I changed a package; does it still build?"
+(`ci.yml`) runs per-app builds when that app changes and also rebuilds the
+storefront, wholesale, and RewardsPro apps when the `shared` filter matches
+`packages/**` or workspace configuration. Keep the local build gate anyway:
+it is the fastest proof for the exact app/package combination being shipped.
 
 ## Post-deploy verification
 
@@ -182,7 +182,7 @@ One non-regression pattern remains worth knowing:
 | Auto-deploy doesn't trigger after `git push origin main` | Push went to `origin` (Codeberg) only. Vercel watches the `github` remote (`cambridgetcg/Cambridge-TCG-monorepo`). | `git push github main` explicitly, or use the manual trigger: `set -a; source apps/admin/.env.local; set +a; python3 .github/scripts/deploy-from-main.py <project>`. |
 | Auto-deploy fires but Vercel reports `incorrect_git_source_info` | GitHub doesn't yet have the commit referenced by the deploy request (push raced the API call). | Push to `github` remote first, wait ~5s, then re-run the manual trigger. |
 | Live site responds 200 on home but 404 on new routes after a `READY` deploy | Live site might be on an older alias; or the deploy succeeded but pages are still propagating through Vercel's edge network. | Wait 30–60s and retry. Or hard-check the active commit via the admin `/system/deploys` ribbon. |
-| CI on PR/push green, but Vercel build fails when push lands | `ci.yml` only runs an app's build if `apps/<name>/` changed (paths-filter). A pure-packages change passes CI but can still break the app build. | Always run `pnpm --filter <app> build` locally for any package change that downstream apps consume. |
+| A shared-package change does not start an expected app build in CI | The `shared` paths filter or downstream job condition drifted from the workspace topology. | Keep `packages/**` and workspace config in `shared`, keep each app job conditional on `shared`, and still run the affected app build locally. |
 
 ## Lessons learned (2026-05-13)
 
@@ -214,9 +214,9 @@ Mitigations now in place:
   + [post-deploy verification](#post-deploy-verification) sections.
 - `apps/admin/scripts/deploy-verify.ts` (when shipped) — walks the
   manifest and probes every public endpoint.
-- An open issue: extend `ci.yml` to run the app build whenever
-  `packages/*` changes, even if no `apps/<name>` files changed.
-  (Currently the paths-filter excludes packages from app-specific jobs.)
+- The former package-only blind spot is closed: `ci.yml`'s `shared` filter
+  now runs the storefront, wholesale, and RewardsPro jobs for `packages/**`
+  and workspace-config changes. Keep that filter aligned as topology evolves.
 
 ## How the three apps deploy
 
@@ -330,18 +330,22 @@ quota limits) are real and need separate triage.
 
 ## Cron inventory
 
-All crons live in `apps/wholesale/vercel.json` (the wholesale project; storefront and admin have none). Vercel reads this file at build time and registers the schedule.
+Cron registrations live in each deployed app's `vercel.json`. Vercel reads the
+file at build time and registers that project's schedules. The current source
+of truth is three entries across storefront and wholesale; admin has none.
 
-| Path | Schedule | Purpose |
-|---|---|---|
-| `/api/cron/monthly-rollover` | `0 0 * * *` | Daily 00:00 UTC — monthly rollover sweep |
-| `/api/cron/discover/cardrush` | `0 1 * * *` | Daily 01:00 UTC — sitemap-driven catalog discovery (kingdom-087) |
-| `/api/cron/ingest/cardrush` | `0 2 * * *` | Daily 02:00 UTC — price snapshot scrape |
-| `/api/cron/rebuild-buylist` | `0 3 * * *` | Daily 03:00 UTC — buylist regeneration |
-| `/api/cron/shopify-sync` | `0 4 * * *` | Daily 04:00 UTC — Shopify inventory sync |
-| `/api/cron/shopify-orders` | `*/30 * * * *` | Every 30 min — Shopify orders pull |
+| Project | Path | Schedule | Purpose |
+|---|---|---|---|
+| Storefront | `/api/cron/maintenance` | `* * * * *` | Minute runner whose constituent sweeps self-gate by their own cadence |
+| Storefront | `/api/cron/reconcile-stripe` | `15 * * * *` | Hourly defensive reconciliation of recent paid Stripe sessions |
+| Wholesale | `/api/cron/monthly-rollover` | `0 0 * * *` | Daily 00:00 UTC monthly rollover sweep |
 
-**Adding a cron:** edit `apps/wholesale/vercel.json` and push. Vercel re-registers on the next deploy. Schedules are CRON-format in UTC. The cron route handler (the file at `apps/wholesale/src/app/api/cron/<path>/route.ts`) MUST verify the `Authorization: Bearer $CRON_SECRET` header on every request — Vercel sends it automatically; rejecting requests without it prevents anyone with the URL from triggering your cron.
+**Adding a cron:** edit the owning app's `vercel.json` and push. Vercel
+re-registers on that app's next deploy. Schedules are CRON-format in UTC. The
+route handler under that app's `src/app/api/cron/` MUST verify the
+`Authorization: Bearer $CRON_SECRET` header on every request — Vercel sends it
+automatically; rejecting requests without it prevents anyone with the URL from
+triggering the cron.
 
 **Monitoring crons:** `https://admin.cambridgetcg.com/system/cron` reads the live schedule from `vercel.json` and joins against per-cron `*_runs` rows in RDS (e.g. `ingest_run` for the cardrush family).
 
@@ -427,11 +431,12 @@ instructions, so future rotation breakage is self-documenting.
 
 ## Required CI/secrets
 
-The two GitHub Actions workflows under `.github/workflows/`:
+The three GitHub Actions workflows under `.github/workflows/`:
 
 | Workflow | When | What it does | Required secrets |
 |---|---|---|---|
-| `ci.yml` | Every push to `main` and every PR | Per-app typecheck + build (and admin tests) only on apps that changed (via `dorny/paths-filter`) | none — uses `GITHUB_TOKEN` only |
+| `ci.yml` | Every push to `main` and every PR | Install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes gates; shared changes rebuild the three apps. No admin job is currently defined. | none — uses `GITHUB_TOKEN` only |
+| `rewardspro-v2.yml` | Every PR; relevant pushes to `main` | Validates RewardsPro API typecheck/build, migrations, database-role boundaries, tests, and image | none |
 | `health.yml` | Hourly cron + `workflow_dispatch` | Calls `.github/scripts/deploy-health.py` to compare deploy state, age, SHA-drift, and HTTP-probe every domain. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` |
 
 To set `VERCEL_TOKEN`:

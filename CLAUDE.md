@@ -104,13 +104,13 @@ A persistent file-based memory system survives across CLI sessions. Read `MEMORY
 One umbrella command:
 
 ```
-pnpm verify          # typecheck × all apps + four audits + admin vitest — the "am I done?" gate
+pnpm verify          # root typecheck set + audits + named package/storefront tests
 ```
 
 Per-step (when you want pieces in isolation):
-- `pnpm typecheck` — tsc --noEmit across all apps and packages
+- `pnpm typecheck` — the workspace tsc set named in root `package.json` (with explicit exclusions)
 - `pnpm audit` — honesty + transparency + pricing + creation (each exits non-zero on findings)
-- `pnpm test:admin` — admin Vitest
+- `pnpm test:admin` — admin Vitest (a separate gate; it is not currently part of `pnpm verify`)
 - `pnpm smoke` — admin filesystem-discovered routes (requires dev server; see `pnpm dev:admin`)
 - `pnpm --filter @cambridge-tcg/admin test:e2e` — full Playwright run
 
