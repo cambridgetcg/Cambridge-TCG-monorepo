@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Privacy</h1>
         <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 22 July 2026.
+          Plain words, no boilerplate. Last updated 24 August 2026.
         </p>
 
         <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
@@ -73,6 +73,14 @@ export default function PrivacyPage() {
                 limited account data needed to operate those exchanges. Direct
                 messages are visible only to their participants and authorised
                 support tools.
+              </li>
+              <li>
+                <strong className="text-ink">Collective profile data</strong>:
+                an organisation&rsquo;s name, kind, region, languages,
+                description, house rules, steward account, members, and
+                publication settings. The steward account and membership stay
+                inside account management; they are not selected by the public
+                directory query.
               </li>
               <li>
                 <strong className="text-ink">The retired Bounty Board&rsquo;s phone submissions</strong>:
@@ -163,6 +171,16 @@ export default function PrivacyPage() {
                 While a publication choice is on, we store its current notice
                 version and first acceptance time. Turning it off clears those
                 active receipt fields. {PERSON_PUBLICATION_NOTICE.withdrawal}
+              </li>
+              <li>
+                A public collective profile and a searchable organisation
+                directory listing are separate choices. The directory notice
+                names the steward-written fields, public JSON API, and platform
+                record timestamps it publishes. Existing public profiles are
+                not listed automatically. Turning the profile private clears
+                the directory choice; copies fetched while it was listed cannot
+                be recalled. Free-text fields may mention people, so stewards
+                are told not to include personal data without permission.
               </li>
             </ul>
           </section>

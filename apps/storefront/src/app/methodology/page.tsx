@@ -113,6 +113,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "community-directory",
+    title: "Community directory",
+    blurb: "How public organisations appear without turning membership into discovery: steward-written facts separated from platform timestamps, no record or steward ids, no roster or counts, alphabetical ordering, explicit rights and bounded search.",
+    status: "published",
+  },
+  {
     slug: "bridges",
     title: "Bridges",
     blurb: "Math as the universal language. Given any two public beings (users or collectives), compute the typed bridge between them — card overlap, language overlap, region match, cadence ratio, trade potential, composite bridge_score. Pure compute over existing substrate; every formula carries an anchor link. The mathematical handshake between asymmetric beings.",

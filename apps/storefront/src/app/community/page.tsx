@@ -348,6 +348,31 @@ export default function CommunityPage() {
           ))}
         </div>
 
+        <div className="mb-6 grid gap-2 sm:grid-cols-2">
+          <Link
+            href="/community/directory"
+            className="rounded-lg border border-border-subtle bg-surface p-4 transition hover:bg-surface-subtle"
+          >
+            <span className="block text-sm font-medium text-ink">
+              Organisation directory
+            </span>
+            <span className="mt-1 block text-xs leading-relaxed text-ink-muted">
+              Shops, clubs, guilds and labs that separately opted into search.
+            </span>
+          </Link>
+          <Link
+            href="/community/welcome"
+            className="rounded-lg border border-border-subtle bg-surface p-4 transition hover:bg-surface-subtle"
+          >
+            <span className="block text-sm font-medium text-ink">
+              The eleven doors
+            </span>
+            <span className="mt-1 block text-xs leading-relaxed text-ink-muted">
+              Every way into the commons, and who each one is for.
+            </span>
+          </Link>
+        </div>
+
         <nav aria-label="Community links" className="flex flex-wrap gap-2 mb-6">
           {[
             ["Rewards", "/rewards"],

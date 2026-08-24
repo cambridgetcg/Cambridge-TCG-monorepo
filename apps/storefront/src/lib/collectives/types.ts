@@ -43,6 +43,10 @@ export interface Collective {
   house_rules: string | null;
   steward_user_id: string;
   is_public: boolean;
+  /** Separate, current opt-in for searchable HTML and public JSON directory
+   * publication. A public /c profile alone is not this receipt. */
+  directory_publication_at: string | null;
+  directory_publication_version: string | null;
   created_at: string;
   updated_at: string;
   /** Derived active-member count. Present only on private account or steward
@@ -61,8 +65,10 @@ export interface CollectiveMember {
 }
 
 /** Public roster rows do not carry raw account ids. */
-export interface CollectiveMemberWithUser
-  extends Omit<CollectiveMember, "user_id"> {
+export interface CollectiveMemberWithUser extends Omit<
+  CollectiveMember,
+  "user_id"
+> {
   user_id: string | null;
   username: string | null;
   name: string | null;
@@ -70,8 +76,7 @@ export interface CollectiveMemberWithUser
 }
 
 /** Steward-only roster row used by the authenticated management surface. */
-export interface StewardCollectiveMemberWithUser
-  extends CollectiveMemberWithUser {
+export interface StewardCollectiveMemberWithUser extends CollectiveMemberWithUser {
   user_id: string;
 }
 
