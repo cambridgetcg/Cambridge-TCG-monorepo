@@ -83,8 +83,9 @@ pnpm --filter cambridgetcg-storefront build   # ~10s, 380+ pages
 pnpm --filter tcg-wholesale build              # ~10s, 75 pages
 pnpm --filter @cambridge-tcg/admin build       # ~10s
 
-# 3. Run the audits + unit tests
-pnpm audit && pnpm test:admin
+# 3. Run the registered project audits + unit tests
+# (`pnpm audit` without `run` invokes pnpm's dependency-vulnerability audit.)
+pnpm run audit && pnpm test:admin
 pnpm --filter @cambridge-tcg/sku test
 pnpm --filter @cambridge-tcg/data-ingest test
 ```
@@ -99,6 +100,63 @@ If any of these fail, fix locally before pushing. The CI workflow
 storefront, wholesale, and RewardsPro apps when the `shared` filter matches
 `packages/**` or workspace configuration. Keep the local build gate anyway:
 it is the fastest proof for the exact app/package combination being shipped.
+
+### Additional gate for privacy, identity, wallet or publication changes
+
+Do not promote one of these changes merely because the build is green. Record
+evidence for every applicable item before the production push:
+
+- Reconcile the public notice and methodology pages against the actual fields,
+  recipients, public projections, browser storage and automated consequences
+  in the source being deployed. Do not turn a repository note into a live-data
+  claim without a privacy-safe production aggregate.
+- Confirm the controller name, company number, registered office and monitored
+  privacy mailbox. A syntactically valid address is not evidence that a rights
+  request will be seen.
+- Keep `IDENTITY_VERIFICATION_MODE` unset unless the private-storage gate below
+  has passed. Independently verify S3 Block Public Access, bucket policy and an
+  anonymous read against the `verifications/*` prefix; also provide expiry or
+  reconciliation for uploads abandoned between object PUT and DB persistence.
+- Exercise the human access/correction/erasure runbook on a representative
+  account before promising it operationally. Inventory S3 objects first and
+  handle retained transaction records and restrictive foreign keys explicitly;
+  `DELETE FROM users` by itself is not a complete erasure workflow.
+- Apply and verify required database migrations before source promotion. The
+  organisation directory requires `0131_collective_directory_publication.sql`.
+  Wallet proof storage requires `0130_evm_wallet_links.sql`, although wallet
+  issuance must remain disabled unless its separate testnet gate is approved.
+- For person-level scoring, fraud signals, limits, routing, holds or automatic
+  rejection, record the lawful-basis and UK GDPR Articles 22A–22C assessment,
+  plus a staffed route that can examine inputs, correct errors and change the
+  outcome. A support link without an owned procedure is not human intervention.
+- Operate the DPA 2018 section 164A complaints process: provide a clear route,
+  acknowledge a data-protection complaint within 30 days, make appropriate
+  enquiries, keep the complainant informed and communicate the outcome without
+  undue delay. Verify mailbox ownership and escalation before publishing that
+  promise.
+- For a service likely to be accessed by children, record the product/legal
+  decision and implement it: either an enforceable adult-only boundary or the
+  proportionate child-access safeguards. Privacy copy that merely says the
+  product is not designed for under-18s does not create an access boundary.
+- Verify each positive processor, hosting-region, transfer-safeguard and DPA
+  statement against the live provider configuration and current contract. If
+  it cannot be proved, narrow the statement before deployment.
+- Run `pnpm audit --prod`, record every critical/high advisory that reaches an
+  affected runtime, and either upgrade or document a code-path-specific
+  non-applicability. Do not equate a workspace count with exploitability, and
+  do not waive a directly used path merely because an unrelated app owns other
+  findings.
+- Treat the Next image-optimisation dependency as a separate gate while Next
+  resolves `sharp` below 0.35. The upstream Sharp advisory affects processing
+  of untrusted images; a green Next build is not evidence that the decoder is
+  patched. Before promotion, use a supported patched Sharp/Next combination,
+  disable server-side optimisation, or record a source-by-source risk decision
+  that proves every optimised origin and upload path is controlled. Re-check
+  broad remote host patterns rather than assuming the hostname makes every
+  object trusted.
+
+Store the evidence with the release record without copying credentials,
+document contents, object keys or participant-level rows into logs.
 
 ## Post-deploy verification
 
@@ -374,6 +432,20 @@ The current production env layout (verified 2026-05-14). Use the recipes at the 
 Touches the storefront RDS + Stripe + SES + Wholesale API client. Check `apps/storefront/.env.example` or `vercel env ls production --cwd apps/storefront` for the live list. Key ones:
 
 `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUCTION_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WHOLESALE_API_URL`, `WHOLESALE_API_KEY`, `CRON_SECRET`, `ADMIN_PASSWORD`, `AUTH_FROM_EMAIL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `TRADEIN_FROM_EMAIL`, `STORE_NOTIFICATION_EMAIL`.
+
+Wallet-link issuance remains off unless `EVM_WALLET_LINKING_MODE=testnet` is
+set. A remote smart-wallet verifier additionally requires the server-only
+`BASE_SEPOLIA_RPC_URL` plus public
+`BASE_SEPOLIA_RPC_PROVIDER_NAME` and `BASE_SEPOLIA_RPC_PRIVACY_URL`; missing
+disclosure metadata fails the feature closed. Do not put an RPC credential in
+either public disclosure value.
+
+`IDENTITY_VERIFICATION_MODE` must remain unset in production. The only accepted
+value, `reviewed-private-storage`, is change-controlled: do not add it until AWS
+Block Public Access/bucket policy for `verifications/*` and an abandoned-upload
+expiry or reconciliation process have been independently verified. Existing
+identity records remain readable and participant-removable while new
+collection is paused.
 
 ### `cambridgetcg-admin` (production)
 

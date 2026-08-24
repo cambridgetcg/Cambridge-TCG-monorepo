@@ -19,6 +19,7 @@ import { notify } from "@/lib/notifications/db";
 import { canTrade, getTrustTier } from "@/lib/escrow/trust-engine";
 import { routeTrade } from "@/lib/escrow/service-tiers";
 import { formatPrice } from "@/lib/format";
+import { lockTradeStanding } from "@/lib/trust/standing-lock";
 import type { MarketTrade } from "./types";
 import type { OfferStatus } from "./offer-timeline";
 import { logOfferTransition } from "./offer-lifecycle-log";
@@ -118,7 +119,13 @@ export async function makeOffer(input: {
   const askRows = await query(
     `SELECT id, user_id, sku, price, quantity, filled_quantity, condition,
             card_name, status, allow_offers
-       FROM market_orders WHERE id = $1`,
+       FROM market_orders o
+      WHERE id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM trust_profiles suspended
+           WHERE suspended.user_id = o.user_id
+             AND suspended.is_suspended = TRUE
+        )`,
     [input.askOrderId],
   );
   if (askRows.rows.length === 0) {
@@ -379,6 +386,29 @@ async function createTradeForAcceptedOffer(input: {
     // must not turn a lapsed offer into a binding trade.
     if (offer.expires_at && new Date(offer.expires_at) <= new Date()) {
       return { ok: false as const, reason: "This offer has expired.", status: 409 };
+    }
+
+    // Close both accept-time races against emergency suspension. canTrade()
+    // already gated the buyer before the transaction; locking the same
+    // trust_profiles rows used by emergencyFreezeAccount means neither a
+    // suspended buyer nor a suspended resting-order owner can cross this
+    // transaction into a new trade. Lock standing before the ask so this
+    // follows the same trust-profile → order lock order as placeOrder().
+    const standing = await lockTradeStanding(q, [
+      offer.buyer_id,
+      offer.seller_id,
+    ]);
+    if (
+      standing.missingUserIds.includes(offer.seller_id) ||
+      standing.suspendedUserIds.includes(offer.seller_id)
+    ) {
+      return { ok: false as const, reason: "The ask is no longer available.", status: 409 };
+    }
+    if (
+      standing.missingUserIds.includes(offer.buyer_id) ||
+      standing.suspendedUserIds.includes(offer.buyer_id)
+    ) {
+      return { ok: false as const, reason: "The buyer account is not currently permitted to trade.", status: 403 };
     }
 
     const askRows = await q(

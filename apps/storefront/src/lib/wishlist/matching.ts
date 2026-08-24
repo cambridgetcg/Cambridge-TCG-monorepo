@@ -84,10 +84,15 @@ export async function runWishlistMatchSweep(): Promise<WishlistMatchSweepResult>
   const askRows = await query(
     `SELECT DISTINCT ON (sku, condition)
        id, sku, condition, price, (quantity - filled_quantity) AS remaining
-     FROM market_orders
+     FROM market_orders o
      WHERE side = 'ask'
        AND status IN ('open', 'partially_filled')
        AND sku = ANY($1::text[])
+       AND NOT EXISTS (
+         SELECT 1 FROM trust_profiles suspended
+          WHERE suspended.user_id = o.user_id
+            AND suspended.is_suspended = TRUE
+       )
      ORDER BY sku, condition, price ASC`,
     [skus],
   );

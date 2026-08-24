@@ -183,20 +183,27 @@ export default function AdminFraudPage() {
   }
 
   async function handleResolve(signalId: string, dismiss?: boolean) {
-    const notes = dismiss ? "Dismissed by admin" : resolveNotes[signalId]?.trim();
-    if (!notes && !dismiss) return;
+    const notes = resolveNotes[signalId]?.trim();
+    if (!notes) return;
     setActionLoading(signalId);
     try {
       const res = await fetch("/api/escrow/fraud", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signalId, notes }),
+        body: JSON.stringify({
+          signalId,
+          action: dismiss ? "dismiss" : "resolve",
+          notes,
+        }),
       });
+      const payload = await res.json().catch(() => ({}));
       if (res.ok) {
         setSignals((prev) => prev.filter((s) => s.id !== signalId));
+      } else {
+        window.alert(payload.error || "Review action failed.");
       }
     } catch {
-      // ignore
+      window.alert("Review action could not be sent. Try again.");
     } finally {
       setActionLoading(null);
     }
@@ -478,14 +485,16 @@ export default function AdminFraudPage() {
 
                           {/* Resolve notes */}
                           <div>
-                            <label className="text-xs text-neutral-500 block mb-1">Notes</label>
+                            <label className="text-xs text-neutral-500 block mb-1">
+                              Human review reason (required for resolve or dismiss)
+                            </label>
                             <textarea
                               value={resolveNotes[s.id] ?? ""}
                               onChange={(e) =>
                                 setResolveNotes((prev) => ({ ...prev, [s.id]: e.target.value }))
                               }
                               rows={2}
-                              placeholder="Resolution notes..."
+                              placeholder="What did you review, and why is this outcome appropriate?"
                               className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-none"
                             />
                           </div>
@@ -501,7 +510,7 @@ export default function AdminFraudPage() {
                             </button>
                             <button
                               onClick={() => handleResolve(s.id, true)}
-                              disabled={actionLoading === s.id}
+                              disabled={actionLoading === s.id || !resolveNotes[s.id]?.trim()}
                               className="px-5 py-2 bg-neutral-700 text-neutral-300 text-sm font-medium rounded-lg hover:bg-neutral-600 transition disabled:opacity-50"
                             >
                               Dismiss

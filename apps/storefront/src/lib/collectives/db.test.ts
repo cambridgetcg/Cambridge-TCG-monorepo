@@ -53,7 +53,7 @@ describe("public collective directory query", () => {
       /steward_user_id|collective_members|active_member_count|SELECT c\.id/,
     );
     expect(listParams).toEqual([
-      "community-directory-v1",
+      "community-directory-v2",
       "%100\\%\\_literal\\\\region%",
       "%name\\%\\_literal%",
       24,
@@ -142,7 +142,7 @@ describe("public collective directory query", () => {
     await updateCollective("collective-1", {
       is_public: true,
       directory_listed: true,
-      directory_publication_version: "community-directory-v1",
+      directory_publication_version: "community-directory-v2",
     });
 
     const sql = String(mockQuery.mock.calls[0]?.[0]);
@@ -155,7 +155,7 @@ describe("public collective directory query", () => {
     expect(mockQuery.mock.calls[0]?.[1]).toEqual([
       true,
       true,
-      "community-directory-v1",
+      "community-directory-v2",
       "collective-1",
     ]);
   });
@@ -166,7 +166,7 @@ describe("public collective directory query", () => {
     await updateCollective("collective-1", {
       is_public: false,
       directory_listed: false,
-      directory_publication_version: "community-directory-v1",
+      directory_publication_version: "community-directory-v2",
     });
 
     const sql = String(mockQuery.mock.calls[0]?.[0]);
@@ -176,7 +176,7 @@ describe("public collective directory query", () => {
     expect(mockQuery.mock.calls[0]?.[1]).toEqual([
       false,
       false,
-      "community-directory-v1",
+      "community-directory-v2",
       "collective-1",
     ]);
   });

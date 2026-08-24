@@ -5,6 +5,7 @@ import { postActivity, awardAchievement } from "@/lib/social/db";
 import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
+import { lockTradeStanding } from "@/lib/trust/standing-lock";
 import {
   normalizeAuctionListStatus,
   PUBLIC_AUCTION_SQL_PREDICATE,
@@ -257,6 +258,32 @@ export async function placeBid(auctionId: string, userId: string, amount: number
     // Mirrors the market self-match exclusion (o.user_id != taker).
     if (isSelfBid(auction.seller_user_id, userId)) {
       return { success: false, error: "You can't bid on your own auction." } as BidResult;
+    }
+
+    // Re-check both parties under transaction-scoped standing locks. These
+    // shared locks conflict with the emergency-freeze lock, so a bid cannot
+    // cross a concurrent suspension after the canTrade() pre-check.
+    const standing = await lockTradeStanding(q, [
+      userId,
+      auction.seller_user_id,
+    ]);
+    if (!standing.allowed) {
+      if (
+        standing.missingUserIds.includes(userId) ||
+        standing.suspendedUserIds.includes(userId)
+      ) {
+        const reason = standing.suspendedReasons[userId];
+        return {
+          success: false,
+          error: reason
+            ? `Account suspended: ${reason}`
+            : "Account standing could not be verified.",
+        } as BidResult;
+      }
+      return {
+        success: false,
+        error: "Auction is not currently available.",
+      } as BidResult;
     }
 
     if (isBestOffer) {
@@ -844,6 +871,23 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
       return { ok: false, error: "Offer not found or already resolved." };
     }
     const bid = bidRes.rows[0];
+
+    // Acceptance creates the binding auction outcome. Hold both bidder and
+    // seller standing through that write; user-owned auctions fail closed if
+    // either profile is missing, while house auctions have no seller id.
+    const standing = await lockTradeStanding(q, [
+      bid.user_id,
+      auction.seller_user_id,
+    ]);
+    if (!standing.allowed) {
+      return {
+        ok: false,
+        error: standing.missingUserIds.includes(bid.user_id) ||
+          standing.suspendedUserIds.includes(bid.user_id)
+          ? "Offerer account is not currently permitted to trade."
+          : "Auction seller account is not currently permitted to trade.",
+      };
+    }
 
     // Stamp the winner's payment deadline so the unpaid-cancel sweep
     // (WHERE payment_expires_at <= NOW()) can act on an unpaid offer win —

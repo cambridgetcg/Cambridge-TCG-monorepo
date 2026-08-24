@@ -18,7 +18,7 @@ describe("collective directory publication migration", () => {
       "ADD COLUMN IF NOT EXISTS directory_publication_version TEXT",
     );
     expect(migration).not.toMatch(/UPDATE\s+collectives/i);
-    expect(migration).not.toMatch(/DEFAULT\s+['\"]?community-directory-v1/i);
+    expect(migration).not.toMatch(/DEFAULT\s+['\"]?community-directory-v\d+/i);
   });
 
   it("requires a complete receipt and a public profile", () => {

@@ -86,6 +86,13 @@ export interface PresignedUploadOpts {
   expiresIn?: number;
 }
 
+export interface PresignedDownloadOpts {
+  bucket: string;
+  key: string;
+  /** Seconds until the read URL expires (default: 300 = 5 minutes). */
+  expiresIn?: number;
+}
+
 /**
  * Generate a presigned PUT URL for direct browser uploads.
  *
@@ -111,6 +118,21 @@ export async function getPresignedUploadUrl(
   const publicUrl = `https://${opts.bucket}.s3.${result.config.region}.amazonaws.com/${opts.key}`;
 
   return { uploadUrl, publicUrl, s3Key: opts.key };
+}
+
+/**
+ * Generate a short-lived GET URL for a private object.
+ *
+ * Sensitive uploads must use this instead of treating the stable S3 object
+ * address as an access grant. Authorization remains the caller's job; this
+ * helper only creates the time-bounded capability after that check.
+ */
+export async function getPresignedDownloadUrl(
+  opts: PresignedDownloadOpts,
+): Promise<string> {
+  const client = createS3ClientOrThrow();
+  const command = new GetObjectCommand({ Bucket: opts.bucket, Key: opts.key });
+  return getSignedUrl(client, command, { expiresIn: opts.expiresIn ?? 300 });
 }
 
 // ---------------------------------------------------------------------------

@@ -41,6 +41,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "crypto-escrow",
+    title: "Crypto wallet + P2P escrow",
+    blurb: "The testnet-only wallet proof and settlement boundary: what a signature proves, why a transaction hash is not payment, and which production gates remain closed.",
+    status: "published",
+  },
+  {
     slug: "payout-hold",
     title: "Payout hold",
     blurb: "How long after a sale your payout waits before being released. By trust tier for trades; flat 3 days for auctions.",

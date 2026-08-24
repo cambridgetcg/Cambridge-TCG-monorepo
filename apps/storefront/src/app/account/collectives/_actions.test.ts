@@ -51,7 +51,7 @@ describe("collective directory publication action", () => {
   it("treats absent full-form checkboxes as public and directory withdrawal", async () => {
     const form = new FormData();
     form.set("display_name", "Quiet Lab");
-    form.set("directory_publication_version", "community-directory-v1");
+    form.set("directory_publication_version", "community-directory-v2");
 
     await expect(updateCollectiveAction("quiet-lab", form)).resolves.toEqual({
       ok: true,
@@ -61,7 +61,7 @@ describe("collective directory publication action", () => {
       expect.objectContaining({
         is_public: false,
         directory_listed: false,
-        directory_publication_version: "community-directory-v1",
+        directory_publication_version: "community-directory-v2",
       }),
     );
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/community/directory");

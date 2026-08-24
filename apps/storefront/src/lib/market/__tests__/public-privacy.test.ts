@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { OPEN_ORDER_PUBLICATION_NOTICE } from "../publication";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -17,6 +18,35 @@ const DERIVED_PUBLIC_SURFACES = [
 ];
 
 describe("public market privacy projections", () => {
+  it("puts the public-without-sign-in warning beside both order controls", () => {
+    expect(OPEN_ORDER_PUBLICATION_NOTICE).toContain("public without sign-in");
+    expect(OPEN_ORDER_PUBLICATION_NOTICE).toContain(
+      "stops future Cambridge TCG publication",
+    );
+    expect(OPEN_ORDER_PUBLICATION_NOTICE).toContain(
+      "cannot recall copies already fetched",
+    );
+
+    const controls = [
+      {
+        path: "src/app/market/[sku]/CardMarketClient.tsx",
+        marker: 'type="submit"',
+      },
+      {
+        path: "src/components/market/ListingWizard.tsx",
+        marker: "onClick={submit}",
+      },
+    ];
+    for (const { path, marker } of controls) {
+      const body = source(path);
+      const control = body.lastIndexOf(marker);
+      expect(control, path).toBeGreaterThanOrEqual(0);
+      const nearbyNotice = body.slice(control, control + 2_500);
+      expect(nearbyNotice, path).toContain("OPEN_ORDER_PUBLICATION_NOTICE");
+      expect(nearbyNotice, path).toContain('href="/privacy#market-orders"');
+    }
+  });
+
   it("publishes deliberate open-order intent without completed trades", () => {
     const db = source("src/lib/market/db.ts");
     const book = db.slice(
@@ -24,6 +54,10 @@ describe("public market privacy projections", () => {
       db.indexOf("export async function getMarketSummaries"),
     );
     expect(book).toContain("FROM market_orders");
+    expect(book).toContain(
+      "SUM(quantity - filled_quantity) as total_quantity",
+    );
+    expect(book).toContain("COUNT(*) as order_count");
     expect(book).toContain("trade_aggregates: []");
     expect(book).toContain("COMPLETED_TRADE_PUBLICATION");
     expect(book).not.toContain("market_trades");

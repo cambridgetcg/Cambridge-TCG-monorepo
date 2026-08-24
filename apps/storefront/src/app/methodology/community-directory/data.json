@@ -14,17 +14,19 @@
     "apps/storefront/drizzle/0131_collective_directory_publication.sql"
   ],
   "publication_contract": {
-    "requires": "collectives.is_public = TRUE plus a current community-directory-v1 receipt",
+    "requires": "collectives.is_public = TRUE plus a current community-directory-v2 receipt",
     "legacy_public_rows_are_listed": false,
     "participant_rights": "NOASSERTION",
     "ordering": "display_name ASC, slug ASC",
     "selects_structured_membership": false,
     "selects_platform_steward_identity": false,
-    "free_text_may_mention_people": true,
+    "free_text_can_contain_personal_data": true,
+    "third_party_personal_data_prohibited": true,
+    "public_html_and_json_may_be_indexed_copied_or_redistributed": true,
     "publishes_record_id": false,
     "ranks_or_infers": false
   },
   "status": "published",
-  "version": "1",
+  "version": "2",
   "changed_on": "2026-08-24"
 }

@@ -92,6 +92,11 @@ export async function runLiquidityMining(): Promise<LiquidityMiningResult> {
         AND v.vwap IS NOT NULL AND v.vwap > 0
         AND ABS(o.price::numeric - v.vwap) / v.vwap <= $3
         AND NOT EXISTS (
+          SELECT 1 FROM trust_profiles suspended
+           WHERE suspended.user_id = o.user_id
+             AND suspended.is_suspended = TRUE
+        )
+        AND NOT EXISTS (
           SELECT 1 FROM liquidity_rewards r
            WHERE r.order_id = o.id
              AND r.awarded_for_date = (SELECT d FROM today)

@@ -184,7 +184,7 @@ export async function GET(request: Request): Promise<Response> {
     data: {
       "@kind": "organisation_directory",
       welcome:
-        "Public collectives whose steward separately opted into the versioned searchable directory and JSON contract. Participant-authored fields and platform record timestamps are separated. No structured or platform-derived member/steward identity, ranking, or inferred relationship is selected; free text may mention people and remains the steward's publication responsibility.",
+        "Public collectives whose steward separately opted into the versioned searchable HTML and JSON directory contract. Participant-authored fields and platform record timestamps are separated. No structured or platform-derived member/steward identity, ranking, or inferred relationship is selected. Cambridge TCG remains responsible for its directory processing; correction or removal requests can be sent to support@cambridgetcg.com.",
       count: organisations.length,
       total,
       organisations,
@@ -202,13 +202,16 @@ export async function GET(request: Request): Promise<Response> {
         "rankings or inferred relationships",
       ],
       authored_field_warning:
-        "Descriptions and house rules are steward-authored free text and may mention people. Stewards are told not to include personal data without permission.",
+        "Descriptions and house rules are steward-authored free text. Stewards must not include personal data about another person in directory fields. Report personal data for correction or removal to support@cambridgetcg.com.",
+      public_exposure:
+        "Anyone can view the HTML and JSON material. Search engines, AI crawlers and other third parties may index, copy or redistribute it.",
       how_to_appear: {
         create: "/account/collectives/new",
         publication:
           "A steward must make the profile public and separately accept the versioned directory contract from its management page. Existing public profiles are not opted in retroactively.",
         withdrawal:
-          "Turning off the directory choice, or making the profile private, stops future directory responses but cannot recall copies fetched earlier.",
+          "Turning off the directory choice stops future directory responses but leaves the public collective profile visible. Making the profile private also clears the listing. Cambridge TCG cannot recall copies already fetched by third parties.",
+        correction_or_removal: "support@cambridgetcg.com",
       },
       html_sibling: "/community/directory",
       decision_record: "/methodology/community-directory",

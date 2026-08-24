@@ -1,5 +1,23 @@
-/** Shared, pure bounds for the public organisation directory. */
-export const DIRECTORY_PUBLICATION_VERSION = "community-directory-v1";
+/** Shared, pure bounds and immutable notice for the public organisation directory. */
+export const DIRECTORY_PUBLICATION_VERSION = "community-directory-v2";
+
+/**
+ * This is the text bound to the receipt version above. Keep it shared by the
+ * create and manage forms so a receipt cannot point at two different notices.
+ * Change the version whenever a material promise changes.
+ */
+export const DIRECTORY_PUBLICATION_NOTICE = Object.freeze({
+  publication:
+    "List this profile in Cambridge TCG's searchable organisation directory, public HTML and public JSON API. This publishes its slug, display name, kind, region, languages, description, house rules, and platform-record creation and update times. Names and descriptions are searchable; kind, region and language are filters. The directory selects no structured member data or platform-derived steward identity.",
+  exposure:
+    "Anyone can view this material. Search engines, AI crawlers and other third parties may index, copy or redistribute it.",
+  withdrawal:
+    "This choice is separate from the public collective profile. Turning the directory listing off stops future directory responses but leaves the public profile visible; making the profile private also clears the listing. Cambridge TCG cannot recall copies already fetched by third parties.",
+  data_discipline:
+    "Do not include personal data about another person in the slug, display name, region, languages, description, house rules or any other directory field.",
+  correction:
+    "For correction or removal, turn the listing off or email support@cambridgetcg.com.",
+});
 export const DIRECTORY_PAGE_SIZE = 24;
 export const DIRECTORY_MAX_LIMIT = 100;
 export const DIRECTORY_MAX_OFFSET = 2_400;

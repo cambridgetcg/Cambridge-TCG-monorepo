@@ -41,10 +41,15 @@ export async function liquidityForSkus(skus: string[]): Promise<Map<string, Liqu
       `SELECT sku,
               SUM(quantity - filled_quantity)::int AS depth,
               MAX(price)::numeric AS best
-         FROM market_orders
-        WHERE sku = ANY($1::text[])
-          AND side = 'bid'
-          AND status IN ('open', 'partially_filled')
+         FROM market_orders o
+        WHERE o.sku = ANY($1::text[])
+          AND o.side = 'bid'
+          AND o.status IN ('open', 'partially_filled')
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )
         GROUP BY sku`,
       [skus],
     ),
@@ -52,10 +57,15 @@ export async function liquidityForSkus(skus: string[]): Promise<Map<string, Liqu
       `SELECT sku,
               SUM(quantity - filled_quantity)::int AS depth,
               MIN(price)::numeric AS best
-         FROM market_orders
-        WHERE sku = ANY($1::text[])
-          AND side = 'ask'
-          AND status IN ('open', 'partially_filled')
+         FROM market_orders o
+        WHERE o.sku = ANY($1::text[])
+          AND o.side = 'ask'
+          AND o.status IN ('open', 'partially_filled')
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )
         GROUP BY sku`,
       [skus],
     ),

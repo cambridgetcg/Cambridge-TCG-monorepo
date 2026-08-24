@@ -38,7 +38,8 @@ what's queryable without parsing the browser-rendered storefront.
 
 The collectors-first positioning is the kingdom's identity (decision record:
 docs/decisions/2026-07-06-collectors-first.md; the shop-and-wholesale era
-closed 2026-07-06 owing nothing). Start at /platform for the human-readable
+closed 2026-07-06, with its dated close-out findings recorded there rather
+than inferred from this source tree). Start at /platform for the human-readable
 positioning page; /standards for the exact public specification resources
 (those that explicitly declare CC0; three standards maintained — SKU / pricing /
 universal-representation; private workspace packages are not included); /data for the

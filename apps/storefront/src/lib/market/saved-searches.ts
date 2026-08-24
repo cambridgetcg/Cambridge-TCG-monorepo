@@ -306,6 +306,11 @@ export async function listMatchesForSearch(
        JOIN market_orders o ON o.id = m.order_id
        LEFT JOIN users u ON u.id = o.user_id
       WHERE m.search_id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM trust_profiles suspended
+           WHERE suspended.user_id = o.user_id
+             AND suspended.is_suspended = TRUE
+        )
       ORDER BY m.matched_at DESC LIMIT $2`,
     [searchId, Math.min(limit, 100)],
   );
@@ -390,6 +395,11 @@ export async function runSavedSearchSweep(): Promise<{
           AND o.status IN ('open', 'partially_filled')
           AND o.user_id != $1
           AND o.created_at > $2
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )
           AND ${pred.fragment}
         LIMIT 25
        ON CONFLICT (search_id, order_id) DO NOTHING
@@ -404,9 +414,18 @@ export async function runSavedSearchSweep(): Promise<{
     // one (rare — most listings do via the wholesale enrichment).
     for (const row of found.rows) {
       const meta = await query(
-        `SELECT card_name, sku FROM market_orders WHERE id = $1`,
+        `SELECT o.card_name, o.sku
+           FROM market_orders o
+          WHERE o.id = $1
+            AND o.status IN ('open', 'partially_filled')
+            AND NOT EXISTS (
+              SELECT 1 FROM trust_profiles suspended
+               WHERE suspended.user_id = o.user_id
+                 AND suspended.is_suspended = TRUE
+            )`,
         [row.order_id],
       );
+      if (meta.rows.length === 0) continue;
       const label = meta.rows[0]?.card_name || meta.rows[0]?.sku || "match";
       await notify({
         userId: s.user_id,

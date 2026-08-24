@@ -33,10 +33,10 @@ export default function CommunityDirectoryMethodology() {
         </strong>{" "}
         Existing public profiles were not opted in retroactively. The checkbox
         names searchable HTML, public JSON, the exact steward-written fields,
-        and platform-record timestamps. It does not select platform-derived
-        member or steward fields, or grant rights over the steward&rsquo;s words
-        beyond showing them. Any identity the steward already put in free text
-        is published and searchable.
+        platform-record timestamps, and the risk of third-party copies. It does
+        not select platform-derived member or steward fields, or grant rights
+        over the steward&rsquo;s words beyond showing them. Stewards must not
+        put personal data about another person in directory fields.
       </blockquote>
 
       <h2>Two kinds of field</h2>
@@ -46,7 +46,9 @@ export default function CommunityDirectoryMethodology() {
           <strong>Steward-written fields:</strong> slug, display name, kind,
           region, languages, description and house rules. Their rights are
           <code>NOASSERTION</code>; copyright remains with the applicable
-          rightsholder, which may be the collective, a writer, or a third party.
+          rightsholder. That label does not reduce Cambridge TCG&rsquo;s
+          responsibility for its processing or permit a steward to publish
+          another person&rsquo;s data.
         </li>
         <li>
           <strong>Platform record fields:</strong> the collective row&rsquo;s
@@ -64,8 +66,10 @@ export default function CommunityDirectoryMethodology() {
         model. A private collective is absent rather than represented by a
         redacted row, so this surface cannot confirm it exists. This is a
         structural claim: descriptions and house rules are steward-authored free
-        text and may themselves mention people. The notice tells stewards not to
-        include personal data without permission.
+        text and could still contain personal data despite the structural
+        exclusion. The notice therefore prohibits stewards from including
+        personal data about another person and provides a correction/removal
+        contact.
       </p>
 
       <h2>What is deliberately absent</h2>
@@ -78,8 +82,10 @@ export default function CommunityDirectoryMethodology() {
         <li>
           <strong>No dedicated identity field or people index.</strong> The
           query selects no platform-derived steward/member identity and does not
-          search account records. It does search steward-authored description
-          text, which may mention and therefore make a person discoverable.
+          search account records. It does search steward-authored names and
+          description text, so Cambridge TCG treats reports of personal data in
+          those fields as correction/removal requests rather than shifting
+          responsibility to a steward.
         </li>
         <li>
           <strong>No ranking or inference.</strong> Rows are ordered by display
@@ -91,6 +97,24 @@ export default function CommunityDirectoryMethodology() {
           among public rows but do not publish a histogram of the set.
         </li>
       </ul>
+
+      <h2>Public reach, indexing and copies</h2>
+      <p>
+        The directory is available as public HTML and a cross-origin public JSON
+        API. Anyone can view it. Search engines, AI crawlers and other third
+        parties may index, copy or redistribute the slug, display name, kind,
+        region, languages, description, house rules and platform-record times.
+        Names and descriptions are searchable; kind, region and language are
+        filters. Withdrawing a listing stops Cambridge TCG&rsquo;s future
+        directory responses but cannot recall a copy already fetched by a third
+        party.
+      </p>
+      <p>
+        To correct or remove a listing, the steward can turn it off in account
+        management. Anyone can also email{" "}
+        <a href="mailto:support@cambridgetcg.com">support@cambridgetcg.com</a>,
+        including where a field contains personal data about them.
+      </p>
 
       <h2>Search and pagination bounds</h2>
       <p>
@@ -168,6 +192,14 @@ export default function CommunityDirectoryMethodology() {
       </ul>
 
       <h2>Change history</h2>
+      <p>
+        <em>v2 — 2026-08-24.</em> The publication notice now expressly names
+        public HTML and JSON, search and filters, indexing, AI crawlers,
+        third-party copying, the limit of withdrawal, Cambridge TCG&rsquo;s
+        correction/removal contact, and a categorical rule against entering
+        another person&rsquo;s data. Earlier v1 receipts are not current and do
+        not list a collective.
+      </p>
       <p>
         <em>v1 — 2026-08-24.</em> Initial organisation-directory contract:
         separate versioned opt-in with no legacy backfill; steward/platform

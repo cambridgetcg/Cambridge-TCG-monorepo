@@ -21,9 +21,6 @@ export async function submitVerification(userId: string, data: {
   county?: string;
   postcode: string;
   phone?: string;
-  bankSortCode?: string;
-  bankAccountNumber?: string;
-  bankAccountName?: string;
 }): Promise<UserVerification> {
   // On resubmit after rejection, bump resubmitted_count so admin can
   // see how many passes this case has had. Fresh submission (no prior
@@ -31,12 +28,11 @@ export async function submitVerification(userId: string, data: {
   const result = await query(
     `INSERT INTO user_verifications (user_id, full_legal_name, date_of_birth,
       address_line1, address_line2, city, county, postcode, country,
-      phone, bank_sort_code, bank_account_number, bank_account_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'GB',$9,$10,$11,$12)
+      phone)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'GB',$9)
      ON CONFLICT (user_id) DO UPDATE SET
        full_legal_name=$2, date_of_birth=$3, address_line1=$4, address_line2=$5,
-       city=$6, county=$7, postcode=$8, phone=$9, bank_sort_code=$10,
-       bank_account_number=$11, bank_account_name=$12,
+       city=$6, county=$7, postcode=$8, phone=$9,
        status='pending',
        rejected_at=NULL, rejected_reason=NULL,
        resubmitted_count = CASE
@@ -48,8 +44,7 @@ export async function submitVerification(userId: string, data: {
      RETURNING *`,
     [userId, data.fullLegalName, data.dateOfBirth, data.addressLine1,
      data.addressLine2 || null, data.city, data.county || null, data.postcode.toUpperCase().trim(),
-     data.phone || null, data.bankSortCode || null,
-     data.bankAccountNumber || null, data.bankAccountName || null]
+     data.phone || null]
   );
   return result.rows[0] as UserVerification;
 }
@@ -106,11 +101,28 @@ export async function listVerificationDocuments(userId: string): Promise<Verific
   return r.rows as VerificationDocument[];
 }
 
-export async function deleteVerificationDocument(docId: string, userId: string): Promise<boolean> {
+export async function getOwnedVerificationDocument(
+  docId: string,
+  userId: string,
+): Promise<VerificationDocument | null> {
+  const r = await query(
+    `SELECT * FROM verification_documents WHERE id = $1 AND user_id = $2`,
+    [docId, userId],
+  );
+  return (r.rows[0] as VerificationDocument | undefined) ?? null;
+}
+
+export async function deleteVerificationDocument(
+  docId: string,
+  userId: string,
+  expectedS3Key: string,
+): Promise<boolean> {
   // Soft guard: only the owning user can delete their own doc.
   const r = await query(
-    `DELETE FROM verification_documents WHERE id = $1 AND user_id = $2 RETURNING id`,
-    [docId, userId],
+    `DELETE FROM verification_documents
+      WHERE id = $1 AND user_id = $2 AND s3_key = $3
+      RETURNING id`,
+    [docId, userId, expectedS3Key],
   );
   return r.rows.length > 0;
 }

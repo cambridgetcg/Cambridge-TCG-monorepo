@@ -93,7 +93,13 @@ export async function GET(request: Request) {
            MIN(CASE WHEN side='ask' AND status IN ('open','partially_filled') THEN price END) as best_ask,
            SUM(CASE WHEN side='bid' AND status IN ('open','partially_filled') THEN quantity - filled_quantity ELSE 0 END) as bid_count,
            SUM(CASE WHEN side='ask' AND status IN ('open','partially_filled') THEN quantity - filled_quantity ELSE 0 END) as ask_count
-         FROM market_orders WHERE sku = ANY($1)
+         FROM market_orders o
+        WHERE sku = ANY($1)
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )
          GROUP BY sku`,
         [skus]
       );

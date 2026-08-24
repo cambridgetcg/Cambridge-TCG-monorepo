@@ -10,6 +10,7 @@ import {
 } from "../../_actions";
 import {
   DIRECTORY_MAX_LANGUAGES_INPUT_LENGTH,
+  DIRECTORY_PUBLICATION_NOTICE,
   DIRECTORY_PUBLICATION_VERSION,
 } from "@/lib/collectives/directory-contract";
 import { COLLECTIVE_KINDS } from "@/lib/collectives/types";
@@ -193,17 +194,12 @@ export function ManageClient({
                 className="mt-0.5 accent-amber-500"
               />
               <span>
-                List this profile in the searchable organisation directory and
-                public JSON API. This publishes the name, kind, region,
-                languages, description, house rules, and platform-record
-                creation/update times. The query selects no structured member
-                data or platform-derived steward identity.
+                {DIRECTORY_PUBLICATION_NOTICE.publication}{" "}
+                {DIRECTORY_PUBLICATION_NOTICE.exposure}
               </span>
             </label>
             <p className="mt-2 text-xs text-ink-faint">
-              The directory choice is separate from the public profile. Turning
-              the profile private withdraws the listing and a later listing
-              needs a fresh choice.{" "}
+              {DIRECTORY_PUBLICATION_NOTICE.withdrawal}{" "}
               <Link
                 href="/methodology/community-directory"
                 className="text-accent underline hover:text-accent-strong"
@@ -213,9 +209,8 @@ export function ManageClient({
               .
             </p>
             <p className="mt-2 text-xs text-ink-faint">
-              Do not put member rosters, steward identity, or other personal
-              data in the free-text fields unless you have permission to publish
-              it here.
+              {DIRECTORY_PUBLICATION_NOTICE.data_discipline}{" "}
+              {DIRECTORY_PUBLICATION_NOTICE.correction}
             </p>
           </div>
 
