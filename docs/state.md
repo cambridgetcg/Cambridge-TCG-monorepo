@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-08-24T13:42:12.463Z`
+> *Generated:* `2026-08-24T13:44:55.393Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -37,8 +37,8 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 ## Git
 
 - **Branch:** `chore/quality-gates-refresh`
-- **Last commit:** fa974d6b feat(community): publish consent-bound organisation directory
-- **Working tree:** 🟡 dirty (uncommitted changes)
+- **Last commit:** 47de2fe8 fix(quality): harden audit and navigation gates
+- **Working tree:** 🟢 clean
 
 ---
 
