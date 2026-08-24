@@ -52,6 +52,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { findHardcodedPricingMath } from "../src/lib/audits/pricing-patterns";
 
 const ADMIN_DIR = join(fileURLToPath(import.meta.url), "../../");
 const REPO_ROOT = join(ADMIN_DIR, "../..");
@@ -92,10 +93,6 @@ function read(path: string): string {
   try { return readFileSync(path, "utf8"); } catch { return ""; }
 }
 
-function exists(path: string): boolean {
-  try { statSync(path); return true; } catch { return false; }
-}
-
 // ── Check 1: computation surfaces ───────────────────────────────────────
 
 interface ComputationFinding {
@@ -103,14 +100,6 @@ interface ComputationFinding {
   reason: string;
   evidence: string;
 }
-
-const PRICING_MATH_PATTERNS: { pattern: RegExp; reason: string }[] = [
-  { pattern: /\*\s*1\.15\b/, reason: "hardcoded retail multiplier (× 1.15)" },
-  { pattern: /\*\s*1\.25\b/, reason: "hardcoded ebay multiplier (× 1.25)" },
-  { pattern: /\*\s*1\.20\b/, reason: "hardcoded VAT or cardmarket multiplier (× 1.20)" },
-  { pattern: /\*\s*0\.55\b/, reason: "hardcoded tradein-cash multiplier (× 0.55)" },
-  { pattern: /\*\s*0\.77\b/, reason: "hardcoded tradein-credit multiplier (× 0.77)" },
-];
 
 const CANONICAL_PRICING_FILES = new Set<string>([
   WHOLESALE_PRICING,
@@ -137,16 +126,13 @@ function checkComputationSurfaces(): ComputationFinding[] {
     if (file.includes("/__tests__/") || file.endsWith(".test.ts")) continue;
     const body = read(file);
     if (body.length === 0) continue;
-    for (const { pattern, reason } of PRICING_MATH_PATTERNS) {
-      const m = body.match(pattern);
-      if (m) {
-        findings.push({
-          file: relative(REPO_ROOT, file),
-          reason,
-          evidence: m[0],
-        });
-        break; // one finding per file is enough
-      }
+    const match = findHardcodedPricingMath(body);
+    if (match) {
+      findings.push({
+        file: relative(REPO_ROOT, file),
+        reason: match.reason,
+        evidence: match.evidence,
+      });
     }
   }
   return findings;

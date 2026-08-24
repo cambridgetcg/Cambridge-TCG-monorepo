@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { MysteryBox, Raffle } from "@/lib/rewards/types";
+import { WhyLink } from "@/lib/ui";
 
 export default function RewardsHubPage() {
   const [points, setPoints] = useState<number | null>(null);
@@ -204,10 +205,17 @@ export default function RewardsHubPage() {
 
         {/* Quick Links */}
         <div className="grid gap-3 sm:grid-cols-3">
-          <Link href="/market" className="bg-surface rounded-lg p-4 hover:bg-surface transition text-center">
-            <p className="text-sm font-bold text-ink">The Collectors&rsquo; Market</p>
-            <p className="text-xs text-ink-faint mt-1">Buy &amp; sell — 0% commission</p>
-          </Link>
+          <div className="bg-surface rounded-lg p-4 hover:bg-surface transition text-center">
+            <Link href="/market" className="block">
+              <p className="text-sm font-bold text-ink">The Collectors&rsquo; Market</p>
+              <p className="text-xs text-ink-faint mt-1">Buy &amp; sell — 0% commission</p>
+            </Link>
+            <WhyLink
+              href="/methodology/fees"
+              tooltip="Why selling is free"
+              label="Why selling is free"
+            />
+          </div>
           <Link href="/guides/how-to-play" className="bg-surface rounded-lg p-4 hover:bg-surface transition text-center">
             <p className="text-sm font-bold text-ink">How to Play OPTCG</p>
             <p className="text-xs text-ink-faint mt-1">Learn the game, build decks</p>

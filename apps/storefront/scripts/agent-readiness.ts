@@ -19,7 +19,7 @@
  *   8. State.md freshness     — regenerated within the last 7 days.
  *
  * Exits non-zero on findings. Run via `pnpm agent-readiness` or as part
- * of `pnpm audit` (when the chain is extended to include this fifth).
+ * of `pnpm run audit`.
  *
  * Shaping follow-up of kingdom-050.
  */
@@ -27,6 +27,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isStateSnapshotRegeneration } from "../src/lib/audits/state-snapshot-context";
 
 const ADMIN_DIR = join(fileURLToPath(import.meta.url), "../../");
 const REPO_ROOT = join(ADMIN_DIR, "../..");
@@ -245,6 +246,10 @@ function checkHook(): void {
 // ── 8. State.md freshness ────────────────────────────────────────────────
 
 function checkStateFreshness(): void {
+  // state:snapshot is about to replace the file after collecting its audit
+  // table. Treat that explicit in-process regeneration as fresh so a single
+  // generator run does not record a finding that it has already repaired.
+  if (isStateSnapshotRegeneration(process.argv)) return;
   const path = join(REPO_ROOT, "docs/state.md");
   if (!existsSync(path)) return; // covered by check 3
   const raw = readFileSync(path, "utf8");

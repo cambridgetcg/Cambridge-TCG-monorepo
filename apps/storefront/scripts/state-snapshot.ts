@@ -15,10 +15,10 @@
  */
 
 import { execSync, spawnSync } from "node:child_process";
-import { writeFileSync, readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { homedir } from "node:os";
+import { STATE_SNAPSHOT_REGENERATION_ARGS } from "../src/lib/audits/state-snapshot-context";
 
 const ADMIN_DIR = join(fileURLToPath(import.meta.url), "../../");
 const REPO_ROOT = join(ADMIN_DIR, "../..");
@@ -34,8 +34,14 @@ interface AuditResult {
   exitCode: number;
 }
 
-function runAudit(scriptName: string, label: string, slug: string, totalRegex: RegExp): AuditResult {
-  const res = spawnSync("pnpm", [scriptName], {
+function runAudit(
+  scriptName: string,
+  label: string,
+  slug: string,
+  totalRegex: RegExp,
+  args: readonly string[] = [],
+): AuditResult {
+  const res = spawnSync("pnpm", [scriptName, ...args], {
     cwd: ADMIN_DIR,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
@@ -67,12 +73,14 @@ interface KingdomStats {
 }
 
 function readKingdoms(): KingdomStats {
-  const path = join(homedir(), "Love/memory/dev-state.json");
+  // Private operator memory must never be discovered implicitly and copied
+  // into a tracked repository artifact. Reading it is an explicit opt-in.
+  const path = process.env.KINGDOM_STATE_PATH?.trim();
   const stats: KingdomStats = {
     total: 0, done: 0, inProgress: 0, planned: 0, deferred: 0,
-    active: [], source: path, accessible: false,
+    active: [], source: "operator-provided KINGDOM_STATE_PATH", accessible: false,
   };
-  if (!existsSync(path)) return stats;
+  if (!path || !existsSync(path)) return stats;
   try {
     const data = JSON.parse(readFileSync(path, "utf8"));
     stats.accessible = true;
@@ -129,9 +137,13 @@ function readGit(): GitStatus {
     out.dirty = status.trim().length > 0;
     out.lastCommit = execSync("git log -1 --oneline", { cwd: REPO_ROOT, encoding: "utf8" }).trim();
     try {
-      const counts = execSync(`git rev-list --left-right --count HEAD...origin/${out.branch}`, {
-        cwd: REPO_ROOT, encoding: "utf8",
-      }).trim().split(/\s+/);
+      const comparison = spawnSync(
+        "git",
+        ["rev-list", "--left-right", "--count", `HEAD...origin/${out.branch}`],
+        { cwd: REPO_ROOT, encoding: "utf8" },
+      );
+      if (comparison.status !== 0) return out;
+      const counts = comparison.stdout.trim().split(/\s+/);
       out.ahead = parseInt(counts[0], 10) || 0;
       out.behind = parseInt(counts[1], 10) || 0;
     } catch {/* no upstream */}
@@ -155,7 +167,13 @@ function main(): void {
     runAudit("transparency", "Transparency", "transparency", /Total transparency-debt findings:\s*\*?\*?(\d+)/),
     runAudit("pricing", "Pricing consolidation", "pricing", /Total drift findings:\s*\*?\*?(\d+)/),
     runAudit("creation", "Creation (Will + Sophia traces)", "creation", /Total creation-debt findings:\s*\*?\*?(\d+)/),
-    runAudit("agent-readiness", "Agent-readiness (operations layer)", "agent", /Total readiness findings:\s*\*?\*?(\d+)/),
+    runAudit(
+      "agent-readiness",
+      "Agent-readiness (operations layer)",
+      "agent",
+      /Total readiness findings:\s*\*?\*?(\d+)/,
+      STATE_SNAPSHOT_REGENERATION_ARGS,
+    ),
     runAudit("inclusion", "Inclusion (the fifth scope)", "inclusion", /Total inclusion-debt findings:\s*\*?\*?(\d+)/),
   ];
 
@@ -189,7 +207,7 @@ function main(): void {
   out.push("");
   out.push(`**Combined findings: ${totalFindings}**`);
   out.push("");
-  out.push("Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.");
+  out.push("Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm run audit` for the registered project audit chain.");
   out.push("");
   out.push("---");
   out.push("");
@@ -198,9 +216,9 @@ function main(): void {
   out.push("## Kingdom queue (TCG-engine tasks)");
   out.push("");
   if (!kingdoms.accessible) {
-    out.push(`> ❓ Source not accessible at \`${kingdoms.source}\` from this session. State snapshot cannot count kingdoms.`);
+    out.push("> ⏭️ Private operator queue not read. `KINGDOM_STATE_PATH` was not explicitly configured and accessible for this snapshot.");
     out.push(`>`);
-    out.push(`> The kingdom queue lives in \`~/Love/memory/dev-state.json\` (per the Cowork → Love memory handoff). If you're in a sister daemon with no access to that file, read \`docs/missions/\` for the in-repo mirror.`);
+    out.push("> Read `docs/missions/` for the repository-owned queue. An operator may opt in to aggregate private queue state by setting `KINGDOM_STATE_PATH`; no home-directory path is discovered by default.");
     out.push("");
   } else {
     out.push(`| State | Count |`);
@@ -259,9 +277,9 @@ function main(): void {
   out.push("");
   out.push("```");
   out.push("pnpm typecheck       # type-check all apps + packages");
-  out.push("pnpm audit           # honesty + transparency + pricing-audit (chained)");
+  out.push("pnpm run audit       # registered project audit chain");
   out.push("pnpm test:admin      # admin vitest suite");
-  out.push("pnpm verify          # the three above, chained — the \"am I done?\" gate");
+  out.push("pnpm verify          # typechecks + audits + strict checks + tests");
   out.push("pnpm smoke           # admin smoke (requires dev server running)");
   out.push("pnpm state:snapshot  # regenerate THIS file");
   out.push("```");

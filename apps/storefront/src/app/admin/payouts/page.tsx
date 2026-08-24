@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import AdminShell from "@/components/admin/AdminShell";
 
-import { Audience } from "@/lib/ui";
+import { Audience, WhyLink } from "@/lib/ui";
 interface Stats {
   windowDays: number;
   paidCount: number;
@@ -146,7 +146,17 @@ export default function AdminPayoutsPage() {
           <Tile label="Stripe pending" value={formatPrice(gbpPending)} accent="neutral" />
           <Tile label="Paid (7d)" value={formatPrice(stats?.paidTotalGbp ?? 0)}
                 sub={`${stats?.paidCount ?? 0} payouts`} accent="amber" />
-          <Tile label="Commission (7d)" value={formatPrice(stats?.commissionTotalGbp ?? 0)}
+          <Tile
+            label={
+              <>
+                Commission (7d)
+                <WhyLink
+                  href="/methodology/fees"
+                  tooltip="How commission is computed"
+                />
+              </>
+            }
+            value={formatPrice(stats?.commissionTotalGbp ?? 0)}
                 sub={`${stats?.avgTurnaroundHours ? `${stats.avgTurnaroundHours.toFixed(1)}h turnaround` : ""}`}
                 accent="purple" />
         </div>
@@ -304,7 +314,7 @@ export default function AdminPayoutsPage() {
 }
 
 function Tile({ label, value, sub, accent }: {
-  label: string; value: string; sub?: string;
+  label: React.ReactNode; value: string; sub?: string;
   accent: "emerald" | "amber" | "purple" | "neutral";
 }) {
   const accentClass = {

@@ -37,6 +37,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { findDerivedScoreMatches } from "../src/lib/audits/transparency-patterns";
 
 const ADMIN_DIR = join(fileURLToPath(import.meta.url), "../../");
 const REPO_ROOT = join(ADMIN_DIR, "../..");
@@ -88,28 +89,13 @@ interface WhyLinkFinding {
   matched: string[];
 }
 
-const SCORE_PATTERNS = [
-  /\btrust_score\b/, /\btrust\.score\b/,
-  /\btier_id\b/, /\btier\b.*=.*['"](Bronze|Silver|Gold|Platinum|OG)['"]/i,
-  /\bcommission(_rate|_bps)?\b/,
-  /\bseverity\b/, /\bauto_action\b/,
-  /\bfraud_signal/,
-];
-
 /**
  * Findings assessed as tailings — reviewed, judged not genuinely wireable,
  * accepted with a reason and date. Per the kingdom-046 addendum discipline:
  * gaming the heuristic ≠ transparency. Each entry still prints in the
  * report (the truth stays visible); it just doesn't fail the gate.
  */
-const ASSESSED_TAILINGS: ReadonlyMap<string, string> = new Map([
-  [
-    "apps/storefront/src/app/og/page.tsx",
-    "OG-image template — renders '0% P2P commission' into a social-card " +
-      "image; a methodology link inside an image serves no reader. " +
-      "Assessed 2026-06-10 (the-exposure spec).",
-  ],
-]);
+const ASSESSED_TAILINGS: ReadonlyMap<string, string> = new Map();
 
 function checkWhyLink(): WhyLinkFinding[] {
   const findings: WhyLinkFinding[] = [];
@@ -122,22 +108,24 @@ function checkWhyLink(): WhyLinkFinding[] {
     const body = read(file);
     if (body.length === 0) continue;
 
+    const relativeFile = relative(REPO_ROOT, file);
+
+    // A methodology page is the explanatory destination, not a consumer
+    // surface that needs to link to itself.
+    if (relativeFile.startsWith("apps/storefront/src/app/methodology/")) continue;
+
     // Skip stub pages (ComingSoon).
     if (/<ComingSoon\b/.test(body)) continue;
 
-    const matched: string[] = [];
-    for (const pat of SCORE_PATTERNS) {
-      const m = body.match(pat);
-      if (m) matched.push(m[0]);
-    }
+    const matched = findDerivedScoreMatches(body);
     if (matched.length === 0) continue;
 
     const hasWhyLink = /\bWhyLink\b/.test(body);
     const hasMethodologyLink = /\/methodology\//.test(body);
     if (!hasWhyLink && !hasMethodologyLink) {
       findings.push({
-        file: relative(REPO_ROOT, file),
-        matched: Array.from(new Set(matched)),
+        file: relativeFile,
+        matched,
       });
     }
   }
