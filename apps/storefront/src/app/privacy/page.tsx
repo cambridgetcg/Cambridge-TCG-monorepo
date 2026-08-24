@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Privacy</h1>
         <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 22 July 2026.
+          Plain words, no boilerplate. Last updated 24 August 2026.
         </p>
 
         <div className="space-y-8 text-ink-muted text-sm leading-relaxed">
@@ -73,6 +73,20 @@ export default function PrivacyPage() {
                 limited account data needed to operate those exchanges. Direct
                 messages are visible only to their participants and authorised
                 support tools.
+              </li>
+              <li>
+                <strong className="text-ink">Testnet wallet links, only if
+                you create one.</strong>{" "}
+                We keep the public Base Sepolia address, chain, proof method,
+                verification times, signature fingerprint, and the exact
+                five-minute EIP-4361 challenge message, including its one-use
+                nonce and random request UUID. We also keep the bounded
+                verification-attempt count and attempt times. A separate one-way
+                digest binds the challenge to the Cambridge sign-in session;
+                that digest is not placed in the wallet-visible message. The raw
+                session token and wallet signature are not retained. This proof
+                is not identity, KYC, asset ownership, or permission to move
+                funds.
               </li>
               <li>
                 <strong className="text-ink">The retired Bounty Board&rsquo;s phone submissions</strong>:
@@ -221,6 +235,18 @@ export default function PrivacyPage() {
                 ordinary request metadata even where Cambridge TCG creates no
                 application-level visit record.
               </li>
+              <li>
+                <strong className="text-ink">The configured Base Sepolia RPC
+                service</strong> receives a public wallet address for bytecode
+                classification only after local EOA verification fails. It
+                receives the exact challenge message and submitted signature
+                only when the address has deployed code or the signature is
+                locally recognized as ERC-6492. Cambridge first checks that the
+                service reports Base Sepolia. If no RPC service is explicitly
+                configured, smart-wallet verification stops instead of using an
+                unnamed default. The current feature is testnet-only and accepts
+                no assets.
+              </li>
             </ul>
           </section>
 
@@ -294,6 +320,17 @@ export default function PrivacyPage() {
                 <strong className="text-ink">Magic-link tokens</strong>: expire
                 after 24 hours, are deleted when used, and are pruned in bounded
                 batches after expiry.
+              </li>
+              <li>
+                <strong className="text-ink">Testnet wallet proofs</strong>:
+                a challenge can be used for five minutes, but its exact message
+                and proof-free verification-attempt records (challenge,
+                chain/address key and attempt time), plus the active or revoked
+                link history, are currently retained with the account for
+                replay investigation and audit. There is no automatic earlier
+                cleanup yet; account deletion removes all three tables. We will
+                set and publish a shorter reviewed retention schedule before any
+                broader or payment-capable rollout.
               </li>
               <li>
                 <strong className="text-ink">Email preferences</strong>: kept
