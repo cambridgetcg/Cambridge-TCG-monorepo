@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   isAdmin: vi.fn(),
@@ -16,6 +16,10 @@ beforeEach(() => {
   mocks.isAdmin.mockReset();
   mocks.query.mockReset();
   mocks.sendMail.mockReset();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("OG claim publication boundary", () => {
@@ -55,5 +59,32 @@ describe("OG claim publication boundary", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "rejected" });
     expect(mocks.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("cannot create a user through admin approval while admission is paused", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ACCOUNT_ADMISSION_MODE", "paused");
+    mocks.isAdmin.mockResolvedValue(true);
+    mocks.query
+      .mockResolvedValueOnce({ rows: [{ id: "claim-1", email: "new@example.com" }] })
+      .mockResolvedValueOnce({ rows: [{ id: "og-tier" }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const response = await POST(new Request("https://cambridgetcg.com/api/og/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve", claimId: "claim-1" }),
+    }));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "ACCOUNT_ADMISSION_PAUSED",
+    });
+    expect(mocks.query).toHaveBeenCalledTimes(3);
+    expect(mocks.query.mock.calls.some(([sql]) => (
+      String(sql).includes("INSERT INTO users")
+    ))).toBe(false);
+    expect(mocks.sendMail).not.toHaveBeenCalled();
   });
 });

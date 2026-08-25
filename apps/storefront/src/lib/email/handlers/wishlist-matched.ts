@@ -31,7 +31,13 @@ async function verifyStillAvailable(d: Data): Promise<{ ok: true; price: number;
   if (d.source === "p2p" && d.marketOrderId) {
     const r = await query(
       `SELECT price, (quantity - filled_quantity) AS remaining, status
-       FROM market_orders WHERE id = $1`,
+       FROM market_orders o
+       WHERE id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM trust_profiles suspended
+            WHERE suspended.user_id = o.user_id
+              AND suspended.is_suspended = TRUE
+         )`,
       [d.marketOrderId],
     );
     const row = r.rows[0];

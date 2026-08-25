@@ -8,6 +8,7 @@ import {
 } from "@/lib/auction/db";
 import { sendWinnerEmail } from "@/lib/auction/email";
 import { formatPrice } from "@/lib/format";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 export async function POST(
   request: Request,
@@ -32,6 +33,8 @@ export async function POST(
   const action = body.action;
 
   if (action === "accept") {
+    const releasePause = p2pCommitmentPauseResponse();
+    if (releasePause) return releasePause;
     const result = await acceptOffer(id, bidId);
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });

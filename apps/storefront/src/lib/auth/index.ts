@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import Google from "next-auth/providers/google";
 import { PgAdapter } from "./adapter";
+import { admissionSignInCallback } from "./admission";
 import { sendVerificationRequest } from "./email";
 import { query } from "@/lib/db";
 import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
@@ -72,6 +73,7 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
+    signIn: admissionSignInCallback,
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;

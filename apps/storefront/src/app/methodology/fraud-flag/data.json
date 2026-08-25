@@ -4,5 +4,26 @@
   "url": "/methodology/fraud-flag",
   "kind": "methodology-sidecar",
   "summary_url": "/methodology/fraud-flag/summary.md",
-  "status": "stub"
+  "source_code": [
+    "apps/storefront/src/lib/fraud/detection.ts",
+    "apps/storefront/src/lib/fraud/passes.ts",
+    "apps/storefront/src/lib/escrow/trust-engine.ts",
+    "apps/storefront/src/lib/admin/fraud-review.ts",
+    "apps/storefront/src/lib/admin/emergency-intervention.ts",
+    "apps/storefront/src/lib/release/production-gates.ts"
+  ],
+  "decision_effects": {
+    "unresolved_medium_or_higher_signal": "minus 20 trust-score points per signal on recalculation",
+    "direct_signal_suspension": false,
+    "human_review_required_to_clear": true,
+    "review_mutation_and_governance_record_commit_together": true,
+    "affected_trust_score_recalculation_is_awaited": true,
+    "emergency_freeze_is_human_only": true,
+    "durable_participant_review_case_workflow": false,
+    "production_p2p_commitments_default_paused": true,
+    "existing_obligation_and_remedy_steps_remain_available": true
+  },
+  "status": "published",
+  "version": "2",
+  "changed_on": "2026-08-25"
 }

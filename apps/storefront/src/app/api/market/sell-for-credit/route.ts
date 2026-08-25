@@ -5,9 +5,10 @@
  * This was the trade-in desk's machine door: submit cards to sell TO
  * the platform for store credit. Its consumer surfaces (the credit-sell
  * drawer, the product-page sell button, the market-browser affordance)
- * retired with the desk, which closed having received zero submissions
- * and owing zero credit. The platform no longer buys; sellers price
- * their own cards to other collectors.
+ * retired with the desk; its dated close-out decision records zero submissions
+ * and zero outstanding credit at that time. This tombstone does not query
+ * current production history. The platform no longer buys; sellers price their
+ * own cards to other collectors.
  */
 
 import { errorResponse } from "@/lib/data-pantry";

@@ -8,6 +8,7 @@ import { routeTrade } from "@/lib/escrow/service-tiers";
 import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
@@ -289,6 +290,8 @@ export async function placeOrder(data: {
   quantity: number;
   notes?: string;
 }): Promise<{ order: MarketOrder; trades: MarketTrade[] }> {
+  assertP2PCommitmentOpen();
+
   // Trust gate: refuse the order if the user is suspended or the order
   // value exceeds their per-trade or remaining-daily limits. canTrade()
   // already considers all of those — calling it here turns it from
@@ -320,6 +323,25 @@ export async function placeOrder(data: {
   const paymentWindowByTrade = new Map<string, number>();
 
   const { order } = await transaction(async (q) => {
+    // Re-check suspension inside the same transaction that writes the order.
+    // The emergency-freeze path locks this trust_profiles row too, closing
+    // the gap between canTrade() above and the INSERT below.
+    const takerStanding = await q(
+      `SELECT is_suspended, suspended_reason
+         FROM trust_profiles
+        WHERE user_id = $1
+        FOR SHARE`,
+      [data.userId],
+    );
+    if (takerStanding.rows.length === 0) {
+      throw new TrustGateError("Order rejected because account standing could not be verified.");
+    }
+    if (takerStanding.rows[0].is_suspended === true) {
+      throw new TrustGateError(
+        `Account suspended: ${takerStanding.rows[0].suspended_reason ?? "trading is paused pending human review"}`,
+      );
+    }
+
     // Insert the order with a default 30-day TTL
     const expiresAt = new Date(Date.now() + DEFAULT_ORDER_TTL_MS).toISOString();
     const orderResult = await q(
@@ -349,13 +371,15 @@ export async function placeOrder(data: {
               t.p2p_commission_rate                  AS maker_p2p_rate
          FROM market_orders o
          JOIN users u ON u.id = o.user_id
-         LEFT JOIN trust_profiles tp ON tp.user_id = o.user_id
+         JOIN trust_profiles tp ON tp.user_id = o.user_id
          LEFT JOIN tiers          t  ON t.id        = u.tier_id
         WHERE o.sku = $1 AND o.side = $2
           AND o.status IN ('open', 'partially_filled')
+          AND tp.is_suspended = false
           AND o.condition = $3 AND o.price ${priceOp} $4 AND o.user_id != $5
         ORDER BY o.price ${priceOrder}, o.created_at ASC
-        FOR UPDATE OF o`,
+        FOR UPDATE OF o
+        FOR SHARE OF tp`,
       [data.sku, oppositeSide, data.condition, data.price.toFixed(2), data.userId]
     );
 
@@ -625,7 +649,13 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
   // Aggregate bids (descending price)
   const bidsResult = await query(
     `SELECT price, SUM(quantity - filled_quantity) as total_quantity, COUNT(*) as order_count
-     FROM market_orders WHERE sku = $1 AND side = 'bid' AND status IN ('open', 'partially_filled')
+     FROM market_orders o
+     WHERE sku = $1 AND side = 'bid' AND status IN ('open', 'partially_filled')
+       AND NOT EXISTS (
+         SELECT 1 FROM trust_profiles suspended
+          WHERE suspended.user_id = o.user_id
+            AND suspended.is_suspended = TRUE
+       )
      GROUP BY price ORDER BY price DESC LIMIT 20`,
     [sku]
   );
@@ -633,14 +663,30 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
   // Aggregate asks (ascending price)
   const asksResult = await query(
     `SELECT price, SUM(quantity - filled_quantity) as total_quantity, COUNT(*) as order_count
-     FROM market_orders WHERE sku = $1 AND side = 'ask' AND status IN ('open', 'partially_filled')
+     FROM market_orders o
+     WHERE sku = $1 AND side = 'ask' AND status IN ('open', 'partially_filled')
+       AND NOT EXISTS (
+         SELECT 1 FROM trust_profiles suspended
+          WHERE suspended.user_id = o.user_id
+            AND suspended.is_suspended = TRUE
+       )
      GROUP BY price ORDER BY price ASC LIMIT 20`,
     [sku]
   );
 
   // Card info from any order
   const cardInfo = await query(
-    `SELECT card_name, image_url FROM market_orders WHERE sku = $1 AND card_name IS NOT NULL LIMIT 1`,
+    `SELECT card_name, image_url
+       FROM market_orders o
+      WHERE sku = $1
+        AND card_name IS NOT NULL
+        AND status IN ('open', 'partially_filled')
+        AND NOT EXISTS (
+          SELECT 1 FROM trust_profiles suspended
+           WHERE suspended.user_id = o.user_id
+             AND suspended.is_suspended = TRUE
+        )
+      LIMIT 1`,
     [sku]
   );
 
@@ -683,7 +729,12 @@ export async function getMarketSummaries(filters: {
   const limit = filters.limit || 24;
   const offset = filters.offset || 0;
 
-  let whereClause = "WHERE o.status IN ('open', 'partially_filled')";
+  let whereClause = `WHERE o.status IN ('open', 'partially_filled')
+    AND NOT EXISTS (
+      SELECT 1 FROM trust_profiles suspended
+       WHERE suspended.user_id = o.user_id
+         AND suspended.is_suspended = TRUE
+    )`;
   const params: unknown[] = [];
 
   if (filters.search) {

@@ -24,12 +24,16 @@ export {
   createS3Client,
   createS3ClientOrThrow,
   getPresignedUploadUrl,
+  getPresignedDownloadUrl,
   deleteObject,
   getObject,
   headObject,
+  getObjectTagging,
+  putObjectTagging,
   type CreateS3ClientOpts,
   type PresignedUploadResult,
   type PresignedUploadOpts,
+  type PresignedDownloadOpts,
 } from "./s3";
 
 export {

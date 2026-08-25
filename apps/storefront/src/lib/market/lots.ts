@@ -7,6 +7,7 @@ import { resolveCommission, computeCommissionAmount } from "@cambridge-tcg/prici
 import { getTrustTier } from "@/lib/escrow/trust-engine";
 import { logLotTransition } from "./lot-lifecycle-log";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 import type { PublicMarketLot } from "./types";
 
 // Default payment window when the buyer hasn't declared a response cadence.
@@ -80,6 +81,8 @@ export async function createLot(data: {
   imageUrl?: string;
   items: { sku: string; cardName?: string; quantity: number }[];
 }): Promise<MarketLot> {
+  assertP2PCommitmentOpen();
+
   if (data.items.length === 0) throw new Error("Lot must contain at least one item");
 
   const lot = await transaction(async (q) => {
@@ -268,6 +271,8 @@ export async function beginLotPurchase(data: {
   lotId: string;
   buyerId: string;
 }): Promise<{ ok: true; trade: LotTrade } | { ok: false; error: string }> {
+  assertP2PCommitmentOpen();
+
   if (LOT_PURCHASES_PAUSED) {
     return { ok: false, error: LOT_PURCHASES_PAUSED_MESSAGE };
   }

@@ -1,0 +1,32 @@
+{
+  "topic": "community-directory",
+  "title": "Community directory",
+  "url": "/methodology/community-directory",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/community-directory/summary.md",
+  "html_url": "/community/directory",
+  "api_url": "/api/v1/directory/organisations",
+  "source_code": [
+    "apps/storefront/src/lib/collectives/db.ts",
+    "apps/storefront/src/app/community/directory/page.tsx",
+    "apps/storefront/src/app/api/v1/directory/organisations/route.ts",
+    "apps/storefront/drizzle/0097_collectives.sql",
+    "apps/storefront/drizzle/0131_collective_directory_publication.sql"
+  ],
+  "publication_contract": {
+    "requires": "collectives.is_public = TRUE plus a current community-directory-v2 receipt",
+    "legacy_public_rows_are_listed": false,
+    "participant_rights": "NOASSERTION",
+    "ordering": "display_name ASC, slug ASC",
+    "selects_structured_membership": false,
+    "selects_platform_steward_identity": false,
+    "free_text_can_contain_personal_data": true,
+    "third_party_personal_data_prohibited": true,
+    "public_html_and_json_may_be_indexed_copied_or_redistributed": true,
+    "publishes_record_id": false,
+    "ranks_or_infers": false
+  },
+  "status": "published",
+  "version": "2",
+  "changed_on": "2026-08-24"
+}

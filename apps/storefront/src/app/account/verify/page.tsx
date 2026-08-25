@@ -14,12 +14,21 @@ import {
 } from "@/lib/trust/verification-timeline";
 
 type FieldErrors = Record<string, string>;
+type PresentedVerificationDocument = Omit<
+  VerificationDocument,
+  "user_id" | "url" | "s3_key"
+> & {
+  url: string | null;
+  access_status: "available" | "support_required";
+};
 
 export default function VerifyPage() {
   const [verification, setVerification] = useState<UserVerification | null>(null);
-  const [documents, setDocuments] = useState<VerificationDocument[]>([]);
+  const [documents, setDocuments] = useState<PresentedVerificationDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  const [collectionAvailable, setCollectionAvailable] = useState(false);
+  const [collectionPauseReason, setCollectionPauseReason] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -33,9 +42,6 @@ export default function VerifyPage() {
   const [county, setCounty] = useState("");
   const [postcode, setPostcode] = useState("");
   const [phone, setPhone] = useState("");
-  const [sortCode, setSortCode] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountName, setAccountName] = useState("");
 
   const [uploadType, setUploadType] = useState<string>("id_front");
   const [uploading, setUploading] = useState(false);
@@ -49,6 +55,10 @@ export default function VerifyPage() {
     if (vRes.ok) {
       const d = await vRes.json();
       if (d?.verification) setVerification(d.verification);
+      setCollectionAvailable(d?.availability?.submission_available === true);
+      setCollectionPauseReason(
+        typeof d?.availability?.reason === "string" ? d.availability.reason : null,
+      );
     }
     if (dRes.ok) {
       const d = await dRes.json();
@@ -92,9 +102,6 @@ export default function VerifyPage() {
           county: county || null,
           postcode: postcode.toUpperCase(),
           phone: phone || null,
-          bankSortCode: sortCode || null,
-          bankAccountNumber: accountNumber || null,
-          bankAccountName: accountName || null,
         }),
       });
 
@@ -128,17 +135,22 @@ export default function VerifyPage() {
         const d = await presignRes.json().catch(() => null);
         throw new Error(d?.error || "Could not prepare upload.");
       }
-      const { uploadUrl, imageUrl, s3Key } = await presignRes.json();
+      const { uploadUrl, s3Key, requiredHeaders } = await presignRes.json();
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
+        headers: {
+          "Content-Type": file.type,
+          ...(requiredHeaders && typeof requiredHeaders === "object"
+            ? requiredHeaders
+            : {}),
+        },
         body: file,
       });
       if (!putRes.ok) throw new Error("Upload to storage failed.");
       const persistRes = await fetch("/api/trust/verify/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ s3Key, url: imageUrl, docType: uploadType, mimeType: file.type }),
+        body: JSON.stringify({ s3Key, docType: uploadType }),
       });
       if (!persistRes.ok) {
         const d = await persistRes.json().catch(() => null);
@@ -155,8 +167,14 @@ export default function VerifyPage() {
 
   async function handleDeleteDoc(id: string) {
     if (!confirm("Remove this document?")) return;
+    setUploadError(null);
     const res = await fetch(`/api/trust/verify/documents?id=${id}`, { method: "DELETE" });
-    if (res.ok) setDocuments((prev) => prev.filter((d) => d.id !== id));
+    if (res.ok) {
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      return;
+    }
+    const body = await res.json().catch(() => null);
+    setUploadError(body?.error || "Document removal did not complete.");
   }
 
   if (loading) {
@@ -179,8 +197,10 @@ export default function VerifyPage() {
   }
 
   const status = verification?.status ?? null;
-  const showForm = !verification || status === "rejected" || status === "expired";
-  const canUpload = !status || status === "pending" || status === "rejected" || status === "expired";
+  const showForm = collectionAvailable &&
+    (!verification || status === "rejected" || status === "expired");
+  const canUpload = collectionAvailable &&
+    (!status || status === "pending" || status === "rejected" || status === "expired");
 
   return (
     <div className="space-y-6">
@@ -195,6 +215,16 @@ export default function VerifyPage() {
       </div>
 
       {verification && <VerificationTimelineBar verification={verification} />}
+
+      {!collectionAvailable && (
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+          <p className="text-warning text-sm">
+            {collectionPauseReason ??
+              "New identity-verification collection is currently paused."} Existing
+            documents remain available below for review or deletion.
+          </p>
+        </div>
+      )}
 
       {status === "verified" && (
         <StatusCard tone="emerald" title="Verified">
@@ -236,7 +266,7 @@ export default function VerifyPage() {
         </StatusCard>
       )}
 
-      {canUpload && (
+      {(canUpload || documents.length > 0) && (
         <div className="bg-surface rounded-lg p-6 space-y-4">
           <div>
             <h2 className="text-sm font-bold text-ink uppercase tracking-wide">Identity Documents</h2>
@@ -249,19 +279,29 @@ export default function VerifyPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {documents.map((doc) => (
                 <div key={doc.id} className="relative group">
-                  <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                     className="block rounded-lg border border-border-subtle overflow-hidden hover:border-accent/40 transition">
-                    {doc.mime_type?.startsWith("image/") ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={doc.url} alt={doc.doc_type} className="aspect-square w-full object-cover" />
-                    ) : (
-                      <div className="aspect-square w-full bg-surface-subtle flex items-center justify-center text-ink-faint text-xs">PDF</div>
-                    )}
-                    <p className="text-[11px] text-ink-muted px-2 py-1 truncate">
-                      {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
-                    </p>
-                  </a>
-                  {/* canUpload gate above ensures status isn't 'verified' here */}
+                  {doc.url ? (
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                       className="block rounded-lg border border-border-subtle overflow-hidden hover:border-accent/40 transition">
+                      {doc.mime_type?.startsWith("image/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={doc.url} alt={doc.doc_type} className="aspect-square w-full object-cover" />
+                      ) : (
+                        <div className="aspect-square w-full bg-surface-subtle flex items-center justify-center text-ink-faint text-xs">PDF</div>
+                      )}
+                      <p className="text-[11px] text-ink-muted px-2 py-1 truncate">
+                        {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
+                      </p>
+                    </a>
+                  ) : (
+                    <div className="rounded-lg border border-warning/40 bg-warning/5 p-3 text-[11px] text-ink-muted">
+                      <p className="font-semibold text-ink">
+                        {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
+                      </p>
+                      <p className="mt-1">
+                        This legacy record needs support-assisted review before it can be opened or removed.
+                      </p>
+                    </div>
+                  )}
                   <button
                     onClick={() => handleDeleteDoc(doc.id)}
                     className="absolute top-1 right-1 w-6 h-6 rounded-full bg-ink/70 text-page/80 hover:bg-danger hover:text-page opacity-0 group-hover:opacity-100 transition text-xs"
@@ -272,35 +312,37 @@ export default function VerifyPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={uploadType}
-              onChange={(e) => setUploadType(e.target.value)}
-              className="px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink focus:outline-none focus:border-accent/50"
-            >
-              {Object.entries(VERIFICATION_DOC_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </select>
-            <label className={`cursor-pointer px-4 py-2 rounded-lg font-bold text-sm transition ${
-              uploading
-                ? "bg-surface-subtle text-ink-faint cursor-not-allowed"
-                : "bg-ink text-page hover:opacity-90"
-            }`}>
-              {uploading ? "Uploading…" : "Upload document"}
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleUpload(file);
-                  e.target.value = "";
-                }}
-                className="hidden"
-              />
-            </label>
-          </div>
+          {canUpload && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={uploadType}
+                onChange={(e) => setUploadType(e.target.value)}
+                className="px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink focus:outline-none focus:border-accent/50"
+              >
+                {Object.entries(VERIFICATION_DOC_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+              <label className={`cursor-pointer px-4 py-2 rounded-lg font-bold text-sm transition ${
+                uploading
+                  ? "bg-surface-subtle text-ink-faint cursor-not-allowed"
+                  : "bg-ink text-page hover:opacity-90"
+              }`}>
+                {uploading ? "Uploading…" : "Upload document"}
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleUpload(file);
+                    e.target.value = "";
+                  }}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          )}
           {uploadError && <p className="text-xs text-danger">{uploadError}</p>}
         </div>
       )}
@@ -316,9 +358,17 @@ export default function VerifyPage() {
       {showForm && (
         <>
           <div className="bg-accent-wash border border-accent/30 rounded-lg p-4">
-            <p className="text-accent text-sm">
-              This optional flow is currently UK residents only. Your information is
-              encrypted and never shared.
+            <p className="text-accent text-sm leading-relaxed">
+              This optional flow is for UK residents aged 18 or over. Cambridge stores
+              the details you submit and any identity documents in its restricted
+              systems. Authorised Cambridge reviewers and infrastructure providers can
+              process them for verification, security and legal claims; they are not
+              published or sold. This flow does not collect bank details; seller payout
+              onboarding is handled separately by Stripe. Read the{" "}
+              <a href="/privacy#identity-verification" className="underline font-semibold">
+                identity-verification privacy notice
+              </a>{" "}
+              before submitting.
             </p>
           </div>
 
@@ -339,14 +389,6 @@ export default function VerifyPage() {
                 <Field label="Postcode *" value={postcode} onChange={setPostcode} required placeholder="SW1A 1AA" error={fieldErrors.postcode} className="uppercase" />
               </div>
               <Field label="Phone (optional)" value={phone} onChange={setPhone} type="tel" placeholder="+44" />
-            </FieldsCard>
-
-            <FieldsCard title="Bank Details" hint="Optional — add later if you prefer.">
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Sort code" value={sortCode} onChange={setSortCode} placeholder="00-00-00" error={fieldErrors.bankSortCode} />
-                <Field label="Account number" value={accountNumber} onChange={setAccountNumber} placeholder="12345678" error={fieldErrors.bankAccountNumber} />
-              </div>
-              <Field label="Account name" value={accountName} onChange={setAccountName} placeholder="Name on your bank account" error={fieldErrors.bankAccountName} />
             </FieldsCard>
 
             {error && Object.keys(fieldErrors).length === 0 && (

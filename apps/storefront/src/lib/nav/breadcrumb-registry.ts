@@ -373,6 +373,30 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
     ],
   },
   {
+    pattern: "/artists/:slug",
+    renderedBy: "page",
+    steps: [
+      { label: "Artists", href: "/artists" },
+      { label: ":slug" },
+    ],
+  },
+  {
+    pattern: "/pulls/:game",
+    renderedBy: "page",
+    steps: [
+      { label: "Pull rates", href: "/pulls" },
+      { label: ":game" },
+    ],
+  },
+  {
+    pattern: "/bounty/verify/:id",
+    renderedBy: "page",
+    steps: [
+      { label: "Verify", href: "/verify" },
+      { label: "Pull :id" },
+    ],
+  },
+  {
     pattern: "/product/:sku",
     renderedBy: "page",
     steps: [

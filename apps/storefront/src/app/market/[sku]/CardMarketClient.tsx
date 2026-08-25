@@ -16,6 +16,7 @@ import { weatherClass } from "@/lib/wardrobe/weather";
 import { gameFromSku } from "@/lib/games/sku-game";
 import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
+import { OPEN_ORDER_PUBLICATION_NOTICE } from "@/lib/market/publication";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import type { CatalogIdentity } from "@/lib/market/catalog-card";
 import { stripIllustAnnotation } from "@/lib/cards/illust-annotation";
@@ -1193,6 +1194,17 @@ export default function CardMarketClient({
                     return crosses ? `Buy for ${formatPrice(parsed)}` : "Place Bid";
                   })()}
                 </button>
+
+                <p className="text-[11px] text-ink-faint leading-relaxed">
+                  {OPEN_ORDER_PUBLICATION_NOTICE}{" "}
+                  <Link
+                    href="/privacy#market-orders"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Privacy details
+                  </Link>
+                  .
+                </p>
 
                 {result && (
                   <div

@@ -1,5 +1,5 @@
 # Fraud flag — TLDR
 
-What the fraud sweep looks at, what each severity means, and how a flag clears. Active flags affect trade limits and escrow tier; cleared flags leave a permanent record in your account standing for transparency.
+A matching rule creates a risk signal for operator review; it is not proof of fraud. Every unresolved medium-or-higher signal automatically subtracts 20 trust-score points on recalculation, which can change limits, commission, escrow/inspection routing, payout holds and the displayed tier. A signal does not clear itself: an authenticated operator must resolve or dismiss it with a written reason. There is not yet a durable participant decision-review case workflow, so production defaults new P2P commitments to paused; existing fulfilment and remedies stay available. Signal creation does not directly suspend an account or stop an already-earned payout; the separately logged emergency freeze is human-only.
 
 Full page: [/methodology/fraud-flag](/methodology/fraud-flag).

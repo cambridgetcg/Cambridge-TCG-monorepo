@@ -219,11 +219,16 @@ export async function resolveReferenceRecipient(
     );
   } else {
     result = await query(
-      `SELECT user_id AS recipient_id
-         FROM market_orders
-        WHERE id=$1
-          AND status IN ('open','partially_filled')
-          AND user_id<>$2`,
+      `SELECT o.user_id AS recipient_id
+         FROM market_orders o
+        WHERE o.id=$1
+          AND o.status IN ('open','partially_filled')
+          AND o.user_id<>$2
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )`,
       [referenceId, senderId],
     );
   }

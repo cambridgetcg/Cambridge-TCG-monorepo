@@ -204,7 +204,10 @@ export default auth((req) => {
   if (isPublicPath(pathname)) return NextResponse.next();
 
   // --- Auth check ---
-  const isLoggedIn = !!req.auth;
+  // Auth.js error objects must never satisfy an existence-only gate. Require
+  // the concrete user id minted by our JWT/session callback.
+  const isLoggedIn =
+    typeof req.auth?.user?.id === "string" && req.auth.user.id.length > 0;
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.url);
     return NextResponse.redirect(loginUrl);

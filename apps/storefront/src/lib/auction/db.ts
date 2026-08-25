@@ -5,6 +5,8 @@ import { postActivity, awardAchievement } from "@/lib/social/db";
 import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
+import { lockTradeStanding } from "@/lib/trust/standing-lock";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 import {
   normalizeAuctionListStatus,
   PUBLIC_AUCTION_SQL_PREDICATE,
@@ -122,6 +124,8 @@ export async function getAuction(id: string): Promise<AuctionDetail | null> {
 // ── Create auction (admin) ──
 
 export async function createAuction(data: CreateAuctionInput): Promise<Auction> {
+  assertP2PCommitmentOpen();
+
   const currentPrice = data.auction_type === "dutch"
     ? data.dutch_start_price || data.starting_price
     : data.starting_price;
@@ -159,6 +163,10 @@ export async function createAuction(data: CreateAuctionInput): Promise<Auction> 
 // ── Update auction (admin) ──
 
 export async function updateAuction(id: string, data: Partial<CreateAuctionInput> & { status?: string }): Promise<Auction | null> {
+  if (data.status === "scheduled" || data.status === "live") {
+    assertP2PCommitmentOpen();
+  }
+
   const fields: string[] = [];
   const values: unknown[] = [];
   let idx = 1;
@@ -212,6 +220,8 @@ export async function deleteAuction(id: string): Promise<boolean> {
 // ── Place bid (transactional) ──
 
 export async function placeBid(auctionId: string, userId: string, amount: number, isBestOffer = false): Promise<BidResult> {
+  assertP2PCommitmentOpen();
+
   // Trust gate — refuse bids from suspended users + over-tier-limit
   // amounts. Same enforcement as market orders, now applied to BOTH
   // regular bids AND best offers: an over-cap user must not be able to
@@ -257,6 +267,32 @@ export async function placeBid(auctionId: string, userId: string, amount: number
     // Mirrors the market self-match exclusion (o.user_id != taker).
     if (isSelfBid(auction.seller_user_id, userId)) {
       return { success: false, error: "You can't bid on your own auction." } as BidResult;
+    }
+
+    // Re-check both parties under transaction-scoped standing locks. These
+    // shared locks conflict with the emergency-freeze lock, so a bid cannot
+    // cross a concurrent suspension after the canTrade() pre-check.
+    const standing = await lockTradeStanding(q, [
+      userId,
+      auction.seller_user_id,
+    ]);
+    if (!standing.allowed) {
+      if (
+        standing.missingUserIds.includes(userId) ||
+        standing.suspendedUserIds.includes(userId)
+      ) {
+        const reason = standing.suspendedReasons[userId];
+        return {
+          success: false,
+          error: reason
+            ? `Account suspended: ${reason}`
+            : "Account standing could not be verified.",
+        } as BidResult;
+      }
+      return {
+        success: false,
+        error: "Auction is not currently available.",
+      } as BidResult;
     }
 
     if (isBestOffer) {
@@ -584,6 +620,8 @@ export async function createSellerAuction(userId: string, data: {
   ends_at: string;
   allow_best_offer?: boolean;
 }): Promise<Auction> {
+  assertP2PCommitmentOpen();
+
   const currentPrice = data.starting_price;
 
   // Membership tiers were removed (2026-07-21) — no tier grants auto-approval,
@@ -630,6 +668,8 @@ export async function createSellerAuction(userId: string, data: {
 }
 
 export async function approveAuction(auctionId: string, notes?: string): Promise<Auction | null> {
+  assertP2PCommitmentOpen();
+
   // Anchor the seller-intended duration to approval time, not submission time.
   // ends_at - starts_at on the submission represents the duration the seller asked for;
   // approval may happen days later, so we shift the window to start now.
@@ -796,6 +836,8 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
   winningPrice?: string;
   auctionTitle?: string;
 }> {
+  assertP2PCommitmentOpen();
+
   // Trust gate on the OFFERER, run BEFORE the transaction. A best-offer win
   // must not dodge the per-trade cap the direct-bid path enforces (placeBid
   // now gates offers at placement too; this is the seller-acceptance half).
@@ -844,6 +886,23 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
       return { ok: false, error: "Offer not found or already resolved." };
     }
     const bid = bidRes.rows[0];
+
+    // Acceptance creates the binding auction outcome. Hold both bidder and
+    // seller standing through that write; user-owned auctions fail closed if
+    // either profile is missing, while house auctions have no seller id.
+    const standing = await lockTradeStanding(q, [
+      bid.user_id,
+      auction.seller_user_id,
+    ]);
+    if (!standing.allowed) {
+      return {
+        ok: false,
+        error: standing.missingUserIds.includes(bid.user_id) ||
+          standing.suspendedUserIds.includes(bid.user_id)
+          ? "Offerer account is not currently permitted to trade."
+          : "Auction seller account is not currently permitted to trade.",
+      };
+    }
 
     // Stamp the winner's payment deadline so the unpaid-cancel sweep
     // (WHERE payment_expires_at <= NOW()) can act on an unpaid offer win —

@@ -10,6 +10,10 @@ const limiterSource = readFileSync(
   new URL("./login-rate-limit.ts", import.meta.url),
   "utf8",
 );
+const middlewareSource = readFileSync(
+  new URL("../middleware.ts", import.meta.url),
+  "utf8",
+);
 
 describe("credential authentication boundaries", () => {
   it("validates credential input before querying for a client", () => {
@@ -45,5 +49,13 @@ describe("credential authentication boundaries", () => {
     );
     expect(loginActionSource).not.toContain("redactInternalError");
     expect(loginActionSource).not.toContain("throw error");
+  });
+
+  it("does not treat an Auth.js error object as an authenticated user", () => {
+    expect(middlewareSource).not.toContain("!!req.auth");
+    expect(middlewareSource).toContain(
+      'typeof req.auth?.user?.id === "string"',
+    );
+    expect(middlewareSource).toContain("req.auth.user.id.length > 0");
   });
 });

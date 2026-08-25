@@ -13,6 +13,8 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  GetObjectTaggingCommand,
+  PutObjectTaggingCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { resolveAwsConfig, type AwsConfig } from "./credentials";
@@ -82,7 +84,21 @@ export interface PresignedUploadOpts {
   bucket: string;
   key: string;
   contentType: string;
+  /**
+   * Optional S3 object-tagging header value (for example
+   * `upload-state=pending`). When present it remains a signed request header
+   * instead of being hoisted into the URL query string, so browser callers
+   * must send the same `x-amz-tagging` value.
+   */
+  tagging?: string;
   /** Seconds until the presigned URL expires (default: 600 = 10 minutes) */
+  expiresIn?: number;
+}
+
+export interface PresignedDownloadOpts {
+  bucket: string;
+  key: string;
+  /** Seconds until the read URL expires (default: 300 = 5 minutes). */
   expiresIn?: number;
 }
 
@@ -102,15 +118,38 @@ export async function getPresignedUploadUrl(
     Bucket: opts.bucket,
     Key: opts.key,
     ContentType: opts.contentType,
+    Tagging: opts.tagging,
   });
 
   const uploadUrl = await getSignedUrl(client, command, {
     expiresIn: opts.expiresIn ?? 600,
+    // Bind the declared MIME type to the capability. Without this explicit
+    // set, the S3 presigner omits Content-Type from X-Amz-SignedHeaders and a
+    // browser can replace it after the server validates the presign request.
+    signableHeaders: new Set(["content-type"]),
+    ...(opts.tagging
+      ? { unhoistableHeaders: new Set(["x-amz-tagging"]) }
+      : {}),
   });
 
   const publicUrl = `https://${opts.bucket}.s3.${result.config.region}.amazonaws.com/${opts.key}`;
 
   return { uploadUrl, publicUrl, s3Key: opts.key };
+}
+
+/**
+ * Generate a short-lived GET URL for a private object.
+ *
+ * Sensitive uploads must use this instead of treating the stable S3 object
+ * address as an access grant. Authorization remains the caller's job; this
+ * helper only creates the time-bounded capability after that check.
+ */
+export async function getPresignedDownloadUrl(
+  opts: PresignedDownloadOpts,
+): Promise<string> {
+  const client = createS3ClientOrThrow();
+  const command = new GetObjectCommand({ Bucket: opts.bucket, Key: opts.key });
+  return getSignedUrl(client, command, { expiresIn: opts.expiresIn ?? 300 });
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +171,24 @@ export async function headObject(bucket: string, key: string) {
   return client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
 }
 
+export async function getObjectTagging(bucket: string, key: string) {
+  const client = createS3ClientOrThrow();
+  return client.send(new GetObjectTaggingCommand({ Bucket: bucket, Key: key }));
+}
+
+export async function putObjectTagging(
+  bucket: string,
+  key: string,
+  tags: Array<{ Key: string; Value: string }>,
+): Promise<void> {
+  const client = createS3ClientOrThrow();
+  await client.send(new PutObjectTaggingCommand({
+    Bucket: bucket,
+    Key: key,
+    Tagging: { TagSet: tags },
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Re-exports (so consumers don't need direct @aws-sdk/client-s3 dependency)
 // ---------------------------------------------------------------------------
@@ -142,5 +199,7 @@ export {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  GetObjectTaggingCommand,
+  PutObjectTaggingCommand,
 } from "@aws-sdk/client-s3";
 export { getSignedUrl } from "@aws-sdk/s3-request-presigner";

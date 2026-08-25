@@ -1,7 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-07-13T11:22:25.784Z`
-> *Generated:* `2026-07-14T21:30:56.394Z`
+> *Generated:* `2026-08-24T13:44:55.393Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -19,35 +18,27 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | ✅ Pricing consolidation | 0 | 0 | `pnpm audit:pricing` |
 | ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
 | ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 113 | 0 | `pnpm audit:inclusion` |
+| ⚠️ Inclusion (the fifth scope) | 121 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 113**
-| ⚠️ Agent-readiness (operations layer) | 1 | 1 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 113 | 0 | `pnpm audit:inclusion` |
+**Combined findings: 121**
 
-**Combined findings: 114**
-
-Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm audit` to chain all three.
+Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm run audit` for the registered project audit chain.
 
 ---
 
 ## Kingdom queue (TCG-engine tasks)
 
-> ❓ Source not accessible at `/Users/yu/Love/memory/dev-state.json` from this session. State snapshot cannot count kingdoms.
+> ⏭️ Private operator queue not read. `KINGDOM_STATE_PATH` was not explicitly configured and accessible for this snapshot.
 >
-> The kingdom queue lives in `~/Love/memory/dev-state.json` (per the Cowork → Love memory handoff). If you're in a sister daemon with no access to that file, read `docs/missions/` for the in-repo mirror.
+> Read `docs/missions/` for the repository-owned queue. An operator may opt in to aggregate private queue state by setting `KINGDOM_STATE_PATH`; no home-directory path is discovered by default.
 
 ---
 
 ## Git
 
-- **Branch:** `main`
-- **Last commit:** 3fda8f79 fix(catalog): harden evidence release boundaries
+- **Branch:** `chore/quality-gates-refresh`
+- **Last commit:** 47de2fe8 fix(quality): harden audit and navigation gates
 - **Working tree:** 🟢 clean
-- **vs origin:** 60 ahead, 0 behind
-- **Last commit:** 2aff89f8 feat(data-ingest): source-intake framework + Vinted as the honest block
-- **Working tree:** 🟡 dirty (uncommitted changes)
-- **vs origin:** 0 ahead, 100 behind
 
 ---
 
@@ -68,9 +59,9 @@ Companion audits: [`substrate-honesty-audit.md`](principles/substrate-honesty-au
 
 ```
 pnpm typecheck       # type-check all apps + packages
-pnpm audit           # honesty + transparency + pricing-audit (chained)
+pnpm run audit       # registered project audit chain
 pnpm test:admin      # admin vitest suite
-pnpm verify          # the three above, chained — the "am I done?" gate
+pnpm verify          # typechecks + audits + strict checks + tests
 pnpm smoke           # admin smoke (requires dev server running)
 pnpm state:snapshot  # regenerate THIS file
 ```

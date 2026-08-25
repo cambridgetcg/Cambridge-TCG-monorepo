@@ -129,10 +129,15 @@ async function resolvePricesForSkus(
   // logic is easy to audit and amend.
   const r = await query(
     `WITH best_asks AS (
-       SELECT sku, MIN(price)::numeric AS price
-         FROM market_orders
-        WHERE side = 'ask' AND status IN ('open', 'partially_filled')
-              AND sku = ANY($1::text[])
+       SELECT o.sku, MIN(o.price)::numeric AS price
+         FROM market_orders o
+        WHERE o.side = 'ask' AND o.status IN ('open', 'partially_filled')
+          AND o.sku = ANY($1::text[])
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )
         GROUP BY sku
      )
      SELECT $1::text[] AS skus,

@@ -21,9 +21,6 @@ export async function submitVerification(userId: string, data: {
   county?: string;
   postcode: string;
   phone?: string;
-  bankSortCode?: string;
-  bankAccountNumber?: string;
-  bankAccountName?: string;
 }): Promise<UserVerification> {
   // On resubmit after rejection, bump resubmitted_count so admin can
   // see how many passes this case has had. Fresh submission (no prior
@@ -31,12 +28,11 @@ export async function submitVerification(userId: string, data: {
   const result = await query(
     `INSERT INTO user_verifications (user_id, full_legal_name, date_of_birth,
       address_line1, address_line2, city, county, postcode, country,
-      phone, bank_sort_code, bank_account_number, bank_account_name)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'GB',$9,$10,$11,$12)
+      phone)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'GB',$9)
      ON CONFLICT (user_id) DO UPDATE SET
        full_legal_name=$2, date_of_birth=$3, address_line1=$4, address_line2=$5,
-       city=$6, county=$7, postcode=$8, phone=$9, bank_sort_code=$10,
-       bank_account_number=$11, bank_account_name=$12,
+       city=$6, county=$7, postcode=$8, phone=$9,
        status='pending',
        rejected_at=NULL, rejected_reason=NULL,
        resubmitted_count = CASE
@@ -48,8 +44,7 @@ export async function submitVerification(userId: string, data: {
      RETURNING *`,
     [userId, data.fullLegalName, data.dateOfBirth, data.addressLine1,
      data.addressLine2 || null, data.city, data.county || null, data.postcode.toUpperCase().trim(),
-     data.phone || null, data.bankSortCode || null,
-     data.bankAccountNumber || null, data.bankAccountName || null]
+     data.phone || null]
   );
   return result.rows[0] as UserVerification;
 }
@@ -92,9 +87,20 @@ export async function addVerificationDocument(
 ): Promise<VerificationDocument> {
   const r = await query(
     `INSERT INTO verification_documents (user_id, doc_type, url, s3_key, mime_type)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (s3_key) DO UPDATE SET
+       doc_type = EXCLUDED.doc_type,
+       mime_type = EXCLUDED.mime_type
+     WHERE verification_documents.user_id = EXCLUDED.user_id
+     RETURNING *`,
     [userId, data.docType, data.url, data.s3Key, data.mimeType ?? null],
   );
+  if (r.rows.length === 0) {
+    // A key can only be generated inside its authenticated participant's
+    // namespace. A cross-owner conflict is therefore corruption or replay,
+    // never an idempotent retry.
+    throw new Error("Verification document key is already owned by another participant");
+  }
   return r.rows[0] as VerificationDocument;
 }
 
@@ -106,13 +112,46 @@ export async function listVerificationDocuments(userId: string): Promise<Verific
   return r.rows as VerificationDocument[];
 }
 
-export async function deleteVerificationDocument(docId: string, userId: string): Promise<boolean> {
-  // Soft guard: only the owning user can delete their own doc.
+export async function getOwnedVerificationDocument(
+  docId: string,
+  userId: string,
+): Promise<VerificationDocument | null> {
   const r = await query(
-    `DELETE FROM verification_documents WHERE id = $1 AND user_id = $2 RETURNING id`,
+    `SELECT * FROM verification_documents WHERE id = $1 AND user_id = $2`,
     [docId, userId],
   );
+  return (r.rows[0] as VerificationDocument | undefined) ?? null;
+}
+
+export async function deleteVerificationDocument(
+  docId: string,
+  userId: string,
+  expectedS3Key: string,
+): Promise<boolean> {
+  // Soft guard: only the owning user can delete their own doc.
+  const r = await query(
+    `DELETE FROM verification_documents
+      WHERE id = $1 AND user_id = $2 AND s3_key = $3
+      RETURNING id`,
+    [docId, userId, expectedS3Key],
+  );
   return r.rows.length > 0;
+}
+
+export async function listVerificationDocumentStorageReferences(): Promise<
+  Array<{ userId: string; s3Key: string }>
+> {
+  // The storage-repair sweep walks only records the application already owns.
+  // It never enumerates the private bucket and its caller logs aggregates only.
+  const r = await query(
+    `SELECT user_id, s3_key
+       FROM verification_documents
+      ORDER BY uploaded_at ASC`,
+  );
+  return r.rows.map((row) => ({
+    userId: String(row.user_id),
+    s3Key: String(row.s3_key),
+  }));
 }
 
 export async function listPendingVerifications(): Promise<(UserVerification & { email: string })[]> {

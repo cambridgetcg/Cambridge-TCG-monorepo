@@ -47,12 +47,30 @@ describe("storefront breadcrumb registry", () => {
     for (const pattern of [
       "/c/:slug",
       "/decks/:slug",
+      "/artists/:slug",
+      "/bounty/verify/:id",
       "/product/:sku",
+      "/pulls/:game",
       "/rewards/mystery-boxes/:id",
       "/rewards/raffles/:id",
     ]) {
       expect(patterns.has(pattern)).toBe(true);
     }
+  });
+
+  it("resolves the artist, pull-rate, and bounty compatibility trails", () => {
+    expect(resolveBreadcrumbs("/artists/Ada%20Lovelace")).toEqual([
+      { label: "Artists", href: "/artists" },
+      { label: "Ada Lovelace" },
+    ]);
+    expect(resolveBreadcrumbs("/pulls/one-piece")).toEqual([
+      { label: "Pull rates", href: "/pulls" },
+      { label: "one-piece" },
+    ]);
+    expect(resolveBreadcrumbs("/bounty/verify/pull-42")).toEqual([
+      { label: "Verify", href: "/verify" },
+      { label: "Pull pull-42" },
+    ]);
   });
 
   it("renders nothing for an unregistered path", () => {

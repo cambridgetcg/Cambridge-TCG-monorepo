@@ -27,6 +27,7 @@ import type {
   CollectiveMemberRole,
 } from "@/lib/collectives/types";
 import { COLLECTIVE_KINDS, isValidSlug } from "@/lib/collectives/types";
+import { DIRECTORY_PUBLICATION_VERSION } from "@/lib/collectives/directory-contract";
 
 interface ActionResult<T = unknown> {
   ok: boolean;
@@ -41,10 +42,9 @@ async function requireUserId(): Promise<string | { error: string }> {
 }
 
 async function getCollectiveIdBySlug(slug: string): Promise<string | null> {
-  const r = (await query(
-    `SELECT id FROM collectives WHERE slug = $1`,
-    [slug],
-  )) as { rows: { id: string }[] };
+  const r = (await query(`SELECT id FROM collectives WHERE slug = $1`, [
+    slug,
+  ])) as { rows: { id: string }[] };
   return r.rows[0]?.id ?? null;
 }
 
@@ -74,12 +74,29 @@ export async function createCollectiveAction(
     .map((s) => s.trim())
     .filter(Boolean);
   const is_public = formData.get("is_public") === "on";
+  const directory_listed = formData.get("directory_listed") === "on";
+  const directory_publication_version = String(
+    formData.get("directory_publication_version") ?? "",
+  );
 
   if (!isValidSlug(slug)) {
-    return { ok: false, error: "Slug must be lowercase, hyphen-separated, 3–48 characters." };
+    return {
+      ok: false,
+      error: "Slug must be lowercase, hyphen-separated, 3–48 characters.",
+    };
   }
   if (!COLLECTIVE_KINDS.includes(kind)) {
     return { ok: false, error: "Pick a kind." };
+  }
+  if (
+    directory_listed &&
+    directory_publication_version !== DIRECTORY_PUBLICATION_VERSION
+  ) {
+    return {
+      ok: false,
+      error:
+        "The directory publication notice changed. Reload and review it before listing.",
+    };
   }
 
   try {
@@ -92,9 +109,13 @@ export async function createCollectiveAction(
       description,
       house_rules,
       is_public,
+      directory_listed,
+      directory_publication_version,
     });
     revalidatePath("/account/collectives");
     revalidatePath(`/c/${c.slug}`);
+    revalidatePath("/community/directory");
+    revalidatePath("/api/v1/directory/organisations");
     return { ok: true, data: { slug: c.slug } };
   } catch (e) {
     return { ok: false, error: fmtErr(e) };
@@ -122,7 +143,25 @@ export async function updateCollectiveAction(
   const description = formData.get("description");
   const house_rules = formData.get("house_rules");
   const languagesRaw = formData.get("languages");
-  const is_public = formData.get("is_public");
+  // This action receives the complete profile form. An absent checkbox means
+  // false; treating it as "leave unchanged" made publication impossible to
+  // withdraw from this surface.
+  const is_public = formData.get("is_public") === "on";
+  const directory_listed = formData.get("directory_listed") === "on";
+  const directory_publication_version = String(
+    formData.get("directory_publication_version") ?? "",
+  );
+
+  if (
+    directory_listed &&
+    directory_publication_version !== DIRECTORY_PUBLICATION_VERSION
+  ) {
+    return {
+      ok: false,
+      error:
+        "The directory publication notice changed. Reload and review it before listing.",
+    };
+  }
 
   try {
     await updateCollective(collectiveId, {
@@ -140,10 +179,14 @@ export async function updateCollectiveAction(
               .split(",")
               .map((s) => s.trim())
               .filter(Boolean),
-      is_public: is_public == null ? undefined : is_public === "on",
+      is_public,
+      directory_listed,
+      directory_publication_version,
     });
     revalidatePath(`/c/${slug}`);
     revalidatePath(`/account/collectives/${slug}/manage`);
+    revalidatePath("/community/directory");
+    revalidatePath("/api/v1/directory/organisations");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: fmtErr(e) };
@@ -205,9 +248,7 @@ export async function removeMemberAction(
   }
 }
 
-export async function acceptInviteAction(
-  slug: string,
-): Promise<ActionResult> {
+export async function acceptInviteAction(slug: string): Promise<ActionResult> {
   const auth = await requireUserId();
   if (typeof auth !== "string") return { ok: false, error: auth.error };
 

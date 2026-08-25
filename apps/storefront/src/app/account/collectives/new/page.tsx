@@ -10,8 +10,17 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { isValidSlug, suggestSlug, COLLECTIVE_KINDS } from "@/lib/collectives/types";
+import {
+  isValidSlug,
+  suggestSlug,
+  COLLECTIVE_KINDS,
+} from "@/lib/collectives/types";
 import { createCollectiveAction } from "../_actions";
+import {
+  DIRECTORY_MAX_LANGUAGES_INPUT_LENGTH,
+  DIRECTORY_PUBLICATION_NOTICE,
+  DIRECTORY_PUBLICATION_VERSION,
+} from "@/lib/collectives/directory-contract";
 
 const KIND_LABEL: Record<string, string> = {
   shop: "Shop",
@@ -29,6 +38,8 @@ export default function NewCollectivePage() {
   const [displayName, setDisplayName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
+  const [directoryListed, setDirectoryListed] = useState(false);
 
   const effectiveSlug = slugTouched ? slug : suggestSlug(displayName);
   const slugValid = effectiveSlug === "" ? null : isValidSlug(effectiveSlug);
@@ -59,7 +70,10 @@ export default function NewCollectivePage() {
         <p className="text-sm text-ink-muted leading-relaxed">
           You will be the steward. You can invite members after creation. The
           collective starts private; flip it public when ready.{" "}
-          <Link href="/methodology/collectives" className="text-accent hover:text-accent-strong underline">
+          <Link
+            href="/methodology/collectives"
+            className="text-accent hover:text-accent-strong underline"
+          >
             How collectives work
           </Link>
         </p>
@@ -84,7 +98,10 @@ export default function NewCollectivePage() {
 
         <div>
           <label className="block text-[11px] uppercase tracking-wider text-ink-faint mb-1">
-            URL slug — /c/<span className="text-ink-muted">{effectiveSlug || "your-slug"}</span>
+            URL slug — /c/
+            <span className="text-ink-muted">
+              {effectiveSlug || "your-slug"}
+            </span>
           </label>
           <input
             name="slug_visible"
@@ -146,6 +163,7 @@ export default function NewCollectivePage() {
           </label>
           <input
             name="languages"
+            maxLength={DIRECTORY_MAX_LANGUAGES_INPUT_LENGTH}
             placeholder="ja, en"
             className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm placeholder:text-ink-faint focus:outline-none focus:border-accent"
           />
@@ -181,10 +199,54 @@ export default function NewCollectivePage() {
           <input
             type="checkbox"
             name="is_public"
+            checked={isPublic}
+            onChange={(event) => {
+              const checked = event.currentTarget.checked;
+              setIsPublic(checked);
+              if (!checked) setDirectoryListed(false);
+            }}
             className="accent-amber-500"
           />
-          Make public immediately (you can change this later)
+          Publish the profile at /c/{effectiveSlug || "your-slug"}
         </label>
+
+        <div className="rounded-lg border border-border-subtle bg-surface-subtle p-3">
+          <input
+            type="hidden"
+            name="directory_publication_version"
+            value={DIRECTORY_PUBLICATION_VERSION}
+          />
+          <label className="flex items-start gap-2 text-sm text-ink-muted">
+            <input
+              type="checkbox"
+              name="directory_listed"
+              checked={directoryListed}
+              onChange={(event) =>
+                setDirectoryListed(event.currentTarget.checked)
+              }
+              disabled={!isPublic}
+              className="mt-0.5 accent-amber-500"
+            />
+            <span>
+              {DIRECTORY_PUBLICATION_NOTICE.publication}{" "}
+              {DIRECTORY_PUBLICATION_NOTICE.exposure}
+            </span>
+          </label>
+          <p className="mt-2 text-xs text-ink-faint">
+            {DIRECTORY_PUBLICATION_NOTICE.withdrawal}{" "}
+            <Link
+              href="/methodology/community-directory"
+              className="text-accent underline hover:text-accent-strong"
+            >
+              Read the publication contract
+            </Link>
+            .
+          </p>
+          <p className="mt-2 text-xs text-ink-faint">
+            {DIRECTORY_PUBLICATION_NOTICE.data_discipline}{" "}
+            {DIRECTORY_PUBLICATION_NOTICE.correction}
+          </p>
+        </div>
 
         {error && (
           <div className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">

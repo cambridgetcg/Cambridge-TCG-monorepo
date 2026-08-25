@@ -12,6 +12,7 @@ import {
 import { sendOutbidEmail } from "@/lib/auction/email";
 import { query } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 function notFoundResponse() {
   return NextResponse.json(
@@ -59,6 +60,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to place a bid." }, { status: 401 });
   }
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   const { id } = await params;
   if (!isAuctionId(id)) return notFoundResponse();

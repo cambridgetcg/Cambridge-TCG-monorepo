@@ -81,17 +81,37 @@ export async function listWatches(userId: string): Promise<WatchEntry[]> {
   const r = await query(
     `SELECT w.sku, w.created_at,
             -- card name + image: take the most recent order for this sku
-            (SELECT card_name FROM market_orders
+            (SELECT card_name FROM market_orders o
               WHERE sku = w.sku AND card_name IS NOT NULL
+                AND NOT EXISTS (
+                  SELECT 1 FROM trust_profiles suspended
+                   WHERE suspended.user_id = o.user_id
+                     AND suspended.is_suspended = TRUE
+                )
               ORDER BY created_at DESC LIMIT 1) AS card_name,
-            (SELECT image_url FROM market_orders
+            (SELECT image_url FROM market_orders o
               WHERE sku = w.sku AND image_url IS NOT NULL
+                AND NOT EXISTS (
+                  SELECT 1 FROM trust_profiles suspended
+                   WHERE suspended.user_id = o.user_id
+                     AND suspended.is_suspended = TRUE
+                )
               ORDER BY created_at DESC LIMIT 1) AS image_url,
             -- current bid/ask
-            (SELECT MAX(price) FROM market_orders
-              WHERE sku = w.sku AND side = 'bid' AND status IN ('open','partially_filled')) AS best_bid,
-            (SELECT MIN(price) FROM market_orders
-              WHERE sku = w.sku AND side = 'ask' AND status IN ('open','partially_filled')) AS best_ask,
+            (SELECT MAX(price) FROM market_orders o
+              WHERE sku = w.sku AND side = 'bid' AND status IN ('open','partially_filled')
+                AND NOT EXISTS (
+                  SELECT 1 FROM trust_profiles suspended
+                   WHERE suspended.user_id = o.user_id
+                     AND suspended.is_suspended = TRUE
+                )) AS best_bid,
+            (SELECT MIN(price) FROM market_orders o
+              WHERE sku = w.sku AND side = 'ask' AND status IN ('open','partially_filled')
+                AND NOT EXISTS (
+                  SELECT 1 FROM trust_profiles suspended
+                   WHERE suspended.user_id = o.user_id
+                     AND suspended.is_suspended = TRUE
+                )) AS best_ask,
             -- last trade
             (SELECT price FROM market_trades
               WHERE sku = w.sku AND escrow_status <> 'cancelled'
@@ -190,15 +210,25 @@ export async function runAlertSweep(): Promise<AlertSweepResult> {
        SELECT a.id, a.user_id, a.sku, a.threshold_price::numeric AS threshold,
               a.direction,
               u.email AS user_email,
-              (SELECT MIN(price)::numeric FROM market_orders
+              (SELECT MIN(price)::numeric FROM market_orders o
                 WHERE sku = a.sku AND side = 'ask' AND status IN ('open','partially_filled')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM trust_profiles suspended
+                     WHERE suspended.user_id = o.user_id
+                       AND suspended.is_suspended = TRUE
+                  )
               ) AS best_ask,
               (SELECT price::numeric FROM market_trades
                 WHERE sku = a.sku AND escrow_status <> 'cancelled'
                 ORDER BY created_at DESC LIMIT 1
               ) AS last_trade_price,
-              (SELECT card_name FROM market_orders
+              (SELECT card_name FROM market_orders o
                 WHERE sku = a.sku AND card_name IS NOT NULL
+                  AND NOT EXISTS (
+                    SELECT 1 FROM trust_profiles suspended
+                     WHERE suspended.user_id = o.user_id
+                       AND suspended.is_suspended = TRUE
+                  )
                 ORDER BY created_at DESC LIMIT 1
               ) AS card_name
          FROM price_alerts a

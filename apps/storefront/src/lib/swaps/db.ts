@@ -12,11 +12,15 @@
 // trust scores do not move — see /methodology/swaps.
 
 import { query, transaction } from "@/lib/db";
-import type { CompatQueryFn } from "@cambridge-tcg/db/compat";
 import { notify } from "@/lib/notifications/db";
 import { canTrade } from "@/lib/escrow/trust-engine";
 import { assertCanMessage } from "@/lib/messages/db";
 import { responseExpiresAtForUser } from "@/lib/users/response-window";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
+import {
+  lockTradeStanding,
+  type LockedTradeStanding,
+} from "@/lib/trust/standing-lock";
 import { logSwapTransition } from "./lifecycle-log";
 import { swapGuidance } from "./guidance";
 import { gateValueGbp } from "./guidance-core";
@@ -203,6 +207,24 @@ function otherPartyId(swap: SwapProposal, userId: string): string {
   return swap.proposer_id === userId ? swap.recipient_id : swap.proposer_id;
 }
 
+function swapStandingFailure(
+  standing: LockedTradeStanding,
+  actorId: string,
+  action: string,
+): Result<never> | null {
+  if (standing.allowed) return null;
+  const actorUnavailable =
+    standing.missingUserIds.includes(actorId) ||
+    standing.suspendedUserIds.includes(actorId);
+  return {
+    ok: false,
+    reason: actorUnavailable
+      ? `Can't ${action}: your account doesn't currently pass the trade gate.`
+      : `Can't ${action}: the other collector's account can't take on a swap right now.`,
+    status: 403,
+  };
+}
+
 // ── Create / counter ────────────────────────────────────────────────────
 
 export interface CreateSwapInput {
@@ -222,6 +244,8 @@ export interface CreateSwapInput {
 }
 
 export async function createSwap(input: CreateSwapInput): Promise<Result<SwapProposal>> {
+  assertP2PCommitmentOpen();
+
   // Resolve recipient.
   let recipientId = input.recipientId ?? null;
   if (!recipientId && input.recipientUsername) {
@@ -322,7 +346,22 @@ export async function createSwap(input: CreateSwapInput): Promise<Result<SwapPro
 
   let swap: SwapProposal;
   try {
-    swap = await transaction(async (tx) => {
+    const createdResult = await transaction(
+      async (tx): Promise<Result<SwapProposal>> => {
+        // canTrade() ran before opening the transaction for the full limits
+        // check. These standing locks close the suspension race and remain
+        // held through proposal/items/audit writes.
+        const standing = await lockTradeStanding(tx, [
+          input.proposerId,
+          recipientId,
+        ]);
+        const denied = swapStandingFailure(
+          standing,
+          input.proposerId,
+          input.counterOf ? "counter" : "create this swap",
+        );
+        if (denied) return denied;
+
       const inserted = await tx(
         `INSERT INTO swap_proposals
            (proposer_id, recipient_id, status, cash_delta_pence, note, counter_of, expires_at)
@@ -402,8 +441,11 @@ export async function createSwap(input: CreateSwapInput): Promise<Result<SwapPro
         });
       }
 
-      return created;
-    });
+        return { ok: true, value: created };
+      },
+    );
+    if (!createdResult.ok) return createdResult;
+    swap = createdResult.value;
   } catch (err) {
     if (err instanceof Error && err.message === SWAP_COUNTER_CONFLICT) {
       return {
@@ -436,6 +478,8 @@ export async function createSwap(input: CreateSwapInput): Promise<Result<SwapPro
 // ── Draft → proposed ────────────────────────────────────────────────────
 
 export async function proposeDraft(swapId: string, userId: string): Promise<Result<SwapProposal>> {
+  assertP2PCommitmentOpen();
+
   const found = await getSwapForUser(swapId, userId);
   if (!found) return { ok: false, reason: "Swap not found.", status: 404 };
   const { swap } = found;
@@ -453,13 +497,27 @@ export async function proposeDraft(swapId: string, userId: string): Promise<Resu
   if (!guard.ok) return guard;
 
   const expiresAt = await resolveExpiresAt(swap.recipient_id, undefined);
-  const updated = await transaction(async (tx) => {
+  const updated = await transaction(
+    async (tx): Promise<Result<SwapProposal>> => {
+      const standing = await lockTradeStanding(tx, [
+        userId,
+        swap.recipient_id,
+      ]);
+      const denied = swapStandingFailure(
+        standing,
+        userId,
+        "send this swap",
+      );
+      if (denied) return denied;
+
     const r = await tx(
       `UPDATE swap_proposals SET status = 'proposed', expires_at = $2, updated_at = NOW()
         WHERE id = $1 AND status = 'draft' RETURNING *`,
       [swapId, expiresAt],
     );
-    if (r.rows.length === 0) return null;
+    if (r.rows.length === 0) {
+      return { ok: false, reason: "Draft was already sent.", status: 409 };
+    }
     await logSwapTransition(tx, {
       swapId,
       action: "proposed",
@@ -467,9 +525,10 @@ export async function proposeDraft(swapId: string, userId: string): Promise<Resu
       actorLabel: "proposer",
       metadata: { expires_at: expiresAt },
     });
-    return r.rows[0] as SwapProposal;
-  });
-  if (!updated) return { ok: false, reason: "Draft was already sent.", status: 409 };
+      return { ok: true, value: r.rows[0] as SwapProposal };
+    },
+  );
+  if (!updated.ok) return updated;
 
   const proposerLabel = await userLabel(userId);
   await notify({
@@ -481,12 +540,14 @@ export async function proposeDraft(swapId: string, userId: string): Promise<Resu
     referenceType: "swap_proposal",
     referenceId: `${swapId}:proposed`,
   });
-  return { ok: true, value: updated };
+  return { ok: true, value: updated.value };
 }
 
 // ── Accept / decline / cancel ───────────────────────────────────────────
 
 export async function acceptSwap(swapId: string, userId: string): Promise<Result<SwapProposal>> {
+  assertP2PCommitmentOpen();
+
   const found = await getSwapForUser(swapId, userId);
   if (!found) return { ok: false, reason: "Swap not found.", status: 404 };
   const { swap, items } = found;
@@ -528,13 +589,33 @@ export async function acceptSwap(swapId: string, userId: string): Promise<Result
     }
   }
 
-  const updated = await transaction(async (tx) => {
+  const updated = await transaction(
+    async (tx): Promise<Result<SwapProposal>> => {
+      // The pre-transaction canTrade checks enforce limits; these
+      // deterministic standing locks make suspension atomic with acceptance.
+      const standing = await lockTradeStanding(tx, [
+        swap.recipient_id,
+        swap.proposer_id,
+      ]);
+      const denied = swapStandingFailure(
+        standing,
+        userId,
+        "accept this swap",
+      );
+      if (denied) return denied;
+
     const r = await tx(
       `UPDATE swap_proposals SET status = 'accepted', updated_at = NOW()
         WHERE id = $1 AND status = 'proposed' RETURNING *`,
       [swapId],
     );
-    if (r.rows.length === 0) return null;
+    if (r.rows.length === 0) {
+      return {
+        ok: false,
+        reason: "Swap changed state — reload and retry.",
+        status: 409,
+      };
+    }
     await logSwapTransition(tx, {
       swapId,
       action: "accepted",
@@ -542,9 +623,10 @@ export async function acceptSwap(swapId: string, userId: string): Promise<Result
       actorLabel: "recipient",
       metadata: { gate_value_gbp: gateValue.toFixed(2) },
     });
-    return r.rows[0] as SwapProposal;
-  });
-  if (!updated) return { ok: false, reason: "Swap changed state — reload and retry.", status: 409 };
+      return { ok: true, value: r.rows[0] as SwapProposal };
+    },
+  );
+  if (!updated.ok) return updated;
 
   const recipientLabel = await userLabel(userId);
   await notify({
@@ -556,7 +638,7 @@ export async function acceptSwap(swapId: string, userId: string): Promise<Result
     referenceType: "swap_proposal",
     referenceId: `${swapId}:accepted`,
   });
-  return { ok: true, value: updated };
+  return { ok: true, value: updated.value };
 }
 
 export async function declineSwap(

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { makeOffer, listOffersForBuyer, listOffersForSeller } from "@/lib/market/offers";
 import { resolveCommissionRate } from "@/lib/membership/commission";
 import { DEFAULT_COMMISSION_CAP_GBP } from "@cambridge-tcg/pricing";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 // GET — list my offers, scoped by mode.
 //   mode=outgoing → offers I (the buyer) made
@@ -45,6 +46,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   const body = (await request.json().catch(() => ({}))) as {
     askOrderId?: string;

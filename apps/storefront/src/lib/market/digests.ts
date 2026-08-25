@@ -82,14 +82,24 @@ export async function runSellerRestockDigest(opts?: { force?: boolean }): Promis
      asks AS (
        SELECT sku, MIN(price)::numeric AS best_ask,
               SUM(quantity - filled_quantity)::int AS ask_depth
-         FROM market_orders
+         FROM market_orders o
         WHERE side='ask' AND status IN ('open','partially_filled')
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )
         GROUP BY sku
      ),
      card_meta AS (
        SELECT DISTINCT ON (sku) sku, card_name
-         FROM market_orders
+         FROM market_orders o
         WHERE card_name IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM trust_profiles suspended
+             WHERE suspended.user_id = o.user_id
+               AND suspended.is_suspended = TRUE
+          )
         ORDER BY sku, created_at DESC
      )
      SELECT w.sku, cm.card_name, a.best_ask,
@@ -183,19 +193,29 @@ export async function runBuyerWatchlistDigest(opts?: { force?: boolean }): Promi
        ),
        cur_ask AS (
          SELECT sku, MIN(price)::numeric AS best_ask
-           FROM market_orders
+           FROM market_orders o
           WHERE sku IN (SELECT sku FROM me)
             AND side='ask' AND status IN ('open','partially_filled')
+            AND NOT EXISTS (
+              SELECT 1 FROM trust_profiles suspended
+               WHERE suspended.user_id = o.user_id
+                 AND suspended.is_suspended = TRUE
+            )
           GROUP BY sku
        ),
        week_ago_ask AS (
          -- Cheapest ask from more than 7d ago that's still/was open. Best
          -- available approximation without time-series snapshots.
          SELECT sku, MIN(price)::numeric AS best_ask
-           FROM market_orders
+           FROM market_orders o
           WHERE sku IN (SELECT sku FROM me)
             AND side='ask'
             AND created_at <= NOW() - INTERVAL '7 days' -- audit:cadence-platform
+            AND NOT EXISTS (
+              SELECT 1 FROM trust_profiles suspended
+               WHERE suspended.user_id = o.user_id
+                 AND suspended.is_suspended = TRUE
+            )
           GROUP BY sku
        ),
        last_low AS (
@@ -208,8 +228,13 @@ export async function runBuyerWatchlistDigest(opts?: { force?: boolean }): Promi
        ),
        meta AS (
          SELECT DISTINCT ON (sku) sku, card_name
-           FROM market_orders
+           FROM market_orders o
           WHERE card_name IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM trust_profiles suspended
+               WHERE suspended.user_id = o.user_id
+                 AND suspended.is_suspended = TRUE
+            )
           ORDER BY sku, created_at DESC
        )
        SELECT m.sku, mt.card_name,
@@ -273,6 +298,11 @@ export async function runBuyerWatchlistDigest(opts?: { force?: boolean }): Promi
             AND o.user_id = ANY($1)
             AND o.created_at > NOW() - INTERVAL '7 days' -- audit:cadence-platform
             AND o.card_name IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM trust_profiles suspended
+               WHERE suspended.user_id = o.user_id
+                 AND suspended.is_suspended = TRUE
+            )
           ORDER BY o.created_at DESC
           LIMIT 5`,
         [followedIds]

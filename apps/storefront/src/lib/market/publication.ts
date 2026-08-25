@@ -19,3 +19,12 @@ export const MARKET_INTEREST_PUBLICATION = {
     "Repeated-read and controlled-account reconstruction tests pass.",
   ],
 };
+
+/**
+ * Just-in-time notice shown at each open-order posting control.
+ *
+ * Keep this short enough to read before acting; /privacy#market-orders owns
+ * the complete field-level disclosure and lawful-basis explanation.
+ */
+export const OPEN_ORDER_PUBLICATION_NOTICE =
+  "Any bid or ask left open after posting is public without sign-in. Closing it stops future Cambridge TCG publication, but cannot recall copies already fetched.";

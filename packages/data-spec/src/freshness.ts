@@ -36,6 +36,8 @@ export const FRESHNESS = {
   identity: 3600,
   /** Adopter registry — small set, refreshes daily. */
   adopters: 86400,
+  /** Participant-published organisation facts change on human timescales. */
+  directory: 600,
   /** Live signals (heartbeat, event stream tick, sub-30s freshness). 5s. */
   live: 5,
   /** Rotating content that refreshes on a short cycle — comedy surfaces

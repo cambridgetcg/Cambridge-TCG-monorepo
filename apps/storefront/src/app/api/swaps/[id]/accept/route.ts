@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { acceptSwap } from "@/lib/swaps/db";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 // POST — recipient accepts. Re-gates BOTH parties via canTrade().
 export async function POST(
@@ -9,6 +10,8 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
   const { id } = await params;
   const result = await acceptSwap(id, session.user.id);
   if (!result.ok) return NextResponse.json({ error: result.reason }, { status: result.status });
