@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createSwap, listSwapsForUser } from "@/lib/swaps/db";
 import type { SwapItemInput } from "@/lib/swaps/types";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 // GET — list my swaps.
 //   mode=incoming → proposals sent TO me (drafts excluded — a draft is
@@ -21,6 +22,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   const body = (await request.json().catch(() => ({}))) as {
     recipientUsername?: string;

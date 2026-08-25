@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { approveAuction, rejectAuction, getPendingApprovalAuctions, calculateSellerPayout } from "@/lib/auction/db";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 // GET — admin: list pending approval auctions
 export async function GET() {
@@ -21,6 +22,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = await request.json();
 
   if (body.action === "approve") {
+    const releasePause = p2pCommitmentPauseResponse();
+    if (releasePause) return releasePause;
     const auction = await approveAuction(id, body.notes);
     if (!auction) {
       return NextResponse.json({ error: "Auction not found or already reviewed." }, { status: 404 });

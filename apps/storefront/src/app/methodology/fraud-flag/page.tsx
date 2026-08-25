@@ -95,6 +95,24 @@ export default function FraudFlagMethodology() {
         <a href="/account/standing">/account/standing</a> and contact support to
         add context, challenge inaccurate input data or request human review.
       </p>
+      <h2>Production release boundary</h2>
+      <p>
+        The participant-facing request channel is currently email. There is not
+        yet a durable decision-review case queue with assignment, status, a
+        published service level and a governed way to correct every input and
+        change every affected outcome. A support link alone is not operational
+        human intervention.
+      </p>
+      <p>
+        Because these automatic effects can change access and transaction
+        terms, production rejects new P2P commitments by default unless the
+        deployment uses the exact reviewed mode{" "}
+        <code>P2P_COMMITMENT_MODE=reviewed-adult-human-review-v1</code>. The
+        route guard and each order, offer, auction, swap, lot and automatic-rule
+        data-layer entry point both enforce the pause. Payment, shipping,
+        receipt, cancellation, return, dispute, refund, payout, evidence and
+        revocation for existing obligations remain available.
+      </p>
       <h2>The one exception: a break-glass for emergencies</h2>
       <p>
         There is exactly one way an account can be frozen, and it is reserved

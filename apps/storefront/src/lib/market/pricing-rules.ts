@@ -9,6 +9,7 @@
 
 import { query } from "@/lib/db";
 import { logRuleTransition } from "./pricing-rule-lifecycle-log";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 
 export type RuleType = "auto_decline" | "auto_counter";
 export type RuleStatus = "active" | "paused" | "archived";
@@ -102,6 +103,8 @@ export async function createRule(input: {
   counterPct?: number;
   responseMessage?: string;
 }): Promise<Result<PricingRule>> {
+  assertP2PCommitmentOpen();
+
   const trimmedName = input.name?.trim();
   if (!trimmedName || trimmedName.length > 80) {
     return { ok: false, reason: "Name must be 1-80 characters.", status: 400 };
@@ -216,6 +219,7 @@ export async function pauseRule(id: string, userId: string) {
     `status = 'paused'`, "paused");
 }
 export async function resumeRule(id: string, userId: string) {
+  assertP2PCommitmentOpen();
   return transition(id, userId,
     (r) => r.status === "paused" ? null : `Rule is ${r.status} — can't resume.`,
     `status = 'active'`, "resumed");
@@ -301,6 +305,8 @@ export async function applyRulesToOffer(input: {
   askId: string;
   offerPrice: number;
 }): Promise<RuleApplicationResult> {
+  assertP2PCommitmentOpen();
+
   // Fetch the seller's active rules + the ask metadata in one shot.
   const [rulesRes, askRes] = await Promise.all([
     query(

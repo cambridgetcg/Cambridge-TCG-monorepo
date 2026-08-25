@@ -16,6 +16,7 @@ import { notify } from "@/lib/notifications/db";
 import { canTrade } from "@/lib/escrow/trust-engine";
 import { assertCanMessage } from "@/lib/messages/db";
 import { responseExpiresAtForUser } from "@/lib/users/response-window";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 import {
   lockTradeStanding,
   type LockedTradeStanding,
@@ -243,6 +244,8 @@ export interface CreateSwapInput {
 }
 
 export async function createSwap(input: CreateSwapInput): Promise<Result<SwapProposal>> {
+  assertP2PCommitmentOpen();
+
   // Resolve recipient.
   let recipientId = input.recipientId ?? null;
   if (!recipientId && input.recipientUsername) {
@@ -475,6 +478,8 @@ export async function createSwap(input: CreateSwapInput): Promise<Result<SwapPro
 // ── Draft → proposed ────────────────────────────────────────────────────
 
 export async function proposeDraft(swapId: string, userId: string): Promise<Result<SwapProposal>> {
+  assertP2PCommitmentOpen();
+
   const found = await getSwapForUser(swapId, userId);
   if (!found) return { ok: false, reason: "Swap not found.", status: 404 };
   const { swap } = found;
@@ -541,6 +546,8 @@ export async function proposeDraft(swapId: string, userId: string): Promise<Resu
 // ── Accept / decline / cancel ───────────────────────────────────────────
 
 export async function acceptSwap(swapId: string, userId: string): Promise<Result<SwapProposal>> {
+  assertP2PCommitmentOpen();
+
   const found = await getSwapForUser(swapId, userId);
   if (!found) return { ok: false, reason: "Swap not found.", status: 404 };
   const { swap, items } = found;

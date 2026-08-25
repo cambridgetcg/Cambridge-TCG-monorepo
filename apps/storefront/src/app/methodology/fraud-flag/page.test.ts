@@ -84,6 +84,21 @@ describe("fraud-flag methodology contract", () => {
       review_mutation_and_governance_record_commit_together: true,
       affected_trust_score_recalculation_is_awaited: true,
       emergency_freeze_is_human_only: true,
+      durable_participant_review_case_workflow: false,
+      production_p2p_commitments_default_paused: true,
+      existing_obligation_and_remedy_steps_remain_available: true,
     });
+  });
+
+  it("states the fail-closed release boundary without inventing a review workflow", () => {
+    expect(page).toContain("There is not yet a durable decision-review case queue");
+    expect(page).toContain("A support link alone is not operational human intervention");
+    expect(page).toContain("P2P_COMMITMENT_MODE=reviewed-adult-human-review-v1");
+    expect(page).toContain("production rejects new P2P commitments by default");
+    expect(page).toContain("existing obligations remain available");
+    expect(summary).toContain("production defaults new P2P commitments to paused");
+    expect(sidecar.source_code).toContain(
+      "apps/storefront/src/lib/release/production-gates.ts",
+    );
   });
 });

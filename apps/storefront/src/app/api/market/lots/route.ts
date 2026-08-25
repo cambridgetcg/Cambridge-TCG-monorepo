@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createLot, listOwnLots, listPublicLots } from "@/lib/market/lots";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to sell a lot." }, { status: 401 });
   }
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   const body = await request.json().catch(() => ({}));
   const title = (body.title as string | undefined)?.trim();

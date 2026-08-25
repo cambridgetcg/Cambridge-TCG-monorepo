@@ -8,6 +8,7 @@ import { routeTrade } from "@/lib/escrow/service-tiers";
 import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
@@ -289,6 +290,8 @@ export async function placeOrder(data: {
   quantity: number;
   notes?: string;
 }): Promise<{ order: MarketOrder; trades: MarketTrade[] }> {
+  assertP2PCommitmentOpen();
+
   // Trust gate: refuse the order if the user is suspended or the order
   // value exceeds their per-trade or remaining-daily limits. canTrade()
   // already considers all of those — calling it here turns it from

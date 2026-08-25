@@ -50,24 +50,10 @@ function errorCodeFrom(res: Response): string | null {
   }
 }
 
-// Honest mapping of what the auth API actually exposes. New issuance stops at
-// five unexpired tokens per email address or 500 across the service; hosting
-// protection may add broader limits in front of it.
+// Admission and token-cap decisions intentionally use the same successful
+// Auth.js response as a delivered link. Only failures unrelated to account
+// eligibility are safe to expose here.
 async function messageFor(res: Response): Promise<string | null> {
-  if (res.status === 429) {
-    try {
-      const body = await res.clone().json() as { code?: unknown };
-      if (body.code === "magic_link_global_limit") {
-        return "Sign-in email is temporarily at its service-wide safety limit. Use a recent link or wait before requesting another.";
-      }
-      if (body.code === "magic_link_email_limit") {
-        return "This address has reached its active sign-in email limit. Use a recent link if one arrived, or wait before requesting another.";
-      }
-    } catch {
-      // Hosting-level 429 responses are not required to carry our JSON shape.
-    }
-    return "This address has reached its active sign-in email limit. Use a recent link if one arrived, or wait before requesting another.";
-  }
   const code = errorCodeFrom(res);
   if (code === "Configuration") {
     // Send failures surface as this code — the failure is ours, not theirs.
@@ -157,7 +143,9 @@ function LoginInner() {
         <div className="max-w-sm px-4 text-center">
           <h1 className="text-2xl font-display font-semibold text-ink mb-3">Check your email</h1>
           <p className="text-ink-muted mb-6">
-            We sent a sign-in link to <span className="text-ink font-medium">{email}</span>
+            If an eligible existing account exists for{" "}
+            <span className="text-ink font-medium">{email}</span>, a sign-in
+            link will arrive.
           </p>
           {returnTo && (
             <p className="text-sm text-ink-muted mb-6">
@@ -166,7 +154,7 @@ function LoginInner() {
             </p>
           )}
           <p className="text-sm text-ink-faint">
-            Check your spam folder if you don&apos;t see it.
+            It may take a minute. Check your spam folder too.
           </p>
         </div>
       </main>
@@ -179,7 +167,7 @@ function LoginInner() {
         <h1 className="text-2xl font-display font-semibold text-ink text-center mb-2">Sign In</h1>
         <InkRule className="mb-4 max-w-[8rem] mx-auto" />
         <p className="text-sm text-ink-muted text-center mb-8">
-          {googleEnabled ? "Continue with Google, or use a magic link" : "Enter your email to receive a magic link"}
+          {googleEnabled ? "Continue with Google, or request an email sign-in link" : "Request an email sign-in link"}
         </p>
 
         {googleEnabled && (
@@ -223,12 +211,14 @@ function LoginInner() {
             disabled={loading || !email.includes("@")}
             className="w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Sending..." : "Send Magic Link"}
+            {loading ? "Checking..." : "Continue with Email"}
           </button>
         </form>
 
         <p className="text-xs text-ink-faint text-center mt-6">
-          No account? One will be created automatically.
+          Sign-in requests always receive the same confirmation. New
+          registration may be paused while the adult-account and terms
+          boundary is reviewed.
         </p>
         <div className="text-center mt-4">
           <Link href="/" className="text-sm text-ink-muted hover:text-ink transition">

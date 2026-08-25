@@ -87,9 +87,20 @@ export async function addVerificationDocument(
 ): Promise<VerificationDocument> {
   const r = await query(
     `INSERT INTO verification_documents (user_id, doc_type, url, s3_key, mime_type)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (s3_key) DO UPDATE SET
+       doc_type = EXCLUDED.doc_type,
+       mime_type = EXCLUDED.mime_type
+     WHERE verification_documents.user_id = EXCLUDED.user_id
+     RETURNING *`,
     [userId, data.docType, data.url, data.s3Key, data.mimeType ?? null],
   );
+  if (r.rows.length === 0) {
+    // A key can only be generated inside its authenticated participant's
+    // namespace. A cross-owner conflict is therefore corruption or replay,
+    // never an idempotent retry.
+    throw new Error("Verification document key is already owned by another participant");
+  }
   return r.rows[0] as VerificationDocument;
 }
 
@@ -125,6 +136,22 @@ export async function deleteVerificationDocument(
     [docId, userId, expectedS3Key],
   );
   return r.rows.length > 0;
+}
+
+export async function listVerificationDocumentStorageReferences(): Promise<
+  Array<{ userId: string; s3Key: string }>
+> {
+  // The storage-repair sweep walks only records the application already owns.
+  // It never enumerates the private bucket and its caller logs aggregates only.
+  const r = await query(
+    `SELECT user_id, s3_key
+       FROM verification_documents
+      ORDER BY uploaded_at ASC`,
+  );
+  return r.rows.map((row) => ({
+    userId: String(row.user_id),
+    s3Key: String(row.s3_key),
+  }));
 }
 
 export async function listPendingVerifications(): Promise<(UserVerification & { email: string })[]> {

@@ -72,6 +72,12 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Security boundary (2026-08-25): Next 16.2.11 currently resolves Sharp
+    // 0.34.5, whose untrusted-image decoder path is under an upstream high
+    // severity advisory. Keep the optimisation endpoint disabled until the
+    // supported Next dependency graph carries Sharp >=0.35. Remote images are
+    // still constrained by the allow-list below; browsers fetch them directly.
+    unoptimized: true,
     // One entry per place card images actually live (the honest ground,
     // spec 2026-07-07 §2): three per-game S3 hi-res buckets + the three
     // CardRush hosts images ride on before the 5-min drain archives them.

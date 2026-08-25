@@ -6,6 +6,7 @@ import { sendWinnerEmail, sendAuctionEndedAdminEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { paymentExpiresAtForBuyer } from "@/lib/users/response-window";
 import { lockTradeStanding } from "@/lib/trust/standing-lock";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 import {
   normalizeAuctionListStatus,
   PUBLIC_AUCTION_SQL_PREDICATE,
@@ -123,6 +124,8 @@ export async function getAuction(id: string): Promise<AuctionDetail | null> {
 // ── Create auction (admin) ──
 
 export async function createAuction(data: CreateAuctionInput): Promise<Auction> {
+  assertP2PCommitmentOpen();
+
   const currentPrice = data.auction_type === "dutch"
     ? data.dutch_start_price || data.starting_price
     : data.starting_price;
@@ -160,6 +163,10 @@ export async function createAuction(data: CreateAuctionInput): Promise<Auction> 
 // ── Update auction (admin) ──
 
 export async function updateAuction(id: string, data: Partial<CreateAuctionInput> & { status?: string }): Promise<Auction | null> {
+  if (data.status === "scheduled" || data.status === "live") {
+    assertP2PCommitmentOpen();
+  }
+
   const fields: string[] = [];
   const values: unknown[] = [];
   let idx = 1;
@@ -213,6 +220,8 @@ export async function deleteAuction(id: string): Promise<boolean> {
 // ── Place bid (transactional) ──
 
 export async function placeBid(auctionId: string, userId: string, amount: number, isBestOffer = false): Promise<BidResult> {
+  assertP2PCommitmentOpen();
+
   // Trust gate — refuse bids from suspended users + over-tier-limit
   // amounts. Same enforcement as market orders, now applied to BOTH
   // regular bids AND best offers: an over-cap user must not be able to
@@ -611,6 +620,8 @@ export async function createSellerAuction(userId: string, data: {
   ends_at: string;
   allow_best_offer?: boolean;
 }): Promise<Auction> {
+  assertP2PCommitmentOpen();
+
   const currentPrice = data.starting_price;
 
   // Membership tiers were removed (2026-07-21) — no tier grants auto-approval,
@@ -657,6 +668,8 @@ export async function createSellerAuction(userId: string, data: {
 }
 
 export async function approveAuction(auctionId: string, notes?: string): Promise<Auction | null> {
+  assertP2PCommitmentOpen();
+
   // Anchor the seller-intended duration to approval time, not submission time.
   // ends_at - starts_at on the submission represents the duration the seller asked for;
   // approval may happen days later, so we shift the window to start now.
@@ -823,6 +836,8 @@ export async function acceptOffer(auctionId: string, bidId: string): Promise<{
   winningPrice?: string;
   auctionTitle?: string;
 }> {
+  assertP2PCommitmentOpen();
+
   // Trust gate on the OFFERER, run BEFORE the transaction. A best-offer win
   // must not dodge the per-trade cap the direct-bid path enforces (placeBid
   // now gates offers at placement too; this is the seller-acceptance half).

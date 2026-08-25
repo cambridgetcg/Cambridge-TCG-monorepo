@@ -27,6 +27,7 @@ const USER_ID = "123e4567-e89b-42d3-a456-426614174099";
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("IDENTITY_VERIFICATION_MODE", "reviewed-private-storage");
+  vi.stubEnv("VERIFICATION_S3_BUCKET", "private-verification-bucket");
   mocks.auth.mockResolvedValue({ user: { id: USER_ID } });
   mocks.get.mockResolvedValue({
     user_id: USER_ID,

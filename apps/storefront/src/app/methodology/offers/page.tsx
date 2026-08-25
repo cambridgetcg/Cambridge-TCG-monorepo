@@ -63,6 +63,13 @@ export default function OffersMethodology() {
         within seconds, that is a rule acting on the seller&rsquo;s standing instructions —
         not a human snub.
       </p>
+      <p>
+        In production, creating or resuming an automatic pricing rule, applying
+        one to a new offer, and every other new P2P commitment default to paused
+        until the adult-account and operational human-review release boundary
+        has been evidenced. Existing offers can still be declined or withdrawn,
+        and existing trades can still be fulfilled or remedied.
+      </p>
 
       <h2>What acceptance does</h2>
       <p>

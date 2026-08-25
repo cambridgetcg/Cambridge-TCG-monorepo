@@ -28,6 +28,8 @@ export {
   deleteObject,
   getObject,
   headObject,
+  getObjectTagging,
+  putObjectTagging,
   type CreateS3ClientOpts,
   type PresignedUploadResult,
   type PresignedUploadOpts,

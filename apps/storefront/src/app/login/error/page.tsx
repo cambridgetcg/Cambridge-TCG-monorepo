@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 // Auth.js passes ?error=<Code>. We translate the codes a magic-link flow
 // can actually produce; everything else falls to a calm default.
-const MESSAGES: Record<string, { title: string; body: string }> = {
+const MESSAGES: Record<string, { title: string; body: string; action?: string }> = {
   Verification: {
     title: "That sign-in link has expired",
     body: "Magic links last 24 hours and can be used once. This one has already been used or has timed out — request a fresh one and we'll get you in.",
@@ -28,6 +28,11 @@ const MESSAGES: Record<string, { title: string; body: string }> = {
   AccessDenied: {
     title: "That link couldn't sign you in",
     body: "The link didn't grant access — it may have been for a different account or already used. Request a fresh link to continue.",
+  },
+  RegistrationPaused: {
+    title: "New registration is paused",
+    body: "Cambridge TCG is currently limiting sign-in to existing account holders while the adult-account and terms boundary is reviewed. If you already have an account under another email, use that address to sign in.",
+    action: "Back to sign in",
   },
   Default: {
     title: "That sign-in link didn't work",
@@ -41,7 +46,7 @@ export default async function LoginErrorPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const { title, body } = MESSAGES[error ?? "Default"] ?? MESSAGES.Default;
+  const { title, body, action } = MESSAGES[error ?? "Default"] ?? MESSAGES.Default;
 
   return (
     <main className="min-h-screen bg-page flex items-center justify-center">
@@ -52,7 +57,7 @@ export default async function LoginErrorPage({
           href="/login"
           className="inline-block w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"
         >
-          Request a new link
+          {action ?? "Request a new link"}
         </Link>
         <p className="text-xs text-ink-faint mt-6">
           Still stuck?{" "}

@@ -55,6 +55,12 @@ export default function PrivacyPage() {
               storage process has passed review; wallet linking moves no money.
             </li>
             <li>
+              Production defaults new account registration and new peer-to-peer
+              commitments to paused. Existing account sign-in, fulfilment and
+              remedies remain available; the release controls are not proof of
+              age or terms acceptance.
+            </li>
+            <li>
               Automated rules can affect limits, routes, inspection and payout
               timing. You can ask for an explanation and human review when a
               rule blocks or materially changes a service.
@@ -552,6 +558,17 @@ export default function PrivacyPage() {
               statutory safeguards apply, the review must be capable of
               correcting inputs and changing the outcome rather than merely
               repeating the automated result.
+            </p>
+            <p className="mt-3">
+              There is not yet a durable in-product decision-review case queue,
+              assigned reviewer or published service level. Email is the current
+              request channel, but a support link alone is not evidence that
+              human intervention is operational. For that reason, production
+              rejects new orders, offers and acceptances, auction commitments,
+              swaps, lot commitments and automatic pricing-rule commitments by
+              default. The pause does not block payment, shipping, receipt,
+              cancellation, return, dispute, refund, payout, evidence or
+              revocation steps for an existing obligation.
             </p>
           </section>
 
@@ -1114,10 +1131,13 @@ export default function PrivacyPage() {
               publication, trading, payment, collective-directory publication,
               Cambridge identity-verification and wallet-linking features are
               not designed for people under 18. Cambridge TCG does not currently
-              run general age assurance or enforce a site-wide age/terms gate at
-              account creation or before social and trading tools. That is a
-              current product gap, so the service cannot claim that every
-              account holder is an adult. When the optional
+              run general age assurance or record a site-wide, versioned
+              age-and-terms assent at account creation or before all social
+              tools. Production now defaults new account admission and new P2P
+              commitments to paused unless an operator selects the exact
+              reviewed release mode. That reversible release control is not age
+              assurance, so the service still cannot claim that every account
+              holder is an adult. When the optional
               identity-verification form is enabled, it rejects a declared date
               of birth under 18; that is not site-wide age verification. A
               person under 18 should not submit personal data to or use those
@@ -1130,6 +1150,15 @@ export default function PrivacyPage() {
           <section id="paused-and-legacy" className="scroll-mt-24">
             <h2 className={headingClass}>Paused inputs and legacy records</h2>
             <ul className="list-disc pl-5 space-y-3">
+              <li>
+                <strong className="text-ink">Account and P2P admission:</strong>{" "}
+                production defaults new account registration and new marketplace
+                commitments to paused. Existing-user sign-in and existing
+                obligation/remedy steps stay available. The exact reviewed modes
+                are deployment controls, not stored proof that a person is over
+                18, accepted a particular terms version or received operational
+                human intervention.
+              </li>
               <li>
                 <strong className="text-ink">Identity verification:</strong> new
                 submissions and document uploads default to paused and return an

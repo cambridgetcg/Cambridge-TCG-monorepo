@@ -2,6 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { query, transaction } from "@/lib/db";
+import { assertAccountAdmissionOpen } from "@/lib/release/production-gates";
 import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
 import type { Adapter, AdapterUser, AdapterSession, VerificationToken } from "next-auth/adapters";
 
@@ -16,6 +17,21 @@ export interface MagicLinkCapacity {
   emailActiveCount: number;
   globalActiveCount: number;
   retryAfterSeconds: number;
+}
+
+/**
+ * Read-only preflight for the magic-link route while new account admission is
+ * paused. The adapter's createUser assertion remains the authoritative
+ * backstop for OAuth callbacks and any caller that bypasses this preflight.
+ */
+export async function accountExistsForSignIn(email: string): Promise<boolean> {
+  const result = await query(
+    `SELECT EXISTS (
+       SELECT 1 FROM users WHERE email = $1
+     ) AS account_exists`,
+    [email],
+  );
+  return result.rows[0]?.account_exists === true;
 }
 
 interface ReservableVerificationToken {
@@ -117,6 +133,11 @@ function isUsernameCollision(err: unknown): boolean {
 export function PgAdapter(): Adapter {
   return {
     async createUser(user) {
+      // Production defaults to existing-account sign-in only. This adapter
+      // seam is the authoritative backstop for both magic-link and OAuth
+      // first-user callbacks; existing users never enter createUser.
+      assertAccountAdmissionOpen();
+
       // createUser runs exactly once per new user, so this is the seam
       // where the collector handle is assigned: a username in the same
       // INSERT means no user ever exists with NULL username and renders

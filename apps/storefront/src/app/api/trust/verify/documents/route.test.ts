@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   deleteRow: vi.fn(),
   presignUpload: vi.fn(),
   presignRead: vi.fn(),
+  inspectObject: vi.fn(),
+  markLinked: vi.fn(),
   deleteObject: vi.fn(),
 }));
 
@@ -21,13 +23,21 @@ vi.mock("@/lib/trust/db", () => ({
   getOwnedVerificationDocument: mocks.getOwned,
   deleteVerificationDocument: mocks.deleteRow,
 }));
-vi.mock("@/lib/auction/s3", () => ({
-  deleteS3Object: mocks.deleteObject,
-  getPresignedReadUrl: mocks.presignRead,
-  getPresignedUploadUrl: mocks.presignUpload,
-  getStoredObjectUrl: (key: string) => `https://private-bucket.example/${key}`,
-  isOwnedUploadKey: (key: string, namespace: string, userId: string) =>
-    key.startsWith(`${namespace}/${userId}/`) && !key.includes("..") && !key.includes("\\"),
+vi.mock("@/lib/trust/verification-storage", () => ({
+  deleteVerificationObject: mocks.deleteObject,
+  getVerificationReadUrl: mocks.presignRead,
+  prepareVerificationUpload: mocks.presignUpload,
+  inspectVerificationObject: mocks.inspectObject,
+  markVerificationObjectLinked: mocks.markLinked,
+  getStoredVerificationObjectUrl: (key: string) =>
+    `https://private-bucket.example/${key}`,
+  isOwnedVerificationKey: (key: string, userId: string) =>
+    key.startsWith(`verifications/${userId}/`) &&
+    !key.includes("..") &&
+    !key.includes("\\"),
+  isSupportedVerificationContentType: (contentType: string) =>
+    ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(contentType),
+  MAX_VERIFICATION_DOCUMENT_BYTES: 10 * 1024 * 1024,
 }));
 
 const USER_ID = "123e4567-e89b-42d3-a456-426614174099";
@@ -46,10 +56,21 @@ const document = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("IDENTITY_VERIFICATION_MODE", "reviewed-private-storage");
+  vi.stubEnv("VERIFICATION_S3_BUCKET", "private-verification-bucket");
   mocks.auth.mockResolvedValue({ user: { id: USER_ID } });
   mocks.isAdmin.mockResolvedValue(false);
   mocks.list.mockResolvedValue([document]);
   mocks.presignRead.mockResolvedValue("https://signed.example/read?expires=300");
+  mocks.presignUpload.mockResolvedValue({
+    uploadUrl: "https://signed.example/upload",
+    s3Key: KEY,
+    requiredHeaders: { "x-amz-tagging": "upload-state=pending" },
+  });
+  mocks.inspectObject.mockResolvedValue({
+    contentLength: 1024,
+    contentType: "image/jpeg",
+  });
+  mocks.markLinked.mockResolvedValue(undefined);
   mocks.getOwned.mockResolvedValue(document);
   mocks.deleteRow.mockResolvedValue(true);
   mocks.deleteObject.mockResolvedValue(undefined);
@@ -163,9 +184,7 @@ describe("identity-document privacy boundary", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         s3Key: "verifications/someone-else/proof.jpg",
-        url: "https://attacker.example/proof.jpg",
         docType: "passport",
-        mimeType: "image/jpeg",
       }),
     }));
 
@@ -185,15 +204,41 @@ describe("identity-document privacy boundary", () => {
     expect(mocks.presignUpload).not.toHaveBeenCalled();
   });
 
+  it("fails closed when the reviewed mode has no dedicated private bucket", async () => {
+    vi.stubEnv("VERIFICATION_S3_BUCKET", "");
+    const response = await POST(new Request("https://cambridgetcg.com/api/trust/verify/documents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contentType: "image/jpeg" }),
+    }));
+
+    expect(response.status).toBe(503);
+    expect(mocks.presignUpload).not.toHaveBeenCalled();
+  });
+
+  it("returns the pending-tag header required by the signed private upload", async () => {
+    const response = await POST(new Request("https://cambridgetcg.com/api/trust/verify/documents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contentType: "image/jpeg" }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      uploadUrl: "https://signed.example/upload",
+      s3Key: KEY,
+      requiredHeaders: { "x-amz-tagging": "upload-state=pending" },
+    });
+    expect(mocks.presignUpload).toHaveBeenCalledWith(USER_ID, "image/jpeg");
+  });
+
   it("derives the stored address and presents a signed URL", async () => {
     const response = await POST(new Request("https://cambridgetcg.com/api/trust/verify/documents", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         s3Key: KEY,
-        url: "https://attacker.example/ignored.jpg",
         docType: "passport",
-        mimeType: "image/jpeg",
       }),
     }));
 
@@ -204,7 +249,43 @@ describe("identity-document privacy boundary", () => {
       s3Key: KEY,
       mimeType: "image/jpeg",
     });
+    expect(mocks.markLinked).toHaveBeenCalledWith(KEY);
     expect((await response.json()).document.url).toContain("signed.example");
+  });
+
+  it("rejects an oversized landed object before creating a database row", async () => {
+    mocks.inspectObject.mockResolvedValueOnce({
+      contentLength: 10 * 1024 * 1024 + 1,
+      contentType: "image/jpeg",
+    });
+
+    const response = await POST(new Request("https://cambridgetcg.com/api/trust/verify/documents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ s3Key: KEY, docType: "passport" }),
+    }));
+
+    expect(response.status).toBe(400);
+    expect(mocks.add).not.toHaveBeenCalled();
+    expect(mocks.markLinked).not.toHaveBeenCalled();
+  });
+
+  it("leaves an idempotent row repairable when linked-tag finalization fails", async () => {
+    mocks.markLinked.mockRejectedValueOnce(new Error("tag unavailable"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const response = await POST(new Request("https://cambridgetcg.com/api/trust/verify/documents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ s3Key: KEY, docType: "passport" }),
+    }));
+
+    expect(response.status).toBe(503);
+    expect(mocks.add).toHaveBeenCalledOnce();
+    expect(mocks.deleteRow).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      "Verification document link tag update failed",
+    );
   });
 
   it("keeps the database record when object deletion fails", async () => {

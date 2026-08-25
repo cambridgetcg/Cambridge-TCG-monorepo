@@ -8,12 +8,16 @@ import {
   deleteVerificationDocument,
 } from "@/lib/trust/db";
 import {
-  deleteS3Object,
-  getPresignedReadUrl,
-  getPresignedUploadUrl,
-  getStoredObjectUrl,
-  isOwnedUploadKey,
-} from "@/lib/auction/s3";
+  deleteVerificationObject,
+  getStoredVerificationObjectUrl,
+  getVerificationReadUrl,
+  inspectVerificationObject,
+  isOwnedVerificationKey,
+  isSupportedVerificationContentType,
+  markVerificationObjectLinked,
+  MAX_VERIFICATION_DOCUMENT_BYTES,
+  prepareVerificationUpload,
+} from "@/lib/trust/verification-storage";
 import {
   IDENTITY_VERIFICATION_PAUSE_REASON,
   isIdentityVerificationCollectionAvailable,
@@ -46,7 +50,7 @@ async function presentDocument(
   // support-assisted inventory and removal without exposing storage details.
   if (
     document.user_id !== ownerUserId ||
-    !isOwnedUploadKey(document.s3_key, "verifications", ownerUserId)
+    !isOwnedVerificationKey(document.s3_key, ownerUserId)
   ) {
     return {
       ...presentation,
@@ -55,11 +59,23 @@ async function presentDocument(
     };
   }
 
-  return {
-    ...presentation,
-    url: await getPresignedReadUrl(document.s3_key),
-    access_status: "available" as const,
-  };
+  try {
+    // Presigning alone does not prove that the object exists in the private
+    // bucket. HEAD first so legacy rows from the former shared bucket do not
+    // get presented as available private documents.
+    await inspectVerificationObject(document.s3_key);
+    return {
+      ...presentation,
+      url: await getVerificationReadUrl(document.s3_key),
+      access_status: "available" as const,
+    };
+  } catch {
+    return {
+      ...presentation,
+      url: null,
+      access_status: "support_required" as const,
+    };
+  }
 }
 
 async function presentDocuments(userId: string) {
@@ -93,9 +109,9 @@ export async function GET(request: Request) {
 // POST — two-phase upload (same pattern as the dispute evidence route):
 //
 //   { contentType: "image/jpeg" }
-//     → { uploadUrl, imageUrl, s3Key } for direct S3 PUT
+//     → { uploadUrl, s3Key, requiredHeaders } for direct private S3 PUT
 //
-//   { s3Key, url, docType, mimeType? }
+//   { s3Key, docType }
 //     → persists the verification_documents row once the client has
 //       completed the S3 PUT
 //
@@ -117,39 +133,78 @@ export async function POST(request: Request) {
 
   // Phase 1 — presigned URL
   if (typeof body.contentType === "string") {
-    if (!body.contentType.startsWith("image/") && body.contentType !== "application/pdf") {
-      return privateJson({ error: "Only images or PDF allowed." }, 400);
+    if (!isSupportedVerificationContentType(body.contentType)) {
+      return privateJson({ error: "Only JPEG, PNG, WebP or PDF allowed." }, 400);
     }
-    // Scope by user id so the bucket stays naturally partitioned.
-    const result = await getPresignedUploadUrl(`verifications/${userId}`, body.contentType);
-    return privateJson(result);
+    try {
+      return privateJson(await prepareVerificationUpload(userId, body.contentType));
+    } catch {
+      return privateJson(
+        { error: "Private document storage is temporarily unavailable." },
+        503,
+      );
+    }
   }
 
   // Phase 2 — persist the row
-  if (typeof body.s3Key === "string" && typeof body.url === "string") {
+  if (typeof body.s3Key === "string") {
     const docType = typeof body.docType === "string" ? body.docType : "other";
     const allowed = ["id_front", "id_back", "passport", "proof_of_address", "other"];
     if (!allowed.includes(docType)) {
       return privateJson({ error: "Invalid document type." }, 400);
     }
-    const mimeType = typeof body.mimeType === "string" ? body.mimeType : null;
-    if (!isOwnedUploadKey(body.s3Key, "verifications", userId)) {
+    if (!isOwnedVerificationKey(body.s3Key, userId)) {
       return privateJson({ error: "Invalid upload key." }, 400);
     }
 
-    const doc = await addVerificationDocument(userId, {
-      docType,
-      // Do not trust a participant-supplied permanent URL. The key was
-      // generated in this participant's namespace; reads use a fresh signed
-      // URL after authorization.
-      url: getStoredObjectUrl(body.s3Key),
-      s3Key: body.s3Key,
-      mimeType,
-    });
+    let storedObject: Awaited<ReturnType<typeof inspectVerificationObject>>;
+    try {
+      storedObject = await inspectVerificationObject(body.s3Key);
+    } catch {
+      return privateJson({ error: "Uploaded document is not available." }, 503);
+    }
+    if (
+      storedObject.contentLength <= 0 ||
+      storedObject.contentLength > MAX_VERIFICATION_DOCUMENT_BYTES
+    ) {
+      return privateJson({ error: "Document must be between 1 byte and 10 MB." }, 400);
+    }
+    if (
+      !storedObject.contentType ||
+      !isSupportedVerificationContentType(storedObject.contentType)
+    ) {
+      return privateJson({ error: "Stored document type is not allowed." }, 400);
+    }
+
+    let doc: Awaited<ReturnType<typeof addVerificationDocument>>;
+    try {
+      doc = await addVerificationDocument(userId, {
+        docType,
+        // Stable locator only. Every read still requires a fresh signed URL
+        // after an owner/admin authorization check.
+        url: getStoredVerificationObjectUrl(body.s3Key),
+        s3Key: body.s3Key,
+        mimeType: storedObject.contentType,
+      });
+    } catch {
+      // The object stays pending and the bucket lifecycle removes it after
+      // the abandoned-upload grace period.
+      return privateJson({ error: "Document record could not be saved." }, 503);
+    }
+
+    try {
+      await markVerificationObjectLinked(body.s3Key);
+    } catch {
+      // Keep the idempotent row so the same phase-2 request can safely retry.
+      // A DB-driven repair sweep may also retag referenced pending rows; no
+      // object enumeration or participant key logging is required.
+      console.error("Verification document link tag update failed");
+      return privateJson({ error: "Document finalization is temporarily unavailable." }, 503);
+    }
     return privateJson({ document: await presentDocument(doc, userId) });
   }
 
-  return privateJson({ error: "Missing contentType or s3Key+url." }, 400);
+  return privateJson({ error: "Missing contentType or s3Key." }, 400);
 }
 
 // DELETE ?id=<documentId> — user removes their own document
@@ -167,14 +222,16 @@ export async function DELETE(request: Request) {
   if (!document) {
     return privateJson({ error: "Not found or not yours." }, 404);
   }
-  if (!isOwnedUploadKey(document.s3_key, "verifications", session.user.id)) {
+  if (!isOwnedVerificationKey(document.s3_key, session.user.id)) {
     return privateJson({ error: "This legacy document needs support-assisted removal." }, 409);
   }
 
   try {
-    await deleteS3Object(document.s3_key);
+    await deleteVerificationObject(document.s3_key);
   } catch (error) {
-    console.error("Verification document object deletion failed", error);
+    console.error("Verification document object deletion failed", {
+      errorType: error instanceof Error ? error.name : "unknown",
+    });
     return privateJson(
       { error: "Document removal is temporarily unavailable. Nothing was removed." },
       503,

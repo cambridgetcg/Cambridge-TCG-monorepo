@@ -106,6 +106,32 @@ it is the fastest proof for the exact app/package combination being shipped.
 Do not promote one of these changes merely because the build is green. Record
 evidence for every applicable item before the production push:
 
+- Treat the admission modes as evidence-bearing release attestations, not as
+  substitutes for the missing product controls. In production, an unset,
+  misspelled or differently-cased value fails closed; an unrecognised runtime
+  environment fails closed too:
+  - `ACCOUNT_ADMISSION_MODE=reviewed-adult-terms-v1` is the only value that
+    permits creation of a new account. Set it only after the adult-only
+    boundary and versioned terms receipt have been implemented and probed.
+  - `P2P_COMMITMENT_MODE=reviewed-adult-human-review-v1` is the only value that
+    permits a new order, offer/acceptance/counter, auction commitment, swap,
+    lot commitment or automatic pricing-rule commitment. Set it only after the
+    adult-trading boundary and staffed decision-review procedure below have
+    been evidenced.
+  - Development and tests remain open when these variables are unset; set
+    either variable to `paused` to exercise its closed path locally.
+  - Before promotion, prove unknown and existing emails receive the same
+    successful magic-link status, body, headers and broad latency class. The
+    unknown-address path must create no verification token or user and send no
+    email; the eligible existing-address path must still deliver a usable link.
+    Address-specific and service-wide token-cap denials use the same generic
+    confirmation too. Prove first-time Google sign-in lands on the branded
+    `RegistrationPaused` result before any user, account-link or session write,
+    while Google sign-in for an existing email remains available. Then prove
+    every new P2P route returns the no-store 503 and DAL callers cannot bypass
+    it. Also prove payment, shipping, receipt, cancellation, return, dispute,
+    refund, payout, evidence and revocation for existing obligations still
+    work. Do not set either positive value merely to make a smoke test green.
 - Reconcile the public notice and methodology pages against the actual fields,
   recipients, public projections, browser storage and automated consequences
   in the source being deployed. Do not turn a repository note into a live-data
@@ -154,6 +180,11 @@ evidence for every applicable item before the production push:
   that proves every optimised origin and upload path is controlled. Re-check
   broad remote host patterns rather than assuming the hostname makes every
   object trusted.
+
+  The 2026-08-25 privacy release takes the reversible middle option:
+  `apps/storefront/next.config.ts` sets `images.unoptimized: true`. Do not remove
+  that boundary until the installed production dependency graph resolves
+  Sharp 0.35 or later and the image-path regression checks pass.
 
 Store the evidence with the release record without copying credentials,
 document contents, object keys or participant-level rows into logs.

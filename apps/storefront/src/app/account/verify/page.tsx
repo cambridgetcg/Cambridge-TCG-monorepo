@@ -135,17 +135,22 @@ export default function VerifyPage() {
         const d = await presignRes.json().catch(() => null);
         throw new Error(d?.error || "Could not prepare upload.");
       }
-      const { uploadUrl, imageUrl, s3Key } = await presignRes.json();
+      const { uploadUrl, s3Key, requiredHeaders } = await presignRes.json();
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
+        headers: {
+          "Content-Type": file.type,
+          ...(requiredHeaders && typeof requiredHeaders === "object"
+            ? requiredHeaders
+            : {}),
+        },
         body: file,
       });
       if (!putRes.ok) throw new Error("Upload to storage failed.");
       const persistRes = await fetch("/api/trust/verify/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ s3Key, url: imageUrl, docType: uploadType, mimeType: file.type }),
+        body: JSON.stringify({ s3Key, docType: uploadType }),
       });
       if (!persistRes.ok) {
         const d = await persistRes.json().catch(() => null);

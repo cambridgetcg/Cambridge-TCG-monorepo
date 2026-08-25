@@ -154,9 +154,15 @@ describe("storefront privacy notice contract", () => {
   it("discloses children, automation, transfers, retention and full rights", () => {
     expect(page).toContain("does not currently");
     expect(page).toContain("general age assurance");
-    expect(compactPage).toContain("site-wide age/terms gate");
+    expect(compactPage).toContain("site-wide, versioned age-and-terms assent");
     expect(compactPage).toContain(
       "cannot claim that every account holder is an adult",
+    );
+    expect(compactPage).toContain(
+      "Production now defaults new account admission and new P2P commitments to paused",
+    );
+    expect(compactPage).toContain(
+      "release control is not age assurance",
     );
     expect(compactPage).toContain("If you are under 18");
     expect(compactPage).toContain("Ask a parent or guardian to contact us");
@@ -208,6 +214,15 @@ describe("storefront privacy notice contract", () => {
     expect(compactPage).toContain("auto_action");
     expect(compactPage).toContain("does not directly suspend the account");
     expect(compactPage).toContain("human review");
+    expect(compactPage).toContain(
+      "There is not yet a durable in-product decision-review case queue",
+    );
+    expect(compactPage).toContain(
+      "a support link alone is not evidence that human intervention is operational",
+    );
+    expect(compactPage).toContain(
+      "The pause does not block payment, shipping, receipt, cancellation, return, dispute, refund, payout, evidence or revocation",
+    );
   });
 
   it("enumerates first-party cookies, durations and browser-only storage", () => {

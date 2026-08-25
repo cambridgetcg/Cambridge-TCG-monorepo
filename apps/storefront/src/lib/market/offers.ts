@@ -20,6 +20,7 @@ import { canTrade, getTrustTier } from "@/lib/escrow/trust-engine";
 import { routeTrade } from "@/lib/escrow/service-tiers";
 import { formatPrice } from "@/lib/format";
 import { lockTradeStanding } from "@/lib/trust/standing-lock";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 import type { MarketTrade } from "./types";
 import type { OfferStatus } from "./offer-timeline";
 import { logOfferTransition } from "./offer-lifecycle-log";
@@ -115,6 +116,8 @@ export async function makeOffer(input: {
   quantity?: number;
   message?: string;
 }): Promise<Result<MarketOffer>> {
+  assertP2PCommitmentOpen();
+
   // Validate the ask exists, is offerable, and isn't the buyer's own.
   const askRows = await query(
     `SELECT id, user_id, sku, price, quantity, filled_quantity, condition,
@@ -562,6 +565,8 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
   offer: MarketOffer;
   trade: MarketTrade;
 }>> {
+  assertP2PCommitmentOpen();
+
   // Fast-fail permission + state checks. seller_id is immutable so the
   // ownership check holds; the status check is repeated under the lock
   // inside the acceptance engine.
@@ -697,6 +702,8 @@ export async function counterOffer(input: {
   counterPrice: number;
   counterMessage?: string;
 }): Promise<Result<MarketOffer>> {
+  assertP2PCommitmentOpen();
+
   const offer = await loadOffer(input.offerId);
   if (!offer) return { ok: false, reason: "Offer not found.", status: 404 };
   if (offer.seller_id !== input.sellerId) {
@@ -764,6 +771,8 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
   offer: MarketOffer;
   trade: MarketTrade;
 }>> {
+  assertP2PCommitmentOpen();
+
   // Fast-fail permission + state checks; the state check is repeated
   // under the lock inside the acceptance engine.
   const offer = await loadOffer(offerId);
