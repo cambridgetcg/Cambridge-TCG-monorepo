@@ -13,6 +13,8 @@ paths:
   - packages/data-ingest/src/__tests__/source-rights.test.ts
   - packages/data-ingest/src/gaps.ts
   - packages/data-ingest/src/index.ts
+  - packages/data-ingest/src/http.ts
+  - packages/data-ingest/src/http.test.ts
   - packages/data-ingest/src/registry.ts
   - packages/data-ingest/src/types.ts
   - packages/data-ingest/package.json
