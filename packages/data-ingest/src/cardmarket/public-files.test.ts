@@ -84,6 +84,7 @@ describe("cardmarket/public-files fetch", () => {
       expect(init?.method).toBe("GET");
       const headers = new Headers(init?.headers);
       expect(headers.get("accept")).toBe("application/json");
+      expect(headers.get("accept-encoding")).toBe("identity");
       expect(headers.get("user-agent")).toContain("cambridgetcg.com/1.0");
       return responseAt(PRICE_URL, json, {
         status: 200,
@@ -251,6 +252,42 @@ describe("cardmarket/public-files fetch", () => {
         { kind: "price-guide", url: PRICE_URL },
       ),
       code,
+    );
+  });
+
+  it("rejects encoded or length-inconsistent bodies rather than hashing transformed bytes", async () => {
+    const encodedFetch = vi.fn(async () =>
+      responseAt(PRICE_URL, "{}", {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Encoding": "gzip",
+        },
+      }),
+    );
+    await expectCode(
+      fetchCardmarketPublicFile(
+        { fetch: encodedFetch as typeof globalThis.fetch },
+        { kind: "price-guide", url: PRICE_URL },
+      ),
+      "invalid-content-encoding",
+    );
+
+    const mismatchedFetch = vi.fn(async () =>
+      responseAt(PRICE_URL, "{}", {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": "3",
+        },
+      }),
+    );
+    await expectCode(
+      fetchCardmarketPublicFile(
+        { fetch: mismatchedFetch as typeof globalThis.fetch },
+        { kind: "price-guide", url: PRICE_URL },
+      ),
+      "content-length-mismatch",
     );
   });
 

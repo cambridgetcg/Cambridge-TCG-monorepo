@@ -65,7 +65,9 @@ export type CardmarketPublicFileErrorCode =
   | "too-many-redirects"
   | "http-error"
   | "invalid-content-type"
+  | "invalid-content-encoding"
   | "invalid-json-envelope"
+  | "content-length-mismatch"
   | "invalid-size-limit"
   | "too-large";
 
@@ -198,6 +200,17 @@ function assertContentType(response: Response, url: string): void {
     throw new CardmarketPublicFileError(
       "invalid-content-type",
       `Cardmarket public file returned unsupported Content-Type ${raw ?? "(missing)"}`,
+      { url },
+    );
+  }
+}
+
+function assertContentEncoding(response: Response, url: string): void {
+  const encoding = response.headers.get("content-encoding")?.trim().toLowerCase();
+  if (encoding && encoding !== "identity") {
+    throw new CardmarketPublicFileError(
+      "invalid-content-encoding",
+      "Cardmarket public files must be transferred without content encoding so archived bytes remain exact",
       { url },
     );
   }
@@ -346,7 +359,10 @@ export async function fetchCardmarketPublicFileWithMeta(
       throwIfAborted(ctx.signal);
       response = await fetcher(currentUrl.toString(), {
         method: "GET",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "Accept-Encoding": "identity",
+        },
         redirect: "manual",
       });
 
@@ -371,6 +387,7 @@ export async function fetchCardmarketPublicFileWithMeta(
             { url: currentUrl.toString(), status: response.status },
           );
         }
+        void response.body?.cancel().catch(() => undefined);
         const nextUrl = new URL(location, currentUrl);
         const allowedNextUrl = assertCardmarketPublicFileUrl(
           nextUrl.toString(),
@@ -399,12 +416,23 @@ export async function fetchCardmarketPublicFileWithMeta(
     }
 
     assertContentType(response, currentUrl.toString());
+    assertContentEncoding(response, currentUrl.toString());
     const bytes = await readBoundedBody(
       response,
       maxBytes,
       currentUrl.toString(),
       ctx.signal,
     );
+    const declaredLength = parseContentLength(
+      response.headers.get("content-length"),
+    );
+    if (declaredLength != null && declaredLength !== bytes.byteLength) {
+      throw new CardmarketPublicFileError(
+        "content-length-mismatch",
+        "Cardmarket public-file bytes do not match the declared Content-Length",
+        { url: currentUrl.toString() },
+      );
+    }
     assertJsonEnvelope(bytes, currentUrl.toString());
 
     const retrievedAt = new Date().toISOString();
