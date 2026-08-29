@@ -137,16 +137,16 @@ export const GAPS: readonly Gap[] = [
 
   {
     id: "cardmarket-public-files-not-wired",
-    name: "Cardmarket public Product Catalog and Price Guide files are not wired",
+    name: "Cardmarket public files are privately fetchable but not yet canonical price rows",
     domain: "data-ingestion",
     citation:
-      "packages/data-ingest/src/cardmarket/index.ts — SourceMeta names access=public-file and read() emits public-file-reader-not-wired without touching OAuth",
+      "packages/data-ingest/src/cardmarket/public-files.ts — bounded official-origin raw fetch with digest/provenance; cardmarket.read() remains a non-running canonical-price stub",
     primitive:
-      "planned Cardmarket SourceModule with public-file access and an explicit non-running status",
+      "private raw-artifact transport plus a planned Cardmarket SourceModule; Product Catalog/Price Guide join, SKU mapping, writer, and every public projection remain unwired",
     audit: "pnpm audit:tributaries — source registry and last-run state remain inspectable",
     status: "named",
     strength:
-      "The highest-value EU source now has one lawful, credential-free next action that can be built and measured without reviving the closed OAuth route.",
+      "Cambridge can preserve exact official bytes without reviving OAuth or pretending they are publishable prices; the remaining parser, mapping, writer, and release gaps stay explicit.",
     named_at: "2026-07-11",
   },
 

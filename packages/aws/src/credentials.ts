@@ -10,6 +10,8 @@
 export interface AwsCredentials {
   accessKeyId: string;
   secretAccessKey: string;
+  /** Required for temporary STS/Lambda/ECS credentials; absent for long-lived keys. */
+  sessionToken?: string;
 }
 
 export interface AwsConfig {
@@ -36,6 +38,7 @@ export function resolveAwsConfig(
   const region = (process.env.AWS_REGION || defaultRegion).trim();
   const accessKeyId = (process.env.AWS_ACCESS_KEY_ID || "").trim();
   const secretAccessKey = (process.env.AWS_SECRET_ACCESS_KEY || "").trim();
+  const sessionToken = (process.env.AWS_SESSION_TOKEN || "").trim();
 
   if (!accessKeyId || !secretAccessKey) {
     return {
@@ -48,7 +51,11 @@ export function resolveAwsConfig(
     ok: true,
     config: {
       region,
-      credentials: { accessKeyId, secretAccessKey },
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+        ...(sessionToken ? { sessionToken } : {}),
+      },
     },
   };
 }

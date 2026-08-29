@@ -39,7 +39,7 @@ export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
   ygoprodeck,                // blocked — no commercial content permission established
   tcgplayer,                 // blocked — no new access; terms prohibit multi-source price aggregation
   tcgcollector,              // blocked — partner approval not recorded
-  cardmarket,                // planned — public daily file reader not wired; OAuth applications closed
+  cardmarket,                // planned — bounded private raw-file fetch exists; price parsing/writer absent; OAuth closed
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
   "bandai-en": bandaiEn,     // blocked live reader; fixture parser preserved; permission undocumented
   vinted,                    // blocked (ToS + UK GDPR; consented first-party normalizer ready) — the honest block

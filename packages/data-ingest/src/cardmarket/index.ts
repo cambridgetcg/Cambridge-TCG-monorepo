@@ -1,10 +1,12 @@
 /**
  * Cardmarket — European market leader.
  *
- * **Public-file path planned.** Cardmarket intentionally publishes daily
- * Product Catalog and Price Guide files without API credentials. That is the
- * reachable path for Cambridge. The older OAuth1 reader remains dormant for
- * existing approved accounts; Cardmarket is not accepting API applications.
+ * **Private public-file transport available.** Cardmarket intentionally
+ * publishes daily Product Catalog and Price Guide files without API
+ * credentials. `fetchCardmarketPublicFile()` can preserve one exact official
+ * JSON artifact for Cambridge's private archive. Parsing, canonical writes,
+ * and all public price publication remain unwired. The older OAuth1 reader
+ * remains dormant; Cardmarket is not accepting API applications.
  *
  * ── Access ───────────────────────────────────────────────────────────
  *
@@ -43,6 +45,19 @@ import {
 } from "./oauth1";
 import { normalizeCardmarket, type CardmarketRaw } from "./normalize";
 import type { CardmarketProduct } from "./types";
+import {
+  fetchCardmarketPublicFileWithMeta,
+  CARDMARKET_PUBLIC_FILE_HARD_MAX_BYTES,
+  CARDMARKET_PUBLIC_FILE_MAX_BYTES,
+  CARDMARKET_PUBLIC_FILE_ORIGIN,
+  CardmarketPublicFileError,
+  assertCardmarketPublicFileUrl,
+  type CardmarketPublicFileArtifact,
+  type CardmarketPublicFileErrorCode,
+  type CardmarketPublicFileHeaders,
+  type CardmarketPublicFileKind,
+  type CardmarketPublicFileRequest,
+} from "./public-files";
 
 const DEFAULT_BASE = "https://apiv2.cardmarket.com/ws/v2.0/output.json";
 
@@ -68,7 +83,7 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     id: "cardmarket",
     name: "Cardmarket",
     description:
-      "European market catalog and daily aggregate prices through intentionally published Product Catalog and Price Guide files. The public-file reader is not wired yet.",
+      "European market catalog and daily aggregate prices through intentionally published Product Catalog and Price Guide files. A bounded raw-file transport exists for private evidence archiving; parsing, database writes, and publication are not wired.",
     upstream: "https://www.cardmarket.com/en/Magic/Data",
     catalog_section: "the-tributaries.md#22-cardmarket-eu-market-leader",
     access: "public-file",
@@ -98,11 +113,11 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
         source: "cardmarket",
         kind: "error",
         detail: {
-          status: "public-file-reader-not-wired",
+          status: "public-file-price-reader-not-wired",
           reason:
-            "The legacy Cardmarket OAuth reader is locked in code. Mutable SourceMeta and credentials cannot enable it; the reviewed public-file reader is not wired.",
+            "The legacy Cardmarket OAuth reader is locked in code. Mutable SourceMeta and credentials cannot enable it. A separate bounded helper can privately preserve official public-file bytes, but canonical price parsing and writes are not wired.",
           next_action:
-            "Implement the public Product Catalog and Price Guide file reader. New API access is closed.",
+            "Use fetchCardmarketPublicFile for private raw evidence, then implement the reviewed Product Catalog plus Price Guide parser and writer. New API access is closed.",
         },
       });
       return;
@@ -114,7 +129,7 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
         source: "cardmarket",
         kind: "error",
         detail: {
-          status: "public-file-reader-not-wired",
+          status: "public-file-price-reader-not-wired",
           reason:
             "Cardmarket intentionally publishes daily Product Catalog and Price Guide files; this module still lacks a reviewed file reader and contains only the dormant legacy OAuth code.",
           next_action:
@@ -278,4 +293,34 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
   },
 
   normalize: normalizeCardmarket,
+};
+
+/**
+ * Fetch one exact official Cardmarket JSON artifact for private archiving.
+ *
+ * This is intentionally separate from `cardmarket.read()`: the latter cannot
+ * honestly yield CanonicalPrice rows until the Product Catalog and Price Guide
+ * join, SKU mapping, quarantine, and app-owned writer exist.
+ */
+export function fetchCardmarketPublicFile(
+  ctx: IngestContext,
+  request: CardmarketPublicFileRequest,
+): Promise<CardmarketPublicFileArtifact> {
+  return fetchCardmarketPublicFileWithMeta(ctx, request, cardmarket.meta);
+}
+
+export {
+  CARDMARKET_PUBLIC_FILE_HARD_MAX_BYTES,
+  CARDMARKET_PUBLIC_FILE_MAX_BYTES,
+  CARDMARKET_PUBLIC_FILE_ORIGIN,
+  CardmarketPublicFileError,
+  assertCardmarketPublicFileUrl,
+};
+
+export type {
+  CardmarketPublicFileArtifact,
+  CardmarketPublicFileErrorCode,
+  CardmarketPublicFileHeaders,
+  CardmarketPublicFileKind,
+  CardmarketPublicFileRequest,
 };

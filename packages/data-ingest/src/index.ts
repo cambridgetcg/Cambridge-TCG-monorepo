@@ -208,7 +208,20 @@ export {
   type TcgplayerReadOptions,
   type TcgplayerWatchlistEntry,
 } from "./tcgplayer/index";
-export { cardmarket } from "./cardmarket/index";
+export {
+  cardmarket,
+  fetchCardmarketPublicFile,
+  assertCardmarketPublicFileUrl,
+  CardmarketPublicFileError,
+  CARDMARKET_PUBLIC_FILE_ORIGIN,
+  CARDMARKET_PUBLIC_FILE_MAX_BYTES,
+  CARDMARKET_PUBLIC_FILE_HARD_MAX_BYTES,
+  type CardmarketPublicFileArtifact,
+  type CardmarketPublicFileErrorCode,
+  type CardmarketPublicFileHeaders,
+  type CardmarketPublicFileKind,
+  type CardmarketPublicFileRequest,
+} from "./cardmarket/index";
 // The honest block — a source we decided NOT to scrape, declared in code
 // with its verdict. Consented first-party normalizer is the usable export.
 // Doctrine: docs/methodology/source-intake.md.

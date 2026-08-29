@@ -120,7 +120,7 @@ describe("source rights declarations", () => {
     expect(events[0]?.detail.status).toContain("blocked");
   });
 
-  it("names Cardmarket's public files as the next path without probing OAuth", async () => {
+  it("keeps Cardmarket's canonical reader and legacy OAuth path inert", async () => {
     const events: IngestEvent[] = [];
     const fetch = await drain(cardmarket, events);
 
@@ -129,7 +129,8 @@ describe("source rights declarations", () => {
     expect(cardmarket.meta.license).toBe("proprietary");
     expect(cardmarket.meta.redistribute).toBe(false);
     expect(fetch).not.toHaveBeenCalled();
-    expect(events[0]?.detail.status).toBe("public-file-reader-not-wired");
+    expect(events[0]?.detail.status).toBe("public-file-price-reader-not-wired");
+    expect(String(events[0]?.detail.reason)).toContain("privately preserve official public-file bytes");
     expect(String(events[0]?.detail.next_action)).not.toMatch(/apply/i);
   });
 
