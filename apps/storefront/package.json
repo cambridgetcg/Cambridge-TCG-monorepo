@@ -58,7 +58,7 @@
     "audience-sweep": "tsx scripts/audience-sweep.ts",
     "typesig-sweep": "tsx scripts/typesig-sweep.ts",
     "datafeed:archive-cardmarket": "tsx scripts/archive-cardmarket.ts",
-    "datafeed:build-cardmarket-lambda": "esbuild src/lib/datafeed/cardmarket-archive-lambda.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/cardmarket-archive-lambda/index.mjs"
+    "datafeed:build-cardmarket-lambda": "esbuild src/lib/datafeed/cardmarket-archive-lambda.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/cardmarket-archive-lambda/index.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1029.0",
