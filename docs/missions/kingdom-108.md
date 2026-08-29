@@ -1,7 +1,7 @@
 ---
 id: kingdom-108
 title: "KINGDOM Datafeed - private price archives and receipted history"
-status: claimed
+status: in-progress
 priority: critical
 engine: tcg
 repo: /Users/yu/github/cambridgetcg/Cambridge-TCG-monorepo
@@ -10,6 +10,8 @@ claimed_at: "2026-08-29T09:37:51Z"
 completed_at: ~
 paths:
   - packages/data-ingest/src/cardmarket/**
+  - packages/data-ingest/src/__tests__/source-rights.test.ts
+  - packages/data-ingest/src/gaps.ts
   - packages/data-ingest/src/index.ts
   - packages/data-ingest/src/registry.ts
   - packages/data-ingest/src/types.ts
@@ -20,6 +22,9 @@ paths:
   - apps/storefront/src/app/cards/[sku]/market/**
   - apps/storefront/src/app/prices/**
   - apps/storefront/src/lib/market/**
+  - apps/storefront/src/lib/datafeed/**
+  - apps/storefront/scripts/archive-cardmarket.ts
+  - apps/storefront/package.json
   - apps/storefront/src/lib/manifest.ts
   - apps/storefront/src/lib/datasets.ts
   - docs/infra/aws-resources.md
@@ -31,6 +36,7 @@ paths:
   - docs/connections/README.md
   - docs/connections/the-pillow-book.md
   - docs/missions/kingdom-108.md
+  - package.json
 do_not_touch:
   - apps/storefront/src/lib/portfolio/**
   - apps/storefront/src/lib/sold-comps/**
