@@ -16,6 +16,9 @@ paths:
   - packages/data-ingest/src/registry.ts
   - packages/data-ingest/src/types.ts
   - packages/data-ingest/package.json
+  - packages/aws/src/credentials.ts
+  - packages/aws/src/s3.ts
+  - packages/aws/src/s3.test.ts
   - apps/storefront/drizzle/**
   - apps/storefront/src/app/api/v1/cards/[sku]/history/**
   - apps/storefront/src/app/api/v1/price-series/**
@@ -24,6 +27,7 @@ paths:
   - apps/storefront/src/lib/market/**
   - apps/storefront/src/lib/datafeed/**
   - apps/storefront/scripts/archive-cardmarket.ts
+  - apps/storefront/scripts/build-cardmarket-archive-lambda.ts
   - apps/storefront/package.json
   - apps/storefront/src/lib/manifest.ts
   - apps/storefront/src/lib/datasets.ts
@@ -93,7 +97,10 @@ is emitted until an exact reviewed receipt permits that operation.
 
 - The first AWS pass is metadata-only. Any restoration, new paid resource,
   deletion, overwrite, public ACL, bucket-policy change, or production database
-  write requires a separately reviewed action.
+  write requires a separately reviewed action. Yu's follow-up to proceed is the
+  authority for a private versioned evidence bucket and a narrowly scoped daily
+  collector; it does not authorize public release, production database writes,
+  or revival of the legacy CardRush workflow.
 - Raw upstream artifacts remain private and are never served from a public
   bucket or chart route.
 - The existing CardRush/TCGplayer publication locks and history 503 remain in
