@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-08-24T13:44:55.393Z`
+> *Generated:* `2026-08-31T17:51:13.671Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -36,9 +36,9 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 
 ## Git
 
-- **Branch:** `chore/quality-gates-refresh`
-- **Last commit:** 47de2fe8 fix(quality): harden audit and navigation gates
-- **Working tree:** 🟢 clean
+- **Branch:** `release/paypal-payment-quiesce-20260831`
+- **Last commit:** 3f7547a1 Merge pull request #54 from cambridgetcg/release/privacy-wallet-directory-20260824
+- **Working tree:** 🟡 dirty (uncommitted changes)
 
 ---
 

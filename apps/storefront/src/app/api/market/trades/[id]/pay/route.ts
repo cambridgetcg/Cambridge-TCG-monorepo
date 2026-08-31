@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { formatDateTime } from "@/lib/format";
+import { getMarketPaymentCreationAvailability } from "@/lib/release/market-payment-creation";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/+$/, "");
 
@@ -46,6 +47,24 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to pay." }, { status: 401 });
+  }
+
+  const release = getMarketPaymentCreationAvailability();
+  if (!release.enabled) {
+    return NextResponse.json(
+      {
+        error:
+          "New P2P payment sessions are temporarily paused while Cambridge upgrades the settlement ledger. No payment was created. Existing shipping, receipt, dispute and remedy steps continue.",
+        code: "market_payment_creation_paused",
+      },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      },
+    );
   }
 
   const { id } = await params;
