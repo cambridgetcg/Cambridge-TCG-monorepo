@@ -21,8 +21,10 @@ Do not set that value until all of these are true:
    can create an unreserved Stripe Checkout Session have drained;
 2. recent Stripe marketplace Sessions are reconciled by trade, with duplicate
    open Sessions expired and extra paid Sessions quarantined/refunded;
-3. migrations `0133_market_trade_payment_attempts.sql` and
-   `0134_paypal_multiparty_settlement.sql` are applied and probed;
+3. migration `0133_market_trade_payment_attempts.sql` is applied and probed
+   in production; migration `0134_paypal_multiparty_settlement.sql` remains
+   isolated to a sandbox database until the PayPal runbook's partner, legal,
+   refund/release and canary gates separately authorize production use;
 4. the ledger-backed Stripe route and webhook are deployed and healthy; and
 5. retry, cancellation, expiry and reconciliation probes pass in production.
 
