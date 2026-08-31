@@ -154,9 +154,33 @@ async function sweepExpired(force = false): Promise<void> {
   const expiredTrades = await query(
     `SELECT id, bid_order_id, ask_order_id, quantity, buyer_id, seller_id
        FROM market_trades
-      WHERE escrow_status = 'awaiting_payment'
-        AND payment_expires_at IS NOT NULL
-        AND payment_expires_at <= NOW()`
+      WHERE market_trades.escrow_status = 'awaiting_payment'
+        AND market_trades.payment_expires_at IS NOT NULL
+        AND market_trades.payment_expires_at <= NOW()
+        -- Never restore a listing while Stripe can still charge, while an
+        -- async method is processing, or while contradictory evidence is
+        -- held for review. Signed expiry/failure moves the attempt terminal;
+        -- reconciliation owns ambiguous or missing provider events.
+        AND NOT EXISTS (
+          SELECT 1
+            FROM market_trade_stripe_checkout_attempts attempt
+           WHERE attempt.trade_id = market_trades.id
+             AND attempt.status IN (
+               'reserved', 'checkout_open', 'processing', 'requires_review'
+             )
+        )
+        -- Pre-v2 sessions have no attempt row. Fail closed until their exact
+        -- stored session is settled or an operator/provider reconciliation
+        -- proves it terminal.
+        AND (
+          market_trades.stripe_session_id IS NULL
+          OR EXISTS (
+            SELECT 1 FROM market_trade_stripe_checkout_attempts historical
+             WHERE historical.trade_id = market_trades.id
+               AND historical.stripe_session_id = market_trades.stripe_session_id
+               AND historical.status IN ('expired', 'failed')
+          )
+        )`
   );
 
   for (const t of expiredTrades.rows) {
@@ -164,9 +188,41 @@ async function sweepExpired(force = false): Promise<void> {
     // ask stranded as 'filled' with no live trade, and the sweep would never
     // revisit (the trade is already 'cancelled'). Mirrors approveCancel.
     const cancelled = await transaction(async (q) => {
+      // Lock in the same order as payment reservation. This statement may
+      // wait for an in-flight buyer reservation; the NEXT statement then
+      // receives a fresh READ COMMITTED snapshot that can see its attempt.
+      const locked = await q(
+        `SELECT id FROM market_trades
+          WHERE id = $1 AND escrow_status = 'awaiting_payment'
+          FOR UPDATE`,
+        [t.id],
+      );
+      if (locked.rows.length === 0) return false;
       const upd = await q(
-        `UPDATE market_trades SET escrow_status = 'cancelled', updated_at = NOW()
-          WHERE id = $1 AND escrow_status = 'awaiting_payment' RETURNING id`,
+        `UPDATE market_trades AS target
+            SET escrow_status = 'cancelled', updated_at = NOW()
+          WHERE target.id = $1
+            AND target.escrow_status = 'awaiting_payment'
+            -- Recheck in a new statement snapshot after acquiring the trade
+            -- lock. A buyer can reserve after the outer candidate SELECT but
+            -- before this transaction wins that lock at the deadline.
+            AND NOT EXISTS (
+              SELECT 1 FROM market_trade_stripe_checkout_attempts attempt
+               WHERE attempt.trade_id = target.id
+                 AND attempt.status IN (
+                   'reserved', 'checkout_open', 'processing', 'requires_review'
+                 )
+            )
+            AND (
+              target.stripe_session_id IS NULL
+              OR EXISTS (
+                SELECT 1 FROM market_trade_stripe_checkout_attempts historical
+                 WHERE historical.trade_id = target.id
+                   AND historical.stripe_session_id = target.stripe_session_id
+                   AND historical.status IN ('expired', 'failed')
+              )
+            )
+          RETURNING target.id`,
         [t.id]
       );
       if (upd.rows.length === 0) return false;

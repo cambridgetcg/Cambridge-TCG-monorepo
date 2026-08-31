@@ -5,8 +5,34 @@ import { query } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { formatDateTime } from "@/lib/format";
 import { getMarketPaymentCreationAvailability } from "@/lib/release/market-payment-creation";
+import {
+  STRIPE_CHECKOUT_RAIL,
+  attachStripeCheckoutSession,
+  getStripeCheckoutAttempt,
+  isMarketPaymentAttemptMigrationMissing,
+  markStripeCheckoutAttemptForReview,
+  markStripeCheckoutAttemptTerminal,
+  normalizeCheckoutSiteUrl,
+  reserveStripeCheckoutAttempt,
+  retireLegacyStripeSession,
+  stripeCheckoutAttemptBindingProblems,
+} from "@/lib/market/stripe-checkout-attempts";
 
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/+$/, "");
+function resolveSiteUrl(req: Request): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) return normalizeCheckoutSiteUrl(configured);
+  try {
+    return normalizeCheckoutSiteUrl(new URL(req.url).origin);
+  } catch {
+    return "http://localhost:3000";
+  }
+}
+
+function privateJson(body: unknown, init?: ResponseInit) {
+  const response = NextResponse.json(body, init);
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
 
 // Every country Stripe Checkout can collect a shipping address for — the
 // full ShippingAddressCollection.AllowedCountry enum from the SDK, minus
@@ -38,7 +64,7 @@ const GLOBAL_SHIPPING_COUNTRIES: Stripe.Checkout.SessionCreateParams.ShippingAdd
   "VU", "WF", "WS", "XK", "YE", "YT", "ZA", "ZM", "ZW",
 ];
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   // NOTE: getStripe() is NOT called here. It throws when STRIPE_SECRET_KEY
   // is absent, and a throw outside the try below produced a bodiless 500
   // that stranded the buyer on a ticking payment window with no
@@ -46,7 +72,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // inside the try, so a config/Stripe failure returns an honest 503.
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in to pay." }, { status: 401 });
+    return privateJson({ error: "Sign in to pay." }, { status: 401 });
   }
 
   const release = getMarketPaymentCreationAvailability();
@@ -79,62 +105,252 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     [id]
   );
   if (tradeRes.rows.length === 0) {
-    return NextResponse.json({ error: "Trade not found." }, { status: 404 });
+    return privateJson({ error: "Trade not found." }, { status: 404 });
   }
   const trade = tradeRes.rows[0];
 
   if (trade.buyer_id !== session.user.id) {
-    return NextResponse.json({ error: "Only the buyer can pay for this trade." }, { status: 403 });
+    return privateJson({ error: "Only the buyer can pay for this trade." }, { status: 403 });
   }
   if (trade.escrow_status !== "awaiting_payment") {
-    return NextResponse.json({ error: `Trade is in '${trade.escrow_status}' state.` }, { status: 400 });
+    return privateJson({ error: `Trade is in '${trade.escrow_status}' state.` }, { status: 400 });
   }
   if (trade.payment_expires_at && new Date(trade.payment_expires_at) <= new Date()) {
-    return NextResponse.json({ error: "Payment window has expired." }, { status: 400 });
+    return privateJson({ error: "Payment window has expired." }, { status: 400 });
   }
-
-  const total = parseFloat(trade.price) * trade.quantity;
 
   try {
     const stripe = getStripe();
-    const checkoutSession = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [{
-        price_data: {
-          currency: "gbp",
-          product_data: {
-            name: trade.card_name,
-            description: `P2P trade — ${trade.quantity} × ${trade.card_name}`,
-            ...(trade.image_url ? { images: [trade.image_url] } : {}),
+    const siteUrl = resolveSiteUrl(req);
+
+    // At most two passes are needed: an explicitly-expired legacy/v2
+    // session can retire, then the same request reserves one fresh attempt.
+    // Ambiguous provider failures never rotate the attempt.
+    for (let pass = 0; pass < 2; pass += 1) {
+      const reservation = await reserveStripeCheckoutAttempt({
+        tradeId: trade.id,
+        buyerId: session.user.id,
+        siteUrl,
+        shippingAllowedCountries: GLOBAL_SHIPPING_COUNTRIES,
+      });
+      if (!reservation.ok) {
+        switch (reservation.reason) {
+          case "not_found":
+            return privateJson({ error: "Trade not found." }, { status: 404 });
+          case "forbidden":
+            return privateJson({ error: "Only the buyer can pay for this trade." }, { status: 403 });
+          case "trade_not_awaiting_payment":
+            return privateJson({ error: "Trade is no longer awaiting payment." }, { status: 409 });
+          case "payment_window_expired":
+            return privateJson({ error: "Payment window has expired." }, { status: 409 });
+          case "payment_window_too_short":
+            return privateJson(
+              {
+                error: "Less than 31 minutes remain in this trade's payment window, so a new Stripe Checkout cannot be opened without extending past the real deadline. Contact support before the window closes.",
+                code: "checkout_window_too_short",
+              },
+              { status: 409 },
+            );
+          case "rail_conflict":
+            return privateJson(
+              { error: `This trade is already reserved for '${reservation.reservedRail}'.`, code: "settlement_rail_conflict" },
+              { status: 409 },
+            );
+        }
+      }
+
+      if (reservation.kind === "legacy_session") {
+        // A pre-ledger session is reusable only when Stripe can retrieve it
+        // and says it is still open. A timeout/404/key-mode ambiguity stays
+        // bound for reconciliation; it never causes a second chargeable URL.
+        const prior = await stripe.checkout.sessions.retrieve(reservation.stripeSessionId);
+        const expectedPence = Math.round(parseFloat(trade.price) * trade.quantity * 100);
+        if (
+          prior.metadata?.type !== "market_trade_payment"
+          || prior.metadata?.trade_id !== trade.id
+          || prior.amount_total !== expectedPence
+          || prior.currency?.toLowerCase() !== "gbp"
+        ) {
+          console.error(`[market] Legacy Checkout ${prior.id} failed exact trade binding for ${trade.id}`);
+          return privateJson(
+            { error: "The existing payment session needs review. No new session was created.", code: "checkout_requires_review" },
+            { status: 409 },
+          );
+        }
+        if (prior.status === "open" && prior.url) return privateJson({ url: prior.url });
+        if (prior.status === "complete") {
+          return privateJson(
+            { error: "Payment has already started or completed. Confirmation is processing; refresh in a moment." },
+            { status: 409 },
+          );
+        }
+        if (prior.status === "expired") {
+          const retired = await retireLegacyStripeSession({
+            tradeId: trade.id,
+            stripeSessionId: prior.id,
+            status: "expired",
+          });
+          if (retired.ok) continue;
+          if (retired.reviewRecorded) {
+            return privateJson(
+              { error: "The existing payment session needs review. No new session was created.", code: "checkout_requires_review" },
+              { status: 409 },
+            );
+          }
+        }
+        return privateJson(
+          { error: "The existing payment session is being reconciled. No new session was created." },
+          { status: 409 },
+        );
+      }
+
+      const attempt = reservation.attempt;
+      if (attempt.status === "requires_review") {
+        return privateJson(
+          { error: "This payment attempt needs review. No additional Checkout was created.", code: "checkout_requires_review" },
+          { status: 409 },
+        );
+      }
+      if (attempt.status === "processing" || attempt.status === "settled") {
+        return privateJson(
+          { error: "Payment has already started or completed. Confirmation is processing; refresh in a moment." },
+          { status: 409 },
+        );
+      }
+
+      // If provider creation once succeeded but its response and every
+      // webhook were lost, Stripe may prune the idempotency key after 24h.
+      // The attempt's Checkout was capped to 23h, but a session paid just
+      // before expiry could be complete rather than expired. With no stored
+      // session id there is no safe automatic observation path, so never
+      // reuse the now-old key as a fresh create operation.
+      if (
+        !attempt.stripeSessionId
+        && new Date(attempt.providerExpiresAt).getTime() <= Date.now()
+      ) {
+        await markStripeCheckoutAttemptForReview(
+          attempt.id,
+          "Attempt reached provider expiry without a bound Stripe session; reconciliation is required before retry.",
+        );
+        return privateJson(
+          { error: "The previous payment attempt needs reconciliation. No additional Checkout was created.", code: "checkout_requires_review" },
+          { status: 409 },
+        );
+      }
+
+      if (attempt.stripeSessionId) {
+        const prior = await stripe.checkout.sessions.retrieve(attempt.stripeSessionId);
+        const problems = stripeCheckoutAttemptBindingProblems(attempt, prior);
+        if (problems.length > 0) {
+          await markStripeCheckoutAttemptForReview(attempt.id, problems.join("; "));
+          return privateJson(
+            { error: "The existing payment session failed its exact binding checks. No new session was created.", code: "checkout_requires_review" },
+            { status: 409 },
+          );
+        }
+        if (prior.status === "open" && prior.url) return privateJson({ url: prior.url });
+        if (prior.status === "complete") {
+          return privateJson(
+            { error: "Payment has already started or completed. Confirmation is processing; refresh in a moment." },
+            { status: 409 },
+          );
+        }
+        if (prior.status === "expired") {
+          const retired = await markStripeCheckoutAttemptTerminal(
+            prior,
+            "expired",
+            "Stripe retrieval reported the bound Checkout Session expired.",
+          );
+          if (retired.ok) continue;
+          if (retired.reviewRecorded) {
+            return privateJson(
+              { error: "The expired payment session failed its exact binding checks. No new session was created.", code: "checkout_requires_review" },
+              { status: 409 },
+            );
+          }
+        }
+        return privateJson(
+          { error: "The existing payment session is being reconciled. No new session was created." },
+          { status: 409 },
+        );
+      }
+
+      const checkoutSession = await stripe.checkout.sessions.create(
+        {
+          mode: "payment",
+          // Exact GBP/pence binding is an escrow invariant. Dashboard-level
+          // adaptive pricing must not silently change the webhook currency.
+          adaptive_pricing: { enabled: attempt.request.adaptive_pricing_enabled },
+          client_reference_id: attempt.request.client_reference_id,
+          line_items: [{
+            price_data: {
+              currency: attempt.expectedCurrency,
+              product_data: {
+                name: attempt.request.product_name,
+                description: attempt.request.product_description,
+                ...(attempt.request.image_url ? { images: [attempt.request.image_url] } : {}),
+              },
+              unit_amount: attempt.expectedAmountPence,
+            },
+            quantity: 1,
+          }],
+          success_url: attempt.request.success_url,
+          cancel_url: attempt.request.cancel_url,
+          customer_email: attempt.request.customer_email || undefined,
+          shipping_address_collection: {
+            allowed_countries: attempt.request.shipping_allowed_countries as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection.AllowedCountry[],
           },
-          unit_amount: Math.round(total * 100),
+          expires_at: Math.floor(new Date(attempt.providerExpiresAt).getTime() / 1000),
+          metadata: {
+            type: "market_trade_payment",
+            trade_id: attempt.tradeId,
+            payment_attempt_id: attempt.id,
+            settlement_rail: STRIPE_CHECKOUT_RAIL,
+          },
         },
-        quantity: 1,
-      }],
-      success_url: `${SITE_URL}/account/trades?paid=${id}`,
-      cancel_url: `${SITE_URL}/account/trades`,
-      customer_email: session.user.email || undefined,
-      // Collect the buyer's shipping address at pay time. The webhook
-      // persists it to market_trades.shipping_address (migration 0105) so
-      // the seller knows where to ship — currency stays GBP (the platform's
-      // settlement currency); display FX is a separate, existing layer.
-      shipping_address_collection: {
-        allowed_countries: GLOBAL_SHIPPING_COUNTRIES,
-      },
-      metadata: {
-        type: "market_trade_payment",
-        trade_id: id,
-      },
-    });
+        { idempotencyKey: attempt.idempotencyKey },
+      );
 
-    // Persist the session id so the webhook can do an idempotent lookup if
-    // metadata is ever lost or the session is replayed.
-    await query(
-      `UPDATE market_trades SET stripe_session_id = $1, updated_at = NOW() WHERE id = $2`,
-      [checkoutSession.id, id]
+      const problems = stripeCheckoutAttemptBindingProblems(attempt, checkoutSession);
+      if (checkoutSession.status !== "open") problems.push(`new Checkout is ${checkoutSession.status}`);
+      if (!checkoutSession.url) problems.push("new Checkout has no hosted URL");
+      if (problems.length > 0) {
+        if (checkoutSession.status === "open") {
+          await stripe.checkout.sessions.expire(checkoutSession.id).catch((error) =>
+            console.error(`[market] Could not expire rejected Checkout ${checkoutSession.id}:`, error),
+          );
+        }
+        await markStripeCheckoutAttemptForReview(attempt.id, problems.join("; "));
+        return privateJson(
+          { error: "Stripe returned a payment session that failed its binding checks. It was not offered for payment.", code: "checkout_requires_review" },
+          { status: 503 },
+        );
+      }
+
+      const attached = await attachStripeCheckoutSession({
+        attemptId: attempt.id,
+        stripeSessionId: checkoutSession.id,
+      });
+      if (!attached) {
+        const recovered = await getStripeCheckoutAttempt(attempt.id);
+        if (recovered?.stripeSessionId === checkoutSession.id && checkoutSession.url) {
+          return privateJson({ url: checkoutSession.url });
+        }
+        await stripe.checkout.sessions.expire(checkoutSession.id).catch((error) =>
+          console.error(`[market] Could not expire unbound Checkout ${checkoutSession.id}:`, error),
+        );
+        return privateJson(
+          { error: "The trade changed while Checkout was being prepared. The unbound session was closed." },
+          { status: 409 },
+        );
+      }
+      return privateJson({ url: checkoutSession.url });
+    }
+
+    return privateJson(
+      { error: "The previous payment session expired, but a replacement could not be reserved safely." },
+      { status: 409 },
     );
-
-    return NextResponse.json({ url: checkoutSession.url });
   } catch (err) {
     console.error("[market] Pay session error:", err);
     // Honest failure. Two truths the buyer needs: (1) this is our side,
@@ -148,9 +364,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const error = whenLabel
       ? `Payments are temporarily unavailable — this is on our side, not yours. Your payment window is unchanged: it still closes ${whenLabel} and does not pause while checkout is down. Please try again in a few minutes; if it keeps failing, contact support before the window closes.`
       : `Payments are temporarily unavailable — this is on our side, not yours. Your payment window is unchanged and does not pause while checkout is down. Please try again shortly, and contact support if it persists.`;
-    return NextResponse.json(
+    const migrationMissing = isMarketPaymentAttemptMigrationMissing(err);
+    return privateJson(
       { error, code: unconfigured ? "payments_unconfigured" : "payments_unavailable", payment_expires_at: whenIso },
-      { status: 503 },
+      { status: 503, ...(migrationMissing ? { statusText: "Payment migration unavailable" } : {}) },
     );
   }
 }

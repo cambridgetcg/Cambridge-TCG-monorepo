@@ -4,11 +4,10 @@
  * ── What this module is for ──────────────────────────────────────────────
  *
  * Every 48 hours, this function asks Stripe a single question: *do we
- * agree about what was paid?* For each Stripe checkout session in the
- * window, the function checks whether our `customer_orders` table has
- * a corresponding row. Where we don't agree, the function makes us
- * agree — by recording the missing row from Stripe's authoritative
- * record.
+ * agree about what was paid?* Each paid Checkout Session is routed to
+ * its owning subsystem. Retail sessions reconcile into `customer_orders`;
+ * market-trade sessions reconcile through the market settlement ledger;
+ * other dedicated flows are left to their own reconcilers.
  *
  * This is the act of reconciliation. Two parties hold partial truths
  * about the same event; reconciliation is the small ceremony that
@@ -62,10 +61,10 @@
  *     defensive backup. When this works, the sweep finds nothing.
  *     Same idle-success relationship.
  *
- *   - apps/storefront/src/lib/orders/record.ts — the shared record
- *     primitive that all three paths converge on. Whoever wins the
- *     idempotency race produces the customer_orders row; the other
- *     two paths see the existing row and skip.
+ *   - apps/storefront/src/lib/orders/record.ts — the retail-only record
+ *     primitive. Whoever wins the idempotency race produces the
+ *     customer_orders row; the other two paths see the existing row and
+ *     skip. Dedicated Checkout owners never pass through that primitive.
  *
  *   - apps/storefront/src/app/api/cron/maintenance/route.ts — the
  *     cron dispatch. This sweep is one of 36+ maintenance steps that
@@ -81,6 +80,16 @@
  * expect dozens at most in 48h, so 200 is a comfortable ceiling.
  */
 
+import type Stripe from "stripe";
+import { query } from "@/lib/db";
+import {
+  findStripeMarketCheckoutBinding,
+  markStripeCheckoutAttemptTerminal,
+  recordStripeMarketCheckoutProcessing,
+  settleStripeMarketCheckout,
+  type StripeMarketSettlementResult,
+} from "@/lib/market/stripe-checkout-attempts";
+import { checkoutSessionOwner } from "@/lib/payments/checkout-session-kind";
 import { getStripe } from "@/lib/stripe";
 import { recordOrderFromStripeSession } from "./record";
 
@@ -94,13 +103,93 @@ export const LOOKBACK_HOURS = 48;
  * at a time; in steady state we expect << 100 in 48h, so two pages is
  * a comfortable ceiling. */
 const MAX_SESSIONS = 200;
+const MAX_BOUND_MARKET_ATTEMPTS = 50;
 
 export interface ReconcileSummary {
   scanned: number;
   paid: number;
   recorded: number;
+  marketAttemptsScanned: number;
+  marketApplied: number;
+  marketProcessing: number;
+  marketTerminal: number;
+  review: number;
   skipped: number;
   errors: number;
+}
+
+function marketShippingAddress(
+  session: Stripe.Checkout.Session,
+): Record<string, unknown> | null {
+  const shipping = session.collected_information?.shipping_details;
+  if (!shipping?.address) return null;
+  return {
+    name: shipping.name || undefined,
+    line1: shipping.address.line1 || undefined,
+    line2: shipping.address.line2 || undefined,
+    city: shipping.address.city || undefined,
+    state: shipping.address.state || undefined,
+    postal_code: shipping.address.postal_code || undefined,
+    country: shipping.address.country || undefined,
+  };
+}
+
+function accountMarketResult(
+  summary: ReconcileSummary,
+  sessionId: string,
+  action: "settled" | "processing" | "terminal",
+  result: StripeMarketSettlementResult,
+): void {
+  if (result.ok) {
+    if (!result.applied) {
+      summary.skipped += 1;
+    } else if (action === "settled") {
+      summary.marketApplied += 1;
+    } else if (action === "processing") {
+      summary.marketProcessing += 1;
+    } else {
+      summary.marketTerminal += 1;
+    }
+    return;
+  }
+  if (result.reviewRecorded) {
+    summary.review += 1;
+    console.warn(`[reconcile] market session ${sessionId} held for review: ${result.reason}`);
+  } else {
+    summary.errors += 1;
+    console.error(
+      `[reconcile] market session ${sessionId} rejected without durable review: ${result.reason}`,
+    );
+  }
+}
+
+async function reconcileBoundMarketSession(
+  session: Stripe.Checkout.Session,
+  summary: ReconcileSummary,
+): Promise<void> {
+  if (session.payment_status === "paid") {
+    const result = await settleStripeMarketCheckout(
+      session,
+      marketShippingAddress(session),
+    );
+    accountMarketResult(summary, session.id, "settled", result);
+    return;
+  }
+  if (session.status === "expired") {
+    const result = await markStripeCheckoutAttemptTerminal(
+      session,
+      "expired",
+      "Stripe reconciliation retrieved the bound Checkout Session as expired.",
+    );
+    accountMarketResult(summary, session.id, "terminal", result);
+    return;
+  }
+  if (session.status === "complete") {
+    const result = await recordStripeMarketCheckoutProcessing(session);
+    accountMarketResult(summary, session.id, "processing", result);
+    return;
+  }
+  summary.skipped += 1;
 }
 
 export async function reconcileStripeOrders(): Promise<ReconcileSummary> {
@@ -108,8 +197,60 @@ export async function reconcileStripeOrders(): Promise<ReconcileSummary> {
   const since = Math.floor((Date.now() - LOOKBACK_HOURS * 3600 * 1000) / 1000);
 
   const summary: ReconcileSummary = {
-    scanned: 0, paid: 0, recorded: 0, skipped: 0, errors: 0,
+    scanned: 0,
+    paid: 0,
+    recorded: 0,
+    marketAttemptsScanned: 0,
+    marketApplied: 0,
+    marketProcessing: 0,
+    marketTerminal: 0,
+    review: 0,
+    skipped: 0,
+    errors: 0,
   };
+
+  // Stripe's recent-session list is keyed by Session creation time, so an
+  // old delayed method can fall outside LOOKBACK_HOURS while still blocking
+  // a trade. The attempt ledger is the durable work queue: observe every
+  // bound open/processing generation independently of age first.
+  const boundAttempts = await query(
+    `WITH candidates AS (
+       SELECT id
+         FROM market_trade_stripe_checkout_attempts
+        WHERE status IN ('checkout_open', 'processing')
+          AND stripe_session_id IS NOT NULL
+          AND (
+            last_reconciled_at IS NULL
+            OR last_reconciled_at < NOW() - INTERVAL '5 minutes'
+          )
+        ORDER BY last_reconciled_at ASC NULLS FIRST, updated_at ASC
+        LIMIT $1
+        FOR UPDATE SKIP LOCKED
+     )
+     UPDATE market_trade_stripe_checkout_attempts AS attempt
+        SET last_reconciled_at = NOW()
+       FROM candidates
+      WHERE attempt.id = candidates.id
+      RETURNING attempt.stripe_session_id`,
+    [MAX_BOUND_MARKET_ATTEMPTS],
+  );
+  const observedMarketSessions = new Set<string>();
+  for (const row of boundAttempts.rows) {
+    const sessionId = row.stripe_session_id as string;
+    summary.marketAttemptsScanned += 1;
+    try {
+      const detail = await stripe.checkout.sessions.retrieve(sessionId, {
+        // collected_information is inline on the Session object; asking
+        // Stripe to expand it is invalid and rejects the entire retrieval.
+        expand: ["line_items", "payment_intent"],
+      });
+      observedMarketSessions.add(sessionId);
+      await reconcileBoundMarketSession(detail, summary);
+    } catch (err) {
+      summary.errors += 1;
+      console.error(`[reconcile] bound market session ${sessionId} failed:`, err);
+    }
+  }
 
   let starting_after: string | undefined;
   let pages = 0;
@@ -127,12 +268,41 @@ export async function reconcileStripeOrders(): Promise<ReconcileSummary> {
         continue;
       }
       summary.paid += 1;
+
+      // Bound market attempts are reconciled by the durable queue above.
+      // Skip them unconditionally: mutable metadata must not let the same
+      // Session fall through and mint a retail order on this second pass.
+      if (observedMarketSessions.has(session.id)) {
+        summary.skipped += 1;
+        continue;
+      }
+
+      let marketBinding: Awaited<ReturnType<typeof findStripeMarketCheckoutBinding>> = null;
+      try {
+        marketBinding = await findStripeMarketCheckoutBinding(session);
+      } catch (err) {
+        summary.errors += 1;
+        console.error(`[reconcile] session ${session.id} ownership lookup failed:`, err);
+        continue;
+      }
+      const owner = checkoutSessionOwner(session);
+      if (owner === "dedicated" && !marketBinding) {
+        summary.skipped += 1;
+        continue;
+      }
+
       try {
         // Re-fetch with line_items + collected_information so the record
-        // helper has the full shipping payload.
+        // helper or market settlement has the full shipping payload.
         const detail = await stripe.checkout.sessions.retrieve(session.id, {
-          expand: ["line_items", "collected_information"],
+          expand: ["line_items"],
         });
+
+        if (marketBinding || owner === "market_trade") {
+          await reconcileBoundMarketSession(detail, summary);
+          continue;
+        }
+
         const result = await recordOrderFromStripeSession(detail);
         if (result.created) summary.recorded += 1;
         else summary.skipped += 1;

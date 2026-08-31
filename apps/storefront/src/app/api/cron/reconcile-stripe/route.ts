@@ -1,10 +1,9 @@
 /**
  * Hourly Stripe reconciliation cron.
  *
- * Sweeps paid Stripe sessions in the last 48h and inserts any that
- * aren't yet in customer_orders. Defensive third-line — webhook is
- * primary, /order-confirmation is secondary. See vercel.json for the
- * schedule registration.
+ * Sweeps paid Stripe sessions in the last 48h, routes each locally owned
+ * market Session through the settlement ledger, and inserts only retail
+ * Sessions that aren't yet in customer_orders. See vercel.json for schedule.
  *
  * Authenticated via CRON_SECRET (same convention as maintenance cron).
  */
@@ -23,6 +22,9 @@ export async function GET(request: Request) {
   try {
     const summary = await reconcileStripeOrders();
     console.log("[cron/reconcile-stripe]", summary);
+    if (summary.errors > 0) {
+      return NextResponse.json({ ok: false, ...summary }, { status: 503 });
+    }
     return NextResponse.json({ ok: true, ...summary });
   } catch (err) {
     console.error("[cron/reconcile-stripe] failed:", err);
