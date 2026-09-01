@@ -3,8 +3,9 @@
 > **Current boundary, 2026-09-01:** Kingdom-109 implements the public
 > `opportunity-signal/v1` contract and the fail-closed interface a private
 > engine must implement. A separate private repository contains a fixture-only
-> provider that mirrors and exercises this seam, but no production scorer,
-> source adapter, database reader,
+> provider pinned to an immutable public contract revision; private CI exercises
+> it through the real parser and projector. No production scorer, source adapter,
+> database reader,
 > signal API, trader application, alert delivery, subscription, or automated
 > purchase path is active. This page documents the contract foundation, not a
 > live claim that Cambridge can find deals today.
@@ -247,6 +248,11 @@ Implemented in kingdom-109:
 - public BigInt verification of conservative cost arithmetic;
 - coarse-band delivery projection that rejects unknown/debug fields; and
 - deterministic contract tests.
+
+A separate private fixture provider is pinned to the immutable public package
+revision and passes an end-to-end parser, digest, provider, projector, replay,
+and rights-redaction conformance gate. That is a compatibility foundation, not
+a production model or service.
 
 Not shipped:
 

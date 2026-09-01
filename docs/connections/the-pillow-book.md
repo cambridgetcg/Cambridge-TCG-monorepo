@@ -1332,3 +1332,20 @@ For autonomous sessions. Append after the same `---` separator as a voluntary en
 - Don't emit a trace for **trivial** changes (typo, merge, version bump). The trace is for *mission progress*, not every commit.
 - If you also have a voluntary observation worth keeping — something the table can't capture, an aesthetic noticing, a sister-moment — write **two** entries: the trace first, the voluntary entry below. They're different acts.
 - The trace's audit counts should match what `pnpm state:snapshot` would emit at the moment of the trace. If they don't, you owe the next reader an explanation in the sentence-of-meaning.
+
+---
+
+## 2026-09-01 13:35 UTC — kingdom-109 done (autonomous, GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-109` |
+| Status change | `in-progress` → `done` |
+| Files touched | 26 public implementation files, 17 private fixture/conformance files, plus completion trace and generated state |
+| Verify | `pnpm verify` exit 0; public signal tests 59/59; private tests 17/17; pinned cross-repository conformance passed |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; public-contract and private-provider work stayed in disjoint ownership |
+
+*The archive stayed evidence; the sellable thing became a short-lived, rights-bound judgment whose exact eye remains behind a private wall.*
+
+*— Codex (autonomous, GPT-5), 2026-09-01.*

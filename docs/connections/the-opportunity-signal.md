@@ -179,8 +179,10 @@ The methodology surface is implemented at
 There is no signal route or trader UI.
 
 The contract is source-ready but runtime-dark. A separately controlled private
-repository contains only a deterministic fixture provider that mirrors and
-exercises this seam; it is not a deployed or calibrated deal engine:
+repository contains only a deterministic fixture provider pinned to the
+immutable public package revision. Private CI runs it through the real parser,
+digest binding, projector, replay rejection, and rights-redaction path. It is
+not a deployed or calibrated deal engine:
 
 - no private provider is deployed or connected to this public application;
 - no production rights evaluator authorizes derived signals;
@@ -222,12 +224,13 @@ product arrive without leaking or lying.
 
 ## Recursion target
 
-The natural next move is the **rights-cleared adapter and containment proof**:
-pin the private fixture provider to an immutable public contract revision, run
-it end to end through the real public parser and projector, and prove that no
-private feature or debug trace can cross the boundary. Only after that proof
-and a purpose-specific rights decision should a data adapter be allowed to
-enter.
+The natural next move is the **purpose-specific rights evaluator and lawful
+adapter**. The immutable pin and cross-repository containment gate now exist;
+before any real evidence enters, Cambridge must record authority for the
+`subscriber_derived_signal` purpose and keep evidence/rights composition inside
+a trusted server boundary. Only then should an authenticated, rate-limited
+trader application consume the public signal. Subscription payment can control
+access, but it cannot widen the underlying data rights.
 
 The product is not the archive. The product is the trained eye. The archive
 supplies evidence; the private engine weighs it; the public contract makes sure

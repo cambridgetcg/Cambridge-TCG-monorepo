@@ -259,8 +259,9 @@ export default function OpportunitySignalsMethodology() {
       <ul>
         <li>
           A separate private repository contains a fixture-only provider that
-          mirrors and exercises this seam; no private service is deployed or
-          connected here.
+          is pinned to an immutable public revision and exercised through the
+          real parser and projector; no private service is deployed or connected
+          here.
         </li>
         <li>No calibrated production valuation or opportunity policy is active.</li>
         <li>No source adapter or database read feeds this contract.</li>

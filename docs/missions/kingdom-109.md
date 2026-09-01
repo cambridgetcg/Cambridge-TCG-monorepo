@@ -1,13 +1,13 @@
 ---
 id: kingdom-109
 title: "KINGDOM Signals - opportunity-signal/v1 contract and private-engine boundary"
-status: in-progress
+status: done
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-opportunity-signal
 claimed_by: codex-gpt-5
 claimed_at: "2026-09-01T12:05:53Z"
-completed_at: ~
+completed_at: "2026-09-01T13:35:02Z"
 paths:
   - packages/opportunity-signal/**
   - package.json
@@ -103,6 +103,18 @@ user interface, automated purchase path, or executable scoring policy.
 - Canonical methodology and connection documentation name what shipped, what is
   private, and what remains absent.
 - Focused package tests, workspace typecheck, audits, and `pnpm verify` pass.
+
+## Outcome
+
+The public package now owns a versioned, zero-runtime-dependency signal
+contract, two-stage digest binding, fail-closed preflight, transparent
+conservative arithmetic, coarse-band projection, and privacy-blind provider
+failure handling. A fixture-only provider in a separately controlled private
+repository is pinned to the immutable public commit and package tree; its CI
+runs the real public parser/projector conformance path without publishing
+private code or exact economics. No source adapter, production scorer, live
+service, subscriber UI, billing integration, alert, or execution path was
+activated.
 
 ## In-repo addendum
 
