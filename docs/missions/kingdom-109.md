@@ -16,6 +16,7 @@ paths:
   - docs/connections/the-opportunity-signal.md
   - docs/connections/README.md
   - docs/connections/the-pillow-book.md
+  - docs/state.md
   - docs/missions/kingdom-109.md
   - apps/storefront/src/app/methodology/opportunity-signals/**
   - apps/storefront/src/lib/manifest.ts
@@ -27,9 +28,9 @@ do_not_touch:
   - apps/storefront/src/lib/payments/**
   - apps/storefront/src/lib/membership/**
 related:
-  - docs/missions/kingdom-108.md
-  - docs/methodology/price-history.md
-  - docs/connections/the-price-memory.md
+  - docs/missions/kingdom-107.md
+  - docs/methodology/source-intake.md
+  - docs/connections/the-tributaries.md
   - docs/connections/the-pricing-arrow.md
   - docs/decisions/2026-07-06-collectors-first.md
 synced_from: in-repo authored from Yu's 2026-09-01 KINGDOM Signals directive
