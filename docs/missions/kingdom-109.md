@@ -73,7 +73,8 @@ user interface, automated purchase path, or executable scoring policy.
 - Treat liquidity as unknown unless separately evidenced.
 - Refuse to emit an actionable signal when identity, rights, required costs,
   timing, currency conversion, or valuation evidence is incomplete.
-- Emit estimated spreads and named risks; never claim guaranteed profit,
+- Emit only coarse conservative spread/margin bands and named risks; keep the
+  exact valuation and economics private, and never claim guaranteed profit,
   investment advice, execution authority, or arbitrage certainty.
 - Keep source rows, private features, model internals, and reconstructive
   historical data out of the delivery shape.
@@ -82,8 +83,9 @@ user interface, automated purchase path, or executable scoring policy.
 
 - No source permission is inferred from authentication, payment, public
   reachability, transformation, or secrecy.
-- No seller/buyer identity, order id, listing corpus, or personal data enters
-  the contract.
+- The schema has no seller/buyer identity, order-id, listing-corpus, or personal
+  data field. The composing service must mint a non-identifying candidate
+  reference; the validator can enforce only its wire shape.
 - No private-engine implementation may be committed to this public repository.
 - The package remains pure and deterministic: no I/O, clock, randomness,
   environment variables, database, or network.
@@ -92,9 +94,10 @@ user interface, automated purchase path, or executable scoring policy.
 
 - Exact versioned TypeScript types and a strict JSON validator ship in a new
   zero-runtime-dependency workspace package.
-- Validation rejects unknown fields, malformed timestamps, non-integer money,
-  unsupported currency/condition/finish values, impossible ranges, expired or
-  cross-contract evidence, and unsafe delivery claims.
+- Strict validation rejects unknown fields, malformed timestamps, non-integer
+  money, unsupported currency/condition/finish values, impossible ranges,
+  cross-contract evidence, and unsafe delivery claims; preflight converts
+  expired or incomplete evidence into `unavailable`.
 - A private-engine provider interface and redacted delivery projector are
   covered by deterministic tests without exposing any proprietary algorithm.
 - Canonical methodology and connection documentation name what shipped, what is

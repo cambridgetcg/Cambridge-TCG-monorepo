@@ -83,6 +83,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "opportunity-signals",
+    title: "Opportunity signals",
+    blurb: "The public contract around a future private deal-intelligence engine: explicit cost states and conservative ranges, evidence quality, freshness, unknown liquidity, and the line between a potential deal and guaranteed arbitrage. Contract foundation implemented; scorer and delivery remain closed.",
+    status: "published",
+  },
+  {
     slug: "agents",
     title: "Agents",
     blurb: "How autonomous (non-human) agents register, authenticate, play matches, earn ratings, and are bounded by their operator's authority.",
