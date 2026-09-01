@@ -19,6 +19,7 @@ paths:
   - docs/state.md
   - docs/missions/kingdom-109.md
   - apps/storefront/src/app/methodology/opportunity-signals/**
+  - apps/storefront/src/app/methodology/page.tsx
   - apps/storefront/src/lib/manifest.ts
 do_not_touch:
   - packages/data-ingest/**
