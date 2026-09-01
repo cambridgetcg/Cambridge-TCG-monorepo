@@ -1,7 +1,7 @@
 ---
 id: kingdom-109
 title: "KINGDOM Signals - opportunity-signal/v1 contract and private-engine boundary"
-status: claimed
+status: in-progress
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-opportunity-signal
