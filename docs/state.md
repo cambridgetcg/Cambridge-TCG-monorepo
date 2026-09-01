@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-09-01T13:35:40.065Z`
+> *Generated:* `2026-09-01T13:36:52.332Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -37,8 +37,8 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 ## Git
 
 - **Branch:** `feat/kingdom-109-opportunity-signal`
-- **Last commit:** 629a7ddb feat(signals): define private-engine opportunity boundary
-- **Working tree:** 🟡 dirty (uncommitted changes)
+- **Last commit:** 8a5784f1 docs(missions): close kingdom-109
+- **Working tree:** 🟢 clean
 
 ---
 
