@@ -187,15 +187,17 @@ before any payment callback could be activated.
 
 Kingdom-112 makes that proof a storefront CI condition. The job starts a
 disposable PostgreSQL 16 service and the integration suite creates an isolated
-schema only after both the configured URL and the connected server attest to a
-loopback `*_test` database. It creates the migration's minimal `users`
-prerequisite, then executes the exact checked-in
+schema only after the parsed connection target is fixed to loopback and the
+connected server attests to the exact `*_test` database. It creates the
+migration's minimal `users` prerequisite, then executes the exact checked-in
 `0135_product_flow_runtime.sql`; it does not maintain a test-only schema copy.
 
 The reusable store conformance suite then runs through the real storefront
 adapter. A separate forced race holds two transactions until two distinct
 `pg_backend_pid()` values have arrived, releases them together, and observes
-one applied event plus one canonical duplicate. A payment-grant collision on a
+one granted plus one waiting advisory lock directly in `pg_locks` before it
+allows the holder to continue. The result is one applied event plus one
+canonical duplicate. A payment-grant collision on a
 different entitlement proves that the provisional snapshot rolls back. Direct
 UPDATE and DELETE attempts both receive the trigger's `P0001` rejection while
 the accepted event remains present.

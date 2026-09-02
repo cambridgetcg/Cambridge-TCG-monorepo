@@ -121,7 +121,10 @@ function quotedIdentifier(identifier: string): string {
 function transactionRunner(
   pool: Pool,
   schemaSql: string,
-  beforeWork?: (backendPid: number) => Promise<void>,
+  hooks: {
+    readonly beforeWork?: (backendPid: number) => Promise<void>;
+    readonly afterAdvisoryLock?: (backendPid: number) => Promise<void>;
+  } = {},
 ): ProductFlowRuntimeTransactionRunnerV1 {
   return async <T>(
     work: (query: ProductFlowRuntimeQueryV1) => Promise<T>,
@@ -130,14 +133,25 @@ function transactionRunner(
     try {
       await client.query("BEGIN");
       await client.query(`SET LOCAL search_path TO ${schemaSql}`);
-      if (beforeWork) {
+      let backendPid: number | null = null;
+      if (hooks.beforeWork || hooks.afterAdvisoryLock) {
         const pid = await client.query<{ pid: number }>(
           "SELECT pg_backend_pid()::INTEGER AS pid",
         );
-        await beforeWork(pid.rows[0]!.pid);
+        backendPid = pid.rows[0]!.pid;
+      }
+      if (hooks.beforeWork && backendPid !== null) {
+        await hooks.beforeWork(backendPid);
       }
       const query: ProductFlowRuntimeQueryV1 = async (sql, params = []) => {
         const result = await client.query(sql, params);
+        if (
+          hooks.afterAdvisoryLock &&
+          backendPid !== null &&
+          sql.includes("pg_advisory_xact_lock")
+        ) {
+          await hooks.afterAdvisoryLock(backendPid);
+        }
         return {
           rows: result.rows as unknown[],
           rowCount: result.rowCount ?? result.rows.length,
@@ -230,6 +244,87 @@ function twoBackendGate(backendPids: number[]): (pid: number) => Promise<void> {
   };
 }
 
+function deferredSignal(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return Object.freeze({ promise, resolve });
+}
+
+async function waitForSignal(
+  signal: Promise<void>,
+  message: string,
+  timeoutMs = 10_000,
+): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      signal,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+interface AdvisoryLockWitness {
+  readonly granted: readonly number[];
+  readonly waiting: readonly number[];
+}
+
+async function waitForAdvisoryContention(
+  pool: Pool,
+  backendPids: readonly number[],
+): Promise<AdvisoryLockWitness> {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const locks = await pool.query<{ pid: number; granted: boolean }>(
+      `SELECT pid, granted
+         FROM pg_locks
+        WHERE locktype = 'advisory'
+          AND pid = ANY($1::INTEGER[])
+        ORDER BY pid`,
+      [backendPids],
+    );
+    const granted = locks.rows
+      .filter((row) => row.granted)
+      .map((row) => row.pid);
+    const waiting = locks.rows
+      .filter((row) => !row.granted)
+      .map((row) => row.pid);
+    if (granted.length === 1 && waiting.length === 1) {
+      return Object.freeze({
+        granted: Object.freeze(granted),
+        waiting: Object.freeze(waiting),
+      });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(
+    "Timed out waiting for one granted and one waiting PostgreSQL advisory lock.",
+  );
+}
+
+function assertConnectedDatabase(
+  expected: SafeDatabaseTarget,
+  actualDatabase: string | undefined,
+): void {
+  if (
+    actualDatabase !== expected.database ||
+    !actualDatabase.endsWith("_test")
+  ) {
+    throw new Error(
+      "Connected PostgreSQL server did not witness the guarded _test database.",
+    );
+  }
+}
+
 describe("product-flow PostgreSQL integration safety gate", () => {
   it.each([
     "postgresql://db.example.test/cambridge_test",
@@ -263,6 +358,20 @@ describe("product-flow PostgreSQL integration safety gate", () => {
         ssl: false,
       }),
     );
+  });
+
+  it("accepts an exact connected database witness independently of container addressing", () => {
+    const sentinel = {} as Pool;
+    const guarded = guardedPool(
+      "postgresql://tester@127.0.0.1:5432/cambridge_product_test",
+      () => sentinel,
+    );
+    expect(() =>
+      assertConnectedDatabase(guarded.target, "cambridge_product_test"),
+    ).not.toThrow();
+    expect(() =>
+      assertConnectedDatabase(guarded.target, "another_product_test"),
+    ).toThrow("did not witness the guarded _test database");
   });
 });
 
@@ -304,32 +413,10 @@ describeDatabase("product-flow real PostgreSQL adapter", () => {
 
     // Read-only server witness before the first schema mutation. An unsafe DNS
     // or connection-string interpretation cannot be rescued by the URL check.
-    const witness = await pool.query<{
-      database: string;
-      address: string | null;
-    }>(
-      `SELECT current_database() AS database,
-              inet_server_addr()::TEXT AS address`,
+    const witness = await pool.query<{ database: string }>(
+      "SELECT current_database() AS database",
     );
-    const actual = witness.rows[0];
-    if (
-      !actual ||
-      actual.database !== guarded.target.database ||
-      !actual.database.endsWith("_test") ||
-      actual.address === null ||
-      !new Set([
-        "127.0.0.1",
-        "127.0.0.1/32",
-        "::1",
-        "::1/128",
-        "::ffff:127.0.0.1",
-        "::ffff:127.0.0.1/128",
-      ]).has(actual.address)
-    ) {
-      throw new Error(
-        "Connected PostgreSQL server did not witness the guarded local _test target.",
-      );
-    }
+    assertConnectedDatabase(guarded.target, witness.rows[0]?.database);
 
     schemaName = `product_flow_it_${process.pid}_${randomUUID().replaceAll("-", "")}`;
     schemaSql = quotedIdentifier(schemaName);
@@ -340,6 +427,30 @@ describeDatabase("product-flow real PostgreSQL adapter", () => {
       await setup.query("CREATE TABLE users (id UUID PRIMARY KEY)");
       // This is the exact checked-in migration, not a schema approximation.
       await setup.query(MIGRATION_SQL);
+      const namespace = await setup.query<{
+        current_schema: string;
+        runtime_tables: number;
+      }>(
+        `SELECT current_schema() AS current_schema,
+                COUNT(*)::INTEGER AS runtime_tables
+           FROM pg_tables
+          WHERE schemaname = current_schema()
+            AND tablename = ANY($1::TEXT[])
+          GROUP BY current_schema()`,
+        [[
+          "product_flow_events",
+          "product_flow_entitlement_snapshots",
+          "product_beta_interests",
+        ]],
+      );
+      if (
+        namespace.rows[0]?.current_schema !== schemaName ||
+        namespace.rows[0]?.runtime_tables !== 3
+      ) {
+        throw new Error(
+          "The exact product-flow migration did not remain inside its isolated schema.",
+        );
+      }
     } finally {
       setup.release();
     }
@@ -369,9 +480,20 @@ describeDatabase("product-flow real PostgreSQL adapter", () => {
     if (!pool) throw new Error("Integration Pool is not initialized.");
     await resetRuntimeTables();
     const backendPids: number[] = [];
+    const holderAcquired = deferredSignal();
+    const releaseHolder = deferredSignal();
+    let holderPid: number | null = null;
     const raceStore: ProductFlowRuntimeStoreV1 =
       new PostgresProductFlowRuntimeStoreV1(
-        transactionRunner(pool, schemaSql, twoBackendGate(backendPids)),
+        transactionRunner(pool, schemaSql, {
+          beforeWork: twoBackendGate(backendPids),
+          async afterAdvisoryLock(pid) {
+            if (holderPid !== null) return;
+            holderPid = pid;
+            holderAcquired.resolve();
+            await releaseHolder.promise;
+          },
+        }),
       );
     const common = {
       provider_event_ref: reference("race-provider"),
@@ -388,11 +510,26 @@ describeDatabase("product-flow real PostgreSQL adapter", () => {
       event_id: reference("race-retry"),
     });
 
-    const results = await Promise.all([
+    const pendingResults = Promise.all([
       applyEntitlementEventV1(raceStore, first),
       applyEntitlementEventV1(raceStore, retry),
     ]);
+    let advisoryLocks: AdvisoryLockWitness;
+    try {
+      await waitForSignal(
+        holderAcquired.promise,
+        "Timed out waiting for the first PostgreSQL advisory lock holder.",
+      );
+      advisoryLocks = await waitForAdvisoryContention(pool, backendPids);
+      expect(await rowCounts()).toEqual({ events: 0, snapshots: 0 });
+    } finally {
+      releaseHolder.resolve();
+    }
+    const results = await pendingResults;
     expect(new Set(backendPids).size).toBe(2);
+    expect(advisoryLocks.granted).toEqual([holderPid]);
+    expect(advisoryLocks.waiting).toHaveLength(1);
+    expect(advisoryLocks.waiting[0]).not.toBe(holderPid);
     expect(results.map((result) => result.disposition).sort()).toEqual([
       "applied",
       "duplicate",
