@@ -1,7 +1,7 @@
 ---
 id: kingdom-110
 title: "PRISM Signals MVP - reusable product flow, branded preview, and Telegram test channel"
-status: claimed
+status: in-progress
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-prism-signals-mvp
