@@ -1225,6 +1225,18 @@ export function parseOpportunitySignalV1(raw: unknown): OpportunitySignalV1 {
     phase,
     "$",
   );
+  if (
+    !OPPORTUNITY_SIGNAL_INHERENT_UNAVAILABLE_RISKS.every((risk) =>
+      riskCodes.includes(risk),
+    )
+  ) {
+    fail(
+      phase,
+      "$.risk_codes",
+      "unsafe_claim",
+      "Every output must carry all inherent non-executing signal risks.",
+    );
+  }
   if (reasonCodes.includes("rights_not_eligible")) {
     if (
       valuationAsOf !== null ||

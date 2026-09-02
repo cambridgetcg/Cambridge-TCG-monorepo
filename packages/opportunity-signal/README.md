@@ -191,10 +191,13 @@ Structurally invalid caller input throws a safe
 Provider exceptions and contract drift fail closed without retaining raw values
 or private exception text.
 
-Rights-denied output keeps only safe candidate identity, generic inherent
-risks, and the fixed non-claims. It exposes no `valuation_as_of`, confidence,
-liquidity, valuation-derived flags, or estimate. This also applies when a
-digest mismatch or the provider itself reports rights denial.
+Every public output carries the inherent `availability_not_reserved`,
+`condition_unverified`, and `authenticity_unverified` risks. Non-rights output
+may also carry canonical valuation-derived risks. Rights-denied output keeps
+only safe candidate identity, the exact inherent-risk tuple, and the fixed
+non-claims. It exposes no `valuation_as_of`, confidence, liquidity,
+valuation-derived flags, or estimate. This also applies when a digest mismatch
+or the provider itself reports rights denial.
 
 Public expiry is no later than every used evidence expiry, rights expiry,
 provider expiry, and `evaluated_at + 60 seconds`. The exact `claim_scope` and

@@ -689,6 +689,67 @@ describe("provider contract and digest-bound projection", () => {
     );
   });
 
+  it.each(["potential_deal", "not_qualified", "unavailable"] as const)(
+    "standalone output parsing requires every inherent risk for %s",
+    async (classification) => {
+      const input = await bindEvidence(validInput());
+      const valid = await projectOpportunitySignalV1(
+        input,
+        await boundProviderResult(input, classification),
+      );
+
+      for (const missingRisk of [
+        "availability_not_reserved",
+        "condition_unverified",
+        "authenticity_unverified",
+      ]) {
+        const invalid = JSON.parse(JSON.stringify(valid));
+        invalid.risk_codes = invalid.risk_codes.filter(
+          (risk: string) => risk !== missingRisk,
+        );
+        expectIssue(
+          () => parseOpportunitySignalV1(invalid),
+          "output",
+          "$.risk_codes",
+          "unsafe_claim",
+        );
+      }
+
+      const emptyRisks = JSON.parse(JSON.stringify(valid));
+      emptyRisks.risk_codes = [];
+      expectIssue(
+        () => parseOpportunitySignalV1(emptyRisks),
+        "output",
+        "$.risk_codes",
+        "unsafe_claim",
+      );
+    },
+  );
+
+  it.each(["potential_deal", "not_qualified", "unavailable"] as const)(
+    "standalone output parsing allows valuation risks for non-rights %s",
+    async (classification) => {
+      const input = await bindEvidence(validInput());
+      const valid = await projectOpportunitySignalV1(
+        input,
+        await boundProviderResult(input, classification),
+      );
+      const withValuationRisk = JSON.parse(JSON.stringify(valid));
+      withValuationRisk.risk_codes = [
+        "short_history",
+        ...withValuationRisk.risk_codes,
+      ];
+
+      expect(parseOpportunitySignalV1(withValuationRisk).risk_codes).toEqual([
+        "short_history",
+        "liquidity_unknown",
+        "availability_not_reserved",
+        "condition_unverified",
+        "authenticity_unverified",
+      ]);
+    },
+  );
+
   it("rejects valuation_as_of after evaluated_at in standalone output parsing", async () => {
     const input = await bindEvidence(validInput());
     const output = await projectOpportunitySignalV1(
