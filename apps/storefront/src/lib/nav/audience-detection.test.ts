@@ -5,6 +5,7 @@ describe("PRISM Signals audience routing", () => {
   it("classifies the branded preview and terms for traders", () => {
     expect(detectAudience("/prism-signals")).toBe("trader");
     expect(detectAudience("/prism-signals/terms")).toBe("trader");
+    expect(detectAudience("/prism-signals/beta")).toBe("trader");
   });
 
   it("declares the exact prefix once", () => {

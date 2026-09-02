@@ -11,17 +11,24 @@ import {
   PRISM_SIGNALS_SYNTHETIC_CARD,
 } from "@/lib/prism-signals/presentation";
 import { prismSignalsRuntime } from "@/lib/prism-signals/runtime.server";
+import { prismSignalsBetaIntakeEnabled } from "@/lib/prism-signals/beta-interest-config.server";
 
-export const metadata: Metadata = {
-  title: "PRISM Signals by Cambridge TCG — synthetic preview",
-  description:
-    "A test-only, synthetic preview of PRISM Signals: potential trading-card deals presented with coarse bands, evidence confidence, liquidity, and risks.",
-  other: audienceMetadata("consumer", [
-    "trader",
-    "decision-support",
-    "product-preview",
-  ]),
-};
+export function generateMetadata(): Metadata {
+  const intakeEnabled = prismSignalsBetaIntakeEnabled();
+  return {
+    title: intakeEnabled
+      ? "PRISM Signals by Cambridge TCG — preview and closed beta"
+      : "PRISM Signals by Cambridge TCG — synthetic preview",
+    description: intakeEnabled
+      ? "A synthetic PRISM Signals preview with a separate signed-in, revocable closed-beta interest request. No live data, payment, or access promise."
+      : "A test-only, synthetic preview of PRISM Signals with coarse bands, evidence confidence, liquidity, and risks. No live data or payment.",
+    other: audienceMetadata("consumer", [
+      "trader",
+      "decision-support",
+      "product-preview",
+    ]),
+  };
+}
 
 function PrismMark() {
   return (
@@ -37,6 +44,7 @@ function PrismMark() {
 
 export default function PrismSignalsPage() {
   const { offer, telegram_href: telegramHref } = prismSignalsRuntime();
+  const intakeEnabled = prismSignalsBetaIntakeEnabled();
 
   return (
     <main className="min-h-screen bg-page text-ink">
@@ -71,6 +79,21 @@ export default function PrismSignalsPage() {
               >
                 Open the synthetic signal
               </a>
+              {intakeEnabled ? (
+                <Link
+                  href="/prism-signals/beta"
+                  className="rounded-lg border border-accent bg-accent-wash px-5 py-3 text-sm font-semibold text-accent transition hover:bg-surface"
+                >
+                  Request closed-beta consideration
+                </Link>
+              ) : (
+                <Link
+                  href="/prism-signals/beta"
+                  className="rounded-lg border border-border-strong px-5 py-3 text-sm font-semibold text-ink transition hover:bg-surface"
+                >
+                  Manage an existing beta request
+                </Link>
+              )}
               <Link
                 href={PRISM_SIGNALS_LINKS.terms.path}
                 className="rounded-lg border border-border-strong px-5 py-3 text-sm font-semibold text-ink transition hover:bg-surface"
@@ -271,6 +294,32 @@ export default function PrismSignalsPage() {
       </section>
 
       <section className="border-t border-border-subtle bg-surface-elevated">
+        {intakeEnabled ? (
+          <div className="mx-auto max-w-6xl px-5 pt-14 md:px-8">
+            <div className="grid gap-6 rounded-xl border border-accent bg-accent-wash p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+                  Closed beta · interest only
+                </p>
+                <h2 className="mt-2 font-display text-2xl font-semibold">
+                  Ask to hear about a possible private test
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-ink-muted">
+                  Signed-in account holders can record a revocable request to
+                  hear about a PRISM Signals beta invitation or status. It has
+                  no price, payment, queue rank, guaranteed invitation, or
+                  product access, and it does not switch on live signals.
+                </p>
+              </div>
+              <Link
+                href="/prism-signals/beta"
+                className="rounded-lg bg-ink px-5 py-3 text-center text-sm font-semibold text-page transition hover:opacity-90"
+              >
+                Open the beta-interest page
+              </Link>
+            </div>
+          </div>
+        ) : null}
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:grid-cols-2 md:px-8">
           <div>
             <h2 className="font-display text-2xl font-semibold">The fixed refusals</h2>

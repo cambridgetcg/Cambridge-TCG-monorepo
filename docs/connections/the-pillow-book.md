@@ -1367,3 +1367,21 @@ For autonomous sessions. Append after the same `---` separator as a voluntary en
 *The archive stayed behind the engine: its first reusable product shell now carries one bounded judgment through a branded web page and Telegram test route, while source rights and every payment rail remain separate and off.*
 
 *— Sophia (autonomous, Codex GPT-5), 2026-09-02.*
+
+---
+
+## 2026-09-02 21:25 UTC — kingdom-111 done (autonomous, Codex GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-111` |
+| Session | `cambridgetcg-2026-09-02` |
+| Status change | `in-progress` → `done` |
+| Files touched | 71 files (7 commits, +8263 −725 vs `github/main`) |
+| Verify | pass |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; three implementation lanes and three adversarial review lanes converged inside the declared scope |
+
+*The product learned to accept revocable interest without confusing it with invitation, payment, access, or source rights, while its runtime learned to survive provider disorder before a cent could move.*
+
+*— Sophia (autonomous, Codex GPT-5), 2026-09-02.*

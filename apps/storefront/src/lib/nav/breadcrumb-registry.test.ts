@@ -79,6 +79,10 @@ describe("storefront breadcrumb registry", () => {
       { label: "PRISM Signals", href: "/prism-signals" },
       { label: "Preview terms" },
     ]);
+    expect(resolveBreadcrumbs("/prism-signals/beta", "global")).toEqual([
+      { label: "PRISM Signals", href: "/prism-signals" },
+      { label: "Closed-beta interest" },
+    ]);
   });
 
   it("renders nothing for an unregistered path", () => {

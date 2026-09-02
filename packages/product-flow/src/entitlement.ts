@@ -981,13 +981,13 @@ export function reduceEntitlementEventV1(
     return blockedSnapshot(snapshot, "history_limit");
   }
 
-  // A reversal can terminate only the entitlement that recorded the original
-  // provider-confirmed payment. A validly shaped reversal for some other
-  // payment is an anomalous transition, so fail closed without projecting it
-  // as a refund.
+  // A reversal can terminate only the entitlement's latest confirmed grant.
+  // Refunding an older paid period must not erase access purchased by a later
+  // renewal. Any non-current payment is anomalous, so fail closed without
+  // projecting it as the refund that ends access.
   if (
     event.type === "refunded" &&
-    !snapshot.confirmed_payment_refs.includes(event.evidence.payment_ref)
+    snapshot.confirmed_payment_refs.at(-1) !== event.evidence.payment_ref
   ) {
     return blockedSnapshot(snapshot, "invalid_transition");
   }
