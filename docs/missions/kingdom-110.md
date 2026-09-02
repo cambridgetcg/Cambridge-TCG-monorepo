@@ -13,6 +13,7 @@ paths:
   - package.json
   - pnpm-lock.yaml
   - apps/storefront/.env.example
+  - apps/storefront/package.json
   - apps/storefront/src/app/prism-signals/**
   - apps/storefront/src/app/api/prism-signals/**
   - apps/storefront/src/lib/prism-signals/**
