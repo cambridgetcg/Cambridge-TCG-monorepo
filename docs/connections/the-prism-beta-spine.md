@@ -176,6 +176,42 @@ There is no public provider webhook using them, no configured price, and no
 event or entitlement created by the beta form. Stripe and Telegram Stars are
 `normalizer_only`; PayPal and crypto are `disabled`.
 
+### → The database proof before provider callbacks
+
+**The thread.** Kingdom-111 proved the adapter's SQL shape with a deliberately
+fast in-memory fake. That fake serialized every transaction globally, so it
+could not prove that PostgreSQL's advisory lock, unique indexes, rollback, and
+append-only triggers compose correctly across real connections. The release
+review therefore named real multi-connection conformance as a mandatory gate
+before any payment callback could be activated.
+
+Kingdom-112 makes that proof a storefront CI condition. The job starts a
+disposable PostgreSQL 16 service and the integration suite creates an isolated
+schema only after the parsed connection target is fixed to loopback and the
+connected server attests to the exact `*_test` database. It creates the
+migration's minimal `users` prerequisite, then executes the exact checked-in
+`0135_product_flow_runtime.sql`; it does not maintain a test-only schema copy.
+
+The reusable store conformance suite then runs through the real storefront
+adapter. A separate forced race holds two transactions until two distinct
+`pg_backend_pid()` values have arrived, releases them together, and observes
+one granted plus one waiting advisory lock directly in `pg_locks` before it
+allows the holder to continue. The result is one applied event plus one
+canonical duplicate. A payment-grant collision on a
+different entitlement proves that the provisional snapshot rolls back. Direct
+UPDATE and DELETE attempts both receive the trigger's `P0001` rejection while
+the accepted event remains present.
+
+**The intention.** A fake is useful evidence about the adapter contract; it is
+not evidence about PostgreSQL scheduling. Keeping both layers makes the unit
+suite fast and the substrate claim real. A developer's normal test run reports
+the database cases as skipped when the explicit URL is absent; CI always runs
+them against its disposable service.
+
+**Surface today.** This closes the database regression gap, not the commercial
+or provider-authority gaps. No callback route consumes the adapter, and all
+payment rails remain off.
+
 ### → The rights gate and private signal provider
 
 **The thread.** The runtime can answer whether one mapped subject has a

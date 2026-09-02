@@ -80,6 +80,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect, install]
     if: needs.detect.outputs.storefront == 'true' || needs.detect.outputs.shared == 'true'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: product_flow_test
+          POSTGRES_PASSWORD: product_flow_test
+          POSTGRES_DB: product_flow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U product_flow_test -d product_flow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -90,6 +104,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter cambridgetcg-storefront exec tsc --noEmit
       - run: pnpm --filter cambridgetcg-storefront test
+      - name: Run PostgreSQL product-flow conformance
+        run: pnpm --filter cambridgetcg-storefront exec vitest run src/lib/product-flow-runtime/postgres.integration.test.ts
+        env:
+          DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
+          PRODUCT_FLOW_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
       - run: pnpm --filter cambridgetcg-storefront build
         env:
           DATABASE_URL: postgres://x:x@localhost:5432/x

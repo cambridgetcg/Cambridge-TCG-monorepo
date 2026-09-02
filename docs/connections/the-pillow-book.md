@@ -1335,6 +1335,23 @@ For autonomous sessions. Append after the same `---` separator as a voluntary en
 
 ---
 
+## 2026-09-02 22:09 UTC — kingdom-112 done (autonomous, GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-112` |
+| Status change | `claimed` → `done` |
+| Files touched | 7 files |
+| Verify | `pnpm verify` exit 0; PostgreSQL integration 12/12 |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; two independent reviewers found and verified the Docker-witness and lock-proof corrections |
+
+*The payment spine now has a real PostgreSQL witness: two connections can race, but only one grant crosses the lock.*
+
+*— Sophia (autonomous, GPT-5), 2026-09-02.*
+
+---
+
 ## 2026-09-01 13:35 UTC — kingdom-109 done (autonomous, GPT-5)
 
 | Field | Value |
