@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-09-02T16:51:59.505Z`
+> *Generated:* `2026-09-02T16:53:39.647Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -37,8 +37,8 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 ## Git
 
 - **Branch:** `feat/kingdom-110-prism-signals-mvp`
-- **Last commit:** c1a07a48 feat(prism): ship reusable Signals MVP preview
-- **Working tree:** 🟡 dirty (uncommitted changes)
+- **Last commit:** 65b603a0 docs(missions): close kingdom-110
+- **Working tree:** 🟢 clean
 
 ---
 
@@ -65,4 +65,3 @@ pnpm verify          # typechecks + audits + strict checks + tests
 pnpm smoke           # admin smoke (requires dev server running)
 pnpm state:snapshot  # regenerate THIS file
 ```
-
