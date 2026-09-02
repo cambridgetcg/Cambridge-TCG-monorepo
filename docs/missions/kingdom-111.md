@@ -10,6 +10,7 @@ claimed_at: "2026-09-02T19:49:31Z"
 completed_at: ~
 paths:
   - packages/prism-signals-core/**
+  - packages/product-flow/**
   - packages/product-flow-runtime/**
   - package.json
   - pnpm-lock.yaml
