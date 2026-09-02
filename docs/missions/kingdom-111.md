@@ -1,13 +1,13 @@
 ---
 id: kingdom-111
 title: "PRISM closed-beta spine - extraction core, durable product runtime, and consented interest funnel"
-status: in-progress
+status: done
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-prism-closed-beta
 claimed_by: codex-gpt-5
 claimed_at: "2026-09-02T19:49:31Z"
-completed_at: ~
+completed_at: "2026-09-02T21:24:53Z"
 paths:
   - packages/prism-signals-core/**
   - packages/product-flow/**
@@ -118,3 +118,30 @@ Monthly GBP price, Stars amount, trial posture, cross-channel plan equivalence,
 merchant/VAT handling, refund terms, dedicated provider credentials, standalone
 identity, production rights attestation, and private-provider deployment remain
 explicit decisions. Their absence must keep every payment rail off.
+
+## Outcome
+
+The public preview now hosts a closed-beta spine without becoming a paid or
+live signal product. PRISM's pure brand, catalogue, presentation and Telegram
+planner live in an unpublished workspace extraction package. A second generic
+runtime provides lock-first atomic apply, environment/provider/grant identity
+deduplication, rollback-to-reconciliation, current-grant refund binding, a
+reference store, adapter conformance, and normalizer-only Stripe/Stars inputs.
+
+Signed-in accounts can make one specific, revocable PRISM beta-contact request,
+inspect its bounded state, and delete it. New intake is separately pausable;
+owner GET/DELETE and daily retention remain available. Consent expires after
+180 days, does not authorize general marketing or Telegram outreach, and never
+creates a payment, invitation, queue position, entitlement or access.
+
+Production migration `0135_product_flow_runtime.sql` was planned with
+`--expect-only`, applied over verified TLS, and left all three new tables at
+zero rows with two append-only event triggers. A second plan reported no
+pending migrations. `PRISM_SIGNALS_BETA_MODE=closed-beta-v1` is configured for
+production and the kingdom-111 preview branch; it gates new intake only.
+
+Full verification passed with 218 storefront test files and 1,294 passing
+tests (4 skipped), plus 22 PRISM-core, 38 product-flow and 17 runtime tests.
+Production-mode build, migration validation, lint/CI, and independent
+adversarial review passed. All payment rails, provider callbacks, live source
+rights, private scoring, paid entitlements and delivery remain off.

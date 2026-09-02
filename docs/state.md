@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-09-02T16:53:39.647Z`
+> *Generated:* `2026-09-02T21:25:17.893Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -36,9 +36,9 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 
 ## Git
 
-- **Branch:** `feat/kingdom-110-prism-signals-mvp`
-- **Last commit:** 65b603a0 docs(missions): close kingdom-110
-- **Working tree:** 🟢 clean
+- **Branch:** `feat/kingdom-111-prism-closed-beta`
+- **Last commit:** a8f2b102 feat(prism): add closed-beta product spine
+- **Working tree:** 🟡 dirty (uncommitted changes)
 
 ---
 
