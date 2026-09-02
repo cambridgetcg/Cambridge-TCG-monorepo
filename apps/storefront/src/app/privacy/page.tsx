@@ -29,13 +29,13 @@ export default function PrivacyPage() {
           Privacy notice
         </h1>
         <p className="text-sm text-ink-faint mb-4">
-          Last updated 24 August 2026.
+          Last updated 2 September 2026.
         </p>
         <p className="text-sm text-ink-muted leading-relaxed mb-8">
           This notice explains what Cambridge TCG does with personal data on
           this website, including account, marketplace, community, optional
-          verification and testnet-wallet features. It also explains which
-          choices make information public.
+          verification, testnet-wallet and PRISM Signals Telegram-preview
+          features. It also explains which choices make information public.
         </p>
 
         <Callout tone="note" title="At a glance">
@@ -112,6 +112,11 @@ export default function PrivacyPage() {
             <li>
               <a className="text-accent underline" href="#wallets">
                 Wallet proofs
+              </a>
+            </li>
+            <li>
+              <a className="text-accent underline" href="#prism-signals-telegram">
+                PRISM Telegram preview
               </a>
             </li>
             <li>
@@ -299,6 +304,28 @@ export default function PrivacyPage() {
                 create an application-level analytics profile from ordinary page
                 visits, but hosting and security logs can still exist.
               </li>
+              <li id="prism-signals-telegram" className="scroll-mt-24">
+                <strong className="text-ink">
+                  Optional PRISM Signals Telegram preview:
+                </strong>{" "}
+                if the preview is configured and you open its bot, Telegram
+                sends Cambridge TCG a webhook update that can contain a Telegram
+                user/profile identifier, profile or display-name fields,
+                private-chat identifier, message and command text,
+                update/message identifiers, language or username fields
+                Telegram includes, and—if misrouted—payment or refund fields.
+                Cambridge verifies the webhook secret, reads at most 32
+                KiB, uses only the update id, private-chat or pre-checkout id,
+                chat type, bounded command text, and presence of payment fields
+                needed for the fixed response, and processes them in memory.
+                This preview creates no application
+                database row, account link, analytics profile, entitlement or
+                payment record. Vercel can still process ordinary access and
+                security metadata. Telegram separately processes the bot chat
+                and update under its own service and privacy terms. Do not use
+                the preview for personal, card, listing, seller or payment
+                information.
+              </li>
               <li>
                 <strong className="text-ink">
                   Optional collector observations:
@@ -322,8 +349,9 @@ export default function PrivacyPage() {
               counterparty, optional account/profile and OAuth data from Google
               when you choose configured Google sign-in, public facts from a
               marketplace profile you ask us to check, wallet-verification
-              results from the configured RPC service where needed, and records
-              created by our own service.
+              results from the configured RPC service where needed, an optional
+              Telegram update when you choose the configured PRISM preview bot,
+              and records created by our own service.
             </p>
           </section>
 
@@ -391,6 +419,21 @@ export default function PrivacyPage() {
                     <td className="py-3">
                       <strong className="text-ink">Contract</strong>, including
                       steps you request before entering one.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border-subtle">
+                    <td className="py-3 pr-4">
+                      Receive and answer an optional PRISM Signals Telegram
+                      synthetic-preview command and protect the webhook from
+                      unauthorised submissions.
+                    </td>
+                    <td className="py-3">
+                      <strong className="text-ink">Legitimate interests</strong>{" "}
+                      in responding to the low-impact voluntary preview
+                      interaction you initiate and in authenticating, bounding
+                      and securing the test route. The necessity and balancing
+                      safeguards are recorded in the PRISM product-flow
+                      methodology. No payment or entitlement contract is formed.
                     </td>
                   </tr>
                   <tr className="border-b border-border-subtle">
@@ -823,6 +866,22 @@ export default function PrivacyPage() {
                 request metadata.
               </li>
               <li>
+                <strong className="text-ink">Telegram</strong> receives and
+                processes your interaction when you choose to open or message
+                the configured PRISM preview bot, and sends the resulting update
+                to Cambridge TCG&apos;s Vercel-hosted webhook. Telegram is an
+                independent service; see its{" "}
+                <a
+                  href="https://telegram.org/privacy"
+                  className="text-accent underline"
+                >
+                  privacy policy
+                </a>
+                . No Telegram bot is advertised unless the separate fixture
+                configuration and clean non-payment/privacy-wired posture are
+                present.
+              </li>
+              <li>
                 <strong className="text-ink">
                   A configured Base Sepolia RPC provider
                 </strong>{" "}
@@ -886,6 +945,12 @@ export default function PrivacyPage() {
                 className="text-accent underline"
               >
                 Vercel DPA
+              </a>,{" "}
+              <a
+                href="https://telegram.org/privacy"
+                className="text-accent underline"
+              >
+                Telegram privacy policy
               </a>{" "}
               and{" "}
               <a
@@ -1034,6 +1099,18 @@ export default function PrivacyPage() {
                 provider identifiers and returned OAuth/token metadata are kept
                 with the linked Cambridge account until unlinking or account
                 deletion; an individual token can expire earlier.
+              </li>
+              <li>
+                <strong className="text-ink">
+                  PRISM Signals Telegram preview updates:
+                </strong>{" "}
+                no application record is retained by the current preview; the
+                bounded update exists in server memory only while the response
+                is formed. Vercel access/security logs and Telegram&apos;s own bot
+                chat/update records are separate and governed by those
+                providers. A payment-bearing update is not acknowledged by this
+                preview, so Telegram may retry it; the preview must be connected
+                only to the explicitly declared clean, invoice-free test bot.
               </li>
               <li>
                 <strong className="text-ink">

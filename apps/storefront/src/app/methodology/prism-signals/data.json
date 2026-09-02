@@ -1,0 +1,72 @@
+{
+  "topic": "prism-signals",
+  "title": "PRISM Signals product flow",
+  "url": "/methodology/prism-signals",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/prism-signals/summary.md",
+  "html_url": "/prism-signals",
+  "terms_url": "/prism-signals/terms",
+  "offer": {
+    "schema": "cambridgetcg.product-offer/1",
+    "id": "prism-signals",
+    "environment": "test",
+    "status": "preview",
+    "purchasable_price": false
+  },
+  "surface": {
+    "synthetic": true,
+    "live_market_data": false,
+    "accepted_payment": false,
+    "durable_entitlement": false,
+    "outbound_delivery": false
+  },
+  "telegram_preview": {
+    "application_update_persistence": false,
+    "payment_updates_acknowledged": false,
+    "payment_update_response": "retryable-non-2xx",
+    "privacy_url": "/privacy#prism-signals-telegram",
+    "required_operator_posture": "clean-nonpayment-privacy-wired-v1",
+    "deep_link_command": "/start demo_prism_v1",
+    "commands": ["/demo", "/terms", "/privacy", "/support", "/paysupport"],
+    "unknown_private_text_response": "none"
+  },
+  "rails": {
+    "stripe_web": {
+      "availability": "off",
+      "future_context": "independent-web"
+    },
+    "telegram_stars": {
+      "availability": "off",
+      "future_context": "inside-telegram"
+    },
+    "paypal_web": {
+      "availability": "off",
+      "future_context": "later-independent-web"
+    },
+    "crypto_web": {
+      "availability": "off",
+      "future_context": "later-independent-web"
+    }
+  },
+  "rights": {
+    "purpose": "subscriber_derived_signal",
+    "production_decision": "not-present",
+    "payment_grants_source_permission": false,
+    "channel_access_grants_source_or_redistribution_permission": false
+  },
+  "source_code": [
+    "apps/storefront/src/app/prism-signals/page.tsx",
+    "apps/storefront/src/app/prism-signals/terms/page.tsx",
+    "apps/storefront/src/lib/prism-signals/presentation.ts",
+    "apps/storefront/src/lib/prism-signals/product.ts",
+    "apps/storefront/src/lib/prism-signals/runtime.server.ts",
+    "apps/storefront/src/lib/prism-signals/telegram.ts",
+    "apps/storefront/src/app/api/prism-signals/offer/route.ts",
+    "apps/storefront/src/app/api/prism-signals/telegram/route.ts",
+    "packages/product-flow/",
+    "packages/opportunity-signal/"
+  ],
+  "status": "published",
+  "version": "1",
+  "changed_on": "2026-09-02"
+}
