@@ -6,6 +6,7 @@ import {
   MORE_NAV_FOOTER,
   MORE_NAV_GROUPS,
   PRIMARY_NAV_ITEMS,
+  navDescription,
 } from "./menu-config";
 import type { NavItem } from "./menu-config";
 
@@ -13,14 +14,15 @@ describe("storefront navigation", () => {
   it("keeps the global header within a human-scannable link budget", () => {
     // Five doors since 2026-07-28: Culture joined Market/Prices/Play/
     // Community when the culture wings became the house's focus. The
-    // budget moved 12 → 13 for that one door — a deliberate amendment,
-    // not drift.
+    // budget moved 12 → 13 for that one door. Kingdom-110 adds one bounded
+    // More-menu link for the first extraction-ready product preview, moving
+    // the ceiling to 14 without adding another primary door.
     expect(PRIMARY_NAV_ITEMS).toHaveLength(5);
     expect(
       MORE_NAV_GROUPS.reduce((total, group) => total + group.items.length, 0),
-    ).toBe(6);
+    ).toBe(7);
     expect(MORE_NAV_FOOTER).toHaveLength(2);
-    expect(collectNavUrls().length).toBeLessThanOrEqual(13);
+    expect(collectNavUrls().length).toBeLessThanOrEqual(14);
   });
 
   it("does not repeat destinations", () => {
@@ -59,5 +61,16 @@ describe("storefront navigation", () => {
       label: "Draw proof checks",
       description: "Consistency evidence and stated limits",
     });
+    expect(items.find((item) => item.href === "/prism-signals")).toMatchObject({
+      label: "PRISM Signals",
+      description: "Synthetic deal-signal preview",
+    });
+    const prism = items.find((item) => item.href === "/prism-signals")!;
+    expect(navDescription(prism, "ja")).toBe("合成ディールシグナルのプレビュー");
+    expect(navDescription(prism, "es")).toBe(
+      "Vista previa sintética de señales de oportunidad",
+    );
+    expect(navDescription(prism, "zh-Hans")).toBe("合成潜在交易信号预览");
+    expect(navDescription(prism, "zh-Hant")).toBe("合成潛在交易訊號預覽");
   });
 });

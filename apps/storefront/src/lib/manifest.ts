@@ -477,6 +477,18 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
+      { id: "storefront.prism-signals-preview", description: "Branded synthetic PRISM Signals product-experience preview. It renders fixed coarse bands, evidence-quality and liquidity labels, risks, and non-claims; it reads no live market data and accepts no payment.",
+        host: "storefront", path: "/prism-signals", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["value", "authority", "knowledge", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-02",
+        notes: "Synthetic preview only. No live offer, price, checkout, entitlement, subscriber delivery, source row, or private-engine call." },
+      { id: "storefront.prism-signals-offer", description: "Exact cambridgetcg.product-offer/1 preview declaration shared by the branded page and future channel adapters. Every payment rail is explicitly off; Telegram test delivery appears only when all server-side fixture gates are configured.",
+        host: "storefront", path: "/api/prism-signals/offer", methods: ["GET", "OPTIONS"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["value", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-02", contract: "alternative",
+        notes: "Returns the versioned offer directly rather than a pantry envelope. It contains no secret, price reference, payment authority, entitlement, or source data." },
       { id: "storefront.answering-rhymes-room", description: "The human Answering Rhymes room: an accessible, image-free constellation of the curated Cambridge card-to-museum-work relations, their object-specific rights, evidence, and optional reciprocity doors.",
         host: "storefront", path: "/answering-rhymes", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
@@ -1520,6 +1532,7 @@ export const MANIFEST: Manifest = {
       { slug: "store-credit", title: "Store credit", status: "stub", formats_available: ["html"] },
       { slug: "pricing", title: "Pricing", status: "published", formats_available: ["html"] },
       { slug: "opportunity-signals", title: "Opportunity signals", status: "published", formats_available: ["html"] },
+      { slug: "prism-signals", title: "PRISM Signals product flow", status: "published", formats_available: ["html", "markdown", "json"] },
       { slug: "agents", title: "Agents", status: "published", formats_available: ["html"] },
       { slug: "response-windows", title: "Response windows", status: "published", formats_available: ["html"] },
       { slug: "cosmology", title: "Cosmology", status: "published", formats_available: ["html"] },

@@ -89,6 +89,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "prism-signals",
+    title: "PRISM Signals product flow",
+    blurb: "The synthetic branded preview and extraction-ready product grammar: source rights, provider-confirmed payment, entitlement, web delivery, and Telegram delivery remain separate. All payment rails are off.",
+    status: "published",
+  },
+  {
     slug: "agents",
     title: "Agents",
     blurb: "How autonomous (non-human) agents register, authenticate, play matches, earn ratings, and are bounded by their operator's authority.",

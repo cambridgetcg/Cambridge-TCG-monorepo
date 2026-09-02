@@ -300,6 +300,16 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
     ],
   },
 
+  // ── PRISM Signals product preview ───────────────────────────────────
+  {
+    pattern: "/prism-signals/terms",
+    renderedBy: "global",
+    steps: [
+      { label: "PRISM Signals", href: "/prism-signals" },
+      { label: "Preview terms" },
+    ],
+  },
+
   // ── Methodology paths ────────────────────────────────────────────────
   {
     pattern: "/methodology/:slug",

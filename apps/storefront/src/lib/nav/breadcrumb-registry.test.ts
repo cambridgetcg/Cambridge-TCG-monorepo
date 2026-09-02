@@ -73,6 +73,14 @@ describe("storefront breadcrumb registry", () => {
     ]);
   });
 
+  it("keeps the PRISM preview and terms in one exact trail", () => {
+    expect(resolveBreadcrumbs("/prism-signals")).toBeNull();
+    expect(resolveBreadcrumbs("/prism-signals/terms", "global")).toEqual([
+      { label: "PRISM Signals", href: "/prism-signals" },
+      { label: "Preview terms" },
+    ]);
+  });
+
   it("renders nothing for an unregistered path", () => {
     expect(resolveBreadcrumbs("/not/a/real/route", "global")).toBeNull();
   });

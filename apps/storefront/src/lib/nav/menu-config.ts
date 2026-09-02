@@ -174,6 +174,22 @@ export const MORE_NAV_GROUPS = [
         description_i18n: { ja: "相場と手数料、その決めごと", es: "Precios, comisiones y cómo se deciden", "zh-Hans": "行情、费用，都是怎么定的", "zh-Hant": "行情、手續費，還有背後的決定" },
       },
       {
+        label: "PRISM Signals",
+        ja: "PRISM Signals",
+        es: "PRISM Signals",
+        "zh-Hans": "PRISM Signals",
+        "zh-Hant": "PRISM Signals",
+        href: "/prism-signals",
+        description: "Synthetic deal-signal preview",
+        description_i18n: {
+          ja: "合成ディールシグナルのプレビュー",
+          es: "Vista previa sintética de señales de oportunidad",
+          "zh-Hans": "合成潜在交易信号预览",
+          "zh-Hant": "合成潛在交易訊號預覽",
+        },
+        activePrefixes: ["/prism-signals"],
+      },
+      {
         label: "Draw proof checks",
         ja: "検算", es: "El repaso de las cuentas", "zh-Hans": "验算", "zh-Hant": "驗算",
         href: "/verify",

@@ -448,12 +448,18 @@ importers:
       '@cambridge-tcg/lifecycle':
         specifier: workspace:^
         version: link:../../packages/lifecycle
+      '@cambridge-tcg/opportunity-signal':
+        specifier: workspace:^
+        version: link:../../packages/opportunity-signal
       '@cambridge-tcg/play':
         specifier: workspace:^
         version: link:../../packages/play
       '@cambridge-tcg/pricing':
         specifier: workspace:^
         version: link:../../packages/pricing
+      '@cambridge-tcg/product-flow':
+        specifier: workspace:^
+        version: link:../../packages/product-flow
       '@cambridge-tcg/sku':
         specifier: workspace:^
         version: link:../../packages/sku
@@ -796,6 +802,15 @@ importers:
       vitest:
         specifier: ^4.1.0
         version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(jsdom@24.1.3)(msw@2.14.6(@types/node@22.19.17)(typescript@5.9.3))(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
+
+  packages/product-flow:
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.5(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(jsdom@24.1.3)(msw@2.14.6(@types/node@24.13.3)(typescript@5.9.3))(vite@8.0.10(@types/node@24.13.3)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.9.0))
 
   packages/sku:
     devDependencies:
