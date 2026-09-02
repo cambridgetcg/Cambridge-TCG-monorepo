@@ -14,9 +14,11 @@ paths:
   - package.json
   - pnpm-lock.yaml
   - apps/storefront/package.json
+  - apps/storefront/vercel.json
   - apps/storefront/drizzle/0134_product_flow_runtime.sql
   - apps/storefront/src/app/prism-signals/**
   - apps/storefront/src/app/api/prism-signals/**
+  - apps/storefront/src/app/api/cron/prism-signals-beta-retention/**
   - apps/storefront/src/lib/prism-signals/**
   - apps/storefront/src/lib/product-flow-runtime/**
   - apps/storefront/src/app/privacy/page.tsx
