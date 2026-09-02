@@ -510,11 +510,15 @@ describeDatabase("product-flow real PostgreSQL adapter", () => {
       event_id: reference("race-retry"),
     });
 
-    const pendingResults = Promise.all([
+    const pendingOutcome = Promise.all([
       applyEntitlementEventV1(raceStore, first),
       applyEntitlementEventV1(raceStore, retry),
-    ]);
-    let advisoryLocks: AdvisoryLockWitness;
+    ]).then(
+      (results) => Object.freeze({ ok: true as const, results }),
+      (error: unknown) => Object.freeze({ ok: false as const, error }),
+    );
+    let advisoryLocks: AdvisoryLockWitness | null = null;
+    let observationFailure: { readonly error: unknown } | null = null;
     try {
       await waitForSignal(
         holderAcquired.promise,
@@ -522,10 +526,21 @@ describeDatabase("product-flow real PostgreSQL adapter", () => {
       );
       advisoryLocks = await waitForAdvisoryContention(pool, backendPids);
       expect(await rowCounts()).toEqual({ events: 0, snapshots: 0 });
+    } catch (error) {
+      observationFailure = Object.freeze({ error });
     } finally {
       releaseHolder.resolve();
     }
-    const results = await pendingResults;
+    // Always join both transactions after releasing the holder, including when
+    // the observation itself failed, so no backend can bleed into the next
+    // sequential test or the schema teardown.
+    const outcome = await pendingOutcome;
+    if (!outcome.ok) throw outcome.error;
+    if (observationFailure) throw observationFailure.error;
+    if (!advisoryLocks) {
+      throw new Error("PostgreSQL advisory lock contention was not witnessed.");
+    }
+    const results = outcome.results;
     expect(new Set(backendPids).size).toBe(2);
     expect(advisoryLocks.granted).toEqual([holderPid]);
     expect(advisoryLocks.waiting).toHaveLength(1);
