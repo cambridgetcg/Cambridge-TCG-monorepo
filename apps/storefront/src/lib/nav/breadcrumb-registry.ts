@@ -309,6 +309,14 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
       { label: "Preview terms" },
     ],
   },
+  {
+    pattern: "/prism-signals/beta",
+    renderedBy: "global",
+    steps: [
+      { label: "PRISM Signals", href: "/prism-signals" },
+      { label: "Closed-beta interest" },
+    ],
+  },
 
   // ── Methodology paths ────────────────────────────────────────────────
   {

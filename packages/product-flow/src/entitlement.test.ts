@@ -552,17 +552,13 @@ describe("entitlement reduction", () => {
     }
   });
 
-  it("ends access only when a refund correlates to a recorded confirmed payment", () => {
+  it("ends access only when a refund correlates to the current confirmed payment", () => {
     const payment = confirmationEvent({ id: "payment-a" });
     const active = reduceEntitlementEventV1(seed(), payment);
 
     const unrelatedRefund = reduceEntitlementEventV1(
       active,
-      refundEvent(
-        "refund-b",
-        "2026-09-20T10:00:00.000Z",
-        ref("payment-b"),
-      ),
+      refundEvent("refund-b", "2026-09-20T10:00:00.000Z", ref("payment-b")),
     );
     expect(unrelatedRefund).toMatchObject({
       status: "blocked",
@@ -590,6 +586,45 @@ describe("entitlement reduction", () => {
     expect(correlatedRefund.processed_provider_event_refs).toContain(
       refund.evidence.provider_event_ref,
     );
+  });
+
+  it("does not let an older-period refund erase a later renewal", () => {
+    const paymentA = confirmationEvent({ id: "period-a" });
+    const active = reduceEntitlementEventV1(seed(), paymentA);
+    const paymentB = confirmationEvent({
+      type: "renewal_confirmed",
+      id: "period-b",
+      occurredAt: "2026-09-25T10:00:00.000Z",
+      activeUntil: "2026-11-02T10:00:00.000Z",
+    });
+    const renewed = reduceEntitlementEventV1(active, paymentB);
+
+    const oldPeriodRefund = reduceEntitlementEventV1(
+      renewed,
+      refundEvent(
+        "refund-period-a",
+        "2026-10-01T10:00:00.000Z",
+        paymentA.evidence.payment_ref,
+      ),
+    );
+    expect(oldPeriodRefund).toMatchObject({
+      status: "blocked",
+      reason: "invalid_transition",
+    });
+
+    const currentPeriodRefund = reduceEntitlementEventV1(
+      renewed,
+      refundEvent(
+        "refund-period-b",
+        "2026-10-01T10:00:00.000Z",
+        paymentB.evidence.payment_ref,
+      ),
+    );
+    expect(currentPeriodRefund).toMatchObject({
+      status: "ended",
+      reason: "refunded",
+      active_until: null,
+    });
   });
 
   it("blocks environment/scope crossings without copying them into the snapshot", () => {

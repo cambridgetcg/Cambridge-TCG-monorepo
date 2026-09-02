@@ -185,7 +185,7 @@ export interface ProductPaymentReversalEvidenceV1 {
   readonly rail: ProductPaymentRail;
   readonly price_ref: ProductFlowOpaqueRef;
   readonly provider_event_ref: ProductFlowOpaqueRef;
-  /** Must match a provider-confirmed payment already recorded in the snapshot. */
+  /** Must match the latest provider-confirmed payment in the snapshot. */
   readonly payment_ref: ProductFlowOpaqueRef;
   readonly confirmed_at: ProductFlowTimestamp;
 }

@@ -1,6 +1,6 @@
 {
   "topic": "prism-signals",
-  "title": "PRISM Signals product flow",
+  "title": "PRISM Signals preview and closed-beta product flow",
   "url": "/methodology/prism-signals",
   "kind": "methodology-sidecar",
   "summary_url": "/methodology/prism-signals/summary.md",
@@ -17,8 +17,29 @@
     "synthetic": true,
     "live_market_data": false,
     "accepted_payment": false,
-    "durable_entitlement": false,
+    "active_paid_entitlement": false,
+    "durable_runtime_schema": true,
+    "provider_webhook_connected": false,
     "outbound_delivery": false
+  },
+  "beta_interest": {
+    "url": "/prism-signals/beta",
+    "api_url": "/api/prism-signals/beta-interest",
+    "auth": "signed-in-owner",
+    "mode": "closed-beta-v1",
+    "mode_scope": "new-interest-post-and-public-intake-cta-only",
+    "owner_get_when_intake_paused": true,
+    "owner_delete_when_intake_paused": true,
+    "retention_when_intake_paused": true,
+    "rollback_floor": "keep-owner-get-delete-and-retention-until-all-rows-are-purged",
+    "consent": "separate-affirmative-product-specific-contact",
+    "general_marketing_consent": false,
+    "grants_access": false,
+    "retention_days": 180,
+    "owner_delete": "immediate-complete-row",
+    "scheduled_retention": "daily-authenticated-purge",
+    "indexed": false,
+    "listed_in_sitemap": false
   },
   "telegram_preview": {
     "application_update_persistence": false,
@@ -48,6 +69,28 @@
       "future_context": "later-independent-web"
     }
   },
+  "runtime": {
+    "package": "@cambridge-tcg/product-flow-runtime",
+    "public_consumer": false,
+    "transaction_order": [
+      "lock-entitlement-scope",
+      "append-semantically-unique-event",
+      "reduce",
+      "persist-snapshot",
+      "commit"
+    ],
+    "duplicate_keys": [
+      "environment+event-id",
+      "environment+provider-event-ref",
+      "environment+rail+grant-payment-ref"
+    ],
+    "newly_blocked_transition": "rollback-for-reconciliation",
+    "refund_binding": "latest-confirmed-grant-only",
+    "stripe": "normalizer-only",
+    "telegram_stars": "normalizer-only",
+    "paypal": "disabled",
+    "crypto": "disabled"
+  },
   "rights": {
     "purpose": "subscriber_derived_signal",
     "production_decision": "not-present",
@@ -57,16 +100,20 @@
   "source_code": [
     "apps/storefront/src/app/prism-signals/page.tsx",
     "apps/storefront/src/app/prism-signals/terms/page.tsx",
+    "apps/storefront/src/app/prism-signals/beta/page.tsx",
+    "apps/storefront/src/app/api/prism-signals/beta-interest/route.ts",
     "apps/storefront/src/lib/prism-signals/presentation.ts",
     "apps/storefront/src/lib/prism-signals/product.ts",
     "apps/storefront/src/lib/prism-signals/runtime.server.ts",
     "apps/storefront/src/lib/prism-signals/telegram.ts",
     "apps/storefront/src/app/api/prism-signals/offer/route.ts",
     "apps/storefront/src/app/api/prism-signals/telegram/route.ts",
+    "packages/prism-signals-core/",
     "packages/product-flow/",
+    "packages/product-flow-runtime/",
     "packages/opportunity-signal/"
   ],
   "status": "published",
-  "version": "1",
+  "version": "2",
   "changed_on": "2026-09-02"
 }

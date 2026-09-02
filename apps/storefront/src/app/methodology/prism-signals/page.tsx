@@ -6,7 +6,7 @@ import { PRISM_SIGNALS_PREVIEW_NOTICE } from "@/lib/prism-signals/presentation";
 export const metadata: Metadata = {
   title: "PRISM Signals product flow",
   description:
-    "How the synthetic PRISM Signals preview separates source rights, private scoring, offers, payment evidence, entitlement, web delivery, and Telegram delivery.",
+    "How the PRISM Signals preview and closed-beta spine separate interest, source rights, private scoring, payment evidence, entitlement, and channel delivery.",
   other: audienceMetadata("public-documentation", [
     "trader",
     "decision-support",
@@ -28,7 +28,7 @@ const LAUNCH_GATES = [
   "A deployed private provider and lawful source adapters pass expiry, replay, leakage, and failure-mode tests.",
   "A versioned production offer names a real price reference, terms, support, and only the rails actually available.",
   "Provider webhooks or APIs produce verified, idempotent settlement evidence.",
-  "A durable entitlement store handles renewal, expiry, refund, revocation, replay, and repair.",
+  "The durable event and snapshot store passes deployed-adapter conformance and gains reconciliation plus account/channel binding.",
   "Web and Telegram delivery enforce the same rights and entitlement decisions and preserve the risk block.",
 ] as const;
 
@@ -51,9 +51,11 @@ export default function PrismSignalsMethodologyPage() {
 
       <blockquote>
         <strong>Current boundary — 2 September 2026.</strong>{" "}
-        {PRISM_SIGNALS_PREVIEW_NOTICE}. There is no live offer, purchasable
-        price, production signal feed, accepted payment, durable entitlement,
-        subscribed channel, or outbound delivery path.
+        {PRISM_SIGNALS_PREVIEW_NOTICE}. A revocable closed-beta-interest path,
+        extraction package, durable runtime schema, and provider normalizers
+        exist, but there is no live offer, purchasable price, production signal
+        feed, accepted payment, active paid entitlement, subscribed channel, or
+        outbound delivery path.
       </blockquote>
 
       <p>
@@ -61,6 +63,9 @@ export default function PrismSignalsMethodologyPage() {
         <Link href="/prism-signals">/prism-signals</Link> and its plain-language{" "}
         <Link href="/prism-signals/terms">preview terms</Link>. Visiting either
         page creates no account, order, subscription, reservation, or access.
+        Signed-in account holders may separately open the{" "}
+        <Link href="/prism-signals/beta">closed-beta-interest page</Link>; that
+        request is not access or a purchase.
       </p>
 
       <h2>What the synthetic card demonstrates</h2>
@@ -84,6 +89,33 @@ export default function PrismSignalsMethodologyPage() {
           opportunity-signal methodology
         </Link>
         .
+      </p>
+
+      <h2>Beta interest is a separate, revocable fact</h2>
+      <p>
+        The beta page stores only the existing account id, product id, bounded
+        web/Telegram preferences, consent-wording version, and request, update,
+        and expiry times. Its checkbox starts unticked and specifically asks
+        Cambridge TCG to store the request and use the account email only for a
+        PRISM beta invitation or status contact. It is not general marketing
+        consent; a Telegram preference neither supplies a Telegram identity nor
+        permits a bot message.
+      </p>
+      <p>
+        The owner can inspect the bounded state and delete the complete row
+        without penalty. A new affirmative submission is required to update it
+        or refresh its 180-day expiry. A daily authenticated sweep deletes
+        expired or superseded-wording rows. The new-intake posture is exactly
+        <code> PRISM_SIGNALS_BETA_MODE=closed-beta-v1</code>. Without it the
+        public request invitation is hidden and POST is unavailable, while the
+        signed-in management page, owner GET/DELETE, and retention sweep remain
+        available so existing consent cannot be stranded.
+      </p>
+      <p>
+        Once a beta-interest row exists, rollback means pausing new intake
+        while this management and retention release stays live. Removing owner
+        GET/DELETE or the retention cron requires a prior complete purge or an
+        equivalent withdrawal and expiry procedure.
       </p>
 
       <h2>Two gates answer two different questions</h2>
@@ -184,11 +216,37 @@ provider-confirmed payment
         offer status, rights, delivery availability, entitlement scope, time
         window, rail, and price reference.
       </p>
+      <h2>The runtime makes provider disorder explicit</h2>
       <p>
-        Those rules are pure contracts today. PRISM has no checkout adapter,
-        provider reconciliation, durable event store, entitlement ledger,
-        delivery worker, or revocation workflow. A browser return, bot link,
-        synthetic reply, or page reload creates nothing.
+        <code>@cambridge-tcg/product-flow-runtime</code> composes the pure
+        reducer with a lock-first transaction contract, in-memory reference
+        store, provider normalizers, and adapter conformance suite. The
+        storefront&apos;s thin Postgres adapter reuses its existing persistent
+        transaction pool. Its additive schema separates append-only canonical
+        events from current entitlement snapshots.
+      </p>
+      <p>
+        The entitlement scope is locked before event allocation. Event id,
+        provider-event ref, and rail/payment grant identity are unique within
+        an environment. Exact duplicate provider Events return the stored
+        canonical event; conflicting reuse—including one payment aimed at two
+        entitlements—rolls back. A callback that would newly make a healthy
+        projection terminally blocked also rolls back for reconciliation, so a
+        delayed provider event cannot permanently erase valid access.
+      </p>
+      <p>
+        Refunds bind to the latest/current confirmed payment. Refunding an
+        older billing period cannot cancel a newer paid period, and a partial
+        Stripe refund is not treated as complete entitlement reversal. Stripe
+        and Telegram Stars are normalizer-only capabilities for facts a host
+        has already authenticated and mapped. PayPal and crypto remain disabled.
+      </p>
+      <p>
+        No public route consumes the runtime. PRISM still has no checkout,
+        provider webhook, price catalogue, account/channel binding,
+        reconciliation UI, delivery worker, or paid revocation workflow. A
+        browser return, bot link, synthetic reply, page reload, or beta request
+        creates no entitlement.
       </p>
 
       <h2>The Telegram route is a fixture threshold</h2>
@@ -222,10 +280,13 @@ provider-confirmed payment
 
       <h2>What a standalone MVP may extract</h2>
       <p>
-        The extraction unit is the product door: PRISM brand and terms, the
-        versioned offer, generic product-flow contracts, the public
-        opportunity-signal parser/projector, and channel adapters that enforce
-        the same access decision.
+        The extraction unit now starts with
+        <code> @cambridge-tcg/prism-signals-core</code>: PRISM brand and
+        host-bound links/privacy copy, versioned preview offer, strict public
+        signal presentation, and pure Telegram planner. It composes with the
+        generic product-flow contracts, framework-neutral runtime, public
+        opportunity-signal parser/projector, and channel hosts that enforce the
+        same access decision.
       </p>
       <p>
         It is not the storefront database, raw price history, source
@@ -242,6 +303,12 @@ provider-confirmed payment
         its rights purpose, terms, price evidence, refund behavior, and
         delivery adapter.
       </p>
+      <p>
+        The PRISM package is currently unpublished workspace TypeScript in this
+        public monorepo, not an independently published artifact. Compiled output, an explicit package
+        file allowlist, tarball inspection, and a clean-consumer install/run
+        smoke remain gates before a separate repository or npm release.
+      </p>
 
       <h2>What remains closed before sale</h2>
       <ol>
@@ -253,8 +320,8 @@ provider-confirmed payment
         Provider-policy, consumer-terms, tax, privacy, payment-support, and
         operational review are also required before activating Stripe,
         Telegram Stars, PayPal, or crypto. Until then: <strong>{PRISM_SIGNALS_PREVIEW_NOTICE}</strong>.
-        There is no durable entitlement, accepted payment, or promised
-        delivery.
+        There is no active paid entitlement, accepted payment, or promised
+        delivery. Beta interest changes none of those facts.
       </p>
 
       <h2>Change history</h2>
@@ -265,6 +332,14 @@ provider-confirmed payment
           launch gates. No live product was activated.
         </em>
       </p>
+      <p>
+        <em>
+          v2 — 2026-09-02. Added the unpublished workspace extraction package, revocable
+          closed-beta interest with bounded retention, atomic runtime and
+          durable schema, current-grant refund binding, and pure Stripe/Stars
+          normalizers. No payment or live signal was activated.
+        </em>
+      </p>
 
       <TypeSignature
         type="methodology-page"
@@ -273,6 +348,7 @@ provider-confirmed payment
         audience="public-documentation"
         recursion={[
           { label: "/prism-signals", href: "/prism-signals" },
+          { label: "closed-beta interest", href: "/prism-signals/beta" },
           { label: "preview terms", href: "/prism-signals/terms" },
           {
             label: "opportunity signals",

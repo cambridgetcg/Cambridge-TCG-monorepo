@@ -91,7 +91,7 @@ const TOPICS: Topic[] = [
   {
     slug: "prism-signals",
     title: "PRISM Signals product flow",
-    blurb: "The synthetic branded preview and extraction-ready product grammar: source rights, provider-confirmed payment, entitlement, web delivery, and Telegram delivery remain separate. All payment rails are off.",
+    blurb: "The synthetic branded preview, revocable closed-beta request, extracted core, and lock-first product runtime: interest, source rights, provider evidence, entitlement, and delivery remain separate. All payment rails are off.",
     status: "published",
   },
   {

@@ -156,7 +156,7 @@ rail, price reference, and exact `active_until`.
 | `payment_failed`       | Never activates or extends; already-paid access keeps its existing end |
 | `cancel_at_period_end` | Bound provider status; keeps access only until existing `active_until` |
 | `subscription_ended`   | Bound provider status; ends access                                     |
-| `refunded`             | Bound reversal for a recorded confirmed payment; ends access           |
+| `refunded`             | Bound reversal for the latest confirmed payment; ends access           |
 | `revoked`              | Internal fail-closed denial; ends access                               |
 
 Test and production events cannot enter the same snapshot. Identity mismatch,
@@ -164,12 +164,13 @@ non-increasing timestamps for distinct events, impossible transitions, or
 exhausted bounded idempotency history change the snapshot to `blocked`. A
 duplicate event ID is a deterministic no-op, including when the replay body
 differs. Fresh lifecycle IDs cannot replay a processed provider-event ref or a
-previously confirmed payment ref. A refund whose `payment_ref` was not already
-recorded by a provider-confirmed payment blocks the projection as an invalid
-transition; it cannot be projected as the refund that ends access. Ended and
-blocked snapshots require a fresh entitlement reference or a rebuild from a
-trusted strictly ordered event log; later confirmations do not silently revive
-them.
+previously confirmed payment ref. A refund must bind the latest entry in
+`confirmed_payment_refs`; a reversal for an older paid period cannot erase
+access bought by a later renewal. Any other payment ref blocks the projection
+as an invalid transition and cannot become the refund that ends access. Ended
+and blocked snapshots require a fresh entitlement reference or a rebuild from
+a trusted strictly ordered event log; later confirmations do not silently
+revive them.
 
 ## Access evaluation
 

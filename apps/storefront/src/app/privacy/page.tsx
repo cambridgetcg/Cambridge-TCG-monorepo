@@ -34,8 +34,9 @@ export default function PrivacyPage() {
         <p className="text-sm text-ink-muted leading-relaxed mb-8">
           This notice explains what Cambridge TCG does with personal data on
           this website, including account, marketplace, community, optional
-          verification, testnet-wallet and PRISM Signals Telegram-preview
-          features. It also explains which choices make information public.
+          verification, testnet-wallet, PRISM Signals closed-beta-interest and
+          Telegram-preview features. It also explains which choices make
+          information public.
         </p>
 
         <Callout tone="note" title="At a glance">
@@ -117,6 +118,11 @@ export default function PrivacyPage() {
             <li>
               <a className="text-accent underline" href="#prism-signals-telegram">
                 PRISM Telegram preview
+              </a>
+            </li>
+            <li>
+              <a className="text-accent underline" href="#prism-signals-beta">
+                PRISM closed-beta interest
               </a>
             </li>
             <li>
@@ -326,6 +332,25 @@ export default function PrivacyPage() {
                 the preview for personal, card, listing, seller or payment
                 information.
               </li>
+              <li id="prism-signals-beta" className="scroll-mt-24">
+                <strong className="text-ink">
+                  Optional PRISM Signals closed-beta interest:
+                </strong>{" "}
+                after signing in, you can affirmatively ask Cambridge TCG to
+                store your existing account ID, the product ID
+                <code className="mx-1 text-ink">prism-signals</code>, one or
+                both bounded preferences of web and Telegram, the exact
+                beta-contact wording version, and request, update and expiry
+                times. The beta table stores no new copy of your email address;
+                Cambridge TCG may use the email already held on your account
+                only for a PRISM beta invitation or status update you requested.
+                A Telegram preference does not supply a Telegram identity,
+                authorise Telegram outreach or link an account. Presence of the
+                row is not general marketing consent, a purchase, an invitation,
+                a queue position, product access or an entitlement. You can
+                inspect the exact owner-scoped state and delete the complete row
+                without penalty from the same signed-in page.
+              </li>
               <li>
                 <strong className="text-ink">
                   Optional collector observations:
@@ -351,7 +376,8 @@ export default function PrivacyPage() {
               marketplace profile you ask us to check, wallet-verification
               results from the configured RPC service where needed, an optional
               Telegram update when you choose the configured PRISM preview bot,
-              and records created by our own service.
+              an optional account-scoped PRISM beta request when you choose to
+              make one, and records created by our own service.
             </p>
           </section>
 
@@ -381,6 +407,13 @@ export default function PrivacyPage() {
                 Google sign-in is optional when it is configured. You can use
                 the email magic-link route instead; declining Google changes no
                 other account feature.
+              </li>
+              <li>
+                The PRISM Signals closed-beta request is optional and uses a
+                separate, initially unticked affirmation. Declining or
+                withdrawing it changes no account feature and carries no
+                penalty. A channel preference says only where you might prefer
+                to use a separately offered product.
               </li>
               <li>
                 Public profile, review and activity publication, messaging,
@@ -434,6 +467,20 @@ export default function PrivacyPage() {
                       and securing the test route. The necessity and balancing
                       safeguards are recorded in the PRISM product-flow
                       methodology. No payment or entitlement contract is formed.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border-subtle">
+                    <td className="py-3 pr-4">
+                      Store a signed-in PRISM Signals closed-beta request and,
+                      if relevant, use the account email only for the requested
+                      PRISM beta invitation or status contact.
+                    </td>
+                    <td className="py-3">
+                      <strong className="text-ink">Consent</strong> through the
+                      separate affirmative beta-contact checkbox and versioned
+                      wording. Withdrawal deletes the request immediately and
+                      stops future contact based on it, without affecting prior
+                      lawful processing. It is not consent to general marketing.
                     </td>
                   </tr>
                   <tr className="border-b border-border-subtle">
@@ -866,6 +913,14 @@ export default function PrivacyPage() {
                 request metadata.
               </li>
               <li>
+                <strong className="text-ink">Cambridge TCG&apos;s authorised
+                operators and email-delivery provider</strong> may receive the
+                existing account email and limited PRISM invitation/status
+                message if Cambridge sends the specific beta contact you asked
+                for. The beta-interest table itself does not copy the email, and
+                the request is not used for general marketing.
+              </li>
+              <li>
                 <strong className="text-ink">Telegram</strong> receives and
                 processes your interaction when you choose to open or message
                 the configured PRISM preview bot, and sends the resulting update
@@ -1111,6 +1166,31 @@ export default function PrivacyPage() {
                 providers. A payment-bearing update is not acknowledged by this
                 preview, so Telegram may retry it; the preview must be connected
                 only to the explicitly declared clean, invoice-free test bot.
+              </li>
+              <li>
+                <strong className="text-ink">
+                  PRISM Signals closed-beta interest:
+                </strong>{" "}
+                an affirmative request expires 180 days after its most recent
+                affirmative submission. Only a new submission with the contact
+                checkbox ticked refreshes that expiry. Withdrawal deletes the
+                complete row immediately and without penalty. Changing the
+                contact wording invalidates and deletes the prior row rather
+                than silently carrying consent forward. The 180-day window is
+                one bounded product-research cycle, rather than treating an
+                expression of interest as indefinite. A daily authenticated
+                retention route is configured to delete expired or invalidated
+                rows. The owner status endpoint is read-only: it excludes
+                expired and superseded-wording rows but does not delete other
+                accounts&apos; data. If the scheduled route does not run, physical
+                deletion can wait for its next successful run or operator
+                intervention, but an expired row is never returned or treated as
+                active interest. Owner withdrawal still deletes that
+                account&apos;s complete PRISM request immediately.
+                The <code className="text-ink">closed-beta-v1</code> mode is
+                only a switch for new request intake and its public invitation;
+                pausing or losing that setting does not disable authenticated
+                owner status, withdrawal, or the retention sweep.
               </li>
               <li>
                 <strong className="text-ink">
