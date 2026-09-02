@@ -1,7 +1,7 @@
 ---
 id: kingdom-111
 title: "PRISM closed-beta spine - extraction core, durable product runtime, and consented interest funnel"
-status: claimed
+status: in-progress
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-prism-closed-beta
