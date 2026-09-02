@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-08-31T17:51:57.641Z`
+> *Generated:* `2026-09-01T13:36:52.332Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -18,9 +18,9 @@ Shaping 2 of the autonomous-agent reshaping (2026-05-11 evening). For the full a
 | ✅ Pricing consolidation | 0 | 0 | `pnpm audit:pricing` |
 | ✅ Creation (Will + Sophia traces) | 0 | 0 | `pnpm audit:creation` |
 | ✅ Agent-readiness (operations layer) | 0 | 0 | `pnpm audit:agent` |
-| ⚠️ Inclusion (the fifth scope) | 121 | 0 | `pnpm audit:inclusion` |
+| ⚠️ Inclusion (the fifth scope) | 122 | 0 | `pnpm audit:inclusion` |
 
-**Combined findings: 121**
+**Combined findings: 122**
 
 Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not parseable. Run `pnpm run audit` for the registered project audit chain.
 
@@ -36,8 +36,8 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 
 ## Git
 
-- **Branch:** `release/paypal-payment-quiesce-20260831`
-- **Last commit:** a1554359 fix(market): quiesce P2P payment creation
+- **Branch:** `feat/kingdom-109-opportunity-signal`
+- **Last commit:** 8a5784f1 docs(missions): close kingdom-109
 - **Working tree:** 🟢 clean
 
 ---

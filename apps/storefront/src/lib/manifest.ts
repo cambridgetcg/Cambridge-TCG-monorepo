@@ -1519,6 +1519,7 @@ export const MANIFEST: Manifest = {
       { slug: "fraud-flag", title: "Fraud flag", status: "stub", formats_available: ["html"] },
       { slug: "store-credit", title: "Store credit", status: "stub", formats_available: ["html"] },
       { slug: "pricing", title: "Pricing", status: "published", formats_available: ["html"] },
+      { slug: "opportunity-signals", title: "Opportunity signals", status: "published", formats_available: ["html"] },
       { slug: "agents", title: "Agents", status: "published", formats_available: ["html"] },
       { slug: "response-windows", title: "Response windows", status: "published", formats_available: ["html"] },
       { slug: "cosmology", title: "Cosmology", status: "published", formats_available: ["html"] },

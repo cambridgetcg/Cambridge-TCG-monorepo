@@ -13,6 +13,7 @@
     "build:rewardspro": "pnpm --filter ./apps/rewardspro build",
     "build:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api build",
     "test:answering-rhymes": "pnpm --filter @cambridge-tcg/answering-rhymes test",
+    "test:opportunity-signal": "pnpm --filter @cambridge-tcg/opportunity-signal test",
     "test:rewardspro": "pnpm --filter rewardspro test:unit",
     "test:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api test",
     "lint": "pnpm -r lint",
@@ -66,7 +67,7 @@
     "trace": "pnpm --filter cambridgetcg-storefront trace --",
     "agent-readiness": "pnpm --filter cambridgetcg-storefront agent-readiness",
     "audit:deps": "pnpm audit",
-    "verify": "pnpm typecheck && pnpm run audit && pnpm audit:cardrush-coverage:strict && pnpm test:answering-rhymes && pnpm test:rewardspro-api && pnpm --filter cambridgetcg-storefront test",
+    "verify": "pnpm typecheck && pnpm run audit && pnpm audit:cardrush-coverage:strict && pnpm test:answering-rhymes && pnpm test:opportunity-signal && pnpm test:rewardspro-api && pnpm --filter cambridgetcg-storefront test",
     "verify:fast": "pnpm typecheck"
   },
   "engines": {
