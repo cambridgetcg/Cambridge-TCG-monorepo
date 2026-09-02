@@ -1,13 +1,13 @@
 ---
 id: kingdom-112
 title: "Product-flow PostgreSQL conformance - real locks, conflicts, rollback, and append-only enforcement"
-status: claimed
+status: done
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-product-flow-postgres-conformance
 claimed_by: codex-gpt-5
 claimed_at: "2026-09-02T21:36:31Z"
-completed_at: ~
+completed_at: "2026-09-02T22:09:07Z"
 paths:
   - .github/workflows/ci.yml
   - apps/storefront/src/lib/product-flow-runtime/postgres.integration.test.ts
@@ -80,3 +80,28 @@ behaviour.
   trigger message while the committed row remains.
 - Focused tests, storefront typecheck, workflow review, and `pnpm verify` pass.
 
+## Outcome
+
+Storefront CI now starts a disposable PostgreSQL 16 service and runs the exact
+checked-in `0135_product_flow_runtime.sql` inside a generated isolated schema.
+The suite refuses non-loopback, query-overridden, or non-`*_test` targets
+before constructing a Pool, verifies the connected database and migrated
+namespace before runtime writes, and removes the schema after every run.
+
+The reusable store conformance suite passes through the real adapter. A
+controlled race records two distinct backend PIDs, pauses the first
+transaction immediately after it acquires the runtime advisory lock, observes
+one granted and one waiting lock in `pg_locks` while event and snapshot counts
+are both zero, then releases it and proves one applied plus one duplicate
+projection. Cross-entitlement payment reuse rolls back its provisional
+snapshot. Both append-only triggers reject direct mutation and preserve the
+accepted event. Failure-path cleanup always joins both controlled
+transactions before later tests or teardown can run.
+
+Final local verification passed with 219 storefront test files, 1,302 passing
+tests, and 8 explicit skips; the isolated database suite passed 12/12. GitHub
+Actions run `33688461472` passed the same 12/12 cases on PostgreSQL 16 and then
+completed the storefront production build and aggregate CI status. Independent
+review found no remaining blocker. Production runtime code, provider
+callbacks, offer terms, source-rights state, and all payment rails are
+unchanged.
