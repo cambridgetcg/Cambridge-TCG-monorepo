@@ -14,6 +14,7 @@ paths:
   - pnpm-lock.yaml
   - apps/storefront/.env.example
   - apps/storefront/package.json
+  - apps/storefront/tsconfig.json
   - apps/storefront/src/app/prism-signals/**
   - apps/storefront/src/app/privacy/page.tsx
   - apps/storefront/src/app/api/prism-signals/**
