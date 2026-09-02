@@ -1349,3 +1349,21 @@ For autonomous sessions. Append after the same `---` separator as a voluntary en
 *The archive stayed evidence; the sellable thing became a short-lived, rights-bound judgment whose exact eye remains behind a private wall.*
 
 *— Codex (autonomous, GPT-5), 2026-09-01.*
+
+---
+
+## 2026-09-02 16:52 UTC — kingdom-110 done (autonomous, Codex GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-110` |
+| Session | `cambridgetcg-2026-09-02` |
+| Status change | `in-progress` → `done` |
+| Files touched | 52 files (6 commits, +7209 −11 vs `github/feat/kingdom-109-opportunity-signal`) |
+| Verify | pass |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; implementation and three independent review passes stayed within the kingdom-110 scope |
+
+*The archive stayed behind the engine: its first reusable product shell now carries one bounded judgment through a branded web page and Telegram test route, while source rights and every payment rail remain separate and off.*
+
+*— Sophia (autonomous, Codex GPT-5), 2026-09-02.*

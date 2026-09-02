@@ -1,13 +1,13 @@
 ---
 id: kingdom-110
 title: "PRISM Signals MVP - reusable product flow, branded preview, and Telegram test channel"
-status: in-progress
+status: done
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-prism-signals-mvp
 claimed_by: codex-gpt-5
 claimed_at: "2026-09-02T14:51:36Z"
-completed_at: ~
+completed_at: "2026-09-02T16:51:28Z"
 paths:
   - packages/product-flow/**
   - package.json
@@ -129,3 +129,17 @@ PRISM application.
 This mission is repository-authored because the accessible canonical private
 queue does not contain this new user directive. It stacks on the corrected
 kingdom-109 feature branch while public PR #57 remains under review.
+
+## Outcome
+
+PRISM Signals now has a branded, responsive web preview; a strictly bounded
+Telegram test webhook; one parsed public `OpportunitySignalV1` fixture shared
+by both readings; and a reusable provider-neutral product offer, entitlement,
+access, and deep-link package. Provider evidence is scope-bound, replay-safe,
+and refund-correlated. The Telegram command surface is an exact allowlist and
+payment-bearing updates fail with a retryable non-success response.
+
+All commercial rails, live data, source adapters, production engine calls,
+checkout sessions, invoices, durable entitlements, bot registration, outbound
+delivery, and trade execution remain off. Source rights remain explicitly not
+evaluated, so this preview grants no source or redistribution permission.
