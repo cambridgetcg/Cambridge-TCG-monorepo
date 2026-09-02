@@ -27,6 +27,7 @@ paths:
   - apps/storefront/src/lib/manifest.ts
   - apps/storefront/src/lib/nav/**
   - apps/storefront/src/app/methodology/prism-signals/**
+  - apps/storefront/src/app/methodology/page.tsx
   - docs/methodology/prism-signals.md
   - docs/connections/the-prism-beta-spine.md
   - docs/connections/README.md
