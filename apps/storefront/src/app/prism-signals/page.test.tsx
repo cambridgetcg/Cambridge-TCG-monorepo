@@ -101,7 +101,7 @@ describe("PRISM landing closed-beta posture", () => {
 
   it.each([
     [
-      "unconfigured",
+      "invalid-core-configuration",
       {
         configured: false,
         processing_available: false,
@@ -191,6 +191,16 @@ describe("PRISM landing closed-beta posture", () => {
   });
 
   it.each([
+    [
+      "invalid-core fields",
+      {
+        configured: true,
+        processing_available: false,
+        checkout_available: false,
+        portal_available: false,
+        reason: "invalid_configuration",
+      },
+    ],
     [
       "unconfigured fields",
       {

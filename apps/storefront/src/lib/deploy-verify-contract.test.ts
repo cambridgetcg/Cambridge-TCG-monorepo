@@ -357,6 +357,28 @@ describe("deploy verifier response contracts", () => {
     }
   });
 
+  it("does not collapse invalid core configuration into legal unconfigured", () => {
+    expect(
+      assessPrismPosture({
+        offer: "unconfigured",
+        webhook: "unconfigured",
+        page: "invalid-core-configuration",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        passed: false,
+        detail: expect.stringContaining("incoherent PRISM deployment posture"),
+      }),
+    );
+    expect(
+      assessPrismPosture({
+        offer: "unconfigured",
+        webhook: "unconfigured",
+        page: "unconfigured",
+      }),
+    ).toEqual({ passed: true, stage: "unconfigured" });
+  });
+
   it("rejects a coherent posture when it is not the explicitly required stage", () => {
     const stages = Object.keys(PRISM_DEPLOYMENT_POSTURES) as Array<
       keyof typeof PRISM_DEPLOYMENT_POSTURES

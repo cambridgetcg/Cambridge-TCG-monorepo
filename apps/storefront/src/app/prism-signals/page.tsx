@@ -56,6 +56,7 @@ type PrismStripePosturePresentation = Readonly<{
     | "configured-paused"
     | "processing-only"
     | "intake-enabled"
+    | "invalid-core-configuration"
     | "invalid-portal-not-configured"
     | "invalid-portal-configuration"
     | "invalid-switch-configuration"
@@ -75,10 +76,7 @@ const INVALID_PUBLIC_POSTURE = Object.freeze({
 function prismStripePosturePresentation(
   posture: PrismStripeSandboxPublicPostureV1,
 ): PrismStripePosturePresentation {
-  if (
-    posture.reason === "not_configured" ||
-    posture.reason === "invalid_configuration"
-  ) {
+  if (posture.reason === "not_configured") {
     return !posture.configured &&
       !posture.processing_available &&
       !posture.checkout_available &&
@@ -88,6 +86,19 @@ function prismStripePosturePresentation(
           checkoutAvailable: false,
           message:
             "PRISM Stripe posture: unconfigured. New sandbox Checkout is unavailable; the account page remains available for owner status.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
+  if (posture.reason === "invalid_configuration") {
+    return !posture.configured &&
+      !posture.processing_available &&
+      !posture.checkout_available &&
+      !posture.portal_available
+      ? {
+          marker: "invalid-core-configuration",
+          checkoutAvailable: false,
+          message:
+            "PRISM Stripe posture is invalid because its core sandbox configuration is partial or malformed. New sandbox Checkout is unavailable.",
         }
       : INVALID_PUBLIC_POSTURE;
   }

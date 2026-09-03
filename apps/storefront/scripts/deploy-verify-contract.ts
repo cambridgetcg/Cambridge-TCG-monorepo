@@ -76,6 +76,7 @@ export const PRISM_PAGE_POSTURE_VARIANTS = Object.freeze([
   "configured-paused",
   "processing-only",
   "intake-enabled",
+  "invalid-core-configuration",
   "invalid-portal-not-configured",
   "invalid-portal-configuration",
   "invalid-switch-configuration",

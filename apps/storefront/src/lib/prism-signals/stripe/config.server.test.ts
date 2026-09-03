@@ -63,6 +63,49 @@ describe("PRISM Stripe sandbox configuration", () => {
     );
   });
 
+  it.each([
+    [
+      "partial credentials without posture",
+      { PRISM_STRIPE_SECRET_KEY: `rk_test_${"p".repeat(32)}` },
+    ],
+    [
+      "partial posture",
+      { PRISM_STRIPE_POSTURE: "stripe-test-v1" },
+    ],
+    [
+      "unrestricted test key",
+      environment({ PRISM_STRIPE_SECRET_KEY: `sk_test_${"a".repeat(32)}` }),
+    ],
+    [
+      "live key",
+      environment({ PRISM_STRIPE_SECRET_KEY: `sk_live_${"a".repeat(32)}` }),
+    ],
+    [
+      "wrong account",
+      environment({ PRISM_STRIPE_ACCOUNT_ID: "acct_" }),
+    ],
+    [
+      "wrong API version",
+      environment({ PRISM_STRIPE_API_VERSION: "2025-01-01.acacia" }),
+    ],
+    [
+      "short reference secret",
+      environment({ PRISM_STRIPE_REFERENCE_SECRET: "short" }),
+    ],
+  ] as const)("marks %s as invalid core configuration", (_label, env) => {
+    expect(inspectPrismStripeSandboxConfig(env)).toEqual({
+      ok: false,
+      reason: "invalid_configuration",
+    });
+    expect(prismStripeSandboxPublicPosture(env)).toEqual({
+      configured: false,
+      processing_available: false,
+      checkout_available: false,
+      portal_available: false,
+      reason: "invalid_configuration",
+    });
+  });
+
   it("keeps lifecycle processing readable when acquisition controls drift", () => {
     const config = readPrismStripeSandboxConfig(
       environment({

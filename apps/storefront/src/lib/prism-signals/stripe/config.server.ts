@@ -117,6 +117,14 @@ export function readPrismStripeSandboxConfig(
   const env = environment ?? processEnvironment();
   const posture = trimmed(env, "PRISM_STRIPE_POSTURE");
   if (!posture) {
+    const partialConfiguration = Object.values(env).some(
+      (value) => typeof value === "string" && value.trim() !== "",
+    );
+    if (partialConfiguration) {
+      return invalid(
+        "PRISM Stripe has partial configuration without its explicit test posture.",
+      );
+    }
     throw new PrismStripeConfigurationError(
       "not_configured",
       "PRISM Stripe sandbox is not configured.",
