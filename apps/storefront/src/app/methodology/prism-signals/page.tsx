@@ -143,6 +143,14 @@ export default function PrismSignalsMethodologyPage() {
         Checkout intake is a separate switch; pausing it leaves existing test
         status, access, webhook processing and cancellation available.
       </p>
+      <p>
+        Kingdom-114 has provisioned the Product, exact GBP monthly Price,
+        restricted portal and seven-event direct webhook inside a separately
+        authorised Stripe Sandbox. The production runtime variables and
+        restricted runtime key are not configured yet, so Checkout and webhook
+        processing remain unavailable while activation tooling and deployment
+        verification are hardened. No provider resource exists in live mode.
+      </p>
 
       <h2>Two gates answer two different questions</h2>
       <pre>

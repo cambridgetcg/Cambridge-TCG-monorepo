@@ -1,8 +1,10 @@
 # The PRISM Stripe sandbox — a payment rehearsal that cannot become a sale by accident
 
-> **Status:** deployed fail-closed by kingdom-113 on 3 September 2026. The
-> dedicated production Stripe variables and resources are not configured, so
-> Checkout and webhook intake are currently unavailable. The only provider
+> **Status:** deployed fail-closed by kingdom-113 and entering sandbox
+> activation under kingdom-114 on 3 September 2026. A separate Cambridge TCG
+> Stripe Sandbox now contains the test Product, GBP £5 monthly Price, restricted
+> portal and direct version-pinned webhook. Dedicated production variables are
+> not yet configured and both processing/intake remain off. The only provider
 > mode this code can admit is Stripe test mode; no live secret, real charge,
 > live signal, exclusive payload, or production source-rights decision is
 > accepted by this design.
@@ -78,6 +80,22 @@ dedicated raw-body webhook
   → acknowledge applied / duplicate / ignored / durable review
 ```
 
+The direct sandbox webhook subscribes only to:
+
+```text
+checkout.session.completed
+invoice.paid
+invoice.payment_failed
+customer.subscription.updated
+customer.subscription.deleted
+refund.created
+refund.updated
+```
+
+It is not a Connect/context endpoint and does not subscribe to all events.
+`charge.refunded` is defensively understood by the parser but deliberately
+omitted because the two Refund events are the authoritative minimal signal.
+
 Only `invoice.paid` can activate or renew access. Checkout creation,
 `checkout.session.completed`, a browser return, a page reload, beta interest,
 an invitation, and payment failure do not grant. Scheduled cancellation
@@ -117,14 +135,15 @@ cancel/resume status after the grant inside the same transaction.
 
 Raw Stripe ids remain in bounded server-only mapping tables. The generic
 product-flow event ledger sees only random or HMAC-derived `pf_` references.
-The storage separates:
+The seven authority tables separate:
 
 1. one stable test subject for an account;
-2. successive owned entitlement generations;
-3. frozen Checkout attempts and write-once Session attachment;
-4. the latest verified Stripe subscription binding and lifecycle posture;
-5. invoice/payment references needed for grant and refund correlation; and
-6. signed-event receipt outcomes and a review reason, without the full payload.
+2. the separate operator-issued sandbox invitation;
+3. successive owned entitlement generations;
+4. frozen Checkout attempts and write-once Session attachment;
+5. the latest verified Stripe subscription binding and lifecycle posture;
+6. invoice/payment references needed for grant and refund correlation; and
+7. signed-event receipt outcomes and a review reason, without the full payload.
 
 Generations matter. The v1 reducer correctly refuses to reactivate an ended
 entitlement. A genuinely new subscription after a terminal old subscription
@@ -200,18 +219,25 @@ PRISM_STRIPE_CHECKOUT_INTAKE=enabled|disabled
 ```
 
 Configuration order is part of the safety boundary: migrate and deploy first;
-create the test Product, £5 monthly Price, restricted portal and dedicated
-version-pinned webhook; set processing credentials while both switches remain
-disabled; enable webhook processing and exercise signed fixtures; enable new
-Checkout intake last. Reversing the last switch pauses acquisition without
-changing lifecycle authority.
+create and independently retrieve the test Product, £5 monthly Price,
+restricted portal and dedicated version-pinned webhook; set every production
+credential/id while both switches remain disabled; deploy that exact main SHA;
+enable webhook processing with intake still disabled and deploy again; exercise
+the signed provider path; enable new Checkout intake only in a third deployment.
+Vercel environment changes do not affect an already-built deployment. Reversing
+the last switch therefore means a new deployment with intake disabled—not
+aliasing an older build that lacks lifecycle credentials.
 
-A restricted test key is preferred when its permissions cover only the calls
-this host makes: Account, Product and Price read; Checkout Session create/read;
-Subscription, PaymentIntent, Invoice and InvoicePayment read; Billing Portal
-configuration read and Session create. The key is not accepted merely because
-it is non-live—the configured account, Product, Price, portal and every returned
-object are still checked independently.
+A separately named restricted sandbox key is required for the deployed host;
+the Stripe CLI OAuth session is operator-only and must never enter Vercel. The
+restricted key grants only: Account read; Product read for activation
+attestation; Price read; Checkout Session write; Events read; Subscription
+read; Invoice read; Invoice Payment read/list; PaymentIntent read; Billing
+Portal Configuration read; and Billing Portal Session write. All other
+permissions remain None. Events read is mandatory because every first delivery
+is retrieved by Event id before acknowledgement. The key is not accepted merely
+because it is non-live—the configured account, Product, Price, portal and every
+returned object are still checked independently.
 
 The v1 Price and reference secret are append-only operational identity while
 any v1 subscription or receipt can still arrive. Replacing either value in

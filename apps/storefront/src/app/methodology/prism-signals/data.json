@@ -77,6 +77,18 @@
     "status_url": "/api/prism-signals/subscription",
     "portal_url": "/api/prism-signals/stripe/portal",
     "account_url": "/prism-signals/account",
+    "provider_resources": "provisioned-in-isolated-stripe-sandbox",
+    "production_runtime_configuration": "absent-pending-kingdom-114-hardening",
+    "restricted_runtime_key": "not-yet-provisioned",
+    "webhook_event_allowlist": [
+      "checkout.session.completed",
+      "invoice.paid",
+      "invoice.payment_failed",
+      "customer.subscription.updated",
+      "customer.subscription.deleted",
+      "refund.created",
+      "refund.updated"
+    ],
     "checkout_authority": false,
     "browser_return_authority": false,
     "eligibility": "active-beta-interest-plus-operator-issued-active-unexpired-invitation",
@@ -161,6 +173,6 @@
     "packages/opportunity-signal/"
   ],
   "status": "published",
-  "version": "3",
+  "version": "4",
   "changed_on": "2026-09-03"
 }

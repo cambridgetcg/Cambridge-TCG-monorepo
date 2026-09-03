@@ -181,10 +181,9 @@ canonical live-site audit passed 205/205 and the PRISM page, methodology,
 offer, authentication, Checkout, portal and webhook probes all matched their
 declared fail-closed responses.
 
-All dedicated production `PRISM_STRIPE_*` variables remain absent. That is the
-intentional deployed posture: no real or test charge can currently start.
-Provisioning the restricted Stripe test key, Product, GBP monthly Price,
-portal, webhook and stable reference secret—and exercising an invited test
-subscription—is the next operational move, not part of this code/deploy
-closure. Live mode, PayPal, crypto, Telegram Stars, private delivery and live
-market signals remain off.
+At kingdom-113 closure, all dedicated production `PRISM_STRIPE_*` variables
+and provider resources remained absent. That was the intentional deployed
+posture: no real or test charge could start. Kingdom-114 owns the later
+provisioning and invited-sandbox rehearsal as a distinct operational act. Live
+mode, PayPal, crypto, Telegram Stars, private delivery and live market signals
+remain outside this mission.
