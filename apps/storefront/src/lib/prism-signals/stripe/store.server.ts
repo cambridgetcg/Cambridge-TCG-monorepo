@@ -280,7 +280,19 @@ function parseCheckoutParams(value: unknown): PrismStripeCheckoutParamsV1 {
       "Stored PRISM Stripe line item is invalid.",
     );
   }
-  return row as unknown as PrismStripeCheckoutParamsV1;
+  return freezeCheckoutParams(row as unknown as PrismStripeCheckoutParamsV1);
+}
+
+function freezeCheckoutParams(
+  params: PrismStripeCheckoutParamsV1,
+): PrismStripeCheckoutParamsV1 {
+  Object.freeze(params.payment_method_types);
+  Object.freeze(params.line_items[0]);
+  Object.freeze(params.line_items);
+  Object.freeze(params.metadata);
+  Object.freeze(params.subscription_data.metadata);
+  Object.freeze(params.subscription_data);
+  return Object.freeze(params);
 }
 
 function attemptFromRow(row: AttemptRow): PrismStripeCheckoutAttemptV1 {
@@ -315,7 +327,7 @@ function attemptFromRow(row: AttemptRow): PrismStripeCheckoutAttemptV1 {
     status: row.status,
     idempotencyKey: row.idempotency_key,
     checkoutStartedEvent,
-    checkoutParams: Object.freeze(checkoutParams),
+    checkoutParams,
     sessionId: row.stripe_session_id,
     providerExpiresAt: isoTimestamp(
       row.provider_expires_at,
@@ -642,7 +654,7 @@ export async function reservePrismStripeCheckoutAttempt(
       type: PRISM_STRIPE_CHECKOUT_METADATA_TYPE,
       attempt_ref: attemptRef,
     });
-    const checkoutParams: PrismStripeCheckoutParamsV1 = Object.freeze({
+    const checkoutParams: PrismStripeCheckoutParamsV1 = freezeCheckoutParams({
       mode: "subscription",
       payment_method_types: ["card"] as ["card"],
       client_reference_id: attemptRef,
@@ -808,6 +820,10 @@ export type PrismStripeSubscriptionStatusDtoV1 = Readonly<{
 interface StatusRow {
   beta_eligible: boolean;
   stripe_customer_id: string | null;
+  entitlement_ref: string | null;
+  subject_ref: string | null;
+  offer_id: string | null;
+  offer_version: number | string | null;
   snapshot_payload: unknown | null;
   subscription_status: string | null;
   cancel_at_period_end: boolean | null;
@@ -834,6 +850,10 @@ export async function readPrismStripeOwnerStatus(
                  AND b.expires_at > $4::TIMESTAMPTZ
             ) AS beta_eligible,
             a.stripe_customer_id,
+            owner.entitlement_ref,
+            owner.subject_ref,
+            owner.offer_id,
+            owner.offer_version,
             snap.snapshot_payload,
             sub.status AS subscription_status,
             sub.cancel_at_period_end,
@@ -866,6 +886,20 @@ export async function readPrismStripeOwnerStatus(
   let activeUntil: string | null = null;
   if (row?.snapshot_payload) {
     const snapshot = parseEntitlementSnapshotV1(row.snapshot_payload);
+    if (
+      snapshot.environment !== "test" ||
+      snapshot.entitlement_ref !== row.entitlement_ref ||
+      snapshot.subject_ref !== row.subject_ref ||
+      snapshot.offer_id !== PRISM_SIGNALS_ALL_OFFER_ID ||
+      row.offer_id !== PRISM_SIGNALS_ALL_OFFER_ID ||
+      snapshot.offer_version !== 1 ||
+      Number(row.offer_version) !== 1
+    ) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "Stored PRISM owner and entitlement projection scopes do not match.",
+      );
+    }
     activeUntil = snapshot.active_until;
     allowed =
       snapshot.status === "active" &&
@@ -878,6 +912,25 @@ export async function readPrismStripeOwnerStatus(
         : snapshot.reason;
   }
   const isAll = row?.subscription_status != null || allowed;
+  if (
+    row?.subscription_status !== null &&
+    row?.subscription_status !== undefined &&
+    ![
+      "incomplete",
+      "incomplete_expired",
+      "trialing",
+      "active",
+      "past_due",
+      "canceled",
+      "unpaid",
+      "paused",
+    ].includes(row.subscription_status)
+  ) {
+    throw new PrismStripeStoreError(
+      "store_invariant",
+      "Stored PRISM Stripe subscription status is invalid.",
+    );
+  }
   const checkoutReason = !row?.beta_eligible
     ? "not_eligible"
     : isAll && allowed

@@ -495,6 +495,10 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
     ) {
       return null;
     }
+    await this.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      [`prism-stripe-customer:${fact.customerId}`],
+    );
     const customerOwner = await this.query(
       `SELECT subject_ref
          FROM product_flow_account_subjects
@@ -897,19 +901,21 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       return this.requiresReview("stale_subscription_resume");
     }
     const occurredAt = locked!.occurredAt;
-    const event = normalizeStripeSubscriptionCallbackV1(runtimeMapping(binding), {
-      schema: STRIPE_SUBSCRIPTION_CALLBACK_SCHEMA,
-      kind: "subscription_resumed",
-      event_id: this.eventRef("stripe_event"),
-      occurred_at: occurredAt,
-      provider_event_ref: this.eventRef("stripe_provider_event"),
-      subscription_ref: providerRef(
-        this.receipt.config,
-        "stripe_subscription",
-        fact.subscriptionId,
-      ),
-      status_at: fact.statusAt,
-    });
+    const snapshotResult = await this.query(
+      `SELECT snapshot_payload
+         FROM product_flow_entitlement_snapshots
+        WHERE environment = 'test' AND entitlement_ref = $1`,
+      [binding.entitlement_ref],
+    );
+    const snapshotPayload = (
+      snapshotResult.rows[0] as { snapshot_payload?: unknown } | undefined
+    )?.snapshot_payload;
+    const snapshot = snapshotPayload
+      ? parseEntitlementSnapshotV1(snapshotPayload)
+      : null;
+    if (snapshot !== null && snapshot.status !== "inactive" && snapshot.status !== "active") {
+      return this.requiresReview("resume_entitlement_terminal");
+    }
     const updated = await this.query(
       `UPDATE product_flow_stripe_subscriptions
           SET status = $2,
@@ -934,6 +940,25 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
         "The resumed PRISM subscription mapping was not updated.",
       );
     }
+    if (snapshot === null || snapshot.status === "inactive") {
+      return decision("processed", "subscription_resume_no_active_grant");
+    }
+    if (!snapshot.cancel_at_period_end) {
+      return decision("processed", "subscription_already_resumed");
+    }
+    const event = normalizeStripeSubscriptionCallbackV1(runtimeMapping(binding), {
+      schema: STRIPE_SUBSCRIPTION_CALLBACK_SCHEMA,
+      kind: "subscription_resumed",
+      event_id: this.eventRef("stripe_event"),
+      occurred_at: occurredAt,
+      provider_event_ref: this.eventRef("stripe_provider_event"),
+      subscription_ref: providerRef(
+        this.receipt.config,
+        "stripe_subscription",
+        fact.subscriptionId,
+      ),
+      status_at: fact.statusAt,
+    });
     await applyEntitlementEventV1(this.runtimeStore, event);
     return decision("processed", "subscription_resumed");
   }
@@ -1038,7 +1063,8 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
     const grantResult = await this.query(
       `SELECT g.stripe_invoice_id, g.stripe_subscription_id,
               g.stripe_payment_intent_id, g.stripe_price_id,
-              g.payment_ref, g.state, g.period_end, g.stripe_refund_id
+              g.payment_ref, g.state, g.period_end, g.stripe_refund_id,
+              g.refunded_at
          FROM product_flow_stripe_invoice_grants g
         WHERE g.environment = 'test'
           AND g.stripe_invoice_id = $1
@@ -1068,6 +1094,7 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       payment_ref: string;
       state: string;
       stripe_refund_id: string | null;
+      refunded_at: Date | string | null;
     } | undefined;
     if (
       row?.state === "refunded" &&
@@ -1075,7 +1102,9 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       row.stripe_invoice_id === fact.invoiceId &&
       row.stripe_subscription_id === fact.subscriptionId &&
       row.stripe_payment_intent_id === fact.paymentIntentId &&
-      row.stripe_price_id === fact.priceId
+      row.stripe_price_id === fact.priceId &&
+      row.refunded_at !== null &&
+      storedIso(row.refunded_at) === fact.refundedAt
     ) {
       return decision("processed", "refund_already_applied");
     }

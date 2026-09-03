@@ -278,6 +278,9 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       attempt_ref: first.attempt.attemptRef,
     });
     expect(first.attempt.checkoutParams.payment_method_types).toEqual(["card"]);
+    expect(Object.isFrozen(first.attempt.checkoutParams)).toBe(true);
+    expect(Object.isFrozen(first.attempt.checkoutParams.line_items)).toBe(true);
+    expect(Object.isFrozen(first.attempt.checkoutParams.metadata)).toBe(true);
     expect(JSON.stringify(first.attempt.checkoutParams)).not.toContain(USER_ID);
     const counts = await pool.query<{
       attempts: number;
@@ -442,6 +445,34 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       { runTransaction },
     );
     expect(attempt.status).toBe("checkout_open");
+
+    const earlyResume = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_earlyresume123",
+        "2026-09-03T08:52:00.000Z",
+        "customer.subscription.updated",
+        "2026-09-03T08:51:30.000Z",
+      ),
+      (actions) => actions.applySubscriptionResumed({
+        subscriptionId: "sub_lifecycle123",
+        customerId: "cus_lifecycle123",
+        attemptRef: attempt.attemptRef,
+        priceId: CONFIG.priceId,
+        status: "active",
+        periodStart: "2026-09-03T08:30:00.000Z",
+        periodEnd: "2026-10-03T08:30:00.000Z",
+        statusAt: "2026-09-03T08:51:30.000Z",
+      }),
+      { runTransaction },
+    );
+    expect(earlyResume.code).toBe("subscription_resume_no_active_grant");
+    const noEarlyResumeEvent = await pool.query<{ count: number }>(
+      `SELECT COUNT(*)::INTEGER AS count
+         FROM ${schema}.product_flow_events
+        WHERE entitlement_ref = $1 AND event_type = 'subscription_resumed'`,
+      [attempt.entitlementRef],
+    );
+    expect(noEarlyResumeEvent.rows[0]?.count).toBe(0);
 
     const invoiceFact = {
       attemptRef: attempt.attemptRef,

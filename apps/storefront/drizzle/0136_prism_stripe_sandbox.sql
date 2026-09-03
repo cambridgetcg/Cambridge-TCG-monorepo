@@ -191,6 +191,38 @@ CREATE TABLE IF NOT EXISTS product_flow_stripe_checkout_attempts (
   checkout_started_event JSONB NOT NULL
     CHECK (jsonb_typeof(checkout_started_event) = 'object')
     CHECK (
+      checkout_started_event ?& ARRAY[
+        'schema',
+        'event_id',
+        'environment',
+        'type',
+        'occurred_at',
+        'entitlement_ref',
+        'subject_ref',
+        'offer_id',
+        'offer_version',
+        'channel',
+        'rail',
+        'price_ref'
+      ]::TEXT[]
+    )
+    CHECK (
+      checkout_started_event - ARRAY[
+        'schema',
+        'event_id',
+        'environment',
+        'type',
+        'occurred_at',
+        'entitlement_ref',
+        'subject_ref',
+        'offer_id',
+        'offer_version',
+        'channel',
+        'rail',
+        'price_ref'
+      ]::TEXT[] = '{}'::JSONB
+    )
+    CHECK (
       checkout_started_event->>'schema'
         IS NOT DISTINCT FROM 'cambridgetcg.product-entitlement-event/1'
     )
@@ -319,6 +351,10 @@ CREATE TABLE IF NOT EXISTS product_flow_stripe_checkout_attempts (
   CHECK (
     (status = 'reserved' AND stripe_session_id IS NULL)
     OR (status <> 'reserved')
+  ),
+  CHECK (
+    status NOT IN ('checkout_open', 'completed')
+    OR stripe_session_id IS NOT NULL
   )
 );
 
