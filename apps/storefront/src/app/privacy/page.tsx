@@ -29,14 +29,14 @@ export default function PrivacyPage() {
           Privacy notice
         </h1>
         <p className="text-sm text-ink-faint mb-4">
-          Last updated 2 September 2026.
+          Last updated 3 September 2026.
         </p>
         <p className="text-sm text-ink-muted leading-relaxed mb-8">
           This notice explains what Cambridge TCG does with personal data on
           this website, including account, marketplace, community, optional
-          verification, testnet-wallet, PRISM Signals closed-beta-interest and
-          Telegram-preview features. It also explains which choices make
-          information public.
+          verification, testnet-wallet, PRISM Signals closed-beta-interest,
+          Stripe-sandbox and Telegram-preview features. It also explains which
+          choices make information public.
         </p>
 
         <Callout tone="note" title="At a glance">
@@ -123,6 +123,11 @@ export default function PrivacyPage() {
             <li>
               <a className="text-accent underline" href="#prism-signals-beta">
                 PRISM closed-beta interest
+              </a>
+            </li>
+            <li>
+              <a className="text-accent underline" href="#prism-signals-stripe-sandbox">
+                PRISM Stripe sandbox
               </a>
             </li>
             <li>
@@ -351,6 +356,31 @@ export default function PrivacyPage() {
                 inspect the exact owner-scoped state and delete the complete row
                 without penalty from the same signed-in page.
               </li>
+              <li id="prism-signals-stripe-sandbox" className="scroll-mt-24">
+                <strong className="text-ink">
+                  Optional PRISM Signals Stripe sandbox:
+                </strong>{" "}
+                when the separately gated test is available, Stripe&apos;s hosted
+                Checkout collects the test customer, billing address, email and
+                payment-method details entered there. Cambridge sends Stripe a
+                fixed sandbox type and random attempt reference, not your
+                Cambridge user ID, stored account email, subject/entitlement
+                reference or internal offer scope. Cambridge stores your
+                account-to-test-subject and entitlement-generation mapping,
+                frozen Checkout attempt, and the Stripe test customer, Session,
+                subscription, Price, invoice, payment and refund identifiers and
+                statuses needed for idempotency, access, cancellation and repair.
+                Signed-event receipts store the event identifier, type, mode,
+                outcome, bounded review reason and SHA-256 digest, not the full
+                webhook payload. The dedicated webhook necessarily receives and
+                parses the signed Stripe event in memory before discarding it;
+                that transient event can include Checkout customer details such
+                as test email, name and billing address supplied to Stripe.
+                The generic entitlement ledger receives only random or
+                HMAC-derived opaque references. Cambridge never receives the
+                full card number. This sandbox accepts no live Stripe event and
+                unlocks only a fixed synthetic test surface.
+              </li>
               <li>
                 <strong className="text-ink">
                   Optional collector observations:
@@ -481,6 +511,22 @@ export default function PrivacyPage() {
                       wording. Withdrawal deletes the request immediately and
                       stops future contact based on it, without affecting prior
                       lawful processing. It is not consent to general marketing.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-border-subtle">
+                    <td className="py-3 pr-4">
+                      At your request, operate the optional PRISM Stripe
+                      billing sandbox, mirror its test subscription lifecycle,
+                      provide owner status and cancellation, and secure or
+                      repair signed provider events.
+                    </td>
+                    <td className="py-3">
+                      <strong className="text-ink">Legitimate interests</strong>{" "}
+                      in providing the low-impact voluntary test you initiate,
+                      preventing misuse, enforcing idempotency, securing and
+                      repairing the test, and proving that no sandbox callback
+                      becomes live access by mistake. The sandbox takes no real
+                      payment and is not a live purchase contract.
                     </td>
                   </tr>
                   <tr className="border-b border-border-subtle">
@@ -1191,6 +1237,34 @@ export default function PrivacyPage() {
                 only a switch for new request intake and its public invitation;
                 pausing or losing that setting does not disable authenticated
                 owner status, withdrawal, or the retention sweep.
+              </li>
+              <li>
+                <strong className="text-ink">
+                  PRISM Signals Stripe sandbox records:
+                </strong>{" "}
+                an operator-issued invitation and test Checkout, customer,
+                subscription, invoice/grant and signed-event mappings are
+                currently retained with the linked account while the test
+                subscription may need status, cancellation, duplicate handling
+                or repair. Beta interest is not an invitation. Account deletion
+                cannot remove the owner/provider mapping while the remotely
+                observed subscription is still non-terminal, because doing so
+                could leave recurring test billing without a local owner or
+                cancellation path. After Stripe termination is observed,
+                deletion removes the directly owned invitation and mappings,
+                subject to any limited security, dispute or legal record that
+                must remain. Bounded signed-event receipt/audit records can
+                retain the raw Stripe event ID and payload digest after direct
+                owner mappings are removed; they do not retain the full event,
+                but may remain linkable through Stripe or other auxiliary data.
+                Canonical product-flow events retain pseudonymous opaque
+                references after their account/provider mapping is removed;
+                Cambridge does not claim either record class is anonymous or
+                provably unlinkable. Cambridge has not yet enabled a live charge
+                or claimed the six-year accounting basis for these test-only
+                records. Invitations have explicit expiry and revocation; a
+                shorter automatic terminal-test purge remains a launch gate
+                before opening the sandbox beyond that bounded cohort.
               </li>
               <li>
                 <strong className="text-ink">

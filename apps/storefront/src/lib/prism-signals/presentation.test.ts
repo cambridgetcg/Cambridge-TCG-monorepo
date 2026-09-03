@@ -96,7 +96,7 @@ describe("PRISM Signals public presentation", () => {
   it("keeps every commercial rail visibly off", () => {
     expect(PRISM_SIGNALS_CHANNELS.every((channel) => /no |test webhook/i.test(channel.currentStatus))).toBe(true);
     expect(PRISM_SIGNALS_FUTURE_RAILS.map((rail) => rail.status)).toEqual([
-      "Off in this preview",
+      "Test-only / configuration-gated",
       "Off in this preview",
       "Later / off",
     ]);

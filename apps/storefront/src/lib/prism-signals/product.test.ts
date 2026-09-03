@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PRODUCT_OFFER_NON_CLAIMS } from "@cambridge-tcg/product-flow";
 import {
+  PRISM_SIGNALS_PLAN_CATALOG,
+  createPrismSignalsAllStripeTestOffer,
   createPrismSignalsPreviewOffer,
   prismSignalsTelegramPreviewHref,
 } from "./product";
@@ -62,6 +64,26 @@ describe("PRISM Signals canonical preview offer", () => {
       rail: "telegram_stars",
       channel: "telegram",
       availability: "off",
+    });
+  });
+
+  it("re-exports the frozen plan catalogue and All sandbox offer factory", () => {
+    expect(PRISM_SIGNALS_PLAN_CATALOG.plans.map((plan) => plan.name)).toEqual([
+      "Free",
+      "All",
+    ]);
+    expect(
+      createPrismSignalsAllStripeTestOffer({
+        price_ref: "pf_prism_all_price_01",
+      }),
+    ).toMatchObject({
+      id: "prism-signals-all",
+      status: "test",
+      environment: "test",
+      rights: {
+        purpose: "synthetic_fixture_delivery",
+        decision: "granted",
+      },
     });
   });
 

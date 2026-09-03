@@ -36,6 +36,7 @@ const STRIPE_CALLBACK_KINDS = [
   "invoice_paid_renewal",
   "invoice_payment_failed",
   "subscription_cancel_at_period_end",
+  "subscription_resumed",
   "subscription_ended",
   "refund_created",
 ] as const;
@@ -218,6 +219,7 @@ export function normalizeStripeSubscriptionCallbackV1(
 
   if (
     header.kind === "subscription_cancel_at_period_end" ||
+    header.kind === "subscription_resumed" ||
     header.kind === "subscription_ended"
   ) {
     runtimeExactKeys(
@@ -233,7 +235,9 @@ export function normalizeStripeSubscriptionCallbackV1(
     const type =
       header.kind === "subscription_cancel_at_period_end"
         ? "cancel_at_period_end"
-        : "subscription_ended";
+        : header.kind === "subscription_resumed"
+          ? "subscription_resumed"
+          : "subscription_ended";
     return parseEntitlementEventV1({
       ...base,
       event_id: header.event_id,

@@ -12,6 +12,11 @@ import {
 } from "@/lib/prism-signals/presentation";
 import { prismSignalsRuntime } from "@/lib/prism-signals/runtime.server";
 import { prismSignalsBetaIntakeEnabled } from "@/lib/prism-signals/beta-interest-config.server";
+import {
+  PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR,
+  PRISM_SIGNALS_PLAN_CATALOG,
+} from "@/lib/prism-signals/product";
+import { prismStripeSandboxPublicPosture } from "@/lib/prism-signals/stripe/config.server";
 
 export function generateMetadata(): Metadata {
   const intakeEnabled = prismSignalsBetaIntakeEnabled();
@@ -45,6 +50,7 @@ function PrismMark() {
 export default function PrismSignalsPage() {
   const { offer, telegram_href: telegramHref } = prismSignalsRuntime();
   const intakeEnabled = prismSignalsBetaIntakeEnabled();
+  const stripePosture = prismStripeSandboxPublicPosture();
 
   return (
     <main className="min-h-screen bg-page text-ink">
@@ -206,6 +212,82 @@ export default function PrismSignalsPage() {
             </div>
           </div>
         </article>
+      </section>
+
+      <section className="border-y border-border-subtle bg-surface-elevated">
+        <div className="mx-auto max-w-6xl px-5 py-16 md:px-8">
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+            Free + All · test catalogue
+          </p>
+          <h2 className="mt-2 font-display text-3xl font-semibold">
+            One free reading. One sandbox subscription test.
+          </h2>
+          <p className="mt-4 max-w-3xl leading-7 text-ink-muted">
+            The plan names are fixed, but the commercial launch is not. All&apos;s
+            £5 monthly figure is a Stripe test-mode amount used to verify the
+            subscription flow—not a live price and not a real charge.
+          </p>
+
+          <div className="mt-9 grid gap-6 md:grid-cols-2">
+            <article className="rounded-xl border border-border-strong bg-surface p-6 shadow-mat">
+              <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink-faint">
+                {PRISM_SIGNALS_PLAN_CATALOG.plans[0].name}
+              </p>
+              <p className="mt-3 font-display text-4xl font-semibold">£0</p>
+              <p className="mt-4 text-sm leading-6 text-ink-muted">
+                The public fixed synthetic signal already on this page. No
+                account, Checkout session, payment event, or perpetual
+                entitlement is manufactured for Free access.
+              </p>
+              <a
+                href="#synthetic-signal"
+                className="mt-6 inline-flex rounded-lg border border-border-strong px-5 py-3 text-sm font-semibold text-ink"
+              >
+                Read the Free fixture
+              </a>
+            </article>
+
+            <article className="rounded-xl border border-accent bg-accent-wash p-6 shadow-mat">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
+                    {PRISM_SIGNALS_PLAN_CATALOG.plans[1].name}
+                  </p>
+                  <p className="mt-3 font-display text-4xl font-semibold">
+                    £{PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR / 100}
+                    <span className="ml-2 text-base font-normal text-ink-muted">/ month</span>
+                  </p>
+                </div>
+                <span className="rounded-full border border-warning/30 bg-warning/10 px-3 py-1 font-mono text-xs text-warning">
+                  Sandbox only
+                </span>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-ink-muted">
+                Tests recurring Stripe Checkout, signed webhook authority,
+                owner status, and cancellation against an All-labelled
+                owner projection around the same public synthetic fixture. It
+                does not unlock an exclusive payload or live market signals.
+              </p>
+              <Link
+                href="/prism-signals/account"
+                className="mt-6 inline-flex rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-page"
+              >
+                {stripePosture.checkout_available
+                  ? "Open All sandbox account"
+                  : "Check sandbox availability"}
+              </Link>
+              <p className="mt-3 text-xs leading-5 text-ink-faint">
+                {stripePosture.checkout_available
+                  ? "The host reports that sandbox intake is available. Your eligibility and owner state are still checked after sign-in; this link never creates Checkout directly."
+                  : "New sandbox Checkout is paused or not configured. The account page remains available for owner status and existing-subscription management."}
+              </p>
+            </article>
+          </div>
+
+          <p className="mt-6 max-w-4xl font-mono text-xs leading-5 text-ink-faint">
+            {PRISM_SIGNALS_PLAN_CATALOG.notice}
+          </p>
+        </div>
       </section>
 
       <section className="border-y border-border-subtle bg-surface-subtle">

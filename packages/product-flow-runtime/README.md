@@ -97,6 +97,7 @@ mapping, offer/price lookup, and determining the authoritative lifecycle fact.
 | renewal `invoice.paid`       | `renewal_confirmed`    | may extend                               |
 | `invoice.payment_failed`     | `payment_failed`       | does not erase already-paid time         |
 | cancel at period end         | `cancel_at_period_end` | access ends only at existing period end  |
+| cancellation withdrawn       | `subscription_resumed` | clears the schedule on active access     |
 | subscription ended           | `subscription_ended`   | ends access                              |
 | proven full refund           | `refunded`             | ends only when latest payment correlates |
 
@@ -116,6 +117,11 @@ event. The injected `payment_ref` must identify the latest confirmed invoice
 or payment. Refunding an older paid period after a renewal is rejected and
 rolled back; it cannot erase the later period. A full refund of the latest
 grant ends access.
+
+Renewal confirmation preserves an existing cancel-at-period-end flag because
+payment alone does not prove cancellation was withdrawn. A verified
+`subscription_resumed` status callback is the only event that clears the flag;
+it is rejected for ended access and cannot become a reactivation shortcut.
 
 ## Telegram Stars normalizer
 

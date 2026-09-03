@@ -1,6 +1,6 @@
 {
   "topic": "prism-signals",
-  "title": "PRISM Signals preview and closed-beta product flow",
+  "title": "PRISM Signals preview, closed-beta and Stripe-sandbox product flow",
   "url": "/methodology/prism-signals",
   "kind": "methodology-sidecar",
   "summary_url": "/methodology/prism-signals/summary.md",
@@ -13,13 +13,33 @@
     "status": "preview",
     "purchasable_price": false
   },
+  "plans": {
+    "schema": "cambridgetcg.prism-signals-plan-catalog/1",
+    "free": {
+      "billing": "none",
+      "surface": "public-synthetic-preview"
+    },
+    "all": {
+      "offer_id": "prism-signals-all",
+      "environment": "test",
+      "status": "test",
+      "test_amount_minor": 500,
+      "currency": "GBP",
+      "interval": "month",
+      "live_price": false,
+      "surface": "owner-synthetic-fixture"
+    }
+  },
   "surface": {
     "synthetic": true,
     "live_market_data": false,
     "accepted_payment": false,
-    "active_paid_entitlement": false,
+    "live_active_paid_entitlement": false,
+    "test_synthetic_entitlement_possible": true,
     "durable_runtime_schema": true,
-    "provider_webhook_connected": false,
+    "stripe_sandbox_host_present": true,
+    "stripe_sandbox_processing_configuration": "deployment-dependent-fail-closed",
+    "provider_webhook_connected_to_live_mode": false,
     "outbound_delivery": false
   },
   "beta_interest": {
@@ -51,10 +71,28 @@
     "commands": ["/demo", "/terms", "/privacy", "/support", "/paysupport"],
     "unknown_private_text_response": "none"
   },
+  "stripe_sandbox": {
+    "checkout_url": "/api/prism-signals/stripe/checkout",
+    "webhook_url": "/api/webhooks/stripe/prism-signals",
+    "status_url": "/api/prism-signals/subscription",
+    "portal_url": "/api/prism-signals/stripe/portal",
+    "account_url": "/prism-signals/account",
+    "checkout_authority": false,
+    "browser_return_authority": false,
+    "eligibility": "active-beta-interest-plus-operator-issued-active-unexpired-invitation",
+    "public_invitation_creation": false,
+    "positive_authority": "signed-exact-invoice-paid-only",
+    "livemode_accepted": false,
+    "metadata": "fixed-type-and-random-attempt-ref-only",
+    "exclusive_signal_payload": false,
+    "source_rights_granted": false,
+    "live_signal_access": false
+  },
   "rails": {
     "stripe_web": {
-      "availability": "off",
-      "future_context": "independent-web"
+      "availability": "test-when-dedicated-config-agrees",
+      "context": "independent-web-synthetic-sandbox",
+      "live": false
     },
     "telegram_stars": {
       "availability": "off",
@@ -86,7 +124,10 @@
     ],
     "newly_blocked_transition": "rollback-for-reconciliation",
     "refund_binding": "latest-confirmed-grant-only",
-    "stripe": "normalizer-only",
+    "full_refund_reconciliation": "cancel-subscription-before-later-grant-or-account-erasure",
+    "renewal_preserves_scheduled_cancel": true,
+    "cancel_clear_authority": "verified-subscription-resumed-only",
+    "stripe": "dedicated-test-host-over-normalizer",
     "telegram_stars": "normalizer-only",
     "paypal": "disabled",
     "crypto": "disabled"
@@ -101,7 +142,13 @@
     "apps/storefront/src/app/prism-signals/page.tsx",
     "apps/storefront/src/app/prism-signals/terms/page.tsx",
     "apps/storefront/src/app/prism-signals/beta/page.tsx",
+    "apps/storefront/src/app/prism-signals/account/page.tsx",
+    "apps/storefront/src/app/prism-signals/checkout/return/page.tsx",
     "apps/storefront/src/app/api/prism-signals/beta-interest/route.ts",
+    "apps/storefront/src/app/api/prism-signals/stripe/checkout/route.ts",
+    "apps/storefront/src/app/api/prism-signals/stripe/portal/route.ts",
+    "apps/storefront/src/app/api/prism-signals/subscription/route.ts",
+    "apps/storefront/src/app/api/webhooks/stripe/prism-signals/route.ts",
     "apps/storefront/src/lib/prism-signals/presentation.ts",
     "apps/storefront/src/lib/prism-signals/product.ts",
     "apps/storefront/src/lib/prism-signals/runtime.server.ts",
@@ -114,6 +161,6 @@
     "packages/opportunity-signal/"
   ],
   "status": "published",
-  "version": "2",
-  "changed_on": "2026-09-02"
+  "version": "3",
+  "changed_on": "2026-09-03"
 }
