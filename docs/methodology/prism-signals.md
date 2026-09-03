@@ -1,14 +1,15 @@
-# PRISM Signals — preview, closed-beta spine, and reusable product boundary
+# PRISM Signals — preview, closed-beta spine, Stripe sandbox, and reusable product boundary
 
-> **Current boundary, 2 September 2026:** **Synthetic preview · no live
-> market data · no payment.** The branded web page is live. A separate
+> **Current boundary, 3 September 2026:** **Free synthetic preview · optional
+> Stripe test mode · no live market data · no real payment.** The branded web page is live. A separate
 > login-gated closed-beta-interest request, unpublished workspace extraction package,
 > provider-neutral durable runtime, and provider normalizers now form the next
-> test spine. There is still no live offer, purchasable price, production
-> rights decision, production signal engine, accepted payment, active paid
-> entitlement, subscribed channel, or outbound delivery path. This document
-> describes a preview and beta-readiness surface, not a service Cambridge TCG
-> sells today.
+> test spine. A separately gated All sandbox may rehearse a £5 monthly Stripe
+> test subscription to the fixed synthetic fixture. There is still no live
+> offer or price, production rights decision, production signal engine, real
+> charge, live paid entitlement, subscribed channel, or outbound signal path.
+> This document describes a preview and payment rehearsal, not a live service
+> Cambridge TCG sells today.
 
 **PRISM Signals by Cambridge TCG** is the product name. Its promise is narrow:
 **Potential deals, with the risks attached.** It is intended to package the
@@ -86,6 +87,35 @@ roll the application back below GET/DELETE and the retention cron unless every
 row has first been purged or an equivalent withdrawal and expiry procedure is
 already operating.
 
+## Free and All are separate test meanings
+
+The first catalogue has two levels. **Free** is the current public synthetic
+preview and creates no payment provider customer or entitlement. **All** is a
+separate `prism-signals-all` v1 test offer. When every dedicated sandbox guard
+is configured, an owner with active beta interest and a separate
+operator-issued, active, unexpired sandbox invitation may rehearse a £5 monthly
+Stripe test subscription and receive a time-bounded All-labelled owner
+projection around the same public synthetic fixture. This sandbox does not
+gate a unique signal payload or make the Free fixture subscriber-only.
+
+The £5 value is a sandbox amount, not Cambridge's final live price. Yu chose
+the Free/All shape after referencing ShibbySays. The current public ShibbySays
+Patreon page actually lists a larger cumulative USD ladder ($1, $5, $10, $15,
+$25, and $50 per month), so this methodology does not attribute Cambridge's
+two-tier catalogue or GBP amount to that creator.
+
+All's test offer is `status: test`, `environment: test`, web-only, and enables
+only `stripe_web: test`. Its granted purpose is narrowly
+`synthetic_fixture_delivery`. That assertion cannot flow into the preview's
+still-unevaluated `subscriber_derived_signal` purpose. A Stripe test
+entitlement therefore cannot open a live source, private scorer, real card,
+listing, alert, or trade action.
+
+New Checkout intake is a host switch separate from offer evaluation and
+existing lifecycle support. Pausing intake removes only the ability to start a
+new Checkout; it does not turn off a confirmed test period, signed webhook,
+owner status, or cancellation portal. Free never requires that machinery.
+
 ## The signal boundary remains the first boundary
 
 ```text
@@ -143,7 +173,7 @@ inactive rail is represented as `off`, not omitted. The canonical mapping is:
 
 | Customer context | Canonical rail | Current PRISM status |
 |---|---|---|
-| Independent web purchase | `stripe_web` | Off; no checkout or price reference |
+| Independent web purchase | `stripe_web` | Optional sandbox only; £5 monthly test amount, no live price or charge |
 | Purchase initiated and fulfilled inside Telegram | `telegram_stars` | Off; no invoice or paid delivery |
 | Additional independent web purchase | `paypal_web` | Later / off |
 | Additional independent web purchase | `crypto_web` | Later / off |
@@ -212,11 +242,44 @@ that lack payment identity are explicitly deferred rather than guessed into an
 entitlement transition.
 PayPal and crypto are explicitly disabled registry entries.
 
-No public route consumes this runtime. The schema and adapter therefore hold
-no PRISM payment or entitlement merely because they exist. There is still no
-checkout adapter, provider webhook, price catalogue, account/channel binding,
-delivery worker, retry queue, or reconciliation operator surface. Reloading a
-page, following a bot link, or recording beta interest creates no access.
+A dedicated PRISM Stripe sandbox host may now consume this runtime, but only
+behind strict test credentials and synthetic-fixture posture. Checkout reserves
+an owner-bound attempt; a separate raw-body route verifies its own Stripe
+endpoint signature and rejects `livemode=true`. It keeps provider ids in local
+mapping tables and sends only random/HMAC-derived references into the generic
+event/snapshot store. Reloading a page, following a bot link, recording beta
+interest, creating Checkout, or returning from Stripe creates no access.
+
+Only an exact, signed `invoice.paid` fact bound to the local attempt,
+subscription, active GBP monthly test Price and period can confirm or renew
+All. Binding, receipt, invoice grant, canonical event and snapshot commit in
+one Postgres transaction. Failure leaves none of them half-applied. Duplicate
+events are idempotent; unknown or conflicting facts become bounded review or
+retry state rather than guessed access.
+
+For this dedicated host, a full latest-period Stripe refund and provider
+subscription cancellation remain separate facts. The refund creates a durable
+`cancel_subscription` reconciliation obligation, blocks any later paid event
+from restoring access, and prevents account erasure until a signed terminal
+subscription event resolves it. A refund that arrives before its paid event
+terminalizes the ungranted generation without fabricating a generic refund of
+access that never existed. A refund that arrives after subscription deletion
+can still correct grant accounting without reactivating access.
+
+Stripe supplies lifecycle times with second precision while the reducer's
+cursor is millisecond-strict. The host therefore locks the entitlement first
+and allocates an accepted projection time after its current cursor. The true
+paid, failed, refund or subscription instant remains in provider evidence.
+This prevents two callbacks from one second corrupting order while preserving
+what Stripe actually attested.
+
+A paid renewal extends time; it does not prove that the customer withdrew a
+scheduled cancellation. The canonical snapshot therefore preserves its cancel
+flag across renewal. A separately verified `subscription_resumed` provider
+status is the only event that clears the flag, and it is rejected for an ended
+or refunded entitlement. When the invoice handler retrieves current provider
+state, a differing cancel/resume state is projected after the grant in the same
+outer transaction rather than silently overwritten in a mirror column.
 
 Access evaluation additionally requires the offer, rights decision, channel,
 rail, environment, price reference, entitlement scope, and active interval to
@@ -353,10 +416,14 @@ tested:
    provider-policy, consumer-terms, tax, privacy, and operational review before
    activation.
 
-Until then, the exact customer-facing truth is unchanged: **Synthetic preview
-· no live market data · no payment.** There is no active paid entitlement,
-accepted payment, or promised delivery. Recording beta interest changes none
-of those facts.
+Until then, the exact customer-facing truth is: **Free synthetic preview ·
+optional Stripe test mode · no live market data · no real payment.** A sandbox
+entitlement, when configured, marks only an owner projection around the fixed
+public synthetic fixture and gates no unique payload.
+Recording beta interest alone still changes none of those facts and is not a
+Stripe sandbox invitation. Checkout additionally requires a separate,
+operator-issued, active and unexpired `stripe_all_sandbox_v1` allowlist fact;
+neither record grants access or substitutes for verified payment evidence.
 
 ## Change history
 
@@ -369,3 +436,9 @@ of those facts.
   runtime and durable schema, current-grant refund binding, and pure
   Stripe/Telegram normalizers. No provider callback, price, payment, rights
   grant, live signal, entitlement, or delivery was activated.
+- **v3 — 2026-09-03.** Added a Free/All plan catalogue and a dedicated,
+  fail-closed Stripe sandbox host. The £5 monthly value is test-only;
+  `invoice.paid` may grant only the owner projection around the fixed public
+  fixture. No live Stripe key, real charge, production price, production
+  source-rights decision, private delivery provider, or live signal was
+  activated.

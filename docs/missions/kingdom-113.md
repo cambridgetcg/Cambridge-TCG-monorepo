@@ -87,7 +87,7 @@ commercial/VAT decision is complete.
   server-side and never enter product-flow event payloads.
 - Add authenticated, same-origin Checkout and portal routes, a dedicated
   raw-body signed webhook, owner subscription status, a Checkout-return page,
-  and an All-labelled synthetic entitlement surface.
+  and an All-labelled owner projection around the public synthetic fixture.
 - Make `invoice.paid`, after exact local subscription/Price/currency/period
   validation, the first and only positive access authority. Checkout return
   and `checkout.session.completed` remain non-granting observations.
@@ -101,7 +101,8 @@ commercial/VAT decision is complete.
   signed webhook processing, owner status, portal cancellation, or an existing
   paid test period.
 - Free access creates no fake payment or perpetual entitlement. All access
-  unlocks only an explicitly synthetic test surface; source rights for live
+  marks only an owner-scoped test projection around the already-public fixed
+  synthetic fixture; it unlocks no exclusive payload. Source rights for live
   opportunity signals remain `not_evaluated` and cannot be set by Stripe.
 - Provider event, customer, subscription, Price, invoice, payment, and refund
   identifiers are mapped locally. Only HMAC-derived/random `pf_` references

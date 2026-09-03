@@ -88,7 +88,8 @@ export type AuthKind =
   | "user"          // authenticated human participant
   | "agent"         // authenticated AI agent (S18 bearer-token at /api/mcp)
   | "admin"         // operator only
-  | "wholesale-key";// channel API key (Falcon to wholesale)
+  | "wholesale-key" // channel API key (Falcon to wholesale)
+  | "provider-signature"; // dedicated raw-body webhook signature
 
 export type ProvenanceKind =
   | "live"          // queried at request time
@@ -477,12 +478,12 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
-      { id: "storefront.prism-signals-preview", description: "Branded synthetic PRISM Signals product-experience preview. It renders fixed coarse bands, evidence-quality and liquidity labels, risks, and non-claims; it reads no live market data and accepts no payment.",
+      { id: "storefront.prism-signals-preview", description: "Branded Free synthetic PRISM Signals product-experience preview plus an honest door to the separately gated All Stripe sandbox. The preview renders fixed coarse bands, evidence-quality and liquidity labels, risks, and non-claims; it reads no live market data and accepts no real payment.",
         host: "storefront", path: "/prism-signals", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
         cosmology_axes: ["value", "authority", "knowledge", "substrate"], methodology_url: "/methodology/prism-signals",
         since: "2026-09-02",
-        notes: "Synthetic preview only. The public request CTA appears only while new intake is enabled; otherwise a non-intake management link remains for prior withdrawal. Neither surface creates a live offer, price, checkout, entitlement, subscriber delivery, source row, or private-engine call." },
+        notes: "The Free reading is synthetic and needs no entitlement. The beta-request CTA appears only while its own intake is enabled. The separate All sandbox door never creates Checkout directly and reports test availability fail-closed. Nothing here creates a live offer, real payment, live-signal entitlement, source row, or private-engine call." },
       { id: "storefront.prism-signals-beta", description: "Login-gated PRISM Signals beta-request management page. It is not gated by intake and, while storage is available, lets the signed-in account inspect or fully withdraw an existing product-specific request; new affirmation and update controls appear only while intake is enabled.",
         host: "storefront", path: "/prism-signals/beta", methods: ["GET"],
         modalities: ["html"], auth: "user", provenance: "live",
@@ -501,6 +502,42 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["value", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
         since: "2026-09-02", contract: "alternative",
         notes: "Returns the versioned offer directly rather than a pantry envelope. It contains no secret, price reference, payment authority, entitlement, or source data." },
+      { id: "storefront.prism-signals-all-test-offer", description: "Exact test-environment product-offer/1 declaration for the separately gated PRISM Signals All Stripe sandbox. It exposes only an HMAC-mapped price reference and synthetic-fixture rights purpose; no raw Stripe id, secret, live price or source permission.",
+        host: "storefront", path: "/api/prism-signals/offers/all", methods: ["GET", "OPTIONS"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["value", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "Returns 503 unless the dedicated test processing configuration is internally coherent. The £5 monthly amount belongs to the separate plan catalogue and remains a sandbox value, not a live charge or production tariff." },
+      { id: "storefront.prism-signals-sandbox-account", description: "Login-gated owner page for strict Free/All status, a time-bounded All-labelled projection around the public synthetic fixture, new test Checkout availability and dedicated cancellation-portal availability.",
+        host: "storefront", path: "/prism-signals/account", methods: ["GET"],
+        modalities: ["html"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "value"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03",
+        notes: "Noindex and omitted from the public sitemap. Controls remain locked until the owner status read succeeds. Free is never inferred as a payment entitlement; All unlocks no unique payload or live market signal." },
+      { id: "storefront.prism-signals-subscription-status", description: "Private no-store owner projection of Free/All, access expiry, scheduled cancellation and fail-closed Checkout/portal availability without raw or opaque provider identifiers.",
+        host: "storefront", path: "/api/prism-signals/subscription", methods: ["GET"],
+        modalities: ["json"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "A missing provider configuration cannot manufacture All access. Existing stored owner/access state remains readable when new Checkout intake is paused." },
+      { id: "storefront.prism-signals-stripe-checkout", description: "Authenticated same-origin empty-JSON mutation that reserves an owner-bound attempt, attests one exact Stripe test Price and returns a verified hosted test Checkout URL. It never grants access.",
+        host: "storefront", path: "/api/prism-signals/stripe/checkout", methods: ["POST"],
+        modalities: ["json"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "value", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "Only a dedicated sk_test_ or restricted rk_test_ credential, active beta interest, a separate operator-issued active sandbox invitation, explicit intake, GBP £5/month Price and stable idempotency are accepted. Stripe metadata receives a fixed type plus random attempt_ref only." },
+      { id: "storefront.prism-signals-stripe-portal", description: "Authenticated same-origin route to a separately attested Stripe test portal for the owner-bound customer, with invoices, payment-method repair and cancellation at period end but no plan switching.",
+        host: "storefront", path: "/api/prism-signals/stripe/portal", methods: ["POST"],
+        modalities: ["json"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "value"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "The route never falls back to the retired membership portal. Missing or drifting dedicated portal configuration returns unavailable without disabling owner status or an existing paid test period." },
+      { id: "storefront.prism-signals-stripe-webhook", description: "Dedicated bounded raw-body Stripe sandbox webhook. Signature, test mode, account/API shape and local provider binding are verified before semantic events enter the atomic product-flow runtime.",
+        host: "storefront", path: "/api/webhooks/stripe/prism-signals", methods: ["POST"],
+        modalities: ["json"], auth: "provider-signature", provenance: "live",
+        cosmology_axes: ["authority", "time", "identity", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "Accepts no livemode event and stores no full webhook payload. Checkout completion is non-granting; exact invoice.paid is the only positive authority. Binding, receipt, grant event and snapshot commit together or roll back." },
       { id: "storefront.answering-rhymes-room", description: "The human Answering Rhymes room: an accessible, image-free constellation of the curated Cambridge card-to-museum-work relations, their object-specific rights, evidence, and optional reciprocity doors.",
         host: "storefront", path: "/answering-rhymes", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",

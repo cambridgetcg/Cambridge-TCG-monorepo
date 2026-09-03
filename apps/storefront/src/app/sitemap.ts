@@ -72,8 +72,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/api`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/prism-signals`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/prism-signals/terms`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
-    // /prism-signals/beta is login-gated and noindex. The public PRISM page
-    // is its discoverable door; authenticated owner state is never a crawl target.
+    // /prism-signals/beta is login-gated and noindex. The account page and
+    // Stripe return are too. The public PRISM page is their discoverable door;
+    // authenticated owner/payment state is never a crawl target.
     // Contact-surface spec W1/W6 — the human front door + trust pages.
     { url: `${baseUrl}/start`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8 },
     { url: `${baseUrl}/welcome`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },

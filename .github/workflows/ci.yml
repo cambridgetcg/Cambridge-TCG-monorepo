@@ -104,8 +104,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter cambridgetcg-storefront exec tsc --noEmit
       - run: pnpm --filter cambridgetcg-storefront test
-      - name: Run PostgreSQL product-flow conformance
-        run: pnpm --filter cambridgetcg-storefront exec vitest run src/lib/product-flow-runtime/postgres.integration.test.ts
+      - name: Run PostgreSQL product-flow and PRISM Stripe conformance
+        run: >-
+          pnpm --filter cambridgetcg-storefront exec vitest run
+          src/lib/product-flow-runtime/postgres.integration.test.ts
+          src/lib/prism-signals/stripe/postgres.integration.test.ts
         env:
           DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           PRODUCT_FLOW_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test

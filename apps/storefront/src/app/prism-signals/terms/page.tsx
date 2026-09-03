@@ -11,9 +11,9 @@ import {
 } from "@/lib/prism-signals/presentation";
 
 export const metadata: Metadata = {
-  title: "PRISM Signals preview terms",
+  title: "PRISM Signals preview and Stripe sandbox terms",
   description:
-    "The test-only boundary, refusals, channel rules, and support path for the PRISM Signals synthetic preview.",
+    "The Free preview, test-only Stripe All boundary, refusals, channel rules, and support path for PRISM Signals.",
   other: audienceMetadata("public-documentation", [
     "trader",
     "terms",
@@ -27,9 +27,11 @@ export default function PrismSignalsPreviewTermsPage() {
       <Audience kind="public-documentation" contexts={["trader", "terms"]} />
       <div className="mx-auto max-w-3xl px-5 py-16 md:px-8 md:py-20">
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
-          {PRISM_SIGNALS_BRAND.name} · preview terms · 2 September 2026
+          {PRISM_SIGNALS_BRAND.name} · preview and sandbox terms · 3 September 2026
         </p>
-        <h1 className="mt-3 font-display text-4xl font-semibold">Nothing is for sale on this page</h1>
+        <h1 className="mt-3 font-display text-4xl font-semibold">
+          Free preview; Stripe sandbox, not a purchase
+        </h1>
         <p className="mt-5 rounded-lg border border-border-strong bg-surface px-4 py-3 font-mono text-xs uppercase tracking-wide text-ink-muted">
           {PRISM_SIGNALS_PREVIEW_NOTICE}
         </p>
@@ -41,18 +43,80 @@ export default function PrismSignalsPreviewTermsPage() {
               A fixed synthetic demonstration of how a future decision-support
               product could communicate a potential deal and its limitations.
               It does not query a marketplace, private engine, subscriber
-              archive, account, payment provider, or Telegram account.
+              archive, or Telegram account. The public Free reading needs no
+              payment or entitlement.
             </p>
           </section>
 
           <section>
-            <h2 className="font-display text-2xl font-semibold text-ink">No purchase contract</h2>
+            <h2 className="font-display text-2xl font-semibold text-ink">No live purchase contract</h2>
             <p className="mt-3">
-              There is no price, checkout, trial, renewal, entitlement, paid
-              channel, refund balance, or service-level commitment in this
-              preview. Pressing a link cannot create a subscription. A future
-              paid pilot needs separate reviewed commercial terms, support,
-              cancellation, tax, refund, and delivery controls before it opens.
+              Free has no price. A separately labelled All sandbox may use a
+              £5 monthly <strong className="text-ink">test amount</strong> to
+              rehearse Stripe Checkout, renewal, cancellation, failure, and
+              refund handling. It accepts Stripe test mode and test payment
+              methods only: it cannot make a real charge, issue a tax invoice,
+              buy a live service, or create a production entitlement.
+              This first sandbox is card-test only; delayed payment methods,
+              trials, discounts and promotion codes are not offered.
+            </p>
+            <p className="mt-3">
+              A successful test invoice can create a time-bounded, All-labelled
+              owner projection around the fixed public synthetic fixture. It
+              does not gate a unique signal payload or remove that fixture from
+              Free. The amount is not a live commercial price, offer, trial,
+              discount, VAT decision, service-level commitment, or promise that
+              a live product will open. A live launch needs a new version of the
+              offer and terms.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-2xl font-semibold text-ink">Stripe sandbox boundary</h2>
+            <p className="mt-3">
+              New sandbox Checkout is available only when Cambridge explicitly
+              enables its separate test-intake posture and every dedicated
+              Stripe test credential, Price, Product, webhook, reference secret,
+              and portal configuration agrees. Missing or drifting configuration
+              means unavailable. Pausing new Checkout does not remove an
+              existing test period or its status and cancellation paths.
+            </p>
+            <p className="mt-3">
+              Checkout also requires both an active beta-interest request and a
+              separate operator-issued, active, unexpired sandbox invitation.
+              Interest is not an invitation; neither record is a purchase or
+              grants access. There is no public endpoint for creating an
+              invitation.
+            </p>
+            <p className="mt-3">
+              Checkout creation and its return page never grant access. Only a
+              correctly signed, non-live Stripe <code className="font-mono text-sm text-ink">invoice.paid</code>
+              event bound to the exact local account attempt, monthly GBP test
+              Price, subscription, and period can activate or renew the
+              synthetic entitlement. Duplicate and out-of-order events are
+              deduplicated or held for review rather than guessed into access.
+            </p>
+            <p className="mt-3">
+              The dedicated test portal may show test invoices, repair a test
+              payment method, and schedule cancellation at period end. It does
+              not offer plan switching. Scheduled cancellation preserves the
+              already-confirmed test period; effective deletion ends it. Only a
+              full refund of the latest confirmed period may end access early.
+              Refund and subscription cancellation are separate Stripe facts:
+              after a full refund, Cambridge records a cancellation obligation
+              and blocks any later invoice from restoring access until a signed
+              terminal subscription event resolves it.
+            </p>
+            <p className="mt-3">
+              Stripe&apos;s hosted page receives the test customer, billing, and
+              payment details entered there. Cambridge sends only a fixed
+              sandbox marker and random attempt reference in metadata—not its
+              user id, account email, entitlement reference, or internal scope.
+              The signed webhook transiently parses the event, which can include
+              the test customer details supplied to Stripe, and retains a digest
+              rather than the full event payload.
+              Read the <Link href="/privacy" className="text-accent underline underline-offset-4">privacy notice</Link>
+              for the provider and local-record boundary.
             </p>
           </section>
 
@@ -132,7 +196,7 @@ export default function PrismSignalsPreviewTermsPage() {
             <h2 className="font-display text-2xl font-semibold text-ink">Support and next reading</h2>
             <p className="mt-3">
               Questions about the preview belong with Cambridge TCG, not
-              Telegram or a payment provider. Use the
+              Telegram or Stripe. Use the
               <Link href={PRISM_SIGNALS_LINKS.support.path} className="mx-1 text-accent underline underline-offset-4">contact page</Link>
               or read the
               <Link href={PRISM_SIGNALS_LINKS.methodology.path} className="mx-1 text-accent underline underline-offset-4">product-flow methodology</Link>.
