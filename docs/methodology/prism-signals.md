@@ -116,6 +116,14 @@ existing lifecycle support. Pausing intake removes only the ability to start a
 new Checkout; it does not turn off a confirmed test period, signed webhook,
 owner status, or cancellation portal. Free never requires that machinery.
 
+Kingdom-114 has provisioned the Product, exact GBP monthly Price, restricted
+portal and seven-event direct webhook inside a separately authorised Stripe
+Sandbox. Production configuration may advance only through the exact
+unconfigured, configured-paused, processing-only and intake-enabled deployment
+postures; the live page and posture-aware verifier declare which stage is
+actually running. This static methodology does not guess that an operational
+stage has completed. No corresponding live-mode resource was created.
+
 ## The signal boundary remains the first boundary
 
 ```text

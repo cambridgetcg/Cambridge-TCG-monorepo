@@ -3,6 +3,8 @@ import { PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR } from "@cambridge-tcg/prism-signal
 
 export const PRISM_STRIPE_TEST_POSTURE = "stripe-test-v1" as const;
 export const PRISM_STRIPE_API_VERSION = "2026-02-25.clover" as const;
+export const PRISM_STRIPE_KEY_PERMISSION_ATTESTATION =
+  "prism-runtime-rk-v1" as const;
 export const PRISM_STRIPE_CURRENCY = "gbp" as const;
 export const PRISM_STRIPE_INTERVAL = "month" as const;
 
@@ -13,6 +15,7 @@ export type PrismStripeConfigurationReason =
 export interface PrismStripeEnvironmentV1 {
   readonly PRISM_STRIPE_POSTURE?: string;
   readonly PRISM_STRIPE_SECRET_KEY?: string;
+  readonly PRISM_STRIPE_KEY_PERMISSION_ATTESTATION?: string;
   readonly PRISM_STRIPE_WEBHOOK_SECRET?: string;
   readonly PRISM_STRIPE_ACCOUNT_ID?: string;
   readonly PRISM_STRIPE_API_VERSION?: string;
@@ -53,7 +56,7 @@ export class PrismStripeConfigurationError extends Error {
 }
 
 const PATTERNS = Object.freeze({
-  secretKey: /^(?:sk|rk)_test_[A-Za-z0-9_]{16,240}$/,
+  secretKey: /^rk_test_[A-Za-z0-9_]{16,240}$/,
   webhookSecret: /^whsec_[A-Za-z0-9_]{16,240}$/,
   accountId: /^acct_[A-Za-z0-9]{8,64}$/,
   priceId: /^price_[A-Za-z0-9]{8,64}$/,
@@ -66,6 +69,8 @@ function processEnvironment(): PrismStripeEnvironmentV1 {
   return {
     PRISM_STRIPE_POSTURE: process.env.PRISM_STRIPE_POSTURE,
     PRISM_STRIPE_SECRET_KEY: process.env.PRISM_STRIPE_SECRET_KEY,
+    PRISM_STRIPE_KEY_PERMISSION_ATTESTATION:
+      process.env.PRISM_STRIPE_KEY_PERMISSION_ATTESTATION,
     PRISM_STRIPE_WEBHOOK_SECRET: process.env.PRISM_STRIPE_WEBHOOK_SECRET,
     PRISM_STRIPE_ACCOUNT_ID: process.env.PRISM_STRIPE_ACCOUNT_ID,
     PRISM_STRIPE_API_VERSION: process.env.PRISM_STRIPE_API_VERSION,
@@ -96,6 +101,12 @@ function enabledOnly(value: string): boolean {
   return value === "enabled";
 }
 
+type PrismStripeSwitchState = "enabled" | "disabled" | "invalid";
+
+function switchState(value: string): PrismStripeSwitchState {
+  return value === "enabled" || value === "disabled" ? value : "invalid";
+}
+
 /**
  * Load the dedicated PRISM test account. There is deliberately no live-key
  * branch and no fallback to the storefront's other Stripe integration.
@@ -106,6 +117,14 @@ export function readPrismStripeSandboxConfig(
   const env = environment ?? processEnvironment();
   const posture = trimmed(env, "PRISM_STRIPE_POSTURE");
   if (!posture) {
+    const partialConfiguration = Object.values(env).some(
+      (value) => typeof value === "string" && value.trim() !== "",
+    );
+    if (partialConfiguration) {
+      return invalid(
+        "PRISM Stripe has partial configuration without its explicit test posture.",
+      );
+    }
     throw new PrismStripeConfigurationError(
       "not_configured",
       "PRISM Stripe sandbox is not configured.",
@@ -116,6 +135,10 @@ export function readPrismStripeSandboxConfig(
   }
 
   const secretKey = trimmed(env, "PRISM_STRIPE_SECRET_KEY");
+  const keyPermissionAttestation = trimmed(
+    env,
+    "PRISM_STRIPE_KEY_PERMISSION_ATTESTATION",
+  );
   const webhookSecret = trimmed(env, "PRISM_STRIPE_WEBHOOK_SECRET");
   const accountId = trimmed(env, "PRISM_STRIPE_ACCOUNT_ID");
   const apiVersion = trimmed(env, "PRISM_STRIPE_API_VERSION");
@@ -129,7 +152,12 @@ export function readPrismStripeSandboxConfig(
 
   if (!PATTERNS.secretKey.test(secretKey)) {
     return invalid(
-      "PRISM Stripe requires a dedicated sk_test_ or restricted rk_test_ key.",
+      "PRISM Stripe requires a dedicated restricted rk_test_ key.",
+    );
+  }
+  if (keyPermissionAttestation !== PRISM_STRIPE_KEY_PERMISSION_ATTESTATION) {
+    return invalid(
+      `PRISM Stripe key permissions must be attested as ${PRISM_STRIPE_KEY_PERMISSION_ATTESTATION}.`,
     );
   }
   if (!PATTERNS.webhookSecret.test(webhookSecret)) {
@@ -196,24 +224,30 @@ export function inspectPrismStripeSandboxConfig(
   }
 }
 
+export type PrismStripeSandboxPublicPostureReason =
+  | PrismStripeConfigurationReason
+  | "portal_not_configured"
+  | "portal_invalid_configuration"
+  | "switch_invalid_configuration"
+  | "intake_without_processing"
+  | "configured_paused"
+  | "processing_only"
+  | "available";
+
 export type PrismStripeSandboxPublicPostureV1 = Readonly<{
   configured: boolean;
   processing_available: boolean;
   checkout_available: boolean;
   portal_available: boolean;
-  reason:
-    | PrismStripeConfigurationReason
-    | "processing_paused"
-    | "portal_unconfigured"
-    | "checkout_paused"
-    | "available";
+  reason: PrismStripeSandboxPublicPostureReason;
 }>;
 
 /** Non-secret status safe for server-rendered public UI. */
 export function prismStripeSandboxPublicPosture(
   environment?: PrismStripeEnvironmentV1,
 ): PrismStripeSandboxPublicPostureV1 {
-  const inspected = inspectPrismStripeSandboxConfig(environment);
+  const env = environment ?? processEnvironment();
+  const inspected = inspectPrismStripeSandboxConfig(env);
   if (!inspected.ok) {
     return Object.freeze({
       configured: false,
@@ -223,22 +257,67 @@ export function prismStripeSandboxPublicPosture(
       reason: inspected.reason,
     });
   }
-  const processing = inspected.config.webhookProcessingEnabled;
-  const checkout =
-    processing &&
-    inspected.config.checkoutIntakeEnabled &&
-    inspected.config.portalConfigurationId !== null;
+
+  const portalValue = trimmed(env, "PRISM_STRIPE_PORTAL_CONFIGURATION_ID");
+  const processingState = switchState(
+    trimmed(env, "PRISM_STRIPE_WEBHOOK_PROCESSING"),
+  );
+  const intakeState = switchState(
+    trimmed(env, "PRISM_STRIPE_CHECKOUT_INTAKE"),
+  );
+  const processing = processingState === "enabled";
+
+  // Portal syntax is assessed before switch ordering. Missing or malformed
+  // portal configuration is therefore never mistaken for an ordinary paused
+  // acquisition stage, regardless of either switch value.
+  if (portalValue === "") {
+    return Object.freeze({
+      configured: true,
+      processing_available: processing,
+      checkout_available: false,
+      portal_available: false,
+      reason: "portal_not_configured",
+    });
+  }
+  if (!PATTERNS.portalConfigurationId.test(portalValue)) {
+    return Object.freeze({
+      configured: true,
+      processing_available: processing,
+      checkout_available: false,
+      portal_available: false,
+      reason: "portal_invalid_configuration",
+    });
+  }
+  if (processingState === "invalid" || intakeState === "invalid") {
+    return Object.freeze({
+      configured: true,
+      processing_available: processing,
+      checkout_available: false,
+      portal_available: true,
+      reason: "switch_invalid_configuration",
+    });
+  }
+  if (processingState === "disabled" && intakeState === "enabled") {
+    return Object.freeze({
+      configured: true,
+      processing_available: false,
+      checkout_available: false,
+      portal_available: true,
+      reason: "intake_without_processing",
+    });
+  }
+
+  const checkout = processingState === "enabled" && intakeState === "enabled";
   return Object.freeze({
     configured: true,
     processing_available: processing,
     checkout_available: checkout,
-    portal_available: inspected.config.portalConfigurationId !== null,
-    reason: !processing
-      ? "processing_paused"
-      : inspected.config.portalConfigurationId === null
-        ? "portal_unconfigured"
-      : !checkout
-        ? "checkout_paused"
-        : "available",
+    portal_available: true,
+    reason:
+      processingState === "disabled"
+        ? "configured_paused"
+        : intakeState === "disabled"
+          ? "processing_only"
+          : "available",
   });
 }

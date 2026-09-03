@@ -1,11 +1,14 @@
 # The PRISM Stripe sandbox — a payment rehearsal that cannot become a sale by accident
 
-> **Status:** deployed fail-closed by kingdom-113 on 3 September 2026. The
-> dedicated production Stripe variables and resources are not configured, so
-> Checkout and webhook intake are currently unavailable. The only provider
-> mode this code can admit is Stripe test mode; no live secret, real charge,
-> live signal, exclusive payload, or production source-rights decision is
-> accepted by this design.
+> **Status:** deployed fail-closed by kingdom-113 and entering sandbox
+> activation under kingdom-114 on 3 September 2026. A separate Cambridge TCG
+> Stripe Sandbox now contains the test Product, GBP £5 monthly Price, restricted
+> portal and direct version-pinned webhook. Production configuration can move
+> only through four exact, aggregate-verified stages; the live product page is
+> authoritative for the current stage. This static document does not infer
+> that a later stage has completed. The only provider mode this code can admit
+> is Stripe test mode; no live secret, real charge, live signal, exclusive
+> payload, or production source-rights decision is accepted by this design.
 
 ## The commercial instruction, bounded
 
@@ -78,6 +81,22 @@ dedicated raw-body webhook
   → acknowledge applied / duplicate / ignored / durable review
 ```
 
+The direct sandbox webhook subscribes only to:
+
+```text
+checkout.session.completed
+invoice.paid
+invoice.payment_failed
+customer.subscription.updated
+customer.subscription.deleted
+refund.created
+refund.updated
+```
+
+It is not a Connect/context endpoint and does not subscribe to all events.
+`charge.refunded` is defensively understood by the parser but deliberately
+omitted because the two Refund events are the authoritative minimal signal.
+
 Only `invoice.paid` can activate or renew access. Checkout creation,
 `checkout.session.completed`, a browser return, a page reload, beta interest,
 an invitation, and payment failure do not grant. Scheduled cancellation
@@ -106,6 +125,30 @@ for an already-known account; the Checkout transaction rechecks both facts at
 reservation time, so an expired/revoked invitation or withdrawn interest fails
 closed even if a page was already open.
 
+Kingdom-114 supplies the bounded operator command; it accepts a canonical
+account UUID but never an email address or Stripe id:
+
+```text
+pnpm prism-stripe:operator status --target production --ca-file <RDS CA>
+pnpm prism-stripe:operator reconciliation --target production --ca-file <RDS CA>
+pnpm prism-stripe:operator plan-grant --target production --ca-file <RDS CA> \
+  --user-id <uuid> --expires-at <canonical UTC within 31 days> \
+  --reason initial_sandbox_cohort
+pnpm prism-stripe:operator grant --target production --ca-file <RDS CA> \
+  --user-id <same uuid> --expires-at <same expiry> \
+  --reason initial_sandbox_cohort --planned-at <plan timestamp> \
+  --database-witness <plan witness> --confirm <plan token>
+```
+
+`PRISM_OPERATOR_DATABASE_URL` is env-only and has no generic fallback.
+Production additionally requires the independently provisioned
+`PRISM_OPERATOR_PRODUCTION_TARGET_WITNESS`; the command verifies the connected
+database name, role and TLS before `BEGIN`. A plan expires after ten minutes
+and binds the locked invitation-row state, so a token cannot be replayed after
+a revoke or other row change. Revoke follows the same `plan-revoke` then
+`revoke` sequence without an expiry. Output contains aggregate invitation and
+reconciliation counts, never the UUID, email or raw provider ids.
+
 Renewal does not imply cancellation reversal. A scheduled-cancel flag survives
 a paid renewal until separately verified `subscription_resumed` status clears
 it. Resume can operate only on active matching scope and cannot reactivate an
@@ -117,14 +160,15 @@ cancel/resume status after the grant inside the same transaction.
 
 Raw Stripe ids remain in bounded server-only mapping tables. The generic
 product-flow event ledger sees only random or HMAC-derived `pf_` references.
-The storage separates:
+The seven authority tables separate:
 
 1. one stable test subject for an account;
-2. successive owned entitlement generations;
-3. frozen Checkout attempts and write-once Session attachment;
-4. the latest verified Stripe subscription binding and lifecycle posture;
-5. invoice/payment references needed for grant and refund correlation; and
-6. signed-event receipt outcomes and a review reason, without the full payload.
+2. the separate operator-issued sandbox invitation;
+3. successive owned entitlement generations;
+4. frozen Checkout attempts and write-once Session attachment;
+5. the latest verified Stripe subscription binding and lifecycle posture;
+6. invoice/payment references needed for grant and refund correlation; and
+7. signed-event receipt outcomes and a review reason, without the full payload.
 
 Generations matter. The v1 reducer correctly refuses to reactivate an ended
 entitlement. A genuinely new subscription after a terminal old subscription
@@ -187,7 +231,8 @@ legacy Stripe variable:
 
 ```text
 PRISM_STRIPE_POSTURE=stripe-test-v1
-PRISM_STRIPE_SECRET_KEY=<dedicated sk_test_ or restricted rk_test_ key>
+PRISM_STRIPE_SECRET_KEY=<dedicated restricted rk_test_ key>
+PRISM_STRIPE_KEY_PERMISSION_ATTESTATION=prism-runtime-rk-v1
 PRISM_STRIPE_WEBHOOK_SECRET=<dedicated whsec_ endpoint secret>
 PRISM_STRIPE_ACCOUNT_ID=<expected acct_ id>
 PRISM_STRIPE_API_VERSION=2026-02-25.clover
@@ -200,18 +245,80 @@ PRISM_STRIPE_CHECKOUT_INTAKE=enabled|disabled
 ```
 
 Configuration order is part of the safety boundary: migrate and deploy first;
-create the test Product, £5 monthly Price, restricted portal and dedicated
-version-pinned webhook; set processing credentials while both switches remain
-disabled; enable webhook processing and exercise signed fixtures; enable new
-Checkout intake last. Reversing the last switch pauses acquisition without
-changing lifecycle authority.
+create and independently retrieve the test Product, £5 monthly Price,
+restricted portal and dedicated version-pinned webhook; set every production
+credential/id while both switches remain disabled; deploy that exact main SHA;
+enable webhook processing with intake still disabled and deploy again; exercise
+the signed provider path; enable new Checkout intake only in a third deployment.
+Vercel environment changes do not affect an already-built deployment. Reversing
+the last switch therefore means a new deployment with intake disabled—not
+aliasing an older build that lacks lifecycle credentials.
 
-A restricted test key is preferred when its permissions cover only the calls
-this host makes: Account, Product and Price read; Checkout Session create/read;
-Subscription, PaymentIntent, Invoice and InvoicePayment read; Billing Portal
-configuration read and Session create. The key is not accepted merely because
-it is non-live—the configured account, Product, Price, portal and every returned
-object are still checked independently.
+Each deployment is gated with its expected aggregate posture, not three
+independent endpoint successes:
+
+```text
+pnpm audit:deploy-verify -- --prism-posture=unconfigured
+pnpm audit:deploy-verify -- --prism-posture=configured-paused
+pnpm audit:deploy-verify -- --prism-posture=processing-only
+pnpm audit:deploy-verify -- --prism-posture=intake-enabled
+```
+
+The verifier combines the exact All-offer response, unsigned-webhook response
+and mutually exclusive paused/available copy on `/prism-signals`. Mixed,
+missing, ambiguous or wrong-stage tuples fail even when each HTTP status would
+be locally safe.
+
+A separately named restricted sandbox key is required for the deployed host;
+the Stripe CLI OAuth session is operator-only and must never enter Vercel. The
+restricted key grants only: Account read; Price read; Checkout Session write;
+Events read; Subscription read; Invoice read; Invoice Payment read/list;
+PaymentIntent read; Billing Portal Configuration read; and Billing Portal
+Session write. All other permissions remain None. Events read is mandatory
+because every first delivery is retrieved by Event id before acknowledgement.
+Product and Webhook Endpoint retrieval are separate operator/OAuth activation
+attestations; those unused permissions are not added to the runtime key merely
+for setup. The key is not accepted merely because it is non-live—the configured
+account, Price, portal and every returned runtime object are still checked
+independently.
+
+The Dashboard receipt for `prism-runtime-rk-v1` is:
+
+| Stripe restricted-key resource | Permission |
+|---|---|
+| Account | Read |
+| Prices | Read |
+| Checkout Sessions | Write |
+| Events | Read |
+| Subscriptions | Read |
+| Invoices | Read |
+| Invoice Payments | Read |
+| Payment Intents | Read |
+| Customer/Billing Portal | Write |
+| Products | None |
+| Webhook Endpoints | None |
+| Every unlisted resource | None |
+
+Where the Dashboard combines Portal Configuration read and Portal Session
+create under one Customer/Billing Portal permission, `Write` is the narrowest
+setting that permits the two runtime calls.
+
+Stripe does not expose the whole restricted-key None/Read/Write matrix through
+an API. The activation preflight therefore proves the required reads, proves
+that Product and Webhook Endpoint reads are denied, and requires the operator
+to inspect the remaining Dashboard matrix before recording the exact
+`prism-runtime-rk-v1` attestation. The attestation is a versioned human control,
+not a claim that the application cryptographically introspected every possible
+permission.
+
+Run `pnpm prism-stripe:preflight` with the production-shaped `PRISM_STRIPE_*`
+environment plus local-only `PRISM_STRIPE_WEBHOOK_ENDPOINT_ID=<we_...>`. It
+uses the final `rk_test_` for runtime permission probes and the logged-in
+sandbox CLI only for Product/Webhook setup attestation. Its output is a fixed
+PASS/FAIL checklist with no keys, ids, customer data or provider error text.
+Checkout Session write and Portal Session write remain explicitly deferred
+until the first authorised fixture because proving either permission requires a
+mutation or an owner-bound test Customer.
 
 The v1 Price and reference secret are append-only operational identity while
 any v1 subscription or receipt can still arrive. Replacing either value in
