@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import { PRODUCT_OFFER_NON_CLAIMS } from "@cambridge-tcg/product-flow";
 import {
   PRISM_SIGNALS_BRAND,
+  PRISM_SIGNALS_ALL_OFFER_ID,
+  PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR,
   PRISM_SIGNALS_CATALOG_OFFER,
   PRISM_SIGNALS_CHANNELS,
   PRISM_SIGNALS_FUTURE_RAILS,
   PRISM_SIGNALS_LINKS,
   PRISM_SIGNALS_NON_CLAIMS,
   PRISM_SIGNALS_PREVIEW_NOTICE,
+  PRISM_SIGNALS_PLAN_CATALOG,
   PRISM_SIGNALS_PUBLIC_ORIGIN,
   PRISM_SIGNALS_SYNTHETIC_CARD,
   PRISM_SIGNALS_SYNTHETIC_SIGNAL,
@@ -15,6 +18,7 @@ import {
   PRISM_SIGNALS_TELEGRAM_DEMO_TEXT,
   PRISM_TELEGRAM_PREVIEW_START,
   createPrismSignalsLinks,
+  createPrismSignalsAllStripeTestOffer,
   createPrismSignalsPreviewOffer,
   createPrismSignalsTelegramCopyV1,
   planPrismTelegramPreviewV1,
@@ -166,6 +170,109 @@ describe("PRISM Signals extraction-ready core", () => {
     expect(prismSignalsTelegramPreviewHref(PRISM_SIGNALS_CATALOG_OFFER)).toBe(
       null,
     );
+  });
+
+  it("preserves the preview offer while freezing a Free and All sandbox catalogue", () => {
+    expect(JSON.stringify(createPrismSignalsPreviewOffer())).toBe(
+      JSON.stringify(PRISM_SIGNALS_CATALOG_OFFER),
+    );
+    expect(PRISM_SIGNALS_PLAN_CATALOG).toMatchObject({
+      schema: "cambridgetcg.prism-signals-plan-catalog/1",
+      product_id: "prism-signals",
+      version: 1,
+      posture: "free_and_all_stripe_sandbox",
+      plans: [
+        {
+          id: "free",
+          name: "Free",
+          offer_id: "prism-signals",
+          billing: { kind: "none" },
+          access: {
+            surface: "public_synthetic_preview",
+            live_market_signals: false,
+          },
+        },
+        {
+          id: "all",
+          name: "All",
+          offer_id: PRISM_SIGNALS_ALL_OFFER_ID,
+          billing: {
+            kind: "stripe_test_subscription",
+            test_amount_minor: PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR,
+            currency: "GBP",
+            interval: "month",
+            live_price: false,
+          },
+          access: {
+            surface: "owner_synthetic_fixture",
+            live_market_signals: false,
+          },
+        },
+      ],
+    });
+    expect(PRISM_SIGNALS_PLAN_CATALOG.notice).toMatch(
+      /test amount.*not a live price/i,
+    );
+    expect(Object.isFrozen(PRISM_SIGNALS_PLAN_CATALOG)).toBe(true);
+    expect(Object.isFrozen(PRISM_SIGNALS_PLAN_CATALOG.plans)).toBe(true);
+    expect(
+      PRISM_SIGNALS_PLAN_CATALOG.plans.every(
+        (plan) =>
+          Object.isFrozen(plan) &&
+          Object.isFrozen(plan.billing) &&
+          Object.isFrozen(plan.access),
+      ),
+    ).toBe(true);
+  });
+
+  it("creates a strict All offer with only Stripe sandbox enabled", () => {
+    const offer = createPrismSignalsAllStripeTestOffer({
+      price_ref: "pf_prism_all_price_01",
+    });
+    expect(offer).toMatchObject({
+      schema: "cambridgetcg.product-offer/1",
+      id: "prism-signals-all",
+      version: 1,
+      status: "test",
+      environment: "test",
+      delivery: {
+        web: { availability: "test", url: "/prism-signals/account" },
+        telegram: { availability: "off" },
+      },
+      rights: {
+        purpose: "synthetic_fixture_delivery",
+        decision: "granted",
+      },
+    });
+    expect(offer.rails).toEqual([
+      {
+        rail: "stripe_web",
+        channel: "web",
+        availability: "test",
+        price_ref: "pf_prism_all_price_01",
+      },
+      {
+        rail: "telegram_stars",
+        channel: "telegram",
+        availability: "off",
+      },
+      { rail: "paypal_web", channel: "web", availability: "off" },
+      { rail: "crypto_web", channel: "web", availability: "off" },
+    ]);
+    expect(Object.isFrozen(offer)).toBe(true);
+  });
+
+  it("rejects raw or malformed Stripe Price identifiers at the All offer boundary", () => {
+    expect(() =>
+      createPrismSignalsAllStripeTestOffer({
+        price_ref: "price_123" as `pf_${string}`,
+      }),
+    ).toThrow(/product-flow\/v1 offer contract/);
+    expect(() =>
+      createPrismSignalsAllStripeTestOffer({
+        price_ref: "pf_short",
+      }),
+    ).toThrow(/product-flow\/v1 offer contract/);
   });
 
   it("can project only a free configured Telegram test delivery", () => {

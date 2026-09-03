@@ -15,6 +15,100 @@ export interface PrismSignalsPreviewConfiguration {
   readonly telegram_bot_username?: string;
 }
 
+export const PRISM_SIGNALS_PLAN_CATALOG_SCHEMA =
+  "cambridgetcg.prism-signals-plan-catalog/1" as const;
+export const PRISM_SIGNALS_ALL_OFFER_ID = "prism-signals-all" as const;
+export const PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR = 500 as const;
+
+export type PrismSignalsPlan =
+  | {
+      readonly id: "free";
+      readonly name: "Free";
+      readonly offer_id: "prism-signals";
+      readonly billing: {
+        readonly kind: "none";
+      };
+      readonly access: {
+        readonly surface: "public_synthetic_preview";
+        readonly live_market_signals: false;
+      };
+    }
+  | {
+      readonly id: "all";
+      readonly name: "All";
+      readonly offer_id: typeof PRISM_SIGNALS_ALL_OFFER_ID;
+      readonly billing: {
+        readonly kind: "stripe_test_subscription";
+        readonly test_amount_minor: typeof PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR;
+        readonly currency: "GBP";
+        readonly interval: "month";
+        readonly live_price: false;
+      };
+      readonly access: {
+        readonly surface: "owner_synthetic_fixture";
+        readonly live_market_signals: false;
+      };
+    };
+
+export interface PrismSignalsPlanCatalogV1 {
+  readonly schema: typeof PRISM_SIGNALS_PLAN_CATALOG_SCHEMA;
+  readonly product_id: "prism-signals";
+  readonly version: 1;
+  readonly posture: "free_and_all_stripe_sandbox";
+  readonly plans: readonly [PrismSignalsPlan, PrismSignalsPlan];
+  readonly notice: string;
+}
+
+function deepFreezeCatalog<T>(value: T): T {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return value;
+  }
+  for (const nested of Object.values(value)) deepFreezeCatalog(nested);
+  return Object.freeze(value);
+}
+
+/**
+ * Public plan names and sandbox economics. The £5 amount is deliberately
+ * modelled as a test amount, never as a published production price.
+ */
+export const PRISM_SIGNALS_PLAN_CATALOG: PrismSignalsPlanCatalogV1 =
+  deepFreezeCatalog({
+    schema: PRISM_SIGNALS_PLAN_CATALOG_SCHEMA,
+    product_id: "prism-signals",
+    version: 1,
+    posture: "free_and_all_stripe_sandbox",
+    plans: [
+      {
+        id: "free",
+        name: "Free",
+        offer_id: "prism-signals",
+        billing: { kind: "none" },
+        access: {
+          surface: "public_synthetic_preview",
+          live_market_signals: false,
+        },
+      },
+      {
+        id: "all",
+        name: "All",
+        offer_id: PRISM_SIGNALS_ALL_OFFER_ID,
+        billing: {
+          kind: "stripe_test_subscription",
+          test_amount_minor: PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR,
+          currency: "GBP",
+          interval: "month",
+          live_price: false,
+        },
+        access: {
+          surface: "owner_synthetic_fixture",
+          live_market_signals: false,
+        },
+      },
+    ],
+    notice:
+      "All is a Stripe sandbox subscription using a £5 monthly test amount. It is not a live price, charge, or live-signal promise.",
+  });
+
 /**
  * Creates the canonical extraction-ready preview offer.
  *
@@ -76,6 +170,64 @@ export function createPrismSignalsPreviewOffer(
 /** The closed catalog entry before any host-specific channel configuration. */
 export const PRISM_SIGNALS_CATALOG_OFFER =
   createPrismSignalsPreviewOffer();
+
+export interface PrismSignalsAllStripeTestConfiguration {
+  /** Host-mapped product-flow reference; never a raw Stripe Price id. */
+  readonly price_ref: `pf_${string}`;
+}
+
+/**
+ * Creates the only paid-looking PRISM offer permitted in this slice.
+ * It is test/test, delivers only the fixed synthetic fixture, and enables
+ * only Stripe's web sandbox rail.
+ */
+export function createPrismSignalsAllStripeTestOffer(
+  configuration: PrismSignalsAllStripeTestConfiguration,
+): ProductOfferV1 {
+  return parseProductOfferV1({
+    schema: PRODUCT_OFFER_SCHEMA,
+    brand: {
+      name: PRISM_SIGNALS_BRAND.maker,
+      product_name: `${PRISM_SIGNALS_BRAND.name} All`,
+      byline: PRISM_SIGNALS_BRAND.tagline,
+    },
+    id: PRISM_SIGNALS_ALL_OFFER_ID,
+    version: 1,
+    status: "test",
+    environment: "test",
+    audience:
+      "Invited account holders testing a monthly Stripe sandbox subscription to the fixed PRISM synthetic fixture.",
+    delivery: {
+      web: { availability: "test", url: "/prism-signals/account" },
+      telegram: { availability: "off" },
+    },
+    rails: [
+      {
+        rail: "stripe_web",
+        channel: "web",
+        availability: "test",
+        price_ref: configuration.price_ref,
+      },
+      {
+        rail: "telegram_stars",
+        channel: "telegram",
+        availability: "off",
+      },
+      { rail: "paypal_web", channel: "web", availability: "off" },
+      { rail: "crypto_web", channel: "web", availability: "off" },
+    ],
+    rights: {
+      purpose: "synthetic_fixture_delivery",
+      decision: "granted",
+    },
+    links: {
+      terms: PRISM_SIGNALS_LINKS.terms.path,
+      support: PRISM_SIGNALS_LINKS.support.path,
+      methodology: PRISM_SIGNALS_LINKS.methodology.path,
+    },
+    non_claims: PRODUCT_OFFER_NON_CLAIMS,
+  });
+}
 
 export function prismSignalsTelegramPreviewHref(
   offer: ProductOfferV1,
