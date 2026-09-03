@@ -41,6 +41,10 @@ describe("deploy verifier response contracts", () => {
       "/api/v1/prices",
       "/api/v1/prices/[sku]",
       "/api/v1/ingest-quarantine/[id]",
+      "/api/prism-signals/offers/all",
+      "/api/prism-signals/stripe/checkout",
+      "/api/prism-signals/stripe/portal",
+      "/api/webhooks/stripe/prism-signals",
     ]);
   });
 
@@ -97,5 +101,59 @@ describe("deploy verifier response contracts", () => {
 
     expect(result.passed).toBe(false);
     expect(result.detail).toContain("cache-control:no-store");
+  });
+
+  it("keeps PRISM fail-closed probes exact without relaxing global auth rules", async () => {
+    expect(DELIBERATE_CONTRACTS["/api/prism-signals/offers/all"]).toEqual({
+      status: 503,
+      bodyIncludes: [
+        '"code":"offer_unavailable"',
+        "The PRISM Signals All sandbox offer is not available.",
+      ],
+      cacheControlIncludes: ["public", "s-maxage=10"],
+    });
+    expect(
+      DELIBERATE_CONTRACTS["/api/prism-signals/stripe/checkout"],
+    ).toMatchObject({
+      status: 403,
+      bodyIncludes: [
+        '"code":"invalid_origin"',
+        "A same-origin browser request is required.",
+      ],
+      cacheControlIncludes: ["private", "no-store"],
+    });
+    expect(
+      DELIBERATE_CONTRACTS["/api/prism-signals/stripe/portal"],
+    ).toMatchObject({
+      status: 403,
+      bodyIncludes: [
+        '"code":"invalid_origin"',
+        "A same-origin browser request is required.",
+      ],
+      cacheControlIncludes: ["private", "no-store"],
+    });
+    expect(
+      DELIBERATE_CONTRACTS["/api/webhooks/stripe/prism-signals"],
+    ).toMatchObject({
+      status: 503,
+      bodyIncludes: [
+        '"code":"webhook_unavailable"',
+        "The PRISM Signals Stripe webhook could not be durably processed.",
+      ],
+      cacheControlIncludes: ["private", "no-store"],
+    });
+
+    const ordinaryUser = {
+      ...resource("/api/example/user-mutation"),
+      methods: ["POST"],
+      auth: "user",
+    };
+    expect(expectedFor(ordinaryUser).codes).not.toContain(403);
+    const ordinaryProvider = {
+      ...resource("/api/example/provider-callback"),
+      methods: ["POST"],
+      auth: "provider-signature",
+    };
+    expect(expectedFor(ordinaryProvider).codes).not.toContain(503);
   });
 });

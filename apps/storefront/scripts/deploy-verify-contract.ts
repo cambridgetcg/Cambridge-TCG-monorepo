@@ -104,6 +104,38 @@ export const DELIBERATE_CONTRACTS: Readonly<Record<string, DeliberateContract>> 
     ],
     cacheControlIncludes: ["private", "no-store"],
   },
+  "/api/prism-signals/offers/all": {
+    status: 503,
+    bodyIncludes: [
+      '"code":"offer_unavailable"',
+      "The PRISM Signals All sandbox offer is not available.",
+    ],
+    cacheControlIncludes: ["public", "s-maxage=10"],
+  },
+  "/api/prism-signals/stripe/checkout": {
+    status: 403,
+    bodyIncludes: [
+      '"code":"invalid_origin"',
+      "A same-origin browser request is required.",
+    ],
+    cacheControlIncludes: ["private", "no-store"],
+  },
+  "/api/prism-signals/stripe/portal": {
+    status: 403,
+    bodyIncludes: [
+      '"code":"invalid_origin"',
+      "A same-origin browser request is required.",
+    ],
+    cacheControlIncludes: ["private", "no-store"],
+  },
+  "/api/webhooks/stripe/prism-signals": {
+    status: 503,
+    bodyIncludes: [
+      '"code":"webhook_unavailable"',
+      "The PRISM Signals Stripe webhook could not be durably processed.",
+    ],
+    cacheControlIncludes: ["private", "no-store"],
+  },
 };
 
 export function expectedFor(resource: ManifestResource): ExpectedResponse {
