@@ -8,9 +8,9 @@
  * a witness copied from a prior read-only plan and an action-specific token.
  *
  * Examples (the database URL is intentionally env-only):
- *   PRISM_OPERATOR_DATABASE_URL='postgresql://...' PRISM_OPERATOR_PRODUCTION_TARGET_WITNESS='sha256:<provisioned-pin>' pnpm prism-stripe:operator -- status --target production --ca-file /secure/rds-ca.pem
- *   PRISM_OPERATOR_DATABASE_URL='postgresql://...' PRISM_OPERATOR_PRODUCTION_TARGET_WITNESS='sha256:<provisioned-pin>' pnpm prism-stripe:operator -- plan-grant --target production --ca-file /secure/rds-ca.pem --user-id <uuid> --expires-at 2026-10-01T00:00:00.000Z --reason initial_sandbox_cohort
- *   PRISM_OPERATOR_DATABASE_URL='postgresql://...' PRISM_OPERATOR_PRODUCTION_TARGET_WITNESS='sha256:<provisioned-pin>' pnpm prism-stripe:operator -- grant --target production --ca-file /secure/rds-ca.pem --user-id <uuid> --expires-at 2026-10-01T00:00:00.000Z --reason initial_sandbox_cohort --planned-at <timestamp-from-plan> --database-witness sha256:<digest> --confirm PRISM_GRANT_<digest>
+ *   PRISM_OPERATOR_DATABASE_URL='postgresql://<role>@...' PRISM_OPERATOR_PRODUCTION_TARGET_WITNESS='sha256:<provisioned-pin>' pnpm prism-stripe:operator -- status --target production --ca-file /secure/rds-ca.pem
+ *   PRISM_OPERATOR_DATABASE_URL='postgresql://<role>@...' PRISM_OPERATOR_PRODUCTION_TARGET_WITNESS='sha256:<provisioned-pin>' pnpm prism-stripe:operator -- plan-grant --target production --ca-file /secure/rds-ca.pem --user-id <uuid> --expires-at 2026-10-01T00:00:00.000Z --reason initial_sandbox_cohort
+ *   PRISM_OPERATOR_DATABASE_URL='postgresql://<role>@...' PRISM_OPERATOR_PRODUCTION_TARGET_WITNESS='sha256:<provisioned-pin>' pnpm prism-stripe:operator -- grant --target production --ca-file /secure/rds-ca.pem --user-id <uuid> --expires-at 2026-10-01T00:00:00.000Z --reason initial_sandbox_cohort --planned-at <timestamp-from-plan> --database-witness sha256:<digest> --confirm PRISM_GRANT_<digest>
  */
 
 import { createHash } from "node:crypto";
@@ -65,6 +65,7 @@ export interface ParsedPrismOperatorCommand {
 export interface PreparedPrismOperatorTarget {
   readonly target: PrismOperatorTarget;
   readonly database: string;
+  readonly role: string;
   readonly witness: string;
   readonly poolConfig: Readonly<PoolConfig>;
   readonly requiresTls: boolean;
@@ -382,6 +383,22 @@ export function preparePrismOperatorTarget(input: Readonly<{
   if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
     fail("invalid_database_url", "The database port is invalid.");
   }
+  if (!url.username) {
+    fail(
+      "missing_database_role",
+      "The database URL must contain one explicit role; ambient PGUSER is not accepted.",
+    );
+  }
+  const username = decodedUrlPart(url.username, "invalid_database_role");
+  if (
+    username !== url.username ||
+    !/^[A-Za-z_][A-Za-z0-9_.-]{0,62}$/.test(username)
+  ) {
+    fail(
+      "invalid_database_role",
+      "The database URL role must be canonical unescaped ASCII.",
+    );
+  }
 
   let ssl: PoolConfig["ssl"] = false;
   let caDigest = "loopback-test";
@@ -421,9 +438,6 @@ export function preparePrismOperatorTarget(input: Readonly<{
     ssl = Object.freeze({ ca: input.caPem, rejectUnauthorized: true });
   }
 
-  const username = url.username
-    ? decodedUrlPart(url.username, "invalid_database_url")
-    : "";
   const witness = `sha256:${sha256(
     JSON.stringify({
       version: 1,
@@ -456,7 +470,7 @@ export function preparePrismOperatorTarget(input: Readonly<{
     host: hostname,
     port,
     database,
-    ...(username ? { user: username } : {}),
+    user: username,
     ...(url.password ? { password: decodedUrlPart(url.password, "invalid_database_url") } : {}),
     ssl,
     max: 2,
@@ -468,6 +482,7 @@ export function preparePrismOperatorTarget(input: Readonly<{
   return Object.freeze({
     target: input.target,
     database,
+    role: username,
     witness,
     poolConfig: Object.freeze(poolConfig),
     requiresTls: input.target === "production",
@@ -560,9 +575,11 @@ async function verifyConnectedTarget(
 ): Promise<void> {
   const result = await client.query<{
     database: string;
+    role: string;
     tls: boolean;
   }>(
     `SELECT current_database()::TEXT AS database,
+            current_user::TEXT AS role,
             EXISTS (
               SELECT 1 FROM pg_stat_ssl
                WHERE pid = pg_backend_pid() AND ssl = TRUE
@@ -571,6 +588,12 @@ async function verifyConnectedTarget(
   const row = result.rows[0];
   if (row?.database !== target.database) {
     fail("database_witness_mismatch", "The connected database does not match the guarded target.");
+  }
+  if (row.role !== target.role) {
+    fail(
+      "database_role_mismatch",
+      "The connected database role does not match the explicitly pinned URL role.",
+    );
   }
   if (target.requiresTls && row.tls !== true) {
     fail("tls_not_verified", "The production database connection did not attest TLS.");

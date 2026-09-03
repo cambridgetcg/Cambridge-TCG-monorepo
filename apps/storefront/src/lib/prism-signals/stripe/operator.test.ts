@@ -162,22 +162,22 @@ describe("PRISM Stripe operator argument and target guards", () => {
 
   it("permits only loopback *_test test targets and verified remote production targets", () => {
     for (const databaseUrl of [
-      "postgresql://localhost/prism_operator",
-      "postgresql://localhost.evil/prism_operator_test",
-      "postgresql://127.0.0.2/prism_operator_test",
-      "postgresql://localhost/prism_operator_test?host=evil.example",
+      "postgresql://operator@localhost/prism_operator",
+      "postgresql://operator@localhost.evil/prism_operator_test",
+      "postgresql://operator@127.0.0.2/prism_operator_test",
+      "postgresql://operator@localhost/prism_operator_test?host=evil.example",
     ]) {
       expect(() => preparePrismOperatorTarget({ databaseUrl, target: "test" })).toThrow();
     }
     expect(() =>
       preparePrismOperatorTarget({
-        databaseUrl: "postgresql://db.example/prism_production",
+        databaseUrl: "postgresql://operator@db.example/prism_production",
         target: "production",
       }),
     ).toThrow(/PEM CA/);
     expect(() =>
       preparePrismOperatorTarget({
-        databaseUrl: "postgresql://localhost/prism_production",
+        databaseUrl: "postgresql://operator@localhost/prism_production",
         target: "production",
         caPem: DUMMY_CA,
         expectedProductionWitness: "sha256:" + "0".repeat(64),
@@ -185,7 +185,7 @@ describe("PRISM Stripe operator argument and target guards", () => {
     ).toThrow(/cannot be local/);
     expect(() =>
       preparePrismOperatorTarget({
-        databaseUrl: "postgresql://127.0.0.2/prism_production",
+        databaseUrl: "postgresql://operator@127.0.0.2/prism_production",
         target: "production",
         caPem: DUMMY_CA,
         expectedProductionWitness: "sha256:" + "0".repeat(64),
@@ -221,9 +221,35 @@ describe("PRISM Stripe operator argument and target guards", () => {
     expect(production.poolConfig).toMatchObject({
       host: "db.example",
       database: "prism_production",
+      user: "operator",
       ssl: { rejectUnauthorized: true },
       options: "-c search_path=public",
     });
+    expect(production.role).toBe("operator");
+  });
+
+  it("rejects blank or non-canonical URL roles even when PGUSER is inherited", () => {
+    vi.stubEnv("PGUSER", "ambient_operator_must_not_be_used");
+    try {
+      expectOperatorError(
+        () =>
+          preparePrismOperatorTarget({
+            databaseUrl: "postgresql://127.0.0.1:5432/prism_operator_test",
+            target: "test",
+          }),
+        "missing_database_role",
+      );
+      expectOperatorError(
+        () =>
+          preparePrismOperatorTarget({
+            databaseUrl: "postgresql://oper%61tor@127.0.0.1:5432/prism_operator_test",
+            target: "test",
+          }),
+        "invalid_database_role",
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("binds confirmations to action, UUID, reason, expiry and database witness", () => {
@@ -318,6 +344,7 @@ interface ScriptedClientOptions {
   readonly invitationStatus?: "active" | "revoked" | null;
   readonly mutateFingerprintAfterWrite?: boolean;
   readonly database?: string;
+  readonly role?: string;
   readonly tls?: boolean;
 }
 
@@ -335,6 +362,7 @@ function scriptedPool(options: ScriptedClientOptions = {}): Readonly<{
           rows: [
             {
               database: options.database ?? TARGET.database,
+              role: options.role ?? TARGET.role,
               tls: options.tls ?? false,
             },
           ],
@@ -486,7 +514,7 @@ describe("PRISM Stripe operator database boundary", () => {
     expect(scripted.pool.connect).not.toHaveBeenCalled();
   });
 
-  it("attests the connected production database name and TLS before a transaction", async () => {
+  it("attests the connected production database, role and TLS before a transaction", async () => {
     const productionUrl =
       "postgresql://operator:test@db.example:5432/prism_production";
     const productionTarget = preparePrismOperatorTarget({
@@ -499,13 +527,31 @@ describe("PRISM Stripe operator database boundary", () => {
       ["status", "--target", "production"],
       {},
     );
-    const wrongDatabase = scriptedPool({ database: "other_production", tls: true });
+    const wrongDatabase = scriptedPool({
+      database: "other_production",
+      role: productionTarget.role,
+      tls: true,
+    });
     await expect(
       executePrismOperator(command, productionTarget, { pool: wrongDatabase.pool }),
     ).rejects.toMatchObject({ code: "database_witness_mismatch" });
     expect(wrongDatabase.queries.every(({ text }) => !text.startsWith("BEGIN"))).toBe(true);
 
-    const noTls = scriptedPool({ database: productionTarget.database, tls: false });
+    const wrongRole = scriptedPool({
+      database: productionTarget.database,
+      role: "inherited_or_wrong_role",
+      tls: true,
+    });
+    await expect(
+      executePrismOperator(command, productionTarget, { pool: wrongRole.pool }),
+    ).rejects.toMatchObject({ code: "database_role_mismatch" });
+    expect(wrongRole.queries.every(({ text }) => !text.startsWith("BEGIN"))).toBe(true);
+
+    const noTls = scriptedPool({
+      database: productionTarget.database,
+      role: productionTarget.role,
+      tls: false,
+    });
     await expect(
       executePrismOperator(command, productionTarget, { pool: noTls.pool }),
     ).rejects.toMatchObject({ code: "tls_not_verified" });
@@ -677,10 +723,14 @@ describeDatabase("PRISM Stripe operator real PostgreSQL", () => {
       target: "test",
     });
     setupPool = new Pool(target.poolConfig);
-    const witness = await setupPool.query<{ database: string }>(
-      "SELECT current_database()::TEXT AS database",
+    const witness = await setupPool.query<{ database: string; role: string }>(
+      "SELECT current_database()::TEXT AS database, current_user::TEXT AS role",
     );
-    if (witness.rows[0]?.database !== target.database || !target.database.endsWith("_test")) {
+    if (
+      witness.rows[0]?.database !== target.database ||
+      witness.rows[0]?.role !== target.role ||
+      !target.database.endsWith("_test")
+    ) {
       throw new Error("The PRISM operator PostgreSQL witness is not the guarded _test target.");
     }
     schemaName = `prism_operator_it_${process.pid}_${randomUUID().replace(/-/g, "")}`;
@@ -712,6 +762,20 @@ describeDatabase("PRISM Stripe operator real PostgreSQL", () => {
       setupPool = null;
     }
   }, 30_000);
+
+  it("rejects a real PostgreSQL connection whose current_user differs from the URL role", async () => {
+    if (!operatorPool) throw new Error("Operator integration pool is unavailable.");
+    const wrongRoleUrl = new URL(OPERATOR_TEST_DATABASE_URL!);
+    wrongRoleUrl.username = "prism_intentionally_wrong_role";
+    const wrongRoleTarget = preparePrismOperatorTarget({
+      databaseUrl: wrongRoleUrl.toString(),
+      target: "test",
+    });
+    const status = parsePrismOperatorCommand(["status", "--target", "test"], {});
+    await expect(
+      executePrismOperator(status, wrongRoleTarget, { pool: operatorPool }),
+    ).rejects.toMatchObject({ code: "database_role_mismatch" });
+  });
 
   it("plans, grants, reports and revokes one UUID without changing reconciliation", async () => {
     if (!operatorPool || !setupPool) throw new Error("Operator integration pool is unavailable.");
