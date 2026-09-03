@@ -3,6 +3,8 @@ import { PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR } from "@cambridge-tcg/prism-signal
 
 export const PRISM_STRIPE_TEST_POSTURE = "stripe-test-v1" as const;
 export const PRISM_STRIPE_API_VERSION = "2026-02-25.clover" as const;
+export const PRISM_STRIPE_KEY_PERMISSION_ATTESTATION =
+  "prism-runtime-rk-v1" as const;
 export const PRISM_STRIPE_CURRENCY = "gbp" as const;
 export const PRISM_STRIPE_INTERVAL = "month" as const;
 
@@ -13,6 +15,7 @@ export type PrismStripeConfigurationReason =
 export interface PrismStripeEnvironmentV1 {
   readonly PRISM_STRIPE_POSTURE?: string;
   readonly PRISM_STRIPE_SECRET_KEY?: string;
+  readonly PRISM_STRIPE_KEY_PERMISSION_ATTESTATION?: string;
   readonly PRISM_STRIPE_WEBHOOK_SECRET?: string;
   readonly PRISM_STRIPE_ACCOUNT_ID?: string;
   readonly PRISM_STRIPE_API_VERSION?: string;
@@ -66,6 +69,8 @@ function processEnvironment(): PrismStripeEnvironmentV1 {
   return {
     PRISM_STRIPE_POSTURE: process.env.PRISM_STRIPE_POSTURE,
     PRISM_STRIPE_SECRET_KEY: process.env.PRISM_STRIPE_SECRET_KEY,
+    PRISM_STRIPE_KEY_PERMISSION_ATTESTATION:
+      process.env.PRISM_STRIPE_KEY_PERMISSION_ATTESTATION,
     PRISM_STRIPE_WEBHOOK_SECRET: process.env.PRISM_STRIPE_WEBHOOK_SECRET,
     PRISM_STRIPE_ACCOUNT_ID: process.env.PRISM_STRIPE_ACCOUNT_ID,
     PRISM_STRIPE_API_VERSION: process.env.PRISM_STRIPE_API_VERSION,
@@ -116,6 +121,10 @@ export function readPrismStripeSandboxConfig(
   }
 
   const secretKey = trimmed(env, "PRISM_STRIPE_SECRET_KEY");
+  const keyPermissionAttestation = trimmed(
+    env,
+    "PRISM_STRIPE_KEY_PERMISSION_ATTESTATION",
+  );
   const webhookSecret = trimmed(env, "PRISM_STRIPE_WEBHOOK_SECRET");
   const accountId = trimmed(env, "PRISM_STRIPE_ACCOUNT_ID");
   const apiVersion = trimmed(env, "PRISM_STRIPE_API_VERSION");
@@ -130,6 +139,11 @@ export function readPrismStripeSandboxConfig(
   if (!PATTERNS.secretKey.test(secretKey)) {
     return invalid(
       "PRISM Stripe requires a dedicated restricted rk_test_ key.",
+    );
+  }
+  if (keyPermissionAttestation !== PRISM_STRIPE_KEY_PERMISSION_ATTESTATION) {
+    return invalid(
+      `PRISM Stripe key permissions must be attested as ${PRISM_STRIPE_KEY_PERMISSION_ATTESTATION}.`,
     );
   }
   if (!PATTERNS.webhookSecret.test(webhookSecret)) {

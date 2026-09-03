@@ -16,6 +16,7 @@ function environment(
   return {
     PRISM_STRIPE_POSTURE: "stripe-test-v1",
     PRISM_STRIPE_SECRET_KEY: `rk_test_${"r".repeat(32)}`,
+    PRISM_STRIPE_KEY_PERMISSION_ATTESTATION: "prism-runtime-rk-v1",
     PRISM_STRIPE_WEBHOOK_SECRET: `whsec_${"b".repeat(32)}`,
     PRISM_STRIPE_ACCOUNT_ID: "acct_prismtest123",
     PRISM_STRIPE_API_VERSION: PRISM_STRIPE_API_VERSION,
@@ -49,6 +50,7 @@ describe("PRISM Stripe sandbox configuration", () => {
   it.each([
     { PRISM_STRIPE_SECRET_KEY: `sk_test_${"a".repeat(32)}` },
     { PRISM_STRIPE_SECRET_KEY: `sk_live_${"a".repeat(32)}` },
+    { PRISM_STRIPE_KEY_PERMISSION_ATTESTATION: "unreviewed" },
     { PRISM_STRIPE_WEBHOOK_SECRET: "whsec_short" },
     { PRISM_STRIPE_ACCOUNT_ID: "acct_" },
     { PRISM_STRIPE_API_VERSION: "2025-01-01.acacia" },

@@ -525,7 +525,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["identity", "authority", "time", "value", "substrate"], methodology_url: "/methodology/prism-signals",
         since: "2026-09-03", contract: "alternative",
-        notes: "Only a dedicated restricted rk_test_ credential, active beta interest, a separate operator-issued active sandbox invitation, explicit intake, GBP £5/month Price and stable idempotency are accepted. Stripe metadata receives a fixed type plus random attempt_ref only." },
+        notes: "Only a dedicated restricted rk_test_ credential with the prism-runtime-rk-v1 permission attestation, active beta interest, a separate operator-issued active sandbox invitation, explicit intake, GBP £5/month Price and stable idempotency are accepted. Stripe metadata receives a fixed type plus random attempt_ref only." },
       { id: "storefront.prism-signals-stripe-portal", description: "Authenticated same-origin route to a separately attested Stripe test portal for the owner-bound customer, with invoices, payment-method repair and cancellation at period end but no plan switching.",
         host: "storefront", path: "/api/prism-signals/stripe/portal", methods: ["POST"],
         modalities: ["json"], auth: "user", provenance: "live",
