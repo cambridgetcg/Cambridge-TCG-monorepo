@@ -101,6 +101,12 @@ function enabledOnly(value: string): boolean {
   return value === "enabled";
 }
 
+type PrismStripeSwitchState = "enabled" | "disabled" | "invalid";
+
+function switchState(value: string): PrismStripeSwitchState {
+  return value === "enabled" || value === "disabled" ? value : "invalid";
+}
+
 /**
  * Load the dedicated PRISM test account. There is deliberately no live-key
  * branch and no fallback to the storefront's other Stripe integration.
@@ -210,24 +216,30 @@ export function inspectPrismStripeSandboxConfig(
   }
 }
 
+export type PrismStripeSandboxPublicPostureReason =
+  | PrismStripeConfigurationReason
+  | "portal_not_configured"
+  | "portal_invalid_configuration"
+  | "switch_invalid_configuration"
+  | "intake_without_processing"
+  | "configured_paused"
+  | "processing_only"
+  | "available";
+
 export type PrismStripeSandboxPublicPostureV1 = Readonly<{
   configured: boolean;
   processing_available: boolean;
   checkout_available: boolean;
   portal_available: boolean;
-  reason:
-    | PrismStripeConfigurationReason
-    | "processing_paused"
-    | "portal_unconfigured"
-    | "checkout_paused"
-    | "available";
+  reason: PrismStripeSandboxPublicPostureReason;
 }>;
 
 /** Non-secret status safe for server-rendered public UI. */
 export function prismStripeSandboxPublicPosture(
   environment?: PrismStripeEnvironmentV1,
 ): PrismStripeSandboxPublicPostureV1 {
-  const inspected = inspectPrismStripeSandboxConfig(environment);
+  const env = environment ?? processEnvironment();
+  const inspected = inspectPrismStripeSandboxConfig(env);
   if (!inspected.ok) {
     return Object.freeze({
       configured: false,
@@ -237,22 +249,67 @@ export function prismStripeSandboxPublicPosture(
       reason: inspected.reason,
     });
   }
-  const processing = inspected.config.webhookProcessingEnabled;
-  const checkout =
-    processing &&
-    inspected.config.checkoutIntakeEnabled &&
-    inspected.config.portalConfigurationId !== null;
+
+  const portalValue = trimmed(env, "PRISM_STRIPE_PORTAL_CONFIGURATION_ID");
+  const processingState = switchState(
+    trimmed(env, "PRISM_STRIPE_WEBHOOK_PROCESSING"),
+  );
+  const intakeState = switchState(
+    trimmed(env, "PRISM_STRIPE_CHECKOUT_INTAKE"),
+  );
+  const processing = processingState === "enabled";
+
+  // Portal syntax is assessed before switch ordering. Missing or malformed
+  // portal configuration is therefore never mistaken for an ordinary paused
+  // acquisition stage, regardless of either switch value.
+  if (portalValue === "") {
+    return Object.freeze({
+      configured: true,
+      processing_available: processing,
+      checkout_available: false,
+      portal_available: false,
+      reason: "portal_not_configured",
+    });
+  }
+  if (!PATTERNS.portalConfigurationId.test(portalValue)) {
+    return Object.freeze({
+      configured: true,
+      processing_available: processing,
+      checkout_available: false,
+      portal_available: false,
+      reason: "portal_invalid_configuration",
+    });
+  }
+  if (processingState === "invalid" || intakeState === "invalid") {
+    return Object.freeze({
+      configured: true,
+      processing_available: processing,
+      checkout_available: false,
+      portal_available: true,
+      reason: "switch_invalid_configuration",
+    });
+  }
+  if (processingState === "disabled" && intakeState === "enabled") {
+    return Object.freeze({
+      configured: true,
+      processing_available: false,
+      checkout_available: false,
+      portal_available: true,
+      reason: "intake_without_processing",
+    });
+  }
+
+  const checkout = processingState === "enabled" && intakeState === "enabled";
   return Object.freeze({
     configured: true,
     processing_available: processing,
     checkout_available: checkout,
-    portal_available: inspected.config.portalConfigurationId !== null,
-    reason: !processing
-      ? "processing_paused"
-      : inspected.config.portalConfigurationId === null
-        ? "portal_unconfigured"
-      : !checkout
-        ? "checkout_paused"
-        : "available",
+    portal_available: true,
+    reason:
+      processingState === "disabled"
+        ? "configured_paused"
+        : intakeState === "disabled"
+          ? "processing_only"
+          : "available",
   });
 }

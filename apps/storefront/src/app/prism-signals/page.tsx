@@ -16,7 +16,10 @@ import {
   PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR,
   PRISM_SIGNALS_PLAN_CATALOG,
 } from "@/lib/prism-signals/product";
-import { prismStripeSandboxPublicPosture } from "@/lib/prism-signals/stripe/config.server";
+import {
+  prismStripeSandboxPublicPosture,
+  type PrismStripeSandboxPublicPostureV1,
+} from "@/lib/prism-signals/stripe/config.server";
 
 export function generateMetadata(): Metadata {
   const intakeEnabled = prismSignalsBetaIntakeEnabled();
@@ -47,10 +50,140 @@ function PrismMark() {
   );
 }
 
+type PrismStripePosturePresentation = Readonly<{
+  marker:
+    | "unconfigured"
+    | "configured-paused"
+    | "processing-only"
+    | "intake-enabled"
+    | "invalid-portal-not-configured"
+    | "invalid-portal-configuration"
+    | "invalid-switch-configuration"
+    | "invalid-intake-without-processing"
+    | "invalid-public-posture";
+  checkoutAvailable: boolean;
+  message: string;
+}>;
+
+const INVALID_PUBLIC_POSTURE = Object.freeze({
+  marker: "invalid-public-posture" as const,
+  checkoutAvailable: false,
+  message:
+    "PRISM Stripe posture is invalid. New sandbox Checkout remains unavailable while configuration is repaired.",
+});
+
+function prismStripePosturePresentation(
+  posture: PrismStripeSandboxPublicPostureV1,
+): PrismStripePosturePresentation {
+  if (
+    posture.reason === "not_configured" ||
+    posture.reason === "invalid_configuration"
+  ) {
+    return !posture.configured &&
+      !posture.processing_available &&
+      !posture.checkout_available &&
+      !posture.portal_available
+      ? {
+          marker: "unconfigured",
+          checkoutAvailable: false,
+          message:
+            "PRISM Stripe posture: unconfigured. New sandbox Checkout is unavailable; the account page remains available for owner status.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
+  if (
+    posture.reason === "portal_not_configured" ||
+    posture.reason === "portal_invalid_configuration"
+  ) {
+    if (
+      !posture.configured ||
+      posture.checkout_available ||
+      posture.portal_available
+    ) {
+      return INVALID_PUBLIC_POSTURE;
+    }
+    return {
+      marker:
+        posture.reason === "portal_not_configured"
+          ? "invalid-portal-not-configured"
+          : "invalid-portal-configuration",
+      checkoutAvailable: false,
+      message:
+        "PRISM Stripe posture is invalid because its dedicated portal configuration is missing or malformed. New sandbox Checkout is unavailable.",
+    };
+  }
+  if (posture.reason === "switch_invalid_configuration") {
+    return posture.configured &&
+      !posture.checkout_available &&
+      posture.portal_available
+      ? {
+          marker: "invalid-switch-configuration",
+          checkoutAvailable: false,
+          message:
+            "PRISM Stripe posture is invalid because its activation switches are not explicit. New sandbox Checkout is unavailable.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
+  if (posture.reason === "intake_without_processing") {
+    return posture.configured &&
+      !posture.processing_available &&
+      !posture.checkout_available &&
+      posture.portal_available
+      ? {
+          marker: "invalid-intake-without-processing",
+          checkoutAvailable: false,
+          message:
+            "PRISM Stripe posture is invalid because Checkout intake cannot precede signed webhook processing. New sandbox Checkout is unavailable.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
+  if (posture.reason === "configured_paused") {
+    return posture.configured &&
+      !posture.processing_available &&
+      !posture.checkout_available &&
+      posture.portal_available
+      ? {
+          marker: "configured-paused",
+          checkoutAvailable: false,
+          message:
+            "PRISM Stripe posture: configured-paused. Webhook processing and new Checkout intake are both paused.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
+  if (posture.reason === "processing_only") {
+    return posture.configured &&
+      posture.processing_available &&
+      !posture.checkout_available &&
+      posture.portal_available
+      ? {
+          marker: "processing-only",
+          checkoutAvailable: false,
+          message:
+            "PRISM Stripe posture: processing-only. Signed webhook processing is enabled; new Checkout intake remains paused.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
+  if (posture.reason === "available") {
+    return posture.configured &&
+      posture.processing_available &&
+      posture.checkout_available &&
+      posture.portal_available
+      ? {
+          marker: "intake-enabled",
+          checkoutAvailable: true,
+          message:
+            "PRISM Stripe posture: intake-enabled. The host reports that sandbox intake is available. Eligibility and owner state are still checked after sign-in; this link never creates Checkout directly.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
+  return INVALID_PUBLIC_POSTURE;
+}
+
 export default function PrismSignalsPage() {
   const { offer, telegram_href: telegramHref } = prismSignalsRuntime();
   const intakeEnabled = prismSignalsBetaIntakeEnabled();
   const stripePosture = prismStripeSandboxPublicPosture();
+  const stripePresentation = prismStripePosturePresentation(stripePosture);
 
   return (
     <main className="min-h-screen bg-page text-ink">
@@ -272,14 +405,15 @@ export default function PrismSignalsPage() {
                 href="/prism-signals/account"
                 className="mt-6 inline-flex rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-page"
               >
-                {stripePosture.checkout_available
+                {stripePresentation.checkoutAvailable
                   ? "Open All sandbox account"
                   : "Check sandbox availability"}
               </Link>
-              <p className="mt-3 text-xs leading-5 text-ink-faint">
-                {stripePosture.checkout_available
-                  ? "The host reports that sandbox intake is available. Your eligibility and owner state are still checked after sign-in; this link never creates Checkout directly."
-                  : "New sandbox Checkout is paused or not configured. The account page remains available for owner status and existing-subscription management."}
+              <p
+                className="mt-3 text-xs leading-5 text-ink-faint"
+                data-prism-stripe-posture={stripePresentation.marker}
+              >
+                {stripePresentation.message}
               </p>
             </article>
           </div>

@@ -80,14 +80,131 @@ describe("PRISM Stripe sandbox configuration", () => {
       processing_available: true,
       checkout_available: false,
       portal_available: false,
-      reason: "portal_unconfigured",
+      reason: "portal_invalid_configuration",
     });
   });
+
+  it.each([
+    ["configured_paused", "disabled", "disabled", false, false],
+    ["processing_only", "enabled", "disabled", true, false],
+    ["available", "enabled", "enabled", true, true],
+  ] as const)(
+    "publishes only the exact legal %s switch stage",
+    (reason, processing, intake, processingAvailable, checkoutAvailable) => {
+      expect(
+        prismStripeSandboxPublicPosture(
+          environment({
+            PRISM_STRIPE_WEBHOOK_PROCESSING: processing,
+            PRISM_STRIPE_CHECKOUT_INTAKE: intake,
+          }),
+        ),
+      ).toEqual({
+        configured: true,
+        processing_available: processingAvailable,
+        checkout_available: checkoutAvailable,
+        portal_available: true,
+        reason,
+      });
+    },
+  );
+
+  it.each(
+    (["disabled", "enabled", "", "malformed"] as const).flatMap(
+      (processing) =>
+        (["disabled", "enabled", "", "malformed"] as const).flatMap(
+          (intake) => [
+            {
+              portal: "",
+              reason: "portal_not_configured" as const,
+              processing,
+              intake,
+            },
+            {
+              portal: "not-a-bpc",
+              reason: "portal_invalid_configuration" as const,
+              processing,
+              intake,
+            },
+          ],
+        ),
+    ),
+  )(
+    "keeps $reason invalid with processing=$processing and intake=$intake",
+    ({ portal, reason, processing, intake }) => {
+      expect(
+        prismStripeSandboxPublicPosture(
+          environment({
+            PRISM_STRIPE_PORTAL_CONFIGURATION_ID: portal,
+            PRISM_STRIPE_WEBHOOK_PROCESSING: processing,
+            PRISM_STRIPE_CHECKOUT_INTAKE: intake,
+          }),
+        ),
+      ).toEqual({
+        configured: true,
+        processing_available: processing === "enabled",
+        checkout_available: false,
+        portal_available: false,
+        reason,
+      });
+    },
+  );
+
+  it("marks intake enabled without processing as an invalid activation order", () => {
+    expect(
+      prismStripeSandboxPublicPosture(
+        environment({
+          PRISM_STRIPE_WEBHOOK_PROCESSING: "disabled",
+          PRISM_STRIPE_CHECKOUT_INTAKE: "enabled",
+        }),
+      ),
+    ).toEqual({
+      configured: true,
+      processing_available: false,
+      checkout_available: false,
+      portal_available: true,
+      reason: "intake_without_processing",
+    });
+  });
+
+  it.each([
+    ["", "disabled"],
+    ["pause", "disabled"],
+    ["enabled", ""],
+    ["enabled", "open"],
+    ["unknown", "unknown"],
+  ])(
+    "rejects non-explicit switch syntax processing=%s intake=%s",
+    (processing, intake) => {
+      const posture = prismStripeSandboxPublicPosture(
+        environment({
+          PRISM_STRIPE_WEBHOOK_PROCESSING: processing,
+          PRISM_STRIPE_CHECKOUT_INTAKE: intake,
+        }),
+      );
+      expect(posture).toMatchObject({
+        configured: true,
+        checkout_available: false,
+        portal_available: true,
+        reason: "switch_invalid_configuration",
+      });
+    },
+  );
 
   it("returns a bounded non-secret fail-closed posture", () => {
     expect(inspectPrismStripeSandboxConfig({})).toEqual({
       ok: false,
       reason: "not_configured",
+    });
+    expect(
+      prismStripeSandboxPublicPosture(
+        environment({ PRISM_STRIPE_SECRET_KEY: "invalid" }),
+      ),
+    ).toEqual({
+      configured: false,
+      processing_available: false,
+      checkout_available: false,
+      portal_available: false,
+      reason: "invalid_configuration",
     });
     const posture = prismStripeSandboxPublicPosture(environment());
     expect(posture).toEqual({

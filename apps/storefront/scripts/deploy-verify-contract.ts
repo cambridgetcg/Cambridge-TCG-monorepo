@@ -38,22 +38,22 @@ export const PRISM_DEPLOYMENT_POSTURES = Object.freeze({
   unconfigured: Object.freeze({
     offer: "unconfigured",
     webhook: "unconfigured",
-    page: "checkout-paused",
+    page: "unconfigured",
   }),
   "configured-paused": Object.freeze({
     offer: "configured",
     webhook: "configured-processing-paused",
-    page: "checkout-paused",
+    page: "configured-paused",
   }),
   "processing-only": Object.freeze({
     offer: "configured",
     webhook: "processing-enabled-unsigned-probe",
-    page: "checkout-paused",
+    page: "processing-only",
   }),
   "intake-enabled": Object.freeze({
     offer: "configured",
     webhook: "processing-enabled-unsigned-probe",
-    page: "checkout-available",
+    page: "intake-enabled",
   }),
 });
 
@@ -69,6 +69,35 @@ export interface PrismPostureAssessment {
   passed: boolean;
   stage?: PrismDeploymentPosture;
   detail?: string;
+}
+
+export const PRISM_PAGE_POSTURE_VARIANTS = Object.freeze([
+  "unconfigured",
+  "configured-paused",
+  "processing-only",
+  "intake-enabled",
+  "invalid-portal-not-configured",
+  "invalid-portal-configuration",
+  "invalid-switch-configuration",
+  "invalid-intake-without-processing",
+  "invalid-public-posture",
+] as const);
+
+type PrismPagePostureVariant = (typeof PRISM_PAGE_POSTURE_VARIANTS)[number];
+
+function prismPagePostureContract(
+  variant: PrismPagePostureVariant,
+): DeliberateContract {
+  const marker = `data-prism-stripe-posture="${variant}"`;
+  return {
+    variant,
+    status: 200,
+    bodyIncludes: [marker],
+    bodyExcludes: PRISM_PAGE_POSTURE_VARIANTS.filter(
+      (candidate) => candidate !== variant,
+    ).map((candidate) => `data-prism-stripe-posture="${candidate}"`),
+    cacheControlIncludes: [],
+  };
 }
 
 // These responses are healthy only when status, stable body markers, and cache
@@ -154,22 +183,9 @@ export const DELIBERATE_CONTRACTS: Readonly<
     ],
     cacheControlIncludes: ["private", "no-store"],
   },
-  "/prism-signals": [
-    {
-      variant: "checkout-paused",
-      status: 200,
-      bodyIncludes: ["New sandbox Checkout is paused or not configured."],
-      bodyExcludes: ["The host reports that sandbox intake is available."],
-      cacheControlIncludes: [],
-    },
-    {
-      variant: "checkout-available",
-      status: 200,
-      bodyIncludes: ["The host reports that sandbox intake is available."],
-      bodyExcludes: ["New sandbox Checkout is paused or not configured."],
-      cacheControlIncludes: [],
-    },
-  ],
+  "/prism-signals": PRISM_PAGE_POSTURE_VARIANTS.map(
+    prismPagePostureContract,
+  ),
   "/api/prism-signals/offers/all": [
     {
       variant: "unconfigured",

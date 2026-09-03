@@ -3,6 +3,7 @@ import { createPrismSignalsAllStripeTestOffer } from "@cambridge-tcg/prism-signa
 import {
   DELIBERATE_CONTRACTS,
   PRISM_DEPLOYMENT_POSTURES,
+  PRISM_PAGE_POSTURE_VARIANTS,
   assessPrismPosture,
   assessResponse,
   expectedFor,
@@ -79,13 +80,11 @@ function matchingResponse(contract: DeliberateContract): Response {
   });
 }
 
-function prismPageResponse(checkoutAvailable: boolean): Response {
-  return new Response(
-    checkoutAvailable
-      ? "<p>The host reports that sandbox intake is available.</p>"
-      : "<p>New sandbox Checkout is paused or not configured.</p>",
-    { status: 200, headers: { "Cache-Control": "private, no-store" } },
-  );
+function prismPageResponse(variant: string): Response {
+  return new Response(`<p data-prism-stripe-posture="${variant}">PRISM</p>`, {
+    status: 200,
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }
 
 const prismPostures = [
@@ -115,7 +114,7 @@ const prismPostures = [
         503,
         PRISM_PRIVATE_CACHE,
       ),
-    page: () => prismPageResponse(false),
+    page: () => prismPageResponse("unconfigured"),
   },
   {
     name: "configured, processing paused",
@@ -137,7 +136,7 @@ const prismPostures = [
         503,
         PRISM_PRIVATE_CACHE,
       ),
-    page: () => prismPageResponse(false),
+    page: () => prismPageResponse("configured-paused"),
   },
   {
     name: "processing on, intake off",
@@ -159,7 +158,7 @@ const prismPostures = [
         400,
         PRISM_PRIVATE_CACHE,
       ),
-    page: () => prismPageResponse(false),
+    page: () => prismPageResponse("processing-only"),
   },
   {
     name: "processing on, intake on",
@@ -181,7 +180,7 @@ const prismPostures = [
         400,
         PRISM_PRIVATE_CACHE,
       ),
-    page: () => prismPageResponse(true),
+    page: () => prismPageResponse("intake-enabled"),
   },
 ] as const;
 
@@ -294,8 +293,8 @@ describe("deploy verifier response contracts", () => {
       resource("/prism-signals"),
       intakeOn.page(),
     );
-    expect(intakeOffPage.variant).toBe("checkout-paused");
-    expect(intakeOnPage.variant).toBe("checkout-available");
+    expect(intakeOffPage.variant).toBe("processing-only");
+    expect(intakeOnPage.variant).toBe("intake-enabled");
   });
 
   it("rejects individually valid PRISM variants assembled into impossible mixed postures", () => {
@@ -303,22 +302,22 @@ describe("deploy verifier response contracts", () => {
       {
         offer: "unconfigured",
         webhook: "configured-processing-paused",
-        page: "checkout-paused",
+        page: "configured-paused",
       },
       {
         offer: "configured",
         webhook: "unconfigured",
-        page: "checkout-paused",
+        page: "unconfigured",
       },
       {
         offer: "unconfigured",
         webhook: "processing-enabled-unsigned-probe",
-        page: "checkout-available",
+        page: "intake-enabled",
       },
       {
         offer: "configured",
         webhook: "configured-processing-paused",
-        page: "checkout-available",
+        page: "intake-enabled",
       },
       {
         offer: "configured",
@@ -330,6 +329,31 @@ describe("deploy verifier response contracts", () => {
       const assessment = assessPrismPosture(observation);
       expect(assessment.passed).toBe(false);
       expect(assessment.detail).toContain("incoherent PRISM deployment posture");
+    }
+  });
+
+  it("rejects every explicit invalid page posture regardless of endpoint switches", () => {
+    const invalidPageVariants = PRISM_PAGE_POSTURE_VARIANTS.filter((variant) =>
+      variant.startsWith("invalid-"),
+    );
+    const endpointPairs = [
+      { offer: "unconfigured", webhook: "unconfigured" },
+      {
+        offer: "configured",
+        webhook: "configured-processing-paused",
+      },
+      {
+        offer: "configured",
+        webhook: "processing-enabled-unsigned-probe",
+      },
+    ];
+
+    for (const page of invalidPageVariants) {
+      for (const endpoints of endpointPairs) {
+        expect(assessPrismPosture({ ...endpoints, page })).toEqual(
+          expect.objectContaining({ passed: false }),
+        );
+      }
     }
   });
 
@@ -375,7 +399,7 @@ describe("deploy verifier response contracts", () => {
     const both = await assessResponse(
       resource("/prism-signals"),
       new Response(
-        "The host reports that sandbox intake is available. New sandbox Checkout is paused or not configured.",
+        '<p data-prism-stripe-posture="processing-only">One</p><p data-prism-stripe-posture="intake-enabled">Two</p>',
         { status: 200 },
       ),
     );
