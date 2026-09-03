@@ -32,6 +32,8 @@ paths:
   - apps/storefront/src/app/privacy/page.tsx
   - apps/storefront/src/app/sitemap.ts
   - apps/storefront/src/lib/manifest.ts
+  - apps/storefront/scripts/deploy-verify-contract.ts
+  - apps/storefront/src/lib/deploy-verify-contract.test.ts
   - docs/methodology/prism-signals.md
   - docs/connections/the-prism-stripe-sandbox.md
   - docs/connections/README.md
@@ -114,10 +116,11 @@ commercial/VAT decision is complete.
 
 - Free/All catalogue and All test offer are strict, frozen, and tested; the
   legacy preview offer/API remain compatible.
-- Checkout requires an authenticated active beta-interest owner, exact
-  same-origin empty JSON, enabled intake posture, and a remotely attested test
-  Price. Reservation and Stripe idempotency survive retries; no return URL can
-  grant access.
+- Checkout requires an authenticated owner with both active beta interest and
+  a separate operator-issued, unexpired sandbox invitation, exact same-origin
+  empty JSON, enabled intake posture, and a remotely attested test Price.
+  Reservation and Stripe idempotency survive retries; no return URL can grant
+  access.
 - Webhook signature verification and a bounded raw body precede parsing. Only
   the dedicated test endpoint/account schema is accepted.
 - Stripe binding, receipt, invoice grant, canonical event, and entitlement
