@@ -1,8 +1,10 @@
 import type Stripe from "stripe";
 import { describe, expect, it, vi } from "vitest";
 import {
+  createPrismStripeCliResourceReader,
   formatPrismStripeProviderPreflightReport,
   PRISM_STRIPE_PREFLIGHT_API_VERSION,
+  PRISM_STRIPE_PREFLIGHT_PERMISSION_ATTESTATION,
   PRISM_STRIPE_PREFLIGHT_WEBHOOK_EVENTS,
   PRISM_STRIPE_PREFLIGHT_WEBHOOK_URL,
   PrismStripeProviderPreflightConfigurationError,
@@ -11,6 +13,7 @@ import {
   type PrismStripeProviderPreflightConfigV1,
   type PrismStripeProviderPreflightEnvironmentV1,
   type PrismStripeOperatorResourceReaderV1,
+  type PrismStripeCliExecutorV1,
 } from "../../../../scripts/prism-stripe-provider-preflight";
 
 const IDS = Object.freeze({
@@ -27,6 +30,8 @@ function environment(
   return {
     PRISM_STRIPE_POSTURE: "stripe-test-v1",
     PRISM_STRIPE_SECRET_KEY: `rk_test_${"r".repeat(32)}`,
+    PRISM_STRIPE_KEY_PERMISSION_ATTESTATION:
+      PRISM_STRIPE_PREFLIGHT_PERMISSION_ATTESTATION,
     PRISM_STRIPE_WEBHOOK_SECRET: `whsec_${"w".repeat(32)}`,
     PRISM_STRIPE_ACCOUNT_ID: IDS.account,
     PRISM_STRIPE_API_VERSION: PRISM_STRIPE_PREFLIGHT_API_VERSION,
@@ -73,6 +78,8 @@ function fakeStripe(overrides: {
   price?: unknown;
   portal?: unknown;
   endpoint?: unknown;
+  runtimeProduct?: unknown;
+  runtimeEndpoint?: unknown;
   events?: unknown;
   subscriptions?: unknown;
   invoices?: unknown;
@@ -81,8 +88,13 @@ function fakeStripe(overrides: {
 } = {}) {
   const read = <T>(override: unknown, fallback: T) =>
     vi.fn().mockImplementation(async () => {
-      if (override instanceof Error) throw override;
-      return override ?? fallback;
+      const result = override ?? fallback;
+      if (result instanceof Error) throw result;
+      return result;
+    });
+  const permissionDenied = () =>
+    Object.assign(new Error("restricted key permission denied"), {
+      statusCode: 403,
     });
 
   const mocks = {
@@ -148,6 +160,8 @@ function fakeStripe(overrides: {
         enabled_events: [...PRISM_STRIPE_PREFLIGHT_WEBHOOK_EVENTS].reverse(),
       }),
     ),
+    runtimeProduct: read(overrides.runtimeProduct, permissionDenied()),
+    runtimeEndpoint: read(overrides.runtimeEndpoint, permissionDenied()),
     events: read(overrides.events, list()),
     subscriptions: read(overrides.subscriptions, list()),
     invoices: read(overrides.invoices, list()),
@@ -160,6 +174,7 @@ function fakeStripe(overrides: {
 
   const stripe = {
     accounts: { retrieve: mocks.account, update: mocks.forbiddenMutation },
+    products: { retrieve: mocks.runtimeProduct },
     prices: { retrieve: mocks.price, create: mocks.forbiddenMutation },
     billingPortal: {
       configurations: {
@@ -179,6 +194,7 @@ function fakeStripe(overrides: {
       list: mocks.paymentIntents,
       create: mocks.forbiddenMutation,
     },
+    webhookEndpoints: { retrieve: mocks.runtimeEndpoint },
   } as unknown as Stripe;
 
   const operator = {
@@ -209,6 +225,7 @@ describe("PRISM Stripe provider preflight configuration", () => {
       portalConfigurationId: IDS.portal,
       webhookEndpointId: IDS.endpoint,
       apiVersion: PRISM_STRIPE_PREFLIGHT_API_VERSION,
+      permissionAttestation: PRISM_STRIPE_PREFLIGHT_PERMISSION_ATTESTATION,
     });
     expect(Object.isFrozen(parsed)).toBe(true);
   });
@@ -222,6 +239,10 @@ describe("PRISM Stripe provider preflight configuration", () => {
     [
       { PRISM_STRIPE_SECRET_KEY: `rk_live_${"r".repeat(32)}` },
       "restricted_test_key_required",
+    ],
+    [
+      { PRISM_STRIPE_KEY_PERMISSION_ATTESTATION: "unreviewed" },
+      "permission_attestation_required",
     ],
     [{ PRISM_STRIPE_WEBHOOK_SECRET: "" }, "webhook_secret_required"],
     [{ PRISM_STRIPE_ACCOUNT_ID: "acct_" }, "account_id_required"],
@@ -248,6 +269,100 @@ describe("PRISM Stripe provider preflight configuration", () => {
   });
 });
 
+describe("PRISM Stripe authenticated CLI resource adapter", () => {
+  it("uses bounded test-mode argv and strips inherited API/runtime secrets", async () => {
+    const inheritedApiKey = `sk_live_${"x".repeat(32)}`;
+    const inheritedRuntimeKey = `rk_test_${"y".repeat(32)}`;
+    const calls: Array<{
+      executable: string;
+      argv: readonly string[];
+      options: Parameters<PrismStripeCliExecutorV1>[2];
+    }> = [];
+    const executor: PrismStripeCliExecutorV1 = vi.fn(
+      async (executable, argv, options) => {
+        calls.push({ executable, argv, options });
+        return JSON.stringify({ object: "operator_fixture" });
+      },
+    );
+    const reader = createPrismStripeCliResourceReader(config(), {
+      executor,
+      environment: {
+        HOME: "/bounded/home",
+        PATH: "/bounded/bin",
+        STRIPE_API_KEY: inheritedApiKey,
+        PRISM_STRIPE_SECRET_KEY: inheritedRuntimeKey,
+        PRISM_STRIPE_WEBHOOK_SECRET: `whsec_${"z".repeat(32)}`,
+        UNRELATED_DEPLOYMENT_SECRET: "must-not-reach-child",
+      },
+    });
+
+    await reader.retrieveAccount();
+    await reader.retrieveProduct(IDS.product);
+    await reader.retrievePrice(IDS.price);
+    await reader.retrievePortalConfiguration(IDS.portal);
+    await reader.retrieveWebhookEndpoint(IDS.endpoint);
+
+    expect(calls.map((call) => call.argv[1])).toEqual([
+      "/v1/account",
+      `/v1/products/${IDS.product}`,
+      `/v1/prices/${IDS.price}`,
+      `/v1/billing_portal/configurations/${IDS.portal}`,
+      `/v1/webhook_endpoints/${IDS.endpoint}`,
+    ]);
+    for (const call of calls) {
+      expect(call.executable).toBe("stripe");
+      expect(call.argv).toHaveLength(6);
+      expect(call.argv[0]).toBe("get");
+      expect(call.argv.slice(2)).toEqual([
+        "--stripe-version",
+        PRISM_STRIPE_PREFLIGHT_API_VERSION,
+        "--color",
+        "off",
+      ]);
+      expect(call.argv).not.toContain("--live");
+      expect(call.argv).not.toContain("--api-key");
+      expect(call.argv.every((argument) => argument.length < 200)).toBe(true);
+      expect(call.options.maxOutputBytes).toBe(2 * 1024 * 1024);
+      expect(call.options.timeoutMs).toBe(30_000);
+      expect(call.options.environment).toMatchObject({
+        HOME: "/bounded/home",
+        PATH: "/bounded/bin",
+      });
+      expect(call.options.environment).not.toHaveProperty("STRIPE_API_KEY");
+      expect(call.options.environment).not.toHaveProperty(
+        "PRISM_STRIPE_SECRET_KEY",
+      );
+      expect(call.options.environment).not.toHaveProperty(
+        "PRISM_STRIPE_WEBHOOK_SECRET",
+      );
+      expect(call.options.environment).not.toHaveProperty(
+        "UNRELATED_DEPLOYMENT_SECRET",
+      );
+    }
+    const serializedCalls = JSON.stringify(calls);
+    expect(serializedCalls).not.toContain(inheritedApiKey);
+    expect(serializedCalls).not.toContain(inheritedRuntimeKey);
+    expect(serializedCalls).not.toContain("must-not-reach-child");
+  });
+
+  it("rejects non-JSON CLI output without reflecting it", async () => {
+    const sensitiveOutput = `not-json rk_test_${"q".repeat(32)}`;
+    const reader = createPrismStripeCliResourceReader(config(), {
+      executor: async () => sensitiveOutput,
+      environment: {},
+    });
+    let observed: unknown;
+    try {
+      await reader.retrieveAccount();
+    } catch (error) {
+      observed = error;
+    }
+    expect(observed).toBeInstanceOf(Error);
+    expect((observed as Error).message).toBe("stripe_cli_response_invalid");
+    expect((observed as Error).message).not.toContain(sensitiveOutput);
+  });
+});
+
 describe("PRISM Stripe provider preflight", () => {
   it("verifies exact provider contracts and every read permission without mutations", async () => {
     const { stripe, operator, mocks } = fakeStripe({
@@ -261,11 +376,27 @@ describe("PRISM Stripe provider preflight", () => {
     );
 
     expect(report.passed).toBe(true);
-    expect(report.checks).toHaveLength(13);
+    expect(report.checks).toHaveLength(16);
     expect(report.deferred_writes).toEqual([
       "checkout_session_create_requires_mutation",
       "portal_session_create_requires_fixture_customer",
+      "other_surplus_permissions_require_dashboard_attestation",
     ]);
+    expect(check(report, "dashboard_permission_attestation")).toEqual({
+      name: "dashboard_permission_attestation",
+      passed: true,
+      evidence: "declared_v1_not_api_introspected",
+    });
+    expect(check(report, "runtime_product_read_denied")).toEqual({
+      name: "runtime_product_read_denied",
+      passed: true,
+      evidence: "permission_denied_as_expected",
+    });
+    expect(check(report, "runtime_webhook_endpoint_read_denied")).toEqual({
+      name: "runtime_webhook_endpoint_read_denied",
+      passed: true,
+      evidence: "permission_denied_as_expected",
+    });
     expect(check(report, "events_read")).toMatchObject({
       passed: true,
       evidence: "authorized_nonempty",
@@ -284,6 +415,8 @@ describe("PRISM Stripe provider preflight", () => {
     expect(mocks.paymentIntents).toHaveBeenCalledWith({ limit: 1 });
     expect(mocks.product).toHaveBeenCalledWith(IDS.product);
     expect(mocks.endpoint).toHaveBeenCalledWith(IDS.endpoint);
+    expect(mocks.runtimeProduct).toHaveBeenCalledWith(IDS.product);
+    expect(mocks.runtimeEndpoint).toHaveBeenCalledWith(IDS.endpoint);
     expect(mocks.forbiddenMutation).not.toHaveBeenCalled();
   });
 
@@ -388,6 +521,61 @@ describe("PRISM Stripe provider preflight", () => {
     });
   });
 
+  it("rejects a runtime key with surplus Product or Webhook Endpoint read", async () => {
+    const fixture = fakeStripe({
+      runtimeProduct: response({
+        id: IDS.product,
+        object: "product",
+        active: true,
+        livemode: false,
+      }),
+      runtimeEndpoint: response({
+        id: IDS.endpoint,
+        object: "webhook_endpoint",
+        livemode: false,
+      }),
+    });
+
+    const report = await runPrismStripeProviderPreflight(
+      fixture.stripe,
+      config(),
+      fixture.operator,
+    );
+    expect(report.passed).toBe(false);
+    expect(check(report, "runtime_product_read_denied")).toEqual({
+      name: "runtime_product_read_denied",
+      passed: false,
+      failure: "surplus_permission_present",
+    });
+    expect(check(report, "runtime_webhook_endpoint_read_denied")).toEqual({
+      name: "runtime_webhook_endpoint_read_denied",
+      passed: false,
+      failure: "surplus_permission_present",
+    });
+    expect(check(report, "operator_product_contract")).toMatchObject({
+      passed: true,
+    });
+    expect(check(report, "operator_webhook_contract")).toMatchObject({
+      passed: true,
+    });
+  });
+
+  it("requires an actual 403 rather than treating absence as denied permission", async () => {
+    const notFound = Object.assign(new Error("not found"), { statusCode: 404 });
+    const fixture = fakeStripe({ runtimeProduct: notFound });
+    const report = await runPrismStripeProviderPreflight(
+      fixture.stripe,
+      config(),
+      fixture.operator,
+    );
+    expect(report.passed).toBe(false);
+    expect(check(report, "runtime_product_read_denied")).toEqual({
+      name: "runtime_product_read_denied",
+      passed: false,
+      failure: "resource_not_found",
+    });
+  });
+
   it("never places secrets, provider IDs, customer IDs, or provider messages in output", async () => {
     const sensitive = [
       `rk_test_${"r".repeat(32)}`,
@@ -409,6 +597,8 @@ describe("PRISM Stripe provider preflight", () => {
       price: denial,
       portal: denial,
       endpoint: denial,
+      runtimeProduct: denial,
+      runtimeEndpoint: denial,
       events: denial,
       subscriptions: denial,
       invoices: denial,
@@ -424,10 +614,16 @@ describe("PRISM Stripe provider preflight", () => {
     const output = `${JSON.stringify(report)}\n${formatPrismStripeProviderPreflightReport(report)}`;
 
     expect(report.passed).toBe(false);
-    expect(output.split("\n")).toHaveLength(17);
+    expect(output.split("\n")).toHaveLength(21);
     for (const value of sensitive) expect(output).not.toContain(value);
     expect(output).not.toContain("provider detail");
     expect(output).toContain("permission_denied");
+    expect(output).toContain(
+      "dashboard_permission_attestation: declared_v1_not_api_introspected",
+    );
+    expect(output).toContain(
+      "other_surplus_permissions_require_dashboard_attestation",
+    );
   });
 
   it("rejects malformed or over-broad list responses", async () => {

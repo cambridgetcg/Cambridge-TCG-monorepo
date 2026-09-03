@@ -17,6 +17,8 @@ export const PRISM_STRIPE_PREFLIGHT_WEBHOOK_EVENTS = Object.freeze([
   "refund.created",
   "refund.updated",
 ] as const);
+export const PRISM_STRIPE_PREFLIGHT_PERMISSION_ATTESTATION =
+  "prism-runtime-rk-v1" as const;
 
 const EXPECTED_CURRENCY = "gbp" as const;
 const EXPECTED_AMOUNT_MINOR = 500 as const;
@@ -25,6 +27,7 @@ const EXPECTED_INTERVAL = "month" as const;
 export interface PrismStripeProviderPreflightEnvironmentV1 {
   readonly PRISM_STRIPE_POSTURE?: string;
   readonly PRISM_STRIPE_SECRET_KEY?: string;
+  readonly PRISM_STRIPE_KEY_PERMISSION_ATTESTATION?: string;
   readonly PRISM_STRIPE_WEBHOOK_SECRET?: string;
   readonly PRISM_STRIPE_ACCOUNT_ID?: string;
   readonly PRISM_STRIPE_API_VERSION?: string;
@@ -36,6 +39,7 @@ export interface PrismStripeProviderPreflightEnvironmentV1 {
 
 export interface PrismStripeProviderPreflightConfigV1 {
   readonly secretKey: string;
+  readonly permissionAttestation: typeof PRISM_STRIPE_PREFLIGHT_PERMISSION_ATTESTATION;
   readonly webhookSecret: string;
   readonly accountId: string;
   readonly productId: string;
@@ -48,6 +52,7 @@ export interface PrismStripeProviderPreflightConfigV1 {
 export type PrismStripeProviderPreflightConfigurationFailureV1 =
   | "posture_not_test"
   | "restricted_test_key_required"
+  | "permission_attestation_required"
   | "webhook_secret_required"
   | "account_id_required"
   | "product_id_required"
@@ -67,8 +72,8 @@ export class PrismStripeProviderPreflightConfigurationError extends Error {
 }
 
 const CONFIG_PATTERNS = Object.freeze({
-  // The activation credential is deliberately stricter than the runtime's
-  // transitional sk_test_ support: the final deployed key must be restricted.
+  // Matches the runtime's restricted-only gate: an unrestricted sandbox key
+  // and every live credential fail before a provider request.
   secretKey: /^rk_test_[A-Za-z0-9_]{16,240}$/,
   webhookSecret: /^whsec_[A-Za-z0-9_]{16,240}$/,
   accountId: /^acct_[A-Za-z0-9]{8,64}$/,
@@ -111,6 +116,10 @@ export function readPrismStripeProviderPreflightConfig(
   }
 
   const secretKey = configuredValue(environment, "PRISM_STRIPE_SECRET_KEY");
+  const permissionAttestation = configuredValue(
+    environment,
+    "PRISM_STRIPE_KEY_PERMISSION_ATTESTATION",
+  );
   const webhookSecret = configuredValue(
     environment,
     "PRISM_STRIPE_WEBHOOK_SECRET",
@@ -136,6 +145,11 @@ export function readPrismStripeProviderPreflightConfig(
     CONFIG_PATTERNS.secretKey,
     "restricted_test_key_required",
   );
+  if (permissionAttestation !== PRISM_STRIPE_PREFLIGHT_PERMISSION_ATTESTATION) {
+    throw new PrismStripeProviderPreflightConfigurationError(
+      "permission_attestation_required",
+    );
+  }
   requirePattern(
     webhookSecret,
     CONFIG_PATTERNS.webhookSecret,
@@ -162,6 +176,7 @@ export function readPrismStripeProviderPreflightConfig(
 
   return Object.freeze({
     secretKey,
+    permissionAttestation: PRISM_STRIPE_PREFLIGHT_PERMISSION_ATTESTATION,
     webhookSecret,
     accountId,
     productId,
@@ -178,9 +193,12 @@ export type PrismStripeProviderPreflightCheckNameV1 =
   | "operator_price_contract"
   | "operator_portal_contract"
   | "operator_webhook_contract"
+  | "dashboard_permission_attestation"
   | "runtime_account_read"
   | "runtime_price_read"
   | "runtime_portal_configuration_read"
+  | "runtime_product_read_denied"
+  | "runtime_webhook_endpoint_read_denied"
   | "events_read"
   | "subscriptions_read"
   | "invoices_read"
@@ -190,7 +208,9 @@ export type PrismStripeProviderPreflightCheckNameV1 =
 export type PrismStripeProviderPreflightEvidenceV1 =
   | "verified"
   | "authorized_empty"
-  | "authorized_nonempty";
+  | "authorized_nonempty"
+  | "permission_denied_as_expected"
+  | "declared_v1_not_api_introspected";
 
 export type PrismStripeProviderPreflightFailureV1 =
   | "authentication_rejected"
@@ -206,7 +226,8 @@ export type PrismStripeProviderPreflightFailureV1 =
   | "product_mismatch"
   | "price_mismatch"
   | "portal_mismatch"
-  | "webhook_mismatch";
+  | "webhook_mismatch"
+  | "surplus_permission_present";
 
 export type PrismStripeProviderPreflightCheckV1 = Readonly<
   | {
@@ -317,6 +338,20 @@ async function operatorContractProbe<T>(input: {
       : failed(input.name, input.mismatch);
   } catch (error) {
     return failed(input.name, providerFailure(error));
+  }
+}
+
+async function deniedPermissionProbe(input: {
+  readonly name: PrismStripeProviderPreflightCheckNameV1;
+  readonly request: () => Promise<unknown>;
+}): Promise<PrismStripeProviderPreflightCheckV1> {
+  try {
+    await input.request();
+    return failed(input.name, "surplus_permission_present");
+  } catch (error) {
+    return providerFailure(error) === "permission_denied"
+      ? passed(input.name, "permission_denied_as_expected")
+      : failed(input.name, providerFailure(error));
   }
 }
 
@@ -449,46 +484,101 @@ function validWebhookEndpoint(
 
 const STRIPE_CLI_MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
 
-function stripeCliGet(path: string, apiVersion: string): Promise<unknown> {
-  const cliEnvironment = { ...process.env };
-  // An inherited STRIPE_API_KEY could silently override the authenticated
-  // sandbox profile. The operator probe intentionally uses that profile only.
-  delete cliEnvironment.STRIPE_API_KEY;
-  return new Promise((resolve, reject) => {
+export interface PrismStripeCliExecutionOptionsV1 {
+  readonly environment: PrismStripeCliEnvironmentV1;
+  readonly maxOutputBytes: number;
+  readonly timeoutMs: number;
+}
+
+export type PrismStripeCliEnvironmentV1 = Readonly<
+  Record<string, string | undefined>
+>;
+
+export type PrismStripeCliExecutorV1 = (
+  executable: "stripe",
+  argv: readonly string[],
+  options: PrismStripeCliExecutionOptionsV1,
+) => Promise<string>;
+
+export interface PrismStripeCliResourceReaderOptionsV1 {
+  readonly executor?: PrismStripeCliExecutorV1;
+  readonly environment?: PrismStripeCliEnvironmentV1;
+}
+
+const executeStripeCli: PrismStripeCliExecutorV1 = (
+  executable,
+  argv,
+  options,
+) =>
+  new Promise((resolve, reject) => {
     execFile(
-      "stripe",
-      [
-        "get",
-        path,
-        "--stripe-version",
-        apiVersion,
-        "--color",
-        "off",
-      ],
+      executable,
+      [...argv],
       {
         encoding: "utf8",
-        env: cliEnvironment,
-        maxBuffer: STRIPE_CLI_MAX_OUTPUT_BYTES,
-        timeout: 30_000,
+        env: { ...options.environment } as NodeJS.ProcessEnv,
+        maxBuffer: options.maxOutputBytes,
+        timeout: options.timeoutMs,
       },
       (error, stdout) => {
         if (error !== null) {
           reject(new Error("stripe_cli_read_failed"));
           return;
         }
-        try {
-          const parsed: unknown = JSON.parse(stdout);
-          if (typeof parsed !== "object" || parsed === null) {
-            reject(new Error("stripe_cli_response_invalid"));
-            return;
-          }
-          resolve(parsed);
-        } catch {
-          reject(new Error("stripe_cli_response_invalid"));
-        }
+        resolve(stdout);
       },
     );
   });
+
+function stripeCliEnvironment(
+  source: PrismStripeCliEnvironmentV1,
+): PrismStripeCliEnvironmentV1 {
+  // An inherited STRIPE_API_KEY could silently override the authenticated
+  // sandbox profile. An allowlist also keeps runtime and unrelated deployment
+  // secrets out of the operator subprocess entirely.
+  return {
+    HOME: source.HOME,
+    LANG: source.LANG,
+    LC_ALL: source.LC_ALL,
+    LC_CTYPE: source.LC_CTYPE,
+    PATH: source.PATH,
+    TMPDIR: source.TMPDIR,
+    USER: source.USER,
+    XDG_CONFIG_HOME: source.XDG_CONFIG_HOME,
+  };
+}
+
+async function stripeCliGet(
+  path: string,
+  apiVersion: string,
+  executor: PrismStripeCliExecutorV1,
+  environment: PrismStripeCliEnvironmentV1,
+): Promise<unknown> {
+  const stdout = await executor(
+    "stripe",
+    [
+      "get",
+      path,
+      "--stripe-version",
+      apiVersion,
+      "--color",
+      "off",
+    ],
+    {
+      environment: stripeCliEnvironment(environment),
+      maxOutputBytes: STRIPE_CLI_MAX_OUTPUT_BYTES,
+      timeoutMs: 30_000,
+    },
+  );
+  try {
+    const parsed: unknown = JSON.parse(stdout);
+    if (typeof parsed !== "object" || parsed === null) {
+      throw new Error("stripe_cli_response_invalid");
+    }
+    return parsed;
+  } catch {
+    throw new Error("stripe_cli_response_invalid");
+  }
 }
 
 /**
@@ -498,29 +588,45 @@ function stripeCliGet(path: string, apiVersion: string): Promise<unknown> {
  */
 export function createPrismStripeCliResourceReader(
   config: PrismStripeProviderPreflightConfigV1,
+  options: PrismStripeCliResourceReaderOptionsV1 = {},
 ): PrismStripeOperatorResourceReaderV1 {
+  const executor = options.executor ?? executeStripeCli;
+  const environment = options.environment ?? process.env;
   return Object.freeze({
     retrieveAccount: async () =>
-      (await stripeCliGet("/v1/account", config.apiVersion)) as Stripe.Account,
+      (await stripeCliGet(
+        "/v1/account",
+        config.apiVersion,
+        executor,
+        environment,
+      )) as Stripe.Account,
     retrieveProduct: async (id: string) =>
       (await stripeCliGet(
         `/v1/products/${encodeURIComponent(id)}`,
         config.apiVersion,
+        executor,
+        environment,
       )) as Stripe.Product,
     retrievePrice: async (id: string) =>
       (await stripeCliGet(
         `/v1/prices/${encodeURIComponent(id)}`,
         config.apiVersion,
+        executor,
+        environment,
       )) as Stripe.Price,
     retrievePortalConfiguration: async (id: string) =>
       (await stripeCliGet(
         `/v1/billing_portal/configurations/${encodeURIComponent(id)}`,
         config.apiVersion,
+        executor,
+        environment,
       )) as Stripe.BillingPortal.Configuration,
     retrieveWebhookEndpoint: async (id: string) =>
       (await stripeCliGet(
         `/v1/webhook_endpoints/${encodeURIComponent(id)}`,
         config.apiVersion,
+        executor,
+        environment,
       )) as Stripe.WebhookEndpoint,
   });
 }
@@ -528,6 +634,7 @@ export function createPrismStripeCliResourceReader(
 export const PRISM_STRIPE_PREFLIGHT_DEFERRED_WRITES = Object.freeze([
   "checkout_session_create_requires_mutation",
   "portal_session_create_requires_fixture_customer",
+  "other_surplus_permissions_require_dashboard_attestation",
 ] as const);
 
 /** Execute only provider GET/list requests. No object is created or mutated. */
@@ -568,6 +675,15 @@ export async function runPrismStripeProviderPreflight(
       valid: (endpoint) => validWebhookEndpoint(endpoint, config),
       mismatch: "webhook_mismatch",
     }),
+    // Stripe exposes no API that enumerates a restricted key's full matrix.
+    // This check records the exact reviewed declaration; the two denial probes
+    // below independently disprove the highest-risk surplus reads.
+    Promise.resolve(
+      passed(
+        "dashboard_permission_attestation",
+        "declared_v1_not_api_introspected",
+      ),
+    ),
     contractProbe({
       name: "runtime_account_read",
       config,
@@ -591,6 +707,15 @@ export async function runPrismStripeProviderPreflight(
         ),
       valid: (portal) => validPortal(portal, config),
       mismatch: "portal_mismatch",
+    }),
+    deniedPermissionProbe({
+      name: "runtime_product_read_denied",
+      request: () => runtimeStripe.products.retrieve(config.productId),
+    }),
+    deniedPermissionProbe({
+      name: "runtime_webhook_endpoint_read_denied",
+      request: () =>
+        runtimeStripe.webhookEndpoints.retrieve(config.webhookEndpointId),
     }),
     listPermissionProbe({
       name: "events_read",
