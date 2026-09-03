@@ -297,7 +297,7 @@ describe("PRISM Signals extraction-ready core", () => {
       ),
     ).toBe(true);
     expect(PRISM_SIGNALS_FUTURE_RAILS.map((rail) => rail.status)).toEqual([
-      "Off in this preview",
+      "Test-only / configuration-gated",
       "Off in this preview",
       "Later / off",
     ]);

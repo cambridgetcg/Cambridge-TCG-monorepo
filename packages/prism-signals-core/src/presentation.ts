@@ -302,7 +302,8 @@ export const PRISM_SIGNALS_CHANNELS = Object.freeze([
       "Open the risks before acting",
       "Verify the physical and commercial facts yourself",
     ]),
-    currentStatus: "Static experience mockup only; no checkout is connected.",
+    currentStatus:
+      "The public reading stays fixed. A separate fail-closed Stripe test account surface exists; no live checkout or market data is connected.",
   }),
   Object.freeze({
     id: "telegram",
@@ -325,9 +326,9 @@ export const PRISM_SIGNALS_FUTURE_RAILS = Object.freeze([
   Object.freeze({
     channel: "Independent web purchase",
     rail: "Stripe",
-    status: "Off in this preview",
+    status: "Test-only / configuration-gated",
     rule:
-      "A later standalone web checkout may use Stripe only after the rights, offer, terms, payment-confirmation, entitlement, and delivery gates exist.",
+      "The separate All sandbox accepts test mode only and reaches the fixed synthetic fixture. Live Stripe remains off until the rights, production offer, tax, terms, entitlement, and private-delivery gates exist.",
   }),
   Object.freeze({
     channel: "Purchase inside Telegram",
