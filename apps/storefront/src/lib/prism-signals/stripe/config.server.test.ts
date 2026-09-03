@@ -15,7 +15,7 @@ function environment(
 ): PrismStripeEnvironmentV1 {
   return {
     PRISM_STRIPE_POSTURE: "stripe-test-v1",
-    PRISM_STRIPE_SECRET_KEY: `sk_test_${"a".repeat(32)}`,
+    PRISM_STRIPE_SECRET_KEY: `rk_test_${"r".repeat(32)}`,
     PRISM_STRIPE_WEBHOOK_SECRET: `whsec_${"b".repeat(32)}`,
     PRISM_STRIPE_ACCOUNT_ID: "acct_prismtest123",
     PRISM_STRIPE_API_VERSION: PRISM_STRIPE_API_VERSION,
@@ -43,14 +43,11 @@ describe("PRISM Stripe sandbox configuration", () => {
       webhookProcessingEnabled: true,
     });
     expect(Object.isFrozen(config)).toBe(true);
-    expect(
-      readPrismStripeSandboxConfig(
-        environment({ PRISM_STRIPE_SECRET_KEY: `rk_test_${"r".repeat(32)}` }),
-      ).secretKey,
-    ).toMatch(/^rk_test_/);
+    expect(config.secretKey).toMatch(/^rk_test_/);
   });
 
   it.each([
+    { PRISM_STRIPE_SECRET_KEY: `sk_test_${"a".repeat(32)}` },
     { PRISM_STRIPE_SECRET_KEY: `sk_live_${"a".repeat(32)}` },
     { PRISM_STRIPE_WEBHOOK_SECRET: "whsec_short" },
     { PRISM_STRIPE_ACCOUNT_ID: "acct_" },
@@ -98,6 +95,6 @@ describe("PRISM Stripe sandbox configuration", () => {
       portal_available: true,
       reason: "available",
     });
-    expect(JSON.stringify(posture)).not.toMatch(/sk_test|whsec|price_|prod_|bpc_|acct_/);
+    expect(JSON.stringify(posture)).not.toMatch(/rk_test|whsec|price_|prod_|bpc_|acct_/);
   });
 });

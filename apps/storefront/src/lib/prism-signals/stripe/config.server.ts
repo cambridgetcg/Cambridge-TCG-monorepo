@@ -53,7 +53,7 @@ export class PrismStripeConfigurationError extends Error {
 }
 
 const PATTERNS = Object.freeze({
-  secretKey: /^(?:sk|rk)_test_[A-Za-z0-9_]{16,240}$/,
+  secretKey: /^rk_test_[A-Za-z0-9_]{16,240}$/,
   webhookSecret: /^whsec_[A-Za-z0-9_]{16,240}$/,
   accountId: /^acct_[A-Za-z0-9]{8,64}$/,
   priceId: /^price_[A-Za-z0-9]{8,64}$/,
@@ -129,7 +129,7 @@ export function readPrismStripeSandboxConfig(
 
   if (!PATTERNS.secretKey.test(secretKey)) {
     return invalid(
-      "PRISM Stripe requires a dedicated sk_test_ or restricted rk_test_ key.",
+      "PRISM Stripe requires a dedicated restricted rk_test_ key.",
     );
   }
   if (!PATTERNS.webhookSecret.test(webhookSecret)) {
