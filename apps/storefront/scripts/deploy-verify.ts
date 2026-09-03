@@ -28,10 +28,12 @@
  *   pnpm --filter @cambridge-tcg/admin deploy-verify
  *   pnpm --filter @cambridge-tcg/admin deploy-verify -- --strict
  *   pnpm --filter @cambridge-tcg/admin deploy-verify -- --base=https://staging.example.com
+ *   pnpm --filter @cambridge-tcg/admin deploy-verify -- --prism-posture=processing-only
  *
  *   --strict       fail on warnings (slow responses, redirects, etc.)
  *   --base=<url>   probe a non-production target
  *   --skip-wholesale  skip wholesale probes (when wholesale isn't deployed)
+ *   --prism-posture=<stage>  require one exact PRISM activation stage
  *
  * ── Citation ─────────────────────────────────────────────────────────
  *
@@ -41,19 +43,24 @@
  */
 
 import {
+  assessPrismPosture,
   assessResponse,
   expectedFor,
+  parseRequiredPrismPosture,
   type ManifestResource,
+  type PrismDeploymentPosture,
 } from "./deploy-verify-contract";
 
 interface ProbeResult {
   id: string;
+  path: string;
   url: string;
   expected: string;
   actual: number;
   status: "passed" | "skipped" | "failed";
   duration_ms: number;
   detail?: string;
+  variant?: string;
 }
 
 const STRICT = process.argv.includes("--strict");
@@ -133,16 +140,19 @@ async function probe(resource: ManifestResource): Promise<ProbeResult> {
     const duration_ms = Date.now() - start;
     return {
       id: resource.id,
+      path: resource.path,
       url,
       expected: expected.label,
       actual: res.status,
       status: assessment.passed ? "passed" : "failed",
       duration_ms,
       detail: assessment.detail,
+      variant: assessment.variant,
     };
   } catch (err) {
     return {
       id: resource.id,
+      path: resource.path,
       url,
       expected: expected.label,
       actual: 0,
@@ -153,11 +163,33 @@ async function probe(resource: ManifestResource): Promise<ProbeResult> {
   }
 }
 
+function passedVariantAt(
+  results: readonly ProbeResult[],
+  path: string,
+): string | undefined {
+  const matches = results.filter((result) => result.path === path);
+  if (matches.length !== 1 || matches[0].status !== "passed") return undefined;
+  return matches[0].variant;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  let requiredPrismPosture: PrismDeploymentPosture | undefined;
+  try {
+    requiredPrismPosture = parseRequiredPrismPosture(process.argv.slice(2));
+  } catch (error) {
+    console.error(
+      `✗ ${error instanceof Error ? error.message : "Invalid PRISM posture argument."}`,
+    );
+    process.exit(1);
+  }
+
   console.log("");
   console.log(`◆ deploy-verify — live-site probe against ${STOREFRONT_BASE}`);
+  if (requiredPrismPosture !== undefined) {
+    console.log(`  Required PRISM posture: ${requiredPrismPosture}`);
+  }
   console.log("");
 
   let manifest: ManifestResource[];
@@ -191,9 +223,30 @@ async function main(): Promise<void> {
     );
   }
 
+  const prismPosture = assessPrismPosture(
+    {
+      offer: passedVariantAt(results, "/api/prism-signals/offers/all"),
+      webhook: passedVariantAt(
+        results,
+        "/api/webhooks/stripe/prism-signals",
+      ),
+      page: passedVariantAt(results, "/prism-signals"),
+    },
+    requiredPrismPosture,
+  );
+  console.log(
+    prismPosture.passed
+      ? `  ✓ PRISM aggregate posture: ${prismPosture.stage}`
+      : `  ✗ PRISM aggregate posture — ${prismPosture.detail}`,
+  );
+
   console.log("");
-  const passed = results.filter((r) => r.status === "passed").length;
-  const failed = results.filter((r) => r.status === "failed").length;
+  const passed =
+    results.filter((r) => r.status === "passed").length +
+    (prismPosture.passed ? 1 : 0);
+  const failed =
+    results.filter((r) => r.status === "failed").length +
+    (prismPosture.passed ? 0 : 1);
   const slow = results.filter((r) => r.duration_ms > SLOW_MS).length;
   console.log(
     `  Summary: ${passed} passed · ${failed} failed${slow ? ` · ${slow} slow (>${SLOW_MS}ms)` : ""}`,

@@ -10,6 +10,7 @@ export interface DeliberateContract {
   variant?: string;
   status: number;
   bodyIncludes: readonly string[];
+  bodyExcludes?: readonly string[];
   cacheControlIncludes: readonly string[];
   exactBody?:
     | Readonly<{ kind: "json"; value: unknown }>
@@ -29,6 +30,44 @@ export interface ExpectedResponse {
 
 export interface ResponseAssessment {
   passed: boolean;
+  detail?: string;
+  variant?: string;
+}
+
+export const PRISM_DEPLOYMENT_POSTURES = Object.freeze({
+  unconfigured: Object.freeze({
+    offer: "unconfigured",
+    webhook: "unconfigured",
+    page: "checkout-paused",
+  }),
+  "configured-paused": Object.freeze({
+    offer: "configured",
+    webhook: "configured-processing-paused",
+    page: "checkout-paused",
+  }),
+  "processing-only": Object.freeze({
+    offer: "configured",
+    webhook: "processing-enabled-unsigned-probe",
+    page: "checkout-paused",
+  }),
+  "intake-enabled": Object.freeze({
+    offer: "configured",
+    webhook: "processing-enabled-unsigned-probe",
+    page: "checkout-available",
+  }),
+});
+
+export type PrismDeploymentPosture = keyof typeof PRISM_DEPLOYMENT_POSTURES;
+
+export interface PrismPostureObservation {
+  offer?: string;
+  webhook?: string;
+  page?: string;
+}
+
+export interface PrismPostureAssessment {
+  passed: boolean;
+  stage?: PrismDeploymentPosture;
   detail?: string;
 }
 
@@ -115,6 +154,22 @@ export const DELIBERATE_CONTRACTS: Readonly<
     ],
     cacheControlIncludes: ["private", "no-store"],
   },
+  "/prism-signals": [
+    {
+      variant: "checkout-paused",
+      status: 200,
+      bodyIncludes: ["New sandbox Checkout is paused or not configured."],
+      bodyExcludes: ["The host reports that sandbox intake is available."],
+      cacheControlIncludes: [],
+    },
+    {
+      variant: "checkout-available",
+      status: 200,
+      bodyIncludes: ["The host reports that sandbox intake is available."],
+      bodyExcludes: ["New sandbox Checkout is paused or not configured."],
+      cacheControlIncludes: [],
+    },
+  ],
   "/api/prism-signals/offers/all": [
     {
       variant: "unconfigured",
@@ -361,6 +416,79 @@ function exactBodyMatches(
   return sameJson(parsed, prismSignalsAllOffer(priceRef));
 }
 
+function postureObservationLabel(
+  observation: PrismPostureObservation,
+): string {
+  return [
+    `offer=${observation.offer ?? "missing"}`,
+    `webhook=${observation.webhook ?? "missing"}`,
+    `page=${observation.page ?? "missing"}`,
+  ].join(", ");
+}
+
+/**
+ * Proves the three independently fetched PRISM surfaces describe one possible
+ * deployment state. Endpoint-local success is insufficient because a mixed
+ * Vercel deployment or partial environment transition can make every response
+ * valid in isolation while the aggregate posture is unsafe.
+ */
+export function assessPrismPosture(
+  observation: PrismPostureObservation,
+  required?: PrismDeploymentPosture,
+): PrismPostureAssessment {
+  const stages = Object.keys(
+    PRISM_DEPLOYMENT_POSTURES,
+  ) as PrismDeploymentPosture[];
+  const matches = stages.filter((stage) => {
+    const tuple = PRISM_DEPLOYMENT_POSTURES[stage];
+    return (
+      tuple.offer === observation.offer &&
+      tuple.webhook === observation.webhook &&
+      tuple.page === observation.page
+    );
+  });
+
+  if (matches.length !== 1) {
+    return {
+      passed: false,
+      detail: `incoherent PRISM deployment posture (${postureObservationLabel(observation)})`,
+    };
+  }
+
+  const stage = matches[0];
+  if (required !== undefined && stage !== required) {
+    return {
+      passed: false,
+      stage,
+      detail: `required PRISM posture ${required}, observed ${stage}`,
+    };
+  }
+  return { passed: true, stage };
+}
+
+export function parseRequiredPrismPosture(
+  args: readonly string[],
+): PrismDeploymentPosture | undefined {
+  const prefix = "--prism-posture=";
+  const supplied = args.filter(
+    (argument) =>
+      argument === "--prism-posture" || argument.startsWith(prefix),
+  );
+  if (supplied.length === 0) return undefined;
+  if (supplied.length !== 1 || supplied[0] === "--prism-posture") {
+    throw new Error(
+      "Supply exactly one --prism-posture=unconfigured|configured-paused|processing-only|intake-enabled argument.",
+    );
+  }
+  const value = supplied[0].slice(prefix.length);
+  if (!Object.hasOwn(PRISM_DEPLOYMENT_POSTURES, value)) {
+    throw new Error(
+      "Unknown PRISM posture; expected unconfigured, configured-paused, processing-only, or intake-enabled.",
+    );
+  }
+  return value as PrismDeploymentPosture;
+}
+
 export function expectedFor(resource: ManifestResource): ExpectedResponse {
   const declaration = DELIBERATE_CONTRACTS[resource.path];
   if (declaration !== undefined) {
@@ -435,9 +563,13 @@ export async function assessResponse(
     const missingBodyMarkers = contract.bodyIncludes.filter(
       (marker) => !body.includes(marker),
     );
+    const forbiddenBodyMarkers = (contract.bodyExcludes ?? []).filter(
+      (marker) => body.includes(marker),
+    );
     const missing = [
       ...missingCacheMarkers.map((marker) => `cache-control:${marker}`),
       ...missingBodyMarkers.map((marker) => `body:${marker}`),
+      ...forbiddenBodyMarkers.map((marker) => `body-forbidden:${marker}`),
     ];
 
     if (
@@ -452,7 +584,11 @@ export async function assessResponse(
     ) {
       missing.push(`body:exact-${contract.exactBody.kind}`);
     }
-    if (missing.length === 0) return { passed: true };
+    if (missing.length === 0) {
+      return contract.variant === undefined
+        ? { passed: true }
+        : { passed: true, variant: contract.variant };
+    }
 
     mismatches.push(
       `${contract.variant ?? `status-${contract.status}`}: missing ${missing.join(", ")}`,

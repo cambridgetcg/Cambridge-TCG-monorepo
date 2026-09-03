@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import { createPrismSignalsAllStripeTestOffer } from "@cambridge-tcg/prism-signals-core/product";
 import {
   DELIBERATE_CONTRACTS,
+  PRISM_DEPLOYMENT_POSTURES,
+  assessPrismPosture,
   assessResponse,
   expectedFor,
+  parseRequiredPrismPosture,
   type DeliberateContract,
   type DeliberateContractDeclaration,
   type ManifestResource,
@@ -76,9 +79,19 @@ function matchingResponse(contract: DeliberateContract): Response {
   });
 }
 
+function prismPageResponse(checkoutAvailable: boolean): Response {
+  return new Response(
+    checkoutAvailable
+      ? "<p>The host reports that sandbox intake is available.</p>"
+      : "<p>New sandbox Checkout is paused or not configured.</p>",
+    { status: 200, headers: { "Cache-Control": "private, no-store" } },
+  );
+}
+
 const prismPostures = [
   {
     name: "unconfigured",
+    stage: "unconfigured",
     offer: () =>
       jsonResponse(
         {
@@ -102,9 +115,11 @@ const prismPostures = [
         503,
         PRISM_PRIVATE_CACHE,
       ),
+    page: () => prismPageResponse(false),
   },
   {
     name: "configured, processing paused",
+    stage: "configured-paused",
     offer: () =>
       jsonResponse(
         prismAllOfferBody(),
@@ -122,9 +137,11 @@ const prismPostures = [
         503,
         PRISM_PRIVATE_CACHE,
       ),
+    page: () => prismPageResponse(false),
   },
   {
     name: "processing on, intake off",
+    stage: "processing-only",
     offer: () =>
       jsonResponse(
         prismAllOfferBody(),
@@ -142,9 +159,11 @@ const prismPostures = [
         400,
         PRISM_PRIVATE_CACHE,
       ),
+    page: () => prismPageResponse(false),
   },
   {
     name: "processing on, intake on",
+    stage: "intake-enabled",
     offer: () =>
       jsonResponse(
         prismAllOfferBody(),
@@ -162,6 +181,7 @@ const prismPostures = [
         400,
         PRISM_PRIVATE_CACHE,
       ),
+    page: () => prismPageResponse(true),
   },
 ] as const;
 
@@ -178,6 +198,7 @@ describe("deploy verifier response contracts", () => {
       "/api/v1/prices",
       "/api/v1/prices/[sku]",
       "/api/v1/ingest-quarantine/[id]",
+      "/prism-signals",
       "/api/prism-signals/offers/all",
       "/api/prism-signals/stripe/checkout",
       "/api/prism-signals/stripe/portal",
@@ -198,7 +219,11 @@ describe("deploy verifier response contracts", () => {
             matchingResponse(contract),
             expected,
           ),
-        ).toEqual({ passed: true });
+        ).toEqual(
+          contract.variant === undefined
+            ? { passed: true }
+            : { passed: true, variant: contract.variant },
+        );
 
         const genericFailure = new Response("Service Unavailable", {
           status: contract.status,
@@ -217,19 +242,33 @@ describe("deploy verifier response contracts", () => {
 
   it.each(prismPostures)(
     "accepts the exact PRISM HTTP contracts when $name",
-    async ({ offer, webhook }) => {
+    async ({ stage, offer, webhook, page }) => {
+      const offerAssessment = await assessResponse(
+        resource("/api/prism-signals/offers/all"),
+        offer(),
+      );
+      const webhookAssessment = await assessResponse(
+        resource("/api/webhooks/stripe/prism-signals"),
+        webhook(),
+      );
+      const pageAssessment = await assessResponse(
+        resource("/prism-signals"),
+        page(),
+      );
+
+      expect(offerAssessment).toMatchObject({ passed: true });
+      expect(webhookAssessment).toMatchObject({ passed: true });
+      expect(pageAssessment).toMatchObject({ passed: true });
       expect(
-        await assessResponse(
-          resource("/api/prism-signals/offers/all"),
-          offer(),
+        assessPrismPosture(
+          {
+            offer: offerAssessment.variant,
+            webhook: webhookAssessment.variant,
+            page: pageAssessment.variant,
+          },
+          stage,
         ),
-      ).toEqual({ passed: true });
-      expect(
-        await assessResponse(
-          resource("/api/webhooks/stripe/prism-signals"),
-          webhook(),
-        ),
-      ).toEqual({ passed: true });
+      ).toEqual({ passed: true, stage });
     },
   );
 
@@ -237,6 +276,8 @@ describe("deploy verifier response contracts", () => {
     const intakeOff = prismPostures[2];
     const intakeOn = prismPostures[3];
 
+    expect(await intakeOff.offer().text()).toBe(await intakeOn.offer().text());
+    expect(intakeOff.offer().status).toBe(intakeOn.offer().status);
     expect(await intakeOff.webhook().text()).toBe(
       await intakeOn.webhook().text(),
     );
@@ -244,6 +285,108 @@ describe("deploy verifier response contracts", () => {
     expect(intakeOff.webhook().headers.get("cache-control")).toBe(
       intakeOn.webhook().headers.get("cache-control"),
     );
+
+    const intakeOffPage = await assessResponse(
+      resource("/prism-signals"),
+      intakeOff.page(),
+    );
+    const intakeOnPage = await assessResponse(
+      resource("/prism-signals"),
+      intakeOn.page(),
+    );
+    expect(intakeOffPage.variant).toBe("checkout-paused");
+    expect(intakeOnPage.variant).toBe("checkout-available");
+  });
+
+  it("rejects individually valid PRISM variants assembled into impossible mixed postures", () => {
+    const mixed = [
+      {
+        offer: "unconfigured",
+        webhook: "configured-processing-paused",
+        page: "checkout-paused",
+      },
+      {
+        offer: "configured",
+        webhook: "unconfigured",
+        page: "checkout-paused",
+      },
+      {
+        offer: "unconfigured",
+        webhook: "processing-enabled-unsigned-probe",
+        page: "checkout-available",
+      },
+      {
+        offer: "configured",
+        webhook: "configured-processing-paused",
+        page: "checkout-available",
+      },
+      {
+        offer: "configured",
+        webhook: "processing-enabled-unsigned-probe",
+      },
+    ];
+
+    for (const observation of mixed) {
+      const assessment = assessPrismPosture(observation);
+      expect(assessment.passed).toBe(false);
+      expect(assessment.detail).toContain("incoherent PRISM deployment posture");
+    }
+  });
+
+  it("rejects a coherent posture when it is not the explicitly required stage", () => {
+    const stages = Object.keys(PRISM_DEPLOYMENT_POSTURES) as Array<
+      keyof typeof PRISM_DEPLOYMENT_POSTURES
+    >;
+
+    stages.forEach((stage, index) => {
+      const wrongStage = stages[(index + 1) % stages.length];
+      expect(
+        assessPrismPosture(PRISM_DEPLOYMENT_POSTURES[stage], wrongStage),
+      ).toEqual({
+        passed: false,
+        stage,
+        detail: `required PRISM posture ${wrongStage}, observed ${stage}`,
+      });
+    });
+  });
+
+  it("parses only one exact optional PRISM posture CLI argument", () => {
+    expect(parseRequiredPrismPosture(["--strict"])).toBeUndefined();
+    for (const stage of Object.keys(PRISM_DEPLOYMENT_POSTURES)) {
+      expect(
+        parseRequiredPrismPosture(["--strict", `--prism-posture=${stage}`]),
+      ).toBe(stage);
+    }
+    expect(() => parseRequiredPrismPosture(["--prism-posture"])).toThrow(
+      "Supply exactly one",
+    );
+    expect(() =>
+      parseRequiredPrismPosture(["--prism-posture=live"]),
+    ).toThrow("Unknown PRISM posture");
+    expect(() =>
+      parseRequiredPrismPosture([
+        "--prism-posture=processing-only",
+        "--prism-posture=intake-enabled",
+      ]),
+    ).toThrow("Supply exactly one");
+  });
+
+  it("rejects ambiguous or missing PRISM page posture markers", async () => {
+    const both = await assessResponse(
+      resource("/prism-signals"),
+      new Response(
+        "The host reports that sandbox intake is available. New sandbox Checkout is paused or not configured.",
+        { status: 200 },
+      ),
+    );
+    expect(both.passed).toBe(false);
+    expect(both.detail).toContain("body-forbidden");
+
+    const neither = await assessResponse(
+      resource("/prism-signals"),
+      new Response("PRISM Signals", { status: 200 }),
+    );
+    expect(neither.passed).toBe(false);
   });
 
   it("rejects PRISM alternative responses with body, cache, or status drift", async () => {
@@ -426,7 +569,8 @@ describe("deploy verifier response contracts", () => {
     expect(result.detail).toContain("cache-control:no-store");
   });
 
-  it("limits alternative status codes to the two PRISM paths", () => {
+  it("limits expanded status codes to the two PRISM API paths", () => {
+    expect(expectedFor(resource("/prism-signals")).codes).toEqual([200]);
     expect(expectedFor(resource("/api/prism-signals/offers/all")).codes).toEqual([
       503,
       200,
