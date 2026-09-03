@@ -12,6 +12,7 @@ paths:
   - package.json
   - apps/storefront/package.json
   - apps/storefront/scripts/deploy-verify-contract.ts
+  - apps/storefront/scripts/deploy-verify.ts
   - apps/storefront/scripts/prism-stripe-operator.ts
   - apps/storefront/scripts/prism-stripe-provider-preflight.ts
   - apps/storefront/src/lib/deploy-verify-contract.test.ts
