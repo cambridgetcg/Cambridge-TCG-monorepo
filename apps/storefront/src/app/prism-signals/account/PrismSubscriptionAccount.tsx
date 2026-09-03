@@ -22,7 +22,12 @@ export interface PrismSubscriptionStatus {
   readonly subscription: null | {
     readonly status: string;
     readonly cancel_at_period_end: boolean;
-    readonly current_period_end: string;
+    readonly current_period_end: string | null;
+    readonly reconciliation: null | {
+      readonly status: "required" | "resolved";
+      readonly action: "cancel_subscription";
+      readonly reason: "refund_before_grant" | "full_refund";
+    };
   };
   readonly checkout: {
     readonly available: boolean;
@@ -122,7 +127,12 @@ export function parsePrismSubscriptionStatus(
     const candidate = plainRecord(root.subscription, "subscription");
     exactKeys(
       candidate,
-      ["status", "cancel_at_period_end", "current_period_end"],
+      [
+        "status",
+        "cancel_at_period_end",
+        "current_period_end",
+        "reconciliation",
+      ],
       "subscription",
     );
     if (
@@ -132,13 +142,41 @@ export function parsePrismSubscriptionStatus(
     ) {
       throw new Error("Unexpected subscription response.");
     }
+    let reconciliation: NonNullable<
+      PrismSubscriptionStatus["subscription"]
+    >["reconciliation"] = null;
+    if (candidate.reconciliation !== null) {
+      const value = plainRecord(
+        candidate.reconciliation,
+        "subscription reconciliation",
+      );
+      exactKeys(
+        value,
+        ["status", "action", "reason"],
+        "subscription reconciliation",
+      );
+      if (
+        (value.status !== "required" && value.status !== "resolved") ||
+        value.action !== "cancel_subscription" ||
+        (value.reason !== "refund_before_grant" &&
+          value.reason !== "full_refund")
+      ) {
+        throw new Error("Unexpected subscription reconciliation response.");
+      }
+      reconciliation = Object.freeze({
+        status: value.status,
+        action: value.action,
+        reason: value.reason,
+      });
+    }
     subscription = Object.freeze({
       status: candidate.status,
       cancel_at_period_end: candidate.cancel_at_period_end,
-      current_period_end: canonicalTimestamp(
-        candidate.current_period_end,
-        "subscription",
-      ),
+      current_period_end:
+        candidate.current_period_end === null
+          ? null
+          : canonicalTimestamp(candidate.current_period_end, "subscription"),
+      reconciliation,
     });
   }
 
@@ -177,7 +215,19 @@ async function responseError(response: Response): Promise<string> {
     return "Your session ended. Sign in again before using subscription controls.";
   }
   if (response.status === 403) {
-    return "This request was not accepted as a same-origin account action.";
+    try {
+      const body = plainRecord(await response.json(), "error");
+      const error = plainRecord(body.error, "error");
+      if (error.code === "sandbox_invitation_required") {
+        return "All sandbox Checkout is currently limited to accounts with an active operator invitation.";
+      }
+      if (error.code === "beta_interest_required") {
+        return "Record an active PRISM beta-interest request before using an invited sandbox place.";
+      }
+    } catch {
+      // Keep the local CSRF-safe fallback for any expanded or malformed body.
+    }
+    return "This request was not accepted as an eligible same-origin account action.";
   }
   if (response.status === 503) {
     return "The PRISM Stripe sandbox is unavailable right now. No subscription change was made.";
@@ -230,6 +280,7 @@ function parseStripeRedirect(value: unknown, expectedKind: RedirectKind): string
   if (
     url.protocol !== "https:" ||
     url.hostname !== expectedHost ||
+    url.port !== "" ||
     url.username !== "" ||
     url.password !== ""
   ) {
@@ -392,7 +443,7 @@ export default function PrismSubscriptionAccount() {
         </h2>
         <p className="mt-3 text-sm leading-6 text-ink-muted">
           {status.plan === "all" && status.access.allowed
-            ? "Signed webhook evidence currently permits the All-labelled synthetic fixture surface."
+            ? "Signed webhook evidence currently marks this owner projection All. The referenced synthetic fixture remains the same public Free reading."
             : "The public fixed synthetic preview remains available. No All access is being inferred."}
         </p>
 
@@ -405,13 +456,15 @@ export default function PrismSubscriptionAccount() {
         {status.subscription ? (
           <dl className="mt-6 grid gap-4 border-t border-border-subtle pt-6 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-ink-faint">Sandbox subscription status</dt>
+              <dt className="text-ink-faint">Last verified Stripe lifecycle posture</dt>
               <dd className="mt-1 font-mono text-ink">{status.subscription.status}</dd>
             </div>
             <div>
               <dt className="text-ink-faint">Current period boundary</dt>
               <dd className="mt-1 text-ink">
-                {readableDate(status.subscription.current_period_end)} UTC
+                {status.subscription.current_period_end
+                  ? `${readableDate(status.subscription.current_period_end)} UTC`
+                  : "Awaiting a verified paid test period"}
               </dd>
             </div>
             <div className="sm:col-span-2">
@@ -423,6 +476,17 @@ export default function PrismSubscriptionAccount() {
               </dd>
             </div>
           </dl>
+        ) : null}
+
+        {status.subscription?.reconciliation?.status === "required" ? (
+          <p
+            role="status"
+            className="mt-5 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm leading-6 text-ink-muted"
+          >
+            The refunded test period has ended. Stripe subscription cancellation
+            still needs a verified terminal event; later invoices cannot restore
+            access while this reconciliation is open.
+          </p>
         ) : null}
 
         <div className="mt-7 flex flex-wrap gap-3">
@@ -471,7 +535,7 @@ export default function PrismSubscriptionAccount() {
         <ul className="mt-5 space-y-3 text-sm leading-6 text-ink-muted">
           <li>£5 per month is a sandbox test amount, not a published live price.</li>
           <li>Stripe test mode cannot take real money.</li>
-          <li>All currently unlocks only an explicitly synthetic fixture surface.</li>
+          <li>All marks an owner-scoped test projection; it unlocks no payload unavailable on Free.</li>
           <li>A Checkout return cannot grant access; verified webhook evidence must arrive.</li>
           <li>PayPal, crypto, Telegram Stars, and live market signals remain off.</li>
         </ul>
