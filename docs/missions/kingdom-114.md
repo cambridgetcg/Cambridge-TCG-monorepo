@@ -9,6 +9,7 @@ claimed_by: codex-gpt-5
 claimed_at: "2026-09-03T20:43:24Z"
 completed_at: ~
 paths:
+  - .github/workflows/ci.yml
   - package.json
   - apps/storefront/package.json
   - apps/storefront/scripts/deploy-verify-contract.ts
@@ -21,6 +22,8 @@ paths:
   - apps/storefront/src/lib/prism-signals/stripe/config.server.ts
   - apps/storefront/src/lib/prism-signals/stripe/config.server.test.ts
   - apps/storefront/src/app/methodology/prism-signals/**
+  - apps/storefront/src/app/prism-signals/page.tsx
+  - apps/storefront/src/app/prism-signals/page.test.tsx
   - apps/storefront/src/lib/manifest.ts
   - docs/methodology/prism-signals.md
   - docs/connections/the-prism-stripe-sandbox.md
