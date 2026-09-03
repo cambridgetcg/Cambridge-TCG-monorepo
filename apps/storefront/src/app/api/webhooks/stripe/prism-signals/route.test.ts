@@ -40,7 +40,7 @@ vi.mock("@/lib/prism-signals/stripe", () => ({
   processPrismStripeWebhookAtomically: mocks.process,
 }));
 
-const WEBHOOK_SECRET = "whsec_prism_test_signing_secret_123456";
+const WEBHOOK_SECRET = "whsec_valid_fixture_signing_value_for_tests_only";
 const config = {
   environment: "test",
   apiVersion: "2026-02-25.clover",

@@ -7,7 +7,7 @@ import {
 
 vi.mock("server-only", () => ({}));
 
-const SECRET = "reference-secret-with-at-least-32-chars";
+const SECRET = "valid-fixture-reference-secret-for-tests-only";
 
 describe("PRISM Stripe opaque references", () => {
   it("is deterministic, one-way in representation, and domain-separated", () => {

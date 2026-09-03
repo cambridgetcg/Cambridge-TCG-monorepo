@@ -26,7 +26,7 @@ const config: PrismStripeSandboxConfigV1 = {
   priceId: "price_prismtest123",
   productId: "prod_prismtest123",
   portalConfigurationId: "bpc_prismtest123",
-  referenceSecret: "reference-secret-with-at-least-32-chars",
+  referenceSecret: "valid-fixture-reference-secret-for-tests-only",
   checkoutIntakeEnabled: true,
   webhookProcessingEnabled: true,
   currency: "gbp",

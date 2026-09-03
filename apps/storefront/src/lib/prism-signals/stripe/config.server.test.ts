@@ -22,7 +22,8 @@ function environment(
     PRISM_STRIPE_ALL_PRICE_ID: "price_prismtest123",
     PRISM_STRIPE_EXPECTED_PRODUCT_ID: "prod_prismtest123",
     PRISM_STRIPE_PORTAL_CONFIGURATION_ID: "bpc_prismtest123",
-    PRISM_STRIPE_REFERENCE_SECRET: "reference-secret-with-at-least-32-chars",
+    PRISM_STRIPE_REFERENCE_SECRET:
+      "valid-fixture-reference-secret-for-tests-only",
     PRISM_STRIPE_CHECKOUT_INTAKE: "enabled",
     PRISM_STRIPE_WEBHOOK_PROCESSING: "enabled",
     ...overrides,
