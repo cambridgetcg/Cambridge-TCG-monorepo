@@ -1,28 +1,35 @@
 // Trust Score Engine — calculates trust from trading history, reviews, and behavior
 //
-// Score components (0-100):
-//   Trade completion rate    (35 pts) — completed / total trades
-//   Review score             (30 pts) — avg rating * 6
-//   Trade volume             (15 pts) — log scale of total volume
-//   Account age              (10 pts) — months since first trade
-//   External reputation      (10 pts) — verified cross-platform accounts
+// The weights and penalties are not prose: they are TRUST_WEIGHTS and
+// TRUST_PENALTIES in ./trust-breakdown, consumed by everything that displays
+// them. Do not restate a number here that the constants do not hold — this
+// header once documented a "Suspension history -30" penalty that the code has
+// never applied, and the account page trusted the prose over the code.
 //
 // Identity verification is no longer a score component (global free trade,
 // 2026-06-10): reputation is earned from behaviour, not licensed. Its 10 pts
 // were redistributed to completion (+5) and reviews (+5).
-//
-// Penalties:
-//   Active dispute           -10 per open dispute
-//   Dispute lost             -15 per lost dispute
-//   Fraud signal (medium+)   -20 per unresolved signal
-//   Suspension history       -30
 
 import { query } from "@/lib/db";
 import type { TrustProfile, FraudSignal } from "./types";
 import { TRUST_TIERS } from "./types";
+import { computeTrustBreakdown } from "./trust-breakdown";
 import { awardAchievement, postActivity } from "@/lib/social/db";
 import { PERSON_PUBLICATION_NOTICE_VERSION } from "@/lib/social/publication";
 import { notify } from "@/lib/notifications/db";
+
+// The weights, the penalties and the arithmetic all live in ./trust-breakdown,
+// which has no database import so it can be unit-tested directly. Re-exported
+// here so existing importers of the engine keep working.
+export {
+  TRUST_WEIGHTS,
+  TRUST_PENALTIES,
+  TRUST_MAX_SCORE,
+  TRUST_COMPONENT_LABELS,
+  TRUST_PENALTY_LABELS,
+  computeTrustBreakdown,
+  type TrustBreakdownInputs,
+} from "./trust-breakdown";
 
 export async function calculateTrustScore(userId: string): Promise<TrustProfile> {
   // Ensure trust profile exists
@@ -76,13 +83,13 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
   const cancelledTrades = trades.filter(t => t.escrow_status === "cancelled").length;
   const disputedTrades = trades.filter(t => t.escrow_status === "disputed" || t.escrow_status === "refunded").length;
 
-  // ── Score components ──
+  // ── Score inputs ──
+  //
+  // Everything below gathers an input; the arithmetic itself lives in
+  // computeTrustBreakdown so that the account page can render the same
+  // numbers instead of recomputing them.
 
-  // 1. Completion rate (35 pts)
-  const completionRate = totalTrades > 0 ? completedTrades / totalTrades : 0;
-  const completionScore = Math.round(completionRate * 35);
-
-  // 2. Review score (30 pts) — REVIEWER-TRUST-WEIGHTED
+  // Review average — REVIEWER-TRUST-WEIGHTED
   //
   // Each review's contribution = rating × reviewer_weight, where the
   // weight scales with the reviewer's own trust score:
@@ -113,24 +120,18 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
     ).catch(() => { /* non-blocking — score still computes */ });
   }
   const avgRating = weightTotal > 0 ? weightedSum / weightTotal : 0;
-  const reviewScore = Math.round((avgRating / 5) * 30);
   const positiveReviews = reviews.filter((r: { rating: number }) => r.rating >= 4).length;
   const negativeReviews = reviews.filter((r: { rating: number }) => r.rating <= 2).length;
 
-  // 3. Volume (15 pts) — logarithmic scale
+  // Volume
   const totalVolume = trades.reduce((s: number, t: { price: string }) => s + parseFloat(t.price || "0"), 0);
   const largestTrade = Math.max(0, ...trades.map((t: { price: string }) => parseFloat(t.price || "0")));
-  const volumeScore = Math.min(15, Math.round(Math.log10(Math.max(1, totalVolume)) * 5));
 
-  // 4. Account age (10 pts)
+  // Account age
   const firstTrade = trades.length > 0
     ? new Date(trades.reduce((min: string, t: { created_at: string }) => t.created_at < min ? t.created_at : min, trades[0].created_at))
     : new Date();
   const monthsActive = Math.max(0, (Date.now() - firstTrade.getTime()) / (30 * 24 * 60 * 60 * 1000));
-  const ageScore = Math.min(10, Math.round(monthsActive * 2));
-
-  // 5. External reputation (10 pts)
-  const externalScore = Math.min(10, externalReps.length * 5);
 
   // ── Dispute outcomes (real, not "any disputed = lost") ──
   // Win/loss attribution depends on role:
@@ -160,15 +161,21 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
   const openDisputes = trades.filter((t: { escrow_status: string }) => t.escrow_status === "disputed").length;
   const mediumPlusFraud = fraudSignals.filter((f: { severity: string }) => f.severity !== "low").length;
 
-  const penalties =
-    (openDisputes * 10) +
-    (disputesLost * 15) +
-    (disputesSplit * 8) +   // split = half-credit penalty
-    (mediumPlusFraud * 20);
+  // ── The arithmetic, in one place ──
+  const breakdown = computeTrustBreakdown({
+    totalTrades,
+    completedTrades,
+    avgRating,
+    totalVolume,
+    monthsActive,
+    externalRepCount: externalReps.length,
+    openDisputes,
+    disputesLost,
+    disputesSplit,
+    fraudSignals: mediumPlusFraud,
+  });
 
-  // ── Final score ──
-  const rawScore = completionScore + reviewScore + volumeScore + ageScore + externalScore;
-  const trustScore = Math.max(0, Math.min(100, rawScore - penalties));
+  const trustScore = breakdown.score;
 
   // Determine trust tier and limits
   const tier = [...TRUST_TIERS].reverse().find(t => trustScore >= t.minScore) || TRUST_TIERS[0];
@@ -198,7 +205,9 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
   if (trustScore >= 80) awardAchievement(userId, "trust_80").catch(() => {});
 
   const profile = await query(`SELECT * FROM trust_profiles WHERE user_id=$1`, [userId]);
-  return profile.rows[0] as TrustProfile;
+  // Publish the working alongside the answer. The row has no column for it —
+  // it is derived, and deriving it twice is how the account page drifted.
+  return { ...profile.rows[0], breakdown } as TrustProfile;
 }
 
 // ── Pre-trade checks ──
