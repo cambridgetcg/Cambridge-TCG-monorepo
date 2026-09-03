@@ -146,10 +146,12 @@ export default function PrismSignalsMethodologyPage() {
       <p>
         Kingdom-114 has provisioned the Product, exact GBP monthly Price,
         restricted portal and seven-event direct webhook inside a separately
-        authorised Stripe Sandbox. The production runtime variables and
-        restricted runtime key are not configured yet, so Checkout and webhook
-        processing remain unavailable while activation tooling and deployment
-        verification are hardened. No provider resource exists in live mode.
+        authorised Stripe Sandbox. Production configuration may advance only
+        through the exact unconfigured, configured-paused, processing-only and
+        intake-enabled deployment postures; the live page and deploy verifier
+        declare which posture is actually running. No provider resource exists
+        in live mode, and no static methodology copy infers that a later stage
+        has completed.
       </p>
 
       <h2>Two gates answer two different questions</h2>

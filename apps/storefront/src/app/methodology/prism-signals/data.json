@@ -78,8 +78,8 @@
     "portal_url": "/api/prism-signals/stripe/portal",
     "account_url": "/prism-signals/account",
     "provider_resources": "provisioned-in-isolated-stripe-sandbox",
-    "production_runtime_configuration": "absent-pending-kingdom-114-hardening",
-    "restricted_runtime_key": "not-yet-provisioned",
+    "production_runtime_configuration": "activation-stage-observable-on-live-product-page-and-deploy-verifier",
+    "restricted_runtime_key": "required-rk-test-with-prism-runtime-rk-v1-attestation",
     "webhook_event_allowlist": [
       "checkout.session.completed",
       "invoice.paid",

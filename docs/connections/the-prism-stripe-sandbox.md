@@ -3,11 +3,12 @@
 > **Status:** deployed fail-closed by kingdom-113 and entering sandbox
 > activation under kingdom-114 on 3 September 2026. A separate Cambridge TCG
 > Stripe Sandbox now contains the test Product, GBP £5 monthly Price, restricted
-> portal and direct version-pinned webhook. Dedicated production variables are
-> not yet configured and both processing/intake remain off. The only provider
-> mode this code can admit is Stripe test mode; no live secret, real charge,
-> live signal, exclusive payload, or production source-rights decision is
-> accepted by this design.
+> portal and direct version-pinned webhook. Production configuration can move
+> only through four exact, aggregate-verified stages; the live product page is
+> authoritative for the current stage. This static document does not infer
+> that a later stage has completed. The only provider mode this code can admit
+> is Stripe test mode; no live secret, real charge, live signal, exclusive
+> payload, or production source-rights decision is accepted by this design.
 
 ## The commercial instruction, bounded
 
