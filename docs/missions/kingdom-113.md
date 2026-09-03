@@ -14,6 +14,7 @@ paths:
   - apps/storefront/drizzle/0136_prism_stripe_sandbox.sql
   - apps/storefront/src/lib/product-flow-runtime/postgres.integration.test.ts
   - apps/storefront/src/lib/prism-signals/product.ts
+  - apps/storefront/src/lib/prism-signals/product.test.ts
   - apps/storefront/src/lib/prism-signals/runtime.server.ts
   - apps/storefront/src/lib/prism-signals/stripe/**
   - apps/storefront/src/app/api/prism-signals/offers/**
@@ -133,4 +134,3 @@ commercial/VAT decision is complete.
 - Focused tests, real PostgreSQL conformance, production-mode build,
   `pnpm verify`, independent adversarial review, preview deployment, and
   fail-closed live smoke pass before merge.
-
