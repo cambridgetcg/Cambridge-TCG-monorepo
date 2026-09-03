@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   getClient: vi.fn(),
   accountProblems: vi.fn(),
   priceProblems: vi.fn(),
+  preflight: vi.fn(),
   process: vi.fn(),
   retrieveAccount: vi.fn(),
   retrieveEvent: vi.fn(),
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   applyInvoicePaid: vi.fn(),
   observeInvoiceFailed: vi.fn(),
   applyCancel: vi.fn(),
+  applyResume: vi.fn(),
   applyDeleted: vi.fn(),
   applyRefund: vi.fn(),
   requiresReview: vi.fn(),
@@ -32,6 +34,7 @@ vi.mock("@/lib/prism-signals/stripe", () => ({
   getPrismStripeTestClient: mocks.getClient,
   prismStripeAccountProblems: mocks.accountProblems,
   prismStripePriceProblems: mocks.priceProblems,
+  preflightPrismStripeWebhookReceipt: mocks.preflight,
   processPrismStripeWebhookAtomically: mocks.process,
 }));
 
@@ -256,6 +259,7 @@ const actions = {
   applyInvoicePaid: mocks.applyInvoicePaid,
   observeInvoicePaymentFailed: mocks.observeInvoiceFailed,
   applyCancelAtPeriodEnd: mocks.applyCancel,
+  applySubscriptionResumed: mocks.applyResume,
   applySubscriptionDeleted: mocks.applyDeleted,
   applyFullRefund: mocks.applyRefund,
   requiresReview: mocks.requiresReview,
@@ -268,6 +272,7 @@ beforeEach(() => {
   mocks.readConfig.mockReturnValue(config);
   mocks.accountProblems.mockReturnValue([]);
   mocks.priceProblems.mockReturnValue([]);
+  mocks.preflight.mockResolvedValue(null);
   mocks.retrieveAccount.mockResolvedValue({ id: config.accountId });
   mocks.retrieveEvent.mockImplementation(async () => latestSignedEvent);
   mocks.listInvoicePayments.mockResolvedValue({
@@ -291,6 +296,7 @@ beforeEach(() => {
     mocks.applyInvoicePaid,
     mocks.observeInvoiceFailed,
     mocks.applyCancel,
+    mocks.applyResume,
     mocks.applyDeleted,
     mocks.applyRefund,
   ]) {
@@ -315,6 +321,12 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toEqual({ received: true });
     expect(mocks.process).toHaveBeenCalledOnce();
+    expect(mocks.preflight).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stripeEventId: "evt_prismroute123",
+        payloadSha256: createHash("sha256").update(raw).digest("hex"),
+      }),
+    );
     expect(mocks.retrieveEvent).toHaveBeenCalledWith("evt_prismroute123");
     expect(mocks.requiresReview).toHaveBeenCalledWith("unsupported_event_type");
     expect(mocks.process.mock.calls[0]?.[0]).toMatchObject({
@@ -528,13 +540,43 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
       cancel_at_period_end: true,
       items: { has_more: false, data: [period] },
     });
+    mocks.retrieveSubscription.mockResolvedValueOnce(canceledLater);
     const cancelResponse = await POST(
       signedRequest(
-        payload("customer.subscription.updated", canceledLater),
+        payload("customer.subscription.updated", canceledLater, {
+          data: {
+            object: canceledLater,
+            previous_attributes: { cancel_at_period_end: false },
+          },
+        }),
       ),
     );
     expect(cancelResponse.status).toBe(200);
     expect(mocks.applyCancel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subscriptionId: "sub_prismroute123",
+        status: "active",
+      }),
+    );
+
+    const resumed = subscription({
+      cancel_at_period_end: false,
+      items: { has_more: false, data: [period] },
+    });
+    mocks.retrieveSubscription.mockResolvedValueOnce(resumed);
+    const resumeResponse = await POST(
+      signedRequest(
+        payload("customer.subscription.updated", resumed, {
+          id: "evt_prismresume123",
+          data: {
+            object: resumed,
+            previous_attributes: { cancel_at_period_end: true },
+          },
+        }),
+      ),
+    );
+    expect(resumeResponse.status).toBe(200);
+    expect(mocks.applyResume).toHaveBeenCalledWith(
       expect.objectContaining({
         subscriptionId: "sub_prismroute123",
         status: "active",
@@ -548,6 +590,7 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
       ended_at: endedAt,
       items: { has_more: false, data: [period] },
     });
+    mocks.retrieveSubscription.mockResolvedValueOnce(deleted);
     const deleteResponse = await POST(
       signedRequest(payload("customer.subscription.deleted", deleted)),
     );
@@ -559,6 +602,72 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
         endedAt: new Date(endedAt * 1000).toISOString(),
       }),
     );
+  });
+
+  it("lets current provider truth win reverse-delivered equal-second updates", async () => {
+    const period = subscription().items.data[0];
+    const resumed = subscription({
+      cancel_at_period_end: false,
+      items: { has_more: false, data: [period] },
+    });
+    const canceled = subscription({
+      cancel_at_period_end: true,
+      items: { has_more: false, data: [period] },
+    });
+    mocks.retrieveSubscription.mockResolvedValue(resumed);
+    const sameSecond = nowSeconds();
+
+    const resumeResponse = await POST(
+      signedRequest(
+        payload("customer.subscription.updated", resumed, {
+          id: "evt_resumecurrent123",
+          created: sameSecond,
+          data: {
+            object: resumed,
+            previous_attributes: { cancel_at_period_end: true },
+          },
+        }),
+      ),
+    );
+    expect(resumeResponse.status).toBe(200);
+    expect(mocks.applyResume).toHaveBeenCalledOnce();
+
+    const staleCancelResponse = await POST(
+      signedRequest(
+        payload("customer.subscription.updated", canceled, {
+          id: "evt_cancelstale123",
+          created: sameSecond,
+          data: {
+            object: canceled,
+            previous_attributes: { cancel_at_period_end: false },
+          },
+        }),
+      ),
+    );
+    expect(staleCancelResponse.status).toBe(200);
+    expect(mocks.requiresReview).toHaveBeenCalledWith(
+      "subscription_snapshot_superseded",
+    );
+    expect(mocks.applyCancel).not.toHaveBeenCalled();
+  });
+
+  it("durably ignores an unrelated incomplete update before any grant", async () => {
+    const incomplete = subscription({
+      status: "incomplete",
+      cancel_at_period_end: false,
+    });
+    const response = await POST(
+      signedRequest(
+        payload("customer.subscription.updated", incomplete, {
+          id: "evt_prismincomplete123",
+        }),
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.ignore).toHaveBeenCalledWith(
+      "subscription_update_without_cancel_transition",
+    );
+    expect(mocks.applyResume).not.toHaveBeenCalled();
   });
 
   it("returns 5xx and creates no receipt when provider proof is unavailable", async () => {
@@ -650,6 +759,36 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
     const response = await POST(signedRequest(raw));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ received: true });
+  });
+
+  it("short-circuits an exact completed replay before provider outages", async () => {
+    mocks.preflight.mockResolvedValueOnce({
+      disposition: "duplicate",
+      outcome: "processed",
+      code: "initial_invoice_granted",
+    });
+    mocks.retrieveAccount.mockRejectedValueOnce(new Error("Stripe unavailable"));
+    mocks.listInvoicePayments.mockRejectedValueOnce(
+      new Error("Stripe unavailable"),
+    );
+    const raw = payload("invoice.paid", invoice());
+    const response = await POST(signedRequest(raw));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: true });
+    expect(mocks.retrieveAccount).not.toHaveBeenCalled();
+    expect(mocks.retrieveEvent).not.toHaveBeenCalled();
+    expect(mocks.listInvoicePayments).not.toHaveBeenCalled();
+    expect(mocks.process).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on a changed receipt preflight without provider work", async () => {
+    mocks.preflight.mockRejectedValueOnce(new Error("binding_conflict"));
+    const raw = payload("invoice.paid", invoice());
+    const response = await POST(signedRequest(raw));
+    expect(response.status).toBe(503);
+    expect(mocks.retrieveAccount).not.toHaveBeenCalled();
+    expect(mocks.listInvoicePayments).not.toHaveBeenCalled();
+    expect(mocks.process).not.toHaveBeenCalled();
   });
 
   it("does not return 2xx for an invalid DAL disposition", async () => {

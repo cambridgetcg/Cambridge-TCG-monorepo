@@ -75,12 +75,24 @@ export type PrismStripeWebhookActionV1 =
       readonly statusAt: string;
     }
   | {
+      readonly kind: "subscription_resumed";
+      readonly subscriptionId: string;
+      readonly customerId: string;
+      readonly attemptRef: string;
+      readonly priceId: string;
+      readonly status: Stripe.Subscription.Status;
+      readonly periodStart: string;
+      readonly periodEnd: string;
+      readonly statusAt: string;
+    }
+  | {
       readonly kind: "subscription_deleted";
       readonly subscriptionId: string;
       readonly customerId: string;
       readonly attemptRef: string;
       readonly priceId: string;
       readonly status: "canceled";
+      readonly cancelAtPeriodEnd: boolean;
       readonly periodStart: string;
       readonly periodEnd: string;
       readonly statusAt: string;
@@ -594,6 +606,15 @@ function review(code: string): PrismStripeWebhookActionV1 {
   return Object.freeze({ kind: "requires_review" as const, code });
 }
 
+function previousCancelAtPeriodEnd(event: Stripe.Event): boolean | null {
+  const value = event.data.previous_attributes as unknown;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const candidate = (value as Record<string, unknown>).cancel_at_period_end;
+  return typeof candidate === "boolean" ? candidate : null;
+}
+
 export function planPrismStripeWebhookEvent(
   event: Stripe.Event,
   input: {
@@ -764,11 +785,60 @@ export function planPrismStripeWebhookEvent(
       });
     }
     if (event.type === "customer.subscription.updated") {
+      const previousCancel = previousCancelAtPeriodEnd(event);
       if (!subscription.cancel_at_period_end) {
+        if (
+          subscription.status === "canceled" ||
+          subscription.status === "incomplete_expired" ||
+          subscription.status === "unpaid" ||
+          subscription.status === "paused" ||
+          subscription.status === "trialing"
+        ) {
+          return Object.freeze({
+            ok: true,
+            receipt,
+            action: review("invalid_subscription_resume_status"),
+          });
+        }
+        if (previousCancel !== true) {
+          return Object.freeze({
+            ok: true,
+            receipt,
+            action: Object.freeze({
+              kind: "ignored" as const,
+              code: "subscription_update_without_cancel_transition",
+            }),
+          });
+        }
         return Object.freeze({
           ok: true,
           receipt,
-          action: review("unsupported_subscription_update"),
+          action: Object.freeze({
+            kind: "subscription_resumed" as const,
+            ...fact,
+            status: subscription.status,
+            statusAt: createdAt,
+          }),
+        });
+      }
+      if (
+        subscription.status === "canceled" ||
+        subscription.status === "incomplete_expired"
+      ) {
+        return Object.freeze({
+          ok: true,
+          receipt,
+          action: review("invalid_scheduled_cancel_status"),
+        });
+      }
+      if (previousCancel !== false) {
+        return Object.freeze({
+          ok: true,
+          receipt,
+          action: Object.freeze({
+            kind: "ignored" as const,
+            code: "subscription_update_without_cancel_transition",
+          }),
         });
       }
       return Object.freeze({
@@ -798,6 +868,7 @@ export function planPrismStripeWebhookEvent(
         kind: "subscription_deleted" as const,
         ...fact,
         status: "canceled" as const,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
         statusAt: createdAt,
         endedAt,
       }),

@@ -444,10 +444,17 @@ describe("PRISM Stripe signed-event planner", () => {
   });
 
   it("extracts cancel-at-period-end and terminal deletion separately", () => {
+    const canceledSubscription = subscription({ cancel_at_period_end: true });
     const canceledLater = plan(
       event(
         "customer.subscription.updated",
-        subscription({ cancel_at_period_end: true }),
+        canceledSubscription,
+        {
+          data: {
+            object: canceledSubscription,
+            previous_attributes: { cancel_at_period_end: false },
+          },
+        },
       ),
     );
     expect(canceledLater).toMatchObject({
@@ -474,15 +481,59 @@ describe("PRISM Stripe signed-event planner", () => {
     });
   });
 
-  it("does not guess how to clear cancel-at-period-end", () => {
+  it("emits explicit verified resume when cancel-at-period-end is false", () => {
+    const resumedSubscription = subscription();
     const result = plan(
-      event("customer.subscription.updated", subscription()),
+      event("customer.subscription.updated", resumedSubscription, {
+        data: {
+          object: resumedSubscription,
+          previous_attributes: { cancel_at_period_end: true },
+        },
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      action: {
+        kind: "subscription_resumed",
+        subscriptionId: "sub_prismtest123",
+        attemptRef,
+        status: "active",
+        statusAt: "2026-09-03T07:59:00.000Z",
+      },
+    });
+  });
+
+  it.each(["active", "incomplete"] as const)(
+    "durably ignores unrelated %s subscription updates without a cancel transition",
+    (status) => {
+      const result = plan(
+        event(
+          "customer.subscription.updated",
+          subscription({ status, cancel_at_period_end: false }),
+        ),
+      );
+      expect(result).toMatchObject({
+        ok: true,
+        action: {
+          kind: "ignored",
+          code: "subscription_update_without_cancel_transition",
+        },
+      });
+    },
+  );
+
+  it("does not mistake a terminal subscription update for resumption", () => {
+    const result = plan(
+      event(
+        "customer.subscription.updated",
+        subscription({ status: "canceled", cancel_at_period_end: false }),
+      ),
     );
     expect(result).toMatchObject({
       ok: true,
       action: {
         kind: "requires_review",
-        code: "unsupported_subscription_update",
+        code: "invalid_subscription_resume_status",
       },
     });
   });

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type Stripe from "stripe";
 import {
   getPrismStripeTestClient,
+  preflightPrismStripeWebhookReceipt,
   prismStripeAccountProblems,
   processPrismStripeWebhookAtomically,
   readPrismStripeSandboxConfig,
@@ -16,6 +17,7 @@ import {
 } from "@/app/api/prism-signals/stripe/http";
 import {
   planPrismStripeWebhookEvent,
+  prismStripeSubscriptionSnapshot,
   resolvePrismStripeFullRefund,
   resolvePrismStripePaidInvoice,
   type PrismStripeWebhookActionV1,
@@ -27,6 +29,22 @@ export const runtime = "nodejs";
 type AtomicWork = (
   actions: PrismStripeWebhookActionsV1,
 ) => Promise<PrismStripeWebhookDecisionV1> | PrismStripeWebhookDecisionV1;
+
+function completedWebhookResult(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const result = value as {
+    readonly disposition?: unknown;
+    readonly outcome?: unknown;
+  };
+  return (
+    (result.disposition === "processed" || result.disposition === "duplicate") &&
+    (result.outcome === "processed" ||
+      result.outcome === "ignored" ||
+      result.outcome === "requires_review")
+  );
+}
 
 const PROVIDER_IDS = Object.freeze({
   invoice: /^in_[A-Za-z0-9]{8,128}$/,
@@ -107,6 +125,19 @@ function directWork(action: PrismStripeWebhookActionV1): AtomicWork {
   if (action.kind === "subscription_cancel_at_period_end") {
     return (actions) =>
       actions.applyCancelAtPeriodEnd({
+        subscriptionId: action.subscriptionId,
+        customerId: action.customerId,
+        attemptRef: action.attemptRef,
+        priceId: action.priceId,
+        status: action.status,
+        periodStart: action.periodStart,
+        periodEnd: action.periodEnd,
+        statusAt: action.statusAt,
+      });
+  }
+  if (action.kind === "subscription_resumed") {
+    return (actions) =>
+      actions.applySubscriptionResumed({
         subscriptionId: action.subscriptionId,
         customerId: action.customerId,
         attemptRef: action.attemptRef,
@@ -244,6 +275,48 @@ async function fullRefundWork(
   return (actions) => actions.applyFullRefund(resolved.refund);
 }
 
+async function mutableSubscriptionWork(
+  stripe: Stripe,
+  config: ReturnType<typeof readPrismStripeSandboxConfig>,
+  action: Extract<
+    PrismStripeWebhookActionV1,
+    {
+      readonly kind:
+        | "subscription_cancel_at_period_end"
+        | "subscription_resumed"
+        | "subscription_deleted";
+    }
+  >,
+): Promise<AtomicWork> {
+  const current = await stripe.subscriptions.retrieve(action.subscriptionId);
+  const snapshot = prismStripeSubscriptionSnapshot(current, config);
+  const expectedCancel =
+    action.kind === "subscription_cancel_at_period_end"
+      ? true
+      : action.kind === "subscription_resumed"
+        ? false
+        : action.cancelAtPeriodEnd;
+  const deletedTimeMatches =
+    action.kind !== "subscription_deleted" ||
+    (typeof current.ended_at === "number" &&
+      current.ended_at * 1000 === Date.parse(action.endedAt));
+  if (
+    snapshot === null ||
+    snapshot.subscriptionId !== action.subscriptionId ||
+    snapshot.customerId !== action.customerId ||
+    snapshot.attemptRef !== action.attemptRef ||
+    snapshot.priceId !== action.priceId ||
+    snapshot.status !== action.status ||
+    snapshot.cancelAtPeriodEnd !== expectedCancel ||
+    snapshot.periodStart !== action.periodStart ||
+    snapshot.periodEnd !== action.periodEnd ||
+    !deletedTimeMatches
+  ) {
+    return reviewWork("subscription_snapshot_superseded");
+  }
+  return directWork(action);
+}
+
 async function prepareAtomicWork(
   stripe: Stripe,
   config: ReturnType<typeof readPrismStripeSandboxConfig>,
@@ -254,6 +327,13 @@ async function prepareAtomicWork(
   }
   if (action.kind === "full_refund_lookup") {
     return fullRefundWork(stripe, config, action);
+  }
+  if (
+    action.kind === "subscription_cancel_at_period_end" ||
+    action.kind === "subscription_resumed" ||
+    action.kind === "subscription_deleted"
+  ) {
+    return mutableSubscriptionWork(stripe, config, action);
   }
   return directWork(action);
 }
@@ -312,6 +392,28 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
+    const receipt = {
+      config,
+      stripeEventId: plan.receipt.stripeEventId,
+      stripeAccountId: plan.receipt.stripeAccountId,
+      apiVersion: plan.receipt.apiVersion,
+      eventType: plan.receipt.eventType,
+      livemode: plan.receipt.livemode,
+      payloadSha256: plan.receipt.payloadSha256,
+      providerCreatedAt: plan.receipt.providerCreatedAt,
+      receivedAt: plan.receipt.receivedAt,
+    } as const;
+
+    // An already completed exact receipt needs no fresh Stripe availability.
+    // The later atomic insert remains authoritative when this read races.
+    const duplicate = await preflightPrismStripeWebhookReceipt(receipt);
+    if (duplicate !== null) {
+      if (!completedWebhookResult(duplicate)) {
+        throw new Error("PRISM Stripe preflight returned an invalid disposition.");
+      }
+      return prismStripeJson({ received: true as const });
+    }
+
     const [account, retrievedEvent] = await Promise.all([
       stripe.accounts.retrieve(),
       stripe.events.retrieve(event.id),
@@ -331,26 +433,10 @@ export async function POST(request: Request): Promise<Response> {
     // one database transaction containing receipt, mapping and entitlement.
     const work = await prepareAtomicWork(stripe, config, plan.action);
     const processed = await processPrismStripeWebhookAtomically(
-      {
-        config,
-        stripeEventId: plan.receipt.stripeEventId,
-        stripeAccountId: plan.receipt.stripeAccountId,
-        apiVersion: plan.receipt.apiVersion,
-        eventType: plan.receipt.eventType,
-        livemode: plan.receipt.livemode,
-        payloadSha256: plan.receipt.payloadSha256,
-        providerCreatedAt: plan.receipt.providerCreatedAt,
-        receivedAt: plan.receipt.receivedAt,
-      },
+      receipt,
       work,
     );
-    if (
-      (processed.disposition !== "processed" &&
-        processed.disposition !== "duplicate") ||
-      (processed.outcome !== "processed" &&
-        processed.outcome !== "ignored" &&
-        processed.outcome !== "requires_review")
-    ) {
+    if (!completedWebhookResult(processed)) {
       throw new Error("PRISM Stripe webhook returned an invalid disposition.");
     }
 
