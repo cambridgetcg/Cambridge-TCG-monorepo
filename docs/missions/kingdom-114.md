@@ -17,6 +17,8 @@ paths:
   - apps/storefront/src/lib/deploy-verify-contract.test.ts
   - apps/storefront/src/lib/prism-signals/stripe/operator.test.ts
   - apps/storefront/src/lib/prism-signals/stripe/provider-preflight.test.ts
+  - apps/storefront/src/lib/prism-signals/stripe/config.server.ts
+  - apps/storefront/src/lib/prism-signals/stripe/config.server.test.ts
   - apps/storefront/src/app/methodology/prism-signals/**
   - apps/storefront/src/lib/manifest.ts
   - docs/methodology/prism-signals.md
@@ -29,7 +31,6 @@ do_not_touch:
   - apps/storefront/src/app/api/webhooks/stripe/route.ts
   - apps/storefront/src/app/api/webhooks/stripe/prism-signals/**
   - apps/storefront/src/app/api/prism-signals/stripe/**
-  - apps/storefront/src/lib/prism-signals/stripe/config.server.ts
   - apps/storefront/src/lib/prism-signals/stripe/webhook.server.ts
   - apps/storefront/drizzle/0136_prism_stripe_sandbox.sql
   - apps/storefront/src/lib/membership/**
@@ -98,8 +99,9 @@ event is outside the mission.
 - The checked-in restricted-key list includes Account read, Price read,
   Checkout Session write, Events read, Subscription read, Invoice Payment
   read/list, PaymentIntent read, Invoice read, Portal Configuration read and
-  Portal Session write. The final `rk_test_` passes each non-mutating preflight
-  possible before Checkout.
+  Portal Session write. Product and Webhook Endpoint retrieval remain
+  operator/OAuth attestations rather than unused runtime permissions. The final
+  `rk_test_` passes each non-mutating preflight possible before Checkout.
 - Operator tooling can show invitation/reconciliation state without PII;
   grant/revoke is transactionally bounded and covered by real PostgreSQL tests.
 - Documentation truth changes alongside operations: provisioned sandbox
