@@ -6,6 +6,7 @@ import type {
 import type { PrismStripeSandboxConfigV1 } from "./config.server";
 import {
   PrismStripeStoreError,
+  preflightPrismStripeWebhookReceipt,
   processPrismStripeWebhookAtomically,
 } from "./index";
 
@@ -52,6 +53,33 @@ function runner(query: ProductFlowRuntimeQueryV1): ProductFlowRuntimeTransaction
 }
 
 describe("PRISM Stripe atomic receipt boundary", () => {
+  it("preflights a completed exact receipt before provider lookups", async () => {
+    const query: ProductFlowRuntimeQueryV1 = async () => ({
+      rows: [{
+        stripe_account_id: config.accountId,
+        api_version: config.apiVersion,
+        event_type: "payment_intent.succeeded",
+        livemode: false,
+        payload_sha256: "a".repeat(64),
+        provider_created_at: "2026-09-03T07:59:00.000Z",
+        received_at: "2026-09-03T08:00:00.000Z",
+        outcome: "processed",
+        outcome_code: "payment_observed",
+      }],
+      rowCount: 1,
+    });
+    await expect(
+      preflightPrismStripeWebhookReceipt(
+        receipt("2026-09-03T08:10:00.000Z"),
+        { query },
+      ),
+    ).resolves.toEqual({
+      disposition: "duplicate",
+      outcome: "processed",
+      code: "payment_observed",
+    });
+  });
+
   it("persists a bounded review outcome in the receipt transaction", async () => {
     const statements: string[] = [];
     const query: ProductFlowRuntimeQueryV1 = async (sql) => {

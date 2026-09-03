@@ -23,6 +23,8 @@ describe("PRISM Stripe sandbox migration contract", () => {
     expect(sql.match(/environment TEXT NOT NULL CHECK \(environment = 'test'\)/g))
       .toHaveLength(6);
     expect(sql).not.toMatch(/sk_test_|whsec_/);
+    expect(sql).toContain("'subscription_resumed'");
+    expect(sql).toContain("DROP CONSTRAINT product_flow_events_event_type_check");
   });
 
   it("freezes exact card-only Checkout metadata, parameters, and idempotency", () => {

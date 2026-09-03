@@ -4,6 +4,42 @@
 -- sandbox. This migration does not configure credentials, enable Checkout,
 -- accept live-mode objects, or grant an entitlement by itself.
 
+-- 0135 deliberately froze the original runtime vocabulary. This additive
+-- lifecycle observation is needed to mirror a remotely attested reversal of
+-- cancel-at-period-end without pretending that an invoice itself proves it.
+ALTER TABLE product_flow_events
+  DROP CONSTRAINT product_flow_events_event_type_check;
+ALTER TABLE product_flow_events
+  ADD CONSTRAINT product_flow_events_event_type_check CHECK (event_type IN (
+    'checkout_started',
+    'browser_return',
+    'precheckout_approved',
+    'channel_linked',
+    'payment_confirmed',
+    'renewal_confirmed',
+    'payment_failed',
+    'cancel_at_period_end',
+    'subscription_resumed',
+    'subscription_ended',
+    'refunded',
+    'revoked'
+  ));
+
+ALTER TABLE product_flow_events
+  DROP CONSTRAINT product_flow_events_check;
+ALTER TABLE product_flow_events
+  ADD CONSTRAINT product_flow_events_check CHECK (
+    (event_type IN (
+      'payment_confirmed',
+      'renewal_confirmed',
+      'payment_failed',
+      'cancel_at_period_end',
+      'subscription_resumed',
+      'subscription_ended',
+      'refunded'
+    )) = (provider_event_ref IS NOT NULL)
+  );
+
 CREATE TABLE IF NOT EXISTS product_flow_account_subjects (
   environment TEXT NOT NULL CHECK (environment = 'test'),
   product_id TEXT NOT NULL
@@ -231,8 +267,10 @@ CREATE TABLE IF NOT EXISTS product_flow_stripe_checkout_attempts (
       (checkout_params#>'{line_items,0}') - ARRAY['price', 'quantity']::TEXT[]
         = '{}'::JSONB
     )
-    CHECK (checkout_params->>'success_url' ~ '^https://[^[:space:]]{1,2000}$')
-    CHECK (checkout_params->>'cancel_url' ~ '^https://[^[:space:]]{1,2000}$')
+    CHECK (checkout_params->>'success_url' ~ '^https://[^[:space:]]+$')
+    CHECK (char_length(checkout_params->>'success_url') BETWEEN 9 AND 2048)
+    CHECK (checkout_params->>'cancel_url' ~ '^https://[^[:space:]]+$')
+    CHECK (char_length(checkout_params->>'cancel_url') BETWEEN 9 AND 2048)
     CHECK (
       checkout_params->'expires_at'
         IS NOT DISTINCT FROM TO_JSONB(EXTRACT(EPOCH FROM provider_expires_at)::BIGINT)
@@ -393,8 +431,7 @@ CREATE TABLE IF NOT EXISTS product_flow_stripe_subscriptions (
       AND current_period_start < current_period_end
     )
   ),
-  CHECK (created_at <= updated_at),
-  CHECK (ended_at IS NULL OR created_at <= ended_at)
+  CHECK (created_at <= updated_at)
 );
 
 CREATE INDEX IF NOT EXISTS idx_prism_stripe_subscription_owner

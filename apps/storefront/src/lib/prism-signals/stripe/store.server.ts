@@ -884,7 +884,7 @@ export async function readPrismStripeOwnerStatus(
       ? "already_all"
       : isAll
         ? "existing_subscription"
-      : posture.reason;
+        : posture.reason;
   return Object.freeze({
     schema: "cambridgetcg.prism-subscription-status/1" as const,
     sandbox: true as const,

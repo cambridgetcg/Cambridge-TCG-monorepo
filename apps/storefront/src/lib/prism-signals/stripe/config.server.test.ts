@@ -42,6 +42,11 @@ describe("PRISM Stripe sandbox configuration", () => {
       webhookProcessingEnabled: true,
     });
     expect(Object.isFrozen(config)).toBe(true);
+    expect(
+      readPrismStripeSandboxConfig(
+        environment({ PRISM_STRIPE_SECRET_KEY: `rk_test_${"r".repeat(32)}` }),
+      ).secretKey,
+    ).toMatch(/^rk_test_/);
   });
 
   it.each([
