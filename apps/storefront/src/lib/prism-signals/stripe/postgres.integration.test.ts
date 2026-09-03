@@ -387,12 +387,18 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
     const first = await pool.query<{
       entitlement_ref: string;
       subject_ref: string;
+      created_at: Date | string;
     }>(
-      `SELECT entitlement_ref, subject_ref
+      `SELECT entitlement_ref, subject_ref, created_at
          FROM ${schema}.product_flow_entitlement_owners
         WHERE lifecycle = 'current'`,
     );
     const old = first.rows[0]!;
+    const oldCreatedAt = new Date(old.created_at);
+    const terminalAt = new Date(oldCreatedAt.valueOf() + 1_000).toISOString();
+    const nextCheckoutAt = new Date(
+      oldCreatedAt.valueOf() + 60_000,
+    ).toISOString();
     await pool.query(
       `UPDATE ${schema}.product_flow_stripe_checkout_attempts
           SET status = 'superseded', updated_at = '2026-09-03T10:00:00.000Z'
@@ -403,10 +409,10 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       `UPDATE ${schema}.product_flow_entitlement_owners
           SET lifecycle = 'terminal',
               terminal_reason = 'superseded_before_grant',
-              terminal_at = '2026-09-03T10:00:00.000Z',
-              updated_at = '2026-09-03T10:00:00.000Z'
+              terminal_at = $2::TIMESTAMPTZ,
+              updated_at = $2::TIMESTAMPTZ
         WHERE entitlement_ref = $1`,
-      [old.entitlement_ref],
+      [old.entitlement_ref, terminalAt],
     );
     await expect(
       pool.query(
@@ -423,7 +429,7 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       {
         userId: USER_ID,
         origin: "https://cambridgetcg.com",
-        occurredAt: "2026-09-03T10:01:00.000Z",
+        occurredAt: nextCheckoutAt,
         config: CONFIG,
       },
       { runTransaction },
