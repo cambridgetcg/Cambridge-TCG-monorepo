@@ -1,13 +1,13 @@
 ---
 id: kingdom-113
 title: "PRISM Stripe sandbox - Free and All monthly checkout, durable webhook authority, and owner access"
-status: claimed
+status: done
 priority: critical
 engine: tcg
 repo: /Users/you/Desktop/ctcg-prism-stripe-test-mode
 claimed_by: codex-gpt-5
 claimed_at: "2026-09-03T07:29:42Z"
-completed_at: ~
+completed_at: "2026-09-03T10:18:52Z"
 paths:
   - .github/workflows/ci.yml
   - packages/product-flow/**
@@ -140,3 +140,51 @@ commercial/VAT decision is complete.
 - Focused tests, real PostgreSQL conformance, production-mode build,
   `pnpm verify`, independent adversarial review, preview deployment, and
   fail-closed live smoke pass before merge.
+
+## Outcome
+
+PRISM Signals now publishes the two-level Free/All test catalogue and a
+branded, authenticated owner account. Free remains the public fixed fixture.
+All is a £5-per-month Stripe **test-mode** offer whose owner projection gates
+no unique payload and cannot change the still-closed production source-rights
+purpose. The dedicated Checkout, portal, subscription-status, All-offer and
+raw-body webhook routes share no legacy membership or marketplace Stripe
+authority.
+
+Admission requires both active beta interest and a distinct operator-issued,
+unexpired invitation. Only a signed, exact `invoice.paid` fact can grant. The
+store binds one canonical Price reference and evaluates offer, rights,
+environment, channel, rail, time and owner scope before reporting access.
+Checkout return never grants. Refund-before-payment, payment-before-Checkout,
+cancel/resume reversal, full-refund-before/after-cancellation, payment failure,
+`incomplete_expired`, duplicate delivery, and account erasure all have explicit
+fail-closed transitions. A nonterminal or refund-reconciliation subscription
+cannot be erased; a full refund records a visible `cancel_subscription`
+obligation and later invoices cannot restore access while it remains open.
+
+Local `pnpm verify` passed with 236 storefront files, 1,473 passing tests and
+17 explicit skips, alongside product-flow 40/40, runtime 18/18, PRISM core
+25/25 and RewardsPro API 105/105. Two independent reviews drove and then
+cleared the lifecycle, privacy, canonical-price, invitation and deployment
+findings. Fresh PostgreSQL 0135+0136 conformance passed 27/27 with clean
+teardown, including a verifier rerun after removing a wall-clock-dependent
+test. The production storefront build passed. GitHub Actions run
+`33742420360` and every Vercel preview check passed before PR #61 merged as
+`502240094042d05a8f9067952da257ae9627b4ac`.
+
+Production migration `0136_prism_stripe_sandbox.sql` was the only pending
+migration, committed transactionally, and left no pending migrations. A
+read-only witness found the ledger row, all 7 authority tables, the erasure
+trigger and 0 sandbox rows. Vercel deployment
+`dpl_LECKjbv79RmfwG5ySD42nNdmXrai` reached READY on that merge SHA. The
+canonical live-site audit passed 205/205 and the PRISM page, methodology,
+offer, authentication, Checkout, portal and webhook probes all matched their
+declared fail-closed responses.
+
+All dedicated production `PRISM_STRIPE_*` variables remain absent. That is the
+intentional deployed posture: no real or test charge can currently start.
+Provisioning the restricted Stripe test key, Product, GBP monthly Price,
+portal, webhook and stable reference secret—and exercising an invited test
+subscription—is the next operational move, not part of this code/deploy
+closure. Live mode, PayPal, crypto, Telegram Stars, private delivery and live
+market signals remain off.

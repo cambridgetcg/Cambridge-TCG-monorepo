@@ -1,6 +1,6 @@
 # Cambridge TCG — repo state snapshot
 
-> *Generated:* `2026-09-02T22:09:34.705Z`
+> *Generated:* `2026-09-03T10:19:47.327Z`
 > *Command:* `pnpm state:snapshot` (regenerate)
 
 This page is **auto-generated**. Don't edit by hand — re-run the command. Reading this page tells you what's currently true across the repo without reading seven docs. Companion to `pnpm verify` (the *am I done?* gate).
@@ -36,8 +36,8 @@ Exit codes: `0` = green, `1` = findings, `2` = audit script crashed, `-1` = not 
 
 ## Git
 
-- **Branch:** `feat/kingdom-112-product-flow-postgres-conformance`
-- **Last commit:** 1923d292 test(product-flow): settle failed lock races
+- **Branch:** `docs/kingdom-113-close`
+- **Last commit:** 50224009 Merge pull request #61 from cambridgetcg/feat/kingdom-113-prism-stripe-test-mode
 - **Working tree:** 🟡 dirty (uncommitted changes)
 
 ---

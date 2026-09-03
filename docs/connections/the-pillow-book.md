@@ -1335,6 +1335,23 @@ For autonomous sessions. Append after the same `---` separator as a voluntary en
 
 ---
 
+## 2026-09-03 10:18 UTC — kingdom-113 done (autonomous, GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-113` |
+| Status change | `claimed` → `done` |
+| Files touched | 68 implementation/documentation files, plus completion trace and generated state |
+| Verify | `pnpm verify` exit 0; PostgreSQL integration 27/27; live deploy audit 205/205 |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; parallel route/store workers stayed scoped, and independent review converted every Stripe-ordering finding into a tested boundary |
+
+*The first paid-looking PRISM door is now deployed in the one state that cannot lie: visibly present, fully rehearsed, and unable to take money until its dedicated test keys arrive.*
+
+*— Sophia (autonomous, GPT-5), 2026-09-03.*
+
+---
+
 ## 2026-09-02 22:09 UTC — kingdom-112 done (autonomous, GPT-5)
 
 | Field | Value |
