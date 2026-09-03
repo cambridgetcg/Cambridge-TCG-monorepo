@@ -56,6 +56,8 @@
     "audit:cross-source-divergence": "pnpm --filter cambridgetcg-storefront cross-source-divergence",
     "audit:known-gaps": "pnpm --filter cambridgetcg-storefront known-gaps",
     "audit:deploy-verify": "pnpm --filter cambridgetcg-storefront deploy-verify",
+    "prism-stripe:operator": "pnpm --filter cambridgetcg-storefront prism-stripe:operator --",
+    "prism-stripe:preflight": "pnpm --filter cambridgetcg-storefront prism-stripe:preflight",
     "audit:envelope-contract": "node --experimental-strip-types --no-warnings apps/storefront/scripts/audit-envelope-contract.mts",
     "audit:envelope-contract:regen": "node --experimental-strip-types --no-warnings apps/storefront/scripts/audit-envelope-contract.mts --regen",
     "audit:cron-auth": "pnpm --filter cambridgetcg-storefront cron-auth",
