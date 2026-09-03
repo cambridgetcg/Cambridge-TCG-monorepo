@@ -611,18 +611,26 @@ CREATE OR REPLACE FUNCTION protect_prism_stripe_active_account_erasure()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  unsafe_mapping BOOLEAN;
 BEGIN
-  IF EXISTS (
-    SELECT 1
-      FROM product_flow_stripe_subscriptions sub
-     WHERE sub.environment = OLD.environment
-       AND sub.product_id = OLD.product_id
-       AND sub.subject_ref = OLD.subject_ref
-       AND (
-         sub.status NOT IN ('canceled', 'incomplete_expired')
-         OR sub.reconciliation_status = 'required'
-       )
-  ) THEN
+  EXECUTE format(
+    'SELECT EXISTS (
+       SELECT 1
+         FROM %I.product_flow_stripe_subscriptions sub
+        WHERE sub.environment = $1
+          AND sub.product_id = $2
+          AND sub.subject_ref = $3
+          AND (
+            sub.status NOT IN (''canceled'', ''incomplete_expired'')
+            OR sub.reconciliation_status = ''required''
+          )
+     )',
+    TG_TABLE_SCHEMA
+  ) INTO unsafe_mapping
+    USING OLD.environment, OLD.product_id, OLD.subject_ref;
+
+  IF unsafe_mapping THEN
     RAISE EXCEPTION
       'cannot erase PRISM Stripe account mapping before provider subscription termination'
       USING ERRCODE = '23503';

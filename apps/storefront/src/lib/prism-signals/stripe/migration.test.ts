@@ -54,8 +54,10 @@ describe("PRISM Stripe sandbox migration contract", () => {
     expect(sql).toContain("status IN ('active', 'revoked')");
     expect(sql).toContain("invited_at < expires_at");
     expect(sql).toContain("protect_prism_stripe_active_account_erasure");
-    expect(sql).toContain("sub.status NOT IN ('canceled', 'incomplete_expired')");
-    expect(sql).toContain("OR sub.reconciliation_status = 'required'");
+    expect(sql).toContain("%I.product_flow_stripe_subscriptions");
+    expect(sql).toContain("TG_TABLE_SCHEMA");
+    expect(sql).toContain("sub.status NOT IN (''canceled'', ''incomplete_expired'')");
+    expect(sql).toContain("OR sub.reconciliation_status = ''required''");
   });
 
   it("binds exact paid invoices, payment intents, refunds, and digest receipts", () => {
