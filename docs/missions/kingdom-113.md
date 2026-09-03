@@ -10,6 +10,8 @@ claimed_at: "2026-09-03T07:29:42Z"
 completed_at: ~
 paths:
   - .github/workflows/ci.yml
+  - packages/product-flow/**
+  - packages/product-flow-runtime/**
   - packages/prism-signals-core/**
   - apps/storefront/drizzle/0136_prism_stripe_sandbox.sql
   - apps/storefront/src/lib/product-flow-runtime/postgres.integration.test.ts
@@ -90,7 +92,7 @@ commercial/VAT decision is complete.
 
 ## Safety
 
-- This release accepts only `sk_test_` credentials, `livemode=false` events,
+- This release accepts only `sk_test_` or restricted `rk_test_` credentials, `livemode=false` events,
   one exact active GBP monthly test Price, quantity one, and the fixed synthetic
   fixture rights posture. There is no live-key branch.
 - New-checkout intake has its own switch. Pausing intake must not disable
