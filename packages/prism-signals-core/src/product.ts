@@ -178,8 +178,9 @@ export interface PrismSignalsAllStripeTestConfiguration {
 
 /**
  * Creates the only paid-looking PRISM offer permitted in this slice.
- * It is test/test, delivers only the fixed synthetic fixture, and enables
- * only Stripe's web sandbox rail.
+ * It is test/test and models an All-labelled owner projection around the
+ * already-public fixed synthetic fixture. It does not make that fixture
+ * exclusive. Only Stripe's web sandbox rail is enabled.
  */
 export function createPrismSignalsAllStripeTestOffer(
   configuration: PrismSignalsAllStripeTestConfiguration,
@@ -196,7 +197,7 @@ export function createPrismSignalsAllStripeTestOffer(
     status: "test",
     environment: "test",
     audience:
-      "Invited account holders testing a monthly Stripe sandbox subscription to the fixed PRISM synthetic fixture.",
+      "Invited account holders testing a monthly Stripe sandbox subscription and owner access projection around the fixed public PRISM synthetic fixture.",
     delivery: {
       web: { availability: "test", url: "/prism-signals/account" },
       telegram: { availability: "off" },

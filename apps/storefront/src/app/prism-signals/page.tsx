@@ -265,7 +265,8 @@ export default function PrismSignalsPage() {
               <p className="mt-4 text-sm leading-6 text-ink-muted">
                 Tests recurring Stripe Checkout, signed webhook authority,
                 owner status, and cancellation against an All-labelled
-                synthetic fixture. It does not unlock live market signals.
+                owner projection around the same public synthetic fixture. It
+                does not unlock an exclusive payload or live market signals.
               </p>
               <Link
                 href="/prism-signals/account"
