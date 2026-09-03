@@ -12,6 +12,7 @@ describe("PRISM Stripe sandbox migration contract", () => {
   it("creates every server-only authority table with test-only scope", () => {
     for (const table of [
       "product_flow_account_subjects",
+      "product_flow_prism_stripe_invitations",
       "product_flow_entitlement_owners",
       "product_flow_stripe_checkout_attempts",
       "product_flow_stripe_subscriptions",
@@ -21,7 +22,7 @@ describe("PRISM Stripe sandbox migration contract", () => {
       expect(sql).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
     }
     expect(sql.match(/environment TEXT NOT NULL CHECK \(environment = 'test'\)/g))
-      .toHaveLength(6);
+      .toHaveLength(7);
     expect(sql).not.toMatch(/sk_test_|whsec_/);
     expect(sql).toContain("'subscription_resumed'");
     expect(sql).toContain("DROP CONSTRAINT product_flow_events_event_type_check");
@@ -48,6 +49,15 @@ describe("PRISM Stripe sandbox migration contract", () => {
     );
   });
 
+  it("requires a distinct expiring operator invitation and blocks unsafe account erasure", () => {
+    expect(sql).toContain("scope = 'stripe_all_sandbox_v1'");
+    expect(sql).toContain("status IN ('active', 'revoked')");
+    expect(sql).toContain("invited_at < expires_at");
+    expect(sql).toContain("protect_prism_stripe_active_account_erasure");
+    expect(sql).toContain("sub.status NOT IN ('canceled', 'incomplete_expired')");
+    expect(sql).toContain("OR sub.reconciliation_status = 'required'");
+  });
+
   it("binds exact paid invoices, payment intents, refunds, and digest receipts", () => {
     expect(sql).toContain("stripe_payment_intent_id TEXT NOT NULL");
     expect(sql).toContain("UNIQUE (environment, stripe_payment_intent_id)");
@@ -55,5 +65,8 @@ describe("PRISM Stripe sandbox migration contract", () => {
     expect(sql).toContain("payload_sha256 TEXT NOT NULL");
     expect(sql).toContain("'requires_review'");
     expect(sql).toContain("amount_paid_minor INTEGER NOT NULL CHECK (amount_paid_minor = 500)");
+    expect(sql).toContain("reconciliation_action = 'cancel_subscription'");
+    expect(sql).toContain("reconciliation_reason IN ('refund_before_grant', 'full_refund')");
+    expect(sql).toContain("idx_prism_stripe_refund_reconciliation_once");
   });
 });

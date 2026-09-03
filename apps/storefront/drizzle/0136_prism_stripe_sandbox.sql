@@ -71,6 +71,35 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_product_flow_account_stripe_customer_once
 COMMENT ON TABLE product_flow_account_subjects IS
   'Server-only mapping from an authenticated local account to one opaque product-flow subject. A nullable test Stripe Customer binding never enters public DTOs or generic product-flow payloads.';
 
+CREATE TABLE IF NOT EXISTS product_flow_prism_stripe_invitations (
+  environment TEXT NOT NULL CHECK (environment = 'test'),
+  product_id TEXT NOT NULL CHECK (product_id = 'prism-signals'),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  scope TEXT NOT NULL CHECK (scope = 'stripe_all_sandbox_v1'),
+  status TEXT NOT NULL CHECK (status IN ('active', 'revoked')),
+  invited_at TIMESTAMPTZ(3) NOT NULL,
+  expires_at TIMESTAMPTZ(3) NOT NULL,
+  revoked_at TIMESTAMPTZ(3),
+  created_at TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (environment, product_id, user_id, scope),
+  CHECK (invited_at < expires_at),
+  CHECK (created_at <= updated_at),
+  CHECK (
+    (status = 'active' AND revoked_at IS NULL)
+    OR
+    (status = 'revoked' AND revoked_at IS NOT NULL)
+  ),
+  CHECK (revoked_at IS NULL OR invited_at <= revoked_at),
+  CHECK (revoked_at IS NULL OR revoked_at <= updated_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prism_stripe_invitation_expiry
+  ON product_flow_prism_stripe_invitations(environment, status, expires_at);
+
+COMMENT ON TABLE product_flow_prism_stripe_invitations IS
+  'Operator-issued, test-only allowlist for the bounded PRISM Stripe All sandbox cohort. Beta interest is deliberately insufficient: Checkout requires a distinct active, unexpired invitation.';
+
 CREATE TABLE IF NOT EXISTS product_flow_entitlement_owners (
   environment TEXT NOT NULL CHECK (environment = 'test'),
   entitlement_ref TEXT NOT NULL
@@ -436,6 +465,48 @@ CREATE TABLE IF NOT EXISTS product_flow_stripe_subscriptions (
   current_period_start TIMESTAMPTZ(3),
   current_period_end TIMESTAMPTZ(3),
   ended_at TIMESTAMPTZ(3),
+  reconciliation_status TEXT
+    CHECK (
+      reconciliation_status IS NULL
+      OR reconciliation_status IN ('required', 'resolved')
+    ),
+  reconciliation_action TEXT
+    CHECK (
+      reconciliation_action IS NULL
+      OR reconciliation_action = 'cancel_subscription'
+    ),
+  reconciliation_reason TEXT
+    CHECK (
+      reconciliation_reason IS NULL
+      OR reconciliation_reason IN ('refund_before_grant', 'full_refund')
+    ),
+  reconciliation_stripe_event_id TEXT
+    CHECK (
+      reconciliation_stripe_event_id IS NULL
+      OR reconciliation_stripe_event_id ~ '^evt_[A-Za-z0-9]{8,128}$'
+    ),
+  reconciliation_stripe_invoice_id TEXT
+    CHECK (
+      reconciliation_stripe_invoice_id IS NULL
+      OR reconciliation_stripe_invoice_id ~ '^in_[A-Za-z0-9]{8,128}$'
+    ),
+  reconciliation_stripe_payment_intent_id TEXT
+    CHECK (
+      reconciliation_stripe_payment_intent_id IS NULL
+      OR reconciliation_stripe_payment_intent_id ~ '^pi_[A-Za-z0-9]{8,128}$'
+    ),
+  reconciliation_stripe_refund_id TEXT
+    CHECK (
+      reconciliation_stripe_refund_id IS NULL
+      OR reconciliation_stripe_refund_id ~ '^re_[A-Za-z0-9]{8,128}$'
+    ),
+  reconciliation_required_at TIMESTAMPTZ(3),
+  reconciliation_resolved_event_id TEXT
+    CHECK (
+      reconciliation_resolved_event_id IS NULL
+      OR reconciliation_resolved_event_id ~ '^evt_[A-Za-z0-9]{8,128}$'
+    ),
+  reconciliation_resolved_at TIMESTAMPTZ(3),
   source_stripe_event_id TEXT NOT NULL,
   provider_updated_at TIMESTAMPTZ(3) NOT NULL,
   created_at TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -459,12 +530,59 @@ CREATE TABLE IF NOT EXISTS product_flow_stripe_subscriptions (
   FOREIGN KEY (environment, source_stripe_event_id)
     REFERENCES product_flow_stripe_event_receipts(environment, stripe_event_id)
     ON DELETE RESTRICT,
+  FOREIGN KEY (environment, reconciliation_stripe_event_id)
+    REFERENCES product_flow_stripe_event_receipts(environment, stripe_event_id)
+    ON DELETE RESTRICT,
+  FOREIGN KEY (environment, reconciliation_resolved_event_id)
+    REFERENCES product_flow_stripe_event_receipts(environment, stripe_event_id)
+    ON DELETE RESTRICT,
   CHECK (
     (current_period_start IS NULL AND current_period_end IS NULL)
     OR (
       current_period_start IS NOT NULL
       AND current_period_end IS NOT NULL
       AND current_period_start < current_period_end
+    )
+  ),
+  CHECK (
+    (
+      reconciliation_status IS NULL
+      AND reconciliation_action IS NULL
+      AND reconciliation_reason IS NULL
+      AND reconciliation_stripe_event_id IS NULL
+      AND reconciliation_stripe_invoice_id IS NULL
+      AND reconciliation_stripe_payment_intent_id IS NULL
+      AND reconciliation_stripe_refund_id IS NULL
+      AND reconciliation_required_at IS NULL
+      AND reconciliation_resolved_event_id IS NULL
+      AND reconciliation_resolved_at IS NULL
+    )
+    OR
+    (
+      reconciliation_status = 'required'
+      AND reconciliation_action = 'cancel_subscription'
+      AND reconciliation_reason IS NOT NULL
+      AND reconciliation_stripe_event_id IS NOT NULL
+      AND reconciliation_stripe_invoice_id IS NOT NULL
+      AND reconciliation_stripe_payment_intent_id IS NOT NULL
+      AND reconciliation_stripe_refund_id IS NOT NULL
+      AND reconciliation_required_at IS NOT NULL
+      AND reconciliation_resolved_event_id IS NULL
+      AND reconciliation_resolved_at IS NULL
+    )
+    OR
+    (
+      reconciliation_status = 'resolved'
+      AND reconciliation_action = 'cancel_subscription'
+      AND reconciliation_reason IS NOT NULL
+      AND reconciliation_stripe_event_id IS NOT NULL
+      AND reconciliation_stripe_invoice_id IS NOT NULL
+      AND reconciliation_stripe_payment_intent_id IS NOT NULL
+      AND reconciliation_stripe_refund_id IS NOT NULL
+      AND reconciliation_required_at IS NOT NULL
+      AND reconciliation_resolved_event_id IS NOT NULL
+      AND reconciliation_resolved_at IS NOT NULL
+      AND reconciliation_required_at <= reconciliation_resolved_at
     )
   ),
   CHECK (created_at <= updated_at)
@@ -478,8 +596,49 @@ CREATE INDEX IF NOT EXISTS idx_prism_stripe_subscription_owner
     updated_at DESC
   );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_prism_stripe_refund_reconciliation_once
+  ON product_flow_stripe_subscriptions(environment, reconciliation_stripe_refund_id)
+  WHERE reconciliation_stripe_refund_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_prism_stripe_reconciliation_required
+  ON product_flow_stripe_subscriptions(environment, reconciliation_required_at)
+  WHERE reconciliation_status = 'required';
+
 COMMENT ON TABLE product_flow_stripe_subscriptions IS
-  'Server-only exact Stripe subscription binding for one immutable local entitlement generation. Status alone never grants access; only a validated paid invoice can append a product-flow grant.';
+  'Server-only exact Stripe subscription binding for one immutable local entitlement generation. Status alone never grants access; only a validated paid invoice can append a product-flow grant. A full latest-period refund creates a durable cancel-subscription reconciliation obligation before any later invoice may grant.';
+
+CREATE OR REPLACE FUNCTION protect_prism_stripe_active_account_erasure()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM product_flow_stripe_subscriptions sub
+     WHERE sub.environment = OLD.environment
+       AND sub.product_id = OLD.product_id
+       AND sub.subject_ref = OLD.subject_ref
+       AND (
+         sub.status NOT IN ('canceled', 'incomplete_expired')
+         OR sub.reconciliation_status = 'required'
+       )
+  ) THEN
+    RAISE EXCEPTION
+      'cannot erase PRISM Stripe account mapping before provider subscription termination'
+      USING ERRCODE = '23503';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS prism_stripe_active_account_erasure_guard
+  ON product_flow_account_subjects;
+CREATE TRIGGER prism_stripe_active_account_erasure_guard
+  BEFORE DELETE ON product_flow_account_subjects
+  FOR EACH ROW EXECUTE FUNCTION protect_prism_stripe_active_account_erasure();
+
+COMMENT ON FUNCTION protect_prism_stripe_active_account_erasure() IS
+  'Prevents account deletion or direct mapping erasure from orphaning a nonterminal recurring Stripe test subscription. Provider termination must be observed first.';
 
 CREATE TABLE IF NOT EXISTS product_flow_stripe_invoice_grants (
   environment TEXT NOT NULL CHECK (environment = 'test'),
