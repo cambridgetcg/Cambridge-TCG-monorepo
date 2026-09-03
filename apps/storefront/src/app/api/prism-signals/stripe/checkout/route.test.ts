@@ -17,6 +17,7 @@ const testDoubles = vi.hoisted(() => {
     mocks: {
       auth: vi.fn(),
       getInterest: vi.fn(),
+      hasInvitation: vi.fn(),
       readConfig: vi.fn(),
       getClient: vi.fn(),
       priceProblems: vi.fn(),
@@ -35,6 +36,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth", () => ({ auth: testDoubles.mocks.auth }));
 vi.mock("@/lib/prism-signals/beta-interest.server", () => ({
   getPrismSignalsBetaInterest: testDoubles.mocks.getInterest,
+}));
+vi.mock("@/lib/prism-signals/stripe/invitation.server", () => ({
+  hasActivePrismStripeSandboxInvitation: testDoubles.mocks.hasInvitation,
 }));
 vi.mock("@/lib/prism-signals/stripe", () => ({
   PRISM_STRIPE_CHECKOUT_METADATA_TYPE: "prism_signals_all_test_v1",
@@ -106,6 +110,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   mocks.auth.mockResolvedValue({ user: { id: "user-a" } });
   mocks.getInterest.mockResolvedValue({ product_id: "prism-signals" });
+  mocks.hasInvitation.mockResolvedValue(true);
   mocks.readConfig.mockReturnValue(config);
   mocks.priceProblems.mockReturnValue([]);
   mocks.accountProblems.mockImplementation((account) =>
@@ -176,6 +181,39 @@ describe("PRISM Signals Stripe sandbox Checkout", () => {
     expect(response.status).toBe(403);
     expect((await response.json()).error.code).toBe("beta_interest_required");
     expect(mocks.getClient).not.toHaveBeenCalled();
+    expect(mocks.hasInvitation).not.toHaveBeenCalled();
+  });
+
+  it("requires a distinct active invitation before any Stripe or reservation call", async () => {
+    mocks.hasInvitation.mockResolvedValueOnce(false);
+    const response = await POST(request());
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: {
+        code: "sandbox_invitation_required",
+        message:
+          "An active PRISM Signals Stripe sandbox invitation is required.",
+      },
+    });
+    expect(mocks.hasInvitation).toHaveBeenCalledWith({
+      userId: "user-a",
+      evaluatedAt: expect.stringMatching(/Z$/),
+    });
+    expect(mocks.getClient).not.toHaveBeenCalled();
+    expect(mocks.retrieveAccount).not.toHaveBeenCalled();
+    expect(mocks.retrievePrice).not.toHaveBeenCalled();
+    expect(mocks.reserve).not.toHaveBeenCalled();
+    expect(mocks.createCheckout).not.toHaveBeenCalled();
+    expect(mocks.attach).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before Stripe when invitation storage is unavailable", async () => {
+    mocks.hasInvitation.mockRejectedValueOnce(new Error("database unavailable"));
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("checkout_unavailable");
+    expect(mocks.getClient).not.toHaveBeenCalled();
+    expect(mocks.reserve).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -201,6 +239,15 @@ describe("PRISM Signals Stripe sandbox Checkout", () => {
       occurredAt: expect.stringMatching(/Z$/),
       config,
     });
+    expect(mocks.hasInvitation.mock.calls[0]?.[0]?.evaluatedAt).toBe(
+      mocks.reserve.mock.calls[0]?.[0]?.occurredAt,
+    );
+    expect(mocks.getInterest.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.hasInvitation.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(mocks.hasInvitation.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.retrieveAccount.mock.invocationCallOrder[0] ?? 0,
+    );
     expect(mocks.createCheckout).toHaveBeenCalledWith(checkoutParams, {
       idempotencyKey: attempt.idempotencyKey,
     });

@@ -2,6 +2,9 @@ import type Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { getPrismSignalsBetaInterest } from "@/lib/prism-signals/beta-interest.server";
 import {
+  hasActivePrismStripeSandboxInvitation,
+} from "@/lib/prism-signals/stripe/invitation.server";
+import {
   PRISM_STRIPE_CHECKOUT_METADATA_TYPE,
   PrismStripeStoreError,
   attachPrismStripeCheckoutSession,
@@ -244,6 +247,19 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
+    const evaluatedAt = new Date().toISOString();
+    const invited = await hasActivePrismStripeSandboxInvitation({
+      userId: session.user.id,
+      evaluatedAt,
+    });
+    if (!invited) {
+      return prismStripeError(
+        "sandbox_invitation_required",
+        "An active PRISM Signals Stripe sandbox invitation is required.",
+        403,
+      );
+    }
+
     const stripe = getPrismStripeTestClient(config);
     const [account, price] = await Promise.all([
       stripe.accounts.retrieve(),
@@ -264,7 +280,7 @@ export async function POST(request: Request): Promise<Response> {
     const reservation = await reservePrismStripeCheckoutAttempt({
       userId: session.user.id,
       origin,
-      occurredAt: new Date().toISOString(),
+      occurredAt: evaluatedAt,
       config,
     });
     const { attempt } = reservation;
