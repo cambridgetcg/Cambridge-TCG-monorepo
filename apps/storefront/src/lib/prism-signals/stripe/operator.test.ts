@@ -927,4 +927,192 @@ describeDatabase("PRISM Stripe operator real PostgreSQL", () => {
       locker.release();
     }
   }, 30_000);
+
+  it("serializes competing grant and revoke plans to one valid outcome without corruption", async () => {
+    if (!operatorPool || !setupPool) throw new Error("Operator integration pool is unavailable.");
+    const raceUserId = randomUUID();
+    const initialAt = new Date(NOW.valueOf() + 60_000).toISOString();
+    const initialExpiry = new Date(NOW.valueOf() + 5 * 24 * 60 * 60 * 1_000).toISOString();
+    const planAt = new Date(NOW.valueOf() + 2 * 60_000);
+    const writeAt = new Date(NOW.valueOf() + 3 * 60_000);
+    const extendedExpiry = new Date(
+      writeAt.valueOf() + 10 * 24 * 60 * 60 * 1_000,
+    ).toISOString();
+    await setupPool.query(`INSERT INTO ${schema}.users (id) VALUES ($1)`, [raceUserId]);
+    await setupPool.query(
+      `INSERT INTO ${schema}.product_flow_prism_stripe_invitations (
+         environment, product_id, user_id, scope, status,
+         invited_at, expires_at, revoked_at, created_at, updated_at
+       ) VALUES (
+         'test', 'prism-signals', $1, 'stripe_all_sandbox_v1', 'active',
+         $2::TIMESTAMPTZ, $3::TIMESTAMPTZ, NULL,
+         $2::TIMESTAMPTZ, $2::TIMESTAMPTZ
+       )`,
+      [raceUserId, initialAt, initialExpiry],
+    );
+
+    const grantPlanCommand = parsePrismOperatorCommand(
+      [
+        "plan-grant",
+        "--target",
+        "test",
+        "--user-id",
+        raceUserId,
+        "--expires-at",
+        extendedExpiry,
+        "--reason",
+        "competing_grant_plan",
+      ],
+      {},
+    );
+    const revokePlanCommand = parsePrismOperatorCommand(
+      [
+        "plan-revoke",
+        "--target",
+        "test",
+        "--user-id",
+        raceUserId,
+        "--reason",
+        "competing_revoke_plan",
+      ],
+      {},
+    );
+    const [grantPlan, revokePlan] = await Promise.all([
+      executePrismOperator(grantPlanCommand, target, {
+        pool: operatorPool,
+        now: () => planAt,
+      }),
+      executePrismOperator(revokePlanCommand, target, {
+        pool: operatorPool,
+        now: () => planAt,
+      }),
+    ]);
+    const grantCommand = parsePrismOperatorCommand(
+      [
+        "grant",
+        "--target",
+        "test",
+        "--user-id",
+        raceUserId,
+        "--expires-at",
+        extendedExpiry,
+        "--reason",
+        "competing_grant_plan",
+        "--planned-at",
+        String(grantPlan.planned_at),
+        "--database-witness",
+        target.witness,
+        "--confirm",
+        String(grantPlan.confirmation_token),
+      ],
+      {},
+    );
+    const revokeCommand = parsePrismOperatorCommand(
+      [
+        "revoke",
+        "--target",
+        "test",
+        "--user-id",
+        raceUserId,
+        "--reason",
+        "competing_revoke_plan",
+        "--planned-at",
+        String(revokePlan.planned_at),
+        "--database-witness",
+        target.witness,
+        "--confirm",
+        String(revokePlan.confirmation_token),
+      ],
+      {},
+    );
+
+    const locker = await setupPool.connect();
+    let lockOpen = false;
+    let waitingWriters = 0;
+    let grantPending: Promise<Record<string, unknown>> | null = null;
+    let revokePending: Promise<Record<string, unknown>> | null = null;
+    try {
+      await locker.query("BEGIN");
+      lockOpen = true;
+      await locker.query(`SET LOCAL search_path TO ${schema}`);
+      await locker.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [raceUserId]);
+      grantPending = executePrismOperator(grantCommand, target, {
+        pool: operatorPool,
+        now: () => writeAt,
+      });
+      revokePending = executePrismOperator(revokeCommand, target, {
+        pool: operatorPool,
+        now: () => writeAt,
+      });
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const waiting = await setupPool.query<{ count: number }>(
+          `SELECT COUNT(*)::INTEGER AS count
+             FROM pg_stat_activity
+            WHERE datname = current_database()
+              AND application_name = 'cambridgetcg-prism-stripe-operator'
+              AND wait_event_type = 'Lock'
+              AND query LIKE 'SELECT id FROM users%'`,
+        );
+        waitingWriters = waiting.rows[0]?.count ?? 0;
+        if (waitingWriters >= 2) break;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      await locker.query("COMMIT");
+      lockOpen = false;
+    } finally {
+      if (lockOpen) await locker.query("ROLLBACK");
+      locker.release();
+    }
+    if (!grantPending || !revokePending) {
+      throw new Error("Competing operator writes did not start.");
+    }
+    const outcomes = await Promise.allSettled([grantPending, revokePending]);
+    expect(waitingWriters).toBeGreaterThanOrEqual(2);
+    const fulfilled = outcomes.filter(
+      (outcome): outcome is PromiseFulfilledResult<Record<string, unknown>> =>
+        outcome.status === "fulfilled",
+    );
+    const rejected = outcomes.filter(
+      (outcome): outcome is PromiseRejectedResult => outcome.status === "rejected",
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(fulfilled[0]?.value).toMatchObject({ writes: true, changed: true });
+    expect(["confirmation_mismatch", "40001"]).toContain(
+      (rejected[0]?.reason as { code?: unknown }).code,
+    );
+
+    const final = await setupPool.query<{
+      row_count: number;
+      status: "active" | "revoked";
+      expires_at: Date;
+      revoked_at: Date | null;
+      reconciliation_count: number;
+    }>(
+      `SELECT COUNT(*) OVER ()::INTEGER AS row_count,
+              invitation.status,
+              invitation.expires_at,
+              invitation.revoked_at,
+              (SELECT COUNT(*)::INTEGER
+                 FROM ${schema}.product_flow_stripe_subscriptions
+                WHERE reconciliation_status IS NOT NULL) AS reconciliation_count
+         FROM ${schema}.product_flow_prism_stripe_invitations invitation
+        WHERE invitation.user_id = $1`,
+      [raceUserId],
+    );
+    expect(final.rows).toHaveLength(1);
+    expect(final.rows[0]?.row_count).toBe(1);
+    expect(final.rows[0]?.reconciliation_count).toBe(0);
+    const winningAction = fulfilled[0]?.value.action;
+    if (winningAction === "grant") {
+      expect(final.rows[0]?.status).toBe("active");
+      expect(final.rows[0]?.expires_at.toISOString()).toBe(extendedExpiry);
+      expect(final.rows[0]?.revoked_at).toBeNull();
+    } else {
+      expect(winningAction).toBe("revoke");
+      expect(final.rows[0]?.status).toBe("revoked");
+      expect(final.rows[0]?.expires_at.toISOString()).toBe(initialExpiry);
+      expect(final.rows[0]?.revoked_at?.toISOString()).toBe(writeAt.toISOString());
+    }
+  }, 30_000);
 });
