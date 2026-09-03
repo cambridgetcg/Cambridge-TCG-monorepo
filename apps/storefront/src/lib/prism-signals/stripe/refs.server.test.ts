@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   derivePrismStripeOpaqueRef,
+  derivePrismStripePriceRef,
   newPrismStripeOpaqueRef,
 } from "./refs.server";
 
@@ -26,6 +27,19 @@ describe("PRISM Stripe opaque references", () => {
     const refs = new Set(Array.from({ length: 8 }, newPrismStripeOpaqueRef));
     expect(refs.size).toBe(8);
     for (const ref of refs) expect(ref).toMatch(/^pf_[A-Za-z0-9_-]{32}$/);
+  });
+
+  it("uses the one canonical Stripe Price domain for public and runtime refs", () => {
+    const priceId = "price_prismcanonical123";
+    const priceRef = derivePrismStripePriceRef(SECRET, priceId);
+    expect(priceRef).toBe(
+      derivePrismStripeOpaqueRef(SECRET, "stripe_price", priceId),
+    );
+    expect(priceRef).not.toBe(
+      derivePrismStripeOpaqueRef(SECRET, "price", priceId),
+    );
+    expect(() => derivePrismStripePriceRef(SECRET, "prod_not_a_price"))
+      .toThrow("PRISM Stripe Price id is invalid.");
   });
 
   it("rejects weak secrets, invalid namespaces, and unbounded inputs", () => {

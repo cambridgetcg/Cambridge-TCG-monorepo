@@ -11,7 +11,7 @@ vi.mock("@/lib/prism-signals/stripe/config.server", () => ({
   readPrismStripeSandboxConfig: mocks.config,
 }));
 vi.mock("@/lib/prism-signals/stripe/refs.server", () => ({
-  derivePrismStripeOpaqueRef: mocks.derive,
+  derivePrismStripePriceRef: mocks.derive,
 }));
 
 beforeEach(() => {
@@ -33,7 +33,6 @@ describe("PRISM Signals All test offer endpoint", () => {
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(mocks.derive).toHaveBeenCalledWith(
       "secret-never-public",
-      "price",
       "price_never_public",
     );
     expect(body).toMatchObject({

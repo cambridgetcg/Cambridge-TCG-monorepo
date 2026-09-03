@@ -27,6 +27,7 @@ import {
 } from "./config.server";
 import {
   derivePrismStripeOpaqueRef,
+  derivePrismStripePriceRef,
   newPrismStripeOpaqueRef,
 } from "./refs.server";
 
@@ -385,9 +386,8 @@ export async function reservePrismStripeCheckoutAttempt(
     "auth_subject",
     input.userId,
   );
-  const priceRef = derivePrismStripeOpaqueRef(
+  const priceRef = derivePrismStripePriceRef(
     input.config.referenceSecret,
-    "stripe_price",
     input.config.priceId,
   );
 

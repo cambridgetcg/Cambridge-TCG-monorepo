@@ -2,7 +2,7 @@ import {
   createPrismSignalsAllStripeTestOffer,
 } from "@/lib/prism-signals/product";
 import { readPrismStripeSandboxConfig } from "@/lib/prism-signals/stripe/config.server";
-import { derivePrismStripeOpaqueRef } from "@/lib/prism-signals/stripe/refs.server";
+import { derivePrismStripePriceRef } from "@/lib/prism-signals/stripe/refs.server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,9 +23,8 @@ const UNAVAILABLE_HEADERS = Object.freeze({
 export async function GET(): Promise<Response> {
   try {
     const config = readPrismStripeSandboxConfig();
-    const priceRef = derivePrismStripeOpaqueRef(
+    const priceRef = derivePrismStripePriceRef(
       config.referenceSecret,
-      "price",
       config.priceId,
     );
     return Response.json(
