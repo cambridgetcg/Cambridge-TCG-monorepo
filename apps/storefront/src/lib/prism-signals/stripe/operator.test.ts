@@ -32,7 +32,7 @@ function hash(value: string): string {
 }
 
 function dummyProductionPin(
-  databaseUrl = "postgresql://operator:secret@db.example:5432/prism_production?sslmode=no-verify",
+  databaseUrl = "postgresql://operator:test@db.example:5432/prism_production?sslmode=no-verify",
 ): string {
   const url = new URL(databaseUrl);
   return `sha256:${hash(
@@ -193,7 +193,7 @@ describe("PRISM Stripe operator argument and target guards", () => {
     ).toThrow(/cannot be local/);
 
     const productionUrl =
-      "postgresql://operator:secret@db.example:5432/prism_production?sslmode=no-verify";
+      "postgresql://operator:test@db.example:5432/prism_production?sslmode=no-verify";
     expect(() =>
       preparePrismOperatorTarget({
         databaseUrl: productionUrl,
@@ -488,7 +488,7 @@ describe("PRISM Stripe operator database boundary", () => {
 
   it("attests the connected production database name and TLS before a transaction", async () => {
     const productionUrl =
-      "postgresql://operator:secret@db.example:5432/prism_production";
+      "postgresql://operator:test@db.example:5432/prism_production";
     const productionTarget = preparePrismOperatorTarget({
       databaseUrl: productionUrl,
       target: "production",
