@@ -703,5 +703,39 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       grant_state: "refunded",
       snapshot_status: "ended",
     });
+
+    const runtimeBeforeDeletion = await pool.query<{ count: number }>(
+      `SELECT COUNT(*)::INTEGER AS count
+         FROM ${schema}.product_flow_events
+        WHERE entitlement_ref = $1`,
+      [attempt.entitlementRef],
+    );
+    await pool.query(`DELETE FROM ${schema}.users WHERE id = $1`, [
+      LIFECYCLE_USER_ID,
+    ]);
+    const erasedMappings = await pool.query<Record<string, number>>(
+      `SELECT
+         (SELECT COUNT(*)::INTEGER FROM ${schema}.product_flow_account_subjects
+           WHERE user_id = $1) AS subjects,
+         (SELECT COUNT(*)::INTEGER FROM ${schema}.product_flow_entitlement_owners
+           WHERE entitlement_ref = $2) AS owners,
+         (SELECT COUNT(*)::INTEGER FROM ${schema}.product_flow_stripe_checkout_attempts
+           WHERE entitlement_ref = $2) AS attempts,
+         (SELECT COUNT(*)::INTEGER FROM ${schema}.product_flow_stripe_subscriptions
+           WHERE entitlement_ref = $2) AS subscriptions,
+         (SELECT COUNT(*)::INTEGER FROM ${schema}.product_flow_stripe_invoice_grants
+           WHERE entitlement_ref = $2) AS grants,
+         (SELECT COUNT(*)::INTEGER FROM ${schema}.product_flow_events
+           WHERE entitlement_ref = $2) AS retained_events`,
+      [LIFECYCLE_USER_ID, attempt.entitlementRef],
+    );
+    expect(erasedMappings.rows[0]).toEqual({
+      subjects: 0,
+      owners: 0,
+      attempts: 0,
+      subscriptions: 0,
+      grants: 0,
+      retained_events: runtimeBeforeDeletion.rows[0]?.count,
+    });
   }, 30_000);
 });
