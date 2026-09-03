@@ -70,6 +70,7 @@ export type StripeSubscriptionCallbackV1 =
       ProviderEvidenceCallbackV1 & {
         readonly kind:
           | "subscription_cancel_at_period_end"
+          | "subscription_resumed"
           | "subscription_ended";
         readonly subscription_ref: ProductFlowOpaqueRef;
         readonly status_at: ProductFlowTimestamp;

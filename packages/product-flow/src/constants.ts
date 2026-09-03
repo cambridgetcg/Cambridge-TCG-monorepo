@@ -66,6 +66,7 @@ export const PRODUCT_ENTITLEMENT_EVENT_TYPES = [
   "renewal_confirmed",
   "payment_failed",
   "cancel_at_period_end",
+  "subscription_resumed",
   "subscription_ended",
   "refunded",
   "revoked",

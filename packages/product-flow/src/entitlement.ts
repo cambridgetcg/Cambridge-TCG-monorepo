@@ -567,7 +567,11 @@ export function parseEntitlementEventV1(value: unknown): EntitlementEventV1 {
     });
   }
 
-  if (type === "cancel_at_period_end" || type === "subscription_ended") {
+  if (
+    type === "cancel_at_period_end" ||
+    type === "subscription_resumed" ||
+    type === "subscription_ended"
+  ) {
     const keys = [
       ...EVENT_BASE_KEYS,
       "channel",
@@ -1023,7 +1027,6 @@ export function reduceEntitlementEventV1(
       rail: event.rail,
       price_ref: event.price_ref,
       active_until: event.active_until,
-      cancel_at_period_end: false,
     });
   }
 
@@ -1041,6 +1044,18 @@ export function reduceEntitlementEventV1(
       event,
       snapshot.status === "active" ? { cancel_at_period_end: true } : {},
     );
+  }
+
+  if (event.type === "subscription_resumed") {
+    if (
+      snapshot.status !== "active" ||
+      snapshot.channel !== event.channel ||
+      snapshot.rail !== event.rail ||
+      snapshot.price_ref !== event.price_ref
+    ) {
+      return blockedSnapshot(snapshot, "invalid_transition");
+    }
+    return withCursor(snapshot, event, { cancel_at_period_end: false });
   }
 
   if (

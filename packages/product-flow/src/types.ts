@@ -239,7 +239,10 @@ export type EntitlementEventV1 =
       })
   | (EntitlementEventBaseV1 &
       RailAttemptFieldsV1 & {
-        readonly type: "cancel_at_period_end" | "subscription_ended";
+        readonly type:
+          | "cancel_at_period_end"
+          | "subscription_resumed"
+          | "subscription_ended";
         readonly evidence: ProductProviderStatusEvidenceV1;
       })
   | (EntitlementEventBaseV1 & {

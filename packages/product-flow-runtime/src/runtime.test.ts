@@ -65,6 +65,7 @@ function stripeCallback(
     | "invoice_paid_renewal"
     | "invoice_payment_failed"
     | "subscription_cancel_at_period_end"
+    | "subscription_resumed"
     | "subscription_ended"
     | "refund_created",
   id: string,
@@ -347,6 +348,48 @@ describe("Stripe subscription normalization and application", () => {
     ).toMatchObject({
       web: { allowed: false, reason: "expired" },
       telegram: { allowed: false, reason: "expired" },
+    });
+  });
+
+  it("normalizes verified resume and clears only an active scheduled cancellation", async () => {
+    const store = new InMemoryProductFlowRuntimeStoreV1();
+    await applyEntitlementEventV1(
+      store,
+      normalizeStripeSubscriptionCallbackV1(stripeMapping(), stripePaid()),
+    );
+    const cancelledAt = "2026-09-20T10:00:00.000Z";
+    await applyEntitlementEventV1(
+      store,
+      normalizeStripeSubscriptionCallbackV1(stripeMapping(), {
+        ...stripeCallback(
+          "subscription_cancel_at_period_end",
+          "resume-test-cancel",
+          cancelledAt,
+        ),
+        provider_event_ref: ref("resume-test-cancel-provider"),
+        subscription_ref: ref("resume-test-subscription"),
+        status_at: cancelledAt,
+      }),
+    );
+    const resumedAt = "2026-09-20T10:00:00.001Z";
+    const resumedEvent = normalizeStripeSubscriptionCallbackV1(
+      stripeMapping(),
+      {
+        ...stripeCallback(
+          "subscription_resumed",
+          "subscription-resumed",
+          resumedAt,
+        ),
+        provider_event_ref: ref("subscription-resumed-provider"),
+        subscription_ref: ref("resume-test-subscription"),
+        status_at: resumedAt,
+      },
+    );
+    expect(resumedEvent.type).toBe("subscription_resumed");
+    const resumed = await applyEntitlementEventV1(store, resumedEvent);
+    expect(resumed.snapshot).toMatchObject({
+      status: "active",
+      cancel_at_period_end: false,
     });
   });
 

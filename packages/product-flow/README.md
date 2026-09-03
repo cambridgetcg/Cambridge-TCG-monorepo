@@ -152,9 +152,10 @@ rail, price reference, and exact `active_until`.
 | `precheckout_approved` | Telegram Stars audit cursor only; never grants access                  |
 | `channel_linked`       | Audit cursor only; never grants access                                 |
 | `payment_confirmed`    | Activates only with bound provider confirmation                        |
-| `renewal_confirmed`    | Extends only to a later `active_until` with bound confirmation         |
+| `renewal_confirmed`    | Extends to a later `active_until`; does not silently undo cancellation |
 | `payment_failed`       | Never activates or extends; already-paid access keeps its existing end |
 | `cancel_at_period_end` | Bound provider status; keeps access only until existing `active_until` |
+| `subscription_resumed` | Bound provider status; clears scheduled cancellation on active access |
 | `subscription_ended`   | Bound provider status; ends access                                     |
 | `refunded`             | Bound reversal for the latest confirmed payment; ends access           |
 | `revoked`              | Internal fail-closed denial; ends access                               |
@@ -171,6 +172,12 @@ as an invalid transition and cannot become the refund that ends access. Ended
 and blocked snapshots require a fresh entitlement reference or a rebuild from
 a trusted strictly ordered event log; later confirmations do not silently
 revive them.
+
+A renewal proves a new paid-through boundary, not that the customer withdrew
+a scheduled cancellation. The reducer therefore preserves
+`cancel_at_period_end` across renewal. Only a separately provider-bound
+`subscription_resumed` event clears it, and that event cannot reactivate an
+ended, refunded, or revoked entitlement.
 
 ## Access evaluation
 

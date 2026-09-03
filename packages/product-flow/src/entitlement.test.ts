@@ -137,7 +137,10 @@ function failedEvent(
 }
 
 function providerStatusEvent(
-  type: "cancel_at_period_end" | "subscription_ended",
+  type:
+    | "cancel_at_period_end"
+    | "subscription_resumed"
+    | "subscription_ended",
   id: string,
   occurredAt: string,
 ) {
@@ -336,9 +339,10 @@ describe("entitlement event parsing", () => {
     expect(parseEntitlementEventV1(refundEvent()).type).toBe("refunded");
   });
 
-  it("requires provider-bound status evidence for cancellation and end", () => {
+  it("requires provider-bound status evidence for cancellation, resume, and end", () => {
     for (const type of [
       "cancel_at_period_end",
+      "subscription_resumed",
       "subscription_ended",
     ] as const) {
       expect(() =>
@@ -523,6 +527,63 @@ describe("entitlement reduction", () => {
         evaluated_at: "2026-10-02T10:00:00.000Z",
       }),
     ).toMatchObject({ allowed: false, reason: "expired" });
+  });
+
+  it("renewal preserves a scheduled cancellation until provider resume evidence clears it", () => {
+    const active = reduceEntitlementEventV1(seed(), confirmationEvent({}));
+    const cancelled = reduceEntitlementEventV1(
+      active,
+      providerStatusEvent(
+        "cancel_at_period_end",
+        "cancel-before-renewal",
+        "2026-09-10T10:00:00.000Z",
+      ),
+    );
+    const renewed = reduceEntitlementEventV1(
+      cancelled,
+      confirmationEvent({
+        type: "renewal_confirmed",
+        id: "renewal-after-cancel",
+        occurredAt: "2026-09-25T10:00:00.000Z",
+        activeUntil: "2026-11-02T10:00:00.000Z",
+      }),
+    );
+    expect(renewed.cancel_at_period_end).toBe(true);
+
+    const resumed = reduceEntitlementEventV1(
+      renewed,
+      providerStatusEvent(
+        "subscription_resumed",
+        "resume-after-renewal",
+        "2026-09-25T10:00:00.001Z",
+      ),
+    );
+    expect(resumed.status).toBe("active");
+    expect(resumed.cancel_at_period_end).toBe(false);
+    expect(resumed.active_until).toBe("2026-11-02T10:00:00.000Z");
+  });
+
+  it("subscription resume cannot reactivate an ended entitlement", () => {
+    const active = reduceEntitlementEventV1(seed(), confirmationEvent({}));
+    const ended = reduceEntitlementEventV1(
+      active,
+      providerStatusEvent(
+        "subscription_ended",
+        "ended-before-resume",
+        "2026-09-20T10:00:00.000Z",
+      ),
+    );
+    const resumed = reduceEntitlementEventV1(
+      ended,
+      providerStatusEvent(
+        "subscription_resumed",
+        "resume-ended",
+        "2026-09-20T10:00:00.001Z",
+      ),
+    );
+    expect(resumed.status).toBe("blocked");
+    expect(resumed.reason).toBe("invalid_transition");
+    expect(resumed.active_until).toBeNull();
   });
 
   it("subscription end, confirmed refund, and internal revoke end access", () => {
