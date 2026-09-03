@@ -2,9 +2,11 @@ import "server-only";
 import { query as storefrontQuery, transaction as storefrontTransaction } from "@/lib/db";
 import {
   PRISM_SIGNALS_ALL_OFFER_ID,
+  createPrismSignalsAllStripeTestOffer,
 } from "@cambridge-tcg/prism-signals-core";
 import {
   PRODUCT_ENTITLEMENT_EVENT_SCHEMA,
+  evaluateAccessV1,
   parseEntitlementEventV1,
   parseEntitlementSnapshotV1,
   type EntitlementEventV1,
@@ -21,7 +23,9 @@ import {
   PRISM_SIGNALS_PRODUCT_ID,
 } from "../beta-interest";
 import {
+  inspectPrismStripeSandboxConfig,
   prismStripeSandboxPublicPosture,
+  type PrismStripeEnvironmentV1,
   type PrismStripeSandboxConfigV1,
   type PrismStripeSandboxPublicPostureV1,
 } from "./config.server";
@@ -30,10 +34,24 @@ import {
   derivePrismStripePriceRef,
   newPrismStripeOpaqueRef,
 } from "./refs.server";
+import { PRISM_STRIPE_INVITATION_SCOPE } from "./invitation.server";
 
 export const PRISM_STRIPE_CHECKOUT_METADATA_TYPE =
   "prism_signals_all_test_v1" as const;
 export const PRISM_STRIPE_CHECKOUT_TTL_SECONDS = 3600 as const;
+
+/** Canonical opaque Price binding, or null while core Stripe config drifts. */
+export function prismStripeSandboxExpectedPriceRef(
+  environment?: PrismStripeEnvironmentV1,
+): ProductFlowOpaqueRef | null {
+  const inspected = inspectPrismStripeSandboxConfig(environment);
+  return inspected.ok
+    ? derivePrismStripePriceRef(
+        inspected.config.referenceSecret,
+        inspected.config.priceId,
+      )
+    : null;
+}
 
 export type PrismStripeCheckoutAttemptStatusV1 =
   | "reserved"
@@ -85,6 +103,7 @@ export type ReservePrismStripeCheckoutResultV1 = Readonly<{
 
 export type PrismStripeStoreErrorCodeV1 =
   | "not_eligible"
+  | "not_invited"
   | "already_active"
   | "checkout_conflict"
   | "not_found"
@@ -101,7 +120,7 @@ export class PrismStripeStoreError extends Error {
     this.name = "PrismStripeStoreError";
     this.code = code;
     this.status =
-      code === "not_eligible"
+      code === "not_eligible" || code === "not_invited"
         ? 403
         : code === "not_found"
           ? 404
@@ -126,6 +145,7 @@ interface SubjectRow {
   subject_ref: string;
   stripe_customer_id: string | null;
   beta_eligible: boolean;
+  stripe_invited: boolean;
 }
 
 interface OwnerRow {
@@ -403,7 +423,18 @@ export async function reservePrismStripeCheckoutAttempt(
                    AND b.product_id = $2
                    AND b.consent_version = $3
                    AND b.expires_at > $4::TIMESTAMPTZ
-              ) AS beta_eligible
+              ) AS beta_eligible,
+              EXISTS (
+                SELECT 1
+                  FROM product_flow_prism_stripe_invitations invitation
+                 WHERE invitation.environment = 'test'
+                   AND invitation.product_id = $2
+                   AND invitation.user_id = u.id
+                   AND invitation.scope = $5
+                   AND invitation.status = 'active'
+                   AND invitation.invited_at <= $4::TIMESTAMPTZ
+                   AND invitation.expires_at > $4::TIMESTAMPTZ
+              ) AS stripe_invited
          FROM users u
          LEFT JOIN product_flow_account_subjects a
            ON a.environment = 'test'
@@ -416,6 +447,7 @@ export async function reservePrismStripeCheckoutAttempt(
         PRISM_SIGNALS_PRODUCT_ID,
         PRISM_SIGNALS_BETA_CONSENT_VERSION,
         occurredAt,
+        PRISM_STRIPE_INVITATION_SCOPE,
       ],
     );
     const initial = accountResult.rows[0] as SubjectRow | undefined;
@@ -423,6 +455,12 @@ export async function reservePrismStripeCheckoutAttempt(
       throw new PrismStripeStoreError(
         "not_eligible",
         "An active PRISM beta request is required for sandbox Checkout.",
+      );
+    }
+    if (!initial.stripe_invited) {
+      throw new PrismStripeStoreError(
+        "not_invited",
+        "An active PRISM Stripe sandbox invitation is required for Checkout.",
       );
     }
 
@@ -434,7 +472,8 @@ export async function reservePrismStripeCheckoutAttempt(
       [PRISM_SIGNALS_PRODUCT_ID, expectedSubjectRef, input.userId],
     );
     const subjectResult = await query(
-      `SELECT user_id, subject_ref, stripe_customer_id, TRUE AS beta_eligible
+      `SELECT user_id, subject_ref, stripe_customer_id,
+              TRUE AS beta_eligible, TRUE AS stripe_invited
          FROM product_flow_account_subjects
         WHERE environment = 'test' AND product_id = $1 AND user_id = $2
         FOR UPDATE`,
@@ -812,6 +851,11 @@ export type PrismStripeSubscriptionStatusDtoV1 = Readonly<{
     status: string;
     cancel_at_period_end: boolean;
     current_period_end: string | null;
+    reconciliation: null | Readonly<{
+      status: "required" | "resolved";
+      action: "cancel_subscription";
+      reason: "refund_before_grant" | "full_refund";
+    }>;
   }>;
   checkout: Readonly<{ available: boolean; reason: string }>;
   portal: Readonly<{ available: boolean }>;
@@ -819,15 +863,22 @@ export type PrismStripeSubscriptionStatusDtoV1 = Readonly<{
 
 interface StatusRow {
   beta_eligible: boolean;
+  stripe_invited: boolean;
   stripe_customer_id: string | null;
   entitlement_ref: string | null;
   subject_ref: string | null;
   offer_id: string | null;
   offer_version: number | string | null;
+  owner_lifecycle: "current" | "terminal" | null;
   snapshot_payload: unknown | null;
   subscription_status: string | null;
   cancel_at_period_end: boolean | null;
   current_period_end: Date | string | null;
+  blocking_attempt_status: string | null;
+  reconciliation_status: "required" | "resolved" | null;
+  reconciliation_action: "cancel_subscription" | null;
+  reconciliation_reason: "refund_before_grant" | "full_refund" | null;
+  expected_price_ref: string | null;
 }
 
 export async function readPrismStripeOwnerStatus(
@@ -835,11 +886,16 @@ export async function readPrismStripeOwnerStatus(
     userId: string;
     evaluatedAt: string;
     posture?: PrismStripeSandboxPublicPostureV1;
+    expectedPriceRef?: ProductFlowOpaqueRef | null;
   }>,
   dependencies: PrismStripeStoreDependenciesV1 = {},
 ): Promise<PrismStripeSubscriptionStatusDtoV1> {
   const evaluatedAt = canonicalInputTimestamp(input.evaluatedAt, "evaluatedAt");
   const posture = input.posture ?? prismStripeSandboxPublicPosture();
+  const expectedPriceRef =
+    input.expectedPriceRef === undefined
+      ? prismStripeSandboxExpectedPriceRef()
+      : input.expectedPriceRef;
   const query = dependencies.query ?? storefrontQuery;
   const result = await query(
     `SELECT EXISTS (
@@ -849,35 +905,76 @@ export async function readPrismStripeOwnerStatus(
                  AND b.consent_version = $3
                  AND b.expires_at > $4::TIMESTAMPTZ
             ) AS beta_eligible,
+            EXISTS (
+              SELECT 1
+                FROM product_flow_prism_stripe_invitations invitation
+               WHERE invitation.environment = 'test'
+                 AND invitation.product_id = $2
+                 AND invitation.user_id = u.id
+                 AND invitation.scope = $5
+                 AND invitation.status = 'active'
+                 AND invitation.invited_at <= $4::TIMESTAMPTZ
+                 AND invitation.expires_at > $4::TIMESTAMPTZ
+            ) AS stripe_invited,
             a.stripe_customer_id,
             owner.entitlement_ref,
             owner.subject_ref,
             owner.offer_id,
             owner.offer_version,
+            owner.lifecycle AS owner_lifecycle,
             snap.snapshot_payload,
             sub.status AS subscription_status,
             sub.cancel_at_period_end,
-            sub.current_period_end
+            sub.current_period_end,
+            sub.reconciliation_status,
+            sub.reconciliation_action,
+            sub.reconciliation_reason,
+            source_attempt.price_ref AS expected_price_ref,
+            blocking.status AS blocking_attempt_status
        FROM users u
        LEFT JOIN product_flow_account_subjects a
          ON a.environment = 'test' AND a.product_id = $2 AND a.user_id = u.id
-       LEFT JOIN product_flow_entitlement_owners owner
-         ON owner.environment = a.environment
-        AND owner.product_id = a.product_id
-        AND owner.subject_ref = a.subject_ref
-        AND owner.lifecycle = 'current'
+       LEFT JOIN LATERAL (
+         SELECT candidate.*
+           FROM product_flow_entitlement_owners candidate
+          WHERE candidate.environment = a.environment
+            AND candidate.product_id = a.product_id
+            AND candidate.subject_ref = a.subject_ref
+          ORDER BY candidate.generation DESC
+          LIMIT 1
+       ) owner ON TRUE
        LEFT JOIN product_flow_entitlement_snapshots snap
          ON snap.environment = owner.environment
         AND snap.entitlement_ref = owner.entitlement_ref
        LEFT JOIN product_flow_stripe_subscriptions sub
          ON sub.environment = owner.environment
         AND sub.entitlement_ref = owner.entitlement_ref
+       LEFT JOIN LATERAL (
+         SELECT attempt.price_ref
+           FROM product_flow_stripe_checkout_attempts attempt
+          WHERE attempt.environment = owner.environment
+            AND attempt.entitlement_ref = owner.entitlement_ref
+          ORDER BY attempt.created_at DESC, attempt.attempt_ref DESC
+          LIMIT 1
+       ) source_attempt ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT attempt.status
+           FROM product_flow_stripe_checkout_attempts attempt
+          WHERE attempt.environment = owner.environment
+            AND attempt.entitlement_ref = owner.entitlement_ref
+            AND attempt.status IN (
+              'reserved', 'checkout_open', 'requires_review'
+            )
+          ORDER BY attempt.created_at DESC, attempt.attempt_ref DESC
+          LIMIT 1
+       ) blocking ON TRUE
       WHERE u.id = $1`,
     [
       input.userId,
       PRISM_SIGNALS_PRODUCT_ID,
       PRISM_SIGNALS_BETA_CONSENT_VERSION,
       evaluatedAt,
+      PRISM_STRIPE_INVITATION_SCOPE,
     ],
   );
   const row = result.rows[0] as StatusRow | undefined;
@@ -901,17 +998,40 @@ export async function readPrismStripeOwnerStatus(
       );
     }
     activeUntil = snapshot.active_until;
-    allowed =
-      snapshot.status === "active" &&
-      activeUntil !== null &&
-      Date.parse(activeUntil) > Date.parse(evaluatedAt);
-    reason = allowed
-      ? "active"
-      : snapshot.status === "active"
-        ? "expired"
-        : snapshot.reason;
+    if (
+      typeof row.expected_price_ref !== "string" ||
+      !/^pf_[A-Za-z0-9_-]{16,64}$/.test(row.expected_price_ref)
+    ) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "Stored PRISM subscription has no valid expected price reference.",
+      );
+    }
+    if (expectedPriceRef === null) {
+      allowed = false;
+      reason = "configuration_unavailable";
+    } else if (row.expected_price_ref !== expectedPriceRef) {
+      allowed = false;
+      reason = "price_configuration_mismatch";
+    } else {
+      const access = evaluateAccessV1(
+        createPrismSignalsAllStripeTestOffer({
+          price_ref: expectedPriceRef,
+        }),
+        snapshot,
+        {
+          environment: "test",
+          channel: "web",
+          evaluated_at: evaluatedAt,
+        },
+      );
+      allowed = access.allowed;
+      reason = access.reason;
+    }
   }
-  const isAll = row?.subscription_status != null || allowed;
+  const providerSubscriptionTerminal =
+    row?.subscription_status === "canceled" ||
+    row?.subscription_status === "incomplete_expired";
   if (
     row?.subscription_status !== null &&
     row?.subscription_status !== undefined &&
@@ -931,13 +1051,53 @@ export async function readPrismStripeOwnerStatus(
       "Stored PRISM Stripe subscription status is invalid.",
     );
   }
-  const checkoutReason = !row?.beta_eligible
-    ? "not_eligible"
-    : isAll && allowed
-      ? "already_all"
-      : isAll
-        ? "existing_subscription"
-        : posture.reason;
+  const reconciliation = row?.reconciliation_status
+    ? (row.reconciliation_status === "required" ||
+        row.reconciliation_status === "resolved") &&
+        row.reconciliation_action === "cancel_subscription" &&
+        (row.reconciliation_reason === "refund_before_grant" ||
+          row.reconciliation_reason === "full_refund")
+      ? Object.freeze({
+          status: row.reconciliation_status,
+          action: row.reconciliation_action,
+          reason: row.reconciliation_reason,
+        })
+      : (() => {
+          throw new PrismStripeStoreError(
+            "store_invariant",
+            "Stored PRISM Stripe reconciliation state is invalid.",
+          );
+        })()
+    : null;
+  const isAll =
+    allowed ||
+    (row?.subscription_status != null &&
+      !providerSubscriptionTerminal) ||
+    reconciliation?.status === "required";
+  if (
+    row?.blocking_attempt_status !== null &&
+    row?.blocking_attempt_status !== undefined &&
+    row.blocking_attempt_status !== "reserved" &&
+    row.blocking_attempt_status !== "checkout_open" &&
+    row.blocking_attempt_status !== "requires_review"
+  ) {
+    throw new PrismStripeStoreError(
+      "store_invariant",
+      "Stored PRISM Stripe blocking Checkout status is invalid.",
+    );
+  }
+  let checkoutReason: string;
+  if (!row?.beta_eligible) checkoutReason = "not_eligible";
+  else if (!row.stripe_invited) checkoutReason = "not_invited";
+  else if (reconciliation?.status === "required") {
+    checkoutReason = "subscription_cancellation_required";
+  } else if (row.blocking_attempt_status === "requires_review") {
+    checkoutReason = "checkout_requires_review";
+  } else if (row.blocking_attempt_status) {
+    checkoutReason = "checkout_in_progress";
+  } else if (isAll && allowed) checkoutReason = "already_all";
+  else if (isAll) checkoutReason = "existing_subscription";
+  else checkoutReason = posture.reason;
   return Object.freeze({
     schema: "cambridgetcg.prism-subscription-status/1" as const,
     sandbox: true as const,
@@ -950,12 +1110,15 @@ export async function readPrismStripeOwnerStatus(
           current_period_end: row.current_period_end
             ? isoTimestamp(row.current_period_end, "current subscription period end")
             : null,
+          reconciliation,
         })
       : null,
     checkout: Object.freeze({
       available:
         row?.beta_eligible === true &&
+        row.stripe_invited === true &&
         !isAll &&
+        row.blocking_attempt_status == null &&
         posture.checkout_available,
       reason: checkoutReason,
     }),

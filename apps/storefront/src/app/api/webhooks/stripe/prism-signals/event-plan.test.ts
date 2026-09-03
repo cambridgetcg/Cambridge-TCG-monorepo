@@ -479,6 +479,24 @@ describe("PRISM Stripe signed-event planner", () => {
         endedAt: "2026-09-03T07:59:00.000Z",
       },
     });
+
+    const incompleteExpired = plan(
+      event(
+        "customer.subscription.deleted",
+        subscription({
+          status: "incomplete_expired",
+          cancel_at_period_end: false,
+          ended_at: null,
+        }),
+      ),
+    );
+    expect(incompleteExpired).toMatchObject({
+      ok: true,
+      action: {
+        kind: "subscription_incomplete_expired",
+        status: "incomplete_expired",
+      },
+    });
   });
 
   it("emits explicit verified resume when cancel-at-period-end is false", () => {
@@ -504,7 +522,7 @@ describe("PRISM Stripe signed-event planner", () => {
   });
 
   it.each(["active", "incomplete"] as const)(
-    "durably ignores unrelated %s subscription updates without a cancel transition",
+    "observes unrelated %s subscription status without inventing a cancel transition",
     (status) => {
       const result = plan(
         event(
@@ -515,8 +533,9 @@ describe("PRISM Stripe signed-event planner", () => {
       expect(result).toMatchObject({
         ok: true,
         action: {
-          kind: "ignored",
-          code: "subscription_update_without_cancel_transition",
+          kind: "subscription_status_observed",
+          status,
+          cancelAtPeriodEnd: false,
         },
       });
     },
@@ -610,11 +629,21 @@ describe("PRISM Stripe signed-event planner", () => {
     ).toEqual({
       ok: true,
       refund: {
+        attemptRef,
         subscriptionId: "sub_prismtest123",
+        customerId: "cus_prismtest123",
         invoiceId: "in_prismtest123",
         refundId: "re_prismtest123",
         paymentIntentId: "pi_prismtest123",
         priceId: config.priceId,
+        productId: config.productId,
+        currency: "gbp",
+        quantity: 1,
+        periodStart: "2026-09-03T07:00:00.000Z",
+        periodEnd: "2026-10-03T07:00:00.000Z",
+        confirmedAt: "2026-09-03T07:59:00.000Z",
+        subscriptionStatus: "active",
+        cancelAtPeriodEnd: false,
         refundedAt: "2026-09-03T07:59:00.000Z",
         amountRefundedMinor: 500,
       },

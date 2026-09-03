@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import {
   prismStripeSandboxPublicPosture,
+  prismStripeSandboxExpectedPriceRef,
   readPrismStripeOwnerStatus,
 } from "@/lib/prism-signals/stripe";
 import {
@@ -27,6 +28,7 @@ export async function GET(): Promise<Response> {
       userId: session.user.id,
       evaluatedAt: new Date().toISOString(),
       posture,
+      expectedPriceRef: prismStripeSandboxExpectedPriceRef(),
     });
     return prismStripeJson(status);
   } catch (error) {

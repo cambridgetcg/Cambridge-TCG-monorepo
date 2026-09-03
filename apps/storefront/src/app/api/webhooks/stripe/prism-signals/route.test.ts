@@ -21,7 +21,9 @@ const mocks = vi.hoisted(() => ({
   observeInvoiceFailed: vi.fn(),
   applyCancel: vi.fn(),
   applyResume: vi.fn(),
+  observeStatus: vi.fn(),
   applyDeleted: vi.fn(),
+  applyIncompleteExpired: vi.fn(),
   applyRefund: vi.fn(),
   requiresReview: vi.fn(),
   ignore: vi.fn(),
@@ -260,7 +262,9 @@ const actions = {
   observeInvoicePaymentFailed: mocks.observeInvoiceFailed,
   applyCancelAtPeriodEnd: mocks.applyCancel,
   applySubscriptionResumed: mocks.applyResume,
+  observeSubscriptionStatus: mocks.observeStatus,
   applySubscriptionDeleted: mocks.applyDeleted,
+  applySubscriptionIncompleteExpired: mocks.applyIncompleteExpired,
   applyFullRefund: mocks.applyRefund,
   requiresReview: mocks.requiresReview,
   ignore: mocks.ignore,
@@ -297,7 +301,9 @@ beforeEach(() => {
     mocks.observeInvoiceFailed,
     mocks.applyCancel,
     mocks.applyResume,
+    mocks.observeStatus,
     mocks.applyDeleted,
+    mocks.applyIncompleteExpired,
     mocks.applyRefund,
   ]) {
     method.mockResolvedValue({ outcome: "processed", code: "applied" });
@@ -602,6 +608,28 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
         endedAt: new Date(endedAt * 1000).toISOString(),
       }),
     );
+
+    const incompleteExpired = subscription({
+      status: "incomplete_expired",
+      cancel_at_period_end: false,
+      ended_at: null,
+      items: { has_more: false, data: [period] },
+    });
+    mocks.retrieveSubscription.mockResolvedValueOnce(incompleteExpired);
+    const incompleteResponse = await POST(
+      signedRequest(
+        payload("customer.subscription.deleted", incompleteExpired, {
+          id: "evt_incompleteexpired123",
+        }),
+      ),
+    );
+    expect(incompleteResponse.status).toBe(200);
+    expect(mocks.applyIncompleteExpired).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subscriptionId: "sub_prismroute123",
+        status: "incomplete_expired",
+      }),
+    );
   });
 
   it("lets current provider truth win reverse-delivered equal-second updates", async () => {
@@ -651,11 +679,12 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
     expect(mocks.applyCancel).not.toHaveBeenCalled();
   });
 
-  it("durably ignores an unrelated incomplete update before any grant", async () => {
+  it("durably mirrors an unrelated incomplete update before any grant", async () => {
     const incomplete = subscription({
       status: "incomplete",
       cancel_at_period_end: false,
     });
+    mocks.retrieveSubscription.mockResolvedValueOnce(incomplete);
     const response = await POST(
       signedRequest(
         payload("customer.subscription.updated", incomplete, {
@@ -664,8 +693,11 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
       ),
     );
     expect(response.status).toBe(200);
-    expect(mocks.ignore).toHaveBeenCalledWith(
-      "subscription_update_without_cancel_transition",
+    expect(mocks.observeStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "incomplete",
+        cancelAtPeriodEnd: false,
+      }),
     );
     expect(mocks.applyResume).not.toHaveBeenCalled();
   });
@@ -706,11 +738,21 @@ describe("dedicated PRISM Stripe sandbox webhook", () => {
     });
     expect(mocks.retrieveInvoice).toHaveBeenCalledWith("in_prismroute123");
     expect(mocks.applyRefund).toHaveBeenCalledWith({
+      attemptRef,
       refundId: "re_prismroute123",
       subscriptionId: "sub_prismroute123",
+      customerId: "cus_prismroute123",
       invoiceId: "in_prismroute123",
       paymentIntentId: "pi_prismroute123",
       priceId: config.priceId,
+      productId: config.productId,
+      currency: "gbp",
+      quantity: 1,
+      periodStart: expect.stringMatching(/Z$/),
+      periodEnd: expect.stringMatching(/Z$/),
+      confirmedAt: expect.stringMatching(/Z$/),
+      subscriptionStatus: "active",
+      cancelAtPeriodEnd: false,
       refundedAt: expect.stringMatching(/Z$/),
       amountRefundedMinor: 500,
     });

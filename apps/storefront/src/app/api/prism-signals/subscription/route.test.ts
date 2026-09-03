@@ -4,6 +4,7 @@ import { GET } from "./route";
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   publicPosture: vi.fn(),
+  expectedPriceRef: vi.fn(),
   readStatus: vi.fn(),
 }));
 
@@ -11,6 +12,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/prism-signals/stripe", () => ({
   prismStripeSandboxPublicPosture: mocks.publicPosture,
+  prismStripeSandboxExpectedPriceRef: mocks.expectedPriceRef,
   readPrismStripeOwnerStatus: mocks.readStatus,
 }));
 
@@ -34,6 +36,7 @@ const allStatus = {
     status: "active",
     cancel_at_period_end: false,
     current_period_end: "2026-10-03T00:00:00.000Z",
+    reconciliation: null,
   },
   checkout: { available: false, reason: "already_subscribed" },
   portal: { available: true },
@@ -44,6 +47,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   mocks.auth.mockResolvedValue({ user: { id: "user-a" } });
   mocks.publicPosture.mockReturnValue(posture);
+  mocks.expectedPriceRef.mockReturnValue("pf_expected_price_123456789");
   mocks.readStatus.mockResolvedValue(allStatus);
 });
 
@@ -67,6 +71,7 @@ describe("PRISM Signals owner subscription API", () => {
       userId: "user-a",
       evaluatedAt: expect.stringMatching(/Z$/),
       posture,
+      expectedPriceRef: "pf_expected_price_123456789",
     });
     expect(JSON.stringify(allStatus)).not.toMatch(
       /user-a|cus_|sub_|price_|prod_|pf_|@/,
@@ -82,12 +87,14 @@ describe("PRISM Signals owner subscription API", () => {
       reason: "invalid_configuration",
     };
     mocks.publicPosture.mockReturnValueOnce(unavailablePosture);
+    mocks.expectedPriceRef.mockReturnValueOnce(null);
     const response = await GET();
     expect(response.status).toBe(200);
     expect(mocks.readStatus).toHaveBeenCalledWith({
       userId: "user-a",
       evaluatedAt: expect.stringMatching(/Z$/),
       posture: unavailablePosture,
+      expectedPriceRef: null,
     });
   });
 

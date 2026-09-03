@@ -17,6 +17,7 @@ import {
 } from "@/app/api/prism-signals/stripe/http";
 import {
   planPrismStripeWebhookEvent,
+  prismStripeInvoiceSubscriptionProblems,
   prismStripeSubscriptionSnapshot,
   resolvePrismStripeFullRefund,
   resolvePrismStripePaidInvoice,
@@ -106,21 +107,7 @@ function directWork(action: PrismStripeWebhookActionV1): AtomicWork {
       });
   }
   if (action.kind === "invoice_payment_failed") {
-    return (actions) =>
-      actions.observeInvoicePaymentFailed({
-        attemptRef: action.attemptRef,
-        invoiceId: action.invoiceId,
-        subscriptionId: action.subscriptionId,
-        customerId: action.customerId,
-        priceId: action.priceId,
-        productId: action.productId,
-        currency: action.currency,
-        amountMinor: action.amountMinor,
-        quantity: action.quantity,
-        periodStart: action.periodStart,
-        periodEnd: action.periodEnd,
-        failedAt: action.failedAt,
-      });
+    return reviewWork("subscription_lookup_required");
   }
   if (action.kind === "subscription_cancel_at_period_end") {
     return (actions) =>
@@ -148,6 +135,20 @@ function directWork(action: PrismStripeWebhookActionV1): AtomicWork {
         statusAt: action.statusAt,
       });
   }
+  if (action.kind === "subscription_status_observed") {
+    return (actions) =>
+      actions.observeSubscriptionStatus({
+        subscriptionId: action.subscriptionId,
+        customerId: action.customerId,
+        attemptRef: action.attemptRef,
+        priceId: action.priceId,
+        status: action.status,
+        cancelAtPeriodEnd: action.cancelAtPeriodEnd,
+        periodStart: action.periodStart,
+        periodEnd: action.periodEnd,
+        statusAt: action.statusAt,
+      });
+  }
   if (action.kind === "subscription_deleted") {
     return (actions) =>
       actions.applySubscriptionDeleted({
@@ -162,7 +163,65 @@ function directWork(action: PrismStripeWebhookActionV1): AtomicWork {
         endedAt: action.endedAt,
       });
   }
+  if (action.kind === "subscription_incomplete_expired") {
+    return (actions) =>
+      actions.applySubscriptionIncompleteExpired({
+        subscriptionId: action.subscriptionId,
+        customerId: action.customerId,
+        attemptRef: action.attemptRef,
+        priceId: action.priceId,
+        status: action.status,
+        cancelAtPeriodEnd: action.cancelAtPeriodEnd,
+        periodStart: action.periodStart,
+        periodEnd: action.periodEnd,
+        statusAt: action.statusAt,
+      });
+  }
   return reviewWork("provider_lookup_required");
+}
+
+async function failedInvoiceWork(
+  stripe: Stripe,
+  config: ReturnType<typeof readPrismStripeSandboxConfig>,
+  action: Extract<
+    PrismStripeWebhookActionV1,
+    { readonly kind: "invoice_payment_failed" }
+  >,
+  providerObservedAt: string,
+): Promise<AtomicWork> {
+  const subscription = await stripe.subscriptions.retrieve(
+    action.subscriptionId,
+  );
+  const snapshot = prismStripeSubscriptionSnapshot(subscription, config);
+  if (
+    snapshot === null ||
+    prismStripeInvoiceSubscriptionProblems(subscription, action, config)
+      .length > 0 ||
+    snapshot.status === "canceled" ||
+    snapshot.status === "incomplete_expired" ||
+    snapshot.status === "paused" ||
+    snapshot.status === "trialing"
+  ) {
+    return reviewWork("failed_invoice_subscription_mismatch");
+  }
+  return (actions) =>
+    actions.observeInvoicePaymentFailed({
+      attemptRef: action.attemptRef,
+      invoiceId: action.invoiceId,
+      subscriptionId: action.subscriptionId,
+      customerId: action.customerId,
+      priceId: action.priceId,
+      productId: action.productId,
+      currency: action.currency,
+      amountMinor: action.amountMinor,
+      quantity: action.quantity,
+      periodStart: action.periodStart,
+      periodEnd: action.periodEnd,
+      failedAt: action.failedAt,
+      status: snapshot.status,
+      cancelAtPeriodEnd: snapshot.cancelAtPeriodEnd,
+      providerObservedAt,
+    });
 }
 
 async function paidInvoiceWork(
@@ -284,7 +343,9 @@ async function mutableSubscriptionWork(
       readonly kind:
         | "subscription_cancel_at_period_end"
         | "subscription_resumed"
-        | "subscription_deleted";
+        | "subscription_status_observed"
+        | "subscription_deleted"
+        | "subscription_incomplete_expired";
     }
   >,
 ): Promise<AtomicWork> {
@@ -321,6 +382,7 @@ async function prepareAtomicWork(
   stripe: Stripe,
   config: ReturnType<typeof readPrismStripeSandboxConfig>,
   action: PrismStripeWebhookActionV1,
+  providerObservedAt: string,
 ): Promise<AtomicWork> {
   if (action.kind === "invoice_paid_lookup") {
     return paidInvoiceWork(stripe, config, action);
@@ -328,10 +390,15 @@ async function prepareAtomicWork(
   if (action.kind === "full_refund_lookup") {
     return fullRefundWork(stripe, config, action);
   }
+  if (action.kind === "invoice_payment_failed") {
+    return failedInvoiceWork(stripe, config, action, providerObservedAt);
+  }
   if (
     action.kind === "subscription_cancel_at_period_end" ||
     action.kind === "subscription_resumed" ||
-    action.kind === "subscription_deleted"
+    action.kind === "subscription_status_observed" ||
+    action.kind === "subscription_deleted" ||
+    action.kind === "subscription_incomplete_expired"
   ) {
     return mutableSubscriptionWork(stripe, config, action);
   }
@@ -431,7 +498,12 @@ export async function POST(request: Request): Promise<Response> {
 
     // Every Stripe read/validation completes before this callback opens the
     // one database transaction containing receipt, mapping and entitlement.
-    const work = await prepareAtomicWork(stripe, config, plan.action);
+    const work = await prepareAtomicWork(
+      stripe,
+      config,
+      plan.action,
+      receipt.receivedAt,
+    );
     const processed = await processPrismStripeWebhookAtomically(
       receipt,
       work,

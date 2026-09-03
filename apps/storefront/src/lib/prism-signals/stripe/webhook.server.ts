@@ -86,6 +86,9 @@ export interface InvoicePaidFactV1 extends InvoiceBaseFactV1 {
 
 export interface InvoiceFailedFactV1 extends InvoiceBaseFactV1 {
   readonly failedAt: string;
+  readonly status: StripeSubscriptionStatusV1;
+  readonly cancelAtPeriodEnd: boolean;
+  readonly providerObservedAt: string;
 }
 
 export interface CancelAtPeriodEndFactV1 {
@@ -99,17 +102,43 @@ export interface CancelAtPeriodEndFactV1 {
   readonly statusAt: string;
 }
 
+export interface SubscriptionStatusFactV1 extends CancelAtPeriodEndFactV1 {
+  readonly cancelAtPeriodEnd: boolean;
+}
+
 export interface SubscriptionDeletedFactV1 extends CancelAtPeriodEndFactV1 {
   readonly status: "canceled";
   readonly endedAt: string;
 }
 
+export interface SubscriptionIncompleteExpiredFactV1 {
+  readonly subscriptionId: string;
+  readonly customerId: string;
+  readonly attemptRef: string;
+  readonly priceId: string;
+  readonly status: "incomplete_expired";
+  readonly cancelAtPeriodEnd: false;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly statusAt: string;
+}
+
 export interface FullRefundFactV1 {
+  readonly attemptRef: string;
   readonly refundId: string;
   readonly subscriptionId: string;
+  readonly customerId: string;
   readonly invoiceId: string;
   readonly paymentIntentId: string;
   readonly priceId: string;
+  readonly productId: string;
+  readonly currency: "gbp";
+  readonly quantity: 1;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly confirmedAt: string;
+  readonly subscriptionStatus: StripeSubscriptionStatusV1;
+  readonly cancelAtPeriodEnd: boolean;
   readonly refundedAt: string;
   readonly amountRefundedMinor: number;
 }
@@ -140,8 +169,14 @@ export interface PrismStripeWebhookActionsV1 {
   applySubscriptionResumed(
     fact: CancelAtPeriodEndFactV1,
   ): Promise<PrismStripeWebhookDecisionV1>;
+  observeSubscriptionStatus(
+    fact: SubscriptionStatusFactV1,
+  ): Promise<PrismStripeWebhookDecisionV1>;
   applySubscriptionDeleted(
     fact: SubscriptionDeletedFactV1,
+  ): Promise<PrismStripeWebhookDecisionV1>;
+  applySubscriptionIncompleteExpired(
+    fact: SubscriptionIncompleteExpiredFactV1,
   ): Promise<PrismStripeWebhookDecisionV1>;
   applyFullRefund(
     fact: FullRefundFactV1,
@@ -178,6 +213,16 @@ interface BindingRow {
   subscription_customer_id: string | null;
   subscription_status: string | null;
   provider_updated_at: Date | string | null;
+  reconciliation_status: "required" | "resolved" | null;
+  reconciliation_action: "cancel_subscription" | null;
+  reconciliation_reason: "refund_before_grant" | "full_refund" | null;
+  reconciliation_stripe_event_id: string | null;
+  reconciliation_stripe_invoice_id: string | null;
+  reconciliation_stripe_payment_intent_id: string | null;
+  reconciliation_stripe_refund_id: string | null;
+  reconciliation_required_at: Date | string | null;
+  reconciliation_resolved_event_id: string | null;
+  reconciliation_resolved_at: Date | string | null;
 }
 
 function canonicalTimestamp(value: string, field: string): string {
@@ -225,7 +270,19 @@ async function allocateProjectionTime(
   const result = await query(
     `SELECT GREATEST(
               $3::TIMESTAMPTZ,
-              COALESCE(MAX(occurred_at) + INTERVAL '1 millisecond', $3::TIMESTAMPTZ)
+              COALESCE(
+                MAX(occurred_at) + INTERVAL '1 millisecond',
+                $3::TIMESTAMPTZ
+              ),
+              COALESCE(
+                (
+                  SELECT owner.created_at
+                    FROM product_flow_entitlement_owners owner
+                   WHERE owner.environment = $1
+                     AND owner.entitlement_ref = $2
+                ),
+                $3::TIMESTAMPTZ
+              )
             ) AS projection_at
        FROM product_flow_events
       WHERE environment = $1 AND entitlement_ref = $2`,
@@ -263,7 +320,15 @@ async function bindingByAttempt(
             sub.stripe_subscription_id,
             sub.stripe_customer_id AS subscription_customer_id,
             sub.status AS subscription_status,
-            sub.provider_updated_at
+            sub.provider_updated_at,
+            sub.reconciliation_status, sub.reconciliation_action,
+            sub.reconciliation_reason, sub.reconciliation_stripe_event_id,
+            sub.reconciliation_stripe_invoice_id,
+            sub.reconciliation_stripe_payment_intent_id,
+            sub.reconciliation_stripe_refund_id,
+            sub.reconciliation_required_at,
+            sub.reconciliation_resolved_event_id,
+            sub.reconciliation_resolved_at
        FROM product_flow_stripe_checkout_attempts a
        JOIN product_flow_entitlement_owners o
          ON o.environment = a.environment
@@ -291,7 +356,15 @@ async function bindingBySubscription(
             sub.stripe_subscription_id,
             sub.stripe_customer_id AS subscription_customer_id,
             sub.status AS subscription_status,
-            sub.provider_updated_at
+            sub.provider_updated_at,
+            sub.reconciliation_status, sub.reconciliation_action,
+            sub.reconciliation_reason, sub.reconciliation_stripe_event_id,
+            sub.reconciliation_stripe_invoice_id,
+            sub.reconciliation_stripe_payment_intent_id,
+            sub.reconciliation_stripe_refund_id,
+            sub.reconciliation_required_at,
+            sub.reconciliation_resolved_event_id,
+            sub.reconciliation_resolved_at
        FROM product_flow_stripe_subscriptions sub
        JOIN product_flow_stripe_checkout_attempts a
          ON a.environment = sub.environment
@@ -474,6 +547,90 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
     await applyEntitlementEventV1(this.runtimeStore, event);
   }
 
+  private exactRefundReconciliation(
+    binding: BindingRow,
+    fact: FullRefundFactV1,
+  ): boolean {
+    return (
+      binding.reconciliation_action === "cancel_subscription" &&
+      binding.reconciliation_stripe_invoice_id === fact.invoiceId &&
+      binding.reconciliation_stripe_payment_intent_id ===
+        fact.paymentIntentId &&
+      binding.reconciliation_stripe_refund_id === fact.refundId
+    );
+  }
+
+  private async requireRefundReconciliation(
+    binding: BindingRow,
+    fact: FullRefundFactV1,
+    reason: "refund_before_grant" | "full_refund",
+    occurredAt: string,
+  ): Promise<void> {
+    if (binding.reconciliation_status !== null) {
+      if (
+        this.exactRefundReconciliation(binding, fact) &&
+        binding.reconciliation_reason === reason
+      ) {
+        return;
+      }
+      throw new PrismStripeStoreError(
+        "binding_conflict",
+        "A different Stripe refund reconciliation already owns this subscription.",
+      );
+    }
+    const alreadyProviderTerminal =
+      fact.subscriptionStatus === "canceled" ||
+      fact.subscriptionStatus === "incomplete_expired";
+    const updated = await this.query(
+      `UPDATE product_flow_stripe_subscriptions
+          SET status = $2,
+              cancel_at_period_end = $3,
+              current_period_start = $4::TIMESTAMPTZ,
+              current_period_end = $5::TIMESTAMPTZ,
+              reconciliation_status = $13,
+              reconciliation_action = 'cancel_subscription',
+              reconciliation_reason = $6,
+              reconciliation_stripe_event_id = $7,
+              reconciliation_stripe_invoice_id = $8,
+              reconciliation_stripe_payment_intent_id = $9,
+              reconciliation_stripe_refund_id = $10,
+              reconciliation_required_at = $11::TIMESTAMPTZ,
+              reconciliation_resolved_event_id = $14,
+              reconciliation_resolved_at = $15::TIMESTAMPTZ,
+              provider_updated_at = GREATEST(
+                provider_updated_at,
+                $11::TIMESTAMPTZ
+              ),
+              updated_at = GREATEST(updated_at, $12::TIMESTAMPTZ)
+        WHERE environment = 'test'
+          AND stripe_subscription_id = $1
+          AND reconciliation_status IS NULL`,
+      [
+        fact.subscriptionId,
+        fact.subscriptionStatus,
+        fact.cancelAtPeriodEnd,
+        fact.periodStart,
+        fact.periodEnd,
+        reason,
+        this.receipt.stripeEventId,
+        fact.invoiceId,
+        fact.paymentIntentId,
+        fact.refundId,
+        fact.refundedAt,
+        occurredAt,
+        alreadyProviderTerminal ? "resolved" : "required",
+        alreadyProviderTerminal ? this.receipt.stripeEventId : null,
+        alreadyProviderTerminal ? fact.refundedAt : null,
+      ],
+    );
+    if ((updated.rowCount ?? 0) !== 1) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "The PRISM refund cancellation obligation was not recorded.",
+      );
+    }
+  }
+
   private async ensureSubscriptionBinding(fact: {
     readonly attemptRef: string;
     readonly customerId: string;
@@ -615,7 +772,6 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
     const binding = locked?.binding ?? null;
     if (
       binding === null ||
-      !bindingMatches(binding, fact) ||
       fact.productId !== this.receipt.config.productId ||
       fact.priceId !== this.receipt.config.priceId ||
       fact.currency !== this.receipt.config.currency ||
@@ -624,6 +780,17 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       fact.status !== "active" ||
       typeof fact.cancelAtPeriodEnd !== "boolean" ||
       !/^pi_[A-Za-z0-9]{8,128}$/.test(fact.paymentIntentId)
+    ) {
+      return this.requiresReview("paid_invoice_binding_mismatch");
+    }
+    if (binding.reconciliation_status === "required") {
+      return this.requiresReview(
+        "invoice_blocked_pending_subscription_cancellation",
+      );
+    }
+    if (
+      binding.reconciliation_status === "resolved" ||
+      !bindingMatches(binding, fact)
     ) {
       return this.requiresReview("paid_invoice_binding_mismatch");
     }
@@ -779,7 +946,7 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
         customerId: fact.customerId,
         subscriptionId: fact.subscriptionId,
         priceId: fact.priceId,
-        sourceAt: fact.failedAt,
+        sourceAt: fact.providerObservedAt,
       });
     }
     const binding = locked?.binding ?? null;
@@ -790,9 +957,21 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       fact.priceId !== this.receipt.config.priceId ||
       fact.currency !== this.receipt.config.currency ||
       fact.amountMinor !== this.receipt.config.unitAmountMinor ||
-      fact.quantity !== 1
+      fact.quantity !== 1 ||
+      fact.status === "canceled" ||
+      fact.status === "incomplete_expired" ||
+      fact.status === "paused" ||
+      fact.status === "trialing" ||
+      typeof fact.cancelAtPeriodEnd !== "boolean"
     ) {
       return this.requiresReview("failed_invoice_binding_mismatch");
+    }
+    if (
+      binding.provider_updated_at &&
+      Date.parse(storedIso(binding.provider_updated_at)) >
+        Date.parse(fact.providerObservedAt)
+    ) {
+      return this.requiresReview("stale_failed_invoice_observation");
     }
     const occurredAt = locked!.occurredAt;
     const event = normalizeStripeSubscriptionCallbackV1(runtimeMapping(binding), {
@@ -808,6 +987,34 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       ),
       failed_at: fact.failedAt,
     });
+    const subscriptionUpdated = await this.query(
+      `UPDATE product_flow_stripe_subscriptions
+          SET status = $2,
+              cancel_at_period_end = $3,
+              current_period_start = $4::TIMESTAMPTZ,
+              current_period_end = $5::TIMESTAMPTZ,
+              provider_updated_at = GREATEST(
+                provider_updated_at,
+                $6::TIMESTAMPTZ
+              ),
+              updated_at = $7::TIMESTAMPTZ
+        WHERE environment = 'test' AND stripe_subscription_id = $1`,
+      [
+        fact.subscriptionId,
+        fact.status,
+        fact.cancelAtPeriodEnd,
+        fact.periodStart,
+        fact.periodEnd,
+        fact.providerObservedAt,
+        occurredAt,
+      ],
+    );
+    if ((subscriptionUpdated.rowCount ?? 0) !== 1) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "The failed-payment PRISM subscription mirror was not updated.",
+      );
+    }
     await applyEntitlementEventV1(this.runtimeStore, event);
     return decision("processed", "invoice_failure_observed");
   }
@@ -963,6 +1170,185 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
     return decision("processed", "subscription_resumed");
   }
 
+  async observeSubscriptionStatus(
+    fact: SubscriptionStatusFactV1,
+  ): Promise<PrismStripeWebhookDecisionV1> {
+    let locked = await this.lockedSubscription(fact.subscriptionId);
+    if (locked === null) {
+      locked = await this.ensureSubscriptionBinding({
+        attemptRef: fact.attemptRef,
+        customerId: fact.customerId,
+        subscriptionId: fact.subscriptionId,
+        priceId: fact.priceId,
+        sourceAt: fact.statusAt,
+      });
+    }
+    const binding = locked?.binding ?? null;
+    if (
+      binding === null ||
+      !bindingMatches(binding, fact) ||
+      fact.status === "canceled" ||
+      fact.status === "incomplete_expired"
+    ) {
+      return this.requiresReview("subscription_status_binding_mismatch");
+    }
+    if (
+      binding.provider_updated_at &&
+      Date.parse(storedIso(binding.provider_updated_at)) > Date.parse(fact.statusAt)
+    ) {
+      return this.requiresReview("stale_subscription_status");
+    }
+    const previousCancelAtPeriodEnd = await this.currentCancelPosture(binding);
+    const occurredAt = locked!.occurredAt;
+    const updated = await this.query(
+      `UPDATE product_flow_stripe_subscriptions
+          SET status = $2,
+              cancel_at_period_end = $3,
+              current_period_start = $4::TIMESTAMPTZ,
+              current_period_end = $5::TIMESTAMPTZ,
+              provider_updated_at = $6::TIMESTAMPTZ,
+              updated_at = $7::TIMESTAMPTZ
+        WHERE environment = 'test' AND stripe_subscription_id = $1`,
+      [
+        fact.subscriptionId,
+        fact.status,
+        fact.cancelAtPeriodEnd,
+        fact.periodStart,
+        fact.periodEnd,
+        fact.statusAt,
+        occurredAt,
+      ],
+    );
+    if ((updated.rowCount ?? 0) !== 1) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "The PRISM subscription status mirror was not updated.",
+      );
+    }
+    await this.mirrorRetrievedCancelPosture(
+      binding,
+      previousCancelAtPeriodEnd,
+      fact.cancelAtPeriodEnd,
+    );
+    return decision("processed", "subscription_status_observed");
+  }
+
+  async applySubscriptionIncompleteExpired(
+    fact: SubscriptionIncompleteExpiredFactV1,
+  ): Promise<PrismStripeWebhookDecisionV1> {
+    let locked = await this.lockedSubscription(fact.subscriptionId);
+    if (locked === null) {
+      locked = await this.ensureSubscriptionBinding({
+        attemptRef: fact.attemptRef,
+        customerId: fact.customerId,
+        subscriptionId: fact.subscriptionId,
+        priceId: fact.priceId,
+        sourceAt: fact.statusAt,
+      });
+    }
+    const binding = locked?.binding ?? null;
+    if (binding === null || !bindingMatches(binding, fact)) {
+      return this.requiresReview("incomplete_expired_binding_mismatch");
+    }
+    if (
+      binding.provider_updated_at &&
+      Date.parse(storedIso(binding.provider_updated_at)) > Date.parse(fact.statusAt)
+    ) {
+      return this.requiresReview("stale_incomplete_expired");
+    }
+    const snapshotResult = await this.query(
+      `SELECT snapshot_payload
+         FROM product_flow_entitlement_snapshots
+        WHERE environment = 'test' AND entitlement_ref = $1`,
+      [binding.entitlement_ref],
+    );
+    const payload = (
+      snapshotResult.rows[0] as { snapshot_payload?: unknown } | undefined
+    )?.snapshot_payload;
+    const snapshot = payload ? parseEntitlementSnapshotV1(payload) : null;
+    if (snapshot === null || snapshot.status !== "inactive") {
+      return this.requiresReview("incomplete_expired_entitlement_mismatch");
+    }
+    const grants = await this.query(
+      `SELECT stripe_invoice_id
+         FROM product_flow_stripe_invoice_grants
+        WHERE environment = 'test' AND entitlement_ref = $1
+        LIMIT 1
+        FOR UPDATE`,
+      [binding.entitlement_ref],
+    );
+    if ((grants.rowCount ?? 0) !== 0) {
+      return this.requiresReview("incomplete_expired_has_grant");
+    }
+    const occurredAt = locked!.occurredAt;
+    const event = normalizeStripeSubscriptionCallbackV1(runtimeMapping(binding), {
+      schema: STRIPE_SUBSCRIPTION_CALLBACK_SCHEMA,
+      kind: "subscription_ended",
+      event_id: this.eventRef("stripe_event"),
+      occurred_at: occurredAt,
+      provider_event_ref: this.eventRef("stripe_provider_event"),
+      subscription_ref: providerRef(
+        this.receipt.config,
+        "stripe_subscription",
+        fact.subscriptionId,
+      ),
+      status_at: fact.statusAt,
+    });
+    const subscriptionUpdated = await this.query(
+      `UPDATE product_flow_stripe_subscriptions
+          SET status = 'incomplete_expired', cancel_at_period_end = FALSE,
+              current_period_start = $2::TIMESTAMPTZ,
+              current_period_end = $3::TIMESTAMPTZ,
+              provider_updated_at = $4::TIMESTAMPTZ,
+              updated_at = $5::TIMESTAMPTZ
+        WHERE environment = 'test' AND stripe_subscription_id = $1`,
+      [
+        fact.subscriptionId,
+        fact.periodStart,
+        fact.periodEnd,
+        fact.statusAt,
+        occurredAt,
+      ],
+    );
+    if ((subscriptionUpdated.rowCount ?? 0) !== 1) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "The incomplete PRISM subscription was not expired.",
+      );
+    }
+    const attemptUpdated = await this.query(
+      `UPDATE product_flow_stripe_checkout_attempts
+          SET status = 'failed', updated_at = $2::TIMESTAMPTZ
+        WHERE environment = 'test' AND attempt_ref = $1
+          AND status = 'completed'`,
+      [fact.attemptRef, occurredAt],
+    );
+    if ((attemptUpdated.rowCount ?? 0) !== 1) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "The incomplete PRISM Checkout attempt was not closed.",
+      );
+    }
+    await applyEntitlementEventV1(this.runtimeStore, event);
+    const terminalized = await this.query(
+      `UPDATE product_flow_entitlement_owners
+          SET lifecycle = 'terminal',
+              terminal_reason = 'superseded_before_grant',
+              terminal_at = $3::TIMESTAMPTZ,
+              updated_at = $3::TIMESTAMPTZ
+        WHERE environment = 'test' AND entitlement_ref = $1
+          AND lifecycle = 'current' AND subject_ref = $2`,
+      [binding.entitlement_ref, binding.subject_ref, occurredAt],
+    );
+    if ((terminalized.rowCount ?? 0) !== 1) {
+      throw new PrismStripeStoreError(
+        "store_invariant",
+        "The incomplete PRISM entitlement generation was not closed.",
+      );
+    }
+    return decision("processed", "subscription_incomplete_expired");
+  }
+
   async applySubscriptionDeleted(
     fact: SubscriptionDeletedFactV1,
   ): Promise<PrismStripeWebhookDecisionV1> {
@@ -977,7 +1363,19 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       });
     }
     const binding = locked?.binding ?? null;
-    if (binding === null || !bindingMatches(binding, fact)) {
+    const resolvesRefundReconciliation =
+      binding !== null &&
+      binding.owner_lifecycle === "terminal" &&
+      binding.reconciliation_status === "required" &&
+      binding.reconciliation_action === "cancel_subscription" &&
+      binding.attempt_ref === fact.attemptRef &&
+      binding.subscription_customer_id === fact.customerId &&
+      binding.stripe_price_id === fact.priceId &&
+      binding.stripe_subscription_id === fact.subscriptionId;
+    if (
+      binding === null ||
+      (!resolvesRefundReconciliation && !bindingMatches(binding, fact))
+    ) {
       return this.requiresReview("deleted_subscription_binding_mismatch");
     }
     if (
@@ -987,6 +1385,59 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       return this.requiresReview("stale_subscription_delete");
     }
     const occurredAt = locked!.occurredAt;
+    if (resolvesRefundReconciliation) {
+      const snapshotResult = await this.query(
+        `SELECT snapshot_payload
+           FROM product_flow_entitlement_snapshots
+          WHERE environment = 'test' AND entitlement_ref = $1`,
+        [binding.entitlement_ref],
+      );
+      const payload = (
+        snapshotResult.rows[0] as { snapshot_payload?: unknown } | undefined
+      )?.snapshot_payload;
+      const snapshot = payload ? parseEntitlementSnapshotV1(payload) : null;
+      const reconciliationSnapshotMatches =
+        binding.reconciliation_reason === "full_refund"
+          ? snapshot?.status === "ended" && snapshot.reason === "refunded"
+          : binding.reconciliation_reason === "refund_before_grant"
+            ? snapshot?.status === "inactive" &&
+              snapshot.reason === "no_confirmed_payment"
+            : false;
+      if (!reconciliationSnapshotMatches) {
+        return this.requiresReview("refund_reconciliation_snapshot_mismatch");
+      }
+      const resolved = await this.query(
+        `UPDATE product_flow_stripe_subscriptions
+            SET status = 'canceled', cancel_at_period_end = FALSE,
+                current_period_start = $2::TIMESTAMPTZ,
+                current_period_end = $3::TIMESTAMPTZ,
+                ended_at = $4::TIMESTAMPTZ,
+                reconciliation_status = 'resolved',
+                reconciliation_resolved_event_id = $5,
+                reconciliation_resolved_at = $4::TIMESTAMPTZ,
+                provider_updated_at = $6::TIMESTAMPTZ,
+                updated_at = $7::TIMESTAMPTZ
+          WHERE environment = 'test' AND stripe_subscription_id = $1
+            AND reconciliation_status = 'required'
+            AND reconciliation_action = 'cancel_subscription'`,
+        [
+          fact.subscriptionId,
+          fact.periodStart,
+          fact.periodEnd,
+          fact.endedAt,
+          this.receipt.stripeEventId,
+          fact.statusAt,
+          occurredAt,
+        ],
+      );
+      if ((resolved.rowCount ?? 0) !== 1) {
+        throw new PrismStripeStoreError(
+          "store_invariant",
+          "The PRISM refund cancellation obligation was not resolved.",
+        );
+      }
+      return decision("processed", "refund_reconciliation_resolved");
+    }
     const event = normalizeStripeSubscriptionCallbackV1(runtimeMapping(binding), {
       schema: STRIPE_SUBSCRIPTION_CALLBACK_SCHEMA,
       kind: "subscription_ended",
@@ -1048,17 +1499,41 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
     if (
       fact.amountRefundedMinor !== this.receipt.config.unitAmountMinor ||
       fact.priceId !== this.receipt.config.priceId ||
+      fact.productId !== this.receipt.config.productId ||
+      fact.currency !== this.receipt.config.currency ||
+      fact.quantity !== 1 ||
+      Date.parse(fact.periodStart) >= Date.parse(fact.periodEnd) ||
+      Date.parse(fact.confirmedAt) > Date.parse(fact.refundedAt) ||
       !/^re_[A-Za-z0-9]{8,128}$/.test(fact.refundId)
     ) {
       return this.requiresReview("refund_not_full_or_exact");
     }
-    const locked = await this.lockedSubscription(fact.subscriptionId);
+    let locked = await this.lockedSubscription(fact.subscriptionId);
+    if (locked === null) {
+      locked = await this.ensureSubscriptionBinding({
+        attemptRef: fact.attemptRef,
+        customerId: fact.customerId,
+        subscriptionId: fact.subscriptionId,
+        priceId: fact.priceId,
+        sourceAt: fact.refundedAt,
+      });
+    }
     const binding = locked?.binding ?? null;
     if (
       binding === null ||
-      binding.stripe_price_id !== fact.priceId
+      binding.stripe_price_id !== fact.priceId ||
+      binding.attempt_ref !== fact.attemptRef ||
+      binding.subscription_customer_id !== fact.customerId
     ) {
       return this.requiresReview("refund_subscription_mismatch");
+    }
+    if (binding.reconciliation_status !== null) {
+      if (!this.exactRefundReconciliation(binding, fact)) {
+        return this.requiresReview("refund_reconciliation_conflict");
+      }
+      return binding.reconciliation_status === "required"
+        ? this.requiresReview("refund_subscription_cancellation_required")
+        : decision("processed", "refund_reconciliation_resolved");
     }
     const grantResult = await this.query(
       `SELECT g.stripe_invoice_id, g.stripe_subscription_id,
@@ -1103,23 +1578,87 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       row.stripe_subscription_id === fact.subscriptionId &&
       row.stripe_payment_intent_id === fact.paymentIntentId &&
       row.stripe_price_id === fact.priceId &&
-      row.refunded_at !== null &&
-      storedIso(row.refunded_at) === fact.refundedAt
+      row.refunded_at !== null
     ) {
-      return decision("processed", "refund_already_applied");
+      await this.requireRefundReconciliation(
+        binding,
+        fact,
+        "full_refund",
+        locked!.occurredAt,
+      );
+      return fact.subscriptionStatus === "canceled" ||
+        fact.subscriptionStatus === "incomplete_expired"
+        ? decision("processed", "refund_reconciliation_resolved")
+        : this.requiresReview("refund_subscription_cancellation_required");
     }
-    if (
-      !row ||
-      binding.owner_lifecycle !== "current" ||
+    if (row && (
       row.stripe_invoice_id !== fact.invoiceId ||
       row.stripe_subscription_id !== fact.subscriptionId ||
       row.stripe_payment_intent_id !== fact.paymentIntentId ||
       row.stripe_price_id !== fact.priceId ||
       row.state !== "granted"
-    ) {
+    )) {
       return this.requiresReview("refund_not_latest_grant");
     }
     const occurredAt = locked!.occurredAt;
+    if (!row) {
+      const anyGrant = await this.query(
+        `SELECT stripe_invoice_id
+           FROM product_flow_stripe_invoice_grants
+          WHERE environment = 'test' AND entitlement_ref = $1
+          ORDER BY period_end DESC, stripe_invoice_id DESC
+          LIMIT 1
+          FOR UPDATE`,
+        [binding.entitlement_ref],
+      );
+      if ((anyGrant.rowCount ?? 0) > 0) {
+        return this.requiresReview("refund_not_latest_grant");
+      }
+      const providerAlreadyTerminal =
+        fact.subscriptionStatus === "canceled" ||
+        fact.subscriptionStatus === "incomplete_expired";
+      if (
+        binding.owner_lifecycle !== "current" &&
+        !(providerAlreadyTerminal && binding.owner_lifecycle === "terminal")
+      ) {
+        return this.requiresReview("refund_entitlement_already_terminal");
+      }
+      await this.requireRefundReconciliation(
+        binding,
+        fact,
+        "refund_before_grant",
+        occurredAt,
+      );
+      if (binding.owner_lifecycle === "current") {
+        const terminalized = await this.query(
+          `UPDATE product_flow_entitlement_owners
+              SET lifecycle = 'terminal',
+                  terminal_reason = 'superseded_before_grant',
+                  terminal_at = $3::TIMESTAMPTZ, updated_at = $3::TIMESTAMPTZ
+            WHERE environment = 'test' AND entitlement_ref = $1
+              AND lifecycle = 'current' AND subject_ref = $2`,
+          [binding.entitlement_ref, binding.subject_ref, occurredAt],
+        );
+        if ((terminalized.rowCount ?? 0) !== 1) {
+          throw new PrismStripeStoreError(
+            "store_invariant",
+            "The pre-grant refunded PRISM entitlement could not be closed.",
+          );
+        }
+      }
+      return providerAlreadyTerminal
+        ? decision("processed", "refund_before_grant_reconciled")
+        : this.requiresReview("refund_before_grant_cancellation_required");
+    }
+    const providerAlreadyTerminal =
+      fact.subscriptionStatus === "canceled" ||
+      fact.subscriptionStatus === "incomplete_expired";
+    if (
+      binding.owner_lifecycle !== "current" &&
+      !(providerAlreadyTerminal && binding.owner_lifecycle === "terminal")
+    ) {
+      return this.requiresReview("refund_entitlement_already_terminal");
+    }
     const event = normalizeStripeSubscriptionCallbackV1(runtimeMapping(binding), {
       schema: STRIPE_SUBSCRIPTION_CALLBACK_SCHEMA,
       kind: "refund_created",
@@ -1135,7 +1674,8 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
       `UPDATE product_flow_stripe_invoice_grants
           SET state = 'refunded', refund_event_id = $3,
               refund_stripe_event_id = $4, stripe_refund_id = $5,
-              refunded_at = $6::TIMESTAMPTZ, updated_at = $2::TIMESTAMPTZ
+              refunded_at = $6::TIMESTAMPTZ,
+              updated_at = GREATEST(updated_at, $2::TIMESTAMPTZ)
         WHERE environment = 'test' AND stripe_invoice_id = $1
           AND state = 'granted'`,
       [
@@ -1153,21 +1693,31 @@ class WebhookActions implements PrismStripeWebhookActionsV1 {
         "The latest PRISM invoice grant lost its refund race.",
       );
     }
-    const terminalized = await this.query(
-      `UPDATE product_flow_entitlement_owners
-          SET lifecycle = 'terminal', terminal_reason = 'refunded',
-              terminal_at = $3::TIMESTAMPTZ, updated_at = $3::TIMESTAMPTZ
-        WHERE environment = 'test' AND entitlement_ref = $1
-          AND lifecycle = 'current' AND subject_ref = $2`,
-      [binding.entitlement_ref, binding.subject_ref, occurredAt],
+    await this.requireRefundReconciliation(
+      binding,
+      fact,
+      "full_refund",
+      occurredAt,
     );
-    if ((terminalized.rowCount ?? 0) !== 1) {
-      throw new PrismStripeStoreError(
-        "store_invariant",
-        "The refunded PRISM entitlement could not be closed.",
+    if (binding.owner_lifecycle === "current") {
+      const terminalized = await this.query(
+        `UPDATE product_flow_entitlement_owners
+            SET lifecycle = 'terminal', terminal_reason = 'refunded',
+                terminal_at = $3::TIMESTAMPTZ, updated_at = $3::TIMESTAMPTZ
+          WHERE environment = 'test' AND entitlement_ref = $1
+            AND lifecycle = 'current' AND subject_ref = $2`,
+        [binding.entitlement_ref, binding.subject_ref, occurredAt],
       );
+      if ((terminalized.rowCount ?? 0) !== 1) {
+        throw new PrismStripeStoreError(
+          "store_invariant",
+          "The refunded PRISM entitlement could not be closed.",
+        );
+      }
     }
-    return decision("processed", "latest_period_refunded");
+    return providerAlreadyTerminal
+      ? decision("processed", "latest_period_refunded_after_subscription_end")
+      : this.requiresReview("refund_subscription_cancellation_required");
   }
 }
 

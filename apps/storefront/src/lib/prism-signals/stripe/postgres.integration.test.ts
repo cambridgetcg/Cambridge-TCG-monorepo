@@ -2,13 +2,16 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Pool, type PoolConfig } from "pg";
+import { createPrismSignalsAllStripeTestOffer } from "@cambridge-tcg/prism-signals-core";
 import type {
   ProductFlowRuntimeQueryV1,
   ProductFlowRuntimeTransactionRunnerV1,
 } from "@/lib/product-flow-runtime/postgres.server";
 import {
   attachPrismStripeCheckoutSession,
+  derivePrismStripePriceRef,
   processPrismStripeWebhookAtomically,
+  readPrismStripeOwnerStatus,
   reservePrismStripeCheckoutAttempt,
   type PrismStripeSandboxConfigV1,
 } from "./index";
@@ -153,6 +156,12 @@ const CONFIG: PrismStripeSandboxConfigV1 = Object.freeze({
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const LIFECYCLE_USER_ID = "22222222-2222-4222-8222-222222222222";
+const MISSING_INVITE_USER_ID = "33333333-3333-4333-8333-333333333333";
+const EXPIRED_INVITE_USER_ID = "44444444-4444-4444-8444-444444444444";
+const REVOKED_INVITE_USER_ID = "55555555-5555-4555-8555-555555555555";
+const PREGRANT_REFUND_USER_ID = "66666666-6666-4666-8666-666666666666";
+const INCOMPLETE_USER_ID = "77777777-7777-4777-8777-777777777777";
+const TERMINAL_FIRST_USER_ID = "88888888-8888-4888-8888-888888888888";
 
 function receipt(
   eventId: string,
@@ -198,7 +207,7 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
   let schemaName = "";
   let runTransaction: ProductFlowRuntimeTransactionRunnerV1;
 
-  async function seedEligibleUser(userId = USER_ID): Promise<void> {
+  async function seedBetaUser(userId: string): Promise<void> {
     if (!pool) throw new Error("PRISM integration Pool is not initialized.");
     await pool.query(
       `INSERT INTO ${schema}.users (id) VALUES ($1)
@@ -218,6 +227,38 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
        ) ON CONFLICT DO NOTHING`,
       [userId],
     );
+  }
+
+  async function seedInvitation(
+    userId: string,
+    input: Readonly<{
+      status?: "active" | "revoked";
+      expiresAt?: string;
+    }> = {},
+  ): Promise<void> {
+    if (!pool) throw new Error("PRISM integration Pool is not initialized.");
+    const status = input.status ?? "active";
+    await pool.query(
+      `INSERT INTO ${schema}.product_flow_prism_stripe_invitations (
+         environment, product_id, user_id, scope, status,
+         invited_at, expires_at, revoked_at, created_at, updated_at
+       ) VALUES (
+         'test', 'prism-signals', $1, 'stripe_all_sandbox_v1', $2,
+         '2026-09-03T08:00:00.000Z', $3::TIMESTAMPTZ,
+         CASE WHEN $2 = 'revoked'
+           THEN '2026-09-03T08:30:00.000Z'::TIMESTAMPTZ
+           ELSE NULL
+         END,
+         '2026-09-03T08:00:00.000Z',
+         '2026-09-03T09:00:00.000Z'
+       )`,
+      [userId, status, input.expiresAt ?? "2027-03-01T08:00:00.000Z"],
+    );
+  }
+
+  async function seedEligibleUser(userId = USER_ID): Promise<void> {
+    await seedBetaUser(userId);
+    await seedInvitation(userId);
   }
 
   beforeAll(async () => {
@@ -257,6 +298,40 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
     }
   }, 30_000);
 
+  it("rejects missing, expired, and revoked invitations inside the reservation transaction", async () => {
+    if (!pool) throw new Error("PRISM integration Pool is not initialized.");
+    await seedBetaUser(MISSING_INVITE_USER_ID);
+    await seedBetaUser(EXPIRED_INVITE_USER_ID);
+    await seedInvitation(EXPIRED_INVITE_USER_ID, {
+      expiresAt: "2026-09-03T08:59:59.999Z",
+    });
+    await seedBetaUser(REVOKED_INVITE_USER_ID);
+    await seedInvitation(REVOKED_INVITE_USER_ID, { status: "revoked" });
+
+    for (const userId of [
+      MISSING_INVITE_USER_ID,
+      EXPIRED_INVITE_USER_ID,
+      REVOKED_INVITE_USER_ID,
+    ]) {
+      await expect(reservePrismStripeCheckoutAttempt(
+        {
+          userId,
+          origin: "https://cambridgetcg.com",
+          occurredAt: "2026-09-03T09:00:00.000Z",
+          config: CONFIG,
+        },
+        { runTransaction },
+      )).rejects.toMatchObject({ code: "not_invited" });
+    }
+    const subjects = await pool.query<{ count: number }>(
+      `SELECT COUNT(*)::INTEGER AS count
+         FROM ${schema}.product_flow_account_subjects
+        WHERE user_id = ANY($1::UUID[])`,
+      [[MISSING_INVITE_USER_ID, EXPIRED_INVITE_USER_ID, REVOKED_INVITE_USER_ID]],
+    );
+    expect(subjects.rows[0]?.count).toBe(0);
+  }, 30_000);
+
   it("serializes concurrent reservations into one frozen attempt and idempotency key", async () => {
     if (!pool) throw new Error("PRISM integration Pool is not initialized.");
     await seedEligibleUser();
@@ -282,6 +357,18 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
     expect(Object.isFrozen(first.attempt.checkoutParams.line_items)).toBe(true);
     expect(Object.isFrozen(first.attempt.checkoutParams.metadata)).toBe(true);
     expect(JSON.stringify(first.attempt.checkoutParams)).not.toContain(USER_ID);
+    const priceRef = derivePrismStripePriceRef(
+      CONFIG.referenceSecret,
+      CONFIG.priceId,
+    );
+    const offer = createPrismSignalsAllStripeTestOffer({ price_ref: priceRef });
+    const stripeRail = offer.rails.find((rail) => rail.rail === "stripe_web");
+    expect(stripeRail).toMatchObject({ availability: "test", price_ref: priceRef });
+    const started = first.attempt.checkoutStartedEvent;
+    if (started.type !== "checkout_started") {
+      throw new Error("Reserved PRISM evidence was not checkout_started.");
+    }
+    expect(started.price_ref).toBe(priceRef);
     const counts = await pool.query<{
       attempts: number;
       owners: number;
@@ -619,6 +706,32 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       resume_events: 1,
     });
 
+    const initialRefundFact = {
+      attemptRef: attempt.attemptRef,
+      subscriptionId: "sub_lifecycle123",
+      customerId: "cus_lifecycle123",
+      invoiceId: invoiceFact.invoiceId,
+      paymentIntentId: invoiceFact.paymentIntentId,
+      priceId: CONFIG.priceId,
+      productId: CONFIG.productId,
+      currency: "gbp" as const,
+      quantity: 1 as const,
+      periodStart: invoiceFact.periodStart,
+      periodEnd: invoiceFact.periodEnd,
+      confirmedAt: invoiceFact.confirmedAt,
+      subscriptionStatus: "active" as const,
+      cancelAtPeriodEnd: false,
+      amountRefundedMinor: 500,
+    };
+    const renewalRefundFact = {
+      ...initialRefundFact,
+      invoiceId: renewalFact.invoiceId,
+      paymentIntentId: renewalFact.paymentIntentId,
+      periodStart: renewalFact.periodStart,
+      periodEnd: renewalFact.periodEnd,
+      confirmedAt: renewalFact.confirmedAt,
+    };
+
     const historical = await processPrismStripeWebhookAtomically(
       receipt(
         "evt_oldrefund12345",
@@ -627,13 +740,9 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
         "2026-10-03T08:31:30.000Z",
       ),
       (actions) => actions.applyFullRefund({
+        ...initialRefundFact,
         refundId: "re_oldrefund12345",
-        subscriptionId: "sub_lifecycle123",
-        invoiceId: invoiceFact.invoiceId,
-        paymentIntentId: invoiceFact.paymentIntentId,
-        priceId: CONFIG.priceId,
         refundedAt: "2026-09-03T08:53:00.000Z",
-        amountRefundedMinor: 500,
       }),
       { runTransaction },
     );
@@ -650,19 +759,18 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
         "2026-10-03T08:32:30.000Z",
       ),
       (actions) => actions.applyFullRefund({
+        ...renewalRefundFact,
         refundId: "re_lifecycle123",
-        subscriptionId: "sub_lifecycle123",
-        invoiceId: renewalFact.invoiceId,
-        paymentIntentId: renewalFact.paymentIntentId,
-        priceId: CONFIG.priceId,
         // Provider semantics may be equal to the original paid second; local
         // projection order is independently allocated under the lock.
         refundedAt: renewalFact.confirmedAt,
-        amountRefundedMinor: 500,
       }),
       { runTransaction },
     );
-    expect(refunded.code).toBe("latest_period_refunded");
+    expect(refunded).toMatchObject({
+      outcome: "requires_review",
+      code: "refund_subscription_cancellation_required",
+    });
     const replayedRefundObject = await processPrismStripeWebhookAtomically(
       receipt(
         "evt_refundupdated1",
@@ -671,17 +779,15 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
         "2026-10-03T08:33:30.000Z",
       ),
       (actions) => actions.applyFullRefund({
+        ...renewalRefundFact,
         refundId: "re_lifecycle123",
-        subscriptionId: "sub_lifecycle123",
-        invoiceId: renewalFact.invoiceId,
-        paymentIntentId: renewalFact.paymentIntentId,
-        priceId: CONFIG.priceId,
-        refundedAt: renewalFact.confirmedAt,
-        amountRefundedMinor: 500,
+        refundedAt: "2026-10-03T08:33:30.000Z",
       }),
       { runTransaction },
     );
-    expect(replayedRefundObject.code).toBe("refund_already_applied");
+    expect(replayedRefundObject.code).toBe(
+      "refund_subscription_cancellation_required",
+    );
     const ended = await pool.query<{
       lifecycle: string;
       grant_state: string;
@@ -702,6 +808,49 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       lifecycle: "terminal",
       grant_state: "refunded",
       snapshot_status: "ended",
+    });
+
+    await expect(
+      pool.query(`DELETE FROM ${schema}.users WHERE id = $1`, [
+        LIFECYCLE_USER_ID,
+      ]),
+    ).rejects.toMatchObject({
+      code: "23503",
+      message: expect.stringContaining("provider subscription termination"),
+    });
+
+    const reconciled = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_refundcancel123",
+        "2026-10-03T08:35:00.000Z",
+        "customer.subscription.deleted",
+        "2026-10-03T08:34:30.000Z",
+      ),
+      (actions) => actions.applySubscriptionDeleted({
+        subscriptionId: "sub_lifecycle123",
+        customerId: "cus_lifecycle123",
+        attemptRef: attempt.attemptRef,
+        priceId: CONFIG.priceId,
+        status: "canceled",
+        periodStart: renewalFact.periodStart,
+        periodEnd: renewalFact.periodEnd,
+        statusAt: "2026-10-03T08:34:30.000Z",
+        endedAt: "2026-10-03T08:34:30.000Z",
+      }),
+      { runTransaction },
+    );
+    expect(reconciled.code).toBe("refund_reconciliation_resolved");
+    const reconciliation = await pool.query<{
+      status: string;
+      reconciliation_status: string;
+    }>(
+      `SELECT status, reconciliation_status
+         FROM ${schema}.product_flow_stripe_subscriptions
+        WHERE stripe_subscription_id = 'sub_lifecycle123'`,
+    );
+    expect(reconciliation.rows[0]).toEqual({
+      status: "canceled",
+      reconciliation_status: "resolved",
     });
 
     const runtimeBeforeDeletion = await pool.query<{ count: number }>(
@@ -737,5 +886,447 @@ describeDatabase("PRISM Stripe real PostgreSQL store", () => {
       grants: 0,
       retained_events: runtimeBeforeDeletion.rows[0]?.count,
     });
+  }, 30_000);
+
+  it("makes a refund-before-grant a durable barrier until provider cancellation", async () => {
+    if (!pool) throw new Error("PRISM integration Pool is not initialized.");
+    await seedEligibleUser(PREGRANT_REFUND_USER_ID);
+    const reserved = await reservePrismStripeCheckoutAttempt(
+      {
+        userId: PREGRANT_REFUND_USER_ID,
+        origin: "https://cambridgetcg.com",
+        occurredAt: "2026-09-03T08:35:00.000Z",
+        config: CONFIG,
+      },
+      { runTransaction },
+    );
+    const attempt = await attachPrismStripeCheckoutSession(
+      {
+        config: CONFIG,
+        attemptRef: reserved.attempt.attemptRef,
+        sessionId: "cs_test_pregrant123",
+        expiresAtEpochSeconds: reserved.attempt.checkoutParams.expires_at,
+      },
+      { runTransaction },
+    );
+    const paidFact = {
+      attemptRef: attempt.attemptRef,
+      invoiceId: "in_pregrant12345",
+      subscriptionId: "sub_pregrant12345",
+      customerId: "cus_pregrant12345",
+      priceId: CONFIG.priceId,
+      productId: CONFIG.productId,
+      currency: "gbp" as const,
+      amountMinor: 500,
+      quantity: 1 as const,
+      periodStart: "2026-09-03T08:35:00.000Z",
+      periodEnd: "2026-10-03T08:35:00.000Z",
+      grantKind: "initial" as const,
+      confirmedAt: "2026-09-03T08:40:00.000Z",
+      paymentIntentId: "pi_pregrant12345",
+      status: "active" as const,
+      cancelAtPeriodEnd: false,
+    };
+    const refundFact = {
+      attemptRef: attempt.attemptRef,
+      refundId: "re_pregrant12345",
+      subscriptionId: paidFact.subscriptionId,
+      customerId: paidFact.customerId,
+      invoiceId: paidFact.invoiceId,
+      paymentIntentId: paidFact.paymentIntentId,
+      priceId: CONFIG.priceId,
+      productId: CONFIG.productId,
+      currency: "gbp" as const,
+      quantity: 1 as const,
+      periodStart: paidFact.periodStart,
+      periodEnd: paidFact.periodEnd,
+      confirmedAt: paidFact.confirmedAt,
+      subscriptionStatus: "active" as const,
+      cancelAtPeriodEnd: false,
+      refundedAt: "2026-09-03T08:41:00.000Z",
+      amountRefundedMinor: 500,
+    };
+    const refundFirst = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_pregrantrefund1",
+        "2026-09-03T08:41:00.500Z",
+        "refund.created",
+        refundFact.refundedAt,
+      ),
+      (actions) => actions.applyFullRefund(refundFact),
+      { runTransaction },
+    );
+    expect(refundFirst).toMatchObject({
+      outcome: "requires_review",
+      code: "refund_before_grant_cancellation_required",
+    });
+    const blockedState = await pool.query<{
+      lifecycle: string;
+      terminal_reason: string;
+      reconciliation_status: string;
+      reconciliation_reason: string;
+      grants: number;
+      refund_events: number;
+    }>(
+      `SELECT owner.lifecycle, owner.terminal_reason,
+              sub.reconciliation_status, sub.reconciliation_reason,
+              (SELECT COUNT(*)::INTEGER
+                 FROM ${schema}.product_flow_stripe_invoice_grants grant_row
+                WHERE grant_row.entitlement_ref = owner.entitlement_ref) AS grants,
+              (SELECT COUNT(*)::INTEGER
+                 FROM ${schema}.product_flow_events event_row
+                WHERE event_row.entitlement_ref = owner.entitlement_ref
+                  AND event_row.event_type = 'refunded') AS refund_events
+         FROM ${schema}.product_flow_entitlement_owners owner
+         JOIN ${schema}.product_flow_stripe_subscriptions sub
+           ON sub.entitlement_ref = owner.entitlement_ref
+        WHERE owner.entitlement_ref = $1`,
+      [attempt.entitlementRef],
+    );
+    expect(blockedState.rows[0]).toEqual({
+      lifecycle: "terminal",
+      terminal_reason: "superseded_before_grant",
+      reconciliation_status: "required",
+      reconciliation_reason: "refund_before_grant",
+      grants: 0,
+      refund_events: 0,
+    });
+
+    const latePaid = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_pregrantpaid12",
+        "2026-09-03T08:42:00.000Z",
+        "invoice.paid",
+        paidFact.confirmedAt,
+      ),
+      (actions) => actions.applyInvoicePaid(paidFact),
+      { runTransaction },
+    );
+    expect(latePaid).toMatchObject({
+      outcome: "requires_review",
+      code: "invoice_blocked_pending_subscription_cancellation",
+    });
+    const noGrant = await pool.query<{ count: number }>(
+      `SELECT COUNT(*)::INTEGER AS count
+         FROM ${schema}.product_flow_stripe_invoice_grants
+        WHERE entitlement_ref = $1`,
+      [attempt.entitlementRef],
+    );
+    expect(noGrant.rows[0]?.count).toBe(0);
+    await expect(
+      pool.query(`DELETE FROM ${schema}.users WHERE id = $1`, [
+        PREGRANT_REFUND_USER_ID,
+      ]),
+    ).rejects.toMatchObject({ code: "23503" });
+
+    const canceled = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_pregrantcancel",
+        "2026-09-03T08:43:00.000Z",
+        "customer.subscription.deleted",
+        "2026-09-03T08:42:30.000Z",
+      ),
+      (actions) => actions.applySubscriptionDeleted({
+        subscriptionId: paidFact.subscriptionId,
+        customerId: paidFact.customerId,
+        attemptRef: attempt.attemptRef,
+        priceId: CONFIG.priceId,
+        status: "canceled",
+        periodStart: paidFact.periodStart,
+        periodEnd: paidFact.periodEnd,
+        statusAt: "2026-09-03T08:42:30.000Z",
+        endedAt: "2026-09-03T08:42:30.000Z",
+      }),
+      { runTransaction },
+    );
+    expect(canceled.code).toBe("refund_reconciliation_resolved");
+    await expect(
+      pool.query(`DELETE FROM ${schema}.users WHERE id = $1`, [
+        PREGRANT_REFUND_USER_ID,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+  }, 30_000);
+
+  it("expires an ungranted subscription and admits a fresh generation", async () => {
+    if (!pool) throw new Error("PRISM integration Pool is not initialized.");
+    await seedEligibleUser(INCOMPLETE_USER_ID);
+    const reserved = await reservePrismStripeCheckoutAttempt(
+      {
+        userId: INCOMPLETE_USER_ID,
+        origin: "https://cambridgetcg.com",
+        occurredAt: "2026-09-03T08:20:00.000Z",
+        config: CONFIG,
+      },
+      { runTransaction },
+    );
+    const attempt = await attachPrismStripeCheckoutSession(
+      {
+        config: CONFIG,
+        attemptRef: reserved.attempt.attemptRef,
+        sessionId: "cs_test_incomplete123",
+        expiresAtEpochSeconds: reserved.attempt.checkoutParams.expires_at,
+      },
+      { runTransaction },
+    );
+    const periodStart = "2026-09-03T08:20:00.000Z";
+    const periodEnd = "2026-10-03T08:20:00.000Z";
+    const failed = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_initialfailed12",
+        "2026-09-03T08:25:00.000Z",
+        "invoice.payment_failed",
+        "2026-09-03T08:24:30.000Z",
+      ),
+      (actions) => actions.observeInvoicePaymentFailed({
+        attemptRef: attempt.attemptRef,
+        invoiceId: "in_incomplete123",
+        subscriptionId: "sub_incomplete123",
+        customerId: "cus_incomplete123",
+        priceId: CONFIG.priceId,
+        productId: CONFIG.productId,
+        currency: "gbp",
+        amountMinor: 500,
+        quantity: 1,
+        periodStart,
+        periodEnd,
+        failedAt: "2026-09-03T08:24:30.000Z",
+        status: "incomplete",
+        cancelAtPeriodEnd: false,
+        providerObservedAt: "2026-09-03T08:25:00.000Z",
+      }),
+      { runTransaction },
+    );
+    expect(failed.code).toBe("invoice_failure_observed");
+
+    const expired = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_incompleteexp1",
+        "2026-09-03T08:30:00.000Z",
+        "customer.subscription.deleted",
+        "2026-09-03T08:29:30.000Z",
+      ),
+      (actions) => actions.applySubscriptionIncompleteExpired({
+        subscriptionId: "sub_incomplete123",
+        customerId: "cus_incomplete123",
+        attemptRef: attempt.attemptRef,
+        priceId: CONFIG.priceId,
+        status: "incomplete_expired",
+        cancelAtPeriodEnd: false,
+        periodStart,
+        periodEnd,
+        statusAt: "2026-09-03T08:29:30.000Z",
+      }),
+      { runTransaction },
+    );
+    expect(expired.code).toBe("subscription_incomplete_expired");
+    const terminal = await pool.query<{
+      lifecycle: string;
+      subscription_status: string;
+      snapshot_status: string;
+      grants: number;
+    }>(
+      `SELECT owner.lifecycle, sub.status AS subscription_status,
+              snap.snapshot_payload->>'status' AS snapshot_status,
+              (SELECT COUNT(*)::INTEGER
+                 FROM ${schema}.product_flow_stripe_invoice_grants grant_row
+                WHERE grant_row.entitlement_ref = owner.entitlement_ref) AS grants
+         FROM ${schema}.product_flow_entitlement_owners owner
+         JOIN ${schema}.product_flow_stripe_subscriptions sub
+           ON sub.entitlement_ref = owner.entitlement_ref
+         JOIN ${schema}.product_flow_entitlement_snapshots snap
+           ON snap.entitlement_ref = owner.entitlement_ref
+        WHERE owner.entitlement_ref = $1`,
+      [attempt.entitlementRef],
+    );
+    expect(terminal.rows[0]).toEqual({
+      lifecycle: "terminal",
+      subscription_status: "incomplete_expired",
+      snapshot_status: "ended",
+      grants: 0,
+    });
+    const status = await runTransaction((query) =>
+      readPrismStripeOwnerStatus(
+        {
+          userId: INCOMPLETE_USER_ID,
+          evaluatedAt: "2026-09-03T08:31:00.000Z",
+          posture: {
+            configured: true,
+            processing_available: true,
+            checkout_available: true,
+            portal_available: true,
+            reason: "available",
+          },
+        },
+        { query },
+      ),
+    );
+    expect(status).toMatchObject({
+      plan: "free",
+      checkout: { available: true, reason: "available" },
+      subscription: {
+        status: "incomplete_expired",
+        reconciliation: null,
+      },
+    });
+    const next = await reservePrismStripeCheckoutAttempt(
+      {
+        userId: INCOMPLETE_USER_ID,
+        origin: "https://cambridgetcg.com",
+        occurredAt: "2026-09-03T08:32:00.000Z",
+        config: CONFIG,
+      },
+      { runTransaction },
+    );
+    expect(next.attempt.generation).toBe(2);
+    await expect(
+      pool.query(`DELETE FROM ${schema}.users WHERE id = $1`, [
+        INCOMPLETE_USER_ID,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+  }, 30_000);
+
+  it("accounts for a refund after provider cancellation without reopening an obligation", async () => {
+    if (!pool) throw new Error("PRISM integration Pool is not initialized.");
+    await seedEligibleUser(TERMINAL_FIRST_USER_ID);
+    const reserved = await reservePrismStripeCheckoutAttempt(
+      {
+        userId: TERMINAL_FIRST_USER_ID,
+        origin: "https://cambridgetcg.com",
+        occurredAt: "2026-09-03T08:05:00.000Z",
+        config: CONFIG,
+      },
+      { runTransaction },
+    );
+    const attempt = await attachPrismStripeCheckoutSession(
+      {
+        config: CONFIG,
+        attemptRef: reserved.attempt.attemptRef,
+        sessionId: "cs_test_terminalfirst1",
+        expiresAtEpochSeconds: reserved.attempt.checkoutParams.expires_at,
+      },
+      { runTransaction },
+    );
+    const paidFact = {
+      attemptRef: attempt.attemptRef,
+      invoiceId: "in_terminalfirst1",
+      subscriptionId: "sub_terminalfirst1",
+      customerId: "cus_terminalfirst1",
+      priceId: CONFIG.priceId,
+      productId: CONFIG.productId,
+      currency: "gbp" as const,
+      amountMinor: 500,
+      quantity: 1 as const,
+      periodStart: "2026-09-03T08:05:00.000Z",
+      periodEnd: "2026-10-03T08:05:00.000Z",
+      grantKind: "initial" as const,
+      confirmedAt: "2026-09-03T08:10:00.000Z",
+      paymentIntentId: "pi_terminalfirst1",
+      status: "active" as const,
+      cancelAtPeriodEnd: false,
+    };
+    await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_terminalpaid12",
+        "2026-09-03T08:10:00.500Z",
+        "invoice.paid",
+        paidFact.confirmedAt,
+      ),
+      (actions) => actions.applyInvoicePaid(paidFact),
+      { runTransaction },
+    );
+    const endedAt = "2026-09-03T08:11:00.000Z";
+    await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_terminaldelete1",
+        "2026-09-03T08:11:00.500Z",
+        "customer.subscription.deleted",
+        endedAt,
+      ),
+      (actions) => actions.applySubscriptionDeleted({
+        subscriptionId: paidFact.subscriptionId,
+        customerId: paidFact.customerId,
+        attemptRef: attempt.attemptRef,
+        priceId: CONFIG.priceId,
+        status: "canceled",
+        periodStart: paidFact.periodStart,
+        periodEnd: paidFact.periodEnd,
+        statusAt: endedAt,
+        endedAt,
+      }),
+      { runTransaction },
+    );
+    const refunded = await processPrismStripeWebhookAtomically(
+      receipt(
+        "evt_terminalrefund1",
+        "2026-09-03T08:12:00.500Z",
+        "refund.created",
+        "2026-09-03T08:12:00.000Z",
+      ),
+      (actions) => actions.applyFullRefund({
+        attemptRef: attempt.attemptRef,
+        refundId: "re_terminalfirst1",
+        subscriptionId: paidFact.subscriptionId,
+        customerId: paidFact.customerId,
+        invoiceId: paidFact.invoiceId,
+        paymentIntentId: paidFact.paymentIntentId,
+        priceId: CONFIG.priceId,
+        productId: CONFIG.productId,
+        currency: "gbp",
+        quantity: 1,
+        periodStart: paidFact.periodStart,
+        periodEnd: paidFact.periodEnd,
+        confirmedAt: paidFact.confirmedAt,
+        subscriptionStatus: "canceled",
+        cancelAtPeriodEnd: false,
+        refundedAt: "2026-09-03T08:12:00.000Z",
+        amountRefundedMinor: 500,
+      }),
+      { runTransaction },
+    );
+    expect(refunded.code).toBe(
+      "latest_period_refunded_after_subscription_end",
+    );
+    const accounted = await pool.query<{
+      grant_state: string;
+      snapshot_reason: string;
+      reconciliation_status: string;
+      required: number;
+    }>(
+      `SELECT grant_row.state AS grant_state,
+              snap.snapshot_payload->>'reason' AS snapshot_reason,
+              sub.reconciliation_status,
+              (SELECT COUNT(*)::INTEGER
+                 FROM ${schema}.product_flow_stripe_subscriptions required_sub
+                WHERE required_sub.entitlement_ref = sub.entitlement_ref
+                  AND required_sub.reconciliation_status = 'required') AS required
+         FROM ${schema}.product_flow_stripe_invoice_grants grant_row
+         JOIN ${schema}.product_flow_stripe_subscriptions sub
+           ON sub.stripe_subscription_id = grant_row.stripe_subscription_id
+         JOIN ${schema}.product_flow_entitlement_snapshots snap
+           ON snap.entitlement_ref = grant_row.entitlement_ref
+        WHERE grant_row.stripe_invoice_id = $1`,
+      [paidFact.invoiceId],
+    );
+    expect(accounted.rows[0]).toEqual({
+      grant_state: "refunded",
+      snapshot_reason: "refunded",
+      reconciliation_status: "resolved",
+      required: 0,
+    });
+    const next = await reservePrismStripeCheckoutAttempt(
+      {
+        userId: TERMINAL_FIRST_USER_ID,
+        origin: "https://cambridgetcg.com",
+        occurredAt: "2026-09-03T10:00:00.000Z",
+        config: CONFIG,
+      },
+      { runTransaction },
+    );
+    expect(next.attempt.generation).toBe(2);
+    await expect(
+      pool.query(`DELETE FROM ${schema}.users WHERE id = $1`, [
+        TERMINAL_FIRST_USER_ID,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
   }, 30_000);
 });

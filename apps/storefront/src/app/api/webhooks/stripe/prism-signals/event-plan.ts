@@ -86,6 +86,18 @@ export type PrismStripeWebhookActionV1 =
       readonly statusAt: string;
     }
   | {
+      readonly kind: "subscription_status_observed";
+      readonly subscriptionId: string;
+      readonly customerId: string;
+      readonly attemptRef: string;
+      readonly priceId: string;
+      readonly status: Stripe.Subscription.Status;
+      readonly cancelAtPeriodEnd: boolean;
+      readonly periodStart: string;
+      readonly periodEnd: string;
+      readonly statusAt: string;
+    }
+  | {
       readonly kind: "subscription_deleted";
       readonly subscriptionId: string;
       readonly customerId: string;
@@ -97,6 +109,18 @@ export type PrismStripeWebhookActionV1 =
       readonly periodEnd: string;
       readonly statusAt: string;
       readonly endedAt: string;
+    }
+  | {
+      readonly kind: "subscription_incomplete_expired";
+      readonly subscriptionId: string;
+      readonly customerId: string;
+      readonly attemptRef: string;
+      readonly priceId: string;
+      readonly status: "incomplete_expired";
+      readonly cancelAtPeriodEnd: false;
+      readonly periodStart: string;
+      readonly periodEnd: string;
+      readonly statusAt: string;
     }
   | {
       readonly kind: "full_refund_lookup";
@@ -500,11 +524,21 @@ export function resolvePrismStripePaidInvoice(
 }
 
 export type PrismStripeResolvedFullRefundV1 = Readonly<{
+  attemptRef: string;
   subscriptionId: string;
+  customerId: string;
   invoiceId: string;
   refundId: string;
   paymentIntentId: string;
   priceId: string;
+  productId: string;
+  currency: "gbp";
+  quantity: 1;
+  periodStart: string;
+  periodEnd: string;
+  confirmedAt: string;
+  subscriptionStatus: Stripe.Subscription.Status;
+  cancelAtPeriodEnd: boolean;
   refundedAt: string;
   amountRefundedMinor: number;
 }>;
@@ -579,7 +613,12 @@ export function resolvePrismStripeFullRefund(
     ...fact,
     failedAt: action.refundedAt,
   };
+  const subscription = prismStripeSubscriptionSnapshot(
+    input.subscription,
+    input.config,
+  );
   if (
+    subscription === null ||
     prismStripeInvoiceSubscriptionProblems(
       input.subscription,
       invoiceAction,
@@ -591,11 +630,21 @@ export function resolvePrismStripeFullRefund(
   return Object.freeze({
     ok: true,
     refund: Object.freeze({
+      attemptRef: fact.attemptRef,
       subscriptionId: fact.subscriptionId,
+      customerId: fact.customerId,
       invoiceId,
       refundId: action.refundId,
       paymentIntentId,
       priceId: fact.priceId,
+      productId: fact.productId,
+      currency: fact.currency,
+      quantity: fact.quantity,
+      periodStart: fact.periodStart,
+      periodEnd: fact.periodEnd,
+      confirmedAt,
+      subscriptionStatus: subscription.status,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
       refundedAt: action.refundedAt,
       amountRefundedMinor: action.amountRefundedMinor,
     }),
@@ -805,8 +854,11 @@ export function planPrismStripeWebhookEvent(
             ok: true,
             receipt,
             action: Object.freeze({
-              kind: "ignored" as const,
-              code: "subscription_update_without_cancel_transition",
+              kind: "subscription_status_observed" as const,
+              ...fact,
+              status: subscription.status,
+              cancelAtPeriodEnd: false,
+              statusAt: createdAt,
             }),
           });
         }
@@ -836,8 +888,11 @@ export function planPrismStripeWebhookEvent(
           ok: true,
           receipt,
           action: Object.freeze({
-            kind: "ignored" as const,
-            code: "subscription_update_without_cancel_transition",
+            kind: "subscription_status_observed" as const,
+            ...fact,
+            status: subscription.status,
+            cancelAtPeriodEnd: true,
+            statusAt: createdAt,
           }),
         });
       }
@@ -848,6 +903,23 @@ export function planPrismStripeWebhookEvent(
           kind: "subscription_cancel_at_period_end" as const,
           ...fact,
           status: subscription.status,
+          statusAt: createdAt,
+        }),
+      });
+    }
+
+    if (
+      subscription.status === "incomplete_expired" &&
+      subscription.cancel_at_period_end === false
+    ) {
+      return Object.freeze({
+        ok: true,
+        receipt,
+        action: Object.freeze({
+          kind: "subscription_incomplete_expired" as const,
+          ...fact,
+          status: "incomplete_expired" as const,
+          cancelAtPeriodEnd: false as const,
           statusAt: createdAt,
         }),
       });
