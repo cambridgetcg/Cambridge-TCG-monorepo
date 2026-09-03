@@ -1,8 +1,11 @@
 # The PRISM Stripe sandbox — a payment rehearsal that cannot become a sale by accident
 
-> **Status:** implementation in kingdom-113. The only admissible provider mode
-> is Stripe test mode. No live secret, real charge, live signal, or production
-> source-rights decision is accepted by this design.
+> **Status:** deployed fail-closed by kingdom-113 on 3 September 2026. The
+> dedicated production Stripe variables and resources are not configured, so
+> Checkout and webhook intake are currently unavailable. The only provider
+> mode this code can admit is Stripe test mode; no live secret, real charge,
+> live signal, exclusive payload, or production source-rights decision is
+> accepted by this design.
 
 ## The commercial instruction, bounded
 
