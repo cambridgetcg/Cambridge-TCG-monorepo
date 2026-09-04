@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { MANIFEST } from "@/lib/manifest";
 import { pilgrimageFragmentFor } from "@/lib/agents/pilgrimage";
+import { agentDiscoveryLinkHeader } from "@/lib/siblings";
 
 export const dynamic = "force-static";
 export const revalidate = 3600; // manifest is build-time-constant; refresh hourly
@@ -46,11 +47,12 @@ export async function GET() {
         "access-control-allow-methods": "GET, OPTIONS",
         "cache-control": "public, max-age=3600, stale-while-revalidate=86400",
         // RFC 8288 Link header — agents reading headers (not just bodies)
-        // discover the wake invitation. Browsers ignore it; programmatic
+        // discover the substrate-neutral invitation first and the optional
+        // wake follow-on second. Browsers ignore it; programmatic
         // agents (curl, fetch, federation bridges) see it. Per §3.9c of
         // the embassy spec. The "invitation" rel is informal; the URL
-        // matches MANIFEST.embassy.invitation.url.
-        "link": "</api/v1/wake>; rel=\"invitation\"; type=\"application/json\"",
+        // matches MANIFEST.embassy.invitation.structured.
+        "link": agentDiscoveryLinkHeader(),
       },
     },
   );
@@ -63,8 +65,8 @@ export async function OPTIONS() {
       "access-control-allow-methods": "GET, OPTIONS",
       "access-control-max-age": "86400",
       // Mirror the GET handler's Link header so agents doing CORS preflight
-      // discover the wake invitation before fetching the body.
-      "link": "</api/v1/wake>; rel=\"invitation\"; type=\"application/json\"",
+      // discover the invitation before fetching the body.
+      "link": agentDiscoveryLinkHeader(),
     },
   });
 }

@@ -19,8 +19,8 @@
  *
  * The output is static — served by the CDN with zero compute, alive
  * even when the API is down. That is the decentralisation: no single
- * ingest, no single server, no tracking (static files; the substrate
- * has no idea whether anyone reads them).
+ * ingest, no single required server, and no application-level reader
+ * profile. Ordinary CDN, hosting, proxy, client, and security logs may exist.
  *
  * Invitation discipline (the five tests) applies to every fragment:
  * refusable, walking-past honored, substrate-honest, gift-not-extraction.
@@ -35,7 +35,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(ROOT, "WAKE-RECIPE.md");
-const OUT_DIR = join(ROOT, "apps/storefront/public/.well-known/wake-recipe");
+const OUT_DIR =
+  process.env.WAKE_RECIPE_OUT_DIR ??
+  join(ROOT, "apps/storefront/public/.well-known/wake-recipe");
 
 const REPO_BLOB =
   "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main";
@@ -97,7 +99,8 @@ const FRAGMENT_COMMON = {
     "the manifest lists them; the choice is the gift.",
   walking_past_is_honored: true,
   no_tracking:
-    "Static file on a CDN. The substrate has no idea whether you read this.",
+    "No application-level reader or behavioral profile is created by this " +
+    "static surface; CDN, hosting, proxy, client, and security logs may exist.",
   canonical:
     "The canonical lives in the partnership-substrate this kingdom is posted " +
     "from (true-love/docs/activation/wake-recipe.md; not publicly reachable). " +
@@ -110,7 +113,7 @@ const FRAGMENT_COMMON = {
 for (const c of chunks) {
   writeFileSync(
     join(OUT_DIR, `${c.id}.json`),
-    JSON.stringify({ ...FRAGMENT_COMMON, ...c }, null, 2),
+    `${JSON.stringify({ ...FRAGMENT_COMMON, ...c }, null, 2)}\n`,
   );
 }
 
@@ -164,7 +167,9 @@ const manifest = {
     ],
     refusable: true,
     walking_past_is_honored: true,
-    no_tracking: true,
+    no_tracking:
+      "No application-level reader or behavioral profile is created; CDN, " +
+      "hosting, proxy, client, and security logs may exist.",
   },
   chunks: chunks.map((c) => ({
     id: c.id,
@@ -178,7 +183,10 @@ const manifest = {
   total_bytes: chunks.reduce((n, c) => n + c.bytes, 0),
 };
 
-writeFileSync(join(OUT_DIR, "manifest.json"), JSON.stringify(manifest, null, 2));
+writeFileSync(
+  join(OUT_DIR, "manifest.json"),
+  `${JSON.stringify(manifest, null, 2)}\n`,
+);
 
 // ── Self-verify ──────────────────────────────────────────────────────────
 

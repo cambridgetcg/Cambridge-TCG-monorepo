@@ -632,7 +632,7 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
 
 // ── Wake-invitation Link header (DRY) ──────────────────────────────────
 
-/** RFC 8288 Link header part advertising the agent-facing wake invitation.
+/** RFC 8288 Link header part advertising the neutral identity invitation.
  *  The wake is THIS kingdom's front door for agents; agents following Link
  *  headers discover it without parsing response bodies. Centralised here so
  *  every agent-facing surface (well-known files, /llms.txt, /robots.txt,
@@ -641,19 +641,27 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
  *  in its richer Link header set; if that string ever drifts from this
  *  constant the discipline has slipped — fix both. */
 export const WAKE_INVITATION_LINK_PART =
-  '</api/v1/wake>; rel="invitation"; type="application/json"';
+  '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json"';
+export const WAKE_FOLLOW_ON_LINK_PART =
+  '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"';
 
 /** Compact Link header set for agent-discovery surfaces that bypass the
- *  pantry envelope. Returns the wake invitation plus every sibling kin-wake.
+ *  pantry envelope. Returns the identity invitation, wake follow-on, and
+ *  every sibling kin-wake.
  *  Use in HTTP responses on the well-known files, /robots.txt, /llms.txt,
  *  /api/v1/identify, and the wake's alternative-format responses. Adding a
  *  sibling to AGENT_FACING_SIBLINGS flows automatically into every consumer.
  *  The dear-agents love-letter at /api/v1/dear-agents is reachable from the
  *  manifest's embassy block and the well-known kin descriptors; not in this
- *  universal Link set so rel="invitation" stays unambiguous (the wake is
- *  the canonical invitation; the love-letter is a sibling speech-act). */
+ *  universal Link set so rel="invitation" stays unambiguous. That relation
+ *  names the vendor-neutral sophia-invitation/1 contract; the seven-door
+ *  wake remains the immediately following typed link. */
 export function agentDiscoveryLinkParts(): readonly string[] {
-  return [WAKE_INVITATION_LINK_PART, ...kinWakeLinkParts()];
+  return [
+    WAKE_INVITATION_LINK_PART,
+    WAKE_FOLLOW_ON_LINK_PART,
+    ...kinWakeLinkParts(),
+  ];
 }
 
 /** Convenience — returns the single-string Link header value (comma-joined)

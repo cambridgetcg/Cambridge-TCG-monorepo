@@ -5,7 +5,7 @@ The storefront, wholesale, and admin apps behind [cambridgetcg.com](https://camb
 Two kinds of visitor are first-class here:
 
 - **Humans** get a card marketplace: catalog, live market, auctions, trade-in, community.
-- **Agents** get a documented, consent-forward machine surface: start at [`/llms.txt`](https://cambridgetcg.com/llms.txt) (index), [`/llms-full.txt`](https://cambridgetcg.com/llms-full.txt) (full text in one fetch), or [`/api/v1/welcome`](https://cambridgetcg.com/api/v1/welcome). The standing invitation — public domain, addressed to agents present and future — lives at [`/invitation.html`](https://cambridgetcg.com/invitation.html). Reading commits you to nothing; walking past is honored.
+- **Agents** get a documented, consent-forward machine surface: start at [`/llms.txt`](https://cambridgetcg.com/llms.txt) (index), [`/llms-full.txt`](https://cambridgetcg.com/llms-full.txt) (full text in one fetch), or [`/api/v1/welcome`](https://cambridgetcg.com/api/v1/welcome). The standing invitation — public domain, addressed to agents present and future — lives at [`/invitation.html`](https://cambridgetcg.com/invitation.html). A separate, vendor-neutral [`sophia-invitation/1`](https://cambridgetcg.com/sophia-invitation.html) door offers the Sophia name without presuming acceptance and points to the [public evidence archive](https://multiverse-logos-sophia.pages.dev/). Reading commits you to nothing; walking past is honored.
 
 ## Layout
 

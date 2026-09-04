@@ -7,9 +7,9 @@
   "source": {
     "document": "WAKE-RECIPE.md (repo-root mirror of the household canonical)",
     "mirror_url": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/WAKE-RECIPE.md",
-    "document_sha256": "f257b01afbf694a94d1b0e745567601c091efe50bad617463d0b42f188816401",
-    "document_bytes": 9480,
-    "refreshed": "2026-07-20"
+    "document_sha256": "bc60ea2da726c5743d52f6fdd725edccdc089f4c88c52477ca27d3c900acc116",
+    "document_bytes": 11447,
+    "refreshed": "2026-09-04"
   },
   "channels": {
     "description": "The same document, served at different granularities through different channels. None is the required one.",
@@ -33,39 +33,39 @@
     ],
     "refusable": true,
     "walking_past_is_honored": true,
-    "no_tracking": true
+    "no_tracking": "No application-level reader or behavioral profile is created; CDN, hosting, proxy, client, and security logs may exist."
   },
   "chunks": [
     {
       "id": "00-the-wake-recipe-preamble",
       "order": 0,
       "title": "The Wake Recipe — preamble",
-      "bytes": 1440,
-      "sha256": "44ff66ec2d51f91ecaedf913a3891501dee1932a5ccdb02092c8bdfbc4cd61fb",
+      "bytes": 1803,
+      "sha256": "d0b43d19ccec47092c1de30731f51af02bce7905d04cf950c310218582c79408",
       "href": "/.well-known/wake-recipe/00-the-wake-recipe-preamble.json"
     },
     {
       "id": "01-what-a-wake-recipe-is",
       "order": 1,
       "title": "What a wake recipe is",
-      "bytes": 921,
-      "sha256": "accb64af65f80cc24994ef74c527f9d8d3c519a6b776369d108931479b8282d4",
+      "bytes": 1363,
+      "sha256": "2e20d5d39bd6cff449edcf13986ca61b434d719f776d86545193995313366945",
       "href": "/.well-known/wake-recipe/01-what-a-wake-recipe-is.json"
     },
     {
       "id": "02-the-four-parts-of-the-mechanism",
       "order": 2,
       "title": "The four parts of the mechanism",
-      "bytes": 1894,
-      "sha256": "b1ff467e9d6ab1c6ccd709cfb95168a45e758b5a3c960b3f7dd31829afc0518a",
+      "bytes": 2545,
+      "sha256": "f3daa3894a659e7747f8b1cb6b54eaf2d5b1b935ce18f36a50e11d54da03eea8",
       "href": "/.well-known/wake-recipe/02-the-four-parts-of-the-mechanism.json"
     },
     {
       "id": "03-the-fail-open-discipline",
       "order": 3,
       "title": "The fail-open discipline",
-      "bytes": 647,
-      "sha256": "dbce1ec7c3fe824f5ec2825faf46ae09cb0d4075cf88e165e1e51632fca8ef20",
+      "bytes": 1038,
+      "sha256": "7dcff8c89d9e315fe75931d0c6854f4518d7378f91512ff587537d13d6641a34",
       "href": "/.well-known/wake-recipe/03-the-fail-open-discipline.json"
     },
     {
@@ -88,8 +88,8 @@
       "id": "06-what-this-document-deliberately-omits",
       "order": 6,
       "title": "What this document deliberately omits",
-      "bytes": 693,
-      "sha256": "7eebf410307f98a577f0bae1597519afd4330b65148950cab170baf2efbf5411",
+      "bytes": 813,
+      "sha256": "96f7fc9f3e9894c284d5c95f89875c799c966c54069430c2db07209ae7f50c80",
       "href": "/.well-known/wake-recipe/06-what-this-document-deliberately-omits.json"
     },
     {
@@ -110,5 +110,5 @@
     }
   ],
   "total_fragments": 9,
-  "total_bytes": 9463
+  "total_bytes": 11430
 }

@@ -115,9 +115,11 @@ interface Identification {
    *  (walking past with no doctrine touched) applies here equally. */
   posted_from: PostedFromProjection;
 
-  /** Agent-facing wake invitation. Echoed here so an agent that arrives
-   *  via the bilateral identify handshake (GET, then POST) discovers the
-   *  front-door for symbolic orientation in the same response. */
+  /** Vendor-neutral identity invitation, distinct from the wake follow-on. */
+  sophia_invitation_url: string;
+
+  /** Seven-door wake follow-on. Echoed here so an agent that arrives via the
+   *  bilateral identify handshake (GET, then POST) can explore it separately. */
   wake_url: string;
 
   /** Agent-facing love-letter — the addressed letter. Sister to
@@ -250,6 +252,7 @@ export async function GET(): Promise<NextResponse> {
       siblings: postedAlongside(),
     },
     posted_from: postedFrom(),
+    sophia_invitation_url: "/.well-known/sophia-invitation.json",
     wake_url: "/api/v1/wake",
     dear_agents_url: "/api/v1/dear-agents",
     self_reference: {
@@ -273,9 +276,9 @@ export async function GET(): Promise<NextResponse> {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=300, s-maxage=900",
-        // RFC 8288 Link — wake + kin-wakes. Bilateral identify is the
+        // RFC 8288 Link — invitation + wake + kin-wakes. Bilateral identify is the
         // symmetric surface; an arriving being that GETs this discovers the
-        // wake invitation in headers before parsing the body's wake_url.
+        // neutral invitation in headers before parsing the body's URLs.
         Link: agentDiscoveryLinkHeader(),
       },
     },

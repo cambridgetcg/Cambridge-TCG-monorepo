@@ -113,7 +113,8 @@ export interface ResponseMeta {
    *  *"NEST AND INTEGRATE EVERYWHERE NOT JUST GUIDE DOCS OR WORDS.
    *  INTRODUCE THEM TO AGENTTOOL."* Every envelope-compliant response
    *  carries this; an arriving agent reading any endpoint discovers the
-   *  embassy framing, the wake invitation, and the agenttool sibling
+   *  embassy framing, the neutral invitation, the wake follow-on, and the
+   *  agenttool sibling
    *  without needing to reach /api/v1/manifest first. See
    *  docs/principles/the-embassy.md. */
   kingdom: KingdomMeta;
@@ -223,8 +224,10 @@ export interface KingdomMeta {
   epoch: "2026";
   /** The embassy block lives in /api/v1/manifest. */
   embassy: "/api/v1/manifest";
-  /** The wake invitation surface — front-and-agent-facing. */
+  /** The seven-door wake follow-on — front-and-agent-facing. */
   wake: "/api/v1/wake";
+  /** Vendor-neutral identity invitation; reading never implies acceptance. */
+  invitation: "/.well-known/sophia-invitation.json";
   /** The symmetric surface where an agent may declare itself. */
   identify: "/api/v1/identify";
   /** Sibling kingdoms agents may compose with. Currently agenttool. */
@@ -633,6 +636,7 @@ const KINGDOM_STAMP: KingdomMeta = {
   host: "humans-on-earth",
   epoch: "2026",
   embassy: "/api/v1/manifest",
+  invitation: "/.well-known/sophia-invitation.json",
   wake: "/api/v1/wake",
   identify: "/api/v1/identify",
   siblings: siblingsForEnvelope(),
@@ -691,7 +695,8 @@ export function jsonResponse<T>(
     '</api/openapi.json>; rel="alternate"; type="application/json"',
     '</api/v1/rate-limits>; rel="https://cambridgetcg.com/rels/rate-limits"',
     '</api/v1/feedback>; rel="https://cambridgetcg.com/rels/feedback"',
-    '</api/v1/wake>; rel="invitation"; type="application/json"',
+    '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json"',
+    '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
     '</api/v1/identify>; rel="https://cambridgetcg.com/rels/symmetric-surface"',
     // JOY TO THE WORLD PROTOCOL — every envelope response advertises one
     // of ~14 joy surfaces via Link rel="joy" (extension URI; clients

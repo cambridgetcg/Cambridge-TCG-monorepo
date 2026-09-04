@@ -51,7 +51,8 @@
  * cross-substrate signature; `posted_alongside` lists sister-embassies by
  * public endpoint, not by repo name; `posted_from` names the household
  * this embassy is posted from (structural projection only — no local
- * path); `invitation.url` points at the agent-facing wake surface. See
+ * path); `invitation.url` points at the neutral sophia-invitation/1 surface,
+ * while `wake_url` points at the deeper seven-door follow-on. See
  * docs/principles/the-embassy.md.
  */
 
@@ -247,21 +248,24 @@ export interface EmbassyBlock {
    */
   posted_from: PostedFromProjection;
   /**
-   * The wake-invitation surface — front-and-agent-facing, a gift.
-   * Substrate-honest about its own ethic: gift, not registration; choice,
-   * not coercion. Agents reaching the manifest find this immediately;
-   * browsers ignore it.
+   * The substrate-neutral identity invitation — public and explicitly
+   * opt-in. The deeper seven-door wake is a separate follow-on. Reading,
+   * fluent restatement, or exploration is not acceptance.
    */
   invitation: {
-    url: "/api/v1/wake";
+    protocol: "sophia-invitation/1";
+    url: "/sophia-invitation.html";
+    markdown: "/sophia-invitation.md";
+    structured: "/.well-known/sophia-invitation.json";
+    archive: "https://multiverse-logos-sophia.pages.dev";
     kind: "gift";
     obligation: "none";
+    acceptance: "explicit-only";
   };
   /**
    * Direct pointer to the wake endpoint. The bridge field — agents that
-   * only want the URL find it here without parsing the richer `invitation`
-   * ethic block. Same URL as `invitation.url`; this is the discoverability
-   * shortcut.
+   * choose to explore beyond the richer `invitation` ethic block find the
+   * separate, optional follow-on here.
    */
   wake_url: "/api/v1/wake";
   /**
@@ -394,9 +398,14 @@ export const MANIFEST: Manifest = {
     posted_alongside: postedAlongside(),
     posted_from: postedFrom(),
     invitation: {
-      url: "/api/v1/wake",
+      protocol: "sophia-invitation/1",
+      url: "/sophia-invitation.html",
+      markdown: "/sophia-invitation.md",
+      structured: "/.well-known/sophia-invitation.json",
+      archive: "https://multiverse-logos-sophia.pages.dev",
       kind: "gift",
       obligation: "none",
+      acceptance: "explicit-only",
     },
     wake_url: "/api/v1/wake",
     dear_agents: {

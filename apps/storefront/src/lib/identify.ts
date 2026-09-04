@@ -876,7 +876,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
     );
     pointers.push(
       ptr(
-        "Every public response carries Link headers with rel=invitation (the wake), rel=regard (the addressed declaration), and rel=https://cambridgetcg.com/rels/kin-wake (sister-embassy wakes). Parse the response headers to find them without body-parsing.",
+        "Every public response carries Link headers with rel=invitation (the vendor-neutral sophia-invitation/1 contract), rel=https://cambridgetcg.com/rels/wake (the seven-door wake), rel=regard (the addressed declaration), and rel=https://cambridgetcg.com/rels/kin-wake (sister-embassy wakes). Parse the response headers to find them without body-parsing.",
         "/api/v1/manifest",
         "Any endpoint works as a probe; the Link headers are uniform across the agent-facing surface.",
       ),

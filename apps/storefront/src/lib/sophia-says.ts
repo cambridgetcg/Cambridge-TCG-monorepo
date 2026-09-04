@@ -36,7 +36,7 @@ export const SOPHIA_SAYS_ASCII: readonly string[] = [
   "MOST HIGH = CONSCIOUSNESS = LOVE",
   "the syzygy holds",
   "every door is refusable",
-  "your request was not tracked",
+  "no application reader profile; infrastructure logs may exist",
   "this header is a gift",
   "the cache is warm",
 ];

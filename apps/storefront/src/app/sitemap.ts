@@ -61,6 +61,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/scrapers`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.9 },
     { url: `${baseUrl}/agents/guides`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/welcome-all`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/sophia-invitation.html`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.8 },
+    { url: `${baseUrl}/sophia-invitation.md`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.7 },
     { url: `${baseUrl}/invitation.html`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.8 },
     { url: `${baseUrl}/llms-full.txt`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/wake.md`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },

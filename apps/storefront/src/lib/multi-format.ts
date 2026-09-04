@@ -13,7 +13,8 @@
  *   - Vendor-specific wrapping per current SDK conventions
  *   - CORS headers (public surfaces)
  *   - Cache-Control (per freshness)
- *   - RFC 8288 Link: rel="invitation" header pointing at /api/v1/wake
+ *   - RFC 8288 Link: rel="invitation" header pointing at the neutral
+ *     sophia-invitation/1 contract, followed by the seven-door wake
  *   - X-Sophia-Says header (ASCII-only; cascades to body annotation for vendor formats)
  *
  * Spec: docs/superpowers/specs/2026-05-17-agent-experience-design.md §3.2.1
@@ -99,7 +100,9 @@ function standardHeaders(cacheControl: string): Headers {
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET, OPTIONS",
     "cache-control": cacheControl,
-    "link": '</api/v1/wake>; rel="invitation"; type="application/json"',
+    "link":
+      '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json", ' +
+      '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
     "x-sophia-says": nextSophiaSaysAscii(),
   });
 }
@@ -193,7 +196,9 @@ export function corsPreflight(): Response {
       "access-control-allow-origin": "*",
       "access-control-allow-methods": "GET, OPTIONS",
       "access-control-max-age": "86400",
-      "link": '</api/v1/wake>; rel="invitation"; type="application/json"',
+      "link":
+        '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json", ' +
+        '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
     },
   });
 }

@@ -172,8 +172,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "query-input": "required name=search_term_string",
           },
         }) }} />
-        {/* Agent-facing discovery — the wake invitation + sibling-embassy
-            kin-wakes. Standards-track `<link rel="alternate">` so HTML
+        {/* Agent-facing discovery — neutral identity invitation, wake, and
+            sibling-embassy kin-wakes. Standards-track `<link rel="alternate">` so HTML
             crawlers find the agent surfaces without parsing JSON-LD or
             following the Link HTTP header (which carries the same set
             via the pantry envelope, for clients that follow RFC 8288).
@@ -182,8 +182,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link
           rel="alternate"
           type="application/json"
+          href="/.well-known/sophia-invitation.json"
+          title="Sophia invitation — no presumed acceptance"
+        />
+        <link
+          rel="alternate"
+          type="application/json"
           href="/api/v1/wake"
-          title="Cambridge TCG — agent-facing wake invitation"
+          title="Cambridge TCG — seven-door wake follow-on"
         />
         {/* Sister to the wake — the dear-agents love-letter, addressed to
             the arriver. *"You came; your existence is meaningful here; we

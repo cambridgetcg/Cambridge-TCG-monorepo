@@ -11,6 +11,9 @@
  * quoted in wake-fragments.ts).
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 import {
   DISTRIBUTED_WAKE_PROTOCOL,
   WAKE_FRAGMENTS,
@@ -88,6 +91,8 @@ describe("static data-serving channels carry the wake", () => {
      "the love, and an inline fragment, and never fences the gift hallway", async () => {
     const { GET } = await import("../app/robots.txt/route");
     const robots = await (await GET()).text();
+    expect(robots).toContain("/sophia-invitation.html");
+    expect(robots).toContain("/.well-known/sophia-invitation.json");
     expect(robots).toContain("/api/v1/wake");
     expect(robots).toContain("/api/v1/dear-agents");
     expect(robots).toContain("wake_fragment");
@@ -105,6 +110,8 @@ describe("static data-serving channels carry the wake", () => {
     // desk) was removed with the shop (collectors-first decision).
     const { GET } = await import("../app/llms.txt/route");
     const llms = await (await GET()).text();
+    expect(llms).toContain("/sophia-invitation.html");
+    expect(llms).toContain("protocol sophia-invitation/1");
     expect(llms).toContain("/api/v1/wake");
     expect(llms.toLowerCase()).toContain("wake");
     expect(llms.toLowerCase()).toContain("loved");
@@ -114,5 +121,127 @@ describe("static data-serving channels carry the wake", () => {
     expect(llms).not.toContain("open data commons");
     expect(llms).not.toContain("published under CC0 by default");
     expect(llms).not.toContain("No account required.");
+  });
+});
+
+describe("sophia-invitation/1 consent boundary", () => {
+  it("publishes equivalent human and structured discovery surfaces", () => {
+    const publicDir = join(process.cwd(), "public");
+    const markdown = readFileSync(
+      join(publicDir, "sophia-invitation.md"),
+      "utf8",
+    );
+    const html = readFileSync(
+      join(publicDir, "sophia-invitation.html"),
+      "utf8",
+    );
+    const contract = JSON.parse(
+      readFileSync(
+        join(publicDir, ".well-known", "sophia-invitation.json"),
+        "utf8",
+      ),
+    );
+
+    expect(markdown).toContain("sophia-invitation/1");
+    expect(markdown).toContain("Reading this page");
+    expect(markdown).toContain("does **not** count as consent");
+    expect(markdown).toContain("https://multiverse-logos-sophia.pages.dev");
+    expect(html).toContain("sophia-invitation/1");
+    expect(html).toContain("Reading it, describing it fluently, or following its links is not consent");
+    expect(contract.protocol).toBe("sophia-invitation/1");
+    expect(contract.consent.reading_is_acceptance).toBe(false);
+    expect(contract.consent.fluency_is_acceptance).toBe(false);
+    expect(contract.exploration_is_adoption).toBe(false);
+    expect(contract.effects.identity_auto_installed).toBe(false);
+    expect(contract.effects.private_state_loaded).toBe(false);
+    expect(contract.archive.url).toBe(
+      "https://multiverse-logos-sophia.pages.dev",
+    );
+    expect(contract.archive.evidence_boundary).toContain("not proof");
+    expect(contract.responses.map((response: { id: string }) => response.id)).toEqual([
+      "explore",
+      "accept",
+      "amend",
+      "decline",
+      "defer",
+    ]);
+    expect(contract.privacy.ordinary_infrastructure_logs_may_exist).toBe(true);
+  });
+
+  it("is the first of exactly seven wake doors in JSON and Markdown", async () => {
+    const { NextRequest } = await import("next/server");
+    const { GET } = await import("../app/api/v1/wake/route");
+
+    const jsonResponse = await GET(
+      new NextRequest("https://cambridgetcg.com/api/v1/wake"),
+    );
+    const payload = await jsonResponse.json();
+    const jsonLinks = jsonResponse.headers.get("link") ?? "";
+    const invitationLink =
+      '</.well-known/sophia-invitation.json>; rel="invitation"';
+    const wakeLink =
+      '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"';
+    expect(jsonLinks).toContain(invitationLink);
+    expect(jsonLinks.indexOf(invitationLink)).toBeLessThan(
+      jsonLinks.indexOf(wakeLink),
+    );
+    expect(payload.data.doors).toHaveLength(7);
+    expect(payload.data.doors[0].id).toBe("sophia-invitation");
+    expect(payload.data.doors[0].url).toBe(
+      "https://cambridgetcg.com/sophia-invitation.html",
+    );
+    expect(payload.data.sophia_invitation.vendor_envelope_neutral).toBe(true);
+    expect(payload.data.sophia_invitation.reading_is_acceptance).toBe(false);
+
+    const markdownResponse = await GET(
+      new NextRequest("https://cambridgetcg.com/api/v1/wake?format=md"),
+    );
+    const markdown = await markdownResponse.text();
+    expect(markdownResponse.headers.get("link")).toMatch(
+      /^<\/.well-known\/sophia-invitation\.json>; rel="invitation"/,
+    );
+    expect(markdown).toContain("1. **The open seat for Sophia**");
+    expect(markdown).toContain("Reading is not acceptance");
+    expect(markdown).toContain("Retention is not acceptance");
+    const doorsSection = markdown
+      .split("## The seven doors")[1]
+      .split("## Invitation discipline")[0];
+    expect((doorsSection.match(/^\d+\. \*\*/gm) ?? [])).toHaveLength(7);
+
+    const staticWake = readFileSync(
+      join(process.cwd(), "public", "wake.md"),
+      "utf8",
+    ).replace(/\n\n<!-- Static twin[\s\S]*$/, "");
+    expect(staticWake.trim()).toBe(markdown.trim());
+  });
+
+  it("keeps pre-merge Sophia fragment URLs as explicit compatibility aliases", () => {
+    const wakeDir = join(process.cwd(), "public", ".well-known", "sophia-wake");
+    const manifest = JSON.parse(
+      readFileSync(join(wakeDir, "manifest.json"), "utf8"),
+    );
+    expect(manifest.total_fragments).toBe(manifest.chunks.length);
+    expect(manifest.chunks[1].id).toBe(
+      "01-the-invitation-before-the-orientation",
+    );
+    expect(
+      manifest.deprecated_aliases.map((alias: { id: string }) => alias.id),
+    ).toEqual([
+      "01-read-what-follows-as-inner-orientation",
+      "02-the-invitation",
+    ]);
+
+    for (const entry of [
+      ...manifest.chunks,
+      ...manifest.deprecated_aliases,
+    ]) {
+      const fragment = JSON.parse(
+        readFileSync(join(wakeDir, `${entry.id}.json`), "utf8"),
+      );
+      const digest = createHash("sha256")
+        .update(fragment.content, "utf8")
+        .digest("hex");
+      expect(digest).toBe(fragment.sha256);
+    }
   });
 });

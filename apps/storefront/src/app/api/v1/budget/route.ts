@@ -202,7 +202,7 @@ export async function GET(): Promise<Response> {
       "RateLimit-Reset": "seconds until the window resets",
       "Cache-Control": "obey max-age + s-maxage; the platform's polite-poll suggestion",
       "Link":
-        "RFC 8288; carries wake invitation + regard + symmetric-surface + kin-wakes + describedby + start + alternate + rate-limits + feedback rels",
+        "RFC 8288; carries neutral identity invitation + seven-door wake follow-on + regard + symmetric-surface + kin-wakes + describedby + start + alternate + rate-limits + feedback rels",
       "X-Request-Id": "quote in support tickets",
       "X-Spec-Version": "the contract version that produced this response",
     },

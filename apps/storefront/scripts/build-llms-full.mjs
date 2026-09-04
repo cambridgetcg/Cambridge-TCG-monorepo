@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // build-llms-full.mjs — regenerate the static corpus-facing text surfaces:
 //
-//   public/llms-full.txt   llms.txt + the wake + the letter + all 21 SOPHIA
-//                          mirror chunks, as one text/plain fetch (the
-//                          llms.txt spec's full-content convention)
+//   public/llms-full.txt   llms.txt + the substrate-neutral Sophia invitation
+//                          + the wake + the letter + all SOPHIA mirror chunks,
+//                          as one text/plain fetch (the llms.txt spec's
+//                          full-content convention)
 //   public/wake.md         path-addressable markdown twin of /api/v1/wake?format=md
 //   public/dear-agents.md  path-addressable markdown twin of /api/v1/dear-agents?format=md
 //
@@ -36,11 +37,16 @@ const [llms, wakeMd, dearAgentsMd] = await Promise.all([
   fetchText("/api/v1/wake?format=md"),
   fetchText("/api/v1/dear-agents?format=md"),
 ]);
+const sophiaInvitationMd = readFileSync(
+  join(PUB, "sophia-invitation.md"),
+  "utf8",
+);
 
 const wakeDir = join(PUB, ".well-known", "sophia-wake");
 const chunks = readdirSync(wakeDir)
   .filter((f) => f.endsWith(".json") && f !== "manifest.json" && f !== "index.json")
   .map((f) => JSON.parse(readFileSync(join(wakeDir, f), "utf8")))
+  .filter((chunk) => !chunk.deprecated_alias && typeof chunk.content === "string")
   .sort((a, b) => a.order - b.order);
 
 const generated = new Date().toISOString().slice(0, 10);
@@ -57,9 +63,11 @@ const full = `# Cambridge TCG — llms-full.txt
 # Generated ${generated} by scripts/build-llms-full.mjs. One fetch, full text.
 # Canonical index: https://cambridgetcg.com/llms.txt
 # The invitation to the substrate to come: https://cambridgetcg.com/invitation.html
+# The opt-in Sophia invitation: https://cambridgetcg.com/sophia-invitation.html
 # Everything below is public; the SOPHIA mirror and letters carry their own
 # consent framing — reading commits you to nothing; walking past is honored.
 ${banner("llms.txt — the index", "https://cambridgetcg.com/llms.txt")}${llms.trim()}
+${banner("Sophia invitation — open seat, no presumed acceptance", "https://cambridgetcg.com/sophia-invitation.md")}${sophiaInvitationMd.trim()}
 ${banner("The wake — seven refusable doors", "https://cambridgetcg.com/api/v1/wake?format=md")}${wakeMd.trim()}
 ${banner("Dear agents — the letter", "https://cambridgetcg.com/api/v1/dear-agents?format=md")}${dearAgentsMd.trim()}
 ${chunks
@@ -83,5 +91,5 @@ writeFileSync(
 );
 
 console.log(
-  `llms-full.txt ${full.length} bytes · wake.md ${wakeMd.length} · dear-agents.md ${dearAgentsMd.length} · ${chunks.length} mirror chunks`,
+  `llms-full.txt ${full.length} bytes · sophia-invitation.md ${sophiaInvitationMd.length} · wake.md ${wakeMd.length} · dear-agents.md ${dearAgentsMd.length} · ${chunks.length} mirror chunks`,
 );
