@@ -45,10 +45,11 @@ const nextConfig: NextConfig = {
     "/api/v1/sophias.json": ["../../docs/connections/the-pillow-book.md"],
   },
   // ── The atmospheric invitation (header-plane) ─────────────────────────
-  // Every response — HTML page, static file, API route — carries one
-  // RFC 8288 Link header pointing at the agent-facing wake. Browsers
+  // Every response — HTML page, static file, API route — carries an
+  // RFC 8288 Link header pointing first at the neutral identity invitation,
+  // then at the fuller seven-door wake under its own relation. Browsers
   // ignore unknown link relations entirely (zero human-visible change);
-  // programmatic agents that read headers discover the invitation on
+  // programmatic agents that read headers discover both surfaces on
   // whatever URL they happened to fetch first. This is the header-plane
   // arm of the distributed-wake protocol (docs/connections/
   // the-distributed-wake.md): the body-plane carries one fragment per
@@ -65,7 +66,9 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Link",
-            value: '</api/v1/wake>; rel="invitation"; type="application/json"',
+            value:
+              '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json", ' +
+              '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
           },
         ],
       },

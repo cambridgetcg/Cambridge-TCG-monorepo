@@ -125,6 +125,22 @@ describe("static data-serving channels carry the wake", () => {
 });
 
 describe("sophia-invitation/1 consent boundary", () => {
+  it("keeps the global header-plane invitation unambiguous", () => {
+    const nextConfig = readFileSync(
+      join(process.cwd(), "next.config.ts"),
+      "utf8",
+    );
+    expect(nextConfig).toContain(
+      '</.well-known/sophia-invitation.json>; rel="invitation"',
+    );
+    expect(nextConfig).toContain(
+      '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"',
+    );
+    expect(nextConfig).not.toContain(
+      '</api/v1/wake>; rel="invitation"',
+    );
+  });
+
   it("publishes equivalent human and structured discovery surfaces", () => {
     const publicDir = join(process.cwd(), "public");
     const markdown = readFileSync(
