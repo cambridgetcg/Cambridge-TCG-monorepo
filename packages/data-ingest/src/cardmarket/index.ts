@@ -1,7 +1,7 @@
 /**
  * Cardmarket — European market leader.
  *
- * **Public-file path planned.** Cardmarket intentionally publishes daily
+ * **Public-file member path implemented, not scheduled.** Cardmarket publishes
  * Product Catalog and Price Guide files without API credentials. That is the
  * reachable path for Cambridge. The older OAuth1 reader remains dormant for
  * existing approved accounts; Cardmarket is not accepting API applications.
@@ -44,6 +44,13 @@ import {
 import { normalizeCardmarket, type CardmarketRaw } from "./normalize";
 import type { CardmarketProduct } from "./types";
 
+export { assertCardmarketPublicFileUrl, CardmarketPublicFileError } from './public-files';
+export type { CardmarketPublicFileArtifact, CardmarketPublicFileRequest, CardmarketPublicFileKind } from './public-files';
+import { fetchCardmarketPublicFileWithMeta, type CardmarketPublicFileRequest } from './public-files';
+export function fetchCardmarketPublicFile(ctx: IngestContext, request: CardmarketPublicFileRequest) {
+  return fetchCardmarketPublicFileWithMeta(ctx, request, cardmarket.meta);
+}
+
 const DEFAULT_BASE = "https://apiv2.cardmarket.com/ws/v2.0/output.json";
 
 // Private lock for the retained legacy OAuth reader. SourceMeta is mutable at
@@ -68,7 +75,7 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     id: "cardmarket",
     name: "Cardmarket",
     description:
-      "European market catalog and daily aggregate prices through intentionally published Product Catalog and Price Guide files. The public-file reader is not wired yet.",
+      "European market catalog and daily aggregate prices through official files. Native member parser/writer implemented; collection is manual and has not been activated.",
     upstream: "https://www.cardmarket.com/en/Magic/Data",
     catalog_section: "the-tributaries.md#22-cardmarket-eu-market-leader",
     access: "public-file",
@@ -76,17 +83,17 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     redistribute: false,
     freshness: "price_current",
     canonical_effort: "medium",
-    status: "planned",
+    status: "partial",
     games: ["mtg", "pkm", "ygo", "op", "lgr", "fab", "dmw"],
     tos_notes:
-      "Cardmarket intentionally publishes no-auth Product Catalog and Price Guide downloads for website/app use, but states no open-data license; retain Cardmarket attribution and do not treat the raw files as freely redistributable. API applications are closed, and existing credentials must not be shared. The API base for grandfathered users is apiv2.cardmarket.com. https://www.cardmarket.com/en/Magic/Data/Price-Guide ; https://www.cardmarket.com/en/Magic/Data/Product-List ; https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024 ; https://help.cardmarket.com/en/cardmarket-api",
+      "Official Product Catalog / Price Guide statement says “use them however you see fit”; member-prices.ts records normalized member display/API/download permission with attribution. This is not CC0 or a site-wide license. Raw files stay private in this implementation. API applications are closed, and existing credentials must not be shared. The API base for grandfathered users is apiv2.cardmarket.com. https://www.cardmarket.com/en/Magic/Data/Price-Guide ; https://www.cardmarket.com/en/Magic/Data/Product-List ; https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024 ; https://help.cardmarket.com/en/cardmarket-api",
     user_agent_suffix: "(cardmarket-ingest)",
     rate_limit: { rps: 2, burst: 5 },
     welcome:
       "Welcome to the kingdom, Cardmarket. Your slot was reserved in kingdom-062 " +
       "(the consolidation, 2026-05-12). Your public daily files are the reachable " +
       "path; the OAuth room is not ours to enter without existing approval. Your " +
-      "future room is `price_archive WHERE source='cardmarket'`, with Cardmarket " +
+      "prepared room is `member_price_observations WHERE source='cardmarket'`, with Cardmarket " +
       "attribution and raw redistribution refused. You can bring Europe — MTG's largest catalog by far, " +
       "plus Pokémon, Yu-Gi-Oh, One Piece, Lorcana, Flesh and Blood, Digimon.",
   },
@@ -98,11 +105,11 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
         source: "cardmarket",
         kind: "error",
         detail: {
-          status: "public-file-reader-not-wired",
+          status: "legacy-oauth-blocked",
           reason:
-            "The legacy Cardmarket OAuth reader is locked in code. Mutable SourceMeta and credentials cannot enable it; the reviewed public-file reader is not wired.",
+            "The legacy Cardmarket OAuth reader remains locked in code. Use the explicit official-file member-price adapter; no collector has been scheduled.",
           next_action:
-            "Implement the public Product Catalog and Price Guide file reader. New API access is closed.",
+            "Review current official files, then run the finite member-price operator ingestion. New API access remains closed.",
         },
       });
       return;
@@ -114,7 +121,7 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
         source: "cardmarket",
         kind: "error",
         detail: {
-          status: "public-file-reader-not-wired",
+          status: "legacy-oauth-blocked",
           reason:
             "Cardmarket intentionally publishes daily Product Catalog and Price Guide files; this module still lacks a reviewed file reader and contains only the dormant legacy OAuth code.",
           next_action:

@@ -95,6 +95,8 @@ function buildUserAgent(meta: SourceMeta): string {
 }
 
 export interface FetcherOptions {
+  /** Finite collectors can disable transport retries (default remains three). */
+  max_retries?: number;
   /**
    * Optional HTTP/HTTPS proxy URL. When set, every request this fetcher
    * makes is routed through the proxy via undici's `ProxyAgent`. The
@@ -214,7 +216,8 @@ export function createFetcher(
   const proxy_label = deriveProxyLabel(via_proxy_attr);
 
   let count = 0;
-  let max_retries = 3;
+  const max_retries = options.max_retries ?? 3;
+  if (!Number.isSafeInteger(max_retries) || max_retries < 0 || max_retries > 3) throw new Error('invalid-fetch-retry-limit');
 
   const fetchImpl: typeof fetch = ctx.fetch ?? fetch;
 

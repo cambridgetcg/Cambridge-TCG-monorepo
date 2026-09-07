@@ -15,15 +15,17 @@ import {
   CurrencyWhyLink,
 } from "@/components/CurrencySelector";
 import { CardPriceSearchForm } from "@/app/prices/_components/CardPriceSearchForm";
+import { MemberPriceBrowser } from "@/components/prices/member-browser";
+import type { MemberPriceSearchParams } from "@/components/prices/member-query";
 
 export const metadata: Metadata = {
-  title: "TCG Structural Catalog — Price Publication Paused — Cambridge TCG",
+  title: "Price Guide & Free Member Prices — Cambridge TCG",
   description:
-    "Search structural catalog rows across supported games. Legacy price values, images, and historical movements are withheld pending field-level source-rights records.",
+    "Browse the public card catalog, or sign in for free to inspect permitted source prices and history. Source-specific download restrictions apply.",
   openGraph: {
-    title: "TCG Structural Catalog — Price Publication Paused — Cambridge TCG",
+    title: "Price Guide & Free Member Prices — Cambridge TCG",
     description:
-      "Find structural card rows and inspect publication status. Legacy prices, images, and historical movements are not published.",
+      "Public card catalog and free member price reference tools, with source attribution and publication boundaries.",
   },
 };
 
@@ -57,7 +59,10 @@ function composeTiles(games: GameItem[]): ResolvedTile[] {
 
 // ── Page ───────────────────────────────────────────────────────────────
 
-export default async function PricesLandingPage() {
+export default async function PricesLandingPage({ searchParams }: {
+  searchParams: Promise<MemberPriceSearchParams>;
+}) {
+  const search = await searchParams;
   const [liveGames, rates, currency] = await Promise.all([
     fetchGames().catch(() => [] as GameItem[]),
     fetchRates(),
@@ -111,16 +116,15 @@ export default async function PricesLandingPage() {
 
         <header className="max-w-3xl">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-            Structural catalog and source-rights status
+            Sources, not promises
           </p>
-          <h1 className="text-3xl font-bold text-ink sm:text-4xl">
-            Find a structural card record
+          <h1 className="font-display text-3xl font-semibold text-ink">
+            The price guide
           </h1>
           <p className="mt-4 text-base leading-relaxed text-ink-muted sm:text-lg">
-            Search by the number printed on the card to see structural catalog
-            fields and source status. This is reference data, not an offer.
-            Legacy prices, images, and historical movements are withheld; null
-            does not mean zero.
+            Compare permitted source observations with a free account, or browse
+            the public card catalog below. This is reference data, not an offer.
+            Source metrics are not interchangeable; a missing price is not zero.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Provenance
@@ -143,6 +147,8 @@ export default async function PricesLandingPage() {
             ) : null}
           </div>
         </header>
+
+        <MemberPriceBrowser search={search} />
 
         <section
           aria-labelledby="card-price-search-heading"
@@ -271,8 +277,9 @@ export default async function PricesLandingPage() {
                 Currency tools
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-                FX rates remain available as standalone operational data. There
-                are no published legacy card-price values to convert today.
+                FX rates remain available as standalone operational data. Member
+                observations above keep their native currency; these tools do not
+                convert or condition-adjust the source prices.
               </p>
             </div>
             <CurrencyWhyLink />
@@ -289,7 +296,7 @@ export default async function PricesLandingPage() {
 
         <section className="mt-14 border-t border-border-subtle pt-8">
           <h2 className="mb-3 text-lg font-semibold text-ink">
-            Why price values are absent
+            Why legacy prices remain withheld
           </h2>
           <p className="mb-4 max-w-3xl text-sm leading-relaxed text-ink-muted">
             Stored legacy wholesale prices, channel-derived values, images, and

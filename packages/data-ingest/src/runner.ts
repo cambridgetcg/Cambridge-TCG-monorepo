@@ -52,7 +52,7 @@ import type {
  */
 export interface RunWriters<R, C> {
   /** Called for each successfully normalized record. */
-  write: (record: C) => Promise<void>;
+  write: (record: C, provenance: RawProvenance) => Promise<void>;
   /** Called for each row that failed normalization. */
   quarantine: (entry: { raw: R; reason: string; provenance: RawProvenance }) => Promise<void>;
 }
@@ -138,7 +138,7 @@ export async function runSource<R, C>(
 
       if (result.ok) {
         try {
-          await writers.write(result.record);
+          await writers.write(result.record, provenance);
           summary.rows_normalized += 1;
         } catch (err) {
           summary.errors += 1;

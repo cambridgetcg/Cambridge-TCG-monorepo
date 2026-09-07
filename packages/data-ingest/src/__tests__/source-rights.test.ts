@@ -125,11 +125,11 @@ describe("source rights declarations", () => {
     const fetch = await drain(cardmarket, events);
 
     expect(cardmarket.meta.access).toBe("public-file");
-    expect(cardmarket.meta.status).toBe("planned");
+    expect(cardmarket.meta.status).toBe("partial");
     expect(cardmarket.meta.license).toBe("proprietary");
     expect(cardmarket.meta.redistribute).toBe(false);
     expect(fetch).not.toHaveBeenCalled();
-    expect(events[0]?.detail.status).toBe("public-file-reader-not-wired");
+    expect(events[0]?.detail.status).toBe("legacy-oauth-blocked");
     expect(String(events[0]?.detail.next_action)).not.toMatch(/apply/i);
   });
 
@@ -150,7 +150,7 @@ describe("source rights declarations", () => {
   it("separates implemented planned sources from empty reserved slots", () => {
     const partition = sourcesByStatus();
 
-    expect(partition.planned.map((source) => source.id)).toContain("cardmarket");
+    expect(partition.partial.map((source) => source.id)).toContain("cardmarket");
     expect(partition.reserved_slots).not.toContain("cardmarket");
     expect(partition.reserved_slots).toContain("cardtrader");
   });

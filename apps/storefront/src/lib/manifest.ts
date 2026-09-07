@@ -88,6 +88,7 @@ export type AuthKind =
   | "public"        // no auth required
   | "user"          // authenticated human participant
   | "agent"         // authenticated AI agent (S18 bearer-token at /api/mcp)
+  | "member-key"    // free account-owned, read-only member data key
   | "admin"         // operator only
   | "wholesale-key" // channel API key (Falcon to wholesale)
   | "provider-signature"; // dedicated raw-body webhook signature
@@ -851,7 +852,26 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "knowledge", "substrate"], methodology_url: "/welcome-all",
         since: "2026-05-13" },
-      { id: "storefront.prices.landing", description: "TCG guide navigation across curated games and observed catalog structure. CardRush acquisition is hard-blocked and its legacy price values are withheld; no badge or configured source should be read as live price coverage. Aggregate mixed-catalog rights are NOASSERTION.",
+      { id: "storefront.member_prices.feed", description: "Free member price feed. Requires an account-owned read-only member data key, not an agent or wholesale key. Paginated current/history observations are source/use-filtered; Cardmarket official-file projections are eligible, Scryfall is view-only. Private, no-store; empty/unavailable is not a live-feed claim.",
+        host: "storefront", path: "/api/v1/member-prices", methods: ["GET"],
+        modalities: ["json"], auth: "member-key", provenance: "snapshot",
+        cosmology_axes: ["value", "knowledge", "time"], methodology_url: "/methodology/member-pricing",
+        contract: "envelope", since: "2026-09-07" },
+      { id: "storefront.member_prices.export", description: "Free session-authenticated CSV or NDJSON price download. One bounded page per request with explicit continuation; uses the same release-filtered observations as the member API. No public export files or paid tiers.",
+        host: "storefront", path: "/api/account/prices/export", methods: ["GET"],
+        modalities: ["plain-text"], auth: "user", provenance: "snapshot",
+        cosmology_axes: ["value", "knowledge", "time"], methodology_url: "/methodology/member-pricing",
+        contract: "alternative", since: "2026-09-07" },
+      { id: "storefront.member_prices.account", description: "Member data-key creation/revocation and feed instructions. Existing Cambridge login, free read-only keys; no new agent identity or billing entitlement required. Existing registration-admission rules are unchanged.",
+        host: "storefront", path: "/account/data", methods: ["GET"],
+        modalities: ["html"], auth: "user", provenance: "live",
+        cosmology_axes: ["authority", "knowledge"], methodology_url: "/methodology/member-pricing",
+        since: "2026-09-07" },
+      { id: "storefront.member_prices.methodology", description: "Free member pricing source permissions, observation meanings, daily source clocks, access requirements, and remaining limits. Public documentation, not price data.",
+        host: "storefront", path: "/methodology/member-pricing", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["authority", "knowledge", "value"], since: "2026-09-07" },
+      { id: "storefront.prices.landing", description: "Public structural catalog and free member pricing entrance. Valid sessions unlock only reviewed member-display observations; anonymous visitors receive no restricted price values. CardRush/TCGplayer legacy blocks remain; configured sources are not proof of running collection.",
         host: "storefront", path: "/prices", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",

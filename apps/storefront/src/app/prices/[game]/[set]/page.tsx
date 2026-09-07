@@ -15,6 +15,7 @@ import { Provenance, WhyLink } from "@/lib/ui";
 import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
+import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
 import {
   getPriceGuideConfig,
   listPriceGuideSlugs,
@@ -98,10 +99,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const setName = setInfo.name || setCode;
 
   return {
-    title: `${setCode} ${setName} Structural Catalog — Price Publication Paused`,
+    title: `${setCode} ${setName} Structural Catalog — Legacy Prices Withheld`,
     description: `Structural catalog rows for ${setCode} ${setName}. Legacy price values, images, and historical movements are withheld pending field-level source-rights records.`,
     openGraph: {
-      title: `${setCode} ${setName} Structural Catalog — Price Publication Paused`,
+      title: `${setCode} ${setName} Structural Catalog — Legacy Prices Withheld`,
       description: `Structural catalog rows for ${setCode} ${setName}; legacy price values and images are withheld.`,
     },
   };
@@ -315,6 +316,8 @@ export default async function SetPriceGuidePage({
             </span>
           </div>
         </header>
+
+        <MemberCatalogLink game={cfg.slug} set={setCode} />
 
         {/* Currency selector — Yu's directive 2026-05-14 */}
         <div className="mb-8">

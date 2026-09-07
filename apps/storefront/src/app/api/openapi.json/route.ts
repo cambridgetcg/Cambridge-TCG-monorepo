@@ -72,6 +72,33 @@ const SPEC = {
     { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
   ],
   paths: {
+    "/api/v1/member-prices": {
+      get: {
+        tags: ["prices"],
+        summary: "Free account-owned member price feed",
+        description: "Requires a read-only member data key minted after Cambridge TCG login at /account/data. Agent and wholesale keys are not accepted. Source/use-filtered observations in native currency; Cardmarket official-file projections are eligible, Scryfall is view-only and excluded. No billing tier. Private, no-store. Follow nextCursor with unchanged filters to finish the permitted result; empty/unavailable does not claim ingestion has run.",
+        operationId: "getMemberPrices",
+        security: [{ MemberDataKey: [] }],
+        parameters: [
+          { name: "source", in: "query", schema: { type: "string", enum: ["cardmarket", "scryfall"] }, description: "Scryfall is not permitted in API/download results." },
+          { name: "game", in: "query", schema: { type: "string" } },
+          { name: "sku", in: "query", schema: { type: "string" }, description: "Exact mapped Cambridge SKU. Unmapped products are not guessed." },
+          { name: "set", in: "query", schema: { type: "string" }, description: "Exact mapped canonical set." },
+          { name: "q", in: "query", schema: { type: "string" }, description: "Bounded source-product name or identifier search." },
+          { name: "metric", in: "query", schema: { type: "string" } },
+          { name: "mode", in: "query", schema: { type: "string", enum: ["current", "history"], default: "current" } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1 }, description: "Bounded page size; follow continuation for more rows." },
+          { name: "cursor", in: "query", schema: { type: "string" }, description: "Opaque continuation bound to the snapshot, filters and permitted use." },
+        ],
+        responses: {
+          "200": { description: "Envelope: data has status, items, nextCursor, watermark, asOf, total, count and complete. Each observation keeps source, named metric, native amount/currency and distinct source/retrieval times. Snapshot asOf is not source freshness.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid query or continuation cursor." },
+          "401": { description: "Missing, invalid, expired or revoked member data key; no price query performed." },
+          "429": { description: "Free per-key request limit exceeded; Retry-After supplied." },
+          "503": { description: "Authentication storage or price observations unavailable; not an empty catalog." },
+        },
+      },
+    },
     "/api/v1/culture/artbitrage": {
       get: {
         tags: ["culture", "discovery"],
@@ -1114,6 +1141,13 @@ const SPEC = {
     },
   },
   components: {
+    securitySchemes: {
+      MemberDataKey: {
+        type: "http",
+        scheme: "bearer",
+        description: "Free, account-owned, read-only data key from /account/data. Never send a session cookie, agent key, or wholesale service key as this credential.",
+      },
+    },
     schemas: {
       CardBatchRequest: {
         type: "object",

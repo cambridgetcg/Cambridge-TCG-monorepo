@@ -52,6 +52,13 @@ const CATALOG_SIZE_ESTIMATE = {
 
 /** Recommended polite-poll cadence by auth class. */
 const RECOMMENDED_PACE = {
+  member_data_key: {
+    requests_per_minute: 30,
+    per: "member data key",
+    enforcement: "atomic application rate limit on /api/v1/member-prices",
+    provision: "/account/data",
+    note: "Free account-owned read-only key, distinct from an agent or wholesale key. Source prices refresh daily; the request limit is not a freshness claim.",
+  },
   unauth: {
     requests_per_minute: 60,
     per: "IP",
@@ -89,7 +96,7 @@ const CRAWL_SHAPES = {
     eta_human: "status check only; no mirror is returned",
     cacheable_for_seconds: 900,
     bulk_alternative:
-      "/data/catalog.jsonl is status-only and emits zero card rows while bulk publication is paused; there is no bulk alternative today",
+      "/data/catalog.jsonl remains status-only. A separate free account-owned /api/v1/member-prices feed provides paginated, source-reviewed observations when available; it is not a bulk catalog mirror. Browser downloads: /api/account/prices/export. See /account/data.",
     incremental_alternative:
       "Use keyed search and card lookup only for a user's concrete request; no complete-mirror workaround is offered",
   },
