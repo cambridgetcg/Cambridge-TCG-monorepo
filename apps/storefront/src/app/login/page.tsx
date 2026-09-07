@@ -18,6 +18,19 @@ function GoogleG() {
   );
 }
 
+function GitHubMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 .75a11.25 11.25 0 0 0-3.56 21.92c.56.1.77-.24.77-.54v-2.1c-3.13.68-3.79-1.33-3.79-1.33-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.73 1.16 1.73 1.16 1 1.72 2.64 1.22 3.28.93.1-.73.39-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.56 0-1.23.44-2.23 1.16-3.02-.12-.28-.5-1.43.11-2.98 0 0 .95-.3 3.1 1.15a10.8 10.8 0 0 1 5.64 0c2.15-1.46 3.09-1.15 3.09-1.15.62 1.55.23 2.7.12 2.98.72.79 1.15 1.79 1.15 3.02 0 4.32-2.63 5.28-5.14 5.56.4.35.76 1.03.76 2.08v3.1c0 .3.2.65.78.54A11.25 11.25 0 0 0 12 .75Z" />
+    </svg>
+  );
+}
+
+const OAUTH_PROVIDERS = [
+  { id: "google", name: "Google", Mark: GoogleG },
+  { id: "github", name: "GitHub", Mark: GitHubMark },
+] as const;
+
 // ?return= arrives from the account layout / proxy when an
 // unauthenticated visitor hits a gated page. Only a same-origin relative
 // path may ride the flow as callbackUrl — anything else (protocol-
@@ -25,8 +38,11 @@ function GoogleG() {
 // /login) falls back to /account.
 function safeReturnPath(raw: string | null): string | null {
   if (!raw) return null;
-  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return null;
-  if (raw === "/login" || raw.startsWith("/login/") || raw.startsWith("/login?")) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//") || /[\\\x00-\x20\x7f]/.test(raw)) return null;
+  // Check the normalized pathname too: fragments and dot segments must not
+  // turn a seemingly safe destination into a loop back through sign-in.
+  const pathname = new URL(raw, "http://localhost").pathname;
+  if (pathname === "/login" || pathname.startsWith("/login/")) return null;
   return raw;
 }
 
@@ -83,11 +99,10 @@ function LoginInner() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Google appears only when the provider is actually configured (its creds
-  // are set). /api/auth/providers lists live providers; the CSRF token rides
-  // in the OAuth form as a hidden field (a full-page POST, not fetch — the
-  // browser must follow the cross-origin redirect to Google).
-  const [googleEnabled, setGoogleEnabled] = useState(false);
+  // Discover configured providers, never credentials. OAuth uses a full-page
+  // CSRF-protected POST so the browser follows the cross-origin redirect.
+  const [enabledProviders, setEnabledProviders] = useState<string[]>([]);
+  const oauthProviders = OAUTH_PROVIDERS.filter(({ id }) => enabledProviders.includes(id));
   const [csrf, setCsrf] = useState("");
   useEffect(() => {
     let live = true;
@@ -96,8 +111,10 @@ function LoginInner() {
       fetch("/api/auth/csrf").then((r) => r.json()).catch(() => ({})),
     ]).then(([providers, csrfData]) => {
       if (!live) return;
-      setGoogleEnabled(Boolean(providers && (providers as Record<string, unknown>).google));
-      setCsrf((csrfData as { csrfToken?: string }).csrfToken ?? "");
+      setEnabledProviders(OAUTH_PROVIDERS
+        .filter(({ id }) => providers && (providers as Record<string, unknown>)[id])
+        .map(({ id }) => id));
+      setCsrf(typeof csrfData?.csrfToken === "string" ? csrfData.csrfToken : "");
     });
     return () => { live = false; };
   }, []);
@@ -167,26 +184,42 @@ function LoginInner() {
         <h1 className="text-2xl font-display font-semibold text-ink text-center mb-2">Sign In</h1>
         <InkRule className="mb-4 max-w-[8rem] mx-auto" />
         <p className="text-sm text-ink-muted text-center mb-8">
-          {googleEnabled ? "Continue with Google, or request an email sign-in link" : "Request an email sign-in link"}
+          {oauthProviders.length > 0 ? "Choose a sign-in method, or request an email sign-in link" : "Request an email sign-in link"}
         </p>
 
-        {googleEnabled && (
+        {params.get("error") && (
+          <p role="alert" className="text-sm text-danger text-center mb-6">
+            We couldn&apos;t complete sign-in. Try again, or use another sign-in
+            method. If using a connected provider, check that your email is verified.
+            If you meant to use a different account, sign out first.
+          </p>
+        )}
+
+        {oauthProviders.length > 0 && (
           <>
-            {/* Full-page POST (not fetch): the browser must follow the redirect
-                chain out to Google. next-auth mints the callback + links the
-                account on return. */}
-            <form method="POST" action="/api/auth/signin/google">
-              <input type="hidden" name="csrfToken" value={csrf} />
-              <input type="hidden" name="callbackUrl" value={returnTo ?? "/account"} />
-              <button
-                type="submit"
-                disabled={!csrf}
-                className="w-full py-3 bg-surface border border-border-strong text-ink font-semibold rounded-lg hover:bg-surface-subtle transition disabled:opacity-50 flex items-center justify-center gap-2.5"
-              >
-                <GoogleG />
-                Continue with Google
-              </button>
-            </form>
+            <div role="group" aria-label="Connected sign-in providers" className="space-y-3">
+              {oauthProviders.map(({ id, name, Mark }) => (
+                <form key={id} method="POST" action={`/api/auth/signin/${id}`}>
+                  <input type="hidden" name="csrfToken" value={csrf} />
+                  <input type="hidden" name="callbackUrl" value={returnTo ?? "/account"} />
+                  <button
+                    type="submit"
+                    disabled={!csrf}
+                    className="w-full py-3 bg-surface border border-border-strong text-ink font-semibold rounded-lg hover:bg-surface-subtle transition disabled:opacity-50 flex items-center justify-center gap-2.5"
+                  >
+                    <Mark />
+                    Continue with {name}
+                  </button>
+                </form>
+              ))}
+            </div>
+            {enabledProviders.includes("github") && (
+              <p className="text-xs text-ink-faint text-center mt-4">
+                GitHub sign-in requires a verified email. If it matches your existing
+                CTCG account email, we link GitHub to that account. Once linked,
+                GitHub continues to use the same CTCG account.
+              </p>
+            )}
             <div className="flex items-center gap-3 my-6">
               <div className="h-px flex-1 bg-border-subtle" />
               <span className="text-xs uppercase tracking-wider text-ink-faint">or</span>
@@ -216,7 +249,7 @@ function LoginInner() {
         </form>
 
         <p className="text-xs text-ink-faint text-center mt-6">
-          Sign-in requests always receive the same confirmation. New
+          Email sign-in requests always receive the same confirmation. New
           registration may be paused while the adult-account and terms
           boundary is reviewed.
         </p>

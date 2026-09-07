@@ -57,16 +57,21 @@ describe("magic-link response boundary", () => {
     expect(mocks.responseFloor).toHaveBeenCalledWith(expect.any(Number));
   });
 
-  it("does not add a response floor to other Auth.js actions", async () => {
+  it.each(["google", "github"])("passes %s sign-in unchanged to Auth.js without the email response floor", async (provider) => {
     const authResponse = new Response(null, { status: 302 });
     mocks.authPost.mockResolvedValue(authResponse);
     const request = new NextRequest(
-      "https://cambridgetcg.com/api/auth/signin/google",
-      { method: "POST" },
+      `http://localhost:3001/api/auth/signin/${provider}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ csrfToken: "csrf", callbackUrl: "/account/trades" }),
+      },
     );
 
     await expect(POST(request)).resolves.toBe(authResponse);
 
+    expect(mocks.authPost).toHaveBeenCalledExactlyOnceWith(request);
     expect(mocks.responseFloor).not.toHaveBeenCalled();
   });
 

@@ -125,9 +125,12 @@ evidence for every applicable item before the production push:
     unknown-address path must create no verification token or user and send no
     email; the eligible existing-address path must still deliver a usable link.
     Address-specific and service-wide token-cap denials use the same generic
-    confirmation too. Prove first-time Google sign-in lands on the branded
-    `RegistrationPaused` result before any user, account-link or session write,
-    while Google sign-in for an existing email remains available. Then prove
+    confirmation too. Prove first-time Google and GitHub sign-in land on the
+    branded `RegistrationPaused` result before any user, account-link or session
+    write, while Google sign-in for an existing email remains available. For
+    GitHub, prove verified same-email existing accounts and already-linked
+    numeric IDs still sign in during the pause, including after a GitHub email
+    change; an existing link must never move to another user. Then prove
     every new P2P route returns the no-store 503 and DAL callers cannot bypass
     it. Also prove payment, shipping, receipt, cancellation, return, dispute,
     refund, payout, evidence and revocation for existing obligations still
@@ -463,6 +466,57 @@ The current production env layout (verified 2026-05-14). Use the recipes at the 
 Touches the storefront RDS + Stripe + SES + Wholesale API client. Check `apps/storefront/.env.example` or `vercel env ls production --cwd apps/storefront` for the live list. Key ones:
 
 `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUCTION_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WHOLESALE_API_URL`, `WHOLESALE_API_KEY`, `CRON_SECRET`, `ADMIN_PASSWORD`, `AUTH_FROM_EMAIL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `TRADEIN_FROM_EMAIL`, `STORE_NOTIFICATION_EMAIL`.
+
+#### Optional storefront OAuth
+
+Email magic links remain available alongside optional Google (`AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`) and GitHub (`AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`). These
+are server-only credentials, not `NEXT_PUBLIC_*` values. GitHub is registered
+only when **both trimmed values are non-empty**; missing, partial or whitespace-only
+configuration leaves it absent from `/api/auth/providers` and `/login`.
+This documents the source contract, not whether a hosted OAuth app is configured.
+
+Use these GitHub OAuth app authorization callback URLs:
+
+| Environment | Callback URL |
+|---|---|
+| Production | `https://cambridgetcg.com/api/auth/callback/github` |
+| Local development | `http://localhost:3001/api/auth/callback/github` |
+
+Prefer a separate development OAuth app. A different local port needs its own
+matching callback and `AUTH_URL`. Creating OAuth apps, setting hosted secrets,
+changing admission mode, publishing and deploying are separate, explicitly
+authorized operations. Keep secrets out of chat, source, logs and tests.
+
+GitHub requests exactly `read:user user:email` — no repository or organization
+scopes. The server checks GitHub's authenticated email list even if the public
+profile has an email, selects a verified primary address or verified fallback,
+and normalizes it for same-email linking to an existing CTCG account. Missing
+verification, malformed responses and fetch failures fail closed. Subsequent
+sign-ins resolve the existing link by GitHub's immutable numeric ID, not the
+current username or email. A first link whose verified email differs from the
+active CTCG session's email is refused: sign out first to use a different
+account. An already-linked GitHub ID may still use its original CTCG account
+after an email change; the first-link check must not break that path.
+
+GitHub's provider-level `account()` mapping omits access/refresh and other token
+fields before adapter persistence: the account link is retained, token columns
+are null. The access token is used transiently for the profile/email requests;
+this is not ongoing GitHub API access. Google token handling is unchanged.
+Database sessions, roles and **registration policy are unchanged**: linked
+GitHub accounts and verified same-email existing accounts remain eligible while
+new registration is paused; genuinely new identities still require the existing
+admission policy. Email-request confirmations remain generic.
+
+Before enabling the hosted provider, run focused auth tests and the intercepted
+`tests/auth-oauth-ui.spec.ts` against an explicitly configured HTTP loopback
+`STOREFRONT_BASE_URL` (it refuses the default production target). Verify the real
+flow only with an authorized development/staging OAuth app and test account:
+first login/linking, repeat login, safe deep return, unchanged CTCG account ID,
+registration pause and logout. Mocked tests do not establish real OAuth success.
+Auth.js sends some OAuth errors to `/login?error=...` and others to
+`/login/error?error=...`; both must offer generic recovery rather than an
+expired-email-link diagnosis.
 
 Wallet-link issuance remains off unless `EVM_WALLET_LINKING_MODE=testnet` is
 set. A remote smart-wallet verifier additionally requires the server-only

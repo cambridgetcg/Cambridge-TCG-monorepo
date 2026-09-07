@@ -11,7 +11,7 @@ The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake 
 - PostgreSQL on AWS RDS (`tcg-wholesale` in us-east-1)
 - Stripe (checkout + webhooks)
 - Transactional email via the `@cambridge-tcg/email` transport seam — SES today, self-hosted SMTP per stream as cutover proceeds (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`; see `docs/ops-email-selfhost.md`)
-- next-auth v5 (magic link email login)
+- next-auth v5 (email magic links, optional Google and GitHub OAuth)
 - Deployed on Vercel (production: cambridgetcg.com)
 - Wholesale API: wholesaletcgdirect.com (live pricing — see `@cambridge-tcg/pricing` package for the compute, `src/lib/wholesale/client.ts` for the Falcon courier, `docs/connections/the-pricing-arrow.md` for the seven-act story)
 
@@ -22,10 +22,13 @@ The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake 
 - Migrations in `drizzle/` directory (run manually against RDS)
 
 ## Auth
-- next-auth v5 with custom PgAdapter (`src/lib/auth/adapter.ts`)
-- Email provider via AWS SES (`src/lib/auth/email.ts`)
-- Session-aware Nav shows Sign In / Account
-- Admin dashboard at `/admin/trade-ins` — gated by `users.role = 'admin'` (set via DB after `0088_admin_roles.sql` lands). No shared password; admins sign in via the same `/login` magic-link flow as customers, and `middleware.ts` enforces the role check on `/admin/*` + `/api/admin/*`.
+- next-auth v5 with custom PgAdapter (`src/lib/auth/adapter.ts`) and 30-day database sessions.
+- Email magic links use the transactional email transport (`src/lib/auth/email.ts`). Optional Google OAuth uses `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET`; optional GitHub OAuth uses `AUTH_GITHUB_ID` + `AUTH_GITHUB_SECRET`. GitHub registers only when both trimmed values are non-empty. `/login` discovers configured providers via `/api/auth/providers` and submits CSRF-protected full-page OAuth forms with a safe relative return path.
+- GitHub (`src/lib/auth/github.ts`) requests only `read:user user:email`, verifies the authenticated email list (verified primary, otherwise a verified fallback), and links a matching verified email to an existing CTCG account. The immutable numeric GitHub ID preserves an existing link even after an email change. A first link is refused when its verified email differs from the active CTCG session's email; sign out before using a different account. This does not block an already-linked ID after an email change. Missing verification fails closed. The provider-level `account()` mapping omits GitHub tokens from persistence; the adapter stores the provider link with null token columns. Google policy is unchanged.
+- GitHub callbacks: production `https://cambridgetcg.com/api/auth/callback/github`; development `http://localhost:3001/api/auth/callback/github` (prefer a separate development OAuth app). Creating apps, setting hosted secrets and deployment need separate authorization; see `docs/ops-deploy-runbook.md`.
+- Adding a provider does not change registration admission (`src/lib/auth/admission.ts`): existing linked GitHub identities and verified same-email existing accounts can sign in while new registration is paused. New identities still need the existing admission policy. Email requests retain their generic, non-enumerating confirmation.
+- Session-aware Nav shows Sign In / Account.
+- Admin dashboard at `/admin/trade-ins` is gated by `users.role = 'admin'`. Admins use the same `/login` methods as customers; OAuth never grants a role. `proxy.ts` checks cookie presence, while `src/lib/auth/realms.ts` and `src/lib/admin/auth.ts` enforce page/API access.
 
 ## UI primitives — `@/lib/ui`
 

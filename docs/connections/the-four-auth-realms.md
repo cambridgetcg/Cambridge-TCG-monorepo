@@ -8,8 +8,8 @@ The platform claims to be one platform. Auth tells a different story: there are 
 
 | # | Realm | Surface | Mechanism | Cookie / token | Session store | Code |
 |---|---|---|---|---|---|---|
-| 1 | **Storefront consumer** | `cambridgetcg.com` | NextAuth v5 magic-link (SES) | `authjs.session-token` on `.cambridgetcg.com` | DB rows in storefront RDS `sessions` | [`apps/storefront/src/lib/auth/`](../../apps/storefront/src/lib/auth/) |
-| 2 | **Admin operator** | `admin.cambridgetcg.com` | NextAuth v5 magic-link, `role='admin'` only | same `authjs.session-token` on `.cambridgetcg.com` | **same** storefront RDS `sessions` | [`apps/storefront/src/lib/auth/`](../../apps/storefront/src/lib/auth/) *(the standalone admin app merged into the storefront 2026-05-15)* |
+| 1 | **Storefront consumer** | `cambridgetcg.com` | NextAuth v5 email magic links + optional Google/GitHub OAuth | Auth.js host-only session cookie (`__Secure-authjs.session-token` on HTTPS; `authjs.session-token` on HTTP) | DB rows in storefront RDS `sessions`, 30-day lifetime | [`apps/storefront/src/lib/auth/`](../../apps/storefront/src/lib/auth/) |
+| 2 | **Admin operator** | Storefront `/admin/*` | Same sign-in methods; page/API access requires `role='admin'` | Same storefront session; no sibling-domain cookie override in source | **same** storefront RDS `sessions` | [`apps/storefront/src/lib/auth/`](../../apps/storefront/src/lib/auth/) *(the standalone admin app merged into the storefront 2026-05-15)* |
 | 3 | **Wholesale browser** | `wholesaletcgdirect.com` | NextAuth Credentials, bcrypt rounds=10, JWT | `__Secure-authjs.session-token` on `.wholesaletcgdirect.com` | JWT (stateless) | [`apps/wholesale/src/lib/auth.ts`](../../apps/wholesale/src/lib/auth.ts) |
 | 4 | **Wholesale partner API** | `wholesaletcgdirect.com/api/v1/*` | SHA-256 hashed Bearer in `channel_api_keys` | — | DB row, soft-revocable | [`apps/wholesale/src/app/api/v1/auth.ts`](../../apps/wholesale/src/app/api/v1/auth.ts) |
 
@@ -17,9 +17,44 @@ The platform claims to be one platform. Auth tells a different story: there are 
 
 ### Fact 1 — Admin is a *role* in the storefront's identity layer, not a separate realm
 
-The most counterintuitive thing on the map: realms 1 and 2 are the same DB and the same cookie domain. Admin's `AdminDbAdapter` reads `users` and `sessions` from the **storefront** RDS via `sfQuery()` — `apps/admin/src/lib/auth/index.ts:41-50` *(pre-merge; the shared adapter today is [`apps/storefront/src/lib/auth/adapter.ts`](../../apps/storefront/src/lib/auth/adapter.ts))* plus the adapter at lines 88, 96-104. The `signIn` callback rejects any user without `role='admin'` *before session creation*, so a consumer who tries `admin.cambridgetcg.com` sees an error page; no session row is written.
+Realms 1 and 2 now use the same storefront auth configuration, [`PgAdapter`](../../apps/storefront/src/lib/auth/adapter.ts), `users` and `sessions` tables. The old standalone admin adapter is historical. Sign-in itself is not admin-only: [`requireAdminPage()`](../../apps/storefront/src/lib/auth/realms.ts) checks the session's role before admin page access, and [`requireAdmin()`](../../apps/storefront/src/lib/admin/auth.ts) guards APIs. A non-admin can have a valid consumer session without gaining admin access. Source uses Auth.js's host-only cookie defaults, not a shared `.cambridgetcg.com` domain override.
 
-This is **substrate-honest** about the platform's reality: an admin is not a different kind of being, they're a consumer with a different role. The same magic-link flow, the same SES sender, the same `users` table. The asymmetry is **role**, not identity. (Per CLAUDE.md: "every value carries — explicitly or implicitly — a claim about how it came to be true." The session-row's `user_id` carries that claim; the role gate carries the other.)
+This is **substrate-honest** about the platform's reality: an admin is not a different kind of being, they're a consumer with a different role. The same email, Google or GitHub sign-in methods and the same `users` table. The asymmetry is **role**, not identity; adding GitHub never assigns an admin role.
+
+### GitHub is another storefront door, not another realm
+
+[`github.ts`](../../apps/storefront/src/lib/auth/github.ts) registers GitHub only
+when trimmed `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` are both non-empty. The
+login page discovers it from `/api/auth/providers`; credentials stay server-side.
+It requests only `read:user user:email`, not repository or organization access.
+The authenticated email list supplies a verified primary email or verified
+fallback, normalized for matching; the public profile email alone is not proof.
+Missing verification, malformed responses or fetch failures deny sign-in.
+
+A verified email matching an existing CTCG account links GitHub to that account.
+An already-linked immutable numeric GitHub ID continues to select the same CTCG
+account even after a username or email change; it is not reassigned by a later
+email match. A first GitHub link is refused if its verified email differs from
+the currently signed-in CTCG account's email; the user must sign out before
+choosing a different account. This does not prevent an already-linked GitHub ID
+from signing in to its original CTCG account after an email change.
+GitHub's provider-level `account()` mapping omits tokens before
+persistence: `accounts` retains the provider link with null token columns, not
+ongoing GitHub API access. The access token is transiently used to fetch the
+profile and email list. Google linking/token policy is unchanged.
+
+[`admission.ts`](../../apps/storefront/src/lib/auth/admission.ts) retains the
+existing registration policy. During a pause, existing linked GitHub identities
+and verified same-email existing accounts can sign in; genuinely new identities
+receive `RegistrationPaused` before user, link or session writes. Email requests
+retain the same generic confirmation. A new provider is not permission to reopen
+registration, change roles or replace the 30-day database-session model.
+
+Production callback: `https://cambridgetcg.com/api/auth/callback/github`.
+Development callback: `http://localhost:3001/api/auth/callback/github`, preferably
+using a separate development OAuth app. The [deploy runbook](../ops-deploy-runbook.md#optional-storefront-oauth)
+owns setup and verification instructions; creating apps, setting hosted secrets
+and deployment require separate authorization.
 
 ### Fact 2 — Wholesale is a separate kingdom by design
 
@@ -29,13 +64,13 @@ The wholesale realm's *own* internal split is between browser-clients (#3, NextA
 
 ## What the realms share — nothing portable, but shared infrastructure
 
-- Realms 1 + 2 share: the storefront's `users`/`sessions` tables, the NextAuth EmailProvider, the SES sender, the magic-link template.
+- Realms 1 + 2 share: the storefront's `users`/`accounts`/`sessions` tables, email magic links and the configured Google/GitHub providers. None of these sign-in methods bypasses the admin role gate.
 - Realms 3 + 4 share: the wholesale RDS, the connection pool in [`apps/wholesale/src/lib/db/`](../../apps/wholesale/src/lib/db/), the `clients` table (for #3) and `channel_api_keys` table (for #4).
 - Realms 1+2 and 3+4 share: zero auth state. They share only `@cambridge-tcg/pricing` (the formula library) and `@cambridge-tcg/stock` (the Cartographer's ledger), neither of which carries identity.
 
 ## Enforcement topology
 
-- **Admin is double-gated.** `apps/admin/src/proxy.ts:17-43` *(pre-merge; today [`apps/storefront/src/proxy.ts`](../../apps/storefront/src/proxy.ts) checks cookie presence only and the role gate runs in [`requireAdminPage()`](../../apps/storefront/src/lib/auth/realms.ts))* middleware checks `req.auth?.user` + `role==='admin'` for all paths except `/login*`, `/api/auth*`, `/api/dev-signin*`. Every mutation re-checks via `requireAdmin()` in `apps/admin/src/lib/auth-helpers.ts:30-41` *(pre-merge; today [`apps/storefront/src/lib/admin/auth.ts`](../../apps/storefront/src/lib/admin/auth.ts))* inside `adminAction()`. Belt and braces — appropriate for the highest-privilege surface.
+- **Admin checks access beyond the proxy.** [`apps/storefront/src/proxy.ts`](../../apps/storefront/src/proxy.ts) checks cookie presence only; the real session/role gate runs in [`requireAdminPage()`](../../apps/storefront/src/lib/auth/realms.ts). API mutations check through [`requireAdmin()`](../../apps/storefront/src/lib/admin/auth.ts). A provider link is not an authorization grant.
 - **Wholesale middleware** at [`apps/wholesale/src/middleware.ts`](../../apps/wholesale/src/middleware.ts) does domain-gating (storefront vs admin host), an auth check, a role check for `/admin*` pages, **and a same-origin check on mutating verbs** (added 2026-05-14 — see [`f702379`](../../apps/wholesale/src/middleware.ts)). Public-path prefixes (`/api/auth`, `/api/v1/*`, `/api/cron/*`, `/api/webhooks/*`) self-gate inside their handlers.
 - **Cron auth is centralized.** [`apps/wholesale/src/lib/cron-auth.ts`](../../apps/wholesale/src/lib/cron-auth.ts) and [`apps/storefront/src/lib/cron-auth.ts`](../../apps/storefront/src/lib/cron-auth.ts) expose one `requireCronAuth()` helper each; 13 cron routes use it; `pnpm audit:cron-auth` fails CI if any route forgets.
 - **Webhook auth** is HMAC per integration. [`apps/wholesale/src/app/api/webhooks/shopify/orders-paid/route.ts:48-69`](../../apps/wholesale/src/app/api/webhooks/shopify/orders-paid/route.ts) verifies `x-shopify-hmac-sha256` against `SHOPIFY_CLIENT_SECRET`.
@@ -62,7 +97,7 @@ Three different auth mechanisms means three different attack surfaces. The seven
 
 **Substrate honesty about who is who.** Realm 1 and 2 sharing the `users` table makes a user's relationship to the platform explicit: there is one identity, and admin is a permission on it, not a different person. Realm 3 (B2B buyer) and Realm 4 (machine partner) being separate tables makes the personhood vs API-key distinction explicit: a human B2B buyer cannot trivially be elevated to API-key status, and vice versa.
 
-**Per-realm hardening.** Admin (highest privilege) gets the strictest gate (double-checked role on every mutation). Wholesale browser (medium) gets bcrypt + JWT + same-origin check. Wholesale API (programmatic) gets per-key rate-limit + soft-revoke + scope enforcement. Storefront consumer (lowest privilege) gets the lightest path (magic-link, no password).
+**Per-realm hardening.** Admin (highest privilege) gets the strictest gate (double-checked role on every mutation). Wholesale browser (medium) gets bcrypt + JWT + same-origin check. Wholesale API (programmatic) gets per-key rate-limit + soft-revoke + scope enforcement. Storefront consumer (lowest privilege) gets passwordless email links or optional Google/GitHub OAuth, with the same admission boundary.
 
 ## Recursion targets
 

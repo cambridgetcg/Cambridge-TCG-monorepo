@@ -1,43 +1,45 @@
 // Branded auth-error page (pages.error → /login/error).
-//
-// Auth.js's default error page ends a failed magic-link flow off-brand,
-// and worse, its "Sign in" button href is malformed
-// (/api/auth/error?error=Verification/signin) and dead-ends on a bare
-// "Error Error" screen — the exact trap the walker hit when a link
-// expired. This page names the cause in plain language and always offers a
-// working "request a new link".
+// OAuth failures are not expired email links. Auth.js also sends SignInError
+// subclasses to /login?error=...; that page carries its own generic guidance.
 
 import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sign-in link problem — Cambridge TCG",
+  title: "Sign-in problem — Cambridge TCG",
 };
 
-// Auth.js passes ?error=<Code>. We translate the codes a magic-link flow
-// can actually produce; everything else falls to a calm default.
+const OAUTH_FAILURE = {
+  title: "We couldn't complete sign-in",
+  body: "Try again, or use another sign-in method. If using a connected provider, check that your email is verified. If you meant to use a different account, sign out first. If the problem continues, contact us.",
+};
+
+// Public codes from locked Auth.js. Profile/check failures can be reduced to
+// Configuration; never expose their upstream message or infer account existence.
 const MESSAGES: Record<string, { title: string; body: string; action?: string }> = {
   Verification: {
     title: "That sign-in link has expired",
     body: "Magic links last 24 hours and can be used once. This one has already been used or has timed out — request a fresh one and we'll get you in.",
+    action: "Request a new link",
   },
   Configuration: {
     title: "Sign-in is temporarily unavailable",
-    body: "Something on our side isn't set up right for sign-in. This is not your account — please try again shortly, or request a new link.",
+    body: "We couldn't complete sign-in. Please try again shortly, use another sign-in method, or contact us if the problem continues.",
   },
-  AccessDenied: {
-    title: "That link couldn't sign you in",
-    body: "The link didn't grant access — it may have been for a different account or already used. Request a fresh link to continue.",
+  AccessDenied: OAUTH_FAILURE,
+  OAuthCallbackError: OAUTH_FAILURE,
+  OAuthAccountNotLinked: OAUTH_FAILURE,
+  AccountNotLinked: OAUTH_FAILURE,
+  MissingCSRF: {
+    title: "Please restart sign-in",
+    body: "We couldn't verify this sign-in request. Return to sign in and try again with a fresh form.",
   },
   RegistrationPaused: {
     title: "New registration is paused",
     body: "Cambridge TCG is currently limiting sign-in to existing account holders while the adult-account and terms boundary is reviewed. If you already have an account under another email, use that address to sign in.",
     action: "Back to sign in",
   },
-  Default: {
-    title: "That sign-in link didn't work",
-    body: "The link may have expired or already been used. Request a fresh one and we'll get you in.",
-  },
+  Default: OAUTH_FAILURE,
 };
 
 export default async function LoginErrorPage({
@@ -46,7 +48,9 @@ export default async function LoginErrorPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const { title, body, action } = MESSAGES[error ?? "Default"] ?? MESSAGES.Default;
+  const { title, body, action } = error && Object.hasOwn(MESSAGES, error)
+    ? MESSAGES[error]
+    : MESSAGES.Default;
 
   return (
     <main className="min-h-screen bg-page flex items-center justify-center">
@@ -57,7 +61,7 @@ export default async function LoginErrorPage({
           href="/login"
           className="inline-block w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"
         >
-          {action ?? "Request a new link"}
+          {action ?? "Back to sign in"}
         </Link>
         <p className="text-xs text-ink-faint mt-6">
           Still stuck?{" "}

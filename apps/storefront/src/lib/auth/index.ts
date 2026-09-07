@@ -3,8 +3,13 @@ import type { NextAuthConfig } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import Google from "next-auth/providers/google";
 import { PgAdapter } from "./adapter";
-import { admissionSignInCallback } from "./admission";
+import {
+  admissionSignInCallback,
+  createAdmissionSignInCallback,
+  getGitHubSessionUserId,
+} from "./admission";
 import { sendVerificationRequest } from "./email";
+import { createGitHubProvider } from "./github";
 import { query } from "@/lib/db";
 import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
 // Single source of truth for the session-cookie name. proxy.ts reads
@@ -37,6 +42,8 @@ const googleProvider =
       ]
     : [];
 
+const githubProvider = createGitHubProvider();
+
 export const authConfig: NextAuthConfig = {
   adapter: PgAdapter(),
   // Pass the override through if defined; otherwise let Auth.js v5 pick
@@ -57,6 +64,7 @@ export const authConfig: NextAuthConfig = {
       sendVerificationRequest,
     }),
     ...googleProvider,
+    ...(githubProvider ? [githubProvider] : []),
   ],
   pages: {
     signIn: "/login",
@@ -127,4 +135,15 @@ export const authConfig: NextAuthConfig = {
   },
 };
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+// A GitHub first-link callback must know the browser's actual session: Auth.js
+// otherwise links an unlinked provider to that session before matching email.
+export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
+  ...authConfig,
+  callbacks: {
+    ...authConfig.callbacks,
+    signIn: createAdmissionSignInCallback(() => getGitHubSessionUserId(request, {
+      useSecureCookies: authConfig.useSecureCookies,
+      cookieName: authConfig.cookies?.sessionToken?.name,
+    })),
+  },
+}));

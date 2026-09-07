@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { handlers } from "@/lib/auth";
 import { waitForMagicLinkResponseFloor } from "@/lib/auth/admission";
 
-// The OAuth callback (GET /api/auth/callback/google) exchanges the code with
-// Google AND, for a first-time user, runs createUser + linkAccount +
+// OAuth callbacks (GET /api/auth/callback/google or /github) exchange the code
+// with the provider AND, for an admitted first-time user, run createUser + linkAccount +
 // createSession — several DB writes plus an outbound call, often on a cold
 // function. Headroom keeps a cold callback from timing out into an empty
 // response after it has already half-committed the sign-in.

@@ -19,7 +19,8 @@ describe("login account-enumeration boundary", () => {
     expect(page).not.toContain('body.code === "ACCOUNT_ADMISSION_PAUSED"');
     expect(page).not.toContain('body.code === "magic_link_email_limit"');
     expect(page).not.toContain('body.code === "magic_link_global_limit"');
-    expect(page).toContain("Sign-in requests always receive the same confirmation");
+    expect(page).toContain("Email sign-in requests always receive the same confirmation");
+    expect(page).not.toContain("Sign-in requests always receive the same confirmation");
     expect(page).not.toContain("One will be created automatically");
   });
 });
