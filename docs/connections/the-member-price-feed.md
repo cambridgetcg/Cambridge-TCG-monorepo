@@ -52,4 +52,17 @@ The acquisition/display basis is [Cardmarket's dataset announcement](https://www
 
 No production migration, collector schedule, source agreement, or deployment is established by this entry. Local fixtures and a local database prove software paths, not deployed freshness. Actual activation and observed coverage must be reported separately.
 
+## Production activation receipt — 2026-09-08 UTC
+
+The preceding no-production statement records the implementation turn. The user then explicitly requested deployment and production activation, and approved the release commit/main push and the disclosed absence of external log drains.
+
+- Release `7cf25022` deployed the member views, data keys and feeds. `ee75e9c7` adds the verified-transaction operator seam and a stricter unauthenticated member-feed deployment check. The newer GitHub sign-in release was preserved.
+- Migrations `0137_member_price_observations.sql` and `0138_member_data_keys.sql` were applied together with their `schema_migrations` entries over certificate-verified RDS TLS. The preflight found exactly those two pending migrations and no existing member-price/key tables.
+- A finite, target-pinned operator checked the runtime release before collecting the three official One Piece files. It pinned artifact SHA-256 values and expected counts before writing, then injected a verified-TLS transaction into the same release-aware writer. The localhost-only test CLI was not widened.
+- Production batch `1` committed at `2026-09-08T00:06:21.970Z`: **74,600 metric observations over 12,962 source products**. This is not 74,600 cards or sales. Source clock: `2026-09-07T00:48:24.000Z`; price-file retrieval: `2026-09-08T00:01:56.646Z`. No exact SKU mappings were invented.
+- Activation plan hash: `f893312fbd01d316c0b31aca656d0030713cb6562a349446285045a315f54f8c`. The complete-file parser processed 13,187 source rows, omitted 70,866 absent metric fields and quarantined 12,778 fields/rows rather than manufacturing prices.
+- The canonical storefront route audit reported **197 passed, 0 failed** after initial deployment. Successful member access/export was exercised locally; the production public audit does not impersonate a member or prove their authenticated HTTP path.
+
+**Remaining boundaries:** this is an initial Cardmarket One Piece activation, not activation of every source or game. No daily Cambridge ingestion job is installed. Scryfall bulk acquisition remains deferred pending a memory-safe operator; CardRush, direct TCGplayer and other unresolved source permissions remain blocked. Registration admission is still paused. Vercel runtime logs are available; external log drains are absent.
+
 **Recursion:** [The license propagation](./the-license-propagation.md), especially its July correction; [the public methodology](../../apps/storefront/src/app/methodology/member-pricing/page.tsx).

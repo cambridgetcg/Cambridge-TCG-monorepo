@@ -75,7 +75,7 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     id: "cardmarket",
     name: "Cardmarket",
     description:
-      "European market catalog and daily aggregate prices through official files. Native member parser/writer implemented; collection is manual and has not been activated.",
+      "European market catalog and daily aggregate prices through official files. The initial One Piece member-price batch was imported in production on 2026-09-08 UTC. Collection remains manual; no daily Cambridge refresh is scheduled. Other game imports are not implied.",
     upstream: "https://www.cardmarket.com/en/Magic/Data",
     catalog_section: "the-tributaries.md#22-cardmarket-eu-market-leader",
     access: "public-file",

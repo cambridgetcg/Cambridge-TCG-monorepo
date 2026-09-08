@@ -33,13 +33,13 @@ import { vinted } from "./vinted/index";
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
-  scryfall,                  // partial — adapter implemented; never run; no writer
+  scryfall,                  // partial — member display parser/writer ready; bulk activation deferred
   cardrush,                  // blocked — formal partnership required for automation
   "pokemon-tcg-api": pokemonTcgApi,  // partial — adapter implemented; never run; no writer
   ygoprodeck,                // blocked — no commercial content permission established
   tcgplayer,                 // blocked — no new access; terms prohibit multi-source price aggregation
   tcgcollector,              // blocked — partner approval not recorded
-  cardmarket,                // planned — public daily file reader not wired; OAuth applications closed
+  cardmarket,                // partial — initial One Piece member batch imported; manual refresh, OAuth closed
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
   "bandai-en": bandaiEn,     // blocked live reader; fixture parser preserved; permission undocumented
   vinted,                    // blocked (ToS + UK GDPR; consented first-party normalizer ready) — the honest block

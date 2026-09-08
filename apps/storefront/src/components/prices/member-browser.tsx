@@ -32,21 +32,20 @@ export async function MemberPriceBrowser({ search }: { search: MemberPriceSearch
     );
   }
 
-  let results;
+  let page;
   try {
     const query = parseMemberPriceQuery(params);
-    const page = await readMemberPrices(actor, query, "member-display");
-    results = <MemberPriceResults page={page} params={params} />;
+    page = await readMemberPrices(actor, query, "member-display");
   } catch (error) {
     if (!(error instanceof MemberPriceQueryError)) throw error;
-    results = (
-      <div role="alert" className="my-5 border-y border-border-subtle py-5 text-sm text-ink-muted">
-        <h3 className="font-medium text-ink">These price filters could not be used</h3>
-        <p className="mt-2">Check the filters or return to the first page. A continuation cursor must match its original filters.</p>
-        <Link href="/prices" prefetch={false} className="mt-2 inline-block text-accent underline underline-offset-4">Start a fresh search</Link>
-      </div>
-    );
   }
+  const results = page ? <MemberPriceResults page={page} params={params} /> : (
+    <div role="alert" className="my-5 border-y border-border-subtle py-5 text-sm text-ink-muted">
+      <h3 className="font-medium text-ink">These price filters could not be used</h3>
+      <p className="mt-2">Check the filters or return to the first page. A continuation cursor must match its original filters.</p>
+      <Link href="/prices" prefetch={false} className="mt-2 inline-block text-accent underline underline-offset-4">Start a fresh search</Link>
+    </div>
+  );
   return (
     <section aria-labelledby="member-prices-heading" className="my-8 border-y border-border-subtle py-6">
       <h2 id="member-prices-heading" className="font-display text-xl font-medium text-ink">Member source browser</h2>
