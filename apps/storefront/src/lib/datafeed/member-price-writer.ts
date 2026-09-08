@@ -19,14 +19,17 @@ export function memberPriceObservationKey(row: NativePriceObservation) {
   const { retrievedAt: _retrievedAt, ...identity } = row;
   return hash(identity);
 }
-export async function writeMemberPriceBatch(source: MemberPriceSource, parsed: ParsedMemberPrices) {
+/** Operators may supply a target-pinned, verified-TLS transaction. All source,
+ * provenance and release checks remain inside this writer, including on replay.
+ */
+export async function writeMemberPriceBatch(source: MemberPriceSource, parsed: ParsedMemberPrices, runTransaction: typeof transaction = transaction) {
   for (const row of parsed.observations) {
     if (row.source !== source) throw new Error('mixed-source-batch');
     validateMemberPriceWrite(row, { source, as_of: row.sourceUpdatedAt, retrieved_at: row.retrievedAt });
   }
   const keyed = parsed.observations.map(row => ({ row, key: memberPriceObservationKey(row) }));
   const ingestKey = hash({ source, keys: keyed.map(row => row.key).sort(), quarantine: parsed.quarantine, sourceRows: parsed.sourceRows, missingPrices: parsed.missingPrices });
-  return transaction(async tx => {
+  return runTransaction(async tx => {
     await tx('SELECT pg_advisory_xact_lock(137, 1)');
     const policy = MEMBER_PRICE_POLICIES[source];
     const release = await tx(`SELECT source FROM member_price_source_releases WHERE source=$1 AND evidence_version=$2 AND evidence_url=$3 AND revoked_at IS NULL AND member_display FOR SHARE`, [source, policy.evidenceVersion, policy.evidenceUrl]);

@@ -521,6 +521,9 @@ export function expectedFor(resource: ManifestResource): ExpectedResponse {
   }
 
   const healthyAnyKind = [200, 307, 400, 401, 404, 405];
+  if (resource.auth === "member-key") {
+    return { codes: [401], label: "401 (member data key required)" };
+  }
   if (resource.auth === "wholesale-key") {
     return { codes: [401, 404], label: "401 (bearer required) / 404 (route absent)" };
   }

@@ -13,6 +13,18 @@ import {
   type ManifestResource,
 } from "../../scripts/deploy-verify-contract";
 
+describe("member price deployment gate", () => {
+  const memberFeed: ManifestResource = {
+    id: "storefront.member_prices.feed", path: "/api/v1/member-prices",
+    host: "storefront", methods: ["GET"], auth: "member-key",
+  };
+  it("requires an unauthenticated member feed to refuse access", async () => {
+    expect(expectedFor(memberFeed).codes).toEqual([401]);
+    expect((await assessResponse(memberFeed, new Response("", { status: 200 }))).passed).toBe(false);
+    expect((await assessResponse(memberFeed, new Response("", { status: 401 }))).passed).toBe(true);
+  });
+});
+
 const PRISM_PRICE_REF = `pf_${"A".repeat(43)}` as `pf_${string}`;
 const PRISM_PRIVATE_CACHE = "private, no-store, max-age=0";
 
