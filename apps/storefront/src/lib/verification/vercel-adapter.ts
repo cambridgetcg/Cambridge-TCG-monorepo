@@ -57,7 +57,7 @@ interface ParsedDeployment {
 
 interface ParsedEnvRow {
   readonly key: (typeof REQUIRED_ENV_KEYS)[number];
-  readonly targets: readonly VercelTarget[];
+  readonly targets: readonly (VercelTarget | "development")[];
   readonly type: "sensitive" | "encrypted";
   readonly createdAt: number;
   readonly updatedAt: number | null;
@@ -207,16 +207,17 @@ function parseEnvRow(value: unknown, observedAt: number): ParsedEnvRow | null {
   const row = asRecord(value);
   if (!row || !REQUIRED_ENV_KEYS.includes(row.key as (typeof REQUIRED_ENV_KEYS)[number])) return null;
   const targets = row.target;
-  const branch = safeBranch(row.gitBranch);
+  // Vercel omits gitBranch for global variables; absence is not malformed data.
+  const branch = Object.hasOwn(row, "gitBranch") ? safeBranch(row.gitBranch) : null;
   const createdAt = integerTimestamp(row.createdAt);
   const updatedAt = row.updatedAt === undefined || row.updatedAt === null
     ? null
     : integerTimestamp(row.updatedAt);
   if (!Array.isArray(targets)
     || targets.length < 1
-    || targets.length > 2
+    || targets.length > 3
     || new Set(targets).size !== targets.length
-    || targets.some((target) => target !== "production" && target !== "preview")
+    || targets.some((target) => target !== "production" && target !== "preview" && target !== "development")
     || (row.type !== "sensitive" && row.type !== "encrypted")
     || branch === undefined
     || createdAt === null
@@ -228,7 +229,7 @@ function parseEnvRow(value: unknown, observedAt: number): ParsedEnvRow | null {
   }
   return Object.freeze({
     key: row.key as ParsedEnvRow["key"],
-    targets: Object.freeze([...targets]) as readonly VercelTarget[],
+    targets: Object.freeze([...targets]) as readonly (VercelTarget | "development")[],
     type: row.type,
     createdAt,
     updatedAt,

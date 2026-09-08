@@ -325,7 +325,6 @@ function isDeploymentIdentity(value: unknown): value is VerificationDeploymentId
 function isCheck(value: unknown): value is VerificationCheck {
   if (!isRecord(value)) return false;
   const baseKeys = ["name", "required", "status", "evidence", "expected", "observed"];
-  const keys = Object.keys(value);
   if (!hasExactKeys(value, "reason" in value ? [...baseKeys, "reason"] : baseKeys)) return false;
   if (
     !isOneOf(VERIFICATION_CHECK_NAMES, value.name)

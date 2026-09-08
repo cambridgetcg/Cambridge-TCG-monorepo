@@ -152,6 +152,31 @@ describe("Vercel metadata adapter", () => {
       && call.options.maxBuffer === 64 * 1024)).toBe(true);
   });
 
+  it("accepts Vercel's omitted global gitBranch and standard multi-environment metadata", async () => {
+    const rows = [envRow("AUTH_GITHUB_ID"), envRow("AUTH_GITHUB_SECRET")].map(row => {
+      const globalRow: Record<string, unknown> = { ...row, target: ["production", "preview", "development"] };
+      delete globalRow.gitBranch;
+      return globalRow;
+    });
+    const { adapter: subject } = adapter([
+      JSON.stringify(deployment()),
+      JSON.stringify({ envs: rows }),
+    ]);
+    await expect(subject.readVercelMetadata(descriptor(), "https://cambridgetcg.com"))
+      .resolves.toMatchObject({ target: "production", configurationFreshness: "current" });
+  });
+
+  it("does not treat development-only variables as production credentials", async () => {
+    const { adapter: subject } = adapter([
+      JSON.stringify(deployment()),
+      JSON.stringify({ envs: [
+        envRow("AUTH_GITHUB_ID", { target: ["development"] }),
+        envRow("AUTH_GITHUB_SECRET", { target: ["development"] }),
+      ] }),
+    ]);
+    await expectCode(subject.readVercelMetadata(descriptor(), "https://cambridgetcg.com"), "tool_output_invalid");
+  });
+
   it("normalizes a known null target to preview and prefers matching branch overrides", async () => {
     const globalNewerThanDeployment = CREATED + 5_000;
     const { adapter: subject } = adapter([

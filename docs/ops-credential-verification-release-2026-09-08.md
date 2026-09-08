@@ -75,3 +75,23 @@ headers, canonical storefront probes and a bounded runtime sample. A production
 preflight is not a production login. Do not approve GitHub consent or exercise a
 customer account as part of this release; use an intentional user retry to obtain
 a real support reference for the unresolved failure.
+
+## Publication follow-up
+
+The initial pilot deployment (`608821d3`) reached Vercel READY. Its GitHub CI run
+failed eight real Chromium fixture cases; the workflow had no browser installation
+step. The follow-up explicitly installs the lockfile-selected Playwright Chromium
+and its system dependencies before storefront tests rather than skipping them.
+
+A live GET-only preflight also exposed a metadata compatibility issue: Vercel
+omits `gitBranch` for global environment variables instead of sending explicit
+null. The adapter now accepts that observed global form and standard
+multi-environment target metadata while still requiring the selected production
+or preview target. Regression tests keep development-only variables from
+qualifying as production credentials. The live metadata check then passed.
+
+That preflight remained intentionally incomplete for the unrequested authorization
+probe and unasserted operator declaration. No decrypted credential values were
+inspected and no login, account mutation or admission change was performed.
+Follow-up CI and alias verification remain separate observed gates, not implied
+by the local correction.
