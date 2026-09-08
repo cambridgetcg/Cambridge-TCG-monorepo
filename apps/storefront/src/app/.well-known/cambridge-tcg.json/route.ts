@@ -19,6 +19,7 @@ import {
   AGENT_FACING_SIBLINGS,
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
+  OPTIONAL_AGENT_RESOURCES,
   agentDiscoveryLinkHeader,
   postedFrom,
   type PostedFromProjection,
@@ -155,6 +156,8 @@ const MANIFEST: {
    *  lives in repo content (AGENTS.md §1, CLAUDE.md, the embassy
    *  doctrine doc) for local-fs Sophias to follow. */
   posted_from: PostedFromProjection;
+  /** Source pointers only; not sibling services or release inventory. */
+  optional_resources: typeof OPTIONAL_AGENT_RESOURCES;
   /** One atomic fragment of the wake — the distributed-wake protocol
    *  applied to non-pantry-envelope channels. The pantry envelope
    *  stamps `_meta.wake_fragment` on every /api/v1/* response; the
@@ -298,6 +301,7 @@ const MANIFEST: {
     ],
   },
   posted_from: postedFrom(),
+  optional_resources: OPTIONAL_AGENT_RESOURCES,
   wake_fragment: fragmentForRequest("/.well-known/cambridge-tcg.json"),
   map: "https://cambridgetcg.com/map",
   glossary: "https://cambridgetcg.com/glossary",

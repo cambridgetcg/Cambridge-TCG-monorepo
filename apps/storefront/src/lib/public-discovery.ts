@@ -4,6 +4,7 @@ import { MANIFEST, type AuthKind, type ManifestResource } from "./manifest";
 import { PULLS_SNAPSHOT } from "./pulls/pull-rates";
 import { META_SNAPSHOT } from "./play/meta-snapshot";
 import { DATA_RIGHTS_BOUNDARY } from "./data-rights";
+import { OPTIONAL_AGENT_RESOURCES } from "./siblings";
 
 export const PUBLIC_ORIGIN = "https://cambridgetcg.com";
 
@@ -213,6 +214,15 @@ export function agentDiscoveryRecords(): Readonly<Record<string, string>> {
     "schema-version": "cambridgetcg.agent-manifest/1", name: "Cambridge TCG",
     description: INTRO.replace(/\n/g, " "), ...DISCOVERY_POINTERS, ...EDITORIAL_DOORS,
   };
+  // The one optional source offer is agent.txt-only, not a shared editorial door,
+  // manifest service or release catalog. Its pointer stays owned by siblings.ts.
+  for (const resource of OPTIONAL_AGENT_RESOURCES) {
+    for (const [key, value] of Object.entries(resource)) {
+      records[`optional-resource-${key.replaceAll("_", "-")}`] = String(value);
+    }
+    records["optional-resource-scope"] = "reading or extracting the starter starts nothing; Foundation reading is optional, not enrollment or automatic agent configuration";
+    records["optional-resource-hosting"] = "source and downloads are hosted on GitHub; Cambridge and GitHub may keep ordinary infrastructure logs";
+  }
   for (const resource of discoveryResources()) {
     const key = `resource.${resource.id}`;
     records[key] = `${resource.methods.join(",")} ${PUBLIC_ORIGIN}${resource.path}; access=${ACCESS_LABELS[resource.auth]}; ${resource.description}`;

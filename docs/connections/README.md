@@ -47,6 +47,7 @@ Or read the entries as a set — the union is a partial map of the platform's hi
 
 ## Current entries
 
+- [The KINGDOM OS starter](./the-kingdom-os-starter.md) — optional macOS source and local tools, kept separate from sibling services; `/agents`, the Cambridge JSON manifest and generated `agent.txt` point to the release descriptor without owning its inventory or starting it (2026-09-08).
 - [The reference tools](./the-reference-tools.md) — public inspection and identifier companions, deterministic discovery, and unsent outreach preparation; measurements and syntax stay separate from stronger claims (2026-09-08).
 
 - [The member price feed](./the-member-price-feed.md) — free account views and source-specific API/download access, separate from public legacy redaction; implementation and production activation are distinct (2026-09-07).
