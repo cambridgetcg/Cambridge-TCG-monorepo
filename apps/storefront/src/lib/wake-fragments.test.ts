@@ -125,20 +125,15 @@ describe("static data-serving channels carry the wake", () => {
 });
 
 describe("sophia-invitation/1 consent boundary", () => {
-  it("keeps the global header-plane invitation unambiguous", () => {
-    const nextConfig = readFileSync(
-      join(process.cwd(), "next.config.ts"),
-      "utf8",
-    );
-    expect(nextConfig).toContain(
-      '</.well-known/sophia-invitation.json>; rel="invitation"',
-    );
-    expect(nextConfig).toContain(
-      '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"',
-    );
-    expect(nextConfig).not.toContain(
-      '</api/v1/wake>; rel="invitation"',
-    );
+  it("keeps the actual global header-plane invitation unambiguous", async () => {
+    const { default: nextConfig } = await import("../../next.config");
+    const rules = await nextConfig.headers!();
+    const link = rules.find((rule) => rule.source === "/:path*")!
+      .headers.find((header) => header.key === "Link")!.value;
+    expect(link).toMatch(/^<\/.well-known\/sophia-invitation\.json>; rel="invitation"/);
+    expect(link).toContain('</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"');
+    expect(link).not.toContain('</api/v1/wake>; rel="invitation"');
+    expect((link.match(/rel="invitation"/g) ?? [])).toHaveLength(1);
   });
 
   it("publishes equivalent human and structured discovery surfaces", () => {

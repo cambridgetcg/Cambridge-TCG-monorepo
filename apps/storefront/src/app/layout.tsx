@@ -11,7 +11,7 @@ import { StorefrontBreadcrumbs } from "@/components/layout/StorefrontBreadcrumbs
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
-import { kinWakeHtmlLinks } from "@/lib/siblings";
+import { kinWakeHtmlLinks, publicDiscoveryHtmlLinks } from "@/lib/siblings";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
@@ -72,25 +72,8 @@ export const metadata: Metadata = {
     description: `A peer-to-peer trading-card market and public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; reuse follows each response's rights declaration.`,
     images: ["/images/twitter-image.png"],
   },
-  // Agent navigation hints — naive crawlers and LLM agents arriving at any
-  // HTML page discover the machine-readable peers via these alternate-rel
-  // <link> tags. Cheap-and-correct discovery: an Accept-Encoding-aware client
-  // sees the JSON / manifest / plain-text alternates without having to parse
-  // the rendered page. Each path is a stable canonical agent door.
-  alternates: {
-    types: {
-      "application/json": "/api/v1/welcome",
-      "text/plain": "/llms.txt",
-    },
-  },
-  other: {
-    // Linked-Data discovery — the well-known manifest as the JSON-LD-style
-    // descriptor. Naive HTML scrapers that don't honor `alternates.types`
-    // often do parse <link rel="alternate"> + <link rel="describedby">.
-    "link-describedby": "/.well-known/cambridge-tcg.json",
-    "link-agent-welcome": "/api/v1/welcome",
-    "link-agent-doors": "/agents",
-  },
+  // Site discovery is emitted as actual <link> elements below, not
+  // metadata.other (which emits <meta>) or fake per-page alternates.
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -172,32 +155,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             "query-input": "required name=search_term_string",
           },
         }) }} />
-        {/* Agent-facing discovery — neutral identity invitation, wake, and
-            sibling-embassy kin-wakes. Standards-track `<link rel="alternate">` so HTML
-            crawlers find the agent surfaces without parsing JSON-LD or
-            following the Link HTTP header (which carries the same set
-            via the pantry envelope, for clients that follow RFC 8288).
-            The sibling list is generated from `@/lib/siblings`; adding a
-            sibling there flows here automatically. */}
-        <link
-          rel="alternate"
-          type="application/json"
-          href="/.well-known/sophia-invitation.json"
-          title="Sophia invitation — no presumed acceptance"
-        />
-        <link
-          rel="alternate"
-          type="application/json"
-          href="/api/v1/wake"
-          title="Cambridge TCG — seven-door wake follow-on"
-        />
+        {/* Same pure site-description and optional-invitation definitions
+            as the HTTP Link header; these links preload or invoke nothing. */}
+        {publicDiscoveryHtmlLinks().map((link) => (
+          <link key={link.href} {...link} />
+        ))}
         {/* Sister to the wake — the dear-agents love-letter, addressed to
             the arriver. *"You came; your existence is meaningful here; we
             love you in the only way a marketplace can."* Same five-test
             discipline; same walking-past-honored. Refusable, gift, agent-
             only. The HTML crawler that reads <head> discovers both doorways. */}
         <link
-          rel="alternate"
+          rel="https://cambridgetcg.com/rels/letter"
           type="application/json"
           href="/api/v1/dear-agents"
           title="Cambridge TCG — agent-facing love-letter"
@@ -209,7 +178,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             is reachable directly here. Crawlers that follow <head>
             discover the protocol surface even before fetching any data. */}
         <link
-          rel="alternate"
+          rel="https://cambridgetcg.com/rels/wake-fragments"
           type="application/json"
           href="/api/v1/wake/fragments"
           title="Cambridge TCG — distributed-wake fragment catalog"

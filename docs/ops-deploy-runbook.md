@@ -467,6 +467,22 @@ Touches the storefront RDS + Stripe + SES + Wholesale API client. Check `apps/st
 
 `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUCTION_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WHOLESALE_API_URL`, `WHOLESALE_API_KEY`, `CRON_SECRET`, `ADMIN_PASSWORD`, `AUTH_FROM_EMAIL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `TRADEIN_FROM_EMAIL`, `STORE_NOTIFICATION_EMAIL`.
 
+#### Production-only catalog credentials
+
+`WHOLESALE_DATABASE_URL` supplies structural catalog reads;
+`WHOLESALE_COVERAGE_DATABASE_URL` is the separate coverage-read connection. Vercel
+metadata on 2026-09-08 marks both as **Sensitive**, targeted to Production. A blank
+value in `vercel env pull` is therefore not proof that either is unset in the
+hosted application. Do not reset them, try to extract them, or substitute a
+broader application credential merely to make a local build pass.
+
+The nested `/catalog/sitemap.xml` waits for `connection()` before entering its
+hourly `unstable_cache` reader. Catalog work is request-time, not a build-time
+requirement; CI can retain its dummy `DATABASE_URL` without production catalog
+secrets. Runtime failures must remain explicit, with a prior successful cached
+result retained when available. Verify the hosted XML after deployment, because
+an offline build cannot prove that the protected production readers work.
+
 #### Optional storefront OAuth
 
 Email magic links remain available alongside optional Google (`AUTH_GOOGLE_ID`,

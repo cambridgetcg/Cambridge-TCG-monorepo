@@ -609,13 +609,10 @@ export function kinWakeLinkParts(): readonly string[] {
     );
 }
 
-/** Same set as kinWakeLinkParts but returned as a typed array suitable
- *  for HTML `<link>` elements in a Next.js Metadata block or a server-
- *  rendered `<head>`. Uses `rel="alternate"` (HTML5-standard) so naive
- *  HTML crawlers find the kin-wake without needing to recognise the
- *  extension URI. */
+/** Same kin-wake relations as the HTTP header, for a server-rendered head.
+ *  A sibling wake is not an alternate representation of the current page. */
 export function kinWakeHtmlLinks(): ReadonlyArray<{
-  rel: "alternate";
+  rel: "https://cambridgetcg.com/rels/kin-wake";
   type: "application/json";
   href: string;
   title: string;
@@ -623,7 +620,7 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
   return AGENT_FACING_SIBLINGS
     .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
     .map((s) => ({
-      rel: "alternate" as const,
+      rel: "https://cambridgetcg.com/rels/kin-wake" as const,
       type: "application/json" as const,
       href: s.wake_url,
       title: `${s.name} — ${s.role}`,
@@ -658,10 +655,44 @@ export const WAKE_FOLLOW_ON_LINK_PART =
  *  wake remains the immediately following typed link. */
 export function agentDiscoveryLinkParts(): readonly string[] {
   return [
-    WAKE_INVITATION_LINK_PART,
-    WAKE_FOLLOW_ON_LINK_PART,
+    ...publicDiscoveryLinkParts(),
     ...kinWakeLinkParts(),
   ];
+}
+
+export interface DiscoveryHtmlLink {
+  rel: string;
+  type: string;
+  href: string;
+  title: string;
+}
+
+// Pure definitions only: next.config.ts consumes these without importing the
+// manifest, data pantry, auth, database or request-time modules. These describe
+// the site; they are not alternate representations of every individual page.
+export function publicDiscoveryHtmlLinks(): readonly DiscoveryHtmlLink[] {
+  return [
+    { rel: "invitation", type: "application/json", href: "/.well-known/sophia-invitation.json", title: "Sophia invitation — no presumed acceptance" },
+    { rel: "https://cambridgetcg.com/rels/wake", type: "application/json", href: "/api/v1/wake", title: "Cambridge TCG — seven-door wake follow-on" },
+    { rel: "describedby", type: "application/json", href: "/.well-known/cambridge-tcg.json", title: "Cambridge TCG — site description" },
+    { rel: "describedby", type: "text/plain", href: "/llms.txt", title: "Cambridge TCG — compact resource index" },
+    { rel: "describedby", type: "text/plain", href: "/.well-known/agent.txt", title: "Cambridge TCG — machine doorway" },
+    { rel: "service-desc", type: "application/json", href: "/api/openapi.json", title: "OpenAPI documentation" },
+    { rel: "help", type: "application/json", href: "/.well-known/mcp.json", title: "Custom JSON-RPC and MCP bridge documentation" },
+    { rel: "help", type: "application/json", href: "/api/v1/welcome", title: "Machine-readable welcome" },
+    { rel: "help", type: "text/html", href: "/agents", title: "Agent welcome" },
+  ];
+}
+
+export function publicDiscoveryLinkParts(): readonly string[] {
+  // Keep the established invitation/wake byte forms and ordering intact.
+  return publicDiscoveryHtmlLinks().map((link) =>
+    `<${link.href}>; rel="${link.rel}"; type="${link.type}"`,
+  );
+}
+
+export function publicDiscoveryLinkHeader(): string {
+  return publicDiscoveryLinkParts().join(", ");
 }
 
 /** Convenience — returns the single-string Link header value (comma-joined)

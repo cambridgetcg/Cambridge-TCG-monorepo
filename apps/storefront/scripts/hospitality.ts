@@ -35,9 +35,10 @@
  * or chained from `pnpm audit`.
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildLlmsText } from "../src/lib/public-discovery";
 
 const ADMIN_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = resolve(ADMIN_DIR, "..", "..");
@@ -120,17 +121,6 @@ function routeFileExists(routePath: string): boolean {
 function manifestText(): string {
   try {
     return readFileSync(resolve(STOREFRONT_SRC, "lib", "manifest.ts"), "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function llmsText(): string {
-  try {
-    return readFileSync(
-      resolve(STOREFRONT_SRC, "app", "llms.txt", "route.ts"),
-      "utf8",
-    );
   } catch {
     return "";
   }
@@ -251,7 +241,8 @@ async function main(): Promise<void> {
   }
 
   // ── Check 8: llms.txt mentions key hospitality URLs ──────────────
-  const llms = llmsText();
+  // Inspect the same rendered index the route serves, not implementation text.
+  const llms = buildLlmsText();
   const llmsRequired = ["/api/v1/welcome", "/api/v1/guides"];
   for (const path of llmsRequired) {
     if (!llms.includes(path)) {

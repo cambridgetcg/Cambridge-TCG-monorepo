@@ -27,6 +27,12 @@ const guides = [
       "The inspector's guide — white spots, centering, the marketplaces' condition ladders and the grading houses' published standards, with dated evidence of what each defect does to price.",
   },
   {
+    href: "/guides/condition/checklist",
+    title: "Condition checklist & border ratios",
+    blurb:
+      "A printable manual inspection worksheet for surfaces, edges, corners and disclosure notes, with separate centering ratios. No automatic tier or grade; entries stay in page memory.",
+  },
+  {
     href: "/guides/from-japan",
     title: "Ordering from Japan",
     blurb:

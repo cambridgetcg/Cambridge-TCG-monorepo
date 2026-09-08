@@ -1,0 +1,105 @@
+.page {
+  overflow-wrap: anywhere;
+}
+
+.page :is(input, textarea, select, button, a):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* Match screen entries and their print mirrors. Load the existing CJK face
+   while entries are visible, rather than first requesting glyphs during print. */
+.page :is(input, textarea),
+.printValue {
+  font-family: var(--font-schibsted), var(--font-noto-serif-jp), system-ui, sans-serif;
+}
+
+.printValue {
+  display: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diagram {
+  width: 100%;
+  max-width: 20rem;
+  height: auto;
+  color: var(--color-ink);
+}
+
+:global(body.text-mode) .diagram {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  .page :is(input, textarea, select, button) {
+    border: 1px solid ButtonText;
+  }
+}
+
+@media print {
+  /* Remove only chrome outside this mounted page, not its layout ancestors.
+     The :has guard prevents this route's CSS affecting later navigations. */
+  :global(body):has(.page) *:not(:has(.page)):not(.page):not(.page *) {
+    display: none !important;
+  }
+
+  :global(body):has(.page),
+  .page {
+    --color-page: white;
+    --color-surface: white;
+    --color-surface-subtle: white;
+    --color-ink: black;
+    --color-ink-muted: black;
+    --color-ink-faint: black;
+    --color-accent: black;
+    --color-border-subtle: #777;
+    color: black !important;
+    background: white !important;
+  }
+
+  .page {
+    max-width: none;
+    padding: 0;
+    font-size: 10pt;
+  }
+
+  .page *, .page *::before, .page *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+  }
+
+  .screenOnly,
+  .page :is(input, textarea, select, button),
+  .diagram {
+    display: none !important;
+  }
+
+  .printValue {
+    display: block !important;
+    min-height: 1.5em;
+    margin-block: 0.25rem;
+  }
+
+  .checkValue {
+    display: inline !important;
+  }
+
+  .page fieldset {
+    min-width: 0;
+  }
+
+  .page legend, .page h2, .page h3 {
+    break-after: avoid;
+  }
+
+  .page label {
+    break-after: avoid;
+  }
+
+  .page a {
+    color: black;
+    text-decoration: none;
+  }
+}

@@ -116,6 +116,7 @@ Disallow: /login/
 
 # ── Sitemap pointer ──
 Sitemap: https://cambridgetcg.com/sitemap.xml
+Sitemap: https://cambridgetcg.com/catalog/sitemap.xml
 `;
 
 export async function GET(): Promise<Response> {

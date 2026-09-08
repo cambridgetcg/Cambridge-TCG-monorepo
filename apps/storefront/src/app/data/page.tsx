@@ -49,6 +49,14 @@ interface Endpoint {
 
 const ENDPOINTS: Endpoint[] = [
   {
+    path: "/api/v1/identifiers/validate",
+    title: "Card identifier syntax validator",
+    blurb: "POST one bounded {identifier:string}. Public, stateless syntax validation and explicit legacy-normalization suggestions; no catalog lookup, authentication, upstream call or stored submission. Syntax does not prove a card or printing exists. Human tool: /standards/validator.",
+    status: "shipped",
+    auth: "none",
+    shape: "POST JSON (1 KiB body, 256-character identifier) → no-store pantry envelope",
+  },
+  {
     path: "/api/v1/member-prices",
     title: "Free member price feed",
     blurb: "Source-reviewed current/history observations with native currency, named metrics, timestamps and cursor pagination. Requires a read-only member data key from /account/data. Cardmarket official-file projections are eligible; Scryfall is view-only. Empty or unavailable responses do not claim a collector has run.",

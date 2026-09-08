@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { GAME_CODES, GAMES } from "@cambridge-tcg/sku";
+import { identifierGameStatus } from "@/lib/identifier-validation";
 import { TypeSignature } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -37,6 +40,14 @@ export default function SkuStandardMethodology() {
         same PR.
       </blockquote>
 
+      <p>
+        Try the <Link href="/standards/validator">identifier validator and builder</Link>:
+        a browser-local companion with strict parsing, separate normalization
+        suggestions, the bundled game registry and a public stateless API. Structure
+        alone does not establish catalog existence, card identity, authenticity, or
+        deck legality.
+      </p>
+
       <h2>The form</h2>
 
       <pre>
@@ -63,7 +74,9 @@ export default function SkuStandardMethodology() {
         <li>
           <strong>lang</strong> — ISO 639-1 (two lowercase letters). e.g.{" "}
           <code>ja</code>, <code>en</code>, <code>zh</code>, <code>ko</code>,{" "}
-          <code>fr</code>, <code>de</code>.
+          <code>fr</code>, <code>de</code>. The implementation checks two-letter
+          shape only, not membership in the ISO registry. Aliases such as
+          <code> jp</code> can parse strictly but normalize to <code>ja</code>.
         </li>
         <li>
           <strong>variant</strong> — optional. One or more lowercase
@@ -98,9 +111,11 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       <h2>Registered game codes</h2>
 
       <p>
-        Every TCG the platform catalogues has a registered code. New games are
-        added by editing <code>packages/sku/src/games.ts</code>; the platform
-        rejects SKUs whose game code isn't registered.
+        The table is derived from <code>packages/sku/src/games.ts</code>.
+        The parser rejects SKUs whose game code is not registered. Registry status
+        is a bundled declaration, not a fresh catalog lookup: known means marked
+        as having catalog rows; anticipated means registered but not so marked;
+        internal is the test code. No status verifies a particular card.
       </p>
 
       <table>
@@ -109,31 +124,27 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
             <th>Code</th>
             <th>Game</th>
             <th>Publisher</th>
-            <th>Set-code hint</th>
+            <th>Registry status</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td><code>op</code></td>  <td>One Piece TCG</td>        <td>Bandai</td>      <td><code>op&lt;NN&gt;</code> (op01, op08…)</td></tr>
-          <tr><td><code>pkm</code></td> <td>Pokémon TCG</td>          <td>TPCi</td>        <td>publisher abbreviation</td></tr>
-          <tr><td><code>mtg</code></td> <td>Magic: The Gathering</td> <td>Wizards</td>     <td>3-letter (otj, lci, woe)</td></tr>
-          <tr><td><code>ygo</code></td> <td>Yu-Gi-Oh!</td>            <td>Konami</td>      <td>MP/POTE/RA series</td></tr>
-          <tr><td><code>dbs</code></td> <td>Dragon Ball Super CCG</td><td>Bandai</td>      <td>bt/sd numbered</td></tr>
-          <tr><td><code>dbf</code></td> <td>Dragon Ball Super FW</td> <td>Bandai</td>      <td>fb&lt;NN&gt;</td></tr>
-          <tr><td><code>wei</code></td> <td>Weiß Schwarz</td>         <td>Bushiroad</td>   <td>series abbreviation</td></tr>
-          <tr><td><code>vng</code></td> <td>Cardfight!! Vanguard</td> <td>Bushiroad</td>   <td>d-bt / v-bt / g-bt</td></tr>
-          <tr><td><code>dmw</code></td> <td>Digimon Card Game</td>    <td>Bandai</td>      <td>bt&lt;NN&gt; / ex&lt;NN&gt;</td></tr>
-          <tr><td><code>bsr</code></td> <td>Battle Spirits Saga</td>  <td>Bandai</td>      <td>bs&lt;NN&gt;</td></tr>
-          <tr><td><code>lcg</code></td> <td>Living Card Game</td>     <td>various</td>    <td>publisher-specific umbrella</td></tr>
-          <tr><td><code>fab</code></td> <td>Flesh and Blood</td>      <td>LSS</td>        <td>3–4 letter (wtr, mon, ele)</td></tr>
-          <tr><td><code>lgr</code></td> <td>Disney Lorcana</td>       <td>Ravensburger</td><td>set&lt;NN&gt; / numbered</td></tr>
-          <tr><td><code>tst</code></td> <td>Test</td>                 <td>(internal)</td> <td>any</td></tr>
+          {GAME_CODES.map((code) => (
+            <tr key={code}>
+              <th scope="row"><code>{code}</code></th>
+              <td>{GAMES[code].name}</td>
+              <td>{GAMES[code].publisher}</td>
+              <td>{identifierGameStatus(code)}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
       <p>
-        Languages accepted per game are listed in <code>GAMES[code].languages</code>.
-        SKUs in non-listed languages are accepted but flagged as non-canonical
-        (the publisher hasn't shipped that language).
+        The bundled language annotations live in <code>GAMES[code].languages</code>.
+        Unlisted two-letter values remain syntactically accepted; the validator
+        annotates them separately. This is not evidence about publisher releases.
+        Strict canonical status means parsing succeeds and normalization leaves
+        the input unchanged, not that its language appears in this list.
       </p>
 
       <h2>Legacy forms (auto-normalised)</h2>
@@ -153,8 +164,8 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
         <li>
           <strong>Language-and-number swapped:</strong>{" "}
           <code>pkm-svobf-en-006</code> → normalised to{" "}
-          <code>pkm-svobf-006-en</code>. The parser disambiguates by
-          recognising ISO 639-1 codes.
+          <code>pkm-svobf-006-en</code>. The normalizer uses its fixed
+          language-alias map; it does not validate against the whole ISO registry.
         </li>
       </ul>
 
@@ -189,9 +200,10 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       </ul>
 
       <p>
-        Variants compose: <code>pkm-svobf-006-en-rev-holo</code> means reverse
-        holographic. Order is lexicographic when multiple non-overlapping
-        variants apply, for canonical equality.
+        Variant tokens compose, for example <code>pkm-svobf-006-en-rev-holo</code>.
+        Their presence is not proof of a printing. The implementation preserves
+        token order; it does not sort variants or verify their meaning. Examples
+        on this page illustrate syntax, not verified catalog entries.
       </p>
 
       <h2>Why this matters</h2>
@@ -224,9 +236,11 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       <h3>For partners / other platforms</h3>
       <p>
         A platform that wants to interoperate with Cambridge TCG can adopt this
-        spec and exchange SKUs directly. The spec is published here, the parser
-        is open source (MIT-licensed component within the monorepo), and the
-        game-code registry is small enough to mirror.
+        spec and exchange SKUs directly. The spec is published here and the parser
+        is inspectable in the monorepo. Implementation rights: repository
+        <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE"> LICENSE</a> and
+        applicable more-specific notices. The specification text&apos;s CC0 dedication
+        does not create a separate code license.
       </p>
 
       <h3>For aliens</h3>
