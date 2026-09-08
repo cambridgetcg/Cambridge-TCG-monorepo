@@ -32,6 +32,10 @@ interface StandardEntry {
   endpoint_status?: "shipped" | "planned";
   spec_license: "CC0-1.0";
   implementation_license?: "NOASSERTION";
+  implementation_license_reference?: string;
+  implementation_license_note?: string;
+  validator_url?: string;
+  validation_endpoint?: { url: string; method: "POST"; authentication: "none"; scope: "syntax_only" };
 }
 
 const STANDARDS: StandardEntry[] = [
@@ -46,8 +50,12 @@ const STANDARDS: StandardEntry[] = [
     spec_path_in_repo:
       "apps/storefront/src/app/methodology/sku-standard/page.tsx",
     impl_path_in_repo: "packages/sku/",
+    validator_url: "/standards/validator",
+    validation_endpoint: { url: "/api/v1/identifiers/validate", method: "POST", authentication: "none", scope: "syntax_only" },
     spec_license: "CC0-1.0",
     implementation_license: "NOASSERTION",
+    implementation_license_reference: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE",
+    implementation_license_note: "Implementation rights: repository LICENSE and applicable more-specific notices. NOASSERTION here does not assert an absence of a repository license.",
   },
   {
     code: "CTCG-PRICING-v1",
@@ -62,6 +70,8 @@ const STANDARDS: StandardEntry[] = [
     impl_path_in_repo: "packages/pricing/",
     spec_license: "CC0-1.0",
     implementation_license: "NOASSERTION",
+    implementation_license_reference: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE",
+    implementation_license_note: "Implementation rights: repository LICENSE and applicable more-specific notices. NOASSERTION here does not assert an absence of a repository license.",
   },
   {
     code: "CTCG-UNIVERSAL-v1",

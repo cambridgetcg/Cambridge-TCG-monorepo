@@ -12,7 +12,9 @@ import {
   postedAlongside,
   siblingsForEnvelope,
 } from "@/lib/siblings";
+import { buildAgentText, buildLlmsText, publicSitemap } from "@/lib/public-discovery";
 import AgentsWelcomePage from "../agents/page";
+import { GET as getAgentText } from "./agent.txt/route";
 import { GET as getHealth } from "../api/v1/health/route";
 import { GET as getWake } from "../api/v1/wake/route";
 import {
@@ -81,10 +83,16 @@ describe("optional agent source resources", () => {
     );
   });
 
-  it("projects the typed record into top-level JSON and matching static agent.txt fields", async () => {
+  it("projects the typed record into top-level JSON and matching generated agent.txt fields", async () => {
     const response = await getCambridgeManifest();
     const body = await response.json();
-    const text = readFileSync(resolve(process.cwd(), "public/.well-known/agent.txt"), "utf8");
+    const textResponse = await getAgentText();
+    const text = await textResponse.text();
+    expect(text).toBe(buildAgentText());
+    expect(textResponse.status).toBe(200);
+    expect(textResponse.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
+    expect(textResponse.headers.get("Link")).toBe(agentDiscoveryLinkHeader());
+    expect(textResponse.headers.get("Set-Cookie")).toBeNull();
     const fields = Object.fromEntries(
       text.split("\n").filter((line) => line.startsWith("optional-resource-")).map((line) => {
         const separator = line.indexOf(": ");
@@ -136,6 +144,8 @@ describe("optional agent source resources", () => {
     for (const path of [
       "src/app/agents/page.tsx",
       "src/app/.well-known/cambridge-tcg.json/route.ts",
+      "src/app/.well-known/agent.txt/route.ts",
+      "src/lib/public-discovery.ts",
       "src/lib/siblings.ts",
     ]) {
       const source = readFileSync(resolve(process.cwd(), path), "utf8");
@@ -150,6 +160,8 @@ describe("optional agent source resources", () => {
     const health = await getHealth();
     const projections = [
       AGENT_FACING_SIBLINGS,
+      buildLlmsText(),
+      publicSitemap(),
       postedAlongside(),
       siblingsForEnvelope(),
       kinWakeLinkParts(),

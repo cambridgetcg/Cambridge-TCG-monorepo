@@ -4,5 +4,12 @@
   "url": "/methodology/sku-standard",
   "kind": "methodology-sidecar",
   "summary_url": "/methodology/sku-standard/summary.md",
+  "validator_url": "/standards/validator",
+  "validation_endpoint": {
+    "url": "/api/v1/identifiers/validate",
+    "method": "POST",
+    "authentication": "none",
+    "scope": "syntax_only"
+  },
   "status": "stub"
 }

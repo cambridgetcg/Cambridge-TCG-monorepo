@@ -199,6 +199,7 @@ const prismPostures = [
 describe("deploy verifier response contracts", () => {
   it("names every deliberate non-2xx or posture-dependent route", () => {
     expect(Object.keys(DELIBERATE_CONTRACTS)).toEqual([
+      "/api/v1/identifiers/validate",
       "/api/v1/coffee",
       "/api/v1/buy-the-kingdom",
       "/data/catalog.jsonl",

@@ -10,6 +10,7 @@ import {
 } from "./admission";
 import { sendVerificationRequest } from "./email";
 import { createGitHubProvider } from "./github";
+import { recordGitHubVerificationEvent } from "./verification-observer";
 import { query } from "@/lib/db";
 import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
 // Single source of truth for the session-cookie name. proxy.ts reads
@@ -115,6 +116,9 @@ export const authConfig: NextAuthConfig = {
     // no-op for everyone else, and a lost race with a concurrent login
     // just leaves the winner's handle in place.
     async signIn({ user }) {
+      // This observes Auth.js's completed sign-in event only; it does not claim
+      // a verified journey or prove that a browser session was subsequently used.
+      recordGitHubVerificationEvent("authjs_signin_completed");
       const u = user as { id?: string; username?: string | null };
       if (!u.id || u.username) return;
       for (let attempt = 1; attempt <= HANDLE_MAX_ATTEMPTS + 1; attempt++) {

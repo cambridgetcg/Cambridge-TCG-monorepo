@@ -23,7 +23,7 @@ import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
 export const metadata: Metadata = {
   title: "Cambridge TCG Standards — the data distributor",
   description:
-    "Cambridge TCG maintains three CC0 specification texts for the TCG economy: CTCG-SKU-v1, CTCG-PRICING-v1, and CTCG-UNIVERSAL-v1. Implementation code has separate rights and no general code license is implied.",
+    "Cambridge TCG maintains three CC0 specification texts for the TCG economy: CTCG-SKU-v1, CTCG-PRICING-v1, and CTCG-UNIVERSAL-v1. Implementation rights follow the repository LICENSE and applicable more-specific notices.",
   other: audienceMetadata("public-documentation", ["standards", "distributor", "spec"]),
 };
 
@@ -104,8 +104,9 @@ export default function StandardsPage() {
       <p className="text-lg">
         Cambridge TCG maintains <strong>three CC0 specification texts</strong> for
         the TCG economy. You may adopt those texts without attribution. Linked
-        implementation source is publicly inspectable, but the repository has no
-        general code license; the specification dedication does not license code.
+        implementation source is publicly inspectable. Implementation rights:
+        repository <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE">LICENSE</a> and
+        applicable more-specific notices; the specification dedication does not license code.
       </p>
 
       <p>
@@ -122,6 +123,15 @@ export default function StandardsPage() {
       </p>
 
       <hr />
+
+      <h2>Check an identifier</h2>
+      <p>
+        The <Link href="/standards/validator">identifier validator and builder</Link> checks
+        SKU structure in your browser, separates normalization suggestions from strict
+        parsing, and includes the bundled game registry. It does not verify catalog
+        existence, card identity, authenticity, or deck legality. A public stateless
+        <code> POST /api/v1/identifiers/validate</code> is documented there for API callers.
+      </p>
 
       <h2>The standards</h2>
 
@@ -207,8 +217,9 @@ export default function StandardsPage() {
         </li>
         <li>
           <strong>Implement</strong> in your language of choice, or import the
-          CC0 specification text. The linked TypeScript package is inspectable,
-          but it has no general code reuse license and is not a public npm grant.
+          CC0 specification text. For the linked TypeScript package, consult the
+          repository LICENSE and applicable more-specific notices; the CC0
+          specification dedication is not a code or npm publication grant.
         </li>
         <li>
           <strong>Emit</strong> canonical SKUs (lowercase, hyphen-separated,
@@ -248,8 +259,9 @@ export default function StandardsPage() {
       <ul>
         <li>
           <strong>npm packages</strong> — reference implementations are
-          publicly inspectable in the monorepo but are not npm-published and
-          carry no general code reuse license. A possible future path is{" "}
+          publicly inspectable in the monorepo but are not npm-published.
+          Implementation rights follow the repository LICENSE and applicable
+          more-specific notices. A possible future path is{" "}
           <code>@cambridge-tcg/sku-spec</code>, <code>@cambridge-tcg/pricing-spec</code>.
         </li>
         <li>
@@ -283,11 +295,10 @@ export default function StandardsPage() {
       </p>
 
       <p>
-        Reference implementation code is publicly visible but currently carries
-        no general reuse license; future npm releases may carry MIT or equivalent.
-        Platform application code, operational data, trade marks, and visual
-        identity remain Cambridge TCG&apos;s and are not granted by this
-        declaration.
+        Implementation rights: repository <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE">LICENSE</a> and
+        applicable more-specific notices. The specification dedication does not
+        grant rights over implementation code, operational data, trade marks,
+        visual identity, or submitted identifiers.
       </p>
 
       <hr />

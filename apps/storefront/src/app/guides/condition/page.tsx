@@ -163,7 +163,7 @@ export default function ConditionGuidePage() {
   };
 
   return (
-    <main className="min-h-screen bg-page">
+    <main lang="en" className="min-h-screen bg-page">
       <Script
         id="condition-breadcrumb-jsonld"
         type="application/ld+json"
@@ -219,6 +219,25 @@ export default function ConditionGuidePage() {
             <span className="text-ink-muted font-medium">1 August 2026</span>.
             Standards get revised and prices drift — read the live standard
             before you buy, sell, or submit.
+          </div>
+
+          <div className="mt-6 space-y-3 text-sm text-ink-muted">
+            <p>
+              Inspecting a card now? Use the{" "}
+              <Link href="/guides/condition/checklist" className="underline underline-offset-4 text-ink">
+                printable condition checklist and border-ratio calculator
+              </Link>
+              . Manual observations and arithmetic only — no automatic tier or grade.
+            </p>
+            <p id="sources">
+              Primary references: these live publisher pages provide condition and grading context.
+              Adding the links does not re-date the historical checks, quotations or price exhibits above and below.
+            </p>
+            <ul aria-label="Primary condition sources" className="list-disc pl-5 space-y-2">
+              <li><a href="https://www.psacard.com/gradingstandards" className="underline underline-offset-4">PSA grading standards</a> — grading definitions and centering guidance.</li>
+              <li><a href="https://help.tcgplayer.com/hc/en-us/articles/26141121045143-Understanding-Card-Condition-Imperfections-A-Comprehensive-Guide" className="underline underline-offset-4">TCGplayer: Understanding Card Condition Imperfections</a> — the defect vocabulary.</li>
+              <li><a href="https://help.tcgplayer.com/hc/en-us/articles/221430307-Card-Conditioning-Overview" className="underline underline-offset-4">TCGplayer: Card Conditioning Overview</a> — marketplace condition categories.</li>
+            </ul>
           </div>
 
           <nav

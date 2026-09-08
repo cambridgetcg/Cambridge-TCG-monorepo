@@ -72,6 +72,26 @@ const SPEC = {
     { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
   ],
   paths: {
+    "/api/v1/identifiers/validate": {
+      post: {
+        tags: ["identity"],
+        summary: "Validate one card identifier without a catalog lookup",
+        description: "Public stateless companion to /standards/validator. Reuses the existing CTCG SKU parser and normalizer, with no database, upstream request or stored submission. Strict syntax, normalization suggestions and registry annotations are separate from real-card identity, ISO language assignment, printing existence, authenticity and deck legality. Input is not silently replaced and is not dedicated to CC0. Responses are no-store.",
+        operationId: "validateCardIdentifier",
+        security: [],
+        "x-max-request-bytes": 1024,
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/IdentifierValidationRequest" }, example: { identifier: "OP-OP01-001-JP" } } },
+        },
+        responses: {
+          "200": { description: "Pantry envelope whose data is an IdentifierValidationResult. Invalid or unrecognized syntax is a normal validation result, not a server failure.", content: { "application/json": { schema: { allOf: [{ $ref: "#/components/schemas/Envelope" }, { type: "object", properties: { data: { $ref: "#/components/schemas/IdentifierValidationResult" } } }] } } } },
+          "400": { description: "Malformed JSON or an object other than {identifier:string}. No unexpected fields are reflected." },
+          "413": { description: "Body exceeds 1024 bytes or identifier exceeds 256 characters." },
+          "415": { description: "Content-Type must be application/json." },
+        },
+      },
+    },
     "/api/v1/member-prices": {
       get: {
         tags: ["prices"],
@@ -1149,6 +1169,39 @@ const SPEC = {
       },
     },
     schemas: {
+      IdentifierValidationRequest: {
+        type: "object", additionalProperties: false, required: ["identifier"],
+        properties: { identifier: { type: "string", maxLength: 256, "x-max-utf16-code-units": 256, description: "One identifier, bounded to 256 UTF-16 code units; body limit counts UTF-8 bytes. No trimming or silent replacement. Empty input yields an invalid syntax result." } },
+      },
+      IdentifierValidationResult: {
+        type: "object", additionalProperties: false,
+        required: ["identifier", "status", "strict_parse_valid", "normalized_identifier", "parts", "game", "language", "variant_tokens", "annotations", "scope"],
+        properties: {
+          identifier: { type: "string", maxLength: 256 },
+          status: { type: "string", enum: ["strict_canonical", "normalization_suggested", "invalid"] },
+          strict_parse_valid: { type: "boolean", description: "Whether the exact input passes the package parser; this alone does not mean no normalization is suggested." },
+          normalized_identifier: { type: ["string", "null"], description: "Canonical candidate, including an unchanged valid input. A suggestion, not an identity or catalog-existence assertion." },
+          parts: {
+            type: ["object", "null"], additionalProperties: false,
+            required: ["game", "set", "number", "lang", "canonical"],
+            properties: { game: { type: "string" }, set: { type: "string" }, number: { type: "string" }, lang: { type: "string" }, canonical: { type: "string" }, variant: { type: "string" } },
+            description: "Parsed normalized candidate when one exists, rather than silently relabeling the original input.",
+          },
+          game: {
+            type: ["object", "null"], additionalProperties: false, required: ["code", "name", "status"],
+            properties: { code: { type: "string" }, name: { type: "string" }, status: { type: "string", enum: ["known", "anticipated", "internal"] } },
+            description: "Static game-registry annotation, not a live catalog query.",
+          },
+          language: {
+            type: ["object", "null"], additionalProperties: false, required: ["code", "listed_for_game"],
+            properties: { code: { type: "string" }, listed_for_game: { type: "boolean" } },
+            description: "Two-letter syntax and game-list membership are not ISO registry validation.",
+          },
+          variant_tokens: { type: "array", items: { type: "string" } },
+          annotations: { type: "array", items: { type: "string" } },
+          scope: { const: "syntax_only" },
+        },
+      },
       CardBatchRequest: {
         type: "object",
         additionalProperties: false,

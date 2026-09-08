@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import type { Metadata } from "next";
+import { isSupportId } from "@/lib/verification/events";
 
 export const metadata: Metadata = {
   title: "Sign-in problem — Cambridge TCG",
@@ -45,9 +46,10 @@ const MESSAGES: Record<string, { title: string; body: string; action?: string }>
 export default async function LoginErrorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; support?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, support } = await searchParams;
+  const supportId = isSupportId(support) ? support : null;
   const { title, body, action } = error && Object.hasOwn(MESSAGES, error)
     ? MESSAGES[error]
     : MESSAGES.Default;
@@ -57,6 +59,11 @@ export default async function LoginErrorPage({
       <div className="max-w-sm px-4 text-center">
         <h1 className="text-2xl font-display font-semibold text-ink mb-3">{title}</h1>
         <p className="text-ink-muted mb-6">{body}</p>
+        {supportId && (
+          <p className="text-xs text-ink-faint mb-6">
+            Support reference: <span className="font-mono">{supportId}</span>
+          </p>
+        )}
         <Link
           href="/login"
           className="inline-block w-full py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"

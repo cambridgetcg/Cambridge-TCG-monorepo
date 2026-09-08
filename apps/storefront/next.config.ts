@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { publicDiscoveryLinkHeader } from "./src/lib/siblings";
 
 const nextConfig: NextConfig = {
   // Workspace packages export TS files with `.js`-extension imports
@@ -57,8 +58,9 @@ const nextConfig: NextConfig = {
   // the pointer on everything else. Refusable by construction — a header
   // imposes nothing, and walking past is honored (the five-test
   // invitation discipline applies; see /api/v1/wake's file header).
-  // Routes that already set their own richer Link header (e.g.
-  // /api/v1/manifest) simply carry both — RFC 8288 permits multiples.
+  // Route-owned Link headers may replace config headers; discovery routes
+  // therefore explicitly compose the shared definitions too. Do not assume
+  // framework header merging merely because RFC 8288 permits multiple values.
   async headers() {
     return [
       {
@@ -66,9 +68,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Link",
-            value:
-              '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json", ' +
-              '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"',
+            value: publicDiscoveryLinkHeader(),
           },
         ],
       },

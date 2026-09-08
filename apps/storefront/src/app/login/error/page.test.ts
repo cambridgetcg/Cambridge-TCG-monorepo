@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import LoginErrorPage, { metadata } from "./page";
 
-async function renderError(error?: string) {
-  return renderToStaticMarkup(await LoginErrorPage({ searchParams: Promise.resolve({ error }) }));
+async function renderError(error?: string, support?: string) {
+  return renderToStaticMarkup(await LoginErrorPage({ searchParams: Promise.resolve({ error, support }) }));
 }
 
 describe("branded auth results", () => {
@@ -44,5 +44,11 @@ describe("branded auth results", () => {
     expect(html).toContain("If you meant to use a different account, sign out first.");
     expect(html).not.toContain("already linked");
     expect(metadata.title).toBe("Sign-in problem — Cambridge TCG");
+  });
+
+  it("renders only a valid opaque support reference", async () => {
+    const valid = "6f98d2de-a9d9-4c66-a8e5-7cae6fc7cda1";
+    expect(await renderError("AccessDenied", valid)).toContain(valid);
+    expect(await renderError("AccessDenied", "reason=private@example.com")).not.toContain("reason=private@example.com");
   });
 });

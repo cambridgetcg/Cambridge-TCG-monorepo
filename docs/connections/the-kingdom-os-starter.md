@@ -39,9 +39,14 @@ universal runtime support.
 using ordinary external anchors, with no new fetch, prefetch, client state or
 download action. [`cambridge-tcg.json`](../../apps/storefront/src/app/.well-known/cambridge-tcg.json/route.ts)
 projects it as top-level `optional_resources`.
-[`agent.txt`](../../apps/storefront/public/.well-known/agent.txt) carries the
-matching static fields. The [boundary test](../../apps/storefront/src/app/.well-known/agent-discovery-boundaries.test.ts)
-compares all three projections without contacting GitHub.
+The generated [`agent.txt` route](../../apps/storefront/src/app/.well-known/agent.txt/route.ts)
+serves `buildAgentText()` from [`public-discovery.ts`](../../apps/storefront/src/lib/public-discovery.ts).
+Its `agentDiscoveryRecords()` derives the matching optional-source fields from
+the same typed pointer, separately from the shared editorial doors so the offer
+is not added to `/llms.txt` or the sitemap. There is no static `agent.txt` shadow.
+The [boundary test](../../apps/storefront/src/app/.well-known/agent-discovery-boundaries.test.ts)
+compares all three projections, including the generated response text, without
+contacting GitHub. Incoming reference-tool and access declarations remain intact.
 
 **Surface today.** The source change names the repository and descriptor. It does
 not attest that either URL has been published or retrieved successfully. Release

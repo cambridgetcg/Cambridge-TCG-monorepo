@@ -106,6 +106,11 @@ function prismPagePostureContract(
 export const DELIBERATE_CONTRACTS: Readonly<
   Record<string, DeliberateContractDeclaration>
 > = {
+  "/api/v1/identifiers/validate": {
+    status: 415,
+    bodyIncludes: ['"code":"unsupported_media_type"'],
+    cacheControlIncludes: ["no-store"],
+  },
   "/api/v1/coffee": {
     status: 418,
     bodyIncludes: ['"@kind":"wrong-brew"', '"walking_past_is_honored":true'],

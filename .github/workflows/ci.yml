@@ -103,6 +103,10 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter cambridgetcg-storefront exec tsc --noEmit
+      # The local credential-verification fixtures exercise real Chromium.
+      # Installing binaries/system libraries does not provide provider credentials.
+      - name: Install Chromium for local browser fixtures
+        run: pnpm --filter cambridgetcg-storefront exec playwright install --with-deps chromium
       - run: pnpm --filter cambridgetcg-storefront test
       - name: Run PostgreSQL product-flow, PRISM Stripe, and operator conformance
         run: >-

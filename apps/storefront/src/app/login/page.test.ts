@@ -23,4 +23,13 @@ describe("login account-enumeration boundary", () => {
     expect(page).not.toContain("Sign-in requests always receive the same confirmation");
     expect(page).not.toContain("One will be created automatically");
   });
+
+  it("renders an opaque support reference only after pure UUID validation", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/app/login/page.tsx"), "utf8");
+
+    expect(page).toContain('import { isSupportId } from "@/lib/verification/events"');
+    expect(page).toContain('isSupportId(params.get("support"))');
+    expect(page).toContain("Support reference:");
+    expect(page).not.toContain("verification-observer");
+  });
 });

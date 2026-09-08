@@ -34,6 +34,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildLlmsText } from "../src/lib/public-discovery";
 
 const ADMIN_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = resolve(ADMIN_DIR, "..", "..");
@@ -199,11 +200,13 @@ interface DiscoveryProbe {
   file: string;
   needles: string[];
   description: string;
+  render?: () => string;
 }
 
 const DISCOVERY_PROBES: DiscoveryProbe[] = [
   {
-    file: "apps/storefront/src/app/llms.txt/route.ts",
+    file: "/llms.txt (generated index)",
+    render: buildLlmsText,
     needles: ["Math language", "/api/lang-mode"],
     description:
       "/llms.txt should mention the math-language toggle so agents discover it.",
@@ -235,8 +238,9 @@ const DISCOVERY_PROBES: DiscoveryProbe[] = [
 ];
 
 for (const probe of DISCOVERY_PROBES) {
-  const body = read(probe.file);
-  if (!body) continue;
+  // Generated routes are checked as served text, not as their TS wrappers.
+  const body = probe.render ? probe.render() : read(probe.file);
+  if (body === null) continue;
   for (const needle of probe.needles) {
     if (!body.includes(needle)) {
       findings.push({

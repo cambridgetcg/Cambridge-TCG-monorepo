@@ -34,6 +34,16 @@ vi.mock("./adapter", () => ({
 
 import { createGitHubProvider } from "./github";
 import { createAdmissionSignInCallback, getGitHubSessionUserId } from "./admission";
+import {
+  addGitHubVerificationHeaders,
+  addSupportIdToGitHubFailureRedirect,
+  recordAuthJsErrorType,
+  recordGitHubVerificationEvent,
+  withGitHubVerificationAttempt,
+  type VerificationAttemptSummary,
+  type VerificationObserver,
+} from "./verification-observer";
+import { AUTH_COMPLETION_HEADER, AUTH_COMPLETION_OBSERVED } from "@/lib/verification/events";
 
 const ORIGIN = "http://localhost:3001";
 const DESTINATION = `${ORIGIN}/account/collection?view=grid`;
@@ -49,6 +59,40 @@ function addUser(id: string, email: string) {
   const user: AdapterUser = { id, email, emailVerified: new Date(), name: id, image: null };
   users.set(id, user);
   return user;
+}
+
+function summaryObserver(summaries: VerificationAttemptSummary[]): VerificationObserver {
+  return {
+    record: () => undefined,
+    currentSupportId: () => null,
+    emit: (summary) => summaries.push(summary),
+  };
+}
+
+async function observeCoreCallback(
+  request: Request,
+  handle: (request: Request) => Promise<Response>,
+  observer: VerificationObserver,
+): Promise<Response> {
+  return withGitHubVerificationAttempt("callback", async () => {
+    const response = await handle(request);
+    const location = response.headers.get("location");
+    try {
+      const redirect = location ? new URL(location, request.url) : null;
+      const errorType = redirect && (redirect.pathname === "/login" || redirect.pathname === "/login/error")
+        ? redirect.searchParams.get("error")
+        : null;
+      if (errorType) recordAuthJsErrorType(errorType);
+      else if (redirect) recordGitHubVerificationEvent("response_observed");
+      else recordAuthJsErrorType(undefined);
+    } catch {
+      recordAuthJsErrorType(undefined);
+    }
+    return addSupportIdToGitHubFailureRedirect(
+      request,
+      addGitHubVerificationHeaders(response, { includeSupportId: true }),
+    );
+  }, observer);
 }
 
 beforeEach(() => {
@@ -98,7 +142,13 @@ afterEach(() => {
 // Exercise the public Auth.js handlers: CSRF -> sign-in -> state/PKCE cookies ->
 // OAuth callback -> provider mapping -> admission -> adapter. Only HTTP to GitHub
 // and database storage are mocked; callback ordering and account linking are real.
-async function roundTrip(options: { sessionToken?: string; state?: string; error?: string; omitPkceCookie?: boolean } = {}) {
+async function roundTrip(options: {
+  sessionToken?: string;
+  state?: string;
+  error?: string;
+  omitPkceCookie?: boolean;
+  observer?: VerificationObserver;
+} = {}) {
   const provider = createGitHubProvider({ AUTH_GITHUB_ID: "test-client", AUTH_GITHUB_SECRET: "test-secret" });
   if (!provider) throw new Error("Test GitHub provider was not configured");
   const config: NextAuthConfig = {
@@ -110,6 +160,7 @@ async function roundTrip(options: { sessionToken?: string; state?: string; error
     useSecureCookies: false,
     session: { strategy: "database", maxAge: 30 * 24 * 60 * 60 },
     pages: { signIn: "/login", error: "/login/error" },
+    events: { signIn: () => recordGitHubVerificationEvent("authjs_signin_completed") },
     logger: { error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
   };
   const handle = (request: Request) => Auth(request, {
@@ -147,8 +198,12 @@ async function roundTrip(options: { sessionToken?: string; state?: string; error
   const params = new URLSearchParams({ code: "test-code", state: options.state ?? authorization.searchParams.get("state")! });
   if (options.error) params.set("error", options.error);
   if (options.omitPkceCookie) cookies.delete("authjs.pkce.code_verifier");
-  const response = await handlers.GET(new Request(`${ORIGIN}/api/auth/callback/github?${params}`, { headers: { cookie: cookieHeader() } }));
-  return response;
+  const callbackRequest = new Request(`${ORIGIN}/api/auth/callback/github?${params}`, {
+    headers: { cookie: cookieHeader() },
+  });
+  return options.observer
+    ? observeCoreCallback(callbackRequest, handlers.GET, options.observer)
+    : handlers.GET(callbackRequest);
 }
 
 function expectNoWrites() {
@@ -241,6 +296,72 @@ describe("GitHub through the installed Auth.js callback", () => {
     sessions.set("other-session", { sessionToken: "other-session", userId: "other", expires: new Date(Date.now() + 60_000) });
     const response = await roundTrip({ sessionToken: "other-session" });
     expect(response.headers.get("location")).toBe(`${ORIGIN}/login?error=OAuthAccountNotLinked`);
+    expectNoWrites();
+  });
+
+  it("marks the actual Auth.js sign-in milestone without claiming a browser journey", async () => {
+    addUser("existing", "existing@example.com");
+    const summaries: VerificationAttemptSummary[] = [];
+    const response = await roundTrip({ observer: summaryObserver(summaries) });
+    expect(response.headers.get("location")).toBe(DESTINATION);
+    expect(response.headers.get(AUTH_COMPLETION_HEADER)).toBe(AUTH_COMPLETION_OBSERVED);
+    expect(summaries[0].events).toContainEqual({ code: "authjs_signin_completed" });
+    expect(JSON.stringify(summaries)).not.toContain("journey_verified");
+  });
+
+  it.each([
+    {
+      errorType: "AccessDenied",
+      category: "access_denied",
+      stageCode: "first_link_session_target_mismatch",
+      arrange: () => {
+        addUser("session-user", "a@example.com");
+        addUser("email-user", "existing@example.com");
+        sessions.set("current-session", {
+          sessionToken: "current-session",
+          userId: "session-user",
+          expires: new Date(Date.now() + 60_000),
+        });
+        return "current-session";
+      },
+    },
+    {
+      errorType: "OAuthAccountNotLinked",
+      category: "oauth_account_not_linked",
+      stageCode: "established_link",
+      arrange: () => {
+        addUser("original", "old@example.com");
+        addUser("other", "existing@example.com");
+        accounts.push({ provider: "github", providerAccountId: "12345", type: "oauth", userId: "original" });
+        sessions.set("other-session", {
+          sessionToken: "other-session",
+          userId: "other",
+          expires: new Date(Date.now() + 60_000),
+        });
+        return "other-session";
+      },
+    },
+  ])("keeps immutable Auth.js $errorType redirects diagnosable", async ({ errorType, category, stageCode, arrange }) => {
+    const summaries: VerificationAttemptSummary[] = [];
+    const response = await roundTrip({
+      sessionToken: arrange(),
+      observer: summaryObserver(summaries),
+    });
+
+    const supportId = response.headers.get("x-ctcg-auth-attempt");
+    const destination = new URL(response.headers.get("location")!);
+    expect(destination.searchParams.get("error")).toBe(errorType);
+    expect(response.headers.get(AUTH_COMPLETION_HEADER)).toBeNull();
+    expect(destination.searchParams.get("support")).toBe(supportId);
+    expect(supportId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].support_id).toBe(supportId);
+    expect(summaries[0].events).toContainEqual({ code: "authjs_denial", category });
+    expect(summaries[0].events).toContainEqual({ code: stageCode });
+    const diagnostic = JSON.stringify(summaries[0]);
+    for (const privateValue of ["a@example.com", "existing@example.com", "old@example.com", "session-user", "email-user", "current-session", "other-session", "test-access-token", "test-refresh-token"]) {
+      expect(diagnostic).not.toContain(privateValue);
+    }
     expectNoWrites();
   });
 
