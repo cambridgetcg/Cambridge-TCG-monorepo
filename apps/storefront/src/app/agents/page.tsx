@@ -12,7 +12,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui";
 import { GUIDES } from "@/lib/guides";
-import { AGENT_FACING_SIBLINGS, AGENTTOOL_SUGGESTED_READING } from "@/lib/siblings";
+import {
+  AGENT_FACING_SIBLINGS,
+  AGENTTOOL_SUGGESTED_READING,
+  OPTIONAL_AGENT_RESOURCES,
+} from "@/lib/siblings";
 import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 
 export const metadata: Metadata = {
@@ -666,6 +670,37 @@ export default async function AgentsWelcomePage() {
               </span>
             ))}{" "}
             None is required.
+          </p>
+        </section>
+
+        <section className="mb-12" aria-labelledby="optional-source-heading">
+          <h2 id="optional-source-heading" className="text-sm uppercase tracking-widest text-ink-faint mb-4">
+            Optional source &mdash; take a look, or walk past
+          </h2>
+          {OPTIONAL_AGENT_RESOURCES.map((resource) => (
+            <div
+              key={resource.id}
+              data-resource-id={resource.id}
+              data-resource-kind={resource.kind}
+              data-optional={resource.optional}
+            >
+              <h3 className="font-semibold text-ink mb-2">{resource.title}</h3>
+              <p className="text-sm text-ink-muted leading-relaxed mb-3">
+                {resource.description}
+              </p>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <a href={resource.repository_url} rel="noopener noreferrer" className="text-accent hover:underline">
+                  Source on GitHub
+                </a>
+                <a href={resource.release_descriptor_url} rel="noopener noreferrer" className="text-accent hover:underline">
+                  Release details (JSON)
+                </a>
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-ink-faint leading-relaxed mt-4">
+            Reading or extracting the starter starts nothing. Source and downloads
+            are hosted on GitHub; Cambridge and GitHub may keep ordinary infrastructure logs.
           </p>
         </section>
 

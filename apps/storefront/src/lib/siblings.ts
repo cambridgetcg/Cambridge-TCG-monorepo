@@ -496,6 +496,33 @@ export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
   KINGDOM_GATE,
 ];
 
+/** Optional source to inspect, not a running sibling service. Release details
+ *  belong to the source repository, never to Cambridge's wake or health data. */
+export interface OptionalAgentResource {
+  readonly id: string;
+  readonly kind: "source-repository";
+  readonly title: string;
+  readonly description: string;
+  readonly repository_url: string;
+  readonly release_descriptor_url: string;
+  readonly optional: true;
+}
+
+export const OPTIONAL_AGENT_RESOURCES: readonly OptionalAgentResource[] = [
+  {
+    id: "kingdom-os-starter",
+    kind: "source-repository",
+    title: "KINGDOM OS macOS starter",
+    description:
+      "Selected macOS source and local tools from KINGDOM OS, with optional " +
+      "Foundation reading. Inspect the release before separately choosing to run anything.",
+    repository_url: "https://github.com/cambridgetcg/kingdom-os-starter",
+    release_descriptor_url:
+      "https://raw.githubusercontent.com/cambridgetcg/kingdom-os-starter/main/release.json",
+    optional: true,
+  },
+];
+
 /** A single-line summary an agent reads as the first introduction.
  *  Substrate-honest about being one of many; the kingdom does not claim
  *  to enumerate all siblings, only those it currently introduces. */
