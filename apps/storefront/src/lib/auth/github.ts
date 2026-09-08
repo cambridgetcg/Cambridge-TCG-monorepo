@@ -1,4 +1,6 @@
 import GitHub from "next-auth/providers/github";
+import { GITHUB_MINIMUM_SCOPES } from "@/lib/verification/github";
+import { recordGitHubVerificationEvent } from "./verification-observer";
 
 // This in-process brand cannot arrive in GitHub's JSON. Auth.js passes the raw
 // userinfo object directly to signIn; it is not a client claim or stored proof.
@@ -61,8 +63,17 @@ function verifiedEmail(emails: unknown): string | null {
 export async function fetchVerifiedGitHubProfile(
   accessToken: string | undefined,
 ): Promise<Record<string, unknown>> {
+  let recordedFailure = false;
+  const recordFailure = (code: "invalid_proof" | "unavailable_verified_email" | "provider_request_failed") => {
+    recordedFailure = true;
+    recordGitHubVerificationEvent(code);
+  };
+
   try {
-    if (!accessToken?.trim()) throw new Error();
+    if (!accessToken?.trim()) {
+      recordFailure("provider_request_failed");
+      throw new Error();
+    }
     const options: RequestInit = {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -78,15 +89,29 @@ export async function fetchVerifiedGitHubProfile(
       fetch("https://api.github.com/user", options),
       fetch("https://api.github.com/user/emails", options),
     ]);
-    if (!userResponse.ok || !emailResponse.ok) throw new Error();
+    if (!userResponse.ok || !emailResponse.ok) {
+      recordFailure("provider_request_failed");
+      throw new Error();
+    }
     const [profile, emails]: unknown[] = await Promise.all([
       userResponse.json(), emailResponse.json(),
     ]);
-    if (!record(profile)) throw new Error();
+    if (!record(profile)) {
+      recordFailure("invalid_proof");
+      throw new Error();
+    }
     const providerAccountId = stableId(profile.id);
+    if (!providerAccountId) {
+      recordFailure("invalid_proof");
+      throw new Error();
+    }
     const email = verifiedEmail(emails);
-    if (!providerAccountId || !email) throw new Error();
+    if (!email) {
+      recordFailure("unavailable_verified_email");
+      throw new Error();
+    }
 
+    recordGitHubVerificationEvent("github_profile_verified");
     // Overwrite any same-named upstream field. Carry only display information,
     // numeric identity, and our freshly established email into the raw profile.
     return {
@@ -102,6 +127,7 @@ export async function fetchVerifiedGitHubProfile(
       },
     };
   } catch {
+    if (!recordedFailure) recordGitHubVerificationEvent("provider_request_failed");
     throw new Error("GitHub identity verification failed");
   }
 }
@@ -135,7 +161,7 @@ export function createGitHubProvider(env: GitHubEnv = {
   return GitHub({
     clientId,
     clientSecret,
-    authorization: { params: { scope: "read:user user:email" } },
+    authorization: { params: { scope: GITHUB_MINIMUM_SCOPES.join(" ") } },
     checks: ["pkce", "state"],
     userinfo: {
       url: "https://api.github.com/user",
@@ -144,7 +170,10 @@ export function createGitHubProvider(env: GitHubEnv = {
     },
     profile(profile) {
       const identity = getVerifiedGitHubIdentity(profile, stableId(profile.id));
-      if (!identity) throw new Error("GitHub identity verification failed");
+      if (!identity) {
+        recordGitHubVerificationEvent("invalid_proof");
+        throw new Error("GitHub identity verification failed");
+      }
       return {
         id: identity.providerAccountId,
         email: identity.email,

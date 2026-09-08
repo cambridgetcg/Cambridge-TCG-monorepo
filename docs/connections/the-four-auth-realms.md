@@ -56,6 +56,15 @@ using a separate development OAuth app. The [deploy runbook](../ops-deploy-runbo
 owns setup and verification instructions; creating apps, setting hosted secrets
 and deployment require separate authorization.
 
+The [credential-dependent verification pilot](../ops-credential-verification.md)
+connects this source contract to scoped operator evidence. Its GitHub observer
+records bounded non-identifying milestones, and failed callbacks can carry a
+random support reference into either generic login-error surface. The reference
+is not an identity or access token; only authorized operator logs can explain it.
+`pnpm auth:verify github` keeps preflight, a human-assisted staging journey and
+failure explanation distinct. Neither an admission decision nor a logged sign-in
+completion proves that the intended user received a usable browser session.
+
 ### Fact 2 — Wholesale is a separate kingdom by design
 
 Realms 3 and 4 live in a different DB (wholesale RDS), with a different cookie domain (`.wholesaletcgdirect.com`), with different password substrate (bcrypt + JWT, not magic-link + DB sessions). **No cookie can leak between cambridgetcg.com and wholesaletcgdirect.com** — different domain trees.

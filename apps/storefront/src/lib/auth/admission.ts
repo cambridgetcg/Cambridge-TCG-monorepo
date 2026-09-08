@@ -8,6 +8,7 @@ import type { NextAuthConfig } from "next-auth";
 import { getToken } from "next-auth/jwt";
 import { SESSION_COOKIE_OVERRIDE } from "./cookies";
 import { isAccountAdmissionOpen } from "@/lib/release/production-gates";
+import { recordGitHubVerificationEvent } from "./verification-observer";
 
 /**
  * Auth.js's normal successful email sign-in target. Returning this from its
@@ -113,7 +114,14 @@ export async function githubSignInDecision(
   env: AdmissionEnv = process.env,
 ): Promise<boolean | string> {
   const identity = getVerifiedGitHubIdentity(input.profile, input.providerAccountId);
-  if (!identity || !input.getSessionUserId) return false;
+  if (!identity) {
+    recordGitHubVerificationEvent("invalid_proof");
+    return false;
+  }
+  if (!input.getSessionUserId) {
+    recordGitHubVerificationEvent("missing_request_context");
+    return false;
+  }
   const adapter = PgAdapter();
   const linkedUser = await adapter.getUserByAccount!({
     provider: "github",
@@ -121,15 +129,21 @@ export async function githubSignInDecision(
   });
   // An established link is authoritative after email changes; core still
   // rejects attempts to use somebody else's link from an authenticated session.
-  if (linkedUser) return true;
+  if (linkedUser) {
+    recordGitHubVerificationEvent("established_link");
+    return true;
+  }
 
   const sessionUserId = await input.getSessionUserId();
   if (sessionUserId) {
     const intendedUser = await adapter.getUserByEmail!(identity.email);
-    return intendedUser?.id === sessionUserId;
+    const matchesTarget = intendedUser?.id === sessionUserId;
+    if (!matchesTarget) recordGitHubVerificationEvent("first_link_session_target_mismatch");
+    return matchesTarget;
   }
   if (isAccountAdmissionOpen(env)) return true;
   if (await accountExistsForSignIn(identity.email)) return true;
+  recordGitHubVerificationEvent("registration_paused");
   return REGISTRATION_PAUSED_REDIRECT;
 }
 
@@ -145,7 +159,10 @@ export function createAdmissionSignInCallback(
 ): SignInCallback {
   return async ({ user, account, email, profile }) => {
     if (account?.provider === "github") {
-      if (account.type !== "oauth") return false;
+      if (account.type !== "oauth") {
+        recordGitHubVerificationEvent("invalid_proof");
+        return false;
+      }
       return githubSignInDecision({
         profile,
         providerAccountId: account.providerAccountId,

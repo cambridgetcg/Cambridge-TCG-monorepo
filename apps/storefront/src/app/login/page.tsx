@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { InkRule } from "@/lib/ui/InkRule";
+import { isSupportId } from "@/lib/verification/events";
 
 /** Official Google "G" — the one saturated mark allowed here, because a
  *  sign-in button people trust must look like the one they know. */
@@ -93,6 +94,7 @@ async function messageFor(res: Response): Promise<string | null> {
 function LoginInner() {
   const params = useSearchParams();
   const returnTo = safeReturnPath(params.get("return"));
+  const supportId = isSupportId(params.get("support")) ? params.get("support") : null;
 
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -192,6 +194,11 @@ function LoginInner() {
             We couldn&apos;t complete sign-in. Try again, or use another sign-in
             method. If using a connected provider, check that your email is verified.
             If you meant to use a different account, sign out first.
+          </p>
+        )}
+        {supportId && (
+          <p className="text-xs text-ink-faint text-center mb-6">
+            Support reference: <span className="font-mono">{supportId}</span>
           </p>
         )}
 

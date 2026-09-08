@@ -30,6 +30,9 @@ playwright-output/
 test-results/
 .playwright-mcp/
 
+# Private verification fixtures and explicitly saved operator receipts.
+.auth-verification/
+
 # Loose screenshots written by ad-hoc Playwright sessions at the repo root
 *.png
 .vercel

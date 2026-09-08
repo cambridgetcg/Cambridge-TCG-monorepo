@@ -47,6 +47,7 @@
     "cron-auth": "tsx scripts/cron-auth.ts",
     "sitemap-discovery": "tsx scripts/sitemap-discovery.ts",
     "deploy-verify": "tsx scripts/deploy-verify.ts",
+    "auth:verify": "tsx scripts/verify-auth-provider.ts",
     "prism-stripe:operator": "tsx scripts/prism-stripe-operator.ts",
     "prism-stripe:preflight": "tsx scripts/prism-stripe-provider-preflight.ts",
     "typology": "tsx scripts/typology.ts",

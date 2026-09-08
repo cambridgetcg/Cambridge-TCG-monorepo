@@ -518,6 +518,13 @@ Auth.js sends some OAuth errors to `/login?error=...` and others to
 `/login/error?error=...`; both must offer generic recovery rather than an
 expired-email-link diagnosis.
 
+The [credential-dependent verification pilot](ops-credential-verification.md)
+standardizes those distinctions through `pnpm auth:verify github`: bounded
+preflight, explicitly authorized staging journeys, and privacy-safe explanation
+of a support reference. Its receipts distinguish mocked/live/declaration evidence
+and blocked/skipped work. A provider appearing in discovery or a route audit
+passing is not a verified OAuth journey; the existing release gates still apply.
+
 Wallet-link issuance remains off unless `EVM_WALLET_LINKING_MODE=testnet` is
 set. A remote smart-wallet verifier additionally requires the server-only
 `BASE_SEPOLIA_RPC_URL` plus public
