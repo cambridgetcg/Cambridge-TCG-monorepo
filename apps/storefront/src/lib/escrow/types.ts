@@ -18,6 +18,55 @@ export interface TradeReview {
   trade_price?: string;
 }
 
+// One scored component of the trust score, carrying its own ceiling so a
+// reader never has to know the weights to draw the bar.
+export interface TrustComponent {
+  points: number;
+  max: number;
+}
+
+// One penalty, carrying its occurrence count and the per-occurrence cost so
+// the page can say "2 open disputes (−10 each)" without doing the division.
+export interface TrustPenalty {
+  count: number;
+  each: number;
+  points: number;
+}
+
+// The engine's own working, published rather than recomputed.
+//
+// The account page used to re-derive these numbers from the profile row with
+// its own copy of the formulas. The copies drifted (2026-06-10 moved identity
+// verification's 10 pts into completion and reviews; the page kept the old
+// 30/25 weights and a Verification bar for a component that no longer exists),
+// so a seller was shown a breakdown that did not add up to their own score.
+// The engine already computes every number below and used to throw them away.
+export interface TrustScoreBreakdown {
+  components: {
+    completion: TrustComponent;
+    review: TrustComponent;
+    volume: TrustComponent;
+    age: TrustComponent;
+    external: TrustComponent;
+  };
+  penalties: {
+    openDisputes: TrustPenalty;
+    disputesLost: TrustPenalty;
+    disputesSplit: TrustPenalty;
+    fraudSignals: TrustPenalty;
+  };
+  // Sum of component points, before penalties.
+  raw_score: number;
+  // Sum of penalty points.
+  penalty_total: number;
+  // raw_score − penalty_total, clamped to 0..100.
+  score: number;
+  // True when the clamp actually bit — i.e. penalties exceeded components and
+  // the score floored at 0. When this is true, "components − penalties = score"
+  // is NOT arithmetically true, and the page must not claim it is.
+  floored: boolean;
+}
+
 export interface TrustProfile {
   user_id: string;
   trust_score: number;
@@ -43,6 +92,9 @@ export interface TrustProfile {
   is_suspended: boolean;
   suspended_reason: string | null;
   suspended_until: string | null;
+  // Attached by calculateTrustScore. Optional because the column-shaped reads
+  // of trust_profiles elsewhere in the tree do not carry it.
+  breakdown?: TrustScoreBreakdown;
 }
 
 export interface ExternalRep {

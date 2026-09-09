@@ -6,6 +6,12 @@ import { formatPrice } from "@/lib/format";
 import { WhyLink, Money } from "@/lib/ui";
 import { TRUST_TIERS } from "@/lib/escrow/types";
 import type { TrustProfile, TradeReview, ExternalRep } from "@/lib/escrow/types";
+// The bar labels live beside the arithmetic they name, so a component the
+// engine stops emitting cannot linger here as a bar stuck at zero.
+import {
+  TRUST_COMPONENT_LABELS as COMPONENT_LABELS,
+  TRUST_PENALTY_LABELS as PENALTY_LABELS,
+} from "@/lib/escrow/trust-breakdown";
 
 import { Audience } from "@/lib/ui";
 type TrustTier = (typeof TRUST_TIERS)[number];
@@ -372,30 +378,17 @@ export default function TrustProfilePage() {
       ? Math.round((profile.disputes_won / profile.disputed_trades) * 100)
       : null;
 
-  // Real per-component contributions — same formulas as the trust
-  // engine. Replaces the prior "estimate proportional to trust score"
-  // bars (which weren't tied to the engine math at all).
+  // The engine publishes its own working as profile.breakdown; this page
+  // renders it and computes nothing.
   //
-  //   Completion rate   → 30 pts max
-  //   Reviews (avg/5)   → 25 pts max
-  //   Trade volume      → 15 pts max (logarithmic)
-  //   Verification      → 10 pts (all-or-nothing flag)
-  //   External rep      → 10 pts (5 pts per verified platform, max 2)
-  const completionRate = profile.total_trades > 0
-    ? profile.completed_trades / profile.total_trades : 0;
-  const completionContrib = Math.round(completionRate * 30);
-  const reviewContrib = Math.round((parseFloat(profile.avg_rating) / 5) * 25);
-  const totalVolumeNum = parseFloat(profile.total_volume) || 0;
-  const volumeContrib = Math.min(15, Math.round(Math.log10(Math.max(1, totalVolumeNum)) * 5));
-  const verifiedReps = profile.external_rep.filter((e) => e.verified).length;
-  const externalContrib = Math.min(10, verifiedReps * 5);
-  const verificationContrib = profile.external_rep.some((e) => e.verified) ? 10 : 0;
-
-  // Penalties — pulled directly from profile counts (now populated
-  // by Phase A's real dispute-outcome capture).
-  const lostPenalty = profile.disputes_lost * 15;
-  const openPenalty = Math.max(0, (profile.disputed_trades - profile.disputes_won - profile.disputes_lost)) * 10;
-  const totalPenalty = lostPenalty + openPenalty;
+  // It used to keep a second copy of the formulas. The copies drifted: on
+  // 2026-06-10 identity verification stopped being a component and its 10 pts
+  // moved into completion and reviews, but this page kept the old 30/25
+  // maxima and a Verification bar, and read trust_profiles.external_rep — a
+  // column nothing writes — so the External rep bar sat at 0 even for sellers
+  // with verified accounts. The bars summed to at most 90 against a score out
+  // of 100, under a caption promising they summed exactly.
+  const breakdown = profile.breakdown;
 
   return (
     <div>
@@ -429,32 +422,49 @@ export default function TrustProfilePage() {
         </div>
       </div>
 
-      {/* Score Breakdown — real per-component contributions, not estimates */}
+      {/* Score Breakdown — the engine's own working, rendered not recomputed */}
+      {breakdown && (
       <div className="bg-surface rounded-lg p-6 mb-6">
         <h3 className="text-lg font-semibold text-ink mb-1">Score Breakdown</h3>
         <p className="text-xs text-ink-faint mb-4">
-          Sum of components minus penalties = current score ({score}).
+          {breakdown.floored
+            ? `Penalties (−${breakdown.penalty_total}) come to more than the ${breakdown.raw_score} points earned, so the score rests at 0 rather than going below it.`
+            : breakdown.penalty_total > 0
+              ? `${breakdown.raw_score} earned − ${breakdown.penalty_total} in penalties = ${breakdown.score}.`
+              : `The components add up to ${breakdown.score}.`}
         </p>
         <div className="space-y-3">
-          <BreakdownBar label="Completion rate" value={completionContrib} max={30} />
-          <BreakdownBar label="Reviews"         value={reviewContrib}     max={25} />
-          <BreakdownBar label="Trade volume"    value={volumeContrib}     max={15} />
-          <BreakdownBar label="Verification"    value={verificationContrib} max={10} />
-          <BreakdownBar label="External rep"    value={externalContrib}   max={10} />
-          {totalPenalty > 0 && (
+          {COMPONENT_LABELS.map(([key, label]) => (
+            <BreakdownBar
+              key={key}
+              label={label}
+              value={breakdown.components[key].points}
+              max={breakdown.components[key].max}
+            />
+          ))}
+          {breakdown.penalty_total > 0 && (
             <div className="pt-2 mt-2 border-t border-border-subtle">
               <div className="flex items-baseline justify-between text-sm">
                 <span className="text-danger">Penalties</span>
-                <span className="text-danger font-mono">−{totalPenalty}</span>
+                <span className="text-danger font-mono">−{breakdown.penalty_total}</span>
               </div>
-              <p className="text-[10px] text-ink-faint mt-0.5">
-                {profile.disputes_lost} disputes lost (−15 each){openPenalty > 0 ? ` · ${openPenalty / 10} open (−10 each)` : ""}
-              </p>
+              <ul className="text-[10px] text-ink-faint mt-0.5 space-y-0.5">
+                {PENALTY_LABELS.map(([key, one, many]) => {
+                  const p = breakdown.penalties[key];
+                  if (p.count === 0) return null;
+                  return (
+                    <li key={key}>
+                      {p.count} {p.count === 1 ? one : many} (−{p.each} each)
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
         </div>
         <TrustHistorySparkline />
       </div>
+      )}
 
       {/* Escrow Trade Thresholds */}
       <EscrowThresholdsSection trustScore={score} />
