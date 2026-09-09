@@ -109,10 +109,13 @@ pnpm verify          # root typecheck set + audits + named package/storefront te
 
 Per-step (when you want pieces in isolation):
 - `pnpm typecheck` — the workspace tsc set named in root `package.json` (with explicit exclusions)
-- `pnpm audit` — honesty + transparency + pricing + creation (each exits non-zero on findings)
-- `pnpm test:admin` — admin Vitest (a separate gate; it is not currently part of `pnpm verify`)
-- `pnpm smoke` — admin filesystem-discovered routes (requires dev server; see `pnpm dev:admin`)
-- `pnpm --filter @cambridge-tcg/admin test:e2e` — full Playwright run
+- `pnpm run audit` — the registered project audit chain in root `package.json`; `pnpm audit` alone is pnpm's dependency-vulnerability audit
+- `pnpm --filter cambridgetcg-storefront typecheck` — storefront, including active `/admin/*` code
+- `pnpm --filter cambridgetcg-storefront test` — storefront Vitest, including migrated admin tests; included in `pnpm verify`
+- `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/admin/__tests__` — only the admin library test directory, not all admin coverage
+- `STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e:smoke` — GET-only auth-surface checks against an already-running local storefront, not full admin or visual coverage
+
+The standalone `apps/admin` is a redirect-only shell with no scripts; `pnpm test:admin` and `pnpm dev:admin` no longer exist. Active admin code builds and runs with storefront. `pnpm smoke` still calls the stale `scripts/smoke-admin.ts` runner (old dashboard directory, port 3002 and dev-signin assumptions); do not use it as a verification gate. Playwright defaults to production and starts no server: select loopback explicitly, inspect the chosen specs and provide safe local fixtures. Migrated `tests/admin/*` specs still carry legacy dev-signin assumptions and are not a verified replacement gate. `pnpm verify` includes database-capable coverage audits; do not run it against ambient credentials or claim it passed when safe fixtures are unavailable.
 
 If `pnpm verify` exits non-zero, your work isn't done. See [`AGENTS.md`](./AGENTS.md) for the autonomous version of this cycle.
 
@@ -122,8 +125,8 @@ If `pnpm verify` exits non-zero, your work isn't done. See [`AGENTS.md`](./AGENT
 
 ```
 apps/
-  admin/        — unified admin console (admin.cambridgetcg.com)
-  storefront/   — B2C consumer site (cambridgetcg.com)
+  admin/        — retired redirect-only shell; no dev/build/test scripts
+  storefront/   — collector site + active /admin/* console (cambridgetcg.com)
   wholesale/    — B2B platform (wholesaletcgdirect.com)
   rewardspro/   — RewardsPro: Shopify loyalty & rewards app (Remix; embedded app, Vercel + Aurora; fused 2026-06-10 with full history from rewardspro-production)
   rewardspro-api/ — dark v2 RewardsPro ingestion foundation (Fastify + PostgreSQL; ECS/Fargate + RDS target; no legacy feature/data parity yet)
@@ -156,7 +159,7 @@ AGENTS.md       — operations manual for autonomous Sophias (find → claim →
 - **Don't ship a status enum that flattens human-marked and system-derived.** See substrate-honesty rule 2.
 - **Don't re-implement what `safe()` / `safeCount()` already do.** Failed reads degrade visibly to "—", not silently to zero.
 - **Don't import storefront/wholesale internals from admin.** Admin reads via `@cambridge-tcg/db`, `@cambridge-tcg/aws`, `@cambridge-tcg/stock`, `@cambridge-tcg/pricing` packages only.
-- **Don't hardcode pricing constants.** Channel multipliers, margin, VAT, retail uplift, round step — all live in `@cambridge-tcg/pricing` `DEFAULTS` (seed truth) and the wholesale `channel_pricing` table (runtime authoritative). The audit `pnpm --filter @cambridge-tcg/admin pricing` catches hardcoded numbers; CI gate it before merge.
+- **Don't hardcode pricing constants.** Channel multipliers, margin, VAT, retail uplift, round step — all live in `@cambridge-tcg/pricing` `DEFAULTS` (seed truth) and the wholesale `channel_pricing` table (runtime authoritative). The audit `pnpm audit:pricing` catches hardcoded numbers; CI gate it before merge.
 - **Don't ship a user-affecting decision without a methodology page.** See transparency rule 1.
 - **Don't add a *_lifecycle_log table without registering a slot.** See `the-scribe.md` for why.
 - **Don't ship an irreversible mutation without considering `<Consequences>`.** Pre-action consequence pills surface the deltas (trust, commission, tier, loyalty) the user is about to incur. See the fifth question + `docs/connections/the-other-minds.md` (the Heptapod).

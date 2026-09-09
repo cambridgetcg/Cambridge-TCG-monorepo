@@ -64,8 +64,9 @@ export function PracticeLaunch({ pausedReason }: { pausedReason: string }) {
       </div>
 
       <p className="mt-4 text-xs text-ink-faint">
-        Practice battle — solo vs AI, runs in your browser, records nothing,
-        no account needed. {pausedReason} Rewards stay off until that lands.
+        Practice battle — solo vs AI, no account needed. Battle state, starter
+        choice, and clears can be saved in this browser only; no results are
+        recorded on the server. {pausedReason} Rewards stay off until that lands.
       </p>
     </div>
   );

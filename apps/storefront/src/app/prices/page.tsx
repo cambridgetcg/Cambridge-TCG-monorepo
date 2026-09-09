@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchGames, type GameItem } from "@/lib/wholesale/client";
-import { Provenance, WhyLink } from "@/lib/ui";
+import { Card, PageHeader, PlateHeader, Provenance, WhyLink } from "@/lib/ui";
 import {
   PRICE_GUIDE_GAMES,
   ACCENT_CLASSES,
@@ -101,7 +101,7 @@ export default async function PricesLandingPage({ searchParams }: {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:py-12">
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <nav aria-label="Breadcrumb" className="mb-6 text-sm text-ink-muted">
           <ol className="flex items-center gap-1.5">
             <li>
@@ -118,14 +118,17 @@ export default async function PricesLandingPage({ searchParams }: {
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
             Sources, not promises
           </p>
-          <h1 className="font-display text-3xl font-semibold text-ink">
-            The price guide
-          </h1>
-          <p className="mt-4 text-base leading-relaxed text-ink-muted sm:text-lg">
-            Compare permitted source observations with a free account, or browse
-            the public card catalog below. This is reference data, not an offer.
-            Source metrics are not interchangeable; a missing price is not zero.
-          </p>
+          <PageHeader
+            size="large"
+            title="The price guide"
+            description={
+              <>
+                Compare permitted source observations with a free account, or browse
+                the public card catalog below. This is reference data, not an offer.
+                Source metrics are not interchangeable; a missing price is not zero.
+              </>
+            }
+          />
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Provenance
               kind={observedTiles.length > 0 ? "synced" : "unavailable"}
@@ -152,25 +155,27 @@ export default async function PricesLandingPage({ searchParams }: {
 
         <section
           aria-labelledby="card-price-search-heading"
-          className="my-8 rounded-xl border border-accent/30 bg-accent-wash p-5 sm:p-6"
+          className="my-8"
         >
-          <div className="mb-4">
-            <h2
-              id="card-price-search-heading"
-              className="text-lg font-semibold text-ink"
-            >
-              Search the structural catalog
-            </h2>
-            <p className="mt-1 text-sm text-ink-muted">
-              Pick a game, enter the card number, and go straight to the
-              matching structural row and current publication status.
-            </p>
-          </div>
-          <CardPriceSearchForm
-            games={liveGames}
-            autoFocus
-            browseHref="#browse-by-game"
-          />
+          <Card className="sm:p-6">
+            <div className="mb-6">
+              <h2
+                id="card-price-search-heading"
+                className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink"
+              >
+                Search the structural catalog
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-ink-muted">
+                Pick a game, enter the card number, and go straight to the
+                matching structural row and current publication status.
+              </p>
+            </div>
+            <CardPriceSearchForm
+              games={liveGames}
+              autoFocus
+              browseHref="#browse-by-game"
+            />
+          </Card>
         </section>
 
         <section
@@ -178,15 +183,15 @@ export default async function PricesLandingPage({ searchParams }: {
           aria-labelledby="browse-by-game-heading"
           className="scroll-mt-24"
         >
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2
                 id="browse-by-game-heading"
-                className="text-xl font-semibold text-ink"
+                className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink"
               >
                 Browse by game
               </h2>
-              <p className="mt-1 text-sm text-ink-muted">
+              <p className="mt-3 text-sm leading-6 text-ink-muted">
                 Don&rsquo;t have the card number? Start with its game and set.
               </p>
             </div>
@@ -199,7 +204,7 @@ export default async function PricesLandingPage({ searchParams }: {
           </div>
 
           {tiles.length === 0 ? (
-            <div className="rounded-lg border border-border-subtle bg-surface p-6 text-ink-muted text-sm">
+            <Card padding="lg" className="text-sm text-ink-muted">
               More games coming soon — see the{" "}
               <Link
                 href="/prices/coverage"
@@ -208,7 +213,7 @@ export default async function PricesLandingPage({ searchParams }: {
                 coverage map
               </Link>{" "}
               for what each source covers today.
-            </div>
+            </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {tiles.map(({ config, live }) => {
@@ -219,7 +224,7 @@ export default async function PricesLandingPage({ searchParams }: {
                   <Link
                     key={config.slug}
                     href={`/prices/${config.slug}`}
-                    className={`group block rounded-xl border border-border-subtle ${accent.bg} p-5 transition-colors hover:border-border-strong`}
+                    className={`group block rounded-lg border border-border-subtle ${accent.bg} p-4 transition-colors hover:border-border-strong`}
                   >
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <h3 className={`text-lg font-semibold ${accent.text}`}>
@@ -270,20 +275,13 @@ export default async function PricesLandingPage({ searchParams }: {
           )}
         </section>
 
-        <div className="mt-14 border-t border-border-subtle pt-8">
-          <div className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-ink">
-                Currency tools
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-                FX rates remain available as standalone operational data. Member
-                observations above keep their native currency; these tools do not
-                convert or condition-adjust the source prices.
-              </p>
-            </div>
-            <CurrencyWhyLink />
-          </div>
+        <div className="mt-12 border-t border-border-subtle pt-8">
+          <PlateHeader title="Currency tools" action={<CurrencyWhyLink />} />
+          <p className="mb-6 max-w-2xl text-sm leading-6 text-ink-muted">
+            FX rates remain available as standalone operational data. Member
+            observations above keep their native currency; these tools do not
+            convert or condition-adjust the source prices.
+          </p>
           <div className="grid gap-4 lg:grid-cols-[1fr,1.2fr]">
             <CurrencySelector
               selected={currency}
@@ -294,10 +292,8 @@ export default async function PricesLandingPage({ searchParams }: {
           </div>
         </div>
 
-        <section className="mt-14 border-t border-border-subtle pt-8">
-          <h2 className="mb-3 text-lg font-semibold text-ink">
-            Why legacy prices remain withheld
-          </h2>
+        <section className="mt-12 border-t border-border-subtle pt-8">
+          <PlateHeader title="Why legacy prices remain withheld" />
           <p className="mb-4 max-w-3xl text-sm leading-relaxed text-ink-muted">
             Stored legacy wholesale prices, channel-derived values, images, and
             historical movements are not published. Their rows predate field-level

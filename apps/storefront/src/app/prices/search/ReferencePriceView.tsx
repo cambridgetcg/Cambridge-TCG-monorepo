@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge, Card, WhyLink } from "@/lib/ui";
+import { Badge, Card, PlateHeader, WhyLink } from "@/lib/ui";
 
 /**
  * The labelled reference block returned by /api/v1/cards/[sku]/everything.
@@ -131,15 +131,12 @@ export function ReferenceComparison({
   }
 
   return (
-    <Card>
+    <Card className="sm:p-6">
+      <PlateHeader
+        title="Reference value and published sources"
+        action={<WhyLink href="/methodology/pricing" />}
+      />
       <div className="space-y-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold text-ink">
-            Reference value and published sources
-          </h2>
-          <WhyLink href="/methodology/pricing" />
-        </div>
-
         <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
           <div>
             <div className="text-xs text-ink-faint">Cambridge reference</div>

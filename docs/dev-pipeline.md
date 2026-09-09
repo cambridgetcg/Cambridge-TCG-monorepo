@@ -17,7 +17,7 @@ If you've never opened this repo before, read [the root `CLAUDE.md`](../CLAUDE.m
             ┌─────────────────────────────┐
             │  Verify                     │
             │  pnpm verify                │   §3
-            │  (+ smoke for admin pages)  │
+            │  (+ scoped local UI checks) │
             └───────────────┬─────────────┘
                             ▼
             ┌─────────────────────────────┐
@@ -55,15 +55,14 @@ If you've never opened this repo before, read [the root `CLAUDE.md`](../CLAUDE.m
 
 ### Run only what you're touching
 
-Three apps, three ports. **You almost never need all three running.**
+The active admin lives in storefront at `/admin/*`; `apps/admin` is a redirect-only shell with no scripts. **Run only the app you're touching.**
 
 ```bash
-pnpm dev:storefront   # → :3001  apps/storefront — Next.js 16, Turbopack
-pnpm dev:admin        # → :3002  apps/admin
-pnpm dev:wholesale    # → :3000  apps/wholesale — Next.js 15
+pnpm dev:storefront   # → :3001  apps/storefront — includes /admin/*
+pnpm dev:wholesale    # → :3000  apps/wholesale
 ```
 
-Touching admin only? Run `dev:admin` and read against the production-RDS data the dev server connects to (per `apps/admin/.env.local`). Touching storefront only? Run `dev:storefront`. Need the admin to mirror live storefront state? Run both.
+Touching admin or storefront? Use `pnpm dev:storefront` with explicitly safe local auth/database fixtures. `pnpm dev:admin` no longer exists. Do not use production database credentials or a real account merely to make a local UI check work.
 
 ### Cross-app testing
 
@@ -85,7 +84,7 @@ For flows that cross storefront → wholesale (e.g. a bounty pull resolving agai
 
 | App | How to bypass auth |
 |---|---|
-| Admin | `GET http://localhost:3002/api/dev-signin` — upserts `contact@cambridgetcg.com` with `role='admin'`, mints session. Localhost-only, hard-gated on `NODE_ENV !== 'production'`. |
+| Admin | Uses storefront's sign-in and existing `users.role = 'admin'` gate. The retired port-3002 dev-signin recipe is not a current bypass; local checks need authorized fixtures. |
 | Storefront | Magic link via SES (real). Or set `ADMIN_PASSWORD` and use `/admin/*`. |
 | Wholesale | bcrypt password against `users` table (real). |
 
@@ -100,43 +99,45 @@ pnpm verify        # root typecheck set + audits + named package/storefront test
 pnpm verify:fast   # typecheck only — for quick sanity checks
 ```
 
-`verify` is what to run in the moments before `git push`. It catches:
+`verify` is the root verification chain in `package.json`. It runs:
 
-- TypeScript errors in any workspace (via `pnpm typecheck` = `pnpm -r exec tsc --noEmit`)
-- Admin unit/integration test regressions (via Vitest)
+- The workspace typecheck set, excluding `@cambridge-tcg/admin`, `rewardspro`, and `rewardspro-membership`
+- The registered project audit chain (`pnpm run audit`) and strict CardRush coverage
+- The named Answering Rhymes, Opportunity Signal, PRISM Signals Core, Product Flow, Product Flow Runtime, and RewardsPro API tests
+- Storefront Vitest, including migrated admin tests; there is no separate `pnpm test:admin` script
 
-It does **NOT** catch:
+The audit chain can connect to databases. Inspect the scripts and use an explicitly safe fixture environment; do not inherit production credentials. If that setup is unavailable, report `verify` as blocked rather than substituting a smaller check and calling it complete.
 
-- Admin smoke (needs a running dev server — see below)
-- Admin Playwright (same)
-- Storefront/wholesale runtime regressions (no smoke runner exists for them yet — see §13)
-- Lint errors — run `pnpm lint` separately
+It does **NOT** run:
 
-### Manual admin smoke (the canonical pre-acceptance check)
+- App builds or Playwright browser tests
+- Full admin, storefront, or wholesale runtime/visual regression coverage
+- Lint — run `pnpm lint` separately
 
-`pnpm smoke` discovers all admin dashboard routes from the filesystem (currently 26), signs in via `/api/dev-signin`, fetches each, and exits 1 on any non-200 or error boundary. Runs in <60s. **Required before claiming a mission `done`.** Source: `apps/admin/scripts/smoke-admin.ts`.
+### Local browser checks and the stale admin runner
+
+`pnpm smoke` still resolves to `apps/storefront/scripts/smoke-admin.ts`, but that script retains the old dashboard directory, port 3002, and `/api/dev-signin` assumptions. It is stale, can discover no routes, and is **not a valid acceptance or visual gate**. Do not revive the retired admin shell to run it.
+
+The current auth-surface smoke command is narrower:
 
 ```bash
-# Terminal 1
-pnpm dev:admin
-
-# Terminal 2 (once :3002 is up)
-pnpm --filter @cambridge-tcg/admin smoke
+# Requires an already-running storefront with safe local auth/database fixtures.
+STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e:smoke
 ```
 
-### Full per-app verification matrix
+This runs `tests/smoke.spec.ts`: GET-only login, check-email, CSRF, unauthenticated session, and admin redirect checks. It does not sign in, test authenticated admin behavior, or establish visual coverage. Playwright starts no server and defaults to production unless `STOREFRONT_BASE_URL` is set. Select loopback explicitly and inspect chosen specs before running them. Migrated `tests/admin/*` specs still assume legacy dev-signin/overview behavior; their presence is not a working admin gate.
+
+### Scoped verification commands
 
 | Goal | Command |
 |---|---|
-| Workspace typecheck | `pnpm typecheck` |
-| Admin Vitest | `pnpm test:admin` |
-| Admin Playwright (full) | `pnpm --filter @cambridge-tcg/admin test:e2e` |
-| Admin Playwright (one route) | `pnpm --filter @cambridge-tcg/admin test:e2e --grep "/trust/disputes"` |
-| Admin Playwright (interactive) | `pnpm --filter @cambridge-tcg/admin test:e2e:ui` |
-| Admin smoke (live) | `pnpm --filter @cambridge-tcg/admin smoke` (needs dev server) |
-| Substrate-honesty debt detector | `pnpm --filter @cambridge-tcg/admin honesty` |
-| Transparency debt detector | `pnpm --filter @cambridge-tcg/admin transparency` |
-| Storefront typecheck | `pnpm --filter cambridgetcg-storefront exec tsc --noEmit` |
+| Workspace typecheck (with the exclusions above) | `pnpm typecheck` |
+| Storefront typecheck, including active admin | `pnpm --filter cambridgetcg-storefront typecheck` |
+| Storefront Vitest, including migrated admin tests | `pnpm --filter cambridgetcg-storefront test` |
+| Admin library tests only, not all admin coverage | `pnpm --filter cambridgetcg-storefront exec vitest run src/lib/admin/__tests__` |
+| Inventory migrated admin Playwright specs; list only, no browser verification | `pnpm --filter cambridgetcg-storefront exec playwright test tests/admin --list` |
+| Substrate-honesty debt detector | `pnpm --filter cambridgetcg-storefront honesty` |
+| Transparency debt detector | `pnpm --filter cambridgetcg-storefront transparency` |
 | Wholesale typecheck | `pnpm --filter tcg-wholesale exec tsc --noEmit` |
 
 ### Optional pre-push hook
@@ -275,12 +276,12 @@ Per `apps/admin/CLAUDE.md` (lost in an earlier cleanup; the archetypes survive h
 
 For each new admin page:
 
-1. Copy the matching Playwright template (`manager.template.spec.ts` or `dashboard.template.spec.ts`)
-2. Rename to `<group>-<module>.spec.ts` in `apps/admin/tests/`
-3. Implement page + spec
-4. `pnpm --filter @cambridge-tcg/admin smoke` — verify 200
-5. `pnpm --filter @cambridge-tcg/admin test:e2e --grep "<route>"` — verify spec
-6. Run substrate-honesty + transparency four-question checklists (in `apps/admin/CLAUDE.md`)
+1. Work under `apps/storefront/src/app/admin/`; inspect related specs in `apps/storefront/tests/admin/`
+2. Check any borrowed template's auth and route assumptions; the migrated templates still use legacy dev-signin
+3. Implement page + focused tests within storefront
+4. Run `pnpm --filter cambridgetcg-storefront typecheck` and the explicit relevant Vitest paths via `pnpm --filter cambridgetcg-storefront exec vitest run`
+5. Verify the selected browser journey against a safe local fixture with an explicit loopback base URL; use storefront's Playwright runner, not the retired admin package or `pnpm smoke`. Report missing fixtures or stale spec assumptions as blockers
+6. Run substrate-honesty + transparency four-question checklists (in `docs/principles/substrate-honesty.md` and `docs/principles/transparency.md`)
 
 ### Storefront / wholesale
 
@@ -339,12 +340,12 @@ pushing — breakage often surfaces in only one consumer.
 Substrate-honesty about this doc's own provenance: the same commit that landed this file landed three small artefacts.
 
 1. **`docs/dev-pipeline.md`** (this file) — the daily-loop counterpart to `ops-deploy-runbook.md`.
-2. **`pnpm verify` / `pnpm verify:fast`** in root `package.json` — the executable source for the current root verification set. Admin Vitest remains the separate `pnpm test:admin` gate.
+2. **`pnpm verify` / `pnpm verify:fast`** in root `package.json` — the executable source for the current root verification set. Migrated admin Vitest runs within storefront's test suite; `pnpm test:admin` no longer exists.
 3. **`.github/pull_request_template.md`** — surfaces the four-doctrine checklists at PR review time.
 
 What was *not* shipped (deferred — see §13):
 
-- Storefront / wholesale smoke runners (admin has one; the others don't)
+- Broad storefront / wholesale route-smoke coverage (the current storefront auth smoke is narrower; the old admin runner is stale)
 - Auto-installed git hooks (the recipe is in §3; users opt in manually)
 - Migration tracking table (storefront migrations are still applied manually with no record of which have run)
 - `dev:all` umbrella script (output interleaves messily; rarely needed in practice)

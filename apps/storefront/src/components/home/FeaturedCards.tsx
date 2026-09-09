@@ -36,13 +36,13 @@ export default function FeaturedCards({ cards }: { cards: FeaturedCard[] }) {
         {cards.map(card => (
           <Link key={card.sku} href={`/market/${card.sku}`}
             className="group wardrobe-panel overflow-hidden hover:bg-surface-subtle transition-colors">
-            <div className="relative aspect-[3/4] bg-surface-subtle">
+            <div className="relative aspect-[63/88] bg-surface-subtle">
               {card.image_url && (
                 <Image
                   src={card.image_url}
                   alt={cardAltText(card)}
                   fill
-                  className="object-cover"
+                  className="object-contain"
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
                 />
               )}

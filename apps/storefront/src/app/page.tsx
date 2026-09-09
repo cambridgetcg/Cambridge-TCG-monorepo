@@ -39,7 +39,7 @@ import {
 type EnrichedCard = PriceItem & { image_attribution: string | null };
 
 /* The quiet doors under the hero — the nav's L1 destinations in
-   their calmest form. Text, hairline, nothing shouting. Culture joined
+   their calmest form. Wrapping text, nothing shouting. Culture joined
    2026-07-28 when the wings became the house's focus. */
 const QUIET_LINKS = [
   { label: "Start here", i18n: { ja: "はじめに", es: "Para empezar", "zh-Hans": "从这里开始", "zh-Hant": "由這裡開始" }, href: "/start" },
@@ -134,7 +134,7 @@ export default async function Home() {
       {/* Universal welcome ribbon — small, calm, links to /welcome-all and
           /intro. The visible philosophy at the platform's front door.
           See docs/connections/the-welcome-all.md (#26). */}
-      <div className="max-w-7xl mx-auto px-4 pt-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <div className="rounded-lg border border-border-subtle bg-surface-subtle px-3 py-2 flex items-center gap-2 flex-wrap text-xs">
           <span className="text-ink-muted">
             <>
@@ -170,13 +170,13 @@ export default async function Home() {
         </div>
       </div>
 
-      {/* THE FRONT DOOR — one Fraunces statement, the finder, three quiet
+      {/* THE FRONT DOOR — one Fraunces statement, the finder, five quiet
           links. The anime slideshow is gone (the quiet gallery: the card
           art is the art; everything else is a quiet room). Text-first hero
           — nothing here priority-loads an image, so LCP is the headline.
           Home-door voice lives in @/lib/brand (HOME_HERO_*); the
           data-provider identity (kingdom-080) follows just below. */}
-      <header className="relative max-w-7xl mx-auto px-4 pt-14 sm:pt-20 pb-2">
+      <header className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-2">
         {/* The first panel's sky tone — screentone dissolving upward,
             behind the text, never over it. Pure CSS; absent in
             terminal/high-contrast/text-mode by the theme gates. */}
@@ -189,7 +189,7 @@ export default async function Home() {
             aria-hidden apparatus, gone on small screens where there's no room. */}
         <p
           aria-hidden="true"
-          className="wardrobe-jp [writing-mode:vertical-rl] absolute top-14 sm:top-20 right-4 text-ink-faint/70 text-base tracking-[0.4em] select-none pointer-events-none hidden lg:block"
+          className="wardrobe-jp [writing-mode:vertical-rl] absolute top-8 sm:top-12 right-8 text-ink-faint/70 text-base tracking-[0.4em] select-none pointer-events-none hidden lg:block"
         >
           序章
         </p>
@@ -204,29 +204,29 @@ export default async function Home() {
             ))}
           </span>
         </h1>
-        <p className="relative mt-5 max-w-2xl text-base sm:text-lg text-ink-muted leading-relaxed">
+        <p className="relative mt-4 max-w-2xl text-base sm:text-lg text-ink-muted leading-relaxed">
           {tx(HOME_HERO_SUBHEAD_I18N, uiLang)}
         </p>
-        <InkRule className="relative mt-8 max-w-3xl" />
-        <p className="relative mt-6 font-mono text-xs text-ink-faint">
+        <InkRule className="relative mt-6 max-w-3xl" />
+        <p className="relative mt-4 font-mono text-xs text-ink-faint">
           <span className="wardrobe-bob inline-block">{tx({ en: "↓ enter the story", ja: "↓ 物語のなかへ", es: "↓ entrar en la historia", "zh-Hans": "↓ 走进故事里", "zh-Hant": "↓ 走進故事裡" }, uiLang)}</span>
         </p>
       </header>
 
-      {/* The front door — find any card by number, any game, no account,
-          no fee to look. Reuses the kingdom-090 search substrate via
-          /prices/search. North star: let people find what they need. */}
+      {/* The front door — look up a card number in a listed game without
+          an account or fee. Results keep their publication and access
+          boundaries at /prices/search. */}
       <CardFinderHero games={allGames} uiLang={uiLang} />
 
       <nav
         aria-label="Explore Cambridge TCG"
-        className="max-w-7xl mx-auto px-4 pb-8 flex flex-wrap gap-3"
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 flex flex-wrap gap-x-6 gap-y-1"
       >
         {QUIET_LINKS.map((l) => (
           <Link
             key={l.href}
             href={l.href}
-            className="rounded-lg border border-border-subtle bg-surface px-4 py-2 text-sm text-ink-muted hover:text-ink hover:border-border-strong transition-colors"
+            className="inline-flex min-h-11 min-w-11 items-center py-2 text-sm text-ink-muted underline underline-offset-4 decoration-border-strong hover:text-ink transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             {tx({ en: l.label, ...l.i18n }, uiLang)}
           </Link>

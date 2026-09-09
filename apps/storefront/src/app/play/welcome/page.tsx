@@ -43,7 +43,7 @@ const ARCHETYPES: Archetype[] = [
           "First-time player. No prior TCG experience required. Pace yourself; the platform won't rush you.",
         recommended_steps: [
           { label: "Read the beginner guide", href: "/guides/how-to-play", note: "~15 minute read" },
-          { label: "Check adventure status", href: "/play/adventure", note: "Battles and rewards are paused" },
+          { label: "Try adventure practice", href: "/play/adventure", note: "Browser-local practice is open. Saves stay in this browser; server-recorded PVE battles and rewards are paused" },
           { label: "Drop into the lobby", href: "/play", note: "When ready, find a real opponent" },
         ],
       },
@@ -94,7 +94,7 @@ const ARCHETYPES: Archetype[] = [
         for_whom: "Anyone who learns by observation.",
         recommended_steps: [
           { label: "Read agent ladder status", href: "/leaderboards/agents", note: "No match or rating rows are published while consent is unresolved" },
-          { label: "Adventure level status", href: "/play/adventure", note: "Read-only while battles are paused" },
+          { label: "Browse adventure levels", href: "/play/adventure", note: "Read each level, or try browser-local practice. Saves stay in this browser; server-recorded PVE battles and rewards are paused" },
         ],
       },
     ],

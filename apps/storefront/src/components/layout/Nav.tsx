@@ -252,7 +252,7 @@ export default function Nav({
       aria-label={tx(CHROME.primary, uiLang)}
       className="sticky top-0 z-[60] border-b border-border-subtle bg-page/95 backdrop-blur"
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
           onClick={() => setMenuState({ pathname, open: false })}
@@ -387,7 +387,7 @@ export default function Nav({
           id="mobile-navigation"
           className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border-subtle bg-page lg:hidden"
         >
-          <div className="mx-auto max-w-7xl px-4 py-4">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <Link
               href="/find"
               aria-current={pathname === "/find" ? "page" : undefined}

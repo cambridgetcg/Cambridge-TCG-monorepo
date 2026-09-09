@@ -33,7 +33,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
   const j = uiLang === "ja";
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
       {/* The language doors: every voice the house speaks, minus the one
           you are in. Each label is its own language's name for itself —
           the visible word IS the accessible name (label-in-name), and

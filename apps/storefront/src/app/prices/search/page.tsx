@@ -234,9 +234,9 @@ function PricesToday({
 }) {
   if (data.rows.length === 0) {
     return (
-      <Card>
+      <Card className="sm:p-6">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-ink">Price publication status</h2>
+          <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">Price publication status</h2>
           <p className="text-sm text-ink-muted">
             Legacy wholesale price values are withheld pending field-level source-rights
             records. Null means withheld, not zero. {data.note}
@@ -246,10 +246,10 @@ function PricesToday({
     );
   }
   return (
-    <Card>
+    <Card className="sm:p-6">
       <div className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-ink">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">
             Today&rsquo;s prices
             <span className="ml-2 text-sm font-normal text-ink-muted">
               · {data.rows.length} {data.rows.length === 1 ? "source" : "sources"} ·{" "}
@@ -351,9 +351,9 @@ function PricesToday({
 function HistoryBlock({ history }: { history: Everything["history"] }) {
   if (history.length === 0) {
     return (
-      <Card>
+      <Card className="sm:p-6">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-ink">History publication status</h2>
+          <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">History publication status</h2>
           <p className="text-sm text-ink-muted">
             Legacy historical observations may remain stored for review, but they are
             not published. Authentication does not reopen them.
@@ -363,9 +363,9 @@ function HistoryBlock({ history }: { history: Everything["history"] }) {
     );
   }
   return (
-    <Card>
+    <Card className="sm:p-6">
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-ink">
+        <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">
           Past prices
           <span className="ml-2 text-sm font-normal text-ink-muted">
             · a summary of what we&rsquo;ve recorded so far
@@ -467,9 +467,9 @@ function SiblingsBlock({
   const others = siblings.filter((s) => !s.is_self);
   if (others.length === 0) {
     return (
-      <Card>
+      <Card className="sm:p-6">
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-ink">Variants</h2>
+          <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">Variants</h2>
           <p className="text-sm text-ink-muted">
             No other prints of this card (alt-arts, parallels, super-parallels,
             language variants, or promos) are in the catalog yet. As wholesale
@@ -498,10 +498,10 @@ function SiblingsBlock({
     groups[idx]!.rows.push(s);
   }
   return (
-    <Card>
+    <Card className="sm:p-6">
       <div className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold text-ink">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">
             Variants
             <span className="ml-2 text-sm font-normal text-ink-muted">
               · {others.length} other {others.length === 1 ? "print" : "prints"}
@@ -582,9 +582,9 @@ function MatchesBlock({
   game: string;
 }) {
   return (
-    <Card>
+    <Card className="sm:p-6">
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-ink">
+        <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">
           {summary.ambiguous ? "Multiple matches — pick one" : "Resolved matches"}
           <span className="ml-2 text-sm font-normal text-ink-muted">
             · {summary.count} {summary.count === 1 ? "match" : "matches"} ·{" "}
@@ -659,13 +659,16 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="container mx-auto px-4 py-8 space-y-6">
-      <PageHeader
-        title="Structural card search"
-        description="Search by card number across supported games. Structural identity, source status, and known variants are visible; legacy prices, images, and transaction history are withheld."
-      />
+    <main className="mx-auto max-w-5xl px-4 py-8 space-y-6 sm:px-6 sm:py-12 lg:px-8">
+      <header className="max-w-3xl">
+        <PageHeader
+          size="large"
+          title="Structural card search"
+          description="Search by card number across supported games. Structural identity, source status, and known variants are visible; legacy prices, images, and transaction history are withheld."
+        />
+      </header>
 
-      <Card>
+      <Card className="sm:p-6">
         <CardPriceSearchForm
           games={games}
           game={game}
@@ -745,7 +748,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       {result && result.data.everything && (
         <>
           {/* Card identity header */}
-          <Card>
+          <Card className="sm:p-6">
             <div className="flex flex-col sm:flex-row gap-4 items-start">
               {result.data.everything.card.image_url && (
                 <Image
@@ -756,9 +759,9 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
                   className="rounded shrink-0"
                 />
               )}
-              <div className="flex-1 space-y-2">
+              <div className="min-w-0 flex-1 space-y-2">
                 <div>
-                  <h2 className="text-2xl font-bold text-ink">
+                  <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">
                     {result.data.everything.card.name}
                   </h2>
                   {result.data.everything.card.name_en &&
@@ -829,7 +832,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
         </>
       )}
 
-      <Card>
+      <Card className="sm:p-6">
         <p className="text-xs text-ink-faint">
           This page is the HTML face of <code>/api/v1/search/everything</code>.
           Partners and agents can call the JSON endpoint for the same structural

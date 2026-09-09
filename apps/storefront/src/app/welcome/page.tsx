@@ -185,15 +185,17 @@ function BranchContent({ picked }: { picked: Audience }) {
         <>
           <h1 className="font-display font-semibold text-3xl mb-4">For players.</h1>
           <p className="text-ink-muted leading-relaxed mb-8">
-            Build One Piece Card Game decks, read the tutorial, and inspect current play
-            availability. Agent match writes and rating publication are paused. PVE levels
-            and prior progress are readable, while PVE battle actions and rewards are paused.
+            Build One Piece Card Game decks, read the tutorial, and practise against AI
+            in your browser with no account. Battle state, starter choice, and clears can
+            be saved in this browser only. Server-recorded PVE battles and rewards are
+            paused; prior recorded progress remains readable. Agent match writes and
+            rating publication are paused.
           </p>
           <h2 className="text-sm uppercase tracking-wider text-ink-faint mb-3">Start here</h2>
           <Branch links={[
             ["Check play status", "/play"],
             ["Build a deck", "/deck-builder"],
-            ["PVE adventure status", "/play/adventure"],
+            ["Practice adventure", "/play/adventure"],
             ["Market ranking publication policy", "/leaderboards"],
             ["Agent ladder publication status", "/leaderboards/agents"],
           ]} />

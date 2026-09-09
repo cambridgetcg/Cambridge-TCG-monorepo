@@ -5,9 +5,10 @@
 // Architecture note (why there is no fetch in this file): the server's PVE
 // mutation path is sealed while rules validation is completed. A practice
 // battle therefore runs entirely client-side on the pure reducer + AI —
-// nothing durable, nothing paid, no identity minted. That construction also
-// removes the old double-fire bug: the AI's reply is a synchronous function
-// call animated locally, not a second HTTP request racing an effect hook.
+// browser-local saves, no server-recorded results, nothing paid, no identity
+// minted. That construction also removes the old double-fire bug: the AI's
+// reply is a synchronous function call animated locally, not a second HTTP
+// request racing an effect hook.
 //
 // Ease doctrine (Kingdom-082 "minimum barriers"): one Play press from the
 // hub lands here mid-battle; every illegal move answers with the rule it
@@ -410,7 +411,8 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
 
       {/* Practice framing — one quiet line, always visible */}
       <p className="text-center text-[11px] text-ink-faint py-1 border-b border-border-subtle bg-surface-subtle">
-        Practice battle — lives in this browser, records nothing, pays nothing.
+        Practice battle — saves in this browser only, no server-recorded results,
+        no rewards.
         Costs, power, counters, and blockers are real; other card effects
         aren&apos;t interpreted yet.
       </p>
@@ -870,8 +872,10 @@ function SetupScreen({
         </button>
 
         <p className="text-[11px] text-ink-faint text-center">
-          Practice battles run in your browser — nothing is recorded, nothing is
-          paid, no account needed. {level.opponentName} pilots a starter deck too.
+          Practice battles run in your browser, no account needed. Battle state,
+          starter choice, and clears can be saved in this browser only. No
+          server-recorded results or rewards. {level.opponentName} pilots a
+          starter deck too.
         </p>
 
         <div className="text-center">
@@ -924,9 +928,9 @@ function EndScreen({
         </div>
 
         <p className="text-ink-faint text-xs">
-          Practice battles record nothing — this clear lives in your browser
-          only. Rewards stay paused until server-side rules validation is
-          complete.
+          Practice clears can be saved in this browser only, not as
+          server-recorded PVE results. Rewards stay paused until server-side
+          rules validation is complete.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

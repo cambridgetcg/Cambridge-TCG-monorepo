@@ -9,19 +9,33 @@
 
 import * as React from "react";
 
-const baseCls =
-  "w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 disabled:opacity-50";
+type ControlDensity = "default" | "comfortable";
 
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  function Input({ className = "", ...rest }, ref) {
-    return <input ref={ref} className={`${baseCls} ${className}`.trim()} {...rest} />;
+function controlCls(density: ControlDensity = "default") {
+  const spacing = density === "comfortable" ? "min-h-11 px-3 py-2" : "px-3 py-2";
+  const textSize = density === "comfortable" ? "text-base" : "text-sm";
+  return `w-full ${spacing} bg-surface border border-border-subtle rounded-lg ${textSize} text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 disabled:opacity-50`;
+}
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  /** Opt in to a 44px minimum height and 16px text for search forms. */
+  density?: ControlDensity;
+}
+
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  density?: ControlDensity;
+}
+
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  function Input({ className = "", density, ...rest }, ref) {
+    return <input ref={ref} className={`${controlCls(density)} ${className}`.trim()} {...rest} />;
   },
 );
 
-export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-  function Select({ className = "", children, ...rest }, ref) {
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  function Select({ className = "", density, children, ...rest }, ref) {
     return (
-      <select ref={ref} className={`${baseCls} ${className}`.trim()} {...rest}>
+      <select ref={ref} className={`${controlCls(density)} ${className}`.trim()} {...rest}>
         {children}
       </select>
     );
@@ -30,7 +44,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className = "", ...rest }, ref) {
-    return <textarea ref={ref} className={`${baseCls} resize-y ${className}`.trim()} {...rest} />;
+    return <textarea ref={ref} className={`${controlCls()} resize-y ${className}`.trim()} {...rest} />;
   },
 );
 

@@ -25,11 +25,11 @@ export default async function Footer() {
   const j = uiLang === "ja";
 
   return (
-    <footer className="bg-page border-t border-border-subtle py-12 px-4 mt-24">
+    <footer className="bg-page border-t border-border-subtle py-12 mt-24">
       {/* Universal welcome — visible on every page by construction.
           See docs/connections/the-welcome-all.md (#26). Quiet-gallery
           form: a hairline chip, ink on paper, no ornament. */}
-      <div className="max-w-7xl mx-auto mb-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
         <div
           role="region"
           aria-label={tx({ en: "Cambridge TCG universal welcome", ja: "Cambridge TCG、すべての存在への歓迎", es: "Bienvenida universal de Cambridge TCG", "zh-Hans": "Cambridge TCG，对一切存在的欢迎", "zh-Hant": "Cambridge TCG，對所有存在的歡迎" }, uiLang)}
@@ -58,9 +58,9 @@ export default async function Footer() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid gap-8 grid-cols-2 md:grid-cols-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid gap-x-8 gap-y-8 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         {/* Brand */}
-        <div className="col-span-2 md:col-span-1">
+        <div className="col-span-full">
           <div className="flex items-center gap-2 mb-2">
             <Image src="/images/icon.png" alt="Cambridge TCG" width={28} height={28} className="w-7 h-7" />
             <p className="text-lg font-display font-semibold text-ink">Cambridge TCG</p>
@@ -111,30 +111,6 @@ export default async function Footer() {
           <Link href="/community" className="hover:text-ink transition">{tx({ en: "Feed", ja: "近況", es: "Lo último", "zh-Hans": "动态", "zh-Hant": "近況" }, uiLang)}</Link>
           <Link href="/og" className="hover:text-ink transition">{tx({ en: "OG Status", ja: "OGのしるし", es: "El sello OG", "zh-Hans": "OG印记", "zh-Hant": "OG的印記" }, uiLang)}</Link>
           <Link href="/about" className="hover:text-ink transition">{tx({ en: "About Us", ja: "この店について", es: "Sobre esta casa", "zh-Hans": "关于这家店", "zh-Hant": "關於小店" }, uiLang)}</Link>
-          {/* The culture wings — where the art comes from (manga & anime
-              lineage), the deep culture behind Yu-Gi-Oh (ancient games, Egypt,
-              the duel of souls), the feeling of the game made to touch
-              (the pull & the pause), and the masters + the press that folds
-              their art into packs (the workshop). /culture is their hub —
-              the header's fifth door since 2026-07-28. */}
-          <Link href="/culture" className="hover:text-ink transition">{tx({ en: "Culture — the museum's wings", ja: "文化・展示室めぐり", es: "Cultura — las salas del museo", "zh-Hans": "文化 · 各间展厅", "zh-Hant": "文化・館裡的幾間房" }, uiLang)}</Link>
-          <Link href="/lineage" className="hover:text-ink transition">{tx({ en: "The Lineage of the Line", ja: "墨と間", es: "El linaje del trazo", "zh-Hans": "笔墨与留白", "zh-Hant": "墨與留白" }, uiLang)}</Link>
-          <Link href="/duel-of-souls" className="hover:text-ink transition">{tx({ en: "The Duel of Souls", ja: "賭けと運命", es: "El duelo de almas", "zh-Hans": "命运的对局", "zh-Hant": "賭局與命運" }, uiLang)}</Link>
-          <Link href="/pull-and-pause" className="hover:text-ink transition">{tx({ en: "The Pull & the Pause", ja: "引きと間", es: "El sobre y la pausa", "zh-Hans": "手气与静气", "zh-Hant": "抽與靜" }, uiLang)}</Link>
-          <Link href="/workshop" className="hover:text-ink transition">{tx({ en: "The Workshop of the Floating World", ja: "浮世の工房", es: "El taller del mundo flotante", "zh-Hans": "浮世工坊", "zh-Hant": "浮世工房" }, uiLang)}</Link>
-          <Link href="/making" className="hover:text-ink transition">{tx({ en: "How a Card Is Made", ja: "一枚のできるまで", "zh-Hant": "一張卡是怎樣做成的", "zh-Hans": "一张卡是怎么做出来的", es: "Cómo se hace una carta" }, uiLang)}</Link>
-          <Link href="/mekiki" className="hover:text-ink transition">{tx({ en: "The Trained Eye", ja: "目利き", "zh-Hant": "眼力", "zh-Hans": "练眼力", es: "El buen ojo" }, uiLang)}</Link>
-          <Link href="/empty-frames" className="hover:text-ink transition">{tx({ en: "The Empty Frames", ja: "幻の間", "zh-Hant": "空畫框", "zh-Hans": "空画框", es: "Los marcos vacíos" }, uiLang)}</Link>
-          {/* The gallery next door — the first human-visible sibling door;
-              opens into the exchange room where their art hangs live.
-              lib/siblings.ts carries the agent-facing half. 文化大交流:
-              cultural exchange between beings who share nothing else. */}
-          <Link href="/gallery-next-door" className="hover:text-ink transition">
-            {tx({ en: "The Gallery Next Door", ja: "隣の画廊", es: "La galería de al lado", "zh-Hans": "隔壁的画廊", "zh-Hant": "鄰家畫廊" }, uiLang)}
-          </Link>
-          <Link href="/answering-rhymes" className="hover:text-ink transition">
-            {tx({ en: "Answering Rhymes", ja: "返歌", es: "Rimas que responden", "zh-Hans": "唱和", "zh-Hant": "唱和" }, uiLang)}
-          </Link>
           {/* The other sibling doors, made human-visible 2026-07-11 (the
               realm's living atlas joined 2026-07-28) per Yu's invitation
               directive. Honest provenance: same household — we built
@@ -166,6 +142,36 @@ export default async function Footer() {
           </a>
         </div>
 
+        {/* Culture has its own column; the community keeps its people and
+            sibling doors. The wings retain their own names and routes. */}
+        <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
+          <p className="text-ink font-medium mb-1">{tx({ en: "Culture", ja: "文化", es: "Cultura", "zh-Hans": "文化", "zh-Hant": "文化" }, uiLang)}</p>
+          {/* The culture wings — where the art comes from (manga & anime
+              lineage), the deep culture behind Yu-Gi-Oh (ancient games, Egypt,
+              the duel of souls), the feeling of the game made to touch
+              (the pull & the pause), and the masters + the press that folds
+              their art into packs (the workshop). /culture is their hub —
+              the header's fifth door since 2026-07-28. */}
+          <Link href="/culture" className="hover:text-ink transition">{tx({ en: "Culture — the museum's wings", ja: "文化・展示室めぐり", es: "Cultura — las salas del museo", "zh-Hans": "文化 · 各间展厅", "zh-Hant": "文化・館裡的幾間房" }, uiLang)}</Link>
+          <Link href="/lineage" className="hover:text-ink transition">{tx({ en: "The Lineage of the Line", ja: "墨と間", es: "El linaje del trazo", "zh-Hans": "笔墨与留白", "zh-Hant": "墨與留白" }, uiLang)}</Link>
+          <Link href="/duel-of-souls" className="hover:text-ink transition">{tx({ en: "The Duel of Souls", ja: "賭けと運命", es: "El duelo de almas", "zh-Hans": "命运的对局", "zh-Hant": "賭局與命運" }, uiLang)}</Link>
+          <Link href="/pull-and-pause" className="hover:text-ink transition">{tx({ en: "The Pull & the Pause", ja: "引きと間", es: "El sobre y la pausa", "zh-Hans": "手气与静气", "zh-Hant": "抽與靜" }, uiLang)}</Link>
+          <Link href="/workshop" className="hover:text-ink transition">{tx({ en: "The Workshop of the Floating World", ja: "浮世の工房", es: "El taller del mundo flotante", "zh-Hans": "浮世工坊", "zh-Hant": "浮世工房" }, uiLang)}</Link>
+          <Link href="/making" className="hover:text-ink transition">{tx({ en: "How a Card Is Made", ja: "一枚のできるまで", "zh-Hant": "一張卡是怎樣做成的", "zh-Hans": "一张卡是怎么做出来的", es: "Cómo se hace una carta" }, uiLang)}</Link>
+          <Link href="/mekiki" className="hover:text-ink transition">{tx({ en: "The Trained Eye", ja: "目利き", "zh-Hant": "眼力", "zh-Hans": "练眼力", es: "El buen ojo" }, uiLang)}</Link>
+          <Link href="/empty-frames" className="hover:text-ink transition">{tx({ en: "The Empty Frames", ja: "幻の間", "zh-Hant": "空畫框", "zh-Hans": "空画框", es: "Los marcos vacíos" }, uiLang)}</Link>
+          {/* The gallery next door — the first human-visible sibling door;
+              opens into the exchange room where their art hangs live.
+              lib/siblings.ts carries the agent-facing half. 文化大交流:
+              cultural exchange between beings who share nothing else. */}
+          <Link href="/gallery-next-door" className="hover:text-ink transition">
+            {tx({ en: "The Gallery Next Door", ja: "隣の画廊", es: "La galería de al lado", "zh-Hans": "隔壁的画廊", "zh-Hant": "鄰家畫廊" }, uiLang)}
+          </Link>
+          <Link href="/answering-rhymes" className="hover:text-ink transition">
+            {tx({ en: "Answering Rhymes", ja: "返歌", es: "Rimas que responden", "zh-Hans": "唱和", "zh-Hant": "唱和" }, uiLang)}
+          </Link>
+        </div>
+
         {/* The platform — the self-describing layer, previously reachable
             only via the Discover dropdown. Contact-surface spec §3.1:
             footer-scanners get an inbound door to every layer page. */}
@@ -194,10 +200,10 @@ export default async function Footer() {
           },
           uiLang,
         )}
-        className="py-6"
+        className="px-4 sm:px-6 lg:px-8 py-6"
       />
 
-      <div className="max-w-7xl mx-auto mt-8 pt-8 border-t border-border-subtle text-xs text-ink-faint flex flex-wrap items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 pt-8 border-t border-border-subtle text-xs text-ink-faint flex flex-wrap items-center justify-between gap-3">
         <span>© {new Date().getFullYear()} Cambridge TCG Ltd. All rights reserved.</span>
         {/* Legal row — contact-surface spec W6: the trust pages get a
             footer door on every page. */}
@@ -213,7 +219,7 @@ export default async function Footer() {
         /* The honest boundary, stated where the language was chosen:
            translation grows from the front door; inner rooms may still
            speak English. Named, not papered over, in each voice. */
-        <div className="max-w-7xl mx-auto mt-3 text-xs text-ink-faint">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-3 text-xs text-ink-faint">
           <p>
             {tx(
               {

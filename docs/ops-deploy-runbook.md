@@ -73,22 +73,34 @@ The token is also needed in three persistent places — see [`VERCEL_TOKEN`](#ve
 Before pushing a commit that will trigger production deploys:
 
 ```bash
-# 1. Typecheck every package + app (~30s)
+# 1. Typecheck the workspace set named in root package.json (with exclusions)
 pnpm typecheck
 
 # 2. Build each affected app locally — catches Turbopack/bundler
 #    issues that typecheck does NOT (see "Common deploy failures" below).
-#    Only required for apps you touched, but cheap to run all three.
-pnpm --filter cambridgetcg-storefront build   # ~10s, 380+ pages
-pnpm --filter tcg-wholesale build              # ~10s, 75 pages
-pnpm --filter @cambridge-tcg/admin build       # ~10s
+#    Run only affected apps, with an explicitly safe local fixture environment.
+pnpm --filter cambridgetcg-storefront build   # includes active /admin/*
+pnpm --filter tcg-wholesale build
+# apps/admin is a redirect-only shell with no build script.
 
 # 3. Run the registered project audits + unit tests
 # (`pnpm audit` without `run` invokes pnpm's dependency-vulnerability audit.)
-pnpm run audit && pnpm test:admin
+pnpm run audit
+pnpm --filter cambridgetcg-storefront test    # includes migrated admin Vitest
 pnpm --filter @cambridge-tcg/sku test
 pnpm --filter @cambridge-tcg/data-ingest test
 ```
+
+These are scoped commands, not the complete `pnpm verify` chain. The root script
+also names additional package tests and strict CardRush coverage. The project
+audit chain can connect to databases: inspect it and use a safe fixture environment,
+never ambient production credentials. `pnpm test:admin` no longer exists;
+admin code is covered by storefront's build and relevant Vitest tests. `pnpm smoke`
+still invokes the stale old admin runner, not a valid UI or visual gate. For the
+GET-only auth surface, use
+`STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e:smoke`
+with an already-running safe local storefront; it does not cover full admin
+behavior or visual regression.
 
 **The non-negotiable one is step 2.** `pnpm typecheck` validates types
 but does NOT exercise the bundler. Next.js 16 + Turbopack has stricter
@@ -673,13 +685,14 @@ Add to `.git/hooks/pre-push`:
 ```bash
 #!/bin/bash
 set -e
-echo "→ pre-push: typecheck + admin tests"
-pnpm -r exec tsc --noEmit
-pnpm --filter @cambridge-tcg/admin test
+printf '%s\n' 'pre-push: root typecheck set + storefront Vitest (including admin)'
+pnpm typecheck
+pnpm --filter cambridgetcg-storefront test
 ```
 
-Then `chmod +x .git/hooks/pre-push`. Prevents broken pushes from your
-machine; doesn't help with other contributors.
+Then `chmod +x .git/hooks/pre-push`. This stops pushes when the named checks
+fail; it is not the full `pnpm verify` chain, a build, or a browser/visual gate.
+Use safe local fixtures; the hook does not cover other contributors.
 
 ## Troubleshooting
 
