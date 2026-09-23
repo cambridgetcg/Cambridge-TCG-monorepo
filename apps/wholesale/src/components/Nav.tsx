@@ -16,7 +16,7 @@ function useIsAdminHost() {
 export default function Nav() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
-  const { itemCount, total, flushSync } = useCart();
+  const { flushSync } = useCart();
   const isAdminHost = useIsAdminHost();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -35,19 +35,8 @@ export default function Nav() {
           TCG Wholesale
         </Link>
 
-        {/* Mobile: cart badge + hamburger */}
+        {/* Mobile menu */}
         <div className="flex items-center gap-3 md:hidden">
-          {!isAdminHost && itemCount > 0 && (
-            <Link
-              href="/orders/new"
-              className="flex items-center gap-1.5 rounded bg-brand-600/20 border border-brand-600/30 px-3 py-1 text-brand-400 hover:bg-brand-600/30 transition text-sm"
-            >
-              <span>Cart ({itemCount})</span>
-              <span className="text-green-400 font-medium">
-                &pound;{total.toFixed(2)}
-              </span>
-            </Link>
-          )}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="flex flex-col justify-center gap-1 p-1"
@@ -110,17 +99,6 @@ export default function Nav() {
                 <a href={adminUrl} className="hover:text-brand-500 transition">
                   Admin
                 </a>
-              )}
-              {itemCount > 0 && (
-                <Link
-                  href="/orders/new"
-                  className="flex items-center gap-1.5 rounded bg-brand-600/20 border border-brand-600/30 px-3 py-1 text-brand-400 hover:bg-brand-600/30 transition"
-                >
-                  <span>Cart ({itemCount})</span>
-                  <span className="text-green-400 font-medium">
-                    &pound;{total.toFixed(2)}
-                  </span>
-                </Link>
               )}
             </>
           )}

@@ -1,7 +1,7 @@
 # TCG Wholesale — Omnichannel Architecture
-**Objective:** Wholesale site as single source of truth. Real-time price push to all channels. Sales from all channels registered back. Shared SKU and images across everything.
+> Historical architecture record, retained for provenance. The expansion plan, priority rankings, deadlines and sales objectives below are inactive. Current work is optional understanding; new wholesale order admission is retired. Existing paid-order ingestion, stock reconciliation and fulfillment obligations remain.
 
-_Created: 2026-03-22 | Priority: TOP_
+_Created: 2026-03-22 | Archived as an active plan: 2026-09-23_
 
 ---
 
@@ -168,4 +168,4 @@ ALTER TABLE stock_adjustments ADD COLUMN channel text DEFAULT 'manual';
 
 ---
 
-_This is the blueprint. Build Phase 1 first._
+_This record does not create a delivery, commercial or measurement obligation._

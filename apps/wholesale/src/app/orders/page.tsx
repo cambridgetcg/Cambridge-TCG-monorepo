@@ -48,12 +48,7 @@ export default async function OrdersPage() {
       <main className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Orders</h1>
-          <Link
-            href="/orders/new"
-            className="rounded bg-brand-600 px-4 py-2 text-sm font-medium hover:bg-brand-700 transition"
-          >
-            New Order
-          </Link>
+          <p className="text-sm text-gray-400">New orders are retired. Existing order handling remains available.</p>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-[#1e1e2e]">

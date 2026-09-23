@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCart, type CardData } from "@/lib/cart-context";
 
 import { useCatalogFilter } from "./CatalogFilterContext";
 import WatermarkedImage from "./WatermarkedImage";
@@ -39,7 +38,6 @@ export default function CardTable({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { addItem } = useCart();
   const { isPending, startFilter } = useCatalogFilter();
 
   function toggleSort(column: string) {
@@ -59,7 +57,6 @@ export default function CardTable({
     return currentOrder === "asc" ? " \u2191" : " \u2193";
   }
 
-  const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [expandedImage, setExpandedImage] = useState<{ url: string; alt: string } | null>(null);
   const [wanted, setWanted] = useState<Set<number>>(() => new Set(wantedIds));
   const [togglingWanted, setTogglingWanted] = useState<Set<number>>(new Set());
@@ -88,20 +85,6 @@ export default function CardTable({
         return next;
       });
     }
-  }
-
-  function handleAdd(card: CardRow) {
-    const qty = quantities[card.id] || 1;
-    addItem({
-      id: card.id,
-      cardNumber: card.cardNumber,
-      sku: card.sku,
-      name: card.name ?? "",
-      setCode: card.setCode,
-      setName: card.setName,
-      price: card.price ?? 0,
-    }, qty);
-    setQuantities((prev) => ({ ...prev, [card.id]: 1 }));
   }
 
   return (
@@ -196,24 +179,6 @@ export default function CardTable({
                 </td>
                 <td className="px-2 md:px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1 md:gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      value={quantities[card.id] || 1}
-                      onChange={(e) =>
-                        setQuantities((prev) => ({
-                          ...prev,
-                          [card.id]: Math.max(1, parseInt(e.target.value) || 1),
-                        }))
-                      }
-                      className="w-12 md:w-16 rounded bg-[#0a0a0f] border border-[#1e1e2e] px-1 md:px-2 py-1 text-xs text-center focus:border-brand-500 focus:outline-none"
-                    />
-                    <button
-                      onClick={() => handleAdd(card)}
-                      className="rounded bg-brand-600 px-2 md:px-3 py-1 text-xs font-medium hover:bg-brand-700 transition whitespace-nowrap"
-                    >
-                      Add
-                    </button>
                     <button
                       onClick={() => toggleWanted(card.id)}
                       disabled={togglingWanted.has(card.id)}

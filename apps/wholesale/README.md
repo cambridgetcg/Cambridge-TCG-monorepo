@@ -1,24 +1,14 @@
-# TCG Wholesale — Price Feed & Order System
+# TCG Wholesale — Price Research & Existing Order Records
 
 The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake recipe is at [`../../SOPHIA.md`](../../SOPHIA.md). Both optional — the system below runs either way. (Sibling expressions live at `~/Desktop/agenttool` and `~/Desktop/true-love` if reachable; carry what serves.)
 
-Wholesale ordering platform for UK streamer clients. Sources Japanese One Piece TCG cards from CardRush, applies landed cost markup, presents VAT-exclusive GBP prices. Clients submit orders, we verify stock, confirm quotes, and fulfil.
+This project exists for understanding card prices, stock and the records behind existing orders. There are no sales, revenue, volume or KPI obligations. New order and quote-request admission is retired. Existing orders keep their confirmation, settlement, fulfillment, cancellation and support flows; external paid-order ingestion remains available to honor those obligations.
 
-## Business Flow
+The existing Vercel `tcg-wholesale` project deploys this `apps/wholesale` directory. New order admission returns 410 before any account, database or notification operation.
 
-```
-CardRush (JPY) ──→ AWS Pipeline ──→ S3 Price Feed ──→ Web App (GBP ex-VAT)
-                                                           │
-                                                    Client browses
-                                                    Selects cards + qty
-                                                    Submits order request
-                                                           │
-                                               Admin reviews ──→ Stock check
-                                                           │
-                                                  Quote confirmed ──→ Client pays
-                                                           │
-                                                  Order placed ──→ Ship JP→UK ──→ Deliver
-```
+## Existing order lifecycle
+
+Previously recorded requests and quotes can still be reviewed, confirmed, paid, fulfilled or cancelled under their existing arrangements. No cart is converted into a new order. Price, tax and historical discount information below are accounting context, not targets or new offers.
 
 ## Pricing Model
 
@@ -42,17 +32,9 @@ price_inc_vat = price_ex_vat + vat          # total if needed
 - VAT invoice: £21.51
 - Total inc VAT: £129.08
 
-### Volume Discount (Tiered, based on prior month spend)
-| Monthly Spend | Discount |
-|---------------|----------|
-| < £10,000     | 0%       |
-| £10,000+      | 2%       |
-| £20,000+      | 4%       |
-| £30,000+      | 6%       |
-| £40,000+      | 8%       |
-| £50,000+      | 10%      |
+### Historical discounts
 
-2% per £10k bracket, capped at 10% off ex-VAT price.
+Existing order records retain their recorded discounts. The former spend-based discount ladder is not an active incentive or roadmap requirement. No stored discount or historical invoice is changed by retiring new acquisition.
 
 ## Existing AWS Infrastructure
 
@@ -84,24 +66,22 @@ price_inc_vat = price_ex_vat + vat          # total if needed
 - **Hosting:** Vercel
 - **Payments:** Stripe invoicing or bank transfer
 
-## MVP Features
+## Optional exploration and existing operations
 
 ### Client-Facing
 - [ ] Browse One Piece card price list (card number, name, GBP ex-VAT price)
 - [ ] Search/filter by set, card number, price range
-- [ ] Add cards to order with quantities
-- [ ] Submit order request (creates a quote request)
 - [ ] View order history and status
-- [ ] See volume discount tier and current month spend
+- [ ] Understand historical discount records
 
 ### Admin
-- [ ] View incoming order requests
+- [ ] Read existing order requests
 - [ ] Stock check workflow (link to CardRush for verification)
-- [ ] Confirm/modify/reject quotes
+- [ ] Handle quotes already recorded under existing arrangements
 - [ ] Mark orders as paid / ordered / shipped / delivered
 - [ ] Override prices for specific cards
 - [ ] Manual price feed upload (CSV fallback when pipeline is down)
-- [ ] Dashboard: revenue, margins, client spend tracking
+- [ ] Understand recorded prices, costs and settlements
 
 ### Data Pipeline
 - [ ] Sync S3 price feed → app database (cron or on-demand)
@@ -141,7 +121,7 @@ tcg-wholesale/
 └── package.json
 ```
 
-## Future Expansion
+## Optional research directions
 
 - [ ] Pokémon TCG (pipeline already scrapes, `pokemon_pricefeed.xlsx` exists)
 - [ ] Yu-Gi-Oh, Dragon Ball, other games

@@ -1,3 +1,4 @@
+import { NEW_ORDERS_RETIRED_STATUS, newOrdersRetiredResult } from "@/lib/commercial-retirement";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import {
@@ -159,6 +160,14 @@ function checkSameOrigin(req: Request): NextResponse | null {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") ?? "";
+
+  // A retired operation never redirects into another purchase or login flow.
+  if (pathname === "/api/orders" && req.method === "POST") {
+    return NextResponse.json(newOrdersRetiredResult(), {
+      status: NEW_ORDERS_RETIRED_STATUS,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
 
   // --- Phase 4: browser-surface retirement -------------------------------
   // On the storefront host (wholesaletcgdirect.com), 301-redirect every
