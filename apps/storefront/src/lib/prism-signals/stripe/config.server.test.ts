@@ -40,7 +40,7 @@ describe("PRISM Stripe sandbox configuration", () => {
       currency: "gbp",
       unitAmountMinor: 500,
       interval: "month",
-      checkoutIntakeEnabled: true,
+      checkoutIntakeEnabled: false,
       webhookProcessingEnabled: true,
     });
     expect(Object.isFrozen(config)).toBe(true);
@@ -128,9 +128,9 @@ describe("PRISM Stripe sandbox configuration", () => {
   });
 
   it.each([
-    ["configured_paused", "disabled", "disabled", false, false],
-    ["processing_only", "enabled", "disabled", true, false],
-    ["available", "enabled", "enabled", true, true],
+    ["checkout_retired", "disabled", "disabled", false, false],
+    ["checkout_retired", "enabled", "disabled", true, false],
+    ["checkout_retired", "enabled", "enabled", true, false],
   ] as const)(
     "publishes only the exact legal %s switch stage",
     (reason, processing, intake, processingAvailable, checkoutAvailable) => {
@@ -253,9 +253,9 @@ describe("PRISM Stripe sandbox configuration", () => {
     expect(posture).toEqual({
       configured: true,
       processing_available: true,
-      checkout_available: true,
+      checkout_available: false,
       portal_available: true,
-      reason: "available",
+      reason: "checkout_retired",
     });
     expect(JSON.stringify(posture)).not.toMatch(/rk_test|whsec|price_|prod_|bpc_|acct_/);
   });

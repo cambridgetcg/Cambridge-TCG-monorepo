@@ -62,18 +62,15 @@ beforeEach(() => {
 });
 
 describe("PRISM landing closed-beta posture", () => {
-  it("publishes honest Free and All sandbox plan copy without a direct checkout claim", async () => {
+  it("retires plan pricing while retaining public understanding and existing accounts", async () => {
     const markup = renderToStaticMarkup(<PrismSignalsPage />);
 
-    expect(markup).toContain("Free + All · test catalogue");
-    expect(markup).toContain("£0");
-    expect(markup).toContain("£5");
-    expect(markup).toContain("/ month");
-    expect(markup).toContain("Sandbox only");
-    expect(markup).toContain("not a live price");
-    expect(markup).toContain("not a real charge");
+    expect(markup).toContain("Understanding without a paid plan");
+    expect(markup).not.toContain("/ month");
+    expect(markup).not.toContain("Free + All · test catalogue");
+    expect(markup).toContain("sandbox checkout are retired");
     expect(markup).toContain('href="/prism-signals/account"');
-    expect(markup).toContain("Check sandbox availability");
+    expect(markup).toContain("Existing account records");
     expect(markup).toContain('data-prism-stripe-posture="unconfigured"');
     expect(markup).toContain("posture: unconfigured");
     expect(markup).not.toContain('href="/api/prism-signals/stripe/checkout"');
@@ -90,7 +87,7 @@ describe("PRISM landing closed-beta posture", () => {
     });
     const markup = renderToStaticMarkup(<PrismSignalsPage />);
 
-    expect(markup).toContain("Open All sandbox account");
+    expect(markup).toContain("Existing account records");
     expect(markup).toContain('data-prism-stripe-posture="intake-enabled"');
     expect(markup).toContain("host reports that sandbox intake is available");
     expect(markup).toContain("never creates Checkout directly");
@@ -185,7 +182,7 @@ describe("PRISM landing closed-beta posture", () => {
     const markup = renderToStaticMarkup(<PrismSignalsPage />);
 
     expect(markup).toContain(`data-prism-stripe-posture="${marker}"`);
-    expect(markup).toContain("Check sandbox availability");
+    expect(markup).toContain("Existing account records");
     expect(markup).not.toContain("Open All sandbox account");
     await expectDeployMarker(markup, marker);
   });

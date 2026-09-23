@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 describe("offer production release boundary", () => {
-  it("returns a no-store 503 before the DAL when production is not reviewed", async () => {
+  it("returns a no-store 410 before the DAL", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("P2P_COMMITMENT_MODE", "");
     const request = new Request("https://cambridgetcg.com/api/market/offers", {
@@ -41,15 +41,15 @@ describe("offer production release boundary", () => {
 
     const response = await POST(request);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(410);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     await expect(response.json()).resolves.toMatchObject({
-      code: "P2P_COMMITMENT_PAUSED",
+      code: "NEW_PAID_COMMERCE_RETIRED",
     });
     expect(mocks.makeOffer).not.toHaveBeenCalled();
   });
 
-  it("reaches the DAL only for the exact reviewed production mode", async () => {
+  it("cannot reopen paid offers with the former reviewed production mode", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv(
       "P2P_COMMITMENT_MODE",
@@ -67,13 +67,7 @@ describe("offer production release boundary", () => {
 
     const response = await POST(request);
 
-    expect(response.status).toBe(201);
-    expect(mocks.makeOffer).toHaveBeenCalledWith({
-      buyerId: "user-1",
-      askOrderId: "ask-1",
-      offerPrice: 12,
-      quantity: undefined,
-      message: undefined,
-    });
+    expect(response.status).toBe(410);
+    expect(mocks.makeOffer).not.toHaveBeenCalled();
   });
 });

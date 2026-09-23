@@ -6,6 +6,12 @@
  * paused path explicitly.
  */
 
+import {
+  NEW_PAID_COMMERCE_RETIRED,
+  NewPaidCommerceRetiredError,
+  newPaidCommerceRetiredResponse,
+} from "./commercial-retirement";
+
 export const ACCOUNT_ADMISSION_REVIEWED_MODE = "reviewed-adult-terms-v1";
 export const P2P_COMMITMENT_REVIEWED_MODE = "reviewed-adult-human-review-v1";
 export const RELEASE_GATE_PAUSED_MODE = "paused";
@@ -48,7 +54,9 @@ export function isAccountAdmissionOpen(
 
 export function isP2PCommitmentOpen(
   env: ReleaseGateEnv = process.env,
+  kind: "paid" | "swap" = "paid",
 ): boolean {
+  if (kind === "paid" && NEW_PAID_COMMERCE_RETIRED) return false;
   return modeIsOpen(
     env.P2P_COMMITMENT_MODE,
     P2P_COMMITMENT_REVIEWED_MODE,
@@ -84,14 +92,18 @@ export function assertAccountAdmissionOpen(
 
 export function assertP2PCommitmentOpen(
   env: ReleaseGateEnv = process.env,
+  kind: "paid" | "swap" = "paid",
 ): void {
-  if (!isP2PCommitmentOpen(env)) throw new P2PCommitmentPausedError();
+  if (kind === "paid" && NEW_PAID_COMMERCE_RETIRED) throw new NewPaidCommerceRetiredError();
+  if (!isP2PCommitmentOpen(env, kind)) throw new P2PCommitmentPausedError();
 }
 
 export function p2pCommitmentPauseResponse(
   env: ReleaseGateEnv = process.env,
+  kind: "paid" | "swap" = "paid",
 ): Response | null {
-  if (isP2PCommitmentOpen(env)) return null;
+  if (kind === "paid" && NEW_PAID_COMMERCE_RETIRED) return newPaidCommerceRetiredResponse();
+  if (isP2PCommitmentOpen(env, kind)) return null;
   return pausedResponse(P2P_COMMITMENT_PAUSED_CODE, P2P_COMMITMENT_PAUSED_MESSAGE);
 }
 

@@ -21,7 +21,7 @@ function expectDalBackstopBefore(
   firstWrite: string,
 ): void {
   const fn = section(body, functionStart, nextSection);
-  const gateAt = fn.indexOf("assertP2PCommitmentOpen();");
+  const gateAt = fn.indexOf("assertP2PCommitmentOpen(");
   const writeAt = fn.indexOf(firstWrite);
   expect(gateAt, `${functionStart} is missing its release backstop`).toBeGreaterThanOrEqual(0);
   expect(writeAt, `${functionStart} is missing its expected write`).toBeGreaterThan(gateAt);
@@ -89,7 +89,7 @@ describe("P2P release admission boundaries", () => {
       "src/app/api/swaps/[id]/accept/route.ts",
     ];
     for (const path of routes) {
-      expect(source(path), path).toContain("p2pCommitmentPauseResponse()");
+      expect(source(path), path).toContain("p2pCommitmentPauseResponse(");
     }
 
     const auctionMutation = source("src/app/api/auctions/[id]/route.ts");

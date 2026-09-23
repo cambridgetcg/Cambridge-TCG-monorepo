@@ -1,5 +1,8 @@
 "use client";
 
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
@@ -999,6 +1002,7 @@ export default function CardMarketClient({
 
           {/* Right: the order form — collectors trading with collectors */}
           <div className="space-y-4">
+            {NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice /> : (<>
             {/* ========== P2P Order Form ========== */}
             <div
               ref={buyFormRef}
@@ -1268,7 +1272,7 @@ export default function CardMarketClient({
             </div>
 
           </div>
-
+            </>)}
           </div>
         </div>
 

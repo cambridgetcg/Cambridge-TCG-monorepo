@@ -4,7 +4,6 @@ import { Audience, WhyLink, audienceMetadata } from "@/lib/ui";
 import {
   PRISM_SIGNALS_BRAND,
   PRISM_SIGNALS_CHANNELS,
-  PRISM_SIGNALS_FUTURE_RAILS,
   PRISM_SIGNALS_LINKS,
   PRISM_SIGNALS_NON_CLAIMS,
   PRISM_SIGNALS_PREVIEW_NOTICE,
@@ -12,10 +11,6 @@ import {
 } from "@/lib/prism-signals/presentation";
 import { prismSignalsRuntime } from "@/lib/prism-signals/runtime.server";
 import { prismSignalsBetaIntakeEnabled } from "@/lib/prism-signals/beta-interest-config.server";
-import {
-  PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR,
-  PRISM_SIGNALS_PLAN_CATALOG,
-} from "@/lib/prism-signals/product";
 import {
   prismStripeSandboxPublicPosture,
   type PrismStripeSandboxPublicPostureV1,
@@ -76,6 +71,15 @@ const INVALID_PUBLIC_POSTURE = Object.freeze({
 function prismStripePosturePresentation(
   posture: PrismStripeSandboxPublicPostureV1,
 ): PrismStripePosturePresentation {
+  if (posture.reason === "checkout_retired") {
+    return posture.configured && !posture.checkout_available && posture.portal_available
+      ? {
+          marker: posture.processing_available ? "processing-only" : "configured-paused",
+          checkoutAvailable: false,
+          message: "New sandbox checkout is retired. Existing records and cancellation remain available.",
+        }
+      : INVALID_PUBLIC_POSTURE;
+  }
   if (posture.reason === "not_configured") {
     return !posture.configured &&
       !posture.processing_available &&
@@ -361,76 +365,26 @@ export default function PrismSignalsPage() {
       <section className="border-y border-border-subtle bg-surface-elevated">
         <div className="mx-auto max-w-6xl px-5 py-16 md:px-8">
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
-            Free + All · test catalogue
+            Understanding without a paid plan
           </p>
           <h2 className="mt-2 font-display text-3xl font-semibold">
-            One free reading. One sandbox subscription test.
+            Explore at your own pace.
           </h2>
           <p className="mt-4 max-w-3xl leading-7 text-ink-muted">
-            The plan names are fixed, but the commercial launch is not. All&apos;s
-            £5 monthly figure is a Stripe test-mode amount used to verify the
-            subscription flow—not a live price and not a real charge.
+            Read the public synthetic fixture without a subscription. New paid
+            plans and sandbox checkout are retired. Existing test records,
+            refunds and cancellation remain available.
           </p>
-
-          <div className="mt-9 grid gap-6 md:grid-cols-2">
-            <article className="rounded-xl border border-border-strong bg-surface p-6 shadow-mat">
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink-faint">
-                {PRISM_SIGNALS_PLAN_CATALOG.plans[0].name}
-              </p>
-              <p className="mt-3 font-display text-4xl font-semibold">£0</p>
-              <p className="mt-4 text-sm leading-6 text-ink-muted">
-                The public fixed synthetic signal already on this page. No
-                account, Checkout session, payment event, or perpetual
-                entitlement is manufactured for Free access.
-              </p>
-              <a
-                href="#synthetic-signal"
-                className="mt-6 inline-flex rounded-lg border border-border-strong px-5 py-3 text-sm font-semibold text-ink"
-              >
-                Read the Free fixture
-              </a>
-            </article>
-
-            <article className="rounded-xl border border-accent bg-accent-wash p-6 shadow-mat">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
-                    {PRISM_SIGNALS_PLAN_CATALOG.plans[1].name}
-                  </p>
-                  <p className="mt-3 font-display text-4xl font-semibold">
-                    £{PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR / 100}
-                    <span className="ml-2 text-base font-normal text-ink-muted">/ month</span>
-                  </p>
-                </div>
-                <span className="rounded-full border border-warning/30 bg-warning/10 px-3 py-1 font-mono text-xs text-warning">
-                  Sandbox only
-                </span>
-              </div>
-              <p className="mt-4 text-sm leading-6 text-ink-muted">
-                Tests recurring Stripe Checkout, signed webhook authority,
-                owner status, and cancellation against an All-labelled
-                owner projection around the same public synthetic fixture. It
-                does not unlock an exclusive payload or live market signals.
-              </p>
-              <Link
-                href="/prism-signals/account"
-                className="mt-6 inline-flex rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-page"
-              >
-                {stripePresentation.checkoutAvailable
-                  ? "Open All sandbox account"
-                  : "Check sandbox availability"}
-              </Link>
-              <p
-                className="mt-3 text-xs leading-5 text-ink-faint"
-                data-prism-stripe-posture={stripePresentation.marker}
-              >
-                {stripePresentation.message}
-              </p>
-            </article>
+          <div className="mt-8 flex flex-wrap gap-4">
+            <a href="#synthetic-signal" className="rounded-lg border border-border-strong px-5 py-3 text-sm font-semibold">
+              Read the synthetic fixture
+            </a>
+            <Link href="/prism-signals/account" className="rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-page">
+              Existing account records
+            </Link>
           </div>
-
-          <p className="mt-6 max-w-4xl font-mono text-xs leading-5 text-ink-faint">
-            {PRISM_SIGNALS_PLAN_CATALOG.notice}
+          <p className="mt-4 text-xs leading-5 text-ink-faint" data-prism-stripe-posture={stripePresentation.marker}>
+            {stripePresentation.message}
           </p>
         </div>
       </section>
@@ -473,48 +427,6 @@ export default function PrismSignalsPage() {
                   {channel.currentStatus}
                 </p>
               </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-5 py-16 md:px-8">
-        <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">
-              Repeatable product flow
-            </p>
-            <h2 className="mt-2 font-display text-3xl font-semibold">The first shell, not the last product</h2>
-            <p className="mt-4 leading-7 text-ink-muted">
-              A versioned offer, verified payment evidence, one entitlement,
-              and channel-specific delivery are separate steps. Future products
-              can reuse that sequence without inheriting PRISM&apos;s private model.
-            </p>
-            <p className="mt-4 font-mono text-xs uppercase tracking-wide text-ink-faint">
-              {PRISM_SIGNALS_PREVIEW_NOTICE}
-            </p>
-            <div className="mt-6 rounded-lg border border-border-subtle bg-surface p-5 font-mono text-xs leading-6 text-ink-muted">
-              offer → provider receipt → entitlement → web / Telegram
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface">
-            {PRISM_SIGNALS_FUTURE_RAILS.map((rail, index) => (
-              <div
-                key={rail.rail}
-                className={index === 0 ? "p-5" : "border-t border-border-subtle p-5"}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-ink">{rail.channel}</p>
-                    <p className="mt-1 font-mono text-xs text-ink-faint">{rail.rail}</p>
-                  </div>
-                  <span className="rounded-full border border-border-subtle bg-surface-subtle px-3 py-1 font-mono text-xs text-ink-muted">
-                    {rail.status}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm leading-6 text-ink-muted">{rail.rule}</p>
-              </div>
             ))}
           </div>
         </div>

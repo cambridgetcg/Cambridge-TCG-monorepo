@@ -244,7 +244,7 @@ export interface CreateSwapInput {
 }
 
 export async function createSwap(input: CreateSwapInput): Promise<Result<SwapProposal>> {
-  assertP2PCommitmentOpen();
+  assertP2PCommitmentOpen(undefined, "swap");
 
   // Resolve recipient.
   let recipientId = input.recipientId ?? null;
@@ -478,7 +478,7 @@ export async function createSwap(input: CreateSwapInput): Promise<Result<SwapPro
 // ── Draft → proposed ────────────────────────────────────────────────────
 
 export async function proposeDraft(swapId: string, userId: string): Promise<Result<SwapProposal>> {
-  assertP2PCommitmentOpen();
+  assertP2PCommitmentOpen(undefined, "swap");
 
   const found = await getSwapForUser(swapId, userId);
   if (!found) return { ok: false, reason: "Swap not found.", status: 404 };
@@ -546,7 +546,7 @@ export async function proposeDraft(swapId: string, userId: string): Promise<Resu
 // ── Accept / decline / cancel ───────────────────────────────────────────
 
 export async function acceptSwap(swapId: string, userId: string): Promise<Result<SwapProposal>> {
-  assertP2PCommitmentOpen();
+  assertP2PCommitmentOpen(undefined, "swap");
 
   const found = await getSwapForUser(swapId, userId);
   if (!found) return { ok: false, reason: "Swap not found.", status: 404 };

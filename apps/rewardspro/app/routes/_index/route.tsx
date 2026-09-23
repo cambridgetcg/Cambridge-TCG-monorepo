@@ -3,19 +3,14 @@ import { redirect } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
 import { useState } from "react";
 import { login } from "../../shopify.server";
-import {
-  PRICING_PLANS,
-  PUBLIC_PLAN_KEYS,
-  formatPlanLimit,
-  getPlanFeatureSummary,
-} from "~/constants/pricing-contract";
+import { PAID_SUBSCRIPTIONS_RETIRED_MESSAGE } from "~/constants/commercial-retirement";
 
 export const meta: MetaFunction = () => {
   return [
     { title: "RewardsPro - Customer Loyalty & Rewards for Shopify" },
-    { 
-      name: "description", 
-      content: "Transform your customers into loyal fans with automated cashback tiers. Boost repeat purchases and increase customer lifetime value." 
+    {
+      name: "description",
+      content: "Explore loyalty systems, balances and existing reward records. New paid subscriptions are retired."
     },
   ];
 };
@@ -38,7 +33,7 @@ const faqs = [
   },
   {
     question: "Can I customize the reward tiers?",
-    answer: "Yes! You have full control over tier names, spending thresholds, and cashback percentages. Free includes five tiers, with more capacity on paid plans."
+    answer: "Yes! You have full control over tier names, spending thresholds, and cashback percentages. Existing programme settings and records remain available; new paid plans are retired."
   },
   {
     question: "How do customers redeem their rewards?",
@@ -58,19 +53,6 @@ const faqs = [
   }
 ];
 
-const pricingPlans = PUBLIC_PLAN_KEYS.map((planKey) => {
-  const plan = PRICING_PLANS[planKey];
-  return {
-    name: plan.displayName,
-    price: `$${plan.monthlyPrice.toLocaleString("en-US")}`,
-    period: "month",
-    ordersIncluded: `${formatPlanLimit(plan.limits.orders)} reward-eligible orders/month`,
-    features: getPlanFeatureSummary(planKey),
-    cta: planKey === "free" ? "Start Free" : `Choose ${plan.displayName}`,
-    highlighted: planKey === "pro",
-  };
-});
-
 export default function LandingPage() {
   const { showForm } = useLoaderData<typeof loader>();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -88,7 +70,7 @@ export default function LandingPage() {
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-600 hover:text-purple-600 transition-colors">Features</a>
               <a href="#how-it-works" className="text-gray-600 hover:text-purple-600 transition-colors">How it Works</a>
-              <a href="#pricing" className="text-gray-600 hover:text-purple-600 transition-colors">Pricing</a>
+              <a href="#subscription-records" className="text-gray-600 hover:text-purple-600 transition-colors">Subscription records</a>
               <a href="#faq" className="text-gray-600 hover:text-purple-600 transition-colors">FAQ</a>
               <button
                 onClick={() => document.getElementById('get-started')?.scrollIntoView({ behavior: 'smooth' })}
@@ -106,19 +88,18 @@ export default function LandingPage() {
       <section className="pt-32 pb-20 px-4 bg-gradient-to-br from-purple-50 to-white">
         <div className="max-w-7xl mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Transform Your Customers into
-            <span className="text-purple-600"> Loyal Fans</span>
+            Understand how
+            <span className="text-purple-600"> rewards work</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Reward repeat purchases with automated cashback tiers that keep customers coming back. 
-            Boost retention, increase order values, and grow your Shopify store.
+            Explore reward rules and the records they create. Curiosity does not need a revenue or growth target.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={() => document.getElementById('get-started')?.scrollIntoView({ behavior: 'smooth' })}
               className="bg-purple-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-purple-700 transition-all transform hover:scale-105"
             >
-              Start Free
+              Open the app
             </button>
             <a
               href="#how-it-works"
@@ -127,7 +108,7 @@ export default function LandingPage() {
               See How It Works
             </a>
           </div>
-          <p className="mt-4 text-gray-500">No credit card required • Setup in 5 minutes</p>
+          <p className="mt-4 text-gray-500">New paid subscriptions are retired</p>
         </div>
       </section>
 
@@ -136,18 +117,18 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <h2 className="text-4xl font-bold text-center mb-4">Why RewardsPro?</h2>
           <p className="text-xl text-gray-600 text-center mb-12 max-w-3xl mx-auto">
-            Join thousands of Shopify stores using rewards to drive growth
+            Explore the mechanics of loyalty systems
           </p>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center p-6">
               <div className="text-4xl mb-4">📈</div>
-              <h3 className="text-2xl font-semibold mb-3">Increase Repeat Purchases</h3>
-              <p className="text-gray-600">Customers with rewards are 1.5x more likely to make another purchase</p>
+              <h3 className="text-2xl font-semibold mb-3">Understand Reward Rules</h3>
+              <p className="text-gray-600">See how programme rules connect purchases and reward balances</p>
             </div>
             <div className="text-center p-6">
               <div className="text-4xl mb-4">💰</div>
-              <h3 className="text-2xl font-semibold mb-3">Boost Order Values</h3>
-              <p className="text-gray-600">Loyalty members spend 3x more on average than regular customers</p>
+              <h3 className="text-2xl font-semibold mb-3">Read Existing Balances</h3>
+              <p className="text-gray-600">Inspect the records behind a customer balance</p>
             </div>
             <div className="text-center p-6">
               <div className="text-4xl mb-4">🔄</div>
@@ -163,13 +144,13 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <h2 className="text-4xl font-bold text-center mb-4">Your Loyalty Program Journey</h2>
           <p className="text-xl text-gray-600 text-center mb-12">
-            See how RewardsPro creates repeat purchases
+            See how a reward moves through the system
           </p>
-          
+
           <div className="relative">
             {/* Timeline line */}
             <div className="hidden md:block absolute top-1/2 left-0 right-0 h-1 bg-purple-200 -translate-y-1/2"></div>
-            
+
             <div className="grid md:grid-cols-3 gap-8 relative">
               {/* Step 1 */}
               <div className="bg-white p-6 rounded-xl shadow-lg relative">
@@ -227,7 +208,7 @@ export default function LandingPage() {
           <p className="text-xl text-gray-600 text-center mb-12">
             Powerful features that work seamlessly with your Shopify store
           </p>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-shadow">
               <div className="text-purple-600 mb-4">
@@ -292,79 +273,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 px-4 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-4">Choose Your Plan</h2>
-          <p className="text-xl text-gray-600 text-center mb-12">
-            Start free and scale as you grow
-          </p>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {pricingPlans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`bg-white rounded-xl p-6 ${
-                  plan.highlighted 
-                    ? 'ring-2 ring-purple-600 shadow-xl scale-105' 
-                    : 'border border-gray-200'
-                }`}
-              >
-                {plan.highlighted && (
-                  <div className="bg-purple-600 text-white text-sm font-semibold py-1 px-3 rounded-full inline-block mb-4">
-                    MOST POPULAR
-                  </div>
-                )}
-                <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
-                <div className="mb-4">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  <span className="text-gray-600">/{plan.period}</span>
-                </div>
-                <p className="text-gray-600 mb-2">{plan.ordersIncluded}</p>
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start">
-                      <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-gray-600 text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => document.getElementById('get-started')?.scrollIntoView({ behavior: 'smooth' })}
-                  className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
-                    plan.highlighted
-                      ? 'bg-purple-600 text-white hover:bg-purple-700'
-                      : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                  }`}
-                >
-                  {plan.cta}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Social Proof */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-7xl mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-12">Trusted by Thousands of Shopify Stores</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div>
-              <div className="text-5xl font-bold text-purple-600 mb-2">10,000+</div>
-              <p className="text-gray-600">Active Stores</p>
-            </div>
-            <div>
-              <div className="text-5xl font-bold text-purple-600 mb-2">$5M+</div>
-              <p className="text-gray-600">Rewards Distributed</p>
-            </div>
-            <div>
-              <div className="text-5xl font-bold text-purple-600 mb-2">98%</div>
-              <p className="text-gray-600">Customer Satisfaction</p>
-            </div>
-          </div>
+      <section id="subscription-records" className="py-20 px-4 bg-gray-50">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold mb-4">Understanding without a sales target</h2>
+          <p>{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</p>
+          <p className="mt-4">Exploration does not need to earn revenue, attract customers or meet a growth target.</p>
         </div>
       </section>
 
@@ -411,7 +324,7 @@ export default function LandingPage() {
           <p className="text-xl text-purple-100 mb-8">
             Join thousands of stores using RewardsPro to increase retention
           </p>
-          
+
           {showForm && (
             <Form method="post" action="/auth/login" className="space-y-4">
               <div>
@@ -429,12 +342,12 @@ export default function LandingPage() {
                 type="submit"
                 className="w-full bg-white text-purple-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all transform hover:scale-105"
               >
-                Start Free
+                Open the app
               </button>
             </Form>
           )}
-          
-          <p className="mt-4 text-purple-200">No credit card required • Setup in 5 minutes</p>
+
+          <p className="mt-4 text-purple-200">New paid subscriptions are retired</p>
         </div>
       </section>
 
@@ -443,9 +356,9 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="bg-gray-50 rounded-2xl p-8 text-center">
             <div className="inline-block mb-6">
-              <img 
-                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Ccircle cx='60' cy='40' r='25' fill='%23E9D5FF'/%3E%3Cpath d='M35 70 Q60 85 85 70' fill='%23E9D5FF'/%3E%3Crect x='50' y='65' width='20' height='30' rx='5' fill='%23E9D5FF'/%3E%3Cpath d='M45 85 L40 105 L80 105 L75 85' fill='%23E9D5FF'/%3E%3C/svg%3E" 
-                alt="Support illustration" 
+              <img
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Ccircle cx='60' cy='40' r='25' fill='%23E9D5FF'/%3E%3Cpath d='M35 70 Q60 85 85 70' fill='%23E9D5FF'/%3E%3Crect x='50' y='65' width='20' height='30' rx='5' fill='%23E9D5FF'/%3E%3Cpath d='M45 85 L40 105 L80 105 L75 85' fill='%23E9D5FF'/%3E%3C/svg%3E"
+                alt="Support illustration"
                 className="w-32 h-32"
               />
             </div>
@@ -477,17 +390,17 @@ export default function LandingPage() {
                 The easiest way to build customer loyalty on Shopify.
               </p>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-2 text-gray-400">
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
+                <li><a href="#subscription-records" className="hover:text-white transition-colors">Subscription records</a></li>
                 <li><a href="#how-it-works" className="hover:text-white transition-colors">How it Works</a></li>
                 <li><a href="/docs" className="hover:text-white transition-colors">API Docs</a></li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Resources</h4>
               <ul className="space-y-2 text-gray-400">
@@ -497,7 +410,7 @@ export default function LandingPage() {
                 <li><a href="#faq" className="hover:text-white transition-colors">FAQ</a></li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-400">
@@ -508,7 +421,7 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-          
+
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400">© 2025 RewardsPro. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">

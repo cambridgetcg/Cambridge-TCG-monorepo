@@ -1,5 +1,7 @@
 "use client";
 
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -490,7 +492,7 @@ export default function PrismSubscriptionAccount() {
         ) : null}
 
         <div className="mt-7 flex flex-wrap gap-3">
-          {status.checkout.available ? (
+          {!NEW_PAID_COMMERCE_RETIRED && status.checkout.available ? (
             <button
               type="button"
               disabled={action !== null}
@@ -501,7 +503,7 @@ export default function PrismSubscriptionAccount() {
             </button>
           ) : (
             <span className="rounded-lg border border-border-subtle bg-surface-subtle px-5 py-3 text-sm text-ink-muted">
-              New sandbox checkout unavailable
+              New sandbox checkout retired
             </span>
           )}
           {status.portal.available ? (

@@ -1,5 +1,14 @@
 # RewardsPro: Product Vision & Roadmap
 
+## Understanding without commercial targets
+
+From 2026-09-23, this project has no KPI, revenue, conversion, growth or
+commercialisation requirement. Understanding and exploration are sufficient.
+New paid RewardsPro subscriptions and paid plan changes are retired. Existing
+agreements retain their records, cancellation, refund and support paths; this
+decision does not rewrite their entitlements or cancel them automatically.
+
+
 > **Last Updated**: July 2026
 > **Status**: Living Document
 
@@ -467,23 +476,15 @@ redemption surface that the loyalty engine operates on.
 
 ## Pillar 7: Infrastructure & Operations
 
-### 7.1 Billing & Plans 🔨 PARTIAL
-**Status**: Free-first contract implemented; live Shopify rollout pending
+### 7.1 Existing agreement support
 
-**Implemented Features**:
-- Four public tiers (Free Forever, Grow, Scale, Corporate)
-- Monthly and annual billing
-- Fixed recurring prices with no usage charges
-- Advisory capacity warnings without merchant lockout
-- Stable legacy Shopify billing names for existing subscription recognition
-- Shopify Billing API integration
+New paid subscriptions and paid plan changes are retired. The billing code
+retains provider-verified reads, existing agreements, cancellation, refunds,
+callbacks and reconciliation. Legacy plan names and prices remain for accurate
+records, not as new offers. No entitlement backfill or automatic cancellation
+is part of this change.
 
-**Rollout boundary**:
-- Partner Dashboard/App Pricing plans must be created and tested as drafts
-- Existing paid contracts stay recognised and are not cancelled automatically
-- Entitlement backfill is dry-run first and preserves active overrides
-
-**Files**: `billing/`, `app.billing.tsx`
+**Files**: `billing/`, `app.billing.tsx`, `constants/commercial-retirement.ts`
 
 ### 7.2 Data Sync ✅ LIVE
 **Status**: Production-ready
@@ -578,37 +579,12 @@ redemption surface that the loyalty engine operates on.
 
 ---
 
-## Success Metrics
+## Exploration
 
-### Merchant Success Targets
-- Repeat purchase rate increase: +25%
-- Customer lifetime value increase: +40%
-- Program participation rate: >50%
-- Redemption rate: 60-80%
-- Net Promoter Score: >50
-
-### Platform Success Targets
-- Monthly active merchants: 10,000
-- Total GMV through program: $1B annually
-- Feature adoption: >70% using 5+ features
-- Merchant churn rate: <3% monthly
-
----
-
-## Competitive Advantages
-
-### Technical
-1. **Deep Shopify Integration** - Native checkout, POS, customer accounts
-2. **Real-time Processing** - Instant tier calculations and rewards
-3. **Scalable Architecture** - Aurora Serverless, async processing
-4. **Rate-Based Model** - All features available, upgrade for capacity
-
-### Strategic
-1. **Ecosystem Network Effects** - Cross-merchant benchmarking potential
-2. **Data Flywheel** - More merchants = better recommendations
-3. **Integration Network** - Best-in-class connections
-
----
+There are no merchant, adoption, retention, GMV, revenue or growth targets.
+Existing analytics can explain records when someone wants to understand them;
+they do not rank the project or create an obligation to improve a number.
+Technical checks remain evidence about correctness and safety, not KPIs.
 
 ## Document History
 

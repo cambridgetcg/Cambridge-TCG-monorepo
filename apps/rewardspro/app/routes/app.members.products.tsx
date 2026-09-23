@@ -472,7 +472,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (!canCreateProducts) {
         return json({
           success: false,
-          error: `Upgrade to Pro plan or higher to create purchasable tier products. Current plan: ${entitlements.effectivePlan}`
+          error: `Purchasable tier products are unavailable under the existing agreement. Current plan: ${entitlements.effectivePlan}`
         }, { status: 403 });
       }
 
@@ -2644,7 +2644,7 @@ export default function TierProducts() {
                   {!data.canCreateProducts && (
                     <Box paddingBlockStart="400">
                       <Text as="p" tone="subdued">
-                        This feature requires Pro plan or higher. <Button variant="plain" url="/app/billing">Upgrade now</Button>
+                        This feature is unavailable under the existing agreement. New paid plan changes are retired.
                       </Text>
                     </Box>
                   )}

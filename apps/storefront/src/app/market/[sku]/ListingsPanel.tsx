@@ -1,5 +1,7 @@
 "use client";
 
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 // Per-listing view of the open asks on one card, with the offer composer.
 // The order book (unified view) aggregates by price and drops order ids;
 // negotiation needs the individual ask — its id (the makeOffer target),
@@ -121,7 +123,7 @@ export function ListingsPanel({
                     size="sm"
                   />
                 )}
-                {onBuy && (
+                {!NEW_PAID_COMMERCE_RETIRED && onBuy && (
                   <button
                     type="button"
                     onClick={() =>
@@ -139,7 +141,7 @@ export function ListingsPanel({
                     Buy
                   </button>
                 )}
-                {ask.allow_offers ? (
+                {NEW_PAID_COMMERCE_RETIRED ? <span className="text-xs text-ink-faint">New offers retired</span> : ask.allow_offers ? (
                   <button
                     onClick={() => setOpenComposer(openComposer === ask.id ? null : ask.id)}
                     className="px-3 py-1.5 text-xs font-bold rounded-md bg-accent text-page hover:bg-accent-strong transition"
@@ -153,7 +155,7 @@ export function ListingsPanel({
                 )}
               </span>
             </div>
-            {openComposer === ask.id && ask.allow_offers && (
+            {!NEW_PAID_COMMERCE_RETIRED && openComposer === ask.id && ask.allow_offers && (
               <OfferComposer
                 sku={sku}
                 ask={ask}

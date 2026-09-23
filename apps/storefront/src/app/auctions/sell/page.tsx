@@ -1,5 +1,8 @@
 "use client";
 
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/format";
@@ -42,6 +45,10 @@ const DURATION_OPTIONS = [
 ];
 
 export default function SellAuctionPage() {
+  return NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice /> : <SellAuctionForm />;
+}
+
+function SellAuctionForm() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 

@@ -1,5 +1,8 @@
 "use client";
 
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 /**
  * The listing wizard — /market/list's client half.
  *
@@ -76,7 +79,11 @@ interface SearchState {
   message?: string;
 }
 
-export default function ListingWizard({
+export default function ListingWizard(props: ListingWizardProps) {
+  return NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice /> : <ListingWizardForm {...props} />;
+}
+
+function ListingWizardForm({
   game,
   initialSku,
   isSignedIn,

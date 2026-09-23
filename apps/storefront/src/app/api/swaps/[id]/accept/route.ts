@@ -10,7 +10,7 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  const releasePause = p2pCommitmentPauseResponse();
+  const releasePause = p2pCommitmentPauseResponse(undefined, "swap");
   if (releasePause) return releasePause;
   const { id } = await params;
   const result = await acceptSwap(id, session.user.id);

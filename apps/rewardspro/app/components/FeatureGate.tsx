@@ -1,3 +1,4 @@
+import { NEW_PAID_SUBSCRIPTIONS_RETIRED, PAID_SUBSCRIPTIONS_RETIRED_MESSAGE } from "~/constants/commercial-retirement";
 /**
  * Feature Gate Components
  * Restricts access to features based on billing plan
@@ -39,14 +40,11 @@ export function FeatureGate({
   return (
     <Box padding="400">
       <Banner
-        title={`Upgrade to unlock ${feature}`}
+        title={feature}
         tone="info"
-        action={{
-          content: "Upgrade Plan",
-          url: upgradeUrl,
-        }}
+        action={undefined}
       >
-        <Text as="p">{upgradeMessage || `This feature requires a higher plan.`}</Text>
+        <Text as="p">{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</Text>
       </Banner>
     </Box>
   );
@@ -73,12 +71,9 @@ export function LockedFeature({
       title={feature}
       tone={tone}
       icon={LockIcon}
-      action={{
-        content: "Upgrade Plan",
-        url: upgradeUrl,
-      }}
+      action={undefined}
     >
-      <Text as="p">{upgradeMessage}</Text>
+      <Text as="p">{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</Text>
     </Banner>
   );
 }
@@ -105,10 +100,7 @@ export function LimitReached({
     <Banner
       title={`${type.charAt(0).toUpperCase() + type.slice(1)} limit reached`}
       tone="warning"
-      action={{
-        content: "Upgrade Plan",
-        url: upgradeUrl,
-      }}
+      action={undefined}
     >
       <BlockStack gap="200">
         <Text as="p">
@@ -117,7 +109,7 @@ export function LimitReached({
         <Text as="p" tone="subdued">
           Current usage: {current} / {max}
         </Text>
-        <Text as="p">{upgradeMessage}</Text>
+        <Text as="p">{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</Text>
       </BlockStack>
     </Banner>
   );
@@ -176,7 +168,7 @@ export function UsageMeter({
         </Box>
       )}
 
-      {showUpgrade && isNearLimit && !atLimit && (
+      {!NEW_PAID_SUBSCRIPTIONS_RETIRED && showUpgrade && isNearLimit && !atLimit && (
         <Text as="p" variant="bodySm" tone="caution">
           You're approaching your limit.{" "}
           <Button url={upgradeUrl} variant="plain">
@@ -185,7 +177,7 @@ export function UsageMeter({
         </Text>
       )}
 
-      {showUpgrade && atLimit && (
+      {!NEW_PAID_SUBSCRIPTIONS_RETIRED && showUpgrade && atLimit && (
         <Text as="p" variant="bodySm" tone="critical">
           You've reached your limit.{" "}
           <Button url={upgradeUrl} variant="plain">

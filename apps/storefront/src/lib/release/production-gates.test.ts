@@ -1,8 +1,8 @@
+import { NEW_PAID_COMMERCE_RETIRED_CODE } from "./commercial-retirement";
 import { describe, expect, it } from "vitest";
 import {
   ACCOUNT_ADMISSION_PAUSED_CODE,
   ACCOUNT_ADMISSION_REVIEWED_MODE,
-  P2P_COMMITMENT_PAUSED_CODE,
   P2P_COMMITMENT_REVIEWED_MODE,
   RELEASE_GATE_PAUSED_MODE,
   assertAccountAdmissionOpen,
@@ -20,7 +20,7 @@ describe("production release gates", () => {
     expect(isP2PCommitmentOpen({ NODE_ENV: "staging" })).toBe(false);
   });
 
-  it("fails both boundaries closed in production unless the exact reviewed mode is set", () => {
+  it("keeps paid commitments retired even when the former reviewed mode is set", () => {
     expect(isAccountAdmissionOpen({ NODE_ENV: "production" })).toBe(false);
     expect(isAccountAdmissionOpen({
       NODE_ENV: "production",
@@ -43,12 +43,13 @@ describe("production release gates", () => {
     expect(isP2PCommitmentOpen({
       NODE_ENV: "production",
       P2P_COMMITMENT_MODE: P2P_COMMITMENT_REVIEWED_MODE,
-    })).toBe(true);
+    })).toBe(false);
   });
 
-  it("keeps development and tests open unless explicitly paused", () => {
+  it("keeps account and nonmonetary swap test controls separate from paid retirement", () => {
     expect(isAccountAdmissionOpen({ NODE_ENV: "development" })).toBe(true);
-    expect(isP2PCommitmentOpen({ NODE_ENV: "test" })).toBe(true);
+    expect(isP2PCommitmentOpen({ NODE_ENV: "test" })).toBe(false);
+    expect(isP2PCommitmentOpen({ NODE_ENV: "test" }, "swap")).toBe(true);
     expect(isAccountAdmissionOpen({
       NODE_ENV: "test",
       ACCOUNT_ADMISSION_MODE: RELEASE_GATE_PAUSED_MODE,
@@ -64,17 +65,17 @@ describe("production release gates", () => {
       expect.objectContaining({ code: ACCOUNT_ADMISSION_PAUSED_CODE, status: 503 }),
     );
     expect(() => assertP2PCommitmentOpen({ NODE_ENV: "production" })).toThrow(
-      expect.objectContaining({ code: P2P_COMMITMENT_PAUSED_CODE, status: 503 }),
+      expect.objectContaining({ code: NEW_PAID_COMMERCE_RETIRED_CODE, status: 410 }),
     );
   });
 
-  it("returns a no-store 503 response while the P2P route boundary is paused", async () => {
+  it("returns a permanent no-store 410 for paid commitments", async () => {
     const commitment = p2pCommitmentPauseResponse({ NODE_ENV: "production" });
 
-    expect(commitment?.status).toBe(503);
-    expect(commitment?.headers.get("retry-after")).toBe("3600");
+    expect(commitment?.status).toBe(410);
+    expect(commitment?.headers.get("retry-after")).toBeNull();
     await expect(commitment?.json()).resolves.toMatchObject({
-      code: P2P_COMMITMENT_PAUSED_CODE,
+      code: NEW_PAID_COMMERCE_RETIRED_CODE,
     });
   });
 });

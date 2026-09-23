@@ -5,5 +5,5 @@ export const B2B_PURCHASE_AVAILABILITY = {
   new_cart_items_enabled: false,
   checkout_enabled: false,
   reason:
-    "New B2B pricing and checkout are paused while field-level source rights are reviewed.",
+    "New B2B purchases and checkout are retired. Existing order records, settlement, cancellations and refunds remain available. Price publication remains subject to source rights.",
 } as const;

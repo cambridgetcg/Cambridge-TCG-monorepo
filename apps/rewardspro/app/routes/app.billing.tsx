@@ -1,6 +1,6 @@
 /**
  * Billing Page - Using Shopify App Remix Billing
- * Handles plan selection and subscription management with billing.request()
+ * Reads and cancels existing subscriptions. New paid agreements are retired.
  */
 
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
@@ -11,33 +11,17 @@ import {
   Layout,
   Card,
   BlockStack,
-  InlineStack,
   Text,
   Button,
   Banner,
-  Badge,
-  Box,
-  Divider,
-  ButtonGroup,
   Modal,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import prisma from "../db.server";
 import { detectNewSubscription } from "~/utils/billing-success-detection.server";
 import { isTestMode } from "~/utils/billing-test-mode.server";
-import {
-  PLAN_COMPARISON,
-  getPlanOrderLimit,
-} from "~/constants/billing.constants";
-import {
-  PLAN_HIERARCHY,
-  PRICING_PLANS,
-  PUBLIC_PLAN_KEYS,
-  getAnnualSavings,
-  getPlanFeatureSummary,
-  getPlanKey,
-} from "~/constants/pricing-contract";
+import { getPlanOrderLimit } from "~/constants/billing.constants";
 import {
   FREE_PLAN,
   PRO_PLAN,
@@ -47,6 +31,7 @@ import {
   ULTRA_PLAN,
   ULTRA_ANNUAL_PLAN,
 } from "~/constants/plans";
+import { PAID_SUBSCRIPTIONS_RETIRED_MESSAGE, PAID_SUBSCRIPTIONS_RETIRED_STATUS, paidSubscriptionsRetiredResult } from "~/constants/commercial-retirement";
 import { settingsPath } from "~/navigation/routes";
 
 // Map plan IDs to Shopify plan constants
@@ -441,7 +426,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ============================================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session, billing, admin } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
 
   if (!session?.shop) {
     throw new Response("Unauthorized", { status: 401 });
@@ -493,61 +478,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }, { status: 400 });
   }
 
-  console.log(`[Billing Action] Shop ${session.shop} requesting ${planId} plan`);
-
-  try {
-    console.log(`[Billing Action] Requesting billing for plan: ${planConstant}`);
-
-    // Use centralized test mode detection
-    const actionTestMode = await isTestMode(session.shop, admin);
-    console.log(`[Billing Action] Test mode: ${actionTestMode} for shop: ${session.shop}`);
-
-    // Use billing.request() - this will automatically redirect to Shopify's confirmation page
-    // and then return the user back to the returnUrl after approval
-    // Use the API callback route to handle the top-level redirect and re-embed into the app
-    await billing.request({
-      plan: planConstant as any,
-      isTest: actionTestMode,
-      returnUrl: `${process.env.SHOPIFY_APP_URL}/api/billing/callback?success=true&shop=${session.shop}`,
-    });
-
-    // billing.request() throws a redirect, so this code won't be reached
-    // But TypeScript needs a return statement
-    return json({ success: true });
-  } catch (error) {
-    console.log(`[Billing Action] Caught response from billing.request():`, error);
-
-    // Check if this is a Response object with reauthorize URL (expected Shopify flow)
-    if (error instanceof Response) {
-      const reauthorizeUrl = error.headers.get('x-shopify-api-request-failure-reauthorize-url');
-
-      if (reauthorizeUrl) {
-        console.log(`[Billing Action] Got approval URL from Shopify:`, reauthorizeUrl);
-
-        // Return the URL to the client instead of server-side redirect
-        // The client will use App Bridge to break out of iframe and redirect at top level
-        return json({
-          success: true,
-          confirmationUrl: reauthorizeUrl,
-        });
-      }
-
-      // If it's a Response but no reauthorize URL, return the error
-      const status = error.status;
-      const statusText = error.statusText;
-      return json({
-        success: false,
-        error: `Billing request failed: ${status} ${statusText}`
-      }, { status: status || 500 });
-    }
-
-    // Handle other errors (billing.request() throws redirects, not errors for success)
-    console.error(`[Billing Action] Unexpected error:`, error);
-    return json({
-      success: false,
-      error: error instanceof Error ? error.message : "An unexpected error occurred"
-    }, { status: 500 });
-  }
+  return json(paidSubscriptionsRetiredResult(), {
+    status: PAID_SUBSCRIPTIONS_RETIRED_STATUS,
+  });
 };
 
 // ============================================
@@ -559,521 +492,52 @@ export default function BillingPage() {
   const actionData = useActionData<typeof action>();
   const submit = useSubmit();
   const navigation = useNavigation();
+  const [showCancellation, setShowCancellation] = useState(false);
   const isSubmitting = navigation.state === "submitting";
-
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
-
-  // Log when component renders with loader data
-  useEffect(() => {
-    console.log('[Billing Page] Component rendered with loader data:', {
-      hasActivePayment: data.hasActivePayment,
-      subscriptionCount: data.appSubscriptions.length,
-      hasSubscriptionInfo: !!data.subscriptionInfo,
-      justSubscribed: data.justSubscribed,
-      cancelled: data.cancelled,
-      newSubscriptionPlan: data.newSubscriptionPlan,
-      subscriptionName: data.subscriptionInfo?.name,
-      inTrialPeriod: data.subscriptionInfo?.inTrialPeriod,
-      remainingTrialDays: data.subscriptionInfo?.remainingTrialDays,
-    });
-  }, [data]);
-
-  // Handle redirect to Shopify charge approval page
-  useEffect(() => {
-    console.log('[Billing Page] useEffect triggered, actionData:', actionData);
-
-    const ad = actionData as any;
-    if (ad?.success && ad?.confirmationUrl) {
-      console.log('[Billing Page] Conditions met, redirecting to:', ad.confirmationUrl);
-      console.log('[Billing Page] window.top exists:', !!window.top);
-      console.log('[Billing Page] window.top === window:', window.top === window);
-
-      try {
-        // Use top-level navigation to break out of iframe
-        // This ensures the Shopify charge approval page loads in the main window
-        if (window.top && window.top !== window) {
-          console.log('[Billing Page] Attempting top-level redirect (in iframe)');
-          window.top.location.href = ad.confirmationUrl;
-        } else {
-          console.log('[Billing Page] Attempting standard redirect (not in iframe or top is same)');
-          window.location.href = ad.confirmationUrl;
-        }
-        console.log('[Billing Page] Redirect command executed');
-      } catch (error) {
-        console.error('[Billing Page] Redirect failed:', error);
-        // If top-level redirect fails (blocked by browser), fallback to window.open
-        console.log('[Billing Page] Attempting window.open fallback');
-        window.open(ad.confirmationUrl, '_top');
-      }
-    } else {
-      console.log('[Billing Page] Conditions not met:', {
-        hasActionData: !!actionData,
-        hasSuccess: ad?.success,
-        hasUrl: !!ad?.confirmationUrl,
-        actionDataKeys: actionData ? Object.keys(actionData) : []
-      });
-    }
-  }, [actionData]);
-
-  const handleSubscribe = (planId: string) => {
-    const formData = new FormData();
-    formData.set("action", `subscribe-${planId}`);
-    submit(formData, { method: "post" });
-  };
-
-  // Modal state for downgrade confirmation
-  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
-  const [pendingDowngrade, setPendingDowngrade] = useState<{ planId: string; planName: string; isFree: boolean } | null>(null);
-
-  const openDowngradeModal = (planId: string, planName: string, isFree: boolean) => {
-    setPendingDowngrade({ planId, planName, isFree });
-    setShowDowngradeModal(true);
-  };
-
-  const handleConfirmDowngrade = () => {
-    if (!pendingDowngrade) return;
-
-    setShowDowngradeModal(false);
-    const formData = new FormData();
-
-    if (pendingDowngrade.isFree) {
-      formData.set("action", "cancel-subscription");
-    } else {
-      formData.set("action", `subscribe-${pendingDowngrade.planId}`);
-    }
-
-    submit(formData, { method: "post" });
-    setPendingDowngrade(null);
-  };
-
-  // Get current plan - prefer subscriptionInfo (GraphQL) over billing.check()
-  // billing.check() can be slow to update after subscription approval
   const currentSubscription = data.appSubscriptions[0];
   const currentPlan = data.subscriptionInfo?.name || currentSubscription?.name;
-  const planCards = PUBLIC_PLAN_KEYS.map((planKey, tierLevel) => {
-    const plan = PRICING_PLANS[planKey];
-    const annualMonthly = plan.annualPrice === null
-      ? plan.monthlyPrice
-      : plan.annualPrice / 12;
+  const hasSubscription = Boolean(data.hasActivePayment || currentSubscription || data.subscriptionInfo);
 
-    return {
-      id: planKey,
-      idAnnual: plan.annualBillingName ? `${planKey}-annual` : planKey,
-      name: plan.displayName,
-      tierLevel,
-      monthlyPrice: `$${plan.monthlyPrice.toLocaleString("en-US")}`,
-      annualPrice: plan.annualPrice === null
-        ? `$${plan.monthlyPrice.toLocaleString("en-US")}`
-        : `$${plan.annualPrice.toLocaleString("en-US")}`,
-      annualMonthlyEquivalent: `$${annualMonthly.toLocaleString("en-US", {
-        maximumFractionDigits: 2,
-      })}`,
-      annualSavings: getAnnualSavings(planKey) > 0
-        ? `Save $${getAnnualSavings(planKey).toLocaleString("en-US")}/year`
-        : "",
-      description: plan.description,
-      features: getPlanFeatureSummary(planKey),
-      recommended: planKey === "pro",
-      isFree: planKey === "free",
-    };
-  });
-
-  // Determine current plan's tier level
-  const getCurrentTierLevel = (): number => {
-    if (!currentPlan) return 0;
-    return PLAN_HIERARCHY.indexOf(getPlanKey(currentPlan));
-  };
-  const currentTierLevel = getCurrentTierLevel();
+  function cancelSubscription() {
+    setShowCancellation(false);
+    const form = new FormData();
+    form.set("action", "cancel-subscription");
+    submit(form, { method: "post" });
+  }
 
   return (
-    <>
-      <Page
-        title="Choose Your Plan"
-        subtitle="Select the perfect plan for your business"
-        backAction={{ url: settingsPath("billing"), content: "Settings" }}
-      >
+    <Page title="Subscription records" backAction={{ url: settingsPath("billing"), content: "Settings" }}>
       <Layout>
         <Layout.Section>
-          <BlockStack gap="600">
-            {/* Success/Error Banners */}
-            {/* Show success banner based on verified subscription data */}
-            {data.justSubscribed && data.newSubscriptionPlan && (
-              <Banner tone="success">
-                <BlockStack gap="200">
-                  <Text variant="headingMd" as="h2">
-                    🎉 Subscription Activated!
-                  </Text>
-                  <Text as="p">
-                    You're now subscribed to <strong>{data.newSubscriptionPlan}</strong>.
-                    {currentSubscription?.test && ' (Test Mode)'}
-                  </Text>
-                </BlockStack>
-              </Banner>
-            )}
-
-            {/* Show cancellation message from loader (billing callback) */}
-            {data.cancelled && (
-              <Banner tone="info">
-                <Text as="p">
-                  Subscription was not completed. Your current plan remains active.
-                </Text>
-              </Banner>
-            )}
-
-            {/* Show success message when subscription is cancelled (downgrade to Free) */}
-            {(actionData as any)?.success && (actionData as any)?.cancelled && (
-              <Banner tone="success">
-                <Text as="p">
-                  Your subscription has been cancelled. You are now on the Free plan.
-                </Text>
-              </Banner>
-            )}
-
-            {/* Show errors if billing.request() fails */}
+          <BlockStack gap="400">
+            <Banner tone="info"><Text as="p">{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</Text></Banner>
             {actionData && !(actionData as any).success && (actionData as any).error && (
-              <Banner tone="critical">
-                <p>{(actionData as any).error}</p>
-              </Banner>
+              <Banner tone="critical"><Text as="p">{(actionData as any).error}</Text></Banner>
             )}
-
-            {/* Billing Interval Toggle */}
-            <InlineStack align="end" blockAlign="center">
-              <ButtonGroup variant="segmented">
-                <Button
-                  pressed={billingInterval === 'monthly'}
-                  onClick={() => setBillingInterval('monthly')}
-                  size="slim"
-                >
-                  Monthly
-                </Button>
-                <Button
-                  pressed={billingInterval === 'annual'}
-                  onClick={() => setBillingInterval('annual')}
-                  size="slim"
-                >
-                  Annual
-                </Button>
-              </ButtonGroup>
-            </InlineStack>
-
-            {/* Plan Comparison Table */}
+            {(actionData as any)?.success && (actionData as any)?.cancelled && (
+              <Banner tone="success"><Text as="p">Shopify confirmed cancellation. Your existing records remain available.</Text></Banner>
+            )}
+            {data.justSubscribed && data.newSubscriptionPlan && (
+              <Banner tone="info"><Text as="p">An existing Shopify agreement was reconciled: {data.newSubscriptionPlan}.</Text></Banner>
+            )}
             <Card>
-              <Box padding="600">
-                <BlockStack gap="400">
-                  <div
-                    className="rp-horizontal-scroll"
-                    role="region"
-                    aria-label="Plan comparison"
-                    tabIndex={0}
-                  >
-                  <div className="rp-plan-comparison-grid">
-                    {/* Header Row */}
-                    <div style={{ padding: '20px', backgroundColor: '#f6f6f7', borderBottom: '2px solid #e1e3e5' }}>
-                      <BlockStack gap="100">
-                        <Text as="span" variant="headingMd">Compare Plans</Text>
-                        <Text as="span" variant="bodySm" tone="subdued">
-                          Fixed prices, no overage charges, and all core loyalty features on Free.
-                        </Text>
-                      </BlockStack>
-                    </div>
-                    {planCards.map((plan) => {
-                      const planConstantMonthly = getPlanConstant(plan.id);
-                      const planConstantAnnual = getPlanConstant(plan.idAnnual);
-                      const isCurrentPlan = currentPlan === planConstantMonthly || currentPlan === planConstantAnnual;
-                      const isFree = 'isFree' in plan && plan.isFree;
-                      const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
-                      const showCurrent = isCurrentPlan || isFreePlanCurrent;
-
-                      return (
-                        <div key={`c3-head-${plan.id}`} style={{
-                          padding: '20px',
-                          backgroundColor: plan.recommended ? '#eef6ff' : showCurrent ? '#e8f7ed' : '#f6f6f7',
-                          borderBottom: '2px solid #e1e3e5',
-                          textAlign: 'center'
-                        }}>
-                          <BlockStack gap="200" inlineAlign="center">
-                            <InlineStack gap="100" align="center">
-                              <Text as="span" variant="headingMd">{plan.name}</Text>
-                              {showCurrent && <Badge tone="success" size="small">Current</Badge>}
-                            </InlineStack>
-                            <Text as="p" variant="headingXl">
-                              {isFree ? '$0' : billingInterval === 'monthly' ? plan.monthlyPrice : plan.annualMonthlyEquivalent}
-                            </Text>
-                            <Text as="p" variant="bodySm" tone="subdued">
-                              {isFree ? 'Free forever' : billingInterval === 'monthly' ? 'per month' : 'per month (annual)'}
-                            </Text>
-                          </BlockStack>
-                        </div>
-                      );
-                    })}
-
-                    {/* Feature rows are derived from the pricing contract. */}
-                    {PLAN_COMPARISON.map((row, idx) => {
-                      const values = planCards.map((plan) =>
-                        (row as Record<string, string>)[plan.id],
-                      );
-                      const icons = values.map((value) => {
-                        if (value === "✓") return "check";
-                        if (value === "—") return "x";
-                        if (value.toLowerCase().includes("unlimited")) return "unlimited";
-                        return "text";
-                      });
-
-                      return (
-                      <>
-                        <div key={`c3-label-${idx}`} style={{ padding: '14px 20px', backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa', display: 'flex', alignItems: 'center' }}>
-                          <Text as="span" variant="bodyMd">{row.feature}</Text>
-                        </div>
-                        {values.map((val, i) => (
-                          <div key={`c3-val-${idx}-${i}`} style={{
-                            padding: '14px 20px',
-                            backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
-                            textAlign: 'center',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '6px'
-                          }}>
-                            {icons[i] === 'check' && <span style={{ color: '#008060' }}>✓</span>}
-                            {icons[i] === 'x' && <span style={{ color: '#8c9196' }}>—</span>}
-                            {(icons[i] === 'text' || icons[i] === 'unlimited') && (
-                              <Text as="span" variant="bodyMd" tone={icons[i] === 'unlimited' ? 'success' : undefined}>
-                                {val}
-                              </Text>
-                            )}
-                          </div>
-                        ))}
-                      </>
-                      );
-                    })}
-
-                    {/* Button Row */}
-                    <div style={{ padding: '20px', backgroundColor: '#f6f6f7' }}></div>
-                    {planCards.map((plan) => {
-                      const planIdToUse = billingInterval === 'annual' ? plan.idAnnual : plan.id;
-                      const selectedPlanConstant = getPlanConstant(planIdToUse);
-                      const isCurrentPlan = currentPlan === selectedPlanConstant;
-                      const isSameTier = Boolean(
-                        currentPlan && getPlanKey(currentPlan) === plan.id,
-                      );
-                      const isFree = 'isFree' in plan && plan.isFree;
-                      const isFreePlanCurrent = isFree && !data.hasActivePayment && !currentPlan;
-
-                      return (
-                        <div key={`c3-btn-${plan.id}`} style={{ padding: '20px', backgroundColor: '#f6f6f7', textAlign: 'center' }}>
-                          {isFree ? (
-                            isFreePlanCurrent ? (
-                              <Button variant="secondary" disabled>Current Plan</Button>
-                            ) : (
-                              <Button variant="primary" onClick={() => openDowngradeModal('free', 'Free', true)} loading={isSubmitting}>Downgrade</Button>
-                            )
-                          ) : (
-                            <Button
-                              variant={isCurrentPlan ? "secondary" : "primary"}
-                              disabled={isCurrentPlan || isSubmitting}
-                              loading={isSubmitting}
-                              onClick={() => {
-                                const isDowngrade = plan.tierLevel < currentTierLevel;
-                                if (isDowngrade) {
-                                  openDowngradeModal(planIdToUse, plan.name, false);
-                                } else {
-                                  handleSubscribe(planIdToUse);
-                                }
-                              }}
-                            >
-                              {isCurrentPlan
-                                ? "Current Plan"
-                                : isSameTier
-                                  ? `Switch to ${billingInterval === "annual" ? "annual" : "monthly"}`
-                                  : plan.tierLevel > currentTierLevel
-                                    ? "Upgrade"
-                                    : "Downgrade"}
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  </div>
-                </BlockStack>
-              </Box>
-            </Card>
-
-            {/* FAQ Section */}
-            <Card>
-              <Box padding="400">
-                <BlockStack gap="400">
-                  <Text as="h3" variant="headingLg">
-                    Frequently Asked Questions
-                  </Text>
-
-                  <BlockStack gap="300">
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        How does billing work?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        All billing is handled through Shopify. Charges appear on your regular Shopify invoice—the same monthly invoice you already receive for your Shopify subscription. We never charge your card directly; all payments flow through Shopify's secure billing system.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        What's the difference between monthly and annual billing?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Annual plans charge the yearly total up front. Grow is $290/year,
-                        Scale is $790/year, and Corporate is $4,990/year. Shopify
-                        shows the exact timing and any applicable billing adjustment
-                        before you approve a change.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        Are there overage or usage charges?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        No. Current plans use fixed recurring prices only. We show
-                        capacity usage so you can plan ahead, but RewardsPro does not
-                        create surprise per-order or GMV charges.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        Can I upgrade or downgrade my plan at any time?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Yes. Shopify shows when the change takes effect before you
-                        approve it. Your loyalty data and customer balances remain
-                        intact through plan changes.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        What happens when I reach my order limit?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        We warn you as you approach the plan's reward-eligible order
-                        capacity and recommend a larger plan when needed. We do not
-                        lock merchant admin access, delete loyalty data, or add an
-                        automatic overage charge.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        What happens after I cancel my subscription?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        After Shopify confirms cancellation, your account returns to
-                        Free Forever with 1,000 reward-eligible orders per month. Your
-                        configuration, customer balances, and loyalty history stay
-                        intact.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        What if I cancel my annual plan mid-term?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Shopify handles annual subscription cancellations automatically. Any prorated refunds or final charges are processed through Shopify Billing. Once cancelled, we receive a webhook and immediately downgrade your account to Free. To ensure billing stops, complete the full cancellation flow in Shopify.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        What is your refund policy?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Since all billing is handled through Shopify, any refunds must go through Shopify's billing channels. Contact Shopify Support or reach out to our support team, who can initiate the refund process via Shopify on your behalf.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        How do I cancel my subscription?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        Visit the Billing page, click "Manage plan," and follow the confirmation flow in Shopify. Make sure to complete all steps in the Shopify confirmation page to ensure billing stops. If you encounter any issues, contact our support team for assistance.
-                      </Text>
-                    </BlockStack>
-
-                    <Divider />
-
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd" fontWeight="semibold">
-                        I see "shop cannot accept the provided charge" — what does this mean?
-                      </Text>
-                      <Text as="p" variant="bodyMd" tone="subdued">
-                        This message appears when the app is still in development mode and billing hasn't been approved yet. If you're seeing this on a live store, please contact our support team to enable billing for your shop.
-                      </Text>
-                    </BlockStack>
-                  </BlockStack>
-                </BlockStack>
-              </Box>
+              <BlockStack gap="300">
+                <Text as="h2" variant="headingMd">{currentPlan || "No active paid subscription found"}</Text>
+                <Text as="p">Existing agreements keep their recorded terms. Retiring new subscriptions does not cancel an agreement or rewrite its entitlements.</Text>
+                {hasSubscription && (
+                  <Button tone="critical" onClick={() => setShowCancellation(true)} loading={isSubmitting}>Cancel existing subscription</Button>
+                )}
+                <Text as="p">For invoice, cancellation or refund questions, contact support@rewardspro.app.</Text>
+              </BlockStack>
             </Card>
           </BlockStack>
         </Layout.Section>
       </Layout>
-
-      {/* Downgrade Confirmation Modal */}
-      <Modal
-        open={showDowngradeModal}
-        onClose={() => {
-          setShowDowngradeModal(false);
-          setPendingDowngrade(null);
-        }}
-        title={`Downgrade to ${pendingDowngrade?.planName || ''} Plan`}
-        primaryAction={{
-          content: "Downgrade",
-          destructive: true,
-          onAction: handleConfirmDowngrade,
-          loading: isSubmitting,
-        }}
-        secondaryActions={[
-          {
-            content: "Cancel",
-            onAction: () => {
-              setShowDowngradeModal(false);
-              setPendingDowngrade(null);
-            },
-          },
-        ]}
-      >
-        <Modal.Section>
-          <BlockStack gap="300">
-            <Text as="p">
-              Are you sure you want to downgrade to the {pendingDowngrade?.planName} plan?
-            </Text>
-            <Text as="p" tone="subdued">
-              {pendingDowngrade?.isFree
-                ? "Your paid subscription will be cancelled through Shopify. Free Forever keeps the core loyalty experience and 1,000 reward-eligible orders per month."
-                : "Shopify will show the billing timing before you approve the change. Your loyalty data and customer balances stay intact."}
-            </Text>
-          </BlockStack>
-        </Modal.Section>
+      <Modal open={showCancellation} onClose={() => setShowCancellation(false)} title="Cancel existing subscription?"
+        primaryAction={{ content: "Cancel subscription", destructive: true, onAction: cancelSubscription, loading: isSubmitting }}
+        secondaryActions={[{ content: "Keep subscription", onAction: () => setShowCancellation(false) }]}>
+        <Modal.Section><Text as="p">This requests cancellation through Shopify. Your loyalty configuration, balances and history remain available. Any refund or final invoice follows the existing agreement.</Text></Modal.Section>
       </Modal>
-      </Page>
-    </>
+    </Page>
   );
 }

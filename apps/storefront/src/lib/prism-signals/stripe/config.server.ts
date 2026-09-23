@@ -1,3 +1,4 @@
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
 import "server-only";
 import { PRISM_SIGNALS_ALL_TEST_AMOUNT_MINOR } from "@cambridge-tcg/prism-signals-core";
 
@@ -194,7 +195,7 @@ export function readPrismStripeSandboxConfig(
       ? portalConfigurationId
       : null,
     referenceSecret,
-    checkoutIntakeEnabled: enabledOnly(
+    checkoutIntakeEnabled: !NEW_PAID_COMMERCE_RETIRED && enabledOnly(
       trimmed(env, "PRISM_STRIPE_CHECKOUT_INTAKE"),
     ),
     webhookProcessingEnabled: enabledOnly(
@@ -232,7 +233,8 @@ export type PrismStripeSandboxPublicPostureReason =
   | "intake_without_processing"
   | "configured_paused"
   | "processing_only"
-  | "available";
+  | "available"
+  | "checkout_retired";
 
 export type PrismStripeSandboxPublicPostureV1 = Readonly<{
   configured: boolean;
@@ -307,6 +309,9 @@ export function prismStripeSandboxPublicPosture(
     });
   }
 
+  if (NEW_PAID_COMMERCE_RETIRED) {
+    return Object.freeze({ configured: true, processing_available: processing, checkout_available: false, portal_available: true, reason: "checkout_retired" });
+  }
   const checkout = processingState === "enabled" && intakeState === "enabled";
   return Object.freeze({
     configured: true,

@@ -1,5 +1,8 @@
 "use client";
 
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 import { useEffect, useState, useCallback } from "react";
 import type { InteractiveAuctionDetail } from "@/lib/auction/public";
 import { formatPrice } from "@/lib/format";
@@ -103,6 +106,7 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
 
   return (
     <div className="bg-surface rounded-lg border border-border-subtle p-6 space-y-5">
+      {NEW_PAID_COMMERCE_RETIRED && <CommercialRetirementNotice />}
       {/* Countdown */}
       {isLive && (
         <div className="flex items-center justify-between">
@@ -155,7 +159,7 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
             </div>
           )}
 
-          {isLive && !isEnded && (
+          {!NEW_PAID_COMMERCE_RETIRED && isLive && !isEnded && (
             <>
               {!sessionUserId ? (
                 <a
@@ -211,7 +215,7 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
             <p className="text-xs text-ink-muted mt-1">Price drops over time</p>
           </div>
 
-          {isLive && !isEnded && (
+          {!NEW_PAID_COMMERCE_RETIRED && isLive && !isEnded && (
             <>
               {!sessionUserId ? (
                 <a
@@ -244,7 +248,7 @@ export default function BidPanel({ auction, sessionUserId }: BidPanelProps) {
             </p>
           </div>
 
-          {isLive && !isEnded && (
+          {!NEW_PAID_COMMERCE_RETIRED && isLive && !isEnded && (
             <>
               {!sessionUserId ? (
                 <a
