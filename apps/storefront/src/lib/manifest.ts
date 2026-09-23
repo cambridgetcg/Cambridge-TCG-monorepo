@@ -530,7 +530,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["identity", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
         since: "2026-09-03", contract: "alternative",
         notes: "A missing provider configuration cannot manufacture All access. Existing stored owner/access state remains readable when new Checkout intake is paused." },
-      { id: "storefront.prism-signals-stripe-checkout", description: "Authenticated same-origin empty-JSON mutation that reserves an owner-bound attempt, attests one exact Stripe test Price and returns a verified hosted test Checkout URL. It never grants access.",
+      { id: "storefront.prism-signals-stripe-checkout", description: "Retired new subscription checkout: authenticated same-origin empty-JSON requests receive 410 without creating a provider session or entitlement. Existing subscription records and cancellation remain available.",
         host: "storefront", path: "/api/prism-signals/stripe/checkout", methods: ["POST"],
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["identity", "authority", "time", "value", "substrate"], methodology_url: "/methodology/prism-signals",
