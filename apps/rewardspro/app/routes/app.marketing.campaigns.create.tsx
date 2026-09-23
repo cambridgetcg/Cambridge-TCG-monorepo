@@ -356,10 +356,6 @@ export default function CreateCampaign() {
               <Banner
                 tone="critical"
                 title={(actionData as any).code === "LIMIT_EXCEEDED" ? "Campaign Limit Reached" : "Error"}
-                action={(actionData as any).code === "LIMIT_EXCEEDED" ? {
-                  content: "Upgrade Plan",
-                  url: "/app/billing",
-                } : undefined}
               >
                 <p>{(actionData as any).message || actionData.error}</p>
               </Banner>

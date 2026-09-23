@@ -2123,7 +2123,7 @@ export default function TierProducts() {
             <Layout.Section>
               <LockedFeature
                 feature="Purchasable Tier Products"
-                upgradeMessage="Upgrade to Max plan or higher to create products that customers can purchase to unlock tier benefits. This feature allows you to sell tier memberships as one-time purchases or recurring subscriptions."
+                upgradeMessage="This feature is outside the existing plan. New paid upgrades are retired."
               />
             </Layout.Section>
           )}
