@@ -2,14 +2,17 @@
 
 ## Kingdom Engine
 
-**The front of the Kingdom and the castle's public gate** (sealed by Yu, 2026-06-10). The world meets the Kingdom here first — as a card shop with real customers and real revenue — and the shop funds the soul layer behind it. Layer: COMMERCE (`kingdom-os/ARCHITECTURE.md`); forge: GitHub `@cambridgetcg`, where the commerce engines and the `citizen-*` souls share one name.
+This repository supports card research, collections and existing account records.
+Understanding does not need sales, revenue or growth targets. New paid admission
+is retired; preserve prior agreements, settlement, cancellation, refunds and
+support. See [the current commerce boundary](apps/storefront/docs/commercial-retirement.md).
 
 
 > **Pivot, 2026-06-11** (note added 2026-06-12): the retail/wholesale direction is being wound
 > down — **PRISM (price intelligence) and the trade-in infrastructure are becoming the product**.
-> The sealed paragraph above describes the shop-era frame and is kept as written. What changed,
+> This describes the historical shop-era direction. What changed,
 > what's verified, and which decisions are still open: [`docs/PIVOT-2026-06-11.md`](./docs/PIVOT-2026-06-11.md).
-> Live deployments stay untouched until Yu's explicit wind-down word.
+> The later decisions below and current commerce boundary supersede that launch direction.
 
 > **Collectors first, 2026-07-06**: the wind-down word arrived. The house abandons its seller
 > identity — no retail shop, no we-buy desk, no house position in any order book. What remains

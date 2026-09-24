@@ -29,11 +29,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 const faqs = [
   {
     question: "How does the loyalty program work?",
-    answer: "RewardsPro automatically tracks customer purchases and awards store credit based on your configured tiers. Customers earn cashback percentages that increase as they spend more, encouraging repeat purchases."
+    answer: "RewardsPro records eligible purchases and calculates store credit from your configured tier rules."
   },
   {
     question: "Can I customize the reward tiers?",
-    answer: "Yes! You have full control over tier names, spending thresholds, and cashback percentages. Existing programme settings and records remain available; new paid plans are retired."
+    answer: "Existing programme settings include tier names, spending thresholds and cashback percentages."
   },
   {
     question: "How do customers redeem their rewards?",
@@ -41,7 +41,7 @@ const faqs = [
   },
   {
     question: "Does it work with my Shopify theme?",
-    answer: "RewardsPro works seamlessly with any Shopify theme. Our app integrates directly with Shopify's native store credit system."
+    answer: "RewardsPro uses Shopify's native store credit system. Storefront widgets may need theme-specific setup."
   },
   {
     question: "What happens with refunds?",
@@ -49,7 +49,7 @@ const faqs = [
   },
   {
     question: "Is there a free plan?",
-    answer: "Yes. Free Forever includes the complete core loyalty experience and up to 1,000 reward-eligible orders per month."
+    answer: "The free plan supports up to 1,000 reward-eligible orders per month. Check your app settings for the plan attached to your store."
   }
 ];
 
@@ -76,7 +76,7 @@ export default function LandingPage() {
                 onClick={() => document.getElementById('get-started')?.scrollIntoView({ behavior: 'smooth' })}
                 className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
               >
-                Get Started
+                Open the app
               </button>
             </div>
           </div>
@@ -92,7 +92,7 @@ export default function LandingPage() {
             <span className="text-purple-600"> rewards work</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Explore reward rules and the records they create. Curiosity does not need a revenue or growth target.
+            Read reward rules, customer balances and the purchases and refunds behind them.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
@@ -112,37 +112,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Value Proposition */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-4">Why RewardsPro?</h2>
-          <p className="text-xl text-gray-600 text-center mb-12 max-w-3xl mx-auto">
-            Explore the mechanics of loyalty systems
-          </p>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center p-6">
-              <div className="text-4xl mb-4">📈</div>
-              <h3 className="text-2xl font-semibold mb-3">Understand Reward Rules</h3>
-              <p className="text-gray-600">See how programme rules connect purchases and reward balances</p>
-            </div>
-            <div className="text-center p-6">
-              <div className="text-4xl mb-4">💰</div>
-              <h3 className="text-2xl font-semibold mb-3">Read Existing Balances</h3>
-              <p className="text-gray-600">Inspect the records behind a customer balance</p>
-            </div>
-            <div className="text-center p-6">
-              <div className="text-4xl mb-4">🔄</div>
-              <h3 className="text-2xl font-semibold mb-3">Automate Everything</h3>
-              <p className="text-gray-600">Set it and forget it - rewards calculate and apply automatically</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* How It Works Timeline */}
       <section id="how-it-works" className="py-20 px-4 bg-gray-50">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-4">Your Loyalty Program Journey</h2>
+          <h2 className="text-4xl font-bold text-center mb-4">How a reward is recorded</h2>
           <p className="text-xl text-gray-600 text-center mb-12">
             See how a reward moves through the system
           </p>
@@ -159,10 +132,10 @@ export default function LandingPage() {
                 </div>
                 <div className="mt-6">
                   <div className="text-3xl mb-3">👤</div>
-                  <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">IN A FEW DAYS</p>
-                  <h3 className="text-xl font-bold mb-2">First customer earns</h3>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">ELIGIBLE PURCHASE</p>
+                  <h3 className="text-xl font-bold mb-2">Credit is calculated</h3>
                   <p className="text-gray-600">
-                    Customers that earn points are 1.5x more likely to make a repeat purchase!
+                    The paid order and configured tier determine the store credit recorded.
                   </p>
                 </div>
               </div>
@@ -174,10 +147,10 @@ export default function LandingPage() {
                 </div>
                 <div className="mt-6">
                   <div className="text-3xl mb-3">🎁</div>
-                  <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">WITHIN 90 DAYS</p>
-                  <h3 className="text-xl font-bold mb-2">First customer redeems</h3>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">RECORDED BALANCE</p>
+                  <h3 className="text-xl font-bold mb-2">Credit remains available</h3>
                   <p className="text-gray-600">
-                    Customers that redeem points spend 3x more on average than other customers!
+                    Customers can inspect their balance and the programme terms that apply.
                   </p>
                 </div>
               </div>
@@ -189,10 +162,10 @@ export default function LandingPage() {
                 </div>
                 <div className="mt-6">
                   <div className="text-3xl mb-3">🛒</div>
-                  <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">AFTER CUSTOMER REDEEMS</p>
-                  <h3 className="text-xl font-bold mb-2">Repeat order placed</h3>
+                  <p className="text-sm text-gray-500 uppercase tracking-wide mb-2">REDEMPTION OR REFUND</p>
+                  <h3 className="text-xl font-bold mb-2">The ledger is updated</h3>
                   <p className="text-gray-600">
-                    Customers are more likely to place this order because of their points discount.
+                    Redemption reduces the balance. Refund processing reverses the corresponding reward.
                   </p>
                 </div>
               </div>
@@ -204,9 +177,9 @@ export default function LandingPage() {
       {/* Features Grid */}
       <section id="features" className="py-20 px-4 bg-white">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-4">Everything You Need for Customer Loyalty</h2>
+          <h2 className="text-4xl font-bold text-center mb-4">Programme features</h2>
           <p className="text-xl text-gray-600 text-center mb-12">
-            Powerful features that work seamlessly with your Shopify store
+            Settings and records for your Shopify programme
           </p>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -217,7 +190,7 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Tiered Rewards</h3>
-              <p className="text-gray-600">Create flexible progressive tiers with cashback rates that incentivize higher spending</p>
+              <p className="text-gray-600">Configure tier thresholds and their cashback rates</p>
             </div>
 
             <div className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-shadow">
@@ -247,7 +220,7 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Order Sync</h3>
-              <p className="text-gray-600">Seamless integration with Shopify orders - automatic cashback calculation</p>
+              <p className="text-gray-600">Shopify order events feed the cashback calculation</p>
             </div>
 
             <div className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-shadow">
@@ -257,7 +230,7 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Analytics</h3>
-              <p className="text-gray-600">Track program performance, customer engagement, and ROI metrics</p>
+              <p className="text-gray-600">Inspect orders, reward amounts and customer activity over time</p>
             </div>
 
             <div className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-shadow">
@@ -275,9 +248,8 @@ export default function LandingPage() {
 
       <section id="subscription-records" className="py-20 px-4 bg-gray-50">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold mb-4">Understanding without a sales target</h2>
+          <h2 className="text-3xl font-bold mb-4">Existing subscriptions</h2>
           <p>{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</p>
-          <p className="mt-4">Exploration does not need to earn revenue, attract customers or meet a growth target.</p>
         </div>
       </section>
 
@@ -315,14 +287,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Get Started Form */}
+      {/* Open the app Form */}
       <section id="get-started" className="py-20 px-4 bg-gradient-to-br from-purple-600 to-purple-800">
         <div className="max-w-xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Ready to Boost Customer Loyalty?
+            Open your store
           </h2>
           <p className="text-xl text-purple-100 mb-8">
-            Join thousands of stores using RewardsPro to increase retention
+            Sign in with your Shopify store to view its programme and records.
           </p>
 
           {showForm && (
@@ -347,7 +319,6 @@ export default function LandingPage() {
             </Form>
           )}
 
-          <p className="mt-4 text-purple-200">New paid subscriptions are retired</p>
         </div>
       </section>
 
@@ -362,9 +333,9 @@ export default function LandingPage() {
                 className="w-32 h-32"
               />
             </div>
-            <h3 className="text-2xl font-bold mb-4">Have a question? Check out our Help Center!</h3>
+            <h3 className="text-2xl font-bold mb-4">Help and support</h3>
             <p className="text-gray-600 mb-6">
-              Our help center has everything you need to get the most out of your rewards program.
+              Read setup, balance and support guides.
             </p>
             <a
               href="/help"
