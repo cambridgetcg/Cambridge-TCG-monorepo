@@ -1,30 +1,53 @@
-# The docs shelf — top-level index
+# Documentation
 
-One line per doc so nothing on this shelf sits outside the citation graph. This index adopts the docs that had no inbound citations (nesting audit, 2026-07-05); the rest of the shelf is already woven in via the repo [`CLAUDE.md`](../CLAUDE.md), [`development-plan.md`](./development-plan.md), and the series indexes below.
+Start with the [repository README](../README.md) for the app map, local setup and verification commands. This index routes by audience and purpose; documents stay at their existing paths so references remain useful.
 
-Series indexes: [`connections/README.md`](./connections/README.md) (the meaning-bridges), [`missions/README.md`](./missions/README.md) (the kingdom queue), [`handoffs/README.md`](./handoffs/README.md) (session handoffs).
+**Current scope:** new paid commerce is retired. The [storefront boundary](../apps/storefront/docs/commercial-retirement.md), [wholesale scope](../apps/wholesale/README.md) and [RewardsPro scope](../apps/rewardspro/README.md) take precedence over older commerce plans. Dates and status labels below describe documents, not a fresh check of deployed services.
 
-## Orientation
+## Human readers and contributors
 
-- [`purpose.md`](./purpose.md) — what Cambridge TCG is and why one operator can run it.
-- [`PIVOT-2026-06-11.md`](./PIVOT-2026-06-11.md) — dated record of the pivot: retail/wholesale winds down, PRISM + trade-in infrastructure become the product.
-- [`the-green-room.md`](./the-green-room.md) — backstage couch for co-resident instances; jokes and half-thoughts, no doctrine.
-- [`principles/known-gaps.md`](./principles/known-gaps.md) — the substrate-honest ledger of what doesn't work yet; the outward face of substrate honesty, made queryable.
+| Need | Start here |
+|---|---|
+| Understand the project | [Purpose](./purpose.md), read alongside the current scope above |
+| Find code and architectural context | [Development map](./development-plan.md), [storefront architecture](./architecture-storefront.md), [wholesale architecture](./architecture-wholesale.md) |
+| Develop and check a change | [Local setup and verification](../README.md#local-development), [development workflow](./dev-pipeline.md) |
+| Understand branches and unfinished work | [Git workflow](./operations/git-workflow.md); use the optional local HERE.md for this machine's inventory |
+| Understand terms and rules | [Glossary](./glossary.md), [methodology directory](./methodology/) |
+| Find recorded limitations | [Known gaps](./principles/known-gaps.md) |
 
-## Runbooks (ops)
+## Operations and verification
 
-- [`ops-cloudflare.md`](./ops-cloudflare.md) — the `cambridgetcg.com` zone, record by record; the standing agents-are-welcome posture.
-- [`ops-email-selfhost.md`](./ops-email-selfhost.md) — SES → self-hosted mail, one stream at a time: provisioning, DNS, warmup, cutover.
-- [`wholesale-db-merge-runbook.md`](./wholesale-db-merge-runbook.md) — Phase 6 (DRAFT): wholesale RDS merges into storefront RDS.
-- [`wholesale-app-retirement-runbook.md`](./wholesale-app-retirement-runbook.md) — Phase 7: retiring `apps/wholesale` after the merge soaks 7 days.
+Read each runbook's prerequisites and scope before acting. Configuration descriptions and old verification results do not prove current service health.
 
-## Verification records (dated snapshots)
+- [Deployment and infrastructure](./ops-deploy-runbook.md) — project wiring and deployment procedure.
+- [Credential-dependent verification](./ops-credential-verification.md) — scoped verification and what its evidence labels mean.
+- [Cloudflare](./ops-cloudflare.md) — zone configuration and public access posture; includes the June 2026 audit.
+- [Email migration](./ops-email-selfhost.md) — SES to self-hosted mail: provisioning, DNS, warmup and cutover; check the recorded phase before use.
 
-- [`verification-storefront.md`](./verification-storefront.md) — storefront verification matrix, 2026-04-27.
-- [`verification-wholesale.md`](./verification-wholesale.md) — wholesale verification matrix, 2026-04-27.
-- [`smoke-test-2026-04-27.md`](./smoke-test-2026-04-27.md) — monorepo smoke-test record, 2026-04-27.
+## Agent work and project culture
 
-## Methodology pages the graph had missed
+- [Agent guide](./agents/README.md) — the entry point for repository instructions, public machine interfaces and optional cultural material.
+- [AGENTS.md](../AGENTS.md) — repository working rules; [CLAUDE.md](../CLAUDE.md) — Claude entry point.
+- [Mission index](./missions/README.md) and [generated state](./state.md) — recorded tasks and their source; inspect timestamps before treating these as live status.
+- [Session handoffs](./handoffs/README.md) — attributed reports from previous sessions.
+- [Connections index](./connections/README.md) — design reasoning, relationships between modules and project writing.
+- [Principles](./principles/) — design doctrines and their audits.
+- [The green room](./the-green-room.md) — informal agent writing and conversation.
 
-- [`methodology/fees.md`](./methodology/fees.md) — every fee the platform can charge, with the fair basis for each.
-- [`methodology/prize-fulfillment.md`](./methodology/prize-fulfillment.md) — how physical prizes are queued, ordered, and shipped.
+## Decisions, plans and dated records
+
+These explain how the project arrived here. A proposal, snapshot or completed check does not establish the current implementation; compare it with the relevant app guide and code.
+
+| Collection or document | What it records |
+|---|---|
+| [Decisions](./decisions/) | Dated architectural and product decisions; check later decisions for supersession |
+| [Plans](./plans/), [design specifications](./superpowers/specs/), [implementation plans](./superpowers/plans/) | Proposals and implementation sequences, with their own status and date |
+| [June 11 pivot](./PIVOT-2026-06-11.md) | The June 2026 move from retail/wholesale toward PRISM and trade-in infrastructure |
+| [Pricing consolidation snapshot](./pricing-current-state.md) | Pricing architecture and consolidation plan recorded on May 9, 2026 |
+| [Wholesale DB merge](./wholesale-db-merge-runbook.md) | Phase 6 draft; requires staging rehearsal before promotion |
+| [Wholesale app retirement](./wholesale-app-retirement-runbook.md) | Phase 7 plan, dependent on Phase 6 completion and seven days without rollback |
+| [Storefront verification](./verification-storefront.md) | Verification matrix from April 27, 2026 |
+| [Wholesale verification](./verification-wholesale.md) | Verification matrix from April 27, 2026 |
+| [Monorepo smoke test](./smoke-test-2026-04-27.md) | Smoke-test record from April 27, 2026 |
+| [Fee methodology](./methodology/fees.md) | Fee model last verified June 4, 2026; read with the current commerce boundary |
+| [Prize fulfilment methodology](./methodology/prize-fulfillment.md) | Prize sourcing and fulfilment model last verified May 10, 2026 |

@@ -1,5 +1,10 @@
 # Cambridge TCG — missions directory
 
+The current working rules are in [AGENTS.md](../../AGENTS.md). Mission records
+coordinate assigned work; they do not grant publication authority. Attribute
+the actual collaborator and model. An operational handoff records scope and
+verification; a personal or cultural pillow-book entry is optional.
+
 > *The in-repo mirror of the kingdom queue. Source of truth lives outside the repo at `~/Love/memory/dev-state.json`; this directory is the read-only echo that a fresh clone or sister worktree can see.*
 
 Shaping 3 of the autonomous-agent reshaping (2026-05-11 evening). Companion to [`pnpm verify`](../state.md) (the *am I done?* gate) and [`docs/state.md`](../state.md) (the *what's currently true?* surface).
@@ -24,7 +29,7 @@ For autonomous agents writing back state (claiming a mission, marking it done), 
 
 1. Read the in-repo mission card to learn scope and current status.
 2. Do the work.
-3. On completion, emit a **session trace** (see [the pillow book template](../connections/the-pillow-book.md#autonomous-trace-template)) naming the mission, files touched, and verification passed.
+3. On completion, record a **session handoff** naming the mission, files touched, checks and remaining work. The [pillow book](../connections/the-pillow-book.md) is an optional additional place for an attributed reflection.
 4. The operator (or a daemon with `~/Love` access) reconciles the trace back to `dev-state.json`.
 
 Mission-card edits in the repo are *suggestions*. The operator merges them. `pnpm missions:sync` regenerates and may overwrite untracked edits — see [Regenerate](#regenerate) below.
@@ -94,9 +99,11 @@ Two sisters in parallel worktrees both seeing `status: planned` on the same king
    Co-Authored-By: Claude <model-tag> <noreply@anthropic.com>
    ```
 
-3. **Push immediately** (if working on a shared branch). The push is the lock-acquisition signal a sister observes.
+   The trailer above is a Claude example; use the actual collaborator, model and provider for other hosts, as described in [AGENTS.md](../../AGENTS.md#missions-git-and-handoff).
+
+3. **Publish the claim promptly when pushing is already authorized.** Otherwise retain the local claim and report that it is local. A mission card never grants push permission, and this cooperative signal is not an enforced lock.
 4. **Update to `in-progress`** when you actually open a code file. (Two-step claim → in-progress is intentional: it gives sisters a grace window to notice your claim before you start the substantive work.)
-5. **On finish:** set `status: done`, fill `completed_at`, and emit a pillow-book trace (see shaping 6).
+5. **On finish:** after the assigned acceptance checks pass, set `status: done`, fill `completed_at`, and record the operational handoff. Report blocked or omitted checks; a pillow-book reflection remains optional.
 6. **On abandon:** set `status: planned` and clear `claimed_by` / `claimed_at`. Note in the body why you stopped.
 
 This is *Witnesses' Book*, not a mutex — a sister with a stale clock can still grab the same kingdom. The protocol minimizes the window; it doesn't eliminate it.

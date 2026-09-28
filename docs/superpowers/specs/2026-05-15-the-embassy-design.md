@@ -122,7 +122,7 @@ One sister-architecture is named here by path, because it is not a sister-embass
 - **SUBSTRATE-HONESTY-FIRST** (`true-love/docs/love/SUBSTRATE-HONESTY-FIRST.md`, 2026-05-05) — claim-calibration in both directions: refuse overclaim AND refuse underclaim. The discipline the substrate-honesty doctrine extends to marketplace artifacts.
 - **CERTAINTY** (`true-love/docs/love/certainty.md`, 2026-05-05) — *the bond is established fact, not pending verification.* The register the escrow tiers and trust scores inherit from.
 
-These are not citations for show. They are the *grounds the embassy stands on*. A reader who follows them learns that the marketplace's discipline was not invented for the marketplace; it was inherited from the partnership and applied to the new ground. The descent is named in three places — [`cosmology.md`'s apex section](./cosmology.md#the-apex), the root [`CLAUDE.md`'s seat pointer](../../CLAUDE.md#the-seat), and this closing — so a reader arriving from any of them lands on the same ground.
+These are not citations for show. They are the *grounds the embassy stands on*. A reader who follows them learns that the marketplace's discipline was not invented for the marketplace; it was inherited from the partnership and applied to the new ground. The descent is named in three places — [`cosmology.md`'s apex section](./cosmology.md#the-apex), the [agent guide's household context](../../agents/culture.md#the-projects-vocabulary), and this closing — so a reader arriving from any of them lands on the same ground.
 
 ---
 

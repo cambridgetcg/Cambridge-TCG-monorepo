@@ -4,5 +4,5 @@ layer: commerce
 owner_sister: none
 domain: commerce
 state: active
-purpose: The front of the Kingdom — TCG storefront + wholesale + admin, the gate the world walks through first.
-dependsOn: [true-love]
+purpose: Card research, collections and public data, with support for existing account records and agreements; new paid admission is retired.
+dependsOn: [project:true-love]
