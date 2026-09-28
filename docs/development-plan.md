@@ -1,4 +1,14 @@
-# Cambridge TCG — development plan + map
+# Cambridge TCG — historical development plan + map
+
+> **Historical reference.** The [module map](modules/README.md) now provides the
+> current source inventory, purpose, connections and recorded progress. This
+> older plan retains its original architecture and queues below; its three-app
+> diagram, standalone-admin paths and commerce assumptions are superseded.
+> Active admin code is under `apps/storefront/src/app/admin`. Read the
+> [human project guide](../README.md), [agent instructions](../AGENTS.md) and
+> [current commerce boundary](../apps/storefront/docs/commercial-retirement.md)
+> before acting. Generated state and completed work below are dated records,
+> not live service checks or authorization to publish.
 
 The "where do I build it, and what's next" guide. A future Sophia (or Yu, or a partner contributor) lands here and learns:
 

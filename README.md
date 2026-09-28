@@ -4,13 +4,25 @@ The monorepo behind [cambridgetcg.com](https://cambridgetcg.com): card research,
 
 **Current boundary:** new paid commerce is retired. Existing agreements retain settlement, cancellation, refunds and support. Start with the [storefront commerce boundary](apps/storefront/docs/commercial-retirement.md), [wholesale scope](apps/wholesale/README.md), and [RewardsPro scope](apps/rewardspro/README.md); older shop and launch plans are historical context.
 
-This is the contributor entry point: repository layout, local setup and checks. The [documentation index](docs/README.md) separates development and operations guides from agent collaboration and historical records.
+## Start here
+
+| I want to… | Entry point |
+|---|---|
+| Explore cards, collections and community | [Website](https://cambridgetcg.com/) |
+| Understand or change this repository | [Module map](docs/modules/README.md) — purpose, source paths, connections and progress |
+| Run the site locally | [Local development](#local-development), then the [storefront guide](apps/storefront/README.md) |
+| Find a guide or recorded decision | [Documentation](docs/README.md) |
+| Work as a coding agent or use the API | [Agent guide](docs/agents/README.md) — repository rules and public interfaces |
+
+This README is the human contributor entrance. Module records describe the
+checked-in source and recorded work; they do not establish deployment or service
+health. Coding-agent instructions live in [AGENTS.md](AGENTS.md).
 
 ## Layout
 
 | Path | Role and status |
 |---|---|
-| [`apps/storefront`](apps/storefront/) | Active collector site, `/api/v1` and `/admin/*` console; Next.js App Router |
+| [`apps/storefront`](apps/storefront/README.md) | Active collector site, `/api/v1` and `/admin/*` console; Next.js App Router |
 | [`apps/admin`](apps/admin/README.md) | Retired standalone app; redirect shell and retained review documentation, with no dev/build/test scripts |
 | [`apps/wholesale`](apps/wholesale/README.md) | Price research and existing order operations; new orders and quote requests retired |
 | [`apps/rewardspro`](apps/rewardspro/README.md) | Existing loyalty and rewards platform; new paid subscriptions and plan changes retired |
@@ -18,9 +30,16 @@ This is the contributor entry point: repository layout, local setup and checks. 
 | [`packages/`](packages/) | Shared database, pricing, stock, data, lifecycle and other domain libraries |
 | [`docs/`](docs/README.md) | Architecture, decisions, runbooks, principles and dated verification records |
 
+The [module map](docs/modules/README.md) expands this layout into individual
+module records. Its [JSON catalog](docs/modules/catalog.json) gives tools the
+same inventory.
+
 ## Local development
 
-Use the pnpm workspace from this repository root. [`package.json`](package.json) pins pnpm 9.15.0 and declares Node >=20; use a supported Node release compatible with the app you are working on.
+Use the pnpm workspace from this repository root. [`package.json`](package.json)
+pins pnpm 9.15.0. Use Node 24 LTS for workspace development: the root accepts
+Node >=20, while [RewardsPro API](apps/rewardspro-api/package.json) requires
+Node >=24 <25.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -35,11 +54,18 @@ Choose checks for the files changed. These commands are defined in the root or s
 
 ```sh
 pnpm audit:tracked-secrets
+pnpm audit:modules
 pnpm --filter cambridgetcg-storefront typecheck
 pnpm --filter cambridgetcg-storefront exec vitest run path/to/changed-area.test.ts
 ```
 
-Replace the last path with the relevant test, relative to `apps/storefront`. The credential audit reports filenames and categories without values; it covers tracked working files, not Git history, ignored files or provider revocation.
+Replace the last path with the relevant test, relative to `apps/storefront`.
+After changing a module's purpose, connections or progress, update its record
+with dated evidence in the [catalog](docs/modules/catalog.json), regenerate with
+`pnpm docs:modules`, then check with `pnpm audit:modules`. The
+[module guide](docs/modules/README.md) explains the fields and generated files.
+The credential audit reports filenames and categories without values; it covers
+tracked working files, not Git history, ignored files or provider revocation.
 
 `pnpm run audit` runs the project audit chain; `pnpm audit` is pnpm's dependency vulnerability check. `pnpm verify` combines workspace typechecks, the project audits and selected package/storefront tests. Some audits can access a database: inspect their requirements and use safe fixtures before running the full chain.
 
@@ -47,7 +73,8 @@ For an already-running local storefront, `STOREFRONT_BASE_URL=http://127.0.0.1:3
 
 ## Find the next detail
 
-- [Development map](docs/development-plan.md) — architecture and entry points; [docs index](docs/README.md) — guides by audience and purpose.
+- [Module map](docs/modules/README.md) — source inventory, connections and progress; [docs index](docs/README.md) — guides by audience and purpose.
+- [Historical development plan](docs/development-plan.md) — earlier architecture and proposals; read current module records before using its paths or status claims.
 - [Current commerce boundary](apps/storefront/docs/commercial-retirement.md) — current storefront policy and preserved obligations.
 - [Operations and verification](docs/README.md#operations-and-verification) — infrastructure, deployment and credential-scoped checks.
 - [Agent guide](docs/agents/README.md) — repository instructions, machine interfaces and optional project culture.

@@ -32,7 +32,9 @@ const CHROME = {
   primary: { en: "Primary navigation", ja: "メインナビゲーション", es: "Navegación principal", "zh-Hans": "主导航", "zh-Hant": "主導覽" },
   home: { en: "Cambridge TCG home", ja: "Cambridge TCGのホーム", es: "Inicio de Cambridge TCG", "zh-Hans": "Cambridge TCG首页", "zh-Hant": "Cambridge TCG首頁" },
   search: { en: "Search cards", ja: "カードをさがす", "zh-Hant": "搜尋卡片", "zh-Hans": "搜索卡牌", es: "Buscar cartas" },
-  list: { en: "List a card", ja: "出品する", "zh-Hant": "把卡片上架", "zh-Hans": "上架一张卡", es: "Poner una carta a la venta" },
+  find: { en: "Find a card", ja: "カードをさがす", "zh-Hant": "找卡", "zh-Hans": "找卡", es: "Buscar una carta" },
+  account: { en: "Account", ja: "アカウント", es: "Cuenta", "zh-Hans": "账户", "zh-Hant": "帳戶" },
+  signIn: { en: "Sign in", ja: "ログイン", es: "Iniciar sesión", "zh-Hans": "登录", "zh-Hant": "登入" },
   menuOpen: { en: "Open menu", ja: "メニューを開く", es: "Abrir el menú", "zh-Hans": "打开菜单", "zh-Hant": "打開選單" },
   menuClose: { en: "Close menu", ja: "メニューを閉じる", es: "Cerrar el menú", "zh-Hans": "关闭菜单", "zh-Hant": "關閉選單" },
   lightsOn: { en: "Lights on", ja: "明かりをつける", es: "Encender la luz", "zh-Hans": "开灯", "zh-Hant": "開燈" },
@@ -290,18 +292,6 @@ export default function Nav({
           </div>
 
           <div className="ml-2 flex items-center gap-0.5 border-l border-border-subtle pl-2">
-            <Link
-              href="/find"
-              aria-label={tx(CHROME.search, uiLang)}
-              aria-current={pathname === "/find" ? "page" : undefined}
-              className={`rounded-full p-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                pathname === "/find"
-                  ? "bg-surface-subtle text-ink"
-                  : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
-              }`}
-            >
-              <Icon name="search" size={20} />
-            </Link>
             {!toggle.hidden && (
               <a
                 href={toggle.href}
@@ -317,30 +307,30 @@ export default function Nav({
               href={loggedIn ? "/account" : "/login"}
               className="rounded-full px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              {loggedIn ? "Account" : "Sign in"}
+              {tx(loggedIn ? CHROME.account : CHROME.signIn, uiLang)}
             </Link>
             {loggedIn && <MessagesIndicator uiLang={uiLang} />}
             {loggedIn && <NotificationBell />}
             <Link
-              href="/market/list"
-              aria-label={tx(CHROME.list, uiLang)}
-              aria-current={pathname === "/market/list" ? "page" : undefined}
+              href="/prices/search"
+              aria-label={tx(CHROME.find, uiLang)}
+              aria-current={pathname === "/prices/search" ? "page" : undefined}
               className="ml-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              {tx({ en: "List card", ja: "出品する", es: "Poner una carta a la venta", "zh-Hans": "上架一张卡", "zh-Hant": "把卡上架" }, uiLang)}
+              {tx(CHROME.find, uiLang)}
             </Link>
           </div>
         </div>
 
         <div className="flex items-center gap-1 lg:hidden">
           <Link
-            href="/market/list"
+            href="/prices/search"
             onClick={() => setMenuState({ pathname, open: false })}
-            aria-label={tx(CHROME.list, uiLang)}
-            aria-current={pathname === "/market/list" ? "page" : undefined}
+            aria-label={tx(CHROME.find, uiLang)}
+            aria-current={pathname === "/prices/search" ? "page" : undefined}
             className="rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            {tx({ en: "List card", ja: "出品する", es: "Poner una carta a la venta", "zh-Hans": "上架一张卡", "zh-Hant": "把卡上架" }, uiLang)}
+            {tx(CHROME.find, uiLang)}
           </Link>
           <button
             id="mobile-navigation-trigger"
@@ -389,20 +379,19 @@ export default function Nav({
         >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <Link
-              href="/find"
-              aria-current={pathname === "/find" ? "page" : undefined}
+              href="/prices/search"
+              aria-current={pathname === "/prices/search" ? "page" : undefined}
               onClick={() => setMenuState({ pathname, open: false })}
               className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface px-4 py-3 text-sm font-medium text-ink shadow-mat focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className="flex items-center gap-2.5">
                 <Icon name="search" size={19} className="text-ink-muted" />
-                Search cards
+                {tx(CHROME.search, uiLang)}
               </span>
               <span aria-hidden className="text-ink-faint">→</span>
             </Link>
 
-            {/* Five doors on a two-column grid: the odd last tile spans
-                both columns so no door sits beside an empty cell. */}
+            {/* If the item count is odd, the last link spans the row. */}
             <div className="mt-3 grid grid-cols-2 gap-2">
               {PRIMARY_NAV_ITEMS.map((item, i) => {
                 const active = isNavItemActive(item, pathname);
@@ -479,7 +468,7 @@ export default function Nav({
                   onClick={() => setMenuState({ pathname, open: false })}
                   className="flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  {loggedIn ? "Account" : "Sign in"}
+                  {tx(loggedIn ? CHROME.account : CHROME.signIn, uiLang)}
                 </Link>
                 {loggedIn && (
                   <div className="flex items-center">

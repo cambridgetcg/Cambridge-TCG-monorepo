@@ -1,25 +1,9 @@
-/**
- * @module @/lib/nav/menu-config
- *
- * Human-scale source of truth for the storefront header.
- *
- * The previous config doubled as a site index: six mega-menus exposed more
- * than one hundred links. The header now carries only the five things most
- * visitors come to do, plus a small More menu. The complete corpus remains
- * reachable through the linked hubs and `/map`.
- *
- * Culture became the fifth door on 2026-07-28 (Asha: "make sure the
- * frontend reflects our latest shift of focus") — the culture wings had
- * grown through July into a museum with no entrance except a footer
- * column. `/culture` is the hub; its activePrefixes keep every wing
- * lit under the one door.
- */
+/** Shared, compact navigation for people browsing the site and its API docs. */
+import type { UiLang } from "@/lib/lang-mode";
+import { tx, type Poly } from "@/lib/i18n";
 
 export type NavItem = {
   label: string;
-  /** Translated labels (voice charters in docs/connections/the-*-voice.md
-   *  family). Optional per language — a missing voice falls back to the
-   *  English (honest beats blank). */
   ja?: string;
   "zh-Hant"?: string;
   "zh-Hans"?: string;
@@ -37,164 +21,94 @@ export type NavGroup = {
   items: readonly NavItem[];
 };
 
-import type { UiLang } from "@/lib/lang-mode";
-import { tx, type Poly } from "@/lib/i18n";
-
-/** The label in the active UI language; falls back to English. */
 export function navLabel(item: NavItem, lang: UiLang): string {
-  return tx(
-    { en: item.label, ja: item.ja, "zh-Hant": item["zh-Hant"], "zh-Hans": item["zh-Hans"], es: item.es },
-    lang,
-  );
+  return tx({ en: item.label, ja: item.ja, "zh-Hant": item["zh-Hant"], "zh-Hans": item["zh-Hans"], es: item.es }, lang);
 }
 
-/** The description in the active UI language; falls back to English. */
-export function navDescription(
-  item: NavItem,
-  lang: UiLang,
-): string | undefined {
-  return item.description === undefined
-    ? undefined
-    : tx({ en: item.description, ...item.description_i18n }, lang);
+export function navDescription(item: NavItem, lang: UiLang): string | undefined {
+  return item.description === undefined ? undefined : tx({ en: item.description, ...item.description_i18n }, lang);
 }
 
-/** The group heading in the active UI language. */
 export function navGroupHeading(group: NavGroup, lang: UiLang): string {
   return tx({ en: group.heading, ...group.heading_i18n }, lang);
 }
 
 export const PRIMARY_NAV_ITEMS = [
   {
-    label: "Market",
-    ja: "マーケット", "zh-Hans": "集市", "zh-Hant": "市集",
-    href: "/market",
-    activePrefixes: ["/market", "/auctions"],
-  },
-  {
-    label: "Prices",
-    ja: "相場", "zh-Hans": "行情", "zh-Hant": "行情",
+    label: "Prices", ja: "相場", es: "Precios", "zh-Hans": "行情", "zh-Hant": "行情",
     href: "/prices",
-    activePrefixes: [
-      "/prices",
-      "/find",
-      "/catalog",
-      "/cards",
-      "/product",
-      "/glossary",
-    ],
+    activePrefixes: ["/prices", "/find", "/catalog", "/cards", "/product", "/glossary"],
   },
   {
-    label: "Play",
-    ja: "遊ぶ", "zh-Hans": "玩", "zh-Hant": "玩",
+    label: "Play", ja: "遊ぶ", es: "Jugar", "zh-Hans": "玩", "zh-Hant": "玩",
     href: "/play",
     activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
   },
   {
-    label: "Culture",
-    ja: "文化", "zh-Hans": "文化", "zh-Hant": "文化",
+    label: "Culture", ja: "文化", es: "Cultura", "zh-Hans": "文化", "zh-Hant": "文化",
     href: "/culture",
-    activePrefixes: [
-      "/culture",
-      "/lineage",
-      "/workshop",
-      "/artists",
-      "/duel-of-souls",
-      "/pull-and-pause",
-      "/mekiki",
-      "/making",
-      "/pulls",
-      "/answering-rhymes",
-      "/gallery-next-door",
-      "/empty-frames",
-    ],
+    activePrefixes: ["/culture", "/lineage", "/workshop", "/artists", "/duel-of-souls", "/pull-and-pause", "/mekiki", "/making", "/pulls", "/answering-rhymes", "/gallery-next-door", "/empty-frames", "/welcome-all"],
   },
   {
-    label: "Community",
-    ja: "広場", "zh-Hans": "广场", "zh-Hant": "街坊",
+    label: "Community", ja: "広場", es: "Comunidad", "zh-Hans": "社区", "zh-Hant": "社群",
     href: "/community",
     activePrefixes: ["/community", "/rewards", "/u"],
   },
 ] as const satisfies readonly NavItem[];
 
+const GUIDES: NavItem = {
+  label: "Guides", ja: "手引き", es: "Guías", "zh-Hans": "指南", "zh-Hant": "指南",
+  href: "/guides",
+  description: "Card care and learning to play",
+  description_i18n: { ja: "カードの扱い方と遊び方", es: "Cuidar cartas y aprender a jugar", "zh-Hans": "卡牌保养与玩法", "zh-Hant": "卡片保養與玩法" },
+  activePrefixes: ["/guides", "/intro"],
+};
+
 export const MORE_NAV_GROUPS = [
   {
-    heading: "Start",
-    heading_i18n: { ja: "入口", es: "Entrada", "zh-Hans": "入口", "zh-Hant": "入口" },
+    heading: "Help & information",
+    heading_i18n: { ja: "案内", es: "Ayuda e información", "zh-Hans": "帮助与信息", "zh-Hant": "幫助與資訊" },
     items: [
       {
-        label: "Start here",
-        ja: "はじめに", es: "Para empezar", "zh-Hans": "从这里开始", "zh-Hant": "由這裡開始",
-        href: "/start",
-        description: "A quick tour",
-        description_i18n: { ja: "ざっとひと巡り", es: "Una vuelta rápida", "zh-Hans": "大致逛一圈", "zh-Hant": "走一圈，看個大概" },
+        label: "Start here", ja: "はじめに", es: "Para empezar", "zh-Hans": "从这里开始", "zh-Hant": "由這裡開始",
+        href: "/",
+        description: "Choose what to explore",
+        description_i18n: { ja: "やりたいことから探す", es: "Elige qué explorar", "zh-Hans": "选择想了解的内容", "zh-Hant": "選擇想了解的內容" },
       },
+      GUIDES,
       {
-        label: "Guides",
-        ja: "手引き", es: "Guías", "zh-Hans": "指南", "zh-Hant": "指南",
-        href: "/guides",
-        description: "Buying and playing help",
-        description_i18n: { ja: "買い方と、遊び方", es: "Cómo comprar y cómo jugar", "zh-Hans": "怎么买，怎么玩", "zh-Hant": "怎樣買，怎樣玩" },
-      },
-      {
-        label: "About",
-        ja: "この店について", "zh-Hans": "关于这家店", "zh-Hant": "關於小店",
+        label: "About", ja: "このサイトについて", es: "Acerca de", "zh-Hans": "关于本站", "zh-Hant": "關於本站",
         href: "/about",
-        description: "Who we are",
-        description_i18n: { ja: "どんな店か", es: "Qué clase de tienda es", "zh-Hans": "是家什么样的店", "zh-Hant": "怎樣的一家店" },
-        activePrefixes: [
-          "/about",
-          "/platform",
-          "/manifest",
-          "/graph",
-          "/ontology",
-          "/patterns",
-          "/identify",
-          "/welcome-all",
-        ],
+        description: "About Cambridge TCG",
+        description_i18n: { ja: "Cambridge TCGについて", es: "Sobre Cambridge TCG", "zh-Hans": "了解 Cambridge TCG", "zh-Hant": "了解 Cambridge TCG" },
+        activePrefixes: ["/about", "/platform", "/manifest", "/graph", "/ontology", "/patterns", "/identify"],
       },
     ],
   },
   {
-    heading: "Data & trust",
-    heading_i18n: { ja: "データと信頼", es: "Datos y confianza", "zh-Hans": "数据与信任", "zh-Hant": "資料與信任" },
+    heading: "Agents & developers",
+    heading_i18n: { ja: "エージェントと開発者", es: "Agentes y desarrolladores", "zh-Hans": "智能体与开发者", "zh-Hant": "智能體與開發者" },
     items: [
       {
-        label: "Data directory",
-        ja: "データ目録", "zh-Hans": "数据名录", "zh-Hant": "資料目錄",
+        label: "Agents & API", ja: "エージェントとAPI", es: "Agentes y API", "zh-Hans": "智能体与 API", "zh-Hant": "智能體與 API",
+        href: "/agents",
+        description: "Start with read-only discovery",
+        description_i18n: { ja: "読み取り専用の情報から始める", es: "Empieza por consultas de solo lectura", "zh-Hans": "从只读资源开始", "zh-Hant": "由唯讀資源開始" },
+        activePrefixes: ["/agents", "/api"],
+      },
+      {
+        label: "Data directory", ja: "データ目録", es: "Directorio de datos", "zh-Hans": "数据目录", "zh-Hant": "資料目錄",
         href: "/data",
         description: "API access and rights",
-        description_i18n: { ja: "APIと、権利のこと", es: "La API y los derechos", "zh-Hans": "API与权利的事", "zh-Hant": "API與權利的事" },
-        activePrefixes: ["/data", "/api", "/agents", "/standards", "/scrapers"],
+        description_i18n: { ja: "APIの利用条件と権利", es: "Acceso a la API y derechos", "zh-Hans": "API 访问与使用权", "zh-Hant": "API 存取與使用權" },
+        activePrefixes: ["/data", "/standards", "/scrapers"],
       },
       {
-        label: "Methods & fees",
-        ja: "決め方と手数料", es: "El método y lo que cuesta", "zh-Hans": "方法与费用", "zh-Hant": "做法與手續費",
+        label: "Methods", ja: "しくみ", es: "Métodos", "zh-Hans": "方法说明", "zh-Hant": "方法說明",
         href: "/methodology",
-        description: "Prices, fees and decisions",
-        description_i18n: { ja: "相場と手数料、その決めごと", es: "Precios, comisiones y cómo se deciden", "zh-Hans": "行情、费用，都是怎么定的", "zh-Hant": "行情、手續費，還有背後的決定" },
-      },
-      {
-        label: "PRISM Signals",
-        ja: "PRISM Signals",
-        es: "PRISM Signals",
-        "zh-Hans": "PRISM Signals",
-        "zh-Hant": "PRISM Signals",
-        href: "/prism-signals",
-        description: "Synthetic deal-signal preview",
-        description_i18n: {
-          ja: "合成ディールシグナルのプレビュー",
-          es: "Vista previa sintética de señales de oportunidad",
-          "zh-Hans": "合成潜在交易信号预览",
-          "zh-Hant": "合成潛在交易訊號預覽",
-        },
-        activePrefixes: ["/prism-signals"],
-      },
-      {
-        label: "Draw proof checks",
-        ja: "検算", es: "El repaso de las cuentas", "zh-Hans": "验算", "zh-Hant": "驗算",
-        href: "/verify",
-        description: "Consistency evidence and stated limits",
-        description_i18n: { ja: "数字のつじつまと、その限界", es: "Pruebas de que los números cuadran, y sus límites", "zh-Hans": "一致性的证据，还有写明的局限", "zh-Hant": "數字對不對得上，還有講明的限度" },
+        description: "Sources, calculations and limits",
+        description_i18n: { ja: "情報源、計算、限界", es: "Fuentes, cálculos y límites", "zh-Hans": "来源、计算与局限", "zh-Hant": "來源、計算與限制" },
+        activePrefixes: ["/methodology", "/verify", "/prism-signals"],
       },
     ],
   },
@@ -202,31 +116,46 @@ export const MORE_NAV_GROUPS = [
 
 export const MORE_NAV_FOOTER = [
   { label: "Contact", ja: "連絡先", es: "Contacto", "zh-Hans": "联系方式", "zh-Hant": "聯絡", href: "/contact" },
-  { label: "Platform map", ja: "案内図", es: "El plano de la casa", "zh-Hans": "导览图", "zh-Hant": "平面圖", href: "/map" },
+  { label: "Site map", ja: "サイトマップ", es: "Mapa del sitio", "zh-Hans": "网站地图", "zh-Hant": "網站地圖", href: "/map" },
 ] as const satisfies readonly NavItem[];
+
+export const FOOTER_NAV_GROUPS = [
+  {
+    heading: "Explore",
+    heading_i18n: { ja: "見てみる", es: "Explorar", "zh-Hans": "探索", "zh-Hant": "探索" },
+    items: PRIMARY_NAV_ITEMS,
+  },
+  {
+    heading: "Account & help",
+    heading_i18n: { ja: "アカウントとヘルプ", es: "Cuenta y ayuda", "zh-Hans": "账户与帮助", "zh-Hant": "帳戶與幫助" },
+    items: [
+      { label: "Your account", ja: "アカウント", es: "Tu cuenta", "zh-Hans": "你的账户", "zh-Hant": "你的帳戶", href: "/account" },
+      { label: "Your collection", ja: "コレクション", es: "Tu colección", "zh-Hans": "你的收藏", "zh-Hant": "你的收藏", href: "/account/portfolio" },
+      { label: "Existing trades", ja: "これまでの取引", es: "Operaciones existentes", "zh-Hans": "已有交易", "zh-Hant": "已有交易", href: "/account/trades" },
+      GUIDES,
+    ],
+  },
+  {
+    ...MORE_NAV_GROUPS[1],
+    items: [...MORE_NAV_GROUPS[1].items, MORE_NAV_FOOTER[1]],
+  },
+] as const satisfies readonly NavGroup[];
 
 export function isNavItemActive(item: NavItem, pathname: string): boolean {
   const prefixes = item.activePrefixes ?? [item.href];
-  return prefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-export function navItemAriaCurrent(
-  item: NavItem,
-  pathname: string,
-): "page" | "location" | undefined {
+export function navItemAriaCurrent(item: NavItem, pathname: string): "page" | "location" | undefined {
   if (pathname === item.href) return "page";
   return isNavItemActive(item, pathname) ? "location" : undefined;
 }
 
-/** Every route promised directly by the compact global navigation. */
+/** Every route promised directly by the compact global header. */
 export function collectNavUrls(): string[] {
   const urls = new Set<string>();
   for (const item of PRIMARY_NAV_ITEMS) urls.add(item.href);
-  for (const group of MORE_NAV_GROUPS) {
-    for (const item of group.items) urls.add(item.href);
-  }
+  for (const group of MORE_NAV_GROUPS) for (const item of group.items) urls.add(item.href);
   for (const item of MORE_NAV_FOOTER) urls.add(item.href);
   return Array.from(urls).sort();
 }

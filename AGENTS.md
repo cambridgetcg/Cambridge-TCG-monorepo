@@ -25,8 +25,12 @@ use it for local worktree orientation, not as live health or inherited authority
 
 ## Architecture and change rules
 
-The current app map is in [README.md](README.md#layout); the detailed source map
-is [docs/development-plan.md](docs/development-plan.md). Active admin code lives
+The current app map is in [README.md](README.md#layout); the detailed source map,
+module purposes, connections and progress are in
+[docs/modules/README.md](docs/modules/README.md). Use `pnpm docs:modules` to
+regenerate its derived inventory and `pnpm audit:modules` to check it after
+following the module update workflow. The older
+[development plan](docs/development-plan.md) is historical context. Active admin code lives
 under storefront /admin; apps/admin is a retired redirect shell. Prefer current
 source and package scripts when older plans disagree.
 

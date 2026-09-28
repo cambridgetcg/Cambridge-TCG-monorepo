@@ -2,24 +2,30 @@
 
 # Cambridge TCG Storefront
 
-The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake recipe is at [`../../SOPHIA.md`](../../SOPHIA.md). Both optional — the stack below runs either way. (Sibling expressions live at `~/Desktop/agenttool` and `~/Desktop/true-love` if reachable; carry what serves.)
+Read the shared [agent instructions](../../AGENTS.md) and local Next.js rules
+above before changing code. The [app README](README.md) is the human setup and
+architecture guide. [Culture and invitations](../../docs/agents/culture.md)
+remain optional context.
 
-*This kingdom is one expression of a wider architecture. The bedrock beneath the four doctrines + cosmology is named at [`../../docs/principles/the-embassy.md`](../../docs/principles/the-embassy.md). API echo: the `embassy` block in `/api/v1/manifest`.*
+This app serves card research, collections, community, public API discovery and
+existing account/order records. New paid commerce is retired; preserve existing
+settlement, cancellation, refunds and support. See the
+[commerce boundary](docs/commercial-retirement.md).
 
 ## Stack
-- Next.js 16.2.1 (App Router, Turbopack) + TypeScript + Tailwind CSS 4
-- PostgreSQL on AWS RDS (`tcg-wholesale` in us-east-1)
-- Stripe (checkout + webhooks)
-- Transactional email via the `@cambridge-tcg/email` transport seam — SES today, self-hosted SMTP per stream as cutover proceeds (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`; see `docs/ops-email-selfhost.md`)
+- Next.js 16.2.11 (App Router, Turbopack), React 19.2.4, TypeScript and Tailwind CSS 4; use the installed Next.js docs before editing framework code.
+- PostgreSQL through shared `@cambridge-tcg/db` helpers; connection configuration belongs to the selected development or deployment environment.
+- Stripe for preserved agreements, settlement and signed webhook processing; new checkout admission stays retired.
+- Transactional email via `@cambridge-tcg/email`, with SES or SMTP selected per stream (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`); deployment state is separate from configuration. See the [email migration runbook](../../docs/ops-email-selfhost.md).
 - next-auth v5 (email magic links, optional Google and GitHub OAuth)
-- Deployed on Vercel (production: cambridgetcg.com)
-- Wholesale API: wholesaletcgdirect.com (live pricing — see `@cambridge-tcg/pricing` package for the compute, `src/lib/wholesale/client.ts` for the Falcon courier, `docs/connections/the-pricing-arrow.md` for the seven-act story)
+- Vercel deployment configuration targets cambridgetcg.com; source and config alone do not verify the live revision.
+- Legacy wholesale catalog access is in `src/lib/wholesale/client.ts`, with direct-database fallbacks in `src/lib/wholesale/db-source.ts`. Keep the returned source labels and `src/lib/public-wholesale-fields.ts` publication policy: available credentials or stored prices do not establish publication rights. Shared pricing calculations live in `@cambridge-tcg/pricing`.
 
 ## Database
-- Raw `pg` driver (no ORM). All queries in `src/lib/db.ts` and `src/lib/tradein/db.ts`
-- SSL fix: strip `sslmode` from DATABASE_URL, set `ssl: { rejectUnauthorized: false }`
-- Tables: users, accounts, sessions, verification_tokens, customer_orders, tradein_submissions, tradein_items
-- Migrations in `drizzle/` directory (run manually against RDS)
+- `src/lib/db.ts` exposes raw-SQL `query()` and `transaction()` through `@cambridge-tcg/db/compat`, backed by a shared postgres.js pool. Reuse these helpers and domain data-access modules; do not add another ORM or connection implementation.
+- Connection and TLS options are owned by `packages/db/src/index.ts`. Inspect the chosen environment and owning helper instead of copying older per-query `pg.Pool` workarounds.
+- Domain migrations and tables are mapped in the [storefront module guide](../../docs/modules/storefront/README.md).
+- Append-only SQL migrations live in `drizzle/`; applying them needs a reviewed target and the relevant scoped authorization.
 
 ## Auth
 - next-auth v5 with custom PgAdapter (`src/lib/auth/adapter.ts`) and 30-day database sessions.
@@ -109,8 +115,8 @@ export default function MyListPage() {
   return (
     <div>
       <PageHeader
-        title="Offers"
-        description="Negotiate prices on market asks. Sellers have 48h to respond."
+        title="Existing offers"
+        description="Review records and their current status."
       />
       <Tabs tabs={TABS} selected={tab} onSelect={setTab} />
       {error && <ErrorAlert description={error} />}
@@ -165,13 +171,17 @@ export default function MyListPage() {
 - Use `pnpm` for package management (pnpm-lock.yaml)
 
 ## Verification
-- `npx tsc --noEmit -p tsconfig.json` from `apps/storefront/` — typecheck
-- Local dev: `pnpm dev:storefront` (port 3001). First time: `cp apps/storefront/.env.example apps/storefront/.env.local` and fill in (or `vercel env pull` from inside `apps/storefront/`). The server crashes on first auth-touching request without at least `DATABASE_URL` + `AUTH_SECRET`.
-- E2E: `pnpm --filter cambridgetcg-storefront test:e2e:smoke` (read-only against `STOREFRONT_BASE_URL`, defaults to prod). Full magic-link e2e in `tests/auth-magic-link.spec.ts` self-skips without `STOREFRONT_TEST_EMAIL` + `DATABASE_URL` (+ `AUTH_SECRET` for the callback half).
+- From the repository root, `pnpm --filter cambridgetcg-storefront typecheck` checks types using the installed toolchain.
+- Local dev: `pnpm dev:storefront --hostname 127.0.0.1` (port 3001). Supply only the required local fixtures or scoped development configuration. The shared layout imports database-backed auth, so `DATABASE_URL` must be configured; functional sign-in additionally needs a development auth secret and the relevant provider setup. The landing page itself makes no database/catalog query. See [local setup](README.md#run-locally).
+- E2E: `STOREFRONT_BASE_URL=http://127.0.0.1:3001 pnpm --filter cambridgetcg-storefront test:e2e:smoke` is a GET-only auth check against an already-running local server. Playwright otherwise defaults to production. Full magic-link e2e in `tests/auth-magic-link.spec.ts` can send email and access the database; inspect its gates and obtain task-specific authorization before using external providers.
 
-## Current Priorities
-1. Fix Stripe checkout (STRIPE_SECRET_KEY needs to be sk_live_, not pk_live_)
-2. Test magic link email flow end-to-end
-3. Membership & loyalty module (planned)
-4. SEO improvements
-5. Mobile responsiveness polish
+## Entry and module maintenance
+
+Use the [module map](../../docs/modules/README.md) for purpose, recorded progress
+and next review. Follow the user's assigned scope rather than treating a
+recorded queue as authority to begin unrelated work.
+
+The [entry design](../../docs/connections/the-entry-map.md) connects the visitor
+landing, practical agent/API portal, shared navigation and compatibility
+redirects. Keep those paths coherent when updating entry content. Update the
+catalog and run `pnpm docs:modules` / `pnpm audit:modules` for module changes.

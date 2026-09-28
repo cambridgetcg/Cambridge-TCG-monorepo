@@ -13,7 +13,8 @@ conventions; the optional ignored HERE.md describes one machine's worktrees.
 | --- | --- |
 | Scope and relevant checks | [Agent instructions](../../AGENTS.md) |
 | Commits and unfinished work | [Git workflow](../operations/git-workflow.md) |
-| Source architecture | [Development map](../development-plan.md) and current source |
+| Source architecture and module progress | [Module map](../modules/README.md), [catalog](../modules/catalog.json) and current source |
+| Visitor and API entry design | [Entry pages and module map](../connections/the-entry-map.md) |
 | An assigned task | [Mission records](../missions/README.md); check dates and ownership |
 | Handoff | [Handoff index](../handoffs/README.md) |
 | Module relationships | [Connections index](../connections/README.md) |
@@ -26,6 +27,7 @@ they were live-checked during this documentation cleanup.
 
 | Route | Purpose |
 | --- | --- |
+| [Agent portal](https://cambridgetcg.com/agents) | Practical API entry: discovery, contracts and integration guides |
 | [llms.txt](https://cambridgetcg.com/llms.txt) | Short machine-facing index |
 | [llms-full.txt](https://cambridgetcg.com/llms-full.txt) | Expanded machine-facing text |
 | [Welcome API](https://cambridgetcg.com/api/v1/welcome) | Agent introduction |

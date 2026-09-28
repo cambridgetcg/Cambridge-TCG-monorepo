@@ -22,6 +22,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' --filter '!rewardspro-membership' -r exec tsc --noEmit",
     "audit:tracked-secrets": "node scripts/audit-tracked-secrets.mjs",
+    "docs:modules": "node scripts/module-map.mjs --write",
+    "audit:modules": "node scripts/module-map.mjs --check",
     "audit:honesty": "pnpm --filter cambridgetcg-storefront honesty",
     "audit:transparency": "pnpm --filter cambridgetcg-storefront transparency",
     "audit:pricing": "pnpm --filter cambridgetcg-storefront pricing",

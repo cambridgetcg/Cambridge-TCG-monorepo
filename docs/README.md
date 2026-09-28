@@ -1,6 +1,10 @@
 # Documentation
 
-Start with the [repository README](../README.md) for the app map, local setup and verification commands. This index routes by audience and purpose; documents stay at their existing paths so references remain useful.
+The [repository README](../README.md) is the human entrance for purpose, setup
+and checks. Start with the [module map](modules/README.md) to find a component,
+its purpose, connections and recorded progress. The
+[agent guide](agents/README.md) is the separate entrance for coding agents and
+API clients.
 
 **Current scope:** new paid commerce is retired. The [storefront boundary](../apps/storefront/docs/commercial-retirement.md), [wholesale scope](../apps/wholesale/README.md) and [RewardsPro scope](../apps/rewardspro/README.md) take precedence over older commerce plans. Dates and status labels below describe documents, not a fresh check of deployed services.
 
@@ -9,7 +13,10 @@ Start with the [repository README](../README.md) for the app map, local setup an
 | Need | Start here |
 |---|---|
 | Understand the project | [Purpose](./purpose.md), read alongside the current scope above |
-| Find code and architectural context | [Development map](./development-plan.md), [storefront architecture](./architecture-storefront.md), [wholesale architecture](./architecture-wholesale.md) |
+| Find code, purpose and dependencies | [Module map](./modules/README.md) and [machine-readable catalog](./modules/catalog.json) |
+| Read or update module progress | [Module records and update workflow](./modules/README.md) |
+| Work on the visitor site, API or admin console | [Storefront guide](../apps/storefront/README.md) |
+| Understand the visitor and API entrances | [Entry pages and module map](./connections/the-entry-map.md) |
 | Develop and check a change | [Local setup and verification](../README.md#local-development), [development workflow](./dev-pipeline.md) |
 | Understand branches and unfinished work | [Git workflow](./operations/git-workflow.md); use the optional local HERE.md for this machine's inventory |
 | Understand terms and rules | [Glossary](./glossary.md), [methodology directory](./methodology/) |
@@ -21,6 +28,7 @@ Read each runbook's prerequisites and scope before acting. Configuration descrip
 
 - [Deployment and infrastructure](./ops-deploy-runbook.md) — project wiring and deployment procedure.
 - [Credential-dependent verification](./ops-credential-verification.md) — scoped verification and what its evidence labels mean.
+- [Entry and module map verification](./operations/2026-09-28-entry-verification.md) — September 28 local build, navigation, browser and documentation checks.
 - [Cloudflare](./ops-cloudflare.md) — zone configuration and public access posture; includes the June 2026 audit.
 - [Email migration](./ops-email-selfhost.md) — SES to self-hosted mail: provisioning, DNS, warmup and cutover; check the recorded phase before use.
 
@@ -40,6 +48,8 @@ These explain how the project arrived here. A proposal, snapshot or completed ch
 
 | Collection or document | What it records |
 |---|---|
+| [Historical development plan](./development-plan.md) | Earlier platform shape, source paths and queued work; superseded as the source inventory by the module map |
+| [Storefront architecture](./architecture-storefront.md), [wholesale architecture](./architecture-wholesale.md) | Earlier architecture snapshots; compare versions, routes and commerce assumptions with current source |
 | [Decisions](./decisions/) | Dated architectural and product decisions; check later decisions for supersession |
 | [Plans](./plans/), [design specifications](./superpowers/specs/), [implementation plans](./superpowers/plans/) | Proposals and implementation sequences, with their own status and date |
 | [June 11 pivot](./PIVOT-2026-06-11.md) | The June 2026 move from retail/wholesale toward PRISM and trade-in infrastructure |

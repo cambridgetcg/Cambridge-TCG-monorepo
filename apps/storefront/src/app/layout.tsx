@@ -17,7 +17,6 @@ import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
-import { COVERAGE_FACTS } from "@/lib/brand";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -46,30 +45,24 @@ const notoSerifJp = Noto_Serif_JP({
 });
 
 export const metadata: Metadata = {
-  // Root metadata ships on every Google snippet and social card — it greets
-  // people who have never been here, so it speaks plain language (contact-
-  // surface spec §2). The insider framing stays on /platform; the deeper
-  // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
-  // games" count is COVERAGE_FACTS.games.declared. Collectors first
-  // (2026-07-06): the shop-and-wholesale framing retired with the shop.
-  title: "Cambridge TCG — collectors' market and TCG card data",
-  description: `A peer-to-peer trading-card market and public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered. Reuse follows each response's rights declaration.`,
+  title: "Cambridge TCG — card research, collections and play",
+  description: "Explore trading-card data, organize your collection and find ways to play. Public data follows each response’s publication and reuse rules.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — collectors' market and TCG card data",
-    description: `A peer-to-peer trading-card market based in Cambridge, UK, plus a public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered.`,
+    title: "Cambridge TCG — card research, collections and play",
+    description: "Explore trading-card data, organize your collection and find ways to play. Public data follows each response’s publication and reuse rules.",
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — collectors' market and TCG card data",
-    description: `A peer-to-peer trading-card market and public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; reuse follows each response's rights declaration.`,
+    title: "Cambridge TCG — card research, collections and play",
+    description: "Explore trading-card data, organize your collection and find ways to play. Public data follows each response’s publication and reuse rules.",
     images: ["/images/twitter-image.png"],
   },
   // Site discovery is emitted as actual <link> elements below, not
@@ -140,7 +133,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           name: "Cambridge TCG",
           url: "https://cambridgetcg.com",
           logo: "https://cambridgetcg.com/images/logo.png",
-          description: `UK-based peer-to-peer collectors' market plus public, rights-labelled TCG data. ${COVERAGE_FACTS.games.confirmed_codes} games currently have observed catalog rows; reference prices are policy-bound guides, not offers or open-data grants.`,
+          description: "Card research, collection tools and play resources based in Cambridge, UK. Published data carries source and reuse information. New paid commerce is retired.",
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],
         }) }} />
@@ -151,7 +144,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           url: "https://cambridgetcg.com",
           potentialAction: {
             "@type": "SearchAction",
-            target: "https://cambridgetcg.com/market?q={search_term_string}",
+            target: "https://cambridgetcg.com/prices/search?q={search_term_string}",
             "query-input": "required name=search_term_string",
           },
         }) }} />

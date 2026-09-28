@@ -27,8 +27,12 @@ import { Input, Select } from "@/lib/ui/Input";
  * white mount, hairline border, ink primary button. rounded-xl is the
  * hero-card exception the design doc reserves.
  */
-export default function CardFinderHero({ games, uiLang = "en" }: { games: GameItem[]; uiLang?: UiLang }) {
-  const sorted = [...games].sort((a, b) => b.card_count - a.card_count);
+type FinderGame = Pick<GameItem, "code" | "name"> & { card_count?: number };
+
+export default function CardFinderHero({ games, uiLang = "en" }: { games: FinderGame[]; uiLang?: UiLang }) {
+  // Static registry choices carry no invented availability/counts. Callers
+  // with observed counts can still rank those choices as before.
+  const sorted = [...games].sort((a, b) => (b.card_count ?? 0) - (a.card_count ?? 0));
   const title = tx({ en: "Find a card", ja: "カードをさがす", es: "Encuentra una carta", "zh-Hans": "找卡", "zh-Hant": "找卡" }, uiLang);
 
   return (
