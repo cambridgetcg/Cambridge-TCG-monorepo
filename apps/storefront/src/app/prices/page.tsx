@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchGames, type GameItem } from "@/lib/wholesale/client";
-import { Card, PageHeader, PlateHeader, Provenance, WhyLink } from "@/lib/ui";
+import { Card, PageHeader, Provenance, WhyLink } from "@/lib/ui";
+import { PageLayout } from "@/lib/ui/PageLayout";
+import { Section } from "@/lib/ui/Section";
 import {
   PRICE_GUIDE_GAMES,
-  ACCENT_CLASSES,
   type PriceGuideGameConfig,
 } from "@/lib/prices/games-config";
 import { fetchRates } from "@/lib/fx/rates";
@@ -101,31 +102,16 @@ export default async function PricesLandingPage({ searchParams }: {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-        <nav aria-label="Breadcrumb" className="mb-6 text-sm text-ink-muted">
-          <ol className="flex items-center gap-1.5">
-            <li>
-              <Link href="/" className="hover:text-ink transition-colors">
-                Home
-              </Link>
-            </li>
-            <li className="text-ink-faint">/</li>
-            <li className="text-ink">Price Guide</li>
-          </ol>
-        </nav>
-
+      <PageLayout>
         <header className="max-w-3xl">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-            Sources, not promises
-          </p>
           <PageHeader
             size="large"
-            title="The price guide"
+            title="Cards and prices"
             description={
               <>
-                Compare permitted source observations with a free account, or browse
-                the public card catalog below. This is reference data, not an offer.
-                Source metrics are not interchangeable; a missing price is not zero.
+                Browse public card details, or use your existing account to compare
+                permitted source prices. This is reference data, not an offer.
+                Prices from different sources can mean different things; a missing price is not zero.
               </>
             }
           />
@@ -134,16 +120,16 @@ export default async function PricesLandingPage({ searchParams }: {
               kind={observedTiles.length > 0 ? "synced" : "unavailable"}
               source="wholesale catalog"
             />
-              <WhyLink href="/methodology/pricing" label="price publication boundary" />
+            <WhyLink href="/methodology/pricing" label="About published prices" />
             <Link
               href="/prices/coverage"
-              className="text-xs text-info hover:underline"
+              className="text-sm text-accent hover:underline"
             >
-              source coverage →
+              Source coverage
             </Link>
             {totalCards > 0 ? (
-              <span className="text-xs text-ink-faint">
-                {totalCards.toLocaleString()} observed catalog rows across{" "}
+              <span className="text-sm text-ink-muted">
+                {totalCards.toLocaleString()} catalog records across{" "}
                 {observedTiles.length}{" "}
                 {observedTiles.length === 1 ? "game" : "games"}
               </span>
@@ -153,103 +139,69 @@ export default async function PricesLandingPage({ searchParams }: {
 
         <MemberPriceBrowser search={search} />
 
-        <section
-          aria-labelledby="card-price-search-heading"
+        <Section
+          id="card-price-search"
+          title="Find a card"
+          description="Choose a game and enter the number printed on your card. Results include card details, known variants and source status."
           className="my-8"
         >
           <Card className="sm:p-6">
-            <div className="mb-6">
-              <h2
-                id="card-price-search-heading"
-                className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink"
-              >
-                Search the structural catalog
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-ink-muted">
-                Pick a game, enter the card number, and go straight to the
-                matching structural row and current publication status.
-              </p>
-            </div>
             <CardPriceSearchForm
               games={liveGames}
-              autoFocus
               browseHref="#browse-by-game"
             />
           </Card>
-        </section>
+        </Section>
 
-        <section
+        <Section
           id="browse-by-game"
-          aria-labelledby="browse-by-game-heading"
+          title="Browse by game"
+          description="Start with a game and set if you do not have the card number."
+          action={<Link href="/prices/coverage" className="text-sm text-accent hover:underline">View source coverage</Link>}
           className="scroll-mt-24"
         >
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2
-                id="browse-by-game-heading"
-                className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink"
-              >
-                Browse by game
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-ink-muted">
-                Don&rsquo;t have the card number? Start with its game and set.
-              </p>
-            </div>
-            <Link
-              href="/prices/coverage"
-              className="text-sm text-info hover:underline"
-            >
-              View all source coverage →
-            </Link>
-          </div>
-
           {tiles.length === 0 ? (
             <Card padding="lg" className="text-sm text-ink-muted">
-              More games coming soon — see the{" "}
+              No game records are available to browse. Check the{" "}
               <Link
                 href="/prices/coverage"
                 className="text-info hover:underline"
               >
                 coverage map
               </Link>{" "}
-              for what each source covers today.
+              for each source&rsquo;s recorded status.
             </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {tiles.map(({ config, live }) => {
-                const accent = ACCENT_CLASSES[config.accent];
                 const cardCount = live?.card_count ?? 0;
                 const isLive = live !== null && cardCount > 0;
                 return (
                   <Link
                     key={config.slug}
                     href={`/prices/${config.slug}`}
-                    className={`group block rounded-lg border border-border-subtle ${accent.bg} p-4 transition-colors hover:border-border-strong`}
+                    className="block rounded-lg border border-border-subtle bg-surface p-5 transition-colors hover:border-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <h3 className={`text-lg font-semibold ${accent.text}`}>
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <h3 className="text-base font-semibold text-ink">
                         {config.display_name}
                       </h3>
-                      <span className="text-xs text-ink-faint font-mono">
+                      <span className="text-sm text-ink-muted font-mono">
                         {config.game_code}
                       </span>
                     </div>
-                    <div className="flex items-end justify-between gap-3 text-xs">
+                    <div className="space-y-3 text-sm">
                       <div className="space-y-2">
                         <p className="text-ink-muted">
                           {isLive
-                            ? `${cardCount.toLocaleString()} observed rows`
+                            ? `${cardCount.toLocaleString()} catalog records`
                             : config.coverage_status === "anticipated"
-                              ? "Anticipated · no observed rows"
-                              : "Observed source · rows unavailable"}
+                              ? "No catalog records observed"
+                              : "Catalog records unavailable"}
                         </p>
                         {config.cardrush ? (
                           <span
-                            className={`inline-flex rounded border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
-                              config.cardrush.confirmed
-                                ? "border-ok/30 bg-ok/10 text-ok"
-                                : "border-border-subtle bg-surface text-ink-faint"
-                            }`}
+                            className="block text-sm text-ink-muted"
                             title={
                               config.cardrush.confirmed
                                 ? `${config.cardrush.subdomain} host verified; observed catalog rows are reported separately`
@@ -258,14 +210,14 @@ export default async function PricesLandingPage({ searchParams }: {
                           >
                             {config.cardrush.confirmed
                               ? isLive
-                                ? "CardRush source"
-                                : "host verified"
-                              : "probationary"}
+                                ? "CardRush source host verified"
+                                : "Source host verified; records unavailable"
+                              : "Source host unconfirmed"}
                           </span>
                         ) : null}
                       </div>
-                      <span className="font-medium text-info transition-transform group-hover:translate-x-0.5">
-                        {isLive ? "Browse cards →" : "View status →"}
+                      <span className="block font-medium text-accent">
+                        {isLive ? "Browse cards" : "View source status"}
                       </span>
                     </div>
                   </Link>
@@ -273,16 +225,17 @@ export default async function PricesLandingPage({ searchParams }: {
               })}
             </div>
           )}
-        </section>
+        </Section>
 
-        <div className="mt-12 border-t border-border-subtle pt-8">
-          <PlateHeader title="Currency tools" action={<CurrencyWhyLink />} />
-          <p className="mb-6 max-w-2xl text-sm leading-6 text-ink-muted">
+        <details className="mt-8 border-t border-border-subtle pt-5">
+          <summary className="cursor-pointer text-base font-semibold text-ink">Currency tools</summary>
+          <p className="mt-4 mb-4 max-w-2xl text-sm leading-6 text-ink-muted">
             FX rates remain available as standalone operational data. Member
             observations above keep their native currency; these tools do not
             convert or condition-adjust the source prices.
           </p>
-          <div className="grid gap-4 lg:grid-cols-[1fr,1.2fr]">
+          <div className="mb-4"><CurrencyWhyLink /></div>
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
             <CurrencySelector
               selected={currency}
               rates={rates}
@@ -290,11 +243,11 @@ export default async function PricesLandingPage({ searchParams }: {
             />
             <RateTablePanel rates={rates} selected={currency} />
           </div>
-        </div>
+        </details>
 
-        <section className="mt-12 border-t border-border-subtle pt-8">
-          <PlateHeader title="Why legacy prices remain withheld" />
-          <p className="mb-4 max-w-3xl text-sm leading-relaxed text-ink-muted">
+        <details className="mt-6 border-t border-border-subtle pt-5">
+          <summary className="cursor-pointer text-base font-semibold text-ink">Why some data is withheld</summary>
+          <p className="mt-4 mb-4 max-w-3xl text-sm leading-relaxed text-ink-muted">
             Stored legacy wholesale prices, channel-derived values, images, and
             historical movements are not published. Their rows predate field-level
             source-rights receipts, and authentication or mathematical transformation
@@ -320,12 +273,12 @@ export default async function PricesLandingPage({ searchParams }: {
               href="/methodology/upstream-sources"
               className="text-info hover:underline"
             >
-              the welcome table
+              source permissions
             </Link>
             .
           </p>
-        </section>
-      </main>
+        </details>
+      </PageLayout>
     </>
   );
 }

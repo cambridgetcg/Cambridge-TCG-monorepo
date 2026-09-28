@@ -12,7 +12,7 @@ import {
 import { usePathname } from "next/navigation";
 import NotificationBell from "./NotificationBell";
 import { MoreMenu } from "./MoreMenu";
-import { Icon } from "@/lib/ui";
+import { Icon } from "@/lib/ui/Icon";
 import {
   isNavItemActive,
   MORE_NAV_FOOTER,
@@ -21,6 +21,8 @@ import {
   navItemAriaCurrent,
   navLabel,
   PRIMARY_NAV_ITEMS,
+  SITE_MAP_NAV_ITEM,
+  type NavItem,
 } from "@/lib/nav/menu-config";
 import type { UiLang } from "@/lib/lang-mode";
 import { tx } from "@/lib/i18n";
@@ -35,10 +37,14 @@ const CHROME = {
   find: { en: "Find a card", ja: "カードをさがす", "zh-Hant": "找卡", "zh-Hans": "找卡", es: "Buscar una carta" },
   account: { en: "Account", ja: "アカウント", es: "Cuenta", "zh-Hans": "账户", "zh-Hant": "帳戶" },
   signIn: { en: "Sign in", ja: "ログイン", es: "Iniciar sesión", "zh-Hans": "登录", "zh-Hant": "登入" },
+  signInRequired: { en: "Sign-in required", ja: "ログインが必要です", es: "Requiere iniciar sesión", "zh-Hans": "需要登录", "zh-Hant": "需要登入" },
+  menu: { en: "Menu", ja: "メニュー", es: "Menú", "zh-Hans": "菜单", "zh-Hant": "選單" },
+  appearance: { en: "Appearance", ja: "表示設定", es: "Apariencia", "zh-Hans": "外观", "zh-Hant": "外觀" },
+  highContrast: { en: "High contrast", ja: "ハイコントラスト", es: "Alto contraste", "zh-Hans": "高对比度", "zh-Hant": "高對比度" },
   menuOpen: { en: "Open menu", ja: "メニューを開く", es: "Abrir el menú", "zh-Hans": "打开菜单", "zh-Hant": "打開選單" },
   menuClose: { en: "Close menu", ja: "メニューを閉じる", es: "Cerrar el menú", "zh-Hans": "关闭菜单", "zh-Hant": "關閉選單" },
-  lightsOn: { en: "Lights on", ja: "明かりをつける", es: "Encender la luz", "zh-Hans": "开灯", "zh-Hant": "開燈" },
-  lightsOff: { en: "Lights off", ja: "明かりを消す", es: "Apagar la luz", "zh-Hans": "关灯", "zh-Hant": "關燈" },
+  lightsOn: { en: "Use light theme", ja: "ライトテーマにする", es: "Usar tema claro", "zh-Hans": "使用浅色主题", "zh-Hant": "使用淺色主題" },
+  lightsOff: { en: "Use dark theme", ja: "ダークテーマにする", es: "Usar tema oscuro", "zh-Hans": "使用深色主题", "zh-Hant": "使用深色主題" },
   messages: { en: "Messages", ja: "メッセージ", es: "Mensajes", "zh-Hans": "消息", "zh-Hant": "訊息" },
 } as const;
 
@@ -72,7 +78,7 @@ function MessagesIndicator({ uiLang = "en" }: { uiLang?: UiLang }) {
     <Link
       href="/account/messages"
       aria-label={uiLang === "ja" ? `メッセージ${count > 0 ? `（未読${count}件）` : ""}` : `${tx(CHROME.messages, uiLang)}${count > 0 ? ` (${count})` : ""}`}
-      className="relative rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      className="relative rounded-md p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <Icon name="message" size={21} />
       {count > 0 && (
@@ -105,7 +111,7 @@ function ThemeGlyph({ isDark, className }: { isDark: boolean; className: string 
 }
 
 function activeLinkClass(active: boolean): string {
-  return `rounded-full px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+  return `inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
     active
       ? "bg-surface-subtle text-ink"
       : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
@@ -188,12 +194,15 @@ export default function Nav({
   }, [menuOpen, pathname]);
 
   useEffect(() => {
-    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const desktopQuery = window.matchMedia("(min-width: 1280px)");
+    // CSS can hide the focused control before the media-change event fires.
+    // Keep its last focus location until another focus or pointer target wins.
+    let focusWasInside = false;
+    const rememberFocus = (event: FocusEvent | PointerEvent) => {
+      focusWasInside = !!menuButtonRef.current?.contains(event.target as Node) ||
+        !!mobileDrawerRef.current?.contains(event.target as Node);
+    };
     const closeOnBreakpointChange = (event: MediaQueryListEvent) => {
-      const activeElement = document.activeElement;
-      const focusWasInside =
-        activeElement === menuButtonRef.current ||
-        mobileDrawerRef.current?.contains(activeElement);
       setMenuState({ pathname, open: false });
       if (event.matches && focusWasInside) {
         window.requestAnimationFrame(() => {
@@ -201,8 +210,14 @@ export default function Nav({
         });
       }
     };
+    document.addEventListener("focusin", rememberFocus);
+    document.addEventListener("pointerdown", rememberFocus);
     desktopQuery.addEventListener("change", closeOnBreakpointChange);
-    return () => desktopQuery.removeEventListener("change", closeOnBreakpointChange);
+    return () => {
+      document.removeEventListener("focusin", rememberFocus);
+      document.removeEventListener("pointerdown", rememberFocus);
+      desktopQuery.removeEventListener("change", closeOnBreakpointChange);
+    };
   }, [pathname]);
 
   useEffect(() => {
@@ -252,36 +267,41 @@ export default function Nav({
   return (
     <nav
       aria-label={tx(CHROME.primary, uiLang)}
-      className="sticky top-0 z-[60] border-b border-border-subtle bg-page/95 backdrop-blur"
+      className="sticky top-0 z-[60] border-b border-border-subtle bg-page"
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <noscript>
+        <style>{"#mobile-navigation-trigger, #desktop-more-navigation-trigger { display: none; }"}</style>
+      </noscript>
+      <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
         <Link
           href="/"
           onClick={() => setMenuState({ pathname, open: false })}
           aria-label={tx(CHROME.home, uiLang)}
-          className="flex shrink-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <Image
             src="/images/icon.png"
             alt=""
-            width={32}
-            height={32}
-            className="h-8 w-8"
+            width={28}
+            height={28}
+            className="hidden h-7 w-7 sm:block"
           />
-          <span className="hidden text-xl font-display font-semibold text-ink sm:inline lg:hidden xl:inline">
+          <span className="whitespace-nowrap text-base font-semibold text-ink sm:text-lg">
             Cambridge TCG
           </span>
         </Link>
 
-        <div className="hidden min-w-0 items-center lg:flex">
+        <div className="hidden min-w-0 items-center xl:flex">
           <div className="flex items-center gap-0.5">
-            {PRIMARY_NAV_ITEMS.map((item) => {
+            {PRIMARY_NAV_ITEMS.map((item: NavItem) => {
               const active = isNavItemActive(item, pathname);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={navItemAriaCurrent(item, pathname)}
+                  aria-describedby={item.requiresSignIn && !loggedIn ? "nav-sign-in-required" : undefined}
+                  title={item.requiresSignIn && !loggedIn ? tx(CHROME.signInRequired, uiLang) : undefined}
                   className={activeLinkClass(active)}
                 >
                   {navLabel(item, uiLang)}
@@ -297,15 +317,15 @@ export default function Nav({
                 href={toggle.href}
                 onClick={flipLights}
                 aria-label={toggle.label}
-                title={`${toggle.label} — all themes at /appearance`}
-                className="rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                title={toggle.label}
+                className="rounded-md p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <ThemeGlyph isDark={toggle.isDark} className="h-5 w-5" />
               </a>
             )}
             <Link
               href={loggedIn ? "/account" : "/login"}
-              className="rounded-full px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {tx(loggedIn ? CHROME.account : CHROME.signIn, uiLang)}
             </Link>
@@ -315,33 +335,30 @@ export default function Nav({
               href="/prices/search"
               aria-label={tx(CHROME.find, uiLang)}
               aria-current={pathname === "/prices/search" ? "page" : undefined}
-              className="ml-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="ml-1 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {tx(CHROME.find, uiLang)}
             </Link>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 lg:hidden">
-          <Link
-            href="/prices/search"
-            onClick={() => setMenuState({ pathname, open: false })}
-            aria-label={tx(CHROME.find, uiLang)}
-            aria-current={pathname === "/prices/search" ? "page" : undefined}
-            className="rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            {tx(CHROME.find, uiLang)}
-          </Link>
+        <div className="flex items-center gap-1 xl:hidden">
+          <noscript>
+            <a href={SITE_MAP_NAV_ITEM.href} className="inline-flex min-h-11 items-center rounded-md border border-border-subtle px-3 py-2 text-sm font-medium text-ink">
+              {navLabel(SITE_MAP_NAV_ITEM, uiLang)}
+            </a>
+          </noscript>
           <button
             id="mobile-navigation-trigger"
             ref={menuButtonRef}
             type="button"
             onClick={toggleMobileMenu}
-            className="rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border-subtle px-3 py-2 text-sm font-medium text-ink hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             aria-label={menuOpen ? (tx(CHROME.menuClose, uiLang)) : (tx(CHROME.menuOpen, uiLang))}
             aria-controls="mobile-navigation"
             aria-expanded={menuOpen}
           >
+            <span>{tx(CHROME.menu, uiLang)}</span>
             {menuOpen ? (
               <svg
                 viewBox="0 0 24 24"
@@ -370,30 +387,30 @@ export default function Nav({
           </button>
         </div>
       </div>
+      <span id="nav-sign-in-required" className="sr-only">{tx(CHROME.signInRequired, uiLang)}</span>
 
       {menuOpen && (
         <div
           ref={mobileDrawerRef}
           id="mobile-navigation"
-          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border-subtle bg-page lg:hidden"
+          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border-subtle bg-page xl:hidden"
         >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <Link
               href="/prices/search"
               aria-current={pathname === "/prices/search" ? "page" : undefined}
               onClick={() => setMenuState({ pathname, open: false })}
-              className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface px-4 py-3 text-sm font-medium text-ink shadow-mat focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="flex min-h-11 items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className="flex items-center gap-2.5">
                 <Icon name="search" size={19} className="text-ink-muted" />
                 {tx(CHROME.search, uiLang)}
               </span>
-              <span aria-hidden className="text-ink-faint">→</span>
             </Link>
 
             {/* If the item count is odd, the last link spans the row. */}
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {PRIMARY_NAV_ITEMS.map((item, i) => {
+              {PRIMARY_NAV_ITEMS.map((item: NavItem, i) => {
                 const active = isNavItemActive(item, pathname);
                 const spansRow =
                   i === PRIMARY_NAV_ITEMS.length - 1 && PRIMARY_NAV_ITEMS.length % 2 === 1;
@@ -403,14 +420,14 @@ export default function Nav({
                     href={item.href}
                     onClick={() => setMenuState({ pathname, open: false })}
                     aria-current={navItemAriaCurrent(item, pathname)}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${spansRow ? "col-span-2 " : ""}${
+                    className={`flex min-h-11 flex-col items-start justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${spansRow ? "col-span-2 " : ""}${
                       active
                         ? "bg-ink text-page"
                         : "bg-surface-subtle text-ink hover:bg-surface"
                     }`}
                   >
                     {navLabel(item, uiLang)}
-                    <span aria-hidden className={active ? "text-page/60" : "text-ink-faint"}>→</span>
+                    {item.requiresSignIn && !loggedIn && <span className="mt-1 text-xs font-normal">{tx(CHROME.signInRequired, uiLang)}</span>}
                   </Link>
                 );
               })}
@@ -419,7 +436,7 @@ export default function Nav({
             <div className="mt-4 grid grid-cols-2 gap-5 border-t border-border-subtle pt-4">
               {MORE_NAV_GROUPS.map((group) => (
                 <section key={navGroupHeading(group, uiLang)}>
-                  <h2 className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+                  <h2 className="mb-1 px-2 text-sm font-semibold text-ink">
                     {navGroupHeading(group, uiLang)}
                   </h2>
                   <ul className="space-y-0.5">
@@ -431,7 +448,7 @@ export default function Nav({
                             href={item.href}
                             onClick={() => setMenuState({ pathname, open: false })}
                             aria-current={navItemAriaCurrent(item, pathname)}
-                            className={`flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
+                            className={`flex min-h-11 items-center rounded-md px-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
                               active
                                 ? "bg-surface-subtle font-semibold text-ink"
                                 : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
@@ -454,7 +471,7 @@ export default function Nav({
                   href={item.href}
                   aria-current={navItemAriaCurrent(item, pathname)}
                   onClick={() => setMenuState({ pathname, open: false })}
-                  className="flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="flex min-h-11 items-center rounded-md px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {navLabel(item, uiLang)} {item.href === "/map" ? "→" : ""}
                 </Link>
@@ -466,7 +483,7 @@ export default function Nav({
                 <Link
                   href={loggedIn ? "/account" : "/login"}
                   onClick={() => setMenuState({ pathname, open: false })}
-                  className="flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="flex min-h-11 items-center rounded-md px-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {tx(loggedIn ? CHROME.account : CHROME.signIn, uiLang)}
                 </Link>
@@ -483,21 +500,21 @@ export default function Nav({
                   <a
                     href={toggle.href}
                     onClick={flipLights}
-                    className="flex items-center gap-2 rounded-lg px-2 py-3 text-sm text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    className="flex items-center gap-2 rounded-md px-2 py-3 text-sm text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     <ThemeGlyph isDark={toggle.isDark} className="h-5 w-5" />
                     {toggle.label}
                   </a>
                 ) : (
-                  <span className="px-2 py-3 text-sm text-ink-muted">High contrast</span>
+                  <span className="px-2 py-3 text-sm text-ink-muted">{tx(CHROME.highContrast, uiLang)}</span>
                 )}
                 <Link
                   href="/appearance"
                   aria-current={pathname === "/appearance" ? "page" : undefined}
                   onClick={() => setMenuState({ pathname, open: false })}
-                  className="rounded-lg px-2 py-3 text-xs font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="rounded-md px-2 py-3 text-xs font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  Themes →
+                  {tx(CHROME.appearance, uiLang)}
                 </Link>
               </div>
             </div>

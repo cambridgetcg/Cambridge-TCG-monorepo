@@ -1,12 +1,6 @@
 /**
- * Card — the white-mount shell that wraps almost every piece of content
- * on /account/* and /market.
- *
- * The quiet gallery (docs/plans/the-quiet-gallery.md): surface + hairline
- * border, rounded-lg. Three variants:
- *   default  — bg-surface, hairline border (the standard mount)
- *   elevated — same, plus the mat shadow (the only elevation on the site)
- *   subtle   — bg-surface-subtle (lower visual weight)
+ * Card — a simple surface for a related group of content.
+ * Variants change surface and border emphasis without decorative shadows.
  */
 
 import * as React from "react";
@@ -16,7 +10,7 @@ type Padding = "none" | "sm" | "md" | "lg";
 
 const VARIANT_CLS: Record<Variant, string> = {
   default:  "bg-surface border border-border-subtle",
-  elevated: "bg-surface border border-border-subtle shadow-mat",
+  elevated: "bg-surface-elevated border border-border-strong",
   subtle:   "bg-surface-subtle border border-border-subtle",
 };
 

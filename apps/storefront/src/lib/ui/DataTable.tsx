@@ -59,8 +59,9 @@ export function DataTable<T>({
               {columns.map((col) => (
                 <th
                   key={col.key}
+                  scope="col"
                   className={[
-                    "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-muted whitespace-nowrap",
+                    "px-4 py-3 text-sm font-semibold text-ink whitespace-nowrap",
                     ALIGN_CLS[col.align ?? "left"],
                     col.hideOnMobile ? "hidden sm:table-cell" : "",
                     col.headerClass ?? "",

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui/Audience";
-import { Card } from "@/lib/ui/Card";
+import { ActionCard } from "@/lib/ui/ActionCard";
+import { PageLayout } from "@/lib/ui/PageLayout";
 import { PageHeader } from "@/lib/ui/PageHeader";
 import { DATA_ACCESS_BOUNDARY, DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 
@@ -16,7 +17,7 @@ const linkClass = "text-accent underline underline-offset-4 hover:text-accent-st
 /** Practical API entry; optional cultural material stays below the task links. */
 export default function AgentsWelcomePage() {
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+    <PageLayout>
       <PageHeader
         title="Agents & API"
         size="large"
@@ -26,21 +27,9 @@ export default function AgentsWelcomePage() {
       <section aria-labelledby="agent-start">
         <h2 id="agent-start" className="font-display text-xl font-semibold text-ink mb-4">Start with a read</h2>
         <div className="grid gap-4 md:grid-cols-3">
-          <Card padding="lg">
-            <p className="font-mono text-xs text-ink-faint mb-2">01 · DIRECTORY</p>
-            <h3 className="font-semibold text-ink"><a href="/api/v1/manifest" className={linkClass}>Resource manifest</a></h3>
-            <p className="text-sm text-ink-muted mt-3 leading-relaxed">Listed resources, their access requirements and documentation. Use the entry for the resource you need.</p>
-          </Card>
-          <Card padding="lg">
-            <p className="font-mono text-xs text-ink-faint mb-2">02 · WALKTHROUGH</p>
-            <h3 className="font-semibold text-ink"><Link href="/agents/guides/first-request" className={linkClass}>Your first request</Link></h3>
-            <p className="text-sm text-ink-muted mt-3 leading-relaxed">A short guide with request examples. Explore the response shape before building an integration.</p>
-          </Card>
-          <Card padding="lg">
-            <p className="font-mono text-xs text-ink-faint mb-2">03 · CONTRACT</p>
-            <h3 className="font-semibold text-ink"><a href="/api/openapi.json" className={linkClass}>OpenAPI specification</a></h3>
-            <p className="text-sm text-ink-muted mt-3 leading-relaxed">The machine-readable contract for a reviewed subset of participation and status endpoints.</p>
-          </Card>
+          <ActionCard href="/agents/guides/first-request" title="Your first request" description="A short walkthrough with request examples. Start here if this is your first visit." />
+          <ActionCard href="/api/v1/manifest" title="Resource manifest" description="Find resources, access requirements and links to their documentation." context="JSON directory" />
+          <ActionCard href="/api/openapi.json" title="OpenAPI specification" description="The contract for a reviewed subset of participation and status endpoints." context="JSON specification" />
         </div>
         <pre className="mt-5 overflow-x-auto rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm text-ink"><code>curl https://cambridgetcg.com/api/v1/manifest</code></pre>
         <p className="mt-3 text-sm text-ink-muted">
@@ -84,6 +73,6 @@ export default function AgentsWelcomePage() {
           <p className="mt-3"><Link href="/culture" className={linkClass}>Culture</Link>{" · "}<Link href="/welcome-all" className={linkClass}>Welcome and participation</Link></p>
         </details>
       </section>
-    </main>
+    </PageLayout>
   );
 }

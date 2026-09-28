@@ -8,7 +8,7 @@ function classes(markup: string, tag: "h1" | "p") {
 }
 
 describe("PageHeader size", () => {
-  it("keeps the original default heading and description scale", () => {
+  it("gives the default heading a readable description and wrapping actions", () => {
     const markup = renderToStaticMarkup(
       <PageHeader title="Prices" description="Reference prices, not offers." />,
     );
@@ -17,10 +17,12 @@ describe("PageHeader size", () => {
       "font-display", "text-2xl", "font-semibold", "text-ink",
     ]));
     expect(classes(markup, "p")).toEqual(expect.arrayContaining([
-      "text-sm", "text-ink-muted", "mt-1",
+      "text-base", "text-ink-muted", "leading-7", "mt-2",
     ]));
     expect(classes(markup, "h1")).not.toContain("text-3xl");
-    expect(classes(markup, "p")).not.toContain("text-base");
+    expect(classes(markup, "p")).not.toContain("text-sm");
+    expect(markup).toContain("flex-col");
+    expect(markup).toContain("sm:flex-row");
     expect(renderToStaticMarkup(
       <PageHeader size="default" title="Prices" description="Reference prices, not offers." />,
     )).toBe(markup);

@@ -16,8 +16,8 @@ export default function NavigationMethodology() {
       <h1>Navigation</h1>
       <p>
         The homepage is the starting point for card research, collections and
-        play. The global header has four exploration links and a small{" "}
-        <strong>More</strong> menu for help, methods, and the agent and API
+        play. The global header has four task links and a small{" "}
+        <strong>More</strong> menu for culture, community, methods, and the agent and API
         entry. Hub pages and the site map lead to more specific tasks.
       </p>
 
@@ -41,20 +41,20 @@ export default function NavigationMethodology() {
         </thead>
         <tbody>
           <tr>
-            <td><strong>Prices</strong></td>
+            <td><strong>Cards</strong></td>
             <td>What is this card, and what do the sources say it is worth?</td>
+          </tr>
+          <tr>
+            <td><strong>Collection</strong></td>
+            <td>Where are my saved cards and collection records? Sign-in is required.</td>
           </tr>
           <tr>
             <td><strong>Play</strong></td>
             <td>How do I play, build a deck, or see the agent ladder and ranking policy?</td>
           </tr>
           <tr>
-            <td><strong>Culture</strong></td>
-            <td>Where can I explore card art, stories and the project&apos;s cultural writing?</td>
-          </tr>
-          <tr>
-            <td><strong>Community</strong></td>
-            <td>Where are profiles, rewards and the current activity policy?</td>
+            <td><strong>Guides</strong></td>
+            <td>Where can I learn to play and care for my cards?</td>
           </tr>
           <tr>
             <td><strong>More</strong></td>
@@ -64,21 +64,26 @@ export default function NavigationMethodology() {
       </table>
 
       <p>
-        <strong>Find a card</strong> opens card search. The account link reflects
+        <strong>Find a card</strong> opens card search on desktop. On smaller
+        screens, Search is the first link inside the labelled Menu. The full
+        Cambridge TCG name always links home. The account link reflects
         sign-in state; messages and notifications appear for signed-in users.
         Appearance controls stay available independently of account access.
+        With JavaScript disabled, a Site map link replaces the menu controls;
+        the homepage search and footer links still work as normal HTML.
       </p>
 
       <h2>Progressive disclosure</h2>
       <p>
-        Prices leads to games and sets; Play to modes and decks; Culture to
-        its galleries and writing; Community to its current participation
-        surfaces. The More menu contains Start here, Guides, About, Agents &amp;
+        Cards leads to games and sets; Collection to signed-in records; Play
+        to modes and decks; Guides to learning and card care. The More menu
+        contains Culture, Community, About, Agents &amp;
         API, Data directory, and Methods, followed by Contact and Site map.
       </p>
       <p>
-        The footer groups Explore, Account &amp; help, and Agents &amp;
-        developers. Existing trades remain under the account; new paid commerce
+        The footer groups Explore, Discover, Account &amp; help, and Agents &amp;
+        developers in two columns on mobile and four on wider screens.
+        Existing trades remain under the account; new paid commerce
         is retired. The{" "}
         <Link href="/map" className="text-accent hover:underline">
           site map
@@ -117,6 +122,7 @@ export default function NavigationMethodology() {
         <li>More opens only on request and closes on outside click, Escape, or navigation.</li>
         <li>Mobile presents one flat, scannable drawer instead of nested accordions.</li>
         <li>Keyboard focus has a visible ring and Escape returns focus to the trigger.</li>
+        <li>When the screen changes between mobile and desktop navigation, focus follows the equivalent menu control.</li>
       </ul>
 
       <h2>Breadcrumbs and drift</h2>

@@ -11,6 +11,7 @@ export type NavItem = {
   href: string;
   description?: string;
   description_i18n?: Omit<Poly, "en">;
+  requiresSignIn?: boolean;
   /** Route prefixes that keep this section highlighted on deeper pages. */
   activePrefixes?: readonly string[];
 };
@@ -33,49 +34,57 @@ export function navGroupHeading(group: NavGroup, lang: UiLang): string {
   return tx({ en: group.heading, ...group.heading_i18n }, lang);
 }
 
-export const PRIMARY_NAV_ITEMS = [
-  {
-    label: "Prices", ja: "相場", es: "Precios", "zh-Hans": "行情", "zh-Hant": "行情",
-    href: "/prices",
-    activePrefixes: ["/prices", "/find", "/catalog", "/cards", "/product", "/glossary"],
-  },
-  {
-    label: "Play", ja: "遊ぶ", es: "Jugar", "zh-Hans": "玩", "zh-Hant": "玩",
-    href: "/play",
-    activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
-  },
-  {
-    label: "Culture", ja: "文化", es: "Cultura", "zh-Hans": "文化", "zh-Hant": "文化",
-    href: "/culture",
-    activePrefixes: ["/culture", "/lineage", "/workshop", "/artists", "/duel-of-souls", "/pull-and-pause", "/mekiki", "/making", "/pulls", "/answering-rhymes", "/gallery-next-door", "/empty-frames", "/welcome-all"],
-  },
-  {
-    label: "Community", ja: "広場", es: "Comunidad", "zh-Hans": "社区", "zh-Hant": "社群",
-    href: "/community",
-    activePrefixes: ["/community", "/rewards", "/u"],
-  },
-] as const satisfies readonly NavItem[];
-
 const GUIDES: NavItem = {
-  label: "Guides", ja: "手引き", es: "Guías", "zh-Hans": "指南", "zh-Hant": "指南",
+  label: "Guides", ja: "ガイド", es: "Guías", "zh-Hans": "指南", "zh-Hant": "指南",
   href: "/guides",
   description: "Card care and learning to play",
   description_i18n: { ja: "カードの扱い方と遊び方", es: "Cuidar cartas y aprender a jugar", "zh-Hans": "卡牌保养与玩法", "zh-Hant": "卡片保養與玩法" },
   activePrefixes: ["/guides", "/intro"],
 };
 
+export const PRIMARY_NAV_ITEMS = [
+  {
+    label: "Cards", ja: "カード", es: "Cartas", "zh-Hans": "卡牌", "zh-Hant": "卡片",
+    href: "/prices",
+    activePrefixes: ["/prices", "/find", "/catalog", "/cards", "/product", "/glossary"],
+  },
+  {
+    label: "Collection", ja: "コレクション", es: "Colección", "zh-Hans": "收藏", "zh-Hant": "收藏",
+    href: "/account/portfolio",
+    requiresSignIn: true,
+    activePrefixes: ["/account/portfolio", "/account/sets", "/account/wishlist", "/account/watchlist"],
+  },
+  {
+    label: "Play", ja: "遊ぶ", es: "Jugar", "zh-Hans": "玩", "zh-Hant": "玩",
+    href: "/play",
+    activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
+  },
+  GUIDES,
+] as const satisfies readonly NavItem[];
+
+const CULTURE: NavItem = {
+  label: "Culture", ja: "文化", es: "Cultura", "zh-Hans": "文化", "zh-Hant": "文化",
+  href: "/culture",
+  activePrefixes: ["/culture", "/lineage", "/workshop", "/artists", "/duel-of-souls", "/pull-and-pause", "/mekiki", "/making", "/pulls", "/answering-rhymes", "/gallery-next-door", "/empty-frames", "/welcome-all"],
+  description: "Card art, stories and creative projects",
+  description_i18n: { ja: "カードアート、物語、創作", es: "Arte, historias y proyectos creativos", "zh-Hans": "卡牌艺术、故事与创作", "zh-Hant": "卡片藝術、故事與創作" },
+};
+
+const COMMUNITY: NavItem = {
+  label: "Community", ja: "広場", es: "Comunidad", "zh-Hans": "社区", "zh-Hant": "社群",
+  href: "/community",
+  activePrefixes: ["/community", "/rewards", "/u"],
+  description: "Profiles and community information",
+  description_i18n: { ja: "プロフィールとコミュニティ情報", es: "Perfiles e información de la comunidad", "zh-Hans": "个人主页与社区信息", "zh-Hant": "個人頁面與社群資訊" },
+};
+
 export const MORE_NAV_GROUPS = [
   {
-    heading: "Help & information",
-    heading_i18n: { ja: "案内", es: "Ayuda e información", "zh-Hans": "帮助与信息", "zh-Hant": "幫助與資訊" },
+    heading: "Discover",
+    heading_i18n: { ja: "もっと見る", es: "Descubrir", "zh-Hans": "发现", "zh-Hant": "發現" },
     items: [
-      {
-        label: "Start here", ja: "はじめに", es: "Para empezar", "zh-Hans": "从这里开始", "zh-Hant": "由這裡開始",
-        href: "/",
-        description: "Choose what to explore",
-        description_i18n: { ja: "やりたいことから探す", es: "Elige qué explorar", "zh-Hans": "选择想了解的内容", "zh-Hant": "選擇想了解的內容" },
-      },
-      GUIDES,
+      CULTURE,
+      COMMUNITY,
       {
         label: "About", ja: "このサイトについて", es: "Acerca de", "zh-Hans": "关于本站", "zh-Hant": "關於本站",
         href: "/about",
@@ -114,9 +123,11 @@ export const MORE_NAV_GROUPS = [
   },
 ] as const satisfies readonly NavGroup[];
 
+export const SITE_MAP_NAV_ITEM = { label: "Site map", ja: "サイトマップ", es: "Mapa del sitio", "zh-Hans": "网站地图", "zh-Hant": "網站地圖", href: "/map" } as const satisfies NavItem;
+
 export const MORE_NAV_FOOTER = [
   { label: "Contact", ja: "連絡先", es: "Contacto", "zh-Hans": "联系方式", "zh-Hant": "聯絡", href: "/contact" },
-  { label: "Site map", ja: "サイトマップ", es: "Mapa del sitio", "zh-Hans": "网站地图", "zh-Hant": "網站地圖", href: "/map" },
+  SITE_MAP_NAV_ITEM,
 ] as const satisfies readonly NavItem[];
 
 export const FOOTER_NAV_GROUPS = [
@@ -126,19 +137,19 @@ export const FOOTER_NAV_GROUPS = [
     items: PRIMARY_NAV_ITEMS,
   },
   {
+    ...MORE_NAV_GROUPS[0],
+    items: [...MORE_NAV_GROUPS[0].items, MORE_NAV_FOOTER[1]],
+  },
+  {
     heading: "Account & help",
     heading_i18n: { ja: "アカウントとヘルプ", es: "Cuenta y ayuda", "zh-Hans": "账户与帮助", "zh-Hant": "帳戶與幫助" },
     items: [
       { label: "Your account", ja: "アカウント", es: "Tu cuenta", "zh-Hans": "你的账户", "zh-Hant": "你的帳戶", href: "/account" },
-      { label: "Your collection", ja: "コレクション", es: "Tu colección", "zh-Hans": "你的收藏", "zh-Hant": "你的收藏", href: "/account/portfolio" },
       { label: "Existing trades", ja: "これまでの取引", es: "Operaciones existentes", "zh-Hans": "已有交易", "zh-Hant": "已有交易", href: "/account/trades" },
-      GUIDES,
+      MORE_NAV_FOOTER[0],
     ],
   },
-  {
-    ...MORE_NAV_GROUPS[1],
-    items: [...MORE_NAV_GROUPS[1].items, MORE_NAV_FOOTER[1]],
-  },
+  MORE_NAV_GROUPS[1],
 ] as const satisfies readonly NavGroup[];
 
 export function isNavItemActive(item: NavItem, pathname: string): boolean {

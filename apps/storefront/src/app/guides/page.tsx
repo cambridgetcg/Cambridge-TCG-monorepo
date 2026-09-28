@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageHeader } from "@/lib/ui/PageHeader";
+import { PageLayout } from "@/lib/ui/PageLayout";
 
 export const metadata: Metadata = {
   title: "Guides — Cambridge TCG",
@@ -18,13 +20,13 @@ const guides = [
     href: "/guides/buying",
     title: "Every way to buy a card",
     blurb:
-      "Trade here, buy across Europe on Cardmarket, order from Japan via a proxy, or grade a card. Real costs, real waits, and where the import fees hide.",
+      "Compare buying options, ordering from Japan and grading a card. Understand costs, delivery times and import fees. New paid commerce on Cambridge TCG is retired.",
   },
   {
     href: "/guides/condition",
     title: "Condition & grading",
     blurb:
-      "The inspector's guide — white spots, centering, the marketplaces' condition ladders and the grading houses' published standards, with dated evidence of what each defect does to price.",
+      "Understand surface wear, centering, condition descriptions and published grading standards, with dated supporting evidence.",
   },
   {
     href: "/guides/condition/checklist",
@@ -48,49 +50,25 @@ const guides = [
 
 export default function GuidesIndex() {
   return (
-    <main className="min-h-screen bg-page">
-      <section className="border-b border-border-subtle">
-        <div className="max-w-3xl mx-auto px-4 py-16 md:py-24">
-          <nav aria-label="Breadcrumb" className="mb-8">
-            <ol className="flex items-center gap-2 text-sm text-ink-faint">
-              <li>
-                <Link href="/" className="hover:text-ink transition">
-                  Home
-                </Link>
-              </li>
-              <li aria-hidden="true">/</li>
-              <li className="text-ink font-medium">Guides</li>
-            </ol>
-          </nav>
-
-          <h1 className="font-display font-semibold text-3xl text-ink leading-tight">
-            Guides
-          </h1>
-          <p className="text-lg text-ink-muted mt-6 max-w-2xl leading-relaxed">
-            Plain, honest walk-throughs — how to play, and how to get the cards
-            you want.
-          </p>
-        </div>
-      </section>
-
-      <section>
-        <div className="max-w-3xl mx-auto px-4 py-16">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {guides.map((g) => (
-              <Link
-                key={g.href}
-                href={g.href}
-                className="block bg-surface rounded-lg p-6 border border-border-subtle hover:border-accent/50 transition group"
-              >
-                <p className="text-ink font-display font-semibold text-lg group-hover:text-accent transition mb-2">
-                  {g.title}
-                </p>
-                <p className="text-sm text-ink-muted leading-relaxed">{g.blurb}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-    </main>
+    <PageLayout width="reading">
+      <PageHeader
+        size="large"
+        title="Guides"
+        description="Learn to play, assess card condition and understand your collecting options."
+      />
+      <ul className="divide-y divide-border-subtle border-y border-border-subtle">
+        {guides.map((guide) => (
+          <li key={guide.href}>
+            <Link
+              href={guide.href}
+              className="block rounded-md py-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <h2 className="text-base font-semibold text-accent hover:underline">{guide.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-muted">{guide.blurb}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </PageLayout>
   );
 }

@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import { Input, Select, Textarea } from "./Input";
 
 const appearanceClasses = [
-  "w-full", "bg-surface", "border", "border-border-subtle", "rounded-lg",
-  "text-ink", "placeholder:text-ink-faint", "focus:outline-none", "focus:ring-2",
-  "focus:ring-accent/50", "focus:border-accent/50", "disabled:opacity-50",
+  "w-full", "bg-surface", "border", "border-border-strong", "rounded-md",
+  "text-ink", "placeholder:text-ink-faint", "focus-visible:outline-2",
+  "focus-visible:outline-offset-2", "focus-visible:outline-accent", "disabled:opacity-50",
 ];
 
 function classes(markup: string) {
@@ -17,14 +17,14 @@ describe.each([
   ["Input", Input],
   ["Select", Select],
 ] as const)("%s density", (_name, Control) => {
-  it("keeps the original default geometry, appearance, and custom classes", () => {
+  it("uses a readable default target while retaining custom classes", () => {
     const markup = renderToStaticMarkup(<Control className="custom-control" />);
 
     expect(classes(markup)).toEqual(expect.arrayContaining([
-      ...appearanceClasses, "px-3", "py-2", "text-sm", "custom-control",
+      ...appearanceClasses, "min-h-11", "px-3", "py-2", "text-base", "custom-control",
     ]));
-    expect(classes(markup)).not.toContain("min-h-11");
-    expect(classes(markup)).not.toContain("text-base");
+    expect(classes(markup)).not.toContain("text-sm");
+    expect(classes(markup)).not.toContain("h-11");
     expect(renderToStaticMarkup(
       <Control density="default" className="custom-control" />,
     )).toBe(markup);
@@ -37,7 +37,7 @@ describe.each([
     );
 
     expect(classes(markup)).toEqual(expect.arrayContaining([
-      ...appearanceClasses, "min-h-11", "px-3", "py-2", "text-base", "custom-control",
+      ...appearanceClasses, "min-h-12", "px-3", "py-3", "text-base", "custom-control",
     ]));
     expect(classes(markup)).not.toContain("text-sm");
     expect(classes(markup)).not.toContain("h-11");
@@ -125,7 +125,7 @@ describe("native form props", () => {
     expect(markup.match(/selected=""/g)).toHaveLength(2);
   });
 
-  it("leaves Textarea default styling and native props unchanged", () => {
+  it("keeps Textarea readable while preserving its native props", () => {
     const markup = renderToStaticMarkup(
       <Textarea
         ref={React.createRef<HTMLTextAreaElement>()}
@@ -140,10 +140,10 @@ describe("native form props", () => {
     );
 
     expect(classes(markup)).toEqual(expect.arrayContaining([
-      ...appearanceClasses, "px-3", "py-2", "text-sm", "resize-y", "custom-control",
+      ...appearanceClasses, "min-h-11", "px-3", "py-2", "text-base", "resize-y", "custom-control",
     ]));
-    expect(classes(markup)).not.toContain("text-base");
-    expect(classes(markup)).not.toContain("min-h-11");
+    expect(classes(markup)).not.toContain("text-sm");
+    expect(classes(markup)).not.toContain("h-11");
     for (const attribute of ['id="notes"', 'name="notes"', 'rows="4"', 'maxLength="200"', 'required=""']) {
       expect(markup).toContain(attribute);
     }

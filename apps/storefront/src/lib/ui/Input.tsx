@@ -1,8 +1,8 @@
 /**
- * Input / Select / Textarea — form controls in the quiet gallery voice.
+ * Input / Select / Textarea — readable, theme-aware native controls.
  *
- * Standard styling: bg-surface, hairline border, accent focus ring
- * (docs/plans/the-quiet-gallery.md). These wrap raw HTML elements without
+ * Visible borders, 16px text, a 44px minimum target and an accent focus ring.
+ * These wrap raw HTML elements without
  * intercepting events — pages keep their own state management, controlled
  * or uncontrolled.
  */
@@ -12,13 +12,12 @@ import * as React from "react";
 type ControlDensity = "default" | "comfortable";
 
 function controlCls(density: ControlDensity = "default") {
-  const spacing = density === "comfortable" ? "min-h-11 px-3 py-2" : "px-3 py-2";
-  const textSize = density === "comfortable" ? "text-base" : "text-sm";
-  return `w-full ${spacing} bg-surface border border-border-subtle rounded-lg ${textSize} text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 disabled:opacity-50`;
+  const spacing = density === "comfortable" ? "min-h-12 px-3 py-3" : "min-h-11 px-3 py-2";
+  return `w-full ${spacing} bg-surface border border-border-strong rounded-md text-base text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50`;
 }
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  /** Opt in to a 44px minimum height and 16px text for search forms. */
+  /** Comfortable adds spacing; both densities keep 16px text and a 44px minimum. */
   density?: ControlDensity;
 }
 
@@ -63,14 +62,14 @@ interface FieldProps {
 export function Field({ label, htmlFor, hint, error, children }: FieldProps) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-xs font-medium text-ink-muted uppercase tracking-wide">
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
         {label}
       </label>
       {children}
       {error ? (
-        <p className="text-xs text-danger">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-ink-faint">{hint}</p>
+        <p className="text-sm text-ink-muted">{hint}</p>
       ) : null}
     </div>
   );

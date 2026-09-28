@@ -7,12 +7,14 @@ import type { NavItem } from "./menu-config";
 import type { UiLang } from "@/lib/lang-mode";
 
 const moreItems: NavItem[] = MORE_NAV_GROUPS.flatMap((group) => [...group.items]);
-const itemAt = (href: string) => [...PRIMARY_NAV_ITEMS, ...moreItems].find((item) => item.href === href)!;
+const itemAt = (href: string): NavItem => [...PRIMARY_NAV_ITEMS, ...moreItems].find((item) => item.href === href)!;
 
 describe("storefront navigation", () => {
   it("keeps a small set of human tasks with a separate agent entry", () => {
     expect(PRIMARY_NAV_ITEMS).toHaveLength(4);
-    expect(PRIMARY_NAV_ITEMS.map((item) => item.href)).toEqual(["/prices", "/play", "/culture", "/community"]);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.href)).toEqual(["/prices", "/account/portfolio", "/play", "/guides"]);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.label)).toEqual(["Cards", "Collection", "Play", "Guides"]);
+    expect(itemAt("/account/portfolio").requiresSignIn).toBe(true);
     expect(moreItems.find((item) => item.href === "/agents")).toMatchObject({
       label: "Agents & API", description: "Start with read-only discovery",
     });
@@ -23,7 +25,8 @@ describe("storefront navigation", () => {
     const urls = [...PRIMARY_NAV_ITEMS, ...moreItems, ...MORE_NAV_FOOTER].map((item) => item.href);
     expect(new Set(urls).size).toBe(urls.length);
     expect(urls).toContain("/map");
-    expect(urls).toContain("/");
+    expect(urls).toContain("/culture");
+    expect(urls).toContain("/community");
     expect(urls).not.toContain("/start");
     expect(urls).not.toContain("/welcome");
   });
@@ -46,7 +49,9 @@ describe("storefront navigation", () => {
     expect(isNavItemActive(itemAt("/agents"), "/api/v1/manifest")).toBe(true);
     expect(isNavItemActive(itemAt("/agents"), "/agents/guides/first-request")).toBe(true);
     expect(isNavItemActive(itemAt("/agents"), "/agents-extra")).toBe(false);
-    expect(isNavItemActive(itemAt("/"), "/prices")).toBe(false);
+    expect(isNavItemActive({ label: "Home", href: "/" }, "/prices")).toBe(false);
+    expect(isNavItemActive(itemAt("/account/portfolio"), "/account/sets/op01")).toBe(true);
+    expect(isNavItemActive(itemAt("/account/portfolio"), "/account/trades")).toBe(false);
   });
 
   it("distinguishes an exact page from an active section for assistive technology", () => {

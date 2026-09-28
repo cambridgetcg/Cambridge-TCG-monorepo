@@ -1,6 +1,6 @@
 # Entry pages and module map
 
-Source review: 2026-09-28. Runtime verification is recorded in the change's
+Source review: 2026-09-29. Runtime verification is recorded in the change's
 commit/handoff; this document does not establish deployment health.
 
 The visitor entry is `/`: card search, collection/account, and play. It links
@@ -20,7 +20,9 @@ invitations remain available without becoming access requirements.
   existing manifest, OpenAPI and guides. Those contracts remain authoritative;
   the landing does not duplicate endpoint schemas or change permissions.
 - [Navigation configuration](../../apps/storefront/src/lib/nav/menu-config.ts)
-  supplies the shared menu/footer destinations. Existing account records and
+  supplies the shared menu/footer destinations: Cards, Collection, Play and
+  Guides. Collection explains that sign-in is required. Culture, community and
+  the agent/API entry remain in the secondary menu and footer. Existing account records and
   support stay reachable; entry links no longer promote retired paid commerce.
 - `/start` redirects to `/`. `/welcome` preserves recognized audience intent
   through local redirects. Education remains at `/intro`, optional cultural
@@ -28,6 +30,10 @@ invitations remain available without becoming access requirements.
 - [Module documentation](../modules/README.md) maps source roots, dependencies,
   purpose, progress and next review. It is for contributors and coding agents;
   the visitor UI stays focused on tasks.
+- [Interface guide](../design/interface.md) defines the current plain visual
+  system and reusable layout, section and task components. Home, agents,
+  prices, guides, appearance and play compose through that system. Browser
+  practice stays visible independently of server progress availability.
 
 ## Maintenance and boundaries
 

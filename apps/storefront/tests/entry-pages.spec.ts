@@ -9,7 +9,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   test(`visitor entry is usable at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("A place for your cards.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cards, collections and play");
     await expect(page.getByLabel("Game", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Card number", { exact: true })).toBeVisible();
     await expect(page.locator('main a[href="/account/portfolio"]')).toBeVisible();

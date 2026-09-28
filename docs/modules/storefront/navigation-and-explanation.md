@@ -32,6 +32,10 @@ Help visitors enter, orient, choose a destination and understand methodology in 
 ## Connection evidence
 
 - [docs/connections/the-entry-map.md](../../connections/the-entry-map.md)
+- [docs/design/interface.md](../../design/interface.md)
 - [apps/storefront/src/lib/nav/menu-config.ts](../../../apps/storefront/src/lib/nav/menu-config.ts)
+- [apps/storefront/src/lib/ui/PageLayout.tsx](../../../apps/storefront/src/lib/ui/PageLayout.tsx)
+- [apps/storefront/src/lib/ui/Section.tsx](../../../apps/storefront/src/lib/ui/Section.tsx)
+- [apps/storefront/src/lib/ui/ActionCard.tsx](../../../apps/storefront/src/lib/ui/ActionCard.tsx)
 
 Route families include their nested pages and handlers. A filesystem route can be an API, redirect or paused surface; the directory name alone does not promise a visitor feature.

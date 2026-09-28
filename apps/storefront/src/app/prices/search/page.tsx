@@ -22,6 +22,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { PageLayout } from "@/lib/ui/PageLayout";
 import {
   PageHeader,
   Card,
@@ -250,7 +251,7 @@ function PricesToday({
       <div className="space-y-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-display text-2xl leading-8 font-semibold tracking-tight text-ink">
-            Today&rsquo;s prices
+            Price observations
             <span className="ml-2 text-sm font-normal text-ink-muted">
               · {data.rows.length} {data.rows.length === 1 ? "source" : "sources"} ·{" "}
               snapshot {fmtDate(data.snapshot_date)}
@@ -269,14 +270,14 @@ function PricesToday({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-ink-faint border-b border-border-subtle">
-                <th className="pb-2 pr-3">Source</th>
-                <th className="pb-2 pr-3">Tier</th>
-                <th className="pb-2 pr-3">Currency</th>
-                <th className="pb-2 pr-3 text-right">Price (GBP)</th>
-                <th className="pb-2 pr-3">Snapshot</th>
-                <th className="pb-2 pr-3">Door</th>
-                <th className="pb-2">Link</th>
+              <tr className="text-left text-sm text-ink-muted border-b border-border-subtle">
+                <th scope="col" className="pb-2 pr-3">Source</th>
+                <th scope="col" className="pb-2 pr-3">Rights</th>
+                <th scope="col" className="pb-2 pr-3">Currency</th>
+                <th scope="col" className="pb-2 pr-3 text-right">Price (GBP)</th>
+                <th scope="col" className="pb-2 pr-3">Snapshot</th>
+                <th scope="col" className="pb-2 pr-3">Access path</th>
+                <th scope="col" className="pb-2">Link</th>
               </tr>
             </thead>
             <tbody>
@@ -309,7 +310,7 @@ function PricesToday({
                     <td className="py-2 pr-3">
                       {proxy && proxy !== "none" ? (
                         <span title={`via ${proxy}`} className="text-xs text-accent">
-                          ↻ proxy
+                          Proxy
                         </span>
                       ) : (
                         <span className="text-xs text-ink-faint">direct</span>
@@ -323,7 +324,7 @@ function PricesToday({
                           rel="noopener noreferrer"
                           className="text-accent hover:text-accent-strong text-xs underline"
                         >
-                          ↗
+                          View source
                         </a>
                       ) : (
                         <span className="text-xs text-ink-faint">—</span>
@@ -335,7 +336,7 @@ function PricesToday({
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-ink-faint italic">{data.note}</p>
+        <p className="text-sm text-ink-muted">{data.note}</p>
         <div className="flex items-center gap-2 text-xs text-ink-faint">
           <WhyLink href="/methodology/cross-source-pricing" />
           <span>
@@ -518,7 +519,7 @@ function SiblingsBlock({
                   ({rows.length})
                 </span>
               </h3>
-              <span className="text-xs text-ink-faint italic">
+              <span className="text-sm text-ink-muted">
                 {VARIANT_KIND_DESCRIPTION[kind] ?? ""}
               </span>
             </div>
@@ -544,22 +545,22 @@ function SiblingsBlock({
                   <div className="text-xs text-ink-muted truncate">{s.name}</div>
                   <div className="flex items-center gap-2 mt-1">
                     {s.set_code && (
-                      <span className="text-[10px] uppercase tracking-wider text-ink-faint">
+                      <span className="text-sm text-ink-muted">
                         {s.set_code}
                       </span>
                     )}
                     {s.rarity && (
-                      <span className="text-[10px] text-ink-faint">
+                      <span className="text-sm text-ink-muted">
                         · {s.rarity}
                       </span>
                     )}
                     {s.effective_language !== "unknown" && (
-                      <span className="text-[10px] text-ink-faint">
+                      <span className="text-sm text-ink-muted">
                         · {s.effective_language === "ja" ? "JP-text" : "EN-text"}
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-ink-faint truncate mt-1 font-mono">
+                  <div className="text-xs text-ink-muted break-all mt-1 font-mono">
                     {s.sku}
                   </div>
                 </Link>
@@ -618,7 +619,7 @@ function MatchesBlock({
             </Link>
           ))}
         </div>
-        <p className="text-xs text-ink-faint italic">
+        <p className="text-sm text-ink-muted">
           {summary.ambiguous
             ? "Your input matched cards in multiple sets. Click the one you mean."
             : "Click a match to open its full detail."}
@@ -659,12 +660,12 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 space-y-6 sm:px-6 sm:py-12 lg:px-8">
+    <PageLayout className="space-y-6">
       <header className="max-w-3xl">
         <PageHeader
           size="large"
-          title="Structural card search"
-          description="Search by card number across supported games. Structural identity, source status, and known variants are visible; legacy prices, images, and transaction history are withheld."
+          title="Find a card"
+          description="Search by card number to find card details, known variants and source status. Legacy prices, images and transaction history remain withheld."
         />
       </header>
 
@@ -674,7 +675,6 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
           game={game}
           query={q}
           language={lang}
-          autoFocus
           browseHref="/prices#browse-by-game"
         />
       </Card>
@@ -686,7 +686,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
           easy to understand.) */}
       <details className="rounded-lg border border-border-subtle bg-surface-subtle px-4 py-3 text-sm">
         <summary className="cursor-pointer text-ink-muted hover:text-ink select-none">
-          New here? What do these results mean?
+          About these results
         </summary>
         <div className="mt-3 space-y-2 text-ink-muted">
           <p>
@@ -714,14 +714,14 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       {(!game || !q) && (
         <EmptyState
           title="Start by entering a game and card number"
-          description="Examples: game=op + q=OP01-001 · game=pkm + q=001 · game=mtg + q=LTR-001"
+          description="Choose a game above, then enter the number printed on your card. For example, choose One Piece and enter OP01-001."
         />
       )}
 
       {/* Input but no result */}
       {game && q && !result && (
         <ErrorAlert
-          description="The wholesale API didn't return a response. Try again, or browse /prices to see what's covered."
+          description="Card search is unavailable right now. Try again later, or browse by game to check source coverage."
         />
       )}
 
@@ -729,7 +729,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
       {result && result.data.summary.count === 0 && (
         <EmptyState
           title={`No cards matched "${q}" in game ${game}`}
-          description="Double-check the card number format. Examples: OP01-001 (One Piece), SV01-001 (Pokémon), LTR-001 (MTG). Or browse /prices for a list of covered games."
+          description="Check the selected game and the number printed on your card. You can also browse by game to find its set and known cards."
         />
       )}
 
@@ -791,7 +791,7 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
                     </Pill>
                   )}
                 </div>
-                <div className="font-mono text-[10px] text-ink-faint break-all">
+                <div className="font-mono text-xs text-ink-muted break-all">
                   {result.data.everything.card.sku}
                 </div>
                 <ReferencePriceSummary
@@ -832,14 +832,15 @@ export default async function PriceSearchPage({ searchParams }: PageProps) {
         </>
       )}
 
-      <Card className="sm:p-6">
-        <p className="text-xs text-ink-faint">
-          This page is the HTML face of <code>/api/v1/search/everything</code>.
-          Partners and agents can call the JSON endpoint for the same structural
-          response. Read its aggregate and per-source rights fields; public access
-          is not a blanket CC0 grant.
+      <details className="border-t border-border-subtle pt-4 text-sm">
+        <summary className="cursor-pointer font-medium text-ink">Use these results through the API</summary>
+        <p className="mt-3 leading-6 text-ink-muted">
+          Developers and agents can call <code>/api/v1/search/everything</code>
+          {" "}for the same card details. Check the response and per-source rights
+          fields before reusing data; public access is not a blanket CC0 grant.
+          {" "}<Link href="/agents" className="text-accent underline">API guide</Link>
         </p>
-      </Card>
-    </main>
+      </details>
+    </PageLayout>
   );
 }

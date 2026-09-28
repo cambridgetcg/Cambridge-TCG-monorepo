@@ -25,13 +25,14 @@ export function CardPriceSearchForm({
   const sortedGames = [...games].sort(
     (firstGame, secondGame) => secondGame.card_count - firstGame.card_count,
   );
+  const hasGames = sortedGames.length > 0;
 
   return (
     <div className="space-y-3">
       <form
         action="/prices/search"
         method="get"
-        aria-label="Find a card price"
+        aria-label="Find a card"
         className="grid grid-cols-2 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)_auto] md:items-end"
       >
         <div className="min-w-0">
@@ -41,7 +42,10 @@ export function CardPriceSearchForm({
               name="game"
               density="comfortable"
               defaultValue={game || sortedGames[0]?.code || ""}
+              disabled={!hasGames}
+              aria-describedby={!hasGames ? "price-search-unavailable" : undefined}
             >
+              {!hasGames && <option value="">Games unavailable</option>}
               {sortedGames.map((gameItem) => (
                 <option key={gameItem.code} value={gameItem.code}>
                   {gameItem.name}
@@ -84,19 +88,26 @@ export function CardPriceSearchForm({
         <Button
           type="submit"
           className="col-span-2 min-h-11 md:col-span-1"
+          disabled={!hasGames}
         >
-          Find prices
+          Find card
         </Button>
       </form>
 
-      <p className="text-xs leading-relaxed text-ink-faint">
+      {!hasGames && (
+        <p id="price-search-unavailable" role="status" className="text-sm text-ink-muted">
+          The game catalog is unavailable, so search cannot start yet. Try again later or check <Link href="/prices/coverage" className="text-accent underline">source coverage</Link>.
+        </p>
+      )}
+
+      <p className="text-sm leading-relaxed text-ink-muted">
         Use the small code printed on the card, usually near the bottom edge,
         such as <span className="font-mono text-ink-muted">OP01-001</span>.
         {browseHref ? (
           <>
             {" "}
             <Link href={browseHref} className="text-info hover:underline">
-              No code? Browse by game instead →
+              Browse by game
             </Link>
           </>
         ) : null}

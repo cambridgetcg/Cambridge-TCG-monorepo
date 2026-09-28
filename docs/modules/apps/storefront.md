@@ -12,7 +12,7 @@ The main Cambridge TCG website: card research, collecting, play, public data int
 
 ## Progress
 
-Source review recorded **2026-09-28**. App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. On 2026-09-28 the visitor and agent entries were simplified and checked locally; the linked verification record gives the test scope and remaining service boundaries.
+Source review recorded **2026-09-28**. App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. Entries were organized on 2026-09-28. The 2026-09-29 UI rebuild adds a plain shared system, task navigation, clearer search and appearance pages, responsive account navigation and independently available browser practice. The linked verification records define the checked scope and service boundaries.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -26,7 +26,9 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/storefront/docs/commercial-retirement.md](../../../apps/storefront/docs/commercial-retirement.md)
 - [apps/storefront/AGENTS.md](../../../apps/storefront/AGENTS.md)
 - [docs/connections/the-entry-map.md](../../connections/the-entry-map.md)
+- [docs/design/interface.md](../../design/interface.md)
 - [docs/operations/2026-09-28-entry-verification.md](../../operations/2026-09-28-entry-verification.md)
+- [docs/operations/2026-09-29-ui-verification.md](../../operations/2026-09-29-ui-verification.md)
 
 Start with the [storefront domain map](../storefront/README.md) to find the relevant routes and libraries.
 

@@ -62,3 +62,6 @@ export {
 export { Icon, ICON_NAMES, type IconName } from "./Icon";
 
 export * as Palettes from "./status-palettes";
+export { PageLayout } from "./PageLayout";
+export { Section } from "./Section";
+export { ActionCard } from "./ActionCard";

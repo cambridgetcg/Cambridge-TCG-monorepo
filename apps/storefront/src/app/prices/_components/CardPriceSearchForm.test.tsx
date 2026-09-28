@@ -40,8 +40,8 @@ describe("CardPriceSearchForm", () => {
     expect(markup).toContain('value="OP01-001"');
     expect(markup).toContain('value="op" selected=""');
     expect(markup).toContain('value="en" selected=""');
-    expect(markup).toContain('aria-label="Find a card price"');
-    expect(markup).toMatch(/<button\b[^>]*type="submit"[^>]*>Find prices<\/button>/);
+    expect(markup).toContain('aria-label="Find a card"');
+    expect(markup).toMatch(/<button\b[^>]*type="submit"[^>]*>Find card<\/button>/);
     expect(markup).not.toContain('type="hidden"');
     expect(markup).toContain('href="#browse-by-game"');
   });
@@ -108,34 +108,19 @@ describe("CardPriceSearchForm", () => {
     expect(markup).not.toContain("autofocus=");
     expect(markup).toContain('name="q"');
     expect(markup).toContain('value=""');
-    expect(markup).not.toContain("No code? Browse by game instead");
+    expect(markup).not.toContain("Browse by game");
   });
 
-  it("uses comfortable native controls and an ink submit without fixed heights", () => {
-    const markup = renderToStaticMarkup(<CardPriceSearchForm games={games} />);
-    const fields = markup.match(/<(?:select|input)\b[^>]*>/g) ?? [];
-    const button = markup.match(/<button\b[^>]*>/)?.[0];
-
-    expect(fields).toHaveLength(3);
-    for (const field of fields) {
-      expect(field).toContain("min-h-11");
-      expect(field).toContain("text-base");
-      expect(field).toContain("focus:ring-2");
-      expect(field).toContain("bg-surface");
-      expect(field).not.toContain("density=");
-      expect(field).not.toMatch(/(?:[\s"]|:)h-\d/);
-    }
-    expect(button).toContain("min-h-11");
-    expect(button).toContain("bg-ink");
-    expect(button).toContain("text-page");
-    expect(button).not.toContain("bg-accent");
-    expect(button).not.toContain("disabled=");
-  });
-
-  it("preserves an empty catalog without inventing game options", () => {
+  it("explains unavailable games and prevents a search with no game", () => {
     const markup = renderToStaticMarkup(<CardPriceSearchForm games={[]} />);
 
-    expect(markup).toMatch(/<select[^>]*name="game"[^>]*><\/select>/);
+    expect(markup).toMatch(/<select[^>]*name="game"[^>]*disabled=""/);
+    expect(markup).toContain('<option value="" selected="">Games unavailable</option>');
+    expect(markup).not.toContain('value="op"');
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain('aria-describedby="price-search-unavailable"');
+    expect(markup).toMatch(/<button[^>]*type="submit"[^>]*disabled=""/);
+    expect(markup).toContain('href="/prices/coverage"');
     expect(markup).toContain('action="/prices/search"');
     expect(markup).toContain('method="get"');
     expect(markup).toContain('required=""');

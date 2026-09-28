@@ -102,7 +102,6 @@ These files sit outside the domain directories. This inventory is derived from t
 - [error.tsx](../../../apps/storefront/src/app/error.tsx)
 - [globals.css](../../../apps/storefront/src/app/globals.css)
 - [layout.tsx](../../../apps/storefront/src/app/layout.tsx)
-- [loading.tsx](../../../apps/storefront/src/app/loading.tsx)
 - [not-found.tsx](../../../apps/storefront/src/app/not-found.tsx)
 - [page.tsx](../../../apps/storefront/src/app/page.tsx)
 - [sitemap.ts](../../../apps/storefront/src/app/sitemap.ts)

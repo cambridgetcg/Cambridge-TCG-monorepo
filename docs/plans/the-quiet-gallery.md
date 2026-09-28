@@ -1,5 +1,9 @@
 # The quiet gallery — the minimal visual language
 
+Historical design direction. The [current interface guide](../design/interface.md)
+supersedes this styling plan following Yu's 2026-09-29 request for a simple,
+purposeful interface without fancy or artsy presentation.
+
 **Will trace:** Asha, 2026-07-05 — "rebuild the UI, discard the art and all design choices;
 an aesthetic, minimalistic UI and UX for cambridgetcg.com. We don't need fame, we don't
 need attention. We build to spread love." (細聲講大聲笑.)

@@ -25,7 +25,7 @@ describe("visitor landing", () => {
     const html = renderToStaticMarkup(<HomeLanding uiLang="en" provenance={<span>registry provenance</span>} />);
     expect(html).toContain("No account needed to search.");
     expect(html).toContain("Sign in with an existing account.");
-    expect(html).toContain("Prices follow publication and access rules");
+    expect(html).toContain("Some prices are withheld.");
     expect(html).toContain("registry provenance");
     expect(html).toMatch(/<aside[\s\S]*?href="\/agents"[\s\S]*?<\/aside>/);
     expect(html).not.toMatch(/method="post"|type="password"|name="(?:token|api_key)"/);

@@ -44,7 +44,7 @@ the same vocabulary.
 
 ```ts
 import { Badge, Palettes, Button, Card, DataTable, EmptyState,
-         ErrorAlert, FilterPills, PageHeader, Pagination,
+         ErrorAlert, FilterPills, PageLayout, PageHeader, Section, ActionCard, Pagination,
          Provenance, SearchForm, Tabs, WhyLink, Verifiability } from "@/lib/ui";
 import { formatPrice, formatDate, formatDateTime,
          formatRelativeTime, formatTimeUntil } from "@/lib/format";
@@ -129,38 +129,40 @@ export default function MyListPage() {
 ```
 
 ## Key Patterns
-- **The visual language is the quiet gallery** — `docs/plans/the-quiet-gallery.md` is
-  the source of truth; read it before styling anything. Warm paper ground, ink type,
-  hairline borders, one bronze accent; the card art is the only saturated color on a page.
+- **The current interface is plain and task-focused** — follow
+  [the interface guide](../../docs/design/interface.md). The older quiet-gallery
+  plan is historical. Prioritize readable text, visible labels, clear next actions
+  and compact navigation. Card art remains content; avoid decorative backgrounds,
+  ornamental type, glow and ambient animation.
+- **Page composition**: use `PageLayout` for the main landmark and consistent
+  width, `PageHeader` for the title and purpose, `Section` for related content,
+  and `ActionCard` for a linked task. Account layouts already own the main
+  landmark; do not nest another main inside them. Client code should import
+  individual primitive files to avoid pulling server helpers through a barrel.
 - **Semantic tokens only** (Tailwind 4 `@theme` in `globals.css` + `themes.css`):
   surfaces `bg-page` / `bg-surface` / `bg-surface-subtle` / `bg-surface-elevated`,
   hairlines `border-border-subtle` (strong: `border-border-strong`), text hierarchy
   `text-ink` / `text-ink-muted` / `text-ink-faint`, accent `text-accent` /
   `bg-accent-wash` (active pill) / `bg-accent`, tones `ok` / `danger` / `warning` /
   `info`. **Never write raw palette classes** (`bg-neutral-*`, `text-amber-*`,
-  `text-emerald-*`, `text-white`) — they don't respond to the wardrobe themes.
-  Reference implementations: `src/components/market/MarketBrowser.tsx`,
-  `src/app/market/[sku]/page.tsx`, the layout chrome in `src/components/layout/`.
+  `text-emerald-*`, `text-white`) — they don't respond to appearance themes.
+  Reference implementations: `src/components/home/HomeLanding.tsx`,
+  `src/app/prices/page.tsx`, and the layout chrome in `src/components/layout/`.
 - **Green buys, red sells** — always `text-bid` / `text-ask` (doctrine-narrow tokens),
   never generic ok/danger.
 - **Buttons**: primary = solid ink (`bg-ink text-page rounded-lg`), the single
   strongest thing on a page; secondary = hairline border + ink text; danger = solid
   danger. No gradients, no glow, no emerald/amber CTAs.
-- **Type**: headings + wordmark in `font-display` (Fraunces, weight 500–600, never 900;
-  3xl is the ceiling outside the home hero); body inherits Schibsted Grotesk via
-  `--font-body`; SKUs, card numbers, and prices in tables use `font-mono` (Spline Mono).
-- **Two voices** (the manga gallery, spec 2026-07-07): Spline Mono is the *apparatus*
-  voice — SKUs, plate numbers, provenance, deadlines, counts. Fraunces italic is the
-  *narrator* — subtitles, benedictions, empty-state titles, doctrine captions. Emphasis
-  is typographic, never loud.
-- **Motion doctrine**: at most ONE hero-scale animation per page (home: the breathing
-  gutter; celebrations: the speed-line settle). Entrance rises (`wardrobe-rise`) and
-  hover transitions are free. Loops only for the hero breath and threshold-bob. New
-  materials: `wardrobe-draw` / `-tone-*` / `-panel` / `-speedlines` / `-aura` / `-bob`
-  (themes.css) — all theme-gated, all in the text-mode kill list, all clamp-safe.
-- **Form**: `rounded-lg` standard (`rounded-xl` only modals + hero card); elevation via
-  `shadow-mat` or the `.wardrobe-mat` helper only; focus = 2px accent outline, visible
-  always, never removed; whitespace separates — hairlines, not boxes-in-boxes.
+- **Type**: one sans-serif family for headings, wordmark and body; system mono for
+  identifiers and tabular values. Keep CJK fallbacks legible. Use ordinary sentence
+  case, readable descriptions and visible form labels. Shared controls use 16px
+  text and targets at least 44px high.
+- **Motion**: use only feedback needed to understand an interaction. The old
+  `wardrobe-*` material classes remain static compatibility hooks, not a visual
+  vocabulary for new pages. Respect reduced-motion preferences.
+- **Form**: shared controls, small radii, clear borders and visible keyboard focus.
+  Prefer native forms and links where they work. Explain empty, unavailable,
+  signed-out and paused states without inventing data or removing access checks.
 - **Emoji as UI chrome dies**; emoji that is content (user-generated text) stays.
 - **What must survive any restyle**: Provenance / WhyLink / Verifiability /
   Consequences pills, Badge's 8-tone vocabulary, `body.text-mode`,

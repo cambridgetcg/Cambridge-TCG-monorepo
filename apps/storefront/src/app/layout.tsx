@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Fraunces, Inter, Noto_Serif_JP, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import Script from "next/script";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
@@ -20,29 +20,7 @@ import { auth } from "@/lib/auth";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-// The wardrobe's typographic voices (spec §3.1) — self-hosted by next/font,
-// exposed as CSS variables and bound per-theme in themes.css. Terminal keeps
-// Inter; gallery/midnight speak Fraunces + Schibsted + Spline Sans Mono.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  style: ["normal", "italic"],
-  axes: ["opsz"],
-});
-const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
-const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono" });
-
-// 明朝 — the Japanese mincho accent layer (Asha's brief 2026-07-15: "more
-// Japanese, very artsy"). It never carries Latin — Fraunces/Spline keep that
-// (it sits LAST in the --font-display/--font-mono chains, so only kana·kanji
-// the Latin faces can't draw fall through to it). CJK files are large, so it
-// is not preloaded: it arrives when a Japanese glyph asks for it, never
-// blocking first paint. A material, not a costume — quiet until called.
-const notoSerifJp = Noto_Serif_JP({
-  weight: ["400", "600"],
-  variable: "--font-noto-serif-jp",
-  preload: false,
-});
+// One self-hosted sans family. Monospace and CJK glyphs use system fallbacks.
 
 export const metadata: Metadata = {
   title: "Cambridge TCG — card research, collections and play",
@@ -89,12 +67,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // to leave a semantic-HTML reading layout. See docs/connections/the-table-extends.md.
   const textMode = cookieStore.get("text-mode")?.value === "1";
 
-  // The wardrobe (spec §3.2/§3.6): the site-wide flip, fired 2026-07-05
-  // with the quiet gallery. <html> always carries data-theme — an explicit
-  // choice wins; no cookie means "system" (since 2026-07-06): the gallery
-  // values in a light OS, the midnight values in a dark one, resolved by
-  // prefers-color-scheme at first paint. SSR sets the attribute here,
-  // server-side, so there is no flash of the wrong theme either way.
+  // Saved preferences win. With no theme cookie, CSS follows the device
+  // at first paint; /api/appearance remains the preference writer.
   const appearance = appearanceFromCookies(cookieStore);
 
   // Session-aware Nav, server-side (the house docs already claim this). The
@@ -124,7 +98,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang={uiLang}
       data-theme={themeAttr(appearance.theme)}
-      className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${notoSerifJp.variable} ${inter.variable}`}
+      className={inter.variable}
     >
       <head>
         <Script id="org-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -186,14 +160,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         ))}
       </head>
-      {/* No font className here — body type flows from the theme-bound
-          --font-body token (globals.css); terminal re-binds it to Inter. */}
-      {/* wardrobe-ground lays the paper grain under the WHOLE site now, not
-          just the home hero (Asha 2026-07-15 "deepen, don't shout"). It is
-          gallery/system-light only by its own theme gate — inert in terminal,
-          midnight, high-contrast, and text-mode — so nothing loud reaches a
-          reader who didn't ask for it. */}
-      <body className={`wardrobe-ground${textMode ? " text-mode" : ""}`}>
+      {/* The global tokens supply the surface; reading mode remains explicit. */}
+      <body className={textMode ? "text-mode" : undefined}>
         {/* Skip-to-content for keyboard + screen-reader users.
             See docs/connections/the-welcome-all.md (#26) §3 — a welcome
             that doesn't include the sensory-divergent door is no welcome

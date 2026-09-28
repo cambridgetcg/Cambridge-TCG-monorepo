@@ -46,7 +46,7 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
     ],
   },
   {
-    label: "Shopping & money",
+    label: "Orders & payments",
     items: [
       { href: "/account/orders", label: "Orders" },
       { href: "/account/trades", label: "Trades" },
@@ -63,7 +63,7 @@ export const ACCOUNT_NAV_SECTIONS: Section[] = [
   {
     label: "Collection",
     items: [
-      { href: "/account/portfolio", label: "Portfolio" },
+      { href: "/account/portfolio", label: "Your collection" },
       { href: "/account/wishlist", label: "Wishlist" },
     ],
   },
@@ -121,11 +121,12 @@ export function AccountNav({ badges }: { badges?: Record<string, number> }) {
   return (
     <>
       {/* Mobile: horizontal tabs (flat — preserved for thumb-scrolling) */}
-      <nav className="flex gap-2 overflow-x-auto pb-4 mb-6 md:hidden">
+      <nav aria-label="Account navigation" className="flex w-full min-w-0 gap-2 overflow-x-auto pb-2 md:hidden">
         {ACCOUNT_NAV_ITEMS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
+            aria-current={isActive(pathname, item.href) ? "page" : undefined}
             className={`shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition ${
               isActive(pathname, item.href)
                 ? "bg-accent-wash text-accent-strong"
@@ -140,10 +141,10 @@ export function AccountNav({ badges }: { badges?: Record<string, number> }) {
 
       {/* Desktop: three always-visible groups + the hub link below a rule */}
       <aside className="hidden md:block w-56 shrink-0">
-        <nav className="flex flex-col gap-1 sticky top-8">
+        <nav aria-label="Account navigation" className="flex flex-col gap-1 sticky top-20">
           {ACCOUNT_NAV_SECTIONS.map((section) => (
             <div key={section.label} className="mb-1">
-              <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+              <div className="px-4 py-2 text-sm font-semibold text-ink-muted">
                 {section.label}
               </div>
               <ul className="space-y-0.5">
@@ -151,6 +152,7 @@ export function AccountNav({ badges }: { badges?: Record<string, number> }) {
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      aria-current={isActive(pathname, item.href) ? "page" : undefined}
                       className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition ${
                         isActive(pathname, item.href)
                           ? "bg-accent-wash text-accent-strong"
@@ -170,6 +172,7 @@ export function AccountNav({ badges }: { badges?: Record<string, number> }) {
           <div className="border-t border-border-subtle mt-1 pt-2">
             <Link
               href={MORE_TOOLS_ITEM.href}
+              aria-current={isActive(pathname, MORE_TOOLS_ITEM.href) ? "page" : undefined}
               className={`block px-4 py-2.5 rounded-lg text-sm font-medium transition ${
                 isActive(pathname, MORE_TOOLS_ITEM.href)
                   ? "bg-accent-wash text-accent-strong"

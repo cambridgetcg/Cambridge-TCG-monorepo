@@ -12,8 +12,7 @@
  */
 @plugin "@tailwindcss/typography";
 
-/* The Wardrobe — theme bundles + new tokens (ink, bid/ask, mats, voices).
- * Spec: docs/superpowers/specs/2026-06-10-the-wardrobe-design.md */
+/* Theme choices and static compatibility styles for existing pages. */
 @import "./themes.css";
 
 /*
@@ -23,60 +22,51 @@
  * into these tokens (`bg-page`, `bg-surface`, `border-border-subtle`,
  * etc.) to express *intent* rather than literal colour.
  *
- * The :root defaults ARE the quiet gallery (docs/plans/
- * the-quiet-gallery.md, flipped 2026-07-05): warm paper ground, ink
- * type, hairline borders, one bronze accent, muted doctrine tones.
- * The old terminal-dark values survive verbatim in the
- * `[data-theme="terminal"]` bundle (themes.css) for whoever loved them.
+ * Defaults match the Light bundle in themes.css. Theme IDs remain
+ * compatible with saved preferences; appearance is simple and static.
  *
  * The raw Tailwind classes (`bg-neutral-900`, `text-amber-400`) keep
  * working unchanged — and keep NOT responding to themes; migration to
  * semantic tokens is the unit of adoption.
  */
 @theme {
-  /* surfaces — warm paper ground, white mounts */
-  --color-page: #faf8f4;
+  /* Neutral surfaces and readable text; color conveys state or action. */
+  --color-page: #f8fafc;
   --color-surface: #ffffff;
-  --color-surface-subtle: #f3f0e9;
-  --color-surface-elevated: #fffdf9;
+  --color-surface-subtle: #f1f5f9;
+  --color-surface-elevated: #ffffff;
 
-  /* borders — hairlines everywhere */
-  --color-border-subtle: #e7e2d8;
-  --color-border-strong: #d3ccbe;
+  --color-border-subtle: #cbd5e1;
+  --color-border-strong: #64748b;
 
   /* tones — single-source for accent/secondary/etc. The Badge palette
    * (lib/ui/Badge.tsx) carries the same vocabulary. */
-  --color-accent: #96762f;         /* quiet bronze — links, primary action */
-  --color-accent-strong: #7a5f26;
-  --color-secondary: #41775c;      /* muted viridian */
-  --color-danger: #9e4433;         /* muted brick */
-  --color-warning: #a97e24;
-  --color-info: #4e6e96;           /* muted slate */
-  --color-ok: #41775c;
+  --color-accent: #1d4ed8;
+  --color-accent-strong: #1e40af;
+  --color-secondary: #166534;
+  --color-danger: #b91c1c;
+  --color-warning: #92400e;
+  --color-info: #1d4ed8;
+  --color-ok: #166534;
 }
 
 :root {
   --background: var(--color-page);
   --foreground: var(--color-ink);
-  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body, sans-serif);
+  line-height: 1.6;
 }
 
 /*
- * Prose reads ink-on-paper by default — the typography plugin's stock
- * palette assumes the old dark ground (pages historically said `prose
- * prose-invert`). Re-bind the plugin's variables to the semantic tokens
- * so long-form text follows the wardrobe: gallery gets ink on paper,
- * terminal/midnight resolve the same vars to their own light-on-dark
- * inks. (Sweep agents remove the now-redundant `prose-invert`; this
- * unlayered rule outranks the layered utility either way, so nothing
- * renders unreadable in the meantime.) text-mode still wins — its
- * overrides carry !important.
+ * Bind the typography plugin's variables to semantic tokens
+ * so long-form text follows each chosen palette. This unlayered rule
+ * also keeps old prose-invert pages readable in Light. Text mode's
+ * explicit reading styles still take precedence.
  */
 .prose {
   --tw-prose-body: var(--color-ink);
@@ -114,6 +104,7 @@ body.text-mode {
   background: white;
   color: black;
   font-family: Georgia, "Times New Roman", serif;
+  color-scheme: light;
   max-width: 70ch;
   margin: 2rem auto;
   padding: 0 1rem;
@@ -159,50 +150,14 @@ body.text-mode button, body.text-mode input, body.text-mode select, body.text-mo
 /* Decorative skeleton shimmer has no meaning in a text reading layout —
  * the toggle promises "low bandwidth, screen reader friendly", so stop the
  * pulse animating (it kept shimmering under text-mode before). */
-body.text-mode .animate-pulse,
-body.text-mode .wardrobe-rise,
-body.text-mode .wardrobe-breathe,
-body.text-mode .wardrobe-breathe > *,
-body.text-mode .wardrobe-draw,
-body.text-mode .wardrobe-bob,
-body.text-mode .wardrobe-speedlines {
+body.text-mode .animate-pulse {
   animation: none !important;
 }
 
-/* Presentation play (2026-08-01): the frame, the lean-in, the scroll
- * entry and the close-look scrim all go still/readable in text-mode. */
-body.text-mode .wardrobe-enter {
-  animation: none !important;
-}
-body.text-mode .wardrobe-frame,
-body.text-mode .wardrobe-frame img {
-  transition: none !important;
-  transform: none !important;
-}
+/* The functional image dialog remains readable in text mode. */
 body.text-mode .wardrobe-closelook::backdrop {
   background: rgb(255 255 255 / 0.95) !important;
 }
-/* The painted rooms' wall notes describe paint; the reading layout
- * shows none, so the note does not speak here (truthful in every mode). */
-body.text-mode .wardrobe-wall-note {
-  display: none !important;
-}
-
-/* The universal text-mode flatten targets elements; pseudo-element
- * textures need their own kill. The manga layer reads as bare
- * black-on-white text, as promised. */
-body.text-mode .wardrobe-speedlines::before,
-body.text-mode .wardrobe-aura::before,
-body.text-mode .wardrobe-weather::before {
-  content: none !important;
-}
-body.text-mode .wardrobe-tone-whisper,
-body.text-mode .wardrobe-tone-fade {
-  background-image: none !important;
-  -webkit-mask-image: none !important;
-  mask-image: none !important;
-}
-
 /*
  * Reduced motion — Wave 1.5 of the All-Aboard plan (kingdom-051).
  *

@@ -82,7 +82,6 @@ describe("browser-local practice copy", () => {
 
   it.each([
     "src/components/game/PracticeLaunch.tsx",
-    "src/app/welcome/page.tsx",
     "src/app/play/casual/page.tsx",
     "src/app/play/adventure/page.tsx",
   ])("names all three browser-local saves in %s", (path) => {
@@ -114,15 +113,18 @@ describe("browser-local practice copy", () => {
     }
   });
 
-  it("keeps the server pause and historical reads explicit on the player and casual paths", () => {
-    for (const path of ["src/app/welcome/page.tsx", "src/app/play/casual/page.tsx"]) {
-      const text = compact(source(path));
-      expect(text).toContain("Server-recorded PVE battles and rewards are paused");
-      expect(text).toContain("prior recorded progress remains readable");
-    }
+  it("keeps historical reads explicit and forwards the old player entry to play", () => {
+    const casual = compact(source("src/app/play/casual/page.tsx"));
+    expect(casual).toContain("Server-recorded PVE battles and rewards are paused");
+    expect(casual).toContain("prior recorded progress remains readable");
+    const welcome = source("src/app/welcome/page.tsx");
+    expect(welcome).toMatch(/case "player":\s*redirect\("\/play"\)/);
     const launch = compact(source("src/components/game/PracticeLaunch.tsx"));
     expect(launch).toContain("no results are recorded on the server");
-    expect(launch).toContain("{pausedReason} Rewards stay off");
+    expect(launch).toContain("Practice does not award rewards");
+    const play = compact(source("src/app/play/page.tsx"));
+    expect(play).toContain("pve && !pve.mutations_enabled");
+    expect(play).toContain("{pve.reason}");
   });
 
   it("keeps the adventure ladder's local clears separate from historical server progress", () => {

@@ -6,9 +6,9 @@
       "path": "apps/storefront", "group": "apps", "label": "Storefront and admin",
       "purpose": "The main Cambridge TCG website: card research, collecting, play, public data interfaces, account records and the integrated operator console.",
       "scope": "Current application; new paid commerce is retired. Existing agreements, records, refunds and support remain in scope.",
-      "progress": "App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. On 2026-09-28 the visitor and agent entries were simplified and checked locally; the linked verification record gives the test scope and remaining service boundaries.",
+      "progress": "App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. Entries were organized on 2026-09-28. The 2026-09-29 UI rebuild adds a plain shared system, task navigation, clearer search and appearance pages, responsive account navigation and independently available browser practice. The linked verification records define the checked scope and service boundaries.",
       "next": "Choose a domain below, inspect its route and library together, and run the checks for that change. Public API publication and commercial availability must follow the current boundary.",
-      "evidence": ["apps/storefront/src/app", "apps/storefront/src/lib", "apps/storefront/src/app/admin", "apps/storefront/docs/commercial-retirement.md", "apps/storefront/AGENTS.md", "docs/connections/the-entry-map.md", "docs/operations/2026-09-28-entry-verification.md"]
+      "evidence": ["apps/storefront/src/app", "apps/storefront/src/lib", "apps/storefront/src/app/admin", "apps/storefront/docs/commercial-retirement.md", "apps/storefront/AGENTS.md", "docs/connections/the-entry-map.md", "docs/design/interface.md", "docs/operations/2026-09-28-entry-verification.md", "docs/operations/2026-09-29-ui-verification.md"]
     },
     {
       "path": "apps/wholesale", "group": "apps", "label": "Wholesale records and research",
@@ -279,7 +279,7 @@
     {
       "id": "navigation-and-explanation", "label": "Navigation and explanation",
       "purpose": "Help visitors enter, orient, choose a destination and understand methodology in plain language.",
-      "evidence": ["docs/connections/the-entry-map.md", "apps/storefront/src/lib/nav/menu-config.ts"],
+      "evidence": ["docs/connections/the-entry-map.md", "docs/design/interface.md", "apps/storefront/src/lib/nav/menu-config.ts", "apps/storefront/src/lib/ui/PageLayout.tsx", "apps/storefront/src/lib/ui/Section.tsx", "apps/storefront/src/lib/ui/ActionCard.tsx"],
       "lib": ["nav", "ui"],
       "routes": ["about", "contact", "glossary", "intro", "map", "methodology", "og", "start", "welcome", "welcome-all", "welcomes"]
     }

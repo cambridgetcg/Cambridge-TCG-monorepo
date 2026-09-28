@@ -4,116 +4,81 @@ import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
   title: "Appearance methodology",
-  description:
-    "How the wardrobe works: what the theme and tone settings store, where they are stored, how system-follow resolves, and why every theme is free.",
+  description: "How themes, reading modes and saved appearance preferences work.",
   other: audienceMetadata("public-documentation", ["methodology", "appearance"]),
 };
 
 export default function AppearanceMethodology() {
   return (
     <>
-      <h1>Appearance — the wardrobe</h1>
+      <h1>Appearance and reading preferences</h1>
       <p>
-        <Link href="/appearance">/appearance</Link> lets any visitor —
-        signed in or not — choose how this platform looks (theme) and how its chrome
-        speaks (tone). This page names exactly what that system stores, who may wear
-        what, and the approximations it admits to.
+        <Link href="/appearance">Appearance settings</Link> are available without
+        an account. Choose a theme, a writing tone or a text-only reading layout.
+        These choices change presentation, not your access to data or account features.
       </p>
 
-      <blockquote>
-        <strong>Where this lives in code.</strong> Theme registry at{" "}
-        <code>apps/storefront/src/lib/wardrobe/themes.ts</code>; CSS bundles at{" "}
-        <code>apps/storefront/src/app/themes.css</code>; the only cookie writer at{" "}
-        <code>apps/storefront/src/app/api/appearance/route.ts</code>. Spec:{" "}
-        <code>docs/superpowers/specs/2026-06-10-the-wardrobe-design.md</code>.
-      </blockquote>
-
-      <h2 id="stored">1. What is stored, and where</h2>
-      <ul>
-        <li>
-          <strong>Two cookies</strong>: <code>theme</code> (one of{" "}
-          <code>gallery · terminal · midnight · high-contrast</code>) and{" "}
-          <code>tone</code> (<code>standard · plain</code>). Both last one year,
-          both are device-local — they do not follow you across browsers or devices.
-          Account-level persistence is planned, not shipped; until it ships, this
-          page will keep saying so.
-        </li>
-        <li>
-          <strong>Follow system stores nothing</strong> (since 2026-07-06): with no
-          theme cookie the page carries <code>data-theme=&quot;system&quot;</code> and
-          your device&rsquo;s colour-scheme preference picks Gallery (light) or
-          Midnight (dark) in CSS, at render — the preference itself never reaches our
-          servers. Choosing &ldquo;Follow system&rdquo; deletes the cookie; it does
-          not write one.
-        </li>
-        <li>
-          <strong>Nothing else.</strong> No analytics event fires on a theme change;
-          the choice is not used for pricing, ranking, or any decision beyond
-          rendering.
-        </li>
-      </ul>
-
-      <h2 id="themes">2. Themes, and who may wear them</h2>
-      <ul>
-        <li>
-          <strong>Free for everyone</strong>: all four — Gallery (the light face),
-          Terminal (the original dark look, kept whole), Midnight (the quiet gallery,
-          lights off), High contrast. Midnight launched as a member perk on
-          2026-06-10 and was un-gated on 2026-07-06: dark mode is table stakes, not
-          a perk. The entitlement mechanism remains in the code for a future skin
-          that may genuinely be one; today nothing uses it.
-        </li>
-        <li>
-          <strong>If a skin is ever locked again</strong>, the check runs server-side
-          when the cookie is set; a locked request changes nothing and shows no
-          error — the lock would be explained right on the settings page. Today
-          nothing is locked: every theme is free.
-        </li>
-        <li>
-          <strong>Never paywalled</strong>: high contrast,{" "}
-          <Link href="/appearance">text-only layout</Link>, reduced
-          motion, tone. Anything a visitor might need rather than want is free, by
-          rule. If we ever break this rule, this sentence must be edited first —
-          treat its presence as the guarantee.
-        </li>
-      </ul>
-
-      <h2 id="rollout">3. The staged rollout, honestly</h2>
+      <h2 id="stored">What is saved</h2>
       <p>
-        Themes re-bind the platform&rsquo;s <em>semantic</em> design tokens. Pages
-        migrate to those tokens surface by surface; a page that has not migrated yet
-        keeps the original dark look regardless of your theme. As of this page&rsquo;s
-        last edit, the migrated set is: the market suite (
-        <code>/market</code>, <code>/market/[sku]</code>, <code>/market/pulse</code>,{" "}
-        <code>/market/lots</code>), the card market mirror (
-        <code>/cards/[sku]/market</code>), and the appearance settings page itself.
-        The site-wide default flips to Gallery when the home page completes its
-        sweep.
+        An explicit theme choice is saved in a <code>theme</code> cookie, and an
+        explicit tone choice in a <code>tone</code> cookie. Each lasts up to one year
+        in this browser. These preferences do not sync through your account or
+        follow you to another device. You can remove them by clearing this site&rsquo;s cookies.
+      </p>
+      <p>
+        <strong>Follow system</strong> removes the theme cookie. The browser then
+        selects Light or Dark from your device&rsquo;s colour setting using CSS.
+        The application does not need to receive your device&rsquo;s colour
+        preference. A separate tone or reading-mode cookie can still be present.
+      </p>
+      <p>
+        Theme and tone cookies are used for rendering. The preference setter
+        does not send a theme-change analytics event or use the choice for pricing
+        or ranking. Ordinary hosting access logs may still record requests.
       </p>
 
-      <h2 id="tone">4. What tone does — and refuses to do</h2>
+      <h2 id="themes">Available themes</h2>
+      <ul>
+        <li><strong>Light:</strong> dark text, white surfaces and blue links.</li>
+        <li><strong>Dark:</strong> light text, dark surfaces and blue links.</li>
+        <li><strong>Terminal:</strong> light text and amber links on black.</li>
+        <li><strong>High contrast:</strong> black text, strong borders and white surfaces.</li>
+      </ul>
       <p>
-        Tone swaps chrome strings: titles, empty-state copy, button labels. It never
-        rewrites facts, figures, methodology text, or anything doctrine-bearing. The
-        dictionary lives at <code>apps/storefront/src/lib/wardrobe/voice.ts</code>;
-        every string ships in every register, so the registers cannot drift apart
-        silently.
+        All four themes are free. Existing saved Light and Dark preferences still
+        work under their earlier cookie names, <code>gallery</code> and <code>midnight</code>.
+        Themes use a fixed set of styles; they do not accept custom CSS.
       </p>
 
-      <h2 id="not">5. What this system does NOT do</h2>
-      <ul>
-        <li>No per-user CSS injection; themes are a fixed, audited set.</li>
-        <li>No application-level theme-use profile. Hosting access logs may still exist.</li>
-        <li>
-          No flash-of-wrong-theme: the cookie is read server-side at render, and
-          system-follow resolves in CSS at first paint — no script swaps the theme
-          after the fact.
-        </li>
-        <li>
-          No override of <Link href="/appearance">text-mode</Link>: the
-          text-only layout wins over any theme, by construction.
-        </li>
-      </ul>
+      <h2 id="rollout">Where the theme applies</h2>
+      <p>
+        Shared page surfaces, navigation and interface components use the selected
+        theme. The shared design uses readable sans-serif text, simple borders
+        and static surfaces. Older screens with fixed colours may not follow every
+        theme yet; choosing a theme does not establish complete coverage of every page.
+      </p>
+      <p>
+        Saved preferences are read with the initial page request. Follow system
+        resolves in CSS, and the navigation toggle can change the appearance
+        immediately while saving your selection.
+      </p>
+
+      <h2 id="tone">Writing tone</h2>
+      <p>
+        Where supported, Standard and Plain choose between versions of interface
+        wording, such as greetings and empty-state messages. They do not change
+        recorded facts, figures, data-source labels or methodology. This setting
+        does not rewrite every sentence on the site.
+      </p>
+
+      <h2 id="not">Reading modes and accessibility</h2>
+      <p>
+        <Link href="/appearance">Text-only layout</Link> takes precedence over
+        theme colours and uses black text on white, underlined links and a simpler
+        reading layout. Keyboard focus remains visible. Shared styles also respect
+        your device&rsquo;s reduced-motion preference. These options are free and
+        do not require a paid membership.
+      </p>
     </>
   );
 }

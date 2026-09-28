@@ -17,6 +17,7 @@ API clients.
 | Read or update module progress | [Module records and update workflow](./modules/README.md) |
 | Work on the visitor site, API or admin console | [Storefront guide](../apps/storefront/README.md) |
 | Understand the visitor and API entrances | [Entry pages and module map](./connections/the-entry-map.md) |
+| Build consistent, readable interfaces | [Interface guide](./design/interface.md) — current visual and component rules |
 | Develop and check a change | [Local setup and verification](../README.md#local-development), [development workflow](./dev-pipeline.md) |
 | Understand branches and unfinished work | [Git workflow](./operations/git-workflow.md); use the optional local HERE.md for this machine's inventory |
 | Understand terms and rules | [Glossary](./glossary.md), [methodology directory](./methodology/) |
