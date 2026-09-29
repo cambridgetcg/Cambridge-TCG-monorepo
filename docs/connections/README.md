@@ -47,6 +47,7 @@ Or read the entries as a set — the union is a partial map of the platform's hi
 
 ## Current entries
 
+- [Image references](./the-image-reference.md) — preserve requested and depicted SKU context across human captions and API contracts; shared official-media checks have a bounded consumer scope (2026-09-29).
 - [The KINGDOM OS starter](./the-kingdom-os-starter.md) — optional macOS source and local tools, kept separate from sibling services; `/agents`, the Cambridge JSON manifest and generated `agent.txt` point to the release descriptor without owning its inventory or starting it (2026-09-08).
 - [The reference tools](./the-reference-tools.md) — public inspection and identifier companions, deterministic discovery, and unsent outreach preparation; measurements and syntax stay separate from stronger claims (2026-09-08).
 

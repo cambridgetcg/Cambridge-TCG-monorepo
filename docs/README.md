@@ -18,6 +18,7 @@ API clients.
 | Read or update module progress | [Module records and update workflow](./modules/README.md) |
 | Review the complete website rebuild | [Room-based rebuild plan](./plans/storefront-rebuild/README.md) — proposed purpose, rooms, content, pages and service wiring |
 | Track the rebuild and data foundations | [Rebuild progress](./plans/storefront-rebuild/implementation.md) and [current contracts and gaps](./architecture/card-data-contracts.md) |
+| Understand card image identity | [Image references](./architecture/card-image-references.md) — requested versus depicted SKU, publication checks and remaining readers |
 | Work on the visitor site, API or admin console | [Storefront guide](../apps/storefront/README.md) |
 | Understand the visitor and API entrances | [Entry pages and module map](./connections/the-entry-map.md) |
 | Understand the shared UI baseline | [Interface guide](./design/interface.md) — September 29 shared controls; entry/map replacement is recorded in rebuild progress |
@@ -34,6 +35,7 @@ Read each runbook's prerequisites and scope before acting. Configuration descrip
 - [Credential-dependent verification](./ops-credential-verification.md) — scoped verification and what its evidence labels mean.
 - [Entry and module map verification](./operations/2026-09-28-entry-verification.md) — September 28 local build, navigation, browser and documentation checks.
 - [Data-platform entry verification](./operations/2026-09-29-data-platform.md) — September 29 shared roadmap, standards, agent access and responsive checks.
+- [Image-reference verification](./operations/2026-09-29-image-references.md) — September 29 shared media projection, consumer labels and image-schema checks.
 - [Cloudflare](./ops-cloudflare.md) — zone configuration and public access posture; includes the June 2026 audit.
 - [Email migration](./ops-email-selfhost.md) — SES to self-hosted mail: provisioning, DNS, warmup and cutover; check the recorded phase before use.
 

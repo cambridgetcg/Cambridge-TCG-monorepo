@@ -88,6 +88,7 @@ interface DailyEye {
   choices: string[];
   imageUrl: string;
   imageAttribution: string | null;
+  imageIsReference: boolean;
   setName: string | null;
   origin: { x: number; y: number };
 }
@@ -172,6 +173,7 @@ async function getDailyEye(): Promise<DailyEye | null> {
     choices,
     imageUrl: identity.image_url,
     imageAttribution: identity.image_attribution,
+    imageIsReference: !!identity.image_reference,
     setName: identity.set_name,
     // Crop origin keeps to the middle band of the FRAME (30–70% × 32–62%);
     // the photos are near card-ratio so this usually lands in the art and

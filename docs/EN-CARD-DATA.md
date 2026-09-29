@@ -1,100 +1,84 @@
-# EN card data: current boundary
+# English card images and text
 
-*Reviewed 2026-07-13. This records the implementation and rights state; it is
-not legal advice.*
+Implementation and recorded-decision review: **2026-09-29**. This is a source
+audit, not a new legal review, upstream permission or production health check.
+The [image-reference architecture](architecture/card-image-references.md)
+describes the shared reader contract and remaining consumers.
 
-## The recorded decision (2026-07-13)
+## Recorded decisions, in order
 
-The owner has decided that Cambridge publishes OFFICIAL publisher card images for
-the games whose official source we have added — today One Piece and Dragon Ball
-Fusion — taken from each publisher's own card database. The rule, in plain terms:
+Git history records the following owner-directed changes. Their rationale is
+reported here as project history, not as an independent legal conclusion.
 
-- **Official art only.** The image is the publisher's own card art
-  (`kind = 'official_sample'`). No shop scans, seller photos, or community
-  re-uploads.
-- **Self-hosted.** Each image is copied to a Cambridge-controlled host and served
-  from our own object, built from `CARD_IMAGE_CDN + s3_key`. The stored publisher
-  `source_url` is provenance metadata and is **never** served as an image src, so
-  the site does not hotlink the publisher.
-- **Always attributed.** The publisher's copyright line is stored NOT NULL and is
-  rendered next to the image wherever it appears. An image without its credit is
-  not published.
-- **Takedown-honouring.** Publication is gated on `takedown_status = 'clear'`. A
-  disputed or removed row stops publishing immediately.
-- **Nominative fair use for a marketplace.** You must be able to see a card to
-  trade it; the art identifies the publisher's specific card and is credited to
-  the publisher, not presented as ours or offered for reuse.
+| Decision | Evidence | Scope |
+| --- | --- | --- |
+| 2026-07-13, 08:18 −07:00 | `92eccbed` | Publish official One Piece and Dragon Ball Fusion World images from Cambridge-hosted objects, with publisher attribution and a clear takedown state. This replaced the earlier written-permission blocker for that display lane. The recorded rationale was nominative use to identify cards for trade. |
+| 2026-07-13, 09:03 −07:00 | `84fb4efe` | Add official structured attributes and attributed effect text to card details and the universal API. This later decision supersedes the earlier document's “text stays withheld” statement. |
+| 2026-07-16 | `3934a13e` | Retain self-hosted catalogue photos as the market's fallback when an official image is absent. This is a separate legacy lane, not evidence that those rows meet the official-image rule. |
+| 2026-07-17 | `35eba7f4` | Extend attributed English effect text to starter/practice surfaces. |
 
-This **supersedes** the prior blocker that required a recorded written Bandai
-permission before any English image could publish. The basis for publication is
-now the nominative-fair-use / self-hosted / attributed rule above, not a
-paused-pending-permission state. Text (effect/rules text) is **not** covered by
-this decision and stays withheld — see "Text stays withheld" below.
+The September review found no later reversal in these code lanes. Open-source
+code and specification licences do not cover the publisher's artwork or text.
+This review grants no onward reuse, bulk redistribution or new acquisition.
 
-## What exists
+## Current shared English reader
 
-- The fixture-backed Bandai parser and normalizer live in
-  `packages/data-ingest/src/bandai-en/`.
-- Migration **0116** created `card_texts` and `card_images` and has already been
-  applied in production. Its duplicate `0116` filename is preserved on purpose:
-  renaming an applied migration would make the migration record less truthful.
-- Production holds Bandai-derived English rows across One Piece and Dragon Ball
-  Fusion (on the order of 8,300 image rows).
-- The `ctcg-card-images` host now exists. A background backfill populates
-  `card_images.s3_key` for the official images. A row publishes only once its
-  `s3_key` is set; rows still awaiting a self-hosted object do not appear.
+[`getEnCardData()` and `getEnCardImages()`](../apps/storefront/src/lib/cards/en-card-data.ts)
+retain the historical English base storage key. A complete supported SKU can
+lead to a related English image even when the requested card has a different
+language or variant. The reference metadata identifies this relationship;
+these helpers do not verify that the pictured printing is the requested one.
 
-Schema, storage, attribution, and the takedown column are the mechanism the rule
-runs on. They are enforced structurally by the reader's query, not by hope.
+The official-image projection validates the recorded source and game, English
+language, official-sample kind, clear takedown state, nonblank copyright line,
+publisher provenance URL, retrieval time and self-hosted object key. The served
+URL comes from the Cambridge image host, never from the publisher provenance URL.
+Malformed or unsupported requests and rows that fail the checks produce no
+official image. Single and batch reads select eligible records deterministically.
 
-## Rights state
+Existing `image_url` and `image_attribution` fields remain for compatibility;
+`image_reference` carries the relationship where those consumers expose it.
+Official English effect text and structured attributes retain the later July
+publication decision. Attribution must travel with effect text.
 
-Cambridge publishes the official publisher card images under nominative fair use
-for a marketplace: the images are shown to identify the physical cards being
-traded, are self-hosted rather than hotlinked, and always carry the publisher's
-copyright line. We do not claim ownership of the art and do not license it onward.
+The market's separate catalogue fallback is retained and labelled unverified.
+Its presence does not make it a verified official reference. The gallery,
+notable-print, artist and starter readers still need consolidation; this shared
+reader change does not establish consistent publication across every surface.
 
-The source declaration remains conservative for **bulk redistribution** — this
-decision authorizes per-card display of self-hosted, attributed official images
-on our own surfaces, not a redistributable data export:
+## Acquisition and historical storage
 
-- `license: proprietary` (the underlying art is the publisher's)
-- `redistribute: false` (no bulk re-publication or onward licensing)
-- image display: **enabled** for added official sources, self-hosted + attributed
-- takedown: honoured via `takedown_status`
+- [Migration 0116](../apps/storefront/drizzle/0116_en_card_data.sql) creates
+  provenance, attribution and takedown storage. Its old comments predate the
+  later image/text decisions; an applied migration is not the current policy.
+- [Migration 0122](../apps/storefront/drizzle/0122_card_texts_attributes.sql)
+  adds structured attributes and records the later text decision.
+- The [Bandai source module](../packages/data-ingest/src/bandai-en/index.ts)
+  has offline parsers but an inert live reader. The
+  [authenticated ingest route](../apps/storefront/src/app/api/cron/ingest/bandai-en/route.ts)
+  remains paused. Old registry wording that all publication is paused predates
+  the subsequent read-side decisions; it should not be used to infer that the
+  current public readers emit nothing.
+- Separate [manual text ingestion](../apps/storefront/scripts/ingest-bandai-en.mjs)
+  and [image backfill](../apps/storefront/scripts/backfill-card-images-s3.mjs)
+  scripts exist. They can perform network and database writes; they were not
+  run or activated by this review.
 
-CardRush and other shop/seller image paths stay blocked; they are not part of this
-lane.
+July commit records describe approximately 8,300 stored image rows, a created
+image bucket and backfill activity. Those are historical reports. This review
+did not inspect production rows, objects, permissions or running jobs and does
+not establish current coverage or backfill health.
 
-## Runtime state
+## Removal and remaining work
 
-- `getEnCardData()` and `getEnCardImages()`
-  (`apps/storefront/src/lib/cards/en-card-data.ts`) publish an image **only** via
-  its self-hosted object. The query requires
-  `kind = 'official_sample' AND takedown_status = 'clear' AND s3_key IS NOT NULL`,
-  and the served `url` is built from `CARD_IMAGE_CDN + s3_key`. The stored
-  publisher `source_url` is returned as metadata but is never the served `url`.
-- When a card has no published official image, the readers return `en_image: null`
-  and the page keeps its withheld / no-image state. They do not fall back to a
-  CardRush scan or a legacy `card_set_cards.image_url`.
-- The redistribution audit (`apps/storefront/scripts/redistribution.ts`, check 8)
-  pins this: the legacy image lane stays `image_url: null`, and the official
-  reader may serve an image only via `s3_key` with the takedown/official guards,
-  never the publisher `source_url`.
+A disputed or removed row is excluded from a fresh guarded database read.
+Previously issued API responses, browser caches and public object URLs have
+separate lifecycles. The universal-card endpoint currently allows a 60-second
+public response cache; changing a database flag alone does not delete an object
+or invalidate every copy. Text storage has no equivalent per-row takedown field.
 
-## Text stays withheld
-
-`getEnCardData()` returns `effect_text: null`. Publisher rules/effect text is
-proprietary and is **not** covered by the image decision; it needs its own review
-before any publication. The parser can still be exercised against local fixtures —
-parser correctness does not imply permission to publish text.
-
-## Other games and reopening
-
-- Games without an added official image source stay imageless. They join this rule
-  only when their official source is added and reviewed; until then their cards
-  keep the withheld / no-image state.
-- Storage, a provenance URL, or the absence of a robots restriction is still never
-  treated as a rights grant. When a new official source is added, record which
-  publisher database it is, confirm the self-hosted + attributed + takedown
-  mechanism covers it, and keep the reader's structural guards intact.
+The [P0 roadmap](plans/tcg-data-platform/README.md) remains open for the other
+readers, catalogue-fallback provenance, text removal controls and cache/object
+removal evidence. New games, acquisition, exports and broader image reuse each
+need their own reviewed scope. The public explanation is
+[`/legal/card-images`](../apps/storefront/src/app/legal/card-images/page.tsx).

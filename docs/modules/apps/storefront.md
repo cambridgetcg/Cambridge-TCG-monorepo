@@ -12,11 +12,11 @@ Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, 
 
 ## Progress
 
-Source review recorded **2026-09-28**. App Router pages, API routes and integrated admin surfaces are present. The 2026-09-29 rebuild adds card-data contracts, room records, collector services and the ivory/plum/mandarin interface with credited art. The subsequent data-platform direction adds a shared foundation/stage catalog, /roadmap and /api/v1/roadmap planning snapshots, and one registry for standards HTML/JSON. This is implemented planning and discovery, not provider activation, verified printing coverage or public package release.
+Source review recorded **2026-09-28**. App Router pages, API routes and integrated admin surfaces are present. The 2026-09-29 rebuild adds card-data contracts, room records, collector services and the ivory/plum/mandarin interface with credited art. The data-platform direction adds shared roadmap and standards HTML/JSON registries. The subsequent image slice adds full-SKU English reference identity, one single/batch publication projector, market/universal metadata, human labels and a public ImageReference schema. Existing attributed text remains. Other image readers and removal remain open; no provider activation, verified printing coverage or public package release is claimed.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Follow the data-platform roadmap: reconcile image/text publication policy, strengthen printing mappings, join qualified images/prices and pilot permitted providers. Check repository/package release readiness independently; preserve existing agreements and source/account boundaries.
+**Next review:** Consolidate independent artist/play image readers and credit propagation, review catalog fallback provenance and implement removal across objects/caches. Then strengthen printing mappings, join qualified images/prices and pilot permitted providers. Check release readiness independently; preserve existing agreements and source/account boundaries.
 
 ## Evidence and entry points
 
@@ -39,6 +39,10 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/storefront/src/app/roadmap/page.tsx](../../../apps/storefront/src/app/roadmap/page.tsx)
 - [apps/storefront/src/app/api/v1/roadmap/route.ts](../../../apps/storefront/src/app/api/v1/roadmap/route.ts)
 - [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
+- [docs/architecture/card-image-references.md](../../architecture/card-image-references.md)
+- [apps/storefront/src/lib/cards/image-reference.ts](../../../apps/storefront/src/lib/cards/image-reference.ts)
+- [apps/storefront/src/lib/cards/image-publication.ts](../../../apps/storefront/src/lib/cards/image-publication.ts)
+- [docs/operations/2026-09-29-image-references.md](../../operations/2026-09-29-image-references.md)
 
 Start with the [storefront domain map](../storefront/README.md) to find the relevant routes and libraries.
 

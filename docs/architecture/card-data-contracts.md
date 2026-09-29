@@ -36,7 +36,7 @@ flowchart LR
 | Ingestion compatibility export | `packages/data-ingest/src/member-prices.ts` | Existing import paths keep working; no duplicate observation interface |
 | Member response projection | `apps/storefront/src/lib/prices/member-feed.ts` | Check core stored monetary/mapping values after source/use filtering |
 | Public discovery | `apps/storefront/src/lib/contracts` | Describe contracts without publishing private observations |
-| Image storage and EN reference lookup | `apps/storefront/src/lib/cards/en-card-data.ts` | Existing publication paths need policy reconciliation and explicit image-to-printing relationships |
+| Image storage and EN reference lookup | `apps/storefront/src/lib/cards/en-card-data.ts` | Shared official-image checks and reference metadata; independent readers and removal remain separate work |
 | Standards registry | `apps/storefront/src/lib/contracts/standards.ts` | One registry for `/standards` and `/standards.json`; versions do not imply industry adoption or current coverage |
 | Roadmap snapshot | `apps/storefront/src/content/platform/index.ts` | Shared authored plan for `/roadmap` and `/api/v1/roadmap`; not a runtime capability report |
 
@@ -79,18 +79,24 @@ replace the publication policy. Schema conformance is tested using fixtures.
 ## Image and market boundaries
 
 Legacy wholesale images and the card composer's image fields remain withheld.
-The universal-card path separately calls `getEnCardData()`, which can return a
-self-hosted official English image with attribution and a clear takedown state.
-That lookup strips language and variant to the base English key: its illustration
-can be a reference for a related printing, not the requested printing's image.
+The universal-card path separately calls `getEnCardData()`. Its shared official
+image projection validates source, attribution, retrieval metadata, self-hosted
+object and takedown state. The lookup strips language and variant to an English
+base key and labels the result as a reference, without an exact-printing claim.
+Existing image fields remain alongside additive `image_reference` metadata.
 
-Publication policy needs reconciliation before a general image service: the
-Bandai source registry records paused publication, while the EN reader emits
-images and effect text; `/legal/card-images` describes an images-only rule.
-Storage, self-hosting and attribution do not establish a reusable image licence.
-No shared public image-record schema currently joins printing relationship,
-source/use permissions and removal state. These are roadmap acceptance gates,
-not permissions added by this document.
+The [recorded chronology](../EN-CARD-DATA.md) shows that attributed effect text
+and attributes were approved after the initial images-only decision on 13 July.
+They remain available under that recorded scope. The automated Bandai reader
+stays paused; old source-registry prose does not accurately describe every
+current display path. Market catalogue fallback was deliberately added on
+16 July and remains a separate, unverified lane.
+
+The [image-reference architecture](card-image-references.md) maps the remaining
+gallery, artist and play readers, incomplete printing/credit joins and cache
+removal work. The first shared reference mechanism is not a complete reusable
+image-record schema or a global takedown guarantee. Storage, self-hosting and
+attribution do not establish a reusable image licence.
 
 Existing market, listing and history paths are not a unified market-data feed.
 Source asks, completed sales, aggregates and computed reference prices require
@@ -102,7 +108,7 @@ records and retained agreement code do not establish publication permission.
 - `/standards/card-data`: human guide.
 - `/api/v1/contracts/card-data`: versioned descriptor in the existing envelope.
 - `/spec/v1/{schema}`: allowlisted raw schemas at their declared `$id` URLs.
-- `/api/openapi.json`: shared money, observation, identity and envelope schemas.
+- `/api/openapi.json`: shared money, observation, identity, image-reference and envelope schemas.
 - `/api/v1/identifiers/validate`: existing bounded stateless validator.
 - `/standards` and `/standards.json`: the three existing specification entries.
 - `/roadmap` and `/api/v1/roadmap`: static planning snapshot, explicitly separate

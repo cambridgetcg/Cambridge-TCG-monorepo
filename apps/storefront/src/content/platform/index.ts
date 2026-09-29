@@ -19,8 +19,8 @@ export const DATA_FOUNDATIONS = [
   {
     id: "images", title: "Images & rights", icon: "eye",
     purpose: "Connect artwork to the right card and its permissions.",
-    status: "Policy reconciliation first",
-    current: "Image paths use different publication rules. Some illustrations represent a related English card rather than the requested printing.",
+    status: "Reference contract implemented",
+    current: "Market and universal-card reads label English base images as references and share source checks. Other image readers, catalogue provenance and cache removal remain open.",
     next: "One image contract: exact or reference image, source, credit, allowed uses, dimensions, checksum and removal status.",
     acceptance: "Human and API paths apply the same reviewed permissions. Unknown rights stay withheld; corrections and removals reach caches.",
     href: "/legal/card-images", linkLabel: "Read current image policy",
@@ -47,7 +47,7 @@ export const DATA_FOUNDATIONS = [
 
 export const DELIVERY_STAGES = [
   {
-    id: "baseline", title: "Reconcile the foundations", status: "Next", dependsOn: [],
+    id: "baseline", title: "Reconcile the foundations", status: "In progress", dependsOn: [],
     outcome: "Align image/text publication paths, inventory code and data rights, and verify a clean public release route.",
     gate: "One reviewed policy per source and use; consistent human/API output; release scan and reproducible build evidence.",
   },

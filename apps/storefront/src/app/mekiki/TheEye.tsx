@@ -27,6 +27,7 @@ interface TheEyeProps {
   choices: string[];
   imageUrl: string;
   imageAttribution: string | null;
+  imageIsReference: boolean;
   setName: string | null;
   origin: { x: number; y: number };
 }
@@ -41,6 +42,7 @@ export default function TheEye({
   choices,
   imageUrl,
   imageAttribution,
+  imageIsReference,
   setName,
   origin,
 }: TheEyeProps) {
@@ -116,6 +118,7 @@ export default function TheEye({
             {imageAttribution}
           </p>
         )}
+        <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">{imageIsReference ? "English reference image · printing not verified" : "Catalog image · source and printing unverified"}</p>
       </div>
 
       <p aria-live="polite" className="mt-4 font-mono text-xs uppercase tracking-[0.2em] text-ink-faint">

@@ -1,5 +1,6 @@
 import { SKU_IDENTITY_CONTRACT, SKU_IDENTITY_SCHEMA, skuIdentity } from "@cambridge-tcg/sku";
 import { MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION_SCHEMA, PRICE_OBSERVATION_CONTRACT } from "@cambridge-tcg/data-spec";
+import { createImageReference, IMAGE_REFERENCE_CONTRACT, IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 
 /** Describes existing response semantics. No source access or price publication. */
 export const CARD_DATA_CONTRACT = {
@@ -12,6 +13,18 @@ export const CARD_DATA_CONTRACT = {
     example_scope: "Normalization example only; no catalog lookup or source-product mapping is asserted.",
     validation: { method: "POST", path: "/api/v1/identifiers/validate", documentation: "/standards/validator" },
     compatibility: "Legacy sku fields and lookup URLs remain unchanged. Search matches and card composition add identity with raw and normalized values.",
+  },
+  images: {
+    english_base_reference: {
+      ...IMAGE_REFERENCE_CONTRACT,
+      status: "implemented",
+      example: createImageReference("OP-OP01-001-JP-V11DZ", "OP-OP01-001-EN"),
+      example_scope: "Illustrative syntax relationship only; no image row, catalog record or provider was queried.",
+      representation: "Eligible English reference images carry image_url, image_attribution and image_reference together in market and universal-card responses. Universal sparse density omits all three fields. A retained catalog fallback has no English-reference claim and leaves image_reference null.",
+      missing: "A null reference means this projection establishes no eligible English base-image relationship; it does not prove that card art does not exist.",
+    },
+    rights: "Image identity and publication are separate checks. A valid ImageReference, self-hosted URL or attribution does not establish image rights or permission for downstream reuse.",
+    planned_scope: "A complete cross-source ImageRecord, verified printing crosswalk and rights-evidence contract remain planned; this implemented reference shape does not provide them.",
   },
   prices: {
     legacy_gbp: {
@@ -35,6 +48,7 @@ export const CARD_DATA_CONTRACT = {
   },
   schemas: {
     sku_identity: SKU_IDENTITY_SCHEMA,
+    image_reference: IMAGE_REFERENCE_SCHEMA,
     money: MONEY_SCHEMA,
     native_price_observation: NATIVE_PRICE_OBSERVATION_SCHEMA,
     member_price_observation: MEMBER_PRICE_OBSERVATION_SCHEMA,

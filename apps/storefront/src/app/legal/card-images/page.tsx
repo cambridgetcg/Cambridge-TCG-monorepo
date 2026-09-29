@@ -1,143 +1,57 @@
 import Link from "next/link";
-import { Callout } from "@/lib/ui";
+import { PageHeader } from "@/lib/ui/PageHeader";
+import { PageLayout } from "@/lib/ui/PageLayout";
 
-/** Public statement of the card-media boundary that exists today. */
 export const metadata = {
-  title: "Card media and text status - Cambridge TCG",
-  description:
-    "How Cambridge TCG publishes official publisher card images: self-hosted, attributed, and takedown-honouring, under nominative fair use for a marketplace.",
+  title: "Card images and text — Cambridge TCG",
+  description: "How Cambridge labels English reference images, carries publisher credit and handles the limits of its existing image and text publication rules.",
 };
+
+const headingClass = "mb-3 font-display text-xl font-semibold text-ink";
+const linkClass = "text-accent underline underline-offset-4 hover:text-accent-strong";
 
 export default function CardImagesPolicyPage() {
   return (
-    <main className="min-h-screen bg-page">
-      <div className="mx-auto max-w-3xl px-4 py-12">
-        <h1 className="mb-2 text-2xl font-display font-semibold text-ink md:text-3xl">
-          Card media and text
-        </h1>
-        <p className="mb-8 text-sm text-ink-faint">
-          The recorded publication rule. Last reviewed 13 July 2026.
-        </p>
+    <PageLayout width="reading">
+      <div lang="en">
+        <PageHeader title="Card images and text" description="A picture can help identify a card without proving which printing it shows. Publisher credit and image context belong beside it." />
+        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
 
-        <Callout tone="substrate" title="We publish official publisher card images">
-          Cambridge shows OFFICIAL publisher card images for One Piece and Dragon
-          Ball Fusion, taken from each publisher&rsquo;s own card database. Every
-          image is self-hosted on a Cambridge-controlled host, is served from our
-          own object &mdash; never a publisher hotlink &mdash; and always carries
-          the publisher&rsquo;s copyright line. We rely on nominative fair use for
-          a marketplace: you must be able to see a card to trade it, and the art is
-          identified as the publisher&rsquo;s, not ours.
-        </Callout>
-
-        <div className="mt-8 space-y-8 text-sm leading-relaxed text-ink-muted">
+        <div className="space-y-8 text-sm leading-7 text-ink-muted">
           <section>
-            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              What we publish
-            </h2>
-            <p className="mb-3">
-              For the games covered by this rule &mdash; One Piece and Dragon Ball
-              Fusion &mdash; we publish the official card image from the
-              publisher&rsquo;s own card database. Three things hold for every image
-              we display:
-            </p>
-            <ul className="list-disc space-y-2 pl-5">
-              <li>
-                <strong className="text-ink">Self-hosted.</strong> Each image is
-                copied to a Cambridge-controlled host and served from our own
-                object. We never render the publisher&rsquo;s source URL as an image
-                source, so the site does not hotlink the publisher.
-              </li>
-              <li>
-                <strong className="text-ink">Always attributed.</strong> The
-                publisher&rsquo;s copyright line is stored with the image and is
-                shown next to it wherever the image appears. An image without its
-                credit is not published.
-              </li>
-              <li>
-                <strong className="text-ink">Publisher-official only.</strong> Only
-                the publisher&rsquo;s own card art qualifies. Shop scans, seller
-                photographs, and community re-uploads do not enter this lane.
-              </li>
-            </ul>
+            <h2 className={headingClass}>Official English references</h2>
+            <p>Our shared English image reader covers recorded official sources for One Piece and Dragon Ball Fusion World. It serves eligible images from a Cambridge host, with publisher credit and a clear takedown state. The publisher source link records provenance; it is not used as the image address.</p>
+            <p className="mt-3">An English base image may accompany a card listed in another language or as another variant. We label it as a reference image. It does not verify the requested printing, artwork variant, physical condition or authenticity.</p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              Why this is fair use for a marketplace
-            </h2>
-            <p>
-              Cambridge is a place to trade physical cards. You cannot decide to
-              buy, sell, or value a card you cannot see, so we show the card. The
-              art is used to identify the publisher&rsquo;s specific card, is
-              credited to the publisher, and is not presented as Cambridge&rsquo;s
-              own work or offered for reuse. This is a nominative use: naming a
-              thing by showing the thing. We do not claim to own the images and we
-              do not license them onward.
-            </p>
+            <h2 className={headingClass}>Recorded publication decisions</h2>
+            <p>On 13 July 2026, the project owner approved self-hosted, attributed official images, recording a nominative-use rationale for identifying cards for trade. A later decision that day added official structured card details and attributed effect text. The earlier images-only statement on this page did not reflect that later decision.</p>
+            <p className="mt-3">The artwork and text remain their rightsholders&apos; material. Cambridge does not claim ownership or grant permission to reuse them. Attribution, hosting and access to an API do not establish a redistribution licence.</p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              What we do not do
-            </h2>
-            <ul className="list-disc space-y-2 pl-5">
-              <li>
-                We do not use CardRush scans, seller photographs, or any other
-                shop-sourced image in this lane. That acquisition path stays
-                blocked.
-              </li>
-              <li>
-                We do not publish publisher rules or effect text under this rule.
-                It covers images only; card text stays withheld pending its own
-                separate decision.
-              </li>
-              <li>
-                We do not treat storage, a provenance URL, or the absence of a
-                robots restriction as a rights grant. The rule above is the reason
-                we publish, and it is written down here on purpose.
-              </li>
-            </ul>
+            <h2 className={headingClass}>Other image paths</h2>
+            <p>A separate decision on 16 July retained catalogue photos as a market fallback. These images are labelled unverified: the legacy record does not establish the source and printing evidence required by the official-reference reader.</p>
+            <p className="mt-3">Gallery, artist and play readers are still being brought under a shared contract. Their existing paths have separate limitations. The <Link href="/roadmap#images" className={linkClass}>image roadmap</Link> tracks this work; a missing official reference does not establish that no image exists elsewhere.</p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              Takedown
-            </h2>
-            <p>
-              Every image row carries a takedown state. If a rightsholder asks us
-              to remove an image &mdash; or if a card&rsquo;s status is otherwise
-              set to disputed or removed &mdash; that row stops publishing
-              immediately and the card falls back to showing no image. Nothing that
-              is not marked clear is ever served.
-            </p>
+            <h2 className={headingClass}>Text and acquisition</h2>
+            <p>Existing English effect text is published with its copyright line under the later July decision. Structured card details also remain available where stored. The automated Bandai ingestion route remains paused; this review did not fetch new publisher material or run manual import scripts.</p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              Other games
-            </h2>
-            <p>
-              Games without an added official image source stay imageless. When a
-              card has no published official image, the page keeps its withheld,
-              no-image state rather than borrowing a scan or a legacy record. Those
-              games join this rule only when their official source is added and
-              reviewed.
-            </p>
+            <h2 className={headingClass}>Removal and cached copies</h2>
+            <p>Official-image readers exclude disputed or removed rows on a fresh database read. Previously cached responses and image objects require separate removal or invalidation. A database change does not immediately remove every cached copy or previously issued image URL. Consistent removal across all readers, text and caches remains part of the roadmap.</p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-display font-semibold text-ink">
-              Contact
-            </h2>
-            <p>
-              A rightsholder can identify material and the right they hold through
-              the <Link href="/contact" className="text-accent underline">contact page</Link>.
-              Cambridge will review the report and restrict material it controls
-              while the claim is resolved.
-            </p>
+            <h2 className={headingClass}>Contact</h2>
+            <p>Rightsholders can identify the material and the rights they hold through the <Link href="/contact" className={linkClass}>contact page</Link>. Include the page or image address so the relevant publication path can be reviewed.</p>
           </section>
         </div>
       </div>
-    </main>
+    </PageLayout>
   );
 }

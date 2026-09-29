@@ -381,11 +381,15 @@ function auditLegacyPublicationLocks(): void {
   const enCardData = source("apps/storefront/src/lib/cards/en-card-data.ts");
   requireText(8, "official image reader", enCardData, "export async function getEnCardData", "the single-card official-image reader must remain the named contract entry point");
   requireText(8, "official image reader", enCardData, "export async function getEnCardImages", "the batch official-image reader must remain the named contract entry point");
-  // The served url is built from the Cambridge-controlled host + s3_key, in both
-  // the single-card and the batch (grid) reader. If either regressed to serve the
-  // publisher source_url, this positive pin would go missing and the audit fails.
-  requireText(8, "official image reader", enCardData, "`${CARD_IMAGE_CDN}/${row.s3_key}`", "single-card image url must be the self-hosted host + s3_key, never a publisher url");
-  requireText(8, "official image reader", enCardData, "`${CARD_IMAGE_CDN}/${r.s3_key}`", "batch image url must be the self-hosted host + s3_key, never a publisher url");
+  // Single and batch use one runtime projector; behavioral fixtures verify its
+  // URL, source, reference and attribution checks beyond these source pins.
+  requireText(8, "official image reader", enCardData, "getEnCardImages([catalogSku])", "single-card reads must share the batch publication boundary");
+  requireText(8, "official image reader", enCardData, "projectOfficialImage(sku, row, cdn)", "batch reads must use the reviewed official-media projection");
+  requireText(8, "official image reader", enCardData, "source = 'bandai-en'", "only the recorded source may enter this reader");
+  const imagePublication = source("apps/storefront/src/lib/cards/image-publication.ts");
+  requireText(8, "official image projection", imagePublication, "officialImageUrl(row.s3_key, cdn)", "served URLs must use a validated self-hosted object key");
+  requireText(8, "official image projection", imagePublication, "createImageReference(requestedSku, row.sku)", "an image must retain the requested and selected identifiers");
+  requireText(8, "official image projection", imagePublication, "!row.attribution.trim()", "blank copyright lines must not publish");
   // The query publishes ONLY self-hosted, takedown-clear, publisher-official rows.
   requireText(8, "official image reader", enCardData, "s3_key IS NOT NULL", "the reader must publish only rows self-hosted on our host (s3_key present)");
   requireText(8, "official image reader", enCardData, "takedown_status = 'clear'", "a disputed or removed row must never publish");
@@ -429,11 +433,24 @@ function auditLegacyPublicationLocks(): void {
     forbidText(8, "quarantine detail", quarantine, forbidden, `status-only quarantine route must not contain '${forbidden}'`);
   }
 
+  // New order admission is retired outright. It no longer reaches the legacy
+  // catalog guard or authentication; pin its immediate status-only response.
+  const retiredOrdersPath = "apps/wholesale/src/app/api/orders/route.ts";
+  const retiredOrders = source(retiredOrdersPath);
+  requireText(8, retiredOrdersPath, retiredOrders, "export async function POST() {\n  return NextResponse.json(newOrdersRetiredResult(), {", "retired order admission must return before parsing or other work");
+  requireText(8, retiredOrdersPath, retiredOrders, "status: NEW_ORDERS_RETIRED_STATUS", "retired order admission must use its fixed retirement status");
+  requireText(8, retiredOrdersPath, retiredOrders, '"Cache-Control": "no-store"', "retired order admission must remain uncached");
+  for (const forbidden of ['from "@/lib/auth"', 'from "@/lib/db"', 'from "@/lib/email/', "await ", "fetch(", "req.", "request."]) {
+    forbidText(8, retiredOrdersPath, retiredOrders, forbidden, `retired order admission must not contain '${forbidden}'`);
+  }
+  const retirementPolicy = source("apps/wholesale/src/lib/commercial-retirement.ts");
+  requireText(8, "wholesale retirement policy", retirementPolicy, "NEW_ORDERS_RETIRED_STATUS = 410", "new order admission must remain retired with HTTP 410");
+  requireText(8, "wholesale retirement policy", retirementPolicy, 'code: "NEW_ORDERS_RETIRED"', "retired order admission must preserve its explicit response code");
+
   for (const [path, firstWork] of [
     ["apps/wholesale/src/app/api/cards/route.ts", "const session = await auth()"],
     ["apps/wholesale/src/app/api/cart/route.ts", "const session = await auth()"],
     ["apps/wholesale/src/app/api/cart/refresh/route.ts", "const session = await auth()"],
-    ["apps/wholesale/src/app/api/orders/route.ts", "const session = await auth()"],
     ["apps/wholesale/src/app/api/cron/shopify-sync/route.ts", "requireCronAuth(req)"],
     ["apps/wholesale/src/app/api/admin/shopify-sync/route.ts", "const session = await auth()"],
     ["apps/wholesale/src/app/api/cron/rebuild-buylist/route.ts", "requireCronAuth(req)"],
@@ -671,7 +688,7 @@ async function main(): Promise<void> {
     console.log("ok - sold comps remain paused and off participant data");
     console.log("ok - the bulk catalog does not mistake storage for ownership");
     console.log("ok - blocked acquisition paths cannot reopen through tools or audits");
-    console.log("ok - legacy prices and images remain withheld from public projections");
+    console.log("ok - reviewed legacy wholesale projections retain their price/image locks; catalog photo fallback has a separate display rule");
     console.log("ok - official card images publish only self-hosted (s3_key), takedown-clear, and attributed - never a publisher url");
     console.log("ok - live FX paths use attributed ECB statistics");
     console.log("ok - participant note storage and publication remain disabled");

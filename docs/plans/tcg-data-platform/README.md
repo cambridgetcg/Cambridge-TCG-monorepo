@@ -18,7 +18,7 @@ continues to cover the wider pages and room structure.
 | Area | Implemented foundation | Remaining gap |
 | --- | --- | --- |
 | Identity | [SKU package](../../../packages/sku/src/index.ts): syntax, game registry, normalization and raw/canonical identity. Public validation and bounded catalog lookup exist. | Syntax validity does not establish an exact printing or provider-product match. Preserve raw lookup keys and add evidence-backed crosswalks. |
-| Images | [English card helper](../../../apps/storefront/src/lib/cards/en-card-data.ts) and [universal card projection](../../../apps/storefront/src/lib/universal/card.ts) can expose attributed English publisher images under an existing local publication rule. | The helper strips requested language and variant to derive an English base key. Other paths withhold images. Reconcile policy and distinguish exact-printing images from related reference illustrations. |
+| Images | [English card helper](../../../apps/storefront/src/lib/cards/en-card-data.ts) applies a shared official-image projection and carries reference metadata into its consumers. The lookup still derives an English base key. | Consolidate independent gallery/artist/play readers, review legacy catalogue fallbacks, and verify removal across objects and caches. Reference metadata does not establish an exact printing. |
 | Prices | [Observation types](../../../packages/data-spec/src/price-observation.ts), [schemas](../../../packages/data-spec/src/schemas/price-observation.ts), source parsers, a transactional writer and a bounded [member feed](../../../apps/storefront/src/lib/prices/member-feed.ts) exist. | Source admission and imports determine availability. Member access does not establish permission for public redistribution. |
 | Market | Existing order books, account records and settlement services; [publication controls](../../../apps/storefront/src/lib/market/publication.ts) pause completed-sale and private-interest derivatives. | There is no unified, qualified market feed. New paid commerce remains retired; existing obligations retain their lifecycle. |
 | Agents | [Discover / Read / Contribute entrance](../../../apps/storefront/src/app/agents/page.tsx), manifest, OpenAPI, contract descriptor, tool catalog and authenticated dispatcher. | Broader contribution workflows, independently distributed clients and conformance tooling remain planned. |
@@ -46,19 +46,26 @@ flowchart LR
   I --> F
 ```
 
-### P0 — Reconcile the foundations (`baseline`, next)
+### P0 — Reconcile the foundations (`baseline`, in progress)
 
 Inventory each public, member and agent projection and reconcile its image,
 text and price release policy. Record acquisition, storage, display, API and
 download permissions separately, with their evidence and review version.
 
-Image reconciliation is first: `getEnCardData()` currently derives a related
-English base record, while universal output exposes `image_url`. Define how a
-consumer can distinguish an exact requested printing from a reference image.
-Reconcile the [current image policy](../../../apps/storefront/src/app/legal/card-images/page.tsx),
-stored publication evidence and every reader before widening release. Hosting
-an image ourselves, attaching credit or setting `takedown_status='clear'` does
-not independently establish permission to redistribute it.
+The first image step keeps the existing English base lookup, validates official
+image metadata and adds an explicit reference relationship to its single/batch
+consumers. It makes no exact-printing claim. The
+[image architecture](../../architecture/card-image-references.md) records its
+bounded scope and remaining readers.
+
+The [decision chronology](../../EN-CARD-DATA.md) matters: the 13 July image
+decision was followed that day by an attributed-text/attributes decision, and
+the 16 July market change intentionally retained catalogue-photo fallback.
+Older “text withheld” and “all publication paused” prose is not the latest
+recorded owner intent. Existing text remains; automated Bandai ingestion stays
+paused. Catalogue fallbacks are labelled unverified, and gallery/artist/play
+readers and cache/object removal still need reconciliation. Hosting, attribution
+or a clear database flag does not independently establish redistribution rights.
 
 **Ready when:** the same fixture receives consistent field-level decisions
 through human and API paths; unknown rights stay withheld; attribution remains
@@ -80,7 +87,7 @@ remain independently inspectable without acquiring a guessed SKU.
 
 ### P2 — Connect images and prices (`observations`, planned)
 
-Add one image contract carrying requested and depicted identity, exact/reference
+Extend the bounded image-reference contract to carry requested and depicted identity, exact/reference
 relationship, face, language, source, credit, allowed uses, dimensions, checksum
 and removal status. Reuse the current native-price contract rather than create
 an incompatible second amount representation.

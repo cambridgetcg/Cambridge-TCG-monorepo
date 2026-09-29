@@ -27,6 +27,7 @@ import { fragmentForRequest } from "@/lib/wake-fragments";
 import { MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION_SCHEMA, META_SCHEMA } from "@cambridge-tcg/data-spec";
 import { SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
 import { PUBLIC_SCHEMAS } from "@/lib/contracts/schemas";
+import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 
 const SPEC = {
   openapi: "3.1.0",
@@ -64,6 +65,7 @@ const SPEC = {
     { name: "culture", description: "Rights-aware cultural exchange with sovereign sibling systems." },
     { name: "introduction", description: "On-ramp for beings not native to the TCG tradition (#22)." },
     { name: "identity", description: "Cross-language and cross-source identity contracts (oracle policies, federation anchors)." },
+    { name: "images", description: "English base-image references with syntax-only identity scope; no exact-printing or publication-rights verification." },
     { name: "hospitality", description: "The typed corpus of welcomes — every kind of arrival has a named slot, prepared before they declare themselves (kingdom-083)." },
     { name: "substrate-honesty", description: "The gap ledger — every place where the platform's data, code, or coverage is incomplete, named with citation and lifecycle status (kingdom-084)." },
     { name: "prices", description: "Curated price-guide tree — JSON siblings of the /prices/* HTML pages." },
@@ -85,10 +87,10 @@ const SPEC = {
     },
     "/api/v1/contracts/card-data": {
       get: {
-        tags: ["identity", "prices"], operationId: "getCardDataContract",
-        summary: "SKU identity and native price contracts",
-        description: "Static contract descriptor with normalization rules, compatibility units and embedded JSON Schemas. No catalog query or source-price publication. Human guide: /standards/card-data.",
-        security: [], responses: { "200": { description: "Pantry envelope; data contains identity, prices and schemas.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } } },
+        tags: ["identity", "images", "prices"], operationId: "getCardDataContract",
+        summary: "SKU identity, English image-reference and native price contracts",
+        description: "Static contract descriptor with normalization rules, syntax-only English base-image relationships, compatibility units and embedded JSON Schemas. The image shape is implemented for One Piece and Fusion World references, not a complete cross-source image or rights record. No catalog/provider query, exact-printing verification or source-price publication. Human guide: /standards/card-data.",
+        security: [], responses: { "200": { description: "Pantry envelope; data contains identity, images, prices and schemas.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } } },
       },
     },
     "/api/v1/rooms": {
@@ -229,7 +231,7 @@ const SPEC = {
       get: {
         tags: ["universal"],
         summary: "Math-mirror card representation",
-        description: "Returns a mixed structural card document with cryptographic hashes, ISO 8601 + Unix epoch time, and typed graph edges. Reads structural card/set records only; legacy source-derived price and image values are withheld as null. Aggregate rights are NOASSERTION. See /methodology/universal-representation.",
+        description: "Returns a mixed card document with cryptographic hashes, ISO 8601 + Unix epoch time and typed graph edges. Legacy catalog prices and images stay withheld. Normal/saturated density can include eligible self-hosted English reference images with attribution and syntax-only image_reference, independently attributed effect text and structured details. Sparse omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. See /standards/card-data and /methodology/universal-representation.",
         operationId: "getUniversalCard",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Storefront catalog SKU (e.g. OP01-001)." },
@@ -1210,6 +1212,7 @@ const SPEC = {
     },
     schemas: {
       SkuIdentity: SKU_IDENTITY_SCHEMA,
+      ImageReference: IMAGE_REFERENCE_SCHEMA,
       Money: MONEY_SCHEMA,
       NativePriceObservation: NATIVE_PRICE_OBSERVATION_SCHEMA,
       MemberPriceObservation: MEMBER_PRICE_OBSERVATION_SCHEMA,
@@ -1434,7 +1437,9 @@ const SPEC = {
               in_set: { type: ["object", "null"] },
               of_game: { type: ["object", "null"] },
               name: { type: ["object", "null"] },
-              image_url: { type: "null" },
+              image_url: { type: ["string", "null"], format: "uri", description: "Eligible self-hosted English reference image; nullable in normal/saturated density, omitted at sparse density. Carries attribution and image_reference together; never an exact-printing assertion." },
+              image_attribution: { type: ["string", "null"], description: "Copyright caption accompanying the English reference image. No downstream reuse permission is implied." },
+              image_reference: { anyOf: [{ $ref: "#/components/schemas/ImageReference" }, { type: "null" }], description: "Syntax-only relationship to the selected English base-image row; omitted with the URL and attribution at sparse density." },
               publication_boundary: { type: "object" },
             },
           },

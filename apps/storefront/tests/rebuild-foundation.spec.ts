@@ -16,7 +16,8 @@ for (const width of [320, 1440]) {
     await page.getByRole("link", { name: "Where is the card number?", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("The same card. A different copy.");
     await page.getByRole("link", { name: "Read the data contract", exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("SKU & price contracts");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("SKU, image & price contracts");
+    await expect(page.getByRole("heading", { name: "English reference images", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const contract = await (await request.get("/api/v1/contracts/card-data")).json();
     expect(contract.data.identity.scope).toBe("syntax_only");
@@ -24,6 +25,12 @@ for (const width of [320, 1440]) {
     const schema = await request.get(schemaUrl);
     expect(schema.ok()).toBe(true);
     expect((await schema.json()).properties.unit.const).toBe("major");
+    const imageSchema = await request.get(new URL(contract.data.schemas.image_reference.$id).pathname);
+    expect(imageSchema.ok()).toBe(true);
+    expect((await imageSchema.json()).properties.relationship.const).toBe("reference");
+    expect(contract.data.images.english_base_reference.example).toMatchObject({
+      requested_sku: "OP-OP01-001-JP-V11DZ", depicted_sku: "OP-OP01-001-EN", scope: "syntax_only",
+    });
     await page.goto("/map");
     const directory = await (await request.get("/api/v1/rooms")).json();
     for (const room of directory.data.rooms) {

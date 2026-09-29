@@ -21,7 +21,7 @@ export const PUBLIC_REFERENCES: readonly PublicReference[] = [
   { path: "/roadmap", title: "TCG data integration roadmap", lastModified: "2026-09-29" },
   { path: "/services", title: "Card prices and collector tools", lastModified: "2026-09-29" },
   { path: "/map", title: "Rooms and reading trails", lastModified: "2026-09-29" },
-  { path: "/standards/card-data", title: "SKU & price contracts", lastModified: "2026-09-29" },
+  { path: "/standards/card-data", title: "SKU, image & price contracts", lastModified: "2026-09-29" },
   { path: "/guides/read-a-card", title: "Read a card, one detail at a time", lastModified: "2026-09-29" },
   { path: "/standards", title: "Public specifications" },
   { path: "/glossary", title: "Platform vocabulary" },

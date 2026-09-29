@@ -14,9 +14,10 @@ the storefront implementation that presents those foundations.
 |---|---|---|
 | Data foundation | Shared SKU identity, strict game-specific search, native price/money schemas, core response validation and safer pricing inputs | Migrate other legacy consumers; validate real source availability separately |
 | Contract discovery | Human guide, contract JSON, resolvable raw schemas, OpenAPI and manifest links | Wider endpoint-specific schema coverage |
+| Image references | Shared single/batch official-media checks, explicit requested/depicted SKU contract, market/universal metadata and human captions | Independent artist/play readers, legacy-photo evidence and object/cache removal |
 | Content structure | Eight typed room records, reviewed page links including standards and roadmap, three reasoned trails, explicit safe public projection | Complete each room's page rebuild and content review |
 | Front door | Data-platform purpose, native card search, warm ivory/plum/mandarin design, credited portrait, collector shortcuts and separate agent entry | Review remaining card-detail and personal task flows |
-| Platform direction | Shared authored foundation/stage records, human roadmap and static roadmap API; standards page and JSON share one registry | Milestones remain planned; image-policy reconciliation and public-release verification precede broader integration |
+| Platform direction | Shared authored foundation/stage records, human roadmap and static roadmap API; standards page and JSON share one registry | P0 is in progress; remaining image-policy reconciliation and public-release verification precede broader integration |
 | Services | Shared human task catalog for pricing, retained history, collection, condition notes and permitted downloads | Backing service availability remains source/account dependent |
 | Map | Visitor room map and matching public JSON directory; reading trails in a disclosure | Further room content as its pages migrate |
 | Reading | Original guide separating card identity, printing, physical copy and price observation | More sourced, attributed readings |
@@ -62,3 +63,5 @@ The [collector's desk refresh](../../operations/2026-09-29-visual-refresh.md)
 records the subsequent color, art and shared-interface replacement.
 The [data-platform entry verification](../../operations/2026-09-29-data-platform.md)
 records the shared roadmap, standards registry, discovery wiring and access checks.
+The [image-reference verification](../../operations/2026-09-29-image-references.md)
+records the shared image projection, schema, consumer labels and remaining scope.

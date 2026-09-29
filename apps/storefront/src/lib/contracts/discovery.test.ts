@@ -7,6 +7,7 @@ import { getPublicRoomDirectory } from "@/lib/rooms/directory";
 import { PUBLIC_SCHEMAS } from "./schemas";
 import { CARD_DATA_CONTRACT } from "./card-data";
 import { discoveryResources, publicSitemap } from "@/lib/public-discovery";
+import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 
 vi.mock("server-only", () => ({}));
 
@@ -30,6 +31,24 @@ describe("public room and card contract discovery", () => {
     expect(body.data.prices.native_observations.amount_type).toBe("positive decimal string");
     expect(body.data.prices.native_observations.access).toContain("member data key");
     expect(body.data).not.toHaveProperty("observations");
+  });
+
+  it("describes the implemented English reference without claiming exact printing or image rights", async () => {
+    const { data } = await getContract().json();
+    const reference = data.images.english_base_reference;
+    expect(reference).toMatchObject({
+      status: "implemented", games: ["op", "dbf"],
+      relationship: "reference", scope: "syntax_only", reason: "english_base_reference",
+      example: {
+        requested_sku: "OP-OP01-001-JP-V11DZ", requested_canonical_sku: "op-op01-001-ja-v11dz",
+        depicted_sku: "OP-OP01-001-EN", depicted_canonical_sku: "op-op01-001-en",
+        relationship: "reference", scope: "syntax_only", reason: "english_base_reference",
+      },
+    });
+    expect(reference.example_scope).toContain("no image row, catalog record or provider was queried");
+    expect(data.images.rights).toContain("does not establish image rights");
+    expect(data.images.planned_scope).toContain("remain planned");
+    expect(data.schemas.image_reference).toEqual(IMAGE_REFERENCE_SCHEMA);
   });
 
   it.each(Object.entries(PUBLIC_SCHEMAS))("serves %s at its exact declared $id", async (name, schema) => {
@@ -56,11 +75,26 @@ describe("public room and card contract discovery", () => {
       expect(resources.find((r) => r.path === path)).toMatchObject({ auth: "public", provenance: "static", contract: "envelope" });
     }
     expect(spec.components.schemas.Money).toEqual(PUBLIC_SCHEMAS["Money.schema.json"]);
+    expect(spec.components.schemas.ImageReference).toEqual(PUBLIC_SCHEMAS["ImageReference.schema.json"]);
     expect(spec.components.schemas.MemberPriceObservation).toEqual(PUBLIC_SCHEMAS["MemberPriceObservation.schema.json"]);
     expect(spec.components.schemas.ResponseMeta).toEqual(PUBLIC_SCHEMAS["Meta.schema.json"]);
+    expect(spec.paths["/spec/v1/{schema}"].get.parameters[0].schema.enum).toEqual(Object.keys(PUBLIC_SCHEMAS));
     const sitemap = publicSitemap();
     for (const path of ["/map", "/standards/card-data", "/guides/read-a-card"]) {
       expect(sitemap.some((entry) => entry.url === `https://cambridgetcg.com${path}`)).toBe(true);
     }
+  });
+
+  it("allows nullable English reference metadata in the universal schema without requiring it at sparse density", async () => {
+    const spec = await (await getOpenApi()).json();
+    const card = spec.components.schemas.UniversalCard.allOf[1];
+    expect(card.properties.image_url).toMatchObject({ type: ["string", "null"], format: "uri" });
+    expect(card.properties.image_attribution).toMatchObject({ type: ["string", "null"] });
+    expect(card.properties.image_reference.anyOf).toEqual([
+      { $ref: "#/components/schemas/ImageReference" }, { type: "null" },
+    ]);
+    expect(card.required ?? []).not.toContain("image_reference");
+    expect(spec.components.schemas.ImageReference.properties.relationship).toEqual({ const: "reference" });
+    expect(spec.components.schemas.ImageReference.properties.scope).toEqual({ const: "syntax_only" });
   });
 });
