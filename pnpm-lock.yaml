@@ -489,10 +489,10 @@ importers:
         version: 16.2.11(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-auth:
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(next@16.2.11(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(nodemailer@8.0.11)(react@19.2.4)
+        version: 5.0.0-beta.32(next@16.2.11(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(nodemailer@9.1.0)(react@19.2.4)
       nodemailer:
-        specifier: ^8.0.11
-        version: 8.0.11
+        specifier: 9.1.0
+        version: 9.1.0
       pg:
         specifier: ^8.20.0
         version: 8.20.0
@@ -760,8 +760,8 @@ importers:
         specifier: workspace:^
         version: link:../aws
       nodemailer:
-        specifier: ^8.0.11
-        version: 8.0.11
+        specifier: 9.1.0
+        version: 9.1.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -8758,6 +8758,10 @@ packages:
     resolution: {integrity: sha512-nrO/pDAUKl+wXX+lx16tDLbnm0fW6sK/x8mgohaCpg+CdCEl482bD4tCuAZk2DyliruiNTIZxRCoWkDqJEnAiA==}
     engines: {node: '>=6.0.0'}
 
+  nodemailer@9.1.0:
+    resolution: {integrity: sha512-xj1Ri5Sau3qpPffHJwi2bY0oWVVWYq62Ph17l+2v1xXpxjqTls3YPc3L8dub9mcJpxj+1ucNnuYVqLlgh4pmDA==}
+    engines: {node: '>=6.0.0'}
+
   normalize-package-data@5.0.0:
     resolution: {integrity: sha512-h9iPVIfrVZ9wVYQnxFgtw1ugSvGEMOlyPWWtm8BMJhnwyEL/FLbYbTY3V3PpjI/BUK67n9PEWDu6eHzu1fB15Q==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
@@ -11079,6 +11083,16 @@ snapshots:
       preact-render-to-string: 6.5.11(preact@10.24.3)
     optionalDependencies:
       nodemailer: 8.0.11
+
+  '@auth/core@0.41.3(nodemailer@9.1.0)':
+    dependencies:
+      '@panva/hkdf': 1.2.1
+      jose: 6.2.3
+      oauth4webapi: 3.8.6
+      preact: 10.24.3
+      preact-render-to-string: 6.5.11(preact@10.24.3)
+    optionalDependencies:
+      nodemailer: 9.1.0
 
   '@aws-crypto/crc32@3.0.0':
     dependencies:
@@ -20678,13 +20692,13 @@ snapshots:
     optionalDependencies:
       nodemailer: 8.0.11
 
-  next-auth@5.0.0-beta.32(next@16.2.11(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(nodemailer@8.0.11)(react@19.2.4):
+  next-auth@5.0.0-beta.32(next@16.2.11(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(nodemailer@9.1.0)(react@19.2.4):
     dependencies:
-      '@auth/core': 0.41.3(nodemailer@8.0.11)
+      '@auth/core': 0.41.3(nodemailer@9.1.0)
       next: 16.2.11(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
     optionalDependencies:
-      nodemailer: 8.0.11
+      nodemailer: 9.1.0
 
   next@15.5.23(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
@@ -20821,7 +20835,10 @@ snapshots:
 
   node-releases@2.0.38: {}
 
-  nodemailer@8.0.11: {}
+  nodemailer@8.0.11:
+    optional: true
+
+  nodemailer@9.1.0: {}
 
   normalize-package-data@5.0.0:
     dependencies:
