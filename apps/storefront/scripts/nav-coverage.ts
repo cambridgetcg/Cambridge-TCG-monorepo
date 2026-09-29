@@ -541,7 +541,7 @@ function main() {
       seen.add(href);
       hrefCount++;
       if (isHrefAllowed(href)) continue;
-      if (handlerSet.has(href)) continue;
+      if (resolvesToRoute(href, handlerSet, handlerRoutes)) continue;
       if (resolvesToRoute(href, routeSet, routes)) continue;
       if (KNOWN_BROKEN_HREFS.some((k) => k.file === relFile && k.href === href)) continue;
       hrefViolations.push({ file: relFile, href });

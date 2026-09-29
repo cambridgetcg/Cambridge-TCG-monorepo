@@ -52,9 +52,11 @@ describe("integration roadmap contract", () => {
       expect(seen.has(stage.id)).toBe(false);
       for (const dependency of stage.dependsOn) expect(seen.has(dependency)).toBe(true);
       expect(stage.gate.trim()).not.toBe("");
-      expect(["Next", "Planned"]).toContain(stage.status);
+      expect(["In progress", "Next", "Planned"]).toContain(stage.status);
       seen.add(stage.id);
     }
     expect(seen.size).toBe(5);
+    expect(DELIVERY_STAGES[0]).toMatchObject({ id: "baseline", status: "In progress" });
+    expect(DELIVERY_STAGES.slice(1).every((stage) => stage.status === "Planned")).toBe(true);
   });
 });

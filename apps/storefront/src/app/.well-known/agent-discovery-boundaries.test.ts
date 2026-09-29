@@ -112,35 +112,30 @@ describe("optional agent source resources", () => {
     expect(JSON.stringify(body.posted_alongside)).not.toContain("kingdom-os-starter");
   });
 
-  it("renders matching HTML after siblings with only ordinary external source anchors", async () => {
+  it("keeps optional culture behind a disclosure after practical API tasks", async () => {
     const html = renderToStaticMarkup(await AgentsWelcomePage());
-    const section = html.match(/<section[^>]*aria-labelledby="optional-source-heading"[\s\S]*?<\/section>/)?.[0];
-    expect(section).toBeDefined();
-    expect(html.indexOf('aria-labelledby="optional-source-heading"')).toBeGreaterThan(
-      html.indexOf("Suggested reading once you reach agenttool"),
+    const disclosure = html.match(/<details[^>]*><summary[^>]*>Optional culture and invitations<\/summary>[\s\S]*?<\/details>/)?.[0];
+    expect(disclosure).toBeDefined();
+    expect(disclosure).not.toMatch(/<details[^>]*\bopen\b/);
+    expect(html.indexOf("Optional culture and invitations")).toBeGreaterThan(
+      html.indexOf('aria-labelledby="agent-build"'),
     );
-    for (const resource of OPTIONAL_AGENT_RESOURCES) {
-      expect(section).toContain(`data-resource-id="${resource.id}"`);
-      expect(section).toContain(`data-resource-kind="${resource.kind}"`);
-      expect(section).toContain(`data-optional="${resource.optional}"`);
-      expect(section).toContain(resource.title);
-      expect(section).toContain(resource.description);
-      for (const url of [resource.repository_url, resource.release_descriptor_url]) {
-        expect(section).toContain(`<a href="${url}" rel="noopener noreferrer"`);
-      }
+    for (const href of ["/culture", "/welcome-all"]) {
+      expect(disclosure).toContain(`href="${href}"`);
     }
-    expect(section).toContain("take a look, or walk past");
-    expect(section).toContain("Reading or extracting the starter starts nothing");
-    expect(section).toContain("Cambridge and GitHub may keep ordinary infrastructure logs");
-    expect(section?.match(/<a\s/g)).toHaveLength(2);
-    expect(section).not.toMatch(/<(?:script|link|iframe|img|form|button)\b|\s(?:download|ping|on\w+)=/i);
+    expect(disclosure).toContain("Reading them, choosing a name or making a declaration is optional and grants no account permissions.");
+    expect(disclosure?.match(/<a\s/g)).toHaveLength(2);
+    expect(disclosure).not.toMatch(/<(?:script|link|iframe|img|form|button)\b|\s(?:download|ping|on\w+)=/i);
   });
 
-  it("keeps the invitation server-rendered without fetching, prefetching or client state", () => {
-    const page = readFileSync(resolve(process.cwd(), "src/app/agents/page.tsx"), "utf8");
-    const section = page.match(/<section[^>]*aria-labelledby="optional-source-heading"[\s\S]*?<\/section>/)?.[0];
-    expect(section).toBeDefined();
-    expect(section).not.toMatch(/<Link\b|prefetch|onClick|useState|useEffect|fetch\s*\(/);
+  it("keeps optional source pointers in server-generated discovery without loading the offered source", async () => {
+    const html = renderToStaticMarkup(await AgentsWelcomePage());
+    // The simplified task entry no longer duplicates the optional source offer.
+    // Its structured records remain covered above and do not load that source.
+    for (const resource of OPTIONAL_AGENT_RESOURCES) {
+      expect(html).not.toContain(resource.repository_url);
+      expect(html).not.toContain(resource.release_descriptor_url);
+    }
     for (const path of [
       "src/app/agents/page.tsx",
       "src/app/.well-known/cambridge-tcg.json/route.ts",

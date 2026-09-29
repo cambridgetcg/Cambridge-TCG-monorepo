@@ -14,6 +14,13 @@ to distinguish implemented behavior from planned integration.
 [CLAUDE.md](../../CLAUDE.md) points Claude sessions to it. App guides add local
 conventions; the optional ignored HERE.md describes one machine's worktrees.
 
+`pnpm audit:agent` checks repository structure and script wiring. It warns when
+the dated `docs/state.md` snapshot is over seven days old; it does not refresh
+that record or prove service health. For operational work that requires a
+recent snapshot, use `pnpm agent-readiness -- --require-fresh-state`; the same
+age then fails the check. Regenerate snapshots only when the task owns that
+operational update.
+
 | Need | Read |
 | --- | --- |
 | Scope and relevant checks | [Agent instructions](../../AGENTS.md) |

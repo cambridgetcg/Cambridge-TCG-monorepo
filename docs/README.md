@@ -32,6 +32,7 @@ API clients.
 Read each runbook's prerequisites and scope before acting. Configuration descriptions and old verification results do not prove current service health.
 
 - [Deployment and infrastructure](./ops-deploy-runbook.md) — project wiring and deployment procedure.
+- [September 29 release qualification](./operations/2026-09-29-release.md) — publication scope, native-price consistency, mail dependency patch and verification limits.
 - [Credential-dependent verification](./ops-credential-verification.md) — scoped verification and what its evidence labels mean.
 - [Entry and module map verification](./operations/2026-09-28-entry-verification.md) — September 28 local build, navigation, browser and documentation checks.
 - [Data-platform entry verification](./operations/2026-09-29-data-platform.md) — September 29 shared roadmap, standards, agent access and responsive checks.

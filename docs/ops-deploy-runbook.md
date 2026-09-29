@@ -15,14 +15,24 @@
 - **Install command:** `pnpm install`
 - **Root directory (per project):** `apps/<name>`
 
-**Two git remotes are configured by convention:**
+**Remote names are local configuration.** In the active `cambridgetcg` worktree,
+verified on 2026-09-29:
 
 ```
-github → https://github.com/cambridgetcg/Cambridge-TCG-monorepo.git  (deploy target — Vercel watches this)
-origin → https://codeberg.org/zerone-dev/Cambridge-TCG.git           (mirror)
+origin   → https://github.com/cambridgetcg/Cambridge-TCG-monorepo.git  (deploy source)
+codeberg → https://codeberg.org/zerone-dev/Cambridge-TCG.git           (mirror)
 ```
 
-**Push to `github main` triggers Vercel.** Pushes to `origin` (Codeberg) don't deploy.
+**Push to the GitHub remote's `main` triggers linked Vercel projects.** In this
+worktree that is `git push origin HEAD:main`. Older examples below use `github`
+for GitHub and `origin` for Codeberg; substitute the actual configured names.
+Do not create duplicate aliases just to match an older example. A Codeberg
+push does not deploy.
+
+The storefront project was verified linked to this repository's `main` at
+`apps/storefront` with Node 24. Wholesale's project currently has no Git link;
+do not assume a GitHub push deploys it. A manual wholesale promotion is a
+separate target and needs its own release comparison and verification.
 
 ## Local Vercel CLI + API access
 
@@ -227,6 +237,11 @@ pnpm audit:deploy-verify
 `pnpm audit:deploy-verify` is the canonical post-deploy gate. Run it
 after every promotion to production. Its exit code is the deploy's
 green-light signal.
+
+The classifier in `apps/storefront/scripts/deploy-verify-contract.ts` also
+accepts specifically declared paused-service responses, including exact
+503 contracts. It does not treat arbitrary 5xx responses as healthy. The
+script probes without account cookies or credentials; keep that boundary.
 
 If any probe returns 404, either the deploy is still propagating
 (wait 30s + retry) or the deploy aliased a different commit than

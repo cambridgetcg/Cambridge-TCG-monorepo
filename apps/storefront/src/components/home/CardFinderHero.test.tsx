@@ -10,11 +10,11 @@ const games: GameItem[] = [
 ];
 
 const voices = [
-  { lang: "en", title: "Find a card", game: "Game", query: "Card number", submit: "Find →", details: "Card details, variants and source status.", anonymous: "No account needed to search.", boundary: "Some prices are withheld.", excluded: /Find any card|transaction history|every source|every language|all prices require/i },
-  { lang: "ja", title: "カードをさがす", game: "ゲーム", query: "カード番号", submit: "さがす →", details: "カードの情報、別版、出どころの公開状況", anonymous: "アカウントは要りません。", boundary: "表示できない価格もあります。", excluded: /やり取りの記録|どの言語の版も/ },
-  { lang: "zh-Hant", title: "找卡", game: "遊戲", query: "卡號", submit: "找卡 →", details: "查卡片資料、版本和來源公開狀況。", anonymous: "找卡不用帳戶", boundary: "有些價格不公開。", excluded: /買賣紀錄|每一個來源|每一種語言/ },
-  { lang: "zh-Hans", title: "找卡", game: "游戏", query: "卡牌编号", submit: "找 →", details: "查卡牌信息、版本和来源公开状态。", anonymous: "找卡不需要账号", boundary: "有些价格不予显示。", excluded: /任何一张卡，都找得到|成交记录|每一个来源|每一种语言/ },
-  { lang: "es", title: "Encuentra una carta", game: "Juego", query: "Número de carta", submit: "Buscar →", details: "Datos, variantes y estado de las fuentes.", anonymous: "Busca sin cuenta.", boundary: "Algunos precios no se muestran.", excluded: /cualquier carta|historial de compras y ventas|cada idioma/ },
+  { lang: "en", title: "Find a card", game: "Game", query: "Card number", submit: "Find →", anonymous: "No account needed to search.", boundary: "Some prices are withheld.", excluded: /Find any card|transaction history|every source|every language|all prices require/i },
+  { lang: "ja", title: "カードをさがす", game: "ゲーム", query: "カード番号", submit: "さがす →", anonymous: "アカウントは要りません。", boundary: "表示できない価格もあります。", excluded: /やり取りの記録|どの言語の版も/ },
+  { lang: "zh-Hant", title: "找卡", game: "遊戲", query: "卡號", submit: "找卡 →", anonymous: "找卡不用帳戶", boundary: "有些價格不公開。", excluded: /買賣紀錄|每一個來源|每一種語言/ },
+  { lang: "zh-Hans", title: "找卡", game: "游戏", query: "卡牌编号", submit: "找 →", anonymous: "找卡不需要账号", boundary: "有些价格不予显示。", excluded: /任何一张卡，都找得到|成交记录|每一个来源|每一种语言/ },
+  { lang: "es", title: "Encuentra una carta", game: "Juego", query: "Número de carta", submit: "Buscar →", anonymous: "Busca sin cuenta.", boundary: "Algunos precios no se muestran.", excluded: /cualquier carta|historial de compras y ventas|cada idioma/ },
 ] as const;
 
 describe.each(voices)("CardFinderHero — $lang", (voice) => {
@@ -39,11 +39,11 @@ describe.each(voices)("CardFinderHero — $lang", (voice) => {
     expect(form).not.toMatch(/\b(?:onSubmit|onChange|formAction|formMethod|noValidate)=/i);
   });
 
-  it("promises supported details and names price boundaries in this voice", () => {
+  it("names anonymous search access and price boundaries in this voice", () => {
     const markup = renderToStaticMarkup(<CardFinderHero games={games} uiLang={voice.lang} />);
     expect(markup).toContain(`aria-label="${voice.title}"`);
     expect(markup).toMatch(new RegExp(`<h2[^>]*>${voice.title}</h2>`));
-    for (const text of [voice.details, voice.anonymous, voice.boundary]) {
+    for (const text of [voice.anonymous, voice.boundary]) {
       expect(markup).toContain(text);
     }
     expect(markup).not.toMatch(voice.excluded);
