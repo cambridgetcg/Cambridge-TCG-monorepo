@@ -24,6 +24,9 @@
 
 import { NextResponse } from "next/server";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+import { MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION_SCHEMA, META_SCHEMA } from "@cambridge-tcg/data-spec";
+import { SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
+import { PUBLIC_SCHEMAS } from "@/lib/contracts/schemas";
 
 const SPEC = {
   openapi: "3.1.0",
@@ -72,6 +75,30 @@ const SPEC = {
     { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
   ],
   paths: {
+    "/api/v1/contracts/card-data": {
+      get: {
+        tags: ["identity", "prices"], operationId: "getCardDataContract",
+        summary: "SKU identity and native price contracts",
+        description: "Static contract descriptor with normalization rules, compatibility units and embedded JSON Schemas. No catalog query or source-price publication. Human guide: /standards/card-data.",
+        security: [], responses: { "200": { description: "Pantry envelope; data contains identity, prices and schemas.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } } },
+      },
+    },
+    "/api/v1/rooms": {
+      get: {
+        tags: ["discovery"], operationId: "getRoomDirectory",
+        summary: "Curated room map and reading trails",
+        description: "Safe editorial projection shared with /map; schema cambridgetcg.rooms/1. Contains public entrances and labelled sign-in links, never account record IDs or operator details. Access labels are descriptive, not authorization or health claims.",
+        security: [], responses: { "200": { description: "Pantry envelope; data contains rooms and trails.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } } },
+      },
+    },
+    "/spec/v1/{schema}": {
+      get: {
+        tags: ["discovery"], operationId: "getPublicDataSchema",
+        summary: "Raw JSON Schema at its declared identifier",
+        parameters: [{ name: "schema", in: "path", required: true, schema: { type: "string", enum: Object.keys(PUBLIC_SCHEMAS) } }],
+        security: [], responses: { "200": { description: "Raw Draft 2020-12 JSON Schema, without a pantry envelope.", content: { "application/schema+json": { schema: { type: "object" } } } }, "404": { description: "Unknown schema name." } },
+      },
+    },
     "/api/v1/identifiers/validate": {
       post: {
         tags: ["identity"],
@@ -562,7 +589,7 @@ const SPEC = {
       get: {
         tags: ["search"],
         summary: "Resolve (game, query) to canonical SKU candidates",
-        description: "The resolver half of kingdom-090. Turns (game, query) into SKU candidates with confidence labels (exact | fuzzy), sorted exact-first. Query shapes: 'OP01-001' (set+number), '001' (number alone; fuzzy), full canonical SKU. Pantry envelope.",
+        description: "Resolve within the selected registered game. Query shapes: set+number, number alone, card name or full SKU. Each match preserves stored sku and adds syntax-only normalized identity. lookup.limit/truncated describe bounded candidate retrieval; summary ambiguity concerns distinct set/number groups, not uniqueness of a printing. Unrelated/cross-game rows are excluded; source failure is distinct from an empty result.",
         operationId: "searchCards",
         parameters: [
           { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug (e.g. 'op', 'optcg')." },
@@ -572,6 +599,7 @@ const SPEC = {
         responses: {
           "200": { description: "Matches + summary with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
           "400": { description: "Missing/invalid game or q.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Catalog source unavailable; not a successful empty lookup." },
         },
       },
     },
@@ -579,16 +607,17 @@ const SPEC = {
       get: {
         tags: ["search"],
         summary: "Resolver + composer in one round-trip",
-        description: "Combines /api/v1/search/cards and /api/v1/cards/[sku]/everything. When the match is exact and unambiguous, data.everything carries the full composer payload; ambiguous or fuzzy input returns data.matches for disambiguation (everything null). Zero matches is a substrate-honest 200, not a 404.",
+        description: "Combines search and composition only when candidate lookup is complete and exactly one exact printing remains after the optional normalized language filter. Multiple variants, unavailable requested language, fuzzy matches or truncated lookup retain choices with folded_sku/everything null. A successful empty lookup is 200; source unavailability is 503. Matches add syntax-only identity and lookup reports limit/truncated.",
         operationId: "searchEverything",
         parameters: [
           { name: "game", in: "query", required: true, schema: { type: "string" }, description: "Game code or slug." },
           { name: "q", in: "query", required: true, schema: { type: "string" }, description: "Card number, set+number, or full canonical SKU." },
-          { name: "lang", in: "query", required: false, schema: { type: "string" }, description: "ISO language code — picks the variant when several exist." },
+          { name: "lang", in: "query", required: false, schema: { type: "string" }, description: "Language alias or two-letter code. Filters exact printing candidates; does not pick between variants or fall back to another language." },
         ],
         responses: {
           "200": { description: "Matches, plus data.everything when unambiguous. Envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
           "400": { description: "Missing/invalid game or q.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Catalog source unavailable; not a successful empty lookup." },
         },
       },
     },
@@ -596,13 +625,16 @@ const SPEC = {
       get: {
         tags: ["search", "prices"],
         summary: "Everything the platform knows about one card",
-        description: "Returns mixed card metadata and structural siblings plus explicit source-publication status. Uncleared current prices, legacy images, CardRush history, and reference values are withheld; history is empty and reference price is null. Aggregate rights are NOASSERTION.",
+        description: "Returns mixed card metadata and same-game structural siblings plus source-publication status. card.identity preserves raw SKU and normalized syntax fields. composition.siblings_truncated reports bounded lookup. Alias recovery requires one exact identity match; ambiguity or incomplete alias recovery returns 409. Uncleared values remain withheld; history is empty and reference price is null. Aggregate rights are NOASSERTION.",
         operationId: "getCardEverything",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU (e.g. 'op-op01-001-ja')." },
         ],
         responses: {
           "200": { description: "Composed card view with envelope.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } },
+          "400": { description: "Invalid SKU syntax." },
+          "409": { description: "Ambiguous or incomplete alias recovery." },
+          "503": { description: "Catalog source unavailable." },
           "404": { description: "SKU not in the catalog.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
@@ -1169,6 +1201,10 @@ const SPEC = {
       },
     },
     schemas: {
+      SkuIdentity: SKU_IDENTITY_SCHEMA,
+      Money: MONEY_SCHEMA,
+      NativePriceObservation: NATIVE_PRICE_OBSERVATION_SCHEMA,
+      MemberPriceObservation: MEMBER_PRICE_OBSERVATION_SCHEMA,
       IdentifierValidationRequest: {
         type: "object", additionalProperties: false, required: ["identifier"],
         properties: { identifier: { type: "string", maxLength: 256, "x-max-utf16-code-units": 256, description: "One identifier, bounded to 256 UTF-16 code units; body limit counts UTF-8 bytes. No trimming or silent replacement. Empty input yields an invalid syntax result." } },
@@ -1696,37 +1732,7 @@ const SPEC = {
           _meta: { $ref: "#/components/schemas/ResponseMeta" },
         },
       },
-      ResponseMeta: {
-        type: "object",
-        required: ["spec_version", "endpoint", "retrieved_at", "as_of", "sources", "freshness_seconds", "license", "request_id", "deprecation", "next_link", "self_reference"],
-        properties: {
-          spec_version: { type: "string", const: "1" },
-          endpoint: { type: "string", description: "Parametrized path that produced this response." },
-          retrieved_at: { type: "string", format: "date-time", description: "When this response was rendered." },
-          as_of: { type: "string", format: "date-time", description: "When the underlying data was last known to be true. For aggregates, the *earliest* across contributing records." },
-          sources: { type: "array", items: { type: "string" }, description: "Named sources of truth that contributed." },
-          source_license: { type: "array", items: { type: "string" }, description: "Optional. Parallel to `sources`; known source-rights tier (cc0 / cc-by / cc-by-nc / cc-by-sa / mit / partner-redistributable / internal-only / proprietary). Aggregate mixed rights use _meta.license=NOASSERTION; absence here means undeclared. kingdom-066 + kingdom-081." },
-          freshness_seconds: { type: "integer", description: "Platform's intended freshness budget for this kind of data." },
-          license: { type: "string", description: "SPDX license code for the response payload. NOASSERTION when payload rights are undeclared." },
-          request_id: { type: "string", description: "Quotable in support tickets." },
-          deprecation: {
-            type: ["object", "null"],
-            properties: {
-              sunset: { type: "string", format: "date-time" },
-              replacement: { type: "string" },
-            },
-          },
-          next_link: { type: ["string", "null"], description: "Cursor-style next page link." },
-          self_reference: {
-            type: ["object", "null"],
-            description: "Present when the response describes the endpoint that produced it.",
-            properties: {
-              this_endpoint: { type: "string" },
-              contains_self: { type: "boolean", const: true },
-            },
-          },
-        },
-      },
+      ResponseMeta: META_SCHEMA,
     },
   },
 } as const;

@@ -17,6 +17,9 @@ export interface PublicReference {
 // Deliberate public references, not a filesystem crawl or an auth allow-list.
 // Unknown content dates stay absent; manifest since/generated_at are not review dates.
 export const PUBLIC_REFERENCES: readonly PublicReference[] = [
+  { path: "/map", title: "Rooms and reading trails", lastModified: "2026-09-29" },
+  { path: "/standards/card-data", title: "SKU & price contracts", lastModified: "2026-09-29" },
+  { path: "/guides/read-a-card", title: "Read a card, one detail at a time", lastModified: "2026-09-29" },
   { path: "/standards", title: "Public specifications" },
   { path: "/glossary", title: "Platform vocabulary" },
   { path: "/guides", title: "Collector guides" },
@@ -41,6 +44,8 @@ export const PUBLIC_REFERENCES: readonly PublicReference[] = [
 ];
 
 export const DISCOVERY_RESOURCE_IDS = [
+  "storefront.rooms",
+  "storefront.contracts.card_data",
   "storefront.reference.condition_checklist",
   "storefront.reference.identifier_validator",
   "storefront.api.identifiers.validate",
@@ -203,7 +208,7 @@ const DISCOVERY_POINTERS = {
   "math-language-doctrine": `${PUBLIC_ORIGIN}/docs/connections/the-math-language.md`,
 };
 
-const INTRO = `Cambridge TCG is a peer-to-peer collectors' market and card data directory, not a house buyer or seller. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
+const INTRO = `Cambridge TCG supports card research, collecting, play and connected reading. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
 Free is not anonymous access. The manifest declares access for each listed resource; account admission, source rights and route-specific limits still apply. Member price data is not published by this discovery index.
 ${DATA_RIGHTS_BOUNDARY}
 Repository code licensing follows the repository LICENSE and applicable more-specific notices. Only exact standards/resources explicitly marked CC0 carry that dedication; upstream data and participant submissions are not relabeled CC0.
@@ -242,7 +247,7 @@ export function buildAgentText(): string {
 }
 
 export function buildLlmsText(): string {
-  return `# Cambridge TCG — collectors' market and card data directory\n\n${INTRO}\n\n` +
+  return `# Cambridge TCG — cards, collections, play and data\n\n${INTRO}\n\n` +
     "## Current discovery and transport documentation\n" +
     Object.entries(DISCOVERY_POINTERS).map(([key, value]) => `- ${key}: ${value}`).join("\n") +
     "\n\n## Public reference assets\n" +

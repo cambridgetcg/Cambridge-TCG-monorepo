@@ -3,6 +3,7 @@ import { MemberPriceQueryError, parseMemberPriceQuery, readMemberPrices } from "
 import { memberError, memberJson, memberMethodNotAllowed } from "@/lib/prices/member-http";
 import { memberPageHeaders } from "@/lib/prices/member-export";
 import { envelope } from "@/lib/data-pantry/envelope";
+import { PRICE_OBSERVATION_CONTRACT } from "@cambridge-tcg/data-spec";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,6 +17,7 @@ export async function GET(request: Request): Promise<Response> {
     const query = parseMemberPriceQuery(new URL(request.url).searchParams);
     const page = await readMemberPrices(auth.actor, query, "member-api");
     const headers = memberPageHeaders(page);
+    headers.set("Link", '</api/v1/contracts/card-data>; rel="describedby"; type="application/json"');
     headers.set("X-RateLimit-Limit", "30");
     headers.set("X-RateLimit-Remaining", String(auth.remaining));
     headers.set("X-RateLimit-Reset-After", String(auth.resetSeconds));
@@ -28,6 +30,7 @@ export async function GET(request: Request): Promise<Response> {
       as_of: page.asOf ?? undefined,
       next_link: page.nextCursor ? `/api/v1/member-prices?${nextParams}` : null,
       extra_meta: { as_of_meaning: "Pagination snapshot opening time; source timestamps are per observation.",
+        price_observation_contract: PRICE_OBSERVATION_CONTRACT.version,
         price_rights: "Source-specific evidence and permittedUses accompany every observation." },
     }), page.status === "unavailable" ? 503 : 200, headers);
   } catch (error) {

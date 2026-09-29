@@ -6,7 +6,10 @@ Yu's confirmed scope is a fresh content, room, page and UI architecture, keeping
 useful backend services after reviewing their contracts. This is a complete
 storefront design brief, including personal and operator spaces. The earlier
 UI cleanup is a recoverable baseline, not the proposed final experience.
-Implementation has not started. Room names, URLs and layouts below are proposals.
+Implementation began on 2026-09-29 with the card-data contract foundation and
+first connected entry pages. See [implementation progress](implementation.md).
+The full room/page migration remains in progress; later URLs and layouts below
+remain proposals.
 
 ## Purpose
 
@@ -32,6 +35,7 @@ commerce-led platform; replacing that framing is part of the first design phase.
 | [Content and design](content-and-design.md) | What does an Artbitrage-inspired Cambridge page actually say and look like? |
 | [Architecture and wiring](architecture.md) | How do pages, content, modules, services and machine interfaces connect? |
 | [Module roles](module-roles.md) | What happens to each existing application and shared package? |
+| [Implementation progress](implementation.md) | What is built locally, checked, and still to do? |
 | [Delivery and decisions](delivery.md) | In what order do we design, build, migrate and verify the whole site? |
 | [Route inventory](route-inventory.csv) | Where is every existing page and API handler assigned for review? |
 | [Inventory notes](inventory.md) | What does the inventory cover, and what remains unverified? |
@@ -116,8 +120,9 @@ catch-all redirect is proposed.
 | New canonical paths and exact room names | Proposed; aliases and parameters must be reviewed |
 | Existing commerce, publication and authentication boundaries | Current constraints carried into the rebuild |
 | Plan and source inventory | Drafted for review |
-| New room content, wireframes, application code and migration | Not started |
+| SKU and price contracts; new entry/map and first reading | Implemented locally; see progress and verification records |
+| Remaining room pages, personal/operator UI and complete migration | Pending |
 
-The next concrete design step is a small set of connected page wireframes with
-real sample writing: front door, map, card, story, collection and play. Their
-content and behaviour should settle before the new component system is built.
+The next connected page work builds on the implemented entry/map and contracts:
+card detail, sourced story, collection and play views. Use real sample writing
+and explicit data states before extending their component system.

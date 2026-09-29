@@ -17,6 +17,11 @@ export const metadata: Metadata = {
 // earlier redirect body lives in git history at this path.
 const guides = [
   {
+    href: "/guides/read-a-card",
+    title: "Read a card, one detail at a time",
+    blurb: "Separate the card's identity, its printing and your physical copy before comparing records or prices.",
+  },
+  {
     href: "/guides/buying",
     title: "Every way to buy a card",
     blurb:

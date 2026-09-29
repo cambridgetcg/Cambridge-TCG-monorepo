@@ -4,7 +4,9 @@
 > cleanup at `f2a8359b`. Yu subsequently requested a complete content, room, page
 > and UI rebuild inspired by Artbitrage, retaining useful backend services.
 > Start with the [draft rebuild plan](../plans/storefront-rebuild/README.md) for
-> that work. Its architecture and visual direction remain proposals.
+> that work and [implementation progress](../plans/storefront-rebuild/implementation.md)
+> for the first contract, landing and map replacement. This page describes the
+> earlier shared controls that remain in use.
 
 Current direction, 2026-09-29: simple, purposeful, modular and easy to read.
 This replaces the earlier quiet-gallery styling direction. Art and cultural

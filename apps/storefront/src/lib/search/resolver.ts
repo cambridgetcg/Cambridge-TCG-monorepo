@@ -33,6 +33,7 @@
  */
 
 import type { PriceItem } from "@/lib/wholesale/client";
+import { resolveGameToken, skuIdentity, type SkuIdentity } from "@cambridge-tcg/sku";
 
 export type ResolveConfidence =
   /** Exact match: input string normalized maps 1:1 to a canonical SKU or set+number. */
@@ -44,12 +45,14 @@ export type ResolveConfidence =
 
 export interface ResolvedMatch {
   sku: string;
+  /** A syntax normalization candidate, not a source-product or printing match. */
+  identity: SkuIdentity;
   card_number: string;
   set_code: string | null;
   name: string;
   name_en: string | null;
   image_url: string | null;
-  /** Parsed language tail from the SKU (ja / en / cn / ...) when present. */
+  /** Package-normalized language shape (ja / en / zh / ...). */
   lang: string | null;
   /** Parsed variant tail (foil / alt-art / parallel / ...) when present. */
   variant: string | null;
@@ -104,6 +107,10 @@ export function parseSkuShape(sku: string): {
   };
 }
 
+/** Strict package-backed identity for search and composition. The legacy
+ * parseSkuShape helper remains for callers not yet migrated to this contract. */
+export const parseSearchSku = skuIdentity;
+
 /**
  * Parse a `SET-NUMBER` shaped input like "OP01-001" or "EB04-061".
  * Returns null when the dash position doesn't yield two non-empty
@@ -115,7 +122,7 @@ export function parseSetNumberShape(raw: string): {
   set: string;
   number: string;
 } | null {
-  const norm = normalizeQuery(raw);
+  const norm = normalizeQuery(raw).replace(/\s*-\s*/g, "-");
   // Allow optional spaces around the dash; capture the LAST dash so set codes
   // like "ST-1" with a dash inside don't break (rare but exists).
   const m = norm.match(/^([A-Z0-9-]+)-(\d+(?:\/\d+)?)$/);
@@ -138,15 +145,20 @@ export function scoreMatches(
 ): ResolvedMatch[] {
   const norm = normalizeQuery(input.q);
   const setNum = parseSetNumberShape(input.q);
-  const skuShape = parseSkuShape(input.q);
+  const skuShape = parseSearchSku(input.q.trim());
+  const game = resolveGameToken(input.game);
+  if (!game || game === "tst" || !norm || (skuShape && skuShape.game !== game)) return [];
 
-  // Pre-compute the canonical-ish form of input for SKU-exact matching.
-  const inputSkuLower = input.q.trim().toLowerCase();
-
-  const matches: ResolvedMatch[] = cards.map((c) => {
-    const parsed = parseSkuShape(c.sku);
+  const matches: ResolvedMatch[] = [];
+  for (const c of cards) {
+    const parsed = parseSearchSku(c.sku);
+    // A server-side game filter is not proof that each returned identifier
+    // belongs to that game. Never promote an unknown/cross-game SKU to a match.
+    if (!parsed || parsed.game !== game) continue;
     const card_number_norm = c.card_number.toUpperCase();
     const set_code_norm = (c.set_code ?? "").toUpperCase();
+    const matchesSetIdentity = !skuShape && setNum &&
+      parsed.set.toUpperCase() === setNum.set && parsed.number.toUpperCase() === setNum.number;
     // The publisher-full form: how the row's card_number reads when
     // prefixed with its set ("OP01-001"). Some upstream catalogs store
     // this directly in card_number (kingdom-087 cardrush style); others
@@ -156,11 +168,11 @@ export function scoreMatches(
       : card_number_norm;
 
     // Confidence ladder — first hit wins.
-    let confidence: ResolveConfidence = "fuzzy";
-    let reason = "card_number partial match";
+    let confidence: ResolveConfidence = "none";
+    let reason = "";
 
     // Tier 1: canonical SKU exact (covers `op-op01-001-ja`).
-    if (c.sku.toLowerCase() === inputSkuLower) {
+    if (skuShape?.canonical_sku === parsed.canonical_sku) {
       confidence = "exact";
       reason = "canonical SKU exact";
     }
@@ -169,7 +181,7 @@ export function scoreMatches(
     //         — the common case in wholesale today; verified live
     //         2026-05-14 with 5 SKU variants on op-op01-001).
     else if (
-      setNum &&
+      setNum && matchesSetIdentity &&
       set_code_norm === setNum.set &&
       (card_number_norm === `${setNum.set}-${setNum.number}` ||
         card_number_full === `${setNum.set}-${setNum.number}`)
@@ -181,7 +193,7 @@ export function scoreMatches(
     //         (covers card_number stored as "001" with set_code "OP01"
     //         — some upstream catalogs).
     else if (
-      setNum &&
+      setNum && matchesSetIdentity &&
       set_code_norm === setNum.set &&
       card_number_norm === setNum.number
     ) {
@@ -191,12 +203,16 @@ export function scoreMatches(
     // Tier 4: set+number suffix match (defensive — handles legacy
     //         "OP-OP01-001" double-prefix forms).
     else if (
-      setNum &&
+      setNum && matchesSetIdentity &&
       card_number_norm.endsWith("-" + setNum.number) &&
       set_code_norm === setNum.set
     ) {
       confidence = "exact";
       reason = "set+number matched (suffixed)";
+    }
+    else if (matchesSetIdentity && (!set_code_norm || set_code_norm === setNum!.set)) {
+      confidence = "exact";
+      reason = "set+number matched (SKU identity)";
     }
     // Tier 5: number-only input. Multiple matches expected; UI lists them.
     else if (
@@ -209,19 +225,33 @@ export function scoreMatches(
       reason = "card_number matched; set ambiguous";
     }
 
-    return {
+    else if (skuShape && parsed.set === skuShape.set && parsed.number === skuShape.number) {
+      confidence = "fuzzy";
+      reason = "same set and number; language or variant differs";
+    }
+    else if (!setNum && !skuShape && [c.card_number, c.name, c.name_en]
+      .some((value) => value && normalizeQuery(value).includes(norm))) {
+      confidence = "fuzzy";
+      reason = "card number or name contains query";
+    }
+    // Wholesale searches are candidate retrieval. An unrelated row is not a
+    // fuzzy identity match merely because the provider returned it.
+    if (confidence === "none") continue;
+
+    matches.push({
       sku: c.sku,
+      identity: parsed,
       card_number: c.card_number,
       set_code: c.set_code,
       name: c.name ?? c.card_number,
       name_en: c.name_en,
       image_url: c.image_url,
-      lang: parsed?.lang ?? null,
-      variant: parsed?.variant ?? null,
+      lang: parsed.lang,
+      variant: parsed.variant,
       confidence,
       reason,
-    };
-  });
+    });
+  }
 
   // Order: exact first (alphabetic on lang for deterministic listing),
   // then fuzzy (alphabetic on set_code+card_number).
@@ -231,7 +261,7 @@ export function scoreMatches(
     }
     const aKey = `${a.set_code ?? ""}-${a.card_number}-${a.lang ?? ""}`;
     const bKey = `${b.set_code ?? ""}-${b.card_number}-${b.lang ?? ""}`;
-    return aKey.localeCompare(bKey);
+    return aKey.localeCompare(bKey) || a.sku.localeCompare(b.sku);
   });
 }
 
@@ -246,7 +276,9 @@ export function groupSiblings(
 ): Map<string, ResolvedMatch[]> {
   const groups = new Map<string, ResolvedMatch[]>();
   for (const m of matches) {
-    const key = `${m.set_code ?? "_"}-${m.card_number}`;
+    // Both bare and publisher-prefixed card_number fields can describe the
+    // same syntax candidate. Include game so unrelated games never merge.
+    const key = `${m.identity.game}|${m.identity.set}|${m.identity.number}`;
     const arr = groups.get(key) ?? [];
     arr.push(m);
     groups.set(key, arr);

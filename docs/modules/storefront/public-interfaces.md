@@ -14,6 +14,7 @@ Describe resources, public API contracts, agent access, provenance and machine d
 
 - [agents](../../../apps/storefront/src/lib/agents)
 - [calling-card](../../../apps/storefront/src/lib/calling-card)
+- [contracts](../../../apps/storefront/src/lib/contracts)
 - [data-pantry](../../../apps/storefront/src/lib/data-pantry)
 - [http](../../../apps/storefront/src/lib/http)
 - [release](../../../apps/storefront/src/lib/release)
@@ -36,6 +37,7 @@ Describe resources, public API contracts, agent access, provenance and machine d
 - [robots.txt](../../../apps/storefront/src/app/robots.txt)
 - [schemas](../../../apps/storefront/src/app/schemas)
 - [scrapers](../../../apps/storefront/src/app/scrapers)
+- [spec](../../../apps/storefront/src/app/spec)
 - [standards](../../../apps/storefront/src/app/standards)
 - [standards.json](../../../apps/storefront/src/app/standards.json)
 

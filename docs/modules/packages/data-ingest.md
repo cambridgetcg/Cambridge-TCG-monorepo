@@ -12,7 +12,7 @@ Describe approved source adapters and normalize permitted upstream records into 
 
 ## Progress
 
-Source review recorded **2026-09-28**. The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry.
+Source review recorded **2026-09-28**. The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry. 2026-09-29: member-price observation types and positive native-decimal validation reuse data-spec, preserving existing adapter imports and source/use policies.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -24,6 +24,8 @@ This records source and documentation evidence. It does not establish deployment
 - [packages/data-ingest/src/types.ts](../../../packages/data-ingest/src/types.ts)
 - [packages/data-ingest/src/__tests__/source-rights.test.ts](../../../packages/data-ingest/src/__tests__/source-rights.test.ts)
 - [docs/methodology/source-protocol.md](../../methodology/source-protocol.md)
+- [packages/data-ingest/src/member-prices.ts](../../../packages/data-ingest/src/member-prices.ts)
+- [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
 
 ## Declared package relationships
 

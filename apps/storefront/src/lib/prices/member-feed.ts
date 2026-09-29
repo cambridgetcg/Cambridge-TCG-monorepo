@@ -2,6 +2,7 @@ import 'server-only';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { query as dbQuery } from '@/lib/db';
 import { MEMBER_PRICE_POLICIES, type MemberPriceSource, type MemberPriceUse } from '@cambridge-tcg/data-ingest/member-prices';
+import { assertPriceObservationValues } from '@cambridge-tcg/data-spec';
 import { MemberPriceQueryError, type MemberPriceItem, type MemberPricePage, type MemberPriceQuery } from './member-feed-types';
 export * from './member-feed-types';
 
@@ -127,7 +128,7 @@ export async function readMemberPrices(actor: { userId: string }, input: MemberP
     const items: MemberPriceItem[] = rows.slice(0, query.limit).map(row => {
       const source = row.source as MemberPriceSource;
       const policy = MEMBER_PRICE_POLICIES[source];
-      return {
+      const item: MemberPriceItem = {
         id: String(row.id), source, sourceProductId: String(row.source_product_id), sku: row.sku as string | null, mappingStatus: row.mapping_status as MemberPriceItem['mappingStatus'],
         game: String(row.game), setCode: row.set_code as string | null, productName: row.product_name as string | null, granularity: row.granularity as MemberPriceItem['granularity'],
         finish: row.finish as string | null, language: row.language as string | null, condition: row.condition as string | null, metric: String(row.metric), amount: String(row.amount), currency: row.currency as MemberPriceItem['currency'], underlyingMarket: row.underlying_market as MemberPriceItem['underlyingMarket'],
@@ -136,6 +137,12 @@ export async function readMemberPrices(actor: { userId: string }, input: MemberP
         catalogSourceUrl: row.catalog_source_url as string | null, catalogUpdatedAt: row.catalog_updated_at ? new Date(String(row.catalog_updated_at)).toISOString() : null, catalogArtifactSha256: row.catalog_artifact_sha256 as string | null,
         permittedUses: policy.uses.filter(allowedUse => (row.permitted_uses as string[]).includes(allowedUse)), attribution: policy.attribution,
       };
+      // Historical/corrupt storage is not automatically a valid observation.
+      // Reject the whole bounded page before serialization rather than emit a
+      // converted amount, zero sentinel or guessed printing identity.
+      assertPriceObservationValues(item);
+      if (!item.permittedUses.includes(use)) throw new TypeError('Price observation does not permit this use.');
+      return item;
     });
     const nextCursor = more ? encodeCursor({ version: 1, binding: bound, watermark, after: items.at(-1)!.id, asOf }) : null;
     return { status: items.length ? 'available' : 'empty', items, nextCursor, watermark, asOf, total: Number(raw.total), count: items.length, complete: !more };

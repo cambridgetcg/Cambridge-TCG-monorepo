@@ -29,26 +29,30 @@
  * The fairy-tale: `docs/connections/two-letters-and-a-falcon.md`.
  */
 
-import { DEFAULTS } from "@cambridge-tcg/pricing";
+import { DEFAULTS, positivePrice, roundGbp } from "@cambridge-tcg/pricing";
 
 const CAMBRIDGETCG = DEFAULTS["cambridgetcg"]!;
 
 /**
  * Get the retail price for a card.
- * Prefers channel_price from API; falls back to local calculation using
- * the cambridgetcg channel's retailMultiplier and roundTo.
+ * Prefers channel_price from API. Only a missing channel value permits the
+ * legacy local fallback. An explicit zero/invalid quote is unavailable; it
+ * must never be replaced by a different derived price. This legacy asking-
+ * price contract requires positive values; generic Money can represent zero.
  */
 export function retailPrice(
   wholesaleGbp: number | null | undefined,
   channelPrice?: number | null,
 ): number | null {
-  if (channelPrice != null && channelPrice > 0) return channelPrice;
-  if (wholesaleGbp == null || !Number.isFinite(wholesaleGbp) || wholesaleGbp <= 0) {
-    return null;
-  }
+  if (channelPrice != null) return positivePrice(channelPrice);
+  if (positivePrice(wholesaleGbp) === null) return null;
   const r = CAMBRIDGETCG.retailMultiplier;
   const step = CAMBRIDGETCG.roundTo;
-  return Math.ceil(wholesaleGbp * r / step) * step;
+  const steps = wholesaleGbp! * r / step;
+  // Retain the legacy ceil rule without treating binary residue at an exact
+  // decimal step as a request for another ten pence.
+  const value = Math.ceil(steps - Math.min(Number.EPSILON * Math.abs(steps), 1e-7)) * step;
+  try { return roundGbp(value); } catch { return null; }
 }
 
 /**

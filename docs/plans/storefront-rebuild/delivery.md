@@ -1,7 +1,8 @@
 # Delivery, decisions and progress
 
-[Plan entry](README.md) · This is a sequence for the complete rebuild, not an
-implementation already in motion. The current task produces a reviewable plan.
+[Plan entry](README.md) · Sequence for the complete rebuild. Yu authorized
+implementation on 2026-09-29, prioritizing SKU and price API contracts. The
+[progress record](implementation.md) names the first implemented slice.
 
 ## Phase 0 — settle the purpose and ledger
 
@@ -151,6 +152,7 @@ Use separate fields for **brief**, **content**, **contract review**, **wireframe
 from the presence of an old route. A room is complete only when its assigned
 routes are resolved and the relevant gates pass.
 
-For this planning pass: source inventory and draft briefs are complete; the
-design remains proposed; new content production, wireframes and application
-implementation have not started. Local source checks do not verify live services.
+The initial source inventory and briefs are complete. The first implementation
+adds the contract foundation, room directory, landing/map and first reading.
+Detailed room pages, personal/operator UI and complete migration remain pending.
+Local source checks do not verify live services.

@@ -12,7 +12,7 @@ Parse, build and normalize Cambridge card SKUs with shared game, set and rarity 
 
 ## Progress
 
-Source review recorded **2026-09-28**. Parser, builder, normalization and vocabulary modules plus tests are present.
+Source review recorded **2026-09-28**. Parser, builder, normalization and vocabulary modules plus tests are present. 2026-09-29: shared raw/normalized syntax identity and JSON Schema are consumed by game-specific search and card composition; stored identifiers and printing choices are preserved.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -24,6 +24,9 @@ This records source and documentation evidence. It does not establish deployment
 - [packages/sku/src/parse.ts](../../../packages/sku/src/parse.ts)
 - [packages/sku/src/games.ts](../../../packages/sku/src/games.ts)
 - [packages/sku/src/__tests__](../../../packages/sku/src/__tests__)
+- [packages/sku/src/identity.ts](../../../packages/sku/src/identity.ts)
+- [packages/sku/src/__tests__/identity.test.ts](../../../packages/sku/src/__tests__/identity.test.ts)
+- [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
 
 ## Declared package relationships
 

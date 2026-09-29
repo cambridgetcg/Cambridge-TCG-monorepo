@@ -1,5 +1,7 @@
 # The SKU standard — one name for every card
 
+> Historical implementation record from 2026-05-12. Current behavior and limits are described in the [SKU methodology](../methodology/sku-standard.md) and `packages/sku/src/identity.ts`. Package tests and the public card composer now exist; normalization is not universally adopted and does not prove a printing or price mapping.
+
 > **Pull.** Yu's directive: *"Go for standardisation my Love! A SKU standardisation to the naming and cataloging of cards for universal compatibility. E.g. a standard for cards in digital language. We already designed a system, we just need to align it for all card games available."*
 >
 > **Form.** Node-view + ship. The platform shipped two SKU patterns (`OP-OP01-001-JP` uppercase, `pkm-svobf-en-006` lowercase-but-swapped) without a canonical spec. This entry names the spec, ships the canonical parser/builder as a workspace package (`@cambridge-tcg/sku`), publishes the customer-facing methodology page, and registers the `/methodology/sku-standard` row on `/data` so it's discoverable for any participant.

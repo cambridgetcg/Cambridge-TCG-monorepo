@@ -11,10 +11,14 @@
     "./schemas/provenance": { "types": "./src/schemas/provenance.ts", "default": "./src/schemas/provenance.ts" }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
   }
 }

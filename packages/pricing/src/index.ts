@@ -27,6 +27,9 @@
 
 // ── Types ────────────────────────────────────────────────────────────────
 
+import { roundGbp } from "./money";
+export { money, parseMajorAmount, positivePrice, roundGbp, type Money, type MoneyCurrency } from "./money";
+
 export interface ChannelConfig {
   channel: string;
   /** Multiplier applied to the wholesale base. 1.08 ≈ 8% margin. */
@@ -130,12 +133,35 @@ export const DEFAULTS: Record<string, ChannelConfig> = {
 // ── Core computation ─────────────────────────────────────────────────────
 
 function roundToStep(n: number, step: number): number {
-  if (step <= 0) return round2(n);
-  return Math.round(n / step) * step;
+  const steps = n / step;
+  return Math.round(steps + Math.min(Number.EPSILON * Math.abs(steps), 1e-7)) * step;
 }
 
 function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+  return roundGbp(n);
+}
+
+export const PRICING_NUMERIC_FIELDS = [
+  "marginMultiplier", "flatFeeSingles", "flatFeeSealed", "vatMultiplier", "retailMultiplier", "roundTo",
+] as const;
+export type PricingNumericField = typeof PRICING_NUMERIC_FIELDS[number];
+
+/** Shared admission rule for computation and channel configuration writers. */
+export function validatePricingField(field: PricingNumericField, value: unknown): asserts value is number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new RangeError(`Pricing ${field} must be a finite number.`);
+  }
+  if (field === "vatMultiplier") {
+    if (value < 1) throw new RangeError("Pricing vatMultiplier must be at least one.");
+  } else if (field === "retailMultiplier") {
+    if (value <= 0) throw new RangeError("Pricing retailMultiplier must be positive.");
+  } else if (field === "roundTo") {
+    if (value < 0.01 || Math.abs(value * 100 - Math.round(value * 100)) > 1e-8) {
+      throw new RangeError("Pricing roundTo must be a positive whole-penny step.");
+    }
+  } else if (value < 0) {
+    throw new RangeError(`Pricing ${field} must be nonnegative.`);
+  }
 }
 
 export function computePrice(
@@ -144,6 +170,16 @@ export function computePrice(
   config: ChannelConfig,
   category: string | null,
 ): PriceBreakdown {
+  if (!Number.isFinite(cardrushJpy) || cardrushJpy <= 0) {
+    throw new RangeError("A positive finite JPY source price is required.");
+  }
+  if (!Number.isFinite(gbpJpyRate) || gbpJpyRate <= 0) {
+    throw new RangeError("A positive finite JPY-per-GBP exchange rate is required.");
+  }
+  if (typeof config.channel !== "string" || !config.channel.trim()) {
+    throw new RangeError("A pricing channel is required.");
+  }
+  for (const key of PRICING_NUMERIC_FIELDS) validatePricingField(key, config[key]);
   const baseGbp = cardrushJpy / gbpJpyRate;
   const flatFee = category === "sealed" ? config.flatFeeSealed : config.flatFeeSingles;
   const exVat = (baseGbp * config.marginMultiplier + flatFee) * config.retailMultiplier;

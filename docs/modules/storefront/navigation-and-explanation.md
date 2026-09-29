@@ -13,6 +13,7 @@ Help visitors enter, orient, choose a destination and understand methodology in 
 ## Domain libraries
 
 - [nav](../../../apps/storefront/src/lib/nav)
+- [rooms](../../../apps/storefront/src/lib/rooms)
 - [ui](../../../apps/storefront/src/lib/ui)
 
 ## Route families

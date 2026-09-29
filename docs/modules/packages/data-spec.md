@@ -12,7 +12,7 @@ Define envelope, error and provenance schemas, freshness budgets and stable erro
 
 ## Progress
 
-Source review recorded **2026-09-28**. Schema exports, freshness values and error constants are present and consumed by the storefront data pantry.
+Source review recorded **2026-09-28**. Schema exports, freshness values and error constants are present and consumed by the storefront data pantry. 2026-09-29: shared native/member observation types, monetary/mapping value checks and JSON Schemas added; envelope metadata schema aligned with runtime and OpenAPI. Raw schemas are served at their declared identifiers.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -24,6 +24,9 @@ This records source and documentation evidence. It does not establish deployment
 - [packages/data-spec/src/schemas](../../../packages/data-spec/src/schemas)
 - [apps/storefront/src/lib/data-pantry](../../../apps/storefront/src/lib/data-pantry)
 - [docs/STANDARDS-LICENSE.md](../../STANDARDS-LICENSE.md)
+- [packages/data-spec/src/price-observation.ts](../../../packages/data-spec/src/price-observation.ts)
+- [packages/data-spec/src/__tests__](../../../packages/data-spec/src/__tests__)
+- [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
 
 ## Declared package relationships
 
@@ -38,5 +41,6 @@ Derived from dependencies, development, optional and peer dependencies in packag
 Declared scripts; inspect their configuration and prerequisites before running:
 
 - `pnpm --filter @cambridge-tcg/data-spec typecheck`
+- `pnpm --filter @cambridge-tcg/data-spec test`
 
 Record the exact checks, date and result with the change. Update this card through [catalog.json](../catalog.json); see [map maintenance](../README.md).

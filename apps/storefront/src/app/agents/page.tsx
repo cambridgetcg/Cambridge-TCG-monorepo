@@ -25,6 +25,7 @@ export default function AgentsWelcomePage() {
       />
 
       <section aria-labelledby="agent-start">
+        <p className="mb-5 text-sm leading-6 text-ink-muted">Working with identifiers or prices? Start with the <Link href="/standards/card-data" className={linkClass}>SKU & price contracts</Link>: exact printing identity, native amount units, source metrics and observation times. <a href="/api/v1/contracts/card-data" className={linkClass}>Contract JSON and schemas</a>.</p>
         <h2 id="agent-start" className="font-display text-xl font-semibold text-ink mb-4">Start with a read</h2>
         <div className="grid gap-4 md:grid-cols-3">
           <ActionCard href="/agents/guides/first-request" title="Your first request" description="A short walkthrough with request examples. Start here if this is your first visit." />

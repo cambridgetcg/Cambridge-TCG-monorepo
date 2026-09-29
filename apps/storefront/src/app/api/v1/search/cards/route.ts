@@ -41,115 +41,20 @@
  */
 
 import { NextRequest } from "next/server";
-import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
-import { jsonResponse, errorResponse, invalidSkuError } from "@/lib/data-pantry";
+import { resolveGameToken } from "@cambridge-tcg/sku";
+import { fetchSearchCandidates } from "@/lib/search/catalog-lookup";
+import { jsonResponse, errorResponse } from "@/lib/data-pantry";
 import {
   scoreMatches,
   summarizeMatches,
   parseSetNumberShape,
-  parseSkuShape,
+  parseSearchSku,
   type ResolvedMatch,
 } from "@/lib/search/resolver";
 
 export const runtime = "nodejs";
 
 const ENDPOINT = "/api/v1/search/cards";
-
-/**
- * Try the caller's game token against the wholesale prices route,
- * with progressive fallback variants. The wholesale route's
- * `or(eq(games.code, X), eq(games.slug, X))` filter is case-sensitive
- * — so `game=op` may return nothing when the registry stores
- * `code='onepiece'`/`slug='one-piece'`, and there's no character
- * relationship between the SKU prefix and the wholesale code/slug.
- *
- * Resolution order (most reliable first):
- *
- *   0. Set-based lookup — if the caller's input parses to a known set,
- *      look the set up in wholesale (`fetchSets`) and use its declared
- *      `game_code`. Every set knows its own game; this bypasses any
- *      game-token translation. Mirrors the composer's `fetchSiblings`
- *      pattern at /api/v1/cards/[sku]/everything.
- *   1. Input as-given (preserves callers who pass the exact form).
- *   2. Registry-canonical via `fetchGames()` — exact then case-insensitive.
- *   3. Case variants of the input.
- *
- * Returns the first variant that yields at least one card row, or the
- * empty fetch result if all fail. The caller surfaces a 0-match
- * response with the original input echoed back (substrate-honest).
- */
-async function fetchPricesWithGameFallback(args: {
-  game: string;
-  q: string;
-  limit: number;
-  /** When the input parses to a SET-NUMBER or canonical SKU, pass the
-   *  set code here. We'll use wholesale's own sets→game_code mapping
-   *  to bypass game-token translation entirely. */
-  set?: string;
-}): Promise<Awaited<ReturnType<typeof fetchPrices>>> {
-  const seen = new Set<string>();
-  const tried: string[] = [];
-
-  async function tryGame(g: string) {
-    if (!g || seen.has(g)) return null;
-    seen.add(g);
-    tried.push(g);
-    const r = await fetchPrices({ game: g, q: args.q, limit: args.limit });
-    if (r.items.length > 0) return r;
-    return null;
-  }
-
-  // 0. Set-based lookup — most reliable; uses wholesale's own data to
-  //    translate. Covers the case where the caller's game token doesn't
-  //    correspond to any wholesale code/slug (e.g. SKU prefix `op` vs
-  //    wholesale `onepiece`/`one-piece` — no character relationship).
-  if (args.set) {
-    const setLower = args.set.toLowerCase();
-    const sets = await fetchSets().catch(() => []);
-    const matchedSet = sets.find((s) => s.code.toLowerCase() === setLower);
-    if (matchedSet) {
-      const r0 = await tryGame(matchedSet.game_code);
-      if (r0) return r0;
-    }
-  }
-
-  // 1. Input as-given.
-  const r1 = await tryGame(args.game);
-  if (r1) return r1;
-
-  // 2. Registry-canonical (when fetchGames() returns). Two passes:
-  //      a. Exact equality on raw input (preserves case-sensitive callers).
-  //      b. Case-insensitive equality.
-  const games = await fetchGames().catch(() => []);
-  const norm = args.game.trim().toLowerCase();
-  const match =
-    games.find(
-      (g) => g.code === args.game || g.slug === args.game || g.name === args.game,
-    ) ??
-    games.find(
-      (g) =>
-        g.code.toLowerCase() === norm ||
-        g.slug.toLowerCase() === norm ||
-        g.name.toLowerCase() === norm,
-    );
-  if (match) {
-    const r2 = await tryGame(match.code);
-    if (r2) return r2;
-    const r3 = await tryGame(match.slug);
-    if (r3) return r3;
-  }
-
-  // 3 / 4. Case variants of the input.
-  const r4 = await tryGame(args.game.toLowerCase());
-  if (r4) return r4;
-  const r5 = await tryGame(args.game.toUpperCase());
-  if (r5) return r5;
-
-  // All fallbacks exhausted — return the last attempt's empty body.
-  // The Falcon already returns a non-null { items: [] } envelope on
-  // zero matches, so we synthesize one here too.
-  return { count: 0, total: 0, channel: "", items: [] };
-}
 
 function parseLimit(raw: string | null): number {
   const n = parseInt(raw ?? "20", 10);
@@ -197,23 +102,31 @@ export async function GET(req: NextRequest) {
   // returns one row per language variant. When the input is the full
   // canonical SKU, we use it directly. Otherwise pass the raw token.
   const setNum = parseSetNumberShape(q);
-  const skuShape = parseSkuShape(q);
+  const skuShape = parseSearchSku(q);
+  const gameCode = resolveGameToken(game);
+  if (!gameCode || gameCode === "tst" || (skuShape && skuShape.game !== gameCode)) {
+    return errorResponse({ code: "INVALID_INPUT", message: "Choose a registered public game that agrees with the supplied SKU.", details: { param: "game" }, endpoint: ENDPOINT });
+  }
+  if (q.length > 256) {
+    return errorResponse({ code: "INVALID_INPUT", message: "Search query must be at most 256 characters.", details: { param: "q" }, endpoint: ENDPOINT });
+  }
 
   // Decide what to send to the wholesale prices route. The wholesale
   // route's `q=` does an ILIKE on cardNumber + name + name_en, so any of
   // these forms will surface the candidate rows; the resolver scores them.
-  const wholesaleQ = setNum
-    ? `${setNum.set}-${setNum.number}`
-    : skuShape
-      ? `${skuShape.set}-${skuShape.number}`
-      : q;
+  const wholesaleQ = skuShape
+    ? `${skuShape.set}-${skuShape.number}`
+    : setNum ? `${setNum.set}-${setNum.number}` : q;
 
-  const wholesaleResp = await fetchPricesWithGameFallback({
-    game,
+  const wholesaleResp = await fetchSearchCandidates({
+    game: gameCode,
     q: wholesaleQ,
     limit,
-    set: setNum?.set ?? skuShape?.set,
   });
+
+  if (wholesaleResp.source === "unavailable") {
+    return errorResponse({ code: "SOURCE_UNAVAILABLE", message: "Card search could not reach its catalog source. Try again later.", endpoint: ENDPOINT });
+  }
 
   if (wholesaleResp.items.length === 0) {
     // Substrate-honest empty: don't pretend an error occurred. Empty
@@ -222,6 +135,7 @@ export async function GET(req: NextRequest) {
       endpoint: ENDPOINT,
       data: {
         input: { game, q },
+        lookup: { limit, truncated: wholesaleResp.truncated },
         matches: [] as ResolvedMatch[],
         summary: summarizeMatches([]),
       },
@@ -232,13 +146,14 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const matches = scoreMatches({ game, q }, wholesaleResp.items);
+  const matches = scoreMatches({ game: gameCode, q }, wholesaleResp.items);
   const summary = summarizeMatches(matches);
 
   return jsonResponse({
     endpoint: ENDPOINT,
     data: {
       input: { game, q },
+      lookup: { limit, truncated: wholesaleResp.truncated },
       matches,
       summary,
       next_step: matches.length > 0
@@ -251,8 +166,3 @@ export async function GET(req: NextRequest) {
     license: "NOASSERTION",
   });
 }
-
-// `invalidSkuError` is referenced from the convenience endpoint that
-// shares this module's helpers; keep the import alive so a future
-// refactor can call it without re-adding the import.
-void invalidSkuError;

@@ -7,8 +7,8 @@ import { audienceMetadata } from "@/lib/ui/Audience";
 import { Provenance } from "@/lib/ui/Provenance";
 
 export const metadata: Metadata = {
-  title: "Cambridge TCG — cards, collections and play",
-  description: "Explore card data, organize your collection and find your next game. Public search, existing-account tools, and a separate starting point for agents and developers.",
+  title: "Cambridge TCG — there is more to a card",
+  description: "Find a card, follow a story or take a seat at the play table. Explore cards, collections and the people and ideas around them.",
   other: audienceMetadata("consumer", ["home", "collector", "player"]),
 };
 

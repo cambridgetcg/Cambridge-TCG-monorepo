@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { parseSku } from '@cambridge-tcg/sku';
+import { parseNativePriceAmount, type NativePriceObservation, type MemberPriceUse, type MemberPriceSource } from '@cambridge-tcg/data-spec';
+export type { NativePriceObservation, MemberPriceUse, MemberPriceSource } from '@cambridge-tcg/data-spec';
 
-export type MemberPriceUse = 'member-display' | 'member-api' | 'member-download';
-export type MemberPriceSource = 'cardmarket' | 'scryfall';
 export const MEMBER_PRICE_REVIEW_VERSION = 'member-prices/2026-09-07.1';
 /** Dataset-specific decisions, not a site-wide license and not legal advice.
  * Evidence supplied by the approved review; some pages rejected direct retrieval.
@@ -41,36 +41,6 @@ export const WITHHELD_PRICE_SOURCES = {
   vinted: 'Repository-recorded block; not externally reverified in this bounded review.',
 } as const;
 
-export interface NativePriceObservation {
-  source: MemberPriceSource;
-  sourceProductId: string;
-  sku: string | null;
-  mappingStatus: 'exact' | 'unmapped' | 'ambiguous';
-  game: string;
-  setCode: string | null;
-  productName: string | null;
-  granularity: 'source-product' | 'printing';
-  finish: string | null;
-  language: string | null;
-  condition: string | null;
-  metric: string;
-  amount: string;
-  currency: 'EUR' | 'USD';
-  /** Vendor market identity is retained even for an aggregator. */
-  underlyingMarket: 'cardmarket' | 'tcgplayer';
-  sourceUpdatedAt: string;
-  retrievedAt: string;
-  sourceUrl: string;
-  parserVersion: string;
-  crosswalkVersion: string;
-  evidenceVersion: string;
-  artifactSha256: string;
-  /** Independent catalog evidence; null for a self-contained Scryfall bulk row. */
-  catalogSourceUrl: string | null;
-  catalogUpdatedAt: string | null;
-  catalogArtifactSha256: string | null;
-  quality: 'accepted';
-}
 export interface PriceQuarantine { sourceProductId: string | null; reason: string; field?: string }
 export interface ParsedMemberPrices {
   observations: NativePriceObservation[];
@@ -107,10 +77,7 @@ export function resolvePriceCrosswalk(source: MemberPriceSource, id: string, fin
   return { sku: valid[0]!.sku, setCode: valid[0]!.setCode, mappingStatus: 'exact' as const };
 }
 export function nativeAmount(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  const text = typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
-  if (typeof text !== 'string' || !/^\d{1,12}(?:\.\d{1,6})?$/.test(text) || Number(text) <= 0) throw new Error('invalid-or-zero-price');
-  return text;
+  return parseNativePriceAmount(value);
 }
 export function sourceTimestamp(value: unknown): string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('source-timestamp-required');

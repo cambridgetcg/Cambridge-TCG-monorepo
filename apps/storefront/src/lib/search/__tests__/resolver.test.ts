@@ -1,32 +1,4 @@
-/**
- * Unit tests for the kingdom-090 resolver — the pure-compute spine of the
- * price-search module. These tests LOCK current behaviour rather than
- * refactor it; the modules under test are deliberately untouched.
- *
- * ── The three quiet bugs being locked ─────────────────────────────────
- *
- * The pillow book (`docs/connections/the-pillow-book.md:13`) records the
- * three quiet bugs that live verification surfaced after kingdom-090
- * shipped on 2026-05-14. Two of them have load-bearing prevention here:
- *
- *   1. **card_number stored as publisher form** (`"OP01-001"`) not bare
- *      digits (`"001"`) — locked by `describe("scoreMatches")` → Tier 2
- *      (publisher form). The 5 OP01-001 fixtures below are the actual
- *      live-verified shape; if a future change reverts to expecting bare
- *      "001" only, Tier 2's reason flips to a fuzzy match and these
- *      tests fail.
- *
- *   2. **Case-tolerant SKU lookup** — `parseSkuShape` accepts uppercase
- *      legacy SKUs ("OP-OP01-001-JP-V11DZ") and emits lowercased parts.
- *      Locked by `describe("parseSkuShape")` → "uppercase legacy SKU".
- *
- *   3. **game-token slug/code drift** (wholesale games table's `code` is
- *      "onepiece"; slug is "one-piece"; SKU prefix is "op"). This bug
- *      lives in the ROUTE layer, not in `resolver.ts`. **Flagged here as
- *      a follow-up coverage gap**: the route-level resolution from
- *      game-slug → game-code is not yet unit-tested. Route tests would
- *      go under `apps/storefront/src/app/api/v1/search/cards/__tests__/`.
- */
+/** Resolver fixtures preserve legacy storage keys while checking canonical identity, game isolation, ambiguity and candidate relevance. */
 
 import { describe, it, expect } from "vitest";
 
@@ -35,6 +7,7 @@ import {
   normalizeQuery,
   parseSetNumberShape,
   parseSkuShape,
+  parseSearchSku,
   scoreMatches,
   groupSiblings,
   summarizeMatches,
@@ -188,10 +161,7 @@ describe("parseSetNumberShape", () => {
     });
   });
 
-  // Behaviour gap surfaced by the test suite — the function's doc comment
-  // claims " OP01 - 001 " is accepted, but the regex has no allowance for
-  // internal spaces. Skipped so a future fix has a ready-made fixture.
-  it.skip("whitespace-tolerant internal-space form ' OP01 - 001 ' (doc claims yes, regex says no)", () => {
+  it("accepts whitespace around the set-number separator", () => {
     expect(parseSetNumberShape(" OP01 - 001 ")).toEqual({
       set: "OP01",
       number: "001",
@@ -285,7 +255,7 @@ describe("scoreMatches — Tier 2: publisher form (the bug-#1 lock)", () => {
     expect(new Set(variants)).toEqual(
       new Set(["v11dz", "v11l1", "v11l2", "vy12", "vy13"]),
     );
-    expect(new Set(matches.map((m) => m.lang))).toEqual(new Set(["jp"]));
+    expect(new Set(matches.map((m) => m.lang))).toEqual(new Set(["ja"]));
   });
 
   it("returns name when present and falls back to card_number when not", () => {
@@ -321,13 +291,6 @@ describe("scoreMatches — Tier 3: bare-digit card_number", () => {
     expect(matches[0]!.reason).toContain("publisher form");
   });
 
-  it.skip("Tier 3 reason 'set+number matched' is unreachable under current logic — flagged for follow-up", () => {
-    // Tier 3's literal branch is dead code today: any path where Tier 3
-    // would fire is already absorbed by Tier 2's card_number_full
-    // synthesis. Either Tier 3 should be removed, or Tier 2's
-    // card_number_full reassignment should be guarded so Tier 3 fires
-    // when card_number is bare digits. Documented as a behaviour gap.
-  });
 });
 
 describe("scoreMatches — Tier 4: suffix match (legacy double-prefix)", () => {
@@ -418,8 +381,8 @@ describe("groupSiblings", () => {
     const groups = groupSiblings(matches);
 
     expect(groups.size).toBe(1);
-    expect(groups.has("OP01-OP01-001")).toBe(true);
-    expect(groups.get("OP01-OP01-001")?.length).toBe(5);
+    expect(groups.has("op|op01|001")).toBe(true);
+    expect(groups.get("op|op01|001")?.length).toBe(5);
   });
 
   it("splits across different (set, number) tuples into separate groups", () => {
@@ -437,11 +400,11 @@ describe("groupSiblings", () => {
     const groups = groupSiblings(matches);
 
     expect(groups.size).toBe(2);
-    expect(groups.has("OP01-OP01-001")).toBe(true);
-    expect(groups.has("OP02-OP02-001")).toBe(true);
+    expect(groups.has("op|op01|001")).toBe(true);
+    expect(groups.has("op|op02|001")).toBe(true);
   });
 
-  it("handles null set_code by using '_' placeholder in the key", () => {
+  it("groups missing row set metadata by the parsed SKU candidate", () => {
     const noSet = makeItem({
       sku: "op-zzz-999-ja",
       card_number: "ZZZ-999",
@@ -453,7 +416,7 @@ describe("groupSiblings", () => {
       [noSet],
     );
     const groups = groupSiblings(matches);
-    expect(groups.has("_-ZZZ-999")).toBe(true);
+    expect(groups.has("op|zzz|999")).toBe(true);
   });
 
   it("returns an empty Map for empty input", () => {
@@ -521,5 +484,41 @@ describe("summarizeMatches", () => {
 
     const summary = summarizeMatches(matches);
     expect(summary.best_confidence).toBe("exact");
+  });
+});
+
+describe("canonical search identity and relevance", () => {
+  it("uses package normalization while preserving the storage key", () => {
+    const [match] = scoreMatches({ game: "onepiece", q: "op-op01-001-ja-v11dz" }, OP01_001_FIXTURES);
+    expect(match?.sku).toBe("OP-OP01-001-JP-V11DZ");
+    expect(match?.confidence).toBe("exact");
+    expect(match?.identity.canonical_sku).toBe("op-op01-001-ja-v11dz");
+    expect(match?.identity.scope).toBe("syntax_only");
+    expect(parseSearchSku("pkm-svobf-en-006")?.number).toBe("006");
+    expect(parseSearchSku("unknown-set-001-en")).toBeNull();
+    expect(parseSearchSku("op--001-en")).toBeNull();
+  });
+
+  it("rejects unknown games, contradictory full SKUs and wrong-game provider rows", () => {
+    expect(scoreMatches({ game: "unknown", q: "OP01-001" }, OP01_001_FIXTURES)).toEqual([]);
+    expect(scoreMatches({ game: "pokemon", q: "op-op01-001-ja" }, OP01_001_FIXTURES)).toEqual([]);
+    const wrongGame = makeItem({ sku: "pkm-op01-001-ja", card_number: "OP01-001", set_code: "OP01" });
+    expect(scoreMatches({ game: "op", q: "OP01-001" }, [wrongGame])).toEqual([]);
+  });
+
+  it("does not label unrelated provider rows as fuzzy matches", () => {
+    const other = makeItem({ sku: "op-op02-999-ja", card_number: "OP02-999", set_code: "OP02", name: "Unrelated" });
+    expect(scoreMatches({ game: "op", q: "OP01-001" }, [other])).toEqual([]);
+    expect(scoreMatches({ game: "op", q: "Zoro" }, [other])).toEqual([]);
+    expect(scoreMatches({ game: "op", q: "" }, OP01_001_FIXTURES)).toEqual([]);
+    const inconsistent = makeItem({ sku: "op-op02-999-ja", card_number: "OP01-001", set_code: "OP01" });
+    expect(scoreMatches({ game: "op", q: "OP01-001" }, [inconsistent])).toEqual([]);
+  });
+
+  it("groups bare and publisher-form numbers without merging games", () => {
+    const rows = [OP01_001_FIXTURES[0]!, makeItem({ sku: "op-op01-001-en", card_number: "001", set_code: "OP01" })];
+    const matches = scoreMatches({ game: "op", q: "OP01-001" }, rows);
+    expect(groupSiblings(matches).size).toBe(1);
+    expect(matches).toHaveLength(2);
   });
 });

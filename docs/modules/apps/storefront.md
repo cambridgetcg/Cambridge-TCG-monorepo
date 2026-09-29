@@ -12,7 +12,7 @@ The main Cambridge TCG website: card research, collecting, play, public data int
 
 ## Progress
 
-Source review recorded **2026-09-28**. App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. Entries were organized on 2026-09-28. The 2026-09-29 UI rebuild adds a plain shared system, task navigation, clearer search and appearance pages, responsive account navigation and independently available browser practice. The linked verification records define the checked scope and service boundaries.
+Source review recorded **2026-09-28**. App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. Entries were organized on 2026-09-28. The 2026-09-29 UI rebuild adds a plain shared system, task navigation, clearer search and appearance pages, responsive account navigation and independently available browser practice. The linked verification records define the checked scope and service boundaries. 2026-09-29: the first complete-rebuild slice implements the editorial front door, room directory, reading trails and card-data contract discovery. The implementation record distinguishes this foundation from remaining page replacement.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -29,6 +29,9 @@ This records source and documentation evidence. It does not establish deployment
 - [docs/design/interface.md](../../design/interface.md)
 - [docs/operations/2026-09-28-entry-verification.md](../../operations/2026-09-28-entry-verification.md)
 - [docs/operations/2026-09-29-ui-verification.md](../../operations/2026-09-29-ui-verification.md)
+- [docs/plans/storefront-rebuild/implementation.md](../../plans/storefront-rebuild/implementation.md)
+- [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
+- [apps/storefront/src/content/rooms](../../../apps/storefront/src/content/rooms)
 
 Start with the [storefront domain map](../storefront/README.md) to find the relevant routes and libraries.
 

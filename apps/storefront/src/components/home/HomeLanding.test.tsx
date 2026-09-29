@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { UI_LANGS } from "@/lib/lang-mode";
 import HomeLanding from "./HomeLanding";
+
+vi.mock("server-only", () => ({}));
 
 describe("visitor landing", () => {
   it.each(UI_LANGS)("keeps native search and task destinations in $lang", ({ lang }) => {

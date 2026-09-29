@@ -32,4 +32,34 @@ describe('private member reader query boundary', () => {
     const sql = database.mock.calls[0]![0];
     expect(sql).toContain('o.batch_id <= c.watermark'); expect(sql).toContain('r.member_api'); expect(sql).toContain('r.revoked_at IS NULL'); expect(sql).toContain('r.evidence_version=o.evidence_version');
   });
+  const row = {
+    id: '1', source: 'cardmarket', source_product_id: '123', sku: null, mapping_status: 'unmapped',
+    game: 'pokemon', set_code: null, product_name: 'Example', granularity: 'source-product',
+    finish: null, language: null, condition: null, metric: 'trend', amount: '12.340000',
+    currency: 'EUR', underlying_market: 'cardmarket', source_updated_at: '2026-09-06T00:00:00Z',
+    retrieved_at: '2026-09-07T00:00:00Z', source_url: 'https://example.test/prices.json',
+    parser_version: 'test/1', crosswalk_version: 'test/1', evidence_version: 'test/1', artifact_sha256: 'a'.repeat(64),
+    catalog_source_url: 'https://example.test/catalog.json', catalog_updated_at: '2026-08-01T00:00:00Z',
+    catalog_artifact_sha256: 'b'.repeat(64), permitted_uses: ['member-api'],
+  };
+  it('preserves native units, scope and source times through the storage projection', async () => {
+    database.mockResolvedValue({ rows: [{ watermark: '1', total: '1', items: [row] }] });
+    const page = await readMemberPrices({ userId: 'test' }, parse(), 'member-api');
+    expect(page.status).toBe('available');
+    expect(page.items[0]).toMatchObject({ amount: '12.340000', currency: 'EUR', sku: null,
+      metric: 'trend', granularity: 'source-product', sourceUpdatedAt: '2026-09-06T00:00:00.000Z',
+      retrievedAt: '2026-09-07T00:00:00.000Z', permittedUses: ['member-api'] });
+  });
+  it.each([{ amount: '0.000000' }, { amount: 'Infinity' }, { currency: 'GBP' },
+    { mapping_status: 'exact' }, { sku: 'pkm-sv01-001-en' }, { permitted_uses: ['member-display'] }])(
+    'withholds an entire invalid response page instead of emitting incorrect prices %j', async invalid => {
+      database.mockResolvedValue({ rows: [{ watermark: '1', total: '1', items: [{ ...row, ...invalid }] }] });
+      const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        expect(await readMemberPrices({ userId: 'test' }, parse(), 'member-api')).toMatchObject({
+          status: 'unavailable', items: [], complete: false,
+        });
+      } finally { log.mockRestore(); }
+    },
+  );
 });

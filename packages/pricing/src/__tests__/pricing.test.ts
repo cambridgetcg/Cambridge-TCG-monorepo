@@ -12,8 +12,8 @@
  *  - `commissionRateForScore(...)` matches the platform's tier thresholds.
  *
  * The worked example in `docs/methodology/pricing.md` is locked here as
- * the canonical regression test: ¥600 @ 185 GBP/JPY produces £5.20 on
- * cambridgetcg, £5.70 on eBay, £1.78 on trade-in cash. If any of those
+ * the canonical regression test: ¥600 @ 185 JPY per GBP produces £5.10 on
+ * cambridgetcg, £5.60 on eBay, £1.78 on trade-in cash. If any of those
  * numbers ever change, this test fires and the methodology page must be
  * updated in the same PR.
  */
@@ -57,7 +57,7 @@ describe("computePrice", () => {
     );
   });
 
-  it("rounds up to the channel's roundTo step", () => {
+  it("rounds to the nearest channel roundTo step", () => {
     // cambridgetcg has roundTo = 0.10
     const result = computePrice(50, 185, DEFAULTS.cambridgetcg!, "singles");
     // Final price must be a multiple of 0.10
@@ -68,7 +68,7 @@ describe("computePrice", () => {
 
 describe("computePriceForChannel — methodology worked example", () => {
   // Locks the worked example from docs/methodology/pricing.md.
-  // ¥600 @ 185 GBP/JPY. Rounding is Math.round (banker's-style), not ceil.
+  // ¥600 @ 185 JPY per GBP. Ties round upward, not banker's rounding or ceil.
 
   it("cambridgetcg → £5.10", () => {
     const result = computePriceForChannel(600, 185, "cambridgetcg", "singles");
@@ -109,6 +109,29 @@ describe("computePriceForChannel — methodology worked example", () => {
     const result = computePriceForChannel(600, 185, "no-such-channel", "singles");
     const wholesale = computePriceForChannel(600, 185, "wholesale", "singles");
     expect(result.price).toBe(wholesale.price);
+  });
+});
+
+describe("pricing input and result boundaries", () => {
+  it.each([0, -1, NaN, Infinity, -Infinity])("rejects invalid FX %s", rate => {
+    expect(() => computePrice(600, rate, DEFAULTS.wholesale!, "singles")).toThrow(RangeError);
+  });
+  it.each([0, -1, NaN, Infinity])("rejects an invalid source quote %s", amount => {
+    expect(() => computePrice(amount, 185, DEFAULTS.wholesale!, "singles")).toThrow(RangeError);
+  });
+  it.each([
+    { marginMultiplier: -1 }, { flatFeeSingles: -1 }, { flatFeeSealed: NaN },
+    { vatMultiplier: 0 }, { retailMultiplier: Infinity }, { retailMultiplier: 0 },
+    { roundTo: 0 }, { roundTo: 0.015 }, { roundTo: Infinity }, { channel: "" },
+  ])("rejects malformed configuration %j", override => {
+    expect(() => computePrice(600, 185, { ...DEFAULTS.wholesale!, ...override }, "singles")).toThrow(RangeError);
+  });
+  it("rejects overflow rather than emitting an infinite price that JSON would turn into null", () => {
+    expect(() => computePrice(Number.MAX_VALUE, Number.MIN_VALUE, DEFAULTS.wholesale!, "singles")).toThrow(RangeError);
+  });
+  it("preserves penny-step prices and nonnegative fees", () => {
+    const config = { ...DEFAULTS.wholesale!, marginMultiplier: 1, flatFeeSingles: 0, vatMultiplier: 1, retailMultiplier: 1, roundTo: 0.01 };
+    expect(computePrice(1005, 1000, config, "singles").price).toBe(1.01);
   });
 });
 

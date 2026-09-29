@@ -12,7 +12,7 @@ Compute channel-aware pricing breakdowns from explicit inputs and shared constan
 
 ## Progress
 
-Source review recorded **2026-09-28**. Pricing functions, channel defaults and unit tests are present. The older pricing-current-state document is a historical consolidation plan.
+Source review recorded **2026-09-28**. Pricing functions, channel defaults and unit tests are present. The older pricing-current-state document is a historical consolidation plan. 2026-09-29: decimal major-unit money, finite input/config validation and stable GBP rounding added. Direct channel writers and previews validate compatible configuration.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -23,6 +23,9 @@ This records source and documentation evidence. It does not establish deployment
 - [packages/pricing/src/index.ts](../../../packages/pricing/src/index.ts)
 - [packages/pricing/src/__tests__/pricing.test.ts](../../../packages/pricing/src/__tests__/pricing.test.ts)
 - [docs/pricing-current-state.md](../../pricing-current-state.md)
+- [packages/pricing/src/money.ts](../../../packages/pricing/src/money.ts)
+- [packages/pricing/src/__tests__/money.test.ts](../../../packages/pricing/src/__tests__/money.test.ts)
+- [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
 
 ## Declared package relationships
 

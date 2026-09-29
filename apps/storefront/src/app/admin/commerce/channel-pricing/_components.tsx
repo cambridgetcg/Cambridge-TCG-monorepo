@@ -68,22 +68,32 @@ export function ChannelEditor(props: ChannelEditorProps) {
   function onPreview() {
     setError(null);
     startTransition(async () => {
-      const result = await previewChannelPrice({
-        channel: props.channel,
-        marginMultiplier: margin,
-        flatFeeSingles: feeSingles,
-        flatFeeSealed: feeSealed,
-        vatMultiplier: vat,
-        retailMultiplier: retail,
-        roundTo: round,
-      });
-      setPreview({
-        baseGbp: result.baseGbp,
-        exVat: result.exVat,
-        vat: result.vat,
-        preRound: result.preRound,
-        price: result.price,
-      });
+      try {
+        const result = await previewChannelPrice({
+          channel: props.channel,
+          marginMultiplier: margin,
+          flatFeeSingles: feeSingles,
+          flatFeeSealed: feeSealed,
+          vatMultiplier: vat,
+          retailMultiplier: retail,
+          roundTo: round,
+        });
+        if ("error" in result) {
+          setPreview(null);
+          setError(result.error);
+          return;
+        }
+        setPreview({
+          baseGbp: result.baseGbp,
+          exVat: result.exVat,
+          vat: result.vat,
+          preRound: result.preRound,
+          price: result.price,
+        });
+      } catch {
+        setPreview(null);
+        setError("Price preview is unavailable. Check the inputs and try again.");
+      }
     });
   }
 

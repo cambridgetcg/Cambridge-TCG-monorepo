@@ -16,18 +16,15 @@ export default function SkuStandardMethodology() {
       <h1>SKU standard (v1)</h1>
 
       <p>
-        Every card on the platform has a <strong>SKU</strong> — a short,
-        machine-readable identifier that names it precisely. The SKU works the
-        same way for One Piece, Pokémon, Magic, Yu-Gi-Oh, Digimon, Vanguard,
-        Weiß Schwarz, Flesh and Blood, Lorcana, and every TCG the platform
-        catalogues. <strong>One format. One parser. Every game.</strong>
+        A <strong>SKU</strong> is a machine-readable card identifier. The shared
+        grammar supports registered games and recognized legacy forms. Valid
+        syntax does not prove that a card, printing or source-price mapping exists.
       </p>
 
       <p>
-        This page is the canonical spec. It's the contract between the
-        platform's database, its public API, every agent that reads or writes
-        through us, every archivist preserving market history, and every
-        partner who wants to interoperate.
+        This page describes the identifier grammar. Existing storage and API
+        readers still include legacy identifiers; each boundary must state
+        which forms it accepts and returns.
       </p>
 
       <blockquote>
@@ -35,9 +32,8 @@ export default function SkuStandardMethodology() {
         is{" "}
         <code>packages/sku/</code> in the monorepo. <code>parseSku()</code>,{" "}
         <code>buildSku()</code>, <code>normalizeSku()</code>, and the{" "}
-        <code>GAMES</code> registry all live there and are imported by every
-        app that handles SKUs. When the spec changes, this page changes in the
-        same PR.
+        <code>GAMES</code> registry live there. <code>skuIdentity()</code> keeps
+        the supplied identifier alongside its normalized syntax candidate.
       </blockquote>
 
       <p>
@@ -62,12 +58,12 @@ export default function SkuStandardMethodology() {
           the table below. Names <em>which TCG</em> this card is from.
         </li>
         <li>
-          <strong>set</strong> — lowercase alphanumeric. The publisher's set
+          <strong>set</strong> — lowercase alphanumeric. The publisher&apos;s set
           code, normalised. e.g. <code>op01</code>, <code>svobf</code>,{" "}
           <code>otj</code>.
         </li>
         <li>
-          <strong>number</strong> — lowercase alphanumeric. The card's number
+          <strong>number</strong> — lowercase alphanumeric. The card&apos;s number
           within the set. e.g. <code>001</code>, <code>t01</code>,{" "}
           <code>fa1</code>.
         </li>
@@ -172,8 +168,8 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       <p>
         Both legacy forms accept normalisation through{" "}
         <code>normalizeSku(legacy)</code>; the result round-trips through{" "}
-        <code>parseSku()</code> losslessly. Reading paths apply normalisation
-        transparently; writing paths emit canonical form only.
+        <code>parseSku()</code> losslessly. Adoption is explicit at each read
+        or write boundary; this utility does not rewrite stored identifiers.
       </p>
 
       <h2>Variants</h2>
@@ -181,7 +177,7 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       <p>
         The <code>variant</code> segment captures meaningful prints of the same
         underlying card. Each variant is one or more lowercase tokens
-        hyphen-joined; the platform doesn't enforce a closed vocabulary, but
+        hyphen-joined; the platform doesn&apos;t enforce a closed vocabulary, but
         these are the commonly-shipping tokens:
       </p>
 
@@ -218,19 +214,19 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
 
       <h3>For agents</h3>
       <p>
-        Every public API endpoint that returns a card carries its canonical SKU.
-        A reading agent doesn't need to translate between formats; the platform
-        emits one form. A writing agent's input is normalised on accept (so
-        legacy forms work) and stored canonically.
+        Search and card composition preserve the stored <code>sku</code> and add
+        an <code>identity</code> object with <code>raw_sku</code>, a normalized
+        <code>canonical_sku</code> and <code>scope: syntax_only</code>. Other
+        endpoints may still use legacy forms. Normalization alone is never
+        sufficient to join a price to a physical printing.
       </p>
 
       <h3>For archivists</h3>
       <p>
-        The SKU is the platform's stable foreign key for any card. A snapshot
-        from today can be cross-referenced with a snapshot from 2030 because
-        SKUs don't change shape — the spec is versioned (this is v1) and any
-        breaking change ships under a new prefix (<code>/api/v2/</code>) before
-        v1 retires.
+        Preserve raw identifiers, source references and the version of the
+        normalization rules with each snapshot. The grammar is v1. Future
+        breaking changes need an explicit migration; this package does not
+        rewrite historical keys or promise that every stored alias is unique.
       </p>
 
       <h3>For partners / other platforms</h3>
@@ -245,7 +241,7 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
 
       <h3>For aliens</h3>
       <p>
-        A being whose cognition doesn't share our category of "card" can still
+        A being whose cognition doesn&apos;t share our category of &quot;card&quot; can still
         index records by canonical-form string. The SKU is{" "}
         <em>language-free in structure</em> — the language hint is one segment,
         not embedded in identifier semantics. The math-mirror surface (see{" "}

@@ -69,6 +69,10 @@ describe("member route authentication before pricing", () => {
     expect(response.status).toBe(200); privateResponse(response);
     const body = await response.json();
     expect(body.data).toEqual(page); expect(body._meta.license).toBe("NOASSERTION");
+    expect(body._meta.price_observation_contract).toBe("ctcg.member-prices/v1");
+    expect(response.headers.get("link")).toContain('/api/v1/contracts/card-data');
+    expect(body.data.items[0].amount).toBe("12.34");
+    expect(body.data.items[0].currency).toBe("EUR");
     expect(body._meta.next_link).toContain("game=pokemon&cursor=opaque.cursor");
     expect(mocks.read).toHaveBeenCalledWith({ userId: "member" }, { mode: "current", limit: 100 }, "member-api");
   });

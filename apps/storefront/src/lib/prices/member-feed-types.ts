@@ -1,4 +1,4 @@
-import type { MemberPriceUse, NativePriceObservation } from '@cambridge-tcg/data-ingest/member-prices';
+import type { MemberPriceUse, MemberPriceObservation } from '@cambridge-tcg/data-spec';
 
 export type { MemberPriceUse };
 export interface MemberPriceQuery {
@@ -13,11 +13,7 @@ export interface MemberPriceQuery {
   limit: number;
   cursor?: string;
 }
-export interface MemberPriceItem extends NativePriceObservation {
-  id: string;
-  permittedUses: MemberPriceUse[];
-  attribution: string;
-}
+export type MemberPriceItem = MemberPriceObservation;
 export interface MemberPricePage {
   status: 'available' | 'empty' | 'unavailable';
   items: MemberPriceItem[];
