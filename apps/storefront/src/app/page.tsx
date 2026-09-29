@@ -5,10 +5,11 @@ import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { audienceMetadata } from "@/lib/ui/Audience";
 import { Provenance } from "@/lib/ui/Provenance";
+import { PLATFORM } from "@/content/platform";
 
 export const metadata: Metadata = {
-  title: "Cambridge TCG — card prices & collector tools",
-  description: "Find the right card printing, check available prices and sources, and organise your collection. Explore the art along the way.",
+  title: PLATFORM.title,
+  description: PLATFORM.description,
   other: audienceMetadata("consumer", ["home", "collector", "player"]),
 };
 

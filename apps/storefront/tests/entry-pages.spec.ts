@@ -13,14 +13,18 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   test(`visitor entry is usable at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Look closer.Find your price.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("TCG data.Made to connect.");
     await expect(page.getByLabel("Game", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Card number", { exact: true })).toBeVisible();
     await expect(page.locator('main a[href="/account/portfolio"]')).toBeVisible();
     const artwork = page.locator('main figure img');
     await expect(artwork).toBeVisible();
     await expect.poll(() => artwork.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
-    await expect(page.locator('main a[href="/agents"]')).toBeVisible();
+    const build = page.getByRole("navigation", { name: "Build with card data", exact: true });
+    await expect(build.getByRole("link", { name: "Explore the standards →", exact: true })).toHaveAttribute("href", "/standards");
+    await expect(build.getByRole("link", { name: "Build with the API →", exact: true })).toHaveAttribute("href", "/agents");
+    await expect(page.locator('main aside a[href="/about"]')).toBeVisible();
+    await expect(page.getByRole("region", { name: "Four foundations. One connected view.", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     const search = await page.getByLabel("Card number", { exact: true }).boundingBox();
     expect(search!.y + search!.height).toBeLessThan(viewport.height);

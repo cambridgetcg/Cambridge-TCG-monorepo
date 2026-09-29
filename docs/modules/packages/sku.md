@@ -16,7 +16,7 @@ Source review recorded **2026-09-28**. Parser, builder, normalization and vocabu
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Extend game and set vocabulary here and use the shared parser at input boundaries; preserve existing identifier compatibility.
+**Next review:** Preserve syntax and stored identifiers while introducing separately evidenced printing mappings. Registry declarations do not establish live coverage; workspace code does not establish an npm release.
 
 ## Evidence and entry points
 
@@ -27,6 +27,8 @@ This records source and documentation evidence. It does not establish deployment
 - [packages/sku/src/identity.ts](../../../packages/sku/src/identity.ts)
 - [packages/sku/src/__tests__/identity.test.ts](../../../packages/sku/src/__tests__/identity.test.ts)
 - [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
+- [apps/storefront/src/lib/contracts/standards.ts](../../../apps/storefront/src/lib/contracts/standards.ts)
+- [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
 
 ## Declared package relationships
 

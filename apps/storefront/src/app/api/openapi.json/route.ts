@@ -75,6 +75,14 @@ const SPEC = {
     { name: "participant-memory", description: "No-store witness and disabled participant-memory publication boundaries." },
   ],
   paths: {
+    "/api/v1/roadmap": {
+      get: {
+        tags: ["discovery"], operationId: "getIntegrationRoadmap",
+        summary: "TCG data integration roadmap",
+        description: "Authored planning snapshot shared with /roadmap; schema cambridgetcg.integration-roadmap/1. Four foundations, current limitations, dependency-ordered milestones and acceptance gates. The review date describes the plan, not provider freshness or a service-health check.",
+        security: [], responses: { "200": { description: "Pantry envelope; data contains foundations, stages and rights/release boundaries.", content: { "application/json": { schema: { $ref: "#/components/schemas/Envelope" } } } } },
+      },
+    },
     "/api/v1/contracts/card-data": {
       get: {
         tags: ["identity", "prices"], operationId: "getCardDataContract",

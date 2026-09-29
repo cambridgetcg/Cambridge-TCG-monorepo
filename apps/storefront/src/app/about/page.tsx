@@ -1,168 +1,47 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { PLATFORM } from "@/content/platform";
+import { DataFoundations } from "@/components/site/DataFoundations";
+import { PageLayout } from "@/lib/ui/PageLayout";
+import { PageHeader } from "@/lib/ui/PageHeader";
 
-export const metadata = {
-  title: "About — Cambridge TCG",
-  description: "A community built around the art, nostalgia, and meaning of trading cards. More than a marketplace — a new layer of connection.",
-};
+export const metadata: Metadata = { title: "About the data project — Cambridge TCG", description: PLATFORM.description };
+const link = "text-accent underline underline-offset-4";
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-page">
-      {/* Hero */}
-      <section className="border-b border-border-subtle">
-        <div className="max-w-3xl mx-auto px-4 py-16 md:py-24 text-center">
-          <h1 className="font-display font-semibold text-3xl md:text-4xl text-ink leading-tight">
-            More Than Cards.<br />
-            <span className="text-accent">A Community.</span>
-          </h1>
-          <p className="text-lg text-ink-muted mt-6 max-w-xl mx-auto leading-relaxed">
-            Cambridge TCG is built on a simple belief: trading cards carry meaning beyond their market value. They are art. They are nostalgia. They are the stories we tell each other.
-          </p>
-        </div>
-      </section>
+    <PageLayout width="wide">
+      <div lang="en">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-accent">From Cambridge, for the TCG world</p>
+        <PageHeader size="large" title="A shared language for cards." description={PLATFORM.description} />
+        <p className="max-w-3xl text-base leading-7 text-ink-muted">A name alone cannot identify a printing. An image needs its source. A price needs its currency, meaning and date. Cambridge TCG connects those details so collectors, developers and agents can work from the same evidence.</p>
 
-      {/* Mission */}
-      <section className="border-b border-border-subtle">
-        <div className="max-w-3xl mx-auto px-4 py-16">
-          <h2 className="font-display font-semibold text-2xl text-ink mb-6">Our Mission</h2>
-          <div className="space-y-4 text-ink-muted leading-relaxed">
-            <p>
-              We started as collectors who wanted something better. Not just another shop — a place where the card community could thrive. Where you could show others your treasures, find the cards you have been searching for, and connect with people who understand why a piece of illustrated cardboard can mean so much.
-            </p>
-            <p>
-              Trading cards sit at the intersection of art, nostalgia, community, and finance. A card is a memory of the pack you opened as a child. It is a piece of Japanese art that stopped you mid-scroll. It is a conversation starter at a local tournament. It is an asset in a portfolio you built card by card.
-            </p>
-            <p>
-              We built Cambridge TCG to honour all of those dimensions at once.
-            </p>
+        <section aria-labelledby="about-foundations" className="mt-10">
+          <h2 id="about-foundations" className="mb-5 text-xl font-semibold text-ink">What we standardise</h2>
+          <DataFoundations />
+        </section>
+
+        <section aria-labelledby="about-open" className="mt-10 grid gap-8 border-t border-border-subtle pt-6 md:grid-cols-2">
+          <div>
+            <h2 id="about-open" className="text-xl font-semibold text-ink">Open-source, with clear boundaries</h2>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">The repository contains an Apache-2.0 code license; covered specification text has a separate CC0 dedication. Card artwork, provider data and personal records retain their own rights. Every data release needs its own permission.</p>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">Reference packages currently live in the workspace. Public repository access, package distribution and the license inventory are release checks on the roadmap.</p>
           </div>
-        </div>
-      </section>
-
-      {/* What We Stand For */}
-      <section className="border-b border-border-subtle">
-        <div className="max-w-3xl mx-auto px-4 py-16">
-          <h2 className="font-display font-semibold text-2xl text-ink mb-10">What We Stand For</h2>
-
-          <div className="space-y-10">
-            <div>
-              <h3 className="font-display font-semibold text-lg text-ink mb-3">Art and Nostalgia</h3>
-              <p className="text-ink-muted leading-relaxed">
-                Every card is a piece of art. The Japanese illustrators who create these cards pour their craft into every line. We source directly from Japan because we believe you deserve the original, authentic expression of that art. When you hold a Japanese One Piece card, you are holding something made with intention and care.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-display font-semibold text-lg text-ink mb-3">Community First</h3>
-              <p className="text-ink-muted leading-relaxed">
-                Cards are social objects. They are meant to be shown, discussed, traded, and admired. Our platform is designed around this truth. Build your public collection. Showcase your prized pulls. Follow other collectors. Find people who want what you have and have what you want. Every feature we build asks the same question: does this bring collectors closer together?
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-display font-semibold text-lg text-ink mb-3">The Collecting Journey</h3>
-              <p className="text-ink-muted leading-relaxed">
-                Collecting is a journey, not a transaction. Track your portfolio, watch its value grow, complete sets, earn achievements. We built tools that make the journey visible and rewarding — not just the moment of purchase, but everything that comes after.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-display font-semibold text-lg text-ink mb-3">P2P with Trust</h3>
-              <p className="text-ink-muted leading-relaxed">
-                We believe collectors should be able to trade directly with each other. But P2P trading needs trust. That is why we built our marketplace as a hybrid: peer-to-peer philosophy with centralised protection. We verify identities, inspect cards, hold escrow, resolve disputes, and build trust scores over time. You get the freedom of direct trading with the safety of a platform that has your back.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-display font-semibold text-lg text-ink mb-3">A Financial Layer, Done Right</h3>
-              <p className="text-ink-muted leading-relaxed">
-                Cards have real value. We do not pretend otherwise. Our market shows live bid and ask intent that collectors deliberately publish, alongside labelled catalogue and order-book reference history. Completed-trade analytics and person-derived market intelligence are paused until they have purpose-specific publication choices and a delayed, coarse release process. The platform holds no position in its own market, so no number here is ever our offer. The financial layer serves the community, not the other way around. The goal is not speculation — it is giving collectors the information and tools to make good decisions about the cards they love.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-display font-semibold text-lg text-ink mb-3">Giving Back</h3>
-              <p className="text-ink-muted leading-relaxed">
-                The best communities are generous. Our rewards system — raffles, mystery boxes, tier perks — exists to give back to the people who make this community what it is. Earn Berries by participating, spend them on experiences that surprise you. Every purchase, every trade, every interaction makes the community richer for everyone.
-              </p>
-            </div>
+          <div>
+            <h2 className="text-xl font-semibold text-ink">Useful standards earn adoption</h2>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">Our aim is interoperability: documented contracts, reproducible examples, corrections and versioned changes. These are Cambridge-maintained specifications, with community adoption still to be demonstrated.</p>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">The current site offers discovery and permitted account tools. New paid commerce remains retired; existing agreements and support continue through your account.</p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* How It Works */}
-      <section className="border-b border-border-subtle">
-        <div className="max-w-3xl mx-auto px-4 py-16">
-          <h2 className="font-display font-semibold text-2xl text-ink mb-10">How It All Connects</h2>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="bg-surface border border-border-subtle rounded-lg p-5">
-              <p className="text-accent font-bold mb-1">Buy</p>
-              <p className="text-sm text-ink-muted">From other collectors on the P2P market — bids, asks, and offers, with the reference price beside every card.</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg p-5">
-              <p className="text-accent font-bold mb-1">Collect</p>
-              <p className="text-sm text-ink-muted">Track your portfolio. Watch values change. Complete sets. Earn achievements along the way.</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg p-5">
-              <p className="text-accent font-bold mb-1">Show</p>
-              <p className="text-sm text-ink-muted">Pin your best cards to your public profile. Let the community see what you have built.</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg p-5">
-              <p className="text-accent font-bold mb-1">Trade</p>
-              <p className="text-sm text-ink-muted">Sell on the market, list at auction, or swap card-for-card. Multiple paths, your choice.</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg p-5">
-              <p className="text-accent font-bold mb-1">Earn</p>
-              <p className="text-sm text-ink-muted">Every action earns Berries — free to earn, at one flat rate for everyone, and spent on spins, packs, and raffles in the Rewards Hub.</p>
-            </div>
-            <div className="bg-surface border border-border-subtle rounded-lg p-5">
-              <p className="text-accent font-bold mb-1">Connect</p>
-              <p className="text-sm text-ink-muted">Published profiles and direct messages use explicit choices. Wishlist matching and the public activity feed are paused while their per-event consent model is rebuilt.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Cambridge */}
-      <section className="border-b border-border-subtle">
-        <div className="max-w-3xl mx-auto px-4 py-16">
-          <h2 className="font-display font-semibold text-2xl text-ink mb-6">Based in Cambridge</h2>
-          <p className="text-ink-muted leading-relaxed">
-            We are a UK-based team operating from Cambridge. Every card that passes through our P2P escrow is inspected here — that is a service to both sides of a trade, never a position of our own. The people running this platform collect the same cards you do.
-          </p>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section>
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <h2 className="font-display font-semibold text-2xl text-ink mb-4">Join the Community</h2>
-          <p className="text-ink-muted mb-8">
-            Create your free account. Start collecting. Find your people.
-          </p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <Link
-              href="/login"
-              className="px-8 py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition"
-            >
-              Get Started
-            </Link>
-            <Link
-              href="/market"
-              className="px-8 py-3 border border-border-subtle bg-surface text-ink font-semibold rounded-lg hover:bg-surface-subtle transition"
-            >
-              Browse the Market
-            </Link>
-            <Link
-              href="/community"
-              className="px-8 py-3 border border-border-subtle bg-surface text-ink font-semibold rounded-lg hover:bg-surface-subtle transition"
-            >
-              Explore Community
-            </Link>
-          </div>
-        </div>
-      </section>
-    </main>
+        <nav aria-label="Explore the project" className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm">
+          <Link href="/roadmap" className={link}>Integration roadmap →</Link>
+          <Link href="/standards" className={link}>Standards</Link>
+          <Link href="/agents" className={link}>Agents & API</Link>
+          <Link href="/services" className={link}>Collector tools</Link>
+          <Link href="/contact" className={link}>Contact</Link>
+        </nav>
+      </div>
+    </PageLayout>
   );
 }

@@ -8,11 +8,11 @@ Choose the area you want to understand. These groups cover every immediate direc
 
 | Area | Purpose |
 |---|---|
-| [Cards and research](cards-and-research.md) | Find cards, understand identifiers, inspect source evidence, compare prices and discover datasets. |
+| [Cards and research](cards-and-research.md) | Find cards and connect SKU identity, image provenance, native prices and qualified market observations, with explicit uncertainty and source-use permissions. |
 | [Collecting and play](collecting-and-play.md) | Organize collections and decks, run game experiences and inspect draw or play records. Availability remains route-specific. |
 | [Existing agreements and records](agreements-and-records.md) | Maintain existing order, settlement, delivery and support responsibilities. Historical commerce code does not reopen retired admission. |
 | [Accounts and community](accounts-and-community.md) | Sign in, manage account records and preferences, communicate, and participate in community surfaces. |
-| [Public interfaces and discovery](public-interfaces.md) | Describe resources, public API contracts, agent access, provenance and machine discovery through existing registries. |
+| [Public interfaces and discovery](public-interfaces.md) | Expose data contracts, specifications, provenance and agent discovery, with a separate authored integration roadmap that does not claim runtime capability or source availability. |
 | [Trust, privacy and operations](safety-and-operations.md) | Operate the service, review evidence and trust decisions, apply privacy controls and maintain verification tools. |
 | [PRISM Signals preview](prism-preview.md) | Present the synthetic signal preview and host product-flow integration without enabling commercial rails. |
 | [Art, culture and invitations](art-and-culture.md) | Offer art, cultural writing and optional invitations; these are distinct from operating instructions and account permissions. |

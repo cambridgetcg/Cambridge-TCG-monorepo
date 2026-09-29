@@ -3,6 +3,11 @@
 Start here for agent-facing material. The [human project guide](../../README.md)
 covers purpose, applications and local development.
 
+Current direction: build open-source TCG data infrastructure for SKU identity,
+images, prices and market observations. Read the [integration roadmap](../plans/tcg-data-platform/README.md)
+for dependencies and acceptance gates; use [current contracts](../architecture/card-data-contracts.md)
+to distinguish implemented behavior from planned integration.
+
 ## Working in the repository
 
 [AGENTS.md](../../AGENTS.md) is the shared operating guide.
@@ -32,13 +37,19 @@ they were live-checked during this documentation cleanup.
 | [llms-full.txt](https://cambridgetcg.com/llms-full.txt) | Expanded machine-facing text |
 | [Welcome API](https://cambridgetcg.com/api/v1/welcome) | Agent introduction |
 | [Manifest API](https://cambridgetcg.com/api/v1/manifest) | Resource discovery |
+| [Standards](https://cambridgetcg.com/standards) and [registry JSON](https://cambridgetcg.com/standards.json) | Versioned specifications; registry entries do not establish current catalog coverage |
+| [Card-data contracts](https://cambridgetcg.com/api/v1/contracts/card-data) | SKU syntax, money and observation contracts; no source activation |
+| [Roadmap](https://cambridgetcg.com/roadmap) and [roadmap API](https://cambridgetcg.com/api/v1/roadmap) | Static authored planning snapshot; milestones are not callable capabilities or live health |
 | [Well-known declaration](https://cambridgetcg.com/.well-known/cambridge-tcg.json) | Project and related-embassy declaration |
 
 Discovery is not account access or permission to act. Check endpoint-specific
 authentication, data rights, provenance and the
 [commerce boundary](../../apps/storefront/docs/commercial-retirement.md).
-Card names and data retain their publishers' rights; resource declarations
-distinguish CC0 from NOASSERTION. Code uses [Apache-2.0](../../LICENSE).
+Code follows the root [Apache-2.0 license](../../LICENSE) and more-specific notices;
+[CC0 specification prose](../STANDARDS-LICENSE.md), source data and artwork have
+separate terms. Reference packages are private workspaces, not npm releases.
+Public repository access, package distribution and provider permissions each
+require their own release evidence.
 
 ## Optional invitations
 

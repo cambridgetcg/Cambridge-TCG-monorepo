@@ -58,6 +58,7 @@
 
 import { postedAlongside, postedFrom, type PostedFromProjection } from "@/lib/siblings";
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { PLATFORM } from "@/content/platform";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
 
@@ -371,7 +372,7 @@ export const MANIFEST: Manifest = {
   cosmology_version: COSMOLOGY_VERSION,
   generated_at: "2026-07-12T11:50:32Z",
   description:
-    `Cambridge TCG supports card research, collecting, play and connected reading. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
+    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
   request_privacy_boundary: {
     no_tracking_term_means:
       "No application-level visit or behavioral profile is created by a route making that claim. It does not mean request metadata cannot exist in hosting, proxy, security, or network infrastructure.",
@@ -861,6 +862,11 @@ export const MANIFEST: Manifest = {
         host: "storefront", path: "/api/v1/rooms", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge"], methodology_url: "/map",
+        contract: "envelope", since: "2026-09-29" },
+      { id: "storefront.roadmap", description: "Authored integration plan for SKU identity, images, prices and market observations, shared with the human roadmap. Current foundations, planned milestones and acceptance gates; no live coverage or release-date guarantee.",
+        host: "storefront", path: "/api/v1/roadmap", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "static",
+        cosmology_axes: ["identity", "knowledge", "value"], methodology_url: "/roadmap",
         contract: "envelope", since: "2026-09-29" },
       { id: "storefront.contracts.card_data", description: "SKU identity and price representation contracts, including money and native/member observation JSON Schemas. Static documentation only; no source-price publication or catalog lookup.",
         host: "storefront", path: "/api/v1/contracts/card-data", methods: ["GET"],

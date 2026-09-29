@@ -16,6 +16,7 @@ import {
   isNavItemActive,
   MORE_NAV_FOOTER,
   MORE_NAV_GROUPS,
+  NAV_SIGN_IN_REQUIRED,
   navGroupHeading,
   navItemAriaCurrent,
   navLabel,
@@ -36,7 +37,7 @@ const CHROME = {
   find: { en: "Find a card", ja: "カードをさがす", "zh-Hant": "找卡", "zh-Hans": "找卡", es: "Buscar una carta" },
   account: { en: "Account", ja: "アカウント", es: "Cuenta", "zh-Hans": "账户", "zh-Hant": "帳戶" },
   signIn: { en: "Sign in", ja: "ログイン", es: "Iniciar sesión", "zh-Hans": "登录", "zh-Hant": "登入" },
-  signInRequired: { en: "Sign-in required", ja: "ログインが必要です", es: "Requiere iniciar sesión", "zh-Hans": "需要登录", "zh-Hant": "需要登入" },
+  signInRequired: NAV_SIGN_IN_REQUIRED,
   menu: { en: "Menu", ja: "メニュー", es: "Menú", "zh-Hans": "菜单", "zh-Hant": "選單" },
   appearance: { en: "Appearance", ja: "表示設定", es: "Apariencia", "zh-Hans": "外观", "zh-Hant": "外觀" },
   highContrast: { en: "High contrast", ja: "ハイコントラスト", es: "Alto contraste", "zh-Hans": "高对比度", "zh-Hant": "高對比度" },
@@ -317,7 +318,7 @@ export default function Nav({
                 </Link>
               );
             })}
-            <MoreMenu key={pathname} uiLang={uiLang} />
+            <MoreMenu key={pathname} uiLang={uiLang} loggedIn={loggedIn} />
           </div>
 
           <div className="ml-3 flex items-center gap-1 border-l border-border-subtle pl-3">
@@ -451,21 +452,23 @@ export default function Nav({
                     {navGroupHeading(group, uiLang)}
                   </h2>
                   <ul className="space-y-0.5">
-                    {group.items.map((item) => {
+                    {group.items.map((item: NavItem) => {
                       const active = isNavItemActive(item, pathname);
                       return (
                         <li key={item.href}>
                           <Link
                             href={item.href}
+                            prefetch={item.requiresSignIn ? false : undefined}
                             onClick={() => setMenuState({ pathname, open: false })}
                             aria-current={navItemAriaCurrent(item, pathname)}
-                            className={`flex min-h-11 items-center rounded-md px-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
+                            className={`flex min-h-11 flex-col items-start justify-center rounded-md px-2 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
                               active
                                 ? "bg-surface-subtle font-semibold text-ink"
                                 : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
                             }`}
                           >
                             {navLabel(item, uiLang)}
+                            {item.requiresSignIn && !loggedIn && <span className="mt-1 text-xs font-normal">{tx(CHROME.signInRequired, uiLang)}</span>}
                           </Link>
                         </li>
                       );

@@ -4,7 +4,7 @@
 
 [Module map](../README.md) · [Source directory](../../../packages/data-ingest)
 
-Describe approved source adapters and normalize permitted upstream records into shared catalog shapes.
+Describe source adapters, their rights/activation boundaries and normalization into shared catalog and observation shapes.
 
 **Scope:** Each source has its own rights and activation boundary; an adapter or fixture parser is not permission to fetch or republish data.
 
@@ -16,7 +16,7 @@ Source review recorded **2026-09-28**. The existing SOURCES registry distinguish
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Read the source registry and rights tests before changing an adapter. Record permission and writer coverage separately from parser implementation.
+**Next review:** Reconcile field/use publication decisions with downstream readers before broadening provider coverage. Record source permission, exact-mapping evidence, repeatable import and writer coverage separately from parser implementation.
 
 ## Evidence and entry points
 
@@ -26,6 +26,7 @@ This records source and documentation evidence. It does not establish deployment
 - [docs/methodology/source-protocol.md](../../methodology/source-protocol.md)
 - [packages/data-ingest/src/member-prices.ts](../../../packages/data-ingest/src/member-prices.ts)
 - [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
+- [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
 
 ## Declared package relationships
 

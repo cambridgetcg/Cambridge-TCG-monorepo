@@ -7,18 +7,20 @@ import {
   isNavItemActive,
   MORE_NAV_FOOTER,
   MORE_NAV_GROUPS,
+  NAV_SIGN_IN_REQUIRED,
   navDescription,
   navGroupHeading,
   navItemAriaCurrent,
   navLabel,
   SITE_MAP_NAV_ITEM,
+  type NavItem,
 } from "@/lib/nav/menu-config";
 import type { UiLang } from "@/lib/lang-mode";
 import { tx } from "@/lib/i18n";
 
 const PANEL_ID = "more-navigation";
 
-export function MoreMenu({ uiLang = "en" }: { uiLang?: UiLang }) {
+export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang; loggedIn?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,12 +128,13 @@ export function MoreMenu({ uiLang = "en" }: { uiLang?: UiLang }) {
                     {navGroupHeading(group, uiLang)}
                   </h2>
                   <ul className="space-y-0.5">
-                    {group.items.map((item) => {
+                    {group.items.map((item: NavItem) => {
                       const itemActive = isNavItemActive(item, pathname);
                       return (
                         <li key={item.href}>
                           <Link
                             href={item.href}
+                            prefetch={item.requiresSignIn ? false : undefined}
                             aria-current={navItemAriaCurrent(item, pathname)}
                             onClick={() => setOpen(false)}
                             className={`block min-h-11 rounded-md px-3 py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
@@ -145,6 +148,7 @@ export function MoreMenu({ uiLang = "en" }: { uiLang?: UiLang }) {
                               <span className="mt-0.5 block text-xs text-ink-muted">
                                 {navDescription(item, uiLang)}
                               </span>
+                              {item.requiresSignIn && !loggedIn && <span className="mt-1 block text-xs text-ink-muted">{tx(NAV_SIGN_IN_REQUIRED, uiLang)}</span>}
                             </span>
                           </Link>
                         </li>

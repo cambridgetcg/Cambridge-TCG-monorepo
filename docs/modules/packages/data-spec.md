@@ -6,7 +6,7 @@
 
 Define envelope, error and provenance schemas, freshness budgets and stable error codes.
 
-**Scope:** Private implementation package. Exact public specification prose has its own license; mixed response data defaults to NOASSERTION.
+**Scope:** Workspace-only implementation package; code follows the root license and specific notices. Specification prose has its own dedication; mixed response data defaults to NOASSERTION.
 
 **Placement:** pnpm workspace member; package `@cambridge-tcg/data-spec`.
 
@@ -16,7 +16,7 @@ Source review recorded **2026-09-28**. Schema exports, freshness values and erro
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Keep emitted responses and schema changes aligned; distinguish contract compatibility from publication and data rights.
+**Next review:** Keep emitted responses and schema changes aligned; design printing, image and market observation contracts through the data-platform roadmap. Contract validity, source permissions and public package release are separate checks.
 
 ## Evidence and entry points
 

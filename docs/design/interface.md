@@ -7,8 +7,10 @@ track the wider page and service replacement.
 
 Current direction, 2026-09-29: a fresh collector's desk. Yu delegated the color
 choice and asked to replace the old look: warm ivory, aubergine ink, mandarin
-actions and lilac art surfaces. Pricing discovery and collector services remain
-the main tasks. Art links into its context without delaying search.
+actions and lilac art surfaces. The current product direction is open-source
+TCG data infrastructure: pricing discovery and collector tools sit alongside
+standards and the integration roadmap. Art links into its context without
+delaying search.
 
 | Role | Light | Dark |
 |---|---|---|
@@ -23,7 +25,9 @@ those tokens. Existing `gallery` and `midnight` cookie IDs remain compatible.
 
 ## Design rules
 
-- Name the task before explaining the system: Prices, Services, Collection, Play.
+- Keep four primary entrances: Prices, Services, Standards and Roadmap.
+  Collection and Play remain in More; account destinations state their access
+  requirements and disable prefetch in both desktop and mobile menus.
 - Use readable sans-serif text, normal sentence case and visible form labels.
   Reserve monospace for identifiers and code. Use a strong task headline,
   generous space and restrained static shapes. Use actual credited artwork
@@ -48,7 +52,8 @@ those tokens. Existing `gallery` and `midnight` cookie IDs remain compatible.
 | `src/lib/ui/ActionCard.tsx` | A linked destination, its purpose and access context |
 | `Card`, `Field`, `Input`, `Select`, `Button`, `DataTable` | Shared surfaces, labelled controls and structured records |
 | `src/lib/nav/menu-config.ts` | Shared navigation destinations and translated labels |
-| `src/content/services/index.ts`, `ServiceCards` | Reviewed human task shortcuts and account requirements, shared by home and services |
+| `src/content/services/index.ts`, `ServiceCards` | Reviewed human task shortcuts and account requirements on the services page |
+| `src/content/platform/index.ts`, `DataFoundations` | Shared positioning, four foundation summaries and roadmap milestones; the human page and JSON use the same planning record |
 | `HomeArtwork`, `src/content/art/featured.ts` | Local museum image, shared attribution and links to art context |
 | `src/app/themes.css`, `globals.css` | Centralized theme tokens, typography and compatibility styles |
 

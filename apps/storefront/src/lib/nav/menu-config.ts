@@ -22,6 +22,8 @@ export type NavGroup = {
   items: readonly NavItem[];
 };
 
+export const NAV_SIGN_IN_REQUIRED = { en: "Sign-in required", ja: "ログインが必要です", es: "Requiere iniciar sesión", "zh-Hans": "需要登录", "zh-Hant": "需要登入" };
+
 export function navLabel(item: NavItem, lang: UiLang): string {
   return tx({ en: item.label, ja: item.ja, "zh-Hant": item["zh-Hant"], "zh-Hans": item["zh-Hans"], es: item.es }, lang);
 }
@@ -54,15 +56,13 @@ export const PRIMARY_NAV_ITEMS = [
     activePrefixes: ["/services", "/account/data"],
   },
   {
-    label: "Collection", ja: "コレクション", es: "Colección", "zh-Hans": "收藏", "zh-Hant": "收藏",
-    href: "/account/portfolio",
-    requiresSignIn: true,
-    activePrefixes: ["/account/portfolio", "/account/sets", "/account/wishlist", "/account/watchlist"],
+    label: "Standards", ja: "標準仕様", es: "Estándares", "zh-Hans": "标准", "zh-Hant": "標準",
+    href: "/standards",
+    activePrefixes: ["/standards", "/spec"],
   },
   {
-    label: "Play", ja: "遊ぶ", es: "Jugar", "zh-Hans": "玩", "zh-Hant": "玩",
-    href: "/play",
-    activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
+    label: "Roadmap", ja: "ロードマップ", es: "Hoja de ruta", "zh-Hans": "路线图", "zh-Hant": "路線圖",
+    href: "/roadmap",
   },
 ] as const satisfies readonly NavItem[];
 
@@ -88,6 +88,20 @@ export const MORE_NAV_GROUPS = [
     heading_i18n: { ja: "もっと見る", es: "Descubrir", "zh-Hans": "发现", "zh-Hant": "發現" },
     items: [
       CULTURE,
+      {
+        label: "Collection", ja: "コレクション", es: "Colección", "zh-Hans": "收藏", "zh-Hant": "收藏",
+        href: "/account/portfolio", requiresSignIn: true,
+        activePrefixes: ["/account/portfolio", "/account/sets", "/account/wishlist", "/account/watchlist"],
+        description: "Collection tools for existing accounts",
+        description_i18n: { ja: "既存アカウントのコレクション管理", es: "Colecciones de cuentas existentes", "zh-Hans": "已有账户的收藏工具", "zh-Hant": "現有帳戶的收藏工具" },
+      },
+      {
+        label: "Play", ja: "遊ぶ", es: "Jugar", "zh-Hans": "玩", "zh-Hant": "玩",
+        href: "/play",
+        activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
+        description: "Decks, rules and practice",
+        description_i18n: { ja: "デッキ、ルール、練習", es: "Mazos, reglas y práctica", "zh-Hans": "卡组、规则与练习", "zh-Hant": "牌組、規則與練習" },
+      },
       GUIDES,
       COMMUNITY,
       {
@@ -115,7 +129,7 @@ export const MORE_NAV_GROUPS = [
         href: "/data",
         description: "API access and rights",
         description_i18n: { ja: "APIの利用条件と権利", es: "Acceso a la API y derechos", "zh-Hans": "API 访问与使用权", "zh-Hant": "API 存取與使用權" },
-        activePrefixes: ["/data", "/standards", "/scrapers"],
+        activePrefixes: ["/data", "/scrapers"],
       },
       {
         label: "Methods", ja: "しくみ", es: "Métodos", "zh-Hans": "方法说明", "zh-Hant": "方法說明",

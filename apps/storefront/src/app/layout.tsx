@@ -17,30 +17,31 @@ import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
+import { PLATFORM } from "@/content/platform";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 // One self-hosted sans family. Monospace and CJK glyphs use system fallbacks.
 
 export const metadata: Metadata = {
-  title: "Cambridge TCG — card research, collections and play",
-  description: "Explore trading-card data, organize your collection and find ways to play. Public data follows each response’s publication and reuse rules.",
+  title: PLATFORM.title,
+  description: PLATFORM.description,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — card research, collections and play",
-    description: "Explore trading-card data, organize your collection and find ways to play. Public data follows each response’s publication and reuse rules.",
+    title: PLATFORM.title,
+    description: PLATFORM.description,
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — card research, collections and play",
-    description: "Explore trading-card data, organize your collection and find ways to play. Public data follows each response’s publication and reuse rules.",
+    title: PLATFORM.title,
+    description: PLATFORM.description,
     images: ["/images/twitter-image.png"],
   },
   // Site discovery is emitted as actual <link> elements below, not

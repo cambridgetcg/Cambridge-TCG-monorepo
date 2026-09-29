@@ -4,7 +4,7 @@
 
 [Module map](../README.md) · [Source directory](../../../apps/storefront)
 
-The main Cambridge TCG website: card research, collecting, play, public data interfaces, account records and the integrated operator console.
+Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, prices and market observations, alongside collector tools, retained account records and the operator console.
 
 **Scope:** Current application; new paid commerce is retired. Existing agreements, records, refunds and support remain in scope.
 
@@ -12,11 +12,11 @@ The main Cambridge TCG website: card research, collecting, play, public data int
 
 ## Progress
 
-Source review recorded **2026-09-28**. App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. The 2026-09-29 rebuild introduces shared controls, room records and card-data contracts, then refocuses the human entrance on pricing discovery and collector tools. The subsequent visual refresh replaces cool neutrals with ivory/plum/mandarin, centralizes theme defaults, refreshes shared navigation/buttons and presents credited art beside search. Home and services share a task catalog; source/account boundaries remain intact. The implementation record distinguishes this foundation from remaining page replacement.
+Source review recorded **2026-09-28**. App Router pages, API routes and integrated admin surfaces are present. The 2026-09-29 rebuild adds card-data contracts, room records, collector services and the ivory/plum/mandarin interface with credited art. The subsequent data-platform direction adds a shared foundation/stage catalog, /roadmap and /api/v1/roadmap planning snapshots, and one registry for standards HTML/JSON. This is implemented planning and discovery, not provider activation, verified printing coverage or public package release.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Choose a domain below, inspect its route and library together, and run the checks for that change. Public API publication and commercial availability must follow the current boundary.
+**Next review:** Follow the data-platform roadmap: reconcile image/text publication policy, strengthen printing mappings, join qualified images/prices and pilot permitted providers. Check repository/package release readiness independently; preserve existing agreements and source/account boundaries.
 
 ## Evidence and entry points
 
@@ -34,6 +34,11 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/storefront/src/content/rooms](../../../apps/storefront/src/content/rooms)
 - [apps/storefront/src/content/services](../../../apps/storefront/src/content/services)
 - [apps/storefront/src/content/art](../../../apps/storefront/src/content/art)
+- [apps/storefront/src/content/platform](../../../apps/storefront/src/content/platform)
+- [apps/storefront/src/lib/contracts/standards.ts](../../../apps/storefront/src/lib/contracts/standards.ts)
+- [apps/storefront/src/app/roadmap/page.tsx](../../../apps/storefront/src/app/roadmap/page.tsx)
+- [apps/storefront/src/app/api/v1/roadmap/route.ts](../../../apps/storefront/src/app/api/v1/roadmap/route.ts)
+- [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
 
 Start with the [storefront domain map](../storefront/README.md) to find the relevant routes and libraries.
 

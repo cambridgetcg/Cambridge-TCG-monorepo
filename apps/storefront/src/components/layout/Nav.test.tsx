@@ -16,9 +16,13 @@ describe("global navigation entry actions", () => {
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain('<span>Menu</span>');
     expect(markup).toContain("Cambridge TCG");
-    const collectionLink = markup.match(/<a\b[^>]*href="\/account\/portfolio"[^>]*>/)?.[0];
-    expect(collectionLink).toContain('aria-describedby="nav-sign-in-required"');
-    expect(markup).toContain("Sign-in required");
+    for (const href of ["/prices", "/services", "/standards", "/roadmap"]) {
+      expect(markup).toContain(`href="${href}"`);
+    }
+    // Collection and play live inside the initially closed More menu.
+    expect(markup).not.toContain('href="/account/portfolio"');
+    expect(markup).not.toContain('href="/play"');
+    expect(markup).toContain('aria-controls="more-navigation"');
   });
 
   it("preserves signed-in account access and high-contrast theme choice", () => {

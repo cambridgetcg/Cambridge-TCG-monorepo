@@ -23,11 +23,11 @@ export default async function Footer() {
             </Link>
             <p className="mt-1 max-w-sm text-sm leading-6 text-ink-muted">
               {tx({
-                en: "Card research, collections and play. Based in Cambridge, UK.",
-                ja: "カードを調べる、集める、遊ぶ。英国ケンブリッジから。",
-                es: "Investiga cartas, organiza tu colección y juega. Desde Cambridge, Reino Unido.",
-                "zh-Hans": "查卡、收藏与游戏。来自英国剑桥。",
-                "zh-Hant": "查卡、收藏與遊戲。來自英國劍橋。",
+                en: "TCG data, shared standards and collector tools. Based in Cambridge, UK.",
+                ja: "TCGデータ、共通仕様、コレクター向けツール。英国ケンブリッジから。",
+                es: "Datos TCG, estándares compartidos y herramientas de colección. Desde Cambridge, Reino Unido.",
+                "zh-Hans": "TCG 数据、共享标准与收藏工具。来自英国剑桥。",
+                "zh-Hant": "TCG 資料、共享標準與收藏工具。來自英國劍橋。",
               }, uiLang)}
             </p>
           </div>

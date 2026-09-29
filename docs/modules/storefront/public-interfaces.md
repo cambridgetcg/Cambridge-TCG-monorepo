@@ -4,7 +4,7 @@
 
 [Storefront domains](README.md) · [Storefront module](../apps/storefront.md)
 
-Describe resources, public API contracts, agent access, provenance and machine discovery through existing registries.
+Expose data contracts, specifications, provenance and agent discovery, with a separate authored integration roadmap that does not claim runtime capability or source availability.
 
 **Progress:** source grouping reviewed 2026-09-28. The directory roots below exist; individual features can be available, retired, paused or incomplete. This inventory does not validate route behavior or deployed availability.
 
@@ -34,11 +34,21 @@ Describe resources, public API contracts, agent access, provenance and machine d
 - [ontology](../../../apps/storefront/src/app/ontology)
 - [patterns](../../../apps/storefront/src/app/patterns)
 - [platform](../../../apps/storefront/src/app/platform)
+- [roadmap](../../../apps/storefront/src/app/roadmap)
 - [robots.txt](../../../apps/storefront/src/app/robots.txt)
 - [schemas](../../../apps/storefront/src/app/schemas)
 - [scrapers](../../../apps/storefront/src/app/scrapers)
 - [spec](../../../apps/storefront/src/app/spec)
 - [standards](../../../apps/storefront/src/app/standards)
 - [standards.json](../../../apps/storefront/src/app/standards.json)
+
+## Connection evidence
+
+- [apps/storefront/src/content/platform/index.ts](../../../apps/storefront/src/content/platform/index.ts)
+- [apps/storefront/src/lib/contracts/standards.ts](../../../apps/storefront/src/lib/contracts/standards.ts)
+- [apps/storefront/src/lib/contracts/standards.test.tsx](../../../apps/storefront/src/lib/contracts/standards.test.tsx)
+- [apps/storefront/src/app/roadmap/page.tsx](../../../apps/storefront/src/app/roadmap/page.tsx)
+- [apps/storefront/src/app/api/v1/roadmap/route.ts](../../../apps/storefront/src/app/api/v1/roadmap/route.ts)
+- [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
 
 Route families include their nested pages and handlers. A filesystem route can be an API, redirect or paused surface; the directory name alone does not promise a visitor feature.

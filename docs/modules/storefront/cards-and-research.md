@@ -4,7 +4,7 @@
 
 [Storefront domains](README.md) · [Storefront module](../apps/storefront.md)
 
-Find cards, understand identifiers, inspect source evidence, compare prices and discover datasets.
+Find cards and connect SKU identity, image provenance, native prices and qualified market observations, with explicit uncertainty and source-use permissions.
 
 **Progress:** source grouping reviewed 2026-09-28. The directory roots below exist; individual features can be available, retired, paused or incomplete. This inventory does not validate route behavior or deployed availability.
 
@@ -35,5 +35,13 @@ Find cards, understand identifiers, inspect source evidence, compare prices and 
 - [find](../../../apps/storefront/src/app/find)
 - [guides](../../../apps/storefront/src/app/guides)
 - [prices](../../../apps/storefront/src/app/prices)
+
+## Connection evidence
+
+- [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
+- [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
+- [apps/storefront/src/lib/cards/en-card-data.ts](../../../apps/storefront/src/lib/cards/en-card-data.ts)
+- [apps/storefront/src/lib/public-wholesale-fields.ts](../../../apps/storefront/src/lib/public-wholesale-fields.ts)
+- [apps/storefront/src/lib/prices/member-feed.ts](../../../apps/storefront/src/lib/prices/member-feed.ts)
 
 Route families include their nested pages and handlers. A filesystem route can be an API, redirect or paused surface; the directory name alone does not promise a visitor feature.

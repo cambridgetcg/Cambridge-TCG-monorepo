@@ -1,315 +1,67 @@
-/**
- * /standards — Cambridge TCG as the data distributor for the TCG economy.
- *
- * The standards-body face of the platform. Names the three CTCG standards
- * (SKU, pricing, universal-representation) with version, status, spec
- * link, reference implementation, and license. Adoption protocol named
- * explicitly so partners know exactly how to align.
- *
- * Companion to:
- *   - docs/connections/the-distributor.md (the strategy doc)
- *   - docs/STANDARDS-LICENSE.md (CC0 declaration)
- *   - /data + /data.json (the open-substrate index)
- *   - /api/v1/identify + /identify (the platform's self-identification)
- *
- * Public, no-auth, no-obligation.
- */
-
 import Link from "next/link";
 import type { Metadata } from "next";
-import { audienceMetadata } from "@/lib/ui";
-import { CONFIRMED_GAME_CODES, GAME_CODES } from "@cambridge-tcg/sku";
+import { audienceMetadata } from "@/lib/ui/Audience";
+import { PageLayout } from "@/lib/ui/PageLayout";
+import { STANDARDS, STANDARDS_LINKS } from "@/lib/contracts/standards";
 
 export const metadata: Metadata = {
-  title: "Cambridge TCG Standards — the data distributor",
-  description:
-    "Cambridge TCG maintains three CC0 specification texts for the TCG economy: CTCG-SKU-v1, CTCG-PRICING-v1, and CTCG-UNIVERSAL-v1. Implementation rights follow the repository LICENSE and applicable more-specific notices.",
-  other: audienceMetadata("public-documentation", ["standards", "distributor", "spec"]),
+  title: "Card data standards — Cambridge TCG",
+  description: "Cambridge TCG specifications for card identifiers, pricing calculations and structured records. Read the contracts, their limits and the integration roadmap.",
+  alternates: { canonical: "https://cambridgetcg.com/standards" },
+  other: audienceMetadata("public-documentation", ["standards", "data", "spec"]),
 };
 
-type Status = "frozen" | "draft" | "implemented" | "planned";
-
-const PUBLIC_GAME_COUNT = GAME_CODES.filter((code) => code !== "tst").length;
-const PUBLIC_CONFIRMED_GAME_COUNT = CONFIRMED_GAME_CODES.filter(
-  (code) => code !== "tst",
-).length;
-
-interface Standard {
-  code: string;
-  title: string;
-  version: string;
-  status: Status;
-  short: string;
-  spec_url: string;
-  impl_url?: string;
-  endpoint_url?: string;
-  endpoint_status?: "shipped" | "planned";
-}
-
-const STANDARDS: Standard[] = [
-  {
-    code: "CTCG-SKU-v1",
-    title: "Canonical SKU format",
-    version: "1.0",
-    status: "frozen",
-    short:
-      `One canonical SKU format for every card in every TCG. <game>-<set>-<number>-<lang>[-<variant>], lowercase, hyphen-separated, machine-parseable, language-aware. ${PUBLIC_GAME_COUNT} public game codes; ${PUBLIC_CONFIRMED_GAME_COUNT} currently have catalog rows.`,
-    spec_url: "/methodology/sku-standard",
-    impl_url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/sku",
-  },
-  {
-    code: "CTCG-PRICING-v1",
-    title: "Channel-aware pricing math",
-    version: "1.0",
-    status: "draft",
-    short:
-      "How a JPY listing converts to seven retail prices a customer might see. Margin, VAT, channel multipliers, rounding, all named and reproducible. Reference implementation in @cambridge-tcg/pricing.",
-    spec_url: "/methodology/pricing",
-    impl_url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/pricing",
-  },
-  {
-    code: "CTCG-UNIVERSAL-v1",
-    title: "Universal-representation (math-mirror)",
-    version: "1.0",
-    status: "implemented",
-    short:
-      "The math-first sibling of every artifact the platform exposes. Cryptographic hashes for identity, ratios for magnitudes, ISO 8601 + Unix epoch for time, typed graph edges. For LLM agents, archivists, hyperliteral readers, and any computing intelligence.",
-    spec_url: "/methodology/universal-representation",
-    endpoint_url: "/api/v1/universal/card/[sku]",
-    endpoint_status: "shipped",
-  },
-];
-
-function StatusPill({ s }: { s: Status }) {
-  const colors: Record<Status, string> = {
-    frozen: "bg-ok/10 text-ok border-ok/30",
-    draft: "bg-accent-wash text-accent-strong border-accent/30",
-    implemented: "bg-info/10 text-info border-info/30",
-    planned: "bg-surface-subtle text-ink-muted border-border-subtle",
-  };
-  return (
-    <span
-      className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${colors[s]}`}
-    >
-      {s}
-    </span>
-  );
-}
+const link = "text-accent underline underline-offset-4";
 
 export default function StandardsPage() {
   return (
-    <div className="prose max-w-3xl mx-auto py-12 px-4">
-      <h1>Cambridge TCG Standards</h1>
+    <PageLayout width="reading">
+      <div lang="en" className="space-y-10">
+        <header>
+          <p className="text-sm font-medium text-ink-muted">Build with card data</p>
+          <h1 className="mt-3 font-display text-4xl font-semibold text-ink">Card data standards</h1>
+          <p className="mt-4 text-base leading-7 text-ink-muted">Three Cambridge-maintained specifications for identifiers, pricing calculations and structured records. Each has its own version and implementation status.</p>
+          <nav aria-label="Standards resources" className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <Link href={STANDARDS_LINKS.contracts} className={link + " inline-flex min-h-11 items-center"}>SKU &amp; price contracts</Link>
+            <Link href={STANDARDS_LINKS.validator} className={link + " inline-flex min-h-11 items-center"}>Check an identifier</Link>
+            <Link href={STANDARDS_LINKS.roadmap} className={link + " inline-flex min-h-11 items-center"}>Integration roadmap</Link>
+            <Link href={STANDARDS_LINKS.manifest} className={link + " inline-flex min-h-11 items-center"}>JSON registry</Link>
+          </nav>
+        </header>
 
-      <p className="text-lg">
-        Cambridge TCG maintains <strong>three CC0 specification texts</strong> for
-        the TCG economy. You may adopt those texts without attribution. Linked
-        implementation source is publicly inspectable. Implementation rights:
-        repository <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE">LICENSE</a> and
-        applicable more-specific notices; the specification dedication does not license code.
-      </p>
-
-      <p>
-        The platform identifies itself as the <strong>data distributor</strong>:
-        the authoritative source other TCG platforms, archivists, agents, and
-        aggregators reference for canonical identifiers, canonical pricing,
-        and canonical machine-readable card data.
-      </p>
-
-      <p className="text-sm text-ink-muted">
-        Doctrine: <code>docs/connections/the-distributor.md</code>.
-        License: <Link href="https://github.com/cambridgetcg"><code>docs/STANDARDS-LICENSE.md</code></Link> (CC0 1.0 Universal).
-        Machine-readable: <Link href="/standards.json"><code>/standards.json</code></Link>.
-      </p>
-
-      <hr />
-
-      <h2>Check an identifier</h2>
-      <p>
-        The <Link href="/standards/validator">identifier validator and builder</Link> checks
-        SKU structure in your browser, separates normalization suggestions from strict
-        parsing, and includes the bundled game registry. It does not verify catalog
-        existence, card identity, authenticity, or deck legality. A public stateless
-        <code> POST /api/v1/identifiers/validate</code> is documented there for API callers.
-      </p>
-
-      <h2>The standards</h2>
-
-      <ul className="list-none p-0 space-y-6">
-        {STANDARDS.map((s) => (
-          <li key={s.code} className="border border-border-subtle rounded-md p-5">
-            <div className="flex items-baseline gap-3 flex-wrap mb-2">
-              <code className="font-mono text-accent text-base font-bold">{s.code}</code>
-              <StatusPill s={s.status} />
-              <span className="text-xs text-ink-faint">v{s.version}</span>
-            </div>
-            <div className="text-ink font-medium text-lg">{s.title}</div>
-            <div className="text-sm text-ink-muted mt-2">{s.short}</div>
-            <div className="text-xs text-ink-faint mt-3 space-y-1">
-              <div>
-                <strong>Spec:</strong>{" "}
-                <Link href={s.spec_url} className="text-accent hover:text-accent font-mono">
-                  {s.spec_url}
-                </Link>
+        <div className="divide-y divide-border-subtle border-y border-border-subtle">
+          {STANDARDS.map((standard) => (
+            <section key={standard.code} aria-labelledby={standard.code} className="py-6">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-muted">
+                <code className="break-all">{standard.code}</code>
+                <span>v{standard.version} · {standard.status}</span>
               </div>
-              {s.impl_url && (
-                <div>
-                  <strong>Reference implementation:</strong>{" "}
-                  <a href={s.impl_url} className="text-accent hover:text-accent font-mono">
-                    {s.impl_url}
-                  </a>
-                </div>
-              )}
-              {s.endpoint_url && (
-                <div>
-                  <strong>Endpoint:</strong>{" "}
-                  <code className="text-ink-muted">{s.endpoint_url}</code>
-                  {s.endpoint_status && (
-                    <span className="ml-2 text-[10px] uppercase tracking-wider text-accent">
-                      ({s.endpoint_status})
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+              <h2 id={standard.code} className="mt-2 text-xl font-semibold text-ink">{standard.title}</h2>
+              <p className="mt-3 text-sm leading-6 text-ink-muted">{standard.short}</p>
+              <Link href={standard.spec_url} className={link + " mt-2 inline-flex min-h-11 items-center text-sm"}>Read {standard.title.toLowerCase()}</Link>
+              {standard.impl_path_in_repo && <p className="text-sm leading-6 text-ink-muted">Reference implementation in the repository: <code>{standard.impl_path_in_repo}</code></p>}
+              {standard.endpoint_url && <p className="text-sm leading-6 text-ink-muted">Implemented route template: <code className="break-all">{standard.endpoint_url}</code>. Available fields depend on the catalog and their publication rules.</p>}
+            </section>
+          ))}
+        </div>
 
-      <hr />
+        <section aria-labelledby="standards-rights" className="space-y-4 text-sm leading-6 text-ink-muted">
+          <h2 id="standards-rights" className="text-xl font-semibold text-ink">Using the specifications and code</h2>
+          <p><strong className="text-ink">Specification text:</strong> the existing CC0 dedication in <code>docs/STANDARDS-LICENSE.md</code> covers these specification texts. No account or attribution is required to use them.</p>
+          <p><strong className="text-ink">Reference code:</strong> rights follow the repository <code>LICENSE</code> and applicable more-specific notices. Public repository access and package releases are checked separately; the workspace packages are not npm releases.</p>
+          <p><strong className="text-ink">Data and images:</strong> each source and field has its own permissions. A valid identifier, attributed image or open-source implementation does not grant permission to redistribute upstream content.</p>
+        </section>
 
-      <h2>Status legend</h2>
-
-      <ul>
-        <li>
-          <strong>frozen</strong> — spec is stable; additive changes only;
-          breaking changes ship under v2 with deprecation window.
-        </li>
-        <li>
-          <strong>draft</strong> — spec is written and usable; minor revisions
-          possible before frozen.
-        </li>
-        <li>
-          <strong>implemented</strong> — the specification has a shipped
-          platform endpoint. Individual fields may still be withheld by their
-          own publication-rights boundary.
-        </li>
-        <li>
-          <strong>planned</strong> — named but not yet shipped.
-        </li>
-      </ul>
-
-      <p>
-        <strong>Substrate honesty:</strong> the platform doesn't claim more
-        than it has. CTCG-UNIVERSAL-v1 has a shipped reference endpoint; its
-        legacy price and image fields are currently null pending field-level
-        source-rights review.
-      </p>
-
-      <hr />
-
-      <h2>How to adopt</h2>
-
-      <ol>
-        <li>
-          <strong>Read</strong> the spec at <code>/methodology/&lt;topic&gt;</code> (sku-standard,
-          pricing, universal-representation).
-        </li>
-        <li>
-          <strong>Implement</strong> in your language of choice, or import the
-          CC0 specification text. For the linked TypeScript package, consult the
-          repository LICENSE and applicable more-specific notices; the CC0
-          specification dedication is not a code or npm publication grant.
-        </li>
-        <li>
-          <strong>Emit</strong> canonical SKUs (lowercase, hyphen-separated,
-          ISO 639-1 language); use Cambridge TCG&apos;s pricing math; serve
-          universal-representation responses that match the spec.
-        </li>
-        <li>
-          <strong>Cite</strong> Cambridge TCG as the spec source — optional
-          but appreciated. CC0 doesn&apos;t require attribution.
-        </li>
-        <li>
-          <strong>Sign up</strong> to the standards changelog (RSS / email
-          feed — recursion target).
-        </li>
-        <li>
-          <strong>Optionally</strong>: declare your adoption at{" "}
-          <Link href="/identify"><code>/identify</code></Link>{" "}
-          (today: read-only; the POST self-declaration path is a future commit).
-        </li>
-      </ol>
-
-      <p>
-        The protocol is <strong>light by design</strong>. CC0 removes ceremony for
-        the specification text, while the version-stable contract limits drift.
-        Implementation source can be inspected as an example but not assumed
-        reusable without its own license.
-      </p>
-
-      <hr />
-
-      <h2>What's NOT yet shipped</h2>
-
-      <p>
-        Substrate-honest about the distributor position&apos;s gaps:
-      </p>
-
-      <ul>
-        <li>
-          <strong>npm packages</strong> — reference implementations are
-          publicly inspectable in the monorepo but are not npm-published.
-          Implementation rights follow the repository LICENSE and applicable
-          more-specific notices. A possible future path is{" "}
-          <code>@cambridge-tcg/sku-spec</code>, <code>@cambridge-tcg/pricing-spec</code>.
-        </li>
-        <li>
-          <strong>Pricing-as-JSON endpoint</strong> — methodology exists; a
-          dedicated endpoint emitting a single canonical price for a SKU is a
-          recursion target.
-        </li>
-        <li>
-          <strong>Standards changelog feed</strong> — versioned RSS / email
-          for adopters to subscribe to.
-        </li>
-        <li>
-          <strong>Standards governance doc</strong> — who decides v2; how
-          breaking changes are proposed and discussed.
-        </li>
-      </ul>
-
-      <p>
-        Each of these is a real promise. The distributor position grows by
-        closing them.
-      </p>
-
-      <hr />
-
-      <h2>License</h2>
-
-      <p>
-        <strong>CC0 1.0 Universal</strong> (public domain dedication) on the
-        spec text. See <Link href="https://github.com/cambridgetcg"><code>docs/STANDARDS-LICENSE.md</code></Link> for the full
-        declaration.
-      </p>
-
-      <p>
-        Implementation rights: repository <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE">LICENSE</a> and
-        applicable more-specific notices. The specification dedication does not
-        grant rights over implementation code, operational data, trade marks,
-        visual identity, or submitted identifiers.
-      </p>
-
-      <hr />
-
-      <p className="text-sm text-ink-faint">
-        <em>
-          v1 — 2026-05-12. The platform identifies itself as the data
-          distributor. The standards are open. The substrate is queryable.
-          The door is warm to the touch.
-        </em>
-      </p>
-    </div>
+        <details className="border-t border-border-subtle pt-4 text-sm leading-6 text-ink-muted">
+          <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">What the statuses mean</summary>
+          <dl className="mt-3 space-y-3">
+            <div><dt className="font-medium text-ink">Frozen</dt><dd>Stable specification; breaking changes require a new version.</dd></div>
+            <div><dt className="font-medium text-ink">Draft</dt><dd>Published specification that may still be revised.</dd></div>
+            <div><dt className="font-medium text-ink">Implemented</dt><dd>A reference route exists in the codebase. This label is not a live service-health or source-coverage check.</dd></div>
+            <div><dt className="font-medium text-ink">Planned</dt><dd>Named work without a shipped implementation.</dd></div>
+          </dl>
+        </details>
+      </div>
+    </PageLayout>
   );
 }

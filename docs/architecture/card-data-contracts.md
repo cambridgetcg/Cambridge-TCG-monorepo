@@ -1,10 +1,13 @@
-# Card identity and price contracts
+# Card-data foundations
 
 The rebuild's data foundation joins three existing packages: SKU identity in
 `@cambridge-tcg/sku`, monetary computation in `@cambridge-tcg/pricing`, and response
 semantics in `@cambridge-tcg/data-spec`. It serves both human card pages and API
 clients. It does not turn syntax into verified printing identity, authorize a
-source, fetch a new price feed or reopen paid commerce.
+source, fetch a new price feed or reopen paid commerce. The
+[data-platform roadmap](../plans/tcg-data-platform/README.md) sequences the four
+foundations: SKU identity, images, prices and market observations. This page
+records current ownership and limits, rather than duplicating that plan.
 
 ```mermaid
 flowchart LR
@@ -33,6 +36,9 @@ flowchart LR
 | Ingestion compatibility export | `packages/data-ingest/src/member-prices.ts` | Existing import paths keep working; no duplicate observation interface |
 | Member response projection | `apps/storefront/src/lib/prices/member-feed.ts` | Check core stored monetary/mapping values after source/use filtering |
 | Public discovery | `apps/storefront/src/lib/contracts` | Describe contracts without publishing private observations |
+| Image storage and EN reference lookup | `apps/storefront/src/lib/cards/en-card-data.ts` | Existing publication paths need policy reconciliation and explicit image-to-printing relationships |
+| Standards registry | `apps/storefront/src/lib/contracts/standards.ts` | One registry for `/standards` and `/standards.json`; versions do not imply industry adoption or current coverage |
+| Roadmap snapshot | `apps/storefront/src/content/platform/index.ts` | Shared authored plan for `/roadmap` and `/api/v1/roadmap`; not a runtime capability report |
 
 ## Identity rules
 
@@ -43,7 +49,8 @@ two-letter language shape is not ISO membership or proof of printing language.
 Leading zeros and variant token order remain significant.
 
 Search never substitutes another game's matching set. A complete lookup with
-one exact printing can compose a card. Multiple printings, an unavailable
+one unambiguous catalog match can compose a card; this does not verify a physical
+printing. Multiple printings, an unavailable
 requested language or incomplete candidate retrieval retain the choices.
 `summary.ambiguous` retains its older set/number-group meaning; it is not a
 promise that only one printing exists. Check `lookup.truncated` and the actual
@@ -69,6 +76,27 @@ Runtime member checks validate core values and mapping consistency. They do not
 run the entire JSON Schema against each response, prove source correctness or
 replace the publication policy. Schema conformance is tested using fixtures.
 
+## Image and market boundaries
+
+Legacy wholesale images and the card composer's image fields remain withheld.
+The universal-card path separately calls `getEnCardData()`, which can return a
+self-hosted official English image with attribution and a clear takedown state.
+That lookup strips language and variant to the base English key: its illustration
+can be a reference for a related printing, not the requested printing's image.
+
+Publication policy needs reconciliation before a general image service: the
+Bandai source registry records paused publication, while the EN reader emits
+images and effect text; `/legal/card-images` describes an images-only rule.
+Storage, self-hosting and attribution do not establish a reusable image licence.
+No shared public image-record schema currently joins printing relationship,
+source/use permissions and removal state. These are roadmap acceptance gates,
+not permissions added by this document.
+
+Existing market, listing and history paths are not a unified market-data feed.
+Source asks, completed sales, aggregates and computed reference prices require
+distinct meanings and compatible identity/time dimensions. Personal trading
+records and retained agreement code do not establish publication permission.
+
 ## Public entry points
 
 - `/standards/card-data`: human guide.
@@ -76,6 +104,9 @@ replace the publication policy. Schema conformance is tested using fixtures.
 - `/spec/v1/{schema}`: allowlisted raw schemas at their declared `$id` URLs.
 - `/api/openapi.json`: shared money, observation, identity and envelope schemas.
 - `/api/v1/identifiers/validate`: existing bounded stateless validator.
+- `/standards` and `/standards.json`: the three existing specification entries.
+- `/roadmap` and `/api/v1/roadmap`: static planning snapshot, explicitly separate
+  from runtime availability and provider activation.
 
 The curated manifest and agent guide link these entries. Schema URLs contain no
 credentials or source records. Example identifiers demonstrate syntax only.
@@ -89,4 +120,7 @@ legacy identifier consumers and price APIs still require individual migration
 and contract review. Source availability, catalogue correctness, upstream rights
 and production activation are separate checks; the local fixture suite does not
 establish them. The next card-page rebuild should consume these contracts and
-display exact, ambiguous, unavailable and withheld states distinctly.
+display exact, ambiguous, unavailable and withheld states distinctly. The
+reference packages are private workspaces. Code licensing, anonymous repository
+access, reproducible package releases and upstream data rights remain separate
+checks; no public download or industry adoption is implied.

@@ -4,11 +4,11 @@
   "modules": [
     {
       "path": "apps/storefront", "group": "apps", "label": "Storefront and admin",
-      "purpose": "The main Cambridge TCG website: card research, collecting, play, public data interfaces, account records and the integrated operator console.",
+      "purpose": "Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, prices and market observations, alongside collector tools, retained account records and the operator console.",
       "scope": "Current application; new paid commerce is retired. Existing agreements, records, refunds and support remain in scope.",
-      "progress": "App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. The 2026-09-29 rebuild introduces shared controls, room records and card-data contracts, then refocuses the human entrance on pricing discovery and collector tools. The subsequent visual refresh replaces cool neutrals with ivory/plum/mandarin, centralizes theme defaults, refreshes shared navigation/buttons and presents credited art beside search. Home and services share a task catalog; source/account boundaries remain intact. The implementation record distinguishes this foundation from remaining page replacement.",
-      "next": "Choose a domain below, inspect its route and library together, and run the checks for that change. Public API publication and commercial availability must follow the current boundary.",
-      "evidence": ["apps/storefront/src/app", "apps/storefront/src/lib", "apps/storefront/src/app/admin", "apps/storefront/docs/commercial-retirement.md", "apps/storefront/AGENTS.md", "docs/connections/the-entry-map.md", "docs/design/interface.md", "docs/operations/2026-09-28-entry-verification.md", "docs/operations/2026-09-29-ui-verification.md", "docs/plans/storefront-rebuild/implementation.md", "docs/architecture/card-data-contracts.md", "apps/storefront/src/content/rooms", "apps/storefront/src/content/services", "apps/storefront/src/content/art"]
+      "progress": "App Router pages, API routes and integrated admin surfaces are present. The 2026-09-29 rebuild adds card-data contracts, room records, collector services and the ivory/plum/mandarin interface with credited art. The subsequent data-platform direction adds a shared foundation/stage catalog, /roadmap and /api/v1/roadmap planning snapshots, and one registry for standards HTML/JSON. This is implemented planning and discovery, not provider activation, verified printing coverage or public package release.",
+      "next": "Follow the data-platform roadmap: reconcile image/text publication policy, strengthen printing mappings, join qualified images/prices and pilot permitted providers. Check repository/package release readiness independently; preserve existing agreements and source/account boundaries.",
+      "evidence": ["apps/storefront/src/app", "apps/storefront/src/lib", "apps/storefront/src/app/admin", "apps/storefront/docs/commercial-retirement.md", "apps/storefront/AGENTS.md", "docs/connections/the-entry-map.md", "docs/design/interface.md", "docs/operations/2026-09-28-entry-verification.md", "docs/operations/2026-09-29-ui-verification.md", "docs/plans/storefront-rebuild/implementation.md", "docs/architecture/card-data-contracts.md", "apps/storefront/src/content/rooms", "apps/storefront/src/content/services", "apps/storefront/src/content/art", "apps/storefront/src/content/platform", "apps/storefront/src/lib/contracts/standards.ts", "apps/storefront/src/app/roadmap/page.tsx", "apps/storefront/src/app/api/v1/roadmap/route.ts", "docs/plans/tcg-data-platform/README.md"]
     },
     {
       "path": "apps/wholesale", "group": "apps", "label": "Wholesale records and research",
@@ -60,18 +60,18 @@
     },
     {
       "path": "packages/data-ingest", "group": "packages", "label": "Source adapters and ingestion contracts",
-      "purpose": "Describe approved source adapters and normalize permitted upstream records into shared catalog shapes.",
+      "purpose": "Describe source adapters, their rights/activation boundaries and normalization into shared catalog and observation shapes.",
       "scope": "Each source has its own rights and activation boundary; an adapter or fixture parser is not permission to fetch or republish data.",
       "progress": "The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry. 2026-09-29: member-price observation types and positive native-decimal validation reuse data-spec, preserving existing adapter imports and source/use policies.",
-      "next": "Read the source registry and rights tests before changing an adapter. Record permission and writer coverage separately from parser implementation.",
-      "evidence": ["packages/data-ingest/src/registry.ts", "packages/data-ingest/src/types.ts", "packages/data-ingest/src/__tests__/source-rights.test.ts", "docs/methodology/source-protocol.md", "packages/data-ingest/src/member-prices.ts", "docs/architecture/card-data-contracts.md"]
+      "next": "Reconcile field/use publication decisions with downstream readers before broadening provider coverage. Record source permission, exact-mapping evidence, repeatable import and writer coverage separately from parser implementation.",
+      "evidence": ["packages/data-ingest/src/registry.ts", "packages/data-ingest/src/types.ts", "packages/data-ingest/src/__tests__/source-rights.test.ts", "docs/methodology/source-protocol.md", "packages/data-ingest/src/member-prices.ts", "docs/architecture/card-data-contracts.md", "docs/plans/tcg-data-platform/README.md"]
     },
     {
       "path": "packages/data-spec", "group": "packages", "label": "Public response contracts",
       "purpose": "Define envelope, error and provenance schemas, freshness budgets and stable error codes.",
-      "scope": "Private implementation package. Exact public specification prose has its own license; mixed response data defaults to NOASSERTION.",
+      "scope": "Workspace-only implementation package; code follows the root license and specific notices. Specification prose has its own dedication; mixed response data defaults to NOASSERTION.",
       "progress": "Schema exports, freshness values and error constants are present and consumed by the storefront data pantry. 2026-09-29: shared native/member observation types, monetary/mapping value checks and JSON Schemas added; envelope metadata schema aligned with runtime and OpenAPI. Raw schemas are served at their declared identifiers.",
-      "next": "Keep emitted responses and schema changes aligned; distinguish contract compatibility from publication and data rights.",
+      "next": "Keep emitted responses and schema changes aligned; design printing, image and market observation contracts through the data-platform roadmap. Contract validity, source permissions and public package release are separate checks.",
       "evidence": ["packages/data-spec/src/index.ts", "packages/data-spec/src/schemas", "apps/storefront/src/lib/data-pantry", "docs/STANDARDS-LICENSE.md", "packages/data-spec/src/price-observation.ts", "packages/data-spec/src/__tests__", "docs/architecture/card-data-contracts.md"]
     },
     {
@@ -159,8 +159,8 @@
       "purpose": "Parse, build and normalize Cambridge card SKUs with shared game, set and rarity vocabulary.",
       "scope": "Identifier syntax and normalization; a valid identifier alone does not prove catalog membership or data rights.",
       "progress": "Parser, builder, normalization and vocabulary modules plus tests are present. 2026-09-29: shared raw/normalized syntax identity and JSON Schema are consumed by game-specific search and card composition; stored identifiers and printing choices are preserved.",
-      "next": "Extend game and set vocabulary here and use the shared parser at input boundaries; preserve existing identifier compatibility.",
-      "evidence": ["packages/sku/src/index.ts", "packages/sku/src/parse.ts", "packages/sku/src/games.ts", "packages/sku/src/__tests__", "packages/sku/src/identity.ts", "packages/sku/src/__tests__/identity.test.ts", "docs/architecture/card-data-contracts.md"]
+      "next": "Preserve syntax and stored identifiers while introducing separately evidenced printing mappings. Registry declarations do not establish live coverage; workspace code does not establish an npm release.",
+      "evidence": ["packages/sku/src/index.ts", "packages/sku/src/parse.ts", "packages/sku/src/games.ts", "packages/sku/src/__tests__", "packages/sku/src/identity.ts", "packages/sku/src/__tests__/identity.test.ts", "docs/architecture/card-data-contracts.md", "apps/storefront/src/lib/contracts/standards.ts", "docs/plans/tcg-data-platform/README.md"]
     },
     {
       "path": "packages/stock", "group": "packages", "label": "Stock ledger and reservations",
@@ -230,7 +230,8 @@
   "storefrontDomains": [
     {
       "id": "cards-and-research", "label": "Cards and research",
-      "purpose": "Find cards, understand identifiers, inspect source evidence, compare prices and discover datasets.",
+      "purpose": "Find cards and connect SKU identity, image provenance, native prices and qualified market observations, with explicit uncertainty and source-use permissions.",
+      "evidence": ["docs/architecture/card-data-contracts.md", "docs/plans/tcg-data-platform/README.md", "apps/storefront/src/lib/cards/en-card-data.ts", "apps/storefront/src/lib/public-wholesale-fields.ts", "apps/storefront/src/lib/prices/member-feed.ts"],
       "lib": ["cards", "catalog", "collector-observations", "condition", "coverage-hunt", "datafeed", "external-rep", "fx", "prices", "search", "sold-comps"],
       "routes": ["card", "cards", "catalog", "data", "data.json", "datasets", "find", "guides", "prices"]
     },
@@ -254,9 +255,10 @@
     },
     {
       "id": "public-interfaces", "label": "Public interfaces and discovery",
-      "purpose": "Describe resources, public API contracts, agent access, provenance and machine discovery through existing registries.",
+      "purpose": "Expose data contracts, specifications, provenance and agent discovery, with a separate authored integration roadmap that does not claim runtime capability or source availability.",
+      "evidence": ["apps/storefront/src/content/platform/index.ts", "apps/storefront/src/lib/contracts/standards.ts", "apps/storefront/src/lib/contracts/standards.test.tsx", "apps/storefront/src/app/roadmap/page.tsx", "apps/storefront/src/app/api/v1/roadmap/route.ts", "docs/plans/tcg-data-platform/README.md"],
       "lib": ["agents", "calling-card", "contracts", "data-pantry", "http", "release", "universal", "youspeak"],
-      "routes": [".well-known", "agents", "answering-rhymes", "api", "graph", "identify", "llms.txt", "manifest", "ontology", "patterns", "platform", "robots.txt", "schemas", "scrapers", "spec", "standards", "standards.json"]
+      "routes": [".well-known", "agents", "answering-rhymes", "api", "graph", "identify", "llms.txt", "manifest", "ontology", "patterns", "platform", "roadmap", "robots.txt", "schemas", "scrapers", "spec", "standards", "standards.json"]
     },
     {
       "id": "safety-and-operations", "label": "Trust, privacy and operations",

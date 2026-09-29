@@ -5,6 +5,7 @@ import { PULLS_SNAPSHOT } from "./pulls/pull-rates";
 import { META_SNAPSHOT } from "./play/meta-snapshot";
 import { DATA_RIGHTS_BOUNDARY } from "./data-rights";
 import { OPTIONAL_AGENT_RESOURCES } from "./siblings";
+import { PLATFORM } from "@/content/platform";
 
 export const PUBLIC_ORIGIN = "https://cambridgetcg.com";
 
@@ -17,6 +18,7 @@ export interface PublicReference {
 // Deliberate public references, not a filesystem crawl or an auth allow-list.
 // Unknown content dates stay absent; manifest since/generated_at are not review dates.
 export const PUBLIC_REFERENCES: readonly PublicReference[] = [
+  { path: "/roadmap", title: "TCG data integration roadmap", lastModified: "2026-09-29" },
   { path: "/services", title: "Card prices and collector tools", lastModified: "2026-09-29" },
   { path: "/map", title: "Rooms and reading trails", lastModified: "2026-09-29" },
   { path: "/standards/card-data", title: "SKU & price contracts", lastModified: "2026-09-29" },
@@ -45,6 +47,7 @@ export const PUBLIC_REFERENCES: readonly PublicReference[] = [
 ];
 
 export const DISCOVERY_RESOURCE_IDS = [
+  "storefront.roadmap",
   "storefront.rooms",
   "storefront.contracts.card_data",
   "storefront.reference.condition_checklist",
@@ -209,7 +212,7 @@ const DISCOVERY_POINTERS = {
   "math-language-doctrine": `${PUBLIC_ORIGIN}/docs/connections/the-math-language.md`,
 };
 
-const INTRO = `Cambridge TCG supports card research, collecting, play and connected reading. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
+const INTRO = `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
 Free is not anonymous access. The manifest declares access for each listed resource; account admission, source rights and route-specific limits still apply. Member price data is not published by this discovery index.
 ${DATA_RIGHTS_BOUNDARY}
 Repository code licensing follows the repository LICENSE and applicable more-specific notices. Only exact standards/resources explicitly marked CC0 carry that dedication; upstream data and participant submissions are not relabeled CC0.
@@ -248,7 +251,7 @@ export function buildAgentText(): string {
 }
 
 export function buildLlmsText(): string {
-  return `# Cambridge TCG — cards, collections, play and data\n\n${INTRO}\n\n` +
+  return `# ${PLATFORM.title}\n\n${INTRO}\n\n` +
     "## Current discovery and transport documentation\n" +
     Object.entries(DISCOVERY_POINTERS).map(([key, value]) => `- ${key}: ${value}`).join("\n") +
     "\n\n## Public reference assets\n" +

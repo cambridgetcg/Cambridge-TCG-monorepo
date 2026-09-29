@@ -18,14 +18,14 @@ for (const width of [320, 390, 1280, 1440]) {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.name));
 
-    for (const path of ["/", "/agents"]) {
+    for (const path of ["/", "/agents", "/roadmap"]) {
       await page.goto(path);
       const nav = page.getByRole("navigation", { name: "Primary navigation", exact: true });
       await expect(nav.getByRole("link", { name: "Cambridge TCG home" })).toHaveText("Cambridge TCG");
       if (width < 1280) {
         await expect(nav.getByRole("button", { name: "Open menu", exact: true })).toBeVisible();
       } else {
-        for (const label of ["Prices", "Services", "Collection", "Play"]) {
+        for (const label of ["Prices", "Services", "Standards", "Roadmap"]) {
           await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
         }
       }
@@ -61,7 +61,7 @@ test("menus support keyboard dismissal, outside clicks and responsive focus", as
   await expect(mobile).toBeFocused();
 
   await page.keyboard.press("Space");
-  for (const label of ["Culture", "Community", "Agents & API"]) {
+  for (const label of ["Culture", "Play", "Community", "Agents & API", "Standards", "Roadmap"]) {
     await expect(drawer.getByRole("link", { name: label, exact: true })).toBeVisible();
   }
   await expect(drawer.getByRole("link", { name: "Collection Sign-in required", exact: true })).toBeVisible();
@@ -74,6 +74,9 @@ test("menus support keyboard dismissal, outside clicks and responsive focus", as
   await expect(more).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("Tab");
   await expect(page.locator("#more-navigation").getByRole("link", { name: /^Culture/ })).toBeFocused();
+  const collection = page.locator('#more-navigation a[href="/account/portfolio"]');
+  await expect(collection).toContainText("Sign-in required");
+  await expect(page.locator('#more-navigation a[href="/play"]')).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(more).toBeFocused();
   await expect(more).toHaveAttribute("aria-expanded", "false");
@@ -98,6 +101,8 @@ test("Japanese mobile navigation keeps tasks, access and language choices legibl
   const drawer = page.locator("#mobile-navigation");
   await expect(drawer.getByRole("link", { name: "価格", exact: true })).toBeVisible();
   await expect(drawer.getByRole("link", { name: "ツール", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("link", { name: "標準仕様", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("link", { name: "ロードマップ", exact: true })).toBeVisible();
   await expect(drawer.getByRole("link", { name: "コレクション ログインが必要です", exact: true })).toBeVisible();
   await nav.getByRole("button", { name: "メニューを閉じる", exact: true }).click();
   await expect(drawer).toHaveCount(0);
@@ -106,6 +111,29 @@ test("Japanese mobile navigation keeps tasks, access and language choices legibl
   await expect(footer.getByRole("link", { name: "English", exact: true })).toBeVisible();
   await expect(footer.getByText("一部のページは、まだ英語のみです。", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("opening or hovering collection links does not prefetch account pages", async ({ page }) => {
+  const accountRequests: string[] = [];
+  await page.route("**/account/portfolio**", (route) => {
+    accountRequests.push(route.request().url());
+    return route.fulfill({ status: 200, contentType: "text/html", body: "<main>Account navigation was not requested</main>" });
+  });
+
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const trigger = width < 1280 ? "#mobile-navigation-trigger" : "#desktop-more-navigation-trigger";
+    const menu = width < 1280 ? "#mobile-navigation" : "#more-navigation";
+    await page.locator(trigger).click();
+    const collection = page.locator(`${menu} a[href="/account/portfolio"]`);
+    await expect(collection).toBeVisible();
+    await expect(collection).toContainText("Sign-in required");
+    await collection.hover();
+    // Allow both viewport and hover prefetch scheduling to run before checking absence.
+    await page.waitForTimeout(500);
+    expect(accountRequests).toEqual([]);
+  }
 });
 
 test.describe("without JavaScript", () => {

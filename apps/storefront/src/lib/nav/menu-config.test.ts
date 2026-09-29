@@ -10,15 +10,16 @@ const moreItems: NavItem[] = MORE_NAV_GROUPS.flatMap((group) => [...group.items]
 const itemAt = (href: string): NavItem => [...PRIMARY_NAV_ITEMS, ...moreItems].find((item) => item.href === href)!;
 
 describe("storefront navigation", () => {
-  it("keeps a small set of human tasks with a separate agent entry", () => {
+  it("prioritises data tasks while retaining collection, play and the agent entry", () => {
     expect(PRIMARY_NAV_ITEMS).toHaveLength(4);
-    expect(PRIMARY_NAV_ITEMS.map((item) => item.href)).toEqual(["/prices", "/services", "/account/portfolio", "/play"]);
-    expect(PRIMARY_NAV_ITEMS.map((item) => item.label)).toEqual(["Prices", "Services", "Collection", "Play"]);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.href)).toEqual(["/prices", "/services", "/standards", "/roadmap"]);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.label)).toEqual(["Prices", "Services", "Standards", "Roadmap"]);
+    expect(moreItems.slice(0, 3).map((item) => item.href)).toEqual(["/culture", "/account/portfolio", "/play"]);
     expect(itemAt("/account/portfolio").requiresSignIn).toBe(true);
     expect(moreItems.find((item) => item.href === "/agents")).toMatchObject({
       label: "Agents & API", description: "Start with read-only discovery",
     });
-    expect(collectNavUrls().length).toBeLessThanOrEqual(13);
+    expect(collectNavUrls().length).toBeLessThanOrEqual(15);
   });
 
   it("avoids repeated header destinations and preserves the wider map", () => {
@@ -42,6 +43,9 @@ describe("storefront navigation", () => {
 
   it("keeps nested routes under the correct task without matching sibling prefixes", () => {
     expect(isNavItemActive(itemAt("/prices"), "/prices/one-piece/op01")).toBe(true);
+    expect(isNavItemActive(itemAt("/standards"), "/standards/card-data")).toBe(true);
+    expect(isNavItemActive(itemAt("/data"), "/standards/card-data")).toBe(false);
+    expect(isNavItemActive(itemAt("/roadmap"), "/roadmap")).toBe(true);
     expect(isNavItemActive(itemAt("/play"), "/deck-builder")).toBe(true);
     expect(isNavItemActive(itemAt("/culture"), "/workshop")).toBe(true);
     expect(isNavItemActive(itemAt("/culture"), "/pulls/one-piece")).toBe(true);

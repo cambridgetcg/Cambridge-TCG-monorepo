@@ -4,7 +4,8 @@ import { CONFIRMED_GAME_CODES, GAMES } from "@cambridge-tcg/sku";
 import type { UiLang } from "@/lib/lang-mode";
 import { Audience } from "@/lib/ui/Audience";
 import { PageLayout } from "@/lib/ui/PageLayout";
-import { ServiceCards } from "@/components/site/ServiceCards";
+import { DataFoundations } from "@/components/site/DataFoundations";
+import { PLATFORM } from "@/content/platform";
 import CardFinderHero from "./CardFinderHero";
 import HomeArtwork from "./HomeArtwork";
 
@@ -20,9 +21,10 @@ export default function HomeLanding({ uiLang, provenance }: { uiLang: UiLang; pr
       <div className="grid items-center gap-x-12 gap-y-10 lg:grid-cols-12">
         <div className="min-w-0 space-y-7 lg:col-span-7 lg:py-6">
           <header lang="en">
-            <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-accent" />The collector’s desk</p>
-            <h1 className="mt-5 font-display text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.055em] text-ink sm:text-6xl xl:text-7xl">Look closer.<br /><span className="text-accent">Find your price.</span></h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-ink-muted">Card prices, clear sources, a place for your collection.</p>
+            <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-accent" />Open-source TCG infrastructure</p>
+            <h1 className="mt-5 font-display text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.055em] text-ink sm:text-6xl xl:text-7xl">TCG data.<br /><span className="text-accent">Made to connect.</span></h1>
+            <p className="mt-5 max-w-lg text-base leading-7 text-ink-muted">{PLATFORM.description}</p>
+            <nav aria-label="Build with card data" className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm"><Link href="/standards" className={link}>Explore the standards →</Link><Link href="/agents" className={link}>Build with the API →</Link></nav>
           </header>
           <div id="find-a-card" className="scroll-mt-24">
             <CardFinderHero games={SEARCH_GAMES} uiLang={uiLang} />
@@ -34,21 +36,23 @@ export default function HomeLanding({ uiLang, provenance }: { uiLang: UiLang; pr
           </div>
         </div>
         <div className="lg:col-span-5"><HomeArtwork /></div>
-        <section lang="en" aria-labelledby="home-services" className="lg:col-span-12">
+        <section lang="en" aria-labelledby="home-foundations" className="lg:col-span-12">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 id="home-services" className="text-xl font-semibold tracking-tight text-ink">A few useful tools.</h2>
-            <Link href="/services" className={`${link} inline-flex min-h-11 items-center text-sm`}>All services →</Link>
+            <h2 id="home-foundations" className="text-xl font-semibold tracking-tight text-ink">Four foundations. One connected view.</h2>
+            <Link href="/roadmap" className={`${link} inline-flex min-h-11 items-center text-sm`}>Integration roadmap →</Link>
           </div>
-          <ServiceCards featured />
+          <DataFoundations />
         </section>
       </div>
       <div lang="en" className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 border-t border-border-subtle pt-5 text-sm">
         <nav aria-label="More to explore" className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <Link href="/services" className={link}>All services →</Link>
+          <Link href="/account/portfolio" prefetch={false} className={link}>Collection · Existing account</Link>
           <Link href="/play" className={link}>Play</Link>
           <Link href="/map" className={link}>Explore the map</Link>
           <Link href="/contact" className={link}>Help</Link>
         </nav>
-        <aside aria-label="Agents and developers"><Link href="/agents" className={link}>Agents & API →</Link></aside>
+        <aside aria-label="Open-source development"><Link href="/about" className={link}>About the project →</Link></aside>
       </div>
     </PageLayout>
   );

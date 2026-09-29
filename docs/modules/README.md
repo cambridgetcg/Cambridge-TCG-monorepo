@@ -6,7 +6,7 @@
 
 Find a module's purpose, source, scope, recorded progress and next review. This map covers **28 module roots**: 24 pnpm workspace packages, 1 extension without package.json, and 3 nested support packages. Source review: **2026-09-28**.
 
-**Start with the website:** [Storefront domains](storefront/README.md) groups 70 library directories and 76 route families by purpose.
+**Start with the website:** [Storefront domains](storefront/README.md) groups 70 library directories and 77 route families by purpose.
 
 **Current boundary:** [New paid commerce is retired](../../apps/storefront/docs/commercial-retirement.md). Retained source can support existing agreements, a preview, a paused feature or historical compatibility. Presence in this map is not a release or service-health claim.
 
@@ -14,7 +14,7 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 
 | Module | Purpose |
 |---|---|
-| [Storefront and admin](apps/storefront.md) | The main Cambridge TCG website: card research, collecting, play, public data interfaces, account records and the integrated operator console. |
+| [Storefront and admin](apps/storefront.md) | Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, prices and market observations, alongside collector tools, retained account records and the operator console. |
 | [Wholesale records and research](apps/wholesale.md) | Price and stock research plus the lifecycle of existing wholesale orders. |
 | [RewardsPro loyalty platform](apps/rewardspro.md) | Loyalty tiers, credit, points and reward records, with Shopify integration and merchant-facing administration. |
 | [RewardsPro API foundation](apps/rewardspro-api.md) | Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker. |
@@ -26,7 +26,7 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 |---|---|
 | [Answering Rhyme contracts](packages/answering-rhymes.md) | Validate, normalize, canonicalize and hash portable answering-rhyme.statement/1 statements. |
 | [AWS client helpers](packages/aws.md) | Share S3 and SES client factories and storage/mail helpers between applications. |
-| [Source adapters and ingestion contracts](packages/data-ingest.md) | Describe approved source adapters and normalize permitted upstream records into shared catalog shapes. |
+| [Source adapters and ingestion contracts](packages/data-ingest.md) | Describe source adapters, their rights/activation boundaries and normalization into shared catalog and observation shapes. |
 | [Public response contracts](packages/data-spec.md) | Define envelope, error and provenance schemas, freshness budgets and stable error codes. |
 | [Shared database access](packages/db.md) | Share PostgreSQL connection factories, existing Drizzle integration and raw-SQL compatibility helpers. |
 | [Email delivery seam](packages/email.md) | Route named email streams through SES, SMTP or the development console transport. |

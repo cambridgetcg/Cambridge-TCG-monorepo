@@ -1,6 +1,8 @@
 # Cambridge TCG
 
-The monorepo behind [cambridgetcg.com](https://cambridgetcg.com): card research, collections, community, public rights-labelled trading-card data, and existing account and order records, run from Cambridge, UK.
+Building open-source TCG data infrastructure from Cambridge, UK: shared tools and standards for card identity, images, prices and market observations. The [website](https://cambridgetcg.com) gives people and API clients ways to inspect those records and their sources.
+
+The [data-platform roadmap](docs/plans/tcg-data-platform/README.md) is the current integration plan. Reference packages remain workspace-only; public repository access and package distribution are separate release gates. A source adapter, registered game or published plan does not establish available data or permission to redistribute it.
 
 **Current boundary:** new paid commerce is retired. Existing agreements retain settlement, cancellation, refunds and support. Start with the [storefront commerce boundary](apps/storefront/docs/commercial-retirement.md), [wholesale scope](apps/wholesale/README.md), and [RewardsPro scope](apps/rewardspro/README.md); older shop and launch plans are historical context.
 
@@ -9,9 +11,10 @@ The monorepo behind [cambridgetcg.com](https://cambridgetcg.com): card research,
 | I want to… | Entry point |
 |---|---|
 | Explore cards, collections and community | [Website](https://cambridgetcg.com/) |
+| Understand the data-platform direction | [Purpose](docs/purpose.md) and [integration roadmap](docs/plans/tcg-data-platform/README.md) — SKU, images, pricing and market foundations |
 | Understand or change this repository | [Module map](docs/modules/README.md) — purpose, source paths, connections and progress |
 | Review the complete website rebuild | [Draft room and content plan](docs/plans/storefront-rebuild/README.md) — purpose, pages, modules, wiring and design |
-| Understand SKU and price API contracts | [Card-data foundation](docs/architecture/card-data-contracts.md) — identity, units, schemas and current limits |
+| Understand current contracts and gaps | [Card-data foundations](docs/architecture/card-data-contracts.md) — identity, images, prices, market observations and source boundaries |
 | Run the site locally | [Local development](#local-development), then the [storefront guide](apps/storefront/README.md) |
 | Find a guide or recorded decision | [Documentation](docs/README.md) |
 | Work as a coding agent or use the API | [Agent guide](docs/agents/README.md) — repository rules and public interfaces |
@@ -24,7 +27,7 @@ health. Coding-agent instructions live in [AGENTS.md](AGENTS.md).
 
 | Path | Role and status |
 |---|---|
-| [`apps/storefront`](apps/storefront/README.md) | Active collector site, `/api/v1` and `/admin/*` console; Next.js App Router |
+| [`apps/storefront`](apps/storefront/README.md) | Human data tools, collector pages, `/api/v1` interfaces and `/admin/*` console; Next.js App Router |
 | [`apps/admin`](apps/admin/README.md) | Retired standalone app; redirect shell and retained review documentation, with no dev/build/test scripts |
 | [`apps/wholesale`](apps/wholesale/README.md) | Price research and existing order operations; new orders and quote requests retired |
 | [`apps/rewardspro`](apps/rewardspro/README.md) | Existing loyalty and rewards platform; new paid subscriptions and plan changes retired |
@@ -83,4 +86,4 @@ For an already-running local storefront, `STOREFRONT_BASE_URL=http://127.0.0.1:3
 
 ## Data rights
 
-Card names and game data remain the property of their respective game publishers. Data resources carry explicit rights labels (CC0 or NOASSERTION); check each resource's label before reuse. Code is licensed under [Apache-2.0](LICENSE).
+Code follows the root [Apache-2.0 license](LICENSE) and applicable more-specific notices. The [CC0 dedication](docs/STANDARDS-LICENSE.md) covers specification prose. Provider data, publisher text and artwork retain their own terms; check each source, field and permitted use before reuse. These are separate from repository access, API authentication and package publication.

@@ -6,17 +6,18 @@ its purpose, connections and recorded progress. The
 [agent guide](agents/README.md) is the separate entrance for coding agents and
 API clients.
 
-**Current scope:** new paid commerce is retired. The [storefront boundary](../apps/storefront/docs/commercial-retirement.md), [wholesale scope](../apps/wholesale/README.md) and [RewardsPro scope](../apps/rewardspro/README.md) take precedence over older commerce plans. Dates and status labels below describe documents, not a fresh check of deployed services.
+**Current direction:** build open-source TCG data infrastructure around SKU identity, images, prices and market observations. The [integration roadmap](plans/tcg-data-platform/README.md) is the canonical delivery plan; repository/package release and provider activation remain separate gates. New paid commerce is retired. The [storefront boundary](../apps/storefront/docs/commercial-retirement.md), [wholesale scope](../apps/wholesale/README.md) and [RewardsPro scope](../apps/rewardspro/README.md) preserve existing obligations. Dates and status labels describe documents, not a fresh check of deployed services.
 
 ## Human readers and contributors
 
 | Need | Start here |
 |---|---|
-| Understand the project | [Purpose](./purpose.md), read alongside the current scope above |
+| Understand the project | [Purpose](./purpose.md) and [data-platform roadmap](./plans/tcg-data-platform/README.md) |
+| Follow public planning | [Roadmap page](https://cambridgetcg.com/roadmap) and [roadmap JSON](https://cambridgetcg.com/api/v1/roadmap) — authored planning snapshots, not live capabilities |
 | Find code, purpose and dependencies | [Module map](./modules/README.md) and [machine-readable catalog](./modules/catalog.json) |
 | Read or update module progress | [Module records and update workflow](./modules/README.md) |
 | Review the complete website rebuild | [Room-based rebuild plan](./plans/storefront-rebuild/README.md) — proposed purpose, rooms, content, pages and service wiring |
-| Track the first rebuild implementation | [Progress](./plans/storefront-rebuild/implementation.md) and [SKU/price contracts](./architecture/card-data-contracts.md) |
+| Track the rebuild and data foundations | [Rebuild progress](./plans/storefront-rebuild/implementation.md) and [current contracts and gaps](./architecture/card-data-contracts.md) |
 | Work on the visitor site, API or admin console | [Storefront guide](../apps/storefront/README.md) |
 | Understand the visitor and API entrances | [Entry pages and module map](./connections/the-entry-map.md) |
 | Understand the shared UI baseline | [Interface guide](./design/interface.md) — September 29 shared controls; entry/map replacement is recorded in rebuild progress |
@@ -32,6 +33,7 @@ Read each runbook's prerequisites and scope before acting. Configuration descrip
 - [Deployment and infrastructure](./ops-deploy-runbook.md) — project wiring and deployment procedure.
 - [Credential-dependent verification](./ops-credential-verification.md) — scoped verification and what its evidence labels mean.
 - [Entry and module map verification](./operations/2026-09-28-entry-verification.md) — September 28 local build, navigation, browser and documentation checks.
+- [Data-platform entry verification](./operations/2026-09-29-data-platform.md) — September 29 shared roadmap, standards, agent access and responsive checks.
 - [Cloudflare](./ops-cloudflare.md) — zone configuration and public access posture; includes the June 2026 audit.
 - [Email migration](./ops-email-selfhost.md) — SES to self-hosted mail: provisioning, DNS, warmup and cutover; check the recorded phase before use.
 

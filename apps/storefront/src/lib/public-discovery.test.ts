@@ -29,7 +29,7 @@ describe("public sitemap", () => {
   it("includes useful references and all guide dates but no private, login, PRISM beta or unlisted paths", () => {
     const pages = sitemap();
     const byPath = new Map(pages.map((page) => [page.url.replace(PUBLIC_ORIGIN, ""), page]));
-    for (const path of ["/standards", "/glossary", "/play/deck-check", "/methodology/sku-standard", "/guides/condition/checklist", "/standards/validator"]) expect(byPath.has(path)).toBe(true);
+    for (const path of ["/roadmap", "/standards", "/glossary", "/play/deck-check", "/methodology/sku-standard", "/guides/condition/checklist", "/standards/validator"]) expect(byPath.has(path)).toBe(true);
     for (const path of byPath.keys()) expect(path).not.toMatch(/^\/(login|account|admin|nuke|prism-signals\/beta)(\/|$)|^\/api\//);
     for (const guide of GUIDES) expect(byPath.get(`/agents/guides/${guide.slug}`)?.lastModified).toBe(guide.last_verified);
     expect(byPath.get("/play/meta")?.lastModified).toBe(META_SNAPSHOT.asOf);
@@ -77,6 +77,8 @@ describe("current compact machine documents", () => {
       expect(line).toContain(`access=${ACCESS_LABELS[resource.auth]}`);
     }
     expect(records["resource.storefront.member_prices.feed"]).toContain("access=member-key");
+    expect(records["resource.storefront.roadmap"]).toContain("GET https://cambridgetcg.com/api/v1/roadmap; access=public");
+    expect(records["resource.storefront.roadmap"]).toContain("Authored integration plan");
     expect(records["resource.storefront.member_prices.export"]).toContain("access=session");
     expect(records["resource.storefront.mcp"]).toContain("access=agent-key");
     expect(records["resource.storefront.api.identifiers.validate"]).toContain("POST,OPTIONS");
