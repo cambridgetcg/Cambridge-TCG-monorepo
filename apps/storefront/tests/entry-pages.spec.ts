@@ -13,7 +13,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
   test(`visitor entry is usable at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Find the card.Understand the price.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Look closer.Find your price.");
     await expect(page.getByLabel("Game", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Card number", { exact: true })).toBeVisible();
     await expect(page.locator('main a[href="/account/portfolio"]')).toBeVisible();
@@ -44,7 +44,7 @@ test("services and artwork have useful, labelled destinations", async ({ page })
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByText("Artwork details & credit", { exact: true }).click();
-  await expect(page.getByText("Gift of H. R. Warner", { exact: true })).toBeVisible();
+  await expect(page.getByText("Henry L. Phillips Collection, Bequest of Henry L. Phillips, 1939", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Explore Artbitrage", exact: true })).toHaveAttribute("href", "/gallery-next-door");
   await page.getByRole("link", { name: "All services →", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tools for your collection");

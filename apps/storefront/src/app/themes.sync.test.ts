@@ -37,6 +37,23 @@ function contrast(a: string, b: string) {
   return (high + 0.05) / (low + 0.05);
 }
 
+/** CSS alpha colors composite onto their surrounding surface. */
+function composite(foreground: string, opacity: number, background: string) {
+  return "#" + [1, 3, 5].map((offset) => {
+    const front = Number.parseInt(foreground.slice(offset, offset + 2), 16);
+    const back = Number.parseInt(background.slice(offset, offset + 2), 16);
+    return Math.round(front * opacity + back * (1 - opacity)).toString(16).padStart(2, "0");
+  }).join("");
+}
+
+function opaqueColor(value: string, background: string) {
+  if (value.startsWith("#")) return value;
+  const rgb = /^rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)\)$/.exec(value);
+  if (!rgb) throw new Error(`Unsupported contrast fixture: ${value}`);
+  const color = "#" + rgb.slice(1, 4).map((part) => Number(part).toString(16).padStart(2, "0")).join("");
+  return composite(color, Number(rgb[4]), background);
+}
+
 describe("appearance compatibility and palette consistency", () => {
   it("preserves saved theme IDs and follows the system without a choice", () => {
     expect(THEMES.map((theme) => theme.id)).toEqual(["gallery", "terminal", "midnight", "high-contrast"]);
@@ -50,11 +67,12 @@ describe("appearance compatibility and palette consistency", () => {
   });
 
   it("keeps the Light defaults and explicit Light bundle identical", () => {
-    const defaults = { ...declarations(block(themes, "@theme")), ...declarations(block(globals, "@theme")) };
+    const defaults = declarations(block(themes, "@theme"));
     const light = bundle("gallery");
     const { "color-scheme": scheme, ...tokens } = light;
     expect(scheme).toBe("light");
     expect(defaults).toEqual(tokens);
+    expect(globals).not.toContain("@theme");
   });
 
   it("keeps system dark identical to the explicit Dark bundle", () => {
@@ -84,10 +102,36 @@ describe("shared text and action contrast", () => {
       }
     });
 
-    it(`${theme.label} keeps primary and danger button labels readable`, () => {
+    it(`${theme.label} keeps solid and hover button labels readable`, () => {
       const tokens = bundle(theme.id);
-      for (const background of ["ink", "danger"]) {
+      for (const background of ["ink", "danger", "accent", "accent-strong"]) {
         expect(contrast(tokens["--color-page"], tokens[`--color-${background}`])).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(contrast(tokens["--color-ink-on-highlight"], tokens["--color-highlight"])).toBeGreaterThanOrEqual(4.5);
+      for (const surface of surfaces) {
+        const backing = tokens[`--color-${surface}`];
+        expect(contrast(tokens["--color-ink-on-highlight"], composite(tokens["--color-highlight"], 0.9, backing)), `${theme.id}: primary hover on ${surface}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(tokens["--color-page"], composite(tokens["--color-danger"], 0.85, backing)), `${theme.id}: danger hover on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+
+    it(`${theme.label} keeps accent focus rings and input boundaries visible`, () => {
+      const tokens = bundle(theme.id);
+      for (const surface of surfaces) for (const indicator of ["accent", "border-strong"]) {
+        expect(contrast(tokens[`--color-${indicator}`], tokens[`--color-${surface}`]), `${theme.id}: ${indicator} on ${surface}`).toBeGreaterThanOrEqual(3);
+      }
+    });
+
+    it(`${theme.label} keeps text and active links readable on the two wash backgrounds`, () => {
+      const tokens = bundle(theme.id);
+      for (const surface of surfaces) {
+        const accentWash = opaqueColor(tokens["--color-accent-wash"], tokens[`--color-${surface}`]);
+        const secondaryWash = tokens["--color-secondary-wash"];
+        for (const ink of ["ink", "ink-muted", "ink-faint", "accent", "accent-strong"]) {
+          for (const wash of [accentWash, secondaryWash]) {
+            expect(contrast(tokens[`--color-${ink}`], wash), `${theme.id}: ${ink} on ${wash}`).toBeGreaterThanOrEqual(4.5);
+          }
+        }
       }
     });
   }

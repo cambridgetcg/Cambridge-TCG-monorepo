@@ -13,41 +13,46 @@ export default async function Footer() {
   const uiLang = uiLangFromLangMode(langMode);
 
   return (
-    <footer className="bg-page border-t border-border-subtle mt-12 py-8">
+    <footer className="mt-12 border-t border-border-strong bg-surface-subtle py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="text-base font-semibold text-ink">
-          Cambridge TCG
-        </Link>
-        <p className="mt-2 max-w-xl text-sm text-ink-muted">
-          {tx({
-            en: "Card research, collections and play. Based in Cambridge, UK.",
-            ja: "カードを調べる、集める、遊ぶ。英国ケンブリッジから。",
-            es: "Investiga cartas, organiza tu colección y juega. Desde Cambridge, Reino Unido.",
-            "zh-Hans": "查卡、收藏与游戏。来自英国剑桥。",
-            "zh-Hant": "查卡、收藏與遊戲。來自英國劍橋。",
-          }, uiLang)}
-        </p>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] lg:gap-12">
+          <div>
+            <span aria-hidden="true" className="mb-2 block h-1 w-8 rounded-full bg-accent" />
+            <Link href="/" className="inline-flex min-h-11 items-center rounded-sm font-display text-xl font-semibold tracking-[-0.04em] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              Cambridge TCG
+            </Link>
+            <p className="mt-1 max-w-sm text-sm leading-6 text-ink-muted">
+              {tx({
+                en: "Card research, collections and play. Based in Cambridge, UK.",
+                ja: "カードを調べる、集める、遊ぶ。英国ケンブリッジから。",
+                es: "Investiga cartas, organiza tu colección y juega. Desde Cambridge, Reino Unido.",
+                "zh-Hans": "查卡、收藏与游戏。来自英国剑桥。",
+                "zh-Hant": "查卡、收藏與遊戲。來自英國劍橋。",
+              }, uiLang)}
+            </p>
+          </div>
 
-        <div className="grid grid-cols-2 gap-x-5 gap-y-6 md:grid-cols-4 mt-6">
-          {FOOTER_NAV_GROUPS.map((group, index) => (
-            <nav key={group.heading} aria-labelledby={`footer-group-${index}`}>
-              <h2 id={`footer-group-${index}`} className="font-medium text-sm text-ink mb-2">
-                {navGroupHeading(group, uiLang)}
-              </h2>
-              <ul>
-                {group.items.map((item) => (
-                  <li key={item.href}>
-                    <Link href={item.href} prefetch={item.href === "/account" || item.href.startsWith("/account/") ? false : undefined} className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-ink transition">
-                      {navLabel(item, uiLang)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ))}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
+            {FOOTER_NAV_GROUPS.map((group, index) => (
+              <nav key={group.heading} aria-labelledby={`footer-group-${index}`}>
+                <h2 id={`footer-group-${index}`} className="mb-1 border-b border-border-subtle pb-3 text-sm font-semibold text-ink">
+                  {navGroupHeading(group, uiLang)}
+                </h2>
+                <ul>
+                  {group.items.map((item) => (
+                    <li key={item.href}>
+                      <Link href={item.href} prefetch={item.href === "/account" || item.href.startsWith("/account/") ? false : undefined} className="inline-flex min-h-11 items-center rounded-sm text-sm text-ink-muted transition-colors hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                        {navLabel(item, uiLang)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-border-subtle text-sm text-ink-muted space-y-4">
+        <div className="mt-6 space-y-3 border-t border-border-subtle pt-4 text-sm text-ink-muted">
           <div role="group" aria-label={tx({ en: "Display options", ja: "表示設定", es: "Opciones de visualización", "zh-Hans": "显示选项", "zh-Hant": "顯示選項" }, uiLang)}>
             <FooterToggles mathLang={langMode === "math"} textMode={textMode} uiLang={uiLang} />
           </div>

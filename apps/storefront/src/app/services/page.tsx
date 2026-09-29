@@ -14,6 +14,7 @@ export default function ServicesPage() {
   return (
     <PageLayout>
       <div lang="en">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-accent">The collector’s toolkit</p>
         <PageHeader
           title="Tools for your collection"
           description="Find prices, organise your cards and keep useful records."
@@ -21,7 +22,7 @@ export default function ServicesPage() {
         />
         <ServiceCards />
 
-        <section aria-labelledby="how-prices-work" className="mt-10 border-t border-border-subtle pt-6">
+        <section aria-labelledby="how-prices-work" className="mt-10 rounded-2xl bg-secondary-wash p-6 sm:p-8">
           <h2 id="how-prices-work" className="text-xl font-semibold text-ink">How prices work</h2>
           <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-6 text-ink-muted">
             <li>Identify the card and printing, including its language and variant.</li>

@@ -12,7 +12,7 @@ The main Cambridge TCG website: card research, collecting, play, public data int
 
 ## Progress
 
-Source review recorded **2026-09-28**. App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. The 2026-09-29 rebuild introduces shared controls, room records and card-data contracts, then refocuses the human entrance on pricing discovery and collector tools with credited local art. Home and services share a task catalog; prices use concise search-first presentation and preserve source/account boundaries. The implementation record distinguishes this foundation from remaining page replacement.
+Source review recorded **2026-09-28**. App Router pages, API routes, domain libraries and admin surfaces are present. Admin work belongs here under /admin; the separate admin app is a redirect shell. The 2026-09-29 rebuild introduces shared controls, room records and card-data contracts, then refocuses the human entrance on pricing discovery and collector tools. The subsequent visual refresh replaces cool neutrals with ivory/plum/mandarin, centralizes theme defaults, refreshes shared navigation/buttons and presents credited art beside search. Home and services share a task catalog; source/account boundaries remain intact. The implementation record distinguishes this foundation from remaining page replacement.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 

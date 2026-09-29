@@ -23,7 +23,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
 import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
-import { HOME_ARTWORK } from "@/content/art/featured";
+import { SEBA_ARTWORK } from "@/content/art/featured";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -61,7 +61,7 @@ const MOVEMENTS: Movement[] = [
   {
     chapter: "第一",
     jp: "墨と間",
-    piece: HOME_ARTWORK,
+    piece: SEBA_ARTWORK,
     romaji: "sumi to ma",
     en: "The Brush & the Space Between",
     body: (

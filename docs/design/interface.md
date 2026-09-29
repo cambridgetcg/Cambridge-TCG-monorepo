@@ -1,25 +1,34 @@
 # Cambridge TCG interface
 
-> **Implemented baseline, not the final rebuild brief.** This records the UI
-> cleanup at `f2a8359b`. Yu subsequently requested a complete content, room, page
-> and UI rebuild inspired by Artbitrage, retaining useful backend services.
-> Start with the [draft rebuild plan](../plans/storefront-rebuild/README.md) for
-> that work and [implementation progress](../plans/storefront-rebuild/implementation.md)
-> for the first contract, landing and map replacement. This page describes the
-> earlier shared controls that remain in use.
+This is the current shared visual system. The
+[rebuild plan](../plans/storefront-rebuild/README.md) and
+[implementation progress](../plans/storefront-rebuild/implementation.md)
+track the wider page and service replacement.
 
-Current direction, 2026-09-29: pricing discovery and collector services first,
-with less introductory prose and visible, credited art. Everyday controls use
-a plain shared interface. Art links into its context without delaying search.
+Current direction, 2026-09-29: a fresh collector's desk. Yu delegated the color
+choice and asked to replace the old look: warm ivory, aubergine ink, mandarin
+actions and lilac art surfaces. Pricing discovery and collector services remain
+the main tasks. Art links into its context without delaying search.
+
+| Role | Light | Dark |
+|---|---|---|
+| Page | Ivory `#fbf7f1` | Plum `#1d1425` |
+| Ink | Aubergine `#2c1836` | Cream `#fff6e9` |
+| Link | Burnt orange `#9b3b12` | Apricot `#ffb078` |
+| Primary action | Mandarin `#ec7838` with aubergine text | Same |
+| Art and icon wash | Lilac `#ede3f6` | Deep lilac `#40304f` |
+
+All defaults now live in `themes.css`; the appearance registry's swatches match
+those tokens. Existing `gallery` and `midnight` cookie IDs remain compatible.
 
 ## Design rules
 
 - Name the task before explaining the system: Prices, Services, Collection, Play.
 - Use readable sans-serif text, normal sentence case and visible form labels.
-  Reserve monospace for identifiers and code. Do not use decorative numbers,
-  paper textures, animated backgrounds, gallery frames or oversized slogans.
-  Use actual credited artwork with its full composition and a readable caption;
-  put longer source records in native disclosures.
+  Reserve monospace for identifiers and code. Use a strong task headline,
+  generous space and restrained static shapes. Use actual credited artwork
+  with its full composition and a readable caption; put longer source records
+  in native disclosures. Keep search within the first phone screen.
 - Give each section a short heading, purpose and useful action. Explain access
   requirements beside the relevant destination. Keep API documentation at the
   agent entry and longer cultural reading on its own pages.
@@ -41,7 +50,7 @@ a plain shared interface. Art links into its context without delaying search.
 | `src/lib/nav/menu-config.ts` | Shared navigation destinations and translated labels |
 | `src/content/services/index.ts`, `ServiceCards` | Reviewed human task shortcuts and account requirements, shared by home and services |
 | `HomeArtwork`, `src/content/art/featured.ts` | Local museum image, shared attribution and links to art context |
-| `src/app/themes.css`, `globals.css` | Theme tokens, typography and compatibility styles |
+| `src/app/themes.css`, `globals.css` | Centralized theme tokens, typography and compatibility styles |
 
 Paths above are relative to [the storefront](../../apps/storefront/README.md).
 Compose these pieces directly. Do not create a parallel theme or navigation
@@ -68,9 +77,9 @@ design evidence, without merging or publishing Artbitrage changes.
 
 The useful patterns are one directory for navigation labels, entrances named
 after tasks, context beside destinations, useful next steps, and native links
-and GET forms that work before JavaScript. Artbitrage's museum treatment is
-specific to its artwork; Cambridge's everyday interface follows the plain
-direction above.
+and GET forms that work before JavaScript. Cambridge's current museum portrait
+is a credited art entrance beside its practical search. Stable per-work records
+keep a homepage art swap from silently changing an existing essay illustration.
 
 ## Verify a UI change
 

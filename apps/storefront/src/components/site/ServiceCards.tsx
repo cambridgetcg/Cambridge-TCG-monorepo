@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { COLLECTION_SERVICES } from "@/content/services";
+import { Icon, type IconName } from "@/lib/ui/Icon";
+
+const SERVICE_ICONS: Record<typeof COLLECTION_SERVICES[number]["id"], IconName> = {
+  prices: "search", collection: "book", condition: "eye", downloads: "tape", history: "pulse",
+};
 
 /** Shared task links for the home page and the collection tools hub. */
 export function ServiceCards({ featured = false }: { featured?: boolean }) {
@@ -9,22 +14,23 @@ export function ServiceCards({ featured = false }: { featured?: boolean }) {
   const Heading = featured ? "h3" : "h2";
 
   return (
-    <ul className={`grid gap-4 sm:grid-cols-2${featured ? " lg:grid-cols-4" : ""}`} lang="en">
+    <ul className={`grid gap-px overflow-hidden rounded-2xl border border-border-subtle bg-border-subtle sm:grid-cols-2${featured ? " lg:grid-cols-4" : ""}`} lang="en">
       {services.map((service) => (
-        <li key={service.id}>
+        <li key={service.id} className={`bg-surface${!featured && services.length % 2 === 1 ? " last:sm:col-span-2" : ""}`}>
           <Link
             href={service.href}
             prefetch={false}
-            className="group flex h-full flex-col rounded-xl border border-border-subtle bg-surface p-5 transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+            className="group flex h-full flex-col p-5 transition-colors hover:bg-accent-wash focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-accent sm:p-6"
           >
-            <span className="mb-3 self-start rounded-full bg-surface-subtle px-2.5 py-1 text-xs font-medium text-ink-muted">
-              {service.accessLabel}
-            </span>
-            <Heading className="flex items-start justify-between gap-4 text-lg font-semibold leading-7 text-ink">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary-wash text-ink"><Icon name={SERVICE_ICONS[service.id]} size={22} /></span>
+              <Icon name="arrow-right" size={20} className="text-accent" />
+            </div>
+            <Heading className="text-base font-semibold leading-6 tracking-tight text-ink">
               {service.title}
-              <span aria-hidden="true" className="text-accent">→</span>
             </Heading>
             <p className="mt-2 text-sm leading-6 text-ink-muted">{service.description}</p>
+            <span className="mt-auto pt-4 text-xs font-medium text-accent">{service.accessLabel}</span>
           </Link>
         </li>
       ))}

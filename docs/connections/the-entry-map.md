@@ -23,9 +23,10 @@ invitations remain available without becoming access requirements.
   health checks or a second room directory. Existing-account access, retained
   observations and source-specific download rights stay explicit.
 - [Homepage artwork](../../apps/storefront/src/components/home/HomeArtwork.tsx)
-  uses the existing local museum image and shared credited metadata. A short
+  uses the existing local Sharaku portrait and shared credited metadata. A short
   caption opens into the full record; art history and the Artbitrage gallery
   have their own links. The image is editorial art, not a priced card example.
+  Stable named artwork records keep the Seba illustration in its existing essay.
 - [Agent portal](../../apps/storefront/src/app/agents/page.tsx) points to the
   existing manifest, OpenAPI and guides. Those contracts remain authoritative;
   the landing does not duplicate endpoint schemas or change permissions.

@@ -22,34 +22,13 @@
  * into these tokens (`bg-page`, `bg-surface`, `border-border-subtle`,
  * etc.) to express *intent* rather than literal colour.
  *
- * Defaults match the Light bundle in themes.css. Theme IDs remain
- * compatible with saved preferences; appearance is simple and static.
+ * All defaults and theme overrides live together in themes.css. Theme
+ * IDs remain compatible with saved preferences.
  *
  * The raw Tailwind classes (`bg-neutral-900`, `text-amber-400`) keep
  * working unchanged — and keep NOT responding to themes; migration to
  * semantic tokens is the unit of adoption.
  */
-@theme {
-  /* Neutral surfaces and readable text; color conveys state or action. */
-  --color-page: #f8fafc;
-  --color-surface: #ffffff;
-  --color-surface-subtle: #f1f5f9;
-  --color-surface-elevated: #ffffff;
-
-  --color-border-subtle: #cbd5e1;
-  --color-border-strong: #64748b;
-
-  /* tones — single-source for accent/secondary/etc. The Badge palette
-   * (lib/ui/Badge.tsx) carries the same vocabulary. */
-  --color-accent: #1d4ed8;
-  --color-accent-strong: #1e40af;
-  --color-secondary: #166534;
-  --color-danger: #b91c1c;
-  --color-warning: #92400e;
-  --color-info: #1d4ed8;
-  --color-ok: #166534;
-}
-
 :root {
   --background: var(--color-page);
   --foreground: var(--color-ink);

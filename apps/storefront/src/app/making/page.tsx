@@ -27,6 +27,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
 import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
+import { SHARAKU_ARTWORK } from "@/content/art/featured";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -394,20 +395,7 @@ const PRESS: Plate[] = [
   {
     chapter: "第九",
     jp: "光る層",
-    piece: {
-        src: "/culture-plates/met-37359.jpg",
-        width: 422,
-        height: 625,
-        title: "Bandō Hikosaburō III as Sagisaka Sanai in the Play \"Koinyōbō Somewake Tazuna\"",
-        artist: "Tōshūsai Sharaku",
-        date: "1794",
-        medium: "Woodblock print; ink, color, white mica on paper",
-        credit: "Henry L. Phillips Collection, Bequest of Henry L. Phillips, 1939",
-        sourceName: "The Metropolitan Museum of Art",
-        sourceUrl: "https://www.metmuseum.org/art/collection/search/37359",
-        rights: "Public domain (Met Open Access)",
-        alt: "A kabuki actor half-length portrait holding a lantern, a maroon robe over a yellow under-robe, against a shimmering ground of white mica",
-      },
+    piece: SHARAKU_ARTWORK,
     romaji: "hikaru sō",
     en: "The Layer That Shines",
     body: (

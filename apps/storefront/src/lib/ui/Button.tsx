@@ -12,16 +12,16 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLS: Record<Variant, string> = {
-  primary:   "bg-ink text-page font-semibold hover:bg-ink/85 border border-transparent",
+  primary:   "bg-highlight text-ink-on-highlight font-semibold hover:bg-highlight/90 border border-transparent",
   secondary: "bg-surface text-ink font-medium hover:bg-surface-subtle border border-border-strong",
   ghost:     "text-ink-muted hover:text-ink hover:bg-surface-subtle border border-transparent",
   danger:    "bg-danger text-page font-semibold hover:bg-danger/85 border border-transparent",
 };
 
 const SIZE_CLS: Record<Size, string> = {
-  sm: "px-3 py-2 text-sm rounded-md",
-  md: "px-4 py-2 text-base rounded-md",
-  lg: "px-6 py-3 text-base rounded-md",
+  sm: "px-4 py-2 text-sm rounded-full",
+  md: "px-5 py-2 text-base rounded-full",
+  lg: "px-7 py-3 text-base rounded-full",
 };
 
 interface BaseProps {

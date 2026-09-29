@@ -10,7 +10,7 @@ and made accurate SKU/price API contracts a crucial module.
 | Data foundation | Shared SKU identity, strict game-specific search, native price/money schemas, core response validation and safer pricing inputs | Migrate other legacy consumers; validate real source availability separately |
 | Contract discovery | Human guide, contract JSON, resolvable raw schemas, OpenAPI and manifest links | Wider endpoint-specific schema coverage |
 | Content structure | Eight typed room records, 24 reviewed page links, three reasoned trails, explicit safe public projection | Complete each room's page rebuild and content review |
-| Front door | Pricing-first native search beside credited art, four collector shortcuts and separate agent entry | Review remaining card-detail and personal task flows |
+| Front door | Pricing-first native search, warm ivory/plum/mandarin design, credited portrait, connected collector shortcuts and separate agent entry | Review remaining card-detail and personal task flows |
 | Services | Shared human task catalog for pricing, retained history, collection, condition notes and permitted downloads | Backing service availability remains source/account dependent |
 | Map | Visitor room map and matching public JSON directory; reading trails in a disclosure | Further room content as its pages migrate |
 | Reading | Original guide separating card identity, printing, physical copy and price observation | More sourced, attributed readings |
@@ -47,3 +47,5 @@ the contracts, units, effects and current limits. The
 the actual checks for this implementation. The subsequent
 [pricing, services and art pass](../../operations/2026-09-29-pricing-entry.md)
 records the human-facing refocus and its local verification.
+The [collector's desk refresh](../../operations/2026-09-29-visual-refresh.md)
+records the subsequent color, art and shared-interface replacement.

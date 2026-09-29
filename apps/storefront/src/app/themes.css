@@ -1,17 +1,34 @@
-/* Shared appearance tokens. Existing cookie IDs stay valid: gallery is
+/* Shared appearance tokens and Tailwind defaults. Existing cookie IDs stay valid: gallery is
  * Light, midnight is Dark, terminal and high-contrast remain selectable.
  * With no explicit choice, system follows the device at first paint.
  * Registry labels and swatches live in lib/wardrobe/themes.ts. */
 @theme {
-  --color-ink: #0f172a;
-  --color-ink-muted: #475569;
-  --color-ink-faint: #526175;
-  --color-accent-wash: #eff6ff;
-  --color-bid: #166534;
-  --color-ask: #b91c1c;
+  --color-page: #fbf7f1;
+  --color-surface: #fffdf9;
+  --color-surface-subtle: #f3eaf1;
+  --color-surface-elevated: #ffffff;
+  --color-border-subtle: #dfd0dc;
+  --color-border-strong: #8a738d;
+  --color-accent: #9b3b12;
+  --color-accent-strong: #7f2d0c;
+  --color-accent-wash: #fcebdc;
+  /* Bright fills have their own ink; link colors remain readable on ivory. */
+  --color-highlight: #ec7838;
+  --color-ink-on-highlight: #2c1836;
+  --color-secondary: #69437d;
+  --color-secondary-wash: #ede3f6;
+  --color-danger: #9e253d;
+  --color-warning: #8a4b06;
+  --color-info: #5e4a94;
+  --color-ok: #2c674c;
+  --color-ink: #2c1836;
+  --color-ink-muted: #625469;
+  --color-ink-faint: #716078;
+  --color-bid: #2c674c;
+  --color-ask: #9e253d;
   --shadow-mat: 0 0 #0000;
   --shadow-mat-hover: 0 0 #0000;
-  --color-scrim: rgb(15 23 42 / 0.9);
+  --color-scrim: rgb(29 20 37 / 0.9);
   --color-scrim-ink: #ffffff;
   --font-display: var(--font-inter, system-ui), sans-serif;
   --font-body: var(--font-inter, system-ui), sans-serif;
@@ -26,28 +43,31 @@
 }
 
 [data-theme="gallery"] {
-  --color-page: #f8fafc;
-  --color-surface: #ffffff;
-  --color-surface-subtle: #f1f5f9;
+  --color-page: #fbf7f1;
+  --color-surface: #fffdf9;
+  --color-surface-subtle: #f3eaf1;
   --color-surface-elevated: #ffffff;
-  --color-border-subtle: #cbd5e1;
-  --color-border-strong: #64748b;
-  --color-accent: #1d4ed8;
-  --color-accent-strong: #1e40af;
-  --color-accent-wash: #eff6ff;
-  --color-secondary: #166534;
-  --color-danger: #b91c1c;
-  --color-warning: #92400e;
-  --color-info: #1d4ed8;
-  --color-ok: #166534;
-  --color-ink: #0f172a;
-  --color-ink-muted: #475569;
-  --color-ink-faint: #526175;
-  --color-bid: #166534;
-  --color-ask: #b91c1c;
+  --color-border-subtle: #dfd0dc;
+  --color-border-strong: #8a738d;
+  --color-accent: #9b3b12;
+  --color-accent-strong: #7f2d0c;
+  --color-accent-wash: #fcebdc;
+  --color-highlight: #ec7838;
+  --color-ink-on-highlight: #2c1836;
+  --color-secondary: #69437d;
+  --color-secondary-wash: #ede3f6;
+  --color-danger: #9e253d;
+  --color-warning: #8a4b06;
+  --color-info: #5e4a94;
+  --color-ok: #2c674c;
+  --color-ink: #2c1836;
+  --color-ink-muted: #625469;
+  --color-ink-faint: #716078;
+  --color-bid: #2c674c;
+  --color-ask: #9e253d;
   --shadow-mat: 0 0 #0000;
   --shadow-mat-hover: 0 0 #0000;
-  --color-scrim: rgb(15 23 42 / 0.9);
+  --color-scrim: rgb(29 20 37 / 0.9);
   --color-scrim-ink: #ffffff;
   --font-display: var(--font-inter, system-ui), sans-serif;
   --font-body: var(--font-inter, system-ui), sans-serif;
@@ -57,25 +77,28 @@
 
 /* Keep this bundle synchronized with system's dark media block below. */
 [data-theme="midnight"] {
-  --color-page: #0f172a;
-  --color-surface: #172033;
-  --color-surface-subtle: #1e293b;
-  --color-surface-elevated: #263449;
-  --color-border-subtle: #475569;
-  --color-border-strong: #64748b;
-  --color-accent: #93c5fd;
-  --color-accent-strong: #bfdbfe;
-  --color-accent-wash: #1e3a5f;
-  --color-secondary: #86efac;
-  --color-danger: #fca5a5;
-  --color-warning: #fcd34d;
-  --color-info: #93c5fd;
-  --color-ok: #86efac;
-  --color-ink: #f8fafc;
-  --color-ink-muted: #cbd5e1;
-  --color-ink-faint: #a7b4c7;
-  --color-bid: #86efac;
-  --color-ask: #fca5a5;
+  --color-page: #1d1425;
+  --color-surface: #291e32;
+  --color-surface-subtle: #34283f;
+  --color-surface-elevated: #3a2d47;
+  --color-border-subtle: #5c466a;
+  --color-border-strong: #9a829f;
+  --color-accent: #ffb078;
+  --color-accent-strong: #ffd0ab;
+  --color-accent-wash: #493047;
+  --color-highlight: #ec7838;
+  --color-ink-on-highlight: #2c1836;
+  --color-secondary: #d2b3ed;
+  --color-secondary-wash: #40304f;
+  --color-danger: #ffacb9;
+  --color-warning: #ffd08a;
+  --color-info: #c6b7ff;
+  --color-ok: #9adeb7;
+  --color-ink: #fff6e9;
+  --color-ink-muted: #ded0e1;
+  --color-ink-faint: #c8b4cd;
+  --color-bid: #9adeb7;
+  --color-ask: #ffacb9;
   --shadow-mat: 0 0 #0000;
   --shadow-mat-hover: 0 0 #0000;
   --color-scrim: rgb(0 0 0 / 0.9);
@@ -96,7 +119,10 @@
   --color-accent: #f59e0b;
   --color-accent-strong: #fbbf24;
   --color-accent-wash: rgb(245 158 11 / 0.1);
+  --color-highlight: #f59e0b;
+  --color-ink-on-highlight: #0a0a0a;
   --color-secondary: #34d399;
+  --color-secondary-wash: #173328;
   --color-danger: #f87171;
   --color-warning: #fbbf24;
   --color-info: #38bdf8;
@@ -126,7 +152,10 @@
   --color-accent: #00309f;
   --color-accent-strong: #001f6e;
   --color-accent-wash: #e8eeff;
+  --color-highlight: #ffff00;
+  --color-ink-on-highlight: #000000;
   --color-secondary: #00591f;
+  --color-secondary-wash: #f2f2f2;
   --color-danger: #a80000;
   --color-warning: #804d00;
   --color-info: #003d99;
@@ -153,25 +182,28 @@
 
 @media (prefers-color-scheme: dark) {
   [data-theme="system"] {
-    --color-page: #0f172a;
-    --color-surface: #172033;
-    --color-surface-subtle: #1e293b;
-    --color-surface-elevated: #263449;
-    --color-border-subtle: #475569;
-    --color-border-strong: #64748b;
-    --color-accent: #93c5fd;
-    --color-accent-strong: #bfdbfe;
-    --color-accent-wash: #1e3a5f;
-    --color-secondary: #86efac;
-    --color-danger: #fca5a5;
-    --color-warning: #fcd34d;
-    --color-info: #93c5fd;
-    --color-ok: #86efac;
-    --color-ink: #f8fafc;
-    --color-ink-muted: #cbd5e1;
-    --color-ink-faint: #a7b4c7;
-    --color-bid: #86efac;
-    --color-ask: #fca5a5;
+    --color-page: #1d1425;
+    --color-surface: #291e32;
+    --color-surface-subtle: #34283f;
+    --color-surface-elevated: #3a2d47;
+    --color-border-subtle: #5c466a;
+    --color-border-strong: #9a829f;
+    --color-accent: #ffb078;
+    --color-accent-strong: #ffd0ab;
+    --color-accent-wash: #493047;
+    --color-highlight: #ec7838;
+    --color-ink-on-highlight: #2c1836;
+    --color-secondary: #d2b3ed;
+    --color-secondary-wash: #40304f;
+    --color-danger: #ffacb9;
+    --color-warning: #ffd08a;
+    --color-info: #c6b7ff;
+    --color-ok: #9adeb7;
+    --color-ink: #fff6e9;
+    --color-ink-muted: #ded0e1;
+    --color-ink-faint: #c8b4cd;
+    --color-bid: #9adeb7;
+    --color-ask: #ffacb9;
     --shadow-mat: 0 0 #0000;
     --shadow-mat-hover: 0 0 #0000;
     --color-scrim: rgb(0 0 0 / 0.9);

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import {
   useEffect,
   useRef,
@@ -112,9 +111,9 @@ function ThemeGlyph({ isDark, className }: { isDark: boolean; className: string 
 }
 
 function activeLinkClass(active: boolean): string {
-  return `inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+  return `inline-flex min-h-11 items-center rounded-full px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
     active
-      ? "bg-surface-subtle text-ink"
+      ? "bg-accent-wash text-accent-strong"
       : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
   }`;
 }
@@ -268,7 +267,7 @@ export default function Nav({
   return (
     <nav
       aria-label={tx(CHROME.primary, uiLang)}
-      className="sticky top-0 z-[60] border-b border-border-subtle bg-page"
+      className="sticky top-0 z-[60] border-b border-border-strong bg-page"
     >
       <noscript>
         <style>{"#mobile-navigation-trigger, #desktop-more-navigation-trigger { display: none; }"}</style>
@@ -278,16 +277,24 @@ export default function Nav({
           href="/"
           onClick={() => setMenuState({ pathname, open: false })}
           aria-label={tx(CHROME.home, uiLang)}
-          className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          <Image
-            src="/images/icon.png"
-            alt=""
-            width={28}
-            height={28}
-            className="hidden h-7 w-7 sm:block"
-          />
-          <span className="whitespace-nowrap text-base font-semibold text-ink sm:text-lg">
+          <svg
+            viewBox="0 0 32 36"
+            aria-hidden="true"
+            focusable="false"
+            className="hidden h-8 w-7 shrink-0 text-accent sm:block"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M10 4h15a2 2 0 0 1 2 2v22" opacity="0.55" />
+            <rect x="4" y="9" width="18" height="23" rx="2.5" />
+            <path d="m13 16 3.5 4.5-3.5 4.5-3.5-4.5Z" fill="currentColor" stroke="none" />
+          </svg>
+          <span className="whitespace-nowrap font-display text-lg font-semibold tracking-[-0.04em] text-ink sm:text-xl">
             Cambridge TCG
           </span>
         </Link>
@@ -313,14 +320,14 @@ export default function Nav({
             <MoreMenu key={pathname} uiLang={uiLang} />
           </div>
 
-          <div className="ml-2 flex items-center gap-0.5 border-l border-border-subtle pl-2">
+          <div className="ml-3 flex items-center gap-1 border-l border-border-subtle pl-3">
             {!toggle.hidden && (
               <a
                 href={toggle.href}
                 onClick={flipLights}
                 aria-label={toggle.label}
                 title={toggle.label}
-                className="rounded-md p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <ThemeGlyph isDark={toggle.isDark} className="h-5 w-5" />
               </a>
@@ -328,7 +335,7 @@ export default function Nav({
             <Link
               href={loggedIn ? "/account" : "/login"}
               prefetch={false}
-              className="rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="inline-flex min-h-11 items-center rounded-full px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {tx(loggedIn ? CHROME.account : CHROME.signIn, uiLang)}
             </Link>
@@ -338,7 +345,7 @@ export default function Nav({
               href="/prices/search"
               aria-label={tx(CHROME.find, uiLang)}
               aria-current={pathname === "/prices/search" ? "page" : undefined}
-              className="ml-1 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-page transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="ml-1 inline-flex min-h-11 items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-page transition-colors hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {tx(CHROME.find, uiLang)}
             </Link>
@@ -347,7 +354,7 @@ export default function Nav({
 
         <div className="flex items-center gap-1 xl:hidden">
           <noscript>
-            <a href={SITE_MAP_NAV_ITEM.href} className="inline-flex min-h-11 items-center rounded-md border border-border-subtle px-3 py-2 text-sm font-medium text-ink">
+            <a href={SITE_MAP_NAV_ITEM.href} className="inline-flex min-h-11 items-center rounded-full border border-border-strong px-3 py-2 text-sm font-medium text-ink">
               {navLabel(SITE_MAP_NAV_ITEM, uiLang)}
             </a>
           </noscript>
@@ -356,7 +363,7 @@ export default function Nav({
             ref={menuButtonRef}
             type="button"
             onClick={toggleMobileMenu}
-            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border-subtle px-3 py-2 text-sm font-medium text-ink hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border-strong px-3 py-2 text-sm font-medium text-ink hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             aria-label={menuOpen ? (tx(CHROME.menuClose, uiLang)) : (tx(CHROME.menuOpen, uiLang))}
             aria-controls="mobile-navigation"
             aria-expanded={menuOpen}
@@ -365,7 +372,7 @@ export default function Nav({
             {menuOpen ? (
               <svg
                 viewBox="0 0 24 24"
-                className="h-6 w-6"
+                className="h-5 w-5"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.75"
@@ -377,7 +384,7 @@ export default function Nav({
             ) : (
               <svg
                 viewBox="0 0 24 24"
-                className="h-6 w-6"
+                className="h-5 w-5"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.75"
@@ -396,17 +403,17 @@ export default function Nav({
         <div
           ref={mobileDrawerRef}
           id="mobile-navigation"
-          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border-subtle bg-page xl:hidden"
+          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border-subtle bg-surface xl:hidden"
         >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <Link
               href="/prices/search"
               aria-current={pathname === "/prices/search" ? "page" : undefined}
               onClick={() => setMenuState({ pathname, open: false })}
-              className="flex min-h-11 items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="flex min-h-11 items-center gap-2 rounded-full border border-border-strong bg-page px-4 py-2 text-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className="flex items-center gap-2.5">
-                <Icon name="search" size={19} className="text-ink-muted" />
+                <Icon name="search" size={19} className="text-accent" />
                 {tx(CHROME.search, uiLang)}
               </span>
             </Link>
@@ -424,10 +431,10 @@ export default function Nav({
                     prefetch={item.requiresSignIn ? false : undefined}
                     onClick={() => setMenuState({ pathname, open: false })}
                     aria-current={navItemAriaCurrent(item, pathname)}
-                    className={`flex min-h-11 flex-col items-start justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${spansRow ? "col-span-2 " : ""}${
+                    className={`flex min-h-11 flex-col items-start justify-center rounded-xl border px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${spansRow ? "col-span-2 " : ""}${
                       active
-                        ? "bg-ink text-page"
-                        : "bg-surface-subtle text-ink hover:bg-surface"
+                        ? "border-ink bg-ink text-page"
+                        : "border-border-subtle bg-page text-ink hover:bg-surface-subtle"
                     }`}
                   >
                     {navLabel(item, uiLang)}

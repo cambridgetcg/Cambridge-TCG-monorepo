@@ -11,7 +11,7 @@ for (const width of [320, 1440]) {
   test(`room and contract journey at ${width}px`, async ({ page, request }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Find the card.Understand the price.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Look closer.Find your price.");
     await page.getByRole("link", { name: "Where is the card number?", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("The same card. A different copy.");
     await page.getByRole("link", { name: "Read the data contract", exact: true }).click();
