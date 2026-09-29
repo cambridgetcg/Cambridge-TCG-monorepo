@@ -17,9 +17,10 @@ describe("prices landing task hierarchy", () => {
     expect(currencyIndex).toBeGreaterThan(browseIndex);
   });
 
-  it("mounts the gated member browser before the unchanged public catalog", () => {
+  it("puts native card search first while keeping the gated member browser before game browsing", () => {
     expect(landingSource.indexOf("<MemberPriceBrowser")).toBeGreaterThan(-1);
-    expect(landingSource.indexOf("<MemberPriceBrowser")).toBeLessThan(landingSource.indexOf("<CardPriceSearchForm"));
+    expect(landingSource.indexOf("<MemberPriceBrowser")).toBeGreaterThan(landingSource.indexOf("<CardPriceSearchForm"));
+    expect(landingSource.indexOf("<MemberPriceBrowser")).toBeLessThan(landingSource.indexOf('id="browse-by-game"'));
     expect(landingSource).not.toContain("readMemberPrices(");
     expect(landingSource).toContain("export const metadata: Metadata");
     expect(landingSource).not.toContain("generateMetadata");

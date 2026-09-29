@@ -23,11 +23,15 @@ export async function MemberPriceBrowser({ search }: { search: MemberPriceSearch
     const returnPath = `/prices${params.size ? `?${params}` : ""}`;
     return (
       <section aria-labelledby="member-prices-heading" className="my-8 border-y border-border-subtle py-6">
-        <h2 id="member-prices-heading" className="font-display text-xl font-medium text-ink">Source prices, free with your account</h2>
-        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-muted">Sign in to your existing Cambridge TCG account to browse permitted prices and stored history. No paid tier, subscription or spend is required. Account admission is unchanged. The public catalog below remains open without signing in.</p>
+        <h2 id="member-prices-heading" className="font-display text-xl font-medium text-ink">Source prices &amp; history</h2>
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-muted">Sign in with an existing account to view permitted source prices and stored history. Free to use.</p>
         <Link href={`/login?return=${encodeURIComponent(returnPath)}`} prefetch={false} className="mt-4 inline-block rounded-lg bg-ink px-4 py-2 text-sm font-medium text-page">Sign in for free price access</Link>
-        <p className="mt-3 text-xs text-ink-muted">Cardmarket official-file observations support member downloads; Scryfall is view-only. Actual availability depends on imported data, not login alone.</p>
-        <Link href="/methodology/member-pricing" className="mt-3 inline-block text-sm text-accent underline underline-offset-4">Source permissions and price meanings</Link>
+        <p className="mt-3 text-sm text-ink-muted">Availability depends on imported data.</p>
+        <details className="mt-3 text-sm leading-6 text-ink-muted">
+          <summary className="cursor-pointer py-1 font-medium text-ink">Sources and downloads</summary>
+          <p className="mt-2 max-w-3xl">Cardmarket official-file observations support member downloads; Scryfall is view-only.</p>
+          <Link href="/methodology/member-pricing" className="mt-2 inline-block text-accent underline underline-offset-4">Source permissions and price meanings</Link>
+        </details>
       </section>
     );
   }

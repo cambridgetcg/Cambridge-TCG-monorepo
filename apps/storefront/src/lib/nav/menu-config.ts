@@ -44,9 +44,14 @@ const GUIDES: NavItem = {
 
 export const PRIMARY_NAV_ITEMS = [
   {
-    label: "Cards", ja: "カード", es: "Cartas", "zh-Hans": "卡牌", "zh-Hant": "卡片",
+    label: "Prices", ja: "価格", es: "Precios", "zh-Hans": "价格", "zh-Hant": "價格",
     href: "/prices",
     activePrefixes: ["/prices", "/find", "/catalog", "/cards", "/product", "/glossary"],
+  },
+  {
+    label: "Services", ja: "ツール", es: "Herramientas", "zh-Hans": "工具", "zh-Hant": "工具",
+    href: "/services",
+    activePrefixes: ["/services", "/account/data"],
   },
   {
     label: "Collection", ja: "コレクション", es: "Colección", "zh-Hans": "收藏", "zh-Hant": "收藏",
@@ -59,7 +64,6 @@ export const PRIMARY_NAV_ITEMS = [
     href: "/play",
     activePrefixes: ["/play", "/deck-builder", "/decks", "/leaderboards"],
   },
-  GUIDES,
 ] as const satisfies readonly NavItem[];
 
 const CULTURE: NavItem = {
@@ -84,6 +88,7 @@ export const MORE_NAV_GROUPS = [
     heading_i18n: { ja: "もっと見る", es: "Descubrir", "zh-Hans": "发现", "zh-Hant": "發現" },
     items: [
       CULTURE,
+      GUIDES,
       COMMUNITY,
       {
         label: "About", ja: "このサイトについて", es: "Acerca de", "zh-Hans": "关于本站", "zh-Hant": "關於本站",

@@ -6,7 +6,7 @@
 
 Find a module's purpose, source, scope, recorded progress and next review. This map covers **28 module roots**: 24 pnpm workspace packages, 1 extension without package.json, and 3 nested support packages. Source review: **2026-09-28**.
 
-**Start with the website:** [Storefront domains](storefront/README.md) groups 70 library directories and 75 route families by purpose.
+**Start with the website:** [Storefront domains](storefront/README.md) groups 70 library directories and 76 route families by purpose.
 
 **Current boundary:** [New paid commerce is retired](../../apps/storefront/docs/commercial-retirement.md). Retained source can support existing agreements, a preview, a paused feature or historical compatibility. Presence in this map is not a release or service-health claim.
 

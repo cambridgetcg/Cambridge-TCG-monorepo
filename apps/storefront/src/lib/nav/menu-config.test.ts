@@ -12,13 +12,13 @@ const itemAt = (href: string): NavItem => [...PRIMARY_NAV_ITEMS, ...moreItems].f
 describe("storefront navigation", () => {
   it("keeps a small set of human tasks with a separate agent entry", () => {
     expect(PRIMARY_NAV_ITEMS).toHaveLength(4);
-    expect(PRIMARY_NAV_ITEMS.map((item) => item.href)).toEqual(["/prices", "/account/portfolio", "/play", "/guides"]);
-    expect(PRIMARY_NAV_ITEMS.map((item) => item.label)).toEqual(["Cards", "Collection", "Play", "Guides"]);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.href)).toEqual(["/prices", "/services", "/account/portfolio", "/play"]);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.label)).toEqual(["Prices", "Services", "Collection", "Play"]);
     expect(itemAt("/account/portfolio").requiresSignIn).toBe(true);
     expect(moreItems.find((item) => item.href === "/agents")).toMatchObject({
       label: "Agents & API", description: "Start with read-only discovery",
     });
-    expect(collectNavUrls().length).toBeLessThanOrEqual(12);
+    expect(collectNavUrls().length).toBeLessThanOrEqual(13);
   });
 
   it("avoids repeated header destinations and preserves the wider map", () => {

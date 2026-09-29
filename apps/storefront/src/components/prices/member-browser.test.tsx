@@ -47,7 +47,14 @@ describe("member price server gate", () => {
     expect(html).toContain(encodeURIComponent("/prices?q=Black+Lotus&game=magic&mode=history"));
     expect(html).not.toContain("evil.example");
     expect(html).not.toContain("12.34");
-    expect(html).toContain("public catalog below remains open");
+    expect(html).toContain("Source prices &amp; history");
+    expect(html).toContain("Sign in with an existing account");
+    expect(html).toContain("Free to use.");
+    expect(html).toContain("Availability depends on imported data.");
+    expect(html).toMatch(/<details[^>]*><summary[^>]*>Sources and downloads<\/summary>/);
+    expect(html).not.toMatch(/<details[^>]*\bopen[= >]/);
+    expect(html).toContain("Scryfall is view-only");
+    expect(html).toContain("/methodology/member-pricing");
   });
 
   it("contains authentication outages without throwing or reading private prices", async () => {

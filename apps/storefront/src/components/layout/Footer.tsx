@@ -37,7 +37,7 @@ export default async function Footer() {
               <ul>
                 {group.items.map((item) => (
                   <li key={item.href}>
-                    <Link href={item.href} className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-ink transition">
+                    <Link href={item.href} prefetch={item.href === "/account" || item.href.startsWith("/account/") ? false : undefined} className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-ink transition">
                       {navLabel(item, uiLang)}
                     </Link>
                   </li>

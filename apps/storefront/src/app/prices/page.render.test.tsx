@@ -34,12 +34,13 @@ describe("prices landing presentation", () => {
     const html = renderToStaticMarkup(await PricesLandingPage({ searchParams: Promise.resolve({}) }));
 
     expect(html.match(/<h1\b/g)).toHaveLength(1);
-    expect(html).toContain("Cards and prices");
+    expect(html).toMatch(/<main[^>]*><div lang="en">/);
+    expect(html).toContain("Card prices");
     expect(html).toContain("The game catalog is unavailable");
     expect(html).toContain("Source: unavailable");
     expect(html).not.toContain("0 catalog records across");
     expect(html).toContain('href="/prices/coverage"');
-    expect(html.indexOf('aria-label="Member prices"')).toBeLessThan(html.indexOf('aria-label="Find a card"'));
+    expect(html.indexOf('aria-label="Find a card"')).toBeLessThan(html.indexOf('aria-label="Member prices"'));
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Find card<\/button>/);
   });
 
@@ -49,7 +50,8 @@ describe("prices landing presentation", () => {
     ]);
     const html = renderToStaticMarkup(await PricesLandingPage({ searchParams: Promise.resolve({}) }));
 
-    expect(html).toContain("12 catalog records across");
+    expect(html).toContain("12 catalog records");
+    expect(html.match(/12 catalog records/g)).toHaveLength(1);
     expect(html).toContain('href="/prices/one-piece"');
     expect(html).toContain('action="/prices/search"');
     expect(html).toContain('value="op" selected=""');
@@ -57,7 +59,22 @@ describe("prices landing presentation", () => {
     expect(html).not.toMatch(/<button[^>]*disabled=""/);
     expect(html).toMatch(/<details[^>]*><summary[^>]*>Currency tools<\/summary>/);
     expect(html).not.toMatch(/<details[^>]*\bopen[= >]/);
-    expect(html).toContain("authentication or mathematical transformation");
-    expect(html).toContain("does not create publication permission");
+    expect(html).toContain("Signing in or converting a price does not change those permissions");
+    expect(html).toContain("Reference data, not an offer. A missing price is not zero.");
+    expect(html).not.toContain("source host verified");
+    expect(html).toMatch(/<details[^>]*><summary[^>]*>Other games and coverage<\/summary>/);
+    expect(html.indexOf('href="/prices/one-piece"')).toBeLessThan(html.indexOf("Other games and coverage"));
+  });
+
+  it("distinguishes a returned zero count from an unavailable game", async () => {
+    fetchGames.mockResolvedValue([
+      { code: "op", slug: "one-piece", name: "One Piece TCG", card_count: 0, image_url: null },
+    ]);
+    const html = renderToStaticMarkup(await PricesLandingPage({ searchParams: Promise.resolve({}) }));
+    expect(html).toContain("No records returned");
+    expect(html).toContain("Records unavailable");
+    expect(html).toContain("Source: synced");
+    expect(html).toContain("No card records are listed for these game guides.");
+    expect(html).not.toContain("0 catalog records");
   });
 });

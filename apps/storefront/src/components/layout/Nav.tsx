@@ -77,6 +77,7 @@ function MessagesIndicator({ uiLang = "en" }: { uiLang?: UiLang }) {
   return (
     <Link
       href="/account/messages"
+      prefetch={false}
       aria-label={uiLang === "ja" ? `メッセージ${count > 0 ? `（未読${count}件）` : ""}` : `${tx(CHROME.messages, uiLang)}${count > 0 ? ` (${count})` : ""}`}
       className="relative rounded-md p-2.5 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
@@ -299,6 +300,7 @@ export default function Nav({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={item.requiresSignIn ? false : undefined}
                   aria-current={navItemAriaCurrent(item, pathname)}
                   aria-describedby={item.requiresSignIn && !loggedIn ? "nav-sign-in-required" : undefined}
                   title={item.requiresSignIn && !loggedIn ? tx(CHROME.signInRequired, uiLang) : undefined}
@@ -325,6 +327,7 @@ export default function Nav({
             )}
             <Link
               href={loggedIn ? "/account" : "/login"}
+              prefetch={false}
               className="rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               {tx(loggedIn ? CHROME.account : CHROME.signIn, uiLang)}
@@ -418,6 +421,7 @@ export default function Nav({
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={item.requiresSignIn ? false : undefined}
                     onClick={() => setMenuState({ pathname, open: false })}
                     aria-current={navItemAriaCurrent(item, pathname)}
                     className={`flex min-h-11 flex-col items-start justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${spansRow ? "col-span-2 " : ""}${
@@ -482,6 +486,7 @@ export default function Nav({
               <div className="flex min-h-12 items-center justify-between">
                 <Link
                   href={loggedIn ? "/account" : "/login"}
+                  prefetch={false}
                   onClick={() => setMenuState({ pathname, open: false })}
                   className="flex min-h-11 items-center rounded-md px-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >

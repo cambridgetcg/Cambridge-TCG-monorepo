@@ -20,7 +20,7 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: Finder
     <section aria-label={title} className="rounded-lg border border-border-subtle bg-surface p-5 sm:p-6">
       <h2 className="text-lg font-semibold leading-7 text-ink">{title}</h2>
       <p className="mt-1 text-sm leading-6 text-ink-muted">
-        {tx({ en: "Card details, variants and source status. No account needed to search. Some prices are withheld.", ja: "カードの情報、別版、出どころの公開状況を調べられます。アカウントは要りません。表示できない価格もあります。", es: "Datos, variantes y estado de las fuentes. Busca sin cuenta. Algunos precios no se muestran.", "zh-Hans": "查卡牌信息、版本和来源公开状态。找卡不需要账号，有些价格不予显示。", "zh-Hant": "查卡片資料、版本和來源公開狀況。找卡不用帳戶，有些價格不公開。" }, uiLang)}
+        {tx({ en: "No account needed to search. Some prices are withheld.", ja: "検索にアカウントは要りません。表示できない価格もあります。", es: "Busca sin cuenta. Algunos precios no se muestran.", "zh-Hans": "找卡不需要账号，有些价格不予显示。", "zh-Hant": "找卡不用帳戶，有些價格不公開。" }, uiLang)}
       </p>
       <form method="get" action="/prices/search" className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] sm:items-end">
         <Field label={tx({ en: "Game", ja: "ゲーム", es: "Juego", "zh-Hans": "游戏", "zh-Hant": "遊戲" }, uiLang)} htmlFor="finder-game">
@@ -36,7 +36,6 @@ export default function CardFinderHero({ games, uiLang = "en" }: { games: Finder
         </Button>
       </form>
       <p className="mt-3 text-sm leading-6 text-ink-muted">
-        {tx({ en: "Use the small code printed on the card.", ja: "カードに印刷された小さな番号です。", es: "Usa el código pequeño impreso en la carta.", "zh-Hans": "使用印在卡面上的小编号。", "zh-Hant": "用印在卡上的小編號。" }, uiLang)}{" "}
         <Link href="/prices" className="text-accent underline underline-offset-4">
           {tx({ en: "Or browse by game", ja: "ゲームからさがす", es: "O busca por juego", "zh-Hans": "也可以按游戏浏览", "zh-Hant": "也可以按遊戲瀏覽" }, uiLang)}
         </Link>

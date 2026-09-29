@@ -25,6 +25,7 @@ Help visitors enter, orient, choose a destination and understand methodology in 
 - [map](../../../apps/storefront/src/app/map)
 - [methodology](../../../apps/storefront/src/app/methodology)
 - [og](../../../apps/storefront/src/app/og)
+- [services](../../../apps/storefront/src/app/services)
 - [start](../../../apps/storefront/src/app/start)
 - [welcome](../../../apps/storefront/src/app/welcome)
 - [welcome-all](../../../apps/storefront/src/app/welcome-all)

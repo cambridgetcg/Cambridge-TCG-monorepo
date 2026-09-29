@@ -25,7 +25,7 @@ for (const width of [320, 390, 1280, 1440]) {
       if (width < 1280) {
         await expect(nav.getByRole("button", { name: "Open menu", exact: true })).toBeVisible();
       } else {
-        for (const label of ["Cards", "Collection", "Play", "Guides"]) {
+        for (const label of ["Prices", "Services", "Collection", "Play"]) {
           await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
         }
       }
@@ -96,7 +96,8 @@ test("Japanese mobile navigation keeps tasks, access and language choices legibl
   await expect(nav.getByRole("link", { name: "Cambridge TCGのホーム" })).toHaveText("Cambridge TCG");
   await nav.getByRole("button", { name: "メニューを開く", exact: true }).click();
   const drawer = page.locator("#mobile-navigation");
-  await expect(drawer.getByRole("link", { name: "カード", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("link", { name: "価格", exact: true })).toBeVisible();
+  await expect(drawer.getByRole("link", { name: "ツール", exact: true })).toBeVisible();
   await expect(drawer.getByRole("link", { name: "コレクション ログインが必要です", exact: true })).toBeVisible();
   await nav.getByRole("button", { name: "メニューを閉じる", exact: true }).click();
   await expect(drawer).toHaveCount(0);

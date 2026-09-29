@@ -17,7 +17,7 @@ describe("visitor landing", () => {
     expect(html).toContain('name="q"');
     expect(html).toContain('value="op"');
     expect(html).not.toContain('value="tst"');
-    for (const href of ["/prices", "/account/portfolio", "/play", "/agents", "/contact", "/methodology/pricing"]) {
+    for (const href of ["/prices", "/services", "/account/portfolio", "/play", "/agents", "/contact", "/methodology/pricing", "/lineage", "/gallery-next-door"]) {
       expect(html).toContain(`href="${href}"`);
     }
     expect(html).not.toMatch(/href="\/(?:market\/list|checkout|subscribe|identify)"/);
@@ -26,10 +26,13 @@ describe("visitor landing", () => {
   it("offers public browsing, labels account access and keeps agents in their own entry", () => {
     const html = renderToStaticMarkup(<HomeLanding uiLang="en" provenance={<span>registry provenance</span>} />);
     expect(html).toContain("No account needed to search.");
-    expect(html).toContain("Sign in with an existing account.");
+    expect(html).toContain("Existing account");
     expect(html).toContain("Some prices are withheld.");
     expect(html).toContain("registry provenance");
     expect(html).toMatch(/<aside[\s\S]*?href="\/agents"[\s\S]*?<\/aside>/);
     expect(html).not.toMatch(/method="post"|type="password"|name="(?:token|api_key)"/);
+    // The first task remains discoverable before artwork and tool navigation.
+    expect(html.indexOf('action="/prices/search"')).toBeLessThan(html.indexOf("<figure"));
+    expect(html.indexOf('action="/prices/search"')).toBeLessThan(html.indexOf('id="home-services"'));
   });
 });

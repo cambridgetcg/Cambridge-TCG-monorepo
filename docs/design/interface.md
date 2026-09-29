@@ -8,19 +8,21 @@
 > for the first contract, landing and map replacement. This page describes the
 > earlier shared controls that remain in use.
 
-Current direction, 2026-09-29: simple, purposeful, modular and easy to read.
-This replaces the earlier quiet-gallery styling direction. Art and cultural
-content can still be explored; everyday controls use a plain shared interface.
+Current direction, 2026-09-29: pricing discovery and collector services first,
+with less introductory prose and visible, credited art. Everyday controls use
+a plain shared interface. Art links into its context without delaying search.
 
 ## Design rules
 
-- Name the task before explaining the system: Cards, Collection, Play, Guides.
+- Name the task before explaining the system: Prices, Services, Collection, Play.
 - Use readable sans-serif text, normal sentence case and visible form labels.
   Reserve monospace for identifiers and code. Do not use decorative numbers,
   paper textures, animated backgrounds, gallery frames or oversized slogans.
+  Use actual credited artwork with its full composition and a readable caption;
+  put longer source records in native disclosures.
 - Give each section a short heading, purpose and useful action. Explain access
-  requirements beside the relevant destination. Keep optional API and cultural
-  reading in their own entries.
+  requirements beside the relevant destination. Keep API documentation at the
+  agent entry and longer cultural reading on its own pages.
 - Use semantic color tokens, clear borders and consistent spacing. Preserve
   keyboard focus, reduced motion, dark appearance, high contrast and text mode.
 - Keep source status, uncertainty, publication rules and consequences visible
@@ -37,6 +39,8 @@ content can still be explored; everyday controls use a plain shared interface.
 | `src/lib/ui/ActionCard.tsx` | A linked destination, its purpose and access context |
 | `Card`, `Field`, `Input`, `Select`, `Button`, `DataTable` | Shared surfaces, labelled controls and structured records |
 | `src/lib/nav/menu-config.ts` | Shared navigation destinations and translated labels |
+| `src/content/services/index.ts`, `ServiceCards` | Reviewed human task shortcuts and account requirements, shared by home and services |
+| `HomeArtwork`, `src/content/art/featured.ts` | Local museum image, shared attribution and links to art context |
 | `src/app/themes.css`, `globals.css` | Theme tokens, typography and compatibility styles |
 
 Paths above are relative to [the storefront](../../apps/storefront/README.md).

@@ -5,16 +5,25 @@ const target = process.env.STOREFRONT_BASE_URL;
 test.skip(!target || !["127.0.0.1", "localhost", "[::1]"].includes(new URL(target).hostname),
   "Set STOREFRONT_BASE_URL to an explicitly started loopback storefront.");
 
+test.beforeEach(async ({ context }) => {
+  await context.route("**/*", (route) => new URL(route.request().url()).origin === new URL(target!).origin ? route.continue() : route.abort());
+});
+
 for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
   test(`visitor entry is usable at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("There is more to a card.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Find the card.Understand the price.");
     await expect(page.getByLabel("Game", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Card number", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Your collection →", exact: true })).toBeVisible();
+    await expect(page.locator('main a[href="/account/portfolio"]')).toBeVisible();
+    const artwork = page.locator('main figure img');
+    await expect(artwork).toBeVisible();
+    await expect.poll(() => artwork.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
     await expect(page.locator('main a[href="/agents"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const search = await page.getByLabel("Card number", { exact: true }).boundingBox();
+    expect(search!.y + search!.height).toBeLessThan(viewport.height);
     await expect(page.locator('a[href="/market/list"]')).toHaveCount(0);
 
     // Capture the native form submission without invoking the catalogue backend.
@@ -30,6 +39,22 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     expect(result.searchParams.get("q")).toBe("001 & 002");
   });
 }
+
+test("services and artwork have useful, labelled destinations", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByText("Artwork details & credit", { exact: true }).click();
+  await expect(page.getByText("Gift of H. R. Warner", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Explore Artbitrage", exact: true })).toHaveAttribute("href", "/gallery-next-door");
+  await page.getByRole("link", { name: "All services →", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tools for your collection");
+  for (const href of ["/account/portfolio", "/account/data", "/prices?mode=history#member-prices-heading"]) {
+    await expect(page.locator(`main a[href="${href}"]`)).toContainText("Existing account");
+  }
+  await page.locator('main a[href="/guides/condition/checklist"]').click();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 
 test("agent entry keeps read-only discovery ahead of optional participation", async ({ page }) => {
   await page.goto("/agents");

@@ -94,10 +94,10 @@ describe("map page composition", () => {
     expect(html.match(/<main\b/g)).toHaveLength(1);
     expect(html.match(/<h1\b/g)).toHaveLength(1);
     expect(html).toMatch(/<h1\b[^>]*>The map<\/h1>/);
-    expect(html.match(/<h2\b/g)).toHaveLength(directory.rooms.length + 1);
+    expect(html.match(/<h2\b/g)).toHaveLength(directory.rooms.length);
     expect(html.match(/<h3\b/g)).toHaveLength(directory.trails.length);
-    expect(html).toContain('aria-labelledby="map-trails"');
-    expect(html).toContain('id="map-trails"');
+    expect(html).toMatch(/<details[^>]*><summary[^>]*>Reading trails<\/summary>/);
+    expect(html).toContain('href="/services"');
     expect(html).toContain('href="/api/v1/rooms"');
     expect(html).toContain('href="/standards/card-data"');
     expect(html).not.toMatch(/href="\/(?:collection|learn|sources|cards)"/);
