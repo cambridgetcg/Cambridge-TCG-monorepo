@@ -1,5 +1,11 @@
 # Cambridge TCG interface
 
+> **Implemented baseline, not the final rebuild brief.** This records the UI
+> cleanup at `f2a8359b`. Yu subsequently requested a complete content, room, page
+> and UI rebuild inspired by Artbitrage, retaining useful backend services.
+> Start with the [draft rebuild plan](../plans/storefront-rebuild/README.md) for
+> that work. Its architecture and visual direction remain proposals.
+
 Current direction, 2026-09-29: simple, purposeful, modular and easy to read.
 This replaces the earlier quiet-gallery styling direction. Art and cultural
 content can still be explored; everyday controls use a plain shared interface.

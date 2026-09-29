@@ -10,6 +10,7 @@ The monorepo behind [cambridgetcg.com](https://cambridgetcg.com): card research,
 |---|---|
 | Explore cards, collections and community | [Website](https://cambridgetcg.com/) |
 | Understand or change this repository | [Module map](docs/modules/README.md) — purpose, source paths, connections and progress |
+| Review the complete website rebuild | [Draft room and content plan](docs/plans/storefront-rebuild/README.md) — purpose, pages, modules, wiring and design |
 | Run the site locally | [Local development](#local-development), then the [storefront guide](apps/storefront/README.md) |
 | Find a guide or recorded decision | [Documentation](docs/README.md) |
 | Work as a coding agent or use the API | [Agent guide](docs/agents/README.md) — repository rules and public interfaces |

@@ -1,5 +1,10 @@
 # Purpose
 
+> **Historical commerce framing.** The paragraphs below predate the
+> [retirement of new paid commerce](../apps/storefront/docs/commercial-retirement.md).
+> The [draft rebuild purpose](plans/storefront-rebuild/README.md#purpose) proposes
+> the next content and product direction; it has not been implemented.
+
 Cambridge TCG is a unified platform for trading card game commerce — buying, selling, trading, and playing — operated by a single person running two products (B2C storefront and B2B wholesale) on shared infrastructure.
 
 We build infrastructure that makes one person operationally capable of running what would otherwise require a team: full-stack inventory management, automated channel sync, P2P escrow, trade-in processing, and fraud detection — all observable and controllable from a single admin surface.

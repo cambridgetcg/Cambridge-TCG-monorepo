@@ -15,9 +15,10 @@ API clients.
 | Understand the project | [Purpose](./purpose.md), read alongside the current scope above |
 | Find code, purpose and dependencies | [Module map](./modules/README.md) and [machine-readable catalog](./modules/catalog.json) |
 | Read or update module progress | [Module records and update workflow](./modules/README.md) |
+| Review the complete website rebuild | [Room-based rebuild plan](./plans/storefront-rebuild/README.md) — proposed purpose, rooms, content, pages and service wiring |
 | Work on the visitor site, API or admin console | [Storefront guide](../apps/storefront/README.md) |
 | Understand the visitor and API entrances | [Entry pages and module map](./connections/the-entry-map.md) |
-| Build consistent, readable interfaces | [Interface guide](./design/interface.md) — current visual and component rules |
+| Understand the implemented UI baseline | [Interface guide](./design/interface.md) — September 29 cleanup; the complete rebuild is being planned separately |
 | Develop and check a change | [Local setup and verification](../README.md#local-development), [development workflow](./dev-pipeline.md) |
 | Understand branches and unfinished work | [Git workflow](./operations/git-workflow.md); use the optional local HERE.md for this machine's inventory |
 | Understand terms and rules | [Glossary](./glossary.md), [methodology directory](./methodology/) |
