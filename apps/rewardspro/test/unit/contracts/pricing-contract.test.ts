@@ -201,24 +201,28 @@ describe("RewardsPro pricing contract", () => {
     }
   });
 
-  it("keeps the public landing page synchronized with the pricing contract", () => {
+  it("keeps the public landing focused on retired subscriptions and existing account support", () => {
     const landing = readFileSync(
       resolve(process.cwd(), "landing/public/index.html"),
       "utf8",
     );
 
+    expect(landing).toContain(
+      "New paid subscriptions are retired.",
+    );
+    expect(landing).toContain(
+      "Existing subscription records, cancellation, refunds and support remain available under the agreed terms.",
+    );
+    expect(landing).toContain('href="#subscription-records"');
+    expect(landing).toContain('href="mailto:contact@rewardspro.io"');
+    expect(landing).toContain("Existing account support");
+
     for (const planKey of PUBLIC_PLAN_KEYS) {
       const plan = PRICING_PLANS[planKey];
-      expect(landing).toContain(plan.displayName);
-      expect(landing).toContain(`>$${plan.monthlyPrice} <span>/ month</span>`);
+      expect(landing).not.toContain(`>$${plan.monthlyPrice} <span>/ month</span>`);
     }
-
-    expect(landing).toContain(
-      "Free Forever includes 1,000 reward-eligible orders each month.",
-    );
-    expect(landing).toMatch(
-      /No trials, usage charges, or overage\s+billing\./,
-    );
+    expect(landing).not.toContain("Free Forever includes");
+    expect(landing).not.toMatch(/href=["'][^"']*\/(?:signup|subscribe|checkout)(?:[/?#"'])/i);
     expect(landing).not.toContain("$39 ");
     expect(landing).not.toContain("$149 ");
     expect(landing).not.toContain("Trials are available");
