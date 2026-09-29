@@ -27,6 +27,11 @@ export default function CardDataStandard() {
         <p>This is an illustrative Japanese-variant request linked to an English base key. No image row or provider was queried for this example. The resolver validates the complete identifiers and their supported base-key relationship; the <a href="/spec/v1/ImageReference.schema.json">JSON Schema</a> checks structural shape only.</p>
         <p>Eligible English references in market and universal-card responses carry <code>image_url</code>, <code>image_attribution</code> and <code>image_reference</code> together. Universal sparse responses omit all three. A retained catalogue fallback has no English-reference claim; a null reference does not prove that card art does not exist.</p>
         <p>Publication permission is a separate decision. A valid reference, a hosted URL and a copyright caption do not grant reuse rights. This narrow contract does not implement the planned cross-source image record, verified printing crosswalk or rights-evidence model. See the <Link href="/legal/card-images">image policy</Link> and <Link href="/roadmap">integration roadmap</Link>.</p>
+        <details>
+          <summary>How practice cards use images</summary>
+          <p>A practice deck requests a card number, such as <code>ST01-001</code>, without choosing a language or printing. Its separate <a href="/spec/v1/CardNumberImageReference.schema.json">CardNumberImageReference schema</a> preserves that request and the full selected English image key, including a parallel or reprint suffix. No requested printing SKU is invented. The existing base-image schema stays unchanged.</p>
+          <p>Starter responses carry the image URL, copyright and reference together; game-ready cards use the camelCase names <code>imageUrl</code>, <code>imageAttribution</code> and <code>imageReference</code>. Practice still builds the full encoded deck when images or catalogue details are unavailable.</p>
+        </details>
         <h2>Two existing price representations</h2>
         <div className="overflow-x-auto"><table><thead><tr><th>Representation</th><th>Amount</th><th>Meaning</th></tr></thead><tbody>
           <tr><td>Legacy public fields such as <code>price_gbp</code></td><td>Finite number or <code>null</code>, in pounds</td><td>Compatibility fields; permitted values only. No change to pennies.</td></tr>

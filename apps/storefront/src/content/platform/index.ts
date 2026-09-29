@@ -20,7 +20,7 @@ export const DATA_FOUNDATIONS = [
     id: "images", title: "Images & rights", icon: "eye",
     purpose: "Connect artwork to the right card and its permissions.",
     status: "Reference contract implemented",
-    current: "Market and universal-card reads label English base images as references and share source checks. Other image readers, catalogue provenance and cache removal remain open.",
+    current: "Market, universal-card and starter/practice reads share source checks and explicit image references. Artist/gallery readers, catalogue provenance and cache removal remain open.",
     next: "One image contract: exact or reference image, source, credit, allowed uses, dimensions, checksum and removal status.",
     acceptance: "Human and API paths apply the same reviewed permissions. Unknown rights stay withheld; corrections and removals reach caches.",
     href: "/legal/card-images", linkLabel: "Read current image policy",

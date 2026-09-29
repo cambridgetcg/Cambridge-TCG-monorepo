@@ -644,6 +644,8 @@ export interface PracticeSetupCard {
   name: string;
   cardNumber: string;
   imageUrl: string | null;
+  imageAttribution?: GameCard["imageAttribution"];
+  imageReference?: GameCard["imageReference"];
   rarity: string | null;
   category?: "leader" | "character" | "event" | "stage" | null;
   cost?: number | null;

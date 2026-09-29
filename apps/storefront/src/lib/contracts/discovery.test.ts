@@ -8,6 +8,7 @@ import { PUBLIC_SCHEMAS } from "./schemas";
 import { CARD_DATA_CONTRACT } from "./card-data";
 import { discoveryResources, publicSitemap } from "@/lib/public-discovery";
 import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
+import { CARD_NUMBER_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/card-number-image-reference";
 
 vi.mock("server-only", () => ({}));
 
@@ -58,6 +59,19 @@ describe("public room and card contract discovery", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("application/schema+json");
     expect(await response.json()).toEqual(schema);
+  });
+
+  it("keeps practice card-number references separate from the existing base-SKU contract", async () => {
+    const { data } = await getContract().json();
+    expect(data.schemas.image_reference).toEqual(IMAGE_REFERENCE_SCHEMA);
+    expect(data.schemas.card_number_image_reference).toEqual(CARD_NUMBER_IMAGE_REFERENCE_SCHEMA);
+    expect(data.images.practice_card_number_reference.example).toMatchObject({
+      requested_game: "op", requested_card_number: "ST01-001", depicted_sku: "OP-ST01-001-EN-P1",
+      relationship: "reference", scope: "syntax_only", reason: "english_card_number_reference",
+    });
+    expect(data.images.practice_card_number_reference.example).not.toHaveProperty("requested_sku");
+    const spec = await (await getOpenApi()).json();
+    expect(spec.components.schemas.CardNumberImageReference).toEqual(CARD_NUMBER_IMAGE_REFERENCE_SCHEMA);
   });
 
   it.each(["__proto__", "constructor", "../../private", "Unknown.schema.json"])("rejects unlisted schema %s", async (name) => {

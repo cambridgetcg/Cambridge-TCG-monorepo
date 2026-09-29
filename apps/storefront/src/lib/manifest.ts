@@ -757,7 +757,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge"], methodology_url: "/methodology/play-module",
         since: "2026-07-22" },
-      { id: "storefront.play.practice-referee", description: "Stateless practice-battle referee: POST op:new deals a match vs the adventure ladder AI; POST op:move applies one move under the official Comprehensive Rules and returns the updated game, the narrated log, and legal_actions with damage previews. The caller carries all state; nothing is stored, no identity minted, no rewards possible. The agent seat at the practice table.",
+      { id: "storefront.play.practice-referee", description: "Stateless practice-battle referee: POST op:new deals a match vs the adventure ladder AI; POST op:move applies one move and returns the updated game, log and legal_actions. Optional English art carries imageAttribution and syntax-only CardNumberImageReference in imageReference; it does not establish a printing or reuse permission. Full encoded decks remain playable without media. The caller carries all state; nothing is stored server-side and results carry no rewards or standing.",
         host: "storefront", path: "/api/v1/play/practice", methods: ["GET", "POST", "OPTIONS"],
         modalities: ["json"], auth: "public", provenance: "computed",
         cosmology_axes: ["presence", "substrate"], methodology_url: "/methodology/play-module",

@@ -28,6 +28,7 @@ import { MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION
 import { SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
 import { PUBLIC_SCHEMAS } from "@/lib/contracts/schemas";
 import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
+import { CARD_NUMBER_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/card-number-image-reference";
 
 const SPEC = {
   openapi: "3.1.0",
@@ -1213,6 +1214,7 @@ const SPEC = {
     schemas: {
       SkuIdentity: SKU_IDENTITY_SCHEMA,
       ImageReference: IMAGE_REFERENCE_SCHEMA,
+      CardNumberImageReference: CARD_NUMBER_IMAGE_REFERENCE_SCHEMA,
       Money: MONEY_SCHEMA,
       NativePriceObservation: NATIVE_PRICE_OBSERVATION_SCHEMA,
       MemberPriceObservation: MEMBER_PRICE_OBSERVATION_SCHEMA,

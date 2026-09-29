@@ -36,6 +36,7 @@ Read each runbook's prerequisites and scope before acting. Configuration descrip
 - [Entry and module map verification](./operations/2026-09-28-entry-verification.md) — September 28 local build, navigation, browser and documentation checks.
 - [Data-platform entry verification](./operations/2026-09-29-data-platform.md) — September 29 shared roadmap, standards, agent access and responsive checks.
 - [Image-reference verification](./operations/2026-09-29-image-references.md) — September 29 shared media projection, consumer labels and image-schema checks.
+- [Practice-media verification](./operations/2026-09-29-practice-media.md) — September 29 starter-to-board attribution, optional loading and card inspection.
 - [Cloudflare](./ops-cloudflare.md) — zone configuration and public access posture; includes the June 2026 audit.
 - [Email migration](./ops-email-selfhost.md) — SES to self-hosted mail: provisioning, DNS, warmup and cutover; check the recorded phase before use.
 

@@ -22,6 +22,8 @@ describe("GET /api/v1/play/starters/[id] rights boundary", () => {
         sku: "op-st01-001-en",
         name: "Upstream leader name",
         image_url: "https://upstream.example/leader.jpg",
+        image_attribution: null,
+        image_reference: null,
         rarity: "L",
         set_code: "ST01",
         effect_text: null,

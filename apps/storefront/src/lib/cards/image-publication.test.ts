@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogImageUrl, DEFAULT_CARD_IMAGE_CDN, officialImageUrl, projectOfficialImage, type StoredOfficialImage } from "./image-publication";
+import { catalogImageUrl, DEFAULT_CARD_IMAGE_CDN, officialImageUrl, projectOfficialImage, projectOfficialCardNumberImage, type StoredOfficialImage } from "./image-publication";
 
 const row: StoredOfficialImage = {
   sku: "OP-OP01-001-EN", lang: "en", source: "bandai-en", kind: "official_sample",
@@ -62,6 +62,43 @@ describe("stored official image projection", () => {
     "2026-02-30T00:15:30.123456+05:30",
   ])("withholds impossible calendar or time fields instead of rolling them over: %s", (retrieved_at) => {
     expect(projectOfficialImage("op-op01-001-en", { ...row, retrieved_at })).toBeNull();
+  });
+});
+
+describe("practice card-number image projection", () => {
+  it.each(["", "-R1", "-P1"])("keeps the selected English row suffix %j and its credit together", (suffix) => {
+    const selected = { ...row, sku: `${row.sku}${suffix}`, s3_key: `official/${row.sku}${suffix}.png` };
+    const image = projectOfficialCardNumberImage("op", "OP01-001", selected)!;
+    expect(image.url).toBe(`${DEFAULT_CARD_IMAGE_CDN}/${selected.s3_key}`);
+    expect(image.attribution).toBe(row.attribution);
+    expect(image.source_url).toBe(row.source_url);
+    expect(image.retrieved_at).toBe("2026-07-13T09:00:00.000Z");
+    expect(image.reference).toMatchObject({ requested_card_number: "OP01-001", depicted_sku: selected.sku, relationship: "reference", scope: "syntax_only" });
+    expect(image.publication_policy).toBe("cambridge.official-en-media/2026-07-13");
+    if (suffix) expect(projectOfficialImage("op-op01-001-ja", selected)).toBeNull();
+  });
+
+  it.each([
+    { kind: "shop_scan" }, { takedown_status: "disputed" }, { takedown_status: "removed" },
+    { source: "unknown" }, { lang: "ja" }, { attribution: "   " }, { source_url: null },
+    { source_url: "https://www.dbs-cardgame.com/fw/en/cardlist/" },
+    { source_url: "http://en.onepiece-cardgame.com/cardlist/" },
+    { source_url: "https://en.onepiece-cardgame.com.evil.invalid/card.png" },
+    { source_url: "https://en.onepiece-cardgame.com/card.png?api_key=example" },
+    { retrieved_at: "yesterday" }, { retrieved_at: "2026-07-13T09:00:00" },
+    { retrieved_at: "2026-02-30T00:00:00Z" }, { retrieved_at: null }, { retrieved_at: new Date(NaN) },
+    { sku: "OP-OP01-002-EN" }, { sku: "DBF-OP01-001-EN" },
+    { s3_key: null }, { s3_key: "" }, { s3_key: "official/../private.png" },
+    { s3_key: "official/%2e%2e/private.png" }, { s3_key: "official/a.png?key=example" },
+    { s3_key: "https://en.onepiece-cardgame.com/image.png" },
+  ])("applies the same stored-source and transport checks to practice rows: %o", (change) => {
+    expect(projectOfficialCardNumberImage("op", "OP01-001", { ...row, ...change })).toBeNull();
+  });
+
+  it("does not expand game, card-number or CDN scope through the new wrapper", () => {
+    expect(projectOfficialCardNumberImage("dbf", "OP01-001", row)).toBeNull();
+    expect(projectOfficialCardNumberImage("op", "OP01-001-P1", row)).toBeNull();
+    expect(projectOfficialCardNumberImage("op", "OP01-001", row, "https://images.example.invalid")).toBeNull();
   });
 });
 

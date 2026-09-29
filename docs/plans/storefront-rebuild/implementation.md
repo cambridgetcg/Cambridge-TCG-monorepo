@@ -14,7 +14,8 @@ the storefront implementation that presents those foundations.
 |---|---|---|
 | Data foundation | Shared SKU identity, strict game-specific search, native price/money schemas, core response validation and safer pricing inputs | Migrate other legacy consumers; validate real source availability separately |
 | Contract discovery | Human guide, contract JSON, resolvable raw schemas, OpenAPI and manifest links | Wider endpoint-specific schema coverage |
-| Image references | Shared single/batch official-media checks, explicit requested/depicted SKU contract, market/universal metadata and human captions | Independent artist/play readers, legacy-photo evidence and object/cache removal |
+| Image references | Shared official-media checks, market/universal SKU references, separate starter/practice card-number references and credit carried through setup/saves | Independent artist/gallery and retained PvP readers, legacy-photo evidence and object/cache removal |
+| Practice flow | Whole-response timeout/byte cap for optional art, shared browser/API projection, text faces for missing metadata, compact credit legends and accessible visible-card inspection | Server enrichment has separate latency; existing multiplayer rendering still needs migration |
 | Content structure | Eight typed room records, reviewed page links including standards and roadmap, three reasoned trails, explicit safe public projection | Complete each room's page rebuild and content review |
 | Front door | Data-platform purpose, native card search, warm ivory/plum/mandarin design, credited portrait, collector shortcuts and separate agent entry | Review remaining card-detail and personal task flows |
 | Platform direction | Shared authored foundation/stage records, human roadmap and static roadmap API; standards page and JSON share one registry | P0 is in progress; remaining image-policy reconciliation and public-release verification precede broader integration |
@@ -65,3 +66,5 @@ The [data-platform entry verification](../../operations/2026-09-29-data-platform
 records the shared roadmap, standards registry, discovery wiring and access checks.
 The [image-reference verification](../../operations/2026-09-29-image-references.md)
 records the shared image projection, schema, consumer labels and remaining scope.
+The [practice-media verification](../../operations/2026-09-29-practice-media.md)
+records the subsequent starter-to-board connection and optional-load fallbacks.

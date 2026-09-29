@@ -46,6 +46,7 @@ export const IMAGE_REFERENCE_SCHEMA = {
 /** Validate the complete input before applying the recorded English-base policy.
  * The uppercase base key preserves the existing EN image-table storage format. */
 export function englishBaseImageKey(rawSku: string): string | null {
+  if (typeof rawSku !== "string" || /\s/.test(rawSku)) return null;
   const identity = skuIdentity(rawSku);
   if (!identity || !IMAGE_REFERENCE_CONTRACT.games.some((game) => game === identity.game)) return null;
   return `${identity.game}-${identity.set}-${identity.number}-en`.toUpperCase();
@@ -55,6 +56,7 @@ export function englishBaseImageKey(rawSku: string): string | null {
  * Null means no supported, internally consistent reference can be established;
  * the caller must not publish that image as a reference for this request. */
 export function createImageReference(requestedSku: string, depictedSku: string): ImageReference | null {
+  if (typeof depictedSku !== "string" || /\s/.test(depictedSku)) return null;
   const expected = englishBaseImageKey(requestedSku);
   if (!expected) return null;
   const requested = skuIdentity(requestedSku);

@@ -1,4 +1,5 @@
 import { createImageReference, type ImageReference } from "./image-reference";
+import { createCardNumberImageReference, type CardNumberImageReference } from "./card-number-image-reference";
 
 /** Recorded display decision, not a publisher license or a live asset check. */
 export const OFFICIAL_MEDIA_POLICY = {
@@ -24,16 +25,26 @@ export interface StoredOfficialImage {
   retrieved_at: unknown;
 }
 
-export interface OfficialCardImage {
+interface OfficialImageDetails {
   url: string;
   attribution: string;
   kind: "official_sample";
   source: "bandai-en";
   source_url: string;
   retrieved_at: string;
-  reference: ImageReference;
   publication_policy: typeof OFFICIAL_MEDIA_POLICY.id;
 }
+
+export interface OfficialCardImage extends OfficialImageDetails {
+  reference: ImageReference;
+}
+
+export interface OfficialCardNumberImage extends OfficialImageDetails {
+  reference: CardNumberImageReference;
+}
+
+type OfficialImageReference = ImageReference | CardNumberImageReference;
+type StoredProvenance = Pick<StoredOfficialImage, "sku" | "lang" | "source" | "attribution" | "source_url" | "retrieved_at">;
 
 function httpsUrl(value: unknown): URL | null {
   if (typeof value !== "string" || value !== value.trim() || /[\s\\]/.test(value)) return null;
@@ -91,9 +102,8 @@ function retrievalTimestamp(value: unknown): number | null {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-/** Stored source evidence is checked for coherence, not independently verified. */
-export function officialMediaProvenance(requestedSku: string, row: Pick<StoredOfficialImage, "sku" | "lang" | "source" | "attribution" | "source_url" | "retrieved_at">) {
-  const reference = createImageReference(requestedSku, row.sku);
+/** Both relationship kinds share the same stored source-evidence boundary. */
+function provenanceForReference<T extends OfficialImageReference>(reference: T | null, row: StoredProvenance) {
   const sourceUrl = httpsUrl(row.source_url);
   if (!reference || row.lang !== "en" || row.source !== OFFICIAL_MEDIA_POLICY.source || !sourceUrl) return null;
   const game = reference.depicted_canonical_sku.split("-")[0];
@@ -105,10 +115,24 @@ export function officialMediaProvenance(requestedSku: string, row: Pick<StoredOf
   return { reference, attribution: row.attribution, source_url: sourceUrl.href, retrieved_at: new Date(timestamp).toISOString() };
 }
 
-/** Single and batch readers share this fail-closed projection. No fetch or writes. */
-export function projectOfficialImage(requestedSku: string, row: StoredOfficialImage, cdn = DEFAULT_CARD_IMAGE_CDN): OfficialCardImage | null {
+/** Stored source evidence is checked for coherence, not independently verified. */
+export function officialMediaProvenance(requestedSku: string, row: StoredProvenance) {
+  return provenanceForReference(createImageReference(requestedSku, row.sku), row);
+}
+
+function projectImage<T extends OfficialImageReference>(reference: T | null, row: StoredOfficialImage, cdn: string): (OfficialImageDetails & { reference: T }) | null {
   if (row.kind !== "official_sample" || row.takedown_status !== "clear") return null;
-  const provenance = officialMediaProvenance(requestedSku, row);
+  const provenance = provenanceForReference(reference, row);
   const url = officialImageUrl(row.s3_key, cdn);
   return provenance && url ? { url, ...provenance, kind: "official_sample", source: OFFICIAL_MEDIA_POLICY.source, publication_policy: OFFICIAL_MEDIA_POLICY.id } : null;
+}
+
+/** Strict SKU requests still accept only the selected English base-image row. */
+export function projectOfficialImage(requestedSku: string, row: StoredOfficialImage, cdn = DEFAULT_CARD_IMAGE_CDN): OfficialCardImage | null {
+  return projectImage(createImageReference(requestedSku, row.sku), row, cdn);
+}
+
+/** Practice references preserve the selected English parallel/reprint identifier. */
+export function projectOfficialCardNumberImage(game: string, cardNumber: string, row: StoredOfficialImage, cdn = DEFAULT_CARD_IMAGE_CDN): OfficialCardNumberImage | null {
+  return projectImage(createCardNumberImageReference(game, cardNumber, row.sku), row, cdn);
 }

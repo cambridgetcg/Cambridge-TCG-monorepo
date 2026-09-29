@@ -22,6 +22,7 @@ export default function CardImagesPolicyPage() {
             <h2 className={headingClass}>Official English references</h2>
             <p>Our shared English image reader covers recorded official sources for One Piece and Dragon Ball Fusion World. It serves eligible images from a Cambridge host, with publisher credit and a clear takedown state. The publisher source link records provenance; it is not used as the image address.</p>
             <p className="mt-3">An English base image may accompany a card listed in another language or as another variant. We label it as a reference image. It does not verify the requested printing, artwork variant, physical condition or authenticity.</p>
+            <p className="mt-3">Practice decks request a card number without choosing a printing. Their reference images keep the selected English reprint or parallel identifier and publisher credit. Cards remain playable as text faces when eligible art is unavailable.</p>
           </section>
 
           <section>
@@ -33,7 +34,7 @@ export default function CardImagesPolicyPage() {
           <section>
             <h2 className={headingClass}>Other image paths</h2>
             <p>A separate decision on 16 July retained catalogue photos as a market fallback. These images are labelled unverified: the legacy record does not establish the source and printing evidence required by the official-reference reader.</p>
-            <p className="mt-3">Gallery, artist and play readers are still being brought under a shared contract. Their existing paths have separate limitations. The <Link href="/roadmap#images" className={linkClass}>image roadmap</Link> tracks this work; a missing official reference does not establish that no image exists elsewhere.</p>
+            <p className="mt-3">Gallery, artist and retained multiplayer readers still have separate limitations. Starter and browser-practice images now use the shared source checks and carry reference context. The <Link href="/roadmap#images" className={linkClass}>image roadmap</Link> tracks the remaining work.</p>
           </section>
 
           <section>

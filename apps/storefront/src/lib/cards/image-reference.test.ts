@@ -21,7 +21,7 @@ describe("English base image keys", () => {
     "", "OP-OP01-001-", "op-op01-001-ja-", "op-op01-001--p1",
     "op-op01-001-japanese", "op-op01-001-en-foo/", "op-op01-001-en-alt--foil",
     " op-op01-001-en", "op-op01-001-en ", "op--001-en", "P-001-JP",
-    "SEALED-OP01-BOX-JP", "unknown-op01-001-en",
+    "SEALED-OP01-BOX-JP", "unknown-op01-001-en", "op-op01-001-en-p1\n", "op-op01-001-en\n",
   ])("rejects malformed complete identifier %j", (raw) => {
     expect(englishBaseImageKey(raw)).toBeNull();
     expect(createImageReference(raw, "OP-OP01-001-EN")).toBeNull();
@@ -78,7 +78,7 @@ describe("per-request image relationships", () => {
   it.each([
     "OP-OP01-001-EN-P1", "OP-OP01-001-JP", "OP-OP01-002-EN", "OP-OP02-001-EN",
     "DBF-OP01-001-EN", "OP-OP01-001-EN-", "OP-OP01-001-EN-foo/", "OP-OP01-001-EN ",
-    "OP-OP01-001-", "OP-OP01-001-japanese", "", "SEALED-OP01-BOX-EN",
+    "OP-OP01-001-", "OP-OP01-001-japanese", "", "SEALED-OP01-BOX-EN", "OP-OP01-001-EN\n",
   ])("refuses a mismatched or malformed selected image key %j", (depicted) => {
     expect(createImageReference("OP-OP01-001-JP-V11DZ", depicted)).toBeNull();
   });

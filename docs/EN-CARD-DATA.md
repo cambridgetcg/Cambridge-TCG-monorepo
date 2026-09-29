@@ -42,9 +42,12 @@ Official English effect text and structured attributes retain the later July
 publication decision. Attribution must travel with effect text.
 
 The market's separate catalogue fallback is retained and labelled unverified.
-Its presence does not make it a verified official reference. The gallery,
-notable-print, artist and starter readers still need consolidation; this shared
-reader change does not establish consistent publication across every surface.
+Its presence does not make it a verified official reference. Starter/practice
+now uses the same source checks with a separate card-number reference shape,
+retaining the selected English reprint/parallel suffix and copyright through
+the board. Existing practice text also uses the shared provenance checks.
+Gallery, notable-print, artist and retained PvP views still need consolidation;
+this change does not establish consistent publication across every surface.
 
 ## Acquisition and historical storage
 

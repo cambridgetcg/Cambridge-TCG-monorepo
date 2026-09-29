@@ -16,6 +16,8 @@ import { NextResponse } from "next/server";
 import { resolveStarter } from "@/lib/play/starter-resolve";
 import { getDefaultRookieDeck } from "@/lib/play/starter-decks";
 import { PVE_AVAILABILITY } from "@/lib/game/pve-availability";
+import { projectStarterCardDetails } from "@/lib/play/practice-decks";
+import type { SetupCard } from "@/lib/game/engine-setup";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -35,19 +37,21 @@ export async function GET(request: Request) {
     );
   }
 
-  const deck: Array<{
-    sku: string;
-    name: string;
-    cardNumber: string;
-    imageUrl: string | null;
-    rarity: string | null;
-    isLeader?: boolean;
-  }> = [
+  const details = projectStarterCardDetails(resolved);
+  const media = (cardNumber: string) => ({
+    imageUrl: details.images[cardNumber] ?? null,
+    imageAttribution: details.imageAttributions?.[cardNumber] ?? null,
+    imageReference: details.imageReferences?.[cardNumber] ?? null,
+    textEn: details.texts[cardNumber]?.text ?? null,
+    textAttribution: details.texts[cardNumber]?.attribution ?? null,
+    artist: details.artists[cardNumber] ?? null,
+  });
+  const deck: SetupCard[] = [
     {
       sku: resolved.leader.sku!,
       name: resolved.leader.name!,
       cardNumber: resolved.leader.card_number,
-      imageUrl: resolved.leader.image_url,
+      ...media(resolved.leader.card_number),
       rarity: resolved.leader.rarity,
       isLeader: true,
     },
@@ -59,7 +63,7 @@ export async function GET(request: Request) {
         sku: card.sku,
         name: card.name ?? card.card_number,
         cardNumber: card.card_number,
-        imageUrl: card.image_url,
+        ...media(card.card_number),
         rarity: card.rarity,
       });
     }

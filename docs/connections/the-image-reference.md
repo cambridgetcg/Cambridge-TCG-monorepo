@@ -66,7 +66,7 @@ copy. URL, credit and relationship stay together through density projections.
 
 ## What's NOT yet connected (the visible gaps)
 
-Artist/gallery/play readers remain independent. Catalogue provenance, exact
+Artist/gallery and retained PvP readers remain independent. Catalogue provenance, exact
 printing crosswalks, object removal and cache invalidation need their own work.
 The [architecture record](../architecture/card-image-references.md) maps these
 gaps; the [verification record](../operations/2026-09-29-image-references.md)
@@ -74,7 +74,9 @@ distinguishes fixture checks from production evidence.
 
 ## Recursion target
 
-Follow the [starter resolver](../../apps/storefront/src/lib/play/starter-resolve.ts)
-through the board payload: its image fallback loses attribution. Consolidating
-that path should carry credit and reference context through every renderer while
-preserving the existing practice-text decision.
+The [starter resolver](../../apps/storefront/src/lib/play/starter-resolve.ts)
+now carries a separate card-number relationship and credit through the practice
+board, retaining its encoded deck and attributed text when media is unavailable.
+The [practice verification](../operations/2026-09-29-practice-media.md) records
+that connection. Follow the independent artist reader next: its set/number
+joins still cannot establish the illustrator of a selected printing.

@@ -1,6 +1,6 @@
 "use client";
 
-// One card on a game board — shared by the practice board and the PvP room.
+// One card on the browser practice board.
 //
 // The fix this component exists for: a card with no artwork used to render
 // as a featureless placeholder, which made boards unreadable whenever image
@@ -12,7 +12,68 @@
 // on semantic tokens per the quiet-gallery doctrine.
 
 import Image from "next/image";
+import { useState } from "react";
 import type { GameCard } from "@/lib/game/types";
+import { projectStarterImage } from "@/lib/play/practice-decks";
+
+/** Recheck saved browser data as well as fresh starter responses. A card number
+ * is not a printing SKU, and a hidden card must contribute no media metadata. */
+export function visibleCardArtwork(card: GameCard | null) {
+  if (!card || card.faceDown) return null;
+  const image = projectStarterImage(card.cardNumber, card.imageUrl, card.imageAttribution, card.imageReference);
+  if (!image) return null;
+  return image.reference
+    ? { ...image, label: "English reference image · printing not verified", badge: "EN ref." }
+    : { ...image, label: "Catalog image · source and printing unverified", badge: "Catalog" };
+}
+
+/** Nearby visible captions let a whole row share a copyright line without
+ * squeezing the complete credit onto every small card. Hidden cards are omitted. */
+export function CardImageCredits({ cards, id }: { cards: (GameCard | null)[]; id?: string }) {
+  const captions = new Map<string, { label: string; attribution: string | null }>();
+  for (const card of cards) {
+    const art = visibleCardArtwork(card);
+    if (art) captions.set(JSON.stringify([art.label, art.attribution]), art);
+  }
+  if (!captions.size) return null;
+  return (
+    <div id={id} className="mt-2 space-y-1 text-[11px] leading-relaxed text-ink-muted" aria-label="Card image credits">
+      {[...captions].map(([key, caption]) => (
+        <p key={key}>
+          {caption.label}{caption.attribution && <> · <span>{caption.attribution}</span></>}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+export function CardImageDetail({ card }: { card: GameCard }) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const art = visibleCardArtwork(card);
+  if (!art) return null;
+  return (
+    <figure className="mb-3 pb-3 border-b border-border-subtle">
+      {art.url === failedImageUrl ? (
+        <p className="rounded-lg bg-surface-subtle p-3 text-sm text-ink-muted" role="status">
+          {art.reference ? "Reference image unavailable." : "Image unavailable."}
+        </p>
+      ) : (
+        <div className="relative w-40 h-[220px] mx-auto">
+          <Image src={art.url} alt={`${card.name} — ${art.label.toLowerCase()}`} fill sizes="160px" className="object-contain" onError={() => setFailedImageUrl(art.url)} />
+        </div>
+      )}
+      <figcaption className="mt-2 space-y-1 text-[11px] leading-relaxed text-ink-muted">
+        <p>{art.label}</p>
+        {art.attribution && <p>{art.attribution}</p>}
+        {art.reference && (
+          <p className="break-words">
+            For card number {art.reference.requested_card_number}. Reference identifier: <span className="font-mono">{art.reference.depicted_sku}</span>.
+          </p>
+        )}
+      </figcaption>
+    </figure>
+  );
+}
 
 // Muted ink-adjacent tones per printed color — content-derived, low
 // saturation so the art (when present) stays the loudest thing on the board.
@@ -37,6 +98,7 @@ export function GameCardView({
   selected = false,
   dimmed = false,
   onClick,
+  creditLegendId,
 }: {
   card: GameCard | null;
   small?: boolean;
@@ -44,7 +106,10 @@ export function GameCardView({
   /** Muted presentation for cards that can't act right now. */
   dimmed?: boolean;
   onClick?: () => void;
+  /** ID of a nearby visible CardImageCredits; otherwise render the credit here. */
+  creditLegendId?: string;
 }) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const sizeClasses = small ? "w-12 h-[66px]" : "w-16 h-[88px]";
 
   if (!card) {
@@ -56,6 +121,8 @@ export function GameCardView({
   }
 
   const tone = card.color ? COLOR_TONES[card.color] ?? null : null;
+  const candidate = visibleCardArtwork(card);
+  const artwork = candidate?.url === failedImageUrl ? null : candidate;
 
   const face = card.faceDown ? (
     // Face-down: a quiet card back, visibly different from "no art".
@@ -66,13 +133,14 @@ export function GameCardView({
         </span>
       </div>
     </div>
-  ) : card.imageUrl ? (
+  ) : artwork ? (
     <Image
-      src={card.imageUrl}
-      alt={card.name}
+      src={artwork.url}
+      alt={`${card.name} — ${artwork.label.toLowerCase()}`}
       fill
       sizes={small ? "48px" : "64px"}
       className="object-cover"
+      onError={() => setFailedImageUrl(artwork.url)}
     />
   ) : (
     // Text face — the card is fully playable without artwork.
@@ -119,6 +187,7 @@ export function GameCardView({
         onClick={onClick}
         disabled={!onClick}
         aria-label={card.faceDown ? "Face-down card" : card.name}
+        aria-describedby={artwork ? creditLegendId : undefined}
         className={`${sizeClasses} rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 relative ${
           selected
             ? "border-accent ring-2 ring-accent/40 scale-105"
@@ -130,7 +199,13 @@ export function GameCardView({
       >
         {face}
       </button>
-      {card.attachedDon > 0 && (
+      {artwork && (
+        <>
+          <span className="block text-center text-[9px] leading-4 text-ink-muted">{artwork.badge}</span>
+          {!creditLegendId && <CardImageCredits cards={[card]} />}
+        </>
+      )}
+      {!card.faceDown && card.attachedDon > 0 && (
         <span className="absolute -top-1.5 -right-1.5 bg-ink text-page text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow z-10">
           +{card.attachedDon}
         </span>

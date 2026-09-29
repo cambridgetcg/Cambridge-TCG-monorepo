@@ -18,7 +18,7 @@ continues to cover the wider pages and room structure.
 | Area | Implemented foundation | Remaining gap |
 | --- | --- | --- |
 | Identity | [SKU package](../../../packages/sku/src/index.ts): syntax, game registry, normalization and raw/canonical identity. Public validation and bounded catalog lookup exist. | Syntax validity does not establish an exact printing or provider-product match. Preserve raw lookup keys and add evidence-backed crosswalks. |
-| Images | [English card helper](../../../apps/storefront/src/lib/cards/en-card-data.ts) applies a shared official-image projection and carries reference metadata into its consumers. The lookup still derives an English base key. | Consolidate independent gallery/artist/play readers, review legacy catalogue fallbacks, and verify removal across objects and caches. Reference metadata does not establish an exact printing. |
+| Images | [English card helper](../../../apps/storefront/src/lib/cards/en-card-data.ts) shares source checks and base-reference metadata with market/universal consumers. Starter/practice uses the same checks with a separate card-number reference, preserving image suffixes and credit. | Consolidate independent gallery/artist/retained PvP readers, review legacy catalogue fallbacks, and verify removal across objects and caches. Reference metadata does not establish an exact printing. |
 | Prices | [Observation types](../../../packages/data-spec/src/price-observation.ts), [schemas](../../../packages/data-spec/src/schemas/price-observation.ts), source parsers, a transactional writer and a bounded [member feed](../../../apps/storefront/src/lib/prices/member-feed.ts) exist. | Source admission and imports determine availability. Member access does not establish permission for public redistribution. |
 | Market | Existing order books, account records and settlement services; [publication controls](../../../apps/storefront/src/lib/market/publication.ts) pause completed-sale and private-interest derivatives. | There is no unified, qualified market feed. New paid commerce remains retired; existing obligations retain their lifecycle. |
 | Agents | [Discover / Read / Contribute entrance](../../../apps/storefront/src/app/agents/page.tsx), manifest, OpenAPI, contract descriptor, tool catalog and authenticated dispatcher. | Broader contribution workflows, independently distributed clients and conformance tooling remain planned. |
@@ -54,7 +54,10 @@ download permissions separately, with their evidence and review version.
 
 The first image step keeps the existing English base lookup, validates official
 image metadata and adds an explicit reference relationship to its single/batch
-consumers. It makes no exact-printing claim. The
+consumers. The next connection carries card-number references and attribution
+through starter/practice responses and browser saves, with bounded optional media
+loading and a full encoded deck when images are unavailable. Neither makes an
+exact-printing claim. The
 [image architecture](../../architecture/card-image-references.md) records its
 bounded scope and remaining readers.
 
@@ -63,7 +66,7 @@ decision was followed that day by an attributed-text/attributes decision, and
 the 16 July market change intentionally retained catalogue-photo fallback.
 Older “text withheld” and “all publication paused” prose is not the latest
 recorded owner intent. Existing text remains; automated Bandai ingestion stays
-paused. Catalogue fallbacks are labelled unverified, and gallery/artist/play
+paused. Catalogue fallbacks are labelled unverified, and gallery/artist/retained PvP
 readers and cache/object removal still need reconciliation. Hosting, attribution
 or a clear database flag does not independently establish redistribution rights.
 

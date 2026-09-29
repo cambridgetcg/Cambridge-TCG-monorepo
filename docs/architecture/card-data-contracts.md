@@ -92,8 +92,13 @@ stays paused; old source-registry prose does not accurately describe every
 current display path. Market catalogue fallback was deliberately added on
 16 July and remains a separate, unverified lane.
 
+Starter/practice adds a separate `CardNumberImageReference` schema because an
+encoded deck requests a card number, not a printing SKU. It retains selected
+English reprint/parallel identifiers and credit, sharing the image publication
+checks without changing the existing base-only `ImageReference` shape.
+
 The [image-reference architecture](card-image-references.md) maps the remaining
-gallery, artist and play readers, incomplete printing/credit joins and cache
+gallery, artist and retained PvP readers, incomplete printing/credit joins and cache
 removal work. The first shared reference mechanism is not a complete reusable
 image-record schema or a global takedown guarantee. Storage, self-hosting and
 attribution do not establish a reusable image licence.
