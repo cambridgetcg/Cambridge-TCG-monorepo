@@ -4,6 +4,7 @@ import { acquireCardmarketMemberPrices, cardmarketObservationSource, parseCardma
 import type { CardmarketPublicFileArtifact } from '../cardmarket/public-files';
 import { parseScryfallMemberPrices } from '../scryfall/member-prices';
 import { runSource } from '../runner';
+import { assertPriceObservationValues } from '@cambridge-tcg/data-spec';
 
 const retrievedAt = '2026-09-07T12:00:00Z';
 function artifact(kind: 'price-guide' | 'product-list', rows: unknown[], createdAt = '2026-09-07T02:48:24+0200'): CardmarketPublicFileArtifact {
@@ -38,11 +39,15 @@ describe('official Cardmarket native files', () => {
     expect(result.observations).toHaveLength(1);
     expect(result.observations[0]).toMatchObject({ sourceProductId: '690368', sku: null, mappingStatus: 'unmapped', game: 'one-piece', currency: 'EUR', amount: '2.95', metric: 'trend', granularity: 'source-product', finish: null, language: null, condition: null, sourceUpdatedAt: '2026-09-07T00:48:24.000Z', catalogUpdatedAt: '2026-08-01T10:11:44.000Z' });
     expect(result.observations[0]!.artifactSha256).not.toBe(result.observations[0]!.catalogArtifactSha256);
+    // Numeric official fields are normalized before the stricter write/read boundary.
+    expect(result.observations[0]!.amount).toBe('2.95');
+    for (const observation of result.observations) expect(() => assertPriceObservationValues(observation)).not.toThrow();
   });
   it('keeps native foil metrics and quarantines zero/invalid while null stays missing', () => {
     const result = parse({ idProduct: 690368, trend: 0, avg: null, low: -1, 'trend-foil': 3.99 });
     expect(result.observations).toHaveLength(1); expect(result.quarantine).toHaveLength(2);
     expect(result.observations[0]).toMatchObject({ metric: 'trend-foil', finish: 'foil', amount: '3.99' });
+    for (const observation of result.observations) expect(() => assertPriceObservationValues(observation)).not.toThrow();
   });
   it('quarantines missing product links rather than assigning another product', () => {
     expect(parse({ idProduct: 999, trend: 1 }).quarantine[0]?.reason).toBe('product-missing-from-supplied-catalog');
@@ -77,5 +82,6 @@ describe('Scryfall daily value-added prices', () => {
     expect(result.observations[0]).toMatchObject({ sku: null, granularity: 'printing', language: 'en', metric: 'usd', currency: 'USD', underlyingMarket: 'tcgplayer', catalogSourceUrl: null });
     expect(result.observations[2]).toMatchObject({ underlyingMarket: 'cardmarket', currency: 'EUR' });
     expect(result.observations.every(row => !priceUseAllowed(row.source, 'member-api', row.evidenceVersion))).toBe(true);
+    for (const observation of result.observations) expect(() => assertPriceObservationValues(observation)).not.toThrow();
   });
 });

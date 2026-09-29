@@ -34,6 +34,7 @@ flowchart LR
 | Money representation and calculations | `packages/pricing/src/money.ts`, `index.ts` | Explicit major units; valid finite inputs and deliberate rounding |
 | Native/member observation type and schemas | `packages/data-spec/src/price-observation.ts`, `schemas/price-observation.ts` | One source of truth for existing observation wire fields |
 | Ingestion compatibility export | `packages/data-ingest/src/member-prices.ts` | Existing import paths keep working; no duplicate observation interface |
+| Observation write boundary | `apps/storefront/src/lib/datafeed/member-price-writer.ts` | Apply shared normalized-value checks before a transaction, then require provenance and source/use evidence |
 | Member response projection | `apps/storefront/src/lib/prices/member-feed.ts` | Check core stored monetary/mapping values after source/use filtering |
 | Public discovery | `apps/storefront/src/lib/contracts` | Describe contracts without publishing private observations |
 | Image storage and EN reference lookup | `apps/storefront/src/lib/cards/en-card-data.ts` | Shared official-image checks and reference metadata; independent readers and removal remain separate work |
@@ -72,9 +73,27 @@ matches. A source outage returns 503 instead of a successful empty result.
   different fallback quote. Shared computation rejects nonfinite inputs, invalid
   rates and unsupported rounding configuration; callers handle this explicitly.
 
-Runtime member checks validate core values and mapping consistency. They do not
-run the entire JSON Schema against each response, prove source correctness or
-replace the publication policy. Schema conformance is tested using fixtures.
+The writer and member reader share `assertPriceObservationValues`. Raw source
+numbers may become decimal strings during parsing; normalized observations must
+already use strings and cannot contain trailing line terminators. Currency and
+underlying market must agree. Cardmarket keeps EUR product-level scope with
+unknown language and condition; Scryfall retains printing scope. Exact mappings
+require nonempty string SKU/set values, while unresolved mappings retain null.
+These rules also appear in the native/member JSON Schemas.
+
+Invalid writes fail before opening a transaction. An inconsistent stored row
+makes its bounded response page unavailable; no partial page or fabricated
+replacement price is emitted. This does not alter historical data, refresh its
+source clock or activate acquisition. Runtime checks validate core values and
+mapping consistency; they do not execute the full schema, verify a printing or
+replace permission/provenance checks. Schema conformance and existing parser
+compatibility are tested using fixtures.
+
+**2026-09-29 verification:** the observation/schema, source parser, writer and
+member-feed suites passed 106 tests in the integrated worktree. Data-spec and
+data-ingest typechecks also passed against the private proposal. Broader release
+checks are recorded separately. These fixtures make no production-data or
+provider-health claim.
 
 ## Image and market boundaries
 

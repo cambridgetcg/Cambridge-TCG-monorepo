@@ -55,7 +55,10 @@ const observationRules = [
   },
   {
     if: { properties: { source: { const: "cardmarket" } }, required: ["source"] },
-    then: { properties: { currency: { const: "EUR" }, granularity: { const: "source-product" } } },
+    then: { properties: {
+      currency: { const: "EUR" }, granularity: { const: "source-product" },
+      language: { type: "null" }, condition: { type: "null" },
+    } },
     else: { properties: { granularity: { const: "printing" } } },
   },
   {

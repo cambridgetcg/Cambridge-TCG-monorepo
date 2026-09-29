@@ -12,7 +12,7 @@ Define envelope, error and provenance schemas, freshness budgets and stable erro
 
 ## Progress
 
-Source review recorded **2026-09-28**. Schema exports, freshness values and error constants are present and consumed by the storefront data pantry. 2026-09-29: shared native/member observation types, monetary/mapping value checks and JSON Schemas added; envelope metadata schema aligned with runtime and OpenAPI. Raw schemas are served at their declared identifiers.
+Source review recorded **2026-09-28**. Schema exports, freshness values and error constants are present and consumed by the storefront data pantry. 2026-09-29: shared native/member observation types, monetary/mapping value checks and JSON Schemas added; envelope metadata schema aligned with runtime and OpenAPI. Native-price writer/read/schema checks now agree on normalized decimal strings, source/currency scope, unknown Cardmarket aggregate language/condition and unresolved mappings. Raw schemas are served at their declared identifiers.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 

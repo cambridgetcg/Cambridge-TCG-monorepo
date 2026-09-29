@@ -12,7 +12,7 @@ Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, 
 
 ## Progress
 
-Source review recorded **2026-09-28**. The 2026-09-29 rebuild adds card-data contracts, room records, collector services, shared roadmap/standards registries and the ivory/plum/mandarin interface. Shared image publication checks now serve market/universal English-base references and separate starter/practice card-number references. Image credit and selected variant context survive practice setup/saves, with bounded browser enrichment, readable text faces and accessible card inspection. Existing attributed text remains. Independent readers and removal remain open; no provider activation, verified printing coverage or public package release is claimed.
+Source review recorded **2026-09-28**. The 2026-09-29 rebuild adds card-data contracts, room records, collector services, shared roadmap/standards registries and the ivory/plum/mandarin interface. Shared image publication checks now serve market/universal English-base references and separate starter/practice card-number references. Image credit and selected variant context survive practice setup/saves, with bounded browser enrichment, readable text faces and accessible card inspection. Existing attributed text remains. Native-price writes and member reads now share monetary, mapping and source-scope checks before storage or publication. Independent readers and removal remain open; no provider activation, verified printing coverage or public package release is claimed.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -47,6 +47,9 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/storefront/src/lib/play/practice-decks.ts](../../../apps/storefront/src/lib/play/practice-decks.ts)
 - [apps/storefront/src/components/game/GameCardView.tsx](../../../apps/storefront/src/components/game/GameCardView.tsx)
 - [docs/operations/2026-09-29-practice-media.md](../../operations/2026-09-29-practice-media.md)
+- [apps/storefront/src/lib/datafeed/member-price-writer.ts](../../../apps/storefront/src/lib/datafeed/member-price-writer.ts)
+- [apps/storefront/src/lib/datafeed/member-price-writer.test.ts](../../../apps/storefront/src/lib/datafeed/member-price-writer.test.ts)
+- [apps/storefront/src/lib/prices/member-feed.test.ts](../../../apps/storefront/src/lib/prices/member-feed.test.ts)
 
 Start with the [storefront domain map](../storefront/README.md) to find the relevant routes and libraries.
 

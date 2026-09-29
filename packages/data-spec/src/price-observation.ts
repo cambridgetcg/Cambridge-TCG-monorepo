@@ -42,7 +42,10 @@ export interface MemberPriceObservation extends NativePriceObservation {
 }
 
 export const MAJOR_AMOUNT_PATTERN = "^\\d{1,12}(?:\\.\\d{1,6})?$";
-export const POSITIVE_NATIVE_AMOUNT_PATTERN = "^(?!0+(?:\\.0+)?$)\\d{1,12}(?:\\.\\d{1,6})?$";
+// `$` alone also matches before a final line terminator in ECMAScript. A
+// normalized source amount must consume the entire string, including at JSON
+// Schema boundaries; whitespace is invalid rather than silently trimmed.
+export const POSITIVE_NATIVE_AMOUNT_PATTERN = "^(?!0+(?:\\.0+)?$)\\d{1,12}(?:\\.\\d{1,6})?(?![\\s\\S])";
 
 /** Preserve native decimal text and distinguish missing from invalid/zero.
  * Kept here so ingestion and the response boundary use one rule.
@@ -56,17 +59,21 @@ export function parseNativePriceAmount(value: unknown): string | null {
   return text;
 }
 
-/** Additional checks at the storage-to-response boundary. This does not grant
- * publication rights: the caller must still enforce source/use release policy.
+/** Shared normalized-value checks before storage and response serialization.
+ * Raw source numbers may be parsed into strings by parseNativePriceAmount;
+ * normalized observations themselves must already carry decimal strings.
+ * This is not a full schema/evidence validator or a printing-identity proof.
+ * Callers must independently enforce provenance and source/use release policy.
  */
 export function assertPriceObservationValues(observation: NativePriceObservation): void {
   if (typeof observation.amount !== "string" || parseNativePriceAmount(observation.amount) === null) {
     throw new TypeError("Native price amount must be a positive decimal string.");
   }
   if (!["EUR", "USD"].includes(observation.currency)) throw new TypeError("Unsupported native price currency.");
-  if (!observation.sourceProductId || !observation.metric) throw new TypeError("Price identity and metric are required.");
+  const nonemptyText = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+  if (!nonemptyText(observation.sourceProductId) || !nonemptyText(observation.metric)) throw new TypeError("Price identity and metric are required.");
   if (observation.mappingStatus === "exact") {
-    if (!observation.sku || !observation.setCode) throw new TypeError("Exact price mapping requires SKU and set.");
+    if (!nonemptyText(observation.sku) || !nonemptyText(observation.setCode)) throw new TypeError("Exact price mapping requires SKU and set.");
   } else if (!["unmapped", "ambiguous"].includes(observation.mappingStatus) ||
              observation.sku !== null || observation.setCode !== null) {
     throw new TypeError("Unresolved price identity cannot claim a SKU or set.");
@@ -76,8 +83,9 @@ export function assertPriceObservationValues(observation: NativePriceObservation
     throw new TypeError("Native currency and underlying market disagree.");
   }
   if (observation.source === "cardmarket") {
-    if (observation.currency !== "EUR" || observation.granularity !== "source-product") {
-      throw new TypeError("Cardmarket observations retain EUR product-level scope.");
+    if (observation.currency !== "EUR" || observation.granularity !== "source-product" ||
+        observation.language !== null || observation.condition !== null) {
+      throw new TypeError("Cardmarket observations retain EUR product-level scope with unknown language and condition.");
     }
   } else if (observation.source !== "scryfall" || observation.granularity !== "printing") {
     throw new TypeError("Unknown price source or observation scope.");

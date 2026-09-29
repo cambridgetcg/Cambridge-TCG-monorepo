@@ -1,16 +1,18 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { transaction } from '@/lib/db';
-import { MEMBER_PRICE_POLICIES, nativeAmount, priceUseAllowed, sourceTimestamp, type MemberPriceSource, type NativePriceObservation, type ParsedMemberPrices } from '@cambridge-tcg/data-ingest/member-prices';
+import { MEMBER_PRICE_POLICIES, priceUseAllowed, sourceTimestamp, type MemberPriceSource, type NativePriceObservation, type ParsedMemberPrices } from '@cambridge-tcg/data-ingest/member-prices';
+import { assertPriceObservationValues } from '@cambridge-tcg/data-spec';
 import type { RawProvenance } from '@cambridge-tcg/data-ingest/types';
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export function validateMemberPriceWrite(row: NativePriceObservation, provenance: RawProvenance) {
+  // Apply the same normalized-value rules used by member reads before opening
+  // a transaction. Permission and provenance remain separate required checks.
+  assertPriceObservationValues(row);
   if (!priceUseAllowed(row.source, 'member-display', row.evidenceVersion) || row.quality !== 'accepted') throw new Error('unreviewed-price-release');
   if (provenance.source !== row.source || sourceTimestamp(provenance.as_of) !== sourceTimestamp(row.sourceUpdatedAt) || sourceTimestamp(provenance.retrieved_at) !== sourceTimestamp(row.retrievedAt)) throw new Error('price-writer-provenance-mismatch');
-  if (!nativeAmount(row.amount) || !/^[a-f0-9]{64}$/.test(row.artifactSha256) || !row.parserVersion.trim() || !row.crosswalkVersion.trim()) throw new Error('invalid-price-evidence');
-  if (row.mappingStatus === 'exact' ? !row.sku || !row.setCode : row.sku !== null || row.setCode !== null) throw new Error('invalid-price-mapping');
-  if (row.source === 'cardmarket' && (row.currency !== 'EUR' || row.underlyingMarket !== 'cardmarket' || row.granularity !== 'source-product' || row.language !== null || row.condition !== null)) throw new Error('cardmarket-aggregate-scope-mismatch');
+  if (!/^[a-f0-9]{64}$/.test(row.artifactSha256) || !row.parserVersion.trim() || !row.crosswalkVersion.trim()) throw new Error('invalid-price-evidence');
 }
 /** Retrieval time is deliberately excluded: repeat fetching the same artifact
  * cannot manufacture another historical observation or refresh its source clock.

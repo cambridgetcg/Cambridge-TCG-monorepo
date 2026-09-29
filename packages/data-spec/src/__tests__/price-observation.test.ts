@@ -40,7 +40,7 @@ describe("shared money and native observation schemas", () => {
     expect(() => assertPriceObservationValues(observation)).not.toThrow();
     expect(observation.amount).toBe("12.340000");
   });
-  it.each(["0", "0.000000", "-1", "NaN", "Infinity", "1e2", "1.1234567", 1, null])(
+  it.each(["0", "0.000000", "-1", "NaN", "Infinity", "1e2", "1.1234567", "1\n", "1\r", "1\u2028", "1\u2029", 1, null])(
     "rejects invalid native observation amount %s", amount => {
       const invalid = { ...observation, amount };
       expect(validNative(invalid)).toBe(false);
@@ -51,21 +51,43 @@ describe("shared money and native observation schemas", () => {
     expect(parseNativePriceAmount(null)).toBeNull();
     expect(parseNativePriceAmount(undefined)).toBeNull();
     expect(parseNativePriceAmount("12.340000")).toBe("12.340000");
+    // Official files may use JSON numbers; only the raw parser coerces them.
+    expect(parseNativePriceAmount(12.34)).toBe("12.34");
     expect(() => parseNativePriceAmount(0)).toThrow();
   });
   it.each([
     { mappingStatus: "exact" }, { sku: "op-op01-001-en" },
+    { mappingStatus: "ambiguous", setCode: "op01" }, { mappingStatus: "unknown" },
+    { mappingStatus: "exact", sku: 1, setCode: "op01" },
+    { sourceProductId: 1 }, { metric: 1 }, { metric: "" },
     { currency: "GBP" }, { underlyingMarket: "tcgplayer" }, { granularity: "printing" },
+    { language: "en" }, { condition: "near-mint" },
   ])("rejects incompatible identity, units or source scope %j", fields => {
     const invalid = { ...observation, ...fields };
     expect(validNative(invalid)).toBe(false);
+    expect(validMember({ ...invalid, id: "1", permittedUses: ["member-display"], attribution: "Fixture" })).toBe(false);
+    expect(() => assertPriceObservationValues(invalid as NativePriceObservation)).toThrow();
+  });
+  it.each([
+    { granularity: "source-product" },
+    { currency: "USD", underlyingMarket: "cardmarket" },
+    { currency: "EUR", underlyingMarket: "tcgplayer" },
+  ])("rejects inconsistent Scryfall scope through runtime and schemas %j", fields => {
+    const invalid = { ...observation, source: "scryfall", game: "magic", granularity: "printing", ...fields };
+    expect(validNative(invalid)).toBe(false);
+    expect(validMember({ ...invalid, id: "1", permittedUses: ["member-display"], attribution: "Fixture" })).toBe(false);
     expect(() => assertPriceObservationValues(invalid as NativePriceObservation)).toThrow();
   });
   it("accepts exact reviewed mappings and source-native printing observations", () => {
     const exact = { ...observation, mappingStatus: "exact", sku: "pkm-sv01-001-en", setCode: "sv01" };
     expect(validNative(exact), JSON.stringify(validNative.errors)).toBe(true);
+    expect(() => assertPriceObservationValues(exact as NativePriceObservation)).not.toThrow();
     const scryfall = { ...observation, source: "scryfall", currency: "USD", underlyingMarket: "tcgplayer", granularity: "printing", metric: "usd_foil", finish: "foil" };
     expect(validNative(scryfall), JSON.stringify(validNative.errors)).toBe(true);
+    expect(() => assertPriceObservationValues(scryfall as NativePriceObservation)).not.toThrow();
+    const scryfallEur = { ...scryfall, currency: "EUR", underlyingMarket: "cardmarket", metric: "eur_foil" };
+    expect(validNative(scryfallEur), JSON.stringify(validNative.errors)).toBe(true);
+    expect(() => assertPriceObservationValues(scryfallEur as NativePriceObservation)).not.toThrow();
   });
   it("requires evidence and distinct valid source/retrieval timestamps", () => {
     expect(validNative({ ...observation, sourceUpdatedAt: "not-a-date" })).toBe(false);

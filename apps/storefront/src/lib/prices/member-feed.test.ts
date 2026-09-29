@@ -51,7 +51,9 @@ describe('private member reader query boundary', () => {
       retrievedAt: '2026-09-07T00:00:00.000Z', permittedUses: ['member-api'] });
   });
   it.each([{ amount: '0.000000' }, { amount: 'Infinity' }, { currency: 'GBP' },
-    { mapping_status: 'exact' }, { sku: 'pkm-sv01-001-en' }, { permitted_uses: ['member-display'] }])(
+    { amount: '1\n' }, { language: 'en' }, { condition: 'near-mint' },
+    { mapping_status: 'exact' }, { mapping_status: 'ambiguous', set_code: 'sv01' },
+    { sku: 'pkm-sv01-001-en' }, { permitted_uses: ['member-display'] }])(
     'withholds an entire invalid response page instead of emitting incorrect prices %j', async invalid => {
       database.mockResolvedValue({ rows: [{ watermark: '1', total: '1', items: [{ ...row, ...invalid }] }] });
       const log = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -62,4 +64,19 @@ describe('private member reader query boundary', () => {
       } finally { log.mockRestore(); }
     },
   );
+  it.each([
+    { granularity: 'source-product' },
+    { currency: 'USD', underlying_market: 'cardmarket' },
+    { currency: 'EUR', underlying_market: 'tcgplayer' },
+  ])('withholds inconsistent Scryfall display rows without returning a partial page %j', async invalid => {
+    const scryfall = { ...row, source: 'scryfall', game: 'magic', granularity: 'printing',
+      currency: 'USD', underlying_market: 'tcgplayer', language: 'en', metric: 'usd',
+      permitted_uses: ['member-display'] };
+    database.mockResolvedValue({ rows: [{ watermark: '1', total: '2', items: [scryfall, { ...scryfall, id: '2', ...invalid }] }] });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect(await readMemberPrices({ userId: 'test' }, parse('source=scryfall'), 'member-display'))
+        .toMatchObject({ status: 'unavailable', items: [], complete: false });
+    } finally { log.mockRestore(); }
+  });
 });

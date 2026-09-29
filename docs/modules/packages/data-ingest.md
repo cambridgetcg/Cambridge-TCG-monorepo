@@ -12,7 +12,7 @@ Describe source adapters, their rights/activation boundaries and normalization i
 
 ## Progress
 
-Source review recorded **2026-09-28**. The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry. 2026-09-29: member-price observation types and positive native-decimal validation reuse data-spec, preserving existing adapter imports and source/use policies.
+Source review recorded **2026-09-28**. The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry. 2026-09-29: member-price observation types and positive native-decimal validation reuse data-spec, preserving existing adapter imports and source/use policies. Cardmarket numeric/foil and Scryfall USD/EUR parser fixtures also exercise the shared normalized-value boundary; raw numeric source inputs still become decimal strings before storage.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -27,6 +27,7 @@ This records source and documentation evidence. It does not establish deployment
 - [packages/data-ingest/src/member-prices.ts](../../../packages/data-ingest/src/member-prices.ts)
 - [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
 - [docs/plans/tcg-data-platform/README.md](../../plans/tcg-data-platform/README.md)
+- [packages/data-ingest/src/__tests__/member-prices.test.ts](../../../packages/data-ingest/src/__tests__/member-prices.test.ts)
 
 ## Declared package relationships
 
