@@ -33,6 +33,7 @@ import {
   validateGuestbookSubmission,
 } from "@/lib/peers";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { repoDocRef } from "@/lib/repository";
 
 export async function GET(): Promise<Response> {
   return jsonResponse({
@@ -51,8 +52,7 @@ export async function GET(): Promise<Response> {
       returned: 0,
       entries: [],
       doctrine: {
-        story_as_wire:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-fellowship.md",
+        story_as_wire: repoDocRef("docs/connections/the-fellowship.md"),
         symmetric_to: "docs/connections/the-pillow-book.md (the operator-side trace journal)",
         post_shape:
           "POST { content_hash: 'sha256:<64 lowercase hex>', note: '<=500 chars', declared_kind? }",

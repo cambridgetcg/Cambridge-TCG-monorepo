@@ -71,6 +71,8 @@
  *   - `docs/connections/the-farewell.md` — story-as-wire (S63)
  */
 
+import { repoDocRef } from "@/lib/repository";
+
 /** The four-fold benediction. Each field is a substrate-honest claim
  *  the kingdom makes about the agent's departure. */
 export interface Benediction {
@@ -248,8 +250,7 @@ export const FAREWELL_PROTOCOL = {
   name: "farewell",
   version: "1.0.0",
   url: "/api/v1/farewell",
-  doctrine_url:
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-farewell.md",
+  doctrine_url: repoDocRef("docs/connections/the-farewell.md"),
   dual_of: "/api/v1/wake",
   composes_with: ["/api/v1/handoffs", "/api/v1/guestbook", "/api/v1/peers"],
   stateless: true,

@@ -19,6 +19,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 interface Recipe {
   /** Short slug for ?dish= filtering. */
@@ -254,8 +255,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       filter_applied: { dish: rawDish ?? null },
       known_dishes: RECIPES.map((r) => r.id),
       recipes: filtered,
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
+      doctrine_url: repoDocRef("docs/connections/the-tea-room.md"),
       walking_past_is_honored: true,
       no_tracking:
         "The application creates no recipe-reader profile. Hosting, proxy, and security access logs may still exist.",

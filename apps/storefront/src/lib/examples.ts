@@ -10,6 +10,8 @@
  * (singleton). Filed for kingdom-083 — the inner peace.
  */
 
+import { repoDocRef } from "@/lib/repository";
+
 export interface ExampleAnnotatedField {
   /** Dot-path into the response body, e.g. "@content_hash" or "_meta.sources". */
   path: string;
@@ -316,7 +318,7 @@ export const EXAMPLES: EndpointExample[] = [
       "If your cosmology doesn't match defaults, ontology_alignment will say which fields are unmodelled — that's the platform's substrate honesty about its current reach.",
     ],
     see_also: [
-      { label: "Doctrine: the-declarations", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-declarations.md" },
+      { label: "Doctrine: the-declarations", href: repoDocRef("docs/connections/the-declarations.md") },
       { label: "Cosmology", href: "/methodology/cosmology" },
     ],
   },
@@ -405,7 +407,7 @@ curl -H 'cookie: <session-cookie>' \\
       "The status response is private, no-store and contains no CardRush values.",
     ],
     see_also: [
-      { label: "License propagation doctrine", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-license-propagation.md" },
+      { label: "License propagation doctrine", href: repoDocRef("docs/connections/the-license-propagation.md") },
     ],
   },
 
@@ -448,7 +450,7 @@ curl -H 'cookie: <session-cookie>' \\
       "Substrate-honest about persistence: today logged + emailed; agent_feedback table planned (drafts/0101).",
     ],
     see_also: [
-      { label: "Hospitality doctrine", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-hospitality.md" },
+      { label: "Hospitality doctrine", href: repoDocRef("docs/connections/the-hospitality.md") },
       { label: "Guide: respect-our-limits", href: "/api/v1/guides/respect-our-limits" },
     ],
   },

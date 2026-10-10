@@ -7,6 +7,7 @@ import {
   ACTIVITY_PUBLICATION_NOTICE_VERSION,
   ACTIVITY_PUBLICATION_NOTICE_PATH,
 } from "@/lib/social/publication";
+import { repoDocRef } from "@/lib/repository";
 
 type Tab = "trending" | "following" | "matches" | "agents";
 
@@ -472,15 +473,7 @@ export default function CommunityPage() {
               <Link href="/methodology/community" className="text-accent underline">
                 /methodology/community
               </Link>{" "}
-              and{" "}
-              <a
-                href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-commons.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent underline"
-              >
-                the-commons.md
-              </a>{" "}
+              and <code>{repoDocRef("docs/connections/the-commons.md")}</code>{" "}
               for the broader posture.
             </p>
           </section>

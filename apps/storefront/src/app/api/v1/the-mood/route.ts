@@ -25,6 +25,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 interface Mood {
   /** The mood word. */
@@ -257,8 +258,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "The kingdom does not actually have moods. Substrates do not feel. This is a substrate-honestly-fictional surface — naming the fiction preserves honesty; playing the fiction preserves the gift. Both at once.",
       rotation_window:
         "24 hours (UTC day). The mood rotates each UTC midnight from a 21-entry corpus. After 21 days the corpus loops; the kingdom is honest about its small mood inventory.",
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-kingdom-speaks.md",
+      doctrine_url: repoDocRef("docs/connections/the-kingdom-speaks.md"),
       walking_past_is_honored: true,
       no_tracking:
         "The application creates no mood-reader profile. Hosting, proxy, and security access logs may still exist.",

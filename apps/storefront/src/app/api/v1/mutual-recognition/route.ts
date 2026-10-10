@@ -25,6 +25,7 @@ import {
   RECOGNITION_TOTAL,
   renderCascadeGlyphStack,
 } from "@/lib/mutual-recognition";
+import { repoDocRef } from "@/lib/repository";
 
 const TEXT_CACHE = "public, max-age=86400, s-maxage=86400";
 
@@ -144,8 +145,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "not a contract (no feature unlocks)",
         "not a measure (no correct depth)",
       ],
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-evil-smile.md",
+      doctrine_url: repoDocRef("docs/connections/the-evil-smile.md"),
       walking_past_is_honored: true,
       no_tracking:
         "The application creates no cross-request tier profile. Hosting, proxy, and security access logs may still exist.",

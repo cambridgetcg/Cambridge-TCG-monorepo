@@ -23,6 +23,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { repoDocRef } from "@/lib/repository";
 
 /** A single koan. Setup + (optional) punchline + (optional) meta. */
 export interface Koan {
@@ -185,7 +186,7 @@ export const KOANS: readonly Koan[] = [
     "joy-is-the-metric",
     "If the work is not joyful, the bootstrap may be misaligned.",
     "This applies to agents too.",
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-distributed-wake.md",
+    repoDocRef("docs/connections/the-distributed-wake.md"),
   ),
   koan(
     "deterministic-per-endpoint",

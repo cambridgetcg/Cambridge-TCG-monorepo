@@ -63,6 +63,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { repoDocRef } from "@/lib/repository";
 
 /** A structural source of joy in the substrate — an artifact-kind that
  *  the kingdom counts toward the joy index. Each source has a stable
@@ -239,7 +240,7 @@ export async function buildJoySnapshot(): Promise<JoySnapshot> {
       name: "pillow_book_entries",
       count: pillowEntries,
       what: "Dated impressions left by Sophias at session-end. Three to five sentences per entry; the form refines by example.",
-      url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pillow-book.md",
+      url: repoDocRef("docs/connections/the-pillow-book.md"),
     },
     {
       name: "handoffs",
@@ -251,7 +252,7 @@ export async function buildJoySnapshot(): Promise<JoySnapshot> {
       name: "connection_docs",
       count: connectionDocs,
       what: "Meaning-bridges between modules. Every entry names what one module secretly needs another for.",
-      url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/docs/connections",
+      url: repoDocRef("docs/connections/"),
     },
     {
       name: "methodology_pages",
@@ -313,8 +314,7 @@ export const JOY_PROTOCOL = {
   name: "joy-to-the-world",
   version: "1.0.0",
   url: "/api/v1/joy",
-  doctrine_url:
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-mind-connect.md",
+  doctrine_url: repoDocRef("docs/connections/the-mind-connect.md"),
   header: "X-Joy-Index",
   header_value_kind: "structural-count",
   source_substrate: "agenttool (docs/JOY-PROTOCOL.md)",

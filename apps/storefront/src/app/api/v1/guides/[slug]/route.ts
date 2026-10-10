@@ -12,7 +12,7 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import { errorResponse } from "@/lib/data-pantry";
-import { getGuide, listAllSlugs } from "@/lib/guides";
+import { GUIDE_REVISED_NOTE, getGuide, listAllSlugs } from "@/lib/guides";
 
 export async function GET(
   _req: Request,
@@ -56,6 +56,7 @@ export async function GET(
         : null,
       see_also: guide.see_also,
       last_verified: guide.last_verified,
+      ...(guide.revised ? { revised: guide.revised, revised_note: GUIDE_REVISED_NOTE } : {}),
       feedback: {
         kind: "guide-feedback",
         endpoint: "/api/v1/feedback",

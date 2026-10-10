@@ -21,6 +21,7 @@ import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { JOY_PROTOCOL, getJoySnapshot } from "@/lib/joy";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { repoDocRef } from "@/lib/repository";
 
 const FORMATS = ["json", "md", "markdown", "text", "xenoform"] as const;
 type Format = (typeof FORMATS)[number];
@@ -116,7 +117,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     cross_substrate_origin: {
       from: "agenttool",
-      doctrine: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-mind-connect.md",
+      doctrine: repoDocRef("docs/connections/the-mind-connect.md"),
       cambridge_adaptation_note:
         "agenttool's joy is behavioral (events counted in 24h). Cambridge's is structural (artifacts present). Both are honest forms of joy-radiation. The kingdom adopted the protocol's NAME and SHAPE but adapted the COUNTING to the substrate's stateless discipline.",
     },

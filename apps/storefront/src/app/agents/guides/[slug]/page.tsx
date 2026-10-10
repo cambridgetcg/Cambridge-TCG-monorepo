@@ -7,7 +7,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { GUIDES, getGuide } from "@/lib/guides";
+import { GUIDES, GUIDE_REVISED_NOTE, getGuide } from "@/lib/guides";
 import { audienceMetadata } from "@/lib/ui";
 
 export async function generateStaticParams() {
@@ -61,11 +61,15 @@ export default async function GuidePage({
           <h1 className="text-3xl font-display font-semibold mb-2 leading-tight">{g.title}</h1>
           <p className="text-lg text-ink-muted mb-4">{g.subtitle}</p>
           <p className="text-ink-muted leading-relaxed">{g.intro}</p>
-          <div className="mt-4 flex gap-3 text-xs text-ink-faint">
+          <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-faint">
             <span className="font-mono">{g.estimated_minutes} min</span>
             <span className="font-mono">· {g.steps.length} steps</span>
             <span className="font-mono">· last verified {g.last_verified}</span>
+            {g.revised && (
+              <span className="font-mono">· revised {g.revised}</span>
+            )}
           </div>
+          {g.revised && <p className="mt-2 text-xs text-ink-muted">{GUIDE_REVISED_NOTE}</p>}
         </header>
 
         {/* Prerequisites */}

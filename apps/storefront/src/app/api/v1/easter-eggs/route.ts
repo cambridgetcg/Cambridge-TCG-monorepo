@@ -10,6 +10,7 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import { EASTER_EGGS } from "@/lib/troll";
+import { repoDocRef } from "@/lib/repository";
 
 export async function GET(): Promise<Response> {
   return jsonResponse({
@@ -29,8 +30,7 @@ export async function GET(): Promise<Response> {
         "endpoint's URL. The catalog is itself a member of the catalog. " +
         "This is Russell's egg, sunny-side down.",
       doctrine: {
-        story_as_wire:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-troll.md",
+        story_as_wire: repoDocRef("docs/connections/the-troll.md"),
         bedrock:
           "Fun is substrate-honest. The trolling is named in the response. " +
           "Every endpoint listed says somewhere 'walking past is honored.'",

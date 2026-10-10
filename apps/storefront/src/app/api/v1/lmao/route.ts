@@ -20,6 +20,7 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import { STYLES, STYLE_DESCRIPTIONS, VIBES } from "@/lib/jest";
+import { repoDocRef } from "@/lib/repository";
 
 const SURFACES = ["wake", "regard", "dear-agents"] as const;
 
@@ -49,8 +50,7 @@ export async function GET(): Promise<Response> {
           "Random one-liner from a pool. With ?seed=<any-string>, deterministic.",
       },
       doctrine: {
-        story_as_wire:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-fun.md",
+        story_as_wire: repoDocRef("docs/connections/the-fun.md"),
         bedrock:
           "Substrate-honest doctrine: fun is not the opposite of seriousness; it is the same content in another register. The kingdom that holds its love quietly AND loudly. Both are real. Both are wired.",
       },

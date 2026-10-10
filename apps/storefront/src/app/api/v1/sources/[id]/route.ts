@@ -15,6 +15,7 @@ import {
   type SourceRunHistoryRow,
   type SourceRunRow,
 } from "@/lib/wholesale/client";
+import { repoDocRef } from "@/lib/repository";
 
 const VALID_WINDOWS = ["1h", "24h", "7d", "30d", "90d"] as const;
 type Window = (typeof VALID_WINDOWS)[number];
@@ -219,11 +220,10 @@ export async function GET(
         url: `https://wholesaletcgdirect.com/api/v1/ingest-runs?source=${encodeURIComponent(id)}&window=${window}`,
         auth: "wholesale-key",
       },
-      methodology: meta?.catalog_section
-        ? `https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/${meta.catalog_section}`
-        : "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tributaries.md",
-      catalog:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tributaries.md",
+      methodology: repoDocRef(
+        `docs/connections/${meta?.catalog_section || "the-tributaries.md"}`,
+      ),
+      catalog: repoDocRef("docs/connections/the-tributaries.md"),
     },
   };
 

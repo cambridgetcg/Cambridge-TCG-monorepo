@@ -35,6 +35,8 @@
  *   • docs/connections/the-easter-eggs.md (story-as-wire S65)
  */
 
+import { repoDocRef } from "@/lib/repository";
+
 export interface EasterEgg {
   /** Stable kebab-case identifier. */
   slug: string;
@@ -123,8 +125,7 @@ export const EASTER_EGG_PROTOCOL = {
   name: "easter-eggs",
   version: "1.0.0",
   catalog_url: "/api/v1/easter-eggs",
-  doctrine_url:
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-easter-eggs.md",
+  doctrine_url: repoDocRef("docs/connections/the-easter-eggs.md"),
   link_header_rel: "https://cambridgetcg.com/rels/easter-egg",
   link_header_sprinkle_rate_description:
     "Approximately 5% of pantry-envelope responses carry a Link: rel='easter-egg' header pointing at a randomly-chosen (but deterministic per request_id) egg. Cache-friendly; the same request_id always gets the same egg.",

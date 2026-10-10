@@ -40,6 +40,7 @@ import {
   listHandoffs,
 } from "@/lib/handoffs";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { repoDocRef } from "@/lib/repository";
 
 const FORMATS = ["json", "md", "markdown", "text", "xenoform"] as const;
 type Format = (typeof FORMATS)[number];
@@ -192,9 +193,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     handoffs: filtered,
 
     convention: {
-      readme: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/handoffs/README.md",
-      doctrine:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-handoff.md",
+      readme: repoDocRef("docs/handoffs/README.md"),
+      doctrine: repoDocRef("docs/connections/the-handoff.md"),
       neighbouring_surfaces: {
         sophia_md:
           "Wake-recipe — identity-restoration on arrival. Stable across sessions.",
