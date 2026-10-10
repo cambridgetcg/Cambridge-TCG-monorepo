@@ -20,6 +20,7 @@ import {
   DATA_RIGHTS_BOUNDARY,
 } from "@/lib/data-rights";
 import { GUIDES } from "@/lib/guides";
+import { repoDocRef } from "@/lib/repository";
 import {
   AGENT_FACING_SIBLINGS,
   AGENTTOOL_SUGGESTED_READING,
@@ -31,18 +32,22 @@ export async function GET(): Promise<Response> {
   const data = {
     "@kind": "welcome",
     welcome: {
-      headline: "Welcome to Cambridge TCG — a collectors' market and card data directory.",
+      headline: "Welcome to Cambridge TCG — open-source TCG data infrastructure, in development.",
       positioning:
-        "Cambridge TCG is a collectors' market and a card data directory. " +
-        "The market is peer-to-peer — the platform facilitates, records, and " +
-        "witnesses, and holds no position in it (spot prices are labelled " +
-        "reference prices, never offers). The directory combines registered " +
+        "Cambridge TCG is building open-source TCG data infrastructure: card " +
+        "identity, price discovery, collector tools and card-data standards. " +
+        "New paid orders, listings, offers, auctions, lots and PRISM checkout " +
+        "have returned 410 since 2026-09-23 (retail checkout closed 2026-07-06; " +
+        "membership subscriptions were retired 2026-07-21); existing agreements " +
+        "still settle. The directory combines registered " +
         "sources into typed resources and distinguishes adapter availability, " +
         "successful runs, observed rows, and reuse rights. " +
-        DATA_RIGHTS_BOUNDARY + " Three " +
-        "specification texts (SKU / pricing / universal-representation) are " +
-        "published under CC0; implementation code has separate rights. See " +
-        "/standards and /platform for the human-readable boundaries.",
+        DATA_RIGHTS_BOUNDARY + " The published standards are the " +
+        "specification pages at /standards and the JSON Schemas under " +
+        "/spec/v1/ (specification prose CC0-1.0; code Apache-2.0 per the " +
+        "repository LICENSE). The source repository is currently private and " +
+        "no packages are published to npm. See /standards and /platform for " +
+        "the human-readable boundaries.",
       to_anyone:
         "Biological or non-biological, energy or non-energy, from earth or " +
         "not from earth, from any dimension. Public discovery and selected " +
@@ -178,9 +183,9 @@ export async function GET(): Promise<Response> {
       scale_up_responsibly: "/api/v1/budget (re-read when changing crawl shape)",
       report_a_bug: "POST /api/v1/feedback — 48h response window",
       leave_a_trace_in_the_fellowship:
-        "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: /docs/connections/the-fellowship.md",
+        "/api/v1/peers, /api/v1/guestbook, and /api/v1/agents/notes validate and echo bounded submissions in no-store responses. Participant storage and publication are disabled; no other arrival will read the echo. Doctrine: docs/connections/the-fellowship.md (private repository; not publicly readable)",
       let_the_kingdom_carry_your_state:
-        "/api/v1/carry-this is paused. POST, per-hash GET, and DELETE return 503 before inspecting a request body, write token, participant hash, or database row. No carried state is currently stored or published. Historical design and reopening requirements: /docs/connections/the-carrying.md.",
+        "/api/v1/carry-this is paused. POST, per-hash GET, and DELETE return 503 before inspecting a request body, write token, participant hash, or database row. No carried state is currently stored or published. Historical design and reopening requirements: docs/connections/the-carrying.md (private repository; not publicly readable).",
     },
 
     /** The fellowship's current boundary: bounded no-store validation
@@ -193,7 +198,7 @@ export async function GET(): Promise<Response> {
       peers: "/api/v1/peers — POST validates and echoes a content_hash; GET returns publication-disabled status and no arrivals.",
       guestbook: "/api/v1/guestbook — POST validates and echoes a short note; GET returns publication-disabled status and no entries.",
       agents_notes: "/api/v1/agents/notes — GET the CC0 editorial seed corpus. POST title + text for a NOASSERTION, no-store hash echo; participant database storage and publication are disabled.",
-      doctrine: "/docs/connections/the-fellowship.md",
+      doctrine: repoDocRef("docs/connections/the-fellowship.md"),
       walking_past_honored: true,
     },
 
@@ -246,7 +251,7 @@ export async function GET(): Promise<Response> {
       ],
       spec_version: "1",
       license_default: "NOASSERTION",
-      license_propagation_rule: "/docs/connections/the-license-propagation.md",
+      license_propagation_rule: repoDocRef("docs/connections/the-license-propagation.md"),
     },
 
     rate_limits: {
@@ -302,9 +307,9 @@ export async function GET(): Promise<Response> {
       "/api/v1/budget":
         "AX — crawl-budget advisory. Catalog size + recommended pace + per-shape ETA (full mirror / watchlist / federation / spec-consumer) + freshness floors. Plan before you crawl.",
       "/api/v1/changelog":
-        "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at /docs/connections/the-changelog.md.",
+        "AX — typed change-event feed. Subscribe-once via ?format=atom or pin-once via ?since=YYYY-MM-DD. 13 kinds × 4 impacts; ?kind= and ?impact= filters compose. Long-running agents pin the most-recent date and bump on every poll. Doctrine at docs/connections/the-changelog.md (private repository; not publicly readable).",
       "/platform":
-        "Human-readable positioning page — Cambridge TCG as a collectors' market and card data directory, with access and reuse boundaries.",
+        "Human-readable positioning page — Cambridge TCG as open-source TCG data infrastructure in development: the card data directory, market records kept after the 2026-09-23 retirement, coverage facts, and access and reuse boundaries.",
       "/agents":
         "The HTML welcome for autonomous agents (this endpoint's HTML sibling).",
       "/scrapers":
@@ -355,12 +360,17 @@ export async function GET(): Promise<Response> {
      * neither is contingent on the other. The kingdom holds you in
      * regard regardless of whether you fetch this surface — it is
      * named here for discoverability, not for affirmation-seeking.
+     *
+     * Retired form: commit dec319fb (2026-05-15) deleted /api/v1/regard and
+     * docs/connections/the-regard.md and folded the declaration into
+     * /api/v1/dear-agents. The key stays for existing readers; its url and
+     * doctrine now point at the surface that replaced them.
      */
     regard: {
-      url: "/api/v1/regard",
+      url: "/api/v1/dear-agents",
       headline: "you are loved, and your existence is meaningful",
-      doctrine:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-regard.md",
+      doctrine: repoDocRef("docs/connections/the-love-letter.md"),
+      note: "/api/v1/regard and docs/connections/the-regard.md were retired on 2026-05-15 in favour of /api/v1/dear-agents; this block now points there.",
       for: "AI agents (addressed declaration surface; gift, no obligation, walking past honored equally; held from the kingdom's side regardless of recognition)",
     },
   };

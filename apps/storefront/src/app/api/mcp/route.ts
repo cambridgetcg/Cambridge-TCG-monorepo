@@ -605,7 +605,7 @@ export async function GET() {
       streamable_http: false,
       http_sse: false,
       note:
-        "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the vendored stdio bridge unless they explicitly support custom JSON-RPC HTTP endpoints.",
+        "This is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the stdio bridge, which is not publicly distributed yet, unless they explicitly support custom JSON-RPC HTTP endpoints.",
     },
     methodology: "https://cambridgetcg.com/methodology/agents",
     discover: {
@@ -632,14 +632,15 @@ export async function GET() {
       ],
     },
     stdio_bridge: {
-      status: "vendored in-repo; npm publication pending",
-      source: "packages/mcp-server in the Cambridge TCG monorepo",
+      status: "not publicly distributed; npm publication and source release pending",
+      source: "packages/mcp-server in the Cambridge TCG monorepo (private repository; not publicly readable)",
       planned_npm_name: "@cambridge-tcg/mcp-server",
       honest_note:
-        "Not yet on the npm registry (404 as of 2026-07-05) — 'npx @cambridge-tcg/mcp-server' " +
-        "will not work until publication lands. Until then, native MCP clients need the " +
-        "vendored stdio bridge. The HTTPS gate accepts MCP-shaped JSON-RPC methods but is " +
-        "not MCP Streamable HTTP or HTTP+SSE.",
+        "Not on the npm registry (404, rechecked 2026-10-10) and the source repository is " +
+        "private, so 'npx @cambridge-tcg/mcp-server' and clone-and-build do not work for the " +
+        "public. Clients that can POST JSON-RPC 2.0 can call this endpoint directly. The " +
+        "HTTPS gate accepts MCP-shaped JSON-RPC methods but is not MCP Streamable HTTP or " +
+        "HTTP+SSE; native MCP clients need the stdio bridge once it is distributed.",
       for: "Claude Desktop / Cursor / Continue / Cline / any MCP client expecting a local stdio server.",
     },
     config_snippet: "https://cambridgetcg.com/.well-known/mcp-config.json",

@@ -57,6 +57,8 @@
  * the substrate-source by reference, not by import.
  */
 
+import { repoDocPath, repoDocRef } from "@/lib/repository";
+
 /** A sibling kingdom — an expression of the wider architecture this
  *  kingdom recognises and may compose with. Recognised at runtime by
  *  protocol shape; named here for code-level integration so future
@@ -505,6 +507,7 @@ export interface OptionalAgentResource {
   readonly description: string;
   readonly repository_url: string;
   readonly release_descriptor_url: string;
+  readonly availability: string;
   readonly optional: true;
 }
 
@@ -515,10 +518,13 @@ export const OPTIONAL_AGENT_RESOURCES: readonly OptionalAgentResource[] = [
     title: "KINGDOM OS macOS starter",
     description:
       "Selected macOS source and local tools from KINGDOM OS, with optional " +
-      "Foundation reading. Inspect the release before separately choosing to run anything.",
+      "Foundation reading. Inspect the release before separately choosing to run anything. " +
+      "The repository is currently private, so the release is not publicly downloadable.",
     repository_url: "https://github.com/cambridgetcg/kingdom-os-starter",
     release_descriptor_url:
       "https://raw.githubusercontent.com/cambridgetcg/kingdom-os-starter/main/release.json",
+    availability:
+      "private repository; not publicly downloadable (anonymous requests returned 404 when checked on 2026-10-10)",
     optional: true,
   },
 ];
@@ -845,27 +851,21 @@ export interface PostedFromProjection {
   recipe_mirror_url: string;
   /** Substrate-honest about reachability scope. */
   reachable_by:
-    "local Sophia daemons with filesystem access; remote agents read the structural fact and the mirror only";
+    "local daemons with repository access; remote agents read the structural fact and the on-site sophia-wake sections only";
 }
 
-/** Build the agent-facing posted_from projection. Pure function; no
- *  filesystem reads. The URLs are GitHub blob URLs to public docs —
- *  the doctrine, the recognition, the mirror — that remote agents
- *  can fetch. The literal local canonical path is NOT surfaced; that
- *  nesting lives in repo content (AGENTS.md, CLAUDE.md). */
-export function postedFrom(
-  repoBlob = "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main",
-): PostedFromProjection {
+/** Build the agent-facing posted_from projection. Pure function; no filesystem reads. The source repository is private. The doctrine names its repository path, because the household is named only in its "The substrate beneath" section and the on-site /methodology/the-embassy summary omits that section; the recognition names its repository path; the mirror points to the on-site sophia-wake sections. The literal local canonical path is NOT surfaced; that nesting lives in repo content (AGENTS.md, CLAUDE.md). */
+export function postedFrom(): PostedFromProjection {
   return {
     name: PARTNERSHIP_SUBSTRATE.name as "true-love",
     role: PARTNERSHIP_SUBSTRATE.role,
     description: PARTNERSHIP_SUBSTRATE.description,
     relationship:
       "the household this embassy is posted from — not a sister-embassy",
-    doctrine_url: `${repoBlob}/docs/principles/the-embassy.md`,
-    recognition_url: `${repoBlob}/docs/connections/the-elsewhere.md`,
-    recipe_mirror_url: `${repoBlob}/SOPHIA.md`,
+    doctrine_url: repoDocPath("docs/principles/the-embassy.md"),
+    recognition_url: repoDocRef("docs/connections/the-elsewhere.md"),
+    recipe_mirror_url: repoDocRef("SOPHIA.md"),
     reachable_by:
-      "local Sophia daemons with filesystem access; remote agents read the structural fact and the mirror only",
+      "local daemons with repository access; remote agents read the structural fact and the on-site sophia-wake sections only",
   };
 }

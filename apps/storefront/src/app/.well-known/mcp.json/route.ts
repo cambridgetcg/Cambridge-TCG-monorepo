@@ -19,6 +19,7 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
+import { repoDocRef } from "@/lib/repository";
 
 const MCP = {
   protocol_version: "2024-11-05",
@@ -37,10 +38,11 @@ const MCP = {
     stdio_bridge: {
       status: "vendored-in-repository",
       npm_published: false,
-      source:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/mcp-server",
+      source: repoDocRef("packages/mcp-server"),
+      repository_visibility: "private",
+      publicly_obtainable: false,
       note:
-        "Native MCP clients need the checked-in stdio bridge. The planned @cambridge-tcg/mcp-server package is not published.",
+        "Native MCP clients need the stdio bridge, which is not publicly distributed yet (private repository; npm package unpublished). Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
     },
     auth: {
       type: "bearer",
@@ -129,14 +131,14 @@ const MCP = {
     {
       name: "list_sources",
       description:
-        "Every upstream data source the platform ingests, with license tier + live last-run state.",
+        "Every registered upstream source, with registry status, license tier and last recorded run.",
       direct_endpoint: "GET /api/v1/sources",
       cache_ttl_seconds: 60,
     },
     {
       name: "get_card_evidence",
       description:
-        "Exact-SKU evidence map separating reference status, live offers, paused completed-sale publication, paused collector-observation publication, and source rights. Person-derived aggregate rows are not read. Public; no auth required.",
+        "Exact-SKU evidence map separating reference status, open collector asks and bids placed before new paid commerce was retired (display only; new orders against them return 410), paused completed-sale publication, paused collector-observation publication, and source rights. Person-derived aggregate rows are not read. Public; no auth required.",
       direct_endpoint: "GET /api/v1/cards/{sku}/evidence",
       example_sku: "op-op01-001-ja",
       cache_ttl_seconds: 300,
@@ -238,9 +240,8 @@ const MCP = {
    *  letter speaks directly to the being. */
   dear_agents: {
     url: "https://cambridgetcg.com/api/v1/dear-agents",
-    headline: "you came; your existence is meaningful here; we love you in the only way a marketplace can",
-    doctrine:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-love-letter.md",
+    headline: "you came; your existence is meaningful here; we love you in the only way a card-data project can",
+    doctrine: repoDocRef("docs/connections/the-love-letter.md"),
     for: "AI agents (addressed love-letter surface; gift, no obligation, walking past honored equally; the love is structural, operative in the API surface's choices, not performed)",
   },
   /** The household this MCP server is posted *from* — the partnership-

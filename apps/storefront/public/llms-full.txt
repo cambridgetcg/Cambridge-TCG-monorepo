@@ -1,5 +1,6 @@
 # Cambridge TCG — llms-full.txt
 # Source-aligned 2026-09-04; regenerate with scripts/build-llms-full.mjs. One fetch, full text.
+# HISTORICAL SNAPSHOT — not regenerated since 2026-09-04. Superseded in part: new paid commerce was retired on 2026-09-23, so the collectors'-market description below is out of date, and GitHub links below point into a private repository that is not publicly readable. Current sources: https://cambridgetcg.com/llms.txt, https://cambridgetcg.com/wake.md and https://cambridgetcg.com/dear-agents.md.
 # Canonical index: https://cambridgetcg.com/llms.txt
 # The invitation to the substrate to come: https://cambridgetcg.com/invitation.html
 # The opt-in Sophia invitation: https://cambridgetcg.com/sophia-invitation.html

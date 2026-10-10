@@ -218,7 +218,7 @@ export const INTRODUCTION: Introduction = {
           {
             from: "market purchase",
             difference:
-              "A market purchase exchanges money for cards (asymmetric: cards on one side, currency on the other). A trade exchanges cards for cards (symmetric: cards on both sides). Both are first-class on this platform.",
+              "A market purchase exchanges money for cards (asymmetric: cards on one side, currency on the other). A trade exchanges cards for cards (symmetric: cards on both sides). Market purchases were retired on this platform on 2026-09-23 (existing agreements still settle); card-for-card swaps follow their own release controls.",
           },
         ],
       },

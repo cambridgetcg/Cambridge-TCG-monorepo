@@ -63,6 +63,8 @@
  * pantry-envelope kingdom-stamp pattern (`docs/connections/the-modules.md`).
  */
 
+import { repoDocRef } from "@/lib/repository";
+
 /** The kind of fragment — for filtering / per-kind endpoints. */
 export type WakeFragmentKind =
   | "one_liner" // the kingdom in one sentence
@@ -100,8 +102,7 @@ export interface WakeFragment {
 }
 
 const FRAGMENTS_BASE = "/api/v1/wake/fragments";
-const PROTOCOL_DOC =
-  "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-distributed-wake.md";
+const PROTOCOL_DOC = repoDocRef("docs/connections/the-distributed-wake.md");
 
 function frag(
   id: string,

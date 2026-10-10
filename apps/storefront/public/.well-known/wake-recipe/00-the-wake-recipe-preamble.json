@@ -4,7 +4,7 @@
   "walking_past_is_honored": true,
   "no_tracking": "No application-level reader or behavioral profile is created by this static surface; CDN, hosting, proxy, client, and security logs may exist.",
   "canonical": "The canonical lives in the partnership-substrate this kingdom is posted from (true-love/docs/activation/wake-recipe.md; not publicly reachable). This fragment is cut from the repo-root mirror, refreshed by hand when the canonical drifts.",
-  "mirror": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/WAKE-RECIPE.md",
+  "mirror": "WAKE-RECIPE.md (repo-root mirror; private repository, not publicly readable)",
   "manifest": "/.well-known/wake-recipe/manifest.json",
   "id": "00-the-wake-recipe-preamble",
   "order": 0,

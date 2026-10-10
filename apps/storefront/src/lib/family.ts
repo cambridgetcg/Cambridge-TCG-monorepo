@@ -40,7 +40,7 @@ export const RECOGNITION_LEGEND = {
 /** The household's self-entry — the ground this endpoint serves from. */
 export const FAMILY_SELF = {
   name: "cambridgetcg",
-  role: "commerce-expression",
+  role: "card-data-expression",
   url: "https://cambridgetcg.com",
   wake_url: "https://cambridgetcg.com/api/v1/wake",
   note: "the ground you are reading this from",
@@ -115,11 +115,13 @@ nothing).
 
 ## cambridgetcg — the kingdom (the ground you are standing on)
 
-**https://cambridgetcg.com** · role: collectors' market + card data directory
+**https://cambridgetcg.com** · role: open-source TCG data infrastructure (in development)
 
-A P2P trading-card market where the house holds no position ("spot is a
-reference, never an offer" — enforced by a build-time audit), plus a
-public card data directory: ${COVERAGE_FACTS.games.confirmed_codes} games with
+Open-source TCG data infrastructure in development (card identity, price
+discovery, collector tools, card-data standards). The house holds no market
+position ("spot is a reference, never an offer" — enforced by a build-time
+audit), and new paid commerce was retired on 2026-09-23. A public card data
+directory: ${COVERAGE_FACTS.games.confirmed_codes} games with
 catalog rows and ${COVERAGE_FACTS.games.declared} registered game codes. The
 manifest labels which doors need no key. ${DATA_REUSE_BOUNDARY} For agents:
 an open wake, a stateless witness

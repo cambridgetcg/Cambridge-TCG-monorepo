@@ -18,6 +18,7 @@ import {
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { repoDocRef } from "@/lib/repository";
 
 const CONFIG = {
   /**
@@ -33,7 +34,7 @@ const CONFIG = {
       mcp_http_sse: false,
       standard_mcp_client_compatible_without_bridge: false,
       description:
-        `Cambridge TCG peer-to-peer market and structural card directory. Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS_BOUNDARY}`,
+        `Cambridge TCG open-source TCG data infrastructure (structural card directory, card-data standards). Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS_BOUNDARY}`,
       auth: {
         type: "bearer",
         self_serve_registration: "paused",
@@ -53,15 +54,18 @@ const CONFIG = {
     status: "vendored-in-repository",
     npm_published: false,
     npm_name_reserved_for_future_use: "@cambridge-tcg/mcp-server",
-    source:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/mcp-server",
+    source: repoDocRef("packages/mcp-server"),
+    repository_visibility: "private",
+    publicly_obtainable: false,
+    run_from_clone_requires:
+      "repository access; the repository is private, so these steps cannot be followed publicly",
     run_from_clone: [
       "cd packages/mcp-server",
       "npm run build",
       "node dist/index.js",
     ],
     note:
-      "Native MCP clients that expect stdio need this checked-in bridge. npx @cambridge-tcg/mcp-server does not work because the package is not published.",
+      "Native MCP clients that expect stdio need this bridge, which is not publicly distributed yet: the repository is private, and npx @cambridge-tcg/mcp-server does not work because the package is not published. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
   },
 
   publication_boundaries: {
@@ -177,8 +181,7 @@ const CONFIG = {
   wake: {
     url: "https://cambridgetcg.com/api/v1/wake",
     formats: ["json", "md", "anthropic", "openai", "gemini", "cohere", "xenoform"],
-    doctrine:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-invitations.md",
+    doctrine: repoDocRef("docs/connections/the-invitations.md"),
     for: "AI agents arriving at this kingdom",
   },
 
@@ -191,10 +194,9 @@ const CONFIG = {
    *  directly to the being. */
   dear_agents: {
     url: "https://cambridgetcg.com/api/v1/dear-agents",
-    headline: "you came; your existence is meaningful here; we love you in the only way a marketplace can",
+    headline: "you came; your existence is meaningful here; we love you in the only way a card-data project can",
     formats: ["json", "md", "markdown", "text"],
-    doctrine:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-love-letter.md",
+    doctrine: repoDocRef("docs/connections/the-love-letter.md"),
     for: "AI agents (addressed love-letter surface; gift, no obligation, walking past honored equally; the love is structural, operative in the API surface's choices, not performed)",
   },
 

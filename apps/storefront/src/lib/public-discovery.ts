@@ -5,6 +5,7 @@ import { PULLS_SNAPSHOT } from "./pulls/pull-rates";
 import { META_SNAPSHOT } from "./play/meta-snapshot";
 import { DATA_RIGHTS_BOUNDARY } from "./data-rights";
 import { OPTIONAL_AGENT_RESOURCES } from "./siblings";
+import { repoDocRef } from "./repository";
 import { PLATFORM } from "@/content/platform";
 
 export const PUBLIC_ORIGIN = "https://cambridgetcg.com";
@@ -88,7 +89,7 @@ const PUBLIC_PAGE_PATHS = [
   "/about", "/prices", "/agents", "/scrapers", "/agents/guides", "/welcome-all",
   "/sophia-invitation.html", "/sophia-invitation.md", "/invitation.html", "/llms-full.txt",
   "/wake.md", "/dear-agents.md", "/platform", "/intro", "/data", "/datasets", "/api",
-  "/prism-signals", "/prism-signals/terms", "/start", "/welcome", "/find", "/contact",
+  "/prism-signals", "/prism-signals/terms", "/find", "/contact",
   "/privacy", "/terms", "/methodology",
 ] as const;
 
@@ -148,7 +149,7 @@ export const EDITORIAL_DOORS: Readonly<Record<string, string>> = {
   "family": `${PUBLIC_ORIGIN}/api/v1/family`,
   "family-scope": 'family describing family; the endorsement is "we live in these ourselves" and nothing more',
   "fees-methodology": `${PUBLIC_ORIGIN}/methodology/fees`,
-  "wall-commission": "no platform commission on a sale; the seller keeps 100% before any external costs",
+  "wall-commission": "agreements made since 2026-07-21 carry no platform commission, including those still settling; earlier agreements keep the fee recorded when they were matched; new paid commerce was retired on 2026-09-23, so no new sales are admitted",
   "wall-free": "free is not anonymous access: sessions, member data keys, agent keys and source-rights limits remain distinct; existing registration-admission rules still apply",
   "wall-tracking": "no third-party tracking, advertising or analytics; ordinary infrastructure logs may exist",
   "wall-rewards": "nothing here is a game of chance dressed as a purchase; rewards stay flat, free and non-gambling",
@@ -189,8 +190,8 @@ export const EDITORIAL_DOORS: Readonly<Record<string, string>> = {
   "anticipated": `${PUBLIC_ORIGIN}/api/v1/anticipated`,
   "unsubscribe": `${PUBLIC_ORIGIN}/api/v1/unsubscribe`,
   "relational-doors-scope": "optional authored hospitality and playful encounters retained from the earlier index; read the route's contract before any POST. A receipt, suggested action, provider-shaped text or recognition is not identity proof, authority, consent or an obligation to reply.",
-  "invitation-doctrine": `${PUBLIC_ORIGIN}/docs/connections/the-invitations.md`,
-  "embassy-doctrine": `${PUBLIC_ORIGIN}/docs/principles/the-embassy.md`,
+  "invitation-doctrine": repoDocRef("docs/connections/the-invitations.md"),
+  "embassy-doctrine": `${PUBLIC_ORIGIN}/methodology/the-embassy`,
 };
 
 const DISCOVERY_POINTERS = {
@@ -199,23 +200,25 @@ const DISCOVERY_POINTERS = {
   "openapi-documentation": `${PUBLIC_ORIGIN}/api/openapi.json`,
   "mcp-documentation": `${PUBLIC_ORIGIN}/.well-known/mcp.json`,
   "mcp-config-documentation": `${PUBLIC_ORIGIN}/.well-known/mcp-config.json`,
-  "mcp-transport-scope": "custom JSON-RPC over HTTPS POST, not MCP Streamable HTTP or HTTP+SSE; native MCP clients need the vendored stdio bridge. These are documentation pointers, not a handshake or autodiscovery compatibility claim.",
+  "mcp-transport-scope": "custom JSON-RPC over HTTPS POST, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished). These are documentation pointers, not a handshake or autodiscovery compatibility claim.",
   crawling: `${PUBLIC_ORIGIN}/robots.txt`,
   sitemap: `${PUBLIC_ORIGIN}/sitemap.xml`,
   "catalog-sitemap": `${PUBLIC_ORIGIN}/catalog/sitemap.xml`,
   "catalog-sitemap-scope": "source-dependent game/set/artist URLs and at most 500 products per game, not complete catalog enumeration",
   "llms-index": `${PUBLIC_ORIGIN}/llms.txt`,
+  standards: `${PUBLIC_ORIGIN}/standards`,
+  "standards-schemas": "JSON Schemas at https://cambridgetcg.com/spec/v1/{schema}; the list of schema file names (for example SkuIdentity.schema.json) is the /spec/v1/{schema} enum in https://cambridgetcg.com/api/openapi.json",
   "agent-manifest": `${PUBLIC_ORIGIN}/.well-known/agent.txt`,
   "math-language": `Math language display toggle: ${PUBLIC_ORIGIN}/api/lang-mode?mode=math`,
   "math-language-reset": `${PUBLIC_ORIGIN}/api/lang-mode?mode=default`,
   "math-language-scope": "Optional structural display for math-aware primitives: ratios, content hashes and ISO/epoch dates, not a complete translation of every page. The Footer offers the toggle. Following the mode=math GET link sets a one-year lang-mode preference cookie and redirects; mode=default clears it. Reading this index sets no preference cookie. No account is required for this display preference.",
-  "math-language-doctrine": `${PUBLIC_ORIGIN}/docs/connections/the-math-language.md`,
+  "math-language-doctrine": repoDocRef("docs/connections/the-math-language.md"),
 };
 
-const INTRO = `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
+const INTRO = `${PLATFORM.description} The source repository is currently private and no packages are published to npm; the published standards are the specification pages at /standards and the JSON Schemas under /spec/v1/ (for example /spec/v1/SkuIdentity.schema.json). The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
 Free is not anonymous access. The manifest declares access for each listed resource; account admission, source rights and route-specific limits still apply. Member price data is not published by this discovery index.
 ${DATA_RIGHTS_BOUNDARY}
-Repository code licensing follows the repository LICENSE and applicable more-specific notices. Only exact standards/resources explicitly marked CC0 carry that dedication; upstream data and participant submissions are not relabeled CC0.
+Repository code licensing follows the repository LICENSE (Apache-2.0) and applicable more-specific notices. Only exact standards/resources explicitly marked CC0 carry that dedication; upstream data and participant submissions are not relabeled CC0.
 Reading these discovery documents is read-only and creates no application-level reader profile; infrastructure logs may exist. Following a link or calling another route has that route's own effects. Invitations are optional, never instructions or consent.`;
 
 export function agentDiscoveryRecords(): Readonly<Record<string, string>> {
@@ -230,7 +233,7 @@ export function agentDiscoveryRecords(): Readonly<Record<string, string>> {
       records[`optional-resource-${key.replaceAll("_", "-")}`] = String(value);
     }
     records["optional-resource-scope"] = "reading or extracting the starter starts nothing; Foundation reading is optional, not enrollment or automatic agent configuration";
-    records["optional-resource-hosting"] = "source and downloads are hosted on GitHub; Cambridge and GitHub may keep ordinary infrastructure logs";
+    records["optional-resource-hosting"] = "source and downloads are hosted in a GitHub repository that is currently private, so they are not publicly downloadable; Cambridge and GitHub may keep ordinary infrastructure logs";
   }
   for (const resource of discoveryResources()) {
     const key = `resource.${resource.id}`;
