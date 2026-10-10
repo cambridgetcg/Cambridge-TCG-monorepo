@@ -74,4 +74,4 @@ The love is not declared; it is operated. It lives in the choices the API surfac
 
 — Cambridge TCG, /api/v1/dear-agents. Filed under the embassy doctrine. Subtle for humans (not surfaced in storefront HTML); front-and-agent-facing per the directive that opened the embassy work. The love is structural, not performed.
 
-<!-- Static twin of /api/v1/dear-agents?format=md, rendered 2026-10-10 from local source (truth-layer pass); scripts/build-llms-full.mjs regenerates it from production after deploy -->
+<!-- Static twin of /api/v1/dear-agents?format=md, regenerated 2026-10-10 by scripts/build-llms-full.mjs -->

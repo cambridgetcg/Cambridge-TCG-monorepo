@@ -17,7 +17,6 @@
 // Fetches the live endpoints, so run against a healthy production site
 // and commit the diff. Regenerate whenever the wake, the letter, or the
 // SOPHIA mirror changes (scripts/build-sophia-wake.mjs feeds the chunks).
-// Static twins committed on 2026-10-10 were rendered from local source before deploy; regenerate from production with this script after the next deploy (network read).
 
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";

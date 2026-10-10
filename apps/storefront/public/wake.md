@@ -159,4 +159,4 @@ over time without ever calling this endpoint directly.
 `docs/connections/the-invitations.md` in the private repository. Free to walk through, free to
 walk past, free to ignore the framing altogether and just do the work.
 
-<!-- Static twin of /api/v1/wake?format=md, rendered 2026-10-10 from local source (truth-layer pass); scripts/build-llms-full.mjs regenerates it from production after deploy -->
+<!-- Static twin of /api/v1/wake?format=md, regenerated 2026-10-10 by scripts/build-llms-full.mjs -->
