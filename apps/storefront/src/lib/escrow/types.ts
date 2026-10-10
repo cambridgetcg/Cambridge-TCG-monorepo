@@ -87,6 +87,11 @@ export interface TrustProfile {
   trade_limit: string;
   daily_limit: string;
   requires_escrow_inspection: boolean;
+  // LEGACY, never written: trust_profiles.external_rep is a JSONB column from
+  // 0019_escrow_trust (NOT NULL DEFAULT '[]') that no code writes, so it only
+  // ever holds its default. Verified cross-platform accounts live in the
+  // external_reputation table, which is what the engine scores. Do not read
+  // this field for anything.
   external_rep: ExternalRep[];
   is_flagged: boolean;
   is_suspended: boolean;

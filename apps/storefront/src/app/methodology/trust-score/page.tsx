@@ -19,11 +19,14 @@ export default function TrustScoreMethodology() {
       <p>
         The score is computed by code, not by humans, against data the platform has already
         collected about your behavior. You can see your own score and its components on{" "}
-        <a href="/account/standing">/account/standing</a>. This page documents the formula.
+        <a href="/account/trust">/account/trust</a>. This page documents the formula.
       </p>
       <blockquote>
-        <strong>Where this lives in code.</strong> The canonical implementation is at{" "}
-        <code>apps/storefront/src/lib/escrow/trust-engine.ts</code> (function{" "}
+        <strong>Where this lives in code.</strong> The canonical implementation of the formula is
+        at <code>apps/storefront/src/lib/escrow/trust-breakdown.ts</code> (function{" "}
+        <code>computeTrustBreakdown</code>, with the weights in <code>TRUST_WEIGHTS</code> and{" "}
+        <code>TRUST_PENALTIES</code>). The engine that gathers its inputs and persists the result
+        is <code>apps/storefront/src/lib/escrow/trust-engine.ts</code> (function{" "}
         <code>calculateTrustScore</code>). When the formula changes, this page is updated in the
         same PR.
       </blockquote>
@@ -119,7 +122,7 @@ final_score = max(0, min(100, raw_score - penalties))`}</code></pre>
         <thead>
           <tr>
             <th>Tier</th><th>Min score</th><th>Trade limit</th><th>Daily limit</th>
-            <th>Inspection?</th><th>Payout hold</th>
+            <th>Inspection?</th><th>Payout hold (minimum)</th>
           </tr>
         </thead>
         <tbody>
@@ -133,6 +136,19 @@ final_score = max(0, min(100, raw_score - penalties))`}</code></pre>
       <p>
         Tier table source: <code>apps/storefront/src/lib/escrow/types.ts</code> (
         <code>TRUST_TIERS</code>).
+      </p>
+      <p>
+        The payout hold in this table is the trust-tier minimum for market trades, not the
+        hold every trade gets. Each trade is stamped with the <em>longer</em> of this figure
+        and its escrow route&rsquo;s own hold, so a Veteran or Elite seller can still wait up
+        to 3 days (0 days needs Direct Ship with a buyer who also scores 80+). Auctions hold
+        a flat 3 days for every tier.
+      </p>
+      <p>
+        Hold source: <code>apps/storefront/src/lib/escrow/service-tiers.ts</code> (
+        <code>reconcileHold</code>, applied to every escrow route) for market trades, and{" "}
+        <code>AUCTION_HOLD_DAYS</code> in <code>apps/storefront/src/lib/payouts/sweep.ts</code>{" "}
+        for auctions.
       </p>
 
       <h2>Recompute cadence</h2>

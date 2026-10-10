@@ -31,7 +31,32 @@ export {
   type TrustBreakdownInputs,
 } from "./trust-breakdown";
 
+/**
+ * Recompute and persist a user's trust score, then return the stored
+ * trust_profiles row with the engine's working attached as `breakdown`.
+ *
+ * Resolves `undefined` when the row is absent at the final read (it cascades
+ * with users, so a delete between the upsert and the read empties it). That
+ * is exactly what this function returned before the breakdown was attached,
+ * and it must stay that way: callers that dereference the result throw, and
+ * that throw is what keeps them closed. Spreading a missing row into
+ * `{ breakdown }` instead produced an object with no is_suspended and no
+ * limits, which canTrade read as an unsuspended account with no ceiling.
+ *
+ * The declared type still says TrustProfile because GET /api/escrow/trust
+ * dereferences the result unguarded (a missing row becomes a 500 there, as it
+ * always has). Widening it belongs with a guard in that route. New callers,
+ * and canTrade, use recalculateTrustProfile, whose type admits the gap.
+ */
 export async function calculateTrustScore(userId: string): Promise<TrustProfile> {
+  return (await recalculateTrustProfile(userId)) as TrustProfile;
+}
+
+/**
+ * calculateTrustScore with an honest return type: `undefined` when the
+ * trust_profiles row is missing after the recompute.
+ */
+export async function recalculateTrustProfile(userId: string): Promise<TrustProfile | undefined> {
   // Ensure trust profile exists
   await query(
     `INSERT INTO trust_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
@@ -205,9 +230,14 @@ export async function calculateTrustScore(userId: string): Promise<TrustProfile>
   if (trustScore >= 80) awardAchievement(userId, "trust_80").catch(() => {});
 
   const profile = await query(`SELECT * FROM trust_profiles WHERE user_id=$1`, [userId]);
+  const row = profile.rows[0] as TrustProfile | undefined;
+  // No row, no profile. Never manufacture one around the breakdown: an object
+  // without is_suspended / trade_limit / daily_limit passes every check in
+  // canTrade (undefined is falsy; any number > NaN is false).
+  if (!row) return undefined;
   // Publish the working alongside the answer. The row has no column for it —
   // it is derived, and deriving it twice is how the account page drifted.
-  return { ...profile.rows[0], breakdown } as TrustProfile;
+  return { ...row, breakdown };
 }
 
 // ── Pre-trade checks ──
@@ -217,8 +247,23 @@ export async function canTrade(userId: string, tradeValue: number): Promise<{
   reason?: string;
   warnings: string[];
 }> {
-  const profile = await calculateTrustScore(userId);
+  const profile = await recalculateTrustProfile(userId);
   const warnings: string[] = [];
+
+  // Fail closed. With no trust_profiles row there is no suspension flag and
+  // no limit to check the trade against. Before the breakdown landed this
+  // path threw (TypeError on profile.is_suspended), which aborted every
+  // caller before it wrote anything; an explicit refusal stops the same
+  // callers at the same point, with a reason instead of a 500.
+  if (!profile) {
+    return {
+      allowed: false,
+      // Neutral wording: some callers (auction offer acceptance) pass the
+      // reason to the counterparty rather than the account holder.
+      reason: "Trust profile could not be loaded, so this account can't trade right now. Try again shortly, or contact support if this continues.",
+      warnings,
+    };
+  }
 
   if (profile.is_suspended) {
     return { allowed: false, reason: `Account suspended: ${profile.suspended_reason}`, warnings };

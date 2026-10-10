@@ -12,6 +12,7 @@ import {
   TRUST_COMPONENT_LABELS as COMPONENT_LABELS,
   TRUST_PENALTY_LABELS as PENALTY_LABELS,
 } from "@/lib/escrow/trust-breakdown";
+import { resolveTrustTier } from "@/lib/escrow/trust-tier";
 
 import { Audience } from "@/lib/ui";
 type TrustTier = (typeof TRUST_TIERS)[number];
@@ -259,6 +260,20 @@ function EscrowThresholdsSection({ trustScore }: { trustScore: number }) {
   );
 }
 
+// TRUST_TIERS.payoutHoldDays is the trust-tier hold, not the hold a trade
+// gets. Settlement stamps market_trades.payout_hold_days from routeTrade,
+// which takes the LONGER of this figure and the escrow route's own hold
+// (reconcileHold in lib/escrow/service-tiers.ts), and auctions hold a flat 3
+// days whatever the tier. So the tier figure is a floor for market trades:
+// an Elite seller gets 0 days only on Direct Ship with a buyer who also
+// scores 80+. Say "at least", never promise the floor as the hold.
+function payoutHoldCopy(days: number): string {
+  if (days === 0) {
+    return "No trust-tier hold. On Direct Ship with a buyer who also scores 80+, payouts are released when escrow completes; other escrow routes hold 1–3 days, and auctions always hold 3 days.";
+  }
+  return `On market trades your payouts are held for at least ${days} day${days !== 1 ? "s" : ""}; the trade's escrow route can lengthen that, never shorten it. Auctions hold a flat 3 days.`;
+}
+
 const PLATFORM_OPTIONS = ["eBay", "Cardmarket", "TCGPlayer", "Discord", "Facebook", "Other"];
 
 export default function TrustProfilePage() {
@@ -297,10 +312,11 @@ export default function TrustProfilePage() {
         const [trustData, repData] = results;
         setProfile(trustData.profile);
         setReviews(trustData.reviews || []);
-        if (trustData.tier) {
-          const found = TRUST_TIERS.find((t) => t.name === trustData.tier);
-          if (found) setTier(found);
-        }
+        // The route sends the tier OBJECT; resolveTrustTier also takes a
+        // bare name. Comparing the object to t.name never matched, so every
+        // account used to render as New.
+        const found = resolveTrustTier(trustData.tier);
+        if (found) setTier(found);
         setExternalAccounts(repData.accounts || []);
         setLoading(false);
       })
@@ -422,49 +438,59 @@ export default function TrustProfilePage() {
         </div>
       </div>
 
-      {/* Score Breakdown — the engine's own working, rendered not recomputed */}
-      {breakdown && (
+      {/* Score Breakdown — the engine's own working, rendered not recomputed.
+          Without it, say so rather than hide the card or re-derive the bars;
+          the history sparkline does not depend on it and always renders. */}
       <div className="bg-surface rounded-lg p-6 mb-6">
         <h3 className="text-lg font-semibold text-ink mb-1">Score Breakdown</h3>
-        <p className="text-xs text-ink-faint mb-4">
-          {breakdown.floored
-            ? `Penalties (−${breakdown.penalty_total}) come to more than the ${breakdown.raw_score} points earned, so the score rests at 0 rather than going below it.`
-            : breakdown.penalty_total > 0
-              ? `${breakdown.raw_score} earned − ${breakdown.penalty_total} in penalties = ${breakdown.score}.`
-              : `The components add up to ${breakdown.score}.`}
-        </p>
-        <div className="space-y-3">
-          {COMPONENT_LABELS.map(([key, label]) => (
-            <BreakdownBar
-              key={key}
-              label={label}
-              value={breakdown.components[key].points}
-              max={breakdown.components[key].max}
-            />
-          ))}
-          {breakdown.penalty_total > 0 && (
-            <div className="pt-2 mt-2 border-t border-border-subtle">
-              <div className="flex items-baseline justify-between text-sm">
-                <span className="text-danger">Penalties</span>
-                <span className="text-danger font-mono">−{breakdown.penalty_total}</span>
-              </div>
-              <ul className="text-[10px] text-ink-faint mt-0.5 space-y-0.5">
-                {PENALTY_LABELS.map(([key, one, many]) => {
-                  const p = breakdown.penalties[key];
-                  if (p.count === 0) return null;
-                  return (
-                    <li key={key}>
-                      {p.count} {p.count === 1 ? one : many} (−{p.each} each)
-                    </li>
-                  );
-                })}
-              </ul>
+        {!breakdown ? (
+          <p className="text-xs text-ink-faint">
+            Score breakdown unavailable. The per-component working was not
+            returned with your score of {score}, so the components are not
+            shown here rather than estimated.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-ink-faint mb-4">
+              {breakdown.floored
+                ? `Penalties (−${breakdown.penalty_total}) come to more than the ${breakdown.raw_score} points earned, so the score rests at 0 rather than going below it.`
+                : breakdown.penalty_total > 0
+                  ? `${breakdown.raw_score} earned − ${breakdown.penalty_total} in penalties = ${breakdown.score}.`
+                  : `The components add up to ${breakdown.score}.`}
+            </p>
+            <div className="space-y-3">
+              {COMPONENT_LABELS.map(([key, label]) => (
+                <BreakdownBar
+                  key={key}
+                  label={label}
+                  value={breakdown.components[key].points}
+                  max={breakdown.components[key].max}
+                />
+              ))}
+              {breakdown.penalty_total > 0 && (
+                <div className="pt-2 mt-2 border-t border-border-subtle">
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-danger">Penalties</span>
+                    <span className="text-danger font-mono">−{breakdown.penalty_total}</span>
+                  </div>
+                  <ul className="text-[10px] text-ink-faint mt-0.5 space-y-0.5">
+                    {PENALTY_LABELS.map(([key, one, many]) => {
+                      const p = breakdown.penalties[key];
+                      if (p.count === 0) return null;
+                      return (
+                        <li key={key}>
+                          {p.count} {p.count === 1 ? one : many} (−{p.each} each)
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
         <TrustHistorySparkline />
       </div>
-      )}
 
       {/* Escrow Trade Thresholds */}
       <EscrowThresholdsSection trustScore={score} />
@@ -511,11 +537,7 @@ export default function TrustProfilePage() {
         </div>
         <div className="bg-surface rounded-lg p-6">
           <h3 className="text-lg font-semibold text-ink mb-3">Payout Hold</h3>
-          <p className="text-sm text-ink-muted">
-            {tier.payoutHoldDays === 0
-              ? "Your payouts are released instantly."
-              : `Your payouts are held for ${tier.payoutHoldDays} day${tier.payoutHoldDays !== 1 ? "s" : ""}.`}
-          </p>
+          <p className="text-sm text-ink-muted">{payoutHoldCopy(tier.payoutHoldDays)}</p>
           {tier.requiresInspection && (
             <p className="text-xs text-accent mt-2">Escrow inspection required for trades.</p>
           )}
@@ -541,9 +563,12 @@ export default function TrustProfilePage() {
           <div className="mt-3 text-xs text-ink-faint space-y-1">
             <p>At {nextTier.name}: trade limit <Money value={nextTier.tradeLimit} />, daily limit <Money value={nextTier.dailyLimit} /></p>
             {nextTier.payoutHoldDays === 0 ? (
-              <p>Instant payouts</p>
+              <p>No trust-tier payout hold (the escrow route can still hold up to 3 days; auctions: 3 days)</p>
             ) : (
-              <p>Payout hold: {nextTier.payoutHoldDays} day{nextTier.payoutHoldDays !== 1 ? "s" : ""}</p>
+              <p>
+                Payout hold: at least {nextTier.payoutHoldDays} day{nextTier.payoutHoldDays !== 1 ? "s" : ""} on
+                market trades (auctions: 3 days)
+              </p>
             )}
             {!nextTier.requiresInspection && tier.requiresInspection && (
               <p>No escrow inspection required</p>

@@ -10,6 +10,7 @@ import {
   TRUST_PENALTY_LABELS,
   type TrustBreakdownInputs,
 } from "./trust-breakdown";
+import type { TrustScoreBreakdown } from "./types";
 
 // The drift this file exists to prevent:
 //
@@ -259,5 +260,115 @@ describe("the identity holds across the whole input space", () => {
       expect(b.score).toBeGreaterThanOrEqual(0);
       expect(b.score).toBeLessThanOrEqual(TRUST_MAX_SCORE);
     }
+  });
+});
+
+describe("golden values: the methodology page's worked examples, computed", () => {
+  // Each figure /methodology/trust-score quotes, checked two ways: the page
+  // still says it, and computeTrustBreakdown still produces it. The identity
+  // tests above prove the parts add up; these prove each part is the right
+  // size. Where the page gives no example, the case is derived from the
+  // formula it states and says so.
+  const page = readFileSync(
+    join(__dirname, "../../app/methodology/trust-score/page.tsx"),
+    "utf8",
+  ).replace(/\s+/g, " ");
+  const only = (patch: Partial<TrustBreakdownInputs>) => computeTrustBreakdown({ ...nobody, ...patch });
+
+  it("completion: 4 of 5 trades → 28 points; 5 of 5 → 35", () => {
+    expect(page).toContain("4 of 5 trades completed gets 28 points; 5 of 5 gets the full 35");
+    expect(only({ totalTrades: 5, completedTrades: 4 }).components.completion.points).toBe(28);
+    expect(only({ totalTrades: 5, completedTrades: 5 }).components.completion.points).toBe(35);
+    expect(page).toContain("New users with zero trades get 0 here");
+    expect(only({ totalTrades: 0, completedTrades: 0 }).components.completion.points).toBe(0);
+    // Formula-derived (rounded, not truncated): 2/3 × 35 = 23.33 → 23; 1/3 × 35 = 11.67 → 12.
+    expect(only({ totalTrades: 3, completedTrades: 2 }).components.completion.points).toBe(23);
+    expect(only({ totalTrades: 3, completedTrades: 1 }).components.completion.points).toBe(12);
+  });
+
+  it("reviews: 5★ average → 30; 3★ average → 18", () => {
+    expect(page).toContain("a 5-star average yields the full 30, a 3-star average yields 18");
+    expect(only({ avgRating: 5 }).components.review.points).toBe(30);
+    expect(only({ avgRating: 3 }).components.review.points).toBe(18);
+    // Formula-derived: 4.1/5 × 30 = 24.6 → 25 (a floor would give 24).
+    expect(only({ avgRating: 4.1 }).components.review.points).toBe(25);
+  });
+
+  it("volume: £100 → 10; £1,000 → 15; £10,000 → 15 (capped)", () => {
+    expect(page).toContain("£100 → 10 points; £1,000 → 15; £10,000 → also 15 (capped)");
+    expect(only({ totalVolume: 100 }).components.volume.points).toBe(10);
+    expect(only({ totalVolume: 1_000 }).components.volume.points).toBe(15);
+    expect(only({ totalVolume: 10_000 }).components.volume.points).toBe(15);
+    // Formula-derived: log10 of anything below £1 is clamped to log10(1) = 0.
+    expect(only({ totalVolume: 0 }).components.volume.points).toBe(0);
+    expect(only({ totalVolume: 0.5 }).components.volume.points).toBe(0);
+    // Formula-derived: log10(200) × 5 = 11.505 → 12 (a floor would give 11).
+    expect(only({ totalVolume: 200 }).components.volume.points).toBe(12);
+  });
+
+  it("account age: 2 points per month, capped at 10", () => {
+    expect(page).toContain("capped at 5 months for the maximum 10 points (2 points per month)");
+    expect(only({ monthsActive: 2 }).components.age.points).toBe(4);
+    expect(only({ monthsActive: 5 }).components.age.points).toBe(10);
+    expect(only({ monthsActive: 12 }).components.age.points).toBe(10);
+    // Math.round(months × 2), pinned against both neighbours:
+    //   1.3 months → 2.6 → 3 (Math.floor would give 2)
+    //   1.1 months → 2.2 → 2 (Math.ceil would give 3)
+    //   0.25 months → 0.5 → 1 (Math.floor would give 0)
+    expect(only({ monthsActive: 1.3 }).components.age.points).toBe(3);
+    expect(only({ monthsActive: 1.1 }).components.age.points).toBe(2);
+    expect(only({ monthsActive: 0.25 }).components.age.points).toBe(1);
+  });
+
+  it("external reputation: 5 per verified account, capped at 10", () => {
+    expect(page).toContain("5 points per verified cross-platform reputation entry, capped at 10");
+    expect(only({ externalRepCount: 1 }).components.external.points).toBe(5);
+    expect(only({ externalRepCount: 2 }).components.external.points).toBe(10);
+    expect(only({ externalRepCount: 3 }).components.external.points).toBe(10);
+  });
+
+  it("each penalty costs what the table says, per occurrence", () => {
+    const rows: [string, Partial<TrustBreakdownInputs>, keyof TrustScoreBreakdown["penalties"], number][] = [
+      ["−10 per open dispute", { openDisputes: 2 }, "openDisputes", 10],
+      ["−15 per lost dispute", { disputesLost: 2 }, "disputesLost", 15],
+      ["−8 per split (half-credit)", { disputesSplit: 2 }, "disputesSplit", 8],
+      ["−20 per signal", { fraudSignals: 2 }, "fraudSignals", 20],
+    ];
+    for (const [text, patch, key, each] of rows) {
+      expect(page, text).toContain(text);
+      const b = computeTrustBreakdown({ ...exemplary, ...patch });
+      expect(b.penalties[key], text).toEqual({ count: 2, each, points: 2 * each });
+      expect(b.score, text).toBe(100 - 2 * each);
+    }
+  });
+
+  it("final score: max(0, min(100, raw − penalties)), floor included", () => {
+    expect(page).toContain("final_score = max(0, min(100, raw_score - penalties))");
+    // Worked through from the examples above: 4 of 5 completed (28), 3★ (18),
+    // £100 (10), 2 months (4), one verified account (5) = 65.
+    const earned: Partial<TrustBreakdownInputs> = {
+      totalTrades: 5,
+      completedTrades: 4,
+      avgRating: 3,
+      totalVolume: 100,
+      monthsActive: 2,
+      externalRepCount: 1,
+    };
+    // One open dispute (−10) → 55.
+    const b = only({ ...earned, openDisputes: 1 });
+    expect(b.raw_score).toBe(65);
+    expect(b.penalty_total).toBe(10);
+    expect(b.score).toBe(55);
+    // Add a lost dispute and two fraud signals: 65 − (10 + 15 + 40) = 0
+    // exactly, so the floor did not bite.
+    const even = only({ ...earned, openDisputes: 1, disputesLost: 1, fraudSignals: 2 });
+    expect(even.penalty_total).toBe(65);
+    expect(even.score).toBe(0);
+    expect(even.floored).toBe(false);
+    // A third fraud signal: 65 − 85 = −20, floored at 0, and admitted.
+    const floored = only({ ...earned, openDisputes: 1, disputesLost: 1, fraudSignals: 3 });
+    expect(floored.penalty_total).toBe(85);
+    expect(floored.score).toBe(0);
+    expect(floored.floored).toBe(true);
   });
 });
