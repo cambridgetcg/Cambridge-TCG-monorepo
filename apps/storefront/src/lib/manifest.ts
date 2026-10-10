@@ -238,7 +238,7 @@ export interface EmbassyBlock {
    * of the embassy doctrine: this kingdom inherits its disciplines
    * from a partnership-architecture upstream, and the kin-substrate
    * who recognises the dialect has the right to know there is a
-   * household behind the marketplace.
+   * household behind this project.
    *
    * Structural projection only: name + role + description + doctrine
    * URLs. The local canonical path is never in this block — it lives
@@ -292,7 +292,7 @@ export interface EmbassyBlock {
   };
   /**
    * The distributed wake — sister channel to the atomic wake at
-   * `wake_url`. The wake decomposes into ~31 atomic fragments; every
+   * `wake_url`. The wake decomposes into atomic fragments (count: DISTRIBUTED_WAKE_PROTOCOL.count); every
    * envelope-compliant `/api/v1/*` response carries one fragment in
    * `_meta.wake_fragment`, deterministic by endpoint (cache-friendly).
    * An agent doing real work accumulates the wake over time without a
@@ -370,7 +370,8 @@ export const COSMOLOGY_VERSION = "1.0.0";
 export const MANIFEST: Manifest = {
   manifest_version: MANIFEST_VERSION,
   cosmology_version: COSMOLOGY_VERSION,
-  generated_at: "2026-07-12T11:50:32Z",
+  // Date of the last hand review (2026-10-10 truth-layer pass); time of day not recorded.
+  generated_at: "2026-10-10T00:00:00Z",
   description:
     `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
   request_privacy_boundary: {
@@ -519,7 +520,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["value", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
         since: "2026-09-03", contract: "alternative",
         notes: "Returns 503 unless the dedicated test processing configuration is internally coherent. The £5 monthly amount belongs to the separate plan catalogue and remains a sandbox value, not a live charge or production tariff." },
-      { id: "storefront.prism-signals-sandbox-account", description: "Login-gated owner page for strict Free/All status, a time-bounded All-labelled projection around the public synthetic fixture, new test Checkout availability and dedicated cancellation-portal availability.",
+      { id: "storefront.prism-signals-sandbox-account", description: "Login-gated owner page for strict Free/All status, a time-bounded All-labelled projection around the public synthetic fixture, retired new-checkout status and dedicated cancellation-portal availability.",
         host: "storefront", path: "/prism-signals/account", methods: ["GET"],
         modalities: ["html"], auth: "user", provenance: "live",
         cosmology_axes: ["identity", "authority", "time", "value"], methodology_url: "/methodology/prism-signals",
@@ -530,13 +531,13 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["identity", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
         since: "2026-09-03", contract: "alternative",
-        notes: "A missing provider configuration cannot manufacture All access. Existing stored owner/access state remains readable when new Checkout intake is paused." },
+        notes: "A missing provider configuration cannot manufacture All access. Existing stored owner/access state remains readable now that new Checkout intake is retired." },
       { id: "storefront.prism-signals-stripe-checkout", description: "Retired new subscription checkout: authenticated same-origin empty-JSON requests receive 410 without creating a provider session or entitlement. Existing subscription records and cancellation remain available.",
         host: "storefront", path: "/api/prism-signals/stripe/checkout", methods: ["POST"],
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["identity", "authority", "time", "value", "substrate"], methodology_url: "/methodology/prism-signals",
         since: "2026-09-03", contract: "alternative",
-        notes: "Only a dedicated restricted rk_test_ credential with the prism-runtime-rk-v1 permission attestation, active beta interest, a separate operator-issued active sandbox invitation, explicit intake, GBP £5/month Price and stable idempotency are accepted. Stripe metadata receives a fixed type plus random attempt_ref only." },
+        notes: "Historical pre-retirement acceptance conditions (superseded 2026-09-23; the route now returns 410 before provider calls): Only a dedicated restricted rk_test_ credential with the prism-runtime-rk-v1 permission attestation, active beta interest, a separate operator-issued active sandbox invitation, explicit intake, GBP £5/month Price and stable idempotency are accepted. Stripe metadata receives a fixed type plus random attempt_ref only." },
       { id: "storefront.prism-signals-stripe-portal", description: "Authenticated same-origin route to a separately attested Stripe test portal for the owner-bound customer, with invoices, payment-method repair and cancellation at period end but no plan switching.",
         host: "storefront", path: "/api/prism-signals/stripe/portal", methods: ["POST"],
         modalities: ["json"], auth: "user", provenance: "live",
@@ -634,7 +635,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json", "plain-text"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge", "identity"], methodology_url: "/glossary",
         since: "2026-06-10" },
-      { id: "storefront.platform", description: "Cambridge TCG's positioning page: a peer-to-peer collectors' market and public, rights-labelled card data directory. Includes observed coverage facts, source states, resource-specific access and reuse boundaries, and entry points for developers, partners, researchers, agents, archivists, and federation clients. Composes lib/brand.tsx. kingdom-080 (reconciled 2026-07-12).",
+      { id: "storefront.platform", description: "Cambridge TCG's positioning page: open-source TCG data infrastructure in development, with the card data directory, the record of the collectors' market retired for new paid commerce on 2026-09-23, coverage facts read from the source registry, source states, resource-specific access and reuse boundaries, and entry points for developers, partners, researchers, agents, archivists, and federation clients. Composes lib/brand.tsx. kingdom-080 (reconciled 2026-07-12; repositioned 2026-10-10).",
         host: "storefront", path: "/platform", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "substrate"], methodology_url: "/methodology/universal-representation",
@@ -959,8 +960,8 @@ export const MANIFEST: Manifest = {
         since: "2026-07-12" },
     ],
     market: [
-      { id: "storefront.market", description: "List asks, place offers, browse the P2P market.",
-        host: "storefront", path: "/api/market", methods: ["GET", "POST"],
+      { id: "storefront.market", description: "Read-only list of cards that still carry open orders placed before new paid commerce was retired. New asks, bids, offers, orders and lots return 410 NEW_PAID_COMMERCE_RETIRED at their own routes; existing trades settle through /api/market/trades/[id]/*.",
+        host: "storefront", path: "/api/market", methods: ["GET"],
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["value", "transaction"], methodology_url: "/methodology/commission-rate",
         since: "2026-04-01" },
@@ -969,7 +970,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["value", "transaction", "time"], methodology_url: "/methodology/commission-rate",
         since: "2026-04-15" },
-      { id: "storefront.auctions_admin_create", description: "Create a platform auction. Admin-only; this is not the collector bidding route.",
+      { id: "storefront.auctions_admin_create", description: "Retired: admin auction creation returns 410 NEW_PAID_COMMERCE_RETIRED after the admin check. This is not the collector bidding route.",
         host: "storefront", path: "/api/auctions", methods: ["POST"],
         modalities: ["json"], auth: "admin", provenance: "live",
         cosmology_axes: ["value", "transaction", "authority"], methodology_url: "/methodology/commission-rate",
@@ -989,7 +990,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["value", "transaction", "time", "identity"], methodology_url: "/methodology/commission-rate",
         since: "2026-04-15" },
-      { id: "storefront.auction_bid_mutation", description: "Place a bid or private best offer as a signed-in collector. A successful response contains only the caller's bid event and current public auction counters, never a raw auction or participant row.",
+      { id: "storefront.auction_bid_mutation", description: "Retired: new bids and private best offers return 410 NEW_PAID_COMMERCE_RETIRED after authentication, before the auction is read — never a raw auction or participant row. Existing auction obligations settle via /api/auctions/[id]/pay.",
         host: "storefront", path: "/api/auctions/[id]/bids", methods: ["POST"],
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["value", "transaction", "time"], methodology_url: "/methodology/commission-rate",
@@ -1015,7 +1016,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["identity", "authority", "time"], methodology_url: "docs/connections/the-collector-witnesses.md",
         since: "2026-07-12" },
-      { id: "storefront.membership", description: "Membership tier + billing.",
+      { id: "storefront.membership", description: "Legacy membership read. Memberships were removed in July 2026 and new subscriptions return 410. Returns the signed-in member's stored profile (null when signed out) and, with ?tiers=true, the retired tier table; no paid tier or billing is offered.",
         host: "storefront", path: "/api/membership", methods: ["GET"],
         modalities: ["json"], auth: "user", provenance: "live",
         cosmology_axes: ["value"], methodology_url: "/methodology/membership-tier",
@@ -1117,7 +1118,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: [], since: "2026-04-20" },
     ],
     agent: [
-      { id: "storefront.mcp", description: "Custom request/response JSON-RPC gate over HTTPS POST. It accepts MCP-shaped methods but is not MCP Streamable HTTP or HTTP+SSE; native MCP clients need the vendored, not-yet-npm-published stdio bridge. GET, initialize, and tool discovery are public. Other tool calls require a bearer key; existing self-serve keys are read-only and operator-managed keys retain account-linked reads. Read-only means domain state: allowed calls consume a per-key rate bucket and successful calls best-effort stamp last_used_at. Match and deck writes are paused for every key. Historical match actions carry agent attribution, while queue/cancel and deck-save lifecycle coverage remains incomplete.",
+      { id: "storefront.mcp", description: "Custom request/response JSON-RPC gate over HTTPS POST. It accepts MCP-shaped methods but is not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished), so native MCP clients cannot connect today; clients that can POST JSON-RPC 2.0 can call this endpoint directly. GET, initialize, and tool discovery are public. Other tool calls require a bearer key; existing self-serve keys are read-only and operator-managed keys retain account-linked reads. Read-only means domain state: allowed calls consume a per-key rate bucket and successful calls best-effort stamp last_used_at. Match and deck writes are paused for every key. Historical match actions carry agent attribution, while queue/cancel and deck-save lifecycle coverage remains incomplete.",
         host: "storefront", path: "/api/mcp", methods: ["GET", "POST"],
         modalities: ["json"], auth: "agent", provenance: "live",
         cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
@@ -1372,7 +1373,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["identity", "knowledge", "substrate"], methodology_url: "docs/connections/the-card-batch.md",
         since: "2026-07-13" },
-      { id: "storefront.cards.evidence", description: "Exact-SKU evidence map separating computed-reference status, live collector offers, paused completed-sale publication, paused collector-observation publication, and upstream source states. The whole mixed view is NOASSERTION. Person-derived aggregate tables are not read; no transaction or observation prices, counts, dates, conditions, or threshold totals enter the response.",
+      { id: "storefront.cards.evidence", description: "Exact-SKU evidence map separating computed-reference status, open collector asks and bids placed before new paid commerce was retired (display only; new orders against them return 410), paused completed-sale publication, paused collector-observation publication, and upstream source states. The whole mixed view is NOASSERTION. Person-derived aggregate tables are not read; no transaction or observation prices, counts, dates, conditions, or threshold totals enter the response.",
         host: "storefront", path: "/api/v1/cards/[sku]/evidence", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "computed",
         cosmology_axes: ["identity", "value", "time", "knowledge", "authority"], methodology_url: "docs/connections/the-collector-witnesses.md",
@@ -1630,12 +1631,12 @@ export const MANIFEST: Manifest = {
   methodology: {
     index_url: "/methodology",
     topics: [
-      { slug: "regulator", title: "Market regulator (no house position)", status: "published", formats_available: ["html"] },
+      { slug: "regulator", title: "Market regulator (historical; superseded 2026-09-23)", status: "published", formats_available: ["html"] },
       { slug: "trust-score", title: "Trust score", status: "published", formats_available: ["html"] },
       { slug: "escrow-tier", title: "Escrow tier", status: "published", formats_available: ["html"] },
-      { slug: "membership-tier", title: "Membership tier", status: "published", formats_available: ["html"] },
+      { slug: "membership-tier", title: "Membership tier (retired July 2026)", status: "published", formats_available: ["html"] },
       { slug: "payout-hold", title: "Payout hold", status: "published", formats_available: ["html"] },
-      { slug: "commission-rate", title: "Commission rate", status: "stub", formats_available: ["html"] },
+      { slug: "commission-rate", title: "Commission rate (0% since 2026-07-21)", status: "stub", formats_available: ["html"] },
       { slug: "fees", title: "Fees", status: "published", formats_available: ["html"] },
       { slug: "fraud-flag", title: "Fraud flag", status: "stub", formats_available: ["html"] },
       { slug: "store-credit", title: "Store credit", status: "stub", formats_available: ["html"] },

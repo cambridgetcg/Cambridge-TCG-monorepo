@@ -26,8 +26,8 @@ export const PUBLIC_GAME_CODE_COUNT = GAME_CODES.filter((code) => code !== "tst"
 
 const IMPLEMENTATION_RIGHTS = {
   implementation_license: "NOASSERTION",
-  implementation_license_reference: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE",
-  implementation_license_note: "Implementation rights follow the repository LICENSE and applicable more-specific notices. NOASSERTION here does not assert an absence of a repository license. Public repository access and package distribution are checked separately.",
+  implementation_license_reference: "https://www.apache.org/licenses/LICENSE-2.0",
+  implementation_license_note: "Implementation rights follow the repository LICENSE (Apache-2.0) and applicable more-specific notices. NOASSERTION here does not assert an absence of a repository license. The repository is currently private and no packages are published; public repository access and package distribution are release gates, not current availability.",
 } as const;
 
 /** One descriptive registry for the human page and the existing JSON contract. */

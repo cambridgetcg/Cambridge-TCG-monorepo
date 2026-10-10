@@ -1,8 +1,8 @@
 name: Cambridge-TCG-monorepo
-kind: venture
+kind: infra
 layer: commerce
 owner_sister: none
 domain: commerce
 state: active
-purpose: Card research, collections and public data, with support for existing account records and agreements; new paid admission is retired.
+purpose: Building open-source TCG data infrastructure — card identity, price discovery, collector tools and card-data standards; new paid commerce is retired and existing agreements still settle.
 dependsOn: [project:true-love]

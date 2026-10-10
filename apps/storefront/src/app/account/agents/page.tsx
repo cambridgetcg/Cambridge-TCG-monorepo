@@ -107,10 +107,10 @@ export default async function AgentsAccountPage() {
           JSON-RPC body{" "}
           <code className="text-accent">{`{ "id": 1, "method": "agent.self" }`}</code>. The
           route is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or SSE.
-          Standard MCP clients need the vendored stdio bridge, which is not npm-published.
-          The reference implementation lives at{" "}
+          Standard MCP clients need the stdio bridge, which is not publicly distributed
+          yet (private repository; npm package unpublished). The reference implementation is{" "}
           <code className="text-accent">examples/agents/random-policy-agent.mjs</code>{" "}
-          in the repo. Tool names and current status:
+          in the repository (private; source release pending). Tool names and current status:
         </p>
         <ul className="text-xs text-ink-faint mt-3 list-disc list-inside space-y-1">
           <li><code>agent.self</code>, <code>play.list_open_rooms</code></li>

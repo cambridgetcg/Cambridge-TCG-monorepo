@@ -148,8 +148,11 @@ The SKU, data-spec and data-ingest package manifests currently mark them
 `private: true` and export workspace source. On 2026-09-29, unauthenticated
 checks of the GitHub repository reference and license API returned 404. This
 does not establish whether the repository is absent or private, and does not
-verify a public release. Do not advertise public clone access, npm installation
-or an independently released conformance suite until checked.
+verify a public release. Resolved 2026-10-10: an authenticated `gh repo view`
+reports PRIVATE, and every checked @cambridge-tcg npm name returns E404. Public
+clone and npm installation remain unavailable. Do not advertise public clone
+access, npm installation or an independently released conformance suite until
+checked.
 
 Before release, verify the intended repository visibility, exact release/tag,
 artifact contents, applicable code/specification notices, dependency licenses,

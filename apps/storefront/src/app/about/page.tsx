@@ -23,9 +23,9 @@ export default function AboutPage() {
 
         <section aria-labelledby="about-open" className="mt-10 grid gap-8 border-t border-border-subtle pt-6 md:grid-cols-2">
           <div>
-            <h2 id="about-open" className="text-xl font-semibold text-ink">Open-source, with clear boundaries</h2>
-            <p className="mt-3 text-sm leading-6 text-ink-muted">The repository contains an Apache-2.0 code license; covered specification text has a separate CC0 dedication. Card artwork, provider data and personal records retain their own rights. Every data release needs its own permission.</p>
-            <p className="mt-3 text-sm leading-6 text-ink-muted">Reference packages currently live in the workspace. Public repository access, package distribution and the license inventory are release checks on the roadmap.</p>
+            <h2 id="about-open" className="text-xl font-semibold text-ink">Open-source direction, with clear boundaries</h2>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">Code is licensed Apache-2.0 (root LICENSE) and specification text has a separate CC0 dedication. Card artwork, provider data and personal records keep their own rights; every data release needs its own permission.</p>
+            <p className="mt-3 text-sm leading-6 text-ink-muted">What is published today: the standards, as specification pages under <Link href="/standards" className={link}>/standards</Link> and JSON Schemas under /spec/v1/. Source-code release is pending: the repository is currently private and the reference packages are not on npm.</p>
           </div>
           <div>
             <h2 className="text-xl font-semibold text-ink">Useful standards earn adoption</h2>

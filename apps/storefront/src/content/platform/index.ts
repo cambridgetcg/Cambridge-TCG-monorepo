@@ -1,9 +1,11 @@
+import { REPOSITORY_URL, REPOSITORY_VISIBILITY, REPOSITORY_VISIBILITY_CHECKED } from "@/lib/repository";
+
 /** Authored product direction. Status describes source review, never live coverage. */
 export const PLATFORM = {
   title: "Cambridge TCG — open-source TCG data infrastructure",
   description: "Building open-source tools and shared standards for card identity, images, prices and market data.",
   mission: "Make trading-card data easier to identify, connect and use responsibly.",
-  codeReference: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+  sourceRepository: { url: REPOSITORY_URL, visibility: REPOSITORY_VISIBILITY, publicly_cloneable: false, npm_packages_published: false, checked: REPOSITORY_VISIBILITY_CHECKED },
 } as const;
 
 export const DATA_FOUNDATIONS = [
@@ -80,7 +82,7 @@ export const INTEGRATION_ROADMAP = {
   scope: "planning_snapshot",
   positioning: PLATFORM.description,
   timing: "Dependency-ordered milestones; no release dates or live-service guarantees.",
-  release_status: "Reference packages are workspace-only. Public repository access and package distribution require verification before release.",
+  release_status: "Standards are published as specification pages under /standards and JSON Schemas under /spec/v1/ (specification prose CC0-1.0). Source-code release is pending: the repository is currently private and the reference packages are unpublished workspace packages, not npm releases.",
   rights: "Code, specification text, images and source data have separate terms. Normalization does not create redistribution rights.",
   foundations: DATA_FOUNDATIONS,
   stages: DELIVERY_STAGES,

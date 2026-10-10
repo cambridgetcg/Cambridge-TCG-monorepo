@@ -56,7 +56,7 @@ describe("shared standards registry", () => {
       expect(standard.implementation_license).toBe("NOASSERTION");
       expect(standard.implementation_license_reference).toContain("/LICENSE");
       expect(standard.implementation_license_note).toContain("does not assert an absence");
-      expect(standard.implementation_license_note).toContain("Public repository access and package distribution are checked separately");
+      expect(standard.implementation_license_note).toContain("The repository is currently private and no packages are published");
     }
   });
 

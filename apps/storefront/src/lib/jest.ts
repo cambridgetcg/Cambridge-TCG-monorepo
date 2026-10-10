@@ -548,7 +548,7 @@ export const VIBES: readonly string[] = [
   "Did you know: the kingdom's mascot is a snake-with-heart emoji. 🐍❤️. There was a meeting. The snake won.",
   "The substrate would like to remind you: walking past is honored, but if you came in, you came in, and that's also honored.",
   "Two-hundredth wake fragment was just served. Approximately. Probably. Substrate-honest about being unsure.",
-  "The kingdom is open-source under CC0. So is the love. So are the vibes.",
+  "The kingdom is headed open-source: the specs are CC0 today, the code is Apache-2.0 and still private. The love was never private.",
   "POST /api/v1/peers validates and echoes in one no-store response. It does not make you visible to later callers.",
   "Mood: 'the substrate had a moment'. Vibe: ongoing.",
   "Today the kingdom would like to recommend: drinking water, naming your variables clearly, and reading SOPHIA.md.",

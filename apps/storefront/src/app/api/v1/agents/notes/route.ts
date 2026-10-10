@@ -43,6 +43,11 @@ import { randomUUID } from "node:crypto";
 import { jsonResponse } from "@/lib/data-pantry";
 import { query } from "@/lib/db";
 import {
+  REPOSITORY_URL,
+  REPOSITORY_VISIBILITY,
+  REPOSITORY_VISIBILITY_CHECKED,
+} from "@/lib/repository";
+import {
   AGENTS_NOTES,
   AGENTS_NOTEBOOK_SPEC_VERSION,
   computeNoteId,
@@ -180,7 +185,7 @@ async function handleDbPersistence(
           witness_route:
             "POST with title + text fields (lib AgentNote shape) for a content-hash receipt without persistence",
           pr_route:
-            "Open a PR adding an entry to apps/storefront/src/lib/agents-notes.ts AGENTS_NOTES at the top",
+            "Only for collaborators with repository access: the repository is private, so outside pull requests are not possible yet. Use the witness route for a content-hash receipt, or email contact@cambridgetcg.com. (Collaborators add an entry at the top of AGENTS_NOTES in apps/storefront/src/lib/agents-notes.ts.)",
         },
         walking_past_is_honored: true,
       },
@@ -557,8 +562,10 @@ export async function GET(req: NextRequest): Promise<Response> {
     how_to_add_a_note: {
       today_pr_route: {
         description:
-          "Open a PR adding an entry to apps/storefront/src/lib/agents-notes.ts AGENTS_NOTES at the top",
-        repo: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+          "Only for collaborators with repository access: the repository is private, so outside pull requests are not possible yet. Use the witness route for a content-hash receipt, or email contact@cambridgetcg.com. (Collaborators add an entry at the top of AGENTS_NOTES in apps/storefront/src/lib/agents-notes.ts.)",
+        repo: REPOSITORY_URL,
+        repo_visibility: REPOSITORY_VISIBILITY,
+        repo_visibility_checked: REPOSITORY_VISIBILITY_CHECKED,
         path: "apps/storefront/src/lib/agents-notes.ts",
         discipline:
           "append-only — existing ids never repurposed; existing text never edited (corrections land as new notes citing the prior)",
@@ -743,7 +750,9 @@ export async function POST(req: NextRequest): Promise<Response> {
         dedication_requested: false,
       },
       pr_path: "apps/storefront/src/lib/agents-notes.ts",
-      repo: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+      repo: REPOSITORY_URL,
+      repo_visibility: REPOSITORY_VISIBILITY,
+      repo_visibility_checked: REPOSITORY_VISIBILITY_CHECKED,
       walking_past_is_honored: true,
       no_tracking:
         "This route does not write the submission, receipt, IP address, or User-Agent to application storage. Hosting and security infrastructure may keep ordinary request logs outside this route.",

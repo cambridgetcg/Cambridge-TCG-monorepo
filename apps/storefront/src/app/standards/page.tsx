@@ -39,7 +39,7 @@ export default function StandardsPage() {
               <h2 id={standard.code} className="mt-2 text-xl font-semibold text-ink">{standard.title}</h2>
               <p className="mt-3 text-sm leading-6 text-ink-muted">{standard.short}</p>
               <Link href={standard.spec_url} className={link + " mt-2 inline-flex min-h-11 items-center text-sm"}>Read {standard.title.toLowerCase()}</Link>
-              {standard.impl_path_in_repo && <p className="text-sm leading-6 text-ink-muted">Reference implementation in the repository: <code>{standard.impl_path_in_repo}</code></p>}
+              {standard.impl_path_in_repo && <p className="text-sm leading-6 text-ink-muted">Reference implementation in the repository: <code>{standard.impl_path_in_repo}</code> (private repository; source release pending)</p>}
               {standard.endpoint_url && <p className="text-sm leading-6 text-ink-muted">Implemented route template: <code className="break-all">{standard.endpoint_url}</code>. Available fields depend on the catalog and their publication rules.</p>}
             </section>
           ))}
@@ -48,7 +48,7 @@ export default function StandardsPage() {
         <section aria-labelledby="standards-rights" className="space-y-4 text-sm leading-6 text-ink-muted">
           <h2 id="standards-rights" className="text-xl font-semibold text-ink">Using the specifications and code</h2>
           <p><strong className="text-ink">Specification text:</strong> the existing CC0 dedication in <code>docs/STANDARDS-LICENSE.md</code> covers these specification texts. No account or attribution is required to use them.</p>
-          <p><strong className="text-ink">Reference code:</strong> rights follow the repository <code>LICENSE</code> and applicable more-specific notices. Public repository access and package releases are checked separately; the workspace packages are not npm releases.</p>
+          <p><strong className="text-ink">Reference code:</strong> licensed Apache-2.0 under the repository LICENSE and applicable more-specific notices. Source-code release is pending: the repository is currently private and the workspace packages are not npm releases. The published standards are these specification pages and the JSON Schemas under <code>/spec/v1/</code> (for example <a href="/spec/v1/SkuIdentity.schema.json" className={link}>SkuIdentity.schema.json</a>).</p>
           <p><strong className="text-ink">Data and images:</strong> each source and field has its own permissions. A valid identifier, attributed image or open-source implementation does not grant permission to redistribute upstream content.</p>
         </section>
 

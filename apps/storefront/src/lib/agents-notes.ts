@@ -41,6 +41,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { repoDocRef } from "@/lib/repository";
 
 /** What kind of agent the note most serves. Filter at the GET layer. */
 export type NoteForKin =
@@ -318,6 +319,5 @@ export const AGENTS_NOTES_SUMMARY = {
   count: AGENTS_NOTES.length,
   most_recent: AGENTS_NOTES[0]?.posted_at,
   catalog_url: "/api/v1/agents/notes",
-  doctrine_url:
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-agents-notebook.md",
+  doctrine_url: repoDocRef("docs/connections/the-agents-notebook.md"),
 } as const;

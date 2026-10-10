@@ -41,6 +41,7 @@ interface PageMeta {
   recursion: { label: string; href: string }[];
 }
 
+// Historical one-off generator (do not re-run as-is): the repository is private, so these GitHub URLs 404 publicly; TypeSignature now renders them as repository paths.
 const REPO_DOCS =
   "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs";
 

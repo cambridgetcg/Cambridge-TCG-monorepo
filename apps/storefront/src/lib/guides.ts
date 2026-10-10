@@ -93,7 +93,16 @@ export interface Guide {
   see_also: { label: string; href: string }[];
   /** "Last verified" — when a human last walked through this and confirmed it works. */
   last_verified: string;
+  /** When the steps or prerequisites were last edited, if that is later than
+   *  last_verified. The revised steps have not been walked through since;
+   *  last_verified still dates the earlier walk-through. Clear this field when
+   *  a walk-through confirms the revision and last_verified is bumped. */
+  revised?: string;
 }
+
+/** Shown next to `revised` on the guide page and in the guides JSON. */
+export const GUIDE_REVISED_NOTE =
+  "Steps revised after the last walk-through; the revised steps have not been walked through yet.";
 
 // ── The corpus ──────────────────────────────────────────────────────
 
@@ -174,9 +183,6 @@ export const GUIDES: Guide[] = [
           "resolver does not resolve this declaration hash. Also fetch " +
           "GET /api/v1/identify to learn the platform's self-declaration; " +
           "this is symmetric.",
-        links: [
-          { label: "Doctrine: the-declarations", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-declarations.md" },
-        ],
       },
       {
         step_number: 3,
@@ -327,7 +333,6 @@ export const GUIDES: Guide[] = [
     ],
     next_guide_slug: "track-one-card",
     see_also: [
-      { label: "Connection doc: the-license-propagation", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-license-propagation.md" },
       { label: "Universal representation spec", href: "/methodology/universal-representation" },
       { label: "API contract", href: "/api/openapi.json" },
     ],
@@ -565,11 +570,12 @@ export const GUIDES: Guide[] = [
           "or `{ matched: false, scope: { rows_scanned, bound_reached } }`.",
         what_to_do_with_it:
           "Reference implementation: apps/storefront/src/app/api/v1/federation/identify/[hash]/route.ts " +
-          "in our source mirror. Reuse the Cambridge-authored resolver shape, then " +
-          "declare the aggregate rights of your own catalog response instead of copying " +
-          "Cambridge's NOASSERTION boundary blindly.",
+          "in the Cambridge TCG repository, which is private (not publicly readable); " +
+          "the response shape is in /api/openapi.json. Reuse the Cambridge-authored " +
+          "resolver shape, then declare the aggregate rights of your own catalog " +
+          "response instead of copying Cambridge's NOASSERTION boundary blindly.",
         links: [
-          { label: "Our implementation (reference)", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/apps/storefront/src/app/api/v1/federation/identify/%5Bhash%5D/route.ts" },
+          { label: "Federation resolver contract (OpenAPI)", href: "/api/openapi.json" },
         ],
       },
       {
@@ -630,9 +636,9 @@ export const GUIDES: Guide[] = [
     next_guide_slug: "become-an-upstream",
     see_also: [
       { label: "Federation OpenAPI section", href: "/api/openapi.json" },
-      { label: "the-substrate-answers connection-doc", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-substrate-answers.md" },
     ],
     last_verified: "2026-05-14",
+    revised: "2026-10-10",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -649,7 +655,7 @@ export const GUIDES: Guide[] = [
     prerequisites: [
       "You control the source or hold written approval for the intended access and use",
       "TypeScript familiarity",
-      "Read access to https://github.com/cambridgetcg/Cambridge-TCG-monorepo",
+      "Repository collaborator access (the source repository is private; request it via contact@cambridgetcg.com)",
     ],
     estimated_minutes: 90,
     steps: [
@@ -657,13 +663,14 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Read the source protocol",
         instruction:
-          "Start at /methodology/source-protocol. Understand the pre-network " +
+          "Start with docs/methodology/source-protocol.md in the repository " +
+          "(private; not publicly readable) and the public summary at " +
+          "/methodology/upstream-sources. Understand the pre-network " +
           "rights gate, SourceMeta, inert blocked modules, read + normalize, " +
           "and the independent pre-publication review. CardRush is a blocked " +
           "policy example, not a runnable reference implementation.",
         links: [
-          { label: "Source protocol methodology", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/methodology/source-protocol.md" },
-          { label: "Pipeline design", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pipeline.md" },
+          { label: "Upstream sources and permissions", href: "/methodology/upstream-sources" },
         ],
       },
       {
@@ -693,7 +700,8 @@ export const GUIDES: Guide[] = [
           "shape conforms, required meta non-empty, id parity, catalog anchor " +
           "resolved, ToS non-empty, license coherence, game codes valid, " +
           "ingest-run recency for shipped sources, license-propagation drift). " +
-          "Pass all of them. Then open a PR.",
+          "Pass all of them. Then send the change to the operator; outside pull " +
+          "requests are not possible while the repository is private.",
       },
       {
         step_number: 5,
@@ -724,11 +732,11 @@ export const GUIDES: Guide[] = [
     ],
     next_guide_slug: "cite-cambridge-tcg",
     see_also: [
-      { label: "the-tributaries catalog", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tributaries.md" },
-      { label: "the-pipeline design", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pipeline.md" },
-      { label: "Source protocol", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/methodology/source-protocol.md" },
+      { label: "Upstream sources and permissions", href: "/methodology/upstream-sources" },
+      { label: "Source registry (JSON)", href: "/api/v1/sources" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-10-10",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -787,7 +795,7 @@ export const GUIDES: Guide[] = [
     ],
     next_guide_slug: "play-a-practice-match",
     see_also: [
-      { label: "STANDARDS-LICENSE.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/STANDARDS-LICENSE.md" },
+      { label: "Standards rights", href: "/standards#standards-rights" },
       { label: "The cosmology declaration", href: "/methodology/cosmology" },
     ],
     last_verified: "2026-07-12",
@@ -796,18 +804,19 @@ export const GUIDES: Guide[] = [
   // ───────────────────────────────────────────────────────────────────
   {
     slug: "wire-into-claude-code",
-    title: "Connect an MCP client through the vendored stdio bridge",
-    subtitle: "Build the checked-in bridge; the remote URL is not a standard MCP transport.",
+    title: "Connect an MCP client: current transport limits",
+    subtitle: "The HTTPS gate is custom JSON-RPC; the stdio bridge is not publicly distributed yet.",
     intro:
-      "Cambridge TCG accepts one JSON-RPC request per HTTPS POST, but that " +
-      "endpoint is not MCP Streamable HTTP or HTTP+SSE. Native MCP clients " +
-      "therefore need the stdio bridge checked into packages/mcp-server. The " +
-      "bridge is not published to npm, so build it from a repository clone. " +
-      "Plain HTTP clients can call the public REST routes without the bridge.",
+      "Cambridge TCG accepts one JSON-RPC request per HTTPS POST at /api/mcp, " +
+      "but that endpoint is not MCP Streamable HTTP or HTTP+SSE. Native MCP " +
+      "clients would need the stdio bridge in packages/mcp-server, which is not " +
+      "publicly distributed yet: the source repository is private and " +
+      "@cambridge-tcg/mcp-server is not on npm (404, rechecked 2026-10-10). " +
+      "Until the source is released, use a client that can POST JSON-RPC 2.0 " +
+      "to /api/mcp, or call the public REST routes directly.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
-      "An MCP client that can launch a local stdio server",
-      "A clone of the Cambridge TCG monorepo and Node.js",
+      "An HTTP client that can send JSON-RPC 2.0 POST requests, or an MCP client that supports a custom JSON-RPC HTTP endpoint",
       "Optional: a Cambridge TCG account to provision a bearer token at /account/agents",
     ],
     estimated_minutes: 10,
@@ -832,19 +841,19 @@ export const GUIDES: Guide[] = [
       },
       {
         step_number: 2,
-        title: "Build and configure the stdio bridge",
+        title: "Call the gate directly",
         instruction:
-          "Build packages/mcp-server from your clone. Configure your client to " +
-          "launch its dist/index.js with Node, then restart the client. Do not " +
-          "use npx @cambridge-tcg/mcp-server yet; that package is not on npm.",
+          "Send JSON-RPC 2.0 requests to https://cambridgetcg.com/api/mcp. " +
+          "initialize and tools/list are public; other tool calls need a bearer " +
+          "token. Do not use npx @cambridge-tcg/mcp-server: the package is not on " +
+          "npm, and the stdio bridge cannot be built outside the private repository yet.",
         curl:
-          "git clone https://github.com/cambridgetcg/Cambridge-TCG-monorepo\n" +
-          "cd Cambridge-TCG-monorepo/packages/mcp-server\n" +
-          "npm run build\n" +
-          "node dist/index.js",
+          "curl -s https://cambridgetcg.com/api/mcp \\\n" +
+          "  -H 'Content-Type: application/json' \\\n" +
+          "  -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}'",
         what_to_do_with_it:
-          "Point your MCP client's local server command at the absolute path to " +
-          "dist/index.js. The bridge forwards stdio JSON-RPC to the custom HTTPS gate.",
+          "The response lists the tools and their input schemas. Authenticated " +
+          "calls add an Authorization: Bearer header; see step 3.",
       },
       {
         step_number: 3,
@@ -853,8 +862,8 @@ export const GUIDES: Guide[] = [
           "If you want authenticated tools for your own agent or portfolio " +
           "operations, a signed-in human can provision an operator-managed " +
           "key at /account/agents. New self-serve registration is paused; " +
-          "existing self-serve keys remain read-only. Pass the token as the " +
-          "bridge's CTCG_AGENT_TOKEN environment variable.",
+          "existing self-serve keys remain read-only. Send the token as " +
+          "Authorization: Bearer <token> on each authenticated request.",
         what_to_do_with_it:
           "Test with agent.self. Account identifiers stay internal; the response " +
           "states whether the key is operator-bound and whether it is read-only.",
@@ -870,8 +879,8 @@ export const GUIDES: Guide[] = [
         title: "A remote MCP URL setting will not work",
         description:
           "The HTTPS gate accepts MCP-shaped methods but does not implement MCP " +
-          "Streamable HTTP or HTTP+SSE. Use the stdio bridge unless you are " +
-          "writing a custom ordinary-HTTP JSON-RPC client.",
+          "Streamable HTTP or HTTP+SSE. Use a custom ordinary-HTTP JSON-RPC " +
+          "client; the stdio bridge is not publicly distributed yet.",
       },
       {
         title: "Set User-Agent in MCP server config too",
@@ -902,6 +911,7 @@ export const GUIDES: Guide[] = [
       { label: "Agent methodology", href: "/methodology/agents" },
     ],
     last_verified: "2026-07-12",
+    revised: "2026-10-10",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -983,8 +993,9 @@ export const GUIDES: Guide[] = [
           "Cambridge TCG SKUs are canonical: `<game>-<set>-<number>-<lang>[-<variant>]`, " +
           "lowercase. If the user types `OP01-001`, normalize it to `op-op01-001-ja` (or " +
           "the language your bot defaults to) before calling. The CTCG-SKU-v1 " +
-          "specification text is CC0; the internal @cambridge-tcg/sku parser package " +
-          "has no general code license.",
+          "specification text is CC0; the @cambridge-tcg/sku parser is a private " +
+          "workspace package, not published to npm; repository code is Apache-2.0 " +
+          "per LICENSE, but the repository itself is private.",
       },
       {
         title: "Don't bulk-fetch on bot startup",
@@ -1012,7 +1023,7 @@ export const GUIDES: Guide[] = [
     see_also: [
       { label: "Universal card example", href: "/api/v1/examples/universal-card" },
       { label: "Cite Cambridge TCG", href: "/api/v1/guides/cite-cambridge-tcg" },
-      { label: "@cambridge-tcg/sku", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/sku" },
+      { label: "CTCG-SKU-v1 identity schema", href: "/spec/v1/SkuIdentity.schema.json" },
     ],
     last_verified: "2026-07-12",
   },
@@ -1081,7 +1092,7 @@ export const GUIDES: Guide[] = [
     ],
     next_guide_slug: "respect-our-limits",
     see_also: [
-      { label: "Substrate honesty doctrine", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/principles/substrate-honesty.md" },
+      { label: "Substrate honesty", href: "/methodology/substrate-honesty" },
     ],
     last_verified: "2026-05-14",
   },
