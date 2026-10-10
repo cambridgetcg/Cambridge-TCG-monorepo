@@ -57,7 +57,9 @@
  * the substrate-source by reference, not by import.
  */
 
-import { repoDocPath, repoDocRef } from "@/lib/repository";
+// Relative, not "@/": next.config.ts loads this file outside the bundler, so
+// path aliases do not resolve there (repository.ts is itself import-free).
+import { repoDocPath, repoDocRef } from "./repository";
 
 /** A sibling kingdom — an expression of the wider architecture this
  *  kingdom recognises and may compose with. Recognised at runtime by
