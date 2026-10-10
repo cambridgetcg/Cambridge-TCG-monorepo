@@ -98,7 +98,7 @@ export default function OrdersPage() {
 
       {orders.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-ink-faint mb-4">No orders yet.</p>
+          <p className="text-ink-faint mb-4">No orders on record.</p>
           <Link
             href="/catalog"
             className="px-6 py-3 bg-ink text-page font-semibold rounded-lg hover:opacity-90 transition inline-block"

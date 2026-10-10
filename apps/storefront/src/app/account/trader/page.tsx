@@ -26,7 +26,7 @@ import { formatDateTime } from "@/lib/format";
 export const metadata: Metadata = {
   title: "Trader dashboard — Cambridge TCG",
   description:
-    "What you're exposed to right now, how you've been doing, what you owe the kingdom, where your reputation is going, which listings need attention.",
+    "What you're exposed to right now, how you've been doing, where your reputation is going, which listings need attention.",
   other: audienceMetadata("consumer", ["trader", "dashboard"]),
 };
 
@@ -290,8 +290,11 @@ function ListingsSection({ d }: { d: TraderDashboard }) {
       <h2 className="text-lg font-semibold mb-3">Listings health</h2>
       <p className="text-sm text-ink-muted mb-3">
         Active listings and how many have been on the market for more
-        than 30 days without selling. Stale listings often benefit from
-        re-pricing or photo refreshes.
+        than 30 days without selling. New listings and re-pricing are
+        retired. Asks placed before 23 September 2026 cannot be filled; you
+        can cancel them, and they otherwise expire when their time limit runs
+        out (30 days from placement by default). Lots cannot be bought; they
+        have no time limit and stay listed until you cancel them.
       </p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card
@@ -346,9 +349,8 @@ export default async function TraderDashboardPage() {
         <div>
           <h1 className="text-2xl font-bold">Trader dashboard</h1>
           <p className="text-sm text-ink-muted mt-1">
-            What you're exposed to, how you've been doing, what you owe
-            the kingdom, where your reputation is going, which listings
-            need attention.
+            What you're exposed to, how you've been doing, where your
+            reputation is going, which listings need attention.
           </p>
         </div>
         <div className="flex items-baseline gap-2">

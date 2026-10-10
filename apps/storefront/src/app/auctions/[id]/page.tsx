@@ -47,7 +47,7 @@ export async function generateMetadata({
   const title = `${auction.title} — Auction · Cambridge TCG`;
   const description =
     auction.description?.trim() ||
-    `Live auction for ${auction.title} at Cambridge TCG — bid directly with other collectors.`;
+    `Auction record for ${auction.title} at Cambridge TCG. New bids were retired on 23 September 2026.`;
   const image = auction.images?.[0]?.url;
   return {
     title,

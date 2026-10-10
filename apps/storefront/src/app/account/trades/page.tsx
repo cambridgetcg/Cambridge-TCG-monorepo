@@ -427,7 +427,7 @@ export default function TradesPage() {
             </div>
           ) : orders.length === 0 ? (
             <div className="p-8 text-center text-ink-faint text-sm">
-              No open listings or bids. Post an ask or bid from any card page to see it here.
+              No open listings or bids. New listings and bids are retired; existing ones can be cancelled here.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -505,7 +505,7 @@ export default function TradesPage() {
             </div>
           ) : trades.length === 0 ? (
             <div className="p-8 text-center text-ink-faint text-sm">
-              No trades yet. When one of your bids or asks matches, the trade appears here.
+              No trades on record. New paid trades are retired; trades agreed before 23 September 2026 appear here.
             </div>
           ) : (
             <div className="overflow-x-auto">

@@ -39,9 +39,9 @@ export default function MarketPulsePage() {
         </Link>
       </div>
       <p className="text-sm text-ink-muted mb-8">
-        Live spreads come from bids and asks collectors chose to publish.
-        Completed-trade analytics and public watch, alert, and co-watch
-        intelligence are paused.
+        Spreads come from open bids and asks placed before new orders were
+        retired on 23 September 2026; they cannot be filled. Completed-trade
+        analytics and public watch, alert, and co-watch intelligence are paused.
       </p>
 
       {loading ? (

@@ -108,9 +108,7 @@ export default function LotDetailPage() {
                   New lot purchases retired
                 </button>
                 <p className="text-xs text-ink-muted max-w-md leading-relaxed">
-                  New lot purchases are retired. Existing records, settlement and refunds remain available. Browse the{" "}
-                  <Link href="/market" className="text-accent hover:underline">singles market</Link>{" "}
-                  meanwhile.
+                  New lot purchases are retired. Existing records, settlement and refunds remain available.
                 </p>
               </div>
             )}

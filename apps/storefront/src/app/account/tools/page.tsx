@@ -37,12 +37,12 @@ interface ToolGroup {
 
 const TOOL_GROUPS: ToolGroup[] = [
   {
-    label: "Selling & trading",
+    label: "Existing trades & listings",
     links: [
       {
         href: "/account/trader",
         label: "Trader dashboard",
-        description: "Your selling overview — exposure, performance, fees, and listings that need attention.",
+        description: "Your selling overview — exposure, performance and listings that need attention.",
       },
       {
         href: "/account/auctions",
@@ -57,12 +57,12 @@ const TOOL_GROUPS: ToolGroup[] = [
       {
         href: "/account/lots",
         label: "My lots",
-        description: "Bulk lots you've put up for sale.",
+        description: "Bulk lots listed before new lots were retired; cancel them here.",
       },
       {
         href: "/account/pricing-rules",
         label: "Pricing rules",
-        description: "Auto-decline or auto-counter incoming offers so you don't answer each one by hand.",
+        description: "Rules from before offers were retired; pause or archive them.",
       },
       {
         href: "/account/vacation",
@@ -72,12 +72,12 @@ const TOOL_GROUPS: ToolGroup[] = [
       {
         href: "/account/searches",
         label: "Saved searches",
-        description: "Stock alerts — we scan new listings every minute and notify you on a match.",
+        description: "Saved criteria. New listings are retired, so no new matches will arrive.",
       },
       {
         href: "/account/offers",
         label: "Offers",
-        description: "Price negotiations you've made and received on market asks.",
+        description: "Offers made before new offers were retired; decline or withdraw them.",
       },
       {
         href: "/account/returns",

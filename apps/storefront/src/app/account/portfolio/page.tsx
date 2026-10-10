@@ -12,6 +12,7 @@ import ValueChart from "@/components/portfolio/ValueChart";
 import CsvImport, { type ParsedRow as CsvRow } from "@/components/portfolio/CsvImport";
 
 import { Audience, Money } from "@/lib/ui";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
 type SortKey = "value" | "pnl" | "recent";
 
 export default function PortfolioPage() {
@@ -441,44 +442,59 @@ export default function PortfolioPage() {
                   )}
                 </div>
 
-                {/* Listing Actions — trade-in retired 2026-07-06, so those
-                    actions are filtered out; sell/auction are the live paths. */}
-                {card.listing_actions && card.listing_actions.filter((a) => a.type !== "tradein").length > 0 && (
+                {/* Listing actions: new paid listings and auctions were retired on
+                    2026-09-23, so neither listing_actions nor the fallback row is
+                    shown; the API/DAL labels are unchanged (deferred). Trade-in
+                    actions were already filtered out (retired 2026-07-06). */}
+                {NEW_PAID_COMMERCE_RETIRED ? (
                   <div className="flex gap-1.5 mb-2">
-                    {card.listing_actions.filter((a) => a.type !== "tradein").map((action) => {
-                      let href = "#";
-                      if (action.type === "market_ask") href = `/market/${card.sku}?side=ask`;
-                      else if (action.type === "auction") href = `/auctions/sell?sku=${card.sku}`;
+                    <Link
+                      href={`/market/${card.sku}`}
+                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
+                    >
+                      Market record
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    {card.listing_actions && card.listing_actions.filter((a) => a.type !== "tradein").length > 0 && (
+                      <div className="flex gap-1.5 mb-2">
+                        {card.listing_actions.filter((a) => a.type !== "tradein").map((action) => {
+                          let href = "#";
+                          if (action.type === "market_ask") href = `/market/${card.sku}?side=ask`;
+                          else if (action.type === "auction") href = `/auctions/sell?sku=${card.sku}`;
 
-                      return (
+                          return (
+                            <Link
+                              key={action.type}
+                              href={href}
+                              className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
+                            >
+                              {action.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Quick actions fallback (when no listing_actions) */}
+                    {(!card.listing_actions || card.listing_actions.length === 0) && (
+                      <div className="flex gap-1.5 mb-2">
                         <Link
-                          key={action.type}
-                          href={href}
+                          href={`/market/${card.sku}?side=ask`}
                           className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
                         >
-                          {action.label}
+                          Sell
                         </Link>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Quick actions fallback (when no listing_actions) */}
-                {(!card.listing_actions || card.listing_actions.length === 0) && (
-                  <div className="flex gap-1.5 mb-2">
-                    <Link
-                      href={`/market/${card.sku}?side=ask`}
-                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
-                    >
-                      Sell
-                    </Link>
-                    <Link
-                      href={`/auctions/sell?sku=${card.sku}`}
-                      className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
-                    >
-                      Auction
-                    </Link>
-                  </div>
+                        <Link
+                          href={`/auctions/sell?sku=${card.sku}`}
+                          className="flex-1 text-center text-[10px] px-1.5 py-1.5 rounded-lg bg-surface-subtle text-ink-muted hover:bg-surface-subtle hover:text-ink transition font-medium"
+                        >
+                          Auction
+                        </Link>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Edit / Remove */}

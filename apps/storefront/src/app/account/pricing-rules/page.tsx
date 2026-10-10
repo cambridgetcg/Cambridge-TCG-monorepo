@@ -6,6 +6,7 @@ import { Badge, Palettes } from "@/lib/ui";
 import { formatRelativeTime } from "@/lib/format";
 
 import { Audience } from "@/lib/ui";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
 interface PricingRule {
   id: string;
   name: string;
@@ -68,9 +69,8 @@ export default function PricingRulesPage() {
       <Audience kind="consumer" />
       <h1 className="text-2xl font-display font-semibold text-ink mb-2">Pricing Rules</h1>
       <p className="text-sm text-ink-muted mb-6">
-        Auto-respond to incoming offers. Filter by listing criteria and either reject offers
-        below a threshold (auto-decline) or send back a counter at a fixed percentage of your
-        ask (auto-counter). Rules fire inline when the buyer submits — no waiting on you.
+        Rules you set up before new offers were retired on 23 September 2026. No new offers
+        arrive, so rules no longer fire; you can pause or archive them.
       </p>
 
       {error && (
@@ -79,16 +79,18 @@ export default function PricingRulesPage() {
         </div>
       )}
 
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={() => setShowNew((s) => !s)}
-          className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition"
-        >
-          {showNew ? "Cancel" : "+ New rule"}
-        </button>
-      </div>
+      {!NEW_PAID_COMMERCE_RETIRED && (
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => setShowNew((s) => !s)}
+            className="px-4 py-2 text-xs font-semibold bg-ink text-page rounded-lg hover:opacity-90 transition"
+          >
+            {showNew ? "Cancel" : "+ New rule"}
+          </button>
+        </div>
+      )}
 
-      {showNew && <NewRuleForm onCreated={() => { setShowNew(false); load(); }} />}
+      {!NEW_PAID_COMMERCE_RETIRED && showNew && <NewRuleForm onCreated={() => { setShowNew(false); load(); }} />}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -96,9 +98,7 @@ export default function PricingRulesPage() {
         </div>
       ) : rules.length === 0 ? (
         <div className="bg-surface rounded-lg p-8 text-center">
-          <p className="text-ink-muted text-sm">
-            No rules yet. Save time on lowball offer triage by creating one above.
-          </p>
+          <p className="text-ink-muted text-sm">No rules on record.</p>
           <Link href="/account/offers" className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong">
             View incoming offers →
           </Link>
@@ -185,7 +185,7 @@ function RuleCard({
             Pause
           </button>
         )}
-        {rule.status === "paused" && (
+        {!NEW_PAID_COMMERCE_RETIRED && rule.status === "paused" && (
           <button
             disabled={busy}
             onClick={() => onAct("resume")}

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import type { AuctionSummary } from "@/lib/auction/types";
 import AuctionCard from "@/components/auction/AuctionCard";
-import { WhyLink, ErrorAlert } from "@/lib/ui";
+import { ErrorAlert } from "@/lib/ui";
 
 type Tab = "live" | "scheduled" | "ended";
 
@@ -54,19 +54,17 @@ export default function AuctionsPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-display font-semibold text-ink">Auctions</h1>
           <p className="text-ink-muted mt-1">
-            Bid on cards, sealed product, and more
+            Auction records. New auctions and bids were retired on 23 September 2026.
           </p>
         </div>
 
-        {/* Sell CTA */}
-        <div className="bg-surface border border-border-subtle rounded-lg p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h2 className="text-ink font-bold">Have a card to sell?</h2>
-            <p className="text-ink-muted text-sm mt-1">List your cards at auction. We handle verification, escrow, and delivery — and take no commission, so you keep 100% of the sale.<WhyLink href="/methodology/fees" tooltip="How the free platform works" /></p>
-          </div>
-          <Link href="/auctions/sell" className="shrink-0 px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition">
-            Sell at Auction
+        <div className="bg-surface border border-border-subtle rounded-lg p-5 mb-8 text-sm text-ink-muted">
+          New auctions and bids were retired on 23 September 2026. Auctions already won still settle
+          from{" "}
+          <Link href="/account/auctions/won" className="text-accent hover:text-accent-strong">
+            your account
           </Link>
+          .
         </div>
 
         {/* Tabs */}
@@ -114,7 +112,7 @@ export default function AuctionsPage() {
             </div>
             <h2 className="text-lg font-semibold text-ink-muted">No auctions</h2>
             <p className="text-ink-faint text-sm mt-1">
-              {tab === "live" && "No live auctions right now. Check back soon!"}
+              {tab === "live" && "No live auctions."}
               {tab === "scheduled" && "No upcoming auctions scheduled."}
               {tab === "ended" && "No ended auctions to show."}
             </p>

@@ -44,7 +44,7 @@ import HandleWelcomeNote from "./_HandleWelcomeNote";
 export const metadata: Metadata = {
   title: "My Account — Cambridge TCG",
   description:
-    "Your account at a glance: standing, items that need you, recent orders, trade-ins, and membership.",
+    "Your account at a glance: standing, items that need you, and recent order records.",
   other: audienceMetadata("consumer", ["account", "overview"]),
 };
 
@@ -357,8 +357,8 @@ export default async function AccountOverviewPage() {
         </div>
         {recentOrders.length === 0 ? (
           <EmptyState
-            title="No orders yet."
-            description="Your purchases will appear here."
+            title="No orders on record."
+            description="New checkout is retired."
             action={
               <Link
                 href="/catalog"

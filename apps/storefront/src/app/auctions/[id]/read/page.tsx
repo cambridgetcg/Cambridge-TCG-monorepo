@@ -147,7 +147,7 @@ export default async function AuctionReadPage({
               href={`/auctions/${meta.id}`}
               className="text-xs px-3 py-1.5 bg-accent-wash text-accent border border-accent/30 rounded hover:bg-accent/20 transition"
             >
-              Bid on this →
+              Auction page →
             </Link>
             <Link
               href={`/api/v1/auctions/${meta.id}`}
@@ -168,7 +168,8 @@ export default async function AuctionReadPage({
           The public read-only mirror of one auction. Bid and winner identities are
           absent; the reserve value is hidden; seller identity and trust appear only
           when that person publishes a profile and is not suspended. The interactive
-          surface for placing bids is at <Link href={`/auctions/${meta.id}`} className="text-accent hover:underline">/auctions/{meta.id.slice(0, 8)}</Link>.
+          auction page is at <Link href={`/auctions/${meta.id}`} className="text-accent hover:underline">/auctions/{meta.id.slice(0, 8)}</Link>;
+          new bids were retired on 23 September 2026.
         </p>
 
         <div className="grid md:grid-cols-3 gap-6">

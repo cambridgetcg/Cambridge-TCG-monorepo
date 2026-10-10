@@ -10,11 +10,12 @@
  *
  * Server half: session check + commission bounds + pre-rendered
  * <Provenance> nodes (server-only) handed to the client wizard.
+ * Retired 2026-09-23: the wizard renders only CommercialRetirementNotice.
  */
 
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { Icon, WhyLink } from "@/lib/ui";
+import { Icon } from "@/lib/ui";
 import ListingWizard from "@/components/market/ListingWizard";
 import { catalogSourceBadges } from "@/components/market/source-provenance";
 import { DEFAULT_GAME } from "@/components/market/catalog";
@@ -44,17 +45,20 @@ export default async function MarketListPage({
           href={backHref}
           className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink transition mb-4"
         >
-          <span aria-hidden>←</span> The Collectors&rsquo; Market
+          <span aria-hidden>←</span> Market records
         </Link>
 
         <div className="mb-6">
           <h1 className="font-display text-2xl font-black tracking-tight text-ink mb-1.5 flex items-center gap-2">
-            <Icon name="card" className="text-accent" /> List a card
+            <Icon name="card" className="text-accent" /> Listing is retired
           </h1>
           <p className="text-sm text-ink-muted">
-            Pick the card, set your price, and it&rsquo;s live for every collector on its market
-            page. Free to list, and free to sell — Cambridge TCG takes no commission.{" "}
-            <WhyLink href="/methodology/fees" tooltip="How the free platform works" />
+            New paid listings were retired on 23 September 2026. Existing listings can be cancelled
+            from{" "}
+            <Link href="/account/trades" className="text-accent hover:text-accent-strong">
+              Trades
+            </Link>
+            , and existing trades still settle.
           </p>
         </div>
 

@@ -114,15 +114,16 @@ export default async function CardMarketReadPage({
               href={`/market/${sku}`}
               className="text-xs px-3 py-1.5 bg-accent-wash text-accent border border-accent/30 rounded hover:border-accent transition"
             >
-              Trade on this card →
+              Card market page →
             </Link>
           </div>
         </div>
 
         <p className="text-sm text-ink-muted mb-8 max-w-2xl">
-          The substrate-honest pure-read mirror of one card&rsquo;s market activity. The interactive
-          surface to place orders lives at <Link href={`/market/${sku}`} className="text-accent hover:underline">/market/{sku}</Link>.
-          This page is for reading — auditable, screen-reader-readable, agent-ingestable, no auth.
+          The substrate-honest pure-read mirror of one card&rsquo;s market record. The interactive
+          card page is <Link href={`/market/${sku}`} className="text-accent hover:underline">/market/{sku}</Link>;
+          new orders were retired on 23 September 2026. This page is for reading — auditable,
+          screen-reader-readable, agent-ingestable, no auth.
         </p>
 
         {/* Layout grid */}

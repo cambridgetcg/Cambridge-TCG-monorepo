@@ -24,7 +24,7 @@ import { B2B_PURCHASE_AVAILABILITY } from "@/lib/b2b/purchase-availability";
 export const metadata: Metadata = {
   title: "Wholesale — Cambridge TCG",
   description:
-    "Your B2B shell. Browse structural catalog and stock data, and review completed orders. New pricing and checkout are paused.",
+    "Your B2B shell. Browse structural catalog and stock data, and review completed orders. New B2B pricing and checkout are retired.",
   other: audienceMetadata("consumer", ["wholesale", "b2b", "account"]),
 };
 
@@ -99,7 +99,7 @@ export default async function WholesaleShellPage() {
         <StatCard
           label="In cart"
           value={cartCount}
-          sub={cartCount > 0 ? "stored; checkout paused" : "empty"}
+          sub={cartCount > 0 ? "stored; checkout retired" : "empty"}
           tone={cartCount > 0 ? "amber" : "neutral"}
           href={cartCount > 0 ? "/account/b2b/cart" : "/account/b2b/catalog"}
         />
@@ -142,11 +142,11 @@ export default async function WholesaleShellPage() {
         <div>
           <Card>
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold">New purchases paused</h2>
+              <h2 className="text-lg font-semibold">New purchases retired</h2>
               <p className="text-sm text-ink-muted">
                 {cartCount > 0
                   ? `${cartCount} existing cart item${cartCount === 1 ? " is" : "s are"} retained for review or removal. No Stripe session can be created.`
-                  : "No new cart item or Stripe checkout session can be created while pricing is withheld."}
+                  : "New B2B purchases and checkout are retired. No new cart item or Stripe checkout session can be created; existing orders remain available."}
               </p>
             </div>
           </Card>
