@@ -505,7 +505,8 @@ export default function OpenDataIndex() {
           named in the planned set; that&apos;s the queue).
         </li>
         <li>
-          Open an issue on the public repo with the use case.
+          Email contact@cambridgetcg.com with the use case. There is no public
+          issue tracker; the source repository is currently private.
         </li>
         <li>
           For agent access, a signed-in human can provision an operator-managed

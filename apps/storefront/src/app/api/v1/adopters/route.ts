@@ -12,6 +12,7 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 interface Adopter {
   name: string;
@@ -55,9 +56,11 @@ export async function GET(): Promise<Response> {
     standards: {
       "CTCG-SKU-v1": {
         package: "@cambridge-tcg/sku",
-        github:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/sku",
+        github: null,
+        source: repoDocRef("packages/sku"),
+        package_published: false,
         spec: "/methodology/sku-standard",
+        schema: "/spec/v1/SkuIdentity.schema.json",
         format: "<game>-<set>-<number>-<lang>[-<variant>]",
         example: "op-op01-001-ja",
         spec_license: "CC0-1.0",
@@ -65,8 +68,9 @@ export async function GET(): Promise<Response> {
       },
       "CTCG-PRICING-v1": {
         package: "@cambridge-tcg/pricing",
-        github:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/packages/pricing",
+        github: null,
+        source: repoDocRef("packages/pricing"),
+        package_published: false,
         spec: "/methodology/pricing",
         spec_license: "CC0-1.0",
         implementation_license: "NOASSERTION",

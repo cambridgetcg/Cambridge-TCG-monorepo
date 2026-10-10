@@ -61,11 +61,6 @@ export default async function MarketPage({
   // that a JS browser swaps out would otherwise be all they ever see.
   const textMode = (await cookies()).get("text-mode")?.value === "1";
 
-  const listHref =
-    query.game !== DEFAULT_GAME
-      ? `/market/list?game=${encodeURIComponent(query.game)}`
-      : "/market/list";
-
   return (
     <div className="min-h-screen">
       <div className="max-w-[1400px] mx-auto px-4 py-8">
@@ -73,20 +68,19 @@ export default async function MarketPage({
         <div className="mb-6 flex items-end justify-between flex-wrap gap-4">
           <div>
             <h1 className="font-display text-3xl font-semibold tracking-tight text-ink mb-2">
-              The Collectors&rsquo; Market
+              Market records
             </h1>
             <p className="text-ink-muted max-w-2xl">
-              Buy and sell directly with other collectors. Every card has its own market
-              page — read the book, place a bid, or list a card at your price.
+              Every card keeps its own market page with its order-book record. New paid
+              listings, bids, offers, lots and auctions were retired on 23 September 2026;
+              existing trades still settle from{" "}
+              <Link href="/account/trades" className="text-accent hover:text-accent-strong">
+                your account
+              </Link>
+              .
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link
-              href={listHref}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-accent text-page rounded-lg text-sm font-bold hover:bg-accent-strong transition"
-            >
-              <Icon name="card" /> List a card
-            </Link>
             <Link
               href="/market/pulse"
               className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-surface hover:bg-surface-subtle border border-border-subtle rounded-lg text-sm text-ink font-medium transition"

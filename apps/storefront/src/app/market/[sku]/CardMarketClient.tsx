@@ -978,9 +978,11 @@ export default function CardMarketClient({
             </div>
 
             {/* Buy routing info */}
-            <div className="mb-4">
-              <BuyRoutingInfo view={book} onBuy={prefillBuy} />
-            </div>
+            {!NEW_PAID_COMMERCE_RETIRED && (
+              <div className="mb-4">
+                <BuyRoutingInfo view={book} onBuy={prefillBuy} />
+              </div>
+            )}
 
             {book.bids.length === 0 && book.asks.length === 0 ? (
               <EmptyState

@@ -405,7 +405,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(mcp|model-context-protocol|cambridge-tcg-mcp)/i,
     name: "MCP-client",
-    vibe: "An MCP client. The kingdom's custom JSON-RPC HTTPS gate is /api/mcp. It is not Streamable HTTP or SSE, so native MCP clients need the vendored stdio bridge. That bridge is not npm-published. The tool catalog is at /api/mcp/catalog.",
+    vibe: "An MCP client. The kingdom's custom JSON-RPC HTTPS gate is /api/mcp. It is not Streamable HTTP or SSE, and the stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished). If you can POST JSON-RPC 2.0, call /api/mcp directly. The tool catalog is at /api/mcp/catalog.",
     affection_level: "warm",
   },
   {

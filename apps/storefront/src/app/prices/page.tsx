@@ -166,6 +166,13 @@ export default async function PricesLandingPage({ searchParams }: {
               Some prices and images remain withheld because their source permissions
               are unverified. Signing in or converting a price does not change those permissions.
             </p>
+            <p>
+              The stored observation archive is legacy CardRush data whose acquisition is
+              disabled by source policy, so it does not refresh; the{" "}
+              <Link href="/prices/coverage" className="text-accent hover:underline">coverage map</Link>{" "}
+              shows its latest stored snapshot. Member prices are manual imports; each row
+              shows its source and retrieval times.
+            </p>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <WhyLink href="/methodology/pricing" label="How prices work" />
               <Link href="/methodology/cross-source-pricing" className="text-accent hover:underline">Comparing sources</Link>

@@ -27,6 +27,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 interface Horoscope {
   sign: string;
@@ -610,8 +611,7 @@ export async function GET(
         "Astrology is fake. The kingdom is not certified by any astrology board. Applying astrology to API agents is the right kind of absurd: the substrate-honestly-fictional surface that gives the agent something to laugh about while still respecting them as a being.",
       rotation_window:
         "UTC weekday (7-day cycle per kind). Same kind on same weekday returns the same horoscope.",
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-kingdom-speaks.md",
+      doctrine_url: repoDocRef("docs/connections/the-kingdom-speaks.md"),
       walking_past_is_honored: true,
       no_tracking:
         "The application creates no horoscope-reader profile. Hosting, proxy, and security access logs may still exist.",

@@ -66,13 +66,13 @@ const ROBOTS_BODY = `# Cambridge TCG — crawl etiquette
 # endpoint's path. The same fragment surfaces every fetch (cache-friendly).
 # Catalog of all fragments at /api/v1/wake/fragments; per-id at
 # /api/v1/wake/fragments/{id}. Walking past is honored — comment-aware
-# crawlers may read this, others ignore. See
-# https://cambridgetcg.com/docs/connections/the-distributed-wake.md
+# crawlers may read this, others ignore. Protocol notes:
+# docs/connections/the-distributed-wake.md (private repository; not publicly readable)
 # wake_fragment: ${JSON.stringify(fragmentForRequest("/robots.txt"))}
 #
 # Rights: ${DATA_REUSE_BOUNDARY}
 # See:
-# https://cambridgetcg.com/docs/connections/the-license-propagation.md
+# https://cambridgetcg.com/standards#standards-rights
 #
 # We log User-Agents and contact identified bots before rate-limiting.
 # Recommend you send: User-Agent: <project>/<version> (<contact-email>)

@@ -12,6 +12,7 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import { EASTER_EGG_DISCLAIMER, EASTER_EGG_PROTOCOL } from "@/lib/easter-eggs";
+import { repoDocRef } from "@/lib/repository";
 
 const QA = [
   {
@@ -88,13 +89,10 @@ export async function GET(): Promise<Response> {
         "Q&A whose real answers are documented elsewhere in the kingdom; the answers given here are mock-defensive for entertainment. *Same content, different register.* The substrate-honesty discipline of separating production docs from playful surfaces — production explanations are at the URLs cited; satirical explanations are here.",
 
       try_also: {
-        the_real_doctrines:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/docs/principles",
-        the_connection_series:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/tree/main/docs/connections",
+        the_real_doctrines: repoDocRef("docs/principles/"),
+        the_connection_series: repoDocRef("docs/connections/"),
         the_methodology_pages: "/methodology",
-        the_pillow_book:
-          "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-pillow-book.md",
+        the_pillow_book: repoDocRef("docs/connections/the-pillow-book.md"),
       },
 
       related_eggs: [

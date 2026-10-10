@@ -60,14 +60,6 @@ function queryKey(q: CatalogQuery): string {
   return [q.game, q.q, q.set ?? "", q.sort, q.page].join("|");
 }
 
-function listUrl(game: string, sku?: string): string {
-  const params = new URLSearchParams();
-  if (game !== DEFAULT_GAME) params.set("game", game);
-  if (sku) params.set("sku", sku);
-  const s = params.toString();
-  return s ? `/market/list?${s}` : "/market/list";
-}
-
 export default function MarketBrowser({
   initial,
   initialCatalog,
@@ -248,8 +240,11 @@ export default function MarketBrowser({
           <span className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
             <span className="text-ink font-semibold font-mono tabular-nums">{total.toLocaleString()}</span> cards in view
           </span>
-          <span className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
-            <span className="text-bid font-semibold font-mono tabular-nums">{stats.cardsWithActivity}</span> with open asks or bids
+          <span
+            className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted"
+            title="Open orders placed before 23 September 2026 cannot be filled. Owners can cancel them, and they otherwise expire when their time limit runs out (30 days from placement by default)."
+          >
+            <span className="text-bid font-semibold font-mono tabular-nums">{stats.cardsWithActivity}</span> with open orders from before 23 Sep 2026
           </span>
           <span className="px-3 py-1.5 bg-surface border border-border-subtle rounded-lg text-ink-muted">
             <span className="text-ask font-semibold font-mono tabular-nums">{stats.openAskUnits}</span> ask units
@@ -368,9 +363,9 @@ export default function MarketBrowser({
 
           {!loading && catalog.ok && cards.length > 0 && (
             query.view === "table" ? (
-              <CatalogTable cards={cards} game={query.game} />
+              <CatalogTable cards={cards} />
             ) : (
-              <CatalogGrid cards={cards} game={query.game} />
+              <CatalogGrid cards={cards} />
             )
           )}
 
@@ -408,19 +403,18 @@ export default function MarketBrowser({
             </div>
           )}
 
-          {/* Collectors first (2026-07-06): the house buylist card and the
-              floating sell-cart bar retired with the we-buy desk. Selling
-              happens on the book — list an ask, or answer a collector's bid. */}
+          {/* Retired 2026-09-23: no new paid listings, bids or offers. */}
           <section className="mt-10 wardrobe-mat rounded-lg p-4 flex items-start gap-3">
             <Icon name="card" size={18} className="text-accent shrink-0 mt-0.5" />
             <div className="text-sm">
               <h2 className="font-display font-bold text-ink mb-1">
-                Selling? List to other collectors.
+                New listings are retired
               </h2>
               <p className="text-xs text-ink-muted leading-relaxed max-w-2xl">
-                The shop no longer buys cards for store credit — this market is collectors trading with
-                collectors. Post an ask with the <span className="text-accent">list yours</span> link on any card,
-                or match a standing collector bid; escrow and reputation protect both sides.
+                Since 23 September 2026 the market accepts no new paid listings, bids or offers. Open
+                orders placed before 23 September 2026 cannot be filled. Owners can cancel them, and they
+                otherwise expire when their time limit runs out (30 days from placement by default). Existing
+                trades still settle in your account.
                 <WhyLink href="/methodology/market" tooltip="How the collectors' market works" label="How the market works" />
               </p>
             </div>
@@ -437,10 +431,8 @@ export default function MarketBrowser({
 
 function CatalogTable({
   cards,
-  game,
 }: {
   cards: CatalogCardWithImage[];
-  game: string;
 }) {
   return (
     <div className="wardrobe-mat overflow-x-auto rounded-lg">
@@ -503,14 +495,7 @@ function CatalogTable({
                   {card.best_ask != null ? (
                     <span className="text-ask font-semibold font-mono tabular-nums"><Money value={card.best_ask} /></span>
                   ) : (
-                    <Link
-                      href={listUrl(game, card.sku)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-xs text-accent hover:text-accent-strong underline decoration-dotted underline-offset-2"
-                      title="No asks yet — yours would be the first"
-                    >
-                      list yours
-                    </Link>
+                    <span className="text-ink-faint text-xs">—</span>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -560,10 +545,8 @@ function CatalogTable({
 
 function CatalogGrid({
   cards,
-  game,
 }: {
   cards: CatalogCardWithImage[];
-  game: string;
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -602,17 +585,7 @@ function CatalogGrid({
               {card.best_ask != null ? (
                 <span className="text-sm font-bold text-ask font-mono tabular-nums"><Money value={card.best_ask} /></span>
               ) : (
-                <button
-                  className="text-xs text-accent underline decoration-dotted underline-offset-2"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.location.href = listUrl(game, card.sku);
-                  }}
-                  title="No asks yet — yours would be the first"
-                >
-                  list yours
-                </button>
+                <span className="text-xs text-ink-faint">no open ask</span>
               )}
               {card.best_bid != null && (
                 <span className="text-xs text-bid font-mono tabular-nums">bid <Money value={card.best_bid} /></span>
@@ -622,7 +595,7 @@ function CatalogGrid({
             <p className="text-[10px] text-ink-faint font-mono tabular-nums mt-1">
               {card.spot_price != null
                 ? <>last trade <Money value={card.spot_price} /> <span className="font-sans">(ref)</span></>
-                : <span className="font-sans">no trades yet</span>}
+                : <span className="font-sans">no recorded trade</span>}
               {(card.p2p_sellers > 0 || collectorBids > 0) && (
                 <>
                   {" · "}

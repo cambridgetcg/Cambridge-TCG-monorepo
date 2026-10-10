@@ -12,6 +12,7 @@ import {
   getOfferActor,
   type OfferStatus,
 } from "@/lib/market/offer-timeline";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
 
 const STATUS_LABELS: Record<OfferStatus, string> = {
   pending:   "Awaiting response",
@@ -102,8 +103,8 @@ export default function OffersPage() {
       <Audience kind="consumer" />
       <h1 className="text-2xl font-display font-semibold text-ink mb-2">Offers</h1>
       <p className="text-sm text-ink-muted mb-6">
-        Negotiate prices on market asks. Sellers respond within their declared response window
-        (48 hours by default) — each offer below shows its own expiry.
+        Offers made before new commerce was retired on 23 September 2026. You can decline or
+        withdraw them; they can no longer be accepted or countered.
       </p>
 
       {error && (
@@ -127,19 +128,7 @@ export default function OffersPage() {
         </div>
       ) : offers.length === 0 ? (
         <div className="bg-surface rounded-lg p-8 text-center">
-          <p className="text-ink-muted text-sm">
-            {tab === "incoming"
-              ? "No offers on your asks yet. They'll appear here when buyers negotiate."
-              : "You haven't made any offers yet."}
-          </p>
-          {tab === "outgoing" && (
-            <Link
-              href="/market"
-              className="inline-block mt-3 text-accent text-xs font-semibold hover:text-accent-strong"
-            >
-              Browse the market →
-            </Link>
-          )}
+          <p className="text-ink-muted text-sm">No offers on record.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -362,20 +351,24 @@ function OfferCard({
           {/* Seller perspective on a pending offer */}
           {perspective === "seller" && offer.status === "pending" && (
             <>
-              <button
-                disabled={busy}
-                onClick={() => setConfirming("accept")}
-                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
-              >
-                {busy ? "..." : "Accept"}
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => setShowCounter((s) => !s)}
-                className="px-3 py-1.5 text-xs font-medium bg-info/15 text-info border border-info/30 rounded-md hover:bg-info/20 transition disabled:opacity-50"
-              >
-                {showCounter ? "Cancel counter" : "Counter"}
-              </button>
+              {!NEW_PAID_COMMERCE_RETIRED && (
+                <>
+                  <button
+                    disabled={busy}
+                    onClick={() => setConfirming("accept")}
+                    className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
+                  >
+                    {busy ? "..." : "Accept"}
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() => setShowCounter((s) => !s)}
+                    className="px-3 py-1.5 text-xs font-medium bg-info/15 text-info border border-info/30 rounded-md hover:bg-info/20 transition disabled:opacity-50"
+                  >
+                    {showCounter ? "Cancel counter" : "Counter"}
+                  </button>
+                </>
+              )}
               <button
                 disabled={busy}
                 onClick={() => onAct("decline")}
@@ -389,13 +382,15 @@ function OfferCard({
           {/* Buyer perspective on a counter offer */}
           {perspective === "buyer" && offer.status === "countered" && (
             <>
-              <button
-                disabled={busy}
-                onClick={() => setConfirming("accept-counter")}
-                className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
-              >
-                {busy ? "..." : "Accept counter"}
-              </button>
+              {!NEW_PAID_COMMERCE_RETIRED && (
+                <button
+                  disabled={busy}
+                  onClick={() => setConfirming("accept-counter")}
+                  className="px-3 py-1.5 text-xs font-semibold bg-ink text-page rounded-md hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {busy ? "..." : "Accept counter"}
+                </button>
+              )}
               <button
                 disabled={busy}
                 onClick={() => onAct("withdraw")}
@@ -516,7 +511,17 @@ function OfferCard({
         </div>
       )}
 
-      {myTurn && (
+      {/* Retired 2026-09-23: accept/counter are hidden, so the turn hint
+          gives way to what is still possible. A seller looking at their own
+          counter has no decline/withdraw button, so the note skips them. */}
+      {NEW_PAID_COMMERCE_RETIRED &&
+        (offer.status === "pending" || (offer.status === "countered" && perspective === "buyer")) && (
+        <div className="mt-2">
+          <p className="text-xs text-ink-faint">Accepting or countering is retired; you can decline or withdraw.</p>
+        </div>
+      )}
+
+      {!NEW_PAID_COMMERCE_RETIRED && myTurn && (
         <p className="text-[10px] text-accent/80 mt-2">
           {perspective === "seller" ? "Your turn — accept, counter, or decline." : "Your turn — accept the counter or withdraw."}
         </p>

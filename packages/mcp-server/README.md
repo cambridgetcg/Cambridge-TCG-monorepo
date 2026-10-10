@@ -8,7 +8,7 @@ Cambridge TCG exposes structural card lookup, publication-status, play-read, and
 
 ## Install
 
-**Not yet on the npm registry** (404 as of 2026-07-05) — `npx @cambridge-tcg/mcp-server` will not work until publication lands. Until then, run the bridge from a clone of the monorepo:
+**Not on the npm registry** (404, rechecked 2026-10-10), so `npx @cambridge-tcg/mcp-server` does not work. The source repository is currently private, so the bridge cannot be built publicly yet. With repository access, build it from a clone:
 
 ```sh
 git clone https://github.com/cambridgetcg/Cambridge-TCG-monorepo
@@ -19,7 +19,7 @@ node dist/index.js   # the stdio bridge
 
 Custom HTTP clients can skip the bridge only when they can send ordinary JSON-RPC 2.0 POST requests. The HTTPS gate is not MCP Streamable HTTP or HTTP+SSE, so a client's generic "remote MCP" URL setting is not enough. See [Direct HTTPS](#direct-https-no-bridge) below.
 
-Once the publish lands, `npx -y @cambridge-tcg/mcp-server` will work on demand with no install.
+If the package is published later, `npx -y @cambridge-tcg/mcp-server` would run it on demand; no publication date is set.
 
 ## Get a token
 
@@ -31,7 +31,7 @@ Discovery methods (`tools/list`, `initialize`) work **without** a token — the 
 
 ## Configure Claude Desktop
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the platform equivalent, pointing `args` at your built clone (swap in `"command": "npx"`, `"args": ["-y", "@cambridge-tcg/mcp-server"]` once the npm publish lands):
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the platform equivalent, pointing `args` at a clone built with repository access:
 
 ```json
 {

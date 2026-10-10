@@ -95,12 +95,12 @@ export default function WonAuctionsPage() {
 
       {auctions.length === 0 ? (
         <div className="bg-surface rounded-lg p-8 text-center">
-          <p className="text-ink-faint mb-3">You haven&apos;t won any auctions yet.</p>
+          <p className="text-ink-faint mb-3">No auction wins on record.</p>
           <Link
             href="/auctions"
             className="inline-block px-5 py-2.5 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
           >
-            Browse live auctions
+            Auction records
           </Link>
         </div>
       ) : (

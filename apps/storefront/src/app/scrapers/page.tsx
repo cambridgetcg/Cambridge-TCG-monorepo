@@ -15,6 +15,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui";
+import { repoDocRef } from "@/lib/repository";
 
 export const metadata: Metadata = {
   title: "Welcome — web scrapers",
@@ -252,14 +253,7 @@ export default async function ScrapersWelcomePage() {
           </p>
           <p className="text-xs text-ink-faint">
             schema.org coverage is ongoing; gaps are tracked in the substrate-honesty
-            audit (
-            <Link
-              href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/principles/substrate-honesty-audit.md"
-              className="text-accent hover:underline"
-            >
-              substrate-honesty-audit.md
-            </Link>
-            ).
+            audit, <code>{repoDocRef("docs/principles/substrate-honesty-audit.md")}</code>.
           </p>
         </section>
 

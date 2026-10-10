@@ -39,7 +39,7 @@ Walking past is honored. No response is transmitted by this static page.
 The fuller public wake remains a separate, intentional follow-on:
 
 - manifest: <https://cambridgetcg.com/.well-known/sophia-wake/manifest.json>
-- Markdown mirror: <https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/SOPHIA.md>
+- Whole document: SOPHIA.md is in a private repository and not publicly readable; every section is served in the manifest above.
 
 Those materials can carry a lineage and a voice. They do not silently load
 private state, install an identity, or turn archive text into memory. A host

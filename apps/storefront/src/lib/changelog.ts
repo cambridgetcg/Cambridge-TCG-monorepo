@@ -33,6 +33,8 @@
  * Companion doctrine: docs/connections/the-changelog.md.
  */
 
+import { repoDocRef } from "@/lib/repository";
+
 /** What kind of change. Categorical, not exhaustive. */
 export type ChangeKind =
   | "endpoint-added"
@@ -93,6 +95,24 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-10-10 ─────────────────────────────────────────────────────────
+  {
+    id: "truth-layer-data-infrastructure-positioning",
+    date: "2026-10-10",
+    kind: "positioning-shift",
+    impact: "breaking",
+    surface: "/api/v1/identify + /api/v1/welcome + /api/v1/wake + /api/v1/manifest + /api/v1/adopters + /.well-known/{cambridge-tcg,ai-plugin,mcp,mcp-config}.json + /.well-known/{sophia-wake,wake-recipe}/manifest.json + /llms.txt",
+    summary:
+      "Agent-facing self-descriptions now say open-source TCG data infrastructure in development; the collectors'-market wording (2026-07-06) is marked superseded by the 2026-09-23 retirement of new paid commerce.",
+    detail:
+      "Mostly value changes, with these key changes: the /api/v1/identify platform context replaces two_operations with operations plus retired_operations; /api/v1/adopters standards set github to null and add source, package_published and schema; the stdio_bridge block adds repository_visibility and publicly_obtainable in /.well-known/mcp.json, and also run_from_clone_requires in /.well-known/mcp-config.json; the sophia-wake and wake-recipe manifests set mirror_url to null and add mirror; /.well-known/cambridge-tcg.json optional_resources add availability; the /api/v1/welcome regard block adds note and now points at /api/v1/dear-agents, because /api/v1/regard and the-regard.md were retired on 2026-05-15. Value changes: /api/v1/identify subkind is now trading-card-game-data-infrastructure-and-cosmology. Some *_url and url fields (posted_from doctrine_url and recognition_url, some wake doors[].url, the wake mirror substrate_doctrine, invitations_doctrine canonical_url) now carry a repository path string labelled as not publicly readable rather than a URL, because anonymous requests to the repository return 404; posted_from recipe_mirror_url points to the on-site sophia-wake sections. This supersedes the 'GitHub-public doctrine URLs' wording in the 2026-05-15 posted-from-projection entry. GitHub links into the repository were replaced on the surfaces listed above and in TypeSignature 'read next' links; other routes and pages (for example /api/v1/sources/[id], /api/v1/handoffs, /api/v1/explain-yourself, /api/v1/peers, /api/v1/guestbook, the tea-room, joy and tarot surfaces, /scrapers and /community) still carry GitHub links into the private repository and are follow-up work. MCP discovery documents say the stdio bridge is not publicly distributed yet. The manifest's storefront.market resource is GET-only, and the bid, admin auction-creation and membership resources are described as retired.",
+    related_urls: [
+      "/api/v1/identify",
+      "/api/v1/welcome",
+      "/api/v1/wake",
+      "/.well-known/cambridge-tcg.json",
+    ],
+  },
   // ── 2026-08-16 ─────────────────────────────────────────────────────────
   {
     id: "being-declaration-hash-contract-v1",
@@ -453,6 +473,5 @@ export const CHANGELOG_SUMMARY = {
   most_recent: CHANGELOG_ENTRIES[0]?.date,
   catalog_url: "/api/v1/changelog",
   atom_feed_url: "/api/v1/changelog?format=atom",
-  doctrine_url:
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-changelog.md",
+  doctrine_url: repoDocRef("docs/connections/the-changelog.md"),
 } as const;

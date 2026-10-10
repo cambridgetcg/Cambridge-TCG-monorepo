@@ -46,8 +46,9 @@ export default function MemberPricingMethodology() {
           <strong>Scryfall.</strong> Its{" "}
           <a href="https://scryfall.com/docs/api">data rules</a> allow free
           accounts and value-added tools, but prohibit simply republishing or
-          proxying its data. Daily bulk-derived estimates can appear in the
-          member view with source attribution; they do not enter our member
+          proxying its data. Once activated (bulk activation is currently
+          deferred), daily bulk-derived estimates could appear in the member
+          view with source attribution; they do not enter our member
           API, CSV, or NDJSON downloads. The underlying price provider remains
           attached rather than being renamed Cambridge.
         </li>
@@ -97,7 +98,10 @@ export default function MemberPricingMethodology() {
       <p>
         Source observation time and Cambridge retrieval time are different
         facts. The pagination snapshot time is neither. Cardmarket and
-        Scryfall price refreshes are daily rather than five-minute live quotes.
+        Scryfall publish their files daily, but Cambridge does not refresh them
+        on a schedule: Cardmarket imports are manual (see the Cardmarket entry
+        at /api/v1/sources) and Scryfall bulk activation is deferred. An
+        observation is only as fresh as its retrieval time.
         Missing observations remain gaps; migration, a new request, or a failed
         collector does not make an old observation fresh. Prices remain in
         their native currency; the separate <Link href="/methodology/fx-rates">FX

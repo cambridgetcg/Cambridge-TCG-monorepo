@@ -233,9 +233,8 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
             <div className="mb-5 flex flex-wrap items-center gap-3">
               <Provenance
                 kind="synced"
-                source={config.cardrush?.subdomain ?? "wholesale"}
+                source={state._provenance.sources.join(", ")}
                 at={state._provenance.as_of}
-                cadence="daily"
               />
               <WhyLink href="/methodology/pricing" label="price publication boundary" />
               <WhyLink

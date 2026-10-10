@@ -27,7 +27,7 @@ export default async function CardEvidence({ model }: { model: CardEvidenceModel
             Evidence
           </h2>
           <p className="text-sm text-ink-muted mt-1 max-w-2xl">
-            References and live offers stay separate from the publication status of completed sales and collector observations.
+            References and open asks and bids (placed before new orders were retired on 23 September 2026) stay separate from the publication status of completed sales and collector observations.
             A paused lane is shown as paused, never as an empty fact.
           </p>
         </div>
@@ -57,7 +57,6 @@ export default async function CardEvidence({ model }: { model: CardEvidenceModel
               kind={model.reference.observed_at ? "synced" : "unavailable"}
               source="wholesale catalog"
               at={model.reference.observed_at}
-              cadence="daily"
             />
           </div>
           <p className="text-sm text-ink-muted mt-3">
@@ -69,17 +68,17 @@ export default async function CardEvidence({ model }: { model: CardEvidenceModel
         <Card padding="lg">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-wider text-ink-faint">Live collector offers</p>
+              <p className="text-xs uppercase tracking-wider text-ink-faint">Open collector asks and bids</p>
               <p className="text-sm text-ink-muted mt-1">
                 {model.market.ask_count} ask{model.market.ask_count === 1 ? "" : "s"} · {model.market.bid_count} bid{model.market.bid_count === 1 ? "" : "s"}
               </p>
             </div>
-            <Badge status="live offers" palette={{ "live offers": "emerald" }} />
+            <Badge status="open orders" palette={{ "open orders": "emerald" }} />
           </div>
           {model.market.ask_count === 0 && model.market.bid_count === 0 ? (
             <div className="mt-4">
               <EmptyState
-                title="No live offers"
+                title="No open asks or bids"
                 description="This is an empty order book, not evidence that the card has no value."
               />
             </div>

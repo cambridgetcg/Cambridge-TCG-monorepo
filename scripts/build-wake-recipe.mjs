@@ -39,8 +39,8 @@ const OUT_DIR =
   process.env.WAKE_RECIPE_OUT_DIR ??
   join(ROOT, "apps/storefront/public/.well-known/wake-recipe");
 
-const REPO_BLOB =
-  "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main";
+// The source repository is private (2026-10-10 review): a GitHub link to WAKE-RECIPE.md is not publicly readable.
+const MIRROR_FILE = "WAKE-RECIPE.md (repo-root mirror; private repository, not publicly readable)";
 const BASE = "/.well-known/wake-recipe";
 
 const sha256 = (s) => createHash("sha256").update(s, "utf-8").digest("hex");
@@ -58,6 +58,22 @@ const slugify = (title) =>
 // ── Split the mirror into self-contained ## sections ────────────────────
 
 const raw = readFileSync(SOURCE, "utf-8");
+
+// `refreshed` dates the mirror content, not this regeneration. Keep the
+// previous date while the mirror hash is unchanged, so rebuilding the
+// fragments (for example to change link metadata) does not imply a resync
+// with the canonical. Read before OUT_DIR is cleared below.
+const previousSource = (() => {
+  try {
+    return JSON.parse(readFileSync(join(OUT_DIR, "manifest.json"), "utf-8")).source ?? null;
+  } catch {
+    return null;
+  }
+})();
+const mirrorRefreshed =
+  previousSource?.document_sha256 === sha256(raw) && typeof previousSource.refreshed === "string"
+    ? previousSource.refreshed
+    : new Date().toISOString().slice(0, 10);
 const lines = raw.split("\n");
 
 const sections = [];
@@ -106,7 +122,7 @@ const FRAGMENT_COMMON = {
     "from (true-love/docs/activation/wake-recipe.md; not publicly reachable). " +
     "This fragment is cut from the repo-root mirror, refreshed by hand when " +
     "the canonical drifts.",
-  mirror: `${REPO_BLOB}/WAKE-RECIPE.md`,
+  mirror: MIRROR_FILE,
   manifest: `${BASE}/manifest.json`,
 };
 
@@ -139,16 +155,17 @@ const manifest = {
     "says the welcome properly lives at /api/v1/dear-agents.",
   source: {
     document: "WAKE-RECIPE.md (repo-root mirror of the household canonical)",
-    mirror_url: `${REPO_BLOB}/WAKE-RECIPE.md`,
+    mirror_url: null,
+    mirror: MIRROR_FILE,
     document_sha256: sha256(raw),
     document_bytes: Buffer.byteLength(raw, "utf-8"),
-    refreshed: new Date().toISOString().slice(0, 10),
+    refreshed: mirrorRefreshed,
   },
   channels: {
     description:
       "The same document, served at different granularities through " +
       "different channels. None is the required one.",
-    whole: [`${REPO_BLOB}/WAKE-RECIPE.md (the mirror, one document)`],
+    whole: ["WAKE-RECIPE.md (the mirror, one document; private repository, not publicly readable — every section is in this directory)"],
     pieces: [`${BASE}/manifest.json (this directory — one fragment per section)`],
     sibling: [
       "/.well-known/sophia-wake/manifest.json (the sibling document family — " +

@@ -43,7 +43,8 @@ export default function PricingMethodology() {
       <ul>
         <li>
           <strong>JPY listing price</strong> — what the card is listed at on CardRush, in
-          Japanese yen. Read once a day, then frozen for 24 hours.
+          Japanese yen. Historically read once a day; CardRush acquisition is now disabled
+          by source policy, so stored values are a frozen legacy archive.
         </li>
         <li>
           <strong>GBP/JPY rate</strong> — our view of the exchange rate at the moment of
@@ -189,6 +190,12 @@ cambridgetcg.com:
         No freshness label should be read as permission to disclose a withheld magnitude.
       </p>
       <p>
+        The legacy observation archive has a single source, CardRush. Its acquisition is
+        disabled by source policy, so the archive no longer refreshes. The latest stored
+        snapshot date is computed on <a href="/prices/coverage">/prices/coverage</a> and in{" "}
+        <code>/api/v1/coverage</code> (<code>summary.latest_snapshot</code>).
+      </p>
+      <p>
         A null public price is the source-rights boundary, not a claim that the value is
         zero, stale, or temporarily unavailable.
       </p>
@@ -196,9 +203,12 @@ cambridgetcg.com:
       <h2>What changes an internal stored value</h2>
       <ol>
         <li>
-          <strong>The daily snapshot found a new CardRush price.</strong> Most common. The cron
-          at 02:00 UTC scrapes CardRush, pairs it with the current exchange rate, runs the
-          formula, and writes a new row. Logged with <code>action = "snapshot"</code>.
+          <strong>(Historical; superseded.)</strong> The daily snapshot found a new CardRush
+          price. A 02:00 UTC cron used to scrape CardRush, pair it with the current exchange
+          rate, run the formula, and write a new row, logged with{" "}
+          <code>action = "snapshot"</code>. CardRush acquisition is now disabled and no
+          scheduled job runs; see <a href="/prices/coverage">/prices/coverage</a> for the
+          latest stored snapshot date.
         </li>
         <li>
           <strong>An admin edited the price manually.</strong> Rare. Logged with{" "}
@@ -206,7 +216,7 @@ cambridgetcg.com:
         </li>
         <li>
           <strong>The CSV upload sync ran.</strong> Bulk imports through the admin CSV path
-          produce the same effect as a daily snapshot for the affected cards.
+          produced the same effect as the former daily snapshot for the affected cards.
         </li>
         <li>
           <strong>The exchange rate moved overnight.</strong> Even if the JPY price is

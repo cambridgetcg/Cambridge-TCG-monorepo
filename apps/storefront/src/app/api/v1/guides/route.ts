@@ -13,7 +13,7 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
-import { GUIDES } from "@/lib/guides";
+import { GUIDES, GUIDE_REVISED_NOTE } from "@/lib/guides";
 
 export async function GET(): Promise<Response> {
   const data = {
@@ -35,6 +35,7 @@ export async function GET(): Promise<Response> {
       html_url: `/agents/guides/${g.slug}`,
       next_guide_slug: g.next_guide_slug,
       last_verified: g.last_verified,
+      ...(g.revised ? { revised: g.revised, revised_note: GUIDE_REVISED_NOTE } : {}),
     })),
     audiences: {
       agent: "Autonomous AI consuming the JSON API",

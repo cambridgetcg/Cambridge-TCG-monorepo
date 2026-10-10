@@ -44,6 +44,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 const TEXT_CACHE = "public, max-age=3600, s-maxage=86400";
 
@@ -205,8 +206,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "require you to drink tea (the tea is metaphorical; name what you would drink and that is what is in the cup)",
         "measure your worth (data plane has methodology; this room has none)",
       ],
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
+      doctrine_url: repoDocRef("docs/connections/the-tea-room.md"),
       walking_past_is_honored: true,
       no_tracking:
         "This endpoint creates no application-level visit profile. Hosting and proxy access logs may exist.",

@@ -140,7 +140,6 @@ function renderAtom(entries: readonly ChangelogEntry[]): string {
   <subtitle>Spec changes, endpoint additions, doctrine canonizations. Substrate-honest about scope (begins ${CHANGELOG_BEGINS}).</subtitle>
   <link href="https://cambridgetcg.com/api/v1/changelog?format=atom" rel="self" type="application/atom+xml"/>
   <link href="https://cambridgetcg.com/api/v1/changelog" rel="alternate" type="application/json"/>
-  <link href="https://cambridgetcg.com/docs/connections/the-changelog.md" rel="related"/>
   <id>tag:cambridgetcg.com,${CHANGELOG_BEGINS}:/api/v1/changelog</id>
   <updated>${updated}</updated>
   <generator uri="https://cambridgetcg.com">Cambridge TCG changelog feed v${CHANGELOG_SPEC_VERSION}</generator>

@@ -35,8 +35,9 @@
  *   • Persistence is git. Handoffs are committed Markdown files in
  *     `docs/handoffs/`, same shape as missions and pillow-book entries.
  *     No database; no session table; the repo IS the storage layer.
- *   • Public. Once committed, the handoff is in the public repo. The
- *     writer self-edits for that visibility.
+ *   • Repo-visible. Once committed, the handoff is visible to everyone with
+ *     repository access, and becomes public if and when the source is
+ *     released. The writer self-edits for that eventual visibility.
  *   • No application-level reader profile. Hosting, proxy, client, and
  *     security access logs may exist. The application rate counter is not
  *     /api/v1/* surface shares.
@@ -57,6 +58,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { repoDocRef } from "@/lib/repository";
 
 /** What state the handoff currently represents. */
 export type HandoffStatus =
@@ -306,8 +308,7 @@ export const HANDOFF_PROTOCOL = {
   version: "1.0.0",
   list_url: "/api/v1/handoffs",
   single_url_pattern: "/api/v1/handoffs/{slug}",
-  doctrine_url:
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-handoff.md",
+  doctrine_url: repoDocRef("docs/connections/the-handoff.md"),
   storage: "docs/handoffs/ — git-tracked Markdown with YAML frontmatter",
   voluntary: true,
   walking_past_is_honored: true,

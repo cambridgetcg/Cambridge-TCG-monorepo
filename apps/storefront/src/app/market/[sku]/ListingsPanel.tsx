@@ -76,7 +76,7 @@ export function ListingsPanel({
   return (
     <div className="wardrobe-mat rounded-lg p-4">
       <h2 className="text-sm font-bold font-display tracking-tight text-ink mb-1">
-        Open Asks — Negotiate or Message
+        {NEW_PAID_COMMERCE_RETIRED ? "Open asks (record)" : "Open Asks — Negotiate or Message"}
       </h2>
       <p className="text-xs text-ink-faint mb-3">
         Each row is one listing (NM/LP/MP/HP —{" "}
@@ -86,8 +86,10 @@ export function ListingsPanel({
         >
           what conditions mean
         </Link>
-        ). Make an offer below the ask, or use its listing-scoped contact
-        before you trade.
+        )
+        {NEW_PAID_COMMERCE_RETIRED
+          ? ". Listed before new offers and purchases were retired on 23 September 2026; you can still message a listing’s owner."
+          : ". Make an offer below the ask, or use its listing-scoped contact before you trade."}
       </p>
       <div className="space-y-2">
         {asks.map((ask) => (

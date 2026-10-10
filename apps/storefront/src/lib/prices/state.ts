@@ -32,6 +32,7 @@ import {
   type SetItem,
 } from "@/lib/wholesale/client";
 import { retailPrice } from "@/lib/pricing";
+import { getSource } from "@cambridge-tcg/data-ingest";
 import {
   getPriceGuideConfig,
   type PriceGuideGameConfig,
@@ -357,8 +358,7 @@ export async function loadCardState(
     source_id: "cardmarket",
     license: "proprietary",
     available: false,
-    detail:
-      "Public daily Product Catalog and Price Guide files exist; Cambridge's file reader and field-level rights lineage are not wired yet.",
+    detail: `${getSource("cardmarket")?.meta.description ?? "The Cardmarket registry entry is unavailable."} Member-only observations live in the member browser and are not merged into this legacy guide.`,
     signed_in_path: null,
   });
 

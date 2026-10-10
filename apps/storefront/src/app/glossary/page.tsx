@@ -136,19 +136,20 @@ const GROUPS: TermGroup[] = [
       {
         term: "Commission rate",
         definition:
-          "The platform's cut on P2P sales and auctions. It is 0% for everyone — Cambridge TCG takes no commission, so sellers keep 100% of every sale.",
+          "The platform's cut on P2P sales and auctions: 0% for anything agreed on or after 21 July 2026, including trades still settling. Earlier trades keep the commission recorded when they were matched. New paid sales were retired on 23 September 2026.",
         see: "/methodology/fees",
       },
       {
         term: "Store credit",
         definition:
-          "Non-money value the platform issues for trade-ins, refunds, and rewards. Spent at checkout via a one-shot Stripe coupon. Tracked in `store_credit_ledger`.",
+          "Historical non-money credit from trade-ins, refunds and rewards, tracked in `store_credit_ledger`. The checkout that spent it is retired.",
         see: "/methodology/store-credit",
       },
       {
         term: "Trade-in",
         definition:
-          "The platform's promise to buy any card on its buylist for store credit, unlimited quantity, instantly. Cambridge TCG acts as market-maker on every supported card.",
+          "Historical (closed 6 July 2026): the platform's former desk that bought cards for store credit.",
+        see: "/trade-in",
       },
       {
         term: "Response window",

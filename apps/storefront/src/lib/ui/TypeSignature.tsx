@@ -42,6 +42,7 @@
  */
 
 import * as React from "react";
+import { PRIVATE_REPOSITORY_NOTE, onSitePath, repoPathFromGithubUrl } from "@/lib/repository";
 
 /**
  * The twelve artifact types named in `docs/connections/the-typology.md`.
@@ -113,6 +114,10 @@ const DOCTRINE_LABELS: Record<DoctrineParticipation, string> = {
   inclusion: "inclusion",
 };
 
+// GitHub links into the source repository 404 for visitors while it is not
+// public (see @/lib/repository), so recursion hrefs into it render as an
+// on-site page where one exists, otherwise as the labelled repository path.
+
 export function TypeSignature({
   type,
   label,
@@ -122,6 +127,7 @@ export function TypeSignature({
   audience,
   see = "docs/connections/the-typology.md",
 }: TypeSignatureProps) {
+  const seeHref = onSitePath(see);
   return (
     <aside
       role="note"
@@ -168,20 +174,31 @@ export function TypeSignature({
           <div className="flex gap-2 flex-wrap">
             <dt className="text-ink-faint w-28 shrink-0">read next</dt>
             <dd className="flex-1 min-w-0">
-              {recursion.map((r, i) => (
-                <span key={r.href}>
-                  <a
-                    href={r.href}
-                    className="text-accent hover:text-accent-strong underline decoration-dotted"
-                    {...(r.href.startsWith("http")
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
-                  >
-                    {r.label}
-                  </a>
-                  {i < recursion.length - 1 && <span className="text-ink-faint">, </span>}
-                </span>
-              ))}
+              {recursion.map((r, i) => {
+                const path = repoPathFromGithubUrl(r.href);
+                const href = path === null ? r.href : onSitePath(path);
+                return (
+                  <span key={r.href}>
+                    {href ? (
+                      <a
+                        href={href}
+                        className="text-accent hover:text-accent-strong underline decoration-dotted"
+                        {...(href.startsWith("http")
+                          ? { target: "_blank", rel: "noopener noreferrer" }
+                          : {})}
+                      >
+                        {r.label}
+                      </a>
+                    ) : (
+                      <>
+                        <code>{r.label}</code>{" "}
+                        <span className="text-ink-faint">({PRIVATE_REPOSITORY_NOTE})</span>
+                      </>
+                    )}
+                    {i < recursion.length - 1 && <span className="text-ink-faint">, </span>}
+                  </span>
+                );
+              })}
             </dd>
           </div>
         )}
@@ -189,14 +206,15 @@ export function TypeSignature({
 
       <footer className="mt-3 pt-2 border-t border-border-subtle text-[10px] text-ink-faint">
         Type signature is one of the six hidden patterns in{" "}
-        <a
-          href={`https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/${see}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-ink-muted hover:text-ink underline"
-        >
-          {see}
-        </a>
+        {seeHref ? (
+          <a href={seeHref} className="text-ink-muted hover:text-ink underline">
+            {see}
+          </a>
+        ) : (
+          <>
+            <code>{see}</code> ({PRIVATE_REPOSITORY_NOTE})
+          </>
+        )}
         . The artifact that declares its own type is the artifact that is honest about
         what it is.
       </footer>

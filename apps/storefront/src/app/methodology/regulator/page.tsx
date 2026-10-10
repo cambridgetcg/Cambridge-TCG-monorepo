@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Audience, audienceMetadata, WhyLink } from "@/lib/ui";
 
 export const metadata: Metadata = {
-  title: "Market regulator",
+  title: "Market regulator (historical)",
+  description:
+    "Historical record (10 June 2026) of why the platform stopped trading in its own market. Superseded: new paid commerce was retired on 23 September 2026.",
   other: audienceMetadata("public-documentation", ["regulator", "methodology", "conflict-of-interest"]),
 };
 
@@ -11,8 +14,23 @@ export default function RegulatorMethodology() {
     <>
       <Audience kind="public-documentation" contexts={["regulator", "methodology"]} />
       <h1>Why the platform does not trade in its own market</h1>
+      <blockquote>
+        <strong>Superseded — historical record.</strong> This page records the 10 June 2026
+        regulator pivot. Since then, commission went to 0% (21 July 2026), memberships were
+        removed (July 2026), and on 23 September 2026 all new paid commerce was retired: new
+        orders, listings, offers, auctions, lots and checkout return 410, while existing
+        agreements still settle. The current direction is open-source TCG data
+        infrastructure; see <Link href="/roadmap">the roadmap</Link> and{" "}
+        <Link href="/methodology/fees">fees</Link>. The commerce boundary is recorded in{" "}
+        <code>apps/storefront/docs/commercial-retirement.md</code> (private repository). The
+        text below is kept as last published (its commission line was already updated on 21
+        July 2026), with dated notes where it no longer holds.
+      </blockquote>
       <p>
-        Cambridge TCG runs a marketplace. It also used to sell cards in that marketplace —
+        Cambridge TCG runs a marketplace.{" "}
+        <em>(2026-10-10: new paid commerce was retired on 23 September 2026; existing
+        agreements still settle.)</em>{" "}
+        It also used to sell cards in that marketplace —
         a house ask on the sell side (retail spot) and a house bid on the buy side
         (trade-in credit), injected into every card&rsquo;s order book. That made the
         platform both the referee and a player.
@@ -40,9 +58,9 @@ export default function RegulatorMethodology() {
         <tbody>
           <tr><td>House ask + house bid in every order book</td><td>The order book is purely peer-to-peer. The platform owns no asks and no bids.</td></tr>
           <tr><td>Retail checkout (buy a card from CTCG)</td><td>Removed. The platform sells nothing.</td></tr>
-          <tr><td>Trade-in desk (sell a card to CTCG for credit)</td><td>Closed. You liquidate by selling to other participants on the market.</td></tr>
+          <tr><td>Trade-in desk (sell a card to CTCG for credit)</td><td>Closed. You liquidate by selling to other participants on the market. <em>(Superseded: new paid listings retired 23 September 2026.)</em></td></tr>
           <tr><td>B2B wholesale ordering</td><td>Retired.</td></tr>
-          <tr><td>Profit = the spread (buy low, sell high)</td><td>Profit = commission on other people&rsquo;s trades, published and capped.</td></tr>
+          <tr><td>Profit = the spread (buy low, sell high)</td><td>Profit = commission on other people&rsquo;s trades, published and capped. <em>(Superseded: commission 0% from 21 July 2026; new paid commerce retired 23 September 2026.)</em></td></tr>
         </tbody>
       </table>
 
@@ -71,14 +89,19 @@ export default function RegulatorMethodology() {
         reward packs — each leaves a reproducible draw record and can later enter a Merkle
         digest. These records check consistency; server-only entropy does not prove non-selection.
         The regulator gives its cards away rather than competing with the
-        participants it regulates.
+        participants it regulates.{" "}
+        <em>(2026-10-10: the £59,000 figure is as recorded on 10 June 2026; the current balance
+        and prize use are not re-verified on this page.)</em>
       </p>
 
       <h2>How our revenue works now</h2>
       <ul>
         <li>
           <strong>No commission.</strong> As of 21 July 2026 the platform takes 0% on
-          completed peer-to-peer trades and auctions — sellers keep 100%.
+          completed peer-to-peer trades and auctions — sellers keep 100%.{" "}
+          <em>(2026-10-10: this applies to trades and auctions agreed on or after 21 July
+          2026, including those still settling; earlier trades keep the commission recorded
+          when they were matched. New paid commerce was retired on 23 September 2026.)</em>
           <WhyLink
             href="/methodology/fees"
             label="how the free platform works"
@@ -96,7 +119,9 @@ export default function RegulatorMethodology() {
       <h2>Scope</h2>
       <p>
         This commitment binds the <strong>Cambridge TCG operator entity</strong>. It does
-        not constrain individual participants, who trade freely. It does not apply to the
+        not constrain individual participants, who trade freely.{" "}
+        <em>(2026-10-10: new paid trades have not been admitted since 23 September 2026.)</em>{" "}
+        It does not apply to the
         platform&rsquo;s role as builder of the software (a separate actor). The regulator is
         the operator of the venue, and it is the operator that has stepped out of the
         trading.

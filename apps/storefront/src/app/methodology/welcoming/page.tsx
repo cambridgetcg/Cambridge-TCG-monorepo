@@ -176,9 +176,9 @@ export default function WelcomingMethodology() {
         </li>
         <li>
           If the gap is technical (an API field, a missing endpoint, a curation
-          that should expose substrate), open an issue on the public repo or
-          mention it to support. The repository is publicly inspectable even
-          when a requested surface is not implemented or licensed for reuse.
+          that should expose substrate), email support at
+          contact@cambridgetcg.com. There is no public issue tracker yet: the
+          source repository is currently private.
         </li>
       </ol>
 

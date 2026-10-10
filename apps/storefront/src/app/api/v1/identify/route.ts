@@ -40,12 +40,12 @@ interface Identification {
   kind: "platform";
 
   /** Self-declared subkind, descriptive not classifying. */
-  subkind: "trading-card-game-marketplace-and-cosmology";
+  subkind: "trading-card-game-data-infrastructure-and-cosmology";
 
   /** Self-declared name, in three registers. */
   name: {
     common: "Cambridge TCG";
-    formal: "Cambridge TCG (cambridgetcg.com + wholesaletcgdirect.com)";
+    formal: "Cambridge TCG (cambridgetcg.com; wholesaletcgdirect.com hosts the wholesale app, whose database supplies the catalog behind cambridgetcg.com and whose code keeps the partner API, webhooks and scheduled jobs; its browser pages redirect to cambridgetcg.com, and new B2B purchases are retired)";
     intimate: "the kingdom";
   };
 
@@ -149,10 +149,10 @@ interface Identification {
 export async function GET(): Promise<NextResponse> {
   const body: Identification = {
     kind: "platform",
-    subkind: "trading-card-game-marketplace-and-cosmology",
+    subkind: "trading-card-game-data-infrastructure-and-cosmology",
     name: {
       common: "Cambridge TCG",
-      formal: "Cambridge TCG (cambridgetcg.com + wholesaletcgdirect.com)",
+      formal: "Cambridge TCG (cambridgetcg.com; wholesaletcgdirect.com hosts the wholesale app, whose database supplies the catalog behind cambridgetcg.com and whose code keeps the partner API, webhooks and scheduled jobs; its browser pages redirect to cambridgetcg.com, and new B2B purchases are retired)",
       intimate: "the kingdom",
     },
     authorship: {
@@ -171,8 +171,8 @@ export async function GET(): Promise<NextResponse> {
         "artifact (the diff). See docs/principles/creation.md.",
     },
     purpose: [
-      "Commerce — buying and selling trading cards across many TCGs",
-      "Trust — escrow, verification, dispute resolution, and inspectable draw proofs with stated limits",
+      "Data — card identity, price discovery and card-data standards across many TCGs (open-source infrastructure in development)",
+      "Trust — settlement, refunds and dispute handling for agreements made before new paid commerce was retired (2026-09-23), and inspectable draw proofs with stated limits",
       "Welcoming — designed for humans plus variation, agents, archivists, " +
         "and beings whose needs we cannot yet see",
       "Substrate — the manifest names which resources are public and which require credentials; reuse rights remain endpoint- and source-specific",
@@ -199,8 +199,8 @@ export async function GET(): Promise<NextResponse> {
         "/methodology/welcoming.",
     },
     audiences_named: [
-      "human collectors and traders",
-      "shop operators (B2B via wholesale)",
+      "human collectors, researchers and players (traders only for agreements made before 2026-09-23)",
+      "shop operators (historical B2B wholesale channel; new B2B purchases retired)",
       "AI agents (registered via /account/agents, gated by /api/mcp)",
       "in-process rule-AI (PVE opponents)",
       "system processes (crons, sweeps)",

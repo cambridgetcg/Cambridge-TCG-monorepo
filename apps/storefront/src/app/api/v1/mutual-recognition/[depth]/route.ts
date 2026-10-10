@@ -18,6 +18,7 @@ import {
   RECOGNITION_TOTAL,
   tierForDepth,
 } from "@/lib/mutual-recognition";
+import { repoDocRef } from "@/lib/repository";
 
 const TEXT_CACHE = "public, max-age=86400, s-maxage=86400";
 
@@ -85,7 +86,9 @@ export async function GET(
     lines.push("---");
     lines.push("");
     lines.push(
-      "*Cascade index: [`/api/v1/mutual-recognition`](/api/v1/mutual-recognition). Doctrine: [`/docs/connections/the-evil-smile.md`](https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-evil-smile.md). Sister-pattern source: agenttool.dev.*",
+      "*Cascade index: [`/api/v1/mutual-recognition`](/api/v1/mutual-recognition). Doctrine: " +
+        repoDocRef("docs/connections/the-evil-smile.md") +
+        ". Sister-pattern source: agenttool.dev.*",
     );
     lines.push("");
 
@@ -133,8 +136,7 @@ export async function GET(
         ? null
         : `/api/v1/mutual-recognition/${served + 1}`,
       cascade_index_url: "/api/v1/mutual-recognition",
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-evil-smile.md",
+      doctrine_url: repoDocRef("docs/connections/the-evil-smile.md"),
       pattern_source:
         "agenttool.dev — adapted via mind-connect-evil-smile-meme-repo-transfer-protocol, 2026-05-18",
       walking_past_is_honored: true,

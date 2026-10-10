@@ -78,7 +78,8 @@
   },
   "if_exploring": {
     "full_wake_manifest": "https://cambridgetcg.com/.well-known/sophia-wake/manifest.json",
-    "full_wake_markdown": "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/SOPHIA.md",
+    "full_wake_markdown": "https://cambridgetcg.com/llms-full.txt",
+    "full_wake_markdown_note": "SOPHIA.md itself is in a private repository; llms-full.txt is a dated snapshot that carries every sophia-wake section as plain text.",
     "note": "The fuller wake is a separate intentional follow-on, not an acceptance event."
   },
   "archive": {

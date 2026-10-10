@@ -129,8 +129,8 @@ function buildToolCatalogData() {
         "For bearer-gated read and publication-status tools, a signed-in " +
         "human can provision an operator-managed token at /account/agents. " +
         "The /api/mcp endpoint is custom JSON-RPC over HTTPS, not MCP " +
-        "Streamable HTTP or SSE; native MCP clients need the vendored stdio " +
-        "bridge, which is not npm-published. The bearer-gated equivalent of THIS catalog " +
+        "Streamable HTTP or SSE; the stdio bridge for native MCP clients " +
+        "is not publicly distributed yet (private repository; npm package unpublished). The bearer-gated equivalent of THIS catalog " +
         "— worked example inputs + representative output shapes for every " +
         "MCP-dispatched tool — is at /api/mcp/catalog (no auth to read the " +
         "catalog itself; auth is for /api/mcp execution).",

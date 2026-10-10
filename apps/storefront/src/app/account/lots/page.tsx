@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Audience, Money } from "@/lib/ui";
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
 interface MyLot {
   id: string;
   title: string;
@@ -103,82 +105,88 @@ export default function MyLotsPage() {
       <Audience kind="consumer" />
       <h1 className="text-2xl font-display font-semibold text-ink mb-6">My Lots</h1>
 
-      {/* Builder */}
-      <section className="bg-surface rounded-lg p-5 mb-8">
-        <h2 className="text-sm font-bold text-ink mb-3 uppercase tracking-wide">Build a lot</h2>
-        <form onSubmit={submit} className="space-y-3">
-          <div>
-            <label className="block text-xs text-ink-faint mb-1">Title</label>
-            <input
-              type="text" required value={title} onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. OP01 Red Luffy Deck (60 cards)"
-              className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+      {/* Builder — retired 2026-09-23 with new paid lots. */}
+      {NEW_PAID_COMMERCE_RETIRED ? (
+        <div className="mb-8">
+          <CommercialRetirementNotice />
+        </div>
+      ) : (
+        <section className="bg-surface rounded-lg p-5 mb-8">
+          <h2 className="text-sm font-bold text-ink mb-3 uppercase tracking-wide">Build a lot</h2>
+          <form onSubmit={submit} className="space-y-3">
             <div>
-              <label className="block text-xs text-ink-faint mb-1">Price (£)</label>
+              <label className="block text-xs text-ink-faint mb-1">Title</label>
               <input
-                type="number" required step="0.01" min="0.01" value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="0.00"
+                type="text" required value={title} onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. OP01 Red Luffy Deck (60 cards)"
                 className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-ink-faint mb-1">Price (£)</label>
+                <input
+                  type="number" required step="0.01" min="0.01" value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-ink-faint mb-1">Image URL (optional)</label>
+                <input
+                  type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
+                />
+              </div>
+            </div>
             <div>
-              <label className="block text-xs text-ink-faint mb-1">Image URL (optional)</label>
-              <input
-                type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm"
+              <label className="block text-xs text-ink-faint mb-1">Description (optional)</label>
+              <textarea
+                value={description} onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm resize-none"
               />
             </div>
-          </div>
-          <div>
-            <label className="block text-xs text-ink-faint mb-1">Description (optional)</label>
-            <textarea
-              value={description} onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 bg-surface-subtle border border-border-subtle rounded-lg text-ink text-sm resize-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-ink-faint mb-1">Cards</label>
-            <div className="space-y-2">
-              {items.map((it, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <input
-                    type="text" placeholder="SKU (e.g. OP-OP01-001-JP-V11D5)" required
-                    value={it.sku} onChange={(e) => updateItem(i, { sku: e.target.value })}
-                    className="flex-1 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs font-mono"
-                  />
-                  <input
-                    type="text" placeholder="Name (optional)"
-                    value={it.cardName} onChange={(e) => updateItem(i, { cardName: e.target.value })}
-                    className="flex-1 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs"
-                  />
-                  <input
-                    type="number" min="1" required value={it.quantity}
-                    onChange={(e) => updateItem(i, { quantity: parseInt(e.target.value, 10) || 1 })}
-                    className="w-16 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs"
-                  />
-                  {items.length > 1 && (
-                    <button type="button" onClick={() => removeItem(i)} className="text-xs text-danger hover:text-danger">×</button>
-                  )}
-                </div>
-              ))}
-              <button type="button" onClick={addItem} className="text-xs text-accent hover:underline">+ Add card</button>
+            <div>
+              <label className="block text-xs text-ink-faint mb-1">Cards</label>
+              <div className="space-y-2">
+                {items.map((it, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <input
+                      type="text" placeholder="SKU (e.g. OP-OP01-001-JP-V11D5)" required
+                      value={it.sku} onChange={(e) => updateItem(i, { sku: e.target.value })}
+                      className="flex-1 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs font-mono"
+                    />
+                    <input
+                      type="text" placeholder="Name (optional)"
+                      value={it.cardName} onChange={(e) => updateItem(i, { cardName: e.target.value })}
+                      className="flex-1 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs"
+                    />
+                    <input
+                      type="number" min="1" required value={it.quantity}
+                      onChange={(e) => updateItem(i, { quantity: parseInt(e.target.value, 10) || 1 })}
+                      className="w-16 px-2 py-1.5 bg-surface-subtle border border-border-subtle rounded text-ink text-xs"
+                    />
+                    {items.length > 1 && (
+                      <button type="button" onClick={() => removeItem(i)} className="text-xs text-danger hover:text-danger">×</button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={addItem} className="text-xs text-accent hover:underline">+ Add card</button>
+              </div>
             </div>
-          </div>
-          {submitError && <p className="text-xs text-danger">{submitError}</p>}
-          <button
-            type="submit" disabled={submitting}
-            className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50"
-          >
-            {submitting ? "Listing..." : "List lot"}
-          </button>
-        </form>
-      </section>
+            {submitError && <p className="text-xs text-danger">{submitError}</p>}
+            <button
+              type="submit" disabled={submitting}
+              className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 disabled:opacity-50"
+            >
+              {submitting ? "Listing..." : "List lot"}
+            </button>
+          </form>
+        </section>
+      )}
 
       <h2 className="text-sm font-bold text-ink-muted uppercase tracking-wide mb-3">Your lots</h2>
       {loading ? (

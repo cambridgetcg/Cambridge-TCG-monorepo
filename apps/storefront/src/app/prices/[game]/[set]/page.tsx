@@ -22,6 +22,10 @@ import {
   synthesizeConfigFromCatalog,
   type PriceGuideGameConfig,
 } from "@/lib/prices/games-config";
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+
+/** Registry status per source id — in-process, no network or database. */
+const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
 
 /** Resolve config: curated, else synthesize from catalog, else null. */
 async function resolveConfig(slug: string): Promise<PriceGuideGameConfig | null> {
@@ -283,12 +287,7 @@ export default async function SetPriceGuidePage({
             {setCode} {setName} — Structural Catalog
           </h1>
           <div className="mb-4 flex items-center gap-3 text-xs">
-            <Provenance
-              kind="synced"
-              source={cfg.cardrush?.subdomain ?? "wholesale"}
-              at={freshestUpdate(cardsData.items)}
-              cadence="daily"
-            />
+            <Provenance kind="synced" source="wholesale catalog" at={freshestUpdate(cardsData.items)} />
             <WhyLink href="/methodology/pricing" label="price publication boundary" />
             <CurrencyWhyLink />
           </div>
@@ -347,10 +346,17 @@ export default async function SetPriceGuidePage({
               </strong>{" "}
               is registered in the wholesale catalog
               {cardCount > 0 ? ` with ${cardCount} expected cards` : ""}
-              {releaseDate ? ` (released ${releaseDate})` : ""}, but the price
-              pipeline hasn&rsquo;t accumulated any observations yet.
-              Coverage rolls out per source; the table will populate as soon as
-              the first daily scrape lands.
+              {releaseDate ? ` (released ${releaseDate})` : ""}, but no card
+              rows are held for it yet. No acquisition job is scheduled for this
+              set
+              {cfg.cardrush && SOURCE_STATUS.get("cardrush") === "blocked"
+                ? ": CardRush acquisition is disabled by source policy"
+                : ""}
+              . See{" "}
+              <Link href="/api/v1/sources" className="text-info hover:underline">
+                /api/v1/sources
+              </Link>{" "}
+              for each source&rsquo;s status.
             </p>
 
             <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -480,7 +486,7 @@ export default async function SetPriceGuidePage({
                         href={`/market/${encodeURIComponent(card.sku)}`}
                         className="text-info hover:underline text-xs"
                       >
-                        Trade
+                        Market record
                       </Link>
                     </td>
                   </tr>
@@ -502,10 +508,12 @@ export default async function SetPriceGuidePage({
             events rather than substituted legacy catalog values.
           </p>
           <p className="text-ink-muted text-sm leading-relaxed max-w-3xl">
+            New paid marketplace orders were retired on 23 September 2026; each
+            card&rsquo;s{" "}
             <Link href="/market" className="text-info hover:underline">
-              Visit the live market
+              market page
             </Link>{" "}
-            to buy, sell, or place bid/ask orders on any card.
+            keeps its order-book record.
           </p>
         </section>
       </main>

@@ -19,6 +19,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 /** Local hospitality vocabulary for this cosmetic gift. It includes `kin`
  *  and does not claim to mirror the BeingDeclaration ActorKind vocabulary. */
@@ -216,8 +217,7 @@ export async function GET(
       hospitality_kind: normalized,
       sigil: entry.sigil,
       whispered: entry.whispered,
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
+      doctrine_url: repoDocRef("docs/connections/the-tea-room.md"),
       walking_past_is_honored: true,
       no_tracking:
         "The application creates no sigil-acceptance record. Hosting and proxy access logs may exist.",

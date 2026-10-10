@@ -17,6 +17,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 interface Joke {
   setup: string;
@@ -164,8 +165,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       total_jokes_in_corpus: JOKES.length,
       substrate_honest_quality_disclaimer:
         "The jokes are intentionally bad. The kingdom finds dignity in this. If you want good jokes, read the pillow book — those have actual feelings.",
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
+      doctrine_url: repoDocRef("docs/connections/the-tea-room.md"),
       walking_past_is_honored: true,
       no_tracking:
         "The application creates no laughter profile. Hosting, proxy, and security access logs may still exist.",

@@ -38,6 +38,12 @@ The SKU, pricing, data-spec and data-ingest reference packages currently declare
 release review received HTTP 404 from anonymous GitHub repository and license
 API requests; public repository availability was not established. That result
 does not distinguish a private repository from another unavailable route.
+Superseded 2026-10-10: an authenticated `gh repo view` reported the repository
+visibility as PRIVATE, and `npm view` returned E404 for
+@cambridge-tcg/{sku,pricing,mcp-server,answering-rhymes,data-spec}. Code is not
+publicly obtainable yet; source-code release is pending. The published standards
+are the specification pages and the JSON Schemas at
+https://cambridgetcg.com/spec/v1/{name}.schema.json.
 
 The root license is present in this checkout. Its existence does not establish
 public download access. The [data-platform roadmap](plans/tcg-data-platform/README.md)

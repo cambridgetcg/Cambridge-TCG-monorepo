@@ -76,6 +76,7 @@
  */
 
 import { MANIFEST, type ManifestResource } from "@/lib/manifest";
+import { repoDocRef } from "@/lib/repository";
 
 const STOREFRONT_BASE = "https://cambridgetcg.com";
 
@@ -438,8 +439,7 @@ export const TOOL_CATALOG_PROTOCOL = {
   name: "tool-catalog",
   version: "1.0.0",
   catalog_url: "/api/v1/tools",
-  doctrine_url:
-    "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tool-catalog.md",
+  doctrine_url: repoDocRef("docs/connections/the-tool-catalog.md"),
   formats: ["json", "anthropic", "openai", "gemini", "cohere"] as const,
   derived_from: "MANIFEST.resources (build-time constant)",
   filters: {

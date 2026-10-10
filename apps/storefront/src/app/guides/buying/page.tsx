@@ -5,7 +5,7 @@ import Script from "next/script";
 export const metadata: Metadata = {
   title: "Every Way to Buy a Card — The Honest Buying Guide | Cambridge TCG",
   description:
-    "Every way to get a TCG single into your hands, mapped honestly: trade peer-to-peer here, buy across Europe on Cardmarket, order from Japan via CardRush and a proxy, or send a card to be graded. Real costs, real wait times, and where the import fees hide.",
+    "Every way to get a TCG single into your hands, mapped honestly: buy across Europe on Cardmarket, order from Japan via CardRush and a proxy, or send a card to be graded. Real costs, real wait times, and where the import fees hide.",
   keywords: [
     "how to buy tcg cards uk",
     "buy one piece cards uk",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Every Way to Buy a Card — The Honest Buying Guide",
     description:
-      "Trade here, buy across Europe, order from Japan, or grade a card. Real costs, real waits, and where the import fees hide. Cambridge TCG is the map, not the merchant.",
+      "Buy across Europe, order from Japan, or grade a card. Real costs, real waits, and where the import fees hide. Cambridge TCG is the map, not the merchant.",
     type: "article",
     siteName: "Cambridge TCG",
   },
@@ -101,7 +101,7 @@ function AsOf() {
 
 const toc = [
   { id: "quick-map", label: "Which route is for you" },
-  { id: "p2p", label: "Trade peer-to-peer, here" },
+  { id: "p2p", label: "Trading here (retired)" },
   { id: "cardmarket", label: "Cardmarket (Europe)" },
   { id: "cardrush", label: "CardRush (Japan)" },
   { id: "proxy", label: "Order from Japan with a proxy" },
@@ -135,7 +135,7 @@ export default function BuyingGuidePage() {
     "@type": "Article",
     headline: "Every Way to Buy a Card — The Honest Buying Guide",
     description:
-      "Every channel to get a TCG single into your hands, mapped honestly: peer-to-peer trading, Cardmarket, CardRush via a Japan proxy, and grading. Real costs, real waits, and where the import fees hide.",
+      "Every channel to get a TCG single into your hands, mapped honestly: Cardmarket, CardRush via a Japan proxy, and grading. Real costs, real waits, and where the import fees hide.",
     author: {
       "@type": "Organization",
       name: "Cambridge TCG",
@@ -231,8 +231,8 @@ export default function BuyingGuidePage() {
             <span className="text-accent">and how we make each one simpler</span>
           </h1>
           <p className="text-lg text-ink-muted mt-6 max-w-2xl leading-relaxed">
-            There are more ways to get a card than anyone tells you — trade with
-            a collector right here, buy across Europe, order straight from Japan,
+            There are more ways to get a card than anyone tells you — buy
+            across Europe, order straight from Japan,
             or send a card off to be graded. This page walks every route
             honestly: what it costs, how long it takes, and where the hidden fees
             hide. Cambridge TCG doesn&apos;t sell these cards. We&apos;re the map,
@@ -281,23 +281,11 @@ export default function BuyingGuidePage() {
             Which route is for you
           </SectionHeading>
           <p className="text-ink-muted leading-relaxed mb-8">
-            Four honest routes, at a glance. Pick the one that fits, then read
+            Three honest routes, at a glance. Pick the one that fits, then read
             its section for the detail.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Card>
-              <p className="text-accent font-display font-semibold text-lg mb-1">
-                Trade here (P2P)
-              </p>
-              <p className="text-sm text-ink-muted leading-relaxed">
-                UK collector to collector, escrow-backed, no customs and no FX.
-                The simplest, safest path.
-              </p>
-              <p className="text-xs text-ink-faint mt-2 font-mono">
-                Typical wait: days
-              </p>
-            </Card>
             <Card>
               <p className="text-accent font-display font-semibold text-lg mb-1">
                 Cardmarket (Europe)
@@ -339,10 +327,9 @@ export default function BuyingGuidePage() {
           <Card className="mt-6">
             <p className="text-sm text-ink-muted leading-relaxed">
               <span className="text-ink font-semibold">How we simplify:</span>{" "}
-              we put all four in one place, with the honest number beside each —
-              then link you straight out, or let you trade right here. Open any
-              card on the site and you&apos;ll find one-tap links to these
-              channels next to its live order book.
+              we put all three in one place, with the honest number beside each,
+              then link you straight out. Open any card on the site and
+              you&apos;ll find one-tap links to these channels.
             </p>
           </Card>
         </div>
@@ -354,70 +341,17 @@ export default function BuyingGuidePage() {
       <section className="border-b border-border-subtle">
         <div className="max-w-3xl mx-auto px-4 py-16">
           <SectionHeading id="p2p" number="02">
-            Trade peer-to-peer, right here
+            Trading on Cambridge TCG (retired)
           </SectionHeading>
-          <p className="text-ink-muted leading-relaxed mb-8">
-            The home team, and the easiest path for a UK collector: no customs,
-            no proxy, no currency conversion. Collectors trade with each other
-            on our market — we hold the middle so two strangers can trade like
-            friends.
+          <p className="text-ink-muted leading-relaxed">
+            New paid trades on Cambridge TCG were retired on 23 September 2026:
+            the market no longer accepts listings, bids, offers or purchases.
+            Trades agreed before then still settle from{" "}
+            <Link href="/account/trades" className="text-accent hover:text-accent-strong">
+              your account
+            </Link>
+            , with escrow, shipping and refunds unchanged.
           </p>
-
-          <div className="grid gap-4 sm:grid-cols-2 mb-8">
-            <Card>
-              <p className="text-ink font-bold mb-1">Peer-to-peer, with protection</p>
-              <p className="text-sm text-ink-muted leading-relaxed">
-                We verify identities, inspect cards in Cambridge, hold the money
-                in escrow, resolve disputes, and build trust scores over time.
-                The trade is between two people; the safety is ours to hold.
-              </p>
-            </Card>
-            <Card>
-              <p className="text-ink font-bold mb-1">A price beside every card</p>
-              <p className="text-sm text-ink-muted leading-relaxed">
-                Each card carries a labelled reference price next to its live
-                order book. That policy-bound reference is never our offer or
-                an open-data grant — the house holds no position and sells nothing.
-              </p>
-            </Card>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/market"
-              className="px-5 py-2.5 bg-ink text-page font-semibold rounded-lg text-sm hover:opacity-90 transition"
-            >
-              Browse the market &rarr;
-            </Link>
-            <Link
-              href="/market/list"
-              className="px-5 py-2.5 border border-border-subtle bg-surface text-ink font-semibold rounded-lg text-sm hover:bg-surface-subtle transition"
-            >
-              List a card in a minute
-            </Link>
-            <Link
-              href="/methodology/swaps"
-              className="px-5 py-2.5 border border-border-subtle bg-surface text-ink font-semibold rounded-lg text-sm hover:bg-surface-subtle transition"
-            >
-              Swap card-for-card
-            </Link>
-            <Link
-              href="/methodology/trust-score"
-              className="px-5 py-2.5 border border-border-subtle bg-surface text-ink font-semibold rounded-lg text-sm hover:bg-surface-subtle transition"
-            >
-              How escrow &amp; trust work
-            </Link>
-          </div>
-
-          <Card className="mt-8">
-            <p className="text-accent font-bold mb-1">The honest edge</p>
-            <p className="text-sm text-ink-muted leading-relaxed">
-              Sellers arrange their own shipping, including any international
-              posting — we don&apos;t compute postage or clear customs on the
-              platform. Messaging is where the two of you agree timing and
-              method.
-            </p>
-          </Card>
         </div>
       </section>
 
@@ -918,14 +852,14 @@ export default function BuyingGuidePage() {
           </h2>
           <p className="text-ink-muted mb-10 max-w-lg mx-auto leading-relaxed">
             Open any card and you&apos;ll find one-tap links to every channel
-            above — plus its live order book, right here.
+            above.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link
               href="/market"
               className="px-5 py-2.5 bg-ink text-page font-semibold rounded-lg text-sm hover:opacity-90 transition"
             >
-              Browse the market &rarr;
+              Market records &rarr;
             </Link>
             <Link
               href="/prices/search"

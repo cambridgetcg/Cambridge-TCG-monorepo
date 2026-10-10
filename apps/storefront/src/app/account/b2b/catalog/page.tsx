@@ -2,7 +2,7 @@
  * /account/b2b/catalog — signed-in structural catalog.
  *
  * The B2B role may inspect structural rows and stock. Price values, price
- * ordering, new cart items, and checkout remain paused under the same
+ * ordering, new cart items, and checkout are retired under the same
  * field-level source-rights boundary as every other participant surface.
  *
  * URL params:
@@ -33,7 +33,7 @@ import { B2B_PURCHASE_AVAILABILITY } from "@/lib/b2b/purchase-availability";
 export const metadata: Metadata = {
   title: "B2B structural catalog — Cambridge TCG",
   description:
-    "Browse structural catalog and stock fields. New B2B pricing and checkout are paused.",
+    "Browse structural catalog and stock fields. New B2B pricing and checkout are retired.",
   other: audienceMetadata("consumer", ["wholesale", "b2b", "catalog"]),
 };
 

@@ -4,7 +4,7 @@ import { Audience, audienceMetadata } from "@/lib/ui";
 export const metadata = {
   title: "Cambridge TCG is free — no membership, no fees",
   description:
-    "Cambridge TCG removed memberships and now takes no commission and no service fee. Every seller keeps 100% of every sale, and the free Rewards Hub is open to everyone.",
+    "Cambridge TCG removed memberships in July 2026 and takes no commission or service fee. New paid commerce was retired on 23 September 2026. Trades agreed on or after 21 July 2026 carry 0% commission, including those still settling; earlier trades keep the commission recorded when they were matched.",
   other: audienceMetadata("consumer", ["seller", "documentation"]),
 };
 
@@ -17,11 +17,12 @@ export default function MembershipRetiredPage() {
           Cambridge TCG is free
         </h1>
         <p className="text-ink-muted mt-4 leading-relaxed">
-          Memberships are gone — and so are the fees. The platform now takes{" "}
-          <strong className="text-ink">no commission and no service charge</strong>,
-          on the market and at auction alike. Every seller keeps{" "}
-          <strong className="text-ink">100%</strong> of every sale. The one thing a
-          paid tier ever bought — a lower commission — is now the same for
+          Memberships were removed in July 2026, and so were the fees. Commission
+          has been <strong className="text-ink">0%</strong> since 21 July 2026, and
+          new paid commerce was retired on 23 September 2026. Trades agreed on or
+          after 21 July 2026 carry 0% commission, including those still settling;
+          earlier trades keep the commission recorded when they were matched. The one
+          thing a paid tier ever bought — a lower commission — is now the same for
           everyone: zero.
         </p>
         <p className="text-ink-muted mt-3 leading-relaxed">
@@ -30,8 +31,8 @@ export default function MembershipRetiredPage() {
           earned at one flat rate.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link href="/market" className="px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition">
-            Browse the market
+          <Link href="/prices" className="px-5 py-2.5 bg-ink text-page text-sm font-bold rounded-lg hover:opacity-90 transition">
+            Look up card prices
           </Link>
           <Link href="/methodology/fees" className="px-5 py-2.5 border border-border-subtle text-ink text-sm font-medium rounded-lg hover:border-border-strong transition">
             How the free platform works

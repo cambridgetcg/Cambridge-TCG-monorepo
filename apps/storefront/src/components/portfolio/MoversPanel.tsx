@@ -47,7 +47,7 @@ export default function MoversPanel({ cards, trends, window = 7 }: Props) {
       <div className="bg-surface border border-border-subtle rounded-lg p-4">
         <p className="text-sm font-bold mb-1">Movers — last {window} days</p>
         <p className="text-xs text-ink-faint">
-          No price history yet. Check back after the next daily price tick.
+          Price movements are paused: legacy price observations are not sampled or published, so no daily update is scheduled.
         </p>
       </div>
     );

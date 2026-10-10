@@ -30,6 +30,8 @@
  * agents can arrive.
  */
 
+import { repoDocRef } from "@/lib/repository";
+
 /** What gates this tool. Public = no auth required (read-only endpoints
  *  recommended as tools); bearer-key = the agent must hold an agent key
  *  registered at /account/agents and dispatch through /api/mcp. */
@@ -748,7 +750,7 @@ export const TOOLS_CATALOG_SUMMARY = {
   dispatch_url: "/api/mcp",
   protocol: "JSON-RPC 2.0 over HTTP POST",
   transport_scope:
-    "Custom request/response HTTPS endpoint; not MCP Streamable HTTP or HTTP+SSE. Native MCP clients need the vendored stdio bridge, which is not npm-published.",
+    "Custom request/response HTTPS endpoint; not MCP Streamable HTTP or HTTP+SSE. The stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished).",
   mcp_spec_version: "2024-11-05",
   auth:
     "mcp.list_tools/tools/list is public; every other tool requires Bearer <agent-key>",
@@ -757,5 +759,5 @@ export const TOOLS_CATALOG_SUMMARY = {
   self_serve_registration: "paused",
   operator_provision_at: "/account/agents",
   discovery_files: ["/.well-known/mcp.json", "/.well-known/mcp-config.json"],
-  doctrine_url: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-mcp-surface.md",
+  doctrine_url: repoDocRef("docs/connections/the-mcp-surface.md"),
 } as const;

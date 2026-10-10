@@ -683,7 +683,7 @@ const SPEC = {
       get: {
         tags: ["evidence", "prices"],
         summary: "Evidence map for one exact card SKU",
-        description: "Keeps the computed-reference status, live collector offers, paused completed-sale publication, paused collector-observation publication, and upstream source states as separate claim classes. Aggregate rights are NOASSERTION. The two person-derived lanes perform no public aggregate read and emit no prices, counts, dates, conditions, or threshold totals.",
+        description: "Keeps the computed-reference status, open collector asks and bids placed before new paid commerce was retired (display only; new orders against them return 410), paused completed-sale publication, paused collector-observation publication, and upstream source states as separate claim classes. Aggregate rights are NOASSERTION. The two person-derived lanes perform no public aggregate read and emit no prices, counts, dates, conditions, or threshold totals.",
         operationId: "getCardEvidence",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Full card SKU; canonical lowercase and legacy uppercase forms are accepted." },

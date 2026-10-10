@@ -130,8 +130,13 @@ export default function SwapsMethodology() {
 
       <h2>4. Price guidance — indicative, never enforced</h2>
       <p>
-        The composer and the swap page show an indicative value per side and a suggested
-        cash difference. Per card, the figure is:
+        <strong>Current:</strong> swap guidance is unpriced. Every line returns no indicative
+        value while completed-trade publication lacks participant receipts and legacy
+        reference-price rights are unresolved. The v1 design below is retained as history.
+      </p>
+      <p>
+        In v1, the composer and the swap page showed an indicative value per side and a
+        suggested cash difference. Per card, the figure was:
       </p>
       <ul>
         <li>

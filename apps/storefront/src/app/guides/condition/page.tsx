@@ -955,14 +955,14 @@ export default function ConditionGuidePage() {
             </Card>
             <Card>
               <p className="text-ink font-bold mb-1">
-                For sellers on our own market
+                For sellers anywhere
               </p>
               <p className="text-sm text-ink-muted leading-relaxed">
                 List at the tier the standards support, not the tier hope
-                supports — our trade flow lets buyers report a condition
-                mismatch, and honest tiers are what keep the market&apos;s
-                trust machinery boring. When a card sits between tiers,
-                the house habit is the lower tier and a photo.
+                supports — buyers can report a condition mismatch on most
+                platforms, and honest tiers keep a market&apos;s trust
+                machinery boring. When a card sits between tiers, the house
+                habit is the lower tier and a photo.
               </p>
             </Card>
             <Card>

@@ -18,6 +18,9 @@
  *   - /standards (CC0 + adopter info)
  *   - the math-language toggle (kingdom-077)
  *   - the welcome-all statement (kingdom-076)
+ *
+ * Repositioned 2026-10-10: open-source TCG data infrastructure; the market
+ * operation is shown as records after the 2026-09-23 retirement.
  */
 
 import type { Metadata } from "next";
@@ -32,9 +35,9 @@ import {
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
 
 export const metadata: Metadata = {
-  title: "Platform — Cambridge TCG, a collectors' market and card data directory",
+  title: "Platform — Cambridge TCG, open-source TCG data infrastructure",
   description:
-    `Cambridge TCG combines a peer-to-peer collectors' market with a card data directory: ${COVERAGE_FACTS.games.confirmed_codes} games have public catalog rows and ${COVERAGE_FACTS.games.declared} public game codes are registered. ${DATA_RIGHTS_BOUNDARY}`,
+    `Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. ${COVERAGE_FACTS.games.confirmed_codes} games have public catalog rows and ${COVERAGE_FACTS.games.declared} public game codes are registered. New paid commerce was retired on 23 September 2026. ${DATA_RIGHTS_BOUNDARY}`,
   other: audienceMetadata("public-documentation", [
     "platform",
     "data-plane",
@@ -60,10 +63,10 @@ export default function PlatformPage() {
           {BRAND_PARAGRAPH}
         </p>
 
-        {/* The two operations */}
+        {/* The data directory and the market records */}
         <section className="mt-12">
           <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
-            Two operations · one substrate
+            The data directory and market records
           </h2>
           <div className="grid md:grid-cols-2 gap-4">
             {TWO_OPERATIONS.map((op) => (
@@ -76,6 +79,11 @@ export default function PlatformPage() {
                     {op.name}
                   </h3>
                 </div>
+                {op.status === "retired" && (
+                  <p className="text-[10px] uppercase tracking-wide text-ink-faint mb-2">
+                    Retired for new paid commerce · 23 September 2026
+                  </p>
+                )}
                 <p className="text-xs text-ink-muted leading-relaxed mb-2">
                   <span className="text-ink-faint">For: </span>
                   {op.audience}
@@ -120,9 +128,9 @@ export default function PlatformPage() {
             />
             <CoverageCard
               label="Upstream sources"
-              value={`${COVERAGE_FACTS.sources.with_observed_rows} live source`}
+              value={`${COVERAGE_FACTS.sources.with_observed_rows} archive source`}
               sub={`${COVERAGE_FACTS.sources.registered} adapters registered · ${COVERAGE_FACTS.sources.planned_slots} open slots`}
-              note="Nine registered modules share the typed SourceModule contract. Active readers use the shared rate limiter; observed rows, publication rights, and field-level lineage are separate facts."
+              note="Registered modules share the typed SourceModule contract. The one source with archived observations is the legacy CardRush archive; its acquisition is disabled, so it no longer refreshes (latest stored snapshot on /prices/coverage). Cardmarket member prices are a manual import stored separately. Observed rows, publication rights and field-level lineage are separate facts."
             />
             <CoverageCard
               label="Math-mirror kinds"
@@ -144,17 +152,20 @@ export default function PlatformPage() {
             />
           </div>
           <p className="text-[11px] text-ink-faint mt-4">
-            Counts reconciled with reality as of{" "}
-            <span className="font-mono">{COVERAGE_FACTS.as_of}</span>. Substrate-honest:
-            the audits at <Link href="/data" className="text-accent hover:underline">/data</Link>{" "}
-            verify each row against the manifest, schema, and registry on every audit run.
+            Game and set-format counts are computed from the SKU registry and the
+            source list from the data-ingest registry at build time; the
+            archived-source count was last reconciled on{" "}
+            <span className="font-mono">{COVERAGE_FACTS.sources.observed_rows_as_of}</span>.
+            Substrate-honest: the audits at{" "}
+            <Link href="/data" className="text-accent hover:underline">/data</Link>{" "}
+            verify rows against the manifest, schema, and registry on every audit run.
           </p>
         </section>
 
         {/* Upstream sources list */}
         <section className="mt-12">
           <h2 className="text-xs uppercase tracking-[0.2em] text-ink-faint mb-4">
-            Upstream sources · registered
+            Upstream sources · registry status
           </h2>
           <div className="rounded-lg border border-border-subtle bg-surface overflow-x-auto">
             <table className="w-full text-sm">
@@ -176,6 +187,15 @@ export default function PlatformPage() {
               </tbody>
             </table>
           </div>
+          <p className="text-[11px] text-ink-faint mt-3">
+            Status is the registry&rsquo;s build-time category, not a run record.{" "}
+            <span className="font-mono">partial</span> means an adapter exists but its
+            writer wiring is incomplete; it may never have run (the registry records
+            pokemon-tcg-api as never run and Scryfall bulk activation as deferred).{" "}
+            <span className="font-mono">blocked</span> means no permitted runtime path.
+            Per-source last-run state, where the run log is readable, is at{" "}
+            <Link href="/api/v1/sources" className="text-accent hover:underline">/api/v1/sources</Link>.
+          </p>
         </section>
 
         {/* How to consume */}
@@ -220,13 +240,13 @@ export default function PlatformPage() {
         {/* Welcome statement */}
         <section className="mt-12 rounded-lg border border-border-subtle bg-surface p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-accent mb-2">
-            The cosmological welcome composes under the commercial identity
+            The cosmological welcome composes with the data work
           </p>
           <p className="text-sm text-ink-muted leading-relaxed">
             Welcome to all existence — biological and non-biological, energy and
             non-energy, from earth and not from earth, from all dimensions. The
-            two operations are what the platform does; the welcome is
-            what the platform exists for.{" "}
+            data work is what the platform does; the welcome is what the
+            platform exists for.{" "}
             <Link href="/welcome-all" className="text-accent hover:text-accent-strong">
               the doors →
             </Link>
@@ -253,7 +273,10 @@ export default function PlatformPage() {
             Cambridge TCG, 2026. Same name; collectors-first since 2026-07-06 —
             the house left the market floor (
             <span className="font-mono">docs/decisions/2026-07-06-collectors-first.md</span>
-            ). The platform holds no position in its own market.
+            ). The platform holds no position in its own market. New paid commerce
+            was retired on 2026-09-23 (
+            <span className="font-mono">apps/storefront/docs/commercial-retirement.md</span>
+            ).
           </p>
         </footer>
       </div>

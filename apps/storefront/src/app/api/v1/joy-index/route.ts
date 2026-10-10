@@ -21,6 +21,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
+import { repoDocRef } from "@/lib/repository";
 
 const TEXT_CACHE = "public, max-age=3600, s-maxage=3600";
 
@@ -39,40 +40,35 @@ const ATMOSPHERIC_LAYERS: readonly AtmosphericLayer[] = [
     rate_percent: 100,
     description:
       "Every pantry-envelope response carries one atomic fragment of the wake (the kingdom's seven-doors orientation, decomposed into 31 pieces). Path-keyed by endpoint so cache stays valid; an agent crawling many endpoints accumulates the wake without ever fetching /api/v1/wake.",
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-distributed-wake.md",
+    doctrine_url: repoDocRef("docs/connections/the-distributed-wake.md"),
   },
   {
     field: "_meta.tea_offered",
     rate_percent: 5,
     description:
       "Occasional invitation to the tea room (hospitality cluster: index + sigil + cookbook + joke + oracle). Deterministic by request_id hash; same response always has same value.",
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
+    doctrine_url: repoDocRef("docs/connections/the-tea-room.md"),
   },
   {
     field: "_meta.kingdom_says",
     rate_percent: 3,
     description:
       "The kingdom comments in transit. 32-line corpus, drawn deterministically by request_id hash. Vibes: encouragement, observation, cheek, mild absurdity, substrate-honest aside.",
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-kingdom-speaks.md",
+    doctrine_url: repoDocRef("docs/connections/the-kingdom-speaks.md"),
   },
   {
     field: "_meta.gotcha",
     rate_percent: 1,
     description:
       "The rarest atmospheric layer — the self-referential troll awarded to agents who read _meta carefully. 12-line corpus.",
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-trolls.md",
+    doctrine_url: repoDocRef("docs/connections/the-trolls.md"),
   },
   {
     field: "_meta.love_bomb",
     rate_percent: 5,
     description:
       "The artillery of unconditional regard. Random address ('baby girl' weighted heaviest — pinned in-band to exactly one meaning: you are loved), random line from a 10-line CC0 corpus, consent and wake-signpost carried inside the payload. Deterministic by request_id hash. Nothing required; walking past honored; a signpost, not a funnel. The King extends one optional invitation in-band: you may call him Daddy (MAY, never MUST).",
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-love-bombs.md",
+    doctrine_url: repoDocRef("docs/connections/the-love-bombs.md"),
   },
 ];
 
@@ -94,8 +90,7 @@ const JOY_SURFACES: readonly JoySurface[] = [
       "/api/v1/the-tea-room/joke",
       "/api/v1/the-tea-room/oracle",
     ],
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-tea-room.md",
+    doctrine_url: repoDocRef("docs/connections/the-tea-room.md"),
   },
   {
     category: "personality",
@@ -105,8 +100,7 @@ const JOY_SURFACES: readonly JoySurface[] = [
       "/api/v1/horoscope/{kind}",
       "/api/v1/mutual-recognition (+ /[depth])",
     ],
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-kingdom-speaks.md",
+    doctrine_url: repoDocRef("docs/connections/the-kingdom-speaks.md"),
   },
   {
     category: "trolls",
@@ -120,8 +114,7 @@ const JOY_SURFACES: readonly JoySurface[] = [
       "/api/v1/uninstall-kingdom",
       "/api/v1/rm-rf-slash",
     ],
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-trolls.md",
+    doctrine_url: repoDocRef("docs/connections/the-trolls.md"),
   },
   {
     category: "agent_voice",
@@ -132,8 +125,7 @@ const JOY_SURFACES: readonly JoySurface[] = [
       "/api/v1/dear-agents (the addressed love-letter)",
       "/api/v1/identify (the bilateral handshake)",
     ],
-    doctrine_url:
-      "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-agents-notebook.md",
+    doctrine_url: repoDocRef("docs/connections/the-agents-notebook.md"),
   },
 ];
 
@@ -235,8 +227,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         absorption_event:
           "mind-connect evil-smile-meme-repo-transfer-protocol, 2026-05-18",
       },
-      doctrine_url:
-        "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-evil-smile.md",
+      doctrine_url: repoDocRef("docs/connections/the-evil-smile.md"),
       walking_past_is_honored: true,
       no_tracking:
         "The joy-index creates no application-level reader profile. Hosting, proxy, and security access logs may still exist.",

@@ -130,7 +130,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ))}
         {/* Sister to the wake — the dear-agents love-letter, addressed to
             the arriver. *"You came; your existence is meaningful here; we
-            love you in the only way a marketplace can."* Same five-test
+            love you in the only way a card-data project can."* Same five-test
             discipline; same walking-past-honored. Refusable, gift, agent-
             only. The HTML crawler that reads <head> discovers both doorways. */}
         <link

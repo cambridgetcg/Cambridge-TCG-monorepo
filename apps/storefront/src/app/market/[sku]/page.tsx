@@ -90,8 +90,8 @@ export async function generateMetadata({
   const card = await resolveOrThrow(sku);
   const title = `${card.card_name} · ${card.card_number} — Cambridge TCG`;
   const description = card.set_name
-    ? `Live collector order book for ${card.card_name} (${card.card_number}, ${card.set_name}). Buy and sell directly with other collectors.`
-    : `Live collector order book for ${card.card_name} (${card.card_number}).`;
+    ? `Order-book record for ${card.card_name} (${card.card_number}, ${card.set_name}). New paid orders were retired on 23 September 2026; reference data and existing records remain.`
+    : `Order-book record for ${card.card_name} (${card.card_number}). New paid orders were retired on 23 September 2026.`;
   return {
     title,
     description,

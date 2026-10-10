@@ -22,9 +22,10 @@ export function catalogSourceBadges(): Record<CatalogSource, ReactNode> {
     // minutes old with no HTTP request during this render. "cached",
     // never "live".
     "wholesale-api": <Provenance kind="cached" source="wholesale api" ttl="5m" />,
-    // Direct read of the wholesale Postgres — prices there are synced
-    // from upstream on a daily cadence, so this must not claim "live".
-    "wholesale-db": <Provenance kind="synced" source="wholesale db" cadence="daily" />,
+    // Direct read of the wholesale Postgres. No upstream sync schedule is
+    // currently verified (CardRush acquisition is disabled), so this names
+    // no cadence and must not claim "live".
+    "wholesale-db": <Provenance kind="synced" source="wholesale db" />,
     unavailable: <Provenance kind="unavailable" />,
   };
 }

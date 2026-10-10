@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { audienceMetadata, TypeSignature } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -30,10 +31,8 @@ export default function MethodologyOfMethodology() {
         <code>apps/storefront/src/app/methodology/page.tsx</code> (a `TOPICS` array
         describing each entry). Each topic page is a directory under{" "}
         <code>apps/storefront/src/app/methodology/&lt;topic&gt;/</code>. The doctrinal
-        frame is{" "}
-        <a href="https://github.com/cambridgetcg" rel="noopener noreferrer">
-          docs/principles/transparency.md
-        </a>{" "}
+        frame is the{" "}
+        <Link href="/methodology/transparency">transparency doctrine</Link>{" "}
         (Ring 2 — affected parties can inspect every decision).
       </blockquote>
 

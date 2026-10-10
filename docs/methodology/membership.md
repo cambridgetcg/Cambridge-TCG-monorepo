@@ -1,5 +1,7 @@
 # Membership tiers methodology
 
+> **Superseded — kept as the 2026-05-09 record.** Membership tiers and subscriptions were removed in July 2026; commission has been 0% for everyone since 2026-07-21, new membership subscriptions have returned 410 since 2026-07-21, and the wider retirement of new paid commerce followed on 2026-09-23. See [/methodology/fees](https://cambridgetcg.com/methodology/fees).
+
 Cambridge TCG has a tiered membership system. Your tier determines several things you'll feel as a customer: **cashback** on purchases, your **Berries** earn multiplier, your **trade-in bonus**, your **commission rate** on P2P sales and auctions, and your **payout hold** when you sell. Higher tiers get better terms across the board.
 
 This page explains exactly how a tier is assigned and what each tier gets.

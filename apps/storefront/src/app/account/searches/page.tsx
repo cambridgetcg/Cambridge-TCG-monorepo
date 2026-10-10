@@ -96,9 +96,9 @@ export default function SearchesPage() {
       <Audience kind="consumer" />
       <h1 className="text-2xl font-display font-semibold text-ink mb-2">Saved Searches</h1>
       <p className="text-sm text-ink-muted mb-6">
-        Criteria-based stock alerts. The platform scans new market listings every minute and
-        notifies you when an ask matches your filter. Different from Watchlist (per-SKU price
-        alerts) and Wishlist (per-card max-price).
+        Criteria-based alerts. New market listings were retired on 23 September 2026, so saved
+        searches will not receive new matches; existing matches are kept here. Different from
+        Watchlist (per-SKU price alerts) and Wishlist (per-card max-price).
       </p>
 
       {error && (
@@ -124,9 +124,7 @@ export default function SearchesPage() {
         </div>
       ) : searches.length === 0 ? (
         <div className="bg-surface rounded-lg p-8 text-center">
-          <p className="text-ink-muted text-sm">
-            No saved searches yet. Create one above to start getting matched-listing notifications.
-          </p>
+          <p className="text-ink-muted text-sm">No saved searches.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -244,7 +242,7 @@ function SearchCard({
       {expanded && (
         <div className="border-t border-border-subtle p-4 bg-surface-subtle">
           {matches.length === 0 ? (
-            <p className="text-xs text-ink-faint">No matches yet. We'll notify you when one hits the book.</p>
+            <p className="text-xs text-ink-faint">No matches on record.</p>
           ) : (
             <div className="space-y-1.5">
               {matches.map((m) => (

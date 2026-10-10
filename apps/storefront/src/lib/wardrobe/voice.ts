@@ -72,8 +72,8 @@ const STRINGS = {
     plain: "No open orders",
   },
   "market.empty.book.description": {
-    standard: "No open bids or asks on this card yet. Be the first to name a price.",
-    plain: "There are no bids or asks for this card.",
+    standard: "No open bids or asks on this card. New orders were retired on 23 September 2026.",
+    plain: "There are no bids or asks for this card. New orders are retired.",
   },
   "market.cta.browse": {
     standard: "Browse the pages",
@@ -95,16 +95,16 @@ const STRINGS = {
     plain: "Lots",
   },
   "market.lots.subtitle": {
-    standard: "Bundles, collections, and box-fresh stacks — one price, many cards.",
-    plain: "Card bundles sold together at one price.",
+    standard: "Bundles listed before new lots were retired — one price, many cards.",
+    plain: "Card bundles listed before new lots were retired.",
   },
   "market.lots.empty.title": {
     standard: "No lots on the floor",
     plain: "No lots available",
   },
   "market.lots.empty.description": {
-    standard: "Nobody is selling a bundle right now. Yours could be first.",
-    plain: "There are no lots for sale right now.",
+    standard: "No lots are open. New lots and lot purchases are retired.",
+    plain: "There are no lots. New lots are retired.",
   },
   // ── The manga register (spec 2026-07-07-the-manga-gallery-design.md §1i).
   // Tone changes the greeting, never the facts; plain stays plain.

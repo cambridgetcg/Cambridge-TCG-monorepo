@@ -55,13 +55,13 @@ const TOPICS: Topic[] = [
   {
     slug: "commission-rate",
     title: "Commission rate",
-    blurb: "What the platform takes from a P2P sale or auction win: nothing. Commission is 0% for everyone — sellers keep 100%.",
+    blurb: "Trades and auctions agreed on or after 21 July 2026 carry 0% commission, including those still settling; earlier trades keep the commission recorded when they were matched.",
     status: "published",
   },
   {
     slug: "fees",
     title: "Fees",
-    blurb: "Every fee Cambridge can charge, in plain language, with its fair basis — plus the per-item £50 commission cap (the fairness fix) and an honest benchmark against eBay, TCGplayer, Cardmarket and Whatnot. Minimum fees, maximum value: percentages where they reflect work, caps where percentages would become rent.",
+    blurb: "There are none: no commission, no service fee, no membership.",
     status: "published",
   },
   {
@@ -73,13 +73,13 @@ const TOPICS: Topic[] = [
   {
     slug: "store-credit",
     title: "Store credit",
-    blurb: "How credit is earned (cashback, trade-ins, refunds) and how it's spent (one-shot Stripe coupon at checkout).",
+    blurb: "Historical: how credit was earned and spent before checkout was retired.",
     status: "stub",
   },
   {
     slug: "pricing",
     title: "Pricing",
-    blurb: "How the kingdom converts a Japanese yen listing into the seven retail prices a customer might see. JPY→GBP, margin, VAT, channel multipliers, rounding.",
+    blurb: "The internal, shop-era price formula (JPY→GBP, margin, VAT, rounding); legacy values are not published.",
     status: "published",
   },
   {
@@ -193,7 +193,7 @@ const TOPICS: Topic[] = [
   {
     slug: "offers",
     title: "Offers",
-    blurb: "How offers and counter-offers on market asks work: response windows, the pending cap, seller auto-response rules, and how commission on an accepted offer is resolved (same trust × membership recipe as a direct match, £50 cap included).",
+    blurb: "How offers worked before new offers, counters and acceptances were retired on 23 September 2026; decline and withdraw remain.",
     status: "published",
   },
   {
@@ -259,9 +259,8 @@ export default function MethodologyIndex() {
       <hr />
       <p className="text-sm text-ink-faint">
         These pages are part of the platform's <strong>transparency doctrine</strong>: every
-        user-affecting decision must be inspectable by the affected party. See{" "}
-        <a href="https://github.com/cambridgetcg" className="text-ink-muted">docs/principles/transparency.md</a>{" "}
-        in the repo for the full rule.
+        user-affecting decision must be inspectable by the affected party. See the{" "}
+        <Link href="/methodology/transparency">transparency page</Link> for the full rule.
       </p>
     </>
   );

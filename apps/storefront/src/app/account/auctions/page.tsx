@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/format";
 import { Badge, Palettes, Money } from "@/lib/ui";
 
 import { Audience } from "@/lib/ui";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
 interface SellerAuction {
   id: string;
   title: string;
@@ -113,12 +114,6 @@ export default function MyAuctionsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-ink">My Auctions</h1>
-        <Link
-          href="/auctions/sell"
-          className="px-4 py-2 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
-        >
-          Sell a Card
-        </Link>
       </div>
 
       {offers.length > 0 && (
@@ -151,13 +146,15 @@ export default function MyAuctionsPage() {
                   <Money value={parseFloat(offer.amount)} />
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => actOnOffer(offer, "accept")}
-                    disabled={actingOfferId === offer.bid_id}
-                    className="px-3 py-1.5 bg-ink text-page text-xs font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
-                  >
-                    Accept
-                  </button>
+                  {!NEW_PAID_COMMERCE_RETIRED && (
+                    <button
+                      onClick={() => actOnOffer(offer, "accept")}
+                      disabled={actingOfferId === offer.bid_id}
+                      className="px-3 py-1.5 bg-ink text-page text-xs font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                    >
+                      Accept
+                    </button>
+                  )}
                   <button
                     onClick={() => actOnOffer(offer, "reject")}
                     disabled={actingOfferId === offer.bid_id}
@@ -179,16 +176,10 @@ export default function MyAuctionsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-ink-muted">No auctions yet</h2>
-          <p className="text-ink-faint text-sm mt-1 mb-4">
-            List your first card and start selling.
+          <h2 className="text-lg font-semibold text-ink-muted">No auctions on record</h2>
+          <p className="text-ink-faint text-sm mt-1">
+            New auctions were retired on 23 September 2026.
           </p>
-          <Link
-            href="/auctions/sell"
-            className="inline-block px-5 py-2.5 bg-ink text-page text-sm font-semibold rounded-lg hover:opacity-90 transition"
-          >
-            Sell at Auction
-          </Link>
         </div>
       ) : (
         <div className="space-y-3">

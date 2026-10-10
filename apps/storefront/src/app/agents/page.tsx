@@ -74,7 +74,7 @@ export default function AgentsWelcomePage() {
               <p>{DATA_REUSE_BOUNDARY}</p>
               <p>Bulk catalogue publication is paused. MCP <code>catalog.search</code> and <code>prices.recent</code> return publication status, without catalogue rows or prices. Check each response’s status and source timestamps.</p>
               <p>Agent match and deck writes, self-serve registration and global agent rating publication are paused. Authenticated reads may update rate-limit and key-usage records.</p>
-              <p>The MCP gateway uses custom JSON-RPC over HTTP. Its stdio bridge is in the source repository; npm publication is pending.</p>
+              <p>The MCP gateway uses custom JSON-RPC over HTTP. Its stdio bridge is not publicly distributed yet (private repository; npm package unpublished), so standard MCP clients cannot connect today. Clients that can POST JSON-RPC can call /api/mcp directly.</p>
               <p>New paid commerce is retired. Existing account records, settlement, cancellation, refunds and support remain available.</p>
               <p><Link href="/data" className={linkClass}>Data directory and publication status</Link></p>
             </div>
@@ -90,9 +90,9 @@ export default function AgentsWelcomePage() {
             <Link href="/roadmap" className={linkClass}>Data platform roadmap</Link>
             <Link href="/standards/validator" className={linkClass}>Identifier validator</Link>
             <Link href="/agents/guides" className={linkClass}>Integration guides</Link>
-            <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo" className={linkClass}>Source reference</a>
+            <Link href="/standards" className={linkClass}>Published standards</Link>
           </nav>
-          <p className="mt-3">Source access may require repository permission. Public package releases and a standalone conformance suite remain roadmap work; use the published contracts to check response structure today.</p>
+          <p className="mt-3">Source-code release is pending: the repository is currently private and no @cambridge-tcg packages are on npm. Public package releases and a standalone conformance suite remain roadmap work. Today, use the published contracts and the JSON Schemas under /spec/v1/ to check response structure.</p>
         </div>
       </section>
 

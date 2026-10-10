@@ -60,7 +60,7 @@ describe("B2B new-purchase boundary", () => {
     expect(currentSurfaces).not.toContain("PayButton");
     expect(currentSurfaces).not.toMatch(/prices apply|sort by price|Pay with Stripe/i);
     expect(currentSurfaces).toContain("Withheld");
-    expect(currentSurfaces).toContain("Checkout paused");
+    expect(currentSurfaces).toContain("Checkout retired");
   });
 
   it("preserves paid amounts only on completed order-history surfaces", () => {

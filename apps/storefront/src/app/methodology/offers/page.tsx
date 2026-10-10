@@ -11,6 +11,11 @@ export default function OffersMethodology() {
     <>
       <Audience kind="public-documentation" contexts={["offers", "methodology"]} />
       <h1>Offers &amp; negotiation</h1>
+      <blockquote>
+        <strong>Retired 23 September 2026.</strong> New offers, counters and acceptances
+        return 410. Existing offers can be declined or withdrawn. The rest of this page
+        records how the flow worked.
+      </blockquote>
       <p>
         The order book is firm-price: a bid either matches an ask or it doesn&rsquo;t. Offers
         are the negotiation layer on top — you propose a price <strong>below a seller&rsquo;s
