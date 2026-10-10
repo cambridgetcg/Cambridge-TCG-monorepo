@@ -102,14 +102,13 @@ export default function LotDetailPage() {
               <div className="space-y-2">
                 <button
                   disabled
-                  title="Lot purchases are paused"
+                  title="New lot purchases are retired"
                   className="px-5 py-3 bg-surface-elevated border border-border-subtle text-ink-faint font-bold rounded-lg cursor-not-allowed"
                 >
-                  Lot purchases paused
+                  New lot purchases retired
                 </button>
                 <p className="text-xs text-ink-muted max-w-md leading-relaxed">
-                  Lot purchases are paused while fulfilment is rebuilt &mdash; buying a lot today
-                  would take your money with no shipping flow behind it. Browse the{" "}
+                  New lot purchases are retired. Existing records, settlement and refunds remain available. Browse the{" "}
                   <Link href="/market" className="text-accent hover:underline">singles market</Link>{" "}
                   meanwhile.
                 </p>

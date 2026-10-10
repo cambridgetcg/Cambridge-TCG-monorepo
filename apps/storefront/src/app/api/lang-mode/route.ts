@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const mode = url.searchParams.get("mode") ?? "";
   const back = safeRelativeRedirectPath(url.searchParams.get("back"), "/");
 
-  const res = NextResponse.redirect(new URL(back, url.origin));
+  const res = new NextResponse(null, { status: 307, headers: { Location: back } });
   if (
     mode === "math" ||
     mode === "ja" ||

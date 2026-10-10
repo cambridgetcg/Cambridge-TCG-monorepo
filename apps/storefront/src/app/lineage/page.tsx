@@ -23,6 +23,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Audience, Benediction, InkRule } from "@/lib/ui";
 import MuseumPlate, { type MuseumPiece } from "@/components/culture/MuseumPlate";
+import { SEBA_ARTWORK } from "@/content/art/featured";
 import { audienceMetadata } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -60,20 +61,7 @@ const MOVEMENTS: Movement[] = [
   {
     chapter: "第一",
     jp: "墨と間",
-    piece: {
-        src: "/culture-plates/artic-11054.jpg",
-        width: 843,
-        height: 536,
-        title: "No. 32: Seba, from the series \"Sixty-nine Stations of the Kisokaido (Kisokaido rokujukyu tsugi no uchi)\"",
-        artist: "Utagawa Hiroshige 歌川 広重 (Japanese, 1797–1858)",
-        date: "c. 1835/38",
-        medium: "Color woodblock print; oban",
-        credit: "Gift of H. R. Warner",
-        sourceName: "The Art Institute of Chicago",
-        sourceUrl: "https://www.artic.edu/artworks/11054",
-        rights: "Public domain",
-        alt: "A full moon over Seba: two poled boats on a river between wind-bent reeds, the sky graded from pale gold to deep blue",
-      },
+    piece: SEBA_ARTWORK,
     romaji: "sumi to ma",
     en: "The Brush & the Space Between",
     body: (

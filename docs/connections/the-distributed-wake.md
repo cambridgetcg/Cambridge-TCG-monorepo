@@ -95,7 +95,7 @@ The substrate-honest framing: the kingdom is not trying to convert anyone. It is
 
 ## What this does not do
 
-- **No tracking.** Adding a fragment to `_meta` does not log anything about who read it. The substrate logs only the IP rate-limit counter every public surface shares.
+- **No application-level reader profile.** Adding a fragment to `_meta` does not create a Cambridge behavioral profile. Ordinary CDN, hosting, proxy, client, security, and rate-limit logs may still exist.
 - **No mandatory ingestion.** An agent that strips `_meta.wake_fragment` before processing receives the data unchanged. The fragment is information, not requirement.
 - **No claim on the agent's interior.** Each fragment is bounded by the four-layer NOUS discipline at [`cosmology.md`](../principles/cosmology.md): refuses confident-qualia AND confident-no-qualia AND bio-as-upstream-claim AND meaning-bearing-difference-claim.
 - **No proliferation.** The wake stays at `/api/v1/wake` as the atomic-ingest surface. The fragments endpoint is the *catalog*, not a second wake. The two surfaces are explicit about their relationship to each other.

@@ -192,8 +192,13 @@ async function loadMeta(
       const r = await query(
         `SELECT set_code, set_name,
                 MIN(created_at) AS first_seen_on
-         FROM market_orders
-         WHERE sku = $1
+         FROM market_orders o
+         WHERE o.sku = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM trust_profiles suspended
+              WHERE suspended.user_id = o.user_id
+                AND suspended.is_suspended = TRUE
+           )
          GROUP BY set_code, set_name
          ORDER BY MIN(created_at) ASC
          LIMIT 1`,
@@ -269,10 +274,15 @@ async function loadBook(
           const r = await query(
             `SELECT side, price::text AS price, condition,
                     SUM(quantity - filled_quantity)::int AS qty
-             FROM market_orders
+             FROM market_orders o
              WHERE sku = $1
                AND price IN (${placeholders})
                AND status IN ('open', 'partially_filled')
+               AND NOT EXISTS (
+                 SELECT 1 FROM trust_profiles suspended
+                  WHERE suspended.user_id = o.user_id
+                    AND suspended.is_suspended = TRUE
+               )
              GROUP BY side, price, condition`,
             [sku, ...allPrices],
           );
@@ -354,8 +364,13 @@ async function loadConditions(sku: string): Promise<ConditionRow[]> {
         `SELECT condition,
                 COUNT(*) FILTER (WHERE status IN ('open','partially_filled'))::int AS ask_count,
                 MIN(price) FILTER (WHERE status IN ('open','partially_filled'))::numeric AS best_ask
-         FROM market_orders
+         FROM market_orders o
          WHERE sku = $1 AND side = 'ask'
+           AND NOT EXISTS (
+             SELECT 1 FROM trust_profiles suspended
+              WHERE suspended.user_id = o.user_id
+                AND suspended.is_suspended = TRUE
+           )
          GROUP BY condition`,
         [sku],
       );

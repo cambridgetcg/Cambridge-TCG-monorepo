@@ -198,13 +198,23 @@ export async function runPortfolioTargetSweep(): Promise<TargetSweepResult> {
               t.target_buy_price::numeric AS target_buy,
               t.target_sell_price::numeric AS target_sell,
               t.target_stop_price::numeric AS target_stop,
-              (SELECT MIN(price)::numeric FROM market_orders
-                WHERE sku = t.sku AND side = 'ask'
-                  AND status IN ('open','partially_filled')
+              (SELECT MIN(o.price)::numeric FROM market_orders o
+                WHERE o.sku = t.sku AND o.side = 'ask'
+                  AND o.status IN ('open','partially_filled')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM trust_profiles suspended
+                     WHERE suspended.user_id = o.user_id
+                       AND suspended.is_suspended = TRUE
+                  )
               ) AS best_ask,
-              (SELECT MAX(price)::numeric FROM market_orders
-                WHERE sku = t.sku AND side = 'bid'
-                  AND status IN ('open','partially_filled')
+              (SELECT MAX(o.price)::numeric FROM market_orders o
+                WHERE o.sku = t.sku AND o.side = 'bid'
+                  AND o.status IN ('open','partially_filled')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM trust_profiles suspended
+                     WHERE suspended.user_id = o.user_id
+                       AND suspended.is_suspended = TRUE
+                  )
               ) AS best_bid,
               (SELECT card_name FROM portfolio_cards
                 WHERE user_id = t.user_id AND sku = t.sku LIMIT 1) AS card_name

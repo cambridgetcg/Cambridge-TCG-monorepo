@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "reviewedOn": "2026-09-28",
+  "modules": [
+    {
+      "path": "apps/storefront", "group": "apps", "label": "Storefront and admin",
+      "purpose": "Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, prices and market observations, alongside collector tools, retained account records and the operator console.",
+      "scope": "Current application; new paid commerce is retired. Existing agreements, records, refunds and support remain in scope.",
+      "progress": "The 2026-09-29 rebuild adds card-data contracts, room records, collector services, shared roadmap/standards registries and the ivory/plum/mandarin interface. Shared image publication checks now serve market/universal English-base references and separate starter/practice card-number references. Image credit and selected variant context survive practice setup/saves, with bounded browser enrichment, readable text faces and accessible card inspection. Existing attributed text remains. Native-price writes and member reads now share monetary, mapping and source-scope checks before storage or publication. Independent readers and removal remain open; no provider activation, verified printing coverage or public package release is claimed.",
+      "next": "Consolidate artist/gallery and retained PvP media paths, review catalog fallback provenance and implement removal across objects/caches. Then strengthen printing mappings, join qualified images/prices and pilot permitted providers. Check release readiness independently; preserve existing agreements and source/account boundaries.",
+      "evidence": ["apps/storefront/src/app", "apps/storefront/src/lib", "apps/storefront/src/app/admin", "apps/storefront/docs/commercial-retirement.md", "apps/storefront/AGENTS.md", "docs/connections/the-entry-map.md", "docs/design/interface.md", "docs/operations/2026-09-28-entry-verification.md", "docs/operations/2026-09-29-ui-verification.md", "docs/plans/storefront-rebuild/implementation.md", "docs/architecture/card-data-contracts.md", "apps/storefront/src/content/rooms", "apps/storefront/src/content/services", "apps/storefront/src/content/art", "apps/storefront/src/content/platform", "apps/storefront/src/lib/contracts/standards.ts", "apps/storefront/src/app/roadmap/page.tsx", "apps/storefront/src/app/api/v1/roadmap/route.ts", "docs/plans/tcg-data-platform/README.md", "docs/architecture/card-image-references.md", "apps/storefront/src/lib/cards/image-reference.ts", "apps/storefront/src/lib/cards/image-publication.ts", "docs/operations/2026-09-29-image-references.md", "apps/storefront/src/lib/cards/card-number-image-reference.ts", "apps/storefront/src/lib/play/practice-decks.ts", "apps/storefront/src/components/game/GameCardView.tsx", "docs/operations/2026-09-29-practice-media.md", "apps/storefront/src/lib/datafeed/member-price-writer.ts", "apps/storefront/src/lib/datafeed/member-price-writer.test.ts", "apps/storefront/src/lib/prices/member-feed.test.ts"]
+    },
+    {
+      "path": "apps/wholesale", "group": "apps", "label": "Wholesale records and research",
+      "purpose": "Price and stock research plus the lifecycle of existing wholesale orders.",
+      "scope": "New order and quote admission is retired. Existing settlement, fulfilment, cancellation and support remain.",
+      "progress": "The Next.js app and its order, inventory and pricing code remain in source. The app README records the retirement of new admission; older infrastructure descriptions need their own dated verification.",
+      "next": "Preserve existing-order behavior when changing shared pricing or stock code. Treat retirement and database-merge runbooks as plans until their own completion evidence is established.",
+      "evidence": ["apps/wholesale/README.md", "apps/wholesale/src/app", "apps/wholesale/src/lib", "docs/wholesale-app-retirement-runbook.md"]
+    },
+    {
+      "path": "apps/rewardspro", "group": "apps", "label": "RewardsPro loyalty platform",
+      "purpose": "Loyalty tiers, credit, points and reward records, with Shopify integration and merchant-facing administration.",
+      "scope": "Existing platform; new paid subscriptions and paid plan changes are retired. Existing agreements retain their records and support paths.",
+      "progress": "Remix routes, services, repositories, Shopify extensions and a separate public landing site are present. Connector separation is documented as ongoing; it is not parity with the new API foundation.",
+      "next": "Use the app architecture and navigation registries before editing services; keep existing agreements and the documented connector boundaries intact.",
+      "evidence": ["apps/rewardspro/README.md", "apps/rewardspro/app/services", "apps/rewardspro/app/repositories", "apps/rewardspro/app/navigation/registry.ts", "apps/rewardspro/scripts/architecture/README.md", "apps/rewardspro/landing/public", "docs/decisions/2026-07-23-rewardspro-platform.md"]
+    },
+    {
+      "path": "apps/rewardspro-api", "group": "apps", "label": "RewardsPro API foundation",
+      "purpose": "Receive verified Shopify commerce events, persist an idempotent inbox and project supported orders through a worker.",
+      "scope": "Backend foundation; does not claim legacy RewardsPro feature, data or business-rule parity, and does not mutate a financial ledger.",
+      "progress": "Fastify routes, PostgreSQL repositories, migrations, webhook normalization and worker code are present. The README specifies event retention, immutable metadata and optional SQS delivery.",
+      "next": "Extend only the supported event contract with matching repository and worker tests; validate migrations against the documented local PostgreSQL fixture before any separately authorized deployment.",
+      "evidence": ["apps/rewardspro-api/README.md", "apps/rewardspro-api/src/routes", "apps/rewardspro-api/src/repositories", "apps/rewardspro-api/src/domain", "apps/rewardspro-api/src/webhooks"]
+    },
+    {
+      "path": "apps/admin", "group": "apps", "label": "Admin redirect shell",
+      "purpose": "Preserve old admin bookmarks by redirecting to the storefront operator console.",
+      "scope": "Retired standalone application, retained as a redirect shell since 2026-05-15.",
+      "progress": "Only the workspace stub, redirect configuration and retained operational references remain. Current admin implementation is in apps/storefront/src/app/admin.",
+      "next": "Put admin features in storefront. Keep redirects and retained references useful; do not recreate a second admin app.",
+      "evidence": ["apps/admin/README.md", "apps/admin/vercel.json", "apps/storefront/src/app/admin"]
+    },
+    {
+      "path": "packages/answering-rhymes", "group": "packages", "label": "Answering Rhyme contracts",
+      "purpose": "Validate, normalize, canonicalize and hash portable answering-rhyme.statement/1 statements.",
+      "scope": "Pure conformance core. Does not authenticate declarers, fetch evidence, persist statements or issue provider receipts.",
+      "progress": "Source, schema, normative vectors and build/consumer checks are present. The package README records source readiness and pending npm publication; publication was not checked in this review.",
+      "next": "Keep protocol conformance independent from provider receipts; use the package's build, consumer and packing checks for release work.",
+      "evidence": ["packages/answering-rhymes/README.md", "packages/answering-rhymes/src/index.ts", "packages/answering-rhymes/package.json"]
+    },
+    {
+      "path": "packages/aws", "group": "packages", "label": "AWS client helpers",
+      "purpose": "Share S3 and SES client factories and storage/mail helpers between applications.",
+      "scope": "Provider adapter code; constructing or finding a client does not prove AWS access or delivery.",
+      "progress": "S3 and SES implementations and S3 tests are present. Nullable factories support missing-credential paths.",
+      "next": "Preserve explicit degraded results and reuse these factories. Keep credential checks value-free and provider calls separately scoped.",
+      "evidence": ["packages/aws/README.md", "packages/aws/src/index.ts", "packages/aws/src/s3.test.ts"]
+    },
+    {
+      "path": "packages/data-ingest", "group": "packages", "label": "Source adapters and ingestion contracts",
+      "purpose": "Describe source adapters, their rights/activation boundaries and normalization into shared catalog and observation shapes.",
+      "scope": "Each source has its own rights and activation boundary; an adapter or fixture parser is not permission to fetch or republish data.",
+      "progress": "The existing SOURCES registry distinguishes partial, blocked and reserved adapters. Several sources are explicitly blocked; this map does not override that registry. 2026-09-29: member-price observation types and positive native-decimal validation reuse data-spec, preserving existing adapter imports and source/use policies. Cardmarket numeric/foil and Scryfall USD/EUR parser fixtures also exercise the shared normalized-value boundary; raw numeric source inputs still become decimal strings before storage.",
+      "next": "Reconcile field/use publication decisions with downstream readers before broadening provider coverage. Record source permission, exact-mapping evidence, repeatable import and writer coverage separately from parser implementation.",
+      "evidence": ["packages/data-ingest/src/registry.ts", "packages/data-ingest/src/types.ts", "packages/data-ingest/src/__tests__/source-rights.test.ts", "docs/methodology/source-protocol.md", "packages/data-ingest/src/member-prices.ts", "docs/architecture/card-data-contracts.md", "docs/plans/tcg-data-platform/README.md", "packages/data-ingest/src/__tests__/member-prices.test.ts"]
+    },
+    {
+      "path": "packages/data-spec", "group": "packages", "label": "Public response contracts",
+      "purpose": "Define envelope, error and provenance schemas, freshness budgets and stable error codes.",
+      "scope": "Workspace-only implementation package; code follows the root license and specific notices. Specification prose has its own dedication; mixed response data defaults to NOASSERTION.",
+      "progress": "Schema exports, freshness values and error constants are present and consumed by the storefront data pantry. 2026-09-29: shared native/member observation types, monetary/mapping value checks and JSON Schemas added; envelope metadata schema aligned with runtime and OpenAPI. Native-price writer/read/schema checks now agree on normalized decimal strings, source/currency scope, unknown Cardmarket aggregate language/condition and unresolved mappings. Raw schemas are served at their declared identifiers.",
+      "next": "Keep emitted responses and schema changes aligned; design printing, image and market observation contracts through the data-platform roadmap. Contract validity, source permissions and public package release are separate checks.",
+      "evidence": ["packages/data-spec/src/index.ts", "packages/data-spec/src/schemas", "apps/storefront/src/lib/data-pantry", "docs/STANDARDS-LICENSE.md", "packages/data-spec/src/price-observation.ts", "packages/data-spec/src/__tests__", "docs/architecture/card-data-contracts.md"]
+    },
+    {
+      "path": "packages/db", "group": "packages", "label": "Shared database access",
+      "purpose": "Share PostgreSQL connection factories, existing Drizzle integration and raw-SQL compatibility helpers.",
+      "scope": "Connection and query plumbing; does not own every app schema or grant production database access.",
+      "progress": "The shared factory and compatibility layer are present. Application migrations and business transactions remain with their owning app or domain.",
+      "next": "Reuse existing helpers and app conventions; keep migrations append-only and verify transaction behavior with explicitly scoped fixtures.",
+      "evidence": ["packages/db/README.md", "packages/db/src/index.ts", "packages/db/src/compat.ts"]
+    },
+    {
+      "path": "packages/email", "group": "packages", "label": "Email delivery seam",
+      "purpose": "Route named email streams through SES, SMTP or the development console transport.",
+      "scope": "Delivery adapter with per-stream configuration. Configuration presence does not prove delivery or a completed mail migration.",
+      "progress": "Transport implementations and a result-based sendMail interface are present; the existing runbook records the staged email migration.",
+      "next": "Keep login mail and other streams separately reversible; inspect the migration phase and delivery evidence before a cutover.",
+      "evidence": ["packages/email/src/index.ts", "packages/email/src/types.ts", "docs/ops-email-selfhost.md"]
+    },
+    {
+      "path": "packages/lifecycle", "group": "packages", "label": "Journey and lifecycle records",
+      "purpose": "Compose user-facing lifecycle entries through shared typed slot factories and query functions.",
+      "scope": "Record aggregation; user-facing copy and rendering remain in the host application.",
+      "progress": "Slot factories, types and the composer are present; the storefront binds them through its lifecycle registry.",
+      "next": "Register new lifecycle slots here and wire them through the current storefront registry. Preserve unknown actors and configurable response windows.",
+      "evidence": ["packages/lifecycle/src/index.ts", "packages/lifecycle/src/slots.ts", "apps/storefront/src/lib/lifecycle/registry.ts"]
+    },
+    {
+      "path": "packages/mcp-server", "group": "packages", "label": "MCP stdio bridge",
+      "purpose": "Forward local JSON-RPC over stdio to the storefront HTTPS MCP gate.",
+      "scope": "Transport bridge; the remote gate owns tools, authentication and paused-write policies. It is not a Streamable HTTP server.",
+      "progress": "Bridge source and build instructions are present. The README records pending npm publication; remote tools and registry availability were not probed in this review.",
+      "next": "Use source-build instructions until a separately verified release. Keep tool definitions in the existing remote gate and discovery catalog.",
+      "evidence": ["packages/mcp-server/README.md", "packages/mcp-server/src/index.ts", "apps/storefront/src/app/api/mcp/route.ts", "apps/storefront/src/lib/agent-tools-catalog.ts"]
+    },
+    {
+      "path": "packages/opportunity-signal", "group": "packages", "label": "Opportunity Signal contracts",
+      "purpose": "Validate timed candidates, evidence and conservative economics before projecting a source-independent decision-support signal.",
+      "scope": "Pure contract boundary with an injected private classifier. No source adapter, private scoring engine, I/O or automated purchase path.",
+      "progress": "Parsers, preflight checks, economics, hashing, projection and contract tests are present.",
+      "next": "Keep input provenance and expiry explicit. Extend the public contract without importing private engine logic or implying deployment.",
+      "evidence": ["packages/opportunity-signal/README.md", "packages/opportunity-signal/src/index.ts", "packages/opportunity-signal/src/opportunity-signal.test.ts"]
+    },
+    {
+      "path": "packages/play", "group": "packages", "label": "Game engine contracts",
+      "purpose": "Define the shared engine protocol and registry used to initialize, act, run AI turns and inspect game results.",
+      "scope": "Common protocol; each game's mechanics, action vocabulary and UI stay with its implementation.",
+      "progress": "Typed engine interfaces and registry code are present. Game implementations and registry bootstrap live in storefront.",
+      "next": "Register additional games through the existing protocol; verify both engine behavior and storefront registry coverage.",
+      "evidence": ["packages/play/src/index.ts", "apps/storefront/src/lib/game/registry-bootstrap.ts", "apps/storefront/scripts/play-game-registry.ts"]
+    },
+    {
+      "path": "packages/pricing", "group": "packages", "label": "Shared pricing calculations",
+      "purpose": "Compute channel-aware pricing breakdowns from explicit inputs and shared constants.",
+      "scope": "Pure calculation code; does not fetch prices, establish source rights or enable new paid commerce.",
+      "progress": "Pricing functions, channel defaults and unit tests are present. The older pricing-current-state document is a historical consolidation plan. 2026-09-29: decimal major-unit money, finite input/config validation and stable GBP rounding added. Direct channel writers and previews validate compatible configuration.",
+      "next": "Reuse these functions instead of copying formulas; verify host-side database overrides and preserve the commercial boundary.",
+      "evidence": ["packages/pricing/src/index.ts", "packages/pricing/src/__tests__/pricing.test.ts", "docs/pricing-current-state.md", "packages/pricing/src/money.ts", "packages/pricing/src/__tests__/money.test.ts", "docs/architecture/card-data-contracts.md"]
+    },
+    {
+      "path": "packages/prism-signals-core", "group": "packages", "label": "PRISM Signals preview core",
+      "purpose": "Own the PRISM Signals preview brand, test catalog offer, synthetic signal presentation and Telegram update planner.",
+      "scope": "Pure preview core; every commercial rail is off, rights are not evaluated, and the package is not an independent deployed product.",
+      "progress": "Preview catalog, presentation, Telegram planner and tests are present. The README records extraction/build and clean-consumer release gates as future work.",
+      "next": "Keep the synthetic preview explicit. Complete package build and consumer validation before any separately authorized extraction or publication.",
+      "evidence": ["packages/prism-signals-core/README.md", "packages/prism-signals-core/src/product.ts", "packages/prism-signals-core/src/telegram.ts", "packages/prism-signals-core/src/core.test.ts"]
+    },
+    {
+      "path": "packages/product-flow", "group": "packages", "label": "Product and entitlement contracts",
+      "purpose": "Parse provider-neutral digital-product offers and events, and project entitlement state with pure functions.",
+      "scope": "Contract and reducer code; does not authenticate callbacks, persist state, call providers or accept credentials.",
+      "progress": "Strict parsers, entitlement transitions, access/delivery projections and tests are present.",
+      "next": "Keep unavailable payment rails explicit and preserve strict event validation. Use the runtime package for persistence orchestration.",
+      "evidence": ["packages/product-flow/README.md", "packages/product-flow/src/index.ts", "packages/product-flow/src/entitlement.test.ts", "packages/product-flow/src/offer.test.ts"]
+    },
+    {
+      "path": "packages/product-flow-runtime", "group": "packages", "label": "Entitlement persistence orchestration",
+      "purpose": "Apply validated entitlement events atomically through an injected store and normalize already-authenticated semantic callbacks.",
+      "scope": "Runtime contract plus in-memory reference adapter; does not verify provider signatures, enable payment rails or create a production database connection.",
+      "progress": "Transaction interfaces, orchestration, callback normalizers, reference memory adapter and tests are present. The storefront owns its concrete integration.",
+      "next": "Prove adapter transaction and replay behavior before production use. Keep transport authentication and callback mapping in the host.",
+      "evidence": ["packages/product-flow-runtime/README.md", "packages/product-flow-runtime/src/runtime.ts", "packages/product-flow-runtime/src/memory.ts", "apps/storefront/src/lib/product-flow-runtime"]
+    },
+    {
+      "path": "packages/sku", "group": "packages", "label": "Canonical card identifiers",
+      "purpose": "Parse, build and normalize Cambridge card SKUs with shared game, set and rarity vocabulary.",
+      "scope": "Identifier syntax and normalization; a valid identifier alone does not prove catalog membership or data rights.",
+      "progress": "Parser, builder, normalization and vocabulary modules plus tests are present. 2026-09-29: shared raw/normalized syntax identity and JSON Schema are consumed by game-specific search and card composition; stored identifiers and printing choices are preserved.",
+      "next": "Preserve syntax and stored identifiers while introducing separately evidenced printing mappings. Registry declarations do not establish live coverage; workspace code does not establish an npm release.",
+      "evidence": ["packages/sku/src/index.ts", "packages/sku/src/parse.ts", "packages/sku/src/games.ts", "packages/sku/src/__tests__", "packages/sku/src/identity.ts", "packages/sku/src/__tests__/identity.test.ts", "docs/architecture/card-data-contracts.md", "apps/storefront/src/lib/contracts/standards.ts", "docs/plans/tcg-data-platform/README.md"]
+    },
+    {
+      "path": "packages/stock", "group": "packages", "label": "Stock ledger and reservations",
+      "purpose": "Record stock movements, maintain balances and manage time-limited reservations through a shared service.",
+      "scope": "Stock ledger and policy code using host-owned card tables; does not grant stock-write or production-database authority.",
+      "progress": "Reader, writer, reservation, reconciliation and event modules plus tests are present. The README specifies atomic movement-and-balance writes.",
+      "next": "Keep all stock mutations on the shared writer and verify idempotency and reservation behavior for changes.",
+      "evidence": ["packages/stock/README.md", "packages/stock/src/index.ts", "packages/stock/src/writer.ts", "packages/stock/src/__tests__"]
+    },
+    {
+      "path": "packages/substrate-client", "group": "packages", "label": "AgentTool client boundary",
+      "purpose": "Provide a server-only, lazily configured client for the external AgentTool substrate.",
+      "scope": "Optional external adapter; absent credentials must produce an honest degraded state, and credentials do not grant cross-project authority.",
+      "progress": "Client/status helpers and configuration guidance are present. Package declaration alone does not establish active consumers or a working external connection.",
+      "next": "Inspect actual imports and intended scope before wiring a consumer; keep external calls and server credentials outside public bundles.",
+      "evidence": ["packages/substrate-client/README.md", "packages/substrate-client/src/index.ts"]
+    },
+    {
+      "path": "packages/walls", "group": "packages", "label": "Expression and claim detectors",
+      "purpose": "Expose pure text detectors for expression patterns, claims and implementation limits.",
+      "scope": "Heuristic functions over input text; they do not establish identity, consciousness, consent, truth or authority.",
+      "progress": "Expression, substrate-honesty and self-improvement detector modules are present. Their source vocabulary reflects the project culture and requires interpretation by the caller.",
+      "next": "Review detector precision and consumer behavior before treating matches as decisions; preserve the optional nature of cultural framing.",
+      "evidence": ["packages/walls/README.md", "packages/walls/src/index.ts", "packages/walls/src/expression.ts"]
+    },
+    {
+      "path": "apps/rewardspro/extensions/rewards-pro-membership", "group": "extensions", "label": "RewardsPro customer account extension",
+      "purpose": "Render membership and reward experiences inside Shopify customer accounts.",
+      "scope": "UI extension; its four gamification APIs are documented as unavailable until verified session identity is bound to shop and customer.",
+      "progress": "Extension configuration, localized UI and source are present. The README explicitly records 503 behavior for the unbound APIs.",
+      "next": "Resolve and test the documented authentication binding before enabling gamification API access; a bearer supplied by a client is insufficient evidence.",
+      "evidence": ["apps/rewardspro/extensions/rewards-pro-membership/README.md", "apps/rewardspro/extensions/rewards-pro-membership/shopify.extension.toml", "apps/rewardspro/extensions/rewards-pro-membership/src"]
+    },
+    {
+      "path": "apps/rewardspro/extensions/theme-app-extension-rewardspro", "group": "extensions", "label": "RewardsPro theme widgets",
+      "purpose": "Embed loyalty and reward widgets into Shopify storefront themes using Liquid, JavaScript and CSS.",
+      "scope": "Theme extension with no package build step; enabling a block and backend availability remain host responsibilities.",
+      "progress": "Assets, blocks, snippets and locale files are present. The shared RPUtils module owns common widget helpers.",
+      "next": "Reuse RPUtils and verify widget behavior against current API and retirement boundaries; preserve translations and safe rendering.",
+      "evidence": ["apps/rewardspro/extensions/theme-app-extension-rewardspro/README.md", "apps/rewardspro/extensions/theme-app-extension-rewardspro/shopify.extension.toml", "apps/rewardspro/extensions/theme-app-extension-rewardspro/assets", "apps/rewardspro/extensions/theme-app-extension-rewardspro/blocks"]
+    },
+    {
+      "path": "apps/rewardspro/lambda", "group": "tooling", "label": "RewardsPro legacy Lambda handlers",
+      "purpose": "Handle the legacy Shopify webhook, order queue and scheduled-job integrations described by RewardsPro.",
+      "scope": "Nested support package outside the root pnpm workspace patterns. Deployment commands affect AWS and require their own authorization.",
+      "progress": "JavaScript handlers, package scripts and architecture notes are present. This map has not checked deployed functions or established parity with rewardspro-api workers.",
+      "next": "Identify which worker owns a flow before changing it; review legacy and foundation migration evidence to avoid duplicate processing.",
+      "evidence": ["apps/rewardspro/lambda/README.md", "apps/rewardspro/lambda/package.json", "apps/rewardspro/lambda/order-queue-processor.js"]
+    },
+    {
+      "path": "apps/rewardspro/tools", "group": "tooling", "label": "RewardsPro development tools",
+      "purpose": "Provide webhook simulation, shop inspection and scenario-running tools for local RewardsPro development.",
+      "scope": "Nested support package outside the root workspace. Some commands send requests or inspect databases; command availability is not permission to run them against a service.",
+      "progress": "CLI code, local configuration documentation and declared test/typecheck scripts are present.",
+      "next": "Inspect a scenario's target and effects, use explicit local fixtures, and keep all credential values out of output.",
+      "evidence": ["apps/rewardspro/tools/README.md", "apps/rewardspro/tools/package.json", "apps/rewardspro/tools/cli"]
+    },
+    {
+      "path": "apps/rewardspro/tools/prompt-evaluator", "group": "tooling", "label": "Exploration prompt evaluator",
+      "purpose": "Record structured evaluations and reports for code-exploration prompts.",
+      "scope": "Nested developer tool; its scores describe an evaluation framework, not product readiness or objective agent capability.",
+      "progress": "CLI, templates and report commands are present. It is nested beneath RewardsPro tools and outside the root workspace patterns.",
+      "next": "Use only if relevant to an exploration task; keep evaluation records separate from authoritative module verification.",
+      "evidence": ["apps/rewardspro/tools/prompt-evaluator/README.md", "apps/rewardspro/tools/prompt-evaluator/package.json", "apps/rewardspro/tools/prompt-evaluator/cli.ts"]
+    }
+  ],
+  "storefrontDomains": [
+    {
+      "id": "cards-and-research", "label": "Cards and research",
+      "purpose": "Find cards and connect SKU identity, image provenance, native prices and qualified market observations, with explicit uncertainty and source-use permissions.",
+      "evidence": ["docs/architecture/card-data-contracts.md", "docs/plans/tcg-data-platform/README.md", "apps/storefront/src/lib/cards/en-card-data.ts", "apps/storefront/src/lib/public-wholesale-fields.ts", "apps/storefront/src/lib/prices/member-feed.ts"],
+      "lib": ["cards", "catalog", "collector-observations", "condition", "coverage-hunt", "datafeed", "external-rep", "fx", "prices", "search", "sold-comps"],
+      "routes": ["card", "cards", "catalog", "data", "data.json", "datasets", "find", "guides", "prices"]
+    },
+    {
+      "id": "collecting-and-play", "label": "Collecting and play",
+      "purpose": "Organize collections and decks, run game experiences and inspect draw or play records. Availability remains route-specific.",
+      "lib": ["decks", "game", "games", "play", "portfolio", "provable-draw", "pulls", "rewards", "wishlist"],
+      "routes": ["deck-builder", "decks", "duel-of-souls", "leaderboards", "play", "pull-and-pause", "pulls", "rewards", "verify"]
+    },
+    {
+      "id": "agreements-and-records", "label": "Existing agreements and records",
+      "purpose": "Maintain existing order, settlement, delivery and support responsibilities. Historical commerce code does not reopen retired admission.",
+      "lib": ["auction", "b2b", "bounty", "buying", "escrow", "market", "orders", "payments", "payouts", "shipping", "shop", "stock", "swaps", "wallets", "wholesale"],
+      "routes": ["auctions", "bounty", "checkout", "market", "order-confirmation", "product", "trade-in"]
+    },
+    {
+      "id": "accounts-and-community", "label": "Accounts and community",
+      "purpose": "Sign in, manage account records and preferences, communicate, and participate in community surfaces.",
+      "lib": ["auth", "collectives", "email", "journey", "lifecycle", "membership", "messages", "notifications", "reviews", "social", "users", "wardrobe"],
+      "routes": ["account", "appearance", "c", "community", "login", "membership", "u"]
+    },
+    {
+      "id": "public-interfaces", "label": "Public interfaces and discovery",
+      "purpose": "Expose data contracts, specifications, provenance and agent discovery, with a separate authored integration roadmap that does not claim runtime capability or source availability.",
+      "evidence": ["apps/storefront/src/content/platform/index.ts", "apps/storefront/src/lib/contracts/standards.ts", "apps/storefront/src/lib/contracts/standards.test.tsx", "apps/storefront/src/app/roadmap/page.tsx", "apps/storefront/src/app/api/v1/roadmap/route.ts", "docs/plans/tcg-data-platform/README.md"],
+      "lib": ["agents", "calling-card", "contracts", "data-pantry", "http", "release", "universal", "youspeak"],
+      "routes": [".well-known", "agents", "answering-rhymes", "api", "graph", "identify", "llms.txt", "manifest", "ontology", "patterns", "platform", "roadmap", "robots.txt", "schemas", "scrapers", "spec", "standards", "standards.json"]
+    },
+    {
+      "id": "safety-and-operations", "label": "Trust, privacy and operations",
+      "purpose": "Operate the service, review evidence and trust decisions, apply privacy controls and maintain verification tools.",
+      "lib": ["admin", "audits", "evidence", "fraud", "privacy", "trust", "verification"],
+      "routes": ["admin", "legal", "privacy", "terms"]
+    },
+    {
+      "id": "prism-preview", "label": "PRISM Signals preview",
+      "purpose": "Present the synthetic signal preview and host product-flow integration without enabling commercial rails.",
+      "lib": ["prism-signals", "product-flow-runtime"],
+      "routes": ["prism-signals"]
+    },
+    {
+      "id": "art-and-culture", "label": "Art, culture and invitations",
+      "purpose": "Offer art, cultural writing and optional invitations; these are distinct from operating instructions and account permissions.",
+      "lib": ["artbitrage", "bridge", "culture"],
+      "routes": ["artists", "bridge", "culture", "empty-frames", "gallery-next-door", "lineage", "making", "mekiki", "nuke", "workshop"]
+    },
+    {
+      "id": "navigation-and-explanation", "label": "Navigation and explanation",
+      "purpose": "Help visitors enter, orient, choose a destination and understand methodology in plain language.",
+      "evidence": ["docs/connections/the-entry-map.md", "docs/design/interface.md", "apps/storefront/src/lib/nav/menu-config.ts", "apps/storefront/src/lib/ui/PageLayout.tsx", "apps/storefront/src/lib/ui/Section.tsx", "apps/storefront/src/lib/ui/ActionCard.tsx"],
+      "lib": ["nav", "rooms", "ui"],
+      "routes": ["about", "contact", "glossary", "intro", "map", "methodology", "og", "services", "start", "welcome", "welcome-all", "welcomes"]
+    }
+  ]
+}

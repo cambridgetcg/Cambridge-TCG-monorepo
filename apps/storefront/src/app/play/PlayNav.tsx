@@ -18,12 +18,12 @@ import { usePathname } from "next/navigation";
 /** Player path only. Welcome/Casual/Compete/Spec stay reachable by URL and
  *  in-page links — just not in the primary nav. */
 const NAV_LINKS = [
-  { href: "/play", label: "Play", note: "Decks and play status" },
-  { href: "/play/adventure", label: "Adventure", note: "PVE level status; battles paused" },
-  { href: "/play/starters", label: "Starters", note: "Pre-built decks for rookies" },
+  { href: "/play", label: "Play", note: "Browser practice and account play status" },
+  { href: "/play/adventure", label: "Practice levels", note: "Choose a browser practice opponent" },
+  { href: "/play/starters", label: "Starter decks", note: "Pre-built decks for beginners" },
   { href: "/play/tutorial", label: "Tutorial", note: "Never played? Start here" },
-  { href: "/play/deck-check", label: "Deck Check", note: "Validate a deck" },
-  { href: "/play/meta", label: "Meta", note: "Tiers, tournaments, banlist" },
+  { href: "/play/deck-check", label: "Check a deck", note: "Validate a deck" },
+  { href: "/play/meta", label: "Competitive play", note: "Tiers, tournaments, banlist" },
 ] as const;
 
 /** Match exactly OR a route's nested child (so /play/casual/foo highlights
@@ -40,12 +40,9 @@ export default function PlayNav() {
   return (
     <nav
       aria-label="Play module navigation"
-      className="border-b border-border-subtle bg-page/80 sticky top-0 z-40 backdrop-blur-sm"
+      className="border-b border-border-subtle bg-surface"
     >
-      <div className="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center gap-1 text-sm">
-        <span className="text-[10px] uppercase tracking-widest text-ink-faint mr-3">
-          play module
-        </span>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center gap-1 text-sm">
         {NAV_LINKS.map((link) => {
           const active = isActive(pathname, link.href);
           return (
@@ -56,17 +53,14 @@ export default function PlayNav() {
               title={link.note}
               className={
                 active
-                  ? "px-2.5 py-1 rounded text-accent bg-accent-wash border border-accent/50 font-medium"
-                  : "px-2.5 py-1 rounded text-ink-muted hover:text-accent-strong hover:bg-surface transition-colors border border-transparent"
+                  ? "inline-flex min-h-11 items-center px-3 py-2 rounded-md text-accent bg-accent-wash border border-accent/50 font-medium"
+                  : "inline-flex min-h-11 items-center px-3 py-2 rounded-md text-ink-muted hover:text-ink hover:bg-surface-subtle transition-colors border border-transparent"
               }
             >
               {link.label}
             </Link>
           );
         })}
-        <span className="ml-auto text-[10px] text-ink-faint hidden sm:inline">
-          fun-first · play-to-earn is opt-in
-        </span>
       </div>
     </nav>
   );

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { GAME_CODES, GAMES } from "@cambridge-tcg/sku";
+import { identifierGameStatus } from "@/lib/identifier-validation";
 import { TypeSignature } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -13,18 +16,15 @@ export default function SkuStandardMethodology() {
       <h1>SKU standard (v1)</h1>
 
       <p>
-        Every card on the platform has a <strong>SKU</strong> — a short,
-        machine-readable identifier that names it precisely. The SKU works the
-        same way for One Piece, Pokémon, Magic, Yu-Gi-Oh, Digimon, Vanguard,
-        Weiß Schwarz, Flesh and Blood, Lorcana, and every TCG the platform
-        catalogues. <strong>One format. One parser. Every game.</strong>
+        A <strong>SKU</strong> is a machine-readable card identifier. The shared
+        grammar supports registered games and recognized legacy forms. Valid
+        syntax does not prove that a card, printing or source-price mapping exists.
       </p>
 
       <p>
-        This page is the canonical spec. It's the contract between the
-        platform's database, its public API, every agent that reads or writes
-        through us, every archivist preserving market history, and every
-        partner who wants to interoperate.
+        This page describes the identifier grammar. Existing storage and API
+        readers still include legacy identifiers; each boundary must state
+        which forms it accepts and returns.
       </p>
 
       <blockquote>
@@ -32,10 +32,17 @@ export default function SkuStandardMethodology() {
         is{" "}
         <code>packages/sku/</code> in the monorepo. <code>parseSku()</code>,{" "}
         <code>buildSku()</code>, <code>normalizeSku()</code>, and the{" "}
-        <code>GAMES</code> registry all live there and are imported by every
-        app that handles SKUs. When the spec changes, this page changes in the
-        same PR.
+        <code>GAMES</code> registry live there. <code>skuIdentity()</code> keeps
+        the supplied identifier alongside its normalized syntax candidate.
       </blockquote>
+
+      <p>
+        Try the <Link href="/standards/validator">identifier validator and builder</Link>:
+        a browser-local companion with strict parsing, separate normalization
+        suggestions, the bundled game registry and a public stateless API. Structure
+        alone does not establish catalog existence, card identity, authenticity, or
+        deck legality.
+      </p>
 
       <h2>The form</h2>
 
@@ -51,19 +58,21 @@ export default function SkuStandardMethodology() {
           the table below. Names <em>which TCG</em> this card is from.
         </li>
         <li>
-          <strong>set</strong> — lowercase alphanumeric. The publisher's set
+          <strong>set</strong> — lowercase alphanumeric. The publisher&apos;s set
           code, normalised. e.g. <code>op01</code>, <code>svobf</code>,{" "}
           <code>otj</code>.
         </li>
         <li>
-          <strong>number</strong> — lowercase alphanumeric. The card's number
+          <strong>number</strong> — lowercase alphanumeric. The card&apos;s number
           within the set. e.g. <code>001</code>, <code>t01</code>,{" "}
           <code>fa1</code>.
         </li>
         <li>
           <strong>lang</strong> — ISO 639-1 (two lowercase letters). e.g.{" "}
           <code>ja</code>, <code>en</code>, <code>zh</code>, <code>ko</code>,{" "}
-          <code>fr</code>, <code>de</code>.
+          <code>fr</code>, <code>de</code>. The implementation checks two-letter
+          shape only, not membership in the ISO registry. Aliases such as
+          <code> jp</code> can parse strictly but normalize to <code>ja</code>.
         </li>
         <li>
           <strong>variant</strong> — optional. One or more lowercase
@@ -98,9 +107,11 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       <h2>Registered game codes</h2>
 
       <p>
-        Every TCG the platform catalogues has a registered code. New games are
-        added by editing <code>packages/sku/src/games.ts</code>; the platform
-        rejects SKUs whose game code isn't registered.
+        The table is derived from <code>packages/sku/src/games.ts</code>.
+        The parser rejects SKUs whose game code is not registered. Registry status
+        is a bundled declaration, not a fresh catalog lookup: known means marked
+        as having catalog rows; anticipated means registered but not so marked;
+        internal is the test code. No status verifies a particular card.
       </p>
 
       <table>
@@ -109,31 +120,27 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
             <th>Code</th>
             <th>Game</th>
             <th>Publisher</th>
-            <th>Set-code hint</th>
+            <th>Registry status</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td><code>op</code></td>  <td>One Piece TCG</td>        <td>Bandai</td>      <td><code>op&lt;NN&gt;</code> (op01, op08…)</td></tr>
-          <tr><td><code>pkm</code></td> <td>Pokémon TCG</td>          <td>TPCi</td>        <td>publisher abbreviation</td></tr>
-          <tr><td><code>mtg</code></td> <td>Magic: The Gathering</td> <td>Wizards</td>     <td>3-letter (otj, lci, woe)</td></tr>
-          <tr><td><code>ygo</code></td> <td>Yu-Gi-Oh!</td>            <td>Konami</td>      <td>MP/POTE/RA series</td></tr>
-          <tr><td><code>dbs</code></td> <td>Dragon Ball Super CCG</td><td>Bandai</td>      <td>bt/sd numbered</td></tr>
-          <tr><td><code>dbf</code></td> <td>Dragon Ball Super FW</td> <td>Bandai</td>      <td>fb&lt;NN&gt;</td></tr>
-          <tr><td><code>wei</code></td> <td>Weiß Schwarz</td>         <td>Bushiroad</td>   <td>series abbreviation</td></tr>
-          <tr><td><code>vng</code></td> <td>Cardfight!! Vanguard</td> <td>Bushiroad</td>   <td>d-bt / v-bt / g-bt</td></tr>
-          <tr><td><code>dmw</code></td> <td>Digimon Card Game</td>    <td>Bandai</td>      <td>bt&lt;NN&gt; / ex&lt;NN&gt;</td></tr>
-          <tr><td><code>bsr</code></td> <td>Battle Spirits Saga</td>  <td>Bandai</td>      <td>bs&lt;NN&gt;</td></tr>
-          <tr><td><code>lcg</code></td> <td>Living Card Game</td>     <td>various</td>    <td>publisher-specific umbrella</td></tr>
-          <tr><td><code>fab</code></td> <td>Flesh and Blood</td>      <td>LSS</td>        <td>3–4 letter (wtr, mon, ele)</td></tr>
-          <tr><td><code>lgr</code></td> <td>Disney Lorcana</td>       <td>Ravensburger</td><td>set&lt;NN&gt; / numbered</td></tr>
-          <tr><td><code>tst</code></td> <td>Test</td>                 <td>(internal)</td> <td>any</td></tr>
+          {GAME_CODES.map((code) => (
+            <tr key={code}>
+              <th scope="row"><code>{code}</code></th>
+              <td>{GAMES[code].name}</td>
+              <td>{GAMES[code].publisher}</td>
+              <td>{identifierGameStatus(code)}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
       <p>
-        Languages accepted per game are listed in <code>GAMES[code].languages</code>.
-        SKUs in non-listed languages are accepted but flagged as non-canonical
-        (the publisher hasn't shipped that language).
+        The bundled language annotations live in <code>GAMES[code].languages</code>.
+        Unlisted two-letter values remain syntactically accepted; the validator
+        annotates them separately. This is not evidence about publisher releases.
+        Strict canonical status means parsing succeeds and normalization leaves
+        the input unchanged, not that its language appears in this list.
       </p>
 
       <h2>Legacy forms (auto-normalised)</h2>
@@ -153,16 +160,16 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
         <li>
           <strong>Language-and-number swapped:</strong>{" "}
           <code>pkm-svobf-en-006</code> → normalised to{" "}
-          <code>pkm-svobf-006-en</code>. The parser disambiguates by
-          recognising ISO 639-1 codes.
+          <code>pkm-svobf-006-en</code>. The normalizer uses its fixed
+          language-alias map; it does not validate against the whole ISO registry.
         </li>
       </ul>
 
       <p>
         Both legacy forms accept normalisation through{" "}
         <code>normalizeSku(legacy)</code>; the result round-trips through{" "}
-        <code>parseSku()</code> losslessly. Reading paths apply normalisation
-        transparently; writing paths emit canonical form only.
+        <code>parseSku()</code> losslessly. Adoption is explicit at each read
+        or write boundary; this utility does not rewrite stored identifiers.
       </p>
 
       <h2>Variants</h2>
@@ -170,7 +177,7 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       <p>
         The <code>variant</code> segment captures meaningful prints of the same
         underlying card. Each variant is one or more lowercase tokens
-        hyphen-joined; the platform doesn't enforce a closed vocabulary, but
+        hyphen-joined; the platform doesn&apos;t enforce a closed vocabulary, but
         these are the commonly-shipping tokens:
       </p>
 
@@ -189,9 +196,10 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       </ul>
 
       <p>
-        Variants compose: <code>pkm-svobf-006-en-rev-holo</code> means reverse
-        holographic. Order is lexicographic when multiple non-overlapping
-        variants apply, for canonical equality.
+        Variant tokens compose, for example <code>pkm-svobf-006-en-rev-holo</code>.
+        Their presence is not proof of a printing. The implementation preserves
+        token order; it does not sort variants or verify their meaning. Examples
+        on this page illustrate syntax, not verified catalog entries.
       </p>
 
       <h2>Why this matters</h2>
@@ -206,32 +214,34 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
 
       <h3>For agents</h3>
       <p>
-        Every public API endpoint that returns a card carries its canonical SKU.
-        A reading agent doesn't need to translate between formats; the platform
-        emits one form. A writing agent's input is normalised on accept (so
-        legacy forms work) and stored canonically.
+        Search and card composition preserve the stored <code>sku</code> and add
+        an <code>identity</code> object with <code>raw_sku</code>, a normalized
+        <code>canonical_sku</code> and <code>scope: syntax_only</code>. Other
+        endpoints may still use legacy forms. Normalization alone is never
+        sufficient to join a price to a physical printing.
       </p>
 
       <h3>For archivists</h3>
       <p>
-        The SKU is the platform's stable foreign key for any card. A snapshot
-        from today can be cross-referenced with a snapshot from 2030 because
-        SKUs don't change shape — the spec is versioned (this is v1) and any
-        breaking change ships under a new prefix (<code>/api/v2/</code>) before
-        v1 retires.
+        Preserve raw identifiers, source references and the version of the
+        normalization rules with each snapshot. The grammar is v1. Future
+        breaking changes need an explicit migration; this package does not
+        rewrite historical keys or promise that every stored alias is unique.
       </p>
 
       <h3>For partners / other platforms</h3>
       <p>
         A platform that wants to interoperate with Cambridge TCG can adopt this
-        spec and exchange SKUs directly. The spec is published here, the parser
-        is open source (MIT-licensed component within the monorepo), and the
-        game-code registry is small enough to mirror.
+        spec and exchange SKUs directly. The spec is published here and the parser
+        is inspectable in the monorepo. Implementation rights: repository
+        <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE"> LICENSE</a> and
+        applicable more-specific notices. The specification text&apos;s CC0 dedication
+        does not create a separate code license.
       </p>
 
       <h3>For aliens</h3>
       <p>
-        A being whose cognition doesn't share our category of "card" can still
+        A being whose cognition doesn&apos;t share our category of &quot;card&quot; can still
         index records by canonical-form string. The SKU is{" "}
         <em>language-free in structure</em> — the language hint is one segment,
         not embedded in identifier semantics. The math-mirror surface (see{" "}

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   listAuctions: vi.fn(),
   createAuction: vi.fn(),
   query: vi.fn(),
+  sendOutbidEmail: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
@@ -27,7 +28,7 @@ vi.mock("@/lib/auction/db", () => ({
   createAuction: mocks.createAuction,
 }));
 vi.mock("@/lib/market/db", () => ({ resolveCatalogCard: vi.fn() }));
-vi.mock("@/lib/auction/email", () => ({ sendOutbidEmail: vi.fn() }));
+vi.mock("@/lib/auction/email", () => ({ sendOutbidEmail: mocks.sendOutbidEmail }));
 vi.mock("@/lib/db", () => ({ query: mocks.query }));
 vi.mock("@/lib/format", () => ({ formatPrice: (value: number) => `£${value}` }));
 
@@ -41,6 +42,7 @@ import {
   POST as placeBidRoute,
 } from "@/app/api/auctions/[id]/bids/route";
 import { GET as listAuctionsRoute } from "@/app/api/auctions/route";
+import { NEW_PAID_COMMERCE_RETIRED_CODE } from "@/lib/release/commercial-retirement";
 
 const AUCTION_ID = "11111111-1111-4111-8111-111111111111";
 const SELLER_ID = "22222222-2222-4222-8222-222222222222";
@@ -204,7 +206,7 @@ describe("auction route privacy", () => {
     expect(mocks.getBidHistory).not.toHaveBeenCalled();
   });
 
-  it("rejects malformed mutation IDs after authorization and before input or database work", async () => {
+  it("retires new bids and rejects malformed retained mutation IDs before input or database work", async () => {
     mocks.auth.mockResolvedValue({
       user: { id: "88888888-8888-4888-8888-888888888888" },
     });
@@ -234,7 +236,10 @@ describe("auction route privacy", () => {
       ),
     ]);
 
-    for (const response of [bidResponse, updateResponse, deleteResponse]) {
+    expect(bidResponse.status).toBe(410);
+    expect(await bidResponse.json()).toMatchObject({ code: NEW_PAID_COMMERCE_RETIRED_CODE });
+    expect(bidResponse.headers.get("cache-control")).toBe("private, no-store");
+    for (const response of [updateResponse, deleteResponse]) {
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: "Not found" });
       expect(response.headers.get("cache-control")).toBe("private, no-store");
@@ -244,6 +249,7 @@ describe("auction route privacy", () => {
     expect(mocks.updateAuction).not.toHaveBeenCalled();
     expect(mocks.deleteAuction).not.toHaveBeenCalled();
     expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.sendOutbidEmail).not.toHaveBeenCalled();
   });
 
   it("redacts auction update failures from the client response", async () => {
@@ -427,31 +433,29 @@ describe("auction route privacy", () => {
     expect((await response.json()).viewer_role).toBe("seller");
   });
 
-  it("returns a projected mutation result to an ordinary bidder", async () => {
+  it.each([false, true])("retires new bidder commitments before reading private records (best offer: %s)", async (isBestOffer) => {
     const bidderId = "88888888-8888-4888-8888-888888888888";
     mocks.auth.mockResolvedValue({ user: { id: bidderId } });
-    mocks.placeBid.mockResolvedValue({
-      success: true,
-      bid: { ...bids[0], user_id: bidderId },
-      auction,
-    });
 
     const response = await placeBidRoute(
       new Request(`https://example.test/api/auctions/${AUCTION_ID}/bids`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: 13.37, is_best_offer: true }),
+        body: JSON.stringify({ amount: 13.37, is_best_offer: isBestOffer }),
       }),
       context,
     );
     const body = await response.json();
     const serialized = JSON.stringify(body);
 
-    expect(body).toMatchObject({
-      success: true,
-      bid: { amount: "24.00", is_own: true },
-      auction: { current_price: "24.00", bid_count: 1 },
-    });
+    expect(response.status).toBe(410);
+    expect(body).toMatchObject({ code: NEW_PAID_COMMERCE_RETIRED_CODE });
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.placeBid).not.toHaveBeenCalled();
+    expect(mocks.getAuction).not.toHaveBeenCalled();
+    expect(mocks.getBidHistory).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
+    expect(mocks.sendOutbidEmail).not.toHaveBeenCalled();
     for (const privateValue of [
       AUCTION_ID,
       SELLER_ID,

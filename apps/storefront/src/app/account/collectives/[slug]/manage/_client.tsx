@@ -2,11 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   updateCollectiveAction,
   inviteMemberAction,
   removeMemberAction,
 } from "../../_actions";
+import {
+  DIRECTORY_MAX_LANGUAGES_INPUT_LENGTH,
+  DIRECTORY_PUBLICATION_NOTICE,
+  DIRECTORY_PUBLICATION_VERSION,
+} from "@/lib/collectives/directory-contract";
 import { COLLECTIVE_KINDS } from "@/lib/collectives/types";
 import type {
   Collective,
@@ -33,6 +39,12 @@ export function ManageClient({
   const [editPending, startEdit] = useTransition();
   const [editError, setEditError] = useState<string | null>(null);
   const [editSaved, setEditSaved] = useState(false);
+  const [isPublic, setIsPublic] = useState(collective.is_public);
+  const [directoryListed, setDirectoryListed] = useState(
+    collective.directory_publication_at !== null &&
+      collective.directory_publication_version ===
+        DIRECTORY_PUBLICATION_VERSION,
+  );
 
   const [invitePending, startInvite] = useTransition();
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -122,6 +134,7 @@ export function ManageClient({
             <input
               name="languages"
               defaultValue={collective.languages.join(", ")}
+              maxLength={DIRECTORY_MAX_LANGUAGES_INPUT_LENGTH}
               className="w-full px-3 py-2 rounded-lg bg-surface border border-border-subtle text-ink text-sm focus:outline-none focus:border-accent"
             />
           </div>
@@ -154,10 +167,52 @@ export function ManageClient({
               type="checkbox"
               name="is_public"
               defaultChecked={collective.is_public}
+              onChange={(event) => {
+                const checked = event.currentTarget.checked;
+                setIsPublic(checked);
+                if (!checked) setDirectoryListed(false);
+              }}
               className="accent-amber-500"
             />
-            Publicly visible at /c/{collective.slug}
+            Publish the profile at /c/{collective.slug}
           </label>
+          <div className="rounded-lg border border-border-subtle bg-surface-subtle p-3">
+            <input
+              type="hidden"
+              name="directory_publication_version"
+              value={DIRECTORY_PUBLICATION_VERSION}
+            />
+            <label className="flex items-start gap-2 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                name="directory_listed"
+                checked={directoryListed}
+                onChange={(event) =>
+                  setDirectoryListed(event.currentTarget.checked)
+                }
+                disabled={!isPublic}
+                className="mt-0.5 accent-amber-500"
+              />
+              <span>
+                {DIRECTORY_PUBLICATION_NOTICE.publication}{" "}
+                {DIRECTORY_PUBLICATION_NOTICE.exposure}
+              </span>
+            </label>
+            <p className="mt-2 text-xs text-ink-faint">
+              {DIRECTORY_PUBLICATION_NOTICE.withdrawal}{" "}
+              <Link
+                href="/methodology/community-directory"
+                className="text-accent underline hover:text-accent-strong"
+              >
+                Read the publication contract
+              </Link>
+              .
+            </p>
+            <p className="mt-2 text-xs text-ink-faint">
+              {DIRECTORY_PUBLICATION_NOTICE.data_discipline}{" "}
+              {DIRECTORY_PUBLICATION_NOTICE.correction}
+            </p>
+          </div>
 
           {editError && (
             <div className="rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
@@ -242,7 +297,10 @@ export function ManageClient({
               {m.role !== "steward" && (
                 <button
                   onClick={() =>
-                    handleRemove(m.user_id, m.name ?? m.username ?? "this member")
+                    handleRemove(
+                      m.user_id,
+                      m.name ?? m.username ?? "this member",
+                    )
                   }
                   disabled={editPending}
                   className="text-xs text-danger hover:text-danger disabled:opacity-40"

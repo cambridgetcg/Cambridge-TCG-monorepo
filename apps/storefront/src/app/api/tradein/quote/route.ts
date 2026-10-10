@@ -3,9 +3,10 @@
  * docs/decisions/2026-07-06-collectors-first.md).
  *
  * POST was the admin side of the desk (compose + email a quotation);
- * PATCH was the customer accepting or declining it. Zero submissions
- * were ever received, so no quote was ever issued and none can exist
- * to accept. Both verbs answer 410 with the same teaching shape.
+ * PATCH was the customer accepting or declining it. The dated close-out
+ * decision records zero submissions; this tombstone does not query production
+ * history or accept, issue or resolve a quote. Both verbs answer 410 with the
+ * same teaching shape.
  */
 
 import { errorResponse } from "@/lib/data-pantry";

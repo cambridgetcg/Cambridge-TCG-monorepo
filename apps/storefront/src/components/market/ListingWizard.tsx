@@ -1,5 +1,8 @@
 "use client";
 
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 /**
  * The listing wizard — /market/list's client half.
  *
@@ -20,6 +23,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, Callout, EmptyState, ErrorAlert, Field, Icon, Input, Money, Palettes, Select, WhyLink } from "@/lib/ui";
 import { formatDate } from "@/lib/format";
+import { OPEN_ORDER_PUBLICATION_NOTICE } from "@/lib/market/publication";
 import {
   buildCatalogSearch,
   parseCatalogError,
@@ -75,7 +79,11 @@ interface SearchState {
   message?: string;
 }
 
-export default function ListingWizard({
+export default function ListingWizard(props: ListingWizardProps) {
+  return NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice /> : <ListingWizardForm {...props} />;
+}
+
+function ListingWizardForm({
   game,
   initialSku,
   isSignedIn,
@@ -601,7 +609,18 @@ export default function ListingWizard({
             {submitting ? "Posting…" : isSignedIn ? "Post listing" : "Sign in to post — draft is saved"}
           </button>
 
-          <p className="text-xs text-ink-faint leading-relaxed mt-3">
+          <p className="text-[11px] text-ink-faint leading-relaxed mt-3">
+            {OPEN_ORDER_PUBLICATION_NOTICE}{" "}
+            <Link
+              href="/privacy#market-orders"
+              className="text-accent underline underline-offset-2"
+            >
+              Privacy details
+            </Link>
+            .
+          </p>
+
+          <p className="text-xs text-ink-faint leading-relaxed mt-2">
             Free to list, and free to sell — Cambridge TCG takes no commission, so you keep 100%
             of every sale
             <WhyLink href="/methodology/fees" tooltip="How the free platform works" />

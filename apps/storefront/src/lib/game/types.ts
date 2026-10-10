@@ -1,4 +1,5 @@
 // OPTCG Virtual Tabletop Types
+import type { CardNumberImageReference } from "@/lib/cards/card-number-image-reference";
 
 /** Card category per the official game. `null` = unknown (catalog rows
  *  without stats); consumers must degrade honestly, not guess. */
@@ -10,6 +11,8 @@ export interface GameCard {
   name: string;
   cardNumber: string;
   imageUrl: string | null;
+  imageAttribution?: string | null;
+  imageReference?: CardNumberImageReference | null;
   rarity: string | null;
   // Printed stats — optional; present when the card came from a source
   // that carries them (e.g. the encoded starter decks). Absent stats mean

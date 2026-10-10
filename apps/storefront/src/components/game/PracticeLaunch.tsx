@@ -1,22 +1,28 @@
 "use client";
 
-// The hub's battle panel while durable PVE is paused: practice battles,
-// straight from /play. Suggests the first uncleared ladder level (browser-
-// local clears), one press to the board. Honest about what it is.
+// Browser practice is independent of account and server-progress availability.
+// Suggest the first uncleared level from the local practice ladder.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ADVENTURE_LEVELS } from "@/lib/play/adventure-levels";
+import { LinkButton } from "@/lib/ui/Button";
 
 const CLEARS_KEY = "ctcg-practice-clears";
 
-export function PracticeLaunch({ pausedReason }: { pausedReason: string }) {
+export function PracticeLaunch() {
   const [clears, setClears] = useState<number[]>([]);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(CLEARS_KEY);
-      if (raw) setClears(JSON.parse(raw));
+      if (!raw) return;
+      const saved: unknown = JSON.parse(raw);
+      if (!Array.isArray(saved)) return;
+      const knownLevels = new Set(ADVENTURE_LEVELS.map((level) => level.id));
+      setClears([...new Set(saved.filter((id): id is number =>
+        typeof id === "number" && Number.isInteger(id) && knownLevels.has(id),
+      ))]);
     } catch {
       /* ignore */
     }
@@ -28,44 +34,42 @@ export function PracticeLaunch({ pausedReason }: { pausedReason: string }) {
 
   return (
     <div className="p-5 sm:p-6">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-ink-muted">
-          Next opponent
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="text-lg font-semibold text-ink">
+          Browser practice
         </h2>
         <Link
           href="/play/adventure"
-          className="text-xs text-accent hover:text-accent-strong transition-colors"
+          className="inline-flex min-h-11 items-center text-sm text-accent hover:underline"
         >
-          Pick a different one &rarr;
+          Choose an opponent
         </Link>
       </div>
 
-      <div className="flex items-center gap-4">
-        <span className="text-3xl" aria-hidden="true">
-          {next.opponentIcon}
-        </span>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-faint">Lv.{next.id}</span>
-            <span className="text-xs uppercase text-ink-muted">{next.difficulty}</span>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+            <span>Level {next.id}</span>
+            <span className="capitalize">{next.difficulty}</span>
             {clears.length > 0 && (
-              <span className="text-xs text-ok">{clears.length}/10 cleared</span>
+              <span>{clears.length}/{ADVENTURE_LEVELS.length} cleared in this browser</span>
             )}
           </div>
-          <p className="font-semibold truncate">{next.title}</p>
-          <p className="text-sm text-ink-muted">vs {next.opponentName}</p>
+          <h3 className="mt-1 font-semibold text-ink">{next.title}</h3>
+          <p className="mt-1 text-sm text-ink-muted">Practice against {next.opponentName}</p>
         </div>
-        <Link
+        <LinkButton
           href={`/play/adventure/${next.id}`}
-          className="bg-ink hover:bg-ink/85 text-page font-bold rounded-lg px-8 py-3 text-lg transition-colors flex-shrink-0"
+          className="w-full sm:w-auto sm:shrink-0"
         >
-          Play
-        </Link>
+          Start practice
+        </LinkButton>
       </div>
 
-      <p className="mt-4 text-xs text-ink-faint">
-        Practice battle — solo vs AI, runs in your browser, records nothing,
-        no account needed. {pausedReason} Rewards stay off until that lands.
+      <p className="mt-4 text-sm leading-6 text-ink-muted">
+        Solo practice against AI, no account needed. Battle state, starter
+        choice, and clears can be saved in this browser only; no results are
+        recorded on the server. Practice does not award rewards.
       </p>
     </div>
   );

@@ -1,7 +1,8 @@
 // Pre-payment trade cancellation handshake.
 //
-// Sits between the matched-trade state (escrow_status='awaiting_payment'
-// or sometimes 'paid' but not yet shipped) and the dispute system.
+// Sits between the matched-trade state (escrow_status='awaiting_payment')
+// and the dispute system. Once money starts moving, cancellation must use a
+// real refund flow; this handshake is deliberately pre-payment only.
 // Disputes are fault claims; this is "let's both agree to back out
 // before the timer fires."
 //
@@ -48,8 +49,6 @@ const REASON_VALUES = new Set(CANCEL_REASONS.map((r) => r.value));
 // completed, disputed, refunded, etc).
 const CANCELLABLE_STATES = new Set([
   "awaiting_payment",
-  "paid",                // edge case — buyer paid, seller hasn't shipped
-  "awaiting_shipment",
 ]);
 
 // ── Internal: load with joined trade metadata ──
@@ -87,8 +86,24 @@ export async function requestCancel(input: {
   }
 
   const t = await query(
-    `SELECT id, buyer_id, seller_id, escrow_status, sku
-       FROM market_trades WHERE id = $1`,
+    `SELECT t.id, t.buyer_id, t.seller_id, t.escrow_status, t.sku,
+            EXISTS (
+              SELECT 1 FROM market_trade_stripe_checkout_attempts attempt
+               WHERE attempt.trade_id = t.id
+                 AND attempt.status IN (
+                   'reserved', 'checkout_open', 'processing', 'requires_review'
+                 )
+            ) AS has_blocking_payment_attempt,
+            (
+              t.stripe_session_id IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM market_trade_stripe_checkout_attempts historical
+                 WHERE historical.trade_id = t.id
+                   AND historical.stripe_session_id = t.stripe_session_id
+                   AND historical.status IN ('expired', 'failed')
+              )
+            ) AS has_legacy_stripe_session
+       FROM market_trades t WHERE t.id = $1`,
     [input.tradeId],
   );
   if (t.rows.length === 0) {
@@ -105,6 +120,13 @@ export async function requestCancel(input: {
     return {
       ok: false,
       reason: `Trade is ${trade.escrow_status} — too late to cancel via handshake. Open a dispute instead.`,
+      status: 409,
+    };
+  }
+  if (trade.has_blocking_payment_attempt || trade.has_legacy_stripe_session) {
+    return {
+      ok: false,
+      reason: "A payment session is open, processing, or awaiting reconciliation. It must become terminal before this trade can be cancelled.",
       status: 409,
     };
   }
@@ -194,12 +216,41 @@ export async function approveCancel(
       [cancelId],
     );
 
+    // Match payment reservation's lock order. If a buyer is concurrently
+    // claiming Checkout, wait for that trade lock first; the following
+    // UPDATE then gets a fresh READ COMMITTED snapshot and sees the attempt.
+    const lockedTrade = await q(
+      `SELECT id FROM market_trades
+        WHERE id = $1 AND escrow_status::text = ANY($2::text[])
+        FOR UPDATE`,
+      [c.trade_id, Array.from(CANCELLABLE_STATES)],
+    );
+    if (lockedTrade.rows.length === 0) {
+      throw new Error("__TRADE_MOVED_PAST_CANCELLATION__");
+    }
+
     // Cancel the trade. Only flip if still in a cancellable state —
     // race-safe.
     const tradeUpdate = await q(
       `UPDATE market_trades
           SET escrow_status = 'cancelled', updated_at = NOW()
         WHERE id = $1 AND escrow_status::text = ANY($2::text[])
+          AND NOT EXISTS (
+            SELECT 1 FROM market_trade_stripe_checkout_attempts attempt
+             WHERE attempt.trade_id = market_trades.id
+               AND attempt.status IN (
+                 'reserved', 'checkout_open', 'processing', 'requires_review'
+               )
+          )
+          AND NOT (
+            market_trades.stripe_session_id IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM market_trade_stripe_checkout_attempts historical
+               WHERE historical.trade_id = market_trades.id
+                 AND historical.stripe_session_id = market_trades.stripe_session_id
+                 AND historical.status IN ('expired', 'failed')
+            )
+          )
         RETURNING bid_order_id, ask_order_id, quantity`,
       [c.trade_id, Array.from(CANCELLABLE_STATES)],
     );

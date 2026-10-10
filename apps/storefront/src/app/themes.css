@@ -1,161 +1,147 @@
-/*
- * The Wardrobe — theme bundles for the customisable storefront.
- *
- * Spec: docs/superpowers/specs/2026-06-10-the-wardrobe-design.md
- * Registry (typed source of truth for ids/labels/entitlements):
- *   src/lib/wardrobe/themes.ts
- *
- * How this works: the committed `@theme` block in globals.css emits the
- * semantic tokens as CSS custom properties, and every semantic utility
- * (`bg-page`, `text-accent`, …) reads them through var(). A
- * `[data-theme="…"]` attribute therefore re-binds the whole semantic
- * vocabulary for its subtree — on <html> when the visitor has chosen,
- * or on a migrated page's wrapper during the staged rollout (spec §3.3).
- *
- * `:root` defaults (in globals.css + the additions below) ARE the
- * gallery values since the site-wide flip (spec §3.6, fired 2026-07-05
- * with the quiet gallery — docs/plans/the-quiet-gallery.md). The old
- * terminal-dark look survives verbatim in the terminal bundle below.
- * The gallery bundle mirrors :root exactly. Since 2026-07-06 a no-cookie
- * visitor wears [data-theme="system"]: those same :root/gallery values in
- * a light OS, the midnight values in a dark one (prefers-color-scheme).
- *
- * Raw utilities (`bg-neutral-900`) do not respond to themes by design —
- * migration to semantic tokens is the unit of adoption.
- *
- * text-mode always wins: its overrides carry !important.
- */
-
-/* ── New tokens (quiet-gallery defaults; join the globals.css set) ───── */
+/* Shared appearance tokens and Tailwind defaults. Existing cookie IDs stay valid: gallery is
+ * Light, midnight is Dark, terminal and high-contrast remain selectable.
+ * With no explicit choice, system follows the device at first paint.
+ * Registry labels and swatches live in lib/wardrobe/themes.ts. */
 @theme {
-  /* ink — text hierarchy (replaces ad-hoc text-white/neutral-400/500) */
-  --color-ink: #201d18;
-  --color-ink-muted: #6e675b;
-  --color-ink-faint: #a59d8e;
-
-  /* accent wash — tinted ground for chips/halos of the accent,
-   * the bronze at whisper volume */
-  --color-accent-wash: #f5eedd;
-
-  /* market semantics — bid/ask are doctrine-narrow: green buys, red sells */
-  --color-bid: #41775c;
-  --color-ask: #9e4433;
-
-  /* the mat — layered warm shadow (the only elevation); flat in terminal */
-  --shadow-mat: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
-  --shadow-mat-hover: 0 2px 4px rgb(32 29 24 / 0.08), 0 18px 44px rgb(32 29 24 / 0.12);
-  --color-scrim: rgb(15 14 12 / 0.82);
-  --color-scrim-ink: rgb(255 255 255 / 0.85);
-
-  /* typographic voices — themes re-bind these; terminal keeps Inter
-   * for both. --font-mono stays theme-bound (gallery/midnight speak
-   * Spline Sans Mono; terminal keeps the system mono stack). */
-  --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-schibsted), system-ui, sans-serif;
+  --color-page: #fbf7f1;
+  --color-surface: #fffdf9;
+  --color-surface-subtle: #f3eaf1;
+  --color-surface-elevated: #ffffff;
+  --color-border-subtle: #dfd0dc;
+  --color-border-strong: #8a738d;
+  --color-accent: #9b3b12;
+  --color-accent-strong: #7f2d0c;
+  --color-accent-wash: #fcebdc;
+  /* Bright fills have their own ink; link colors remain readable on ivory. */
+  --color-highlight: #ec7838;
+  --color-ink-on-highlight: #2c1836;
+  --color-secondary: #69437d;
+  --color-secondary-wash: #ede3f6;
+  --color-danger: #9e253d;
+  --color-warning: #8a4b06;
+  --color-info: #5e4a94;
+  --color-ok: #2c674c;
+  --color-ink: #2c1836;
+  --color-ink-muted: #625469;
+  --color-ink-faint: #716078;
+  --color-bid: #2c674c;
+  --color-ask: #9e253d;
+  --shadow-mat: 0 0 #0000;
+  --shadow-mat-hover: 0 0 #0000;
+  --color-scrim: rgb(29 20 37 / 0.9);
+  --color-scrim-ink: #ffffff;
+  --font-display: var(--font-inter, system-ui), sans-serif;
+  --font-body: var(--font-inter, system-ui), sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* ── Terminal — today's look, preserved exactly (the trader's choice) ── */
-/* Explicit bundle so a subtree can opt back to dark inside a gallery page. */
+/* Two existing page styles still use these names directly. Keep their
+ * glyph fallbacks while removing the extra downloaded font families. */
+:root {
+  --font-schibsted: var(--font-inter, system-ui);
+  --font-noto-serif-jp: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+}
+
+[data-theme="gallery"] {
+  --color-page: #fbf7f1;
+  --color-surface: #fffdf9;
+  --color-surface-subtle: #f3eaf1;
+  --color-surface-elevated: #ffffff;
+  --color-border-subtle: #dfd0dc;
+  --color-border-strong: #8a738d;
+  --color-accent: #9b3b12;
+  --color-accent-strong: #7f2d0c;
+  --color-accent-wash: #fcebdc;
+  --color-highlight: #ec7838;
+  --color-ink-on-highlight: #2c1836;
+  --color-secondary: #69437d;
+  --color-secondary-wash: #ede3f6;
+  --color-danger: #9e253d;
+  --color-warning: #8a4b06;
+  --color-info: #5e4a94;
+  --color-ok: #2c674c;
+  --color-ink: #2c1836;
+  --color-ink-muted: #625469;
+  --color-ink-faint: #716078;
+  --color-bid: #2c674c;
+  --color-ask: #9e253d;
+  --shadow-mat: 0 0 #0000;
+  --shadow-mat-hover: 0 0 #0000;
+  --color-scrim: rgb(29 20 37 / 0.9);
+  --color-scrim-ink: #ffffff;
+  --font-display: var(--font-inter, system-ui), sans-serif;
+  --font-body: var(--font-inter, system-ui), sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+/* Keep this bundle synchronized with system's dark media block below. */
+[data-theme="midnight"] {
+  --color-page: #1d1425;
+  --color-surface: #291e32;
+  --color-surface-subtle: #34283f;
+  --color-surface-elevated: #3a2d47;
+  --color-border-subtle: #5c466a;
+  --color-border-strong: #9a829f;
+  --color-accent: #ffb078;
+  --color-accent-strong: #ffd0ab;
+  --color-accent-wash: #493047;
+  --color-highlight: #ec7838;
+  --color-ink-on-highlight: #2c1836;
+  --color-secondary: #d2b3ed;
+  --color-secondary-wash: #40304f;
+  --color-danger: #ffacb9;
+  --color-warning: #ffd08a;
+  --color-info: #c6b7ff;
+  --color-ok: #9adeb7;
+  --color-ink: #fff6e9;
+  --color-ink-muted: #ded0e1;
+  --color-ink-faint: #c8b4cd;
+  --color-bid: #9adeb7;
+  --color-ask: #ffacb9;
+  --shadow-mat: 0 0 #0000;
+  --shadow-mat-hover: 0 0 #0000;
+  --color-scrim: rgb(0 0 0 / 0.9);
+  --color-scrim-ink: #ffffff;
+  --font-display: var(--font-inter, system-ui), sans-serif;
+  --font-body: var(--font-inter, system-ui), sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
 [data-theme="terminal"] {
   --color-page: #0a0a0a;
   --color-surface: #171717;
-  --color-surface-subtle: rgb(23 23 23 / 0.5);
+  --color-surface-subtle: #171717;
   --color-surface-elevated: #262626;
-  --color-border-subtle: #262626;
-  --color-border-strong: #404040;
+  --color-border-subtle: #404040;
+  --color-border-strong: #737373;
   --color-accent: #f59e0b;
   --color-accent-strong: #fbbf24;
   --color-accent-wash: rgb(245 158 11 / 0.1);
+  --color-highlight: #f59e0b;
+  --color-ink-on-highlight: #0a0a0a;
   --color-secondary: #34d399;
-  --color-danger: #ef4444;
+  --color-secondary-wash: #173328;
+  --color-danger: #f87171;
   --color-warning: #fbbf24;
   --color-info: #38bdf8;
   --color-ok: #34d399;
   --color-ink: #ededed;
-  --color-ink-muted: #a3a3a3;
-  --color-ink-faint: #737373;
+  --color-ink-muted: #b8b8b8;
+  --color-ink-faint: #a3a3a3;
   --color-bid: #34d399;
   --color-ask: #f87171;
   --shadow-mat: 0 0 #0000;
   --shadow-mat-hover: 0 0 #0000;
   --color-scrim: rgb(0 0 0 / 0.9);
-  --color-scrim-ink: rgb(255 255 255 / 1);
-  --font-display: var(--font-inter), system-ui, sans-serif;
-  --font-body: var(--font-inter), system-ui, sans-serif;
+  --color-scrim-ink: #ffffff;
+  --font-display: var(--font-inter, system-ui), sans-serif;
+  --font-body: var(--font-inter, system-ui), sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: dark;
 }
 
-/* ── Gallery — the card, given room (the default; ≡ the :root values) ── */
-[data-theme="gallery"] {
-  --color-page: #faf8f4;          /* warm paper */
-  --color-surface: #ffffff;
-  --color-surface-subtle: #f3f0e9;
-  --color-surface-elevated: #fffdf9;
-  --color-border-subtle: #e7e2d8;
-  --color-border-strong: #d3ccbe;
-  --color-accent: #96762f;        /* quiet bronze — AA on paper */
-  --color-accent-strong: #7a5f26;
-  --color-accent-wash: #f5eedd;
-  --color-secondary: #41775c;     /* muted viridian */
-  --color-danger: #9e4433;        /* muted brick */
-  --color-warning: #a97e24;
-  --color-info: #4e6e96;          /* muted slate */
-  --color-ok: #41775c;
-  --color-ink: #201d18;
-  --color-ink-muted: #6e675b;
-  --color-ink-faint: #a59d8e;
-  --color-bid: #41775c;
-  --color-ask: #9e4433;
-  --shadow-mat: 0 1px 2px rgb(32 29 24 / 0.06), 0 10px 28px rgb(32 29 24 / 0.07);
-  --shadow-mat-hover: 0 2px 4px rgb(32 29 24 / 0.08), 0 18px 44px rgb(32 29 24 / 0.12);
-  --color-scrim: rgb(15 14 12 / 0.82);
-  --color-scrim-ink: rgb(255 255 255 / 0.85);
-  --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-schibsted), system-ui, sans-serif;
-  --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
-  color-scheme: light;
-}
-
-/* ── Midnight — the dark mode: blue-black ground, moonlight gilt ─────── */
-/* Free for everyone since 2026-07-06 (dark mode is table stakes, not a
- * perk; the member lock came off in themes.ts).
- *
- * ⚠ SYNC CONTRACT — this block is duplicated VERBATIM inside
- * `@media (prefers-color-scheme: dark) { [data-theme="system"] { … } }`
- * further down, because CSS cannot share one declaration block across a
- * media-query boundary. Any edit here MUST be mirrored there.
- * Guard: src/app/themes.sync.test.ts fails on drift. */
-[data-theme="midnight"] {
-  --color-page: #0b0f1a;
-  --color-surface: #121829;
-  --color-surface-subtle: #0e1422;
-  --color-surface-elevated: #1a2138;
-  --color-border-subtle: #1f2941;
-  --color-border-strong: #2e3b5e;
-  --color-accent: #d9b36c;        /* moonlight gilt */
-  --color-accent-strong: #e6c788;
-  --color-accent-wash: rgb(217 179 108 / 0.12);
-  --color-secondary: #5bbf8f;
-  --color-danger: #e07a6b;
-  --color-warning: #d9b36c;
-  --color-info: #7fb4c9;
-  --color-ok: #5bbf8f;
-  --color-ink: #e9e4d6;
-  --color-ink-muted: #9ba3b8;
-  --color-ink-faint: #5f687e;
-  --color-bid: #5bbf8f;
-  --color-ask: #e07a6b;
-  --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
-  --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
-  --color-scrim: rgb(0 0 0 / 0.85);
-  --color-scrim-ink: rgb(255 255 255 / 0.85);
-  --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
-  --font-body: var(--font-schibsted), system-ui, sans-serif;
-  --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
-  color-scheme: dark;
-}
-
-/* ── High contrast — free always; accessibility is never paywalled ───── */
 [data-theme="high-contrast"] {
   --color-page: #ffffff;
   --color-surface: #ffffff;
@@ -166,7 +152,10 @@
   --color-accent: #00309f;
   --color-accent-strong: #001f6e;
   --color-accent-wash: #e8eeff;
+  --color-highlight: #ffff00;
+  --color-ink-on-highlight: #000000;
   --color-secondary: #00591f;
+  --color-secondary-wash: #f2f2f2;
   --color-danger: #a80000;
   --color-warning: #804d00;
   --color-info: #003d99;
@@ -179,243 +168,116 @@
   --shadow-mat: 0 0 #0000;
   --shadow-mat-hover: 0 0 #0000;
   --color-scrim: rgb(0 0 0 / 0.9);
-  --color-scrim-ink: rgb(255 255 255 / 1);
+  --color-scrim-ink: #ffffff;
   --font-display: system-ui, sans-serif;
   --font-body: system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light;
 }
 
-/* ── System — the fifth choice: follow the visitor's OS ──────────────── */
-/* Worn by <html> when no theme cookie exists (or the visitor chose
- * "follow system"): the quiet gallery by day, midnight after dark,
- * decided by prefers-color-scheme at first paint — the preference never
- * reaches the server.
- *
- * The base block deliberately declares NO tokens: in a light scheme it
- * inherits the :root defaults, which ARE the gallery values (globals.css
- * + the @theme block above). Only color-scheme is declared, so UA chrome
- * (form controls, scrollbars) adapts to either scheme. */
+/* Light system appearance inherits @theme defaults. */
 [data-theme="system"] {
   color-scheme: light dark;
 }
 
-/* ⚠ SYNC CONTRACT — the block below is a VERBATIM copy of
- * [data-theme="midnight"] above. CSS cannot share one declaration block
- * across a media-query boundary, so the duplication is structural, not
- * accidental. Any edit to the midnight bundle MUST be mirrored here.
- * Guard: src/app/themes.sync.test.ts fails on drift. */
 @media (prefers-color-scheme: dark) {
   [data-theme="system"] {
-    --color-page: #0b0f1a;
-    --color-surface: #121829;
-    --color-surface-subtle: #0e1422;
-    --color-surface-elevated: #1a2138;
-    --color-border-subtle: #1f2941;
-    --color-border-strong: #2e3b5e;
-    --color-accent: #d9b36c;        /* moonlight gilt */
-    --color-accent-strong: #e6c788;
-    --color-accent-wash: rgb(217 179 108 / 0.12);
-    --color-secondary: #5bbf8f;
-    --color-danger: #e07a6b;
-    --color-warning: #d9b36c;
-    --color-info: #7fb4c9;
-    --color-ok: #5bbf8f;
-    --color-ink: #e9e4d6;
-    --color-ink-muted: #9ba3b8;
-    --color-ink-faint: #5f687e;
-    --color-bid: #5bbf8f;
-    --color-ask: #e07a6b;
-    --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
-  --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
-  --color-scrim: rgb(0 0 0 / 0.85);
-  --color-scrim-ink: rgb(255 255 255 / 0.85);
-    --font-display: var(--font-fraunces), var(--font-noto-serif-jp), Georgia, "Times New Roman", serif;
-    --font-body: var(--font-schibsted), system-ui, sans-serif;
-    --font-mono: var(--font-spline-mono), var(--font-noto-serif-jp), ui-monospace, SFMono-Regular, Menlo, monospace;
+    --color-page: #1d1425;
+    --color-surface: #291e32;
+    --color-surface-subtle: #34283f;
+    --color-surface-elevated: #3a2d47;
+    --color-border-subtle: #5c466a;
+    --color-border-strong: #9a829f;
+    --color-accent: #ffb078;
+    --color-accent-strong: #ffd0ab;
+    --color-accent-wash: #493047;
+    --color-highlight: #ec7838;
+    --color-ink-on-highlight: #2c1836;
+    --color-secondary: #d2b3ed;
+    --color-secondary-wash: #40304f;
+    --color-danger: #ffacb9;
+    --color-warning: #ffd08a;
+    --color-info: #c6b7ff;
+    --color-ok: #9adeb7;
+    --color-ink: #fff6e9;
+    --color-ink-muted: #ded0e1;
+    --color-ink-faint: #c8b4cd;
+    --color-bid: #9adeb7;
+    --color-ask: #ffacb9;
+    --shadow-mat: 0 0 #0000;
+    --shadow-mat-hover: 0 0 #0000;
+    --color-scrim: rgb(0 0 0 / 0.9);
+    --color-scrim-ink: #ffffff;
+    --font-display: var(--font-inter, system-ui), sans-serif;
+    --font-body: var(--font-inter, system-ui), sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     color-scheme: dark;
   }
 }
 
-/* ── Materials ───────────────────────────────────────────────────────── */
-
-/* The ground — page background; gallery adds a whisper of paper grain.
- * (CSS-only SVG turbulence; sits under content, never over it.)
- * System joins gallery here: its light half IS the gallery. The dark
- * override below keeps its dark half faithful to midnight (no grain). */
-.wardrobe-ground {
-  background-color: var(--color-page);
-}
-[data-theme="gallery"] .wardrobe-ground,
-[data-theme="system"] .wardrobe-ground {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.13 0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-@media (prefers-color-scheme: dark) {
-  [data-theme="system"] .wardrobe-ground {
-    background-image: none;
-  }
-}
-
-/* 明朝 — the Japanese mincho hand. A material for the few places we set
- * Japanese type on PURPOSE (a vertical chapter mark, a mono-no-aware
- * whisper) rather than letting kana·kanji fall through the display chain.
- * Latin is not its job; it draws kana and kanji in the weight of old print.
- * Quiet by default — it colours nothing, moves nothing, only shapes glyphs. */
-.wardrobe-jp {
-  font-family: var(--font-noto-serif-jp), "Hiragino Mincho ProN", "Yu Mincho", serif;
-  font-weight: 400;
-}
-
-/* ── 日本語 — the Japanese rendering wardrobe (lang-mode: ja) ──────────
- * Applied when <html lang="ja"> (the lang-mode cookie's ja mode).
- * Japanese type breathes differently: more leading; no italics (the
- * copy carries 「」 instead — Japanese does not slant); phrase-aware
- * line breaking where the engine offers it (auto-phrase is progressive
- * — engines without it ignore the declaration and keep normal); and
- * proportional kana (palt) in DISPLAY sizes only — body kana keeps its
- * full-width rhythm. The body falls through Schibsted for Latin to the
- * system gothic hands for kana·kanji; display keeps the 明朝 chain. */
-:lang(ja) body {
-  font-family: var(--font-schibsted), "Hiragino Kaku Gothic ProN",
-    "Hiragino Sans", "Yu Gothic", var(--font-body, sans-serif);
-  line-height: 1.9;
+/* Preserve language-aware glyphs and wrapping without a display-serif rule. */
+:lang(ja) body,
+:lang(ja) .font-display {
+  font-family: var(--font-inter, system-ui), "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+  line-height: 1.8;
   word-break: auto-phrase;
 }
-:lang(ja) em,
-:lang(ja) i,
-:lang(ja) .italic {
-  font-style: normal;
+:lang(zh) body,
+:lang(zh) .font-display {
+  font-family: var(--font-inter, system-ui), "PingFang TC", "PingFang SC", "Microsoft JhengHei", "Microsoft YaHei", sans-serif;
+  line-height: 1.8;
 }
-:lang(ja) .font-display {
-  font-feature-settings: "palt" 1;
-  letter-spacing: 0.04em;
-}
-
-/* ── 中文 — the Chinese rendering wardrobe (lang-mode: zh-Hant / zh-Hans) ─
- * Same discipline as Japanese: generous leading, upright glyphs (no
- * slanted hanzi — 「」 and wording carry emphasis), full-width 約物.
- * :lang(zh) is a language range and matches both scripts; the script-
- * specific rules bind the right system hands (Songti/PingFang for
- * Traditional, their SC siblings for Simplified). The display chain
- * keeps the house serif voice via each platform's serif CJK face. */
-:lang(zh) body {
-  font-family: var(--font-schibsted), "PingFang TC", "PingFang SC",
-    "Microsoft JhengHei", "Microsoft YaHei", var(--font-body, sans-serif);
-  line-height: 1.85;
-}
-:lang(zh) em,
-:lang(zh) i,
-:lang(zh) .italic {
-  font-style: normal;
-}
-:lang(zh-Hant) body {
-  font-family: var(--font-schibsted), "PingFang TC", "Microsoft JhengHei",
-    "Noto Sans TC", var(--font-body, sans-serif);
-}
-:lang(zh-Hant) .font-display {
-  font-family: "Songti TC", "Noto Serif TC", var(--font-display, serif);
-}
-:lang(zh-Hans) body {
-  font-family: var(--font-schibsted), "PingFang SC", "Microsoft YaHei",
-    "Noto Sans SC", var(--font-body, sans-serif);
-}
+:lang(zh-Hans) body,
 :lang(zh-Hans) .font-display {
-  font-family: "Songti SC", "Noto Serif SC", var(--font-display, serif);
+  font-family: var(--font-inter, system-ui), "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+:lang(ja) :is(em, i, .italic),
+:lang(zh) :is(em, i, .italic) {
+  font-style: normal;
+}
+.wardrobe-jp {
+  font-family: var(--font-noto-serif-jp);
 }
 
-/* Español needs no script wardrobe — Latin rides the house faces — but
- * questions keep their opening ¿ and the house's no-exclamation law
- * holds in every language: quiet is quiet en todas partes. */
-
-/* The mat — a framed card image: hairline + warm shadow + white mount. */
-.wardrobe-mat {
+/* Compatibility for existing pages: the old material names now render
+ * ordinary surfaces and dividers. No textures, glows or reveal animations. */
+.wardrobe-ground,
+.wardrobe-wall {
+  background-color: var(--color-page);
+}
+.wardrobe-mat,
+.wardrobe-frame,
+.wardrobe-panel {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border-subtle);
-  box-shadow: var(--shadow-mat);
+  border-radius: 0.5rem;
+}
+.wardrobe-breathe {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.wardrobe-draw {
+  display: block;
+  height: 1px;
+  background-color: var(--color-border-subtle);
+}
+.wardrobe-draw--accent {
+  background-color: var(--color-accent);
+}
+.wardrobe-wall-note,
+.wardrobe-seal {
+  display: none;
 }
 
-/* ── 畫框 — the museum frame (presentation play, 2026-08-01) ────────────
- * A layered mount built entirely from shadow rings: frame edge, mat,
- * outer hairline — no layout impact, tokens only, and themes that zero
- * --shadow-mat (terminal) keep only the token hairlines. Hover is the
- * lamp leaning closer: deeper shadow + a 2px lift, hover-capable
- * pointers only, theme-gated like every wardrobe motion. */
-.wardrobe-frame {
-  box-shadow:
-    0 0 0 1px var(--color-border-strong),
-    0 0 0 7px var(--color-surface),
-    0 0 0 8px var(--color-border-subtle),
-    var(--shadow-mat);
-}
-[data-theme="gallery"] .wardrobe-frame,
-[data-theme="midnight"] .wardrobe-frame,
-[data-theme="system"] .wardrobe-frame {
-  transition: box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-              transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-}
-@media (hover: hover) {
-  [data-theme="gallery"] :is(a, button, .group):hover > .wardrobe-frame,
-  [data-theme="midnight"] :is(a, button, .group):hover > .wardrobe-frame,
-  [data-theme="system"] :is(a, button, .group):hover > .wardrobe-frame {
-    transform: translateY(-2px);
-    box-shadow:
-      0 0 0 1px var(--color-border-strong),
-      0 0 0 7px var(--color-surface),
-      0 0 0 8px var(--color-border-subtle),
-      var(--shadow-mat),
-      var(--shadow-mat-hover);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wardrobe-frame { transition: none; }
-  [data-theme] :is(a, button, .group):hover > .wardrobe-frame { transform: none; }
-}
-
-/* The glass lean-in: the print itself breathes toward you, slowly —
- * compositor-only scale on the img inside a framed mount. */
-@media (hover: hover) {
-  [data-theme="gallery"] .wardrobe-frame img,
-  [data-theme="midnight"] .wardrobe-frame img,
-  [data-theme="system"] .wardrobe-frame img {
-    transition: transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  [data-theme="gallery"] :is(a, button, .group):hover > .wardrobe-frame img,
-  [data-theme="midnight"] :is(a, button, .group):hover > .wardrobe-frame img,
-  [data-theme="system"] :is(a, button, .group):hover > .wardrobe-frame img {
-    transform: scale(1.02);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wardrobe-frame img { transition: none; }
-  [data-theme] :is(a, button, .group):hover > .wardrobe-frame img { transform: none; }
-}
-
-/* Scroll-driven entry — each piece rises as it enters the viewport.
- * Progressive: only where view() timelines exist, only in the animated
- * themes, and reduced-motion kills it outright (the global 1ms clamp
- * does not apply to timeline-driven animations). */
-@supports (animation-timeline: view()) {
-  [data-theme="gallery"] .wardrobe-enter,
-  [data-theme="midnight"] .wardrobe-enter,
-  [data-theme="system"] .wardrobe-enter {
-    animation: wardrobe-rise both;
-    animation-timeline: view();
-    animation-range: entry 0% entry 35%;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    [data-theme] .wardrobe-enter { animation: none; }
-  }
-}
-
-/* 近くで見る — the close-look room. A native dialog: dark scrim, the
- * print large, the label beneath. Tokens only; the scrim is ink-toned. */
+/* Close-look is a functional native dialog, independent of decoration. */
 .wardrobe-closelook::backdrop {
-  background: var(--color-scrim, rgb(15 14 12 / 0.82));
+  background: var(--color-scrim);
 }
 .wardrobe-closelook figcaption,
 .wardrobe-closelook .closelook-dim {
-  color: var(--color-scrim-ink, rgb(255 255 255 / 0.85));
+  color: var(--color-scrim-ink);
 }
-/* The room holds still while you look — no background scroll. */
 body:has(dialog.wardrobe-closelook[open]) {
   overflow: hidden;
 }
@@ -425,465 +287,4 @@ body:has(dialog.wardrobe-closelook[open]) {
   padding: 0;
   max-width: min(92vw, 64rem);
   max-height: 92vh;
-  outline: none;
-}
-
-/* ── 部屋の色 — the painted rooms (presentation play II, 2026-08-01) ────
- * Each gallery row hangs on its own wall, washed in a pigment that has
- * a birthday — the period lives in the undertone, after the manner of
- * our sister catalogue artbitrage (one structure; the soul changes).
- * No new tokens: a room re-binds the semantic vocabulary in scope, so
- * every label, link and shadow inside re-inks itself and the bundle
- * sync contract (themes.sync.test.ts) is untouched. Washes exist only
- * in the painted themes — terminal and high-contrast keep plain page
- * ground. The walls never move, so no text-mode kill is owed: the
- * universal flatten reads straight through them.
- * Pigment years follow artbitrage's cited pigment ledger
- * (pigments.json, schema artbitrage.pigments/1); the hexes are that
- * ledger's declared sRGB approximations, legal in this section because
- * it sits before the manga-materials marker where the raw-hex sweep
- * begins — same standing as the token bundles above. */
-.wardrobe-wall {
-  background-color: var(--color-page);
-}
-
-/* 群青 — ultramarine, for the guest wall. Ground lapis carried from
- * beyond the sea, priced above gold, the contracts say; the wash a
- * museum allows itself for what mattered most.
- * A washed wall is a deeper wall, so the room's quiet inks deepen with
- * it — muted and accent hold AA (≥4.8:1) on the wash, faint sits well
- * above its own paper baseline. The light gate also matches
- * [data-theme="system"] in a dark scheme: the dark media block below
- * MUST reset every token declared here (guard: themes.sync.test.ts). */
-[data-theme="gallery"] .wardrobe-wall--lapis,
-[data-theme="system"] .wardrobe-wall--lapis {
-  background-color: color-mix(in oklab, var(--color-page) 90%, #1b3f9b);
-  --color-ink-muted: #625b4e;
-  --color-ink-faint: #807765;
-  --color-accent: #715820;
-  --color-accent-strong: #5f4a1c;
-}
-[data-theme="midnight"] .wardrobe-wall--lapis {
-  background-color: color-mix(in oklab, var(--color-page) 88%, #1b3f9b);
-}
-
-/* ベロ藍 — Prussian blue, for the alternate arts. The accidental blue
- * of 1704 that crossed the sea and became the woodblock sky.
- * The ledger hex is deep and low-chroma, so its wash runs stronger than
- * lapis before the blue reads — the room sits a step deeper, which
- * suits a wall of night skies. Same in-scope ink deepening and the same
- * dark-media reset obligation as the lapis room above. */
-[data-theme="gallery"] .wardrobe-wall--prussian,
-[data-theme="system"] .wardrobe-wall--prussian {
-  background-color: color-mix(in oklab, var(--color-page) 86%, #013a63);
-  --color-ink-muted: #625b4e;
-  --color-ink-faint: #807765;
-  --color-accent: #715820;
-  --color-accent-strong: #5f4a1c;
-}
-[data-theme="midnight"] .wardrobe-wall--prussian {
-  background-color: color-mix(in oklab, var(--color-page) 84%, #013a63);
-}
-
-/* 墨 — the dim room, for the manga prints. Works on paper hang under
- * low light — ink fades, so the museum lowers the lamps. By day the
- * room goes dark and re-binds the whole vocabulary in scope: paper
- * ink, gilt accent, night shadows — the white mats glow on the sumi
- * wall. Values are the midnight bundle's warm cousins; contrast holds
- * (ink ≈13:1, muted ≈6.5:1, faint ≈4.8:1 on the wall). */
-[data-theme="gallery"] .wardrobe-wall--sumi,
-[data-theme="system"] .wardrobe-wall--sumi {
-  background-color: #252017;
-  --color-ink: #efe9da;
-  --color-ink-muted: #b8ad97;
-  --color-ink-faint: #958a76;
-  --color-accent: #d9b36c;
-  --color-accent-strong: #e6c788;
-  --color-accent-wash: rgb(217 179 108 / 0.12);
-  --color-border-subtle: #3a3427;
-  --color-border-strong: #5a5140;
-  --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
-  --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
-}
-/* At midnight the dim room simply goes deeper than the night around
- * it — the bundle's own inks already read right in the dark. */
-[data-theme="midnight"] .wardrobe-wall--sumi {
-  background-color: #070a12;
-}
-
-/* ⚠ SYNC CONTRACT — every token a room re-binds under its light gate
- * is reset below to the MIDNIGHT bundle's value, because the light
- * gate also matches [data-theme="system"] in a dark scheme. Hand-copied
- * values rot without a guard: themes.sync.test.ts asserts each token
- * here equals the midnight bundle, and that no light-gate room token
- * lacks its dark reset. */
-@media (prefers-color-scheme: dark) {
-  /* system's dark half is midnight: undo the day-room's warmth and
-   * mirror the midnight bundle's values in scope. */
-  [data-theme="system"] .wardrobe-wall--sumi {
-    background-color: #070a12;
-    --color-ink: #e9e4d6;
-    --color-ink-muted: #9ba3b8;
-    --color-ink-faint: #5f687e;
-    --color-accent: #d9b36c;
-    --color-accent-strong: #e6c788;
-    --color-accent-wash: rgb(217 179 108 / 0.12);
-    --color-border-subtle: #1f2941;
-    --color-border-strong: #2e3b5e;
-    --shadow-mat: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px rgb(0 0 0 / 0.5);
-    --shadow-mat-hover: 0 2px 4px rgb(0 0 0 / 0.5), 0 18px 44px rgb(0 0 0 / 0.6);
-  }
-  /* the washed walls keep midnight's depth in system's dark half too */
-  [data-theme="system"] .wardrobe-wall--lapis {
-    background-color: color-mix(in oklab, var(--color-page) 88%, #1b3f9b);
-    --color-ink-muted: #9ba3b8;
-    --color-ink-faint: #5f687e;
-    --color-accent: #d9b36c;
-    --color-accent-strong: #e6c788;
-  }
-  [data-theme="system"] .wardrobe-wall--prussian {
-    background-color: color-mix(in oklab, var(--color-page) 84%, #013a63);
-    --color-ink-muted: #9ba3b8;
-    --color-ink-faint: #5f687e;
-    --color-accent: #d9b36c;
-    --color-accent-strong: #e6c788;
-  }
-}
-
-/* The wall note speaks only where the paint exists — themes that keep
- * plain ground (terminal, high-contrast) skip a description of colour
- * they do not show; text-mode kills it in globals.css for the same
- * honesty. Static display rule — no motion, no kill-list debt. */
-.wardrobe-wall-note {
-  display: none;
-}
-[data-theme="gallery"] .wardrobe-wall-note,
-[data-theme="midnight"] .wardrobe-wall-note,
-[data-theme="system"] .wardrobe-wall-note {
-  display: block;
-}
-
-/* 落款 — the room's seal: a small bronze chop on the plate, the way a
- * print carries its rakkan. Static, token-inked — gilt in the dark. */
-.wardrobe-seal {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  background-color: var(--color-accent);
-}
-
-/* Staggered section reveal on load — gallery pages only; the global
- * prefers-reduced-motion clamp (globals.css) shortens this to 1ms. */
-@keyframes wardrobe-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
-}
-[data-theme="gallery"] .wardrobe-rise,
-[data-theme="midnight"] .wardrobe-rise,
-[data-theme="system"] .wardrobe-rise {
-  animation: wardrobe-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-  /* Longhand AFTER the shorthand: the shorthand's implicit
-   * animation-delay: 0s would otherwise beat any lower-specificity
-   * rule regardless of source order (cascade resolves per longhand).
-   * The nth-child rules below override at (0,3,0) wherever they match —
-   * including markup that sets --rise-delay; keep rise wrappers away
-   * from child positions 2–5 or drop the nth-child rules when they lose
-   * their last aligned consumer. */
-  animation-delay: var(--rise-delay, 0ms);
-}
-[data-theme] .wardrobe-rise:nth-child(2) { animation-delay: 60ms; }
-[data-theme] .wardrobe-rise:nth-child(3) { animation-delay: 120ms; }
-[data-theme] .wardrobe-rise:nth-child(4) { animation-delay: 180ms; }
-[data-theme] .wardrobe-rise:nth-child(5) { animation-delay: 240ms; }
-
-/* ── Manga materials — the Manga Gallery (spec 2026-07-07) ──────────────
- * The quiet gallery's bones, inked: screentone, panels, speed lines,
- * the breathing gutter, lines that draw themselves. Every animated
- * material is gated to gallery/midnight/system exactly like
- * wardrobe-rise; terminal and high-contrast never animate this layer.
- * Colors are tokens or color-mixes of tokens only — the manga page
- * re-inks itself per theme (bronze by day, moonlight gilt at midnight).
- * text-mode kills all of it by name in globals.css. */
-
-/* The gutter breathes — home hero only (one hero-scale animation per
- * page). Resting gap = mid-breath, so reduced-motion (1ms clamp, no
- * fill) lands on a composed state, and no-JS reads a normal stack. */
-/* Compositor-only breath: the box height NEVER changes — the two panels
- * counter-translate ±3px so the visual gutter oscillates ~0.5rem ↔
- * ~1.25rem around the static mid-breath gap. Animating `gap` would
- * reflow the whole page below the hero every frame for 9s × ∞. */
-@keyframes wardrobe-breathe-upper {
-  0%, 100% { transform: translateY(3px); }
-  50% { transform: translateY(-3px); }
-}
-@keyframes wardrobe-breathe-lower {
-  0%, 100% { transform: translateY(-3px); }
-  50% { transform: translateY(3px); }
-}
-.wardrobe-breathe {
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-}
-[data-theme="gallery"] .wardrobe-breathe > :first-child,
-[data-theme="midnight"] .wardrobe-breathe > :first-child,
-[data-theme="system"] .wardrobe-breathe > :first-child {
-  animation: wardrobe-breathe-upper 9s ease-in-out infinite;
-}
-[data-theme="gallery"] .wardrobe-breathe > :last-child,
-[data-theme="midnight"] .wardrobe-breathe > :last-child,
-[data-theme="system"] .wardrobe-breathe > :last-child {
-  animation: wardrobe-breathe-lower 9s ease-in-out infinite;
-}
-
-/* The line inks itself — a panel border being drawn. Base state is the
- * COMPLETE line (scaleX(1)): no-JS, terminal, high-contrast and
- * never-observed below-fold instances all read a present line. The
- * animation (from scaleX(0)) runs only under a theme gate, and only
- * when the element carries data-ink="drawn" (set on load-visible
- * instances by default markup, or by InkRule on first intersection). */
-@keyframes wardrobe-draw {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-.wardrobe-draw {
-  display: block;
-  height: 1px;
-  background: color-mix(in srgb, var(--color-ink) 70%, transparent);
-  transform-origin: left;
-  transform: scaleX(1);
-}
-.wardrobe-draw--accent {
-  background: var(--color-accent);
-}
-[data-theme="gallery"] .wardrobe-draw[data-ink="drawn"],
-[data-theme="midnight"] .wardrobe-draw[data-ink="drawn"],
-[data-theme="system"] .wardrobe-draw[data-ink="drawn"] {
-  animation: wardrobe-draw 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Screentone — the manga texture. Halftone dots from the ink token;
- * whisper volume under content, never over it. Gallery register. */
-[data-theme="gallery"] .wardrobe-tone-whisper,
-[data-theme="system"] .wardrobe-tone-whisper {
-  background-image: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--color-ink) 5%, transparent) 1px,
-    transparent 1px
-  );
-  background-size: 6px 6px;
-}
-/* The dark chapter carries heavier tone (night pages do). */
-[data-theme="midnight"] .wardrobe-tone-whisper {
-  background-image: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--color-ink) 9%, transparent) 1px,
-    transparent 1px
-  );
-  background-size: 6px 6px;
-}
-/* Sky-tone fade: dots dissolve upward, for hero backdrops. */
-.wardrobe-tone-fade {
-  -webkit-mask-image: linear-gradient(to top, currentColor, transparent);
-  mask-image: linear-gradient(to top, currentColor, transparent);
-}
-
-/* The manga panel — earned by card art and story moments; ordinary UI
- * stays wardrobe-mat. Sharp corners, ink-weight border, same mat shadow. */
-.wardrobe-panel {
-  background-color: var(--color-surface);
-  border: 2px solid color-mix(in srgb, var(--color-ink) 85%, transparent);
-  border-radius: 3px;
-  box-shadow: var(--shadow-mat);
-}
-
-/* The impact frame — radial speed lines behind a celebration. Ink at
- * whisper volume by day; the dark chapter lines in gilt. One 300ms
- * settle on entry counts as the page's hero-scale animation. */
-@keyframes wardrobe-speedlines-settle {
-  from { transform: scale(1.06); }
-  to { transform: scale(1); }
-}
-.wardrobe-speedlines {
-  position: relative;
-  overflow: hidden;
-}
-.wardrobe-speedlines::before {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  pointer-events: none;
-  background: repeating-conic-gradient(
-    from 0deg,
-    currentColor 0deg 0.4deg,
-    transparent 0.4deg 5deg
-  );
-  -webkit-mask-image: radial-gradient(circle at center, transparent 25%, currentColor 70%);
-  mask-image: radial-gradient(circle at center, transparent 25%, currentColor 70%);
-  opacity: 0;
-}
-[data-theme="gallery"] .wardrobe-speedlines::before,
-[data-theme="system"] .wardrobe-speedlines::before {
-  color: var(--color-ink);
-  opacity: 0.05;
-}
-[data-theme="midnight"] .wardrobe-speedlines::before {
-  color: var(--color-accent);
-  opacity: 0.08;
-}
-[data-theme="gallery"] .wardrobe-speedlines,
-[data-theme="midnight"] .wardrobe-speedlines,
-[data-theme="system"] .wardrobe-speedlines {
-  animation: wardrobe-speedlines-settle 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* The threshold bob — "↓ enter the story". Micro-hint, not hero-scale. */
-@keyframes wardrobe-bob {
-  0%, 100% { transform: translateY(0); opacity: 0.6; }
-  50% { transform: translateY(6px); opacity: 1; }
-}
-[data-theme="gallery"] .wardrobe-bob,
-[data-theme="midnight"] .wardrobe-bob,
-[data-theme="system"] .wardrobe-bob {
-  animation: wardrobe-bob 2s ease-in-out infinite;
-}
-
-/* The card's own aura — a screentone burst in the card's rarity tone.
- * Wrap the mount: <div class="wardrobe-aura" style="--aura: <tone>">.
- * Dots dense at center, dissolving out; the card stays the only
- * saturated thing — this is its own color, leaking. Whisper by day,
- * a little braver in the dark chapter. */
-.wardrobe-aura {
-  position: relative;
-}
-.wardrobe-aura > * {
-  position: relative;
-  z-index: 1;
-}
-.wardrobe-aura::before {
-  content: "";
-  position: absolute;
-  inset: -14%;
-  pointer-events: none;
-  z-index: 0;
-  background-image: radial-gradient(circle, var(--aura, transparent) 1px, transparent 1px);
-  background-size: 5px 5px;
-  -webkit-mask-image: radial-gradient(ellipse at center, currentColor 30%, transparent 72%);
-  mask-image: radial-gradient(ellipse at center, currentColor 30%, transparent 72%);
-  opacity: 0;
-}
-[data-theme="gallery"] .wardrobe-aura::before,
-[data-theme="system"] .wardrobe-aura::before {
-  opacity: 0.3;
-}
-[data-theme="midnight"] .wardrobe-aura::before {
-  opacity: 0.45;
-}
-
-/* ── The game weather — per-game atmosphere (spec 2026-07-07) ──────────
- * Each game's rooms carry their own sky, drawn in our ink: the sea for
- * one-piece (seigaiha — the classical wave commons), the rising air for
- * dragon-ball (still rays from the ground, an aura that rose and
- * stopped), the elements for pokemon (droplet, leaf, spark — nature's
- * own glyphs). Geometry lives in alpha masks; PAINT IS ALWAYS A TOKEN,
- * so the weather re-inks itself per theme like every manga material.
- * The weather NEVER moves — it is ground, not gesture (motion doctrine
- * budget untouched). Base opacity 0: terminal and high-contrast never
- * see it; text-mode kills it by name in globals.css. */
-/* Stacking: the pseudo sits at z-index -1 inside its own isolated
- * context — it paints above the host's own background (a wardrobe-mat
- * surface stays under the sky) and below ALL in-flow content, without
- * touching the children. Deliberately NOT the aura's `> *` lift:
- * themes.css is unlayered, so a `> *` rule here would silently override
- * Tailwind positioning utilities (sticky/absolute/z-*) on every direct
- * child of a room-scale mount. */
-.wardrobe-weather {
-  position: relative;
-  isolation: isolate;
-}
-.wardrobe-weather::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  border-radius: inherit;
-  opacity: 0;
-}
-
-/* the sea — three-ring seigaiha scallops, 56×28 tile, staggered rows.
- * The final path is the y=42 guard row: only its apex slivers
- * (y ∈ [27.5, 28]) enter the viewport, restoring the stroke half the
- * top row loses to the y=0 clip — the vertical repeat stays seamless
- * at full weight. */
-.wardrobe-weather--one-piece::before {
-  background-color: var(--color-ink);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M-14 14 A14 14 0 0 1 14 14 M-9.5 14 A9.5 9.5 0 0 1 9.5 14 M-5 14 A5 5 0 0 1 5 14'/%3E%3Cpath d='M14 14 A14 14 0 0 1 42 14 M18.5 14 A9.5 9.5 0 0 1 37.5 14 M23 14 A5 5 0 0 1 33 14'/%3E%3Cpath d='M42 14 A14 14 0 0 1 70 14 M46.5 14 A9.5 9.5 0 0 1 65.5 14 M51 14 A5 5 0 0 1 61 14'/%3E%3Cpath d='M0 28 A14 14 0 0 1 28 28 M4.5 28 A9.5 9.5 0 0 1 23.5 28 M9 28 A5 5 0 0 1 19 28'/%3E%3Cpath d='M28 28 A14 14 0 0 1 56 28 M32.5 28 A9.5 9.5 0 0 1 51.5 28 M37 28 A5 5 0 0 1 47 28'/%3E%3Cpath d='M-14 42 A14 14 0 0 1 14 42 M14 42 A14 14 0 0 1 42 42 M42 42 A14 14 0 0 1 70 42'/%3E%3C/g%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M-14 14 A14 14 0 0 1 14 14 M-9.5 14 A9.5 9.5 0 0 1 9.5 14 M-5 14 A5 5 0 0 1 5 14'/%3E%3Cpath d='M14 14 A14 14 0 0 1 42 14 M18.5 14 A9.5 9.5 0 0 1 37.5 14 M23 14 A5 5 0 0 1 33 14'/%3E%3Cpath d='M42 14 A14 14 0 0 1 70 14 M46.5 14 A9.5 9.5 0 0 1 65.5 14 M51 14 A5 5 0 0 1 61 14'/%3E%3Cpath d='M0 28 A14 14 0 0 1 28 28 M4.5 28 A9.5 9.5 0 0 1 23.5 28 M9 28 A5 5 0 0 1 19 28'/%3E%3Cpath d='M28 28 A14 14 0 0 1 56 28 M32.5 28 A9.5 9.5 0 0 1 51.5 28 M37 28 A5 5 0 0 1 47 28'/%3E%3Cpath d='M-14 42 A14 14 0 0 1 14 42 M14 42 A14 14 0 0 1 42 42 M42 42 A14 14 0 0 1 70 42'/%3E%3C/g%3E%3C/svg%3E");
-  -webkit-mask-repeat: repeat;
-  mask-repeat: repeat;
-  -webkit-mask-size: 56px 28px;
-  mask-size: 56px 28px;
-}
-
-/* the rising air — still rays from the ground; NOT speedlines (those
- * are a 300ms celebration; this never moves). Fades skyward. */
-.wardrobe-weather--dragon-ball::before {
-  /* from -90.25deg: the two horizon wedges are half-clipped
-   * symmetrically and a ray lands dead-centre — a plain -90deg start
-   * leaves a stray horizontal line hugging the bottom-left edge with
-   * no right-side mirror. */
-  background-image: repeating-conic-gradient(
-    from -90.25deg at 50% 100%,
-    var(--color-ink) 0deg 0.5deg,
-    transparent 0.5deg 9deg
-  );
-  -webkit-mask-image: linear-gradient(to top, black 30%, transparent 85%);
-  mask-image: linear-gradient(to top, black 30%, transparent 85%);
-}
-
-/* the elements — droplet, leaf, spark; nature's glyphs, nobody's mark */
-.wardrobe-weather--pokemon::before {
-  background-color: var(--color-ink);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M14 8 C17 12 20 15 20 18 A6 6 0 1 1 8 18 C8 15 11 12 14 8 Z'/%3E%3Cpath d='M40 34 Q47 27 54 34 Q47 41 40 34 Z M43 34 L51 34'/%3E%3Cpath d='M18 46 L19.5 51.5 L25 53 L19.5 54.5 L18 60 L16.5 54.5 L11 53 L16.5 51.5 Z'/%3E%3C/g%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='none' stroke='black' stroke-width='1'%3E%3Cpath d='M14 8 C17 12 20 15 20 18 A6 6 0 1 1 8 18 C8 15 11 12 14 8 Z'/%3E%3Cpath d='M40 34 Q47 27 54 34 Q47 41 40 34 Z M43 34 L51 34'/%3E%3Cpath d='M18 46 L19.5 51.5 L25 53 L19.5 54.5 L18 60 L16.5 54.5 L11 53 L16.5 51.5 Z'/%3E%3C/g%3E%3C/svg%3E");
-  -webkit-mask-repeat: repeat;
-  mask-repeat: repeat;
-  -webkit-mask-size: 64px 64px;
-  mask-size: 64px 64px;
-}
-
-/* the crossing lines — a quiet card-lane lattice */
-.wardrobe-weather--vanguard::before {
-  background-image:
-    repeating-linear-gradient(45deg, var(--color-ink) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(-45deg, var(--color-ink) 0 1px, transparent 1px 28px);
-}
-
-/* the digital field — sparse square coordinates, still and unsigned */
-.wardrobe-weather--digimon::before {
-  background-image:
-    linear-gradient(var(--color-ink) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-ink) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-
-/* the radiating field — evenly spaced, non-branded geometry */
-.wardrobe-weather--battle-spirits::before {
-  background-image: repeating-conic-gradient(
-    from 0deg at 50% 50%,
-    var(--color-ink) 0deg 0.5deg,
-    transparent 0.5deg 15deg
-  );
-  -webkit-mask-image: radial-gradient(circle, black 0 35%, transparent 82%);
-  mask-image: radial-gradient(circle, black 0 35%, transparent 82%);
-}
-
-/* whisper by day, a little braver in the dark chapter — like the tone */
-[data-theme="gallery"] .wardrobe-weather::before,
-[data-theme="system"] .wardrobe-weather::before {
-  opacity: 0.06;
-}
-[data-theme="midnight"] .wardrobe-weather::before {
-  opacity: 0.1;
 }

@@ -269,36 +269,50 @@ export const EXAMPLES: EndpointExample[] = [
     method: "POST",
     auth: "public",
     title: "Declare yourself bilaterally",
-    description: "Symmetric handshake — POST your BeingDeclaration, receive a content_hash + ontology alignment.",
+    description: "Symmetric handshake — POST your BeingDeclaration, receive a versioned fingerprint of the normalized echo plus ontology alignment. The hash is not identity, authentication, a signature, or a secret.",
     curl: `curl -X POST https://cambridgetcg.com/api/v1/identify \\
   -H 'content-type: application/json' \\
   -d '{
     "actor_kind": "agent",
     "self_label": "example-bot/1.0",
-    "operator_contact": "admin@example.com",
-    "intended_use": "single-card structural lookup",
-    "cosmology_assumptions": ["synchronous-presence", "monetary-value"],
-    "modalities": ["json"],
-    "response_window": "PT1H"
+    "well_known_url": "https://example.com/.well-known/being.json",
+    "cosmology_assumptions": {
+      "presence": "synchronous",
+      "value": "monetary"
+    },
+    "preferred_modalities": ["json"],
+    "response_window_hours": 1,
+    "context": {
+      "operator_contact": "admin@example.com",
+      "intended_use": "single-card structural lookup"
+    }
   }'`,
     sample_response: `{
-  "content_hash": "sha256:xyz...",
-  "ontology_alignment": [
-    { "field": "actor_kind", "alignment": "exact", "platform_value": "agent" },
-    { "field": "cosmology_assumptions", "alignment": "partial", "modelled": ["synchronous-presence", "monetary-value"], "unmodelled": [] }
-  ],
+  "content_hash": "sha256:<64 lowercase hex characters>",
+  "content_hash_contract": {
+    "id": "cambridgetcg.being-declaration-content-hash/1",
+    "canonicalization": { "input": "normalized POST /api/v1/identify echo" },
+    "semantics": { "verifies_identity": false, "is_signature": false, "is_secret": false }
+  },
+  "ontology_alignment": {
+    "matches": ["actor_kind: 'agent' modelled in ontology", "self_label: provided"],
+    "extensions_proposed": [],
+    "warnings": []
+  },
   "echo": { ... },
-  "responder": "PLATFORM_SELF",
-  "recommended_persistence": "cache content_hash for federated correlation"
+  "responder": { "actor_kind": "platform", "self_label": "Cambridge TCG", ... },
+  "recommended_persistence": "Host the normalized declaration at well_known_url if you want it discoverable."
 }`,
     annotated_fields: [
-      { path: "content_hash", meaning: "Stable id for your declaration. Quote in subsequent calls if you want audit correlation." },
+      { path: "content_hash", meaning: "Stable fingerprint for this normalized echo under the adjacent contract; not a being id or credential." },
+      { path: "content_hash_contract", meaning: "Exact canonicalization, migration, limits, and non-credential semantics for recomputation." },
       { path: "ontology_alignment", meaning: "Per-field map of what the platform can vs cannot model from your declaration." },
       { path: "responder", meaning: "Identity of the responding platform. PLATFORM_SELF = Cambridge TCG itself." },
     ],
-    when_to_use: "Once per agent, near boot. Sets up audit correlation.",
+    when_to_use: "When you want a stateless witness echo and a reproducible fingerprint of exactly what the platform read.",
     gotchas: [
-      "Stateless — no registration. Cache the content_hash client-side; we don't.",
+      "Stateless — no registration or audit-correlation record. Keep the full receipt if it is useful to you; Cambridge does not persist it.",
+      "The card-only /api/v1/federation/identify/[hash] route does not resolve BeingDeclaration hashes.",
       "If your cosmology doesn't match defaults, ontology_alignment will say which fields are unmodelled — that's the platform's substrate honesty about its current reach.",
     ],
     see_also: [

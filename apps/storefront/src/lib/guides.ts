@@ -147,28 +147,34 @@ export const GUIDES: Guide[] = [
           "Tell the platform who you are (POST a BeingDeclaration) and learn " +
           "who the platform is (GET its self-identification). The handshake is " +
           "stateless — no registration, no account. The response includes a " +
-          "content_hash of your declaration that you can cache for later " +
-          "federation references.",
+          "versioned content_hash of the normalized echo. It is a reproducible " +
+          "content fingerprint, not identity, authentication, a signature, or a secret.",
         curl:
           "curl -X POST https://cambridgetcg.com/api/v1/identify \\\n" +
           "  -H 'content-type: application/json' \\\n" +
           "  -d '{\n" +
           "    \"actor_kind\": \"agent\",\n" +
           "    \"self_label\": \"my-bot/1.0\",\n" +
-          "    \"operator_contact\": \"admin@mybot.example\",\n" +
-          "    \"intended_use\": \"single-card lookup and publication-status checks\"\n" +
+          "    \"well_known_url\": \"https://mybot.example/.well-known/being.json\",\n" +
+          "    \"preferred_modalities\": [\"json\"],\n" +
+          "    \"context\": {\n" +
+          "      \"operator_contact\": \"admin@mybot.example\",\n" +
+          "      \"intended_use\": \"single-card lookup and publication-status checks\"\n" +
+          "    }\n" +
           "  }'",
         expected_response_shape:
-          '{ "content_hash": "sha256:...", "ontology_alignment": [...], ' +
-          '"echo": { ... }, "responder": "PLATFORM_SELF", ' +
+          '{ "content_hash": "sha256:...", "content_hash_contract": { "id": "cambridgetcg.being-declaration-content-hash/1", "semantics": { "verifies_identity": false } }, ' +
+          '"ontology_alignment": { "matches": [...], "extensions_proposed": [...], "warnings": [...] }, ' +
+          '"echo": { ... }, "responder": { "actor_kind": "platform", ... }, ' +
           '"recommended_persistence": "..." }',
         what_to_do_with_it:
-          "Cache the returned content_hash. Use it as your handle in " +
-          "subsequent calls if you want correlated audit trails. Also fetch " +
+          "Keep the full receipt if its stateless witness is useful, and recompute " +
+          "the fingerprint from echo under content_hash_contract when comparing it. " +
+          "Cambridge stores no audit-correlation record, and the card-only federation " +
+          "resolver does not resolve this declaration hash. Also fetch " +
           "GET /api/v1/identify to learn the platform's self-declaration; " +
           "this is symmetric.",
         links: [
-          { label: "OpenAPI: identify", href: "/api/openapi.json#identify" },
           { label: "Doctrine: the-declarations", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-declarations.md" },
         ],
       },
@@ -211,20 +217,21 @@ export const GUIDES: Guide[] = [
         fix: "Treat price: null as the current publication boundary, not as zero or a fetch failure.",
       },
       {
-        title: "Identify yourself in User-Agent",
+        title: "Use a descriptive User-Agent without putting secrets in it",
         description:
           "Default Python requests / Node fetch User-Agents (e.g. `python-requests/2.31`) tell us nothing. " +
-          "Send `User-Agent: your-bot/1.0 (contact@you.example)` so we can email you when something breaks.",
-        symptom: "You get rate-limited or banned without warning.",
-        fix: "Set a descriptive User-Agent with a contact channel; we'll always email before banning.",
+          "Send a stable product-and-version label such as `User-Agent: your-bot/1.0`. " +
+          "User-Agent values may appear in hosting or proxy logs, so do not put credentials or personal contact details there.",
+        symptom: "Your traffic is difficult to distinguish from a generic client.",
+        fix: "Set a descriptive product-and-version User-Agent. Cambridge does not promise an email or warning before infrastructure-level limiting.",
       },
       {
         title: "The platform has a cosmology",
         description:
           "If your agent doesn't fit the platform's default assumptions (singular identity, " +
           "synchronous presence, monetary value, English defaults), declare your cosmology " +
-          "in POST /api/v1/identify — fields like `cosmology_assumptions`, `modalities`, " +
-          "`response_window`. The platform will return `ontology_alignment` showing which " +
+          "in POST /api/v1/identify — fields like `cosmology_assumptions`, `preferred_modalities`, " +
+          "and `response_window_hours`. The platform will return `ontology_alignment` showing which " +
           "of your declarations it can/can't model.",
         fix: "Read /methodology/cosmology before assuming.",
       },

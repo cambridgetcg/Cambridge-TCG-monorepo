@@ -85,11 +85,12 @@ export function ratioAsMath(value: number, median: number): string {
   return `${value} (ratio: ${ratio.toFixed(4)})`;
 }
 
-/** A short SHA-256 of an arbitrary string. Suitable for surface display
+/** A short FNV-1a-style hash of an arbitrary string. Suitable for surface display
  *  alongside opaque natural-language tokens (names, descriptions). */
 export function shortHash(value: string): string {
   // Lightweight FNV-style hash for surface display; not cryptographic.
-  // For real content hashes (federation), use the SHA-256 in identify.ts.
+  // Card federation hashes live in universal/card.ts. BeingDeclaration
+  // fingerprints use a separate, non-resolvable contract in identify.ts.
   let h = 0x811c9dc5;
   for (let i = 0; i < value.length; i++) {
     h ^= value.charCodeAt(i);

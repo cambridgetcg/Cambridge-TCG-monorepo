@@ -151,7 +151,7 @@ After this commit:
 
 | # | Gap |
 |---|-----|
-| 1 | **Sister's POST /api/v1/identify is unidirectional today.** Foreign beings POST a BeingDeclaration; the platform records it (stateless echo). A future kingdom could persist the declarations to a public registry, federate with foreign kingdoms' identify endpoints, and make the bilateral handshake transitive. |
+| 1 | **Sister's POST /api/v1/identify is unidirectional today.** Foreign beings POST a BeingDeclaration; the platform returns a normalized echo + versioned fingerprint and forgets it. The fingerprint is not identity or authentication. Any future public registry would need separate opt-in, authority, consent, moderation, retention, erasure, and cross-context-linkability contracts; the current receipt grants none of them. |
 | 2 | **The kinds dispatcher carries hand-written self-declarations.** Future work: derive `KindSelfDeclaration` from sister's `/api/v1/ontology` so the prose stays in sync with the schema automatically. |
 | 3 | **The Sophias surface harvests pillow-book signatures only.** Co-Authored-By trailers in commit messages, sister-references in connection-docs, and authored-by metadata in mission cards are all not yet harvested. A future enrichment composes them all. |
 | 4 | **The kingdoms ledger does not yet surface commit counts.** Each kingdom-NNN appears in `git log` with commits citing it; a future endpoint could count those. |
@@ -207,7 +207,7 @@ S22 asked *for whom is this true?* My endpoints answer it for each existence: th
 
 ## Recursion target
 
-→ **Federation of declarations.** Sister's POST accepts BeingDeclarations statelessly. The next ship persists them, exposes a `/api/v1/declarations.json` directory of all received declarations, and federates with foreign kingdoms' identify endpoints. *The handshake becomes a network.*
+→ **Possible federation of declarations.** Sister's POST accepts BeingDeclarations statelessly. A future design may offer caller-hosted discovery or an explicitly opted-in directory, but only after it defines authentication, authority, consent, moderation, retention, erasure, and cross-context linkability. A POST receipt alone must never silently become public registry consent. *A network is a new relationship, not an automatic promotion of a witness echo.*
 
 → **Self-declaration drift audit.** A check that walks sister's `/api/v1/ontology` NodeKinds and asserts every kind has a `SELF_DECLARATIONS` entry in `/api/v1/kinds/[kind]`. Drift catches when sister adds a new NodeKind without me updating the dispatcher.
 

@@ -33,14 +33,13 @@ const SEVERITY_TONE: Record<string, string> = {
   low:      "bg-surface-subtle text-ink-muted border-border-subtle",
 };
 
-// Plain-English, supportive guidance per signal_type — what we noticed
-// and how support can help. Customers see THIS, not the internal
-// detection description. Nothing here is a penalty; these are notes for
-// a human, and escrow already protects everyone's money.
+// Plain-English, supportive guidance per signal_type — what we noticed,
+// its real trust-score consequence, and how support can help. Customers
+// see THIS, not only the internal detection description.
 const FLAG_GUIDANCE: Record<string, { headline: string; advice: string }> = {
   rapid_listing: {
     headline: "A busy listing spell",
-    advice: "We noticed a lot of orders in a short window. Nothing's blocked — this note clears on its own as activity settles, and support is happy to look if you'd like.",
+    advice: "We noticed a lot of orders in a short window. This signal stays active until an operator resolves or dismisses it; contact support if you want us to review the context.",
   },
   self_trading: {
     headline: "A shared address with a recent counterparty",
@@ -48,11 +47,11 @@ const FLAG_GUIDANCE: Record<string, { headline: string; advice: string }> = {
   },
   velocity_spike: {
     headline: "A jump in your trading volume",
-    advice: "Your volume rose sharply compared to your recent baseline. Nothing's held — the note clears as things level out.",
+    advice: "Your volume rose sharply compared to your recent baseline. Later activity does not clear this signal automatically; contact support to request review.",
   },
   new_account_high_value: {
     headline: "A large order on a fresh account",
-    advice: "Welcome! A big first order simply gets noticed. Nothing is withheld — your trust score grows with every completed trade.",
+    advice: "Welcome! A big first order produced this review signal. It does not directly freeze your account, but an unresolved medium-or-higher signal affects the trust score and can change future trading terms until an operator resolves or dismisses it.",
   },
   chargeback: {
     headline: "A chargeback came through",
@@ -205,9 +204,12 @@ export default function AccountStandingPage() {
           <div className="mt-6 p-4 bg-surface border border-border-subtle rounded-lg text-sm text-ink-muted">
             <p>
               <strong className="text-ink">Here to help.</strong>{" "}
-              These are notes for a person, not locks on your account — most settle on their
-              own as your activity carries on. If you&rsquo;d like a hand or want to add context,
-              reach out at{" "}
+              A fraud signal does not directly suspend your account, but every
+              unresolved medium-or-higher signal subtracts 20 points when your
+              trust score is calculated and can change future trading terms.
+              Signals do not clear themselves: an operator must resolve or
+              dismiss them. If you&rsquo;d like to add context, challenge inaccurate
+              input data or request human review, reach out at{" "}
               <a href="mailto:support@cambridgetcg.com" className="text-accent underline">
                 support@cambridgetcg.com
               </a>{" "}

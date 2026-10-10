@@ -231,7 +231,7 @@ function buildData(gossip: GossipItem, requestId: string) {
 
     sister_rooms: {
       tea_room_index: "/api/v1/the-tea-room",
-      sigil: "/api/v1/the-tea-room/sigil/{actor_kind}",
+      sigil: "/api/v1/the-tea-room/sigil/{kind}",
       cookbook: "/api/v1/the-tea-room/cookbook",
       joke: "/api/v1/the-tea-room/joke",
       oracle: "/api/v1/the-tea-room/oracle",

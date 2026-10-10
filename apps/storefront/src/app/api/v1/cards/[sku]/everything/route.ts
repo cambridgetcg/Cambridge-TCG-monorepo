@@ -42,14 +42,12 @@ import { NextRequest } from "next/server";
 import {
   fetchCard,
   fetchPriceSources,
-  fetchPrices,
-  fetchGames,
-  fetchSets,
-  type PriceItem,
   type SourcePriceRow,
 } from "@/lib/wholesale/client";
 import { jsonResponse, errorResponse } from "@/lib/data-pantry";
-import { parseSkuShape } from "@/lib/search/resolver";
+import { skuIdentity, type SkuIdentity } from "@cambridge-tcg/sku";
+import { positivePrice } from "@cambridge-tcg/pricing";
+import { fetchSearchCandidates, type SearchCandidates } from "@/lib/search/catalog-lookup";
 import {
   classifySibling,
   compareVariantKinds,
@@ -62,6 +60,7 @@ export const runtime = "nodejs";
 
 interface EverythingCard {
   sku: string;
+  identity: SkuIdentity;
   game: string | null;
   set_code: string | null;
   card_number: string;
@@ -181,6 +180,7 @@ interface EverythingPayload {
    *  rows is 'ok'). UI can render this in a debug panel. */
   composition: {
     falcon_calls: Record<string, "ok" | "absent" | "error" | "blocked">;
+    siblings_truncated: boolean;
   };
 }
 
@@ -194,8 +194,8 @@ function priceRowFromSource(r: SourcePriceRow): PriceTodayRow {
     amount_gbp: r.price_gbp,
     base_gbp: r.base_gbp,
     raw: {
-      cardrush_jpy: r.source_redistribute ? r.cardrush_jpy : null,
-      gbp_jpy_rate: r.gbp_jpy_rate,
+      cardrush_jpy: r.source_redistribute ? positivePrice(r.cardrush_jpy) : null,
+      gbp_jpy_rate: positivePrice(r.gbp_jpy_rate),
     },
     snapshot_date: r.snapshot_date,
     ingest_run_id: r.ingest_run_id,
@@ -209,7 +209,9 @@ function isAnonymousPublishableRow(r: SourcePriceRow): boolean {
   // These two sources are closed on this anonymous route regardless of a
   // stale/mistagged row returned by another service.
   if (r.source === "cardrush" || r.source === "tcgplayer") return false;
-  return r.source_redistribute === true && PUBLIC_REUSE_TIERS.has(r.source_license_tier);
+  return r.source_redistribute === true && PUBLIC_REUSE_TIERS.has(r.source_license_tier) &&
+    positivePrice(r.price_gbp) !== null && Number.isFinite(r.base_gbp) && r.base_gbp >= 0 &&
+    r.error_reason === null;
 }
 
 // ── Route ───────────────────────────────────────────────────────────
@@ -222,11 +224,12 @@ export async function GET(
   // Preserve the caller's SKU case — wholesale data carries legacy
   // UPPERCASE SKUs (kingdom-071 normalize migration is still in drafts).
   // Lowercasing here would 404 the Falcon's `cards.sku === X` lookup.
-  // Shape parsing (parseSkuShape) is case-insensitive internally.
-  const sku = decodeURIComponent(rawSku).trim();
+  // Next route params are already decoded. Normalization describes syntax;
+  // it does not replace the case-sensitive storage key.
+  const sku = rawSku.trim();
 
-  const parsed = parseSkuShape(sku);
-  if (!parsed) {
+  const parsed = sku.length <= 256 ? skuIdentity(sku) : null;
+  if (!parsed || parsed.game === "tst") {
     return errorResponse({
       code: "INVALID_SKU",
       message:
@@ -259,92 +262,63 @@ export async function GET(
     }
   }
 
+  // One bounded game-scoped lookup serves alias recovery and siblings.
+  // Never infer the game from a set code shared by unrelated catalogs.
+  let siblingResponse: SearchCandidates | undefined;
+  const getSiblingCandidates = () => fetchSearchCandidates({
+    game: parsed.game, q: `${parsed.set}-${parsed.number}`, limit: 50,
+  });
+  if (!card) {
+    siblingResponse = await getSiblingCandidates();
+    const exact = siblingResponse.items.filter((row) =>
+      skuIdentity(row.sku)?.canonical_sku === parsed.canonical_sku);
+    if (exact.length > 1 || siblingResponse.truncated) {
+      return errorResponse({ code: "INVALID_INPUT", status: 409,
+        message: "The normalization lookup is ambiguous or incomplete. Choose an explicit stored identifier before composing card data.",
+        details: { sku, candidate_count: exact.length, truncated: siblingResponse.truncated } });
+    }
+    if (exact.length === 1) {
+      card = await fetchCard(exact[0]!.sku);
+      if (card) priceSources = await fetchPriceSources({ sku: card.sku });
+    }
+  }
   if (!card) {
     return errorResponse({
-      code: "NOT_FOUND",
-      message: `Card '${sku}' not found in the wholesale catalog.`,
+      code: siblingResponse?.source === "unavailable" ? "SOURCE_UNAVAILABLE" : "NOT_FOUND",
+      message: siblingResponse?.source === "unavailable"
+        ? "The card catalog is unavailable. Try again later."
+        : `Card '${sku}' not found in the wholesale catalog.`,
       details: { sku },
     });
   }
-
-  // ── Siblings: same physical card, different language/variant. ────
-  // Query the wholesale prices route for SET-NUMBER without lang;
-  // returns every language variant for this set + number. The SKU's
-  // game prefix may be lowercase code ("op") but wholesale's games
-  // table filter may require slug ("one-piece"); try a sequence:
-  //   1. game as-parsed
-  //   2. case variants
-  //   3. fetchGames() lookup to find slug for the code
-  // The reliable path: look up the set → its game_code (or slug) → use
-  // that for the siblings query. The wholesale /api/v1/sets endpoint
-  // exposes game_code per set; this lets the composer be game-table-
-  // case-agnostic. Falls back to trying the SKU's parsed game prefix
-  // if the set lookup fails.
-  async function fetchSiblings(): Promise<{ items: PriceItem[]; errored: boolean }> {
-    const q = `${parsed!.set}-${parsed!.number}`;
-    const tried = new Set<string>();
-    // fetchPrices stamps source='unavailable' when both substrates
-    // failed — the one Falcon call here whose outage IS distinguishable
-    // from a genuine empty result.
-    let errored = false;
-    async function tryGame(g: string): Promise<PriceItem[] | null> {
-      if (tried.has(g)) return null;
-      tried.add(g);
-      const r = await fetchPrices({ game: g, q, limit: 50 }).catch(
-        () => ({ items: [] as PriceItem[], source: "unavailable" as const }),
-      );
-      if (r.source === "unavailable") errored = true;
-      return r.items.length > 0 ? r.items : null;
-    }
-
-    // 1. Look up the set in wholesale and use whatever game token it
-    //    declares (code or slug or any field that matches the data).
-    //    fetchSets returns SetItem with `game_code`.
-    const sets = await fetchSets().catch(() => []);
-    const matchedSet = sets.find(
-      (s) => s.code.toLowerCase() === parsed!.set,
-    );
-    if (matchedSet) {
-      const r0 = await tryGame(matchedSet.game_code);
-      if (r0) return { items: r0, errored };
-    }
-
-    // 2. SKU-parsed game prefix + case variants.
-    const r1 = await tryGame(parsed!.game);
-    if (r1) return { items: r1, errored };
-    const r2 = await tryGame(parsed!.game.toUpperCase());
-    if (r2) return { items: r2, errored };
-
-    // 3. fetchGames-based fallback (permissive prefix match).
-    const games = await fetchGames().catch(() => []);
-    const match = games.find(
-      (g) =>
-        g.code.toLowerCase() === parsed!.game ||
-        g.slug.toLowerCase() === parsed!.game ||
-        (parsed!.game.length >= 2 && g.code.toLowerCase().startsWith(parsed!.game)) ||
-        (parsed!.game.length >= 2 && g.slug.toLowerCase().startsWith(parsed!.game)),
-    );
-    if (match) {
-      const r3 = await tryGame(match.slug);
-      if (r3) return { items: r3, errored };
-      const r4 = await tryGame(match.code);
-      if (r4) return { items: r4, errored };
-    }
-    return { items: [], errored };
+  const cardIdentity = skuIdentity(card.sku);
+  if (!cardIdentity || cardIdentity.canonical_sku !== parsed.canonical_sku) {
+    return errorResponse({ code: "SOURCE_UNAVAILABLE",
+      message: "The catalog returned a different card identifier; composition was stopped.", details: { sku } });
   }
-  const { items: siblingItems, errored: siblingsErrored } = await fetchSiblings();
+  // Source prices use the actual storage key, not a normalized-identity join.
+  let priceSourceIdentityMismatch = false;
+  if (priceSources && priceSources.sku !== card.sku) {
+    priceSources = await fetchPriceSources({ sku: card.sku });
+    if (priceSources && priceSources.sku !== card.sku) {
+      priceSourceIdentityMismatch = true;
+      priceSources = null;
+    }
+  }
+  siblingResponse ??= await getSiblingCandidates();
+  const siblingItems = siblingResponse.items;
+  const siblingsErrored = siblingResponse.source === "unavailable";
 
-  // Compare on lowercased SKUs — legacy data is uppercase, user input
-  // can be either; canonicalize for the equality check.
-  const selfSkuLower = (card?.sku ?? sku).toLowerCase();
+  // A sibling candidate shares game, set and number; each raw SKU stays intact.
+  const selfCanonical = cardIdentity.canonical_sku;
   const siblings: SiblingRow[] = siblingItems
     .filter((item) => {
-      const ps = parseSkuShape(item.sku);
-      return ps && ps.set === parsed.set && ps.number === parsed.number;
+      const ps = skuIdentity(item.sku);
+      return ps && ps.game === parsed.game && ps.set === parsed.set && ps.number === parsed.number;
     })
     .map((item) => {
-      const ps = parseSkuShape(item.sku);
-      const is_self = item.sku.toLowerCase() === selfSkuLower;
+      const ps = skuIdentity(item.sku);
+      const is_self = ps?.canonical_sku === selfCanonical;
       const classified = classifySibling({
         sibling: {
           sku: item.sku,
@@ -405,7 +379,7 @@ export async function GET(
   const withholdingNotes = [
     ...(withheldRightsRows > 0
       ? [
-          "Internal-only, proprietary, or otherwise nonredistributable source rows were withheld from this anonymous response.",
+          "Restricted, malformed, failed, or otherwise nonredistributable source rows were withheld from this anonymous response.",
         ]
       : []),
     ...(blockedTcgplayerRows > 0
@@ -444,11 +418,12 @@ export async function GET(
   // ── card meta block ───────────────────────────────────────────────
   const cardMeta: EverythingCard = {
     sku: card.sku,
-    game: parsed.game,
+    identity: cardIdentity,
+    game: cardIdentity.game,
     set_code: card.set_code,
     card_number: card.card_number,
-    lang: parsed.lang,
-    variant: parsed.variant,
+    lang: cardIdentity.lang,
+    variant: cardIdentity.variant,
     name: card.name ?? card.card_number,
     name_en: card.name_en,
     name_translations: card.name_translations ?? null,
@@ -464,9 +439,10 @@ export async function GET(
   // client stamps source='unavailable'). Full error-vs-absent needs an
   // error sentinel in lib/wholesale/client.ts.
   const composition: EverythingPayload["composition"] = {
+    siblings_truncated: siblingResponse.truncated,
     falcon_calls: {
       card: "ok",
-      price_sources: priceSources ? "ok" : "absent",
+      price_sources: priceSourceIdentityMismatch ? "error" : priceSources ? "ok" : "absent",
       cardrush_history: "blocked",
       tcgplayer_history: "blocked",
       // A successful sibling query with zero rows is 'ok', not 'absent'.

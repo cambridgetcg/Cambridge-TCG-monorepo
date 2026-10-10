@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { getUserAuctions, createSellerAuction } from "@/lib/auction/db";
 import { resolveCatalogCard } from "@/lib/market/db";
 import { isAuctionCondition, AUCTION_CONDITIONS } from "@/lib/auction/types";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 // GET — user's auctions (as seller)
 export async function GET() {
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to sell." }, { status: 401 });
   }
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   try {
     const body = await request.json();

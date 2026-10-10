@@ -205,6 +205,11 @@ const TOOL_GROUPS: ToolGroup[] = [
         description: "Active flags or restrictions on your account, and how to clear them.",
       },
       {
+        href: "/account/wallet",
+        label: "Wallet",
+        description: "Verify control of a Base Sepolia address without sharing keys or transferring assets.",
+      },
+      {
         href: "/account/agents",
         label: "Agents & API keys",
         description: "For developers — manage agents and API access to your account.",

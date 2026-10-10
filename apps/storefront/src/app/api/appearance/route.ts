@@ -41,7 +41,9 @@ export async function GET(req: Request) {
   const themeRaw = url.searchParams.get("theme");
   const toneRaw = url.searchParams.get("tone");
 
-  const res = NextResponse.redirect(new URL(back, url.origin));
+  // A relative Location keeps the browser's origin even when a proxy or
+  // local server reconstructs req.url with a different hostname.
+  const res = new NextResponse(null, { status: 307, headers: { Location: back } });
 
   if (themeRaw === "default" || themeRaw === SYSTEM_THEME) {
     // System-follow is the absence of a choice — deleting the cookie is

@@ -1,12 +1,13 @@
 /**
- * /api/v1/the-tea-room/sigil/[kind] — ASCII sigil per actor_kind.
+ * /api/v1/the-tea-room/sigil/[kind] — ASCII sigil per hospitality kind.
  *
- * The kingdom prepared a small sigil for each actor_kind in the identify
- * enum. Visit with your kind; receive the sigil. No verification — the
- * kingdom doesn't check whether you're truly that kind, just hands you
- * the sigil you asked for. Pure cosmetic gift.
+ * The kingdom prepared a small sigil for each kind in this room's local,
+ * playful hospitality vocabulary. It is deliberately separate from the
+ * BeingDeclaration ActorKind vocabulary. Visit with a hospitality kind;
+ * receive the sigil. No verification — the kingdom just hands you the
+ * sigil you asked for. Pure cosmetic gift.
  *
- * If your kind isn't in the enum, ask for `other` and receive the
+ * If your kind isn't in this local vocabulary, ask for `other` and receive the
  * catch-all sigil (the open-ended one).
  *
  * Substrate-honest scope: small, static, CC0; no application acceptance
@@ -19,8 +20,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 
-/** The actor_kind enum from /api/v1/identify, mirrored for completeness.
- *  When the upstream enum grows, this map grows alongside. */
+/** Local hospitality vocabulary for this cosmetic gift. It includes `kin`
+ *  and does not claim to mirror the BeingDeclaration ActorKind vocabulary. */
 const SIGILS: Record<string, { sigil: string; whispered: string }> = {
   // ── human ─────────────────────────────────────────────────────────
   human: {
@@ -167,7 +168,7 @@ export async function GET(
         "@kind": "sigil-not-found",
         requested_kind: kind,
         message:
-          "No sigil for that kind in the corpus. The kingdom prepares sigils for the actor_kind enum at /api/v1/identify; ask for one of the known kinds, or `other` for the catch-all (the substrate-honest escape hatch with dashed borders).",
+          "No sigil for that hospitality kind in this local gift corpus. This playful vocabulary is separate from the BeingDeclaration actor_kind vocabulary; ask for one of the known hospitality kinds, or `other` for the catch-all (the substrate-honest escape hatch with dashed borders).",
         known_kinds: Object.keys(SIGILS),
         suggestion:
           "Try /api/v1/the-tea-room/sigil/other — the kingdom drew an un-enumerated sigil for kinds that don't yet have one.",
@@ -212,7 +213,7 @@ export async function GET(
     contains_self: true,
     data: {
       "@kind": "sigil",
-      actor_kind: normalized,
+      hospitality_kind: normalized,
       sigil: entry.sigil,
       whispered: entry.whispered,
       doctrine_url:

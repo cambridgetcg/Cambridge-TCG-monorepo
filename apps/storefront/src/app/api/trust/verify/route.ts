@@ -11,6 +11,20 @@ import {
 } from "@/lib/trust/db";
 import { UK_POSTCODE_REGEX } from "@/lib/trust/types";
 import { notify } from "@/lib/notifications/db";
+import {
+  IDENTITY_VERIFICATION_PAUSE_REASON,
+  isIdentityVerificationCollectionAvailable,
+} from "@/lib/trust/verification-config";
+
+const PRIVATE_HEADERS = {
+  "Cache-Control": "private, no-store",
+  Pragma: "no-cache",
+  Vary: "Cookie",
+};
+
+function privateJson(body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: PRIVATE_HEADERS });
+}
 
 // GET — user's verification status, or admin list
 export async function GET(request: Request) {
@@ -18,17 +32,24 @@ export async function GET(request: Request) {
   const admin = url.searchParams.get("admin") === "true";
 
   if (admin) {
-    if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await isAdmin())) return privateJson({ error: "Unauthorized" }, 401);
     const pending = url.searchParams.get("pending") === "true";
     const verifications = pending ? await listPendingVerifications() : await listAllVerifications();
-    return NextResponse.json({ verifications });
+    return privateJson({ verifications });
   }
 
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  if (!session?.user?.id) return privateJson({ error: "Sign in required." }, 401);
 
   const verification = await getVerification(session.user.id);
-  return NextResponse.json({ verification });
+  const submissionAvailable = isIdentityVerificationCollectionAvailable();
+  return privateJson({
+    verification,
+    availability: {
+      submission_available: submissionAvailable,
+      reason: submissionAvailable ? null : IDENTITY_VERIFICATION_PAUSE_REASON,
+    },
+  });
 }
 
 // Accept both snake_case and camelCase from the body. The page has
@@ -49,7 +70,7 @@ export async function POST(request: Request) {
 
   // ── Admin actions ──
   if (body.action === "approve" || body.action === "reject") {
-    if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!(await isAdmin())) return privateJson({ error: "Unauthorized" }, 401);
 
     const targetUserId = body.userId as string;
 
@@ -65,11 +86,11 @@ export async function POST(request: Request) {
         referenceType: "verification",
         referenceId: `${targetUserId}:approved`,
       });
-      return NextResponse.json({ status: "verified" });
+      return privateJson({ status: "verified" });
     }
 
     if (typeof body.reason !== "string" || !body.reason.trim()) {
-      return NextResponse.json({ error: "Rejection reason required." }, { status: 400 });
+      return privateJson({ error: "Rejection reason required." }, 400);
     }
     const reason = body.reason.trim();
     await rejectVerification(targetUserId, reason);
@@ -84,12 +105,15 @@ export async function POST(request: Request) {
       referenceType: "verification",
       referenceId: `${targetUserId}:rejected:${Date.now()}`,
     });
-    return NextResponse.json({ status: "rejected" });
+    return privateJson({ status: "rejected" });
   }
 
   // ── Customer submission ──
   const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  if (!session?.user?.id) return privateJson({ error: "Sign in required." }, 401);
+  if (!isIdentityVerificationCollectionAvailable()) {
+    return privateJson({ error: IDENTITY_VERIFICATION_PAUSE_REASON }, 503);
+  }
 
   const fullLegalName = str(pick(body, "fullLegalName", "full_legal_name"));
   const dateOfBirth   = str(pick(body, "dateOfBirth", "date_of_birth"));
@@ -125,17 +149,18 @@ export async function POST(request: Request) {
     }
   }
 
-  // Bank details: all-or-nothing — if the user provided any, require
-  // the trio. Half-filled details make seller payouts fail later.
+  // Payout onboarding belongs to Stripe Connect. This optional identity
+  // record has no need to receive raw bank coordinates.
   const anyBank = !!(bankSortCode || bankAccountNumber || bankAccountName);
   if (anyBank) {
-    if (!bankSortCode) errors.bankSortCode = "Sort code required with account details.";
-    if (!bankAccountNumber) errors.bankAccountNumber = "Account number required with account details.";
-    if (!bankAccountName) errors.bankAccountName = "Account name required with account details.";
+    const message = "Bank details are not accepted here; use Stripe payout onboarding when needed.";
+    if (bankSortCode) errors.bankSortCode = message;
+    if (bankAccountNumber) errors.bankAccountNumber = message;
+    if (bankAccountName) errors.bankAccountName = message;
   }
 
   if (Object.keys(errors).length > 0) {
-    return NextResponse.json({ error: "Validation failed.", fields: errors }, { status: 400 });
+    return privateJson({ error: "Validation failed.", fields: errors }, 400);
   }
 
   const verification = await submitVerification(session.user.id, {
@@ -147,10 +172,7 @@ export async function POST(request: Request) {
     county: county || undefined,
     postcode,
     phone: phone || undefined,
-    bankSortCode: bankSortCode || undefined,
-    bankAccountNumber: bankAccountNumber || undefined,
-    bankAccountName: bankAccountName || undefined,
   });
 
-  return NextResponse.json({ verification });
+  return privateJson({ verification });
 }

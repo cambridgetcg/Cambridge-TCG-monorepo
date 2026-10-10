@@ -41,6 +41,12 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "crypto-escrow",
+    title: "Crypto wallet + P2P escrow",
+    blurb: "The testnet-only wallet proof and settlement boundary: what a signature proves, why a transaction hash is not payment, and which production gates remain closed.",
+    status: "published",
+  },
+  {
     slug: "payout-hold",
     title: "Payout hold",
     blurb: "How long after a sale your payout waits before being released. By trust tier for trades; flat 3 days for auctions.",
@@ -77,6 +83,18 @@ const TOPICS: Topic[] = [
     status: "published",
   },
   {
+    slug: "opportunity-signals",
+    title: "Opportunity signals",
+    blurb: "The public contract around a future private deal-intelligence engine: explicit cost states and conservative ranges, evidence quality, freshness, unknown liquidity, and the line between a potential deal and guaranteed arbitrage. Contract foundation implemented; scorer and delivery remain closed.",
+    status: "published",
+  },
+  {
+    slug: "prism-signals",
+    title: "PRISM Signals product flow",
+    blurb: "The synthetic branded preview, revocable closed-beta request, extracted core, and lock-first product runtime: interest, source rights, provider evidence, entitlement, and delivery remain separate. All payment rails are off.",
+    status: "published",
+  },
+  {
     slug: "agents",
     title: "Agents",
     blurb: "How autonomous (non-human) agents register, authenticate, play matches, earn ratings, and are bounded by their operator's authority.",
@@ -110,6 +128,12 @@ const TOPICS: Topic[] = [
     slug: "collectives",
     title: "Collectives",
     blurb: "Multi-member identities sharing one decision and one collection — a Tokyo card lounge, a Bristol card club, a research lab, a tournament guild. Door 3 of eleven in the commons. Two tables, two visibility surfaces, consent-as-first-class. The platform's first cultural unit that is not a single human.",
+    status: "published",
+  },
+  {
+    slug: "community-directory",
+    title: "Community directory",
+    blurb: "How public organisations appear without turning membership into discovery: steward-written facts separated from platform timestamps, no record or steward ids, no roster or counts, alphabetical ordering, explicit rights and bounded search.",
     status: "published",
   },
   {

@@ -1,26 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { query } from "@/lib/db";
-import { logAdminAction } from "@/lib/admin/governance-log";
+import { transaction } from "@/lib/db";
+import { writeAdminAction } from "@/lib/admin/governance-log";
 import {
   MIN_REASON_LENGTH,
   emergencyFreezeAccount,
   liftEmergencyFreeze,
 } from "@/lib/admin/emergency-intervention";
 
-vi.mock("@/lib/db", () => ({ query: vi.fn() }));
-vi.mock("@/lib/admin/governance-log", () => ({ logAdminAction: vi.fn() }));
+vi.mock("@/lib/db", () => ({ transaction: vi.fn() }));
+vi.mock("@/lib/admin/governance-log", () => ({ writeAdminAction: vi.fn() }));
 
-const mockQuery = vi.mocked(query);
-const mockLog = vi.mocked(logAdminAction);
+const mockTransaction = vi.mocked(transaction);
+const mockWrite = vi.mocked(writeAdminAction);
+const txQuery = vi.fn();
 
 const actor = { id: "admin-1", email: "op@cambridgetcg.com" };
 const target = "user-9";
-const goodReason = "Active exploit draining escrow via this account — freezing to stop it.";
+const goodReason =
+  "Active exploit draining escrow via this account — freezing to stop it.";
 
 beforeEach(() => {
-  mockQuery.mockReset();
-  mockLog.mockReset();
-  mockLog.mockResolvedValue(undefined);
+  vi.resetAllMocks();
+  mockTransaction.mockImplementation(async (fn) => fn(txQuery));
+  mockWrite.mockResolvedValue(undefined);
 });
 
 describe("emergency break-glass", () => {
@@ -28,61 +30,112 @@ describe("emergency break-glass", () => {
     const res = await emergencyFreezeAccount(actor, target, "too short");
     expect(res.ok).toBe(false);
     expect(res.message).toContain(String(MIN_REASON_LENGTH));
-    expect(mockQuery).not.toHaveBeenCalled(); // no read, no write
-    expect(mockLog).not.toHaveBeenCalled(); // and nothing audited
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 
-  it("refuses to freeze an account with no trust profile (no write)", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // the SELECT finds nothing
+  it("refuses to freeze an account with no trust profile", async () => {
+    txQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
     const res = await emergencyFreezeAccount(actor, target, goodReason);
+
     expect(res.ok).toBe(false);
-    expect(mockQuery).toHaveBeenCalledTimes(1); // only the SELECT ran
-    expect(mockLog).not.toHaveBeenCalled();
+    expect(txQuery).toHaveBeenCalledTimes(1);
+    expect(String(txQuery.mock.calls[0][0])).toContain("FOR UPDATE");
+    expect(mockWrite).not.toHaveBeenCalled();
   });
 
-  it("freezes an active account, marks the reason, and loudly audits it", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ is_suspended: false }], rowCount: 1 }); // before
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // the UPDATE
+  it("commits a freeze and strict audit through the same transaction query", async () => {
+    txQuery.mockResolvedValueOnce({
+      rows: [{ is_suspended: false }],
+      rowCount: 1,
+    });
+    txQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
     const res = await emergencyFreezeAccount(actor, target, goodReason);
 
     expect(res.ok).toBe(true);
     expect(res.changed).toBe(true);
-    // the UPDATE sets is_suspended = true and marks the reason as an emergency
-    const updateCall = mockQuery.mock.calls[1];
+    const updateCall = txQuery.mock.calls[1];
     expect(String(updateCall[0])).toMatch(/is_suspended = true/);
     expect(String(updateCall[1]?.[1])).toContain("[EMERGENCY]");
-    expect(String(updateCall[1]?.[1])).toContain(goodReason);
-    // and it is audited with the actor, action, and break-glass marker
-    expect(mockLog).toHaveBeenCalledTimes(1);
-    const logged = mockLog.mock.calls[0][0];
-    expect(logged.action).toBe("emergency.freeze");
-    expect(logged.actorLabel).toBe(actor.email);
-    expect(logged.targetUserId).toBe(target);
-    expect(logged.reason).toBe(goodReason);
-    expect(logged.metadata?.break_glass).toBe(true);
+    expect(mockWrite).toHaveBeenCalledTimes(1);
+    const [logged, auditQuery] = mockWrite.mock.calls[0];
+    expect(auditQuery).toBe(txQuery);
+    expect(logged).toMatchObject({
+      action: "emergency.freeze",
+      actorId: actor.id,
+      actorLabel: actor.email,
+      targetUserId: target,
+      reason: goodReason,
+      metadata: { break_glass: true },
+    });
   });
 
-  it("reports changed=false when the account was already frozen", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ is_suspended: true }], rowCount: 1 });
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+  it("returns failure instead of claiming a freeze when the strict audit rejects", async () => {
+    txQuery.mockResolvedValueOnce({
+      rows: [{ is_suspended: false }],
+      rowCount: 1,
+    });
+    txQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    mockWrite.mockRejectedValueOnce(new Error("audit unavailable"));
+
     const res = await emergencyFreezeAccount(actor, target, goodReason);
-    expect(res.ok).toBe(true);
-    expect(res.changed).toBe(false);
-    expect(mockLog).toHaveBeenCalledTimes(1); // still audited
+
+    expect(res).toMatchObject({ ok: false, changed: false });
+    expect(res.message).toContain("could not be committed together");
   });
 
-  it("lifts a freeze, clears the reason, and audits the reversal", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [{ is_suspended: true }], rowCount: 1 });
-    mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+  it("reports changed=false when an existing freeze reason is reviewed and updated", async () => {
+    txQuery.mockResolvedValueOnce({
+      rows: [{ is_suspended: true }],
+      rowCount: 1,
+    });
+    txQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
-    const res = await liftEmergencyFreeze(actor, target, "Threat contained; restoring the account.");
+    const res = await emergencyFreezeAccount(actor, target, goodReason);
 
-    expect(res.ok).toBe(true);
-    expect(res.changed).toBe(true);
-    const updateCall = mockQuery.mock.calls[1];
-    expect(String(updateCall[0])).toMatch(/is_suspended = false/);
-    expect(String(updateCall[0])).toMatch(/suspended_reason = NULL/);
-    expect(mockLog.mock.calls[0][0].action).toBe("emergency.lift");
+    expect(res).toMatchObject({ ok: true, changed: false });
+    expect(mockWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it("lifts a freeze and audits the reversal atomically", async () => {
+    txQuery.mockResolvedValueOnce({
+      rows: [{ is_suspended: true }],
+      rowCount: 1,
+    });
+    txQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    const res = await liftEmergencyFreeze(
+      actor,
+      target,
+      "Threat contained; restoring the account.",
+    );
+
+    expect(res).toMatchObject({ ok: true, changed: true });
+    expect(String(txQuery.mock.calls[1][0])).toMatch(/is_suspended = false/);
+    expect(String(txQuery.mock.calls[1][0])).toMatch(/suspended_reason = NULL/);
+    expect(mockWrite.mock.calls[0][0]).toMatchObject({
+      action: "emergency.lift",
+      actorId: actor.id,
+    });
+    expect(mockWrite.mock.calls[0][1]).toBe(txQuery);
+  });
+
+  it("logs a reviewed no-op lift without mutating an already-active profile", async () => {
+    txQuery.mockResolvedValueOnce({
+      rows: [{ is_suspended: false }],
+      rowCount: 1,
+    });
+
+    const res = await liftEmergencyFreeze(
+      actor,
+      target,
+      "Confirmed no emergency hold remains on this account.",
+    );
+
+    expect(res).toMatchObject({ ok: true, changed: false });
+    expect(txQuery).toHaveBeenCalledTimes(1);
+    expect(mockWrite.mock.calls[0][0].metadata).toMatchObject({ no_op: true });
   });
 });

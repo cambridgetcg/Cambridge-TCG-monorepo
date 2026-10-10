@@ -163,8 +163,8 @@ export async function loadGameState(
       queried_at,
       as_of: earliestUpdate(topData.items),
       freshness: "catalog",
-      sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
-      source_license: ["proprietary", "internal-only"],
+      sources: ["wholesale-rds.cards"],
+      source_license: ["proprietary"],
       methodology_urls: {
         pricing: "/methodology/pricing",
         cross_source: "/methodology/cross-source-pricing",
@@ -239,8 +239,8 @@ export async function loadSetState(
       queried_at,
       as_of: earliestUpdate(cardsData.items),
       freshness: "catalog",
-      sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
-      source_license: ["proprietary", "internal-only"],
+      sources: ["wholesale-rds.cards"],
+      source_license: ["proprietary"],
       methodology_urls: {
         pricing: "/methodology/pricing",
         cross_source: "/methodology/cross-source-pricing",
@@ -372,8 +372,8 @@ export async function loadCardState(
       queried_at,
       as_of: card.updated_at,
       freshness: "catalog",
-      sources: ["wholesale-rds.cards", "cambridgetcg-marketplace"],
-      source_license: ["proprietary", "internal-only"],
+      sources: ["wholesale-rds.cards"],
+      source_license: ["proprietary"],
       methodology_urls: {
         pricing: "/methodology/pricing",
         cross_source: "/methodology/cross-source-pricing",

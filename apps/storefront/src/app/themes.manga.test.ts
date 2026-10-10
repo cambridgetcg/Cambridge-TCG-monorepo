@@ -1,104 +1,39 @@
-/**
- * The manga materials contract.
- *
- * Spec: docs/superpowers/specs/2026-07-07-the-manga-gallery-design.md §1.
- * Same testing style as themes.sync.test.ts: parse the stylesheet, pin
- * the load-bearing promises so drift is caught by vitest, not by eyes.
- *
- * Promises pinned here:
- *   1. Every manga material class exists in themes.css.
- *   2. Every ANIMATED material is theme-gated (gallery/midnight/system)
- *      — terminal and high-contrast never animate the manga layer.
- *   3. The manga section introduces no raw hex colors — tokens,
- *      color-mix of tokens, currentColor and transparent only.
- *   4. globals.css text-mode kills every manga animation and every
- *      manga pseudo-element texture by name (the universal `*` flatten
- *      does not reach ::before/::after).
- */
-import { readFileSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+/** Existing material class names remain usable after the plain UI redesign. */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const themes = readFileSync(join(here, "themes.css"), "utf8");
-const globals = readFileSync(join(here, "globals.css"), "utf8");
+const read = (name: string) => readFileSync(join(here, name), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const themes = read("themes.css");
+const globals = read("globals.css");
 
-const MATERIALS = [
-  "wardrobe-breathe",
-  "wardrobe-draw",
-  "wardrobe-tone-whisper",
-  "wardrobe-tone-fade",
-  "wardrobe-panel",
-  "wardrobe-speedlines",
-  "wardrobe-bob",
-  "wardrobe-aura",
-] as const;
-
-const ANIMATED = [
-  "wardrobe-breathe",
-  "wardrobe-draw",
-  "wardrobe-speedlines",
-  "wardrobe-bob",
-] as const;
-
-describe("manga materials (spec 2026-07-07 §1)", () => {
-  it("defines every material class", () => {
-    for (const cls of MATERIALS) {
-      expect(themes, `missing .${cls}`).toMatch(new RegExp(`\\.${cls}[\\s,{:\\[]`));
+describe("plain shared materials", () => {
+  it("keeps existing surface and divider hooks usable", () => {
+    for (const name of ["ground", "wall", "mat", "frame", "panel", "draw", "breathe", "jp"]) {
+      expect(themes).toMatch(new RegExp(`\\.wardrobe-${name}[\\s,{:]`));
     }
+    expect(themes).toMatch(/\.wardrobe-draw\s*\{[^}]*height:\s*1px/);
   });
 
-  it("theme-gates every animated material", () => {
-    for (const cls of ANIMATED) {
-      // The animation binding must appear behind a [data-theme=...] gate,
-      // never on the bare class (terminal/high-contrast stay still).
-      const gated = new RegExp(
-        `\\[data-theme="(gallery|midnight|system)"\\][^{]*\\.${cls}[^{]*\\{[^}]*animation`,
-      );
-      expect(themes, `.${cls} animation is not theme-gated`).toMatch(gated);
-      const bare = new RegExp(`(^|\\n)\\s*\\.${cls}[^,{]*\\{[^}]*animation(-name)?\\s*:`, "m");
-      expect(themes, `.${cls} binds animation outside a theme gate`).not.toMatch(bare);
-    }
+  it("does not animate or texture shared appearance", () => {
+    expect(themes).not.toMatch(/@keyframes|animation(?:-timeline)?\s*:|transform\s*:|(?:radial|linear|conic)-gradient\(|data:image/);
+    expect(themes).not.toMatch(/\.wardrobe-wall--[\w-]+\s*\{/);
   });
 
-  it("uses no raw hex in the manga section", () => {
-    const start = themes.indexOf("── Manga materials");
-    expect(start, "manga section marker missing").toBeGreaterThan(-1);
-    const section = themes.slice(start);
-    const stripped = section.replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(stripped).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  it("keeps the native close-look dialog and its scroll lock", () => {
+    expect(themes).toMatch(/\.wardrobe-closelook::backdrop\s*\{[^}]*background:\s*var\(--color-scrim\)/);
+    expect(themes).toMatch(/body:has\(dialog\.wardrobe-closelook\[open\]\)\s*\{[^}]*overflow:\s*hidden/);
+    expect(themes).toMatch(/\.wardrobe-closelook\s*\{[^}]*max-height:\s*92vh/);
+    expect(themes).not.toMatch(/outline:\s*none/);
   });
 
-  it("text-mode kills manga animation and pseudo-element textures", () => {
-    for (const cls of ANIMATED) {
-      expect(globals, `text-mode does not kill .${cls}`).toMatch(
-        new RegExp(`body\\.text-mode[^{]*\\.${cls}`),
-      );
-    }
-    expect(globals).toMatch(/body\.text-mode[^{]*\.wardrobe-speedlines::before/);
-    expect(globals).toMatch(/body\.text-mode[^{]*\.wardrobe-aura::before/);
-    const toneKill = /body\.text-mode[^{]*\.wardrobe-tone-fade[^{]*\{[^}]*mask-image:\s*none/;
-    expect(globals, "text-mode does not kill the tone-fade mask").toMatch(toneKill);
-    expect(globals, "text-mode does not kill .wardrobe-rise").toMatch(
-      /body\.text-mode[^{]*\.wardrobe-rise/,
-    );
-  });
-
-  it("wardrobe-rise keeps its delay longhand after the animation shorthand", () => {
-    // The animation shorthand implicitly resets animation-delay; the
-    // custom-property longhand must live in the SAME gated rule, after
-    // the shorthand — this broke twice during the manga wave.
-    const gated = themes.match(
-      /\[data-theme="gallery"\][^{]*\.wardrobe-rise[^{]*\{([^}]*)\}/,
-    );
-    expect(gated, "gated wardrobe-rise rule missing").not.toBeNull();
-    const body = gated![1];
-    const shorthandAt = body.indexOf("animation:");
-    const delayAt = body.indexOf("animation-delay:");
-    expect(shorthandAt, "animation shorthand missing").toBeGreaterThan(-1);
-    expect(delayAt, "animation-delay longhand missing").toBeGreaterThan(-1);
-    expect(delayAt, "delay longhand must come after the shorthand").toBeGreaterThan(shorthandAt);
-    expect(body.slice(delayAt)).toMatch(/animation-delay:\s*var\(--rise-delay/);
+  it("preserves keyboard focus, explicit text mode and reduced motion", () => {
+    expect(globals).toMatch(/:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--color-accent\)/);
+    expect(globals).toMatch(/body\.text-mode\s*\{[^}]*color-scheme:\s*light/);
+    expect(globals).toMatch(/body\.text-mode :focus-visible\s*\{[^}]*outline-color:\s*black !important/);
+    expect(globals).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(globals).toContain("scroll-behavior: auto !important");
   });
 });

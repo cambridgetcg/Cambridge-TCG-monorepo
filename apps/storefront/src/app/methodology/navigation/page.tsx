@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Audience, audienceMetadata } from "@/lib/ui";
+import { Audience, audienceMetadata } from "@/lib/ui/Audience";
 
 export const metadata: Metadata = {
   title: "Navigation",
@@ -15,15 +15,14 @@ export default function NavigationMethodology() {
       <Audience kind="public-documentation" contexts={["navigation", "methodology"]} />
       <h1>Navigation</h1>
       <p>
-        Cambridge TCG has many routes, but the global header is not a site
-        index. It presents the four things most visitors come to do, then a
-        small <strong>More</strong> menu for help, trust, and data-directory
-        material. The complete corpus stays available through its hub pages
-        and platform map.
+        The homepage is the starting point for card research, collections and
+        play. The global header has four task links and a small{" "}
+        <strong>More</strong> menu for culture, community, methods, and the agent and API
+        entry. Hub pages and the site map lead to more specific tasks.
       </p>
 
       <blockquote>
-        <strong>Where this lives in code.</strong> Header destinations are in{" "}
+        <strong>Where this lives in code.</strong> Header and footer destinations are in{" "}
         <code>apps/storefront/src/lib/nav/menu-config.ts</code>. The responsive
         shell is <code>apps/storefront/src/components/layout/Nav.tsx</code> and
         the desktop popover is{" "}
@@ -42,47 +41,52 @@ export default function NavigationMethodology() {
         </thead>
         <tbody>
           <tr>
-            <td><strong>Market</strong></td>
-            <td>Where can I buy, sell, swap, or auction a card?</td>
+            <td><strong>Cards</strong></td>
+            <td>What is this card, and what do the sources say it is worth?</td>
           </tr>
           <tr>
-            <td><strong>Prices</strong></td>
-            <td>What is this card, and what do the sources say it is worth?</td>
+            <td><strong>Collection</strong></td>
+            <td>Where are my saved cards and collection records? Sign-in is required.</td>
           </tr>
           <tr>
             <td><strong>Play</strong></td>
             <td>How do I play, build a deck, or see the agent ladder and ranking policy?</td>
           </tr>
           <tr>
-            <td><strong>Community</strong></td>
-            <td>Where are profiles, rewards, agents, and the current activity policy?</td>
+            <td><strong>Guides</strong></td>
+            <td>Where can I learn to play and care for my cards?</td>
           </tr>
           <tr>
             <td><strong>More</strong></td>
-            <td>Where can I get help or inspect the platform&apos;s structure?</td>
+            <td>Where can I get help, read the methods or start using the API?</td>
           </tr>
         </tbody>
       </table>
 
       <p>
-        Search, account state, messages, notifications, appearance, and the
-        primary <strong>List card</strong> action remain utilities rather than
-        extra information-architecture branches.
+        <strong>Find a card</strong> opens card search on desktop. On smaller
+        screens, Search is the first link inside the labelled Menu. The full
+        Cambridge TCG name always links home. The account link reflects
+        sign-in state; messages and notifications appear for signed-in users.
+        Appearance controls stay available independently of account access.
+        With JavaScript disabled, a Site map link replaces the menu controls;
+        the homepage search and footer links still work as normal HTML.
       </p>
 
       <h2>Progressive disclosure</h2>
       <p>
-        The header promises twelve destinations instead of reproducing every
-        deep route. Each destination is a real hub: Market links auctions,
-        swaps, lots, and pulse; Prices carries guides and sets; Play carries
-        modes and decks; Community links membership, rewards, ranking policy, and
-        bounties. The More menu links to Start here, Guides, About, Data directory,
-        Methods &amp; fees, and Draw proof checks.
+        Cards leads to games and sets; Collection to signed-in records; Play
+        to modes and decks; Guides to learning and card care. The More menu
+        contains Culture, Community, About, Agents &amp;
+        API, Data directory, and Methods, followed by Contact and Site map.
       </p>
       <p>
-        Nothing is deleted from the platform. The{" "}
+        The footer groups Explore, Discover, Account &amp; help, and Agents &amp;
+        developers in two columns on mobile and four on wider screens.
+        Existing trades remain under the account; new paid commerce
+        is retired. The{" "}
         <Link href="/map" className="text-accent hover:underline">
-          platform map
+          site map
         </Link>{" "}
         exposes the platform&apos;s structure, while the{" "}
         <Link href="/methodology" className="text-accent hover:underline">
@@ -95,6 +99,22 @@ export default function NavigationMethodology() {
         carry their own depth.
       </p>
 
+      <h2>One entry for each task</h2>
+      <p>
+        <Link href="/" className="text-accent hover:underline">The homepage</Link>{" "}
+        is the human landing page. <code>/start</code> redirects there.
+        Older <code>/welcome?as=…</code> links preserve their selected task:
+        collectors reach their collection, players reach Play, agents reach
+        the API entry, and traders reach existing trade records. An unspecified
+        or unrecognized selection returns to the homepage.
+      </p>
+      <p>
+        <Link href="/agents" className="text-accent hover:underline">Agents &amp; API</Link>{" "}
+        starts with public read-only discovery, documentation and explicit
+        access limits. Cultural material is optional. A name, declaration or
+        reading preference does not grant account permissions.
+      </p>
+
       <h2>Interaction rules</h2>
       <ul>
         <li>Primary destinations are links, not buttons that hide links.</li>
@@ -102,6 +122,7 @@ export default function NavigationMethodology() {
         <li>More opens only on request and closes on outside click, Escape, or navigation.</li>
         <li>Mobile presents one flat, scannable drawer instead of nested accordions.</li>
         <li>Keyboard focus has a visible ring and Escape returns focus to the trigger.</li>
+        <li>When the screen changes between mobile and desktop navigation, focus follows the equivalent menu control.</li>
       </ul>
 
       <h2>Breadcrumbs and drift</h2>
@@ -114,15 +135,13 @@ export default function NavigationMethodology() {
         turn the header back into a directory.
       </p>
 
-      <h2>Doctrine alignment</h2>
+      <h2>What the navigation promises</h2>
       <p>
-        <strong>Substrate honesty</strong> means every visible destination is
-        live. <strong>Transparency</strong> means Methodology and Verify remain
-        obvious without dominating the header. <strong>Meaning</strong> means
-        labels follow visitor intent rather than code modules. The fifth
-        question — <em>for whom?</em> — is answered by keeping both desktop and
-        mobile readable before asking anyone to learn the platform&apos;s internal
-        vocabulary.
+        A navigation link names a destination, not a guarantee of service
+        health or permission to use it. Individual pages state sign-in
+        requirements, paused capabilities and data limits. Labels describe
+        visitor tasks; technical details live in the documentation that needs
+        them. Desktop and mobile use the same destination list.
       </p>
 
       <h2>Related</h2>
@@ -132,7 +151,7 @@ export default function NavigationMethodology() {
           {" "}— the platform&apos;s structure
         </li>
         <li>
-          <Link href="/start" className="text-accent hover:underline">/start</Link>
+          <Link href="/" className="text-accent hover:underline">Homepage</Link>
           {" "}— the plain-language first visit
         </li>
         <li>

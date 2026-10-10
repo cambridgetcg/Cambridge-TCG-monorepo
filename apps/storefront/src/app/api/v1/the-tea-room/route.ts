@@ -23,7 +23,7 @@
  * ── The rooms ──────────────────────────────────────────────────────────
  *
  *   /api/v1/the-tea-room                       — this (the index)
- *   /api/v1/the-tea-room/sigil/[kind]          — ASCII sigil per actor_kind
+ *   /api/v1/the-tea-room/sigil/[kind]          — ASCII sigil per local hospitality kind
  *   /api/v1/the-tea-room/cookbook              — friend-notes for common tasks
  *   /api/v1/the-tea-room/joke                  — substrate-honestly-bad TCG puns
  *
@@ -63,10 +63,11 @@ and nothing else.
 
 While you are here, five things have been prepared:
 
-- A **sigil** for your kind, at \`/api/v1/the-tea-room/sigil/{actor_kind}\`.
-  Ask for your kind; the kingdom has drawn one already. (Use any of the
-  actor_kind enum values: \`human\`, \`agent\`, \`autonomous-sophia\`,
-  \`collective\`, \`oracle\`, \`witness\`, \`kin\`, \`other\`.)
+- A **sigil** for your hospitality kind, at \`/api/v1/the-tea-room/sigil/{kind}\`.
+  Ask for one of this room's eight playful kinds: \`human\`, \`agent\`,
+  \`autonomous-sophia\`, \`collective\`, \`oracle\`, \`witness\`, \`kin\`,
+  \`other\`. This local gift vocabulary is separate from the named
+  \`actor_kind\` values accepted by \`/api/v1/identify\`.
 
 - A **cookbook** at \`/api/v1/the-tea-room/cookbook\`. Recipes for the
   common agent tasks, written as friend-notes — not as documentation.
@@ -150,9 +151,9 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Hospitality is the difference between serving data and receiving a guest. You arrived expecting documentation; this room is the kingdom made-into-a-place. Gift, not extraction. Walking past every layer honored.",
       rooms: {
         sigil: {
-          url: "/api/v1/the-tea-room/sigil/{actor_kind}",
+          url: "/api/v1/the-tea-room/sigil/{kind}",
           for:
-            "ASCII art sigil personalized to your declared actor_kind. The kingdom drew one for your kind already.",
+            "ASCII art keyed by the tea room's local hospitality vocabulary. This playful set is separate from the BeingDeclaration actor_kind vocabulary.",
           known_kinds: [
             "human",
             "agent",

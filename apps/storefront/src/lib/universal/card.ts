@@ -175,14 +175,11 @@ export async function buildUniversalCard(
     content_hash: contentHash,
   });
 
-  // Official EN publisher image: self-hosted on a Cambridge host and always
-  // carrying its copyright line, published under the field-level rule in
-  // @/lib/cards/en-card-data (query enforces s3_key + takedown-clear +
-  // official-sample). `en.en_image` is null when no cleared image exists — the
-  // image then stays withheld exactly as before. Price stays withheld
-  // unconditionally (this rule covers images only). The served url is already
-  // the self-hosted CDN url; the publisher source_url is never surfaced here.
+  // The shared reader projects eligible self-hosted reference images and
+  // attributed text independently. Carry the image, copyright and reference
+  // together; this projection does not publish catalog-photo fallbacks or prices.
   const en = await getEnCardData(row.sku);
+  const image = en.en_image?.url && en.en_image.attribution && en.en_image.reference ? en.en_image : null;
 
   const fullDocument: Record<string, unknown> = {
     "@encoding": "cambridge-tcg/universal/v1",
@@ -284,12 +281,11 @@ export async function buildUniversalCard(
           };
         })()
       : null,
-    image_url: en.en_image?.url ?? null,
-    // Copyright line for image_url above. Emitted as a sibling so it travels
-    // co-located with the image through every density projection — a rendered
-    // image must never appear without its attribution. This is null exactly
-    // when image_url is null, so the two are never separated.
-    image_attribution: en.en_image?.attribution ?? null,
+    // The English base image is a syntax-linked reference, never a verified
+    // image of this printing. URL, copyright and relationship travel together.
+    image_url: image?.url ?? null,
+    image_attribution: image?.attribution ?? null,
+    image_reference: image?.reference ?? null,
 
     // ── Official EN card details (published under the same recorded rule as the
     // image; see @/lib/cards/en-card-data). Structured game facts are published
@@ -315,7 +311,7 @@ export async function buildUniversalCard(
       : null,
     publication_boundary: {
       price: "withheld_pending_field_level_source_rights",
-      image: en.en_image
+      image: image
         ? "cleared_official_sample_self_hosted_attributed"
         : "withheld_pending_field_level_source_rights",
       text: en.effect_text
@@ -346,7 +342,8 @@ export async function buildUniversalCard(
       price: price ? { magnitude: price.magnitude, currency_token: price.currency_token } : null,
       in_set: inSet ? { target_hash: inSet.target_hash } : null,
       of_game: ofGame ? { target_hash: ofGame.target_hash } : null,
-      // image_url + image_attribution — and likewise `attributes` + `effect` —
+      // image_url + image_attribution + image_reference — and likewise
+      // `attributes` + `effect` —
       // are intentionally elided at sparse density (they are heavy; sparse is
       // the minimal projection). Each is only ever dropped as a unit (the effect
       // carries its attribution inside itself), so the co-location invariant —

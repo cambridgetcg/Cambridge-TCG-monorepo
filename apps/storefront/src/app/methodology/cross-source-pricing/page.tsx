@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Audience, audienceMetadata } from "@/lib/ui";
 
@@ -12,12 +13,13 @@ export default function CrossSourcePricingMethodology() {
       <Audience kind="public-documentation" contexts={["pricing", "methodology"]} />
       <h1>Cross-source pricing</h1>
       <p>
-        Cambridge TCG has a shape for comparing price signals from multiple
-        upstream markets. Today, the collected warehouse contains CardRush
-        observations only. TCGplayer is blocked under the access and use terms
-        currently available to us; Cardmarket&apos;s public catalog and price files
-        are a planned reader. This page separates what the architecture can hold
-        from what has actually arrived.
+        The free account-gated pricing path is described in{" "}
+        <Link href="/methodology/member-pricing">member pricing</Link>: it uses
+        separate native-currency observations and source-specific display/feed
+        permissions. Its current coverage comes from stored successful runs,
+        not the existence of an adapter. The warehouse architecture below is
+        the older CardRush-shaped archive; its legacy values remain withheld.
+        TCGplayer and CardRush collection blocks are not lifted by login.
       </p>
 
       <blockquote>

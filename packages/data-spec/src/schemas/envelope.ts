@@ -21,7 +21,10 @@ export const META_SCHEMA = {
   description:
     "The _meta block carried on every public Cambridge TCG response. Tells the caller spec version, when the response was rendered, when the data was last true, which sources fed it, the freshness budget, license, request id, self-reference if applicable, and (optional) per-source redistribution licenses.",
   type: "object",
-  additionalProperties: false,
+  // Runtime metadata deliberately supports extra_meta plus optional editorial
+  // pointers. Validate the standard fields while allowing additive extensions;
+  // consumers must not interpret unknown fields as permission or instructions.
+  additionalProperties: true,
   required: [
     "spec_version",
     "endpoint",

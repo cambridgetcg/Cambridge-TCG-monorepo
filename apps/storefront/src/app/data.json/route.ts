@@ -44,6 +44,15 @@ interface EndpointEntry {
 // Single source of truth — kept in sync with /data (page.tsx).
 // A future refactor lifts both surfaces to read from one shared file.
 const ENDPOINTS: EndpointEntry[] = [
+  {
+    path: "/api/v1/identifiers/validate",
+    title: "Card identifier syntax validator",
+    blurb: "POST one bounded {identifier:string}. Public, stateless syntax validation and explicit legacy-normalization suggestions; no catalog lookup, authentication, upstream call or stored submission. Syntax does not prove a card or printing exists.",
+    status: "shipped",
+    auth: "none",
+    methodology_page: "/methodology/sku-standard",
+    shape: "POST JSON (1 KiB body, 256-character identifier) → no-store pantry envelope; human tool at /standards/validator",
+  },
   // ── Draw receipts and digest consistency ──────────────────────────
   {
     path: "/api/verify/chain",

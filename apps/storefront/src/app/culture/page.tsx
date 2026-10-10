@@ -138,6 +138,20 @@ const HALLS: readonly Hall[] = [
           "Not where the art comes from — how the game feels. Two things to touch instead of read: a free booster to open, and the quiet after.",
       },
       {
+        href: "/mekiki",
+        en: "The Trained Eye",
+        jp: "目利き",
+        line:
+          "A daily looking game: one card from the shop's own shelves, shown too close to name. Guess, and every miss steps the view back — the reveal is the full art. Free, no prizes; just the eye, learning.",
+        title_i18n: { ja: "目利き", "zh-Hant": "眼力", "zh-Hans": "练眼力", es: "El buen ojo" },
+        line_i18n: {
+          ja: "一日一枚、うんと近くから。どのカードか、あててみてください。はずすたびに、すこし引いて見せます。最後の答えは、絵の全体。お金は、かかりません。賞品も、ありません。目が、育つだけ。",
+          "zh-Hant": "一日一張，先只露出貼到極近的一角。認一認是哪一張卡；認錯一次，就退開一步，到最後，整幅畫就是答案。不用錢，沒有獎品。練的，是眼力。",
+          "zh-Hans": "一天一张卡，先只看凑得极近的一小块。猜是哪张；猜错一次，画面就往后退一步，最后整幅画摆出来，就是答案。不要钱，也没有奖品。练的，就是眼力。",
+          es: "Una carta al día, tan de cerca que cuesta reconocerla. Di cuál es; con cada fallo, la imagen se aleja un paso, y la respuesta es la lámina entera. Gratis y sin premios: solo el ojo, que se afina.",
+        },
+      },
+      {
         href: "/making",
         en: "How a Card Is Made",
         jp: "一枚のできるまで",
@@ -149,6 +163,20 @@ const HALLS: readonly Hall[] = [
           "zh-Hant": "由一格格空著的表格，到封好的卡包，再到評級的卡磚。發行商肯寫下來的設計流程，和他們留在暗處的那幾間房；那條印刷線；還有檢查那一關。漏了過去的那幾張，後來成了寶物。",
           "zh-Hans": "从一张满是空格的表格，到封好的卡包，再到评级的卡砖。发行方肯写下来的设计流程，和他们不点灯的那几间屋子；那条印刷线；还有质检这一关。漏过去的那几张，后来倒成了宝物。",
           es: "De una hoja de cálculo llena de casillas vacías al sobre sellado, y de ahí a la cápsula del calificador. El proceso de diseño que las editoriales documentan, y las salas que dejan a oscuras. La imprenta. Y la inspección: lo que se le escapó se volvió tesoro.",
+        },
+      },
+      {
+        href: "/empty-frames",
+        en: "The Empty Frames",
+        jp: "幻の間",
+        line:
+          "The phantom cards our archive cannot show — the Illustrator, the trophy Trainers, the parent-and-child Kangaskhan — hung as empty frames with true wall labels. An exhibition of absences; nothing pretended.",
+        title_i18n: { ja: "幻の間", "zh-Hant": "空畫框", "zh-Hans": "空画框", es: "Los marcos vacíos" },
+        line_i18n: {
+          ja: "幻のカードは、うちの棚にはありません。それでも部屋はあります。空の額縁と、正直な札だけ。ないものは、ないまま。",
+          "zh-Hant": "有些卡，小店掛不出來。房間照樣留了：空框照掛，標籤照寫；沒有的，照直說沒有。",
+          "zh-Hans": "有些卡，这家店挂不出来。屋子还是留了：框子空着挂，标签照实写；没有，就说没有。",
+          es: "Hay cartas que esta casa no puede colgar. La sala existe igual: marcos vacíos, etiquetas verdaderas. Lo que no está, se dice.",
         },
       },
       {

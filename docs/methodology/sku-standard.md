@@ -3,7 +3,7 @@
 > Customer-facing methodology page. Source for `/methodology/sku-standard`.
 > Canonical implementation: [`packages/sku/`](../../packages/sku/).
 
-Every card on the platform has a SKU — one canonical identifier that works for every TCG the platform catalogues. **One format. One parser. Every game.**
+The SKU package defines a shared identifier grammar and recognized legacy normalization. A syntactically valid identifier does not prove that a catalog record, physical printing or source-product mapping exists. Existing storage keys remain unchanged.
 
 ---
 
@@ -16,7 +16,7 @@ Every card on the platform has a SKU — one canonical identifier that works for
 - All lowercase, hyphen-separated.
 - Each segment matches `[a-z0-9]+`.
 - `game` is a registered code (see `packages/sku/src/games.ts`).
-- `lang` is ISO 639-1 (two lowercase letters).
+- `lang` accepts two lowercase letters. The parser does not verify ISO membership or a printing's language.
 - `variant` is optional; one or more lowercase tokens hyphen-joined.
 
 ---
@@ -65,7 +65,7 @@ Two pre-spec patterns existed in the codebase:
 - `OP-OP01-001-JP` (uppercase, legacy language codes) → `op-op01-001-ja`
 - `pkm-svobf-en-006` (lang and number swapped) → `pkm-svobf-006-en`
 
-`normalizeSku()` accepts both. Reading paths normalise on input; writing paths emit canonical form only.
+`normalizeSku()` accepts both. Adoption is explicit at each boundary; legacy storage and some readers still use older forms. Search and the card composer use `skuIdentity()` to keep `raw_sku` alongside a `canonical_sku` syntax candidate, with `scope: "syntax_only"`.
 
 ---
 
@@ -73,7 +73,17 @@ Two pre-spec patterns existed in the codebase:
 
 `rev` (reverse holo), `holo`, `1st` (1st edition), `ulim` (unlimited), `cf` (cold foil), `rf` (rainbow foil), `prom`, `alt-art`, `full-art`, `signed`, `misprint`.
 
-Variants compose: `pkm-svobf-006-en-rev-holo`. Order is lexicographic for canonical equality.
+Variants compose: `pkm-svobf-006-en-rev-holo`. Token order is preserved. Reordering opaque variant tokens could change identity and is not part of normalization.
+
+## Search and price boundaries
+
+`resolveGameToken()` accepts exact registry codes, slugs, names and documented legacy aliases, case-insensitively. Search rejects unknown games and contradictory full SKUs; a set code cannot override the requested game. Candidate results retain their stored SKU and expose the package's syntax identity separately.
+
+Search distinguishes unavailable sources from successful empty results. Both search endpoints return `lookup.limit` and `lookup.truncated`. The convenience endpoint composes only one exact printing candidate from a complete result after any language filter. Multiple variants or a missing requested language require an explicit choice.
+
+The card composer also checks game, set and number for sibling candidates. A bounded normalization lookup with multiple possible stored identifiers, or incomplete results, cannot choose an alias automatically. It returns a conflict response. `composition.siblings_truncated` labels a partial sibling list.
+
+SKU normalization alone never joins a price to a physical printing. Price observations still require their own exact source-product crosswalk, source rights, currency, units and observation time. The shared descriptor is exported as `SKU_IDENTITY_CONTRACT` from the SKU package.
 
 ---
 

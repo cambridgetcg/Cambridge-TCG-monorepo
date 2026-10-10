@@ -38,9 +38,9 @@ import {
 import {
   buildPracticeDeck,
   practiceStarters,
+  projectStarterCardDetails,
   type StarterCardDetails,
 } from "@/lib/play/practice-decks";
-import { resolveStarter } from "@/lib/play/starter-resolve";
 import { getAdventureLevel, ADVENTURE_LEVELS } from "@/lib/play/adventure-levels";
 
 const CORS = {
@@ -54,26 +54,17 @@ function err(code: string, message: string, status = 400) {
 }
 
 /** Server-side art + rules-text enrichment via the same legal collections
- *  the starters API serves. Failure degrades to text faces, never blocks. */
+ *  the starters API serves. Failures leave encoded text-face decks available;
+ *  latency remains resolver-dependent. */
 async function detailsFor(starterId: string): Promise<StarterCardDetails> {
-  const empty: StarterCardDetails = { images: {}, texts: {}, artists: {} };
   try {
+    // Database configuration is optional for the encoded practice game. Keep
+    // even resolver-module initialization inside the enrichment boundary.
+    const { resolveStarter } = await import("@/lib/play/starter-resolve");
     const resolved = await resolveStarter(starterId);
-    if (!resolved) return empty;
-    const details: StarterCardDetails = { images: {}, texts: {}, artists: {} };
-    for (const c of [resolved.leader, ...resolved.cards]) {
-      details.images[c.card_number] = c.image_url ?? null;
-      details.artists[c.card_number] = c.artist ?? null;
-      if (c.effect_text && c.text_attribution) {
-        details.texts[c.card_number] = {
-          text: c.effect_text,
-          attribution: c.text_attribution,
-        };
-      }
-    }
-    return details;
+    return projectStarterCardDetails(resolved);
   } catch {
-    return empty;
+    return projectStarterCardDetails(null);
   }
 }
 
@@ -141,10 +132,11 @@ export async function POST(req: NextRequest) {
           ? false
           : Math.random() < 0.5;
 
-    const [mine, theirs] = await Promise.all([
-      detailsFor(starterId),
-      detailsFor(level.aiStarterId),
-    ]);
+    const minePromise = detailsFor(starterId);
+    const theirsPromise = starterId === level.aiStarterId
+      ? minePromise
+      : detailsFor(level.aiStarterId);
+    const [mine, theirs] = await Promise.all([minePromise, theirsPromise]);
     const player = buildPracticeDeck(starterId, mine);
     const ai = buildPracticeDeck(level.aiStarterId, theirs);
     if (!player || !ai) return err("deck_build_failed", "Could not build decks.", 500);

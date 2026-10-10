@@ -300,6 +300,24 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
     ],
   },
 
+  // ── PRISM Signals product preview ───────────────────────────────────
+  {
+    pattern: "/prism-signals/terms",
+    renderedBy: "global",
+    steps: [
+      { label: "PRISM Signals", href: "/prism-signals" },
+      { label: "Preview terms" },
+    ],
+  },
+  {
+    pattern: "/prism-signals/beta",
+    renderedBy: "global",
+    steps: [
+      { label: "PRISM Signals", href: "/prism-signals" },
+      { label: "Closed-beta interest" },
+    ],
+  },
+
   // ── Methodology paths ────────────────────────────────────────────────
   {
     pattern: "/methodology/:slug",
@@ -370,6 +388,30 @@ export const BREADCRUMB_REGISTRY: BreadcrumbPattern[] = [
     steps: [
       { label: "Decks", href: "/decks" },
       { label: ":slug" },
+    ],
+  },
+  {
+    pattern: "/artists/:slug",
+    renderedBy: "page",
+    steps: [
+      { label: "Artists", href: "/artists" },
+      { label: ":slug" },
+    ],
+  },
+  {
+    pattern: "/pulls/:game",
+    renderedBy: "page",
+    steps: [
+      { label: "Pull rates", href: "/pulls" },
+      { label: ":game" },
+    ],
+  },
+  {
+    pattern: "/bounty/verify/:id",
+    renderedBy: "page",
+    steps: [
+      { label: "Verify", href: "/verify" },
+      { label: "Pull :id" },
     ],
   },
   {

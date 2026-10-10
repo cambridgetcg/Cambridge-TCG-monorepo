@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PracticeLaunch } from "@/components/game/PracticeLaunch";
+import { PageLayout } from "@/lib/ui/PageLayout";
+import { PageHeader } from "@/lib/ui/PageHeader";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -121,7 +123,7 @@ export default function PlayPage() {
     fetch("/api/game/pve")
       .then((r) => r.ok ? r.json() : Promise.reject(r))
       .then((d: PVEData) => { if (!cancelled) setPve(d); })
-      .catch(() => { if (!cancelled) setPveError("Couldn't load opponents."); });
+      .catch(() => { if (!cancelled) setPveError("Saved game progress is unavailable right now. Browser practice is still available above."); });
     return () => { cancelled = true; };
   }, []);
 
@@ -367,44 +369,39 @@ export default function PlayPage() {
     signedIn === true;
 
   return (
-    <main className="min-h-screen bg-page text-ink">
-      {/* ---- Hero (tight) ---- */}
-      <section className="border-b border-border-subtle">
-        <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
-          <h1 className="text-3xl sm:text-4xl font-display font-semibold tracking-tight">
-            Play <span className="text-accent">One Piece TCG</span>
-          </h1>
-          <p className="text-ink-muted text-sm sm:text-base mt-1">
-            Pick an opponent. Hit Play. You&apos;re in a practice battle — free, in
-            your browser, no account.
-          </p>
-        </div>
-      </section>
+    <PageLayout>
+      <PageHeader
+        size="large"
+        title="Play One Piece TCG"
+        description="Practice in your browser, learn the rules or prepare a deck. Browser practice needs no account and keeps its saves in this browser."
+      />
 
-      <div className="mx-auto max-w-5xl px-4 py-8 space-y-10">
+      <div className="space-y-6">
+        <section aria-label="Browser practice" className="bg-surface border border-border-subtle rounded-lg">
+          <PracticeLaunch />
+        </section>
 
         {/* ============================================================ */}
         {/*  PRIMARY — Start a battle (PVE)                              */}
         {/* ============================================================ */}
 
-        <section className="bg-surface border border-border-subtle rounded-lg overflow-hidden">
-          {/* Loading shimmer */}
+        <section aria-labelledby="saved-game-progress" className="bg-surface border border-border-subtle rounded-lg overflow-hidden">
+          <div className="px-5 pt-5 sm:px-6">
+            <h2 id="saved-game-progress" className="text-lg font-semibold text-ink">Server-recorded progress</h2>
+            <p className="mt-1 text-sm leading-6 text-ink-muted">Account progress and server battles have separate availability from browser practice.</p>
+          </div>
           {(signedIn === null || pve === null) && !pveError && (
-            <div className="p-8 flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            </div>
+            <p role="status" className="p-5 sm:p-6 text-sm text-ink-muted">Checking saved game progress…</p>
           )}
 
           {pveError && (
-            <div className="p-6 text-sm text-danger bg-danger/10 border-b border-danger">
+            <div role="status" className="p-5 sm:p-6 text-sm leading-6 text-ink-muted">
               {pveError}
             </div>
           )}
 
           {pve && !pve.mutations_enabled && (
-            /* Durable battles and rewards are paused — practice battles run
-               in the browser instead. See pve-availability.ts for the seal. */
-            <PracticeLaunch pausedReason={pve.reason} />
+            <p role="status" className="p-5 sm:p-6 text-sm leading-6 text-ink-muted">{pve.reason}</p>
           )}
 
           {signedIn !== null && pve !== null && pve.mutations_enabled && (
@@ -601,7 +598,7 @@ export default function PlayPage() {
           >
             <div>
               <h2 className="text-base font-bold">Play someone else</h2>
-              <p className="text-xs text-ink-faint mt-0.5">
+              <p className="text-sm text-ink-muted mt-1">
                 Create a private room and share the code, or join a friend&apos;s room.
                 {publicRooms.length > 0 && (
                   <span className="text-accent ml-1">
@@ -754,31 +751,31 @@ export default function PlayPage() {
             className="block bg-accent-wash hover:bg-accent/20 border border-accent/40 rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5 text-accent">Never played a TCG?</div>
-            <div className="text-xs text-ink-muted">Just press ▶ Play above — the board teaches you. Rules reference here if you want it.</div>
+            <div className="text-sm text-ink-muted">Learn the rules, then try a browser practice battle.</div>
           </Link>
           <Link
             href="/play/welcome"
             className="block bg-surface-subtle hover:bg-surface border border-border-subtle rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5">Pick your path</div>
-            <div className="text-xs text-ink-faint">Hobbyist / collector / competitor.</div>
+            <div className="text-sm text-ink-muted">Resources for casual play, collecting and competition.</div>
           </Link>
           <Link
             href="/guides/how-to-play"
             className="block bg-surface-subtle hover:bg-surface border border-border-subtle rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5">Quick rules</div>
-            <div className="text-xs text-ink-faint">15-minute reference for returning players.</div>
+            <div className="text-sm text-ink-muted">A reference for returning players.</div>
           </Link>
           <Link
             href="/play/deck-check"
             className="block bg-surface-subtle hover:bg-surface border border-border-subtle rounded-lg px-4 py-3 transition-colors"
           >
             <div className="font-semibold mb-0.5">Check a deck</div>
-            <div className="text-xs text-ink-faint">Validate a list before battle.</div>
+            <div className="text-sm text-ink-muted">Validate a list before battle.</div>
           </Link>
         </section>
       </div>
-    </main>
+    </PageLayout>
   );
 }

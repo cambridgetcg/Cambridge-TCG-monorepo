@@ -1,0 +1,98 @@
+# Cambridge TCG interface
+
+This is the current shared visual system. The
+[rebuild plan](../plans/storefront-rebuild/README.md) and
+[implementation progress](../plans/storefront-rebuild/implementation.md)
+track the wider page and service replacement.
+
+Current direction, 2026-09-29: a fresh collector's desk. Yu delegated the color
+choice and asked to replace the old look: warm ivory, aubergine ink, mandarin
+actions and lilac art surfaces. The current product direction is open-source
+TCG data infrastructure: pricing discovery and collector tools sit alongside
+standards and the integration roadmap. Art links into its context without
+delaying search.
+
+| Role | Light | Dark |
+|---|---|---|
+| Page | Ivory `#fbf7f1` | Plum `#1d1425` |
+| Ink | Aubergine `#2c1836` | Cream `#fff6e9` |
+| Link | Burnt orange `#9b3b12` | Apricot `#ffb078` |
+| Primary action | Mandarin `#ec7838` with aubergine text | Same |
+| Art and icon wash | Lilac `#ede3f6` | Deep lilac `#40304f` |
+
+All defaults now live in `themes.css`; the appearance registry's swatches match
+those tokens. Existing `gallery` and `midnight` cookie IDs remain compatible.
+
+## Design rules
+
+- Keep four primary entrances: Prices, Services, Standards and Roadmap.
+  Collection and Play remain in More; account destinations state their access
+  requirements and disable prefetch in both desktop and mobile menus.
+- Use readable sans-serif text, normal sentence case and visible form labels.
+  Reserve monospace for identifiers and code. Use a strong task headline,
+  generous space and restrained static shapes. Use actual credited artwork
+  with its full composition and a readable caption; put longer source records
+  in native disclosures. Keep search within the first phone screen.
+- Give each section a short heading, purpose and useful action. Explain access
+  requirements beside the relevant destination. Keep API documentation at the
+  agent entry and longer cultural reading on its own pages.
+- Use semantic color tokens, clear borders and consistent spacing. Preserve
+  keyboard focus, reduced motion, dark appearance, high contrast and text mode.
+- Keep source status, uncertainty, publication rules and consequences visible
+  where they affect a decision. A simplified layout does not broaden access
+  or reopen retired paid commerce.
+
+## Reusable pieces
+
+| Piece | Owns |
+|---|---|
+| `src/lib/ui/PageLayout.tsx` | Public page width, padding and one main landmark; account pages already have their own main |
+| `src/lib/ui/PageHeader.tsx` | Page title, purpose, source context and wrapping actions |
+| `src/lib/ui/Section.tsx` | Section heading, explanation and optional action |
+| `src/lib/ui/ActionCard.tsx` | A linked destination, its purpose and access context |
+| `Card`, `Field`, `Input`, `Select`, `Button`, `DataTable` | Shared surfaces, labelled controls and structured records |
+| `src/lib/nav/menu-config.ts` | Shared navigation destinations and translated labels |
+| `src/content/services/index.ts`, `ServiceCards` | Reviewed human task shortcuts and account requirements on the services page |
+| `src/content/platform/index.ts`, `DataFoundations` | Shared positioning, four foundation summaries and roadmap milestones; the human page and JSON use the same planning record |
+| `HomeArtwork`, `src/content/art/featured.ts` | Local museum image, shared attribution and links to art context |
+| `src/app/themes.css`, `globals.css` | Centralized theme tokens, typography and compatibility styles |
+
+Paths above are relative to [the storefront](../../apps/storefront/README.md).
+Compose these pieces directly. Do not create a parallel theme or navigation
+registry for an individual page. Prefer direct imports from the primitive file
+in client components so server-only helpers stay out of their dependency tree.
+
+The existing `gallery` cookie identifier remains compatible with the light
+theme. Theme identifiers and presentation labels are different concerns;
+changing a label must not invalidate a saved accessibility preference.
+
+Keep loading boundaries near the data they represent. The generic root
+`loading.tsx` was removed because its streamed replacement left otherwise
+server-rendered entry and appearance pages hidden when JavaScript was disabled.
+The account, prices, catalog and methodology routes retain their own loaders;
+this is not a claim that every application route works without JavaScript.
+
+## Artbitrage reference
+
+Reviewed the latest remote Artbitrage source at `1faae8357` (2026-09-28)
+and its newer local public-entry revision dated September 27. The latter was
+uncommitted working-tree material: `docs/PUBLIC-SITE.md`, `map.json`,
+`site.css`, `site.js` and `tools/build_public_site.py`. It was read as
+design evidence, without merging or publishing Artbitrage changes.
+
+The useful patterns are one directory for navigation labels, entrances named
+after tasks, context beside destinations, useful next steps, and native links
+and GET forms that work before JavaScript. Cambridge's current museum portrait
+is a credited art entrance beside its practical search. Stable per-work records
+keep a homepage art swap from silently changing an existing essay illustration.
+
+## Verify a UI change
+
+Check a narrow viewport and desktop, keyboard navigation, visible labels,
+empty/error states, and the relevant appearance modes. Tests should protect
+navigation, access and interaction behavior; avoid freezing decorative class
+lists. Render authenticated UI with local fixtures or mocks rather than
+relaxing authentication for a screenshot.
+
+Update the [module catalog](../modules/catalog.json) with dated progress and
+evidence, then regenerate it with `pnpm docs:modules`.

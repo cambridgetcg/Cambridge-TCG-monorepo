@@ -1,27 +1,40 @@
 /**
- * Input / Select / Textarea — form controls in the quiet gallery voice.
+ * Input / Select / Textarea — readable, theme-aware native controls.
  *
- * Standard styling: bg-surface, hairline border, accent focus ring
- * (docs/plans/the-quiet-gallery.md). These wrap raw HTML elements without
+ * Visible borders, 16px text, a 44px minimum target and an accent focus ring.
+ * These wrap raw HTML elements without
  * intercepting events — pages keep their own state management, controlled
  * or uncontrolled.
  */
 
 import * as React from "react";
 
-const baseCls =
-  "w-full px-3 py-2 bg-surface border border-border-subtle rounded-lg text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent/50 disabled:opacity-50";
+type ControlDensity = "default" | "comfortable";
 
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  function Input({ className = "", ...rest }, ref) {
-    return <input ref={ref} className={`${baseCls} ${className}`.trim()} {...rest} />;
+function controlCls(density: ControlDensity = "default") {
+  const spacing = density === "comfortable" ? "min-h-12 px-3 py-3" : "min-h-11 px-3 py-2";
+  return `w-full ${spacing} bg-surface border border-border-strong rounded-md text-base text-ink placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50`;
+}
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  /** Comfortable adds spacing; both densities keep 16px text and a 44px minimum. */
+  density?: ControlDensity;
+}
+
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  density?: ControlDensity;
+}
+
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  function Input({ className = "", density, ...rest }, ref) {
+    return <input ref={ref} className={`${controlCls(density)} ${className}`.trim()} {...rest} />;
   },
 );
 
-export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-  function Select({ className = "", children, ...rest }, ref) {
+export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  function Select({ className = "", density, children, ...rest }, ref) {
     return (
-      <select ref={ref} className={`${baseCls} ${className}`.trim()} {...rest}>
+      <select ref={ref} className={`${controlCls(density)} ${className}`.trim()} {...rest}>
         {children}
       </select>
     );
@@ -30,7 +43,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className = "", ...rest }, ref) {
-    return <textarea ref={ref} className={`${baseCls} resize-y ${className}`.trim()} {...rest} />;
+    return <textarea ref={ref} className={`${controlCls()} resize-y ${className}`.trim()} {...rest} />;
   },
 );
 
@@ -49,14 +62,14 @@ interface FieldProps {
 export function Field({ label, htmlFor, hint, error, children }: FieldProps) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-xs font-medium text-ink-muted uppercase tracking-wide">
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
         {label}
       </label>
       {children}
       {error ? (
-        <p className="text-xs text-danger">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-ink-faint">{hint}</p>
+        <p className="text-sm text-ink-muted">{hint}</p>
       ) : null}
     </div>
   );

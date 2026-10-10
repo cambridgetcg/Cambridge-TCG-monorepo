@@ -1,5 +1,12 @@
 # Analytics Implementation Plan - RewardsPro
 
+> Historical research, not an active execution plan. As of 2026-09-23, all
+> KPI, activation, engagement, conversion, revenue and growth targets in this
+> document are retired. Its technical explanations may be studied voluntarily;
+> they create no measurement or commercialisation requirement. The current
+> direction is [understanding without commercial targets](../../README.md#understanding-without-commercial-targets).
+
+
 **Status**: Draft
 **Created**: January 2025
 **Priority**: High
@@ -29,7 +36,7 @@ This plan incorporates the 2025 Loyalty Program Analytics research findings to e
 8. [Visualization Specifications](#8-visualization-specifications)
 9. [Benchmarking & Context](#9-benchmarking--context)
 10. [Implementation Phases](#10-implementation-phases)
-11. [Success Metrics](#11-success-metrics)
+11. [Technical evidence and data quality](#11-technical-evidence-and-data-quality)
 
 ---
 
@@ -1421,7 +1428,7 @@ function BenchmarkIndicator({
 
 ---
 
-## 11. Success Metrics
+## 11. Technical evidence and data quality
 
 ### 11.1 Technical Success Metrics
 
@@ -1433,24 +1440,11 @@ function BenchmarkIndicator({
 | **Error rate** | < 0.1% | TBD |
 | **Mobile usability score** | > 90 | TBD |
 
-### 11.2 User Success Metrics
+### 11.2 No usage or commercial targets
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| **Merchant usage** | 70% of merchants visit analytics monthly | Analytics pageview tracking |
-| **Time on page** | > 2 minutes average | Session analytics |
-| **Export usage** | 30% of merchants export data | CSV download tracking |
-| **Insight engagement** | 40% of merchants click on insights | Click tracking |
-| **Repeat visits** | 50% of merchants visit 3+ times/month | User behavior tracking |
-
-### 11.3 Business Success Metrics
-
-| Metric | Impact | Measurement |
-|--------|--------|-------------|
-| **Merchant retention** | +10% retention due to better insights | Churn analysis |
-| **Plan upgrades** | +15% upgrade to higher plans | Subscription tracking |
-| **Feature satisfaction** | > 4.5/5 rating for analytics | In-app survey |
-| **Support tickets** | -20% analytics-related tickets | Support ticket analysis |
+Visits, time spent, exports, clicks, retention and paid-plan upgrades are not
+success requirements. Existing analytical formulas are available for voluntary
+understanding of records; there is no engagement or conversion objective.
 
 ### 11.4 Data Quality Metrics
 

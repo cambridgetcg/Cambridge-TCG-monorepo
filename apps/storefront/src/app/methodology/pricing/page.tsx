@@ -118,9 +118,9 @@ price    = round(preRound / roundTo) × roundTo`}
         </code>
       </pre>
       <p>
-        The final <code>round</code> uses banker's-style nearest-rounding (JavaScript's{" "}
-        <code>Math.round</code>); a preRound value of £5.14 with a <code>roundTo</code> of{" "}
-        £0.10 yields £5.10, not £5.20.
+        The final <code>round</code> selects the nearest step (JavaScript's{" "}
+        <code>Math.round</code>, with positive ties rounded upward); a preRound value of £5.14 with a <code>roundTo</code> of{" "}
+        £0.10 yields £5.10.
       </p>
 
       <h2>The channels (internal or historical; none publicly priced)</h2>
@@ -149,9 +149,9 @@ price    = round(preRound / roundTo) × roundTo`}
       <p>
         The <strong>trade-in channels</strong> (historical) inverted the margin: the shop
         paid 55% of the wholesale base for cash, 77% for store credit, with no flat fee, no
-        VAT, and no retail uplift. The we-buy desk closed 2026-07-06 — zero trade-ins were
-        ever submitted — so these rows price nothing now; they are kept so old numbers stay
-        reproducible.
+        VAT, and no retail uplift. The dated close-out decision records zero trade-in
+        submissions on 2026-07-06; this page does not live-query production history. The
+        rows price nothing now and remain only so old numbers stay reproducible.
       </p>
       <p>
         The <strong>retail channels</strong> (historical: Shopify, eBay, Cardmarket; and the

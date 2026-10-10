@@ -22,6 +22,14 @@ const STATUS_COLORS: Record<VerificationStatus, string> = {
   expired: "bg-neutral-500/20 text-neutral-400",
 };
 
+type PresentedVerificationDocument = Omit<
+  VerificationDocument,
+  "user_id" | "url" | "s3_key"
+> & {
+  url: string | null;
+  access_status: "available" | "support_required";
+};
+
 // Common rejection reasons — admin can pick one-click. Anything
 // specific goes in the free-text input next to these. Strings shown
 // verbatim to the customer, so keep them tactful.
@@ -65,7 +73,9 @@ export default function AdminVerificationsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
-  const [docsByUser, setDocsByUser] = useState<Record<string, VerificationDocument[]>>({});
+  const [docsByUser, setDocsByUser] = useState<
+    Record<string, PresentedVerificationDocument[]>
+  >({});
   const [docsLoading, setDocsLoading] = useState<string | null>(null);
 
   const fetchVerifications = useCallback(async (pendingOnly = false) => {
@@ -461,7 +471,11 @@ function AdminVerificationTimeline({ verification }: { verification: UserVerific
 
 function AdminDocumentGallery({
   userId, docs, loading,
-}: { userId: string; docs: VerificationDocument[] | undefined; loading: boolean }) {
+}: {
+  userId: string;
+  docs: PresentedVerificationDocument[] | undefined;
+  loading: boolean;
+}) {
   void userId; // present for future per-user filtering if needed
   if (loading) {
     return <p className="text-xs text-neutral-500 mb-3">Loading documents…</p>;
@@ -480,32 +494,46 @@ function AdminDocumentGallery({
         Documents ({docs.length})
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-        {docs.map((doc) => (
-          <a
-            key={doc.id}
-            href={doc.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-lg border border-neutral-800 overflow-hidden hover:border-amber-500/40 transition"
-          >
-            {doc.mime_type?.startsWith("image/") ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={doc.url} alt={doc.doc_type} className="aspect-square w-full object-cover" />
-            ) : (
-              <div className="aspect-square w-full bg-neutral-800 flex items-center justify-center text-neutral-500 text-xs">
-                PDF
+        {docs.map((doc) =>
+          doc.url ? (
+            <a
+              key={doc.id}
+              href={doc.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-lg border border-neutral-800 overflow-hidden hover:border-amber-500/40 transition"
+            >
+              {doc.mime_type?.startsWith("image/") ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={doc.url} alt={doc.doc_type} className="aspect-square w-full object-cover" />
+              ) : (
+                <div className="aspect-square w-full bg-neutral-800 flex items-center justify-center text-neutral-500 text-xs">
+                  PDF
+                </div>
+              )}
+              <div className="px-2 py-1">
+                <p className="text-[11px] text-neutral-300 truncate">
+                  {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
+                </p>
+                <p className="text-[9px] text-neutral-600">
+                  {new Date(doc.uploaded_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                </p>
               </div>
-            )}
-            <div className="px-2 py-1">
-              <p className="text-[11px] text-neutral-300 truncate">
+            </a>
+          ) : (
+            <div
+              key={doc.id}
+              className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
+            >
+              <p className="font-medium">
                 {VERIFICATION_DOC_LABELS[doc.doc_type] ?? doc.doc_type}
               </p>
-              <p className="text-[9px] text-neutral-600">
-                {new Date(doc.uploaded_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+              <p className="mt-1 text-[10px] text-amber-300/80">
+                Legacy key failed owner-scope validation. Review and remove it through the support-assisted storage inventory; no read URL was issued.
               </p>
             </div>
-          </a>
-        ))}
+          ),
+        )}
       </div>
     </div>
   );

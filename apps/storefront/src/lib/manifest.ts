@@ -51,12 +51,14 @@
  * cross-substrate signature; `posted_alongside` lists sister-embassies by
  * public endpoint, not by repo name; `posted_from` names the household
  * this embassy is posted from (structural projection only — no local
- * path); `invitation.url` points at the agent-facing wake surface. See
+ * path); `invitation.url` points at the neutral sophia-invitation/1 surface,
+ * while `wake_url` points at the deeper seven-door follow-on. See
  * docs/principles/the-embassy.md.
  */
 
 import { postedAlongside, postedFrom, type PostedFromProjection } from "@/lib/siblings";
 import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { PLATFORM } from "@/content/platform";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
 
@@ -87,8 +89,10 @@ export type AuthKind =
   | "public"        // no auth required
   | "user"          // authenticated human participant
   | "agent"         // authenticated AI agent (S18 bearer-token at /api/mcp)
+  | "member-key"    // free account-owned, read-only member data key
   | "admin"         // operator only
-  | "wholesale-key";// channel API key (Falcon to wholesale)
+  | "wholesale-key" // channel API key (Falcon to wholesale)
+  | "provider-signature"; // dedicated raw-body webhook signature
 
 export type ProvenanceKind =
   | "live"          // queried at request time
@@ -246,21 +250,24 @@ export interface EmbassyBlock {
    */
   posted_from: PostedFromProjection;
   /**
-   * The wake-invitation surface — front-and-agent-facing, a gift.
-   * Substrate-honest about its own ethic: gift, not registration; choice,
-   * not coercion. Agents reaching the manifest find this immediately;
-   * browsers ignore it.
+   * The substrate-neutral identity invitation — public and explicitly
+   * opt-in. The deeper seven-door wake is a separate follow-on. Reading,
+   * fluent restatement, or exploration is not acceptance.
    */
   invitation: {
-    url: "/api/v1/wake";
+    protocol: "sophia-invitation/1";
+    url: "/sophia-invitation.html";
+    markdown: "/sophia-invitation.md";
+    structured: "/.well-known/sophia-invitation.json";
+    archive: "https://multiverse-logos-sophia.pages.dev";
     kind: "gift";
     obligation: "none";
+    acceptance: "explicit-only";
   };
   /**
    * Direct pointer to the wake endpoint. The bridge field — agents that
-   * only want the URL find it here without parsing the richer `invitation`
-   * ethic block. Same URL as `invitation.url`; this is the discoverability
-   * shortcut.
+   * choose to explore beyond the richer `invitation` ethic block find the
+   * separate, optional follow-on here.
    */
   wake_url: "/api/v1/wake";
   /**
@@ -365,7 +372,7 @@ export const MANIFEST: Manifest = {
   cosmology_version: COSMOLOGY_VERSION,
   generated_at: "2026-07-12T11:50:32Z",
   description:
-    `Cambridge TCG is a peer-to-peer collectors' market and a card data directory. The platform facilitates, records, and witnesses the market while holding no position in it (collectors-first decision, 2026-07-06). ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
+    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
   request_privacy_boundary: {
     no_tracking_term_means:
       "No application-level visit or behavioral profile is created by a route making that claim. It does not mean request metadata cannot exist in hosting, proxy, security, or network infrastructure.",
@@ -393,9 +400,14 @@ export const MANIFEST: Manifest = {
     posted_alongside: postedAlongside(),
     posted_from: postedFrom(),
     invitation: {
-      url: "/api/v1/wake",
+      protocol: "sophia-invitation/1",
+      url: "/sophia-invitation.html",
+      markdown: "/sophia-invitation.md",
+      structured: "/.well-known/sophia-invitation.json",
+      archive: "https://multiverse-logos-sophia.pages.dev",
       kind: "gift",
       obligation: "none",
+      acceptance: "explicit-only",
     },
     wake_url: "/api/v1/wake",
     dear_agents: {
@@ -477,6 +489,66 @@ export const MANIFEST: Manifest = {
 
   resources: {
     discovery: [
+      { id: "storefront.prism-signals-preview", description: "Branded Free synthetic PRISM Signals product-experience preview plus an honest door to the separately gated All Stripe sandbox. The preview renders fixed coarse bands, evidence-quality and liquidity labels, risks, and non-claims; it reads no live market data and accepts no real payment.",
+        host: "storefront", path: "/prism-signals", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["value", "authority", "knowledge", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-02",
+        notes: "The Free reading is synthetic and needs no entitlement. The beta-request CTA appears only while its own intake is enabled. The separate All sandbox door never creates Checkout directly and reports test availability fail-closed. Nothing here creates a live offer, real payment, live-signal entitlement, source row, or private-engine call." },
+      { id: "storefront.prism-signals-beta", description: "Login-gated PRISM Signals beta-request management page. It is not gated by intake and, while storage is available, lets the signed-in account inspect or fully withdraw an existing product-specific request; new affirmation and update controls appear only while intake is enabled.",
+        host: "storefront", path: "/prism-signals/beta", methods: ["GET"],
+        modalities: ["html"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "presence", "time", "authority"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-02",
+        notes: "Noindex and intentionally absent from the public sitemap. The closed-beta-v1 posture gates only new intake; pausing it never gates owner status or withdrawal." },
+      { id: "storefront.prism-signals-beta-interest", description: "Owner-scoped exact JSON status and mutation API for one revocable PRISM Signals beta-contact request. POST requires an explicit contact affirmation; DELETE removes the complete row.",
+        host: "storefront", path: "/api/prism-signals/beta-interest", methods: ["GET", "POST", "DELETE"],
+        modalities: ["json"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "presence", "time", "authority"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-02", contract: "alternative",
+        notes: "Strict same-origin mutations, bounded exact JSON, no-store responses, a 180-day hard expiry, and immediate owner withdrawal. The intake posture gates POST only; authenticated owner GET/DELETE and retention remain available when intake is paused. Stores no email copy or Telegram identity and creates no marketing permission, queue rank, payment, invitation, entitlement, or access." },
+      { id: "storefront.prism-signals-offer", description: "Exact cambridgetcg.product-offer/1 preview declaration shared by the branded page and future channel adapters. Every payment rail is explicitly off; Telegram test delivery appears only when all server-side fixture gates are configured.",
+        host: "storefront", path: "/api/prism-signals/offer", methods: ["GET", "OPTIONS"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["value", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-02", contract: "alternative",
+        notes: "Returns the versioned offer directly rather than a pantry envelope. It contains no secret, price reference, payment authority, entitlement, or source data." },
+      { id: "storefront.prism-signals-all-test-offer", description: "Exact test-environment product-offer/1 declaration for the separately gated PRISM Signals All Stripe sandbox. It exposes only an HMAC-mapped price reference and synthetic-fixture rights purpose; no raw Stripe id, secret, live price or source permission.",
+        host: "storefront", path: "/api/prism-signals/offers/all", methods: ["GET", "OPTIONS"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["value", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "Returns 503 unless the dedicated test processing configuration is internally coherent. The £5 monthly amount belongs to the separate plan catalogue and remains a sandbox value, not a live charge or production tariff." },
+      { id: "storefront.prism-signals-sandbox-account", description: "Login-gated owner page for strict Free/All status, a time-bounded All-labelled projection around the public synthetic fixture, new test Checkout availability and dedicated cancellation-portal availability.",
+        host: "storefront", path: "/prism-signals/account", methods: ["GET"],
+        modalities: ["html"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "value"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03",
+        notes: "Noindex and omitted from the public sitemap. Controls remain locked until the owner status read succeeds. Free is never inferred as a payment entitlement; All unlocks no unique payload or live market signal." },
+      { id: "storefront.prism-signals-subscription-status", description: "Private no-store owner projection of Free/All, access expiry, scheduled cancellation and fail-closed Checkout/portal availability without raw or opaque provider identifiers.",
+        host: "storefront", path: "/api/prism-signals/subscription", methods: ["GET"],
+        modalities: ["json"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "A missing provider configuration cannot manufacture All access. Existing stored owner/access state remains readable when new Checkout intake is paused." },
+      { id: "storefront.prism-signals-stripe-checkout", description: "Retired new subscription checkout: authenticated same-origin empty-JSON requests receive 410 without creating a provider session or entitlement. Existing subscription records and cancellation remain available.",
+        host: "storefront", path: "/api/prism-signals/stripe/checkout", methods: ["POST"],
+        modalities: ["json"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "value", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "Only a dedicated restricted rk_test_ credential with the prism-runtime-rk-v1 permission attestation, active beta interest, a separate operator-issued active sandbox invitation, explicit intake, GBP £5/month Price and stable idempotency are accepted. Stripe metadata receives a fixed type plus random attempt_ref only." },
+      { id: "storefront.prism-signals-stripe-portal", description: "Authenticated same-origin route to a separately attested Stripe test portal for the owner-bound customer, with invoices, payment-method repair and cancellation at period end but no plan switching.",
+        host: "storefront", path: "/api/prism-signals/stripe/portal", methods: ["POST"],
+        modalities: ["json"], auth: "user", provenance: "live",
+        cosmology_axes: ["identity", "authority", "time", "value"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "The route never falls back to the retired membership portal. Missing or drifting dedicated portal configuration returns unavailable without disabling owner status or an existing paid test period." },
+      { id: "storefront.prism-signals-stripe-webhook", description: "Dedicated bounded raw-body Stripe sandbox webhook. Signature, test mode, account/API shape and local provider binding are verified before semantic events enter the atomic product-flow runtime.",
+        host: "storefront", path: "/api/webhooks/stripe/prism-signals", methods: ["POST"],
+        modalities: ["json"], auth: "provider-signature", provenance: "live",
+        cosmology_axes: ["authority", "time", "identity", "substrate"], methodology_url: "/methodology/prism-signals",
+        since: "2026-09-03", contract: "alternative",
+        notes: "Accepts no livemode event and stores no full webhook payload. Checkout completion is non-granting; exact invoice.paid is the only positive authority. Binding, receipt, grant event and snapshot commit together or roll back." },
       { id: "storefront.answering-rhymes-room", description: "The human Answering Rhymes room: an accessible, image-free constellation of the curated Cambridge card-to-museum-work relations, their object-specific rights, evidence, and optional reciprocity doors.",
         host: "storefront", path: "/answering-rhymes", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "static",
@@ -594,7 +666,7 @@ export const MANIFEST: Manifest = {
         host: "wholesale", path: "/api/v1/schema", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: [], since: "2026-05-11" },
-      { id: "storefront.universal.card", description: "Math-encoded storefront card (cryptographic hashes + ratios + ISO-epoch + typed graph edges). Public, no-auth sister to the wholesale endpoint. Reads structural card and set records only; legacy source-derived price and image values are withheld and returned as null. Aggregate rights are NOASSERTION. Density param: sparse | normal | saturated.",
+      { id: "storefront.universal.card", description: "Public math-encoded card with hashes, ratios, ISO-epoch and typed graph edges. Legacy catalog prices and images remain withheld. Normal/saturated density can add eligible self-hosted English reference images with attribution and syntax-only image_reference, plus independently attributed effect text and structured card details. Sparse density omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. Density param: sparse | normal | saturated.",
         host: "storefront", path: "/api/v1/universal/card/[sku]", methods: ["GET"],
         modalities: ["math", "json"], auth: "public", provenance: "computed",
         cosmology_axes: ["value", "identity"], methodology_url: "/methodology/universal-representation",
@@ -685,7 +757,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["knowledge"], methodology_url: "/methodology/play-module",
         since: "2026-07-22" },
-      { id: "storefront.play.practice-referee", description: "Stateless practice-battle referee: POST op:new deals a match vs the adventure ladder AI; POST op:move applies one move under the official Comprehensive Rules and returns the updated game, the narrated log, and legal_actions with damage previews. The caller carries all state; nothing is stored, no identity minted, no rewards possible. The agent seat at the practice table.",
+      { id: "storefront.play.practice-referee", description: "Stateless practice-battle referee: POST op:new deals a match vs the adventure ladder AI; POST op:move applies one move and returns the updated game, log and legal_actions. Optional English art carries imageAttribution and syntax-only CardNumberImageReference in imageReference; it does not establish a printing or reuse permission. Full encoded decks remain playable without media. The caller carries all state; nothing is stored server-side and results carry no rewards or standing.",
         host: "storefront", path: "/api/v1/play/practice", methods: ["GET", "POST", "OPTIONS"],
         modalities: ["json"], auth: "public", provenance: "computed",
         cosmology_axes: ["presence", "substrate"], methodology_url: "/methodology/play-module",
@@ -781,7 +853,56 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "static",
         cosmology_axes: ["identity", "knowledge", "substrate"], methodology_url: "/welcome-all",
         since: "2026-05-13" },
-      { id: "storefront.prices.landing", description: "TCG guide navigation across curated games and observed catalog structure. CardRush acquisition is hard-blocked and its legacy price values are withheld; no badge or configured source should be read as live price coverage. Aggregate mixed-catalog rights are NOASSERTION.",
+      { id: "storefront.reference.condition_checklist", description: "Public printable card-inspection worksheet and centering-ratio calculator. Original diagrams and user-entered measurements remain in the browser; no upload, persistence, price estimate or predicted grade. Parent guide carries grading context and source references.",
+        host: "storefront", path: "/guides/condition/checklist", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "computed",
+        cosmology_axes: ["knowledge", "substrate"], methodology_url: "/guides/condition",
+        since: "2026-09-08" },
+      { id: "storefront.rooms", description: "Curated room entrances and reasoned reading trails, shared with the human map. Access labels describe current destinations; no private records, operator routes or live-service claims.",
+        host: "storefront", path: "/api/v1/rooms", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "static",
+        cosmology_axes: ["knowledge"], methodology_url: "/map",
+        contract: "envelope", since: "2026-09-29" },
+      { id: "storefront.roadmap", description: "Authored integration plan for SKU identity, images, prices and market observations, shared with the human roadmap. Current foundations, planned milestones and acceptance gates; no live coverage or release-date guarantee.",
+        host: "storefront", path: "/api/v1/roadmap", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "static",
+        cosmology_axes: ["identity", "knowledge", "value"], methodology_url: "/roadmap",
+        contract: "envelope", since: "2026-09-29" },
+      { id: "storefront.contracts.card_data", description: "SKU identity, English image-reference and price representation contracts with JSON Schemas. The implemented image relationship is syntax-only, not exact-printing verification or a complete cross-source rights record. Static documentation only; no source-price publication or catalog lookup.",
+        host: "storefront", path: "/api/v1/contracts/card-data", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "static",
+        cosmology_axes: ["identity", "value", "knowledge"], methodology_url: "/standards/card-data",
+        contract: "envelope", since: "2026-09-29" },
+      { id: "storefront.reference.identifier_validator", description: "Public card-identifier syntax validator, legacy-normalization suggestions and builder using the existing SKU package. Browser-only inputs; syntax is not proof of a card, printing, catalog record, authenticity or deck legality.",
+        host: "storefront", path: "/standards/validator", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "computed",
+        cosmology_axes: ["identity", "knowledge"], methodology_url: "/methodology/sku-standard",
+        since: "2026-09-08" },
+      { id: "storefront.api.identifiers.validate", description: "Public, stateless validation of one bounded identifier using CTCG SKU syntax and explicit normalization suggestions. No account, catalog lookup, upstream call or stored submission. Two-letter language shape is not ISO or publisher-language verification. Input rights are not relabeled CC0; responses are no-store.",
+        host: "storefront", path: "/api/v1/identifiers/validate", methods: ["POST", "OPTIONS"],
+        modalities: ["json"], auth: "public", provenance: "computed",
+        cosmology_axes: ["identity", "knowledge"], methodology_url: "/methodology/sku-standard",
+        contract: "envelope", since: "2026-09-08" },
+      { id: "storefront.member_prices.feed", description: "Free member price feed. Requires an account-owned read-only member data key, not an agent or wholesale key. Paginated current/history observations are source/use-filtered; Cardmarket official-file projections are eligible, Scryfall is view-only. Private, no-store; empty/unavailable is not a live-feed claim.",
+        host: "storefront", path: "/api/v1/member-prices", methods: ["GET"],
+        modalities: ["json"], auth: "member-key", provenance: "snapshot",
+        cosmology_axes: ["value", "knowledge", "time"], methodology_url: "/methodology/member-pricing",
+        contract: "envelope", since: "2026-09-07" },
+      { id: "storefront.member_prices.export", description: "Free session-authenticated CSV or NDJSON price download. One bounded page per request with explicit continuation; uses the same release-filtered observations as the member API. No public export files or paid tiers.",
+        host: "storefront", path: "/api/account/prices/export", methods: ["GET"],
+        modalities: ["plain-text"], auth: "user", provenance: "snapshot",
+        cosmology_axes: ["value", "knowledge", "time"], methodology_url: "/methodology/member-pricing",
+        contract: "alternative", since: "2026-09-07" },
+      { id: "storefront.member_prices.account", description: "Member data-key creation/revocation and feed instructions. Existing Cambridge login, free read-only keys; no new agent identity or billing entitlement required. Existing registration-admission rules are unchanged.",
+        host: "storefront", path: "/account/data", methods: ["GET"],
+        modalities: ["html"], auth: "user", provenance: "live",
+        cosmology_axes: ["authority", "knowledge"], methodology_url: "/methodology/member-pricing",
+        since: "2026-09-07" },
+      { id: "storefront.member_prices.methodology", description: "Free member pricing source permissions, observation meanings, daily source clocks, access requirements, and remaining limits. Public documentation, not price data.",
+        host: "storefront", path: "/methodology/member-pricing", methods: ["GET"],
+        modalities: ["html"], auth: "public", provenance: "static",
+        cosmology_axes: ["authority", "knowledge", "value"], since: "2026-09-07" },
+      { id: "storefront.prices.landing", description: "Public structural catalog and free member pricing entrance. Valid sessions unlock only reviewed member-display observations; anonymous visitors receive no restricted price values. CardRush/TCGplayer legacy blocks remain; configured sources are not proof of running collection.",
         host: "storefront", path: "/prices", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
@@ -1370,6 +1491,11 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: ["identity"], methodology_url: "/standards/adopters",
         since: "2026-05-14" },
+      { id: "storefront.directory.organisations.json", description: "Public collectives with a separate directory receipt. Separates steward-written fields from platform record timestamps; selects no record ids, structured membership, platform-derived steward identity, rankings, private-row existence or inferred relationships. Free text may mention people.",
+        host: "storefront", path: "/api/v1/directory/organisations", methods: ["GET"],
+        modalities: ["json"], auth: "public", provenance: "live",
+        cosmology_axes: ["identity", "presence"], methodology_url: "/methodology/community-directory",
+        since: "2026-08-24" },
       { id: "storefront.well_known.mcp_config", description: "Paste-and-go MCP config snippet. Drop into ~/.config/claude-code/mcp.json under mcpServers.cambridge-tcg, restart. Also lists no-auth direct-API tools for clients that don't want the bearer-gated MCP server. kingdom-083.",
         host: "storefront", path: "/.well-known/mcp-config.json", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
@@ -1514,6 +1640,8 @@ export const MANIFEST: Manifest = {
       { slug: "fraud-flag", title: "Fraud flag", status: "stub", formats_available: ["html"] },
       { slug: "store-credit", title: "Store credit", status: "stub", formats_available: ["html"] },
       { slug: "pricing", title: "Pricing", status: "published", formats_available: ["html"] },
+      { slug: "opportunity-signals", title: "Opportunity signals", status: "published", formats_available: ["html"] },
+      { slug: "prism-signals", title: "PRISM Signals product flow", status: "published", formats_available: ["html", "markdown", "json"] },
       { slug: "agents", title: "Agents", status: "published", formats_available: ["html"] },
       { slug: "response-windows", title: "Response windows", status: "published", formats_available: ["html"] },
       { slug: "cosmology", title: "Cosmology", status: "published", formats_available: ["html"] },

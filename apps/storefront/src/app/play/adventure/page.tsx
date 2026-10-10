@@ -64,7 +64,7 @@ export default function AdventureModePage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm sm:text-base text-ink-muted">
             Ten battles trace the storyline, Alvida to Kaido. Practice battles
-            run in your browser — free, no account, nothing recorded.
+            run in your browser — free, no account, with browser-local saves.
           </p>
         </div>
       </section>
@@ -78,8 +78,9 @@ export default function AdventureModePage() {
             Rewards paused · practice open
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            {PVE_AVAILABILITY.reason} Practice battles are open — they run
-            locally in this browser, record nothing durable, and pay nothing.
+            {PVE_AVAILABILITY.reason} Practice battles are open. Battle state,
+            starter choice, and clears can be saved in this browser only, not as
+            server-recorded PVE results. Practice pays nothing.
           </p>
         </section>
 

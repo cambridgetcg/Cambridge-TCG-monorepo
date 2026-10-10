@@ -25,6 +25,7 @@
 import type { NextResponse } from "next/server";
 import { jsonResponse, type FreshnessKey } from "@/lib/data-pantry";
 import { sourcesByStatus, listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { MEMBER_PRICE_POLICIES, type MemberPriceSource, type MemberPriceUse } from "@cambridge-tcg/data-ingest/member-prices";
 import { fetchSourceLastRuns, type SourceRunRow } from "@/lib/wholesale/client";
 
 /**
@@ -66,8 +67,15 @@ interface SourceEntry {
   tos_notes: string;
   user_agent_suffix?: string;
   rate_limit?: { rps: number; burst: number };
-  /** Live ingest_run join (kingdom-079). Substrate-honest about absence. */
+  /** Legacy wholesale ingest_run only; not the separate member-price batches. */
   last_run?: LastRunBlock | { _unavailable: true; reason: "never_run" };
+  member_pricing?: {
+    reviewed_uses: readonly MemberPriceUse[];
+    cadence: "daily";
+    evidence_url: string;
+    methodology: string;
+    availability_note: string;
+  };
 }
 
 interface SourcesBody {
@@ -135,6 +143,9 @@ export async function GET(): Promise<NextResponse> {
   const now = new Date();
 
   const sources: SourceEntry[] = allMeta.map((meta) => {
+    const memberPolicy = Object.hasOwn(MEMBER_PRICE_POLICIES, meta.id)
+      ? MEMBER_PRICE_POLICIES[meta.id as MemberPriceSource]
+      : null;
     const runRow = lastRunByEntry.get(meta.id);
     const last_run: SourceEntry["last_run"] = ingest_runs_available
       ? runRow
@@ -159,6 +170,13 @@ export async function GET(): Promise<NextResponse> {
       ...(meta.user_agent_suffix ? { user_agent_suffix: meta.user_agent_suffix } : {}),
       ...(meta.rate_limit ? { rate_limit: meta.rate_limit } : {}),
       ...(last_run !== undefined ? { last_run } : {}),
+      ...(memberPolicy ? { member_pricing: {
+        reviewed_uses: memberPolicy.uses,
+        cadence: memberPolicy.cadence,
+        evidence_url: memberPolicy.evidenceUrl,
+        methodology: "/methodology/member-pricing",
+        availability_note: "Reviewed uses are not activation or collection evidence. Runtime release permission is checked on each member read. This entry's last_run is legacy wholesale only; member observations carry their own source/retrieval clocks. The generic freshness key does not describe their daily cadence.",
+      } } : {}),
     };
   });
 

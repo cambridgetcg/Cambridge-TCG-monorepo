@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   query: vi.fn(),
@@ -10,6 +10,7 @@ import {
   MAX_ACTIVE_MAGIC_LINKS_GLOBAL,
   MAX_ACTIVE_MAGIC_LINKS_PER_EMAIL,
   PgAdapter,
+  accountExistsForSignIn,
   magicLinkRequestCapacity,
   reserveMagicLinkForDelivery,
 } from "./adapter";
@@ -18,6 +19,37 @@ beforeEach(() => {
   db.query.mockReset();
   db.transaction.mockReset();
   db.transaction.mockImplementation(async (fn) => fn(db.query));
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("account admission boundary", () => {
+  it("checks existing-account sign-in without mutating the user row", async () => {
+    db.query.mockResolvedValue({ rows: [{ account_exists: true }] });
+
+    await expect(accountExistsForSignIn("collector@example.com")).resolves.toBe(true);
+
+    expect(String(db.query.mock.calls[0]?.[0])).toContain("SELECT EXISTS");
+    expect(db.query.mock.calls[0]?.[1]).toEqual(["collector@example.com"]);
+  });
+
+  it("rejects createUser before any write when production admission is paused", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ACCOUNT_ADMISSION_MODE", "");
+    const createUser = PgAdapter().createUser!;
+
+    await expect(createUser({
+      id: "ignored-by-adapter",
+      email: "new@example.com",
+      emailVerified: null,
+    })).rejects.toMatchObject({
+      code: "ACCOUNT_ADMISSION_PAUSED",
+      status: 503,
+    });
+    expect(db.query).not.toHaveBeenCalled();
+  });
 });
 
 describe("magic-link bounds", () => {

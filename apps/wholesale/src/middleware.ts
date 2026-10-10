@@ -1,3 +1,4 @@
+import { NEW_ORDERS_RETIRED_STATUS, newOrdersRetiredResult } from "@/lib/commercial-retirement";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import {
@@ -160,6 +161,14 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") ?? "";
 
+  // A retired operation never redirects into another purchase or login flow.
+  if (pathname === "/api/orders" && req.method === "POST") {
+    return NextResponse.json(newOrdersRetiredResult(), {
+      status: NEW_ORDERS_RETIRED_STATUS,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   // --- Phase 4: browser-surface retirement -------------------------------
   // On the storefront host (wholesaletcgdirect.com), 301-redirect every
   // legacy browser path to its new home at cambridgetcg.com /
@@ -204,7 +213,10 @@ export default auth((req) => {
   if (isPublicPath(pathname)) return NextResponse.next();
 
   // --- Auth check ---
-  const isLoggedIn = !!req.auth;
+  // Auth.js error objects must never satisfy an existence-only gate. Require
+  // the concrete user id minted by our JWT/session callback.
+  const isLoggedIn =
+    typeof req.auth?.user?.id === "string" && req.auth.user.id.length > 0;
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.url);
     return NextResponse.redirect(loginUrl);

@@ -37,9 +37,16 @@
 export { SPEC_VERSION, DEFAULT_LICENSE, FRESHNESS, type FreshnessKey } from "./freshness";
 export { ERROR_CODES, ERROR_STATUS, type ErrorCode } from "./error-codes";
 export {
+  PRICE_OBSERVATION_CONTRACT, parseNativePriceAmount, assertPriceObservationValues,
+  type NativePriceObservation, type MemberPriceObservation, type MemberPriceUse, type MemberPriceSource,
+} from "./price-observation";
+export {
   ENVELOPE_SCHEMA,
   META_SCHEMA,
   ERROR_BODY_SCHEMA,
   PROVENANCE_SCHEMA,
   ERROR_CODE_VALUES,
+  MONEY_SCHEMA,
+  NATIVE_PRICE_OBSERVATION_SCHEMA,
+  MEMBER_PRICE_OBSERVATION_SCHEMA,
 } from "./schemas/index";

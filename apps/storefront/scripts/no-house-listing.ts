@@ -93,6 +93,18 @@ const ALLOW = [
   "src/app/api/market/sell-for-credit/route.ts",
 ];
 
+// Exact non-operational references that must remain visible without turning
+// the whole containing file into an exemption. The privacy notice names the
+// retired door so a person can understand what a legacy URL now does; it does
+// not advertise or execute that service.
+const ALLOW_MATCHES = [
+  {
+    file: "src/app/privacy/page.tsx",
+    ruleId: "tradein-desk",
+    re: /<code[^>]*>\/api\/market\/sell-for-credit<\/code>/,
+  },
+] as const;
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
@@ -101,6 +113,9 @@ function walk(dir: string, out: string[] = []): string[] {
       if (name === "node_modules" || name === ".next") continue;
       walk(p, out);
     } else if (/\.(ts|tsx)$/.test(name)) {
+      // Unit/spec sources are not bundled into the application. They often
+      // need to name a retired route to prove its tombstone remains closed.
+      if (/\.(test|spec)\.(ts|tsx)$/.test(name)) continue;
       out.push(p);
     }
   }
@@ -116,7 +131,14 @@ for (const file of files) {
   const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((text, i) => {
     for (const rule of RULES) {
-      if (rule.re.test(text)) {
+      const textToScan = ALLOW_MATCHES.reduce(
+        (candidate, entry) =>
+          entry.file === rel && entry.ruleId === rule.id
+            ? candidate.replace(entry.re, "")
+            : candidate,
+        text,
+      );
+      if (rule.re.test(textToScan)) {
         findings.push({ file: rel, line: i + 1, rule, text: text.trim().slice(0, 100) });
       }
     }

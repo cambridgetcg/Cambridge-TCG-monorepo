@@ -1,5 +1,12 @@
 # RewardsPro Onboarding Flow Implementation Guide
 
+> Historical research, not an active execution plan. As of 2026-09-23, all
+> KPI, activation, engagement, conversion, revenue and growth targets in this
+> document are retired. Its technical explanations may be studied voluntarily;
+> they create no measurement or commercialisation requirement. The current
+> direction is [understanding without commercial targets](../../README.md#understanding-without-commercial-targets).
+
+
 **Status**: Planning Phase
 **Last Updated**: January 2025
 **Based On**: Research from Appcues, Intercom, ProductLed, Userflow, Nebulab, Box, Productboard, FullStory, Airtable, Help Scout

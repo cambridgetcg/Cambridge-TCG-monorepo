@@ -14,12 +14,12 @@
  *   - flatFee in [0, 100]
  *   - vatMultiplier in [1.00, 1.50]
  *   - retailMultiplier in [0, 10]
- *   - roundTo in (0, 10]
+ *   - roundTo in [0.01, 10), whole pennies
  */
 
 import { adminAction, ActionInputError } from "@/lib/admin/actions";
 import { wsQuery } from "@/lib/admin/db";
-import { computePriceForChannel } from "@cambridge-tcg/pricing";
+import { computePriceForChannel, validatePricingField } from "@cambridge-tcg/pricing";
 
 export interface UpdateChannelInput {
   channelId: number;
@@ -59,6 +59,8 @@ export async function updateChannelPricing(input: UpdateChannelInput) {
       validateField("vatMultiplier", input.vatMultiplier, 1.00, 1.50);
       validateField("retailMultiplier", input.retailMultiplier, 0, 10, false);
       validateField("roundTo", input.roundTo, 0, 10, false);
+      try { validatePricingField("roundTo", input.roundTo); }
+      catch { throw new ActionInputError("roundTo must be a positive whole-penny step."); }
 
       const before = await wsQuery<{
         channel: string;
@@ -130,14 +132,18 @@ export async function previewChannelPrice(input: {
   const jpy = input.cardrushJpy ?? 1000;
   const rate = input.gbpJpyRate ?? 185;
   const category = input.category ?? "singles";
-  return computePriceForChannel(jpy, rate, input.channel, category, {
-    marginMultiplier: input.marginMultiplier,
-    flatFeeSingles: input.flatFeeSingles,
-    flatFeeSealed: input.flatFeeSealed,
-    vatMultiplier: input.vatMultiplier,
-    retailMultiplier: input.retailMultiplier,
-    roundTo: input.roundTo,
-  });
+  try {
+    return computePriceForChannel(jpy, rate, input.channel, category, {
+      marginMultiplier: input.marginMultiplier,
+      flatFeeSingles: input.flatFeeSingles,
+      flatFeeSealed: input.flatFeeSealed,
+      vatMultiplier: input.vatMultiplier,
+      retailMultiplier: input.retailMultiplier,
+      roundTo: input.roundTo,
+    });
+  } catch (error) {
+    return { error: error instanceof RangeError ? error.message : "Price preview is unavailable." };
+  }
 }
 
 /**

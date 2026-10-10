@@ -1,5 +1,7 @@
 "use client";
 
+import { NEW_ORDERS_RETIRED_MESSAGE } from "@/lib/commercial-retirement";
+
 import { useActionState } from "react";
 import { login } from "./actions";
 import {
@@ -28,8 +30,9 @@ export default function LoginPage() {
           TCG Wholesale
         </h1>
         <p className="text-center text-sm text-gray-400">
-          Sign in to your account
+          Sign in to existing records
         </p>
+        <p className="text-center text-sm text-gray-400">{NEW_ORDERS_RETIRED_MESSAGE}</p>
         {state?.error && (
           <p className="text-red-400 text-sm text-center">{state.error}</p>
         )}

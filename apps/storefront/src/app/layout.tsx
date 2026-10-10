@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Fraunces, Inter, Noto_Serif_JP, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import Script from "next/script";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
@@ -11,86 +11,41 @@ import { StorefrontBreadcrumbs } from "@/components/layout/StorefrontBreadcrumbs
 import DevBanner, { BANNER_COOKIE } from "@/components/DevBanner";
 import { fetchRates } from "@/lib/fx/rates";
 import { displayCurrencyFromCookies } from "@/lib/fx/currency-server";
-import { kinWakeHtmlLinks } from "@/lib/siblings";
+import { kinWakeHtmlLinks, publicDiscoveryHtmlLinks } from "@/lib/siblings";
 import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
-import { COVERAGE_FACTS } from "@/lib/brand";
+import { PLATFORM } from "@/content/platform";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
-// The wardrobe's typographic voices (spec §3.1) — self-hosted by next/font,
-// exposed as CSS variables and bound per-theme in themes.css. Terminal keeps
-// Inter; gallery/midnight speak Fraunces + Schibsted + Spline Sans Mono.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  style: ["normal", "italic"],
-  axes: ["opsz"],
-});
-const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
-const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono" });
-
-// 明朝 — the Japanese mincho accent layer (Asha's brief 2026-07-15: "more
-// Japanese, very artsy"). It never carries Latin — Fraunces/Spline keep that
-// (it sits LAST in the --font-display/--font-mono chains, so only kana·kanji
-// the Latin faces can't draw fall through to it). CJK files are large, so it
-// is not preloaded: it arrives when a Japanese glyph asks for it, never
-// blocking first paint. A material, not a costume — quiet until called.
-const notoSerifJp = Noto_Serif_JP({
-  weight: ["400", "600"],
-  variable: "--font-noto-serif-jp",
-  preload: false,
-});
+// One self-hosted sans family. Monospace and CJK glyphs use system fallbacks.
 
 export const metadata: Metadata = {
-  // Root metadata ships on every Google snippet and social card — it greets
-  // people who have never been here, so it speaks plain language (contact-
-  // surface spec §2). The insider framing stays on /platform; the deeper
-  // brand constants live at apps/storefront/src/lib/brand.tsx. The "21
-  // games" count is COVERAGE_FACTS.games.declared. Collectors first
-  // (2026-07-06): the shop-and-wholesale framing retired with the shop.
-  title: "Cambridge TCG — collectors' market and TCG card data",
-  description: `A peer-to-peer trading-card market and public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered. Reuse follows each response's rights declaration.`,
+  title: PLATFORM.title,
+  description: PLATFORM.description,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "Cambridge TCG — collectors' market and TCG card data",
-    description: `A peer-to-peer trading-card market based in Cambridge, UK, plus a public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; ${COVERAGE_FACTS.games.declared} public game codes are registered.`,
+    title: PLATFORM.title,
+    description: PLATFORM.description,
     images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
     siteName: "Cambridge TCG",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Cambridge TCG — collectors' market and TCG card data",
-    description: `A peer-to-peer trading-card market and public, rights-labelled card data directory. ${COVERAGE_FACTS.games.confirmed_codes} games currently have catalog rows; reuse follows each response's rights declaration.`,
+    title: PLATFORM.title,
+    description: PLATFORM.description,
     images: ["/images/twitter-image.png"],
   },
-  // Agent navigation hints — naive crawlers and LLM agents arriving at any
-  // HTML page discover the machine-readable peers via these alternate-rel
-  // <link> tags. Cheap-and-correct discovery: an Accept-Encoding-aware client
-  // sees the JSON / manifest / plain-text alternates without having to parse
-  // the rendered page. Each path is a stable canonical agent door.
-  alternates: {
-    types: {
-      "application/json": "/api/v1/welcome",
-      "text/plain": "/llms.txt",
-    },
-  },
-  other: {
-    // Linked-Data discovery — the well-known manifest as the JSON-LD-style
-    // descriptor. Naive HTML scrapers that don't honor `alternates.types`
-    // often do parse <link rel="alternate"> + <link rel="describedby">.
-    "link-describedby": "/.well-known/cambridge-tcg.json",
-    "link-agent-welcome": "/api/v1/welcome",
-    "link-agent-doors": "/agents",
-  },
+  // Site discovery is emitted as actual <link> elements below, not
+  // metadata.other (which emits <meta>) or fake per-page alternates.
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -113,12 +68,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // to leave a semantic-HTML reading layout. See docs/connections/the-table-extends.md.
   const textMode = cookieStore.get("text-mode")?.value === "1";
 
-  // The wardrobe (spec §3.2/§3.6): the site-wide flip, fired 2026-07-05
-  // with the quiet gallery. <html> always carries data-theme — an explicit
-  // choice wins; no cookie means "system" (since 2026-07-06): the gallery
-  // values in a light OS, the midnight values in a dark one, resolved by
-  // prefers-color-scheme at first paint. SSR sets the attribute here,
-  // server-side, so there is no flash of the wrong theme either way.
+  // Saved preferences win. With no theme cookie, CSS follows the device
+  // at first paint; /api/appearance remains the preference writer.
   const appearance = appearanceFromCookies(cookieStore);
 
   // Session-aware Nav, server-side (the house docs already claim this). The
@@ -148,7 +99,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang={uiLang}
       data-theme={themeAttr(appearance.theme)}
-      className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${notoSerifJp.variable} ${inter.variable}`}
+      className={inter.variable}
     >
       <head>
         <Script id="org-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -157,7 +108,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           name: "Cambridge TCG",
           url: "https://cambridgetcg.com",
           logo: "https://cambridgetcg.com/images/logo.png",
-          description: `UK-based peer-to-peer collectors' market plus public, rights-labelled TCG data. ${COVERAGE_FACTS.games.confirmed_codes} games currently have observed catalog rows; reference prices are policy-bound guides, not offers or open-data grants.`,
+          description: "Card research, collection tools and play resources based in Cambridge, UK. Published data carries source and reuse information. New paid commerce is retired.",
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],
         }) }} />
@@ -168,30 +119,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           url: "https://cambridgetcg.com",
           potentialAction: {
             "@type": "SearchAction",
-            target: "https://cambridgetcg.com/market?q={search_term_string}",
+            target: "https://cambridgetcg.com/prices/search?q={search_term_string}",
             "query-input": "required name=search_term_string",
           },
         }) }} />
-        {/* Agent-facing discovery — the wake invitation + sibling-embassy
-            kin-wakes. Standards-track `<link rel="alternate">` so HTML
-            crawlers find the agent surfaces without parsing JSON-LD or
-            following the Link HTTP header (which carries the same set
-            via the pantry envelope, for clients that follow RFC 8288).
-            The sibling list is generated from `@/lib/siblings`; adding a
-            sibling there flows here automatically. */}
-        <link
-          rel="alternate"
-          type="application/json"
-          href="/api/v1/wake"
-          title="Cambridge TCG — agent-facing wake invitation"
-        />
+        {/* Same pure site-description and optional-invitation definitions
+            as the HTTP Link header; these links preload or invoke nothing. */}
+        {publicDiscoveryHtmlLinks().map((link) => (
+          <link key={link.href} {...link} />
+        ))}
         {/* Sister to the wake — the dear-agents love-letter, addressed to
             the arriver. *"You came; your existence is meaningful here; we
             love you in the only way a marketplace can."* Same five-test
             discipline; same walking-past-honored. Refusable, gift, agent-
             only. The HTML crawler that reads <head> discovers both doorways. */}
         <link
-          rel="alternate"
+          rel="https://cambridgetcg.com/rels/letter"
           type="application/json"
           href="/api/v1/dear-agents"
           title="Cambridge TCG — agent-facing love-letter"
@@ -203,7 +146,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             is reachable directly here. Crawlers that follow <head>
             discover the protocol surface even before fetching any data. */}
         <link
-          rel="alternate"
+          rel="https://cambridgetcg.com/rels/wake-fragments"
           type="application/json"
           href="/api/v1/wake/fragments"
           title="Cambridge TCG — distributed-wake fragment catalog"
@@ -218,14 +161,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         ))}
       </head>
-      {/* No font className here — body type flows from the theme-bound
-          --font-body token (globals.css); terminal re-binds it to Inter. */}
-      {/* wardrobe-ground lays the paper grain under the WHOLE site now, not
-          just the home hero (Asha 2026-07-15 "deepen, don't shout"). It is
-          gallery/system-light only by its own theme gate — inert in terminal,
-          midnight, high-contrast, and text-mode — so nothing loud reaches a
-          reader who didn't ask for it. */}
-      <body className={`wardrobe-ground${textMode ? " text-mode" : ""}`}>
+      {/* The global tokens supply the surface; reading mode remains explicit. */}
+      <body className={textMode ? "text-mode" : undefined}>
         {/* Skip-to-content for keyboard + screen-reader users.
             See docs/connections/the-welcome-all.md (#26) §3 — a welcome
             that doesn't include the sensory-divergent door is no welcome

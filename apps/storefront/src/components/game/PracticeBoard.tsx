@@ -5,15 +5,16 @@
 // Architecture note (why there is no fetch in this file): the server's PVE
 // mutation path is sealed while rules validation is completed. A practice
 // battle therefore runs entirely client-side on the pure reducer + AI —
-// nothing durable, nothing paid, no identity minted. That construction also
-// removes the old double-fire bug: the AI's reply is a synchronous function
-// call animated locally, not a second HTTP request racing an effect hook.
+// browser-local saves, no server-recorded results, nothing paid, no identity
+// minted. That construction also removes the old double-fire bug: the AI's
+// reply is a synchronous function call animated locally, not a second HTTP
+// request racing an effect hook.
 //
 // Ease doctrine (Kingdom-082 "minimum barriers"): one Play press from the
 // hub lands here mid-battle; every illegal move answers with the rule it
 // broke, in words a first-time player can use.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import type { GameCard, GamePhase } from "@/lib/game/types";
 import { PHASE_LABELS } from "@/lib/game/types";
@@ -37,7 +38,7 @@ import {
   practiceStarters,
 } from "@/lib/play/practice-decks";
 import { getAdventureLevel, type AdventureLevel } from "@/lib/play/adventure-levels";
-import { GameCardView } from "./GameCardView";
+import { CardImageCredits, CardImageDetail, GameCardView } from "./GameCardView";
 
 const AI_STEP_DELAY_MS = 650;
 const SAVE_KEY = "ctcg-practice-battle";
@@ -173,9 +174,10 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
     // read-only catalog API (bounded by a short timeout) — cards the
     // collection can't cover keep their text faces / show no rules text,
     // and the battle starts regardless.
+    const playerDetailsRequest = fetchStarterCardDetails(id);
     const [playerDetails, aiDetails] = await Promise.all([
-      fetchStarterCardDetails(id),
-      fetchStarterCardDetails(level.aiStarterId),
+      playerDetailsRequest,
+      level.aiStarterId === id ? playerDetailsRequest : fetchStarterCardDetails(level.aiStarterId),
     ]);
     const player = buildPracticeDeck(id, playerDetails);
     const ai = buildPracticeDeck(level.aiStarterId, aiDetails) ?? player;
@@ -352,7 +354,7 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
           onResolve={handleDefense}
         />
       )}
-      {selectedCard && (
+      {selectedCard && !selectedCard.faceDown && (
         <ActionSheet
           card={selectedCard}
           game={game}
@@ -410,7 +412,8 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
 
       {/* Practice framing — one quiet line, always visible */}
       <p className="text-center text-[11px] text-ink-faint py-1 border-b border-border-subtle bg-surface-subtle">
-        Practice battle — lives in this browser, records nothing, pays nothing.
+        Practice battle — saves in this browser only, no server-recorded results,
+        no rewards.
         Costs, power, counters, and blockers are real; other card effects
         aren&apos;t interpreted yet.
       </p>
@@ -421,7 +424,7 @@ export function PracticeBoard({ levelId }: { levelId: number }) {
           title={`${level.opponentIcon} ${level.opponentName}`}
           player={ai}
           isOwn={false}
-          onSelect={() => undefined}
+          onSelect={(card) => setSelectedCard(card)}
         />
 
         <div className="bg-surface-subtle rounded-lg px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
@@ -492,6 +495,7 @@ function PlayerZone({
   isOwn: boolean;
   onSelect: (card: GameCard) => void;
 }) {
+  const creditLegendId = useId();
   const maxLife = Math.max(player.lifeCount, player.life.length, 5);
   return (
     <section
@@ -536,8 +540,9 @@ function PlayerZone({
           <GameCardView
             card={player.leader}
             selected={false}
+            creditLegendId={creditLegendId}
             onClick={
-              isOwn && player.leader ? () => onSelect(player.leader!) : undefined
+              player.leader && !player.leader.faceDown ? () => onSelect(player.leader!) : undefined
             }
           />
         </ZoneSlot>
@@ -550,7 +555,8 @@ function PlayerZone({
                 <GameCardView
                   key={card?.id ?? `empty-${i}`}
                   card={card}
-                  onClick={isOwn && card ? () => onSelect(card) : undefined}
+                  creditLegendId={creditLegendId}
+                  onClick={card && !card.faceDown ? () => onSelect(card) : undefined}
                 />
               );
             })}
@@ -560,7 +566,8 @@ function PlayerZone({
         <ZoneSlot label="Stage">
           <GameCardView
             card={player.stage}
-            onClick={isOwn && player.stage ? () => onSelect(player.stage!) : undefined}
+            creditLegendId={creditLegendId}
+            onClick={player.stage && !player.stage.faceDown ? () => onSelect(player.stage!) : undefined}
           />
         </ZoneSlot>
       </div>
@@ -579,12 +586,17 @@ function PlayerZone({
                 key={card.id}
                 card={isOwn ? card : { ...card, faceDown: true }}
                 small={!isOwn}
-                onClick={isOwn ? () => onSelect(card) : undefined}
+                creditLegendId={creditLegendId}
+                onClick={isOwn && !card.faceDown ? () => onSelect(card) : undefined}
               />
             ))
           )}
         </div>
       </div>
+      <CardImageCredits
+        id={creditLegendId}
+        cards={[player.leader, ...player.field, player.stage, ...(isOwn ? player.hand : [])]}
+      />
     </section>
   );
 }
@@ -619,11 +631,21 @@ function ActionSheet({
   onAttachDon: (cardId: string) => void;
   onClose: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const previous = document.activeElement;
+    panelRef.current?.focus();
+    return () => { if (previous instanceof HTMLElement) previous.focus(); };
+  }, []);
   const state = game.state;
   const opp = state.player2;
+  const isYourCard = [state.player1.leader, ...state.player1.field, state.player1.stage, ...state.player1.hand]
+    .some((own) => own?.id === card.id);
+  const canAct = isMyTurn && isYourCard;
   const options: { label: string; hint?: string; run: () => void; disabled?: boolean }[] = [];
 
-  if (card.zone === "hand" && isMyTurn) {
+  if (card.zone === "hand" && canAct) {
     const costText = card.cost != null ? ` (cost ${card.cost})` : "";
     const kind =
       card.category === "event"
@@ -647,7 +669,7 @@ function ActionSheet({
     });
   }
 
-  if ((card.zone === "leader" || card.zone === "field") && isMyTurn) {
+  if ((card.zone === "leader" || card.zone === "field") && canAct) {
     const myPower = attackPower(card);
     const oppLeaderPower = opp.leader ? defensePower(opp.leader) : null;
     options.push({
@@ -681,17 +703,34 @@ function ActionSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/40 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border-subtle rounded-xl p-4 w-full max-w-[300px] shadow-mat"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="bg-surface border border-border-subtle rounded-xl p-4 w-full max-w-sm max-h-[90dvh] overflow-y-auto shadow-mat"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") { event.preventDefault(); onClose(); }
+          if (event.key !== "Tab") return;
+          const buttons = panelRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
+          if (!buttons?.length) { event.preventDefault(); return; }
+          const first = buttons[0]!;
+          const last = buttons[buttons.length - 1]!;
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
+            event.preventDefault(); last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault(); first.focus();
+          }
+        }}
       >
         <div className="flex items-center gap-3 mb-3 pb-3 border-b border-border-subtle">
-          <GameCardView card={{ ...card, isRested: false }} small />
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">{card.name}</p>
+          <div className="min-w-0 flex-1">
+            <h2 id={titleId} className="font-semibold text-sm">{card.name}</h2>
             <p className="text-ink-faint text-xs font-mono">{card.cardNumber}</p>
             <p className="text-ink-faint text-xs">
               {[
@@ -703,8 +742,10 @@ function ActionSheet({
                 .join(" · ") || card.zone}
             </p>
           </div>
+          <button type="button" onClick={onClose} className="text-xs text-ink-muted hover:text-ink">Close</button>
         </div>
-        {card.textEn && (
+        <CardImageDetail card={card} />
+        {typeof card.textEn === "string" && card.textEn.trim() && typeof card.textAttribution === "string" && card.textAttribution.trim() && (
           <div className="mb-3 pb-3 border-b border-border-subtle">
             <p className="text-[10px] text-ink-faint uppercase tracking-wider mb-1">
               Card text · not interpreted by practice mode yet
@@ -712,19 +753,18 @@ function ActionSheet({
             <p className="text-xs text-ink-muted leading-relaxed whitespace-pre-line max-h-32 overflow-y-auto">
               {card.textEn}
             </p>
-            {card.textAttribution && (
-              <p className="mt-1.5 text-[9px] text-ink-faint">{card.textAttribution}</p>
-            )}
+            <p className="mt-1.5 text-[11px] text-ink-muted">{card.textAttribution}</p>
           </div>
         )}
         {card.artist && (
-          <p className="mb-3 text-[10px] italic text-accent">
-            illustrated by {card.artist}
+          <p className="mb-3 text-[11px] text-ink-muted">
+            Catalog illustrator credit: {card.artist}
+            {card.imageReference && <span className="block">Not verified for this reference image.</span>}
           </p>
         )}
         {options.length === 0 ? (
           <p className="text-ink-faint text-xs">
-            {isMyTurn
+            {!isYourCard ? "Opponent’s card — view only." : isMyTurn
               ? "No moves for this card right now."
               : "Wait for your turn."}
           </p>
@@ -751,7 +791,7 @@ function ActionSheet({
           onClick={onClose}
           className="w-full mt-3 pt-3 border-t border-border-subtle text-ink-faint text-xs hover:text-ink transition-colors"
         >
-          Cancel
+          Close
         </button>
       </div>
     </div>
@@ -870,8 +910,10 @@ function SetupScreen({
         </button>
 
         <p className="text-[11px] text-ink-faint text-center">
-          Practice battles run in your browser — nothing is recorded, nothing is
-          paid, no account needed. {level.opponentName} pilots a starter deck too.
+          Practice battles run in your browser, no account needed. Battle state,
+          starter choice, and clears can be saved in this browser only. No
+          server-recorded results or rewards. {level.opponentName} pilots a
+          starter deck too.
         </p>
 
         <div className="text-center">
@@ -924,9 +966,9 @@ function EndScreen({
         </div>
 
         <p className="text-ink-faint text-xs">
-          Practice battles record nothing — this clear lives in your browser
-          only. Rewards stay paused until server-side rules validation is
-          complete.
+          Practice clears can be saved in this browser only, not as
+          server-recorded PVE results. Rewards stay paused until server-side
+          rules validation is complete.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -975,6 +1017,7 @@ function MulliganPrompt({
   hand: GameCard[];
   onDecide: (redraw: boolean) => void;
 }) {
+  const creditLegendId = useId();
   return (
     <main className="min-h-screen bg-page text-ink flex items-center justify-center px-4 py-8">
       <div className="bg-surface border border-border-subtle rounded-xl p-6 sm:p-8 max-w-2xl w-full space-y-5 text-center">
@@ -987,9 +1030,10 @@ function MulliganPrompt({
         </div>
         <div className="flex items-end justify-center gap-2 flex-wrap">
           {hand.map((card) => (
-            <GameCardView key={card.id} card={card} />
+            <GameCardView key={card.id} card={card} creditLegendId={creditLegendId} />
           ))}
         </div>
+        <CardImageCredits id={creditLegendId} cards={hand} />
         <div className="flex gap-3 justify-center">
           <button
             onClick={() => onDecide(false)}

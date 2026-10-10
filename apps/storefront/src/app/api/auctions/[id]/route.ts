@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin/auth";
 import { getAuction, updateAuction, deleteAuction } from "@/lib/auction/db";
 import { isAuctionId } from "@/lib/auction/id";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 import {
   auctionRecordIsPublic,
   projectAuctionForAdmin,
@@ -71,6 +72,10 @@ export async function PATCH(
 
   try {
     const body = await req.json();
+    if (body?.status === "scheduled" || body?.status === "live") {
+      const releasePause = p2pCommitmentPauseResponse();
+      if (releasePause) return releasePause;
+    }
     const auction = await updateAuction(id, body);
     if (!auction) {
       return NextResponse.json({ error: "Not found or no changes" }, { status: 404 });

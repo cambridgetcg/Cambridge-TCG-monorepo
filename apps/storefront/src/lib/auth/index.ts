@@ -3,7 +3,14 @@ import type { NextAuthConfig } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import Google from "next-auth/providers/google";
 import { PgAdapter } from "./adapter";
+import {
+  admissionSignInCallback,
+  createAdmissionSignInCallback,
+  getGitHubSessionUserId,
+} from "./admission";
 import { sendVerificationRequest } from "./email";
+import { createGitHubProvider } from "./github";
+import { recordGitHubVerificationEvent } from "./verification-observer";
 import { query } from "@/lib/db";
 import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
 // Single source of truth for the session-cookie name. proxy.ts reads
@@ -36,6 +43,8 @@ const googleProvider =
       ]
     : [];
 
+const githubProvider = createGitHubProvider();
+
 export const authConfig: NextAuthConfig = {
   adapter: PgAdapter(),
   // Pass the override through if defined; otherwise let Auth.js v5 pick
@@ -56,6 +65,7 @@ export const authConfig: NextAuthConfig = {
       sendVerificationRequest,
     }),
     ...googleProvider,
+    ...(githubProvider ? [githubProvider] : []),
   ],
   pages: {
     signIn: "/login",
@@ -72,6 +82,7 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
+    signIn: admissionSignInCallback,
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
@@ -105,6 +116,9 @@ export const authConfig: NextAuthConfig = {
     // no-op for everyone else, and a lost race with a concurrent login
     // just leaves the winner's handle in place.
     async signIn({ user }) {
+      // This observes Auth.js's completed sign-in event only; it does not claim
+      // a verified journey or prove that a browser session was subsequently used.
+      recordGitHubVerificationEvent("authjs_signin_completed");
       const u = user as { id?: string; username?: string | null };
       if (!u.id || u.username) return;
       for (let attempt = 1; attempt <= HANDLE_MAX_ATTEMPTS + 1; attempt++) {
@@ -125,4 +139,15 @@ export const authConfig: NextAuthConfig = {
   },
 };
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+// A GitHub first-link callback must know the browser's actual session: Auth.js
+// otherwise links an unlinked provider to that session before matching email.
+export const { handlers, auth, signIn, signOut } = NextAuth((request) => ({
+  ...authConfig,
+  callbacks: {
+    ...authConfig.callbacks,
+    signIn: createAdmissionSignInCallback(() => getGitHubSessionUserId(request, {
+      useSecureCookies: authConfig.useSecureCookies,
+      cookieName: authConfig.cookies?.sessionToken?.name,
+    })),
+  },
+}));

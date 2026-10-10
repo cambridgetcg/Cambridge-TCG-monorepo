@@ -6,6 +6,7 @@ import {
 } from "@/lib/market/db";
 import { transaction } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 // The complete set of fields the listing API understands. An unrecognised
 // key (a snake_case slip like `accepts_returns`, or a typo) becomes a
@@ -45,6 +46,8 @@ export async function POST(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to trade." }, { status: 401 });
   }
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   try {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

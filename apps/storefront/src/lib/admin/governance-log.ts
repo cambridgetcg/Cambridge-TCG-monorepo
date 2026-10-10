@@ -3,12 +3,15 @@
 // support can answer "why did X happen on date Y" without DB diffs.
 //
 // Pattern matches @/lib/bounty/fulfilment-log + @/lib/rewards/prize-
-// fulfilment-log + vault_lifecycle_log: append-only, fire-and-forget,
-// best-effort (a logging failure must not block the underlying action).
+// fulfilment-log + vault_lifecycle_log: append-only. Most legacy callers use
+// the best-effort logAdminAction() wrapper. Consequential flows that must not
+// commit without evidence use writeAdminAction() with their transaction query.
 
 import { query } from "@/lib/db";
 
 export interface LogAdminActionArgs {
+  /** Authenticated admin user id when the action is person-driven. */
+  actorId?: string | null;
   /** Free-form label for the operator. Use the admin's email when known.
    *  null = system-driven action (e.g. fraud cron auto-suspend). */
   actorLabel?: string | null;
@@ -25,33 +28,56 @@ export interface LogAdminActionArgs {
   metadata?: Record<string, unknown> | null;
 }
 
-export async function logAdminAction(args: LogAdminActionArgs): Promise<void> {
-  await query(
+type GovernanceQuery = typeof query;
+
+/**
+ * Strict governance writer. It rejects when the audit row cannot be written.
+ * Pass a transaction-scoped query function when the mutation and its evidence
+ * must commit or roll back together.
+ */
+export async function writeAdminAction(
+  args: LogAdminActionArgs,
+  runQuery: GovernanceQuery = query,
+): Promise<void> {
+  await runQuery(
     `INSERT INTO admin_actions_log
-       (actor_label, target_user_id, target_kind, target_id,
+       (actor_id, actor_label, target_user_id, target_kind, target_id,
         action, before_value, after_value, reason, metadata)
-     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9::jsonb)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10::jsonb)`,
     [
+      args.actorId ?? null,
       args.actorLabel ?? null,
       args.targetUserId ?? null,
       args.targetKind,
       args.targetId ?? null,
       args.action,
       args.beforeValue ? JSON.stringify(args.beforeValue) : null,
-      args.afterValue  ? JSON.stringify(args.afterValue)  : null,
+      args.afterValue ? JSON.stringify(args.afterValue) : null,
       args.reason ?? null,
       args.metadata ? JSON.stringify(args.metadata) : null,
     ],
-  ).catch((err) => {
+  );
+}
+
+/**
+ * Backward-compatible best-effort writer for non-critical side effects.
+ * New mutation paths that promise an audit trail should use
+ * writeAdminAction() and handle failure explicitly.
+ */
+export async function logAdminAction(args: LogAdminActionArgs): Promise<void> {
+  try {
+    await writeAdminAction(args);
+  } catch (err) {
     console.error(
       `[governance-log] insert failed (action=${args.action} target=${args.targetKind}:${args.targetId}):`,
       err,
     );
-  });
+  }
 }
 
 export interface GovernanceEntry {
   id: number;
+  actor_id: string | null;
   actor_label: string | null;
   target_user_id: string | null;
   target_kind: string;
@@ -76,7 +102,7 @@ export async function getGovernanceLog(opts?: {
     where = `WHERE target_user_id = $${params.length}`;
   }
   const r = await query(
-    `SELECT id, actor_label, target_user_id, target_kind, target_id,
+    `SELECT id, actor_id, actor_label, target_user_id, target_kind, target_id,
             action, before_value, after_value, reason, created_at
        FROM admin_actions_log
        ${where}

@@ -2,8 +2,9 @@
  * /trade-in — the we-buy desk, kept as one honest page.
  *
  * Collectors-first (docs/decisions/2026-07-06-collectors-first.md):
- * the trade-in desk closed on 2026-07-06 having received zero
- * submissions and owing zero credit — nothing stranded. The buylist,
+ * the trade-in desk closed on 2026-07-06. The dated close-out decision
+ * records zero submissions and zero outstanding credit; this page does not
+ * infer a current production balance from repository state. The buylist,
  * quote funnel, bundle/bulk/custom-quote forms all collapsed into
  * this page. It says plainly what trade-in was, that the platform no
  * longer buys, and where collectors actually sell now. The old
@@ -33,8 +34,11 @@ export default function TradeInPage() {
           Trade-in was Cambridge TCG buying cards from you — for store credit or
           cash, against a daily buylist. On 6 July 2026 the platform stopped
           buying and selling altogether and became a pure collectors&apos; market.
-          No trade-in was ever left unpaid and no store credit was stranded;
-          the desk closed owing nothing.
+          The dated 6 July close-out record reports that no trade-in or store
+          credit balance was outstanding then. This page does not live-query
+          the historical ledger. If you believe Cambridge TCG still owes you a
+          trade-in payment or credit, contact support so the operational record
+          can be checked.
         </p>
         <p className="text-ink-muted mt-3">
           Selling works better now: instead of one buyer (us) quoting you a

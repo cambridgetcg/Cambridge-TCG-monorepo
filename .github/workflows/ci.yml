@@ -68,6 +68,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Reject tracked credential material
         run: pnpm audit:tracked-secrets
+      - name: Check module documentation coverage and drift
+        run: pnpm audit:modules
       - name: Lint all workspaces
         # rewardspro excluded: its lint has been red since the standalone repo
         # (817 errors at fuse time, 2026-06-10) and was never a gate there.
@@ -80,6 +82,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect, install]
     if: needs.detect.outputs.storefront == 'true' || needs.detect.outputs.shared == 'true'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: product_flow_test
+          POSTGRES_PASSWORD: product_flow_test
+          POSTGRES_DB: product_flow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U product_flow_test -d product_flow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -89,7 +105,21 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter cambridgetcg-storefront exec tsc --noEmit
+      # The local credential-verification fixtures exercise real Chromium.
+      # Installing binaries/system libraries does not provide provider credentials.
+      - name: Install Chromium for local browser fixtures
+        run: pnpm --filter cambridgetcg-storefront exec playwright install --with-deps chromium
       - run: pnpm --filter cambridgetcg-storefront test
+      - name: Run PostgreSQL product-flow, PRISM Stripe, and operator conformance
+        run: >-
+          pnpm --filter cambridgetcg-storefront exec vitest run
+          src/lib/product-flow-runtime/postgres.integration.test.ts
+          src/lib/prism-signals/stripe/postgres.integration.test.ts
+          src/lib/prism-signals/stripe/operator.test.ts
+        env:
+          DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
+          PRODUCT_FLOW_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
+          PRISM_STRIPE_OPERATOR_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
       - run: pnpm --filter cambridgetcg-storefront build
         env:
           DATABASE_URL: postgres://x:x@localhost:5432/x

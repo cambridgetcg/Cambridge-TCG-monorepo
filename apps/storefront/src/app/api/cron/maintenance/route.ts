@@ -21,6 +21,7 @@ import { runFairnessSelfAudit } from "@/lib/provable-draw/self-audit";
 import { runFairnessDriftCheck } from "@/lib/provable-draw/drift";
 import { runTrustScoreRecompute } from "@/lib/escrow/trust-recompute";
 import { runDisputeSlaSweep } from "@/lib/trust/dispute-sla-sweep";
+import { runVerificationStorageSweep } from "@/lib/trust/verification-storage-sweep";
 import { runTradeCompletionSweep } from "@/lib/market/completion";
 import { runSwapExpirySweep } from "@/lib/swaps/db";
 import { runFraudSweep } from "@/lib/fraud/sweep";
@@ -187,9 +188,12 @@ export async function GET(request: Request) {
     // Swap proposals past their own expires_at flip to 'expired'.
     // Appended at the end to keep the positional destructuring aligned.
     runSwapExpirySweep(),
+    // Identity storage repair starts from DB references only; it never lists
+    // the private bucket. Unlinked pending uploads remain lifecycle-owned.
+    runVerificationStorageSweep(),
   ]);
 
-  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep] = results;
+  const [market, auctions, bounty, payouts, alerts, emails, streakSweep, restockDigest, watchlistDigest, adminDigest, priceTick, priceAlertSweep, wishlistMatchSweep, spendRecompute, subSweep, pointsExpiry, raffleSweep, raffleRetry, pveSweep, fairnessDigest, fairnessAudit, fairnessDrift, trustRecompute, fraudSweep, reviewSweep, savedSearchSweep, offersExpiry, returnsExpiry, cancelExpiry, vacationSweep, valuationSnapshot, externalRepSweep, chargebackReconciler, stockReservationSweep, disputeSlaSweep, tradeCompletionSweep, swapExpirySweep, verificationStorageSweep] = results;
   if (stockReservationSweep.status === "fulfilled") {
     const r = stockReservationSweep.value;
     if (r.ok && r.released > 0) {
@@ -363,6 +367,12 @@ export async function GET(request: Request) {
     swapExpirySweep:
       swapExpirySweep.status === "fulfilled"
         ? { status: "fulfilled", ...swapExpirySweep.value }
+        : { status: "rejected" },
+    verificationStorageSweep:
+      verificationStorageSweep.status === "fulfilled"
+        ? (verificationStorageSweep.value.ranInWindow
+            ? { status: "fulfilled", ...verificationStorageSweep.value }
+            : { status: "skipped" })
         : { status: "rejected" },
     durationMs: Date.now() - start,
   };
@@ -540,6 +550,15 @@ export async function GET(request: Request) {
   if (swapExpirySweep.status === "rejected") console.error("[cron] swap expiry sweep failed:", swapExpirySweep.reason);
   else if (swapExpirySweep.value.expired > 0) {
     console.log(`[cron] swap expiry: ${swapExpirySweep.value.expired} proposals expired`);
+  }
+  if (verificationStorageSweep.status === "rejected") {
+    console.error("[cron] verification storage repair failed");
+  } else if (verificationStorageSweep.value.ranInWindow) {
+    console.log(
+      `[cron] verification storage: scanned ${verificationStorageSweep.value.scanned}, ` +
+      `linked ${verificationStorageSweep.value.linked}, already-linked ${verificationStorageSweep.value.alreadyLinked}, ` +
+      `support-required ${verificationStorageSweep.value.supportRequired}, failures ${verificationStorageSweep.value.failures}`,
+    );
   }
   // Touch unused destructure to satisfy noUnusedLocals if enabled.
 

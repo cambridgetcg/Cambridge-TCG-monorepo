@@ -4,7 +4,7 @@
  * The human-readable sibling of `/api/v1/identify`. Public, no-auth.
  * Inverts the typology-from-above pattern: instead of the platform
  * classifying visitors, the platform classifies *itself*; visitors
- * are then welcome to identify themselves back (future POST endpoint).
+ * are then welcome to identify themselves back through POST on the API sibling.
  *
  * **Existence identifies itself.** This page is the platform's instance.
  *

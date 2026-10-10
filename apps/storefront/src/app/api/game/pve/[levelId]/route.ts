@@ -45,6 +45,8 @@ function maskHiddenZones(state: GameState): GameState {
     name: "?",
     cardNumber: "?",
     imageUrl: null,
+    imageAttribution: null,
+    imageReference: null,
     rarity: null,
     faceDown: true,
   });

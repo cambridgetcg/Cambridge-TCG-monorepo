@@ -1,5 +1,8 @@
 "use client";
 
+import CommercialRetirementNotice from "@/components/CommercialRetirementNotice";
+import { NEW_PAID_COMMERCE_RETIRED } from "@/lib/release/commercial-retirement";
+
 import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
@@ -16,10 +19,12 @@ import { weatherClass } from "@/lib/wardrobe/weather";
 import { gameFromSku } from "@/lib/games/sku-game";
 import type { OrderBookEntry, MarketTrade } from "@/lib/market/types";
 import type { UnifiedMarketView } from "@/lib/market/unified";
+import { OPEN_ORDER_PUBLICATION_NOTICE } from "@/lib/market/publication";
 import type { EscrowTier } from "@/lib/escrow/service-tiers";
 import type { CatalogIdentity } from "@/lib/market/catalog-card";
 import { stripIllustAnnotation } from "@/lib/cards/illust-annotation";
 import type { EnCardText, CardAttributes } from "@/lib/cards/en-card-data";
+import type { ImageReference } from "@/lib/cards/image-reference";
 import { ListingsPanel, type TrustLimits } from "./ListingsPanel";
 import { tradeLimitWarning } from "./offer-guidance";
 
@@ -32,13 +37,14 @@ export interface CardIdentitySeed extends CatalogIdentity {
   reference_price: number | null;
 }
 
-// The client's working view = the live unified order book plus the official
-// image's copyright line and the official EN effect text + game facts. None of
+// The client's working view = the live unified order book plus the selected
+// image's attribution/reference and the official EN effect text + game facts. None of
 // these are on UnifiedMarketView (the live /unified view carries no rights-
 // cleared substrate); they ride in from the server-resolved identity so the
-// displayed image keeps its line and the effect text keeps its copyright line.
+// displayed reference keeps its metadata and effect text keeps its copyright line.
 type MarketView = UnifiedMarketView & {
   image_attribution: string | null;
+  image_reference: ImageReference | null;
   effect_text: EnCardText | null;
   attributes: CardAttributes | null;
 };
@@ -485,6 +491,7 @@ export default function CardMarketClient({
     set_name: identity.set_name,
     image_url: identity.image_url,
     image_attribution: identity.image_attribution,
+    image_reference: identity.image_reference,
     effect_text: identity.effect_text,
     attributes: identity.attributes,
     rarity: identity.rarity,
@@ -587,13 +594,12 @@ export default function CardMarketClient({
         card_number: data.card_number ?? identity.card_number,
         set_code: data.set_code ?? identity.set_code,
         set_name: data.set_name ?? identity.set_name,
-        // The image + its copyright line stay strictly the official,
-        // self-hosted pair from the server identity — we deliberately ignore
-        // data.image_url (the live view's wholesale/cardrush art) so we never
-        // render an unattributed or non-official image. No official image ⇒
-        // null here ⇒ the No-Image placeholder, per policy.
+        // Keep the server-selected image, attribution and reference together.
+        // The live order book must not replace official reference metadata or
+        // upgrade a retained, unverified catalogue fallback into a source claim.
         image_url: identity.image_url,
         image_attribution: identity.image_attribution,
+        image_reference: identity.image_reference,
         // Effect text + game facts are official substrate, not on the live
         // view — keep them strictly from the server identity (same reason as
         // the image pair) so the copyright-lined text can't be dropped.
@@ -822,12 +828,13 @@ export default function CardMarketClient({
                 <div className="wardrobe-panel p-2">
                   <img
                     src={book.image_url}
-                    alt={book.card_name || sku}
+                    alt={`${book.card_name || sku}: ${book.image_reference ? "English reference image · printing not verified" : "Catalog image · source and printing unverified"}`}
                     className="w-full rounded"
                   />
-                  {/* Copyright line — an official image must always carry it
-                      (it travels with image_url as one pair). Small, muted,
-                      directly under the art. */}
+                  <p className="mt-2 px-0.5 text-xs leading-snug text-ink-muted">
+                    {book.image_reference ? "English reference image · printing not verified" : "Catalog image · source and printing unverified"}
+                  </p>
+                  {/* Copyright stays co-located with the image and its status. */}
                   {book.image_attribution && (
                     <p className="mt-1.5 px-0.5 text-[10px] leading-snug text-ink-faint">
                       {book.image_attribution}
@@ -998,6 +1005,7 @@ export default function CardMarketClient({
 
           {/* Right: the order form — collectors trading with collectors */}
           <div className="space-y-4">
+            {NEW_PAID_COMMERCE_RETIRED ? <CommercialRetirementNotice /> : (<>
             {/* ========== P2P Order Form ========== */}
             <div
               ref={buyFormRef}
@@ -1194,6 +1202,17 @@ export default function CardMarketClient({
                   })()}
                 </button>
 
+                <p className="text-[11px] text-ink-faint leading-relaxed">
+                  {OPEN_ORDER_PUBLICATION_NOTICE}{" "}
+                  <Link
+                    href="/privacy#market-orders"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Privacy details
+                  </Link>
+                  .
+                </p>
+
                 {result && (
                   <div
                     className={`p-3 rounded-lg text-sm ${
@@ -1256,7 +1275,7 @@ export default function CardMarketClient({
             </div>
 
           </div>
-
+            </>)}
           </div>
         </div>
 

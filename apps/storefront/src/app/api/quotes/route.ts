@@ -7,8 +7,9 @@ import { errorResponse } from "@/lib/data-pantry";
  * This was the we-buy desk's quote door: submit cards for a house
  * credit/cash quote. The platform no longer buys, sells, or quotes;
  * sellers price their own cards to other collectors. The quote records
- * and the admin desk were removed once the desk closed owing nothing —
- * this stays as a 410 so stale clients meet a teaching envelope, not a 404.
+ * and the admin desk were removed after the dated close-out decision recorded
+ * no outstanding balance. This tombstone does not query production history and
+ * stays as a 410 so stale clients meet a teaching envelope, not a 404.
  */
 export async function POST(request: Request) {
   return errorResponse({

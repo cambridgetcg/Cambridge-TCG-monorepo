@@ -20,16 +20,12 @@ export function PlanOverLimitBanner({
     <Banner
       tone="warning"
       title="Monthly plan capacity reached"
-      action={{
-        content: "Compare capacity",
-        onAction: onUpgrade
-      }}
     >
       <p>
         You've processed {usageMetrics.currentUsage} orders this month,
         exceeding your {planDetails.displayName} plan limit of {usageMetrics.planLimit} orders.
-        RewardsPro will keep running and there is no overage charge. Choose a
-        larger fixed plan if you want more monthly headroom.
+        RewardsPro will keep running and there is no overage charge. New paid
+        upgrades are retired; existing records and support remain available.
       </p>
     </Banner>
   );

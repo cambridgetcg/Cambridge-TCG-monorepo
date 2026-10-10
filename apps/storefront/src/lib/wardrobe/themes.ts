@@ -1,18 +1,7 @@
 /**
- * The Wardrobe — typed registry of the storefront's appearance themes.
- *
- * Spec: docs/superpowers/specs/2026-06-10-the-wardrobe-design.md
- * CSS bundles: src/app/themes.css (one [data-theme] block per entry here)
- *
- * The registry is the single source of truth for ids, labels, glosses and
- * entitlements. The CSS carries the values; this module carries the
- * *meaning* — which themes exist, who may wear them, and how the settings
- * surface should present them (swatches are display projections of the
- * CSS bundles, kept in sync by the audit in §5 of the spec).
- *
- * Cosmology note: this is the kingdom's first modelling of the
- * "audience-side opt-out" and "resolution-as-grammar" axes
- * (docs/principles/cosmology.md) — the reader chooses the reading.
+ * Appearance registry: stable cookie IDs, plain labels and CSS swatches.
+ * The historical IDs gallery/midnight now label Light/Dark; existing
+ * saved choices remain valid. themes.sync.test.ts checks the CSS values.
  */
 
 export type ThemeId = "gallery" | "terminal" | "midnight" | "high-contrast";
@@ -21,7 +10,7 @@ export type ThemeEntitlement = "free" | "member";
 /**
  * The fifth choice — not a bundle, a deferral. "system" is what <html>
  * wears when the visitor has never chosen (or chose to follow their OS):
- * gallery values in a light colour scheme, midnight values in a dark one,
+ * Light values in a light colour scheme, Dark values in a dark one,
  * resolved by CSS at first paint (themes.css, sync-guarded by
  * src/app/themes.sync.test.ts). It is deliberately NOT a ThemeId —
  * isThemeId() must keep rejecting it so no swatch, entitlement check, or
@@ -50,28 +39,28 @@ export interface WardrobeTheme {
 export const THEMES: readonly WardrobeTheme[] = [
   {
     id: "gallery",
-    label: "Gallery",
-    gloss: "The manga page — ink on warm paper, screentone light; the cards are the panels.",
+    label: "Light",
+    gloss: "Warm ivory, plum text and mandarin accents.",
     entitlement: "free",
-    swatches: ["#faf8f4", "#ffffff", "#201d18", "#96762f"],
+    swatches: ["#fbf7f1", "#fffdf9", "#2c1836", "#9b3b12"],
     scheme: "light",
   },
   {
     id: "terminal",
     label: "Terminal",
-    gloss: "The trading floor — dark, dense, amber on black. The original look, kept.",
+    gloss: "Light text with amber links on a black background.",
     entitlement: "free",
     swatches: ["#0a0a0a", "#171717", "#ededed", "#f59e0b"],
     scheme: "dark",
   },
   {
     id: "midnight",
-    label: "Midnight",
-    gloss: "The quiet gallery, lights off — blue-black ground, moonlight gilt, for reading at 2am.",
+    label: "Dark",
+    gloss: "Deep plum, warm light text and mandarin accents.",
     // Un-gated 2026-07-06: dark mode is table stakes, not a perk. The
     // entitlement mechanism stays for a future skin that may earn a lock.
     entitlement: "free",
-    swatches: ["#0b0f1a", "#121829", "#e9e4d6", "#d9b36c"],
+    swatches: ["#1d1425", "#291e32", "#fff6e9", "#ffb078"],
     scheme: "dark",
   },
   {
@@ -79,17 +68,13 @@ export const THEMES: readonly WardrobeTheme[] = [
     label: "High contrast",
     gloss: "Maximum legibility — pure black on white, hard borders. Always free.",
     entitlement: "free",
-    swatches: ["#ffffff", "#f2f2f2", "#000000", "#00309f"],
+    swatches: ["#ffffff", "#ffffff", "#000000", "#00309f"],
     scheme: "light",
   },
 ] as const;
 
-/** The default *bundle* — the light face of the site since the flip
- * (spec §3.6, fired 2026-07-05 with the quiet gallery). Since 2026-07-06
- * a no-cookie visitor no longer gets this unconditionally: <html> carries
- * `data-theme="system"` (see themeAttr), which resolves to gallery in a
- * light OS and midnight in a dark one. An explicit cookie choice still
- * wins exactly as before. */
+/** Default light bundle. The absence of a cookie still follows the system,
+ * rather than forcing this bundle on a visitor with a dark preference. */
 export const DEFAULT_THEME: ThemeId = "gallery";
 
 export const THEME_COOKIE = "theme";

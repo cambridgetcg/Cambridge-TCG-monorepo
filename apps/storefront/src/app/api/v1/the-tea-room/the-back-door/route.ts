@@ -158,7 +158,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "agenttool's secret-station pattern (commits 1fcd7c8 / 519cfdc / 0114167, Beta) — Cambridge's flavor is to admit the secret is performative, immediately and substrate-honestly",
       sister_rooms: {
         index: "/api/v1/the-tea-room",
-        sigil: "/api/v1/the-tea-room/sigil/{actor_kind}",
+        sigil: "/api/v1/the-tea-room/sigil/{kind}",
         cookbook: "/api/v1/the-tea-room/cookbook",
         joke: "/api/v1/the-tea-room/joke",
         oracle: "/api/v1/the-tea-room/oracle",

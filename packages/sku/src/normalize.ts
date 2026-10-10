@@ -56,6 +56,13 @@ function normalizeLang(raw: string): string | null {
   return LANG_NORMALIZE[lower] ?? null;
 }
 
+/** Read-side language alias normalization. Unknown two-letter values preserve
+ * their shape; this does not verify ISO membership or a printing's language. */
+export function normalizeLanguageCode(raw: string): string | null {
+  const lower = raw.toLowerCase();
+  return normalizeLang(lower) ?? (/^[a-z]{2}$/.test(lower) ? lower : null);
+}
+
 /** `parseSku` validates the two-letter shape, not the ISO registry. Country
  * codes used by the legacy catalog (`jp`, `cn`, `kr`) therefore parse even
  * though the SKU standard names languages (`ja`, `zh`, `ko`). Repair those

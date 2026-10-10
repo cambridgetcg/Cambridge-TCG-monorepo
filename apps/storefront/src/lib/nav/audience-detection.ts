@@ -63,6 +63,7 @@ const AUDIENCE_RULES: AudienceRule[] = [
   { prefix: "/account/pricing-rules", audience: "trader" },
   { prefix: "/account/vacation", audience: "trader" },
   { prefix: "/account/lots", audience: "trader" },
+  { prefix: "/prism-signals", audience: "trader" },
 
   // Seller paths
   { prefix: "/trade-in", audience: "seller" },

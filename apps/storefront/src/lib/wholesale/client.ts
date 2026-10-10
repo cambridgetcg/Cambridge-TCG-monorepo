@@ -332,8 +332,13 @@ export async function fetchGamesDetailed(): Promise<GamesResult> {
         next: { revalidate: 600 },
       });
       if (res.ok) {
-        const data = await res.json();
-        return { games: data.games || [], source: 'wholesale-api' };
+        const data: unknown = await res.json();
+        // HTTP 200 alone is not a catalog result. Only an explicit array
+        // distinguishes a legitimate empty collection from an error payload.
+        if (data === null || typeof data !== 'object' || !('games' in data) || !Array.isArray(data.games)) {
+          throw new Error('wholesale games response missing a games array');
+        }
+        return { games: data.games, source: 'wholesale-api' };
       }
       console.error('[wholesale] games error', res.status);
     } catch (err) {
@@ -368,8 +373,11 @@ export async function fetchSetsDetailed(game?: string): Promise<SetsResult> {
         next: { revalidate: 600 },
       });
       if (res.ok) {
-        const data = await res.json();
-        return { sets: data.sets || [], source: 'wholesale-api' };
+        const data: unknown = await res.json();
+        if (data === null || typeof data !== 'object' || !('sets' in data) || !Array.isArray(data.sets)) {
+          throw new Error('wholesale sets response missing a sets array');
+        }
+        return { sets: data.sets, source: 'wholesale-api' };
       }
       console.error('[wholesale] sets error', res.status);
     } catch (err) {

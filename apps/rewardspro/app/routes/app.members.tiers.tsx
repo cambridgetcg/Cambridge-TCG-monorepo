@@ -690,7 +690,7 @@ export default function TiersPage() {
                 }
                 helpText={
                   !data.hasAnnualEval
-                    ? "Annual evaluation period is only available on Ultra plan and above. Upgrade to unlock this feature."
+                    ? "Annual evaluation is unavailable under the existing agreement. New paid plan changes are retired."
                     : "Choose how tier status is calculated: annually reset or lifetime cumulative"
                 }
               />

@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { auth } from "@/lib/auth";
 import { beginLotPurchase, getLot } from "@/lib/market/lots";
 import { query } from "@/lib/db";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").trim().replace(/\/+$/, "");
 
@@ -16,6 +17,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: "Sign in to buy" }, { status: 401 });
   }
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   const { id } = await params;
 

@@ -2,14 +2,15 @@
 // browser. Durable PVE (server-recorded battles and rewards) stays paused
 // while server-side rules validation is completed; this page mounts no
 // mutation path — the boundary the pause protects is untouched. Rewards
-// are paused; the battle itself is local, free, and records nothing.
+// are paused; battle state, starter choice, and clears can be saved in
+// localStorage in this browser only, not as server-recorded PVE results.
 
 import { PracticeBoard } from "@/components/game/PracticeBoard";
 
 export const metadata = {
   title: "Practice battle — Adventure | Cambridge TCG",
   description:
-    "A practice One Piece TCG battle that runs in your browser. Nothing recorded, nothing paid — rewards are paused while rules validation is completed.",
+    "A practice One Piece TCG battle with browser-local saves. No server-recorded results or rewards while server-side rules validation is completed.",
 };
 
 export default async function AdventureLevelPage({

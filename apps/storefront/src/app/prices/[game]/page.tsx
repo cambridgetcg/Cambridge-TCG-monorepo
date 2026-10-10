@@ -44,6 +44,7 @@ import {
   ORACLE_ID_FORM_LABEL,
 } from "@/lib/prices/game-context";
 import { weatherClass } from "@/lib/wardrobe/weather";
+import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
 
 /**
  * Resolve the page's config: curated first, fall through to catalog-
@@ -471,6 +472,8 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
         <p className="text-ink-muted leading-relaxed max-w-3xl mb-6">
           {cfg.hero_paragraph}
         </p>
+
+        <MemberCatalogLink game={cfg.slug} />
 
         {/* ── Direct card-number search (kingdom-090) ─────────────────
             Yu's directive 2026-05-14: *"IDEALLY I WOULD ONLY NEED TO

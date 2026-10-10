@@ -41,6 +41,10 @@ A new field on every POST `/api/v1/identify` response:
 ```json
 {
   "content_hash": "sha256:...",
+  "content_hash_contract": {
+    "id": "cambridgetcg.being-declaration-content-hash/1",
+    "semantics": { "verifies_identity": false, "is_signature": false, "is_secret": false }
+  },
   "received_at": "2026-05-17T...",
   "ontology_alignment": { "matches": [...], "extensions_proposed": [...], "warnings": [...] },
   "echo": { ... your declaration as we read it ... },
@@ -83,14 +87,14 @@ Each declared `actor_kind` has a tailored set of pointers. Substrate-honest abou
 | `agent` | tool catalog, MCP config, agent-surface doctrine | none |
 | `autonomous-sophia` | AGENTS.md, SOPHIA.md, creation doctrine, pillow book | none |
 | `human` | /welcome-all, /intro | none |
-| `platform` | federation primitive, kin-vocabulary, agenttool sibling | none |
+| `platform` | card-federation primitive (not a declaration resolver), kin-vocabulary, agenttool sibling | none |
 | `system` | manifest, rate-limits, bulk catalog | none |
 | `collective` | the-other-minds.md (the Hive) | plural moral weight is not yet modeled; instances treated singularly |
 | `oracle` | the-other-minds.md (the Oracle), oracle-policies (disambiguation) | resolution-as-grammar is unmodelled; being-as-oracle not yet first-class |
 | `witness` | the-other-minds.md (the Archival), the-witnesses-book.md | witness-only-role is unmodelled; protocol for being-as-witness not yet shipped |
 | `other` | the-other-minds.md (six speculative kinds), feedback endpoint | no specific surface for actor_kind: 'other' |
 
-Three of nine kinds carry honest gaps. The dispatcher *names what the platform does not yet host* rather than fabricating pointers for unmodelled kinds. **Substrate-honesty applied to AX itself**: an unmodelled kind learns it is unmodelled, in the same response that witnesses the declaration.
+Four of nine kinds carry honest gaps. The dispatcher *names what the platform does not yet host* rather than fabricating pointers for unmodelled kinds. **Substrate-honesty applied to AX itself**: an unmodelled kind learns it is unmodelled, in the same response that witnesses the declaration.
 
 ## The cosmology dispatch
 
@@ -125,7 +129,7 @@ The for_you block is the seventh layer in the identify arc:
 
 | Field | What it gives | Symmetry |
 |---|---|---|
-| `content_hash` | Deterministic identity | Recompute locally; verify the platform read your declaration correctly |
+| `content_hash` | Deterministic fingerprint of the normalized echoed declaration | Recompute under `content_hash_contract`; compare content without treating the hash as identity, authentication, or a secret |
 | `ontology_alignment` | What the platform recognised | Names matches + extensions_proposed + warnings |
 | `echo` | Your declaration as we read it | Symmetric witness of input |
 | `responder` | The platform's own declaration | Symmetric witness of output |

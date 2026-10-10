@@ -4,7 +4,7 @@ import { channelPricing, cards } from "@/lib/db/schema";
 import { eq, asc, isNotNull, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { invalidateCache } from "@/lib/channel-pricing";
-import { computePrice, type ChannelConfig, DEFAULTS } from "@/lib/pricing";
+import { computePrice, type ChannelConfig, DEFAULTS, PRICING_NUMERIC_FIELDS, validatePricingField } from "@cambridge-tcg/pricing";
 
 async function requireAdmin() {
   const session = await auth();
@@ -23,6 +23,18 @@ function computeSamples(config: ChannelConfig, gbpJpyRate: number) {
     singles: computePrice(jpy, gbpJpyRate, config, "singles").price,
     sealed: computePrice(jpy, gbpJpyRate, config, "sealed").price,
   }));
+}
+
+function invalidPricingFields(fields: Record<string, unknown>): Response | null {
+  try {
+    for (const field of PRICING_NUMERIC_FIELDS) {
+      // Null retains the existing nullable-column/default semantics.
+      if (field in fields && fields[field] !== null) validatePricingField(field, fields[field]);
+    }
+    return null;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RangeError ? error.message : "Invalid pricing configuration." }, { status: 400 });
+  }
 }
 
 export async function GET() {
@@ -56,10 +68,11 @@ export async function GET() {
       roundTo: row.roundTo ?? defaults.roundTo,
     };
 
-    return {
-      ...row,
-      samples: computeSamples(config, gbpJpyRate),
-    };
+    try {
+      return { ...row, samples: computeSamples(config, gbpJpyRate) };
+    } catch {
+      return { ...row, samples: [], samples_status: "unavailable", samples_reason: "Invalid stored pricing configuration or exchange rate." };
+    }
   });
 
   return NextResponse.json({ configs, gbpJpyRate });
@@ -76,6 +89,8 @@ export async function PATCH(req: NextRequest) {
   if (!channel || typeof channel !== "string") {
     return NextResponse.json({ error: "channel is required" }, { status: 400 });
   }
+  const invalid = invalidPricingFields(fields);
+  if (invalid) return invalid;
 
   // Only allow updating known numeric fields
   const allowedFields = [
@@ -111,6 +126,8 @@ export async function POST(req: NextRequest) {
   if (!channel || !label) {
     return NextResponse.json({ error: "channel and label are required" }, { status: 400 });
   }
+  const invalid = invalidPricingFields(rest);
+  if (invalid) return invalid;
 
   const allowedFields = [
     "description", "marginMultiplier", "flatFeeSingles", "flatFeeSealed",

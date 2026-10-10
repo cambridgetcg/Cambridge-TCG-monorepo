@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { isAdmin } from "@/lib/admin/auth";
+import { requireAdmin } from "@/lib/admin/auth";
+import {
+  MIN_FRAUD_REVIEW_REASON_LENGTH,
+  reviewFraudSignal,
+  type FraudReviewAction,
+} from "@/lib/admin/fraud-review";
 import { query } from "@/lib/db";
-import { logAdminAction } from "@/lib/admin/governance-log";
+
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
 
 // Admin fraud-signals triage endpoint.
 //
@@ -15,8 +21,11 @@ import { logAdminAction } from "@/lib/admin/governance-log";
 // one shared reason; per-signal log row each.
 
 export async function GET(request: Request) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: PRIVATE_NO_STORE },
+    );
   }
   const url = new URL(request.url);
   const severity = url.searchParams.get("severity");
@@ -58,86 +67,64 @@ export async function GET(request: Request) {
     params,
   );
 
-  return NextResponse.json({ signals: r.rows });
+  return NextResponse.json({ signals: r.rows }, { headers: PRIVATE_NO_STORE });
 }
 
 interface PatchBody {
   signalId?: string;
-  action?: "resolve" | "escalate" | "dismiss";
+  action?: FraudReviewAction;
   reason?: string;
-  actorLabel?: string;
 }
 
 export async function PATCH(request: Request) {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = await requireAdmin();
+  if (!admin) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: PRIVATE_NO_STORE },
+    );
   }
   const body = (await request.json().catch(() => ({}))) as PatchBody;
   const id = body.signalId;
   const action = body.action;
-  const reason = (body.reason ?? "").trim() || null;
-  const actor = (body.actorLabel ?? "").trim() || "admin";
+  const reason = (body.reason ?? "").trim();
 
   if (!id || !action || !["resolve", "escalate", "dismiss"].includes(action)) {
-    return NextResponse.json({ error: "signalId + valid action required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "signalId + valid action required." },
+      { status: 400, headers: PRIVATE_NO_STORE },
+    );
+  }
+  if (reason.length < MIN_FRAUD_REVIEW_REASON_LENGTH) {
+    return NextResponse.json(
+      {
+        error: `A human review reason of at least ${MIN_FRAUD_REVIEW_REASON_LENGTH} characters is required.`,
+      },
+      { status: 400, headers: PRIVATE_NO_STORE },
+    );
   }
 
-  const beforeRes = await query(
-    `SELECT severity, resolved, resolved_notes, user_id FROM fraud_signals WHERE id = $1`,
-    [id],
-  );
-  if (beforeRes.rows.length === 0) {
-    return NextResponse.json({ error: "Signal not found." }, { status: 404 });
-  }
-  const before = beforeRes.rows[0];
-
-  let updateSql: string;
-  let updateParams: unknown[];
-
-  if (action === "resolve" || action === "dismiss") {
-    updateSql = `UPDATE fraud_signals
-                    SET resolved = true,
-                        resolved_notes = $2
-                  WHERE id = $1
-                  RETURNING *`;
-    updateParams = [id, reason ?? `${action} by ${actor}`];
-  } else {
-    // escalate — bump severity one rung if possible
-    const next: Record<string, string> = {
-      low: "medium", medium: "high", high: "critical", critical: "critical",
-    };
-    updateSql = `UPDATE fraud_signals
-                    SET severity = $2,
-                        resolved_notes = COALESCE($3, resolved_notes)
-                  WHERE id = $1
-                  RETURNING *`;
-    updateParams = [id, next[before.severity] ?? "high", reason];
-  }
-
-  const updated = await query(updateSql, updateParams);
-  const after = updated.rows[0];
-
-  await logAdminAction({
-    actorLabel: actor,
-    targetUserId: before.user_id,
-    targetKind: "fraud_signal",
-    targetId: id,
-    action: `fraud.${action}`,
-    beforeValue: { severity: before.severity, resolved: before.resolved },
-    afterValue: { severity: after.severity, resolved: after.resolved },
+  const result = await reviewFraudSignal({
+    admin,
+    signalId: id,
+    action,
     reason,
   });
-
-  // If we resolved/dismissed a signal, recompute the user's trust
-  // score so the dropped penalty flows through immediately.
-  if (action !== "escalate" && before.user_id) {
-    try {
-      const { calculateTrustScore } = await import("@/lib/escrow/trust-engine");
-      void calculateTrustScore(before.user_id).catch((err) =>
-        console.error("[fraud/triage] trust recompute failed:", err),
-      );
-    } catch { /* import failure ignored */ }
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        error: result.error,
+        committed: result.committed,
+        audited: result.audited,
+        signal: result.signal,
+        failed_user_ids: result.failedUserIds,
+      },
+      { status: result.status, headers: PRIVATE_NO_STORE },
+    );
   }
 
-  return NextResponse.json({ ok: true, signal: after });
+  return NextResponse.json(
+    { ok: true, signal: result.signal, audited: true, trust_recomputed: true },
+    { headers: PRIVATE_NO_STORE },
+  );
 }

@@ -22,6 +22,7 @@ import {
 } from "../db-source";
 import { stripSslMode, isLocalDbHost, channelPriceForRow } from "../db-source";
 import type { ChannelConfig } from "@cambridge-tcg/pricing";
+import { CatalogSitemapUnavailableError, loadCatalogSitemap } from "../../catalog-sitemap";
 
 vi.mock("../db-source", async () => {
   const actual = await vi.importActual<typeof import("../db-source")>("../db-source");
@@ -265,6 +266,71 @@ describe("fetchGamesDetailed / fetchSetsDetailed source fallback", () => {
     const res = await fetchSetsDetailed("one-piece");
     expect(res.source).toBe("unavailable");
     expect(res.sets).toEqual([]);
+  });
+});
+
+describe.each(["games", "sets"] as const)("HTTP 200 %s collection validation", (collection) => {
+  const game = { code: "op", name: "One Piece", slug: "one-piece", image_url: null, card_count: 1 };
+  const read = () => collection === "games" ? fetchGamesDetailed() : fetchSetsDetailed("one-piece");
+  const fallback = collection === "games" ? mockDbGames : mockDbSets;
+  const malformedBodies = [
+    { label: "missing", body: { error: "upstream unavailable" } },
+    { label: "null collection", body: { [collection]: null } },
+    { label: "object collection", body: { [collection]: {} } },
+    { label: "string collection", body: { [collection]: "unavailable" } },
+    { label: "false collection", body: { [collection]: false } },
+    { label: "null document", body: null },
+  ];
+
+  // Exercise the actual HTTP readers before their status reaches the sitemap.
+  // Only transport and the existing DB boundary are mocked; no pre-stamped
+  // availability result is substituted for fetchGamesDetailed/fetchSetsDetailed.
+  function httpCollection(body: unknown) {
+    mockFetch.mockImplementation(async (input: string) => {
+      const path = new URL(input).pathname;
+      if (path === `/api/v1/${collection}`) return jsonResponse(body);
+      if (path === "/api/v1/games") return jsonResponse({ games: [game] });
+      if (path === "/api/v1/sets") return jsonResponse({ sets: [] });
+      if (path === "/api/v1/prices") return jsonResponse({ ...dbPrices, source: undefined });
+      throw new Error(`Unexpected fixture request: ${path}`);
+    });
+  }
+
+  const sitemapReaders = {
+    games: fetchGamesDetailed, sets: fetchSetsDetailed, prices: fetchPrices,
+    artists: async () => [],
+  };
+
+  it.each(malformedBodies)("uses existing DB fallback for $label, never HTTP-available empty", async ({ body }) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    httpCollection(body);
+    fallback.mockResolvedValue([]);
+    expect(await read()).toEqual({ [collection]: [], source: "wholesale-db" });
+    expect(fallback).toHaveBeenCalledOnce();
+    // A legitimate empty DB fallback is still a successful generation.
+    expect(await loadCatalogSitemap(sitemapReaders)).toEqual(
+      collection === "games" ? [] : [{ url: "https://cambridgetcg.com/prices/one-piece" }],
+    );
+  });
+
+  it.each(malformedBodies)("rejects sitemap regeneration for $label when the DB fallback also fails", async ({ body }) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    httpCollection(body);
+    fallback.mockRejectedValue(new Error("fixture DB unavailable"));
+    expect(await read()).toEqual({ [collection]: [], source: "unavailable" });
+    await expect(loadCatalogSitemap(sitemapReaders)).rejects.toBeInstanceOf(CatalogSitemapUnavailableError);
+    expect(fallback).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps an explicit empty HTTP array valid without any DB fallback", async () => {
+    httpCollection({ [collection]: [] });
+    expect(await read()).toEqual({ [collection]: [], source: "wholesale-api" });
+    expect(await loadCatalogSitemap(sitemapReaders)).toEqual(
+      collection === "games" ? [] : [{ url: "https://cambridgetcg.com/prices/one-piece" }],
+    );
+    expect(mockDbGames).not.toHaveBeenCalled();
+    expect(mockDbSets).not.toHaveBeenCalled();
+    expect(mockDbPrices).not.toHaveBeenCalled();
   });
 });
 

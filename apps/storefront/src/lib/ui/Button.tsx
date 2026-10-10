@@ -1,10 +1,8 @@
 /**
  * Button — the canonical primary/secondary/ghost/danger button.
  *
- * The quiet gallery (docs/plans/the-quiet-gallery.md): primary is solid
- * ink — the single strongest thing on a page; secondary is a hairline
- * border + ink text; ghost is bare ink-muted text; danger is solid
- * danger. The old amber-on-black primary died with the old theme.
+ * Theme-aware action hierarchy with a visible focus state and a 44px
+ * minimum target. Size changes padding and text, not the minimum target.
  */
 
 import * as React from "react";
@@ -14,16 +12,16 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md" | "lg";
 
 const VARIANT_CLS: Record<Variant, string> = {
-  primary:   "bg-ink text-page font-semibold hover:bg-ink/85 border border-transparent",
-  secondary: "bg-surface text-ink font-medium hover:bg-surface-subtle border border-border-subtle",
+  primary:   "bg-highlight text-ink-on-highlight font-semibold hover:bg-highlight/90 border border-transparent",
+  secondary: "bg-surface text-ink font-medium hover:bg-surface-subtle border border-border-strong",
   ghost:     "text-ink-muted hover:text-ink hover:bg-surface-subtle border border-transparent",
   danger:    "bg-danger text-page font-semibold hover:bg-danger/85 border border-transparent",
 };
 
 const SIZE_CLS: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-xs rounded-md",
-  md: "px-4 py-2 text-sm rounded-lg",
-  lg: "px-6 py-3 text-base rounded-lg",
+  sm: "px-4 py-2 text-sm rounded-full",
+  md: "px-5 py-2 text-base rounded-full",
+  lg: "px-7 py-3 text-base rounded-full",
 };
 
 interface BaseProps {
@@ -45,7 +43,7 @@ interface LinkButtonProps extends BaseProps {
   external?: boolean;
 }
 
-const baseCls = "inline-flex items-center justify-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed";
+const baseCls = "inline-flex min-h-11 items-center justify-center gap-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function Button({
   variant = "primary",

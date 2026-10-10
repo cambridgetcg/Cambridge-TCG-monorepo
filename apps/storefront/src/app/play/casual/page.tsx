@@ -5,7 +5,7 @@ import { audienceMetadata } from "@/lib/ui";
 export const metadata: Metadata = {
   title: "Casual play — for hobbyists who love the game",
   description:
-    "Casual play status and learning resources. PVE battles and rewards are currently paused.",
+    "Browser-local One Piece practice and learning resources. Saves stay in this browser; server-recorded PVE battles and rewards are paused.",
   other: audienceMetadata("public-documentation", ["play", "casual", "hobbyist"]),
 };
 
@@ -30,7 +30,7 @@ export default function CasualPlay() {
           href="/play/adventure"
           className="inline-block border border-accent bg-accent-wash text-accent hover:bg-accent/20 hover:text-accent-strong rounded-md px-4 py-2 font-medium no-underline"
         >
-          View adventure status →
+          Try adventure practice →
         </Link>
       </p>
 
@@ -40,8 +40,10 @@ export default function CasualPlay() {
           and share the code with a friend.
         </li>
         <li>
-          <strong>Adventure</strong> — level and prior-progress reads remain
-          available; battles and rewards are paused.
+          <strong>Adventure</strong> — practise against AI with no account.
+          Battle state, starter choice, and clears can be saved in this browser
+          only. Server-recorded PVE battles and rewards are paused; prior
+          recorded progress remains readable.
         </li>
       </ul>
 
@@ -58,7 +60,7 @@ export default function CasualPlay() {
       <p>
         New? Start with the{" "}
         <Link href="/guides/how-to-play">beginner&apos;s guide</Link>, then the
-        adventure status page. If you learned OPTCG in Japanese, the{" "}
+        adventure practice page. If you learned OPTCG in Japanese, the{" "}
         <Link href="/api/v1/play/glossary">bilingual glossary</Link> maps every
         term.
       </p>

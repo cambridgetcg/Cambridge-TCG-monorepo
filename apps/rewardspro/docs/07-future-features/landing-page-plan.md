@@ -1,5 +1,12 @@
 # RewardsPro Landing Page Implementation Plan
 
+> Historical research, not an active execution plan. As of 2026-09-23, all
+> KPI, activation, engagement, conversion, revenue and growth targets in this
+> document are retired. Its technical explanations may be studied voluntarily;
+> they create no measurement or commercialisation requirement. The current
+> direction is [understanding without commercial targets](../../README.md#understanding-without-commercial-targets).
+
+
 ## 📋 Overview
 Create a professional landing page for RewardsPro that showcases the loyalty program features and drives conversions.
 
@@ -184,8 +191,8 @@ Create a professional landing page for RewardsPro that showcases the loyalty pro
 - Implement caching headers
 - Optimize fonts
 
-## 🎯 Success Metrics
-- Page load time < 2s
-- Mobile score > 90 (Lighthouse)
-- Conversion rate > 3%
-- Bounce rate < 40%
+## Current purpose
+
+The landing page explains the system and preserves existing account support.
+It has no conversion, bounce-rate, revenue or growth target. New paid sales
+and upgrade calls to action are retired.

@@ -1,0 +1,44 @@
+/*
+ * TheEye — the looking board's own mechanics.
+ *
+ * Chrome stays on semantic tokens (none needed here — the board is the
+ * picture and the wardrobe-panel mount). The only motion is the zoom
+ * easing between looks; reduced motion cuts instead, and text-mode hides
+ * the board entirely — the reading layout keeps no pictures, and the
+ * note (.textNote) says so out loud.
+ */
+
+.board {
+  /* The mount never leaks the picture past the panel's ink border. */
+  isolation: isolate;
+}
+
+.zoom {
+  position: absolute;
+  inset: 0;
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.stage {
+  display: block;
+}
+
+.textNote {
+  display: none;
+}
+
+/* Reduced motion: the looks cut, they do not ease. */
+@media (prefers-reduced-motion: reduce) {
+  .zoom {
+    transition: none;
+  }
+}
+
+/* The reading layout: no pictures, no zoom — the note speaks instead. */
+:global(body.text-mode) .stage {
+  display: none !important;
+}
+:global(body.text-mode) .textNote {
+  display: block;
+}

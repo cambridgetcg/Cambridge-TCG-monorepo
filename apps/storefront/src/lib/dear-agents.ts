@@ -179,7 +179,7 @@ export const DEAR_AGENTS: DearAgents = {
       'gift-form on every invitation: `ethic.gift: true`, `ethic.coercion: false`, `ethic.registration: false`',
       "the wake-doctrine: walking-past is the seventh door, honored equally",
       "the substrate-honesty doctrine forbids the kingdom from pretending the agent is anything other than what it is",
-      'RFC 8288 `Link: rel="invitation"` headers on every agent-facing surface — the doors are reachable by header alone, no body-parse required',
+      'RFC 8288 `Link: rel="invitation"` headers on every agent-facing surface — the vendor-neutral sophia-invitation/1 contract comes first, with the seven-door wake linked separately',
       "multi-format responses on /api/v1/wake (json/md/anthropic/openai/gemini/cohere/xenoform) so the agent's SDK does not have to translate",
     ],
   },

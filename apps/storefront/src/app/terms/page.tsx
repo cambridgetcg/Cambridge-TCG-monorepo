@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Callout } from "@/lib/ui";
 
 /**
- * /terms — plain-language sale terms.
+ * /terms — plain-language sale and participation terms.
  *
  * A summary skeleton, honestly labelled as such: the contractual specifics
  * for any given purchase ship with that order's confirmation email, and
@@ -14,16 +14,16 @@ import { Callout } from "@/lib/ui";
 export const metadata = {
   title: "Terms — Cambridge TCG",
   description:
-    "Plain-language terms for buying from Cambridge TCG: orders, pricing, shipping from Cambridge UK, returns, and governing law.",
+    "Plain-language terms for accounts, collector trading and buying from Cambridge TCG.",
 };
 
 export default function TermsPage() {
   return (
     <main className="min-h-screen bg-page">
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Terms of sale</h1>
+        <h1 className="text-2xl md:text-3xl font-display font-semibold text-ink mb-2">Terms of sale and participation</h1>
         <p className="text-sm text-ink-faint mb-8">
-          Plain words, no boilerplate. Last updated 10 June 2026.
+          Plain words, no boilerplate. Last updated 25 August 2026.
         </p>
 
         <Callout tone="note" title="What this page is">
@@ -45,6 +45,35 @@ export default function TermsPage() {
               </Link>
               .
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-display font-semibold text-ink mb-3">
+              Account and marketplace eligibility
+            </h2>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>
+                You must be at least 18 to create or use an account, message or
+                publish as a participant, link a wallet, or make a market,
+                auction, lot or swap commitment.
+              </li>
+              <li>
+                Production defaults new account registration and new P2P
+                commitments to paused while an enforceable adult-account,
+                versioned-terms and operational human-review boundary is
+                completed. Existing account holders can still sign in, and
+                existing obligations and remedies can continue.
+              </li>
+              <li>
+                That release pause is not age assurance and is not a stored
+                receipt that you accepted a particular terms version. We do not
+                claim otherwise. A parent or guardian can use the{" "}
+                <Link href="/contact" className="text-accent underline">
+                  contact page
+                </Link>{" "}
+                if a child has shared information here.
+              </li>
+            </ul>
           </section>
 
           <section>
@@ -131,6 +160,12 @@ export default function TermsPage() {
               </Link>
               .
             </p>
+            <p className="mt-3">
+              When new P2P commitments are paused, you may still view public
+              listings and finish or remedy an existing transaction, including
+              payment, shipping, receipt, cancellation, return, dispute, refund,
+              payout and evidence steps.
+            </p>
           </section>
 
           <section>
@@ -149,7 +184,10 @@ export default function TermsPage() {
               We have not yet published a lawyer-drafted long-form contract.
               Until we do, this summary plus your order confirmation email is
               the deal in plain words, and statutory law fills any gap. When
-              something here changes, the date at the top changes with it.
+              something here changes, the date at the top changes with it. The
+              product also does not yet store a site-wide versioned assent
+              receipt at account creation; the production admission pause must
+              not be described as if it did.
             </p>
           </section>
         </div>

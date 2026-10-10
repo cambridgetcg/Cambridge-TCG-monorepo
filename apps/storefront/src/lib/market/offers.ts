@@ -19,6 +19,8 @@ import { notify } from "@/lib/notifications/db";
 import { canTrade, getTrustTier } from "@/lib/escrow/trust-engine";
 import { routeTrade } from "@/lib/escrow/service-tiers";
 import { formatPrice } from "@/lib/format";
+import { lockTradeStanding } from "@/lib/trust/standing-lock";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 import type { MarketTrade } from "./types";
 import type { OfferStatus } from "./offer-timeline";
 import { logOfferTransition } from "./offer-lifecycle-log";
@@ -114,11 +116,19 @@ export async function makeOffer(input: {
   quantity?: number;
   message?: string;
 }): Promise<Result<MarketOffer>> {
+  assertP2PCommitmentOpen();
+
   // Validate the ask exists, is offerable, and isn't the buyer's own.
   const askRows = await query(
     `SELECT id, user_id, sku, price, quantity, filled_quantity, condition,
             card_name, status, allow_offers
-       FROM market_orders WHERE id = $1`,
+       FROM market_orders o
+      WHERE id = $1
+        AND NOT EXISTS (
+          SELECT 1 FROM trust_profiles suspended
+           WHERE suspended.user_id = o.user_id
+             AND suspended.is_suspended = TRUE
+        )`,
     [input.askOrderId],
   );
   if (askRows.rows.length === 0) {
@@ -381,6 +391,29 @@ async function createTradeForAcceptedOffer(input: {
       return { ok: false as const, reason: "This offer has expired.", status: 409 };
     }
 
+    // Close both accept-time races against emergency suspension. canTrade()
+    // already gated the buyer before the transaction; locking the same
+    // trust_profiles rows used by emergencyFreezeAccount means neither a
+    // suspended buyer nor a suspended resting-order owner can cross this
+    // transaction into a new trade. Lock standing before the ask so this
+    // follows the same trust-profile → order lock order as placeOrder().
+    const standing = await lockTradeStanding(q, [
+      offer.buyer_id,
+      offer.seller_id,
+    ]);
+    if (
+      standing.missingUserIds.includes(offer.seller_id) ||
+      standing.suspendedUserIds.includes(offer.seller_id)
+    ) {
+      return { ok: false as const, reason: "The ask is no longer available.", status: 409 };
+    }
+    if (
+      standing.missingUserIds.includes(offer.buyer_id) ||
+      standing.suspendedUserIds.includes(offer.buyer_id)
+    ) {
+      return { ok: false as const, reason: "The buyer account is not currently permitted to trade.", status: 403 };
+    }
+
     const askRows = await q(
       `SELECT id, user_id, sku, card_name, condition, price, quantity,
               filled_quantity, status, accepts_returns, return_window_days
@@ -532,6 +565,8 @@ export async function acceptOffer(offerId: string, sellerId: string): Promise<Re
   offer: MarketOffer;
   trade: MarketTrade;
 }>> {
+  assertP2PCommitmentOpen();
+
   // Fast-fail permission + state checks. seller_id is immutable so the
   // ownership check holds; the status check is repeated under the lock
   // inside the acceptance engine.
@@ -667,6 +702,8 @@ export async function counterOffer(input: {
   counterPrice: number;
   counterMessage?: string;
 }): Promise<Result<MarketOffer>> {
+  assertP2PCommitmentOpen();
+
   const offer = await loadOffer(input.offerId);
   if (!offer) return { ok: false, reason: "Offer not found.", status: 404 };
   if (offer.seller_id !== input.sellerId) {
@@ -734,6 +771,8 @@ export async function acceptCounter(offerId: string, buyerId: string): Promise<R
   offer: MarketOffer;
   trade: MarketTrade;
 }>> {
+  assertP2PCommitmentOpen();
+
   // Fast-fail permission + state checks; the state check is repeated
   // under the lock inside the acceptance engine.
   const offer = await loadOffer(offerId);

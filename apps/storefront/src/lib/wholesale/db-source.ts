@@ -27,7 +27,7 @@
  */
 
 import { Pool } from "pg";
-import { computePrice, DEFAULTS, type ChannelConfig } from "@cambridge-tcg/pricing";
+import { computePrice, DEFAULTS, positivePrice, type ChannelConfig } from "@cambridge-tcg/pricing";
 import type {
   AggregatorCoverageGameRow,
   AggregatorCoverageHistoryDay,
@@ -233,10 +233,17 @@ export interface PriceableRow {
  * to the card's stored price (which may itself be null).
  */
 export function channelPriceForRow(row: PriceableRow, config: ChannelConfig): number | null {
-  if (row.cardrush_jpy && row.gbp_jpy_rate) {
-    return computePrice(row.cardrush_jpy, row.gbp_jpy_rate, config, row.category).price;
+  if (row.cardrush_jpy !== null) {
+    if (row.gbp_jpy_rate === null) return null;
+    try {
+      return positivePrice(computePrice(row.cardrush_jpy, row.gbp_jpy_rate, config, row.category).price);
+    } catch {
+      // An invalid observed amount/rate/config cannot establish a channel price.
+      // Do not silently replace it with a differently sourced stored amount.
+      return null;
+    }
   }
-  return row.price_gbp;
+  return positivePrice(row.price_gbp);
 }
 
 // ── Card filter builder ─────────────────────────────────────────────────

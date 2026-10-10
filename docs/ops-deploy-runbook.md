@@ -15,14 +15,24 @@
 - **Install command:** `pnpm install`
 - **Root directory (per project):** `apps/<name>`
 
-**Two git remotes are configured by convention:**
+**Remote names are local configuration.** In the active `cambridgetcg` worktree,
+verified on 2026-09-29:
 
 ```
-github → https://github.com/cambridgetcg/Cambridge-TCG-monorepo.git  (deploy target — Vercel watches this)
-origin → https://codeberg.org/zerone-dev/Cambridge-TCG.git           (mirror)
+origin   → https://github.com/cambridgetcg/Cambridge-TCG-monorepo.git  (deploy source)
+codeberg → https://codeberg.org/zerone-dev/Cambridge-TCG.git           (mirror)
 ```
 
-**Push to `github main` triggers Vercel.** Pushes to `origin` (Codeberg) don't deploy.
+**Push to the GitHub remote's `main` triggers linked Vercel projects.** In this
+worktree that is `git push origin HEAD:main`. Older examples below use `github`
+for GitHub and `origin` for Codeberg; substitute the actual configured names.
+Do not create duplicate aliases just to match an older example. A Codeberg
+push does not deploy.
+
+The storefront project was verified linked to this repository's `main` at
+`apps/storefront` with Node 24. Wholesale's project currently has no Git link;
+do not assume a GitHub push deploys it. A manual wholesale promotion is a
+separate target and needs its own release comparison and verification.
 
 ## Local Vercel CLI + API access
 
@@ -73,21 +83,34 @@ The token is also needed in three persistent places — see [`VERCEL_TOKEN`](#ve
 Before pushing a commit that will trigger production deploys:
 
 ```bash
-# 1. Typecheck every package + app (~30s)
+# 1. Typecheck the workspace set named in root package.json (with exclusions)
 pnpm typecheck
 
 # 2. Build each affected app locally — catches Turbopack/bundler
 #    issues that typecheck does NOT (see "Common deploy failures" below).
-#    Only required for apps you touched, but cheap to run all three.
-pnpm --filter cambridgetcg-storefront build   # ~10s, 380+ pages
-pnpm --filter tcg-wholesale build              # ~10s, 75 pages
-pnpm --filter @cambridge-tcg/admin build       # ~10s
+#    Run only affected apps, with an explicitly safe local fixture environment.
+pnpm --filter cambridgetcg-storefront build   # includes active /admin/*
+pnpm --filter tcg-wholesale build
+# apps/admin is a redirect-only shell with no build script.
 
-# 3. Run the audits + unit tests
-pnpm audit && pnpm test:admin
+# 3. Run the registered project audits + unit tests
+# (`pnpm audit` without `run` invokes pnpm's dependency-vulnerability audit.)
+pnpm run audit
+pnpm --filter cambridgetcg-storefront test    # includes migrated admin Vitest
 pnpm --filter @cambridge-tcg/sku test
 pnpm --filter @cambridge-tcg/data-ingest test
 ```
+
+These are scoped commands, not the complete `pnpm verify` chain. The root script
+also names additional package tests and strict CardRush coverage. The project
+audit chain can connect to databases: inspect it and use a safe fixture environment,
+never ambient production credentials. `pnpm test:admin` no longer exists;
+admin code is covered by storefront's build and relevant Vitest tests. `pnpm smoke`
+still invokes the stale old admin runner, not a valid UI or visual gate. For the
+GET-only auth surface, use
+`STOREFRONT_BASE_URL=http://localhost:3001 pnpm --filter cambridgetcg-storefront test:e2e:smoke`
+with an already-running safe local storefront; it does not cover full admin
+behavior or visual regression.
 
 **The non-negotiable one is step 2.** `pnpm typecheck` validates types
 but does NOT exercise the bundler. Next.js 16 + Turbopack has stricter
@@ -95,10 +118,101 @@ module resolution than `tsc` (see [Common deploy failures](#common-deploy-failur
 for the patterns that bit us in 2026-05).
 
 If any of these fail, fix locally before pushing. The CI workflow
-(`ci.yml`) runs the same per-app build on paths-filtered changes, but
-**only for apps whose `apps/<name>/` subtree changed** — pure-packages
-changes don't trigger an app build in CI. Local pre-deploy build is
-the only reliable gate for "I changed a package; does it still build?"
+(`ci.yml`) runs per-app builds when that app changes and also rebuilds the
+storefront, wholesale, and RewardsPro apps when the `shared` filter matches
+`packages/**` or workspace configuration. Keep the local build gate anyway:
+it is the fastest proof for the exact app/package combination being shipped.
+
+### Additional gate for privacy, identity, wallet or publication changes
+
+Do not promote one of these changes merely because the build is green. Record
+evidence for every applicable item before the production push:
+
+- Treat the admission modes as evidence-bearing release attestations, not as
+  substitutes for the missing product controls. In production, an unset,
+  misspelled or differently-cased value fails closed; an unrecognised runtime
+  environment fails closed too:
+  - `ACCOUNT_ADMISSION_MODE=reviewed-adult-terms-v1` is the only value that
+    permits creation of a new account. Set it only after the adult-only
+    boundary and versioned terms receipt have been implemented and probed.
+  - `P2P_COMMITMENT_MODE=reviewed-adult-human-review-v1` is the only value that
+    permits a new order, offer/acceptance/counter, auction commitment, swap,
+    lot commitment or automatic pricing-rule commitment. Set it only after the
+    adult-trading boundary and staffed decision-review procedure below have
+    been evidenced.
+  - Development and tests remain open when these variables are unset; set
+    either variable to `paused` to exercise its closed path locally.
+  - Before promotion, prove unknown and existing emails receive the same
+    successful magic-link status, body, headers and broad latency class. The
+    unknown-address path must create no verification token or user and send no
+    email; the eligible existing-address path must still deliver a usable link.
+    Address-specific and service-wide token-cap denials use the same generic
+    confirmation too. Prove first-time Google and GitHub sign-in land on the
+    branded `RegistrationPaused` result before any user, account-link or session
+    write, while Google sign-in for an existing email remains available. For
+    GitHub, prove verified same-email existing accounts and already-linked
+    numeric IDs still sign in during the pause, including after a GitHub email
+    change; an existing link must never move to another user. Then prove
+    every new P2P route returns the no-store 503 and DAL callers cannot bypass
+    it. Also prove payment, shipping, receipt, cancellation, return, dispute,
+    refund, payout, evidence and revocation for existing obligations still
+    work. Do not set either positive value merely to make a smoke test green.
+- Reconcile the public notice and methodology pages against the actual fields,
+  recipients, public projections, browser storage and automated consequences
+  in the source being deployed. Do not turn a repository note into a live-data
+  claim without a privacy-safe production aggregate.
+- Confirm the controller name, company number, registered office and monitored
+  privacy mailbox. A syntactically valid address is not evidence that a rights
+  request will be seen.
+- Keep `IDENTITY_VERIFICATION_MODE` unset unless the private-storage gate below
+  has passed. Independently verify S3 Block Public Access, bucket policy and an
+  anonymous read against the `verifications/*` prefix; also provide expiry or
+  reconciliation for uploads abandoned between object PUT and DB persistence.
+- Exercise the human access/correction/erasure runbook on a representative
+  account before promising it operationally. Inventory S3 objects first and
+  handle retained transaction records and restrictive foreign keys explicitly;
+  `DELETE FROM users` by itself is not a complete erasure workflow.
+- Apply and verify required database migrations before source promotion. The
+  organisation directory requires `0131_collective_directory_publication.sql`.
+  Wallet proof storage requires `0130_evm_wallet_links.sql`, although wallet
+  issuance must remain disabled unless its separate testnet gate is approved.
+- For person-level scoring, fraud signals, limits, routing, holds or automatic
+  rejection, record the lawful-basis and UK GDPR Articles 22A–22C assessment,
+  plus a staffed route that can examine inputs, correct errors and change the
+  outcome. A support link without an owned procedure is not human intervention.
+- Operate the DPA 2018 section 164A complaints process: provide a clear route,
+  acknowledge a data-protection complaint within 30 days, make appropriate
+  enquiries, keep the complainant informed and communicate the outcome without
+  undue delay. Verify mailbox ownership and escalation before publishing that
+  promise.
+- For a service likely to be accessed by children, record the product/legal
+  decision and implement it: either an enforceable adult-only boundary or the
+  proportionate child-access safeguards. Privacy copy that merely says the
+  product is not designed for under-18s does not create an access boundary.
+- Verify each positive processor, hosting-region, transfer-safeguard and DPA
+  statement against the live provider configuration and current contract. If
+  it cannot be proved, narrow the statement before deployment.
+- Run `pnpm audit --prod`, record every critical/high advisory that reaches an
+  affected runtime, and either upgrade or document a code-path-specific
+  non-applicability. Do not equate a workspace count with exploitability, and
+  do not waive a directly used path merely because an unrelated app owns other
+  findings.
+- Treat the Next image-optimisation dependency as a separate gate while Next
+  resolves `sharp` below 0.35. The upstream Sharp advisory affects processing
+  of untrusted images; a green Next build is not evidence that the decoder is
+  patched. Before promotion, use a supported patched Sharp/Next combination,
+  disable server-side optimisation, or record a source-by-source risk decision
+  that proves every optimised origin and upload path is controlled. Re-check
+  broad remote host patterns rather than assuming the hostname makes every
+  object trusted.
+
+  The 2026-08-25 privacy release takes the reversible middle option:
+  `apps/storefront/next.config.ts` sets `images.unoptimized: true`. Do not remove
+  that boundary until the installed production dependency graph resolves
+  Sharp 0.35 or later and the image-path regression checks pass.
+
+Store the evidence with the release record without copying credentials,
+document contents, object keys or participant-level rows into logs.
 
 ## Post-deploy verification
 
@@ -123,6 +237,11 @@ pnpm audit:deploy-verify
 `pnpm audit:deploy-verify` is the canonical post-deploy gate. Run it
 after every promotion to production. Its exit code is the deploy's
 green-light signal.
+
+The classifier in `apps/storefront/scripts/deploy-verify-contract.ts` also
+accepts specifically declared paused-service responses, including exact
+503 contracts. It does not treat arbitrary 5xx responses as healthy. The
+script probes without account cookies or credentials; keep that boundary.
 
 If any probe returns 404, either the deploy is still propagating
 (wait 30s + retry) or the deploy aliased a different commit than
@@ -182,7 +301,7 @@ One non-regression pattern remains worth knowing:
 | Auto-deploy doesn't trigger after `git push origin main` | Push went to `origin` (Codeberg) only. Vercel watches the `github` remote (`cambridgetcg/Cambridge-TCG-monorepo`). | `git push github main` explicitly, or use the manual trigger: `set -a; source apps/admin/.env.local; set +a; python3 .github/scripts/deploy-from-main.py <project>`. |
 | Auto-deploy fires but Vercel reports `incorrect_git_source_info` | GitHub doesn't yet have the commit referenced by the deploy request (push raced the API call). | Push to `github` remote first, wait ~5s, then re-run the manual trigger. |
 | Live site responds 200 on home but 404 on new routes after a `READY` deploy | Live site might be on an older alias; or the deploy succeeded but pages are still propagating through Vercel's edge network. | Wait 30–60s and retry. Or hard-check the active commit via the admin `/system/deploys` ribbon. |
-| CI on PR/push green, but Vercel build fails when push lands | `ci.yml` only runs an app's build if `apps/<name>/` changed (paths-filter). A pure-packages change passes CI but can still break the app build. | Always run `pnpm --filter <app> build` locally for any package change that downstream apps consume. |
+| A shared-package change does not start an expected app build in CI | The `shared` paths filter or downstream job condition drifted from the workspace topology. | Keep `packages/**` and workspace config in `shared`, keep each app job conditional on `shared`, and still run the affected app build locally. |
 
 ## Lessons learned (2026-05-13)
 
@@ -214,9 +333,9 @@ Mitigations now in place:
   + [post-deploy verification](#post-deploy-verification) sections.
 - `apps/admin/scripts/deploy-verify.ts` (when shipped) — walks the
   manifest and probes every public endpoint.
-- An open issue: extend `ci.yml` to run the app build whenever
-  `packages/*` changes, even if no `apps/<name>` files changed.
-  (Currently the paths-filter excludes packages from app-specific jobs.)
+- The former package-only blind spot is closed: `ci.yml`'s `shared` filter
+  now runs the storefront, wholesale, and RewardsPro jobs for `packages/**`
+  and workspace-config changes. Keep that filter aligned as topology evolves.
 
 ## How the three apps deploy
 
@@ -330,18 +449,26 @@ quota limits) are real and need separate triage.
 
 ## Cron inventory
 
-All crons live in `apps/wholesale/vercel.json` (the wholesale project; storefront and admin have none). Vercel reads this file at build time and registers the schedule.
+Cron registrations live in each deployed app's `vercel.json`. Vercel reads the
+file at build time and registers that project's schedules. Within the three
+Cambridge TCG projects in this runbook's quick-reference table, the current
+source of truth is three entries across storefront and wholesale; admin has
+none. RewardsPro has its own larger inventory in
+`apps/rewardspro/vercel.json`, documented by `apps/rewardspro/CLAUDE.md`, and is
+outside the table below.
 
-| Path | Schedule | Purpose |
-|---|---|---|
-| `/api/cron/monthly-rollover` | `0 0 * * *` | Daily 00:00 UTC — monthly rollover sweep |
-| `/api/cron/discover/cardrush` | `0 1 * * *` | Daily 01:00 UTC — sitemap-driven catalog discovery (kingdom-087) |
-| `/api/cron/ingest/cardrush` | `0 2 * * *` | Daily 02:00 UTC — price snapshot scrape |
-| `/api/cron/rebuild-buylist` | `0 3 * * *` | Daily 03:00 UTC — buylist regeneration |
-| `/api/cron/shopify-sync` | `0 4 * * *` | Daily 04:00 UTC — Shopify inventory sync |
-| `/api/cron/shopify-orders` | `*/30 * * * *` | Every 30 min — Shopify orders pull |
+| Project | Path | Schedule | Purpose |
+|---|---|---|---|
+| Storefront | `/api/cron/maintenance` | `* * * * *` | Minute runner whose constituent sweeps self-gate by their own cadence |
+| Storefront | `/api/cron/reconcile-stripe` | `15 * * * *` | Hourly defensive reconciliation of recent paid Stripe sessions |
+| Wholesale | `/api/cron/monthly-rollover` | `0 0 * * *` | Daily 00:00 UTC monthly rollover sweep |
 
-**Adding a cron:** edit `apps/wholesale/vercel.json` and push. Vercel re-registers on the next deploy. Schedules are CRON-format in UTC. The cron route handler (the file at `apps/wholesale/src/app/api/cron/<path>/route.ts`) MUST verify the `Authorization: Bearer $CRON_SECRET` header on every request — Vercel sends it automatically; rejecting requests without it prevents anyone with the URL from triggering your cron.
+**Adding a cron:** edit the owning app's `vercel.json` and push. Vercel
+re-registers on that app's next deploy. Schedules are CRON-format in UTC. The
+route handler under that app's `src/app/api/cron/` MUST verify the
+`Authorization: Bearer $CRON_SECRET` header on every request — Vercel sends it
+automatically; rejecting requests without it prevents anyone with the URL from
+triggering the cron.
 
 **Monitoring crons:** `https://admin.cambridgetcg.com/system/cron` reads the live schedule from `vercel.json` and joins against per-cron `*_runs` rows in RDS (e.g. `ingest_run` for the cardrush family).
 
@@ -366,6 +493,94 @@ The current production env layout (verified 2026-05-14). Use the recipes at the 
 Touches the storefront RDS + Stripe + SES + Wholesale API client. Check `apps/storefront/.env.example` or `vercel env ls production --cwd apps/storefront` for the live list. Key ones:
 
 `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `AUCTION_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `WHOLESALE_API_URL`, `WHOLESALE_API_KEY`, `CRON_SECRET`, `ADMIN_PASSWORD`, `AUTH_FROM_EMAIL`, `AUTH_SECRET`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `TRADEIN_FROM_EMAIL`, `STORE_NOTIFICATION_EMAIL`.
+
+#### Production-only catalog credentials
+
+`WHOLESALE_DATABASE_URL` supplies structural catalog reads;
+`WHOLESALE_COVERAGE_DATABASE_URL` is the separate coverage-read connection. Vercel
+metadata on 2026-09-08 marks both as **Sensitive**, targeted to Production. A blank
+value in `vercel env pull` is therefore not proof that either is unset in the
+hosted application. Do not reset them, try to extract them, or substitute a
+broader application credential merely to make a local build pass.
+
+The nested `/catalog/sitemap.xml` waits for `connection()` before entering its
+hourly `unstable_cache` reader. Catalog work is request-time, not a build-time
+requirement; CI can retain its dummy `DATABASE_URL` without production catalog
+secrets. Runtime failures must remain explicit, with a prior successful cached
+result retained when available. Verify the hosted XML after deployment, because
+an offline build cannot prove that the protected production readers work.
+
+#### Optional storefront OAuth
+
+Email magic links remain available alongside optional Google (`AUTH_GOOGLE_ID`,
+`AUTH_GOOGLE_SECRET`) and GitHub (`AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`). These
+are server-only credentials, not `NEXT_PUBLIC_*` values. GitHub is registered
+only when **both trimmed values are non-empty**; missing, partial or whitespace-only
+configuration leaves it absent from `/api/auth/providers` and `/login`.
+This documents the source contract, not whether a hosted OAuth app is configured.
+
+Use these GitHub OAuth app authorization callback URLs:
+
+| Environment | Callback URL |
+|---|---|
+| Production | `https://cambridgetcg.com/api/auth/callback/github` |
+| Local development | `http://localhost:3001/api/auth/callback/github` |
+
+Prefer a separate development OAuth app. A different local port needs its own
+matching callback and `AUTH_URL`. Creating OAuth apps, setting hosted secrets,
+changing admission mode, publishing and deploying are separate, explicitly
+authorized operations. Keep secrets out of chat, source, logs and tests.
+
+GitHub requests exactly `read:user user:email` — no repository or organization
+scopes. The server checks GitHub's authenticated email list even if the public
+profile has an email, selects a verified primary address or verified fallback,
+and normalizes it for same-email linking to an existing CTCG account. Missing
+verification, malformed responses and fetch failures fail closed. Subsequent
+sign-ins resolve the existing link by GitHub's immutable numeric ID, not the
+current username or email. A first link whose verified email differs from the
+active CTCG session's email is refused: sign out first to use a different
+account. An already-linked GitHub ID may still use its original CTCG account
+after an email change; the first-link check must not break that path.
+
+GitHub's provider-level `account()` mapping omits access/refresh and other token
+fields before adapter persistence: the account link is retained, token columns
+are null. The access token is used transiently for the profile/email requests;
+this is not ongoing GitHub API access. Google token handling is unchanged.
+Database sessions, roles and **registration policy are unchanged**: linked
+GitHub accounts and verified same-email existing accounts remain eligible while
+new registration is paused; genuinely new identities still require the existing
+admission policy. Email-request confirmations remain generic.
+
+Before enabling the hosted provider, run focused auth tests and the intercepted
+`tests/auth-oauth-ui.spec.ts` against an explicitly configured HTTP loopback
+`STOREFRONT_BASE_URL` (it refuses the default production target). Verify the real
+flow only with an authorized development/staging OAuth app and test account:
+first login/linking, repeat login, safe deep return, unchanged CTCG account ID,
+registration pause and logout. Mocked tests do not establish real OAuth success.
+Auth.js sends some OAuth errors to `/login?error=...` and others to
+`/login/error?error=...`; both must offer generic recovery rather than an
+expired-email-link diagnosis.
+
+The [credential-dependent verification pilot](ops-credential-verification.md)
+standardizes those distinctions through `pnpm auth:verify github`: bounded
+preflight, explicitly authorized staging journeys, and privacy-safe explanation
+of a support reference. Its receipts distinguish mocked/live/declaration evidence
+and blocked/skipped work. A provider appearing in discovery or a route audit
+passing is not a verified OAuth journey; the existing release gates still apply.
+
+Wallet-link issuance remains off unless `EVM_WALLET_LINKING_MODE=testnet` is
+set. A remote smart-wallet verifier additionally requires the server-only
+`BASE_SEPOLIA_RPC_URL` plus public
+`BASE_SEPOLIA_RPC_PROVIDER_NAME` and `BASE_SEPOLIA_RPC_PRIVACY_URL`; missing
+disclosure metadata fails the feature closed. Do not put an RPC credential in
+either public disclosure value.
+
+`IDENTITY_VERIFICATION_MODE` must remain unset in production. The only accepted
+value, `reviewed-private-storage`, is change-controlled: do not add it until AWS
+Block Public Access/bucket policy for `verifications/*` and an abandoned-upload
+expiry or reconciliation process have been independently verified. Existing
+identity records remain readable and participant-removable while new
+collection is paused.
 
 ### `cambridgetcg-admin` (production)
 
@@ -427,11 +642,12 @@ instructions, so future rotation breakage is self-documenting.
 
 ## Required CI/secrets
 
-The two GitHub Actions workflows under `.github/workflows/`:
+The three GitHub Actions workflows under `.github/workflows/`:
 
 | Workflow | When | What it does | Required secrets |
 |---|---|---|---|
-| `ci.yml` | Every push to `main` and every PR | Per-app typecheck + build (and admin tests) only on apps that changed (via `dorny/paths-filter`) | none — uses `GITHUB_TOKEN` only |
+| `ci.yml` | Every push to `main` and every PR | Install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes gates; shared changes rebuild the three apps. No admin job is currently defined. | none — uses `GITHUB_TOKEN` only |
+| `rewardspro-v2.yml` | Every PR; relevant pushes to `main` | Validates RewardsPro API typecheck/build, migrations, database-role boundaries, tests, and image | none |
 | `health.yml` | Hourly cron + `workflow_dispatch` | Calls `.github/scripts/deploy-health.py` to compare deploy state, age, SHA-drift, and HTTP-probe every domain. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` |
 
 To set `VERCEL_TOKEN`:
@@ -484,13 +700,14 @@ Add to `.git/hooks/pre-push`:
 ```bash
 #!/bin/bash
 set -e
-echo "→ pre-push: typecheck + admin tests"
-pnpm -r exec tsc --noEmit
-pnpm --filter @cambridge-tcg/admin test
+printf '%s\n' 'pre-push: root typecheck set + storefront Vitest (including admin)'
+pnpm typecheck
+pnpm --filter cambridgetcg-storefront test
 ```
 
-Then `chmod +x .git/hooks/pre-push`. Prevents broken pushes from your
-machine; doesn't help with other contributors.
+Then `chmod +x .git/hooks/pre-push`. This stops pushes when the named checks
+fail; it is not the full `pnpm verify` chain, a build, or a browser/visual gate.
+Use safe local fixtures; the hook does not cover other contributors.
 
 ## Troubleshooting
 

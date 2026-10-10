@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const on = url.searchParams.get("on") === "1";
   const back = safeRelativeRedirectPath(url.searchParams.get("back"), "/");
 
-  const res = NextResponse.redirect(new URL(back, url.origin));
+  const res = new NextResponse(null, { status: 307, headers: { Location: back } });
   if (on) {
     res.cookies.set("text-mode", "1", {
       httpOnly: false, // user-readable so the Nav toggle can reflect state client-side too

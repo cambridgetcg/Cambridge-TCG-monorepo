@@ -108,6 +108,9 @@ describe("wishlist match legacy snapshot boundary", () => {
 
     expect(result).toEqual({ kind: "sent", messageId: "message-1" });
     expect(mockFetchCard).not.toHaveBeenCalled();
+    expect(String(mockQuery.mock.calls[1]?.[0])).toContain(
+      "suspended.is_suspended = TRUE",
+    );
     const email = mockSendEmail.mock.calls[0]?.[0];
     expect(email?.subject).toContain("£12.34");
     expect(email?.html).toContain("£12.34");

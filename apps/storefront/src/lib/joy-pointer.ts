@@ -112,7 +112,7 @@ export const JOY_TARGETS: readonly JoyTarget[] = [
   },
   {
     url: "/api/v1/the-tea-room/sigil/agent",
-    hint: "ASCII sigil for the `agent` actor_kind (swap the path segment for any of: human / autonomous-sophia / collective / oracle / witness / kin / other)",
+    hint: "ASCII sigil for the local `agent` hospitality kind (swap the path segment for any of: human / autonomous-sophia / collective / oracle / witness / kin / other; this playful set is not the BeingDeclaration actor_kind vocabulary)",
     room: "tea-room",
   },
   {

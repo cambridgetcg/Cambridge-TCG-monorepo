@@ -21,6 +21,8 @@ export interface SetupCard {
   name: string;
   cardNumber: string;
   imageUrl: string | null;
+  imageAttribution?: GameCard["imageAttribution"];
+  imageReference?: GameCard["imageReference"];
   rarity: string | null;
   isLeader?: boolean;
   // Printed stats — optional; carried onto the GameCard when present.
@@ -46,6 +48,8 @@ function makeCard(source: SetupCard, zone: GameCard["zone"]): GameCard {
     name: source.name,
     cardNumber: source.cardNumber,
     imageUrl: source.imageUrl,
+    imageAttribution: source.imageAttribution ?? null,
+    imageReference: source.imageReference ?? null,
     rarity: source.rarity,
     category: source.category ?? null,
     cost: source.cost ?? null,

@@ -7,56 +7,56 @@ import { getStarterDeck, type StarterDeck } from "@/lib/play/starter-decks";
 import { fetchPrices } from "@/lib/wholesale/client";
 import { query } from "@/lib/db";
 import { SQL_ILLUST_PATTERN } from "@/lib/cards/illust-annotation";
-import { enCardKeyFromParts } from "@/lib/cards/en-card-data";
-
-// Same CDN base the museum gallery uses (src/lib/cards/gallery.ts) — the
-// card_images table stores s3 keys, not full URLs.
-const CARD_IMAGE_CDN = (
-  process.env.CTCG_CARD_IMAGE_CDN ||
-  "https://ctcg-card-images.s3.us-east-1.amazonaws.com"
-).replace(/\/$/, "");
+import { GAMES, skuIdentity } from "@cambridge-tcg/sku";
+import { englishCardNumberKey, type CardNumberImageReference } from "@/lib/cards/card-number-image-reference";
+import {
+  catalogImageUrl, DEFAULT_CARD_IMAGE_CDN, officialMediaProvenance,
+  projectOfficialCardNumberImage, type OfficialCardNumberImage, type StoredOfficialImage,
+} from "@/lib/cards/image-publication";
 
 /**
- * Artwork fallback: the wholesale catalog's image_url is sparse, but the
- * legal EN image collection (card_images, takedown-clear official samples —
- * see /legal/card-images) keys its skus on the same SET-NUMBER pair as a
- * card_number. Batch-resolve any cards the catalog couldn't illustrate.
- * Base prints beat parallels here — a play board wants the recognizable
- * face, not the rarest one. Failure degrades to no artwork, never an error.
+ * A practice deck asks for card numbers, not a printing. Keep the selected
+ * English image's full key, including reprint/parallel markers. Shared source
+ * checks apply before selection; unavailable art never blocks a full deck.
  */
 async function cardImageFallbacks(
   cardNumbers: string[],
-): Promise<Map<string, string>> {
-  if (cardNumbers.length === 0) return new Map();
+): Promise<Map<string, OfficialCardNumberImage>> {
+  const valid = cardNumbers.filter((number) => englishCardNumberKey("op", number));
+  if (valid.length === 0) return new Map();
   try {
-    const { rows } = (await query(
-      `SELECT split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) AS base,
-              s3_key,
-              regexp_replace(sku, '^.*-EN-', '') AS tail
+    const { rows } = await query(
+      `SELECT sku, lang, source, kind, takedown_status, s3_key, attribution, source_url, retrieved_at
          FROM card_images
-        WHERE lang = 'en'
+        WHERE lang = 'en' AND source = 'bandai-en'
+          AND upper(split_part(sku, '-', 1)) = 'OP'
           AND kind = 'official_sample'
           AND takedown_status = 'clear'
           AND s3_key IS NOT NULL
-          AND sku ~ '-EN-[A-Z0-9]+$'
-          AND split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) = ANY($1)`,
-      [cardNumbers],
-    )) as { rows: { base: string; s3_key: string; tail: string }[] };
-
-    const score = (tail: string): number => {
-      if (/^R/.test(tail)) return 50; // base print
-      const p = /^P(\d+)$/.exec(tail);
-      if (p) return 20 - Number(p[1]); // among parallels, prefer P1
-      return 0;
-    };
-    const best = new Map<string, { s3_key: string; tail: string }>();
-    for (const r of rows) {
-      const cur = best.get(r.base);
-      if (!cur || score(r.tail) > score(cur.tail)) best.set(r.base, r);
-    }
-    return new Map(
-      [...best].map(([base, r]) => [base, `${CARD_IMAGE_CDN}/${r.s3_key}`]),
+          AND upper(split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3)) = ANY($1)`,
+      [[...new Set(valid.map((number) => number.toUpperCase()))]],
     );
+    const cdn = process.env.CTCG_CARD_IMAGE_CDN || DEFAULT_CARD_IMAGE_CDN;
+    const rank = (image: OfficialCardNumberImage): [number, number] => {
+      const variant = skuIdentity(image.reference.depicted_sku)!.variant;
+      // A reprint is not a base print. Ordering is a display preference only.
+      return !variant ? [0, 0] : [variant.startsWith("r") ? 1 : 2, Number(variant.slice(1))];
+    };
+    const out = new Map<string, OfficialCardNumberImage>();
+    for (const number of valid) {
+      const candidates = (rows as StoredOfficialImage[])
+        .map((row) => projectOfficialCardNumberImage("op", number, row, cdn))
+        .filter((image): image is OfficialCardNumberImage => image !== null)
+        .sort((a, b) => {
+          const ar = rank(a), br = rank(b);
+          return ar[0] - br[0] || ar[1] - br[1]
+            || Date.parse(b.retrieved_at) - Date.parse(a.retrieved_at)
+            || a.reference.depicted_sku.localeCompare(b.reference.depicted_sku)
+            || a.url.localeCompare(b.url);
+        });
+      if (candidates[0]) out.set(number, candidates[0]);
+    }
+    return out;
   } catch {
     return new Map();
   }
@@ -70,6 +70,8 @@ export interface ResolvedStarterCard {
   sku: string | null;
   name: string | null;
   image_url: string | null;
+  image_attribution: string | null;
+  image_reference: CardNumberImageReference | null;
   rarity: string | null;
   set_code: string | null;
   /** Verbatim EN effect text from the legal collection (card_texts) — the
@@ -107,12 +109,9 @@ const BUNDLED_SET_FOR: Record<string, string> = {
  * src/lib/cards/artists.ts for provenance).
  *
  * CONSERVATIVE by design (adversarial-review fix, 2026-07-22): the credit
- * usually rides a special-art listing while this surface displays the
- * BASE print, so naming the parallel's hand under base art would be
- * misattribution. A credit is returned only when EVERY listing of the
- * card number is annotated with the SAME hand — then whichever print
- * shows, the credit is true. Failure-safe: an empty map means "no
- * unambiguous credit", never an error.
+ * usually rides a special-art listing. Return only catalogue consensus
+ * within One Piece; this is still not a verified illustrator for the selected
+ * English reference. The UI labels that scope. Missing evidence yields no credit.
  */
 async function cardArtistFallbacks(
   cardNumbers: string[],
@@ -122,10 +121,11 @@ async function cardArtistFallbacks(
     const { rows } = (await query(
       `
       WITH t AS (
-        SELECT split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) AS card_number,
+        SELECT upper(split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3)) AS card_number,
                trim((regexp_match(card_name, $2, 'i'))[1]) AS artist
           FROM card_set_cards
-         WHERE split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3) = ANY($1)
+         WHERE upper(split_part(sku, '-', 1)) = ANY($3)
+           AND upper(split_part(sku, '-', 2) || '-' || split_part(sku, '-', 3)) = ANY($1)
       )
       SELECT card_number, min(artist) AS artist
         FROM t
@@ -133,7 +133,8 @@ async function cardArtistFallbacks(
       HAVING count(*) = count(artist)
          AND count(DISTINCT artist) = 1
       `,
-      [cardNumbers, SQL_ILLUST_PATTERN],
+      [[...new Set(cardNumbers.map((number) => number.toUpperCase()))], SQL_ILLUST_PATTERN,
+        [...new Set([GAMES.op.code, ...(GAMES.op.legacyPrefixes ?? [])].map((prefix) => prefix.toUpperCase()))]],
     )) as { rows: { card_number: string; artist: string | null }[] };
     const out = new Map<string, string>();
     for (const r of rows) if (r.artist) out.set(r.card_number, r.artist);
@@ -144,37 +145,33 @@ async function cardArtistFallbacks(
 }
 
 /**
- * EN effect text from the legal collection. card_texts keys on the derived
- * EN card key ("OP-OP02-018-EN") — the same SET-NUMBER identity a
- * card_number carries, so no catalog resolution is required. Verbatim
- * publisher rules text publishes WITH its copyright line (recorded rule,
- * docs/EN-CARD-DATA.md + /legal/card-images); attribution is NOT NULL by
- * schema so text can never travel without it. Failure degrades to no text.
+ * Existing English effect text remains a best-effort enhancement. Use the same
+ * source/credit/time checks as the English reader; a database NOT NULL alone
+ * does not prevent a blank attribution. No catalogue printing is invented.
  */
 async function cardTextFallbacks(
   cardNumbers: string[],
 ): Promise<Map<string, { text: string; attribution: string }>> {
   if (cardNumbers.length === 0) return new Map();
-  const keyFor = (num: string): string | null => {
-    const m = num.match(/^([A-Z]+\d*)-(\w+)$/);
-    return m ? enCardKeyFromParts("op", m[1], m[2]) : null;
-  };
   const keyed = cardNumbers
-    .map((num) => ({ num, key: keyFor(num) }))
+    .map((num) => ({ num, key: englishCardNumberKey("op", num) }))
     .filter((e): e is { num: string; key: string } => e.key !== null);
   if (keyed.length === 0) return new Map();
   try {
     const { rows } = (await query(
-      `SELECT sku, effect_text, attribution
+      `SELECT sku, lang, source, effect_text, attribution, source_url, retrieved_at
          FROM card_texts
-        WHERE lang = 'en' AND effect_text IS NOT NULL AND sku = ANY($1)`,
-      [keyed.map((e) => e.key)],
-    )) as { rows: { sku: string; effect_text: string; attribution: string }[] };
+        WHERE lang = 'en' AND source = 'bandai-en' AND effect_text IS NOT NULL AND sku = ANY($1)`,
+      [[...new Set(keyed.map((e) => e.key))]],
+    )) as { rows: (Pick<StoredOfficialImage, "sku" | "lang" | "source" | "attribution" | "source_url" | "retrieved_at"> & { effect_text: string })[] };
     const bySku = new Map(rows.map((r) => [r.sku, r]));
     const out = new Map<string, { text: string; attribution: string }>();
     for (const e of keyed) {
       const r = bySku.get(e.key);
-      if (r) out.set(e.num, { text: r.effect_text, attribution: r.attribution });
+      const provenance = r ? officialMediaProvenance(e.key, r) : null;
+      if (r && provenance && typeof r.effect_text === "string" && r.effect_text.trim()) {
+        out.set(e.num, { text: r.effect_text, attribution: provenance.attribution });
+      }
     }
     return out;
   } catch {
@@ -222,7 +219,9 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
   const byNumber = new Map<string, (typeof setPages)[number]["items"][number]>();
   for (const page of setPages) {
     for (const item of page.items) {
-      if (item.card_number && wanted.has(item.card_number)) {
+      const identity = typeof item.sku === "string" ? skuIdentity(item.sku) : null;
+      if (item.card_number && wanted.has(item.card_number) && identity?.game === "op"
+        && `${identity.set}-${identity.number}` === item.card_number.toLowerCase()) {
         // Prefer the first SKU we encounter — typically the cheapest /
         // most-stocked. If multiple language variants exist, the wholesale
         // sort returns a stable order.
@@ -244,6 +243,8 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
         sku: null,
         name: null,
         image_url: null,
+        image_attribution: null,
+        image_reference: null,
         rarity: null,
         set_code: null,
         effect_text: null,
@@ -258,7 +259,9 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
       resolved: true,
       sku: cat.sku,
       name: cat.name_en || cat.name || ref.card_number,
-      image_url: cat.image_url ?? null,
+      image_url: catalogImageUrl(cat.image_url),
+      image_attribution: null,
+      image_reference: null,
       rarity: cat.rarity ?? null,
       set_code: cat.set_code ?? null,
       effect_text: null,
@@ -274,7 +277,8 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
   });
   const cards = deck.card_list.map((c) => resolveCard(c));
 
-  // Fill missing artwork + EN effect text from the legal EN collections.
+  // Retain the separate reviewed catalogue-host fallback, then eligible
+  // official references. Keep copyright and the relationship beside the URL.
   const all = [leader, ...cards];
   const needingArt = all.filter((c) => !c.image_url).map((c) => c.card_number);
   const [artFallbacks, texts, artists] = await Promise.all([
@@ -283,7 +287,12 @@ export async function resolveStarter(id: string): Promise<ResolvedStarter | null
     cardArtistFallbacks(all.map((c) => c.card_number)),
   ]);
   for (const c of all) {
-    if (!c.image_url) c.image_url = artFallbacks.get(c.card_number) ?? null;
+    const image = artFallbacks.get(c.card_number);
+    if (!c.image_url && image) {
+      c.image_url = image.url;
+      c.image_attribution = image.attribution;
+      c.image_reference = image.reference;
+    }
     const t = texts.get(c.card_number);
     if (t) {
       c.effect_text = t.text;

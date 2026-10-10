@@ -11,6 +11,15 @@ import {
   holderForStripeSession,
 } from "@/lib/stock/reservations";
 import { recordOrderFromStripeSession } from "@/lib/orders/record";
+import { isDedicatedCheckoutSessionType } from "@/lib/payments/checkout-session-kind";
+import {
+  findStripeMarketCheckoutBinding,
+  markStripeCheckoutAttemptTerminal,
+  recordStripeMarketCheckoutProcessing,
+  retireLegacyStripeSession,
+  settleStripeMarketCheckout,
+  type StripeMarketCheckoutBinding,
+} from "@/lib/market/stripe-checkout-attempts";
 
 // Checkout sessions minted by the membership/P2P flows carry a
 // metadata.type and are fulfilled by their dedicated branches in the
@@ -18,13 +27,119 @@ import { recordOrderFromStripeSession } from "@/lib/orders/record";
 // sessions carry no type. The legacy retail fulfilment branch must skip
 // every tagged type, or subscription/auction/trade payments also mint
 // customer_orders rows and earn retail points/cashback.
-const NON_RETAIL_SESSION_TYPES = new Set([
-  "tier_subscription",
-  "platinum_subscription",
-  "market_trade_payment",
-  "market_lot_payment",
-  "auction_payment",
-]);
+async function handleMarketTradePayment(
+  session: Stripe.Checkout.Session,
+  binding: StripeMarketCheckoutBinding | null,
+): Promise<NextResponse> {
+  try {
+    const shipping = session.collected_information?.shipping_details;
+    const shippingAddress = shipping?.address
+      ? {
+          name: shipping.name || undefined,
+          line1: shipping.address.line1 || undefined,
+          line2: shipping.address.line2 || undefined,
+          city: shipping.address.city || undefined,
+          state: shipping.address.state || undefined,
+          postal_code: shipping.address.postal_code || undefined,
+          country: shipping.address.country || undefined,
+        }
+      : null;
+    const settlement = await settleStripeMarketCheckout(session, shippingAddress);
+    if (!settlement.ok) {
+      console.error(
+        `[webhook] Market Checkout ${session.id} rejected: ${settlement.reason}`
+          + (settlement.reviewRecorded ? " (attempt held for review)" : ""),
+      );
+      if (settlement.reviewRecorded) {
+        return NextResponse.json({ received: true, payment_review: true });
+      }
+      return NextResponse.json(
+        { error: "Market trade payment evidence was not recorded" },
+        { status: 500 },
+      );
+    }
+
+    const tradeId = (settlement.trade?.id as string | undefined)
+      ?? binding?.tradeId
+      ?? session.metadata?.trade_id;
+    if (settlement.applied && settlement.trade) {
+      if (!tradeId) throw new Error("Settled market Checkout has no local trade binding.");
+      const trade = settlement.trade as {
+        id?: string;
+        buyer_id: string;
+        seller_id: string;
+        price: string;
+        quantity: number;
+        escrow_tier: string | null;
+        seller_ships_to: "buyer" | "ctcg" | null;
+        seller_payout: string;
+      };
+      const info = await query(
+        `SELECT bu.email AS buyer_email, bu.username AS buyer_username,
+                su.email AS seller_email,
+                COALESCE(o.card_name, t.sku) AS card_name
+           FROM market_trades t
+           JOIN users bu ON bu.id = t.buyer_id
+           JOIN users su ON su.id = t.seller_id
+           LEFT JOIN market_orders o ON o.id = t.bid_order_id
+          WHERE t.id = $1`,
+        [tradeId],
+      );
+      if (info.rows.length > 0) {
+        const { sendBuyerPaidEmail, sendSellerPaidEmail } = await import("@/lib/market/email");
+        const { formatPrice } = await import("@/lib/format");
+        const { notify } = await import("@/lib/notifications/db");
+        const row = info.rows[0];
+        const total = parseFloat(trade.price) * trade.quantity;
+        const tier = trade.escrow_tier || "full_escrow";
+        sendBuyerPaidEmail({
+          email: row.buyer_email,
+          cardName: row.card_name,
+          price: formatPrice(total),
+          tier,
+        }).catch((error) => console.error("[webhook] Buyer paid email failed:", error));
+        sendSellerPaidEmail({
+          email: row.seller_email,
+          cardName: row.card_name,
+          price: formatPrice(total),
+          tier,
+          shipsTo: trade.seller_ships_to || "ctcg",
+          payout: formatPrice(parseFloat(trade.seller_payout)),
+          shippingAddress,
+          buyerUsername: row.buyer_username,
+        }).catch((error) => console.error("[webhook] Seller paid email failed:", error));
+
+        await notify({
+          userId: trade.buyer_id,
+          kind: "market.paid_buyer",
+          title: `Payment confirmed for ${row.card_name}`,
+          body: `${formatPrice(total)} paid. ${tier === "full_escrow"
+            ? "The seller will ship to Cambridge TCG for verification."
+            : "The seller will ship directly to you."}`,
+          linkUrl: "/account/trades",
+          referenceType: "market_trade",
+          referenceId: `${tradeId}:paid_buyer`,
+        });
+        await notify({
+          userId: trade.seller_id,
+          kind: "market.paid_seller",
+          title: `Buyer paid for ${row.card_name} — time to ship`,
+          body: `Payout ${formatPrice(parseFloat(trade.seller_payout))} will release once the trade completes.`,
+          linkUrl: "/account/trades",
+          referenceType: "market_trade",
+          referenceId: `${tradeId}:paid_seller`,
+        });
+      }
+    }
+    console.log(
+      `[webhook] Market trade ${tradeId ?? session.id} ${settlement.applied ? "marked paid" : "already settled"}`,
+    );
+    return NextResponse.json({ received: true });
+  } catch (err) {
+    console.error("[webhook] Error processing market trade payment:", err);
+    return NextResponse.json({ error: "Market trade payment recording failed" }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   // Order matters: gate the request on configuration + signature
@@ -381,6 +496,45 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.expired") {
     const session = event.data.object as Stripe.Checkout.Session;
     try {
+      let paymentReview = false;
+      const binding = await findStripeMarketCheckoutBinding(session);
+      const declaredMarket = session.metadata?.type === "market_trade_payment";
+      if (
+        binding?.kind === "v2"
+        || (!binding && declaredMarket && Boolean(session.metadata?.payment_attempt_id))
+      ) {
+        const terminal = await markStripeCheckoutAttemptTerminal(
+          session,
+          "expired",
+          "Signed checkout.session.expired event.",
+        );
+        if (!terminal.ok) {
+          console.error(`[webhook] Market Checkout ${session.id} expiry rejected: ${terminal.reason}`);
+          if (!terminal.reviewRecorded) {
+            return NextResponse.json({ error: "Market payment expiry was not recorded" }, { status: 500 });
+          }
+          paymentReview = true;
+        }
+      } else if (binding || (declaredMarket && session.metadata?.trade_id)) {
+        const tradeId = binding?.tradeId ?? session.metadata?.trade_id;
+        if (!tradeId) {
+          return NextResponse.json({ error: "Market payment expiry has no local trade binding" }, { status: 500 });
+        }
+        const terminal = await retireLegacyStripeSession({
+          tradeId,
+          stripeSessionId: session.id,
+          status: "expired",
+        });
+        if (!terminal.ok) {
+          console.error(`[webhook] Legacy market Checkout ${session.id} expiry rejected: ${terminal.reason}`);
+          if (!terminal.reviewRecorded) {
+            return NextResponse.json({ error: "Legacy market payment expiry was not recorded" }, { status: 500 });
+          }
+          paymentReview = true;
+        }
+      } else if (declaredMarket) {
+        return NextResponse.json({ error: "Market payment expiry was not locally bound" }, { status: 500 });
+      }
       const result = await releaseHolder(holderForStripeSession(session.id));
       if (result.ok) {
         console.log(
@@ -391,10 +545,14 @@ export async function POST(request: Request) {
           `[webhook] session expired ${session.id} — release failed: ${result.message}`,
         );
       }
+      return NextResponse.json({
+        received: true,
+        ...(paymentReview ? { payment_review: true } : {}),
+      });
     } catch (e) {
       console.error(`[webhook] release on session.expired threw for ${session.id}:`, e);
+      return NextResponse.json({ error: "Session expiry recording failed" }, { status: 500 });
     }
-    return NextResponse.json({ received: true });
   }
 
   // Async payment failed — Pay-by-Bank / crypto / other delayed-notification
@@ -403,14 +561,57 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.async_payment_failed") {
     const session = event.data.object as Stripe.Checkout.Session;
     try {
+      let paymentReview = false;
+      const binding = await findStripeMarketCheckoutBinding(session);
+      const declaredMarket = session.metadata?.type === "market_trade_payment";
+      if (
+        binding?.kind === "v2"
+        || (!binding && declaredMarket && Boolean(session.metadata?.payment_attempt_id))
+      ) {
+        const terminal = await markStripeCheckoutAttemptTerminal(
+          session,
+          "failed",
+          "Signed checkout.session.async_payment_failed event.",
+        );
+        if (!terminal.ok) {
+          console.error(`[webhook] Market Checkout ${session.id} async failure rejected: ${terminal.reason}`);
+          if (!terminal.reviewRecorded) {
+            return NextResponse.json({ error: "Market async payment failure was not recorded" }, { status: 500 });
+          }
+          paymentReview = true;
+        }
+      } else if (binding || (declaredMarket && session.metadata?.trade_id)) {
+        const tradeId = binding?.tradeId ?? session.metadata?.trade_id;
+        if (!tradeId) {
+          return NextResponse.json({ error: "Market async failure has no local trade binding" }, { status: 500 });
+        }
+        const terminal = await retireLegacyStripeSession({
+          tradeId,
+          stripeSessionId: session.id,
+          status: "failed",
+        });
+        if (!terminal.ok) {
+          console.error(`[webhook] Legacy market Checkout ${session.id} async failure rejected: ${terminal.reason}`);
+          if (!terminal.reviewRecorded) {
+            return NextResponse.json({ error: "Legacy market async payment failure was not recorded" }, { status: 500 });
+          }
+          paymentReview = true;
+        }
+      } else if (declaredMarket) {
+        return NextResponse.json({ error: "Market async failure was not locally bound" }, { status: 500 });
+      }
       const result = await releaseHolder(holderForStripeSession(session.id));
       console.log(
         `[webhook] async payment failed ${session.id} — released ${result.ok ? result.released : 0} reservation(s)`,
       );
+      return NextResponse.json({
+        received: true,
+        ...(paymentReview ? { payment_review: true } : {}),
+      });
     } catch (e) {
       console.error(`[webhook] release on async_payment_failed threw for ${session.id}:`, e);
+      return NextResponse.json({ error: "Async payment failure recording failed" }, { status: 500 });
     }
-    return NextResponse.json({ received: true });
   }
 
   // Fulfilment fires for synchronous completion (card/wallet) AND for async
@@ -420,6 +621,15 @@ export async function POST(request: Request) {
     event.type === "checkout.session.async_payment_succeeded"
   ) {
     const session = event.data.object as Stripe.Checkout.Session;
+    let marketBinding: StripeMarketCheckoutBinding | null;
+    try {
+      marketBinding = await findStripeMarketCheckoutBinding(session);
+    } catch (error) {
+      console.error(`[webhook] Checkout ${session.id} local ownership lookup failed:`, error);
+      return NextResponse.json({ error: "Checkout ownership lookup failed" }, { status: 500 });
+    }
+    const isMarketSession = marketBinding !== null
+      || session.metadata?.type === "market_trade_payment";
 
     // Async methods complete the Checkout Session BEFORE the money settles
     // (payment_status "unpaid"/"processing"); async_payment_succeeded fires
@@ -427,10 +637,42 @@ export async function POST(request: Request) {
     // this guard is a no-op for them. Substrate honesty: initiated != settled
     // — never fulfil, ship stock, or debit credit until the money is real.
     if (session.payment_status && session.payment_status !== "paid") {
+      if (
+        isMarketSession
+        && (
+          marketBinding?.kind === "v2"
+          || (!marketBinding && Boolean(session.metadata?.payment_attempt_id))
+        )
+      ) {
+        try {
+          const processing = await recordStripeMarketCheckoutProcessing(session);
+          if (!processing.ok) {
+            console.error(
+              `[webhook] Market Checkout ${session.id} processing binding rejected: ${processing.reason}`,
+            );
+            if (!processing.reviewRecorded) {
+              return NextResponse.json(
+                { error: "Market payment processing evidence was not recorded" },
+                { status: 500 },
+              );
+            }
+          }
+        } catch (error) {
+          console.error(`[webhook] Market Checkout ${session.id} processing state failed:`, error);
+          return NextResponse.json({ error: "Market payment processing state failed" }, { status: 500 });
+        }
+      }
       console.log(
         `[webhook] session ${session.id} completed but payment_status=${session.payment_status} — deferring fulfilment until settled`,
       );
       return NextResponse.json({ received: true });
+    }
+
+    // A write-once local Session binding outranks mutable Stripe metadata.
+    // Settle and return before any retail/B2B/subscription/auction branch can
+    // mint records or side effects for the same economic event.
+    if (isMarketSession) {
+      return handleMarketTradePayment(session, marketBinding);
     }
 
     // B2B branch — wholesale consolidation Phase 2.2c. Detected via
@@ -481,7 +723,7 @@ export async function POST(request: Request) {
     // Legacy retail fulfilment — pre-retirement retail sessions only
     // (they never set metadata.type).
     const sessionType = session.metadata?.type;
-    if (!sessionType || !NON_RETAIL_SESSION_TYPES.has(sessionType)) {
+    if (!isDedicatedCheckoutSessionType(sessionType)) {
       try {
         const skus: { sku: string; qty: number; price_gbp: number; name?: string }[] = session.metadata?.skus
           ? JSON.parse(session.metadata.skus)
@@ -691,121 +933,6 @@ export async function POST(request: Request) {
         console.log(`[webhook] ${session.metadata.tier_name || "Platinum"} activated for user ${subUserId} (${plan})`);
       } catch (err) {
         console.error("[webhook] Platinum subscription error:", err);
-      }
-    }
-
-    // Handle P2P market trade payments. Move the trade past awaiting_payment
-    // and notify both parties. Tier decides whether the seller ships to the
-    // buyer (direct/verified) or to CTCG (full_escrow); the email tells them.
-    if (session.metadata?.type === "market_trade_payment" && session.metadata?.trade_id) {
-      try {
-        const tradeId = session.metadata.trade_id;
-        // Buyer's shipping address, collected by Checkout at pay time
-        // (shipping_address_collection on the pay session). The current
-        // API version (clover) surfaces it under collected_information.
-        // shipping_details; flatten to the jsonb shape of migration 0105
-        // so the seller's trade page and the seller-paid email can render
-        // it. JSON.stringify drops the undefined keys.
-        const shipping = session.collected_information?.shipping_details;
-        const shippingAddress = shipping?.address
-          ? {
-              name: shipping.name || undefined,
-              line1: shipping.address.line1 || undefined,
-              line2: shipping.address.line2 || undefined,
-              city: shipping.address.city || undefined,
-              state: shipping.address.state || undefined,
-              postal_code: shipping.address.postal_code || undefined,
-              country: shipping.address.country || undefined,
-            }
-          : null;
-        // 'awaiting_shipment' if seller ships to buyer, 'paid' if shipping to CTCG
-        // (admin will then mark received_by_ctcg). We default to awaiting_shipment
-        // since the seller's next action is "ship", regardless of destination.
-        const upd = await query(
-          `UPDATE market_trades
-              SET escrow_status = 'awaiting_shipment',
-                  buyer_paid_at = NOW(),
-                  stripe_session_id = $2,
-                  stripe_payment_intent = $3,
-                  shipping_address = COALESCE($4::jsonb, shipping_address),
-                  updated_at = NOW()
-            WHERE id = $1 AND escrow_status = 'awaiting_payment'
-            RETURNING *`,
-          [
-            tradeId,
-            session.id,
-            typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null,
-            shippingAddress ? JSON.stringify(shippingAddress) : null,
-          ]
-        );
-
-        if (upd.rows.length > 0) {
-          const trade = upd.rows[0];
-          // Look up emails + usernames + card name and fire paid notifications
-          const info = await query(
-            `SELECT bu.email AS buyer_email, bu.username AS buyer_username,
-                    su.email AS seller_email,
-                    COALESCE(o.card_name, t.sku) AS card_name
-               FROM market_trades t
-               JOIN users bu ON bu.id = t.buyer_id
-               JOIN users su ON su.id = t.seller_id
-               LEFT JOIN market_orders o ON o.id = t.bid_order_id
-              WHERE t.id = $1`,
-            [tradeId]
-          );
-          if (info.rows.length > 0) {
-            const { sendBuyerPaidEmail, sendSellerPaidEmail } = await import("@/lib/market/email");
-            const { formatPrice } = await import("@/lib/format");
-            const { notify } = await import("@/lib/notifications/db");
-            const r = info.rows[0];
-            const total = parseFloat(trade.price) * trade.quantity;
-            const tier = trade.escrow_tier || "full_escrow";
-            sendBuyerPaidEmail({
-              email: r.buyer_email,
-              cardName: r.card_name,
-              price: formatPrice(total),
-              tier,
-            }).catch((e) => console.error("[webhook] Buyer paid email failed:", e));
-            sendSellerPaidEmail({
-              email: r.seller_email,
-              cardName: r.card_name,
-              price: formatPrice(total),
-              tier,
-              shipsTo: trade.seller_ships_to || "ctcg",
-              payout: formatPrice(parseFloat(trade.seller_payout)),
-              shippingAddress,
-              buyerUsername: r.buyer_username,
-            }).catch((e) => console.error("[webhook] Seller paid email failed:", e));
-
-            // In-app parity for the two emails. Buyer's copy is a
-            // receipt + "what happens next"; seller's is the shipping
-            // prompt. Dedup keys scope to the trade so webhook replays
-            // don't produce double notifications.
-            await notify({
-              userId: trade.buyer_id,
-              kind: "market.paid_buyer",
-              title: `Payment confirmed for ${r.card_name}`,
-              body: `${formatPrice(total)} paid. ${tier === "full_escrow"
-                ? "The seller will ship to Cambridge TCG for verification."
-                : "The seller will ship directly to you."}`,
-              linkUrl: "/account/trades",
-              referenceType: "market_trade",
-              referenceId: `${tradeId}:paid_buyer`,
-            });
-            await notify({
-              userId: trade.seller_id,
-              kind: "market.paid_seller",
-              title: `Buyer paid for ${r.card_name} — time to ship`,
-              body: `Payout ${formatPrice(parseFloat(trade.seller_payout))} will release once the trade completes.`,
-              linkUrl: "/account/trades",
-              referenceType: "market_trade",
-              referenceId: `${tradeId}:paid_seller`,
-            });
-          }
-        }
-        console.log(`[webhook] Market trade ${tradeId} marked paid`);
-      } catch (err) {
-        console.error("[webhook] Error processing market trade payment:", err);
       }
     }
 

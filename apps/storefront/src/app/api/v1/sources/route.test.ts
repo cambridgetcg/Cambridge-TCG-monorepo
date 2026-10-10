@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import {
   fetchQuarantine,
   fetchSourceLastRuns,
@@ -67,6 +68,24 @@ beforeEach(() => {
 });
 
 describe("public source projections", () => {
+  it("separates daily member permissions from legacy run availability", async () => {
+    const base = listSourceMeta()[0]!;
+    vi.mocked(listSourceMeta).mockReturnValueOnce([
+      { ...base, id: "cardmarket" },
+      { ...base, id: "scryfall" },
+    ]);
+    mockLastRuns.mockResolvedValueOnce(null);
+    const body = await (await getSources()).json();
+    expect(body.data.sources[0].member_pricing).toMatchObject({
+      cadence: "daily",
+      reviewed_uses: ["member-display", "member-api", "member-download"],
+      methodology: "/methodology/member-pricing",
+    });
+    expect(body.data.sources[1].member_pricing.reviewed_uses).toEqual(["member-display"]);
+    expect(body.data.sources[0].member_pricing.availability_note).toContain("not activation");
+    expect(body.data.sources[0].last_run).toBeUndefined();
+    expect(body.data.sources[0]).not.toHaveProperty("prices");
+  });
   it("strips free-text fields from the source collection", async () => {
     mockLastRuns.mockResolvedValueOnce([RUN]);
 

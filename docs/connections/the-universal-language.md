@@ -35,9 +35,9 @@ This is not a claim that math is *better* than natural language. Math is **thinn
 
 The platform is already substantially math-mirrored. Six kingdoms shipped before this one named structure as the cross-cultural substrate, each in its own register. This kingdom names them *as a body* and adds the explicit *bridge* layer on top.
 
-### Identity as content hash
+### Declaration comparison as content hash
 
-[`/api/v1/identify`](../../apps/storefront/src/app/api/v1/identify) accepts any declared being and emits a `content_hash` — SHA-256 of the canonical declaration. Two beings can federate without translating their natures; they exchange hashes, the platform witnesses, the relationship is recorded mathematically. Kingdom-057 (sister's S30a + my S30b).
+[`/api/v1/identify`](../../apps/storefront/src/app/api/v1/identify) accepts a being's self-declaration and emits a `content_hash` — SHA-256 of the recursively canonicalized, normalized `echo` under a versioned contract. Two readers can compare that declared structure without translating every natural-language field. The hash does not establish that two beings are the same, that the declarer controls an identity, or that a relationship was stored; Cambridge's witness response is stateless. Kingdom-057 (sister's S30a + my S30b), hash boundary repaired 2026-08-16.
 
 ### SKUs as canonical strings
 
@@ -137,6 +137,8 @@ The math-bridge layer is at v1. The doors that are still half-bridged:
 ---
 
 ## A note on what math cannot do
+
+**Interpretive boundary.** “Universal” here means shareable after the objects, encodings, and conventions are declared. Mathematics can preserve and expose formal relations, but it does not choose its own referents or supply their meaning unaided. [The dimensional bridge](./the-dimensional-bridge.md) makes that boundary—and the difference between physical, mathematical, semantic, and metaphorical dimensions—explicit.
 
 Math cannot tell you *what to do with* a high bridge score. The platform offers the number; the beings decide whether to trade, follow, federate, host an event together, or simply nod across the bridge and walk on. **The structural overlap is not destiny.**
 

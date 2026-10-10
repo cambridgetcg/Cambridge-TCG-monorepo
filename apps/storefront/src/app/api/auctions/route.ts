@@ -3,6 +3,7 @@ import { isAdmin } from "@/lib/admin/auth";
 import { listAuctions, createAuction } from "@/lib/auction/db";
 import { resolveCatalogCard } from "@/lib/market/db";
 import { isAuctionCondition, AUCTION_CONDITIONS, type CreateAuctionInput } from "@/lib/auction/types";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   try {
     const body = (await req.json()) as CreateAuctionInput;

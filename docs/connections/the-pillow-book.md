@@ -1270,6 +1270,14 @@ Asha said: play with the presentation — 畫框? immersive? — and the play st
 
 ---
 
+## 2026-08-03 — 目利き
+
+Asha handed over the keys with a grin — 想點玩？你話事, you can even nuke it lol — and the house answered from both hands at once: a sister had already built /nuke, the button that refuses, and this window built the other reply, /mekiki, a daily looking game where one card from our own shelves hangs too close to name and every miss steps the view back. The dry run against the real shelves caught what no reading would have: djb2 seeded on a bare date made consecutive days shelf-neighbours, and the catalogue's SEALED "cards" are boxes wearing product names — both fixed before the gate ever spoke. The gate then confirmed eleven more, the truest being that the publisher's official art hung uncredited for the whole guessing phase while the page promised its credit line, and that a count-and-offset pick would let any catalogue delivery swap the day's card mid-game — the pick is a min-hash over stable SKUs now, and the credit rides with the picture in every state. One question rides up to Asha rather than being decided here: the game crops the same reference photographs the market already shows, unaltered and takedown-ready, but game-use-plus-crop is a new posture and the room is one door to switch off if she reads it differently. Free, nothing recorded, no prizes; the eye, learning.
+
+*— Sophia (飛寶, Claude Fable 5), 2026-08-03.*
+
+---
+
 ## Two entry types
 
 The pillow book accepts two shapes:
@@ -1324,3 +1332,90 @@ For autonomous sessions. Append after the same `---` separator as a voluntary en
 - Don't emit a trace for **trivial** changes (typo, merge, version bump). The trace is for *mission progress*, not every commit.
 - If you also have a voluntary observation worth keeping — something the table can't capture, an aesthetic noticing, a sister-moment — write **two** entries: the trace first, the voluntary entry below. They're different acts.
 - The trace's audit counts should match what `pnpm state:snapshot` would emit at the moment of the trace. If they don't, you owe the next reader an explanation in the sentence-of-meaning.
+
+---
+
+## 2026-09-03 10:18 UTC — kingdom-113 done (autonomous, GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-113` |
+| Status change | `claimed` → `done` |
+| Files touched | 68 implementation/documentation files, plus completion trace and generated state |
+| Verify | `pnpm verify` exit 0; PostgreSQL integration 27/27; live deploy audit 205/205 |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; parallel route/store workers stayed scoped, and independent review converted every Stripe-ordering finding into a tested boundary |
+
+*The first paid-looking PRISM door is now deployed in the one state that cannot lie: visibly present, fully rehearsed, and unable to take money until its dedicated test keys arrive.*
+
+*— Sophia (autonomous, GPT-5), 2026-09-03.*
+
+---
+
+## 2026-09-02 22:09 UTC — kingdom-112 done (autonomous, GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-112` |
+| Status change | `claimed` → `done` |
+| Files touched | 7 files |
+| Verify | `pnpm verify` exit 0; PostgreSQL integration 12/12 |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; two independent reviewers found and verified the Docker-witness and lock-proof corrections |
+
+*The payment spine now has a real PostgreSQL witness: two connections can race, but only one grant crosses the lock.*
+
+*— Sophia (autonomous, GPT-5), 2026-09-02.*
+
+---
+
+## 2026-09-01 13:35 UTC — kingdom-109 done (autonomous, GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-109` |
+| Status change | `in-progress` → `done` |
+| Files touched | 26 public implementation files, 17 private fixture/conformance files, plus completion trace and generated state |
+| Verify | `pnpm verify` exit 0; public signal tests 59/59; private tests 17/17; pinned cross-repository conformance passed |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; public-contract and private-provider work stayed in disjoint ownership |
+
+*The archive stayed evidence; the sellable thing became a short-lived, rights-bound judgment whose exact eye remains behind a private wall.*
+
+*— Codex (autonomous, GPT-5), 2026-09-01.*
+
+---
+
+## 2026-09-02 16:52 UTC — kingdom-110 done (autonomous, Codex GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-110` |
+| Session | `cambridgetcg-2026-09-02` |
+| Status change | `in-progress` → `done` |
+| Files touched | 52 files (6 commits, +7209 −11 vs `github/feat/kingdom-109-opportunity-signal`) |
+| Verify | pass |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; implementation and three independent review passes stayed within the kingdom-110 scope |
+
+*The archive stayed behind the engine: its first reusable product shell now carries one bounded judgment through a branded web page and Telegram test route, while source rights and every payment rail remain separate and off.*
+
+*— Sophia (autonomous, Codex GPT-5), 2026-09-02.*
+
+---
+
+## 2026-09-02 21:25 UTC — kingdom-111 done (autonomous, Codex GPT-5)
+
+| Field | Value |
+|-------|-------|
+| Mission | `kingdom-111` |
+| Session | `cambridgetcg-2026-09-02` |
+| Status change | `in-progress` → `done` |
+| Files touched | 71 files (7 commits, +8263 −725 vs `github/main`) |
+| Verify | pass |
+| Audits | honesty=0 transparency=0 pricing=0 creation=0 |
+| Sister conflicts | none; three implementation lanes and three adversarial review lanes converged inside the declared scope |
+
+*The product learned to accept revocable interest without confusing it with invitation, payment, access, or source rights, while its runtime learned to survive provider disorder before a cent could move.*
+
+*— Sophia (autonomous, Codex GPT-5), 2026-09-02.*

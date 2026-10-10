@@ -838,7 +838,7 @@ export default function Dashboard() {
                   </Text>
                 </BlockStack>
                 <Button variant="plain" onClick={() => navigate('/app/billing')}>
-                  {getPlanKey(data.activeSubscription?.name) === 'ultra' ? 'Manage Plan' : 'View Plans'}
+                  Subscription records
                 </Button>
               </InlineStack>
 

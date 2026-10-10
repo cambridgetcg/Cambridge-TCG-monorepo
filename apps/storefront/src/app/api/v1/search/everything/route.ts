@@ -7,7 +7,7 @@
  * case: caller has (game, card_number) and wants everything immediately.
  *
  * Response semantics:
- *   - **best_confidence === "exact"** + ≤1 distinct sibling group →
+ *   - **best_confidence === "exact"** + one printing candidate from a complete lookup →
  *     fold the matched SKU's composer payload into `data.everything`
  *     (optionally picking the requested lang variant).
  *   - **best_confidence === "exact"** + multiple sibling groups →
@@ -31,9 +31,9 @@
  * Required: `?game=<code-or-slug>` + `?q=<input>` (same as
  * /search/cards — see that route for input shapes).
  *
- * Optional: `?lang=<iso>` — pick the language variant when multiple
- * exist. Without it, the resolver picks the first exact match in its
- * sorted order (alphabetic by lang).
+ * Optional: `?lang=<two-letter-code-or-legacy-alias>` narrows candidates.
+ * Multiple variants, missing requested languages and truncated candidate
+ * pages require a choice; no arbitrary first printing is selected.
  */
 
 import { NextRequest } from "next/server";
@@ -42,82 +42,15 @@ import {
   scoreMatches,
   summarizeMatches,
   parseSetNumberShape,
-  parseSkuShape,
+  parseSearchSku,
   groupSiblings,
   type ResolvedMatch,
 } from "@/lib/search/resolver";
-import { fetchPrices, fetchGames, fetchSets } from "@/lib/wholesale/client";
+import { normalizeLanguageCode, resolveGameToken } from "@cambridge-tcg/sku";
+import { fetchSearchCandidates } from "@/lib/search/catalog-lookup";
+import { GET as composeCard } from "@/app/api/v1/cards/[sku]/everything/route";
 
 export const runtime = "nodejs";
-
-/** Mirror of /search/cards' progressive game-token fallback. Set-based
- *  lookup first (most reliable — every set knows its game), then input
- *  as-given, then registry-canonical, then case variants. SKU-prefix
- *  startsWith was removed: `"onepiece".startsWith("op")` is false, so
- *  that pass never resolved the OP01-001 case it was added for. See
- *  the cards route for longer rationale. */
-async function fetchPricesWithGameFallback(args: {
-  game: string;
-  q: string;
-  limit: number;
-  set?: string;
-}): Promise<Awaited<ReturnType<typeof fetchPrices>>> {
-  const seen = new Set<string>();
-  async function tryGame(g: string) {
-    if (!g || seen.has(g)) return null;
-    seen.add(g);
-    const r = await fetchPrices({ game: g, q: args.q, limit: args.limit });
-    return r.items.length > 0 ? r : null;
-  }
-
-  // 0. Set-based lookup — bypasses game-token translation by using
-  //    wholesale's own sets→game_code mapping.
-  if (args.set) {
-    const setLower = args.set.toLowerCase();
-    const sets = await fetchSets().catch(() => []);
-    const matchedSet = sets.find((s) => s.code.toLowerCase() === setLower);
-    if (matchedSet) {
-      const r0 = await tryGame(matchedSet.game_code);
-      if (r0) return r0;
-    }
-  }
-
-  const r1 = await tryGame(args.game);
-  if (r1) return r1;
-  const games = await fetchGames().catch(() => []);
-  const norm = args.game.trim().toLowerCase();
-  const match =
-    games.find(
-      (g) => g.code === args.game || g.slug === args.game || g.name === args.game,
-    ) ??
-    games.find(
-      (g) =>
-        g.code.toLowerCase() === norm ||
-        g.slug.toLowerCase() === norm ||
-        g.name.toLowerCase() === norm,
-    );
-  if (match) {
-    const r2 = await tryGame(match.code);
-    if (r2) return r2;
-    const r3 = await tryGame(match.slug);
-    if (r3) return r3;
-  }
-  const r4 = await tryGame(args.game.toLowerCase());
-  if (r4) return r4;
-  const r5 = await tryGame(args.game.toUpperCase());
-  if (r5) return r5;
-  return { count: 0, total: 0, channel: "", items: [] };
-}
-
-function originFromReq(req: NextRequest): string {
-  // Prefer x-forwarded-host (Vercel sets it); fall back to req URL.
-  const proto =
-    req.headers.get("x-forwarded-proto") ??
-    new URL(req.url).protocol.replace(":", "");
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  if (host) return `${proto}://${host}`;
-  return new URL(req.url).origin;
-}
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -134,68 +67,67 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Same wholesale fetch logic as /search/cards (no shared helper since
-  // each endpoint owns its envelope shape).
+  // Shared candidate retrieval keeps the requested game fixed.
   const setNum = parseSetNumberShape(q);
-  const skuShape = parseSkuShape(q);
-  const wholesaleQ = setNum
-    ? `${setNum.set}-${setNum.number}`
-    : skuShape
-      ? `${skuShape.set}-${skuShape.number}`
-      : q;
+  const skuShape = parseSearchSku(q);
+  const gameCode = resolveGameToken(game);
+  if (!gameCode || gameCode === "tst" || (skuShape && skuShape.game !== gameCode)) {
+    return errorResponse({ code: "INVALID_INPUT", message: "Choose a registered public game that agrees with the supplied SKU.", details: { param: "game" }, endpoint: "/api/v1/search/everything" });
+  }
+  if (q.length > 256 || (lang && !normalizeLanguageCode(lang))) {
+    return errorResponse({ code: "INVALID_INPUT", message: "Search query must be at most 256 characters; language must be a supported alias or two-letter code.", endpoint: "/api/v1/search/everything" });
+  }
+  const wholesaleQ = skuShape
+    ? `${skuShape.set}-${skuShape.number}`
+    : setNum ? `${setNum.set}-${setNum.number}` : q;
 
-  const wholesaleResp = await fetchPricesWithGameFallback({
-    game,
+  const wholesaleResp = await fetchSearchCandidates({
+    game: gameCode,
     q: wholesaleQ,
     limit,
-    set: setNum?.set ?? skuShape?.set,
   });
-  const matches: ResolvedMatch[] = scoreMatches({ game, q }, wholesaleResp.items);
+  if (wholesaleResp.source === "unavailable") {
+    return errorResponse({ code: "SOURCE_UNAVAILABLE", message: "Card search could not reach its catalog source. Try again later.", endpoint: "/api/v1/search/everything" });
+  }
+  const matches: ResolvedMatch[] = scoreMatches({ game: gameCode, q }, wholesaleResp.items);
   const summary = summarizeMatches(matches);
 
   // ── Decide: fold composer payload, or return matches only? ────────
   //
   // Fold conditions (all must hold):
   //   1. At least one exact match exists.
-  //   2. Exactly one distinct (set, number) bucket — multiple language
-  //      variants of the same physical card is OK; lang= picks among them.
+  //   2. Exactly one eligible printing from a complete candidate page.
+  //      Language filters narrow the choice; variants remain distinct.
   let foldedSku: string | null = null;
-  if (summary.count > 0 && summary.best_confidence === "exact") {
+  if (!wholesaleResp.truncated && summary.count > 0 && summary.best_confidence === "exact") {
     const exactMatches = matches.filter((m) => m.confidence === "exact");
     const groups = groupSiblings(exactMatches);
     if (groups.size === 1) {
-      // Pick lang= variant if specified, else the first exact match.
+      // Apply a language preference without selecting an arbitrary variant.
       const candidates = Array.from(groups.values())[0]!;
       const preferred =
-        lang && candidates.find((m) => m.lang === lang);
-      foldedSku = preferred ? preferred.sku : candidates[0]!.sku;
+        lang && candidates.find((m) => m.lang === normalizeLanguageCode(lang));
+      // A requested language must not silently fall back to another language.
+      // Multiple variants need a choice, even when they share a set and number.
+      const eligible = lang ? candidates.filter((m) => m.lang === normalizeLanguageCode(lang)) : candidates;
+      if (eligible.length === 1) foldedSku = preferred ? preferred.sku : eligible[0]!.sku;
     }
   }
 
   // ── Fold the composer when we can ─────────────────────────────────
-  // Call the local composer endpoint over HTTP. Cleaner than importing
-  // the route's handler — keeps the composer's caching layer intact and
-  // produces identical envelope shape whether the caller hit /everything
-  // directly or via this convenience route.
+  // Delegate locally with a fresh public GET request. Caller-controlled host,
+  // protocol and authorization headers never become an outbound HTTP target
+  // or grant this public composition another access level.
   let everything: unknown = null;
   let composer_call: "ok" | "absent" | "error" = "absent";
   if (foldedSku) {
     try {
-      const origin = originFromReq(req);
-      const composerUrl = `${origin}/api/v1/cards/${encodeURIComponent(foldedSku)}/everything`;
-      const composerRes = await fetch(composerUrl, {
-        // No edge cache — the composer's response shape evolves
-        // (kingdom-090 variant classifier added new fields) and a
-        // 5-min cache risked serving stale pre-classifier responses
-        // until expiry. The composer itself sets a 5-min Cache-Control
-        // header; downstream clients can cache there if they wish.
-        // Live-tested 2026-05-14 — cache mismatch surfaced when V11DZ
-        // direct-SKU input rendered with empty variant kinds while
-        // SET-NUMBER input rendered correctly.
-        cache: "no-store",
-        // Don't forward arbitrary headers — keep this server-to-server
-        // call hygienic.
-        headers: { Accept: "application/json" },
+      const composerRequest = new NextRequest(
+        `https://cambridgetcg.com/api/v1/cards/${encodeURIComponent(foldedSku)}/everything`,
+        { headers: { Accept: "application/json" } },
+      );
+      const composerRes = await composeCard(composerRequest, {
+        params: Promise.resolve({ sku: foldedSku }),
       });
       if (composerRes.ok) {
         const body = await composerRes.json();
@@ -214,6 +146,7 @@ export async function GET(req: NextRequest) {
     endpoint: "/api/v1/search/everything",
     data: {
       input: { game, q, lang: lang || null },
+      lookup: { limit, truncated: wholesaleResp.truncated },
       matches,
       summary,
       folded_sku: foldedSku,

@@ -8,6 +8,7 @@ import { routeTrade } from "@/lib/escrow/service-tiers";
 import { sendBuyerMatchEmail, sendSellerMatchEmail, sendCancelEmail } from "./email";
 import { formatPrice } from "@/lib/format";
 import { notify } from "@/lib/notifications/db";
+import { assertP2PCommitmentOpen } from "@/lib/release/production-gates";
 
 // Default open-order TTL when the caller doesn't specify expires_at.
 // 30 days mirrors typical online marketplace conventions.
@@ -153,9 +154,33 @@ async function sweepExpired(force = false): Promise<void> {
   const expiredTrades = await query(
     `SELECT id, bid_order_id, ask_order_id, quantity, buyer_id, seller_id
        FROM market_trades
-      WHERE escrow_status = 'awaiting_payment'
-        AND payment_expires_at IS NOT NULL
-        AND payment_expires_at <= NOW()`
+      WHERE market_trades.escrow_status = 'awaiting_payment'
+        AND market_trades.payment_expires_at IS NOT NULL
+        AND market_trades.payment_expires_at <= NOW()
+        -- Never restore a listing while Stripe can still charge, while an
+        -- async method is processing, or while contradictory evidence is
+        -- held for review. Signed expiry/failure moves the attempt terminal;
+        -- reconciliation owns ambiguous or missing provider events.
+        AND NOT EXISTS (
+          SELECT 1
+            FROM market_trade_stripe_checkout_attempts attempt
+           WHERE attempt.trade_id = market_trades.id
+             AND attempt.status IN (
+               'reserved', 'checkout_open', 'processing', 'requires_review'
+             )
+        )
+        -- Pre-v2 sessions have no attempt row. Fail closed until their exact
+        -- stored session is settled or an operator/provider reconciliation
+        -- proves it terminal.
+        AND (
+          market_trades.stripe_session_id IS NULL
+          OR EXISTS (
+            SELECT 1 FROM market_trade_stripe_checkout_attempts historical
+             WHERE historical.trade_id = market_trades.id
+               AND historical.stripe_session_id = market_trades.stripe_session_id
+               AND historical.status IN ('expired', 'failed')
+          )
+        )`
   );
 
   for (const t of expiredTrades.rows) {
@@ -163,9 +188,41 @@ async function sweepExpired(force = false): Promise<void> {
     // ask stranded as 'filled' with no live trade, and the sweep would never
     // revisit (the trade is already 'cancelled'). Mirrors approveCancel.
     const cancelled = await transaction(async (q) => {
+      // Lock in the same order as payment reservation. This statement may
+      // wait for an in-flight buyer reservation; the NEXT statement then
+      // receives a fresh READ COMMITTED snapshot that can see its attempt.
+      const locked = await q(
+        `SELECT id FROM market_trades
+          WHERE id = $1 AND escrow_status = 'awaiting_payment'
+          FOR UPDATE`,
+        [t.id],
+      );
+      if (locked.rows.length === 0) return false;
       const upd = await q(
-        `UPDATE market_trades SET escrow_status = 'cancelled', updated_at = NOW()
-          WHERE id = $1 AND escrow_status = 'awaiting_payment' RETURNING id`,
+        `UPDATE market_trades AS target
+            SET escrow_status = 'cancelled', updated_at = NOW()
+          WHERE target.id = $1
+            AND target.escrow_status = 'awaiting_payment'
+            -- Recheck in a new statement snapshot after acquiring the trade
+            -- lock. A buyer can reserve after the outer candidate SELECT but
+            -- before this transaction wins that lock at the deadline.
+            AND NOT EXISTS (
+              SELECT 1 FROM market_trade_stripe_checkout_attempts attempt
+               WHERE attempt.trade_id = target.id
+                 AND attempt.status IN (
+                   'reserved', 'checkout_open', 'processing', 'requires_review'
+                 )
+            )
+            AND (
+              target.stripe_session_id IS NULL
+              OR EXISTS (
+                SELECT 1 FROM market_trade_stripe_checkout_attempts historical
+                 WHERE historical.trade_id = target.id
+                   AND historical.stripe_session_id = target.stripe_session_id
+                   AND historical.status IN ('expired', 'failed')
+              )
+            )
+          RETURNING target.id`,
         [t.id]
       );
       if (upd.rows.length === 0) return false;
@@ -289,6 +346,8 @@ export async function placeOrder(data: {
   quantity: number;
   notes?: string;
 }): Promise<{ order: MarketOrder; trades: MarketTrade[] }> {
+  assertP2PCommitmentOpen();
+
   // Trust gate: refuse the order if the user is suspended or the order
   // value exceeds their per-trade or remaining-daily limits. canTrade()
   // already considers all of those — calling it here turns it from
@@ -320,6 +379,25 @@ export async function placeOrder(data: {
   const paymentWindowByTrade = new Map<string, number>();
 
   const { order } = await transaction(async (q) => {
+    // Re-check suspension inside the same transaction that writes the order.
+    // The emergency-freeze path locks this trust_profiles row too, closing
+    // the gap between canTrade() above and the INSERT below.
+    const takerStanding = await q(
+      `SELECT is_suspended, suspended_reason
+         FROM trust_profiles
+        WHERE user_id = $1
+        FOR SHARE`,
+      [data.userId],
+    );
+    if (takerStanding.rows.length === 0) {
+      throw new TrustGateError("Order rejected because account standing could not be verified.");
+    }
+    if (takerStanding.rows[0].is_suspended === true) {
+      throw new TrustGateError(
+        `Account suspended: ${takerStanding.rows[0].suspended_reason ?? "trading is paused pending human review"}`,
+      );
+    }
+
     // Insert the order with a default 30-day TTL
     const expiresAt = new Date(Date.now() + DEFAULT_ORDER_TTL_MS).toISOString();
     const orderResult = await q(
@@ -349,13 +427,15 @@ export async function placeOrder(data: {
               t.p2p_commission_rate                  AS maker_p2p_rate
          FROM market_orders o
          JOIN users u ON u.id = o.user_id
-         LEFT JOIN trust_profiles tp ON tp.user_id = o.user_id
+         JOIN trust_profiles tp ON tp.user_id = o.user_id
          LEFT JOIN tiers          t  ON t.id        = u.tier_id
         WHERE o.sku = $1 AND o.side = $2
           AND o.status IN ('open', 'partially_filled')
+          AND tp.is_suspended = false
           AND o.condition = $3 AND o.price ${priceOp} $4 AND o.user_id != $5
         ORDER BY o.price ${priceOrder}, o.created_at ASC
-        FOR UPDATE OF o`,
+        FOR UPDATE OF o
+        FOR SHARE OF tp`,
       [data.sku, oppositeSide, data.condition, data.price.toFixed(2), data.userId]
     );
 
@@ -625,7 +705,13 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
   // Aggregate bids (descending price)
   const bidsResult = await query(
     `SELECT price, SUM(quantity - filled_quantity) as total_quantity, COUNT(*) as order_count
-     FROM market_orders WHERE sku = $1 AND side = 'bid' AND status IN ('open', 'partially_filled')
+     FROM market_orders o
+     WHERE sku = $1 AND side = 'bid' AND status IN ('open', 'partially_filled')
+       AND NOT EXISTS (
+         SELECT 1 FROM trust_profiles suspended
+          WHERE suspended.user_id = o.user_id
+            AND suspended.is_suspended = TRUE
+       )
      GROUP BY price ORDER BY price DESC LIMIT 20`,
     [sku]
   );
@@ -633,14 +719,30 @@ export async function getCardOrderBook(sku: string): Promise<CardOrderBook> {
   // Aggregate asks (ascending price)
   const asksResult = await query(
     `SELECT price, SUM(quantity - filled_quantity) as total_quantity, COUNT(*) as order_count
-     FROM market_orders WHERE sku = $1 AND side = 'ask' AND status IN ('open', 'partially_filled')
+     FROM market_orders o
+     WHERE sku = $1 AND side = 'ask' AND status IN ('open', 'partially_filled')
+       AND NOT EXISTS (
+         SELECT 1 FROM trust_profiles suspended
+          WHERE suspended.user_id = o.user_id
+            AND suspended.is_suspended = TRUE
+       )
      GROUP BY price ORDER BY price ASC LIMIT 20`,
     [sku]
   );
 
   // Card info from any order
   const cardInfo = await query(
-    `SELECT card_name, image_url FROM market_orders WHERE sku = $1 AND card_name IS NOT NULL LIMIT 1`,
+    `SELECT card_name, image_url
+       FROM market_orders o
+      WHERE sku = $1
+        AND card_name IS NOT NULL
+        AND status IN ('open', 'partially_filled')
+        AND NOT EXISTS (
+          SELECT 1 FROM trust_profiles suspended
+           WHERE suspended.user_id = o.user_id
+             AND suspended.is_suspended = TRUE
+        )
+      LIMIT 1`,
     [sku]
   );
 
@@ -683,7 +785,12 @@ export async function getMarketSummaries(filters: {
   const limit = filters.limit || 24;
   const offset = filters.offset || 0;
 
-  let whereClause = "WHERE o.status IN ('open', 'partially_filled')";
+  let whereClause = `WHERE o.status IN ('open', 'partially_filled')
+    AND NOT EXISTS (
+      SELECT 1 FROM trust_profiles suspended
+       WHERE suspended.user_id = o.user_id
+         AND suspended.is_suspended = TRUE
+    )`;
   const params: unknown[] = [];
 
   if (filters.search) {

@@ -1,11 +1,20 @@
 # RewardsPro
 
+## Understanding without commercial targets
+
+From 2026-09-23, this project has no KPI, revenue, conversion, growth or
+commercialisation requirement. Understanding and exploration are sufficient.
+New paid RewardsPro subscriptions and paid plan changes are retired. Existing
+agreements retain their records, cancellation, refund and support paths; this
+decision does not rewrite their entitlements or cancel them automatically.
+
+
 A loyalty and rewards platform built with Remix, TypeScript, Prisma, and Aurora
 Serverless. Shopify is the production commerce connector today; the platform is
 being separated from Shopify-specific authentication, billing, delivery, and
 storefront surfaces so additional connectors can follow.
 
-The source-controlled marketing site for `rewardspro.io` lives in
+The source-controlled public site for `rewardspro.io` lives in
 [`landing/public`](./landing/public). The platform expansion decision and
 truthful connector statuses are recorded in
 [`../../docs/decisions/2026-07-23-rewardspro-platform.md`](../../docs/decisions/2026-07-23-rewardspro-platform.md).

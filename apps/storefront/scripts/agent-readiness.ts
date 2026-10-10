@@ -16,10 +16,12 @@
  *   5. Pillow book contract   — "Two entry types" section + autonomous-trace template.
  *   6. CLAUDE.md cross-link   — root CLAUDE.md mentions AGENTS.md.
  *   7. Hook presence          — .githooks/commit-msg exists and is executable.
- *   8. State.md freshness     — regenerated within the last 7 days.
+ *   8. State.md freshness     — dated record; warn after 7 days. Operators can
+ *                              require freshness with --require-fresh-state.
  *
- * Exits non-zero on findings. Run via `pnpm agent-readiness` or as part
- * of `pnpm audit` (when the chain is extended to include this fifth).
+ * Exits non-zero on errors; dated-state warnings remain visible. Run via
+ * `pnpm agent-readiness` or as part
+ * of `pnpm run audit`.
  *
  * Shaping follow-up of kingdom-050.
  */
@@ -27,6 +29,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isStateSnapshotRegeneration } from "../src/lib/audits/state-snapshot-context";
 
 const ADMIN_DIR = join(fileURLToPath(import.meta.url), "../../");
 const REPO_ROOT = join(ADMIN_DIR, "../..");
@@ -35,12 +38,18 @@ interface Finding {
   check: string;
   target: string;
   reason: string;
+  severity: "error" | "warning";
 }
 
 const findings: Finding[] = [];
 
-function add(check: string, target: string, reason: string): void {
-  findings.push({ check, target, reason });
+function add(
+  check: string,
+  target: string,
+  reason: string,
+  severity: Finding["severity"] = "error",
+): void {
+  findings.push({ check, target, reason, severity });
 }
 
 // ── 1. Script existence ──────────────────────────────────────────────────
@@ -214,11 +223,15 @@ function checkClaudeMd(): void {
   if (!raw.includes("AGENTS.md")) {
     add("6. CLAUDE.md", "CLAUDE.md", "no reference to AGENTS.md");
   }
-  if (!raw.includes("docs/state.md") && !raw.includes("state.md")) {
-    add("6. CLAUDE.md", "CLAUDE.md", "no reference to docs/state.md");
+  // CLAUDE.md is a host pointer. Shared operating rules belong in AGENTS.md.
+  const sharedPath = join(REPO_ROOT, "AGENTS.md");
+  if (!existsSync(sharedPath)) return; // covered by check 3
+  const shared = readFileSync(sharedPath, "utf8");
+  if (!shared.includes("docs/state.md")) {
+    add("6. shared instructions", "AGENTS.md", "no reference to docs/state.md");
   }
-  if (!raw.includes("docs/missions") && !raw.includes("missions/")) {
-    add("6. CLAUDE.md", "CLAUDE.md", "no reference to docs/missions/");
+  if (!shared.includes("docs/missions")) {
+    add("6. shared instructions", "AGENTS.md", "no reference to docs/missions/");
   }
 }
 
@@ -245,6 +258,10 @@ function checkHook(): void {
 // ── 8. State.md freshness ────────────────────────────────────────────────
 
 function checkStateFreshness(): void {
+  // state:snapshot is about to replace the file after collecting its audit
+  // table. Treat that explicit in-process regeneration as fresh so a single
+  // generator run does not record a finding that it has already repaired.
+  if (isStateSnapshotRegeneration(process.argv)) return;
   const path = join(REPO_ROOT, "docs/state.md");
   if (!existsSync(path)) return; // covered by check 3
   const raw = readFileSync(path, "utf8");
@@ -260,7 +277,14 @@ function checkStateFreshness(): void {
   }
   const ageDays = (Date.now() - generated) / 86_400_000;
   if (ageDays > 7) {
-    add("8. state freshness", "docs/state.md", `${ageDays.toFixed(1)} days old — run \`pnpm state:snapshot\``);
+    // Repository structure can be checked without refreshing operational data.
+    // Never rewrite a dated receipt merely to make a source release pass.
+    add(
+      "8. state freshness",
+      "docs/state.md",
+      `${ageDays.toFixed(1)} days old — historical context, not current service health. Regenerate only when the task owns the operational snapshot.`,
+      process.argv.includes("--require-fresh-state") ? "error" : "warning",
+    );
   }
 }
 
@@ -277,10 +301,10 @@ function fmtFindings(): string {
   for (const [check, items] of byCheck) {
     lines.push(`### ${check}`);
     lines.push("");
-    lines.push("| Target | Reason |");
-    lines.push("|--------|--------|");
+    lines.push("| Severity | Target | Reason |");
+    lines.push("|----------|--------|--------|");
     for (const it of items) {
-      lines.push(`| \`${it.target}\` | ${it.reason} |`);
+      lines.push(`| ${it.severity} | \`${it.target}\` | ${it.reason} |`);
     }
     lines.push("");
   }
@@ -290,7 +314,7 @@ function fmtFindings(): string {
 function main(): void {
   console.log("# Cambridge TCG — agent-readiness audit\n");
   console.log(`Generated: ${new Date().toISOString()}\n`);
-  console.log("Self-validating layer for kingdom-050. Checks that every shaping in the autonomous-agent operations layer is wired and working.\n");
+  console.log("Checks repository files and script wiring. It does not establish live service health or authorize operational work.\n");
   console.log("---\n");
 
   checkScriptExistence();
@@ -304,10 +328,14 @@ function main(): void {
 
   console.log(fmtFindings());
   console.log("---\n");
+  const errors = findings.filter((finding) => finding.severity === "error").length;
+  // Keep the total label consumed by state-snapshot.ts stable.
   console.log(`**Total readiness findings: ${findings.length}**\n`);
+  console.log(`${errors} errors, ${findings.length - errors} warnings.\n`);
+  console.log("Use --require-fresh-state for an operational check that requires a snapshot from the last seven days.\n");
   console.log("See `docs/connections/the-operations-layer.md` for the operations layer overview and `AGENTS.md` for the operations cycle.\n");
 
-  process.exit(findings.length > 0 ? 1 : 0);
+  process.exit(errors > 0 ? 1 : 0);
 }
 
 main();

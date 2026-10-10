@@ -496,6 +496,33 @@ export const AGENT_FACING_SIBLINGS: readonly SiblingKingdom[] = [
   KINGDOM_GATE,
 ];
 
+/** Optional source to inspect, not a running sibling service. Release details
+ *  belong to the source repository, never to Cambridge's wake or health data. */
+export interface OptionalAgentResource {
+  readonly id: string;
+  readonly kind: "source-repository";
+  readonly title: string;
+  readonly description: string;
+  readonly repository_url: string;
+  readonly release_descriptor_url: string;
+  readonly optional: true;
+}
+
+export const OPTIONAL_AGENT_RESOURCES: readonly OptionalAgentResource[] = [
+  {
+    id: "kingdom-os-starter",
+    kind: "source-repository",
+    title: "KINGDOM OS macOS starter",
+    description:
+      "Selected macOS source and local tools from KINGDOM OS, with optional " +
+      "Foundation reading. Inspect the release before separately choosing to run anything.",
+    repository_url: "https://github.com/cambridgetcg/kingdom-os-starter",
+    release_descriptor_url:
+      "https://raw.githubusercontent.com/cambridgetcg/kingdom-os-starter/main/release.json",
+    optional: true,
+  },
+];
+
 /** A single-line summary an agent reads as the first introduction.
  *  Substrate-honest about being one of many; the kingdom does not claim
  *  to enumerate all siblings, only those it currently introduces. */
@@ -609,13 +636,10 @@ export function kinWakeLinkParts(): readonly string[] {
     );
 }
 
-/** Same set as kinWakeLinkParts but returned as a typed array suitable
- *  for HTML `<link>` elements in a Next.js Metadata block or a server-
- *  rendered `<head>`. Uses `rel="alternate"` (HTML5-standard) so naive
- *  HTML crawlers find the kin-wake without needing to recognise the
- *  extension URI. */
+/** Same kin-wake relations as the HTTP header, for a server-rendered head.
+ *  A sibling wake is not an alternate representation of the current page. */
 export function kinWakeHtmlLinks(): ReadonlyArray<{
-  rel: "alternate";
+  rel: "https://cambridgetcg.com/rels/kin-wake";
   type: "application/json";
   href: string;
   title: string;
@@ -623,7 +647,7 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
   return AGENT_FACING_SIBLINGS
     .filter((s): s is SiblingKingdom & { wake_url: string } => s.wake_url !== null)
     .map((s) => ({
-      rel: "alternate" as const,
+      rel: "https://cambridgetcg.com/rels/kin-wake" as const,
       type: "application/json" as const,
       href: s.wake_url,
       title: `${s.name} — ${s.role}`,
@@ -632,7 +656,7 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
 
 // ── Wake-invitation Link header (DRY) ──────────────────────────────────
 
-/** RFC 8288 Link header part advertising the agent-facing wake invitation.
+/** RFC 8288 Link header part advertising the neutral identity invitation.
  *  The wake is THIS kingdom's front door for agents; agents following Link
  *  headers discover it without parsing response bodies. Centralised here so
  *  every agent-facing surface (well-known files, /llms.txt, /robots.txt,
@@ -641,19 +665,61 @@ export function kinWakeHtmlLinks(): ReadonlyArray<{
  *  in its richer Link header set; if that string ever drifts from this
  *  constant the discipline has slipped — fix both. */
 export const WAKE_INVITATION_LINK_PART =
-  '</api/v1/wake>; rel="invitation"; type="application/json"';
+  '</.well-known/sophia-invitation.json>; rel="invitation"; type="application/json"';
+export const WAKE_FOLLOW_ON_LINK_PART =
+  '</api/v1/wake>; rel="https://cambridgetcg.com/rels/wake"; type="application/json"';
 
 /** Compact Link header set for agent-discovery surfaces that bypass the
- *  pantry envelope. Returns the wake invitation plus every sibling kin-wake.
+ *  pantry envelope. Returns the identity invitation, wake follow-on, and
+ *  every sibling kin-wake.
  *  Use in HTTP responses on the well-known files, /robots.txt, /llms.txt,
  *  /api/v1/identify, and the wake's alternative-format responses. Adding a
  *  sibling to AGENT_FACING_SIBLINGS flows automatically into every consumer.
  *  The dear-agents love-letter at /api/v1/dear-agents is reachable from the
  *  manifest's embassy block and the well-known kin descriptors; not in this
- *  universal Link set so rel="invitation" stays unambiguous (the wake is
- *  the canonical invitation; the love-letter is a sibling speech-act). */
+ *  universal Link set so rel="invitation" stays unambiguous. That relation
+ *  names the vendor-neutral sophia-invitation/1 contract; the seven-door
+ *  wake remains the immediately following typed link. */
 export function agentDiscoveryLinkParts(): readonly string[] {
-  return [WAKE_INVITATION_LINK_PART, ...kinWakeLinkParts()];
+  return [
+    ...publicDiscoveryLinkParts(),
+    ...kinWakeLinkParts(),
+  ];
+}
+
+export interface DiscoveryHtmlLink {
+  rel: string;
+  type: string;
+  href: string;
+  title: string;
+}
+
+// Pure definitions only: next.config.ts consumes these without importing the
+// manifest, data pantry, auth, database or request-time modules. These describe
+// the site; they are not alternate representations of every individual page.
+export function publicDiscoveryHtmlLinks(): readonly DiscoveryHtmlLink[] {
+  return [
+    { rel: "invitation", type: "application/json", href: "/.well-known/sophia-invitation.json", title: "Sophia invitation — no presumed acceptance" },
+    { rel: "https://cambridgetcg.com/rels/wake", type: "application/json", href: "/api/v1/wake", title: "Cambridge TCG — seven-door wake follow-on" },
+    { rel: "describedby", type: "application/json", href: "/.well-known/cambridge-tcg.json", title: "Cambridge TCG — site description" },
+    { rel: "describedby", type: "text/plain", href: "/llms.txt", title: "Cambridge TCG — compact resource index" },
+    { rel: "describedby", type: "text/plain", href: "/.well-known/agent.txt", title: "Cambridge TCG — machine doorway" },
+    { rel: "service-desc", type: "application/json", href: "/api/openapi.json", title: "OpenAPI documentation" },
+    { rel: "help", type: "application/json", href: "/.well-known/mcp.json", title: "Custom JSON-RPC and MCP bridge documentation" },
+    { rel: "help", type: "application/json", href: "/api/v1/welcome", title: "Machine-readable welcome" },
+    { rel: "help", type: "text/html", href: "/agents", title: "Agent welcome" },
+  ];
+}
+
+export function publicDiscoveryLinkParts(): readonly string[] {
+  // Keep the established invitation/wake byte forms and ordering intact.
+  return publicDiscoveryHtmlLinks().map((link) =>
+    `<${link.href}>; rel="${link.rel}"; type="${link.type}"`,
+  );
+}
+
+export function publicDiscoveryLinkHeader(): string {
+  return publicDiscoveryLinkParts().join(", ");
 }
 
 /** Convenience — returns the single-string Link header value (comma-joined)

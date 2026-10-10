@@ -48,6 +48,31 @@ interface Endpoint {
 }
 
 const ENDPOINTS: Endpoint[] = [
+  {
+    path: "/api/v1/identifiers/validate",
+    title: "Card identifier syntax validator",
+    blurb: "POST one bounded {identifier:string}. Public, stateless syntax validation and explicit legacy-normalization suggestions; no catalog lookup, authentication, upstream call or stored submission. Syntax does not prove a card or printing exists. Human tool: /standards/validator.",
+    status: "shipped",
+    auth: "none",
+    shape: "POST JSON (1 KiB body, 256-character identifier) → no-store pantry envelope",
+  },
+  {
+    path: "/api/v1/member-prices",
+    title: "Free member price feed",
+    blurb: "Source-reviewed current/history observations with native currency, named metrics, timestamps and cursor pagination. Requires a read-only member data key from /account/data. Cardmarket official-file projections are eligible; Scryfall is view-only. Empty or unavailable responses do not claim a collector has run.",
+    status: "partial",
+    auth: "bearer",
+    rateLimit: "30/min per member data key; no paid tier",
+    shape: "Private JSON; one bounded page plus continuation cursor",
+  },
+  {
+    path: "/api/account/prices/export",
+    title: "Free member price downloads",
+    blurb: "Session-authenticated CSV/NDJSON pages from the same permitted source observations. Follow continuation to finish the result; no public catalog mirror. /methodology/member-pricing explains source and access limits.",
+    status: "partial",
+    auth: "session",
+    shape: "Private CSV or NDJSON; explicit continuation and completeness",
+  },
   // ── Draw receipts and digest consistency ───────────────────────────
   {
     path: "/api/verify/chain",

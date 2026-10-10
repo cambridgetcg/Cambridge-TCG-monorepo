@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
 import { recalculateTier } from "@/lib/membership/db";
+import {
+  AccountAdmissionPausedError,
+  assertAccountAdmissionOpen,
+} from "@/lib/release/production-gates";
+
+const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
 
 // POST — admin: manually assign a tier (for OG and special grants)
 export async function POST(request: Request) {
@@ -23,6 +29,17 @@ export async function POST(request: Request) {
   let created = false;
 
   if (userResult.rows.length === 0) {
+    // Admin convenience paths are not allowed to bypass the production-wide
+    // new-account boundary. Existing users still receive tier updates below.
+    try {
+      assertAccountAdmissionOpen();
+    } catch (error) {
+      if (!(error instanceof AccountAdmissionPausedError)) throw error;
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status, headers: PRIVATE_NO_STORE },
+      );
+    }
     userResult = await query(`INSERT INTO users (email) VALUES (LOWER($1)) RETURNING id`, [email]);
     created = true;
   }

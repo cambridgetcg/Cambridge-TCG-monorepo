@@ -23,8 +23,7 @@ export async function GET(req: Request) {
 
   const code = parseCurrency(raw);
 
-  const target = new URL(back, url.origin);
-  const res = NextResponse.redirect(target);
+  const res = new NextResponse(null, { status: 307, headers: { Location: back } });
 
   if (code) {
     res.cookies.set(DISPLAY_CURRENCY_COOKIE, code, {

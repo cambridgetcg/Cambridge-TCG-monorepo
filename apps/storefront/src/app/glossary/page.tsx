@@ -335,7 +335,7 @@ const GROUPS: TermGroup[] = [
       {
         term: "The map",
         definition:
-          "The page at /map — the whole platform's structure in one recursively-nested view. Cosmology → four doctrines → connection-docs → methodology pages → glossary terms → source files, plus parallel indexes for the meditations, pillow book, audits, public surfaces, agent surface, substrate. Every node is a link; three link colors disambiguate (green = internal page, bronze = repo file, slate = external).",
+          "The visitor directory at /map: eight rooms for cards, collecting, play, learning, stories, community, sources and API tools, with reasons connecting the reading trails. Account links show their sign-in requirement. Repository module and contributor guidance live in the project documentation.",
         see: "/map",
       },
     ],

@@ -3,14 +3,28 @@ import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 
+const PRIVATE_HEADERS = {
+  "Cache-Control": "private, no-store",
+  Pragma: "no-cache",
+  Vary: "Cookie",
+};
+
+function privateJson(body: unknown, init?: { status?: number }) {
+  return NextResponse.json(body, {
+    ...init,
+    headers: PRIVATE_HEADERS,
+  });
+}
+
 // GET — billing snapshot for /account/billing. Combines DB state we
 // already have (subscription columns added in migration 0059) with a
 // best-effort Stripe lookup for the invoice list. Stripe failures
-// don't block — we return what we have plus a hint.
+// don't block — we return what we have plus a hint. Paid membership is
+// retired, but this authenticated legacy read remains private and no-store.
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+    return privateJson({ error: "Sign in required." }, { status: 401 });
   }
 
   const u = await query(
@@ -22,7 +36,7 @@ export async function GET() {
     [session.user.id]
   );
   if (u.rows.length === 0) {
-    return NextResponse.json({ error: "User not found." }, { status: 404 });
+    return privateJson({ error: "User not found." }, { status: 404 });
   }
   const user = u.rows[0];
 
@@ -65,7 +79,7 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({
+  return privateJson({
     subscription: {
       status: user.subscription_status,
       tierName,

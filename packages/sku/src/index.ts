@@ -56,7 +56,16 @@ export {
 export {
   normalizeSku,
   normalizeAndParse,
+  normalizeLanguageCode,
 } from "./normalize";
+
+export {
+  SKU_IDENTITY_CONTRACT,
+  SKU_IDENTITY_SCHEMA,
+  skuIdentity,
+  resolveGameToken,
+  type SkuIdentity,
+} from "./identity";
 
 export {
   SET_FORMATS,

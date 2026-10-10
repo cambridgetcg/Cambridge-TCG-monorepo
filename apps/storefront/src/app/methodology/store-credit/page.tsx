@@ -16,9 +16,10 @@ export default function StoreCreditMethodology() {
         <code>docs/decisions/2026-07-06-collectors-first.md</code>). Store
         credit was currency you could earn and spend at the Cambridge TCG
         shop; with the shop closed, there is nothing left to spend it at —
-        and, verified on the closing day, <strong>no balances were
-        outstanding</strong> (0 users held credit; £0.00 total). The shop
-        closed owing nothing to anyone. Selling now happens between
+        and the dated closing-day decision records <strong>no balances
+        outstanding</strong> (0 users held credit; £0.00 total). This is a
+        historical close-out record, not a live production query; contact
+        support if your own account history disagrees. Selling now happens between
         collectors on the <a href="/market">market</a>, in cash, via{" "}
         <a href="/account/payouts">payouts</a>.
       </blockquote>
@@ -31,7 +32,7 @@ export default function StoreCreditMethodology() {
       <h2>How credit was earned (shop era)</h2>
       <ul>
         <li><strong>Cashback</strong> on B2C orders — a % of the line total that scaled with the member&rsquo;s tier at the time (tiers have since been retired).</li>
-        <li><strong>Trade-in (credit option)</strong> — accepting the credit quote instead of cash. (No trade-in was ever submitted.)</li>
+        <li><strong>Trade-in (credit option)</strong> — accepting the credit quote instead of cash. (The dated close-out decision records no submitted trade-in.)</li>
         <li><strong>Refunds to credit</strong> — when applicable, refunds could be issued as credit.</li>
         <li><strong>Liquidity mining</strong> — the market-maker incentive program (paused 2026-07-06: it paid store credit, which no longer has a spending door).</li>
         <li><strong>Operator grants</strong> — staff or retention adjustments.</li>
@@ -51,7 +52,7 @@ export default function StoreCreditMethodology() {
 
       <TypeSignature
         type="methodology-page"
-        origin="store_credit_ledger + checkout coupon flow — the shop-era non-money value system, retired 2026-07-06 with zero balances outstanding (collectors-first decision)"
+        origin="store_credit_ledger + checkout coupon flow — the shop-era non-money value system; the dated collectors-first close-out decision recorded zero balances on 2026-07-06"
         doctrines={["transparency", "substrate-honesty"]}
         audience="public-documentation"
         recursion={[

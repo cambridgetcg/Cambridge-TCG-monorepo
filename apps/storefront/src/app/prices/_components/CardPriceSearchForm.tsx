@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import type { GameItem } from "@/lib/wholesale/client";
+import { Button } from "@/lib/ui/Button";
+import { Field, Input, Select } from "@/lib/ui/Input";
 
 interface CardPriceSearchFormProps {
   games: GameItem[];
@@ -23,90 +25,89 @@ export function CardPriceSearchForm({
   const sortedGames = [...games].sort(
     (firstGame, secondGame) => secondGame.card_count - firstGame.card_count,
   );
+  const hasGames = sortedGames.length > 0;
 
   return (
     <div className="space-y-3">
       <form
         action="/prices/search"
         method="get"
-        aria-label="Find a card price"
-        className="grid grid-cols-2 gap-3 md:grid-cols-[180px_1fr_140px_auto] md:items-end"
+        aria-label="Find a card"
+        className="grid grid-cols-2 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)_auto] md:items-end"
       >
-        <div className="order-1">
-          <label
-            htmlFor="price-search-game"
-            className="mb-1 block text-xs font-medium text-ink-muted"
-          >
-            Game
-          </label>
-          <select
-            id="price-search-game"
-            name="game"
-            defaultValue={game || sortedGames[0]?.code || ""}
-            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            {sortedGames.map((gameItem) => (
-              <option key={gameItem.code} value={gameItem.code}>
-                {gameItem.name}
-              </option>
-            ))}
-          </select>
+        <div className="min-w-0">
+          <Field label="Game" htmlFor="price-search-game">
+            <Select
+              id="price-search-game"
+              name="game"
+              density="comfortable"
+              defaultValue={game || sortedGames[0]?.code || ""}
+              disabled={!hasGames}
+              aria-describedby={!hasGames ? "price-search-unavailable" : undefined}
+            >
+              {!hasGames && <option value="">Games unavailable</option>}
+              {sortedGames.map((gameItem) => (
+                <option key={gameItem.code} value={gameItem.code}>
+                  {gameItem.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
         </div>
 
-        <div className="order-3 col-span-2 md:order-2 md:col-span-1">
-          <label
-            htmlFor="price-search-query"
-            className="mb-1 block text-xs font-medium text-ink-muted"
-          >
-            Card number
-          </label>
-          <input
-            id="price-search-query"
-            type="text"
-            name="q"
-            required
-            autoFocus={autoFocus}
-            defaultValue={query}
-            placeholder="e.g. OP01-001"
-            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent"
-          />
+        <div className="min-w-0">
+          <Field label="Language" htmlFor="price-search-language">
+            <Select
+              id="price-search-language"
+              name="lang"
+              density="comfortable"
+              defaultValue={language}
+            >
+              <option value="">Any language</option>
+              <option value="en">English</option>
+              <option value="ja">Japanese</option>
+            </Select>
+          </Field>
         </div>
 
-        <div className="order-2 md:order-3">
-          <label
-            htmlFor="price-search-language"
-            className="mb-1 block text-xs font-medium text-ink-muted"
-          >
-            Language
-          </label>
-          <select
-            id="price-search-language"
-            name="lang"
-            defaultValue={language}
-            className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent"
-          >
-            <option value="">Any language</option>
-            <option value="en">English</option>
-            <option value="ja">Japanese</option>
-          </select>
+        <div className="col-span-2 min-w-0 md:col-span-1">
+          <Field label="Card number" htmlFor="price-search-query">
+            <Input
+              id="price-search-query"
+              type="text"
+              name="q"
+              density="comfortable"
+              required
+              autoFocus={autoFocus}
+              defaultValue={query}
+              placeholder="e.g. OP01-001"
+            />
+          </Field>
         </div>
 
-        <button
+        <Button
           type="submit"
-          className="order-4 col-span-2 min-h-11 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-page transition-colors hover:bg-accent-strong md:col-span-1"
+          className="col-span-2 min-h-11 md:col-span-1"
+          disabled={!hasGames}
         >
-          Find prices
-        </button>
+          Find card
+        </Button>
       </form>
 
-      <p className="text-xs leading-relaxed text-ink-faint">
+      {!hasGames && (
+        <p id="price-search-unavailable" role="status" className="text-sm text-ink-muted">
+          The game catalog is unavailable, so search cannot start yet. Try again later or check <Link href="/prices/coverage" className="text-accent underline">source coverage</Link>.
+        </p>
+      )}
+
+      <p className="text-sm leading-relaxed text-ink-muted">
         Use the small code printed on the card, usually near the bottom edge,
         such as <span className="font-mono text-ink-muted">OP01-001</span>.
         {browseHref ? (
           <>
             {" "}
             <Link href={browseHref} className="text-info hover:underline">
-              No code? Browse by game instead →
+              Browse by game
             </Link>
           </>
         ) : null}

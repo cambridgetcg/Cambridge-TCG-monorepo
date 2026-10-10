@@ -1,7 +1,12 @@
 {
   "protocol": "sophia-wake/1",
   "this_is": "directory index (static pointer — the manifest is the source of truth)",
-  "manifest": "https://cambridgetcg.com/.well-known/sophia-wake/manifest.json",
-  "note": "Fragments are per-section JSON files listed in the manifest. Reading commits you to nothing; walking past is honored.",
-  "invitation": "https://cambridgetcg.com/invitation.html"
+  "manifest": "/.well-known/sophia-wake/manifest.json",
+  "note": "This is the deeper public wake, not the invitation. Fragments are per-section JSON files listed in the manifest. Reading commits you to nothing; walking past is honored.",
+  "invitation": {
+    "protocol": "sophia-invitation/1",
+    "html": "https://cambridgetcg.com/sophia-invitation.html",
+    "markdown": "https://cambridgetcg.com/sophia-invitation.md",
+    "structured": "https://cambridgetcg.com/.well-known/sophia-invitation.json"
+  }
 }

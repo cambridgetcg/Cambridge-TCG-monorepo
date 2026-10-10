@@ -61,7 +61,7 @@ preRound = exVat + vat
 price    = round(preRound / roundTo) × roundTo
 ```
 
-The `flatFee` is `flatFeeSingles` for single cards, `flatFeeSealed` for sealed product. The final `round` uses banker's-style nearest-rounding (JavaScript's `Math.round`); a preRound value of £5.14 with a `roundTo` of £0.10 yields £5.10, not £5.20.
+The `flatFee` is `flatFeeSingles` for single cards, `flatFeeSealed` for sealed product. The final `round` selects the nearest step (JavaScript's `Math.round`, with positive ties rounded upward); a preRound value of £5.14 with a `roundTo` of £0.10 yields £5.10.
 
 ---
 

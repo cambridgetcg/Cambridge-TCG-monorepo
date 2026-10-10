@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin/auth";
 import { query } from "@/lib/db";
 import { sendMail } from "@cambridge-tcg/email";
+import {
+  AccountAdmissionPausedError,
+  assertAccountAdmissionOpen,
+} from "@/lib/release/production-gates";
 
 const PRIVATE_NO_STORE = { "Cache-Control": "private, no-store" };
 
@@ -42,6 +46,17 @@ export async function POST(request: Request) {
       // Find or create user
       let userResult = await query(`SELECT id FROM users WHERE email=LOWER($1)`, [claim.rows[0].email]);
       if (userResult.rows.length === 0) {
+        // Approval may grant an existing account, but it cannot create one
+        // while the production-wide adult/terms admission boundary is closed.
+        try {
+          assertAccountAdmissionOpen();
+        } catch (error) {
+          if (!(error instanceof AccountAdmissionPausedError)) throw error;
+          return NextResponse.json(
+            { error: error.message, code: error.code },
+            { status: error.status, headers: PRIVATE_NO_STORE },
+          );
+        }
         userResult = await query(`INSERT INTO users (email) VALUES (LOWER($1)) RETURNING id`, [claim.rows[0].email]);
       }
 

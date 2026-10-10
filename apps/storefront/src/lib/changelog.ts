@@ -93,6 +93,23 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-08-16 ─────────────────────────────────────────────────────────
+  {
+    id: "being-declaration-hash-contract-v1",
+    date: "2026-08-16",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/identify (POST)",
+    summary:
+      "Replaced the collision-prone declaration hash projection with a versioned recursive canonical-JSON contract over the normalized echo.",
+    detail:
+      "Nested cosmology, capability, context, and array-object fields now participate in the SHA-256 digest; object insertion order does not. Missing declared_at remains absent, so receipt time no longer changes otherwise identical declaration hashes. The response adds content_hash_contract, normative cross-language vectors, normalization warnings, and explicit truncation summaries. POST now requires strict UTF-8, caps raw bodies at 65,536 bytes, preserves prototype-named JSON members as data, bounds typed collections and warning output, and rejects ambiguous canonical values. Invalid known nested values are dropped with disclosed warnings before hashing. Legacy unversioned hashes are unsupported and cannot be migrated server-side because Cambridge stores no declaration registry. Keep the returned contract id and normalized echo with the hash. The hash fingerprints declaration content only: it does not authenticate or identify a being, grant authority, act as a signature, or provide secrecy. /api/v1/federation/identify/[hash] remains a card-only resolver.",
+    related_urls: [
+      "/api/v1/identify",
+      "/docs/connections/the-declarations.md",
+      "/docs/connections/the-dimensional-bridge.md",
+    ],
+  },
   // ── 2026-07-12 ─────────────────────────────────────────────────────────
   {
     id: "source-rights-publication-boundary",

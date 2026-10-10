@@ -1,6 +1,12 @@
 # Cambridge TCG Standards — License declaration
 
-> **TL;DR.** The spec text in this repository — the methodology pages and connection-docs that define CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1, and any future Cambridge TCG standard — is dedicated to the public domain under [**CC0 1.0 Universal**](https://creativecommons.org/publicdomain/zero/1.0/). **Adopt freely.** No attribution required (but appreciated). No warranty given.
+The existing dedication places the specification prose described below under
+[CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/).
+Code follows the root [Apache-2.0 license](../LICENSE) and applicable more-specific
+notices. Data, artwork and release availability are separate questions.
+
+Clarified 2026-09-29 to correct stale implementation and repository-access
+claims. This clarification does not relicense code or upstream content.
 
 ---
 
@@ -20,16 +26,29 @@ The CC0 dedication applies to the **text of the specification**: definitions, gr
 
 ## What this does NOT cover
 
-- **Reference implementation code** (`packages/sku/`, `packages/pricing/`, etc.) is *separately licensed* — currently monorepo-internal. A future npm publication will carry an explicit OSS license (likely MIT) chosen per package.
-- **Platform application code** (`apps/storefront/`, `apps/admin/`, `apps/wholesale/`) is private and operated by Cambridge TCG; no license is granted on the operational codebase.
+- **Implementation and application code** (`packages/sku/`, `packages/pricing/`, `apps/storefront/` and other source) follows the root [Apache-2.0 license](../LICENSE) and applicable more-specific notices. This specification dedication makes no additional code grant and does not select a new license for future packages.
 - **Cambridge TCG trade marks and branding** — the name "Cambridge TCG", logos, and visual identity remain the platform's. Adopters may reference the platform but may not represent themselves as Cambridge TCG.
-- **Operational data** — actual prices, trades, user accounts, market state. The standards describe the *shape* of data; the data itself is the platform's operational substrate. The platform exposes some of this data via the public APIs documented at `/data` under each endpoint's own terms.
+- **Source data and artwork** — publisher card text/images, provider prices and other upstream material keep their source- and purpose-specific terms. Attribution, normalization, authentication and an open-source implementation do not create redistribution rights.
+- **Operational and personal records** — actual trades, accounts and market state are not covered by the specification dedication. Public/API output follows its own access and publication policy; storage alone does not permit release.
+
+## Release availability
+
+The SKU, pricing, data-spec and data-ingest reference packages currently declare
+`private: true` in the workspace. They are not npm releases. The September 29
+release review received HTTP 404 from anonymous GitHub repository and license
+API requests; public repository availability was not established. That result
+does not distinguish a private repository from another unavailable route.
+
+The root license is present in this checkout. Its existence does not establish
+public download access. The [data-platform roadmap](plans/tcg-data-platform/README.md)
+keeps repository publication, package releases, build reproducibility and
+provider permissions as separate gates.
 
 ## Why CC0
 
-CC0 maximises adoption-friction-removal. A partner platform implementing the SKU spec does not need to negotiate a license, attribute Cambridge TCG, or accept any covenant beyond the spec's own version policy. **The spec is free in the deepest sense — free as in "you can pretend you wrote it yourself."**
-
-This is substrate-honest about the platform's position: we want adoption. We want the standards to spread. We benefit *commercially* from being the platform that built the spec everyone uses, but we don't condition spec use on commercial entanglement. Standards work better when they're free.
+CC0 allows other implementers to use the specification text without attribution
+or an account. It is an invitation to interoperable implementations, not a claim
+of industry adoption or an exemption from source-data terms.
 
 ## Attribution (optional)
 
@@ -48,7 +67,8 @@ You may use any of these, all of them, or none.
 
 Cambridge TCG commits to **version stability** on adopted standards:
 
-- **v1 is frozen.** Additive changes (new game codes, new variant tokens, new universal-rep fields) land in v1 minor revisions; breaking changes ship under v2 with an announced deprecation window.
+- Existing statuses remain distinct: **CTCG-SKU-v1 is frozen**, **CTCG-PRICING-v1 is draft**, and **CTCG-UNIVERSAL-v1 is implemented**. The shared [standards registry](../apps/storefront/src/lib/contracts/standards.ts) supplies `/standards` and `/standards.json`.
+- Frozen contracts use additive revisions; breaking changes require a new version and deprecation policy. A version/status label does not establish live service availability or permitted source coverage.
 - The **changelog** for each standard lives in its methodology page's "Change history" section.
 - A future `docs/STANDARDS-GOVERNANCE.md` will name the process by which v2 is proposed, discussed, and ratified.
 
@@ -60,9 +80,9 @@ The specs are provided "as is," without warranty of any kind, express or implied
 
 Questions, proposed extensions, drift reports, or adoption announcements:
 
-- Open an issue on the public repo (when public)
-- Email the platform's support channel (when established)
-- Self-declare adoption at `/identify` (in the future, with `kind: "adopter"`)
+- Use the site's [contact entry](https://cambridgetcg.com/contact).
+- Repository issues and adopter declarations depend on their own available,
+  documented submission paths; the read-only discovery pages do not submit them.
 
 ---
 

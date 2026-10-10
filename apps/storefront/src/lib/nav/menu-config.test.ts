@@ -1,63 +1,78 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectNavUrls,
-  isNavItemActive,
-  navItemAriaCurrent,
-  MORE_NAV_FOOTER,
-  MORE_NAV_GROUPS,
-  PRIMARY_NAV_ITEMS,
+  collectNavUrls, isNavItemActive, navItemAriaCurrent, navLabel, navDescription,
+  navGroupHeading, MORE_NAV_FOOTER, MORE_NAV_GROUPS, PRIMARY_NAV_ITEMS, FOOTER_NAV_GROUPS,
 } from "./menu-config";
 import type { NavItem } from "./menu-config";
+import type { UiLang } from "@/lib/lang-mode";
+
+const moreItems: NavItem[] = MORE_NAV_GROUPS.flatMap((group) => [...group.items]);
+const itemAt = (href: string): NavItem => [...PRIMARY_NAV_ITEMS, ...moreItems].find((item) => item.href === href)!;
 
 describe("storefront navigation", () => {
-  it("keeps the global header within a human-scannable link budget", () => {
-    // Five doors since 2026-07-28: Culture joined Market/Prices/Play/
-    // Community when the culture wings became the house's focus. The
-    // budget moved 12 → 13 for that one door — a deliberate amendment,
-    // not drift.
-    expect(PRIMARY_NAV_ITEMS).toHaveLength(5);
-    expect(
-      MORE_NAV_GROUPS.reduce((total, group) => total + group.items.length, 0),
-    ).toBe(6);
-    expect(MORE_NAV_FOOTER).toHaveLength(2);
-    expect(collectNavUrls().length).toBeLessThanOrEqual(13);
+  it("prioritises data tasks while retaining collection, play and the agent entry", () => {
+    expect(PRIMARY_NAV_ITEMS).toHaveLength(4);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.href)).toEqual(["/prices", "/services", "/standards", "/roadmap"]);
+    expect(PRIMARY_NAV_ITEMS.map((item) => item.label)).toEqual(["Prices", "Services", "Standards", "Roadmap"]);
+    expect(moreItems.slice(0, 3).map((item) => item.href)).toEqual(["/culture", "/account/portfolio", "/play"]);
+    expect(itemAt("/account/portfolio").requiresSignIn).toBe(true);
+    expect(moreItems.find((item) => item.href === "/agents")).toMatchObject({
+      label: "Agents & API", description: "Start with read-only discovery",
+    });
+    expect(collectNavUrls().length).toBeLessThanOrEqual(15);
   });
 
-  it("does not repeat destinations", () => {
-    const urls: string[] = PRIMARY_NAV_ITEMS.map((item) => item.href);
-    for (const group of MORE_NAV_GROUPS) {
-      for (const item of group.items) urls.push(item.href);
-    }
-    for (const item of MORE_NAV_FOOTER) urls.push(item.href);
+  it("avoids repeated header destinations and preserves the wider map", () => {
+    const urls = [...PRIMARY_NAV_ITEMS, ...moreItems, ...MORE_NAV_FOOTER].map((item) => item.href);
     expect(new Set(urls).size).toBe(urls.length);
+    expect(urls).toContain("/map");
+    expect(urls).toContain("/culture");
+    expect(urls).toContain("/community");
+    expect(urls).not.toContain("/start");
+    expect(urls).not.toContain("/welcome");
   });
 
-  it("keeps deeper routes attached to their human-facing section", () => {
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[0], "/auctions/123")).toBe(true);
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[1], "/prices/one-piece/op01")).toBe(true);
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[2], "/deck-builder")).toBe(true);
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[3], "/workshop")).toBe(true);
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[3], "/pulls/one-piece")).toBe(true);
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[4], "/rewards/packs")).toBe(true);
-    expect(isNavItemActive(PRIMARY_NAV_ITEMS[0], "/community")).toBe(false);
+  it("keeps new paid-commerce actions out of global navigation while retaining existing records", () => {
+    const urls = [...collectNavUrls(), ...FOOTER_NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href))];
+    expect(urls).toContain("/account/trades");
+    expect(urls).toContain("/account/portfolio");
+    for (const retired of ["/market/list", "/auctions/sell", "/checkout", "/membership", "/market"]) {
+      expect(urls).not.toContain(retired);
+    }
   });
 
-  it("distinguishes the current page from its active section", () => {
-    expect(navItemAriaCurrent(PRIMARY_NAV_ITEMS[0], "/market")).toBe("page");
-    expect(navItemAriaCurrent(PRIMARY_NAV_ITEMS[0], "/market/list")).toBe("location");
-    expect(navItemAriaCurrent(PRIMARY_NAV_ITEMS[0], "/community")).toBeUndefined();
+  it("keeps nested routes under the correct task without matching sibling prefixes", () => {
+    expect(isNavItemActive(itemAt("/prices"), "/prices/one-piece/op01")).toBe(true);
+    expect(isNavItemActive(itemAt("/standards"), "/standards/card-data")).toBe(true);
+    expect(isNavItemActive(itemAt("/data"), "/standards/card-data")).toBe(false);
+    expect(isNavItemActive(itemAt("/roadmap"), "/roadmap")).toBe(true);
+    expect(isNavItemActive(itemAt("/play"), "/deck-builder")).toBe(true);
+    expect(isNavItemActive(itemAt("/culture"), "/workshop")).toBe(true);
+    expect(isNavItemActive(itemAt("/culture"), "/pulls/one-piece")).toBe(true);
+    expect(isNavItemActive(itemAt("/community"), "/rewards/packs")).toBe(true);
+    expect(isNavItemActive(itemAt("/agents"), "/api/v1/manifest")).toBe(true);
+    expect(isNavItemActive(itemAt("/agents"), "/agents/guides/first-request")).toBe(true);
+    expect(isNavItemActive(itemAt("/agents"), "/agents-extra")).toBe(false);
+    expect(isNavItemActive({ label: "Home", href: "/" }, "/prices")).toBe(false);
+    expect(isNavItemActive(itemAt("/account/portfolio"), "/account/sets/op01")).toBe(true);
+    expect(isNavItemActive(itemAt("/account/portfolio"), "/account/trades")).toBe(false);
   });
 
-  it("names access, rights, and proof limits without broad promises", () => {
-    const items: NavItem[] = [];
-    for (const group of MORE_NAV_GROUPS) items.push(...group.items);
-    expect(items.find((item) => item.href === "/data")).toMatchObject({
-      label: "Data directory",
-      description: "API access and rights",
-    });
-    expect(items.find((item) => item.href === "/verify")).toMatchObject({
-      label: "Draw proof checks",
-      description: "Consistency evidence and stated limits",
-    });
+  it("distinguishes an exact page from an active section for assistive technology", () => {
+    expect(navItemAriaCurrent(itemAt("/prices"), "/prices")).toBe("page");
+    expect(navItemAriaCurrent(itemAt("/prices"), "/prices/search")).toBe("location");
+    expect(navItemAriaCurrent(itemAt("/prices"), "/community")).toBeUndefined();
+  });
+
+  it.each(["ja", "es", "zh-Hans", "zh-Hant"] as UiLang[])("translates every visible navigation label and description in %s", (lang) => {
+    const items: NavItem[] = [...PRIMARY_NAV_ITEMS, ...moreItems, ...MORE_NAV_FOOTER, ...FOOTER_NAV_GROUPS.flatMap((group) => [...group.items])];
+    for (const item of items) {
+      expect(item[lang as "ja" | "es" | "zh-Hans" | "zh-Hant"]).toBeTruthy();
+      expect(navLabel(item, lang)).not.toBe(item.label);
+      if (item.description) expect(navDescription(item, lang)).not.toBe(item.description);
+    }
+    for (const group of [...MORE_NAV_GROUPS, ...FOOTER_NAV_GROUPS]) {
+      expect(navGroupHeading(group, lang)).not.toBe(group.heading);
+    }
   });
 });

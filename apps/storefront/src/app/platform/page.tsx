@@ -212,7 +212,7 @@ export default function PlatformPage() {
             <ConsumeCard
               title="The identification handshake"
               href="/api/v1/identify"
-              body="GET returns the platform's I-AM. POST accepts your BeingDeclaration. Bilateral. Stateless. The on-ramp for federation."
+              body="GET returns the platform's I-AM. POST witnesses your BeingDeclaration and fingerprints its normalized echo. Bilateral and stateless; not an identity verifier, declaration registry, or declaration-hash resolver."
             />
           </div>
         </section>

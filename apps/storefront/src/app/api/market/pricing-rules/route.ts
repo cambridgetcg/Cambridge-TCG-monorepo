@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { createRule, listRules } from "@/lib/market/pricing-rules";
+import { p2pCommitmentPauseResponse } from "@/lib/release/production-gates";
 
 export async function GET() {
   const session = await auth();
@@ -12,6 +13,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  const releasePause = p2pCommitmentPauseResponse();
+  if (releasePause) return releasePause;
 
   const body = (await request.json().catch(() => ({}))) as {
     name?: string;

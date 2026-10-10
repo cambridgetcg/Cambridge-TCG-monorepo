@@ -54,7 +54,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   return (
     <div className="min-h-screen bg-page">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="flex gap-8">
+        <div className="flex flex-col gap-6 md:flex-row md:gap-8">
           <AccountNav badges={{ "/account/offers": offersPending }} />
           <main className="flex-1 min-w-0">{children}</main>
         </div>

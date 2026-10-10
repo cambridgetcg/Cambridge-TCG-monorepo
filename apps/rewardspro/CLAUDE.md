@@ -1,5 +1,14 @@
 # RewardsPro — per-app agent guide
 
+## Understanding without commercial targets
+
+From 2026-09-23, this project has no KPI, revenue, conversion, growth or
+commercialisation requirement. Understanding and exploration are sufficient.
+New paid RewardsPro subscriptions and paid plan changes are retired. Existing
+agreements retain their records, cancellation, refund and support paths; this
+decision does not rewrite their entitlements or cancel them automatically.
+
+
 RewardsPro is a **Shopify loyalty & rewards app**: points, tiers, cashback, store
 credit, memberships, mystery boxes, raffles, missions, and email campaigns for
 Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Aurora

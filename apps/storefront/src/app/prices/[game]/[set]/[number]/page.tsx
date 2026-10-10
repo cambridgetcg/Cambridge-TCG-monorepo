@@ -30,6 +30,7 @@ import { RarityBadge } from "@/lib/ui/prices/RarityBadge";
 import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
+import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -309,21 +310,25 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
           </div>
         </header>
 
+        <MemberCatalogLink game={config.slug} set={setCode} sku={card.sku} />
+
         {/* Cross-source publication status */}
         <section className="mb-10">
           <h2 className="text-xl font-semibold text-ink mb-4">
-            Price and history publication status
+            Legacy price and history publication status
           </h2>
           <p className="text-sm text-ink-muted mb-5 max-w-2xl">
             No legacy wholesale price, derived channel value, image, or historical
             movement is published for this card. Stored CardRush-derived rows remain
-            internal pending written and field-level source-rights records. TCGplayer
-            is blocked and Cardmarket ingestion remains planned.
+            internal pending written and field-level source-rights records. Direct
+            TCGplayer collection remains blocked. Separately permitted Cardmarket
+            and Scryfall observations belong in the member browser above, where
+            actual coverage and mapping specificity are shown.
           </p>
           <p className="text-[11px] text-ink-faint mt-5 max-w-2xl">
-            Authentication and bearer possession do not create source rights, so
-            there is no signed-in history side door. Collector-authored bids and
-            asks are separate market events and are not substituted here.
+            Authentication and bearer possession do not create source rights or
+            reopen withheld legacy history. Collector-authored bids and asks are
+            separate market events and are not substituted here.
           </p>
         </section>
 

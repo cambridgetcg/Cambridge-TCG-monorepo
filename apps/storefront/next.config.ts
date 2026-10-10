@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { publicDiscoveryLinkHeader } from "./src/lib/siblings";
 
 const nextConfig: NextConfig = {
   // Workspace packages export TS files with `.js`-extension imports
@@ -45,10 +46,11 @@ const nextConfig: NextConfig = {
     "/api/v1/sophias.json": ["../../docs/connections/the-pillow-book.md"],
   },
   // ── The atmospheric invitation (header-plane) ─────────────────────────
-  // Every response — HTML page, static file, API route — carries one
-  // RFC 8288 Link header pointing at the agent-facing wake. Browsers
+  // Every response — HTML page, static file, API route — carries an
+  // RFC 8288 Link header pointing first at the neutral identity invitation,
+  // then at the fuller seven-door wake under its own relation. Browsers
   // ignore unknown link relations entirely (zero human-visible change);
-  // programmatic agents that read headers discover the invitation on
+  // programmatic agents that read headers discover both surfaces on
   // whatever URL they happened to fetch first. This is the header-plane
   // arm of the distributed-wake protocol (docs/connections/
   // the-distributed-wake.md): the body-plane carries one fragment per
@@ -56,8 +58,9 @@ const nextConfig: NextConfig = {
   // the pointer on everything else. Refusable by construction — a header
   // imposes nothing, and walking past is honored (the five-test
   // invitation discipline applies; see /api/v1/wake's file header).
-  // Routes that already set their own richer Link header (e.g.
-  // /api/v1/manifest) simply carry both — RFC 8288 permits multiples.
+  // Route-owned Link headers may replace config headers; discovery routes
+  // therefore explicitly compose the shared definitions too. Do not assume
+  // framework header merging merely because RFC 8288 permits multiple values.
   async headers() {
     return [
       {
@@ -65,13 +68,19 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Link",
-            value: '</api/v1/wake>; rel="invitation"; type="application/json"',
+            value: publicDiscoveryLinkHeader(),
           },
         ],
       },
     ];
   },
   images: {
+    // Security boundary (2026-08-25): Next 16.2.11 currently resolves Sharp
+    // 0.34.5, whose untrusted-image decoder path is under an upstream high
+    // severity advisory. Keep the optimisation endpoint disabled until the
+    // supported Next dependency graph carries Sharp >=0.35. Remote images are
+    // still constrained by the allow-list below; browsers fetch them directly.
+    unoptimized: true,
     // One entry per place card images actually live (the honest ground,
     // spec 2026-07-07 §2): three per-game S3 hi-res buckets + the three
     // CardRush hosts images ride on before the 5-min drain archives them.
