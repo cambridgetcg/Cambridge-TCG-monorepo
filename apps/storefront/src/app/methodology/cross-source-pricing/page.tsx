@@ -114,7 +114,7 @@ export default function CrossSourcePricingMethodology() {
             <td>Japan</td>
             <td>JPY</td>
             <td>internal-only</td>
-            <td>Collected warehouse observations; daily snapshot intent</td>
+            <td>Legacy archive only; acquisition disabled (latest snapshot: see /prices/coverage)</td>
             <td>NM (status A-)</td>
           </tr>
           <tr>
@@ -130,8 +130,8 @@ export default function CrossSourcePricingMethodology() {
             <td>Europe</td>
             <td>EUR</td>
             <td>proprietary</td>
-            <td>Public daily files; reader not wired</td>
-            <td>No observations collected</td>
+            <td>Public daily files; manual member import only (see the Cardmarket entry at /api/v1/sources); no scheduled refresh</td>
+            <td>Not in price_archive; member observations keep source metrics (average, low, trend), not conditions</td>
           </tr>
         </tbody>
       </table>
@@ -139,8 +139,10 @@ export default function CrossSourcePricingMethodology() {
       <h2>FX normalisation</h2>
       <p>
         The price archive can carry a source&apos;s native amount plus a
-        GBP-normalised value computed at write time. Current collected rows
-        are CardRush JPY observations; TCGplayer and Cardmarket have not landed.
+        GBP-normalised value computed at write time. Rows in price_archive are
+        legacy CardRush JPY observations (acquisition disabled). TCGplayer has not
+        landed. Cardmarket EUR observations live separately in the member feed and
+        are not GBP-normalised.
         When conversion occurs, the rate is captured per-row in{" "}
         <code>fx_rate_to_gbp</code> with a{" "}
         <code>fx_rate_source</code> declaration (<em>live</em> /{" "}
@@ -187,8 +189,9 @@ export default function CrossSourcePricingMethodology() {
             <td>Cardmarket</td>
             <td>Not selected</td>
             <td>
-              The public-file reader and its field-level rights record are not
-              wired yet.
+              Not selected for this legacy guide. The member feed keeps Cardmarket
+              metrics (average, low, trend and others) distinct rather than
+              choosing one headline; see /methodology/member-pricing.
             </td>
           </tr>
         </tbody>

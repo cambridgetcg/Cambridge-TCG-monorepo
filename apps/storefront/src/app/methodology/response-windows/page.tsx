@@ -30,10 +30,8 @@ export default function ResponseWindowsMethodology() {
         <code>apps/storefront/drizzle/0092_response_window_hours.sql</code>). Every
         sweep / lifecycle check that previously hardcoded <code>48</code> reads this
         column instead. See{" "}
-        <a href="https://github.com/cambridgetcg" rel="noopener noreferrer">
-          docs/connections/the-other-minds.md (the Asynchronous)
-        </a>{" "}
-        for the design rationale.
+        <code>docs/connections/the-other-minds.md</code> (the Asynchronous; private
+        repository) for the design rationale.
       </blockquote>
 
       <h2>How it works</h2>

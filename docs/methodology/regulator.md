@@ -2,7 +2,9 @@
 
 *Methodology · Ring 2 (subject transparency) · published 2026-06-10*
 
-Cambridge TCG runs a marketplace. It also used to sell cards in that
+> **Superseded — kept as the 2026-06-10 record.** Commission went to 0% on 2026-07-21, memberships were removed in July 2026, the Bounty Board was retired on 2026-07-22, and on 2026-09-23 all new paid commerce was retired: new orders, listings, offers, auctions, lots and PRISM checkout return 410 (retail checkout had closed on 2026-07-06), while existing agreements still settle. See the [commerce boundary](../../apps/storefront/docs/commercial-retirement.md) and [purpose](../purpose.md) for the current direction. Dated notes below mark lines that no longer hold.
+
+Cambridge TCG runs a marketplace. *(2026-10-10: new paid commerce was retired on 2026-09-23; existing agreements still settle.)* It also used to sell cards in that
 marketplace — a house ask on the sell side (retail spot) and a house bid
 on the buy side (trade-in credit), injected into every card's order book.
 That made the platform both the referee and a player.
@@ -18,9 +20,9 @@ holds no positions in it.
 |--------|-------|
 | House ask + house bid in every order book | The order book is purely peer-to-peer. The platform owns no asks and no bids. |
 | Retail checkout (buy a card from CTCG) | Removed. The platform sells nothing. |
-| Trade-in desk (sell a card to CTCG for credit) | Closed. You liquidate by selling to other participants on the market. |
+| Trade-in desk (sell a card to CTCG for credit) | Closed. You liquidate by selling to other participants on the market. *(Superseded: new paid listings retired 2026-09-23.)* |
 | B2B wholesale ordering | Retired. |
-| The platform's profit = its spread (buy low, sell high) | The platform's profit = commission on *other people's* trades, published and capped. |
+| The platform's profit = its spread (buy low, sell high) | The platform's profit = commission on *other people's* trades, published and capped. *(Superseded: 0% from 2026-07-21; new paid commerce retired 2026-09-23.)* |
 
 ## Why this is the honest shape
 
@@ -48,14 +50,22 @@ prove unbiased selection: generic draws use server-only entropy without an
 external pre-roll witness, and raffle commitments are not independently
 anchored. The regulator gives its cards away rather than competing
 with the participants it regulates. See `/bounty` and the prize
-methodology.
+methodology. *(2026-10-10: the £59,000 figure is as recorded on 2026-06-10. Superseded: the Bounty Board and bounty pulls were retired on 2026-07-22; the current inventory balance and prize use are not re-verified here.)*
 
 ## How our revenue works now
+
+*(2026-10-10: superseded — this section is the 2026-06-10 text; see "What the platform charges now" below.)*
 
 - A **commission** on completed P2P trades (published rate, capped per
   item — see [`/methodology/commission-rate`](https://cambridgetcg.com/methodology/commission-rate)
   and [`/methodology/fees`](./fees.md)).
 - **Membership** subscriptions (optional perks).
+- Nothing else. No spread, no markup, no house position.
+
+## What the platform charges now (2026-10-10)
+
+- **No commission:** trades and auctions agreed on or after 2026-07-21 carry 0% commission, including those still settling after new paid commerce was retired on 2026-09-23. Earlier trades keep the commission recorded when they were matched.
+- **No memberships:** removed in July 2026.
 - Nothing else. No spread, no markup, no house position.
 
 Every number above is inspectable. If you find the platform holding an ask

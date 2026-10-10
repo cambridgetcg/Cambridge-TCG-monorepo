@@ -368,8 +368,9 @@ provider-confirmed payment
         delivery adapter.
       </p>
       <p>
-        The PRISM package is currently unpublished workspace TypeScript in this
-        public monorepo, not an independently published artifact. Compiled output, an explicit package
+        The PRISM package is currently unpublished workspace TypeScript in the
+        Cambridge TCG monorepo, which is private (public source release pending). It is
+        not an independently published artifact. Compiled output, an explicit package
         file allowlist, tarball inspection, and a clean-consumer install/run
         smoke remain gates before a separate repository or npm release.
       </p>

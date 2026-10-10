@@ -66,15 +66,10 @@ export default function OpportunitySignalsMethodology() {
       <blockquote>
         <strong>Where this lives in code.</strong> The public contract and strict
         validator live at <code>packages/opportunity-signal/</code>. The
-        proprietary engine is intentionally absent from this public repository.
-        The connection record is{" "}
-        <a
-          href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/connections/the-opportunity-signal.md"
-          rel="noopener noreferrer"
-        >
-          docs/connections/the-opportunity-signal.md
-        </a>
-        .
+        proprietary engine is intentionally absent from the repository, which is
+        itself currently private (public source release pending). The connection
+        record is <code>docs/connections/the-opportunity-signal.md</code> (private
+        repository).
       </blockquote>
 
       <h2>The public/private boundary</h2>

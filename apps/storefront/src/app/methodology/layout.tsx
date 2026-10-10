@@ -15,7 +15,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: { template: "%s — Methodology · Cambridge TCG", default: "Methodology · Cambridge TCG" },
-  description: "How Cambridge TCG decides about you — formulas, source code, and changelogs.",
+  description: "How Cambridge TCG decides about you — formulas, source-code paths and changelogs.",
 };
 
 export default function MethodologyLayout({ children }: { children: React.ReactNode }) {

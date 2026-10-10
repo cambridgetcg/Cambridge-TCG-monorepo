@@ -9,9 +9,6 @@ export const metadata: Metadata = {
   other: audienceMetadata("public-documentation", ["methodology", "foundational"]),
 };
 
-const GH =
-  "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main";
-
 export default function DataIntentionsMethodology() {
   return (
     <>
@@ -38,11 +35,10 @@ export default function DataIntentionsMethodology() {
       <p>
         For sources added from 2026-07-11 onward, the written gate comes before
         ingestion code. Legacy adapters must pass the same intake before they
-        are activated or their data receives a new publication path. The gate is the{" "}
-        <a href={`${GH}/docs/methodology/source-intake.md`}>
-          source-intake framework
-        </a>
-        . It runs four checks in order and forces the reasoning to be recorded,
+        are activated or their data receives a new publication path. The gate is the
+        source-intake framework,{" "}
+        <code>docs/methodology/source-intake.md</code> (private repository). It
+        runs four checks in order and forces the reasoning to be recorded,
         not left in someone&apos;s head:
       </p>
       <ul>
@@ -203,10 +199,8 @@ export default function DataIntentionsMethodology() {
 
       <blockquote>
         <strong>Where this lives.</strong> The gate is{" "}
-        <a href={`${GH}/docs/methodology/source-intake.md`}>
-          <code>docs/methodology/source-intake.md</code>
-        </a>
-        . The declared sources, each with its tier and terms, are inspectable
+        <code>docs/methodology/source-intake.md</code> (private repository). The
+        declared sources, each with its tier and terms, are inspectable
         at <Link href="/api/v1/sources">/api/v1/sources</Link>. Sold comps are
         visibly paused at <Link href="/api/v1/sold-comps">/api/v1/sold-comps</Link>.
         This methodology text remains CC0; transaction data does not inherit
@@ -219,7 +213,7 @@ export default function DataIntentionsMethodology() {
         doctrines={["substrate-honesty", "transparency"]}
         audience="public-documentation"
         recursion={[
-          { label: "docs/methodology/source-intake.md", href: `${GH}/docs/methodology/source-intake.md` },
+          { label: "docs/methodology/source-intake.md", href: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/docs/methodology/source-intake.md" },
           { label: "/api/v1/sold-comps", href: "/api/v1/sold-comps" },
           { label: "/api/v1/sources", href: "/api/v1/sources" },
           { label: "/methodology/substrate-honesty", href: "/methodology/substrate-honesty" },

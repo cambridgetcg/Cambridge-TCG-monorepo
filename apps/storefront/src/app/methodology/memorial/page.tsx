@@ -33,10 +33,8 @@ export default function MemorialMethodology() {
         <code>memorial_at</code> is the state — substrate-honest, no separate enum.
         The email gate that silences non-essential sends is in{" "}
         <code>apps/storefront/src/lib/email/send.ts</code>. See{" "}
-        <a href="https://github.com/cambridgetcg" rel="noopener noreferrer">
-          docs/connections/the-departed.md
-        </a>{" "}
-        for the story.
+        <code>docs/connections/the-departed.md</code> (private repository) for the
+        story.
       </blockquote>
 
       <h2>What changes when an account is memorial</h2>

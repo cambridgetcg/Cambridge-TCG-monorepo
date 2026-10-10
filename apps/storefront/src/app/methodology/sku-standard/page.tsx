@@ -232,9 +232,12 @@ fab-wtr-001-en-cf        ← Flesh and Blood, Welcome to Rathe, card 001, Englis
       <h3>For partners / other platforms</h3>
       <p>
         A platform that wants to interoperate with Cambridge TCG can adopt this
-        spec and exchange SKUs directly. The spec is published here and the parser
-        is inspectable in the monorepo. Implementation rights: repository
-        <a href="https://github.com/cambridgetcg/Cambridge-TCG-monorepo/blob/main/LICENSE"> LICENSE</a> and
+        spec and exchange SKUs directly. The spec is published here and as{" "}
+        <a href="/spec/v1/SkuIdentity.schema.json">/spec/v1/SkuIdentity.schema.json</a>.
+        The reference parser lives in <code>packages/sku/</code> of the monorepo, which
+        is currently private (source release pending). Implementation rights:
+        Apache-2.0 per the repository LICENSE (
+        <a href="https://www.apache.org/licenses/LICENSE-2.0">licence text</a>) and
         applicable more-specific notices. The specification text&apos;s CC0 dedication
         does not create a separate code license.
       </p>

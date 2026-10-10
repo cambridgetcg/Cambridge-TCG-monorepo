@@ -37,6 +37,12 @@ export default function MarketMethodology() {
         The card mirror also groups remaining quantity by NM, LP, MP, or HP.
       </p>
       <p>
+        Since 23 September 2026 no new bids, asks, offers or lot purchases are
+        admitted. Open orders placed before 23 September 2026 cannot be
+        filled. Owners can cancel them, and they otherwise expire when their
+        time limit runs out (30 days from placement by default).
+      </p>
+      <p>
         The public book does not publish the account behind an order or a
         reputation dossier. Contact, payment, delivery, and counterparty
         context stay inside the relevant signed-in listing or trade flow.
@@ -77,10 +83,11 @@ export default function MarketMethodology() {
 
       <h2 id="history">Reference price history</h2>
       <p>
-        The 7, 30, 90, and 365-day charts read daily observations from{" "}
-        <code>card_price_history</code>. These are non-person catalogue and
-        order-book reference observations, not records of a person&rsquo;s
-        completed trade. A gap means no observation was captured that day.
+        <em>Paused.</em> The 7, 30, 90, and 365-day charts previously read
+        daily observations from <code>card_price_history</code>: non-person
+        catalogue and order-book reference observations, not records of a
+        person&rsquo;s completed trade. Sampling and publication are paused, so
+        the charts are empty; a gap is not a zero price.
       </p>
 
       <h2 id="resume">What publication requires</h2>

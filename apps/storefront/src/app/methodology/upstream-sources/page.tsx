@@ -136,9 +136,10 @@ export default function UpstreamSourcesMethodology() {
         A welcome records posture; it does not grant permission. TCGplayer&apos;s
         current welcome is therefore a respectful absence: new API access is
         unavailable and Cambridge has no written approval for multi-source use.
-        Cardmarket&apos;s current welcome points to its public catalog and price
-        files, while saying plainly that our file reader is not wired. Welcomes
-        are corrected when evidence changes.
+        Cardmarket&apos;s current welcome names its prepared member-observation
+        room; imports are manual (see the Cardmarket entry at /api/v1/sources)
+        and no scheduled refresh exists. Welcomes are corrected when evidence
+        changes.
       </p>
       <ol>
         <li>Name the source and the date its terms were reviewed.</li>

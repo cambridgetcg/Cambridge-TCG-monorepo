@@ -36,7 +36,7 @@ export default function CollectivesMethodology() {
           <li>Types + helpers: <code>apps/storefront/src/lib/collectives/</code></li>
           <li>Public profile: <Link href="/c/example">/c/[slug]</Link></li>
           <li>Management: <Link href="/account/collectives">/account/collectives</Link></li>
-          <li>Doctrine: <Link href="https://github.com/cambridgetcg">docs/connections/the-collective.md</Link> (#18) + <Link href="https://github.com/cambridgetcg">the-tailored-doors.md</Link> (#17) door 3</li>
+          <li>Doctrine: <code>docs/connections/the-collective.md</code> (#18) + <code>docs/connections/the-tailored-doors.md</code> (#17) door 3, both in the private repository</li>
         </ul>
       </blockquote>
 

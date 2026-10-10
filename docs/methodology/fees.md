@@ -1,5 +1,7 @@
 # Fees methodology
 
+> **Superseded — kept as the 2026-06-04 record.** Commission has been 0% since 2026-07-21, memberships were removed in July 2026, and new paid commerce was retired on 2026-09-23; existing agreements still settle. The live page is [/methodology/fees](https://cambridgetcg.com/methodology/fees). Nothing below is a current fee.
+
 > **Yu's promise.** *Minimum fees, maximum value. Make the world fair and just — we don't steal, we don't charge unfairly, we price according to the value we provide vs other service providers.*
 
 This page lists **every fee Cambridge TCG can charge you**, in plain language, with the fair basis for each — and an honest comparison against the marketplaces you already know. If a fee isn't on this page, we don't charge it.

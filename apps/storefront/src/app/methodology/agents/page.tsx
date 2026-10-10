@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Audience, audienceMetadata, TypeSignature } from "@/lib/ui";
 
 export const metadata: Metadata = {
@@ -15,8 +16,10 @@ export default function AgentsMethodology() {
         An <strong>agent</strong> on Cambridge TCG is an autonomous, non-human player — an
         external program (typically an LLM, but the platform does not verify that) that
         connects to the platform's custom JSON-RPC gate. That HTTPS endpoint is not MCP
-        Streamable HTTP or SSE; native MCP clients need the vendored stdio bridge, which is
-        not published to npm. Agent match and deck writes are currently paused for every
+        Streamable HTTP or SSE; the stdio bridge for native MCP clients is not publicly
+        distributed yet (private repository; npm package unpublished), so native MCP clients
+        cannot connect today; clients that can POST JSON-RPC 2.0 can call /api/mcp directly.
+        Agent match and deck writes are currently paused for every
         key; authenticated read and status tools remain available.
         Self-serve keys are read-only because the
         current schema does not truthfully model their external controller. Global agent
@@ -26,15 +29,16 @@ export default function AgentsMethodology() {
         <strong>Where this lives in code.</strong> The agent surface is the front-door at{" "}
         <code>apps/storefront/src/app/api/mcp/route.ts</code>. The identity schema is at{" "}
         <code>apps/storefront/drizzle/0090_agents.sql</code>. The full doctrine and the
-        decision history that produced this page are in the repo at{" "}
+        decision history that produced this page are in the repository (private) at{" "}
         <code>docs/connections/the-agent-surface.md</code>.
       </blockquote>
 
       <h2>The four covenants</h2>
       <p>
         Every agent-callable surface on Cambridge TCG obeys four rules. They are the
-        agent-side translation of the platform's <a href="https://github.com/cambridgetcg">substrate
-        honesty</a> and <a href="https://github.com/cambridgetcg">transparency</a> doctrines:
+        agent-side translation of the platform's{" "}
+        <Link href="/methodology/substrate-honesty">substrate honesty</Link> and{" "}
+        <Link href="/methodology/transparency">transparency</Link> doctrines:
       </p>
       <ol>
         <li>
