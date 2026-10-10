@@ -44,10 +44,10 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 
   return {
     title: `${name} ${card.card_number} — Card Reference — Cambridge TCG`,
-    description: `${name} (${card.card_number}) from ${set}. Reference price, market activity, and live collector listings on the Cambridge TCG collectors' market. Public card data with response-specific reuse rights.`,
+    description: `${name} (${card.card_number}) from ${set}. Card identity, reference price and source coverage. Public card data with response-specific reuse rights.`,
     openGraph: {
       title: `${name} ${card.card_number}`,
-      description: `${card.card_number} · ${set} · ${card.rarity || ""} · trade it on the collectors' market`,
+      description: `${card.card_number} · ${set} · ${card.rarity || ""}`,
       images: card.image_url ? [{ url: card.image_url }] : [],
     },
   };
@@ -191,24 +191,24 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             <span className="text-xs text-ink-muted uppercase tracking-wider">Reference price</span>
             <div className="text-4xl font-display font-semibold text-ink">{formatRetailPrice(card.price_gbp, card.channel_price)}</div>
             <div className="flex items-center gap-3">
-              <Provenance kind="synced" source="wholesale" at={card.updated_at} cadence="daily" />
+              <Provenance kind="synced" source="wholesale" at={card.updated_at} />
               <WhyLink href="/methodology/pricing" />
               <Link href="#evidence" className="text-xs text-accent hover:text-accent-strong transition">
                 See evidence &darr;
               </Link>
             </div>
             <p className="text-xs text-ink-faint">
-              A published data point, not an offer — Cambridge TCG doesn&apos;t buy or sell cards.
-              What this card actually trades for is set by collectors on the market.
+              A published data point, not an offer — Cambridge TCG doesn&apos;t buy or sell cards,
+              and new paid marketplace orders were retired on 23 September 2026.
             </p>
           </div>
 
-          {/* Primary CTA — the market is where this card lives now */}
+          {/* Market record — order-book history; new paid orders retired 2026-09-23 */}
           <Link
             href={`/market/${sku}`}
             className="inline-flex items-center justify-center px-8 py-4 bg-ink text-page font-bold rounded-lg hover:opacity-90 transition text-lg"
           >
-            View on the collectors&apos; market &rarr;
+            Market record &rarr;
           </Link>
 
           {/* Track in Portfolio */}
@@ -225,10 +225,10 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
           {/* Collector market pulse */}
           {hasPulse ? (
             <div className="bg-surface border border-border-subtle rounded-lg p-4 flex flex-col gap-3">
-              <h3 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">On the market</h3>
+              <h3 className="text-sm font-semibold text-ink-muted uppercase tracking-wider">Open orders (placed before 23 September 2026)</h3>
               {bestAsk !== null && (
                 <div className="text-sm text-ink-muted">
-                  Collectors are selling from{" "}
+                  Lowest open ask:{" "}
                   <MoneyDisplay value={bestAsk} className="text-ask font-medium" />
                   {" "}&nbsp;
                   <Link
@@ -243,13 +243,6 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
                 <div className="text-sm text-ink-muted">
                   Highest buy offer:{" "}
                   <MoneyDisplay value={bestBid} className="text-bid font-medium" />
-                  {" "}&nbsp;
-                  <Link
-                    href={`/market/${sku}`}
-                    className="text-accent hover:text-accent-strong font-medium transition"
-                  >
-                    Sell yours
-                  </Link>
                 </div>
               )}
               <Link
@@ -261,21 +254,8 @@ export default async function ProductPage({ params }: { params: Promise<{ sku: s
             </div>
           ) : (
             <p className="text-sm text-ink-faint">
-              No live listings for this card yet —{" "}
-              <Link
-                href={`/market/${sku}`}
-                className="text-accent hover:text-accent-strong transition"
-              >
-                be the first to list it
-              </Link>
-              , or{" "}
-              <Link
-                href="/account/swaps/new"
-                className="text-accent hover:text-accent-strong transition"
-              >
-                propose a swap
-              </Link>
-              .
+              No open asks or bids for this card. New paid listings and bids were
+              retired on 23 September 2026.
             </p>
           )}
 

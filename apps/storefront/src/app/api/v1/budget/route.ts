@@ -47,7 +47,9 @@ const CATALOG_SIZE_ESTIMATE = {
   precision:
     "order-of-magnitude estimate; live per-source counts at /api/v1/sources",
   freshness_note:
-    "catalog grows ~10-50 SKUs/day from active ingest; full-mirror eta is stable at week-scale",
+    "(superseded) As of 2026-05-17 the catalog grew ~10-50 SKUs/day from active ingest. " +
+    "CardRush acquisition has since been disabled and no catalog ingest is scheduled. " +
+    "Live per-source status: /api/v1/sources.",
 };
 
 /** Recommended polite-poll cadence by auth class. */
@@ -57,7 +59,7 @@ const RECOMMENDED_PACE = {
     per: "member data key",
     enforcement: "atomic application rate limit on /api/v1/member-prices",
     provision: "/account/data",
-    note: "Free account-owned read-only key, distinct from an agent or wholesale key. Source prices refresh daily; the request limit is not a freshness claim.",
+    note: "Free account-owned read-only key, distinct from an agent or wholesale key. Cambridge does not refresh member source prices on a schedule (imports are manual); each observation carries source_updated_at and retrieved_at. The request limit is not a freshness claim.",
   },
   unauth: {
     requests_per_minute: 60,

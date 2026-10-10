@@ -21,15 +21,19 @@ import {
   type AggregatorCoverageResponse,
 } from "@/lib/wholesale/client";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+
+/** Registry status per source id — in-process, no network or database. */
+const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
 
 export const metadata: Metadata = {
   title: "Aggregator coverage map — Cambridge TCG",
   description:
-    "What we've collected, per game and per source. Observation counts, distinct cards, freshness, and snapshot date ranges from the wholesale price_archive. Substrate-honest about emptiness.",
+    "Coverage of the legacy price_archive (single legacy CardRush source; acquisition disabled): observation counts, distinct cards and snapshot date ranges. No price values.",
   openGraph: {
     title: "Aggregator coverage map — Cambridge TCG",
     description:
-      "The TCG data plane's collection truth: per-game and per-source rollups across every observation we've snapshotted.",
+      "The legacy observation archive, per game and per source: counts and date ranges, no price values.",
   },
 };
 
@@ -60,6 +64,16 @@ export default async function CoverageMapPage() {
   // page's Provenance pill. Falls back to "—" when wholesale is unreachable.
   const freshestAt = coverage?.summary?.latest_snapshot ?? null;
   const summary = coverage?.summary;
+  // Registry-derived: a blocked source adds no rows, so its archive is a
+  // snapshot that is not refreshing, not a synced feed.
+  const allSourcesBlocked =
+    !!coverage &&
+    coverage.by_source.length > 0 &&
+    coverage.by_source.every((r) => SOURCE_STATUS.get(r.source) === "blocked");
+  const blockedSources =
+    coverage?.by_source
+      .filter((r) => SOURCE_STATUS.get(r.source) === "blocked")
+      .map((r) => r.source) ?? [];
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-12">
@@ -87,10 +101,10 @@ export default async function CoverageMapPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Provenance
-          kind="synced"
-          source="wholesale/price_archive"
+          kind="snapshot"
+          source="legacy price_archive"
           at={freshestAt}
-          cadence="daily"
+          cadence={allSourcesBlocked ? "acquisition disabled" : undefined}
         />
         <WhyLink
           href="/methodology/cross-source-pricing"
@@ -101,11 +115,21 @@ export default async function CoverageMapPage() {
       <p className="text-ink-muted leading-relaxed max-w-3xl mb-8">
         What Cambridge TCG has actually accumulated, per game and per source —
         observation counts, distinct cards, the freshness of each per-(game ×
-        source) snapshot, and the date range we've been collecting. The data
+        source) snapshot, and the date range the archive covers. The data
         plane's collection truth, surfaced. The matrix below feeds the
         per-game coverage strip on each price guide; this page is the whole-
         platform rollup.
       </p>
+
+      {coverage && summary && (
+        <p className="text-ink-muted leading-relaxed max-w-3xl mb-8">
+          Latest stored snapshot: {summary.latest_snapshot ?? "unknown"}.
+          Sources: {coverage.by_source.map((r) => r.source).join(", ") || "none"}.
+          {blockedSources.length > 0
+            ? ` ${blockedSources.join(", ")} acquisition is disabled by source policy; this archive is not being refreshed.`
+            : ""}
+        </p>
+      )}
 
       {!coverage ? (
         <CoverageUnreachable />
@@ -132,16 +156,16 @@ export default async function CoverageMapPage() {
       <section className="border-t border-border-subtle pt-6 mt-12 text-xs text-ink-faint leading-relaxed">
         <p className="mb-2">
           Source: <code className="text-ink-muted">price_archive</code>{" "}
-          (wholesale RDS) — daily snapshots from each upstream source. Coverage
-          rolls out as ingest pipelines wire up; the matrix is empty when no
-          snapshot has been written yet for a given pair. See{" "}
+          (wholesale RDS) — a legacy archive of stored snapshots. No
+          acquisition job is scheduled; a source whose registry status is
+          blocked will not add rows. See{" "}
           <Link
             href="/api/v1/sources"
             className="text-info hover:underline"
           >
             /api/v1/sources
           </Link>{" "}
-          for the per-source status (shipped / partial / planned), and{" "}
+          for the per-source status (shipped / partial / planned / blocked), and{" "}
           <Link
             href="/methodology/cross-source-pricing"
             className="text-info hover:underline"
@@ -187,10 +211,10 @@ function CoverageEmpty({ queriedAt }: { queriedAt: string }) {
       </h2>
       <p className="text-sm text-ink-muted leading-relaxed">
         The <code className="text-ink-muted">price_archive</code> table is
-        reachable but carries no observations yet. The price guides still
-        render (UK retail prices come from the wholesale catalog, not from
-        the cross-source archive); the matrix here will populate as soon as
-        the first daily snapshot lands.
+        reachable but returned no observations for this read. No acquisition
+        job is scheduled, so this will not fill automatically. Public price
+        guides show structural catalog rows; legacy price values are
+        withheld.
       </p>
       <p className="text-xs text-ink-faint mt-3">
         Last queried:{" "}

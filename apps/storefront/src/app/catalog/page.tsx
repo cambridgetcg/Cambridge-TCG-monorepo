@@ -91,7 +91,7 @@ export default async function CatalogPage({
           href="/market"
           className="text-ink-faint hover:text-accent-strong transition"
         >
-          Buying or selling? The collectors&apos; market &rarr;
+          Market records &rarr;
         </Link>
       </div>
 
@@ -205,7 +205,6 @@ export default async function CatalogPage({
                         kind="synced"
                         source="wholesale"
                         at={freshestUpdatedAt(prices.items)}
-                        cadence="daily"
                       />
                       <WhyLink href="/methodology/pricing" />
                     </>

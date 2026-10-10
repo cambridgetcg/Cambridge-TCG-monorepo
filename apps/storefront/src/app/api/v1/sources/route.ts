@@ -175,7 +175,7 @@ export async function GET(): Promise<NextResponse> {
         cadence: memberPolicy.cadence,
         evidence_url: memberPolicy.evidenceUrl,
         methodology: "/methodology/member-pricing",
-        availability_note: "Reviewed uses are not activation or collection evidence. Runtime release permission is checked on each member read. This entry's last_run is legacy wholesale only; member observations carry their own source/retrieval clocks. The generic freshness key does not describe their daily cadence.",
+        availability_note: "Reviewed uses are not activation or collection evidence. Runtime release permission is checked on each member read. cadence is the upstream file publication schedule, not a Cambridge collection schedule; Cambridge imports are manual and none is scheduled. This entry's last_run is legacy wholesale only; member observations carry their own source/retrieval clocks.",
       } } : {}),
     };
   });

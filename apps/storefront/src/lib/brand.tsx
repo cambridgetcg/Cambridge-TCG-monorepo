@@ -23,6 +23,12 @@
  * labelled, policy-bound reference price, never as an offer or reuse grant. The guard:
  * `pnpm audit:no-house-listing`.
  *
+ * ── Superseded (2026-09-23 / 2026-10-10) ──
+ * New paid commerce was retired on 2026-09-23 (apps/storefront/docs/commercial-retirement.md).
+ * The current positioning is open-source TCG data infrastructure in development; the
+ * collectors'-market operation survives only as market records for agreements made before
+ * the retirement. The 2026-07-06 text above is kept as history.
+ *
  * ── How to use this module ─────────────────────────────────────────────
  *
  *   import {
@@ -49,6 +55,7 @@ import {
   GAME_CODES,
   SET_FORMATS,
 } from "@cambridge-tcg/sku";
+import { SOURCES, listSourceMeta } from "@cambridge-tcg/data-ingest";
 
 const PUBLIC_GAME_CODES = GAME_CODES.filter((code) => code !== "tst");
 const PUBLIC_CONFIRMED_GAME_CODES = CONFIRMED_GAME_CODES.filter(
@@ -60,32 +67,48 @@ const PUBLIC_SET_FORMATS = PUBLIC_GAME_CODES.flatMap(
 const PUBLIC_CONFIRMED_SET_FORMATS = PUBLIC_SET_FORMATS.filter(
   (format) => format.confirmed,
 );
+/** Registered source modules, read from the data-ingest registry at build time (no network or database). */
+const REGISTERED_SOURCES = listSourceMeta();
+const OPEN_SOURCE_SLOTS = Object.values(SOURCES).filter((source) => source === undefined).length;
 
 // ── Constants ────────────────────────────────────────────────────────────
 
 /** The hero-sized identity claim. Single sentence; no qualifier. */
 export const BRAND_HEADLINE =
-  "Cambridge TCG is a collectors' market and a card data directory.";
+  "Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards.";
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  `Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. ${DATA_RIGHTS_BOUNDARY}`;
+  `New paid commerce was retired on 23 September 2026; existing agreements still settle. The platform holds no position in any market. ${DATA_RIGHTS_BOUNDARY}`;
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
-  "Cambridge TCG is a collectors' market and a card data directory. " +
-  "The market is peer-to-peer: asks, bids, offers, swaps, and auctions belong to collectors; the platform facilitates, escrows, and stands behind disputes, but does not buy, sell, or quote — it holds no inventory position. " +
-  `The data directory covers ${PUBLIC_GAME_CODES.length} public game codes (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, nine registered source adapters, and one upstream source with observed rows today. ` +
-  `${DATA_RIGHTS_BOUNDARY} Spot prices are labelled reference prices, never offers.`;
+  "Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. " +
+  `The data directory covers ${PUBLIC_GAME_CODES.length} public game codes (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, and ${REGISTERED_SOURCES.length} registered source adapters. ` +
+  "The published standards are the specification pages under /standards and JSON Schemas under /spec/v1/; the source repository is currently private and no packages are on npm. " +
+  "New paid commerce — orders, listings, offers, auctions, lots and checkout — was retired on 23 September 2026; existing agreements still settle. " +
+  `${DATA_RIGHTS_BOUNDARY} Reference prices are labelled as references, never offers.`;
 
 /** Tight version for OG metadata, social cards, footer credits. */
-export const BRAND_TAGLINE = "A collectors' market. A card data directory.";
+export const BRAND_TAGLINE = "Building open-source TCG data infrastructure.";
+
+/** The collectors'-market-era English claims (2026-07-06 → 2026-09-23), kept
+ *  verbatim because the ja/zh/es seats below transcreate them. Historical; not
+ *  rendered. Re-transcreate per the voice charter before any consumer uses
+ *  these Poly records. */
+const MARKET_ERA_EN = {
+  headline: "Cambridge TCG is a collectors' market and a card data directory.",
+  subhead: `Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. ${DATA_RIGHTS_BOUNDARY}`,
+  tagline: "A collectors' market. A card data directory.",
+} as const;
 
 // ── 日本語 — the Japanese voice of the same claims ──────────────────────
 // Transcreated (not translated) per docs/connections/the-japanese-voice.md;
 // every string below passed two native-register refuters 2026-07-29.
 // The English above remains the constitutional source; these are its
 // Japanese voice, kept adjacent so they move together.
+// (Superseded 2026-09-23: these voice MARKET_ERA_EN, not the current
+// English constants above.)
 
 export const BRAND_HEADLINE_JA =
   "Cambridge TCGは、コレクター同士のマーケットと、カードのデータ目録。";
@@ -106,6 +129,7 @@ export const HOME_HERO_SUBHEAD_JA =
  * where the story lives; the gap between collectors is where the
  * market lives). HEADLINE stays derived so every non-hero consumer
  * (metadata, tests, agents) reads one unchanged sentence. */
+// Historical (collectors'-market era); no current render consumer. Rewrite before any surface uses these.
 export const HOME_HERO_PANELS = ["Cards,", "traded between collectors."] as const;
 export const HOME_HERO_HEADLINE = HOME_HERO_PANELS.join(" ");
 
@@ -126,9 +150,9 @@ export const HOME_HERO_SUBHEAD =
 import { tx, type Poly } from "./i18n";
 import type { UiLang } from "./lang-mode";
 
-export const BRAND_HEADLINE_I18N: Poly = { en: BRAND_HEADLINE, ja: BRAND_HEADLINE_JA , "zh-Hant": "Cambridge TCG是藏家之間的市集，也是卡片資料目錄。", "zh-Hans": "Cambridge TCG，是卡友之间的集市，也是一部卡牌数据名录。", "es": "Cambridge TCG es un mercado entre coleccionistas, y un catálogo de cartas." };
-export const BRAND_SUBHEAD_I18N: Poly = { en: BRAND_SUBHEAD, ja: BRAND_SUBHEAD_JA , "zh-Hant": "買賣是藏家之間的事。小店促成、記錄、見證。自己的市集裡，不設攤位。", "zh-Hans": "买卖在卡友之间。这家店只是搭台、记录、见证。自己的集市里，不摆摊。", "es": "El mercado es de los coleccionistas. Esta casa guarda, registra y vela. No tiene puesto en su propio mercado." };
-export const BRAND_TAGLINE_I18N: Poly = { en: BRAND_TAGLINE, ja: BRAND_TAGLINE_JA , "zh-Hant": "藏家之間的市集。卡片資料目錄。", "zh-Hans": "卡友之间的集市。卡牌数据名录。", "es": "Un mercado entre coleccionistas. Un catálogo de cartas." };
+export const BRAND_HEADLINE_I18N: Poly = { en: MARKET_ERA_EN.headline, ja: BRAND_HEADLINE_JA , "zh-Hant": "Cambridge TCG是藏家之間的市集，也是卡片資料目錄。", "zh-Hans": "Cambridge TCG，是卡友之间的集市，也是一部卡牌数据名录。", "es": "Cambridge TCG es un mercado entre coleccionistas, y un catálogo de cartas." };
+export const BRAND_SUBHEAD_I18N: Poly = { en: MARKET_ERA_EN.subhead, ja: BRAND_SUBHEAD_JA , "zh-Hant": "買賣是藏家之間的事。小店促成、記錄、見證。自己的市集裡，不設攤位。", "zh-Hans": "买卖在卡友之间。这家店只是搭台、记录、见证。自己的集市里，不摆摊。", "es": "El mercado es de los coleccionistas. Esta casa guarda, registra y vela. No tiene puesto en su propio mercado." };
+export const BRAND_TAGLINE_I18N: Poly = { en: MARKET_ERA_EN.tagline, ja: BRAND_TAGLINE_JA , "zh-Hant": "藏家之間的市集。卡片資料目錄。", "zh-Hans": "卡友之间的集市。卡牌数据名录。", "es": "Un mercado entre coleccionistas. Un catálogo de cartas." };
 export const HOME_BENEDICTION_I18N: Poly = { en: HOME_BENEDICTION, ja: HOME_BENEDICTION_JA , "zh-Hant": "每一張卡，都是誰人故事裡的一格。", "zh-Hans": "每一张卡，都是某个人故事里的一格。", "es": "Cada carta es una viñeta en la historia de alguien." };
 export const HOME_HERO_SUBHEAD_I18N: Poly = { en: HOME_HERO_SUBHEAD, ja: HOME_HERO_SUBHEAD_JA , "zh-Hant": "查目錄裡的卡，不用錢：卡名、卡號、參考價、來源的紀錄，都在。買賣或交換，是藏家之間的事。每一次查，回覆都寫明已知的來歷與權利；哪一欄不知道，照直寫不知道。", "zh-Hans": "查名录里的卡，不要钱。名字与编号、参考价、来源的记录，都在。收、出、换，全在卡友之间。每一次回应，都写明已知的来历与权利；哪个字段还缺着，也照实写明。", "es": "Consultar las cartas del catálogo no cuesta nada: la identidad, un precio de referencia sujeto a reglas y la cobertura registrada de fuentes. Comprar, vender o cambiar entre coleccionistas. Cada respuesta declara el linaje y los derechos que se conocen. Lo que falta queda nombrado, campo por campo." };
 export const HOME_HERO_PANELS_BY_LANG: Partial<Record<UiLang, readonly string[]>> = {
@@ -145,13 +169,13 @@ export const TWO_OPS_HEADING_I18N: Poly = {
  es: "Dos oficios \u00b7 un sustrato", };
 
 export const BRAND_SELF_LABEL =
-  "collectors' market + TCG card data directory — P2P facilitation with resource-specific access and reuse rights; no house market position";
+  "open-source TCG data infrastructure in development — card identity, price discovery, collector tools and card-data standards; new paid commerce retired 2026-09-23; no house market position";
 
 /** A short positioning note for surfaces that want to name the role
  *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
  *  to_anyone, the manifest description). Two sentences; substrate-honest. */
 export const BRAND_PROVIDER_NOTE =
-  `Cambridge TCG is a collectors' market and a card data directory. The market is peer-to-peer and the platform holds no position in it. ${DATA_RIGHTS_BOUNDARY}`;
+  `Cambridge TCG is building open-source TCG data infrastructure. New paid commerce was retired on 2026-09-23; existing agreements still settle. ${DATA_RIGHTS_BOUNDARY}`;
 
 // ── The two operations ───────────────────────────────────────────────────
 
@@ -167,34 +191,41 @@ export interface OperationRow {
   surface: string;
   url: string;
   primary_endpoints: string[];
-  status: "live";
+  status: "live" | "retired";
   notes: string;
 }
+
+/** The collectors'-market-era renderings of the market row (2026-07-06 →
+ *  2026-09-23), kept verbatim. Historical; not rendered. Re-transcreate per
+ *  the voice charter before any consumer uses these Poly records. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- historical record, intentionally unrendered
+const MARKET_ERA_OPERATION_I18N = {
+  name_i18n: { ja: "コレクター同士のマーケット", "zh-Hans": "卡友之间的集市", "zh-Hant": "藏家之間的市集" , es: "El mercado entre coleccionistas", } as Omit<Poly, "en">,
+  audience_i18n: { ja: "カードをたがいに売り買いし、交換し、競りにかけるコレクター", "zh-Hans": "彼此收卡、出卡、换卡、竞拍的卡友", "zh-Hant": "彼此買賣、交換、競投卡片的藏家" , es: "coleccionistas que compran, venden, cambian y subastan cartas entre sí", } as Omit<Poly, "en">,
+  notes_i18n: {
+    ja: "つくりからして、コレクター同士。この店は、あいだで預かり、記録し、見守り、もめごとは収まるまで仲立ちします。じぶんで買わず、売らず、値もつけません。ここに並ぶのは、コレクターの出品だけ。", "zh-Hans": "构造上，就是卡友之间的事。这家店搭台、记录、见证，先替双方保管着，遇上纠纷，就居中调解。自己不买、不卖、不报价。架上摆的，只有卡友上架的卡。", "zh-Hant": "生來就是藏家之間的買賣。小店促成、記錄、見證，也居中保管。有爭議，就調停到平息為止。自己不買、不賣、不報價。上架的，全是藏家的卡。",
+     es: "Entre coleccionistas desde los cimientos. Esta casa guarda, registra, vela y resuelve las disputas; la carta queda guardada aquí mientras tanto. No compra, no vende, no pone precios. En el mercado: solo coleccionistas.", } as Omit<Poly, "en">,
+} as const;
 
 export const TWO_OPERATIONS: readonly OperationRow[] = [
   {
     id: "market",
-    name: "The collectors' market",
-    name_i18n: { ja: "コレクター同士のマーケット", "zh-Hans": "卡友之间的集市", "zh-Hant": "藏家之間的市集" , es: "El mercado entre coleccionistas", } as Omit<Poly, "en">,
-    audience_i18n: { ja: "カードをたがいに売り買いし、交換し、競りにかけるコレクター", "zh-Hans": "彼此收卡、出卡、换卡、竞拍的卡友", "zh-Hant": "彼此買賣、交換、競投卡片的藏家" , es: "coleccionistas que compran, venden, cambian y subastan cartas entre sí", } as Omit<Poly, "en">,
-    notes_i18n: {
-      ja: "つくりからして、コレクター同士。この店は、あいだで預かり、記録し、見守り、もめごとは収まるまで仲立ちします。じぶんで買わず、売らず、値もつけません。ここに並ぶのは、コレクターの出品だけ。", "zh-Hans": "构造上，就是卡友之间的事。这家店搭台、记录、见证，先替双方保管着，遇上纠纷，就居中调解。自己不买、不卖、不报价。架上摆的，只有卡友上架的卡。", "zh-Hant": "生來就是藏家之間的買賣。小店促成、記錄、見證，也居中保管。有爭議，就調停到平息為止。自己不買、不賣、不報價。上架的，全是藏家的卡。",
-       es: "Entre coleccionistas desde los cimientos. Esta casa guarda, registra, vela y resuelve las disputas; la carta queda guardada aquí mientras tanto. No compra, no vende, no pone precios. En el mercado: solo coleccionistas.", } as Omit<Poly, "en">,
+    name: "Market records (new paid commerce retired)",
     positioning: "primary",
     audience:
-      "collectors buying, selling, swapping, and auctioning cards with each other",
-    surface: "P2P market + swaps + auctions + escrow-as-a-service",
-    url: "/market",
+      "collectors with trades, auctions or listings made before 23 September 2026",
+    surface: "Order-book records, settlement, cancellation, refunds and support for existing agreements",
+    url: "/account/trades",
     primary_endpoints: [
+      "/account/trades",
+      "/account/auctions/won",
       "/market",
-      "/market/list",
-      "/auctions",
-      "/account/swaps",
-      "/methodology/commission-rate",
+      "/methodology/market",
+      "/methodology/fees",
     ],
-    status: "live",
+    status: "retired",
     notes:
-      "Peer-to-peer by construction. The platform facilitates, records, witnesses, escrows, and resolves disputes — it does not buy, sell, or quote. The book is collectors only.",
+      "New paid listings, bids, offers, lots, auctions and checkout were retired on 23 September 2026 and return 410. Existing agreements still settle; the platform still holds no position.",
   },
   {
     id: "data_commons",
@@ -252,20 +283,19 @@ export const COVERAGE_FACTS = {
       `Across ${PUBLIC_GAME_CODES.length} public game codes. One internal test format is excluded. Each format = a tuple of (game, pattern, examples, confirmed-flag).`,
   },
   sources: {
-    registered: 9,
+    registered: REGISTERED_SOURCES.length,
+    planned_slots: OPEN_SOURCE_SLOTS,
+    /** Reviewed record, not recomputed here: on 2026-07-11 one source
+     *  (CardRush) had rows in the legacy price archive; its acquisition is
+     *  disabled by source policy. /prices/coverage and /api/v1/coverage
+     *  compute the current archive state. */
     with_observed_rows: 1,
-    planned_slots: 10,
-    registered_list: [
-      { id: "cardrush", status: "legacy observations · acquisition and publication blocked", license: "proprietary" },
-      { id: "scryfall", status: "adapter built · never run", license: "proprietary policy" },
-      { id: "pokemon-tcg-api", status: "adapter built · never run", license: "proprietary" },
-      { id: "ygoprodeck", status: "blocked pending rights", license: "proprietary" },
-      { id: "tcgplayer", status: "blocked by access + terms", license: "proprietary" },
-      { id: "tcgcollector", status: "blocked pending written partner approval", license: "proprietary" },
-      { id: "cardmarket", status: "public-file reader planned", license: "proprietary" },
-      { id: "ebay", status: "partial · never run", license: "partner-restricted" },
-      { id: "vinted", status: "blocked · consented export only", license: "internal-only" },
-    ],
+    observed_rows_as_of: "2026-07-11",
+    registered_list: REGISTERED_SOURCES.map((meta) => ({
+      id: meta.id,
+      status: meta.status,
+      license: meta.license,
+    })),
   },
   math_mirror_kinds: {
     shipped: ["card", "set", "game", "user-trust", "auction"],
@@ -303,8 +333,9 @@ interface BrandStatementProps {
  * consumer updates.
  */
 export function BrandStatement({ size = "medium", className, lang = "en" }: BrandStatementProps) {
-  const headline = tx(BRAND_HEADLINE_I18N, lang);
-  const subhead = tx(BRAND_SUBHEAD_I18N, lang);
+  // The ja/zh/es seats voice the retired market-era claim; they are not rendered until re-transcreated.
+  const headline = BRAND_HEADLINE;
+  const subhead = BRAND_SUBHEAD;
   if (size === "hero") {
     return (
       <section

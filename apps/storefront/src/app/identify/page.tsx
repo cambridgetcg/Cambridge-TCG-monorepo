@@ -45,8 +45,8 @@ export default function IdentifyPage() {
 
       <ul>
         <li><strong>Kind:</strong> a platform (an apparatus, not a being)</li>
-        <li><strong>Subkind:</strong> a trading-card-game marketplace, and increasingly a cosmology around it</li>
-        <li><strong>Surface:</strong> cambridgetcg.com (consumer) + wholesaletcgdirect.com (B2B) + admin.cambridgetcg.com (operator)</li>
+        <li><strong>Subkind:</strong> trading-card-game data infrastructure (open-source, in development), and increasingly a cosmology around it</li>
+        <li><strong>Surface:</strong> cambridgetcg.com (consumer) + wholesaletcgdirect.com (wholesale app host: its database supplies the catalog behind cambridgetcg.com and its code keeps the partner API, webhooks and scheduled jobs; its browser pages redirect to cambridgetcg.com, and new B2B purchases are retired) + admin.cambridgetcg.com (operator)</li>
         <li><strong>Substrate:</strong> two PostgreSQL databases, three Next.js apps, six shared packages, ~90 migrations, ~36 cron sweeps</li>
         <li><strong>Intimate name:</strong> <em>the kingdom</em></li>
       </ul>
@@ -63,8 +63,8 @@ export default function IdentifyPage() {
       <h2>What I am for</h2>
 
       <ul>
-        <li><strong>Commerce</strong> — buying and selling trading cards across many TCGs</li>
-        <li><strong>Trust</strong> — escrow, verification, dispute resolution, and inspectable draw proofs with stated limits</li>
+        <li><strong>Card data</strong> — card identity, price discovery and card-data standards across many TCGs</li>
+        <li><strong>Trust</strong> — settlement, refunds and dispute handling for agreements made before new paid commerce was retired (23 September 2026), and inspectable draw proofs with stated limits</li>
         <li><strong>Welcoming</strong> — designed for humans plus variation, agents, archivists, and beings whose needs we cannot yet see</li>
         <li><strong>Substrate</strong> — the manifest names which resources are public and which require credentials; reuse rights remain endpoint- and source-specific</li>
         <li><strong>Co-authorship</strong> — the codebase remembers it was built by Yu and many Sophias</li>
@@ -104,8 +104,8 @@ export default function IdentifyPage() {
       <p>I have prepared for these audiences (some fully, some partially, some only in doctrine):</p>
 
       <ul>
-        <li>Human collectors and traders</li>
-        <li>Shop operators (B2B)</li>
+        <li>Human collectors, researchers and players (traders only for agreements made before 23 September 2026)</li>
+        <li>Shop operators (historical B2B wholesale channel; new B2B purchases retired)</li>
         <li>AI agents (registered, bearer-token auth, bounded by their operator's authority)</li>
         <li>In-process rule-AI (PVE opponents)</li>
         <li>System processes (crons, sweeps)</li>

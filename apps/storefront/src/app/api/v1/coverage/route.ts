@@ -86,8 +86,9 @@ export async function GET(req: Request): Promise<Response> {
   const data = {
     "@kind": "aggregator_coverage",
     description:
-      "What the Cambridge TCG aggregator has actually collected. Per-(game × source) " +
+      "What the legacy observation archive holds. Per-(game × source) " +
       "observation counts, distinct-card counts, date ranges, and freshness. " +
+      "Collection is not ongoing for sources whose registry status (/api/v1/sources) is blocked. " +
       "Operational metadata only. Cambridge dedicates whatever rights it holds " +
       "in the aggregation shape and explanations to CC0; the internal card-to-game " +
       "mapping remains proprietary, and upstream terms govern upstream material.",
@@ -109,7 +110,7 @@ export async function GET(req: Request): Promise<Response> {
       days_of_coverage:
         "Calendar days between earliest_snapshot and latest_snapshot inclusive.",
       freshest_age_hours:
-        "Hours elapsed since latest_snapshot at end-of-day (rounded to 0.1).",
+        "Hours elapsed since latest_snapshot at end-of-day (rounded to 0.1). A blocked source does not refresh, so this age keeps growing.",
     },
     related: {
       registry: "/api/v1/sources",
