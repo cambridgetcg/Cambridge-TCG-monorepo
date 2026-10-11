@@ -17,7 +17,7 @@ import {
   PutObjectTaggingCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { resolveAwsConfig, type AwsConfig } from "./credentials";
+import { logAwsClientReady, resolveAwsConfig, type AwsConfig } from "./credentials";
 
 // ---------------------------------------------------------------------------
 // Client factory
@@ -48,10 +48,12 @@ export function createS3Client(opts?: CreateS3ClientOpts): S3Client | null {
     return null;
   }
 
+  // Static keys or a lazy role provider; the SDK memoizes either per client.
   const client = new S3Client({
     region: result.config.region,
     credentials: result.config.credentials,
   });
+  logAwsClientReady("S3", result.config);
 
   if (!opts?.fresh) {
     _sharedClient = client;
@@ -91,14 +93,21 @@ export interface PresignedUploadOpts {
    * must send the same `x-amz-tagging` value.
    */
   tagging?: string;
-  /** Seconds until the presigned URL expires (default: 600 = 10 minutes) */
+  /**
+   * Seconds until the presigned URL expires (default: 600 = 10 minutes).
+   * With role credentials a URL also dies when the role session ends;
+   * lifetimes up to ROLE_CREDENTIAL_REFRESH_MARGIN_SECONDS (15 min) are safe.
+   */
   expiresIn?: number;
 }
 
 export interface PresignedDownloadOpts {
   bucket: string;
   key: string;
-  /** Seconds until the read URL expires (default: 300 = 5 minutes). */
+  /**
+   * Seconds until the read URL expires (default: 300 = 5 minutes). Role
+   * credentials cap it as for uploads (15 min guaranteed).
+   */
   expiresIn?: number;
 }
 

@@ -7,7 +7,7 @@
  */
 
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from "@aws-sdk/client-ses";
-import { resolveAwsConfig, type AwsConfig } from "./credentials";
+import { logAwsClientReady, resolveAwsConfig } from "./credentials";
 
 // ---------------------------------------------------------------------------
 // Client factory
@@ -37,10 +37,12 @@ export function createSESClient(opts?: CreateSESClientOpts): SESClient | null {
     return null;
   }
 
+  // Static keys or a lazy role provider; the SDK memoizes either per client.
   const client = new SESClient({
     region: result.config.region,
     credentials: result.config.credentials,
   });
+  logAwsClientReady("SES", result.config);
 
   if (!opts?.fresh) {
     _sharedClient = client;

@@ -684,6 +684,9 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.700.0
         version: 3.1037.0
+      '@vercel/oidc-aws-credentials-provider':
+        specifier: 3.3.9
+        version: 3.3.9
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -5237,10 +5240,25 @@ packages:
       vue-router:
         optional: true
 
+  '@vercel/cli-config@0.3.0':
+    resolution: {integrity: sha512-kQLt5Pm8wKd7/imzDY9/9u0tf8OuRkAuXI+s7j057FSUrXapAmumJSKwDqnR4ZZqdWoUcNLlFAgVIAdiwcGTcw==}
+
+  '@vercel/cli-exec@1.0.1':
+    resolution: {integrity: sha512-g9XerViJ/paZujufXYcu5XYI2vU2rtB4sgdpjUHde5RnOkdmpu0ngH46LCFGHoPXO/C+qDPSczIHIRN+8Q2YKQ==}
+    engines: {node: '>= 18'}
+
   '@vercel/kv@3.0.0':
     resolution: {integrity: sha512-pKT8fRnfyYk2MgvyB6fn6ipJPCdfZwiKDdw7vB+HL50rjboEBHDVBEcnwfkEpVSp2AjNtoaOUH7zG+bVC/rvSg==}
     engines: {node: '>=14.6'}
     deprecated: 'Vercel KV is deprecated. If you had an existing KV store, it should have moved to Upstash Redis which you will see under Vercel Integrations. For new projects, install a Redis integration from Vercel Marketplace: https://vercel.com/marketplace?category=storage&search=redis'
+
+  '@vercel/oidc-aws-credentials-provider@3.3.9':
+    resolution: {integrity: sha512-AZOU4GiJyDTKIe3NlQ5VL6bo8sbu6mcHXBKNEVzp6dRPCPW+OHJ3AeGawQUsBiFgrEtBIx7O0aVlbQi82sZWfg==}
+    engines: {node: '>= 20'}
+
+  '@vercel/oidc@3.8.9':
+    resolution: {integrity: sha512-TcbdH3YtGS2KU98T99dN4sbf+E4vbJZsJTRN97wKQ7QWQ0BR7U02QX3KN4+5GHxBtKTj1c5CnvTTitc2ZRad0A==}
+    engines: {node: '>= 20'}
 
   '@vercel/remix@2.16.7':
     resolution: {integrity: sha512-lQ7GdUO0ilX5eqIC4Wwewo5coAvacZzZrirr46BRwCp71jFqLscsruLqd6RI8s55cZWsXFZsIuOIQhcYUiL/3Q==}
@@ -8906,6 +8924,10 @@ packages:
     resolution: {integrity: sha512-5b6Y85tPxZZ7QytO+BQzysW31HJku27cRIlkbAXaNx+BdcVi+LlRFmVXzeF6a7JCwJpyw5c4b+YSVImQIrBpuQ==}
     engines: {node: '>=10'}
 
+  os-paths@4.4.0:
+    resolution: {integrity: sha512-wrAwOeXp1RRMFfQY8Sy7VaGVmPocaLwSFOYCGKSyo8qmJ+/yaafCl5BCA1IQZWqFSRBrKDYFeR9d/VyQzfH/jg==}
+    engines: {node: '>= 6.0'}
+
   outdent@0.8.0:
     resolution: {integrity: sha512-KiOAIsdpUTcAXuykya5fnVVT+/5uS0Q1mrkRHcF89tpieSmY33O/tmc54CqwA+bfhbtEfZUNLHaPUiB9X3jt1A==}
 
@@ -10943,6 +10965,14 @@ packages:
       utf-8-validate:
         optional: true
 
+  xdg-app-paths@5.5.1:
+    resolution: {integrity: sha512-hI3flOB4PLZIy5prbtTpirobtPE2ZtZ52szO+2mM9Efp6ErM398La+C1lIpNWDfNoQk+6Lsi6nMcCwVB7pxeMQ==}
+    engines: {node: '>= 6.0'}
+
+  xdg-portable@7.3.0:
+    resolution: {integrity: sha512-sqMMuL1rc0FmMBOzCpd0yuy9trqF2yTTVe+E9ogwCSWQCdDEtQUwrZPT6AxqtsFGRNxycgncbP/xmOOSPw5ZUw==}
+    engines: {node: '>= 6.0'}
+
   xlsx@0.18.5:
     resolution: {integrity: sha512-dmg3LCjBPHZnQp5/F/+nnTa+miPJxUXB6vtk42YjBBKayDNagxGEeIdWApkYPOf3Z3pm3k62Knjzp7lMeTEtFQ==}
     engines: {node: '>=0.8'}
@@ -11013,6 +11043,9 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zod@4.1.11:
+    resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -16216,9 +16249,29 @@ snapshots:
       next: 16.2.11(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
 
+  '@vercel/cli-config@0.3.0':
+    dependencies:
+      xdg-app-paths: 5.5.1
+      zod: 4.1.11
+
+  '@vercel/cli-exec@1.0.1':
+    dependencies:
+      execa: 5.1.1
+
   '@vercel/kv@3.0.0':
     dependencies:
       '@upstash/redis': 1.38.0
+
+  '@vercel/oidc-aws-credentials-provider@3.3.9':
+    dependencies:
+      '@aws-sdk/credential-provider-web-identity': 3.972.52
+      '@vercel/oidc': 3.8.9
+
+  '@vercel/oidc@3.8.9':
+    dependencies:
+      '@vercel/cli-config': 0.3.0
+      '@vercel/cli-exec': 1.0.1
+      jose: 5.10.0
 
   '@vercel/remix@2.16.7(@remix-run/dev@2.16.7(@remix-run/react@2.16.7(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3))(@remix-run/serve@2.16.7(typescript@5.9.3))(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(typescript@5.9.3)(vite@6.4.3(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))(yaml@2.9.0))(@remix-run/node@2.16.7(typescript@5.9.3))(@remix-run/server-runtime@2.17.5(typescript@5.9.3))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -20998,6 +21051,8 @@ snapshots:
       strip-ansi: 6.0.1
       wcwidth: 1.0.1
 
+  os-paths@4.4.0: {}
+
   outdent@0.8.0: {}
 
   outvariant@1.4.3: {}
@@ -23387,6 +23442,15 @@ snapshots:
 
   ws@8.21.0: {}
 
+  xdg-app-paths@5.5.1:
+    dependencies:
+      os-paths: 4.4.0
+      xdg-portable: 7.3.0
+
+  xdg-portable@7.3.0:
+    dependencies:
+      os-paths: 4.4.0
+
   xlsx@0.18.5:
     dependencies:
       adler-32: 1.3.1
@@ -23446,5 +23510,7 @@ snapshots:
       zod: 3.25.76
 
   zod@3.25.76: {}
+
+  zod@4.1.11: {}
 
   zwitch@2.0.4: {}

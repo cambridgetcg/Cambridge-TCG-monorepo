@@ -3,6 +3,8 @@
  *
  * Provides configured S3 and SES clients with:
  * - Vercel whitespace trim on all env vars
+ * - Vercel OIDC → IAM role credentials when AWS_ROLE_ARN is set, static keys
+ *   otherwise (see credentials.ts and docs/ops-aws-oidc.md)
  * - Graceful null return when credentials are missing (no crash in dev)
  * - Singleton pattern (one client per service per process)
  * - Consistent region resolution across apps
@@ -15,7 +17,12 @@
 export {
   resolveAwsConfig,
   resolveAwsConfigOrThrow,
+  vercelOidcTokenSource,
+  ROLE_CREDENTIAL_REFRESH_MARGIN_SECONDS,
+  STATIC_FALLBACK_ENV,
   type AwsCredentials,
+  type AwsCredentialProvider,
+  type AwsCredentialSource,
   type AwsConfig,
   type AwsConfigResult,
 } from "./credentials";

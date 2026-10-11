@@ -7,6 +7,7 @@ Shared AWS client factories for the Cambridge TCG monorepo.
 - **One S3 client** per process (replaces 4 separate instantiations across apps)
 - **One SES client** per process (replaces 11 separate instantiations in storefront)
 - **Vercel whitespace trimming** on all environment variables
+- **Vercel OIDC → IAM role** credentials when `AWS_ROLE_ARN` is set, static keys otherwise ([runbook](../../docs/ops-aws-oidc.md))
 - **Graceful degradation** — nullable factories return `null` when credentials are missing, so apps can build and start without AWS access
 - **Consistent region resolution** from `AWS_REGION` env var
 
@@ -47,7 +48,8 @@ import { resolveAwsConfig } from "@cambridge-tcg/aws";
 
 const result = resolveAwsConfig("eu-west-2"); // custom default region
 if (result.ok) {
-  // result.config.region, result.config.credentials
+  // result.config.region, result.config.credentialSource,
+  // result.config.credentials (static keys, or a lazy role provider)
 }
 ```
 
@@ -55,9 +57,21 @@ if (result.ok) {
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `AWS_ACCESS_KEY_ID` | Yes (for AWS features) | IAM access key |
-| `AWS_SECRET_ACCESS_KEY` | Yes (for AWS features) | IAM secret key |
-| `AWS_REGION` | No | Region override (default: `us-east-1`) |
+| `AWS_ROLE_ARN` | No | IAM role to assume with the Vercel OIDC token. When set, it wins over static keys |
+| `AWS_ACCESS_KEY_ID` | Without a role | IAM access key |
+| `AWS_SECRET_ACCESS_KEY` | Without a role | IAM secret key |
+| `AWS_REGION` | No | Region override (default: `us-east-1`); also the STS region for the role |
+| `AWS_OIDC_ALLOW_STATIC_FALLBACK` | No | `1` lets `AWS_ROLE_ARN` fall back to static keys when no OIDC token source exists (local only; never set on Vercel) |
+
+Credential precedence (`resolveAwsConfig`):
+
+1. `AWS_ROLE_ARN` + an OIDC token source (Vercel production/preview deployment, or `VERCEL_OIDC_TOKEN` from `vercel env pull`) → `@vercel/oidc-aws-credentials-provider` assumes the role. Static keys are ignored.
+2. `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` → static keys (tcg-wholesale, local dev).
+3. Otherwise an error result; nullable factories return `null`.
+
+`AWS_ROLE_ARN` with no token source is an error, not a silent fallback to static keys, unless `AWS_OIDC_ALLOW_STATIC_FALLBACK=1`. Each new client logs, without values, which source it uses, e.g. `[packages/aws] S3 client ready (credentials=vercel-oidc-role, region=us-east-1)`.
+
+Tests: `pnpm --filter @cambridge-tcg/aws test`.
 
 ## Sub-paths
 
