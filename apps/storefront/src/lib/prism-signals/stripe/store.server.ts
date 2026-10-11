@@ -624,11 +624,18 @@ export async function reservePrismStripeCheckoutAttempt(
         "next entitlement generation",
       );
       const entitlementRef = newRef();
+      // Stamp the owner with the operation's clock, like the attempt row
+      // below: webhook projection time is floored at owner.created_at, so a
+      // database-clock default lets wall time leak into provider ordering.
       const inserted = await query(
         `INSERT INTO product_flow_entitlement_owners (
            environment, entitlement_ref, product_id, subject_ref,
-           offer_id, offer_version, generation, lifecycle
-         ) VALUES ('test', $1, $2, $3, $4, 1, $5, 'current')
+           offer_id, offer_version, generation, lifecycle,
+           created_at, updated_at
+         ) VALUES (
+           'test', $1, $2, $3, $4, 1, $5, 'current',
+           $6::TIMESTAMPTZ, $6::TIMESTAMPTZ
+         )
          RETURNING entitlement_ref, subject_ref, generation,
                    NULL::JSONB AS snapshot_payload,
                    NULL::TEXT AS stripe_subscription_id,
@@ -639,6 +646,7 @@ export async function reservePrismStripeCheckoutAttempt(
           expectedSubjectRef,
           PRISM_SIGNALS_ALL_OFFER_ID,
           generation,
+          occurredAt,
         ],
       );
       owner = inserted.rows[0] as OwnerRow | undefined;
