@@ -424,6 +424,17 @@ class FrozenCheck(unittest.TestCase):
         self.assertIn("frozen at b4386471", note)
         self.assertNotIn("matches", note)
 
+    def test_frozen_sha_must_be_a_prefix_of_a_full_enough_sha(self):
+        # The frozen sha found later in the string, or a sha too short to
+        # contain all of it, is not the frozen build.
+        for sha in ("a" + FROZEN_FULL_SHA[:39], FROZEN_FULL_SHA[:7]):
+            with self.subTest(sha=sha):
+                live = deployment("READY", sha=sha, uid="dpl_shift")
+                issue, note = dh.frozen_check(FROZEN, live)
+                self.assertIsNotNone(issue)
+                self.assertIn("dpl_shift", issue)
+                self.assertNotIn("matches", note)
+
     def test_unknown_sha_is_a_note_not_an_issue(self):
         for live in (deployment("READY", sha="", uid="dpl_nosha"),
                      {"uid": "dpl_nosha", "readyState": "READY", "meta": None}):
@@ -532,6 +543,29 @@ class FrozenWiring(unittest.TestCase):
                 self.assertIn(READY_PATH, calls)
                 self.assertEqual(len(result["issues"]), issues)
                 self.assertIn(note_text, result["notes"][0])
+
+    def test_frozen_redeploy_stuck_in_flight_past_the_age_limit_is_an_issue(self):
+        # Age gives way to a note for the frozen build, not for a redeploy
+        # that never leaves the queue: the old build (and its old
+        # credentials) would keep serving.
+        for state in ("QUEUED", "INITIALIZING", "BUILDING"):
+            for age_h, issues in ((dh.MAX_DEPLOY_AGE_HOURS + 10, 1),
+                                  (dh.MAX_DEPLOY_AGE_HOURS - 10, 0)):
+                with self.subTest(state=state, age_h=age_h):
+                    stuck = deployment(state, sha=FROZEN_FULL_SHA,
+                                       uid="dpl_redeploy", age_h=age_h)
+                    result, _ = run_check(FROZEN_PROJECT, [
+                        (READY_PATH, {"deployments": [FROZEN_READY]}),
+                        (LATEST_PATH, {"deployments": [stuck]}),
+                    ])
+                    self.assertEqual(len(result["issues"]), issues)
+                    self.assertIn("dpl_frozen sha b4386471 matches",
+                                  result["notes"][0])
+                    if issues:
+                        self.assertIn(f"dpl_redeploy is still {state}",
+                                      result["issues"][0])
+                        self.assertIn(f"> {dh.MAX_DEPLOY_AGE_HOURS}h",
+                                      result["issues"][0])
 
     def test_frozen_domain_probe_failure_is_still_an_issue(self):
         for probe in ((0, "connect-error: fixture"), (503, "http 503")):

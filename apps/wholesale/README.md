@@ -4,7 +4,7 @@ The repo welcome page is [`../../CLAUDE.md`](../../CLAUDE.md); the session-wake 
 
 This project exists for understanding card prices, stock and the records behind existing orders. There are no sales, revenue, volume or KPI obligations. New order and quote-request admission is retired. Existing orders keep their confirmation, settlement, fulfillment, cancellation and support flows; external paid-order ingestion remains available to honor those obligations.
 
-The existing Vercel `tcg-wholesale` project serves a build of this `apps/wholesale` directory from commit `b4386471`. Since 2026-10-11 it is frozen there pending retirement, with no Git link, so later changes here are not deployed ([decision](../../docs/decisions/2026-10-11-wholesale-frozen-pending-retirement.md)). New order admission returns 410 before any account, database or notification operation.
+The existing Vercel `tcg-wholesale` project serves a build of this `apps/wholesale` directory from commit `b4386471` (per a 2026-10-11 read-only check). Since 2026-10-11 it is frozen there pending retirement, with no Git link, so later changes here are not deployed ([decision](../../docs/decisions/2026-10-11-wholesale-frozen-pending-retirement.md)). New order admission returns 410 before any account, database or notification operation.
 
 ## Existing order lifecycle
 

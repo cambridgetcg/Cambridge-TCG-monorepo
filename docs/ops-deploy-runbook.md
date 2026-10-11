@@ -35,7 +35,13 @@ purpose: since 2026-10-11 it is frozen at `b4386471` pending retirement
 ([decision](decisions/2026-10-11-wholesale-frozen-pending-retirement.md)). A
 GitHub push does not deploy it and `main` is not promoted to it. Redeploying
 the same build (for example after a credential rotation) is allowed; serving
-newer code needs a new decision.
+newer code needs a new decision. The same-build routes are a Vercel dashboard
+**Redeploy** of the current production deployment, or the gitSource call in
+[(b) below](#the-reliable-workaround-when-you-push-from-an-unverified-email)
+sent to `tcg-wholesale` with the full sha
+`b43864719e70bd4ae4098154f05cd62bf7a808ce` in place of `main`'s head. Neither
+has been tried on this project since the freeze, and whether either keeps
+`meta.githubCommitSha` (which `deploy-health.py` reads) is unverified.
 
 ## Local Vercel CLI + API access
 
@@ -342,13 +348,15 @@ Mitigations now in place:
 
 ## How the three apps deploy
 
-See the [Project wiring quick-reference](#project-wiring--quick-reference) at the top of this doc for project IDs, domains, and root directories. `cambridgetcg-storefront` and `cambridgetcg-admin` are Git-linked and auto-deploy from a push to GitHub `main` (subject to the [committer-association block](#untrusted-committer-the-auto-deploy-block)). RewardsPro's `rewardspro-production` project, outside the table, is also Git-linked (reported by the 2026-10-11 read-only project check). `tcg-wholesale` deliberately has no Git link: it is frozen at `b4386471` pending retirement ([decision](decisions/2026-10-11-wholesale-frozen-pending-retirement.md)).
+See the [Project wiring quick-reference](#project-wiring--quick-reference) at the top of this doc for project IDs, domains, and root directories. `cambridgetcg-storefront` and `cambridgetcg-admin` are Git-linked and auto-deploy from a push to GitHub `main` (subject to the [committer-association block](#untrusted-committer-the-auto-deploy-block)). RewardsPro's `rewardspro-production` project, outside the table, was reported Git-linked by the 2026-10-11 read-only project check; which repository and root directory it links was not recorded (`apps/rewardspro/CLAUDE.md` still lists pointing it at this monorepo's `apps/rewardspro` as open debt). `tcg-wholesale` deliberately has no Git link: it is frozen at `b4386471` pending retirement ([decision](decisions/2026-10-11-wholesale-frozen-pending-retirement.md)).
 
 ## What triggers a deploy
 
-1. **Push to `main`** — Vercel's GitHub integration fires for each
-   Git-linked project whose `apps/<name>` (or shared `packages/`) was
-   touched. The frozen `tcg-wholesale` is not linked and never fires.
+1. **Push to `main`** — Vercel's GitHub integration fires for each project
+   linked to this repository whose `apps/<name>` (or shared `packages/`) was
+   touched. The frozen `tcg-wholesale` is not linked and never fires;
+   whether `rewardspro-production` is linked to this repository is not
+   recorded.
    `cambridgetcg <cambridgetcg@gmail.com>` is the known-good head-commit
    author. A head commit whose author email Vercel can't match to a Git
    account gets `BLOCKED` (seen for `beta@`, `dev@` and `asha@` in 2026) —
@@ -370,7 +378,10 @@ See the [Project wiring quick-reference](#project-wiring--quick-reference) at th
 `vercel deploy --prod` from a local working tree currently does **not**
 work for the storefront/wholesale projects: the workspace deps
 (`@cambridge-tcg/*`) can't resolve when CLI uploads only the app dir.
-Use one of the four mechanisms above.
+Use one of the four mechanisms above. For `tcg-wholesale`, use only a
+same-build redeploy of `b4386471` (see the
+[quick reference](#project-wiring--quick-reference)); none of the four
+mechanisms as written applies to it.
 
 ## Untrusted committer (the auto-deploy block)
 
@@ -751,7 +762,7 @@ The three GitHub Actions workflows under `.github/workflows/`:
 |---|---|---|---|
 | `ci.yml` | Every push to `main` and every PR | Install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes gates; shared changes rebuild the three apps. No admin job is currently defined. | none — uses `GITHUB_TOKEN` only |
 | `rewardspro-v2.yml` | Every PR; relevant pushes to `main` | Validates RewardsPro API typecheck/build, migrations, database-role boundaries, tests, and image | none |
-| `health.yml` | Hourly cron + `workflow_dispatch`; also any branch push that changes `health.yml`, `deploy-health.py` or `test_deploy_health.py` | Job `unit-tests` runs the offline tests in `.github/scripts/test_deploy_health.py` (every trigger, no secrets). Job `check` runs on `main` only: `.github/scripts/deploy-health.py` compares deploy state, age, SHA-drift (full commit history), and HTTP-probes every domain. A latest production deploy in `ERROR`, `BLOCKED` or `CANCELED` is an issue that quotes Vercel's reason and names the newest `READY` sha. `tcg-wholesale` has a frozen baseline (`b4386471`): its age and drift give way to a note, and its newest `READY` production deploy built from any other sha is an issue. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` (`check` only) |
+| `health.yml` | Hourly cron + `workflow_dispatch`; also any branch push that changes `health.yml`, `deploy-health.py` or `test_deploy_health.py` | Job `unit-tests` runs the offline tests in `.github/scripts/test_deploy_health.py` (every trigger, no secrets). Job `check` runs on `main` only: `.github/scripts/deploy-health.py` compares deploy state, age, SHA-drift (full commit history), and HTTP-probes every domain. A latest production deploy in `ERROR`, `BLOCKED` or `CANCELED` is an issue that quotes Vercel's reason and names the newest `READY` sha. `tcg-wholesale` has a frozen baseline (`b4386471`): its age and drift give way to a note, its newest `READY` production deploy built from any other sha is an issue, and so is a latest deploy still in flight after 336h. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` (`check` only) |
 
 To set `VERCEL_TOKEN`:
 1. Generate at <https://vercel.com/account/tokens>, scope to team `cambridgetcgs-projects`.

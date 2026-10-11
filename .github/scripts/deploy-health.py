@@ -22,7 +22,9 @@ A project with a "frozen" baseline (tcg-wholesale since 2026-10-11) is
 deliberately left on one build, so its age and drift checks are replaced by
 a note under Notes. Failed or unrecognised states and probe failures are
 still issues, and so is a newest READY production deploy built from a sha
-other than the frozen one. An unknown sha is a note, not an issue.
+other than the frozen one. An unknown sha is a note, not an issue. A latest
+deploy still in flight after MAX_DEPLOY_AGE_HOURS (a stuck redeploy) is an
+issue, as the age check would make it for any other project.
 
 Usage: VERCEL_TOKEN=... python3 deploy-health.py
 
@@ -54,7 +56,8 @@ LIVE_STATE = "READY"
 # to a GitHub user on the team); CANCELED = stopped before reaching READY.
 FAILED_STATES = frozenset({"ERROR", "BLOCKED", "CANCELED"})
 # In flight. Not alerted on; the next hourly run catches one that gets stuck
-# (by age, or because it lands in a failed state).
+# (by age, or because it lands in a failed state). Age still applies to an
+# in-flight deploy on a frozen project.
 TRANSIENT_STATES = frozenset({"BUILDING", "INITIALIZING", "QUEUED"})
 
 PROJECTS = [
@@ -332,11 +335,19 @@ def check_project(p: dict) -> dict:
     if frozen:
         # Deliberately left on one build: an old deploy and newer app commits
         # are expected, so the age and drift checks give way to a note. The
-        # state issue above and the domain probe below still apply.
+        # state issue above and the domain probe below still apply, and so
+        # does age for a deploy that is still in flight: a stuck redeploy
+        # (e.g. a credential rotation) leaves the old build serving.
         if kind == "live":
             live, lookup_error = d, ""
         elif kind == "transient":
             live, lookup_error = newest_ready(p)
+            if out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
+                out["issues"].append(
+                    f"latest prod deploy {d.get('uid', '?')} is still "
+                    f"{out['deploy_state']} {out['deploy_age_h']:.0f}h after "
+                    f"it was created (> {MAX_DEPLOY_AGE_HOURS}h); the previous "
+                    f"build keeps serving")
         issue, note = frozen_check(frozen, live, lookup_error)
         out["notes"].append(note)
         if issue:
@@ -385,7 +396,7 @@ def main(argv: list | None = None) -> int:
             "and the newest READY sha), deploy age, SHA drift and a domain "
             "probe. A frozen project (tcg-wholesale) gets a note instead of "
             "age and drift, and an issue if its newest READY sha is not the "
-            "frozen one. Needs VERCEL_TOKEN with read access to the "
+            "frozen one or a deploy is stuck in flight past the age limit. Needs VERCEL_TOKEN with read access to the "
             "cambridgetcgs-projects team. Exit 0 = healthy, 1 = issues found."
         ),
     ).parse_args(argv)
