@@ -1,5 +1,7 @@
 # RewardsPro v2 runs on ECS/Fargate and RDS PostgreSQL
 
+> **Note added 2026-10-11:** superseded by [RewardsPro v3 rebuild](2026-10-11-rewardspro-v3-rebuild.md) (shape A: thin core, plain Postgres, no AWS v2). The record below is unchanged.
+
 **Status:** accepted for a fresh dark foundation; production traffic remains
 gated.
 

@@ -1,5 +1,7 @@
 # RewardsPro uses a free-first, fixed-price catalogue
 
+> **Note added 2026-10-11:** amended for RewardsPro by [RewardsPro v3 rebuild](2026-10-11-rewardspro-v3-rebuild.md): every feature stays free; a future AI-credit subscription is the intended paid path, and RewardsPro stays Free-only until it ships. The record below is unchanged.
+
 **Status:** accepted in the application contract; production billing and public
 distribution changes remain gated.
 

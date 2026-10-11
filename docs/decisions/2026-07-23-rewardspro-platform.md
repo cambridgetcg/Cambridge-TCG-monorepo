@@ -1,5 +1,7 @@
 # Rewards Pro becomes the loyalty engine; Shopify becomes a connector
 
+> **Note added 2026-10-11:** deferred by [RewardsPro v3 rebuild](2026-10-11-rewardspro-v3-rebuild.md): v3 is Shopify-only; resuming the multi-platform direction needs a fresh decision. The record below is unchanged.
+
 **Will trace:** Yu, 2026-07-23 — “Can we expand beyond the Shopify platform?
 Like make Shopify an integration as part of it.”
 
