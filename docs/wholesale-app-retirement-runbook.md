@@ -1,6 +1,8 @@
 # Wholesale Next.js app retirement runbook — Phase 7
 
 > **Status:** waiting on Phase 6 completion. Do not execute until the DB merge has soaked for 7 days without rollback.
+>
+> *(Note added 2026-10-11: until this runs, the deployed app is frozen at `b4386471` with no Git link. That [decision record](decisions/2026-10-11-wholesale-frozen-pending-retirement.md) lists what still depends on wholesale and where this plan has fallen behind the code.)*
 
 Once the wholesale RDS has been merged into the storefront RDS (Phase 6) and verified stable, the `apps/wholesale/` Next.js application can be retired entirely. Three things move out of it before deletion:
 

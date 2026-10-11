@@ -18,6 +18,12 @@ Exits non-zero (1) if any of:
     touching that app is older than DRIFT_GRACE_MINUTES
   - HTTP probe returns 5xx or fails to connect
 
+A project with a "frozen" baseline (tcg-wholesale since 2026-10-11) is
+deliberately left on one build, so its age and drift checks are replaced by
+a note under Notes. Failed or unrecognised states and probe failures are
+still issues, and so is a newest READY production deploy built from a sha
+other than the frozen one. An unknown sha is a note, not an issue.
+
 Usage: VERCEL_TOKEN=... python3 deploy-health.py
 
 Designed to run from `.github/workflows/health.yml` on an hourly cron.
@@ -69,6 +75,14 @@ PROJECTS = [
         "id":      "prj_t4pr1FszCa87GWAIgQXTbyXED8qr",
         "domain":  "wholesaletcgdirect.com",
         "appPath": "apps/wholesale",
+        # Frozen pending retirement: no Git link and main is not promoted.
+        # A redeploy of the same build (e.g. after a credential rotation)
+        # keeps this sha. Age and drift are not checked; see the doc.
+        "frozen": {
+            "sha":   "b4386471",
+            "since": "2026-10-11",
+            "doc":   "docs/decisions/2026-10-11-wholesale-frozen-pending-retirement.md",
+        },
     },
 ]
 
@@ -176,6 +190,38 @@ def state_issue(latest: dict, live: dict | None, now_ms: float,
     return "\n      ".join(lines)
 
 
+def frozen_check(frozen: dict, live: dict | None,
+                 lookup_error: str = "") -> tuple[str | None, str]:
+    """(issue or None, note) for a project frozen at one build.
+
+    The note always says the freeze replaced the age and drift checks. The
+    one freeze-specific issue is a newest READY production deploy built
+    from another sha: an unexpected promotion. When that sha is unknown
+    (lookup failed, no READY deploy, no git metadata) the freeze is
+    unconfirmed, which is a note, not an issue."""
+    expected = frozen["sha"].strip().lower()
+    note = (f"frozen at {frozen['sha']} since {frozen['since']} "
+            f"(see {frozen['doc']}); age and drift not checked")
+    full_sha = ((live or {}).get("meta") or {}).get("githubCommitSha") or ""
+    if lookup_error:
+        why = f"lookup failed: {lookup_error}"
+    elif not live:
+        why = "no READY production deploy found"
+    elif not full_sha:
+        why = f"{live.get('uid', '?')} carries no git sha"
+    else:
+        why = ""
+    if why:
+        return None, f"{note}; newest READY sha unknown ({why}), freeze unconfirmed"
+    if full_sha.strip().lower().startswith(expected):
+        return None, (f"{note}; newest READY {live.get('uid', '?')} "
+                      f"sha {deployment_sha(live)} matches")
+    issue = (f"newest READY prod deploy {live.get('uid', '?')} is sha "
+             f"{deployment_sha(live)}, not the frozen {frozen['sha']} "
+             f"(unexpected promotion; see {frozen['doc']})")
+    return issue, note
+
+
 # --- network / git ------------------------------------------------------------
 
 def vercel_api(path: str) -> dict:
@@ -232,8 +278,22 @@ def probe_url(url: str) -> tuple[int, str]:
         return 0, f"error: {type(e).__name__}: {e}"
 
 
+def newest_ready(p: dict) -> tuple[dict | None, str]:
+    """(newest READY production deployment or None, lookup error or '')."""
+    try:
+        return pick_live(vercel_api(
+            f"/v6/deployments?projectId={p['id']}&limit={LIVE_LOOKBACK}"
+            f"&target=production&state={LIVE_STATE}"
+        ).get("deployments", [])), ""
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
+
+
 def check_project(p: dict) -> dict:
     out: dict = {"name": p["name"], "domain": p["domain"], "issues": []}
+    frozen = p.get("frozen")
+    if frozen:
+        out["notes"] = []
 
     # 1. Latest prod deploy
     deps = vercel_api(
@@ -253,7 +313,9 @@ def check_project(p: dict) -> dict:
     # reason and the newest READY sha. Don't alert on BUILDING /
     # INITIALIZING / QUEUED — those are transient and the next hourly check
     # will catch any that get stuck.
-    if classify_state(out["deploy_state"]) in ("failed", "unknown"):
+    kind = classify_state(out["deploy_state"])
+    live, lookup_error = None, ""
+    if kind in ("failed", "unknown"):
         if not deployment_reason(d) and d.get("uid"):
             # The list record normally carries errorMessage. When it has no
             # reason, the single-deployment record may carry readyStateReason.
@@ -262,17 +324,37 @@ def check_project(p: dict) -> dict:
                 d = {**d, **vercel_api(f"/v13/deployments/{d['uid']}")}
             except Exception:
                 pass
-        live, lookup_error = None, ""
-        try:
-            live = pick_live(vercel_api(
-                f"/v6/deployments?projectId={p['id']}&limit={LIVE_LOOKBACK}"
-                f"&target=production&state={LIVE_STATE}"
-            ).get("deployments", []))
-        except Exception as e:
-            lookup_error = f"{type(e).__name__}: {e}"
+        live, lookup_error = newest_ready(p)
         issue = state_issue(d, live, now_ms, lookup_error)
         if issue:
             out["issues"].append(issue)
+
+    if frozen:
+        # Deliberately left on one build: an old deploy and newer app commits
+        # are expected, so the age and drift checks give way to a note. The
+        # state issue above and the domain probe below still apply.
+        if kind == "live":
+            live, lookup_error = d, ""
+        elif kind == "transient":
+            live, lookup_error = newest_ready(p)
+        issue, note = frozen_check(frozen, live, lookup_error)
+        out["notes"].append(note)
+        if issue:
+            out["issues"].append(issue)
+    else:
+        age_and_drift(p, d, out)
+
+    # 3. Domain probe
+    code, msg = probe_url(f"https://{p['domain']}/")
+    out["probe"] = f"{code} {msg}"
+    if code == 0 or code >= 500:
+        out["issues"].append(f"domain probe failed: {out['probe']}")
+
+    return out
+
+
+def age_and_drift(p: dict, d: dict, out: dict) -> None:
+    """Age and drift issues for a project that is not frozen."""
     if out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
         out["issues"].append(f"latest prod deploy is {out['deploy_age_h']:.0f}h old (> {MAX_DEPLOY_AGE_HOURS}h)")
 
@@ -294,14 +376,6 @@ def check_project(p: dict) -> dict:
                 f"deploy {out['deployed_sha']} ({out['deploy_age_h']}h)"
             )
 
-    # 3. Domain probe
-    code, msg = probe_url(f"https://{p['domain']}/")
-    out["probe"] = f"{code} {msg}"
-    if code == 0 or code >= 500:
-        out["issues"].append(f"domain probe failed: {out['probe']}")
-
-    return out
-
 
 def main(argv: list | None = None) -> int:
     argparse.ArgumentParser(
@@ -309,7 +383,9 @@ def main(argv: list | None = None) -> int:
             "Report each Vercel project's latest production deploy state "
             "(ERROR / BLOCKED / CANCELED are issues, named with Vercel's reason "
             "and the newest READY sha), deploy age, SHA drift and a domain "
-            "probe. Needs VERCEL_TOKEN with read access to the "
+            "probe. A frozen project (tcg-wholesale) gets a note instead of "
+            "age and drift, and an issue if its newest READY sha is not the "
+            "frozen one. Needs VERCEL_TOKEN with read access to the "
             "cambridgetcgs-projects team. Exit 0 = healthy, 1 = issues found."
         ),
     ).parse_args(argv)
@@ -333,6 +409,12 @@ def main(argv: list | None = None) -> int:
         )
 
     print()
+    notes = [(r["name"], n) for r in results for n in r.get("notes", [])]
+    if notes:
+        print("Notes:")
+        for name, msg in notes:
+            print(f"  {name}: {msg}")
+        print()
     issues = [(r["name"], i) for r in results for i in r["issues"]]
     if issues:
         print("Issues:")

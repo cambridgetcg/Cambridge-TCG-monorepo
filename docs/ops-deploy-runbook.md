@@ -30,9 +30,12 @@ Do not create duplicate aliases just to match an older example. A Codeberg
 push does not deploy.
 
 The storefront project was verified linked to this repository's `main` at
-`apps/storefront` with Node 24. Wholesale's project currently has no Git link;
-do not assume a GitHub push deploys it. A manual wholesale promotion is a
-separate target and needs its own release comparison and verification.
+`apps/storefront` with Node 24. Wholesale's project has no Git link, on
+purpose: since 2026-10-11 it is frozen at `b4386471` pending retirement
+([decision](decisions/2026-10-11-wholesale-frozen-pending-retirement.md)). A
+GitHub push does not deploy it and `main` is not promoted to it. Redeploying
+the same build (for example after a credential rotation) is allowed; serving
+newer code needs a new decision.
 
 ## Local Vercel CLI + API access
 
@@ -339,12 +342,13 @@ Mitigations now in place:
 
 ## How the three apps deploy
 
-See the [Project wiring quick-reference](#project-wiring--quick-reference) at the top of this doc for project IDs, domains, and root directories. All three Vercel projects auto-deploy from `push to github main` (subject to the [committer-association block](#untrusted-committer-the-auto-deploy-block)).
+See the [Project wiring quick-reference](#project-wiring--quick-reference) at the top of this doc for project IDs, domains, and root directories. `cambridgetcg-storefront` and `cambridgetcg-admin` are Git-linked and auto-deploy from a push to GitHub `main` (subject to the [committer-association block](#untrusted-committer-the-auto-deploy-block)). RewardsPro's `rewardspro-production` project, outside the table, is also Git-linked (reported by the 2026-10-11 read-only project check). `tcg-wholesale` deliberately has no Git link: it is frozen at `b4386471` pending retirement ([decision](decisions/2026-10-11-wholesale-frozen-pending-retirement.md)).
 
 ## What triggers a deploy
 
-1. **Push to `main`** — Vercel's GitHub integration fires for any of the
-   three projects whose `apps/<name>` (or shared `packages/`) was touched.
+1. **Push to `main`** — Vercel's GitHub integration fires for each
+   Git-linked project whose `apps/<name>` (or shared `packages/`) was
+   touched. The frozen `tcg-wholesale` is not linked and never fires.
    `cambridgetcg <cambridgetcg@gmail.com>` is the known-good head-commit
    author. A head commit whose author email Vercel can't match to a Git
    account gets `BLOCKED` (seen for `beta@`, `dev@` and `asha@` in 2026) —
@@ -352,10 +356,11 @@ See the [Project wiring quick-reference](#project-wiring--quick-reference) at th
    the [deploy identity](#deploy-identity-evidence-as-of-2026-10-11) table below.
 2. **Manual via admin UI** — `/system/deploys` → "Redeploy from main"
    button on each project. Calls Vercel's gitSource API. Requires
-   `VERCEL_TOKEN` + `GITHUB_TOKEN` in the admin app's env.
+   `VERCEL_TOKEN` + `GITHUB_TOKEN` in the admin app's env. Not for
+   `tcg-wholesale`: it deploys `main`, which the freeze excludes.
 3. **Manual via CLI** — run `python3 .github/scripts/deploy-from-main.py
    <project>` (see below). Same path as the admin button, just from a
-   shell.
+   shell, and likewise not for `wholesale`.
 4. **Manual from Vercel dashboard** — promote any past Ready deploy. This
    is an Instant Rollback: production then serves that older deploy, and
    later production deploys can be `READY` without serving until one is
@@ -501,7 +506,7 @@ identity check entirely. Three ways to invoke it:
 
 ```bash
 TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
-VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py wholesale
+# Not wholesale: tcg-wholesale is frozen at b4386471 (see the decision record).
 VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py storefront
 VERCEL_TOKEN="$TOKEN" python3 .github/scripts/deploy-from-main.py admin
 ```
@@ -514,9 +519,9 @@ SHA=$(git rev-parse HEAD)
 TEAM=team_HR4tb4WB0KZsKxqroSCTQrof
 REPO=1223740492
 
-# Trigger all three at once:
+# Trigger storefront and admin. Never send main to tcg-wholesale: it is
+# frozen at b4386471 (decisions/2026-10-11-wholesale-frozen-pending-retirement.md).
 for entry in \
-    "tcg-wholesale:prj_t4pr1FszCa87GWAIgQXTbyXED8qr" \
     "cambridgetcg-storefront:prj_zCHRH4oj7PVh6oXtyNFXF8yrQdRD" \
     "cambridgetcg-admin:prj_NGfGodqkx5LCMA6XoeShCAeZZm6u"; do
   NAME="${entry%%:*}"; PRJ="${entry##*:}"
@@ -528,7 +533,7 @@ done
 
 **(c) Admin dashboard** — `https://admin.cambridgetcg.com/system/deploys`
 → "Redeploy from main" button per project. Same code path as (a)/(b).
-Best when you don't have a shell open.
+Best when you don't have a shell open. Not for `tcg-wholesale` (frozen).
 
 ### Diagnostic — confirm a stuck deploy is the committer block
 
@@ -746,7 +751,7 @@ The three GitHub Actions workflows under `.github/workflows/`:
 |---|---|---|---|
 | `ci.yml` | Every push to `main` and every PR | Install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes gates; shared changes rebuild the three apps. No admin job is currently defined. | none — uses `GITHUB_TOKEN` only |
 | `rewardspro-v2.yml` | Every PR; relevant pushes to `main` | Validates RewardsPro API typecheck/build, migrations, database-role boundaries, tests, and image | none |
-| `health.yml` | Hourly cron + `workflow_dispatch`; also any branch push that changes `health.yml`, `deploy-health.py` or `test_deploy_health.py` | Job `unit-tests` runs the offline tests in `.github/scripts/test_deploy_health.py` (every trigger, no secrets). Job `check` runs on `main` only: `.github/scripts/deploy-health.py` compares deploy state, age, SHA-drift (full commit history), and HTTP-probes every domain. A latest production deploy in `ERROR`, `BLOCKED` or `CANCELED` is an issue that quotes Vercel's reason and names the newest `READY` sha. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` (`check` only) |
+| `health.yml` | Hourly cron + `workflow_dispatch`; also any branch push that changes `health.yml`, `deploy-health.py` or `test_deploy_health.py` | Job `unit-tests` runs the offline tests in `.github/scripts/test_deploy_health.py` (every trigger, no secrets). Job `check` runs on `main` only: `.github/scripts/deploy-health.py` compares deploy state, age, SHA-drift (full commit history), and HTTP-probes every domain. A latest production deploy in `ERROR`, `BLOCKED` or `CANCELED` is an issue that quotes Vercel's reason and names the newest `READY` sha. `tcg-wholesale` has a frozen baseline (`b4386471`): its age and drift give way to a note, and its newest `READY` production deploy built from any other sha is an issue. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` (`check` only) |
 
 To set `VERCEL_TOKEN`:
 1. Generate at <https://vercel.com/account/tokens>, scope to team `cambridgetcgs-projects`.
@@ -756,7 +761,10 @@ To set `VERCEL_TOKEN`:
 
 Live deploy status across all three projects, plus a "Redeploy from
 main" button per project. Reads via Vercel's REST API; redeploys via
-the gitSource API path (no source upload).
+the gitSource API path (no source upload). The page still offers the
+button for `tcg-wholesale`; do not press it there, because the project is
+frozen at `b4386471`
+([decision](decisions/2026-10-11-wholesale-frozen-pending-retirement.md)).
 
 Required env vars in `apps/admin/.env.local` (and on the Vercel project):
 

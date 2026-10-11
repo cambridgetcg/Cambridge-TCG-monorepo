@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Unit tests for deploy-health.py's state classification. Stdlib only, no
-network, no git, no VERCEL_TOKEN.
+Unit tests for deploy-health.py's state classification and the frozen
+baseline (tcg-wholesale). Stdlib only, no network, no git, no VERCEL_TOKEN.
 
 Run from the repository root:
   python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
@@ -41,6 +41,28 @@ def deployment(state, sha="0123456789abcdef", uid="dpl_latest", age_h=1.0,
 
 
 LIVE = deployment("READY", sha="feedface00000000", uid="dpl_live", age_h=300.0)
+
+
+def run_check(project, responses, touch=("", 0), probe=(200, "ok")):
+    """check_project(project) with Vercel, git, the probe and the clock
+    mocked. `responses` maps each expected Vercel path to a reply (or an
+    exception to raise); any other call fails the test."""
+    calls = []
+
+    def fake_api(path):
+        calls.append(path)
+        for expected_path, resp in responses:
+            if path == expected_path:
+                if isinstance(resp, Exception):
+                    raise resp
+                return resp
+        raise AssertionError(f"unexpected Vercel call: {path}")
+
+    with mock.patch.object(dh, "vercel_api", side_effect=fake_api), \
+         mock.patch.object(dh, "last_touch", return_value=touch), \
+         mock.patch.object(dh, "probe_url", return_value=probe), \
+         mock.patch.object(dh.time, "time", return_value=NOW_MS / 1000):
+        return dh.check_project(project), calls
 
 
 class ClassifyState(unittest.TestCase):
@@ -204,22 +226,7 @@ class CheckProjectWiring(unittest.TestCase):
                "domain": "admin.example.invalid", "appPath": "apps/admin"}
 
     def run_check(self, responses, touch=("", 0)):
-        calls = []
-
-        def fake_api(path):
-            calls.append(path)
-            for expected_path, resp in responses:
-                if path == expected_path:
-                    if isinstance(resp, Exception):
-                        raise resp
-                    return resp
-            raise AssertionError(f"unexpected Vercel call: {path}")
-
-        with mock.patch.object(dh, "vercel_api", side_effect=fake_api), \
-             mock.patch.object(dh, "last_touch", return_value=touch), \
-             mock.patch.object(dh, "probe_url", return_value=(200, "ok")), \
-             mock.patch.object(dh.time, "time", return_value=NOW_MS / 1000):
-            return dh.check_project(self.PROJECT), calls
+        return run_check(self.PROJECT, responses, touch=touch)
 
     def test_blocked_fetches_reason_and_live_deploy(self):
         blocked = deployment("BLOCKED", sha="b10cked0aaaaaaaa", uid="dpl_blocked",
@@ -345,6 +352,20 @@ class CheckProjectWiring(unittest.TestCase):
         self.assertIn("BLOCKED", issues_section)
         self.assertIn("newest READY:", issues_section)
 
+    def test_main_prints_no_notes_section_without_frozen_projects(self):
+        healthy = {"name": "cambridgetcg-admin", "domain": "d",
+                   "deploy_state": "READY", "deploy_age_h": 1.0,
+                   "deployed_sha": "01234567", "probe": "200 ok", "issues": []}
+        out = io.StringIO()
+        with mock.patch.dict(dh.os.environ, {"VERCEL_TOKEN": "unit-test-placeholder"}), \
+             mock.patch.object(dh, "PROJECTS", [self.PROJECT]), \
+             mock.patch.object(dh, "check_project", return_value=healthy), \
+             contextlib.redirect_stdout(out):
+            rc = dh.main([])
+        self.assertEqual(rc, 0)
+        self.assertNotIn("Notes:", out.getvalue())
+        self.assertTrue(out.getvalue().endswith("\n\nAll projects healthy.\n"))
+
     def test_main_without_token_exits_2_before_any_call(self):
         env = {k: v for k, v in dh.os.environ.items() if k != "VERCEL_TOKEN"}
         err = io.StringIO()
@@ -355,6 +376,197 @@ class CheckProjectWiring(unittest.TestCase):
         self.assertEqual(rc, 2)
         check.assert_not_called()
         self.assertIn("VERCEL_TOKEN not set", err.getvalue())
+
+
+# --- frozen baseline (tcg-wholesale, 2026-10-11) -------------------------------
+
+FROZEN = {"sha": "b4386471", "since": "2026-10-11",
+          "doc": "docs/decisions/fixture-freeze.md"}
+FROZEN_FULL_SHA = "b43864719e70bd4ae4098154f05cd62bf7a808ce"
+OTHER_SHA = "12bbb9045480bc3c7c008e52dcdfa86312d382d3"
+FROZEN_PROJECT = {"name": "tcg-wholesale", "id": "prj_frozen",
+                  "domain": "wholesale.example.invalid",
+                  "appPath": "apps/wholesale", "frozen": FROZEN}
+PLAIN_PROJECT = {k: v for k, v in FROZEN_PROJECT.items() if k != "frozen"}
+LATEST_PATH = "/v6/deployments?projectId=prj_frozen&limit=1&target=production"
+READY_PATH = ("/v6/deployments?projectId=prj_frozen&limit=20"
+              "&target=production&state=READY")
+FROZEN_READY = deployment("READY", sha=FROZEN_FULL_SHA, uid="dpl_frozen",
+                          age_h=dh.MAX_DEPLOY_AGE_HOURS + 500)
+
+
+class FrozenCheck(unittest.TestCase):
+    """frozen_check(): pure, no network."""
+
+    def test_matching_sha_is_a_note_not_an_issue(self):
+        issue, note = dh.frozen_check(FROZEN, FROZEN_READY)
+        self.assertIsNone(issue)
+        self.assertIn("frozen at b4386471 since 2026-10-11 "
+                      "(see docs/decisions/fixture-freeze.md)", note)
+        self.assertIn("age and drift not checked", note)
+        self.assertIn("dpl_frozen sha b4386471 matches", note)
+
+    def test_sha_prefix_match_ignores_case(self):
+        live = deployment("READY", sha=FROZEN_FULL_SHA.upper(), uid="dpl_frozen")
+        issue, note = dh.frozen_check(FROZEN, live)
+        self.assertIsNone(issue)
+        self.assertIn("matches", note)
+
+    def test_other_sha_is_an_issue(self):
+        live = deployment("READY", sha=OTHER_SHA, uid="dpl_promoted")
+        issue, note = dh.frozen_check(FROZEN, live)
+        self.assertIsNotNone(issue)
+        self.assertIn("dpl_promoted", issue)
+        self.assertIn("12bbb904", issue)
+        self.assertIn("not the frozen b4386471", issue)
+        self.assertIn("unexpected promotion", issue)
+        self.assertIn("docs/decisions/fixture-freeze.md", issue)
+        self.assertIn("frozen at b4386471", note)
+        self.assertNotIn("matches", note)
+
+    def test_unknown_sha_is_a_note_not_an_issue(self):
+        for live in (deployment("READY", sha="", uid="dpl_nosha"),
+                     {"uid": "dpl_nosha", "readyState": "READY", "meta": None}):
+            with self.subTest(live=live):
+                issue, note = dh.frozen_check(FROZEN, live)
+                self.assertIsNone(issue)
+                self.assertIn("newest READY sha unknown "
+                              "(dpl_nosha carries no git sha)", note)
+                self.assertIn("freeze unconfirmed", note)
+
+    def test_no_ready_deploy_is_a_note(self):
+        issue, note = dh.frozen_check(FROZEN, None)
+        self.assertIsNone(issue)
+        self.assertIn("no READY production deploy found", note)
+
+    def test_lookup_failure_is_a_note(self):
+        issue, note = dh.frozen_check(FROZEN, None, "OSError: network down")
+        self.assertIsNone(issue)
+        self.assertIn("lookup failed: OSError: network down", note)
+
+
+class FrozenWiring(unittest.TestCase):
+    """check_project() for a frozen project, every call mocked."""
+
+    # An app commit made ten days after the frozen deploy: drift for a
+    # project that is not frozen.
+    LATER_TOUCH = (OTHER_SHA, FROZEN_READY["created"] / 1000 + 10 * 24 * 3600)
+
+    def test_stale_and_drifted_frozen_project_has_a_note_and_no_issue(self):
+        result, calls = run_check(FROZEN_PROJECT,
+                                  [(LATEST_PATH, {"deployments": [FROZEN_READY]})],
+                                  touch=self.LATER_TOUCH)
+        self.assertEqual(result["issues"], [])
+        self.assertEqual(len(result["notes"]), 1)
+        self.assertIn("frozen at b4386471 since 2026-10-11", result["notes"][0])
+        self.assertIn("matches", result["notes"][0])
+        self.assertEqual(calls, [LATEST_PATH])
+
+    def test_same_input_without_a_freeze_still_raises_age_and_drift(self):
+        plain = {**PLAIN_PROJECT, "id": "prj_frozen"}
+        result, _ = run_check(plain,
+                              [(LATEST_PATH, {"deployments": [FROZEN_READY]})],
+                              touch=self.LATER_TOUCH)
+        self.assertNotIn("notes", result)
+        self.assertEqual(len(result["issues"]), 2)
+        self.assertIn(f"> {dh.MAX_DEPLOY_AGE_HOURS}h", result["issues"][0])
+        self.assertIn("app commit 12bbb904", result["issues"][1])
+
+    def test_frozen_failed_or_unknown_state_is_still_an_issue(self):
+        for state in ("BLOCKED", "ERROR", "CANCELED", "DELETED"):
+            with self.subTest(state=state):
+                bad = deployment(state, sha=OTHER_SHA, uid="dpl_bad",
+                                 errorMessage="fixture reason")
+                result, _ = run_check(FROZEN_PROJECT, [
+                    (READY_PATH, {"deployments": [FROZEN_READY]}),
+                    (LATEST_PATH, {"deployments": [bad]}),
+                ])
+                self.assertEqual(len(result["issues"]), 1)
+                self.assertIn(state, result["issues"][0])
+                self.assertIn("dpl_bad", result["issues"][0])
+                # The newest READY is still the frozen build.
+                self.assertIn("dpl_frozen sha b4386471 matches", result["notes"][0])
+
+    def test_frozen_failed_state_and_promoted_ready_are_both_issues(self):
+        promoted = deployment("READY", sha=OTHER_SHA, uid="dpl_promoted")
+        result, _ = run_check(FROZEN_PROJECT, [
+            (READY_PATH, {"deployments": [promoted]}),
+            (LATEST_PATH, {"deployments": [deployment(
+                "BLOCKED", uid="dpl_bad", errorMessage="fixture reason")]}),
+        ])
+        self.assertEqual(len(result["issues"]), 2)
+        self.assertIn("BLOCKED", result["issues"][0])
+        self.assertIn("unexpected promotion", result["issues"][1])
+
+    def test_frozen_project_with_another_ready_sha_is_an_issue(self):
+        promoted = deployment("READY", sha=OTHER_SHA, uid="dpl_promoted")
+        result, _ = run_check(FROZEN_PROJECT,
+                              [(LATEST_PATH, {"deployments": [promoted]})])
+        self.assertEqual(len(result["issues"]), 1)
+        self.assertIn("dpl_promoted is sha 12bbb904, not the frozen b4386471",
+                      result["issues"][0])
+
+    def test_frozen_project_with_unknown_sha_is_a_note(self):
+        nosha = deployment("READY", sha="", uid="dpl_nosha",
+                           age_h=dh.MAX_DEPLOY_AGE_HOURS + 1)
+        result, _ = run_check(FROZEN_PROJECT,
+                              [(LATEST_PATH, {"deployments": [nosha]})],
+                              touch=self.LATER_TOUCH)
+        self.assertEqual(result["deployed_sha"], "?")
+        self.assertEqual(result["issues"], [])
+        self.assertIn("sha unknown", result["notes"][0])
+
+    def test_frozen_redeploy_in_flight_checks_the_newest_ready(self):
+        # A same-build redeploy (e.g. after a credential rotation) is BUILDING:
+        # the newest READY is looked up rather than left unknown.
+        building = deployment("BUILDING", sha=FROZEN_FULL_SHA, uid="dpl_redeploy")
+        for ready, issues, note_text in (
+                (FROZEN_READY, 0, "dpl_frozen sha b4386471 matches"),
+                (deployment("READY", sha=OTHER_SHA, uid="dpl_promoted"), 1,
+                 "frozen at b4386471")):
+            with self.subTest(ready=ready["uid"]):
+                result, calls = run_check(FROZEN_PROJECT, [
+                    (READY_PATH, {"deployments": [ready]}),
+                    (LATEST_PATH, {"deployments": [building]}),
+                ])
+                self.assertIn(READY_PATH, calls)
+                self.assertEqual(len(result["issues"]), issues)
+                self.assertIn(note_text, result["notes"][0])
+
+    def test_frozen_domain_probe_failure_is_still_an_issue(self):
+        for probe in ((0, "connect-error: fixture"), (503, "http 503")):
+            with self.subTest(probe=probe):
+                result, _ = run_check(
+                    FROZEN_PROJECT,
+                    [(LATEST_PATH, {"deployments": [FROZEN_READY]})],
+                    probe=probe)
+                self.assertEqual(len(result["issues"]), 1)
+                self.assertIn("domain probe failed", result["issues"][0])
+
+    def test_main_prints_the_frozen_note_and_exits_0(self):
+        frozen_result = {"name": "tcg-wholesale", "domain": "d",
+                         "deploy_state": "READY", "deploy_age_h": 836.0,
+                         "deployed_sha": "b4386471", "probe": "200 ok",
+                         "issues": [], "notes": [dh.frozen_check(FROZEN, FROZEN_READY)[1]]}
+        out = io.StringIO()
+        with mock.patch.dict(dh.os.environ, {"VERCEL_TOKEN": "unit-test-placeholder"}), \
+             mock.patch.object(dh, "PROJECTS", [FROZEN_PROJECT]), \
+             mock.patch.object(dh, "check_project", return_value=frozen_result), \
+             contextlib.redirect_stdout(out):
+            rc = dh.main([])
+        self.assertEqual(rc, 0)
+        notes_section = out.getvalue().split("Notes:", 1)[1]
+        self.assertIn("tcg-wholesale: frozen at b4386471 since 2026-10-11", notes_section)
+
+    def test_real_config_freezes_wholesale_only(self):
+        by_name = {p["name"]: p for p in dh.PROJECTS}
+        frozen = by_name["tcg-wholesale"]["frozen"]
+        self.assertEqual(frozen["sha"], "b4386471")
+        self.assertEqual(frozen["since"], "2026-10-11")
+        self.assertTrue((_PATH.parents[2] / frozen["doc"]).is_file(),
+                        f"decision record missing: {frozen['doc']}")
+        self.assertEqual([p["name"] for p in dh.PROJECTS if p.get("frozen")],
+                         ["tcg-wholesale"])
 
 
 if __name__ == "__main__":
