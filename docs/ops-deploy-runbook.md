@@ -61,12 +61,13 @@ Store the token in macOS Keychain so it's never echoed:
 
 ```bash
 # Generate at https://vercel.com/account/tokens, scope to team cambridgetcgs-projects.
-# Stash:
+# Stash (-w last with no value: security prompts, so the token never enters
+# argv or shell history; paste it at the prompt):
 security add-generic-password \
   -s "vercel-api-token" \
   -a "vercel-cambridge-tcg" \
   -l "Cambridge TCG Vercel API token (long-lived, full account access)" \
-  -w  "<paste-token>"
+  -w
 
 # Retrieve (only echoes to the receiving command's stdin via $()):
 TOKEN=$(security find-generic-password -s "vercel-api-token" -a "vercel-cambridge-tcg" -w)
@@ -591,14 +592,17 @@ Reads both RDSs. Doesn't touch payments or external APIs.
 ### Common env operations
 
 ```bash
-# List production env keys on the currently-linked project
-vercel env ls production
+# List production env NAMES on the currently-linked project. The plain table
+# also shows the first 18 characters of every non-Sensitive value, so print only
+# the first column:
+vercel env ls production 2>/dev/null | awk 'NF && $1 != "name" {print $1}'
 
-# Add an env var without echoing the value to shell history:
-printf '%s' '<value>' | vercel env add MY_VAR production
+# Add a NEW secret: copy the value, then send it on stdin as Sensitive.
+# Never type the value into the command line: it lands in shell history.
+pbpaste | vercel env add MY_VAR production --sensitive
 
-# Pull production env into a local .env.production.local
-vercel env pull .env.production.local --environment=production
+# Do NOT pull production env into a file: a plaintext production pull caused the
+# 2026-10-11 exposure (docs/ops-secret-rotation.md). Sensitive values pull blank.
 
 # Remove an env var
 vercel env rm MY_VAR production
