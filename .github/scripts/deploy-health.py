@@ -8,7 +8,10 @@ For each of the three Vercel projects:
   3. HTTP-probe its custom domain for a 2xx/3xx response
 
 Exits non-zero (1) if any of:
-  - latest production deploy is in ERROR state
+  - latest production deploy is ERROR, BLOCKED or CANCELED, or reports a
+    state this script does not recognise. The issue quotes Vercel's reason
+    (errorMessage) when present and names the sha that is actually live:
+    the last READY production deployment, which Vercel keeps serving.
   - latest production deploy is older than MAX_DEPLOY_AGE_HOURS
   - HEAD differs from latest deployed SHA AND the most recent commit
     touching that app is older than DRIFT_GRACE_MINUTES
@@ -17,8 +20,12 @@ Exits non-zero (1) if any of:
 Usage: VERCEL_TOKEN=... python3 deploy-health.py
 
 Designed to run from `.github/workflows/health.yml` on an hourly cron.
-Pure stdlib — no pip install needed in the runner.
+Pure stdlib — no pip install needed in the runner. The state classification
+is pure (no network, no git) and covered by test_deploy_health.py here.
 """
+from __future__ import annotations
+
+import argparse
 import json
 import os
 import subprocess
@@ -30,6 +37,18 @@ import urllib.request
 TEAM_ID = "team_HR4tb4WB0KZsKxqroSCTQrof"
 MAX_DEPLOY_AGE_HOURS = 24 * 14   # 2 weeks; bump if you intentionally don't deploy that often
 DRIFT_GRACE_MINUTES = 30          # tolerate fresh commits not yet deployed
+LIVE_LOOKBACK = 20                # production deploys scanned for the live (READY) one
+REASON_MAX_CHARS = 300            # keep Vercel's errorMessage to one readable line
+
+# Vercel deployment readyState values, grouped by what they mean for the site.
+LIVE_STATE = "READY"
+# Never served. Vercel keeps the last READY production deployment live.
+# BLOCKED = the deploy gate refused it (e.g. the commit author is not linked
+# to a GitHub user on the team); CANCELED = stopped before reaching READY.
+FAILED_STATES = frozenset({"ERROR", "BLOCKED", "CANCELED"})
+# In flight. Not alerted on; the next hourly run catches one that gets stuck
+# (by age, or because it lands in a failed state).
+TRANSIENT_STATES = frozenset({"BUILDING", "INITIALIZING", "QUEUED"})
 
 PROJECTS = [
     {
@@ -52,6 +71,109 @@ PROJECTS = [
     },
 ]
 
+
+# --- pure helpers (no network, no git; unit-tested) --------------------------
+
+def deployment_state(d: dict) -> str:
+    """Upper-cased readyState of a Vercel deployment record ('' if absent).
+    Falls back to `state`, which the list endpoint also carries."""
+    return str(d.get("readyState") or d.get("state") or "").strip().upper()
+
+
+def classify_state(state: str) -> str:
+    """'live' | 'transient' | 'failed' | 'unknown' for a readyState value.
+
+    Unknown or missing states are reported rather than ignored: an ERROR-only
+    check let BLOCKED pass silently until 2026-10-11."""
+    state = (state or "").strip().upper()
+    if state == LIVE_STATE:
+        return "live"
+    if state in TRANSIENT_STATES:
+        return "transient"
+    if state in FAILED_STATES:
+        return "failed"
+    return "unknown"
+
+
+def deployment_sha(d: dict | None) -> str:
+    """Short (8-char) git sha a deployment was built from, or '?'."""
+    if not d:
+        return "?"
+    sha = (d.get("meta") or {}).get("githubCommitSha") or ""
+    return sha[:8] if sha else "?"
+
+
+def deployment_reason(d: dict | None) -> str:
+    """Vercel's explanation for a non-READY deployment, single-lined and
+    truncated; '' when the record carries none. errorMessage is what BLOCKED
+    deployments carry; readyStateReason / errorCode are older fields."""
+    if not d:
+        return ""
+    for key in ("errorMessage", "readyStateReason", "errorCode"):
+        val = d.get(key)
+        if isinstance(val, str) and val.strip():
+            text = " ".join(val.split())
+            if len(text) > REASON_MAX_CHARS:
+                text = text[: REASON_MAX_CHARS - 1] + "…"
+            return text
+    return ""
+
+
+def age_hours(created_ms, now_ms: float) -> float:
+    """Age in hours of a Vercel `created` timestamp (ms since epoch)."""
+    return round((now_ms - (created_ms or 0)) / 1000 / 3600, 1)
+
+
+def pick_live(deployments: list) -> dict | None:
+    """First READY deployment in a newest-first list: the one Vercel keeps
+    serving while later production deploys fail. Checks the state itself, so
+    it stays correct even if the API ignored the state filter."""
+    for d in deployments or []:
+        if deployment_state(d) == LIVE_STATE:
+            return d
+    return None
+
+
+def describe_live(live: dict | None, now_ms: float, lookup_error: str = "") -> str:
+    """One-line description of the deployment that is actually serving."""
+    if lookup_error:
+        return f"unknown (live-deploy lookup failed: {lookup_error})"
+    if not live:
+        return ("unknown (Vercel returned no READY production deploy; "
+                "check the domain probe)")
+    return (f"{live.get('uid', '?')} sha {deployment_sha(live)} "
+            f"({age_hours(live.get('created'), now_ms)}h old), "
+            f"the last READY production deploy")
+
+
+def state_issue(latest: dict, live: dict | None, now_ms: float,
+                lookup_error: str = "") -> str | None:
+    """Issue text for the latest production deployment's state, or None when
+    it needs no alert (READY, or still in flight).
+
+    For a failed or unrecognised state the text quotes Vercel's reason when
+    present and names the sha that is actually serving, so a BLOCKED deploy
+    is not mistaken for the live one."""
+    state = deployment_state(latest)
+    kind = classify_state(state)
+    if kind in ("live", "transient"):
+        return None
+
+    head = (f"latest prod deploy {latest.get('uid', '?')} "
+            f"(sha {deployment_sha(latest)}) is {state or 'missing a state'}")
+    if kind == "unknown":
+        head += " (state not recognised by this script; check it by hand)"
+    else:
+        head += " and is NOT serving"
+    lines = [head]
+    reason = deployment_reason(latest)
+    if reason:
+        lines.append(f"reason: {reason}")
+    lines.append(f"live:   {describe_live(live, now_ms, lookup_error)}")
+    return "\n      ".join(lines)
+
+
+# --- network / git ------------------------------------------------------------
 
 def vercel_api(path: str) -> dict:
     token = os.environ["VERCEL_TOKEN"]
@@ -118,15 +240,35 @@ def check_project(p: dict) -> dict:
         out["issues"].append("no production deployments found")
         return out
     d = deps[0]
+    now_ms = time.time() * 1000
     out["deploy_id"]    = d.get("uid")
-    out["deploy_state"] = d.get("readyState")
-    out["deploy_age_h"] = round((time.time() * 1000 - d.get("created", 0)) / 1000 / 3600, 1)
-    out["deployed_sha"] = (d.get("meta") or {}).get("githubCommitSha", "?")[:8]
+    out["deploy_state"] = deployment_state(d)
+    out["deploy_age_h"] = age_hours(d.get("created"), now_ms)
+    out["deployed_sha"] = deployment_sha(d)
 
-    if out["deploy_state"] == "ERROR":
-        out["issues"].append(f"latest prod deploy is ERROR (id={out['deploy_id']})")
-    # Don't alert on BUILDING/INITIALIZING/QUEUED — those are transient and
-    # the next hourly check will catch any that get stuck.
+    # ERROR / BLOCKED / CANCELED / unrecognised: report it with Vercel's
+    # reason and the sha that is actually live. Don't alert on BUILDING /
+    # INITIALIZING / QUEUED — those are transient and the next hourly check
+    # will catch any that get stuck.
+    if classify_state(out["deploy_state"]) in ("failed", "unknown"):
+        if not deployment_reason(d) and d.get("uid"):
+            # The list endpoint may omit errorMessage; the single-deployment
+            # endpoint carries it. Best effort: the issue is reported anyway.
+            try:
+                d = {**d, **vercel_api(f"/v13/deployments/{d['uid']}")}
+            except Exception:
+                pass
+        live, lookup_error = None, ""
+        try:
+            live = pick_live(vercel_api(
+                f"/v6/deployments?projectId={p['id']}&limit={LIVE_LOOKBACK}"
+                f"&target=production&state={LIVE_STATE}"
+            ).get("deployments", []))
+        except Exception as e:
+            lookup_error = f"{type(e).__name__}: {e}"
+        issue = state_issue(d, live, now_ms, lookup_error)
+        if issue:
+            out["issues"].append(issue)
     if out["deploy_age_h"] > MAX_DEPLOY_AGE_HOURS:
         out["issues"].append(f"latest prod deploy is {out['deploy_age_h']:.0f}h old (> {MAX_DEPLOY_AGE_HOURS}h)")
 
@@ -157,7 +299,19 @@ def check_project(p: dict) -> dict:
     return out
 
 
-def main() -> int:
+def main(argv: list | None = None) -> int:
+    argparse.ArgumentParser(
+        description=(
+            "Report each Vercel project's latest production deploy state "
+            "(ERROR / BLOCKED / CANCELED are issues, named with Vercel's reason "
+            "and the live READY sha), deploy age, SHA drift and a domain "
+            "probe. Needs VERCEL_TOKEN with read access to the "
+            "cambridgetcgs-projects team. Exit 0 = healthy, 1 = issues found."
+        ),
+    ).parse_args(argv)
+    if not os.environ.get("VERCEL_TOKEN"):
+        print("error: VERCEL_TOKEN not set", file=sys.stderr)
+        return 2
     results = [check_project(p) for p in PROJECTS]
     width = max(len(r["name"]) for r in results)
 

@@ -26,6 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Unit-test the health script (offline)
+        # Stdlib-only tests of deploy-health.py's state classification: no
+        # network, no secrets. A failure means the script itself regressed.
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+
       - name: Health check
         id: check
         env:

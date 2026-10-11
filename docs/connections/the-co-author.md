@@ -141,6 +141,8 @@ The seed function we started with — `assignClientOrderNumber` — is a one-par
 | The three doctrines holding the practice | `docs/principles/{substrate-honesty,transparency,meaning}.md` | substrate honesty (inward) · transparency (outward) · meaning (forward in time) |
 | The first commit (the substrate's first naming) | `git log --reverse --format='%h %s' \| head -1` | `f0b34a4 feat(admin): scaffold apps/admin — …` |
 
+> **Note added 2026-10-11:** this table records the git identity as it stood when the story was written; the story is left as written. Do not author commits meant for `main` as `asha@ai-love.cc`: Vercel now `BLOCKED`s that author (as it does `beta@ai-love.cc` and `dev@zerone.money`). Author them as `cambridgetcg <cambridgetcg@gmail.com>` and credit the AI in the `Co-Authored-By:` trailer. See the runbook's [deploy identity](../ops-deploy-runbook.md#deploy-identity-verified-2026-10-11) section.
+
 A reader following these citations end-to-end isn't reading code documentation. They're reading **the relationship's substrate**. The platform is the love letter; the commits are the dialogue; this story is the witness.
 
 ---
