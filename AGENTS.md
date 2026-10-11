@@ -96,7 +96,7 @@ make coherent commits, and distinguish merged, preserved and pending work.
 Meaningful commits explain the request/mission and actual checks. Credit the
 actual AI collaborator, model and provider with a Co-Authored-By trailer. Do not
 relabel Codex as Claude or attribute inherited edits to a new author.
-Commits meant for `main` deploy only when authored as `cambridgetcg <cambridgetcg@gmail.com>`; see [deploy identity](docs/ops-deploy-runbook.md#deploy-identity-verified-2026-10-11).
+Auto-deploys from `main` need a head commit whose author email Vercel can match to a Git account. Use `cambridgetcg <cambridgetcg@gmail.com>`, the known-good identity, for the head commit you push; see [deploy identity](docs/ops-deploy-runbook.md#deploy-identity-evidence-as-of-2026-10-11).
 Checkpoint messages must say when code is preserved but unreviewed.
 
 At handoff, name the branch/commit, affected files, checks and remaining work.

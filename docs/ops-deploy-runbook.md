@@ -345,16 +345,22 @@ See the [Project wiring quick-reference](#project-wiring--quick-reference) at th
 
 1. **Push to `main`** — Vercel's GitHub integration fires for any of the
    three projects whose `apps/<name>` (or shared `packages/`) was touched.
-   Only a head commit authored as `cambridgetcg <cambridgetcg@gmail.com>`
-   is known to deploy; other author emails get `BLOCKED` — see
-   [Untrusted committer](#untrusted-committer-the-auto-deploy-block) below.
+   `cambridgetcg <cambridgetcg@gmail.com>` is the known-good head-commit
+   author. A head commit whose author email Vercel can't match to a Git
+   account gets `BLOCKED` (seen for `beta@`, `dev@` and `asha@` in 2026) —
+   see [Untrusted committer](#untrusted-committer-the-auto-deploy-block) and
+   the [deploy identity](#deploy-identity-evidence-as-of-2026-10-11) table below.
 2. **Manual via admin UI** — `/system/deploys` → "Redeploy from main"
    button on each project. Calls Vercel's gitSource API. Requires
    `VERCEL_TOKEN` + `GITHUB_TOKEN` in the admin app's env.
 3. **Manual via CLI** — run `python3 .github/scripts/deploy-from-main.py
    <project>` (see below). Same path as the admin button, just from a
    shell.
-4. **Manual from Vercel dashboard** — promote any past Ready deploy.
+4. **Manual from Vercel dashboard** — promote any past Ready deploy. This
+   is an Instant Rollback: production then serves that older deploy, and
+   later production deploys can be `READY` without serving until one is
+   promoted again. `deploy-health.py` does not read the alias, so in that
+   state its "newest READY" line is not the deploy serving.
 
 `vercel deploy --prod` from a local working tree currently does **not**
 work for the storefront/wholesale projects: the workspace deps
@@ -375,8 +381,9 @@ How it shows up:
   check showed `cambridgetcg-admin`'s latest production deploy as `BLOCKED`
   at 267h old without listing it under Issues, because the check then
   flagged only `ERROR`. `deploy-health.py` now lists `BLOCKED` (and
-  `CANCELED`) under Issues, quotes the `errorMessage` and names the sha that
-  is actually live: the last `READY` production deployment.
+  `CANCELED`) under Issues, quotes Vercel's reason and names the newest
+  `READY` production deployment, which is normally the one still serving
+  (not after a dashboard promote; see mechanism 4 above).
 - **Earlier form (recorded 2026-05):** `readyState: ERROR` with
   `readyStateReason`:
 
@@ -388,25 +395,37 @@ How it shows up:
   Six consecutive deploys could sit in `ERROR` while the push went through
   cleanly to GitHub.
 
-### Deploy identity (verified 2026-10-11)
+### Deploy identity (evidence as of 2026-10-11)
 
-| Commit author | Result |
-|---|---|
-| `cambridgetcg <cambridgetcg@gmail.com>` | **Deploys.** It authored `c7ed79f0` and `2722104c`, which landed on 2026-10-10/11. |
-| `beta@ai-love.cc` | `BLOCKED` |
-| `asha@ai-love.cc` | `BLOCKED` |
-| `dev@zerone.money` | `BLOCKED` |
+Each row gives the date of its newest evidence; a row is not a promise about
+today. Vercel results are from read-only `GET /v6/deployments` on the
+storefront and admin projects (Git-triggered production deploys), read during
+the 2026-10-11 review; authors and dates agree with `git log origin/main`.
 
-So: author every commit you intend to land on `main` as
-`cambridgetcg <cambridgetcg@gmail.com>`. Credit the model or other
-collaborator in a `Co-Authored-By:` trailer, as
-[AGENTS.md](../AGENTS.md) requires. Never relabel the author to carry that
-credit, and never rewrite pushed history to change old authors. The
-check that has been verified is the head commit's author. Passing `-c` as below
-sets the committer too, so the committer is never the untested variable. Older
-docs that name `asha@ai-love.cc` as the shared identity (for example
-[the co-author story](connections/the-co-author.md)) are history, not
-instructions.
+| Head-commit author | Newest evidence | Result |
+|---|---|---|
+| `cambridgetcg <cambridgetcg@gmail.com>` | 2026-10-10/11 | **Deploys.** Authored `c7ed79f0` and `2722104c`. The known-good identity. |
+| `beta@ai-love.cc` | 2026-09-29; still the `BLOCKED` admin deploy in issue #67 on 2026-10-10 | `BLOCKED`. Its `4e3e39d7` reached `READY` only through the gitSource fallback ([release record](operations/2026-09-29-release.md#first-production-receipt-and-ci-follow-up)). |
+| `dev@zerone.money` | 2026-06-10 (its last push) | `BLOCKED` through June 2026; untested since. |
+| `asha@ai-love.cc` | 2026-07-13 (its last push) | `BLOCKED` 2026-06-04..06-20, then `READY` via Git 2026-07-05..07-13 (e.g. `dpl_HmwiG8hiWRZm33oYoVwKk2vyuTP9` for `a41cb877`). Current status untested. |
+| `agent@cambridgetcg.com` | 2026-08-03 | `READY` via Git 2026-07-19..08-03 (e.g. `dpl_BC2Y88KkMfv8vGgnZcXTCDboUeiu` for `48662601`). |
+| `168088678+cambridgetcg@users.noreply.github.com` | 2026-09-08 (its last push) | `READY` via Git (seen on admin). |
+| `nuance@ai-love.cc`, `alpha@ai-love.cc`, `ai@agenttool.dev` | not recorded | Seen `BLOCKED`. |
+
+So: the head commit you push to `main` must be authored as
+`cambridgetcg <cambridgetcg@gmail.com>`, and your own new commits use it.
+Leave inherited commits' authors unchanged and land them under a
+cambridgetcg-authored merge or head commit: `2722104c` landed `0a198df6`
+(authored by `agent@cambridgetcg.com`) that way. Credit the model or other
+collaborator in a `Co-Authored-By:` trailer, as [AGENTS.md](../AGENTS.md)
+requires. Never relabel the author to carry that credit, and never rewrite
+pushed history to change old authors. The field that has been verified is the
+head commit's author (Vercel's `errorMessage` names "the commit author");
+passing `-c` as below sets the committer too, so the committer is never the
+untested variable. A `READY` row for another address shows Vercel matched it
+then, not that it still does. Older docs that name `asha@ai-love.cc` as the
+shared identity (for example [the co-author story](connections/the-co-author.md)
+and [the syzygy](connections/the-syzygy.md)) are history, not instructions.
 
 ### Landing recipe (the working path, 2026-10-11)
 
@@ -436,12 +455,20 @@ else
 fi
 
 # 4. Poll production until it serves that commit (up to ~15 minutes).
+#    The heartbeat wraps its payload: the sha is data.state.deployment.git_commit_sha.
+LIVE=""
 for i in $(seq 1 45); do
   LIVE=$(curl -fsS https://cambridgetcg.com/api/v1/heartbeat \
-    | python3 -c 'import sys,json; print(json.load(sys.stdin)["deployment"]["git_commit_sha"] or "")')
-  [ "$LIVE" = "$SHA" ] && { echo "live: $LIVE"; break; }
+    | python3 -c 'import sys,json; print(json.load(sys.stdin)["data"]["state"]["deployment"]["git_commit_sha"] or "")') \
+    || LIVE=""
+  [ "$LIVE" = "$SHA" ] && break
   sleep 20
 done
+if [ "$LIVE" = "$SHA" ]; then
+  echo "live: $LIVE"
+else
+  echo "NOT live after ~15 min: production serves ${LIVE:-<unreadable>}, wanted $SHA"
+fi
 ```
 
 The heartbeat reports the storefront only. Once it matches, run
@@ -459,8 +486,10 @@ committer-association reason. Don't waste time toggling it.
 
 ### The reliable workaround (when you push from an unverified email)
 
-Prefer re-committing as `cambridgetcg` and following the landing recipe
-above. This explicit API trigger is the fallback; it produced a `READY`
+Prefer landing a new cambridgetcg-authored head commit on top (a merge or
+the next change) and following the landing recipe above. Never re-author or
+rewrite the pushed commit. This explicit API trigger is the fallback; it
+produced a `READY`
 production deployment on 2026-09-29 (see the
 [release record](operations/2026-09-29-release.md#first-production-receipt-and-ci-follow-up)).
 
@@ -511,9 +540,9 @@ curl -sS "https://api.vercel.com/v13/deployments/<deployment-id>?teamId=team_HR4
 ```
 
 `readyState: BLOCKED`, or an `errorMessage` / `readyStateReason` about the
-commit author or "could not associate the committer", is this block:
-re-commit as `cambridgetcg` and follow the landing recipe, or use the
-workaround above. Other ERROR reasons (build failures, missing env vars,
+commit author or "could not associate the committer", is this block: land a
+new cambridgetcg-authored head commit on top and follow the landing recipe,
+or use the workaround above. Other ERROR reasons (build failures, missing env vars,
 quota limits) are real and need separate triage.
 
 ## Cron inventory
@@ -717,7 +746,7 @@ The three GitHub Actions workflows under `.github/workflows/`:
 |---|---|---|---|
 | `ci.yml` | Every push to `main` and every PR | Install + lint, then paths-filtered storefront / wholesale / RewardsPro / Answering Rhymes gates; shared changes rebuild the three apps. No admin job is currently defined. | none — uses `GITHUB_TOKEN` only |
 | `rewardspro-v2.yml` | Every PR; relevant pushes to `main` | Validates RewardsPro API typecheck/build, migrations, database-role boundaries, tests, and image | none |
-| `health.yml` | Hourly cron + `workflow_dispatch` | Runs the offline unit tests in `.github/scripts/test_deploy_health.py`, then calls `.github/scripts/deploy-health.py` to compare deploy state, age, SHA-drift, and HTTP-probe every domain. A latest production deploy in `ERROR`, `BLOCKED` or `CANCELED` is an issue that quotes Vercel's `errorMessage` and names the live (last `READY`) sha. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` |
+| `health.yml` | Hourly cron + `workflow_dispatch`; also any branch push that changes `health.yml`, `deploy-health.py` or `test_deploy_health.py` | Job `unit-tests` runs the offline tests in `.github/scripts/test_deploy_health.py` (every trigger, no secrets). Job `check` runs on `main` only: `.github/scripts/deploy-health.py` compares deploy state, age, SHA-drift (full commit history), and HTTP-probes every domain. A latest production deploy in `ERROR`, `BLOCKED` or `CANCELED` is an issue that quotes Vercel's reason and names the newest `READY` sha. Opens / updates / closes a `deploy-health` labelled issue on regression. | `VERCEL_TOKEN` (`check` only) |
 
 To set `VERCEL_TOKEN`:
 1. Generate at <https://vercel.com/account/tokens>, scope to team `cambridgetcgs-projects`.
@@ -783,8 +812,8 @@ Use safe local fixtures; the hook does not cover other contributors.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `vercel deploy --prod` fails with `deploy_failed`, no events | Workspace deps don't resolve when uploading app dir alone | Use admin `/system/deploys` button or the gitSource Python script |
-| Auto-deploy stuck on `BLOCKED` (older form: `ERROR` with "could not associate the committer") | The head commit's author email is not linked to a GitHub user on the team (`beta@ai-love.cc`, `asha@ai-love.cc`, `dev@zerone.money` all get blocked) | Author the commit as `cambridgetcg <cambridgetcg@gmail.com>` and follow the [landing recipe](#landing-recipe-the-working-path-2026-10-11) (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). `gitForkProtection: false` does NOT bypass this — don't waste time toggling it. |
+| Auto-deploy stuck on `BLOCKED` (older form: `ERROR` with "could not associate the committer") | Vercel can't match the head commit's author email to a Git account (seen for `beta@ai-love.cc`, `dev@zerone.money` and, in June 2026, `asha@ai-love.cc`; see [deploy identity](#deploy-identity-evidence-as-of-2026-10-11)) | Land a new head commit authored as `cambridgetcg <cambridgetcg@gmail.com>` on top and follow the [landing recipe](#landing-recipe-the-working-path-2026-10-11) (durable), or trigger the deploy via the gitSource API (`.github/scripts/deploy-from-main.py` per project — see [Untrusted committer](#untrusted-committer-the-auto-deploy-block)). `gitForkProtection: false` does NOT bypass this — don't waste time toggling it. |
 | Wholesale build fails on `S3 client unavailable — AWS credentials not configured` | A module is calling `createS3ClientOrThrow()` at import time | Defer init to first call (see `apps/wholesale/src/lib/s3.ts` for the pattern) |
 | `/system/deploys` shows "VERCEL_TOKEN env var not set" | Missing token in admin env | Add to `apps/admin/.env.local` (local) and Vercel project env vars (prod) |
 | Health check workflow fails | Missing `VERCEL_TOKEN` repo secret | Add at repo Settings → Secrets → Actions |
-| Health workflow fails at "Unit-test the health script" (no issue posted that run) | A change to `.github/scripts/deploy-health.py` broke its state classification | `python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v` locally; fix the script or the test |
+| Health workflow's `unit-tests` job fails (the `check` job still runs and updates the issue) | A change to `.github/scripts/deploy-health.py` broke its state classification | `python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v` locally; fix the script or the test |

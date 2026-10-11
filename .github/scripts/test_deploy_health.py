@@ -142,12 +142,13 @@ class StateIssue(unittest.TestCase):
         self.assertIn("b10cked0", head)
         self.assertIn("NOT serving", head)
         self.assertTrue(any(BLOCKED_MSG in line and "reason:" in line for line in rest))
-        live_line = [line for line in rest if "live:" in line]
+        live_line = [line for line in rest if "newest READY:" in line]
         self.assertEqual(len(live_line), 1)
         self.assertIn("dpl_live", live_line[0])
         self.assertIn("feedface", live_line[0])
         self.assertIn("300.0h", live_line[0])
-        self.assertIn("READY", live_line[0])
+        # Newest READY is normally, not provably, the deploy serving.
+        self.assertIn("normally", live_line[0])
 
     def test_canceled_and_error_are_reported(self):
         for state in ("CANCELED", "ERROR"):
@@ -180,7 +181,7 @@ class StateIssue(unittest.TestCase):
 
     def test_live_unknown_when_no_ready_deploy(self):
         issue = dh.state_issue(deployment("BLOCKED"), None, NOW_MS)
-        self.assertIn("live:   unknown", issue)
+        self.assertIn("newest READY: unknown", issue)
         self.assertIn("no READY production deploy", issue)
 
     def test_live_unknown_when_lookup_failed(self):
@@ -202,7 +203,7 @@ class CheckProjectWiring(unittest.TestCase):
     PROJECT = {"name": "cambridgetcg-admin", "id": "prj_test",
                "domain": "admin.example.invalid", "appPath": "apps/admin"}
 
-    def run_check(self, responses):
+    def run_check(self, responses, touch=("", 0)):
         calls = []
 
         def fake_api(path):
@@ -215,7 +216,7 @@ class CheckProjectWiring(unittest.TestCase):
             raise AssertionError(f"unexpected Vercel call: {path}")
 
         with mock.patch.object(dh, "vercel_api", side_effect=fake_api), \
-             mock.patch.object(dh, "last_touch", return_value=("", 0)), \
+             mock.patch.object(dh, "last_touch", return_value=touch), \
              mock.patch.object(dh, "probe_url", return_value=(200, "ok")), \
              mock.patch.object(dh.time, "time", return_value=NOW_MS / 1000):
             return dh.check_project(self.PROJECT), calls
@@ -228,7 +229,8 @@ class CheckProjectWiring(unittest.TestCase):
              {"deployments": [LIVE]}),
             ("/v6/deployments?projectId=prj_test&limit=1&target=production",
              {"deployments": [blocked]}),
-            ("/v13/deployments/dpl_blocked", {"errorMessage": BLOCKED_MSG}),
+            # /v13 carries readyStateReason, not errorMessage, for BLOCKED.
+            ("/v13/deployments/dpl_blocked", {"readyStateReason": BLOCKED_MSG}),
         ])
         self.assertEqual(result["deploy_state"], "BLOCKED")
         self.assertEqual(result["deployed_sha"], "b10cked0")
@@ -270,6 +272,60 @@ class CheckProjectWiring(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(result["issues"], [])
 
+    def test_unrecognised_or_missing_state_is_wired_to_an_issue(self):
+        for state in ("DELETED", None):
+            with self.subTest(state=state):
+                odd = deployment(state, uid="dpl_odd", errorMessage="fixture reason")
+                result, _ = self.run_check([
+                    ("/v6/deployments?projectId=prj_test&limit=20&target=production&state=READY",
+                     {"deployments": [LIVE]}),
+                    ("/v6/deployments?projectId=prj_test&limit=1&target=production",
+                     {"deployments": [odd]}),
+                ])
+                self.assertEqual(len(result["issues"]), 1)
+                self.assertIn("not recognised", result["issues"][0])
+                self.assertIn("feedface", result["issues"][0])
+
+    def test_deploy_state_is_normalised_from_lowercase_state_key(self):
+        canceled = deployment("canceled", uid="dpl_c", state_key="state",
+                              errorMessage="fixture reason")
+        result, _ = self.run_check([
+            ("/v6/deployments?projectId=prj_test&limit=20&target=production&state=READY",
+             {"deployments": [LIVE]}),
+            ("/v6/deployments?projectId=prj_test&limit=1&target=production",
+             {"deployments": [canceled]}),
+        ])
+        self.assertEqual(result["deploy_state"], "CANCELED")
+        self.assertEqual(len(result["issues"]), 1)
+        self.assertIn("CANCELED", result["issues"][0])
+
+    def test_old_ready_deploy_raises_the_age_issue(self):
+        old = deployment("READY", age_h=dh.MAX_DEPLOY_AGE_HOURS + 10)
+        result, calls = self.run_check([
+            ("/v6/deployments?projectId=prj_test&limit=1&target=production",
+             {"deployments": [old]}),
+        ])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(result["deploy_age_h"], float(dh.MAX_DEPLOY_AGE_HOURS + 10))
+        self.assertEqual(len(result["issues"]), 1)
+        self.assertIn(f"> {dh.MAX_DEPLOY_AGE_HOURS}h", result["issues"][0])
+
+    def test_drift_compares_app_commit_time_with_deploy_time(self):
+        ready = [("/v6/deployments?projectId=prj_test&limit=1&target=production",
+                  {"deployments": [deployment("READY", age_h=2.0)]})]
+        deploy_s = (NOW_MS - 2.0 * HOUR_MS) / 1000
+        grace_s = dh.DRIFT_GRACE_MINUTES * 60
+        # App commit made well after the deploy (beyond the grace): drift.
+        result, _ = self.run_check(ready, touch=("abcdef0123456789", deploy_s + grace_s + 60))
+        self.assertEqual(len(result["issues"]), 1)
+        self.assertIn("app commit abcdef01", result["issues"][0])
+        self.assertEqual(result["head_sha"], "abcdef01")
+        # App commit before the deploy, or within the grace: no drift.
+        for ts in (deploy_s - 60, deploy_s + grace_s - 60):
+            with self.subTest(ts=ts):
+                result, _ = self.run_check(ready, touch=("abcdef0123456789", ts))
+                self.assertEqual(result["issues"], [])
+
     def test_main_lists_blocked_under_issues_and_exits_1(self):
         blocked_result = {"name": "cambridgetcg-admin", "domain": "d",
                           "deploy_state": "BLOCKED", "deploy_age_h": 267.0,
@@ -287,7 +343,7 @@ class CheckProjectWiring(unittest.TestCase):
         report = out.getvalue()
         issues_section = report.split("Issues:", 1)[1]
         self.assertIn("BLOCKED", issues_section)
-        self.assertIn("live:", issues_section)
+        self.assertIn("newest READY:", issues_section)
 
     def test_main_without_token_exits_2_before_any_call(self):
         env = {k: v for k, v in dh.os.environ.items() if k != "VERCEL_TOKEN"}

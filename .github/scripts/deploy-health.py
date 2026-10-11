@@ -10,8 +10,9 @@ For each of the three Vercel projects:
 Exits non-zero (1) if any of:
   - latest production deploy is ERROR, BLOCKED or CANCELED, or reports a
     state this script does not recognise. The issue quotes Vercel's reason
-    (errorMessage) when present and names the sha that is actually live:
-    the last READY production deployment, which Vercel keeps serving.
+    when present and names the newest READY production deployment, which is
+    normally the one still serving. It is not after a dashboard promote /
+    Instant Rollback to an older deploy; this script does not read the alias.
   - latest production deploy is older than MAX_DEPLOY_AGE_HOURS
   - HEAD differs from latest deployed SHA AND the most recent commit
     touching that app is older than DRIFT_GRACE_MINUTES
@@ -105,8 +106,9 @@ def deployment_sha(d: dict | None) -> str:
 
 def deployment_reason(d: dict | None) -> str:
     """Vercel's explanation for a non-READY deployment, single-lined and
-    truncated; '' when the record carries none. errorMessage is what BLOCKED
-    deployments carry; readyStateReason / errorCode are older fields."""
+    truncated; '' when the record carries none. The /v6 list record carries
+    errorMessage; the /v13 single-deployment record carries readyStateReason;
+    errorCode is a last resort."""
     if not d:
         return ""
     for key in ("errorMessage", "readyStateReason", "errorCode"):
@@ -125,9 +127,10 @@ def age_hours(created_ms, now_ms: float) -> float:
 
 
 def pick_live(deployments: list) -> dict | None:
-    """First READY deployment in a newest-first list: the one Vercel keeps
-    serving while later production deploys fail. Checks the state itself, so
-    it stays correct even if the API ignored the state filter."""
+    """First READY deployment in a newest-first list: normally the one Vercel
+    keeps serving while later production deploys fail (not after an Instant
+    Rollback to an older deploy). Checks the state itself, so it stays correct
+    even if the API ignored the state filter."""
     for d in deployments or []:
         if deployment_state(d) == LIVE_STATE:
             return d
@@ -135,15 +138,15 @@ def pick_live(deployments: list) -> dict | None:
 
 
 def describe_live(live: dict | None, now_ms: float, lookup_error: str = "") -> str:
-    """One-line description of the deployment that is actually serving."""
+    """One-line description of the newest READY production deployment."""
     if lookup_error:
-        return f"unknown (live-deploy lookup failed: {lookup_error})"
+        return f"unknown (lookup failed: {lookup_error})"
     if not live:
         return ("unknown (Vercel returned no READY production deploy; "
                 "check the domain probe)")
     return (f"{live.get('uid', '?')} sha {deployment_sha(live)} "
             f"({age_hours(live.get('created'), now_ms)}h old), "
-            f"the last READY production deploy")
+            f"normally the one serving production")
 
 
 def state_issue(latest: dict, live: dict | None, now_ms: float,
@@ -152,8 +155,8 @@ def state_issue(latest: dict, live: dict | None, now_ms: float,
     it needs no alert (READY, or still in flight).
 
     For a failed or unrecognised state the text quotes Vercel's reason when
-    present and names the sha that is actually serving, so a BLOCKED deploy
-    is not mistaken for the live one."""
+    present and names the newest READY production deploy, so a BLOCKED
+    deploy is not mistaken for the one serving."""
     state = deployment_state(latest)
     kind = classify_state(state)
     if kind in ("live", "transient"):
@@ -169,7 +172,7 @@ def state_issue(latest: dict, live: dict | None, now_ms: float,
     reason = deployment_reason(latest)
     if reason:
         lines.append(f"reason: {reason}")
-    lines.append(f"live:   {describe_live(live, now_ms, lookup_error)}")
+    lines.append(f"newest READY: {describe_live(live, now_ms, lookup_error)}")
     return "\n      ".join(lines)
 
 
@@ -247,13 +250,14 @@ def check_project(p: dict) -> dict:
     out["deployed_sha"] = deployment_sha(d)
 
     # ERROR / BLOCKED / CANCELED / unrecognised: report it with Vercel's
-    # reason and the sha that is actually live. Don't alert on BUILDING /
+    # reason and the newest READY sha. Don't alert on BUILDING /
     # INITIALIZING / QUEUED — those are transient and the next hourly check
     # will catch any that get stuck.
     if classify_state(out["deploy_state"]) in ("failed", "unknown"):
         if not deployment_reason(d) and d.get("uid"):
-            # The list endpoint may omit errorMessage; the single-deployment
-            # endpoint carries it. Best effort: the issue is reported anyway.
+            # The list record normally carries errorMessage. When it has no
+            # reason, the single-deployment record may carry readyStateReason.
+            # Best effort: the issue is reported either way.
             try:
                 d = {**d, **vercel_api(f"/v13/deployments/{d['uid']}")}
             except Exception:
@@ -304,7 +308,7 @@ def main(argv: list | None = None) -> int:
         description=(
             "Report each Vercel project's latest production deploy state "
             "(ERROR / BLOCKED / CANCELED are issues, named with Vercel's reason "
-            "and the live READY sha), deploy age, SHA drift and a domain "
+            "and the newest READY sha), deploy age, SHA drift and a domain "
             "probe. Needs VERCEL_TOKEN with read access to the "
             "cambridgetcgs-projects team. Exit 0 = healthy, 1 = issues found."
         ),

@@ -12,24 +12,51 @@ on:
   schedule:
     - cron: "5 * * * *"   # hourly at :05
   workflow_dispatch:       # manual trigger from Actions UI
+  # A push on any branch that changes the health check runs the offline unit
+  # tests, so a regression shows before it reaches main. The live check job
+  # below runs on main only.
   push:
     paths:
       - ".github/workflows/health.yml"
+      - ".github/scripts/deploy-health.py"
+      - ".github/scripts/test_deploy_health.py"
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
-  check:
+  unit-tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - name: Unit-test the health script (offline)
         # Stdlib-only tests of deploy-health.py's state classification: no
         # network, no secrets. A failure means the script itself regressed.
+        # Separate job: a failure here goes red without stopping the live
+        # check and issue update in `check`.
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+
+  check:
+    # main only (cron and dispatch run on the default branch). A branch run
+    # would measure drift against an undeployed branch head and post that to
+    # the deploy-health issue.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full commit history (no file contents) so `git log -- apps/<x>`
+          # finds the commit that last touched each app. In a depth-1 clone
+          # the single commit appears to touch every path, which reports
+          # false drift whenever the head commit is newer than the deploys.
+          fetch-depth: 0
+          filter: blob:none
 
       - name: Health check
         id: check

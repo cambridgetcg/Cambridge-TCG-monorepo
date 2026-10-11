@@ -227,7 +227,7 @@ Four paths, full mechanics in [`ops-deploy-runbook.md`](./ops-deploy-runbook.md)
 
 ### Four blockers worth knowing cold
 
-1. **Committer email must be GitHub-verified.** Auto-deploy fails with "could not associate the committer with a GitHub user" otherwise. `gitForkProtection: false` does NOT bypass this (verified 2026-05-14). The reliable workaround is the gitSource API trigger — `python3 .github/scripts/deploy-from-main.py <project>` after each push. Durable fix: `git config user.email` to a verified address. See [runbook §Untrusted committer](./ops-deploy-runbook.md#untrusted-committer-the-auto-deploy-block).
+1. **Committer email must be GitHub-verified.** Auto-deploy fails with "could not associate the committer with a GitHub user" otherwise. `gitForkProtection: false` does NOT bypass this (verified 2026-05-14). The reliable workaround is the gitSource API trigger — `python3 .github/scripts/deploy-from-main.py <project>` after each push. Durable fix: `git config user.email` to a verified address. See [runbook §Untrusted committer](./ops-deploy-runbook.md#untrusted-committer-the-auto-deploy-block). *(Note added 2026-10-11: the gate checks the head commit's **author**, and since 2026-10 it shows as `BLOCKED`. The known-good author is `cambridgetcg <cambridgetcg@gmail.com>`; the gitSource trigger is now the fallback, not the routine. See the runbook's [deploy identity](./ops-deploy-runbook.md#deploy-identity-evidence-as-of-2026-10-11) and [landing recipe](./ops-deploy-runbook.md#landing-recipe-the-working-path-2026-10-11).)*
 2. **`VERCEL_TOKEN` must be long-lived.** The CLI's auto-rotated `vca_…` token returns `403 invalidToken` mid-request without warning. Generate a dedicated token at <https://vercel.com/account/tokens>, scope to team `cambridgetcgs-projects`. Three places need it: admin `.env.local`, Vercel project env, GitHub repo secret. The admin `/system/deploys` page detects rotated-CLI-token rejection and renders an actionable banner.
 3. **`vercel deploy` workspace bug.** Fixed by using the gitSource API path (`POST /v13/deployments` with `gitSource.repoId=1223740492`); never by uploading from local.
 4. **Build-time AWS init.** Modules calling `createS3ClientOrThrow()` at import time crash CI/Vercel build. Defer to first call (precedent: `apps/wholesale/src/lib/s3.ts` after commit `53dd11f`).
@@ -323,7 +323,7 @@ pushing — breakage often surfaces in only one consumer.
 
 | Symptom | First check | Full diagnosis |
 |---|---|---|
-| Auto-deploy stuck `ERROR`, "could not associate the committer" | `git config user.email` | runbook §Untrusted committer |
+| Auto-deploy stuck `BLOCKED` (older form: `ERROR`, "could not associate the committer") | Head commit's author: `git log -1 --format='%an <%ae>'` | runbook §Untrusted committer, [deploy identity](./ops-deploy-runbook.md#deploy-identity-evidence-as-of-2026-10-11) and [landing recipe](./ops-deploy-runbook.md#landing-recipe-the-working-path-2026-10-11) (pointer added 2026-10-11) |
 | `vercel deploy --prod` returns zero events | n/a — use admin button or gitSource script | runbook §Troubleshooting |
 | Wholesale build: "S3 client unavailable" | `apps/wholesale/src/lib/s3.ts` for import-time `createS3ClientOrThrow()` | runbook §Troubleshooting |
 | `/system/deploys`: "VERCEL_TOKEN was rejected" | Token is the rotating CLI `vca_…` | runbook §VERCEL_TOKEN |
