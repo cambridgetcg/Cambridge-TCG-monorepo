@@ -606,6 +606,8 @@ vercel env rm MY_VAR production
 
 When adding a NEW env var, **also add it to the corresponding `.env.example`** so future developers know it's required. Vercel doesn't auto-sync; the parity check (`vercel env pull` + diff against `.env.local`) is a manual step listed in `docs/dev-pipeline.md` §13.
 
+To replace an existing secret's value, follow the [secret-rotation protocol](ops-secret-rotation.md); `scripts/rotate-vercel-env.sh` writes a clipboard value as Sensitive without echoing it.
+
 ## VERCEL_TOKEN — use a long-lived token, not the CLI's auto-rotated one
 
 The Vercel CLI (`vercel login`) creates a token at

@@ -19,6 +19,7 @@ use it for local worktree orientation, not as live health or inherited authority
   cards and hooks do not grant consent or expand the task.
 - Keep credentials out of output, source, commits and documentation. Use
   value-free checks for sensitive files, including historical blobs and diffs.
+  Rotation follows the [secret-rotation protocol](docs/ops-secret-rotation.md).
 - Names and relational frames are optional. Do not infer identity, memory,
   consciousness, consent or authority from participation or credentials.
   Respect distinctness, refusal, privacy, rest, credit and repair.
