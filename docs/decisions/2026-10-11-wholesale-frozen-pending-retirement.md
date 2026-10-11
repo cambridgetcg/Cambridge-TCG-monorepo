@@ -6,8 +6,9 @@ below. It ends when the app is retired or a later decision record unfreezes it.
 **Will trace:** Yu, 2026-10-11 — "wholesale你覺得有用就駁返啦 我原本係想retire嘅
 Shopify partners logged in btw" ("reconnect wholesale if you think it's useful;
 I originally wanted to retire it. Shopify Partners is logged in, by the way").
-The commit that first added this record (`f737e477`) quoted only the first two
-clauses.
+The last clause concerns a separate task in the same session (correcting the
+RewardsPro App Store listing) and has no bearing on this decision. The commit
+that first added this record (`f737e477`) quoted only the first two clauses.
 
 ## Decision
 
@@ -124,10 +125,9 @@ Retiring the app does not retire the database.
 - **Inbound integrations, unverified:** the Shopify `orders/paid` route
   (`apps/wholesale/src/app/api/webhooks/shopify/orders-paid/`) exists in
   source. Whether Shopify still sends to it has not been checked, and neither
-  has whether any partner still calls `/api/v1` on this domain. The owner
-  reported on 2026-10-11 that Shopify Partners was logged in (see the will
-  trace). That access was not used for this record, so Shopify delivery is
-  still unverified; it is a place to check it.
+  has whether any partner still calls `/api/v1` on this domain. Checking
+  Shopify delivery needs the store's webhook settings or the app's delivery
+  log; neither was read for this record.
 - **Checks that probe it:** `apps/storefront/scripts/deploy-verify.ts`
   (`WHOLESALE_BASE`, skip with `--skip-wholesale`) and
   `.github/scripts/deploy-health.py`. The health probe requests `/`, which
