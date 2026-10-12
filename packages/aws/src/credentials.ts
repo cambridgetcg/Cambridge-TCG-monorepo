@@ -18,11 +18,14 @@
  *    A token source is either a Vercel production/preview deployment
  *    (`VERCEL=1`, `VERCEL_ENV` not `development`; the token arrives per request
  *    in the `x-vercel-oidc-token` header) or a `VERCEL_OIDC_TOKEN` env var
- *    (`vercel env pull` for local development, or a Vercel build).
+ *    (a Vercel build, or `vercel env pull`).
  *    `AWS_ROLE_ARN` set with NO token source is an error result, so a
  *    misconfigured runtime never silently falls back to long-lived keys.
- *    The one explicit opt-out is `AWS_OIDC_ALLOW_STATIC_FALLBACK=1`, which
- *    makes that case use step 2 instead and reports it in `notice`.
+ *    The one explicit opt-out is `AWS_OIDC_ALLOW_STATIC_FALLBACK=1`, for local
+ *    use only: it makes that case use step 2 instead and reports it in
+ *    `notice`. It is refused (still an error) whenever the process shows any
+ *    sign of a Vercel deployment (`vercelDeploymentMarkers()`), so setting it
+ *    on Vercel can never put a deployment back on long-lived keys.
  * 2. `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` → static IAM user keys.
  *    Unchanged behaviour; tcg-wholesale (frozen) and local dev rely on it.
  * 3. Otherwise → error result.
@@ -30,10 +33,13 @@
  * Errors and notices name variables and say set/missing. They never contain
  * a key, a secret, a token or the role ARN.
  *
+ * The Vercel provider package is imported only on the role path, on the first
+ * credential request, so static-key processes never load it.
+ *
  * Runbook: docs/ops-aws-oidc.md.
  */
 
-import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
+import type { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
 
 export interface AwsCredentials {
   accessKeyId: string;
@@ -43,6 +49,8 @@ export interface AwsCredentials {
 /** Lazy provider the AWS SDK calls (and memoizes) whenever it needs credentials. */
 export type AwsCredentialProvider = ReturnType<typeof awsCredentialsProvider>;
 
+type RoleProviderInit = Parameters<typeof awsCredentialsProvider>[0];
+
 export type AwsCredentialSource = "vercel-oidc-role" | "static-keys";
 
 export type AwsConfig =
@@ -50,6 +58,8 @@ export type AwsConfig =
       region: string;
       credentialSource: "vercel-oidc-role";
       credentials: AwsCredentialProvider;
+      /** Value-free warning, e.g. AWS_OIDC_ALLOW_STATIC_FALLBACK set but ignored. */
+      notice?: string;
     }
   | {
       region: string;
@@ -63,7 +73,10 @@ export type AwsConfigResult =
   | { ok: true; config: AwsConfig }
   | { ok: false; error: string };
 
-/** Env flag that lets AWS_ROLE_ARN fall back to static keys when no OIDC token source exists. */
+/**
+ * Env flag that lets AWS_ROLE_ARN fall back to static keys when no OIDC token
+ * source exists. Local use only; refused on anything that looks deployed.
+ */
 export const STATIC_FALLBACK_ENV = "AWS_OIDC_ALLOW_STATIC_FALLBACK";
 
 /**
@@ -75,6 +88,8 @@ export const STATIC_FALLBACK_ENV = "AWS_OIDC_ALLOW_STATIC_FALLBACK";
  * long (the storefront uses 300–600 s) live their full lifetime.
  */
 export const ROLE_CREDENTIAL_REFRESH_MARGIN_SECONDS = 15 * 60;
+
+const VERCEL_REQUEST_CONTEXT = Symbol.for("@vercel/request-context");
 
 function readEnv(name: string): string {
   return (process.env[name] || "").trim();
@@ -95,6 +110,33 @@ export function vercelOidcTokenSource(): "vercel-deployment" | "env-token" | nul
   }
   if (readEnv("VERCEL_OIDC_TOKEN")) return "env-token";
   return null;
+}
+
+/**
+ * Names (never values) of the signs that this process is, or carries the
+ * environment of, a deployed Vercel function. Any one of them makes
+ * `AWS_OIDC_ALLOW_STATIC_FALLBACK` a no-op, so the static-key escape hatch can
+ * only ever work in a plain local process.
+ *
+ * The markers are deliberately broader than `vercelOidcTokenSource()`: a
+ * deployment whose `VERCEL` variable is missing finds no token source, and
+ * must then fail rather than reach for long-lived keys. `vercel dev` (which
+ * sets `VERCEL_ENV=development` and `VERCEL_REGION=dev1`) is not a marker.
+ */
+export function vercelDeploymentMarkers(): string[] {
+  const markers: string[] = [];
+  const vercelEnv = readEnv("VERCEL_ENV");
+  if (vercelEnv && vercelEnv !== "development") markers.push("VERCEL_ENV");
+  const vercelRegion = readEnv("VERCEL_REGION");
+  if (vercelRegion && vercelRegion !== "dev1") markers.push("VERCEL_REGION");
+  // Vercel functions run on AWS Lambda; Vercel reserves these names.
+  if (readEnv("AWS_LAMBDA_FUNCTION_NAME")) markers.push("AWS_LAMBDA_FUNCTION_NAME");
+  // The accessor @vercel/oidc reads the per-request token header through.
+  const context = (globalThis as Record<symbol, unknown>)[VERCEL_REQUEST_CONTEXT] as
+    | { get?: unknown }
+    | undefined;
+  if (typeof context?.get === "function") markers.push("Vercel request context");
+  return markers;
 }
 
 /**
@@ -122,6 +164,26 @@ export function refreshBeforeExpiry(
       ...credentials,
       expiration: new Date(credentials.expiration.getTime() - marginSeconds * 1000),
     };
+  };
+}
+
+/**
+ * The Vercel role provider, loaded on first use. `@vercel/oidc-aws-credentials-provider`
+ * pulls in @vercel/oidc and its CLI helpers; static-key processes (tcg-wholesale,
+ * scripts, local dev) never pay for that import. A failed import is retried
+ * on the next credential request.
+ */
+function lazyVercelRoleProvider(init: RoleProviderInit): AwsCredentialProvider {
+  let provider: Promise<AwsCredentialProvider> | undefined;
+  return async (identityProperties) => {
+    provider ??= import("@vercel/oidc-aws-credentials-provider").then(
+      (module) => module.awsCredentialsProvider(init),
+      (error: unknown) => {
+        provider = undefined;
+        throw error;
+      },
+    );
+    return (await provider)(identityProperties);
   };
 }
 
@@ -153,9 +215,9 @@ function resolveStaticKeys(region: string, context: string): AwsConfigResult {
  * degrade gracefully. The `sendEmail()` graceful sender pattern pioneered
  * this approach — now every AWS client can use it.
  *
- * Role credentials are lazy: building the config makes no network call. A
- * missing request token or a trust-policy mismatch surfaces on the first AWS
- * request (send or presign), not here.
+ * Role credentials are lazy: building the config makes no network call and
+ * loads no provider code. A missing request token or a trust-policy mismatch
+ * surfaces on the first AWS request (send or presign), not here.
  *
  * @param defaultRegion — apps can pass their own default (wholesale uses eu-west-2)
  */
@@ -169,33 +231,50 @@ export function resolveAwsConfig(
     return resolveStaticKeys(region, "AWS credentials not configured");
   }
 
+  const fallbackRequested = isTruthyFlag(readEnv(STATIC_FALLBACK_ENV));
+
   if (vercelOidcTokenSource()) {
-    const provider = awsCredentialsProvider({
-      roleArn,
-      roleSessionName: roleSessionName(),
-      // 3.3.9 does not pass the calling client's region to STS; without this
-      // STS falls back to AWS_REGION or us-east-1 on its own.
-      clientConfig: { region },
-      // No `audience`: the token keeps its default team audience, which the
-      // IAM identity provider registers. No exchange call to Vercel.
-    });
+    const credentials = refreshBeforeExpiry(
+      lazyVercelRoleProvider({
+        roleArn,
+        roleSessionName: roleSessionName(),
+        // 3.3.9 does not pass the calling client's region to STS; without this
+        // STS falls back to AWS_REGION or us-east-1 on its own.
+        clientConfig: { region },
+        // No `audience`: the token keeps its default team audience, which the
+        // IAM identity provider registers. No exchange call to Vercel.
+      }),
+    );
     return {
       ok: true,
       config: {
         region,
         credentialSource: "vercel-oidc-role",
-        credentials: refreshBeforeExpiry(provider),
+        credentials,
+        ...(fallbackRequested
+          ? {
+              notice: `${STATIC_FALLBACK_ENV} is set but ignored: an OIDC token source exists, so the role is used. For a local process carrying a pulled production/preview environment, unset AWS_ROLE_ARN there to use static keys.`,
+            }
+          : {}),
       },
     };
   }
 
   const noOidcSource =
-    "AWS_ROLE_ARN is set but no Vercel OIDC token is available here (not a Vercel production/preview deployment, and VERCEL_OIDC_TOKEN is missing)";
+    "AWS_ROLE_ARN is set but no Vercel OIDC token is available here (not a Vercel production/preview deployment with VERCEL=1, and VERCEL_OIDC_TOKEN is missing)";
 
-  if (!isTruthyFlag(readEnv(STATIC_FALLBACK_ENV))) {
+  const markers = vercelDeploymentMarkers();
+  if (markers.length > 0) {
     return {
       ok: false,
-      error: `${noOidcSource} (region=${region}). Unset AWS_ROLE_ARN to use AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, run \`vercel env pull\` for a development token, or set ${STATIC_FALLBACK_ENV}=1 to fall back to static keys.`,
+      error: `${noOidcSource} (region=${region}). This process looks like a Vercel deployment (${markers.join(", ")}), so static keys are never used here${fallbackRequested ? ` and ${STATIC_FALLBACK_ENV} is ignored` : ""}. Check that Vercel system environment variables (VERCEL, VERCEL_ENV) reach the function, or unset AWS_ROLE_ARN to return to AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY.`,
+    };
+  }
+
+  if (!fallbackRequested) {
+    return {
+      ok: false,
+      error: `${noOidcSource} (region=${region}). Unset AWS_ROLE_ARN to use AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY.`,
     };
   }
 
@@ -204,7 +283,7 @@ export function resolveAwsConfig(
     `${noOidcSource}, and the ${STATIC_FALLBACK_ENV} static-key fallback has no keys`,
   );
   if (fallback.ok && fallback.config.credentialSource === "static-keys") {
-    fallback.config.notice = `${noOidcSource}; using static keys because ${STATIC_FALLBACK_ENV} is set`;
+    fallback.config.notice = `${noOidcSource}; using static keys because ${STATIC_FALLBACK_ENV} is set (local only)`;
   }
   return fallback;
 }
@@ -225,7 +304,7 @@ export function resolveAwsConfigOrThrow(defaultRegion = "us-east-1"): AwsConfig 
  * is the runtime evidence that the role path was selected.
  */
 export function logAwsClientReady(service: "S3" | "SES", config: AwsConfig): void {
-  if (config.credentialSource === "static-keys" && config.notice) {
+  if (config.notice) {
     console.warn(`[packages/aws] ${config.notice}`);
   }
   console.info(

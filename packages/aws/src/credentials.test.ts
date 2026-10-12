@@ -15,7 +15,9 @@ import {
   roleSessionName,
   ROLE_CREDENTIAL_REFRESH_MARGIN_SECONDS,
   STATIC_FALLBACK_ENV,
+  vercelDeploymentMarkers,
   vercelOidcTokenSource,
+  type AwsConfig,
 } from "./credentials";
 
 // Distinctive fake values so the "never echo values" checks are meaningful.
@@ -32,8 +34,12 @@ const ENV_NAMES = [
   "VERCEL",
   "VERCEL_ENV",
   "VERCEL_OIDC_TOKEN",
+  "VERCEL_REGION",
+  "AWS_LAMBDA_FUNCTION_NAME",
   STATIC_FALLBACK_ENV,
 ];
+
+const REQUEST_CONTEXT = Symbol.for("@vercel/request-context");
 
 function onVercel(env = "production") {
   vi.stubEnv("VERCEL", "1");
@@ -51,6 +57,14 @@ function expectValueFree(text: string) {
   }
 }
 
+/** Role configs load the provider lazily; one credential request builds it. */
+async function roleProviderInit(config: AwsConfig) {
+  if (config.credentialSource !== "vercel-oidc-role") throw new Error("expected role config");
+  await config.credentials();
+  expect(mocks.awsCredentialsProvider).toHaveBeenCalledTimes(1);
+  return mocks.awsCredentialsProvider.mock.calls[0][0];
+}
+
 beforeEach(() => {
   // Start every test from a known-empty AWS/Vercel environment.
   for (const name of ENV_NAMES) vi.stubEnv(name, "");
@@ -64,6 +78,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  delete (globalThis as Record<symbol, unknown>)[REQUEST_CONTEXT];
 });
 
 describe("static keys (no AWS_ROLE_ARN): unchanged behaviour", () => {
@@ -123,42 +138,75 @@ describe("static keys (no AWS_ROLE_ARN): unchanged behaviour", () => {
 });
 
 describe("AWS_ROLE_ARN on Vercel: role provider", () => {
-  it("builds the Vercel OIDC provider with trimmed role, session name and STS region", () => {
+  it("builds the Vercel OIDC provider with trimmed role, session name and STS region", async () => {
     onVercel("production");
     vi.stubEnv("AWS_ROLE_ARN", ` ${ROLE_ARN}\n`);
     vi.stubEnv("AWS_REGION", "us-east-1\n");
 
     const result = resolveAwsConfig();
 
-    expect(mocks.awsCredentialsProvider).toHaveBeenCalledTimes(1);
-    expect(mocks.awsCredentialsProvider).toHaveBeenCalledWith({
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.config.credentialSource).toBe("vercel-oidc-role");
+    expect(result.config.region).toBe("us-east-1");
+    expect(result.config.notice).toBeUndefined();
+    expect(typeof result.config.credentials).toBe("function");
+    // Lazy: nothing is built until the SDK first asks for credentials.
+    expect(mocks.awsCredentialsProvider).not.toHaveBeenCalled();
+
+    const init = await roleProviderInit(result.config);
+    expect(init).toEqual({
       roleArn: ROLE_ARN,
       roleSessionName: "cambridgetcg-production",
       clientConfig: { region: "us-east-1" },
     });
     // No audience: the token keeps its default team audience.
-    expect(mocks.awsCredentialsProvider.mock.calls[0][0]).not.toHaveProperty("audience");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.config.credentialSource).toBe("vercel-oidc-role");
-    expect(result.config.region).toBe("us-east-1");
-    expect(typeof result.config.credentials).toBe("function");
+    expect(init).not.toHaveProperty("audience");
   });
 
-  it("ignores static keys on the role path, including ones Vercel may inject", () => {
+  it("ignores static keys on the role path, including ones Vercel may inject", async () => {
     onVercel("preview");
     staticKeys();
     vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
 
     const result = resolveAwsConfig();
+    if (!result.ok) throw new Error(result.error);
+
+    const init = await roleProviderInit(result.config);
+    expect(init.roleSessionName).toBe("cambridgetcg-preview");
+    expect(JSON.stringify(init)).not.toContain(SECRET_KEY);
+  });
+
+  it("builds the Vercel provider once and reuses it on later credential requests", async () => {
+    onVercel();
+    vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
+    const result = resolveAwsConfig();
+    if (!result.ok || result.config.credentialSource !== "vercel-oidc-role") {
+      throw new Error("expected role config");
+    }
+
+    await result.config.credentials();
+    await result.config.credentials({ forceRefresh: true });
+
+    expect(mocks.awsCredentialsProvider).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores the static-key opt-in on a token source, and says so (pulled production env)", async () => {
+    // `vercel env pull --environment=production` may write VERCEL=1 and
+    // VERCEL_ENV=production. Env alone cannot tell that file from a real
+    // deployment, so the opt-in never wins over the role here.
+    onVercel("production");
+    staticKeys();
+    vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
+    vi.stubEnv(STATIC_FALLBACK_ENV, "1");
+
+    const result = resolveAwsConfig();
 
     expect(result.ok && result.config.credentialSource).toBe("vercel-oidc-role");
-    expect(mocks.awsCredentialsProvider.mock.calls[0][0].roleSessionName).toBe(
-      "cambridgetcg-preview",
-    );
-    expect(JSON.stringify(mocks.awsCredentialsProvider.mock.calls[0][0])).not.toContain(
-      SECRET_KEY,
-    );
+    if (!result.ok) return;
+    expect(result.config.notice).toContain(`${STATIC_FALLBACK_ENV} is set but ignored`);
+    expect(result.config.notice).toContain("unset AWS_ROLE_ARN");
+    expectValueFree(result.config.notice ?? "");
   });
 
   it("returns credentials from the Vercel provider", async () => {
@@ -176,15 +224,16 @@ describe("AWS_ROLE_ARN on Vercel: role provider", () => {
     });
   });
 
-  it("uses a pulled VERCEL_OIDC_TOKEN as a token source off Vercel", () => {
+  it("uses a pulled VERCEL_OIDC_TOKEN as a token source off Vercel", async () => {
     vi.stubEnv("VERCEL_ENV", "development");
     vi.stubEnv("VERCEL_OIDC_TOKEN", OIDC_TOKEN);
     vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
 
     const result = resolveAwsConfig();
+    if (!result.ok) throw new Error(result.error);
 
-    expect(result.ok && result.config.credentialSource).toBe("vercel-oidc-role");
-    expect(mocks.awsCredentialsProvider.mock.calls[0][0].roleSessionName).toBe(
+    expect(result.config.credentialSource).toBe("vercel-oidc-role");
+    expect((await roleProviderInit(result.config)).roleSessionName).toBe(
       "cambridgetcg-development",
     );
   });
@@ -200,9 +249,66 @@ describe("AWS_ROLE_ARN without an OIDC token source", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toContain("AWS_ROLE_ARN is set but no Vercel OIDC token is available");
-    expect(result.error).toContain(`${STATIC_FALLBACK_ENV}=1`);
+    expect(result.error).toContain("Unset AWS_ROLE_ARN");
+    // The runtime error never advertises the local-only opt-in, nor a
+    // development token the role's trust policy does not accept.
+    expect(result.error).not.toContain(STATIC_FALLBACK_ENV);
+    expect(result.error).not.toContain("vercel env pull");
     expectValueFree(result.error);
     expect(mocks.awsCredentialsProvider).not.toHaveBeenCalled();
+  });
+
+  it("errors when VERCEL_ENV says production but VERCEL is missing (no token source)", () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
+
+    expect(vercelOidcTokenSource()).toBeNull();
+    const result = resolveAwsConfig();
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain("looks like a Vercel deployment (VERCEL_ENV)");
+    expect(result.error).toContain("VERCEL, VERCEL_ENV");
+    expect(result.error).not.toContain(STATIC_FALLBACK_ENV);
+    expectValueFree(result.error);
+  });
+
+  it.each([
+    ["VERCEL_ENV=production without VERCEL", { VERCEL_ENV: "production" }, "VERCEL_ENV"],
+    ["VERCEL_ENV=preview without VERCEL", { VERCEL_ENV: "preview" }, "VERCEL_ENV"],
+    ["a deployed VERCEL_REGION", { VERCEL_REGION: "iad1" }, "VERCEL_REGION"],
+    ["an AWS Lambda host", { AWS_LAMBDA_FUNCTION_NAME: "fn" }, "AWS_LAMBDA_FUNCTION_NAME"],
+  ])("refuses the static-key opt-in on %s", (_label, env, marker) => {
+    staticKeys();
+    vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
+    vi.stubEnv(STATIC_FALLBACK_ENV, "1");
+    for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
+
+    const result = resolveAwsConfig();
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain(`looks like a Vercel deployment (${marker})`);
+    expect(result.error).toContain(`${STATIC_FALLBACK_ENV} is ignored`);
+    expectValueFree(result.error);
+  });
+
+  it("refuses the static-key opt-in inside a Vercel request context", () => {
+    staticKeys();
+    vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
+    vi.stubEnv(STATIC_FALLBACK_ENV, "1");
+    (globalThis as Record<symbol, unknown>)[REQUEST_CONTEXT] = { get: () => ({}) };
+
+    expect(vercelDeploymentMarkers()).toEqual(["Vercel request context"]);
+    expect(resolveAwsConfig().ok).toBe(false);
+  });
+
+  it("does not treat `vercel dev` (development, VERCEL_REGION=dev1) as a deployment", () => {
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "development");
+    vi.stubEnv("VERCEL_REGION", "dev1");
+
+    expect(vercelDeploymentMarkers()).toEqual([]);
   });
 
   it("does not treat local `vercel env pull` (VERCEL=1, development, no token) as a deployment", () => {
@@ -216,6 +322,9 @@ describe("AWS_ROLE_ARN without an OIDC token source", () => {
   it("uses static keys only with the explicit opt-in, and says why", () => {
     staticKeys();
     vi.stubEnv("AWS_ROLE_ARN", ROLE_ARN);
+    // A plain local process; `vercel env pull` (development) adds these.
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "development");
     vi.stubEnv(STATIC_FALLBACK_ENV, " true\n");
 
     const result = resolveAwsConfig();

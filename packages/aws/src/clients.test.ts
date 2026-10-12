@@ -21,6 +21,8 @@ beforeEach(() => {
     "VERCEL",
     "VERCEL_ENV",
     "VERCEL_OIDC_TOKEN",
+    "VERCEL_REGION",
+    "AWS_LAMBDA_FUNCTION_NAME",
     "AWS_OIDC_ALLOW_STATIC_FALLBACK",
   ]) {
     vi.stubEnv(name, "");
@@ -42,6 +44,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
@@ -160,5 +163,57 @@ describe("AWS_ROLE_ARN without a token source", () => {
     const warn = logged(vi.mocked(console.warn));
     expect(warn).toContain("using static keys because AWS_OIDC_ALLOW_STATIC_FALLBACK is set");
     expect(warn).not.toContain(STATIC_SECRET);
+  });
+});
+
+describe("role credential refresh timing on a real S3Client", () => {
+  // Longest presigned URL the storefront signs (packages/aws default upload).
+  const MAX_PRESIGN_SECONDS = 600;
+  const SESSION_SECONDS = 3600;
+
+  it("never signs with a session that would end before a 600 s URL expires", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const start = new Date("2026-10-12T12:00:00Z").getTime();
+    vi.setSystemTime(start);
+
+    // Each STS answer is a fresh one-hour session from "now"; remember when
+    // each one really ends so the test can check what the SDK hands out.
+    const realExpiry = new Map<string, number>();
+    mocks.roleProvider.mockImplementation(async () => {
+      const accessKeyId = `ASIAROLEKEY${realExpiry.size}`;
+      const expiration = new Date(Date.now() + SESSION_SECONDS * 1000);
+      realExpiry.set(accessKeyId, expiration.getTime());
+      return {
+        accessKeyId,
+        secretAccessKey: "role-secret",
+        sessionToken: "role-session-token",
+        expiration,
+      };
+    });
+    useRole();
+    const { createS3Client } = await import("./s3");
+    const client = createS3Client()!;
+
+    // Walk two sessions minute by minute, as warm-instance presigns would.
+    for (let minute = 0; minute <= 120; minute += 1) {
+      vi.setSystemTime(start + minute * 60_000);
+      const credentials = await client.config.credentials();
+      const secondsLeft = (realExpiry.get(credentials.accessKeyId)! - Date.now()) / 1000;
+      expect(secondsLeft, `minute ${minute}`).toBeGreaterThanOrEqual(MAX_PRESIGN_SECONDS);
+    }
+
+    // The exact boundary: 15 min margin + the SDK's own 5 min window means
+    // cached credentials are used until 20 min of session remain.
+    mocks.roleProvider.mockClear();
+    realExpiry.clear();
+    vi.setSystemTime(start + 200 * 60_000);
+    const fresh = createS3Client({ fresh: true })!;
+    await fresh.config.credentials();
+    vi.setSystemTime(start + 239 * 60_000);
+    await fresh.config.credentials();
+    expect(mocks.roleProvider).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(start + 241 * 60_000);
+    await fresh.config.credentials();
+    expect(mocks.roleProvider).toHaveBeenCalledTimes(2);
   });
 });

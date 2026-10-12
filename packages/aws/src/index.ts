@@ -18,6 +18,7 @@ export {
   resolveAwsConfig,
   resolveAwsConfigOrThrow,
   vercelOidcTokenSource,
+  vercelDeploymentMarkers,
   ROLE_CREDENTIAL_REFRESH_MARGIN_SECONDS,
   STATIC_FALLBACK_ENV,
   type AwsCredentials,

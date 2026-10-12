@@ -61,15 +61,19 @@ if (result.ok) {
 | `AWS_ACCESS_KEY_ID` | Without a role | IAM access key |
 | `AWS_SECRET_ACCESS_KEY` | Without a role | IAM secret key |
 | `AWS_REGION` | No | Region override (default: `us-east-1`); also the STS region for the role |
-| `AWS_OIDC_ALLOW_STATIC_FALLBACK` | No | `1` lets `AWS_ROLE_ARN` fall back to static keys when no OIDC token source exists (local only; never set on Vercel) |
+| `AWS_OIDC_ALLOW_STATIC_FALLBACK` | No | Local only. `1` lets `AWS_ROLE_ARN` fall back to static keys when no OIDC token source exists. Refused (error) whenever the process shows a Vercel deployment marker (`VERCEL_ENV` other than `development`, a deployed `VERCEL_REGION`, `AWS_LAMBDA_FUNCTION_NAME`, or the Vercel request context), and ignored with a warning when a token source exists. Never set it on Vercel |
 
 Credential precedence (`resolveAwsConfig`):
 
-1. `AWS_ROLE_ARN` + an OIDC token source (Vercel production/preview deployment, or `VERCEL_OIDC_TOKEN` from `vercel env pull`) → `@vercel/oidc-aws-credentials-provider` assumes the role. Static keys are ignored.
+1. `AWS_ROLE_ARN` + an OIDC token source (Vercel production/preview deployment with `VERCEL=1`, or a `VERCEL_OIDC_TOKEN` env var) → `@vercel/oidc-aws-credentials-provider` assumes the role. Static keys are ignored. The provider package is imported on the first credential request, so static-key processes never load it.
 2. `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` → static keys (tcg-wholesale, local dev).
 3. Otherwise an error result; nullable factories return `null`.
 
-`AWS_ROLE_ARN` with no token source is an error, not a silent fallback to static keys, unless `AWS_OIDC_ALLOW_STATIC_FALLBACK=1`. Each new client logs, without values, which source it uses, e.g. `[packages/aws] S3 client ready (credentials=vercel-oidc-role, region=us-east-1)`.
+`AWS_ROLE_ARN` with no token source is an error, not a silent fallback to static keys. Locally, and only locally, `AWS_OIDC_ALLOW_STATIC_FALLBACK=1` turns that case into static keys; on anything that looks deployed it stays an error. To run locally against static keys with an environment that carries `AWS_ROLE_ARN` (for example a pulled production env file), unset `AWS_ROLE_ARN` in that process.
+
+A development token from `vercel env pull` is a token source, but the storefront role's trust policy accepts only the production `sub`, so it cannot assume that role (see the runbook).
+
+Each new client logs, without values, which source it uses, e.g. `[packages/aws] S3 client ready (credentials=vercel-oidc-role, region=us-east-1)`; this line is also logged on the static-key path.
 
 Tests: `pnpm --filter @cambridge-tcg/aws test`.
 
