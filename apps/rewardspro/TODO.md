@@ -29,6 +29,15 @@ _Judy demo preparation + product quality. Updated: 2026-03-20_
 
 ---
 
+## 🟣 Infrastructure — AWS (rebuild later)
+
+### INFRA-002: New AWS home for RewardsPro (future)
+- **Status (2026-10-13):** the old RewardsPro AWS account (eu-north-1: Aurora `rewardspro-dev`, the Lambdas, SES and IAM user `rewardspro-prod-vercel-service`) has been deleted. RewardsPro uses no AWS today.
+- **History:** the IAM keys, Aurora password and Lambda secrets visible in this repo's history (and in rewardspro-production / rewardspro-shopify) died with that account, so they need no rotation.
+- **When reviving:** start a fresh AWS account (or use the Cambridge TCG one); give Vercel short-lived access through OIDC rather than long-term IAM keys; keep Terraform state in a remote backend and never commit `tfplan`/`tfstate` (the old plan file carried live secrets); generate new database, cron and internal-API secrets and store them only in Vercel / Secrets Manager.
+
+---
+
 ## 🟡 Demo Readiness
 
 ### ✅ DEMO-001: E2E test suite for P0 routes (DONE — 2026-03-22)
