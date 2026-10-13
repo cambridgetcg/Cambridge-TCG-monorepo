@@ -86,8 +86,8 @@
       "path": "packages/email", "group": "packages", "label": "Email delivery seam",
       "purpose": "Route named email streams through SES, SMTP or the development console transport.",
       "scope": "Delivery adapter with per-stream configuration. Configuration presence does not prove delivery or a completed mail migration.",
-      "progress": "Transport implementations and a result-based sendMail interface are present; the existing runbook records the staged email migration.",
-      "next": "Keep login mail and other streams separately reversible; inspect the migration phase and delivery evidence before a cutover.",
+      "progress": "Transport implementations and a result-based sendMail interface are present. SES is the carrier; the self-hosted mail migration was retired 2026-10-13, and docs/ops-email-selfhost.md is now a retirement note.",
+      "next": "Keep login mail and other streams separately reversible; check delivery evidence before changing any stream's carrier.",
       "evidence": ["packages/email/src/index.ts", "packages/email/src/types.ts", "docs/ops-email-selfhost.md"]
     },
     {

@@ -39,7 +39,7 @@ Read each runbook's prerequisites and scope before acting. Configuration descrip
 - [Image-reference verification](./operations/2026-09-29-image-references.md) — September 29 shared media projection, consumer labels and image-schema checks.
 - [Practice-media verification](./operations/2026-09-29-practice-media.md) — September 29 starter-to-board attribution, optional loading and card inspection.
 - [Cloudflare](./ops-cloudflare.md) — zone configuration and public access posture; includes the June 2026 audit.
-- [Email migration](./ops-email-selfhost.md) — SES to self-hosted mail: provisioning, DNS, warmup and cutover; check the recorded phase before use.
+- [Self-hosted email (retired)](./ops-email-selfhost.md) — retired 2026-10-13: the self-hosted mail box is gone; transactional mail stays on SES and human mail on Google Workspace. The old runbook is in git history.
 
 ## Agent work and project culture
 

@@ -214,10 +214,10 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendResult> {
   }
 
   // Delivery rides the platform's transport seam (@cambridge-tcg/email):
-  // SES today, the kingdom's own mail server stream-by-stream as
-  // deliverability proves out. EMAIL_TRANSPORT_<STREAM> flips one stream;
-  // docs/ops-email-selfhost.md owns the cutover sequence. The seam keeps
-  // custom headers (List-Unsubscribe et al.) working on every transport.
+  // AWS SES is the carrier (the self-hosted mail server plan was retired
+  // in 2026-10). EMAIL_TRANSPORT_<STREAM> selects the transport for one
+  // stream. The seam keeps custom headers (List-Unsubscribe et al.)
+  // working on every transport.
   const headers = oneClickUrl
     ? {
         // RFC 8058: the Post header tells Gmail/Apple they can POST to the URL

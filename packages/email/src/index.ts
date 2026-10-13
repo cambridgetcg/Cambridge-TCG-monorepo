@@ -6,12 +6,13 @@
 //
 // ── Why a seam ───────────────────────────────────────────────────────────
 //
-// The platform is moving email delivery from AWS SES onto self-hosted
-// infrastructure. A magic link IS the login, so that move cannot be a
-// big-bang swap: each sender stream cuts over independently, proves its
-// deliverability, and can fall back with one env flip. The seam is the
-// env contract below; nothing else in the codebase knows which wire a
-// message rides.
+// AWS SES is the transactional carrier. The seam was built for a staged
+// move onto a self-hosted mail server; that plan was retired in 2026-10
+// and the server is gone. The seam stays because a magic link IS the
+// login: any change of carrier has to move one sender stream at a time,
+// prove its deliverability, and fall back with one env flip. The seam is
+// the env contract below; nothing else in the codebase knows which wire
+// a message rides.
 //
 // ── The env contract ─────────────────────────────────────────────────────
 //
@@ -22,8 +23,6 @@
 //   EMAIL_TRANSPORT_TRADEIN    (magic links are login-critical) and the
 //   EMAIL_TRANSPORT_BOUNTY     FIRST one flipped back if deliverability dips.
 //   SMTP_URL                   submission endpoint for the smtp transport
-//
-// Cutover sequence and DNS prerequisites: docs/ops-email-selfhost.md.
 //
 // ── Degradation ──────────────────────────────────────────────────────────
 //
