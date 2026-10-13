@@ -12,11 +12,11 @@ Route named email streams through SES, SMTP or the development console transport
 
 ## Progress
 
-Source review recorded **2026-09-28**. Transport implementations and a result-based sendMail interface are present; the existing runbook records the staged email migration.
+Source review recorded **2026-09-28**. Transport implementations and a result-based sendMail interface are present. SES is the carrier; the self-hosted mail migration was retired 2026-10-13, and docs/ops-email-selfhost.md is now a retirement note.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
-**Next review:** Keep login mail and other streams separately reversible; inspect the migration phase and delivery evidence before a cutover.
+**Next review:** Keep login mail and other streams separately reversible; check delivery evidence before changing any stream's carrier.
 
 ## Evidence and entry points
 

@@ -1,11 +1,14 @@
-// SMTP transport — our own infrastructure.
+// SMTP transport — a generic submission client.
 //
-// Speaks SMTP submission (port 465/587 with auth) to whatever box
-// SMTP_URL names — in production, the kingdom's own mail server. The
-// URL form keeps the package ignorant of which server software runs
-// there; any RFC-compliant submission endpoint works.
+// Speaks SMTP submission (port 465/587 with auth) to whatever server
+// SMTP_URL names. AWS SES is the production carrier; the self-hosted
+// mail server this leg was first built for was retired in 2026-10, so
+// this transport stays inert unless a stream is set to "smtp" and
+// SMTP_URL is set. The URL form keeps the package ignorant of which
+// server software runs there; any RFC-compliant submission endpoint
+// works.
 //
-//   SMTP_URL=smtps://noreply%40cambridgetcg.com:<password>@mail.cambridgetcg.com:465
+//   SMTP_URL=smtps://user:pass@smtp.example:465
 //
 // Vercel note: outbound SMTP on 465/587 is permitted from functions
 // (only port 25 is blocked, and submission never uses 25). Every env

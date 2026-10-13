@@ -12,7 +12,7 @@ challenges); re-verify after any security-feature change.
 cambridgetcg.com, www  ──(proxied: Cloudflare → Vercel)──  storefront
 admin.cambridgetcg.com ──(DNS-only → Vercel)────────────  admin realm
 prices.cambridgetcg.com──(proxied → Cloudflare Pages)───  price explorer
-mail.cambridgetcg.com  ──(DNS-only → Hetzner box)───────  Stalwart (never proxy mail hosts)
+mail.cambridgetcg.com  ──(MX 10 → SES feedback-smtp)────  SES custom MAIL FROM (no A/AAAA; old mail box retired 2026-10-13)
 apex MX                ──(Google Workspace)─────────────  human inboxes (until/if ever moved)
 ```
 
@@ -43,6 +43,8 @@ of admin ever matters.
 
 ## Fixed 2026-06-10 (live changes, via API)
 
+> 2026-10-13: the self-hosted mail box these rows mention is gone; see [Retired mail box](#retired-mail-box-dns-removal-2026-10-13) for what replaces them.
+
 | What | Was | Now |
 |---|---|---|
 | apex SPF | PERMERROR (dead Shopify `_spfm` include) + Google never authorized | `v=spf1 include:_spf.google.com include:amazonses.com a:mail.cambridgetcg.com ~all` |
@@ -60,28 +62,40 @@ of admin ever matters.
    SPF now fixed, Workspace mail passes SPF again, but DKIM should exist
    too (Admin console → Gmail → Authenticate email → generate; then the
    TXT goes in via API).
-2. **SES custom MAIL FROM** still rides `mail.cambridgetcg.com` (shared
-   with the box). At leisure, move it in the SES console to
-   `bounce.cambridgetcg.com` (+ its MX/SPF records); mandatory before the
-   final SES retirement.
+2. **SES custom MAIL FROM** rides `mail.cambridgetcg.com` (MX 10
+   `feedback-smtp.us-east-1.amazonses.com`). Since the self-hosted mail
+   box was retired, the name is no longer shared, so it can stay where it
+   is; keep that MX and the `mail.` SPF while SES uses them.
 3. **Token hygiene** — keychain `cloudflare-dns-token` (expires
    2026-08-11) actually carries worker/r2/member/org edit scopes. Roll it
    for a true DNS-only token when convenient.
 4. **Confirm Bot toggles OFF** in dashboard (Security → Bots) — one look,
    or mint a token with Bot Management:Read for API confirmation.
 
-## Coupled to the mail cutover (do NOT do early)
+## Retired mail box: DNS removal (2026-10-13)
 
-- Flip `mail.` MX priorities (box → 10, SES → 20, then delete SES's).
-- Publish `_mta-sts` TXT + `_smtp._tls` TLSRPT only when apex MX policy
-  questions are settled — the live MTA-STS policy file names only the
-  box, which contradicts Google apex MX; publishing the TXT in enforce
-  mode early would make compliant senders refuse Google delivery.
-- Remove the three SES DKIM CNAMEs + `include:amazonses.com` from both
-  SPFs after the last stream leaves SES (+2-week grace).
+The self-hosted Stalwart mail box on Hetzner that `mail.cambridgetcg.com`
+pointed at was released around September 2026, and its IP address now
+belongs to someone else. The mail cutover this section used to stage
+will not happen: human mail stays on Google Workspace and transactional
+mail stays on AWS SES. Yu is applying these changes in the Cloudflare
+dashboard:
+
+| Record | Change |
+|---|---|
+| A + AAAA for `mail`, `autoconfig`, `autodiscover`, `mta-sts`, `ua-auto-config` | delete |
+| `mail.` MX 20 `mail.cambridgetcg.com` (the box) | delete; keep MX 10 `feedback-smtp.us-east-1.amazonses.com` (SES MAIL FROM) |
+| `mail.` SPF TXT | `v=spf1 include:amazonses.com ~all` |
+| apex SPF TXT | `v=spf1 include:_spf.google.com include:amazonses.com ~all` |
+| DKIM TXT `v1-ed25519-20260610._domainkey`, `v1-rsa-20260610._domainkey` (Stalwart keys) | delete |
+
+The earlier steps here (flip the `mail.` MX to the box, publish MTA-STS
+for a policy that named only the box) pointed at the released box; do
+not follow them from git history. Keep the three SES DKIM CNAMEs and
+`include:amazonses.com` in both SPFs while SES carries transactional
+mail.
 
 ## DNSSEC
 
-Off. Nice-to-have after the mail dust settles (needs DS record at the
-registrar); enables DANE/TLSA for the mail box, which Stalwart already
-suggests records for.
+Off. Nice-to-have once the mail-box records above are gone (needs a DS
+record at the registrar).
