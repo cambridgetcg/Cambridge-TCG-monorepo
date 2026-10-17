@@ -325,6 +325,7 @@ export default function Nav({
             {!toggle.hidden && (
               <a
                 href={toggle.href}
+                rel="nofollow"
                 onClick={flipLights}
                 aria-label={toggle.label}
                 title={toggle.label}
@@ -514,6 +515,7 @@ export default function Nav({
                 {!toggle.hidden ? (
                   <a
                     href={toggle.href}
+                    rel="nofollow"
                     onClick={flipLights}
                     className="flex items-center gap-2 rounded-md px-2 py-3 text-sm text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
