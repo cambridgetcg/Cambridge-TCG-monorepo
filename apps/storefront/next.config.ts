@@ -74,6 +74,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // ── One public host ───────────────────────────────────────────────────
+  // AUTH_URL and NEXT_PUBLIC_SITE_URL both name https://cambridgetcg.com,
+  // but www and the production .vercel.app alias also answered 200, so
+  // crawlers fetched every page two or three times (2026-10-17: www
+  // ~212k and the alias ~13k requests a day beside the apex's ~221k).
+  // Pages on those hosts redirect to the apex. /api and /_next stay
+  // reachable on every host so webhooks, OAuth callbacks and already
+  // open tabs keep working. Preview deployment URLs are untouched.
+  // Next.js compiles these into Vercel routing rules, so a redirect does
+  // not invoke a function.
+  async redirects() {
+    return ["www.cambridgetcg.com", "cambridgetcg-storefront.vercel.app"].map((host) => ({
+      source: "/:path((?!api(?:/|$)|_next/).*)",
+      has: [{ type: "host" as const, value: host }],
+      destination: "https://cambridgetcg.com/:path",
+      permanent: true,
+    }));
+  },
   images: {
     // Security boundary (2026-08-25): Next 16.2.11 currently resolves Sharp
     // 0.34.5, whose untrusted-image decoder path is under an upstream high

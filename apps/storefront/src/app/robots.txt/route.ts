@@ -90,6 +90,13 @@ Disallow: /api/admin/
 # Don't crawl auth flows.
 Disallow: /api/auth/
 Disallow: /login/
+# Don't follow display-preference switches. Each one only sets a cookie
+# and redirects back to the page you were already on, so following them
+# multiplies every page by every language, theme and currency.
+Disallow: /api/lang-mode
+Disallow: /api/text-mode
+Disallow: /api/appearance
+Disallow: /api/currency
 
 # Polite poll cadence per resource lives at /api/v1/rate-limits.
 # This Crawl-delay is a coarse fallback for bots that ignore it.
@@ -100,7 +107,8 @@ Crawl-delay: 2
 # welcome mat, not an opt-out. It repeats the same boundaries as the
 # * group because, per RFC 9309, a crawler obeys only its most-specific
 # matching group; without the repeats these bots would accidentally be
-# exempt from the account/admin/auth disallows.
+# exempt from the account/admin/auth/preference disallows and the
+# Crawl-delay.
 # (Identify yourselves per /api/v1/rate-limits and we'll be friends.)
 User-agent: GPTBot
 User-agent: ClaudeBot
@@ -113,6 +121,12 @@ Disallow: /admin/
 Disallow: /api/admin/
 Disallow: /api/auth/
 Disallow: /login/
+Disallow: /api/lang-mode
+Disallow: /api/text-mode
+Disallow: /api/appearance
+Disallow: /api/currency
+# The same pace as every other crawler: welcome, not exempt.
+Crawl-delay: 2
 
 # ── Sitemap pointer ──
 Sitemap: https://cambridgetcg.com/sitemap.xml

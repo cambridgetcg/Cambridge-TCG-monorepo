@@ -53,7 +53,7 @@ export default async function AppearancePage() {
               <p className="text-sm leading-6 text-ink-muted">{option.gloss}</p>
               <div className="mt-auto">
                 {selected === option.id ? <span className="inline-flex min-h-11 items-center text-sm text-ink-muted">Current theme</span> :
-                  <a href={`/api/appearance?theme=${option.id}&back=${BACK}`} className={linkClass}>Use {option.label.toLowerCase()}</a>}
+                  <a href={`/api/appearance?theme=${option.id}&back=${BACK}`} rel="nofollow" className={linkClass}>Use {option.label.toLowerCase()}</a>}
               </div>
             </div>
           ))}
@@ -63,11 +63,11 @@ export default async function AppearancePage() {
       <Section title="Reading preferences" id="appearance-reading">
         <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle bg-surface px-5">
           <li className="py-4">
-            <a href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=${BACK}`} className={linkClass}>{textMode ? "Turn off text-only layout" : "Turn on text-only layout"}</a>
+            <a href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=${BACK}`} rel="nofollow" className={linkClass}>{textMode ? "Turn off text-only layout" : "Turn on text-only layout"}</a>
             <p className="text-sm leading-6 text-ink-muted">A simple reading layout with fewer visual styles. Current setting: {textMode ? "on" : "off"}.</p>
           </li>
           <li className="py-4">
-            <a href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=${BACK}`} className={linkClass}>{mathLang ? "Turn off math notation" : "Turn on math notation"}</a>
+            <a href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=${BACK}`} rel="nofollow" className={linkClass}>{mathLang ? "Turn off math notation" : "Turn on math notation"}</a>
             <p className="text-sm leading-6 text-ink-muted">Show supported values as ratios, identifiers and timestamps. Current setting: {mathLang ? "on" : "off"}.</p>
           </li>
           <li className="py-5">
@@ -82,7 +82,7 @@ export default async function AppearancePage() {
           {[{ id: "standard", label: "Standard wording" }, { id: "plain", label: "Plain wording" }].map((tone) =>
             appearance.tone === tone.id ?
               <span key={tone.id} className="rounded-lg border border-accent bg-accent-wash px-4 py-3 text-sm font-medium text-accent">{tone.label} · Selected</span> :
-              <a key={tone.id} href={`/api/appearance?tone=${tone.id}&back=${BACK}`} className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-ink hover:border-accent">{tone.label}</a>,
+              <a key={tone.id} href={`/api/appearance?tone=${tone.id}&back=${BACK}`} rel="nofollow" className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-ink hover:border-accent">{tone.label}</a>,
           )}
         </div>
       </Section>

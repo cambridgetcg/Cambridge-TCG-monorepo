@@ -33,6 +33,15 @@ describe.each(UI_LANGS)("FooterToggles — $lang", ({ lang }) => {
   });
 });
 
+describe("FooterToggles crawl hints", () => {
+  it("marks every preference switch nofollow so crawlers skip cookie-only redirects", () => {
+    const markup = renderToStaticMarkup(<FooterToggles mathLang={false} textMode={false} />);
+    const switches = [...markup.matchAll(/<a\b[^>]*>/g)].map(([tag]) => tag).filter((tag) => tag.includes('href="/api/'));
+    expect(switches).toHaveLength(6);
+    for (const tag of switches) expect(tag).toContain('rel="nofollow"');
+  });
+});
+
 describe("FooterToggles return paths", () => {
   it("defaults to English and falls back to home while pathname is unavailable", () => {
     location.pathname = null;
