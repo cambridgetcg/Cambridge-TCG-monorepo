@@ -80,6 +80,10 @@ const ROBOTS_BODY = `# Cambridge TCG — crawl etiquette
 User-agent: *
 # Allow most of the site, including the API surface.
 Allow: /
+# Content signals (https://contentsignals.org): this site's own pages are
+# welcome in search, in AI answers and in AI training. Third-party source
+# data keeps its own terms; see Rights above and _meta.source_license.
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 
 # Don't crawl per-user account pages (require auth anyway).
 Disallow: /account/
@@ -115,6 +119,7 @@ User-agent: ClaudeBot
 User-agent: PerplexityBot
 User-agent: CCBot
 Allow: /
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Disallow: /account/
 Disallow: /api/account/
 Disallow: /admin/

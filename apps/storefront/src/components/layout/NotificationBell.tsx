@@ -210,7 +210,7 @@ export default function NotificationBell() {
                   return (
                     <li key={n.id}>
                       {n.link_url ? (
-                        <Link href={n.link_url} onClick={() => handleClick(n)}>
+                        <Link href={n.link_url} prefetch={false} onClick={() => handleClick(n)}>
                           {row}
                         </Link>
                       ) : (
@@ -228,6 +228,7 @@ export default function NotificationBell() {
           <div className="border-t border-border-subtle px-4 py-2 text-center">
             <Link
               href="/account/notifications"
+              prefetch={false}
               onClick={() => setOpen(false)}
               className="text-xs text-accent hover:text-accent-strong transition"
             >
