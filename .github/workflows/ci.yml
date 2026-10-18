@@ -12,6 +12,9 @@ concurrency:
 
 permissions:
   contents: read
+  # dorny/paths-filter lists a pull request's files through the API; without
+  # this the detect job fails with "Resource not accessible by integration".
+  pull-requests: read
 
 jobs:
   detect:
