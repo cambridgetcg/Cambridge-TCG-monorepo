@@ -16,7 +16,7 @@ settlement, cancellation, refunds and support. See the
 - Next.js 16.2.11 (App Router, Turbopack), React 19.2.4, TypeScript and Tailwind CSS 4; use the installed Next.js docs before editing framework code.
 - PostgreSQL through shared `@cambridge-tcg/db` helpers; connection configuration belongs to the selected development or deployment environment.
 - Stripe for preserved agreements, settlement and signed webhook processing; new checkout admission stays retired.
-- Transactional email via `@cambridge-tcg/email`, with SES or SMTP selected per stream (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`); deployment state is separate from configuration. See the [email migration runbook](../../docs/ops-email-selfhost.md).
+- Transactional email via `@cambridge-tcg/email`; AWS SES is the carrier, and the seam selects a transport per stream (`EMAIL_TRANSPORT`, `EMAIL_TRANSPORT_<STREAM>`); deployment state is separate from configuration. The self-hosted mail plan was retired 2026-10-13 ([note](../../docs/ops-email-selfhost.md)).
 - next-auth v5 (email magic links, optional Google and GitHub OAuth)
 - Vercel deployment configuration targets cambridgetcg.com; source and config alone do not verify the live revision.
 - Legacy wholesale catalog access is in `src/lib/wholesale/client.ts`, with direct-database fallbacks in `src/lib/wholesale/db-source.ts`. Keep the returned source labels and `src/lib/public-wholesale-fields.ts` publication policy: available credentials or stored prices do not establish publication rights. Shared pricing calculations live in `@cambridge-tcg/pricing`.

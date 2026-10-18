@@ -120,6 +120,7 @@ export function CurrencySelector({
             <Link
               key={code}
               href={`/api/currency?code=${code}&back=${encodeURIComponent(back)}`}
+              rel="nofollow"
               role="radio"
               aria-checked={isSelected}
               prefetch={false}

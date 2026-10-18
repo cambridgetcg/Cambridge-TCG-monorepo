@@ -2,8 +2,8 @@
 //
 // Rides the platform transport seam (@cambridge-tcg/email) under the
 // "auth" stream. Auth mail is login-critical — a spam-foldered magic
-// link is a locked-out user — so this stream cuts over to new
-// infrastructure LAST and falls back FIRST (EMAIL_TRANSPORT_AUTH).
+// link is a locked-out user — so if the carrier ever changes, this
+// stream moves LAST and falls back FIRST (EMAIL_TRANSPORT_AUTH).
 
 import { sendMail } from "@cambridge-tcg/email";
 import { reserveMagicLinkForDelivery } from "./adapter";

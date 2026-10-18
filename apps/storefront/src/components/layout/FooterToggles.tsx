@@ -42,6 +42,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
         <a
           key={l.lang}
           href={`/api/lang-mode?mode=${l.lang === "en" ? "default" : l.lang}&back=${back}`}
+          rel="nofollow"
           className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
         >
           <span lang={l.lang}>{l.label}</span>
@@ -49,6 +50,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
       ))}
       <a
         href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=${back}`}
+        rel="nofollow"
         className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
         aria-label={
           mathLang
@@ -60,6 +62,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
       </a>
       <a
         href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=${back}`}
+        rel="nofollow"
         className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
         aria-label={
           textMode
