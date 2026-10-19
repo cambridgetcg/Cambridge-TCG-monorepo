@@ -87,6 +87,46 @@ function toShopCurrency(
 }
 
 /**
+ * The share of `cashback` that a refund of `applied` takes back from an order
+ * of `totalPrice`: all of it when the refund completes the order.
+ */
+function refundShare(cashback: Prisma.Decimal, applied: Prisma.Decimal, totalPrice: Prisma.Decimal, completesOrder: boolean): Prisma.Decimal {
+  if (completesOrder || totalPrice.lte(0)) return cashback;
+  return cashback.times(applied).dividedBy(totalPrice).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
+}
+
+export interface RecordedRefundReversal {
+  refundId: string;
+  shopifyRefundId: string;
+  amount: Prisma.Decimal;
+}
+
+/**
+ * What the refunds recorded on an order before its cashback entry existed
+ * take back from the `earned` cashback, for orders/paid recording the entry
+ * after them. Each refund, in order, reverses what recordRefund would have
+ * taken from a pending entry: its share of `earned`, or whatever is left
+ * when it completes the order.
+ */
+export function reverseRecordedRefunds(
+  earned: Prisma.Decimal,
+  totalPrice: Prisma.Decimal,
+  refunds: Array<{ id: string; shopifyRefundId: string; amount: Prisma.Decimal }>,
+): { remaining: Prisma.Decimal; reversals: RecordedRefundReversal[] } {
+  let refunded = ZERO;
+  let remaining = earned;
+  const reversals: RecordedRefundReversal[] = [];
+  for (const refund of refunds) {
+    refunded = refunded.plus(refund.amount);
+    const completesOrder = totalPrice.gt(0) && refunded.gte(totalPrice);
+    const amount = completesOrder ? remaining : Prisma.Decimal.min(remaining, refundShare(earned, refund.amount, totalPrice, completesOrder));
+    remaining = remaining.minus(amount);
+    reversals.push({ refundId: refund.id, shopifyRefundId: refund.shopifyRefundId, amount });
+  }
+  return { remaining, reversals };
+}
+
+/**
  * Record a Shopify refund against its order and reverse the refunded share of
  * the order's cashback (see the module comment). Runs in one transaction that
  * holds the cashback entry's and the order's row locks, so the reconciliation
@@ -109,9 +149,10 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
     const cashbackRef = cashbackRefs[0] ?? null;
     if (cashbackRef) await lockLedgerEntry(tx, cashbackRef.id);
     await lockOrder(tx, orderRef.id);
-    // An entry recorded since the lookup (orders/paid committing while this
-    // refund waited for the order) is not locked, so the cron could issue it
-    // mid-refund. Shopify redelivers on 5xx, and the next attempt locks it.
+    // An entry recorded since the lookup (orders/paid records it under the
+    // order's lock, so while this refund waited for it) is not locked, so the
+    // cron could issue it mid-refund. Shopify redelivers on 5xx, and the next
+    // attempt locks it.
     const recordedSince = await tx.storeCreditLedger.findFirst({
       where: { ...cashbackWhere, id: { notIn: cashbackRefs.map((ref) => ref.id) } },
       select: { id: true },
@@ -143,10 +184,7 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
     const refundedAfter = Prisma.Decimal.min(order.totalPrice, refundedBefore.plus(toShopCurrency(input.amount, input.currency, order)));
     const applied = refundedAfter.minus(refundedBefore);
     const completesOrder = order.totalPrice.gt(0) && refundedAfter.gte(order.totalPrice);
-    const share = (amount: Prisma.Decimal) =>
-      completesOrder || order.totalPrice.lte(0)
-        ? amount
-        : amount.times(applied).dividedBy(order.totalPrice).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
+    const share = (amount: Prisma.Decimal) => refundShare(amount, applied, order.totalPrice, completesOrder);
 
     const refund = await tx.orderRefund.create({
       data: {

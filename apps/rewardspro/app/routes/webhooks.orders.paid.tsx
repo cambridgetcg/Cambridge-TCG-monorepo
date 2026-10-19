@@ -30,7 +30,9 @@ import { SentryService } from "../services/monitoring/sentry.service";
 import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
 import { getPlanOrderLimit } from "../constants/billing.constants";
 import { incrementMonthlyOrderCount } from "../utils/order-count.server";
-import { claimLedgerEntry, isAutoCashbackEnabled, markUnconfirmed } from "../services/cashback-ledger.server";
+import { claimLedgerEntry, isAutoCashbackEnabled, lockOrder, markUnconfirmed } from "../services/cashback-ledger.server";
+import { reverseRecordedRefunds } from "../services/refund-handler.server";
+import { jsonObject } from "../utils/json-object";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'node:crypto';
@@ -979,194 +981,216 @@ async function recordCashback(tx: PrismaClient, params: {
     return;
   }
 
-  // Check if cashback already exists (idempotency guard)
-  const existingEntry = await tx.storeCreditLedger.findFirst({
-    where: {
-      shop,
-      shopifyOrderId: order.id.toString(),
-      type: 'CASHBACK_EARNED',
+  const now = new Date();
+  const ledgerId = uuidv4();
+  const currency = shopSettings?.storeCurrency || order.currency || 'USD';
+  const description = `${currentTier.cashbackPercent}% cashback on order ${order.name}`;
+  // The cashback as the ledger's amount column stores it (2 decimal places)
+  const earned = new Prisma.Decimal(cashbackAmount).toDecimalPlaces(2);
+  const entryMetadata = {
+    orderId: order.id,
+    orderName: order.name,
+    orderTotal: eligibleAmount,
+    adjustedOrderTotal: adjustedEligibleAmount,
+    excludedProductAmount: excludedProductAmount,
+    cashbackPercent: currentTier.cashbackPercent,
+    tierName: currentTier.name,
+    description,
+    paymentBreakdown: breakdown ? { ...breakdown } : null,
+  };
+
+  // =========================================================================
+  // The ledger entry is the idempotency lock: it is created once, before
+  // Shopify is called, so a redelivery never credits twice. It is created
+  // under the order's row lock, which refunds take to record themselves
+  // (services/refund-handler.server.ts):
+  // - a refund recorded before it (delivered while an earlier attempt of this
+  //   webhook was failing, or during the analyzer call above) is netted off,
+  //   as it would have shrunk a pending entry; a full refund leaves none;
+  // - a refund waiting for the lock finds the entry afterwards and answers
+  //   503, and Shopify's redelivery reverses it.
+  // With auto-processing on, the entry is created already claimed (SYNCING)
+  // and sent after the lock is released; it goes back to PENDING only when
+  // Shopify answered that it applied nothing. A crash after Shopify credited,
+  // or no answer, leaves it SYNCING, never re-sent
+  // (services/cashback-ledger.server.ts).
+  // =========================================================================
+  const recorded = await tx.$transaction(async (lockTx) => {
+    await lockOrder(lockTx, orderRecord.id);
+    const existingEntry = await lockTx.storeCreditLedger.findFirst({
+      where: { shop, shopifyOrderId: order.id.toString(), type: 'CASHBACK_EARNED' },
+      select: { id: true },
+    });
+    if (existingEntry) return { status: 'exists' as const };
+
+    const current = await lockTx.order.findUniqueOrThrow({
+      where: { id: orderRecord.id },
+      select: {
+        totalPrice: true,
+        cashbackEligible: true,
+        refunds: { orderBy: { createdAt: 'asc' }, select: { id: true, shopifyRefundId: true, amount: true } },
+      },
+    });
+    const { remaining, reversals } = reverseRecordedRefunds(earned, current.totalPrice, current.refunds);
+    for (const reversal of reversals) {
+      if (reversal.amount.gt(0)) {
+        await lockTx.orderRefund.update({ where: { id: reversal.refundId }, data: { cashbackAdjustment: reversal.amount } });
+      }
     }
-  });
+    if (!current.cashbackEligible || remaining.lte(0)) {
+      await lockTx.order.update({ where: { id: orderRecord.id }, data: { cashbackAmount: 0, updatedAt: now } });
+      return { status: 'refunded' as const };
+    }
 
-  if (!existingEntry) {
-    const now = new Date();
-    const ledgerId = uuidv4();
-    const currency = shopSettings?.storeCurrency || order.currency || 'USD';
-
-    // =========================================================================
-    // TRANSACTIONAL SAFETY FIX: Create ledger entry FIRST as idempotency lock
-    // This prevents double-crediting if Shopify succeeds but subsequent ops fail
-    // 1. Create ledger entry, already claimed (SYNCING) when it will be sent now
-    // 2. Attempt Shopify sync
-    // 3. Update ledger to SYNCED if successful, back to PENDING if not
-    // On retry: ledger entry exists → skip processing (even if still PENDING).
-    // A crash after Shopify credited, or no answer from Shopify, leaves it
-    // SYNCING, never re-sent (services/cashback-ledger.server.ts).
-    // =========================================================================
-
-    // Step 1: Create ledger entry FIRST
-    await tx.storeCreditLedger.create({
+    const entry = await lockTx.storeCreditLedger.create({
       data: {
         id: ledgerId,
         customerId: customer.id,
         shop,
-        amount: cashbackAmount,
-        balance: customer.storeCredit.plus(cashbackAmount), // Projected balance
+        amount: remaining,
+        balance: customer.storeCredit.plus(remaining), // Projected balance
         type: 'CASHBACK_EARNED',
         shopifyOrderId: order.id.toString(),
         orderId: orderRecord.id,
         metadata: {
-          orderId: order.id,
-          orderName: order.name,
-          orderTotal: eligibleAmount,
-          adjustedOrderTotal: adjustedEligibleAmount,
-          excludedProductAmount: excludedProductAmount,
-          cashbackPercent: currentTier.cashbackPercent,
-          tierName: currentTier.name,
-          description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
-          paymentBreakdown: breakdown ? { ...breakdown } : null,
+          ...entryMetadata,
+          // As recordRefund records a refund before issue
+          ...(reversals.length > 0
+            ? {
+                originalAmount: earned.toFixed(2),
+                reversedBeforeIssue: reversals.map((r) => ({ shopifyRefundId: r.shopifyRefundId, amount: r.amount.toFixed(2) })),
+              }
+            : {}),
           syncStatus: autoProcessingEnabled ? 'SYNCING' : 'PENDING',
-          autoProcessed: false
+          autoProcessed: false,
         },
         createdAt: now,
-      }
+      },
     });
+    await lockTx.order.update({ where: { id: orderRecord.id }, data: { cashbackAmount: remaining, updatedAt: now } });
+    return { status: 'recorded' as const, amount: remaining, metadata: jsonObject(entry.metadata) };
+  });
 
-    console.log(`[OrderPaid] Created ledger entry ${ledgerId} for ${cashbackAmount} ${currency} (idempotency lock)`);
+  if (recorded.status === 'exists') {
+    console.log(`[OrderPaid] Cashback already processed for order ${order.name}`);
+    return;
+  }
+  if (recorded.status === 'refunded') {
+    console.log(`[OrderPaid] Order ${order.name} was refunded in full or excluded before its cashback was recorded; none is due`);
+    return;
+  }
+  const recordedAmount = recorded.amount;
+  console.log(`[OrderPaid] Created ledger entry ${ledgerId} for ${recordedAmount.toFixed(2)} ${currency} (idempotency lock)`);
 
-    let actualBalance: Prisma.Decimal | number = customer.storeCredit;
-    let isProcessed = false;
-    let creditSent = false;
+  let isProcessed = false;
+  let creditSent = false;
 
-    // Step 2: If auto-processing enabled, attempt Shopify sync
-    if (autoProcessingEnabled) {
-      try {
-        console.log(`[OrderPaid] Auto-processing enabled - issuing store credit to Shopify`);
-
-        const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
-        const storeCreditService = createStoreCreditService(admin, shop);
-
-        const result = await storeCreditService.issueStoreCredit(
-          customer.shopifyCustomerId,
-          cashbackAmount,
-          currency,
-          `${currentTier.cashbackPercent}% cashback on order ${order.name}`
-        );
-
-        if (result.success) {
-          creditSent = true;
-          actualBalance = result.balance ?? customer.storeCredit.plus(cashbackAmount);
-          isProcessed = true;
-          console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
-
-          // Step 3: Update ledger and customer ONLY if Shopify succeeded
-          await tx.customer.update({
-            where: { id: customer.id },
-            data: {
-              storeCredit: actualBalance,
-              updatedAt: now
-            }
-          });
-
-          // Update ledger entry to SYNCED
-          await tx.storeCreditLedger.update({
-            where: { id: ledgerId },
-            data: {
-              balance: actualBalance,
-              metadata: {
-                orderId: order.id,
-                orderName: order.name,
-                orderTotal: eligibleAmount,
-                adjustedOrderTotal: adjustedEligibleAmount,
-                excludedProductAmount: excludedProductAmount,
-                cashbackPercent: currentTier.cashbackPercent,
-                tierName: currentTier.name,
-                description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
-                paymentBreakdown: breakdown ? { ...breakdown } : null,
-                syncStatus: 'SYNCED',
-                autoProcessed: true,
-                syncedAt: now.toISOString()
-              }
-            }
-          });
-
-          console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
-        } else if (result.ambiguous) {
-          // No answer: Shopify may have credited it, so it stays SYNCING
-          console.error(`[OrderPaid] Shopify did not confirm the store credit: ${result.error}`);
-          await markUnconfirmed(ledgerId, result.error);
-        } else {
-          console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
-          // Back to PENDING - will be retried by reconciliation or manual process
-          await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
-        }
-      } catch (error) {
-        console.error(`[OrderPaid] Error issuing store credit:`, error);
-        // Unsent: back to PENDING for a retry. Sent: stays SYNCING, never re-sent
-        if (!creditSent) await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
-      }
-    } else {
-      console.log(`[OrderPaid] Auto-processing disabled - ledger entry remains PENDING`);
-    }
-
-    console.log(`[OrderPaid] Cashback processing complete: ${isProcessed ? 'SYNCED' : 'PENDING'} for ${cashbackAmount} ${currency}`);
-
-    // Update Order record with cashback status
-    await tx.order.update({
-      where: { id: orderRecord.id },
-      data: {
-        cashbackProcessed: isProcessed,
-        cashbackAmount: cashbackAmount,
-        updatedAt: now
-      }
-    });
-
-    // Track order and cashback events in Klaviyo (non-blocking)
+  // If auto-processing enabled, issue the entry's amount to Shopify
+  if (autoProcessingEnabled) {
     try {
-      if (await isKlaviyoEnabled(shop)) {
-        // Build customer object with tier
-        const customerWithTier = {
-          ...customer,
-          currentTier,
-        };
+      console.log(`[OrderPaid] Auto-processing enabled - issuing store credit to Shopify`);
 
-        // Track order placed event (uses trackOrderForKlaviyo from email-provider)
-        await trackOrderForKlaviyo(shop, customerWithTier, {
-          id: order.id.toString(),
-          orderNumber: order.name,
-          totalPrice: eligibleAmount,
-          cashbackEarned: cashbackAmount,
-          cashbackUsed: extractStoreCreditUsed(order),
-          currency: currency,
-          lineItems: order.line_items?.map((item: any) => ({
-            productId: item.product_id?.toString(),
-            sku: item.sku,
-            title: item.title || item.name,
-            quantity: item.quantity,
-            price: parseFloat(item.price || '0'),
-            imageUrl: item.image?.src,
-          })),
+      const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+      const storeCreditService = createStoreCreditService(admin, shop);
+
+      const result = await storeCreditService.issueStoreCredit(
+        customer.shopifyCustomerId,
+        recordedAmount.toNumber(),
+        currency,
+        description
+      );
+
+      if (result.success) {
+        creditSent = true;
+        const actualBalance = result.balance ?? customer.storeCredit.plus(recordedAmount);
+        isProcessed = true;
+        console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
+
+        // Update ledger and customer ONLY if Shopify succeeded
+        await tx.customer.update({
+          where: { id: customer.id },
+          data: {
+            storeCredit: actualBalance,
+            updatedAt: now
+          }
         });
 
-        // Track cashback earned event if cashback was issued
-        if (cashbackAmount > 0) {
-          await trackCashbackEarned(
-            shop,
-            customerWithTier,
-            cashbackAmount,
-            order.id.toString(),
-            order.name
-          );
-        }
+        await tx.storeCreditLedger.update({
+          where: { id: ledgerId },
+          data: {
+            balance: actualBalance,
+            metadata: { ...recorded.metadata, syncStatus: 'SYNCED', autoProcessed: true, syncedAt: now.toISOString() }
+          }
+        });
 
-        console.log(`[OrderPaid] Klaviyo events tracked for order ${order.name}`);
+        // Only the processed flag: a refund may have reduced cashbackAmount
+        await tx.order.update({
+          where: { id: orderRecord.id },
+          data: { cashbackProcessed: true, updatedAt: now }
+        });
+
+        console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
+      } else if (result.ambiguous) {
+        // No answer: Shopify may have credited it, so it stays SYNCING
+        console.error(`[OrderPaid] Shopify did not confirm the store credit: ${result.error}`);
+        await markUnconfirmed(ledgerId, result.error);
+      } else {
+        console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
+        // Back to PENDING - will be retried by reconciliation or manual process
+        await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
       }
-    } catch (klaviyoError) {
-      // Log but don't fail the webhook
-      console.error(`[OrderPaid] Failed to track Klaviyo events (non-fatal):`, klaviyoError);
+    } catch (error) {
+      console.error(`[OrderPaid] Error issuing store credit:`, error);
+      // Unsent: back to PENDING for a retry. Sent: stays SYNCING, never re-sent
+      if (!creditSent) await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
     }
   } else {
-    console.log(`[OrderPaid] Cashback already processed for order ${order.name}`);
+    console.log(`[OrderPaid] Auto-processing disabled - ledger entry remains PENDING`);
+  }
+
+  console.log(`[OrderPaid] Cashback processing complete: ${isProcessed ? 'SYNCED' : 'PENDING'} for ${recordedAmount.toFixed(2)} ${currency}`);
+
+  // Track order and cashback events in Klaviyo (non-blocking)
+  try {
+    if (await isKlaviyoEnabled(shop)) {
+      // Build customer object with tier
+      const customerWithTier = {
+        ...customer,
+        currentTier,
+      };
+
+      // Track order placed event (uses trackOrderForKlaviyo from email-provider)
+      await trackOrderForKlaviyo(shop, customerWithTier, {
+        id: order.id.toString(),
+        orderNumber: order.name,
+        totalPrice: eligibleAmount,
+        cashbackEarned: recordedAmount.toNumber(),
+        cashbackUsed: extractStoreCreditUsed(order),
+        currency: currency,
+        lineItems: order.line_items?.map((item: any) => ({
+          productId: item.product_id?.toString(),
+          sku: item.sku,
+          title: item.title || item.name,
+          quantity: item.quantity,
+          price: parseFloat(item.price || '0'),
+          imageUrl: item.image?.src,
+        })),
+      });
+
+      // Track cashback earned event
+      await trackCashbackEarned(
+        shop,
+        customerWithTier,
+        recordedAmount.toNumber(),
+        order.id.toString(),
+        order.name
+      );
+
+      console.log(`[OrderPaid] Klaviyo events tracked for order ${order.name}`);
+    }
+  } catch (klaviyoError) {
+    // Log but don't fail the webhook
+    console.error(`[OrderPaid] Failed to track Klaviyo events (non-fatal):`, klaviyoError);
   }
 }
 
