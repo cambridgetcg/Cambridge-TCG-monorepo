@@ -5,7 +5,8 @@
  * Issues credit, queries balances, and handles sync operations
  */
 
-import { GraphqlQueryError, HttpResponseError } from '@shopify/shopify-api';
+import { GraphqlQueryError, HttpResponseError, MissingRequiredArgument } from '@shopify/shopify-api';
+import { Prisma } from '@prisma/client';
 import { formatForShopify, roundDownToHundredths } from '../utils/transaction-analyzer';
 import { createLogger } from '~/services/logger.server';
 
@@ -21,23 +22,93 @@ export interface StoreCreditResult {
   balance?: number;
   error?: string;
   /**
-   * Set on a failure without an answer from Shopify (the connection failed
-   * or dropped, or Shopify answered 5xx): the credit or debit may have been
-   * applied, so it must not be sent again. Unset when Shopify answered with
-   * an error, so nothing was applied.
+   * Set on every failure: true when the credit or debit may have been
+   * applied, so it must not be sent again (no answer, a 5xx, an error
+   * Shopify may raise after running the mutation); false only when Shopify
+   * said it applied nothing, or nothing was sent.
    */
   ambiguous?: boolean;
 }
 
+type StoreCreditMutation = 'storeCreditAccountCredit' | 'storeCreditAccountDebit';
+
 /**
- * Whether a store-credit mutation that threw may still have been applied.
- * Shopify answering with GraphQL errors, or turning the request away (4xx,
- * throttling, a re-authentication response), means it was not. No answer,
- * or a 5xx, leaves it unknown.
+ * Top-level GraphQL error codes with which Shopify turns a request away
+ * before running it (Admin API "Status and error codes"): THROTTLED (like a
+ * 429), ACCESS_DENIED (like a 401), SHOP_INACTIVE, and MAX_COST_EXCEEDED
+ * (the query's cost, checked before it runs). Not INTERNAL_SERVER_ERROR,
+ * Shopify's 500 answered as a 200, nor codes this list does not name: the
+ * docs say others may appear, and a mutation may have run before them.
  */
-function mayHaveBeenApplied(error: unknown): boolean {
-  if (error instanceof GraphqlQueryError || error instanceof Response) return false;
-  if (error instanceof HttpResponseError) return error.response.code >= 500;
+const REFUSED_BEFORE_RUNNING: ReadonlySet<string> = new Set(['THROTTLED', 'ACCESS_DENIED', 'SHOP_INACTIVE', 'MAX_COST_EXCEEDED']);
+
+/**
+ * The userError codes Shopify documents for each mutation
+ * (StoreCreditAccountCreditUserErrorCode, StoreCreditAccountDebitUserErrorCode).
+ * Each names a reason no transaction could be made. A userError with any
+ * other code, or none, leaves it unknown.
+ */
+const REFUSED_USER_ERRORS: Record<StoreCreditMutation, ReadonlySet<string>> = {
+  storeCreditAccountCredit: new Set([
+    'ACCOUNT_NOT_FOUND',
+    'CREDIT_LIMIT_EXCEEDED',
+    'EXPIRES_AT_IN_PAST',
+    'MISMATCHING_CURRENCY',
+    'NEGATIVE_OR_ZERO_AMOUNT',
+    'OWNER_NOT_FOUND',
+    'UNSUPPORTED_CURRENCY',
+  ]),
+  storeCreditAccountDebit: new Set(['ACCOUNT_NOT_FOUND', 'INSUFFICIENT_FUNDS', 'MISMATCHING_CURRENCY', 'NEGATIVE_OR_ZERO_AMOUNT']),
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) ? value : null;
+}
+
+function codeOf(error: unknown): unknown {
+  const record = asRecord(error);
+  return record?.code ?? asRecord(record?.extensions)?.code;
+}
+
+/**
+ * Whether a store-credit mutation answered with top-level GraphQL `errors`
+ * (and perhaps partial `data`) may still have been applied. Not applied only
+ * when every error carries a code in REFUSED_BEFORE_RUNNING, none points
+ * inside the mutation's payload, and no payload came back.
+ */
+function graphqlErrorsMayHaveApplied(errors: unknown, data: unknown, mutation: StoreCreditMutation): boolean {
+  // A payload, even one without a transaction, means the mutation ran
+  if (asRecord(data)?.[mutation] != null) return true;
+  if (!Array.isArray(errors) || errors.length === 0) return true;
+  return !errors.every((error) => {
+    const code = codeOf(error);
+    const path = asRecord(error)?.path;
+    return typeof code === 'string' && REFUSED_BEFORE_RUNNING.has(code) && !(Array.isArray(path) && path.length > 1);
+  });
+}
+
+/**
+ * Whether a store-credit mutation that threw after it was sent may still
+ * have been applied. Not applied only when Shopify said so:
+ * - a 200 with GraphQL errors (`GraphqlQueryError`) that turn the request
+ *   away before it runs (graphqlErrorsMayHaveApplied);
+ * - a 4xx answer (`HttpResponseError`: refused, throttled, not authorised),
+ *   or the Response the admin and webhook contexts rethrow in its place,
+ *   with its status: a 4xx, or a redirect to re-authenticate after a 401.
+ * Anything else may have: no answer (`HttpRequestError`: the connection
+ * failed or dropped, a timeout), a 5xx, or a 200 that could not be read.
+ */
+function mayHaveBeenApplied(error: unknown, mutation: StoreCreditMutation): boolean {
+  if (error instanceof GraphqlQueryError) {
+    return graphqlErrorsMayHaveApplied(asRecord(error.body?.errors)?.graphQLErrors, error.body?.data, mutation);
+  }
+  const refused = (status: number) => status >= 400 && status < 500;
+  if (error instanceof HttpResponseError) return !refused(error.response.code);
+  if (error instanceof Response) return !(refused(error.status) || (error.status >= 300 && error.status < 400));
   return true;
 }
 
@@ -237,71 +308,7 @@ export class ShopifyStoreCreditService {
     currency: string = 'USD',
     _description?: string
   ): Promise<StoreCreditResult> {
-    const formattedAmount = formatForShopify(amount);
-
-    logger.info('Issuing store credit', { amount: formattedAmount, currency, customerId });
-
-    try {
-      const response = await this.admin.graphql(ISSUE_STORE_CREDIT_MUTATION, {
-        variables: {
-          id: `gid://shopify/Customer/${customerId}`,
-          creditInput: {
-            creditAmount: {
-              amount: formattedAmount,
-              currencyCode: currency
-            }
-          }
-        }
-      });
-
-      const result = await response.json();
-
-      // Check for GraphQL errors
-      if (result.errors) {
-        logger.error('GraphQL errors', { errors: result.errors });
-        return {
-          success: false,
-          error: result.errors[0]?.message || 'GraphQL error'
-        };
-      }
-
-      // Check for user errors
-      const userErrors = result.data?.storeCreditAccountCredit?.userErrors;
-      if (userErrors && userErrors.length > 0) {
-        const errorMessages = userErrors.map((e: any) => e.message).join(', ');
-        logger.error('User errors', { userErrors });
-        return {
-          success: false,
-          error: errorMessages
-        };
-      }
-
-      // Check for successful transaction
-      const transaction = result.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
-      if (transaction) {
-        const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
-        logger.info('Credit issued successfully', { transactionId: transaction.id, newBalance, currency });
-
-        return {
-          success: true,
-          transactionId: transaction.id,
-          balance: newBalance
-        };
-      }
-
-      return {
-        success: false,
-        error: "No transaction returned from Shopify"
-      };
-
-    } catch (error) {
-      logger.error('API error', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-        ambiguous: mayHaveBeenApplied(error)
-      };
-    }
+    return this.sendStoreCreditMutation('storeCreditAccountCredit', customerId, amount, currency);
   }
 
   /**
@@ -398,67 +405,91 @@ export class ShopifyStoreCreditService {
     currency: string = 'USD',
     _description?: string
   ): Promise<StoreCreditResult> {
-    const formattedAmount = formatForShopify(amount);
+    return this.sendStoreCreditMutation('storeCreditAccountDebit', customerId, amount, currency);
+  }
 
-    logger.info('Debiting store credit', { amount: formattedAmount, currency, customerId });
+  /**
+   * Send one store-credit credit or debit and read Shopify's answer. Every
+   * failure says whether the mutation may have been applied (`ambiguous`),
+   * so a writer hands its claimed entry back only when it was not: a
+   * failure before the request is sent, or an answer from Shopify that it
+   * applied nothing (mayHaveBeenApplied, graphqlErrorsMayHaveApplied and
+   * REFUSED_USER_ERRORS).
+   */
+  private async sendStoreCreditMutation(
+    mutation: StoreCreditMutation,
+    customerId: string,
+    amount: number,
+    currency: string
+  ): Promise<StoreCreditResult> {
+    const failure = (error: string, ambiguous: boolean): StoreCreditResult => ({ success: false, error, ambiguous });
+    const credit = mutation === 'storeCreditAccountCredit';
 
+    // Nothing is sent until the request is built: a failure here applied nothing
+    let query: string;
+    let variables: Record<string, unknown>;
     try {
-      const response = await this.admin.graphql(DEBIT_STORE_CREDIT_MUTATION, {
-        variables: {
-          id: `gid://shopify/Customer/${customerId}`,
-          debitInput: {
-            debitAmount: {
-              amount: formattedAmount,
-              currencyCode: currency
-            }
-          }
-        }
-      });
-
-      const result = await response.json();
-
-      // Handle errors same as credit
-      if (result.errors) {
-        return {
-          success: false,
-          error: result.errors[0]?.message || 'GraphQL error'
-        };
-      }
-
-      const userErrors = result.data?.storeCreditAccountDebit?.userErrors;
-      if (userErrors && userErrors.length > 0) {
-        const errorMessages = userErrors.map((e: any) => e.message).join(', ');
-        return {
-          success: false,
-          error: errorMessages
-        };
-      }
-
-      const transaction = result.data?.storeCreditAccountDebit?.storeCreditAccountTransaction;
-      if (transaction) {
-        const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
-        logger.info('Debit successful', { newBalance, currency });
-
-        return {
-          success: true,
-          transactionId: transaction.id,
-          balance: newBalance
-        };
-      }
-
-      return {
-        success: false,
-        error: "No transaction returned"
-      };
-
+      if (typeof this.admin?.graphql !== 'function') return failure('No Shopify Admin API client', false);
+      const formattedAmount = formatForShopify(amount);
+      const cents = new Prisma.Decimal(formattedAmount);
+      if (!(cents.isFinite() && cents.gt(0))) return failure(`Invalid store credit amount (${amount})`, false);
+      const money = { amount: formattedAmount, currencyCode: currency };
+      const id = `gid://shopify/Customer/${customerId}`;
+      query = credit ? ISSUE_STORE_CREDIT_MUTATION : DEBIT_STORE_CREDIT_MUTATION;
+      variables = credit ? { id, creditInput: { creditAmount: money } } : { id, debitInput: { debitAmount: money } };
+      logger.info(credit ? 'Issuing store credit' : 'Debiting store credit', { amount: formattedAmount, currency, customerId });
     } catch (error) {
-      logger.error('Debit error', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-        ambiguous: mayHaveBeenApplied(error)
-      };
+      logger.error('Store credit request not sent', error);
+      return failure(error instanceof Error ? error.message : 'Invalid store credit request', false);
     }
+
+    let result: unknown;
+    try {
+      const response = await this.admin.graphql(query, { variables });
+      result = await response.json();
+    } catch (error) {
+      logger.error(credit ? 'API error' : 'Debit error', error);
+      // The client refused to build the request (no access token): not sent
+      const notSent = error instanceof MissingRequiredArgument;
+      return failure(error instanceof Error ? error.message : 'Unknown error', !notSent && mayHaveBeenApplied(error, mutation));
+    }
+
+    const answer = asRecord(result);
+    const payload = asRecord(asRecord(answer?.data)?.[mutation]);
+
+    // GraphQL errors in an answer that did not throw: the same rule
+    const errors = answer?.errors;
+    if (errors) {
+      const graphQLErrors = Array.isArray(errors) ? errors : asRecord(errors)?.graphQLErrors;
+      logger.error('GraphQL errors', { errors: graphQLErrors });
+      const first = Array.isArray(graphQLErrors) ? asRecord(graphQLErrors[0])?.message : undefined;
+      return failure(typeof first === 'string' ? first : 'GraphQL error', graphqlErrorsMayHaveApplied(graphQLErrors, answer?.data, mutation));
+    }
+
+    const transaction = asRecord(payload?.storeCreditAccountTransaction);
+    const userErrors = Array.isArray(payload?.userErrors) ? payload.userErrors : [];
+    if (userErrors.length > 0) {
+      logger.error('User errors', { userErrors });
+      const messages = userErrors.map((e) => asRecord(e)?.message).filter((m): m is string => typeof m === 'string');
+      // Not applied only for a documented reason, and with no transaction
+      const refused = transaction === null && userErrors.every((e) => {
+        const code = codeOf(e);
+        return typeof code === 'string' && REFUSED_USER_ERRORS[mutation].has(code);
+      });
+      return failure(messages.join(', ') || 'Shopify refused the store credit change', !refused);
+    }
+
+    if (transaction) {
+      const balanceAfter = asRecord(transaction.balanceAfterTransaction)?.amount;
+      const newBalance = typeof balanceAfter === 'string' ? parseFloat(balanceAfter) : undefined;
+      const transactionId = typeof transaction.id === 'string' ? transaction.id : undefined;
+      logger.info(credit ? 'Credit issued successfully' : 'Debit successful', { transactionId, newBalance, currency });
+      return { success: true, transactionId, balance: newBalance };
+    }
+
+    // An answer with neither a transaction nor a reason does not say that
+    // nothing was applied
+    return failure(credit ? 'No transaction returned from Shopify' : 'No transaction returned', true);
   }
 
   /**

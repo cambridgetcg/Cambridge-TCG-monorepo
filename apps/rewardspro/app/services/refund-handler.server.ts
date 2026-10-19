@@ -367,7 +367,7 @@ export interface ClawbackSettlement {
   debited: Prisma.Decimal;
   /** Reversal the shopper had already spent */
   unrecovered: Prisma.Decimal;
-  /** Not settled because Shopify never answered an earlier debit of it */
+  /** Not settled because Shopify never confirmed an earlier debit of it */
   unconfirmed: boolean;
 }
 
@@ -377,7 +377,8 @@ export interface ClawbackSettlement {
  * The entry is claimed (PENDING to SYNCING) first, so concurrent deliveries
  * debit once. When Shopify answers that it applied nothing, the entry goes
  * back to PENDING and RefundRetryableError makes the webhook answer 5xx, so
- * the redelivery retries. Without an answer the debit may have been applied:
+ * the redelivery retries. Otherwise the debit may have been applied (no
+ * answer, a 5xx, an error Shopify can raise after running the mutation):
  * the entry stays SYNCING (markUnconfirmed) and is never sent again.
  */
 export async function settleRefundClawback(

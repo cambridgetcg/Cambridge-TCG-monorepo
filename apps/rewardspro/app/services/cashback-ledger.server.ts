@@ -10,7 +10,9 @@
  * claimLedgerEntry, so the order webhook, the reconciliation cron, refunds
  * and the merchant's Orders page never send the same entry twice. A writer
  * hands the entry back (PENDING) only when Shopify answered that it applied
- * nothing; without an answer the entry stays SYNCING (markUnconfirmed).
+ * nothing, or nothing was sent. When Shopify may have applied it (no answer,
+ * a 5xx, an error Shopify can raise after running the mutation: the store
+ * credit service's `ambiguous`) the entry stays SYNCING (markUnconfirmed).
  */
 
 import { Prisma, type Order, type StoreCreditLedger } from "@prisma/client";
@@ -57,7 +59,7 @@ export async function lockOrder(tx: Prisma.TransactionClient, id: string): Promi
 }
 
 /**
- * Leave a claimed (SYNCING) entry as it is after Shopify gave no answer to
+ * Leave a claimed (SYNCING) entry as it is after Shopify did not confirm
  * its credit or debit: Shopify may have applied it, so nothing may send it
  * again. The note tells the merchant (manualCashbackRefusal) and whoever
  * reconciles the shopper's balance in Shopify. One statement, like a claim.
@@ -124,8 +126,8 @@ export function manualCashbackRefusal(
  * records what was actually issued, so later refunds reverse the right
  * amount. Without an `amount` it issues what the entry holds once claimed,
  * after any refunds so far; the merchant's `amount` may not exceed that.
- * Without an answer from Shopify the entry stays SYNCING and is refused
- * from then on: the credit may have been applied.
+ * When Shopify does not confirm the credit the entry stays SYNCING and is
+ * refused from then on: the credit may have been applied.
  */
 export async function issueCashbackByHand({
   shop,

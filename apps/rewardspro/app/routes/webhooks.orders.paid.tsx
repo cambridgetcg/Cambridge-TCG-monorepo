@@ -1012,7 +1012,7 @@ async function recordCashback(tx: PrismaClient, params: {
   // With auto-processing on, the entry is created already claimed (SYNCING)
   // and sent after the lock is released; it goes back to PENDING only when
   // Shopify answered that it applied nothing. A crash after Shopify credited,
-  // or no answer, leaves it SYNCING, never re-sent
+  // or an answer that leaves it unknown, leaves it SYNCING, never re-sent
   // (services/cashback-ledger.server.ts).
   // =========================================================================
   const recorded = await tx.$transaction(async (lockTx) => {
@@ -1083,6 +1083,7 @@ async function recordCashback(tx: PrismaClient, params: {
   console.log(`[OrderPaid] Created ledger entry ${ledgerId} for ${recordedAmount.toFixed(2)} ${currency} (idempotency lock)`);
 
   let isProcessed = false;
+  // Set before Shopify is called: from then on a failure leaves the entry SYNCING
   let creditSent = false;
 
   // If auto-processing enabled, issue the entry's amount to Shopify
@@ -1093,6 +1094,7 @@ async function recordCashback(tx: PrismaClient, params: {
       const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
       const storeCreditService = createStoreCreditService(admin, shop);
 
+      creditSent = true;
       const result = await storeCreditService.issueStoreCredit(
         customer.shopifyCustomerId,
         recordedAmount.toNumber(),
@@ -1101,7 +1103,6 @@ async function recordCashback(tx: PrismaClient, params: {
       );
 
       if (result.success) {
-        creditSent = true;
         const actualBalance = result.balance ?? customer.storeCredit.plus(recordedAmount);
         isProcessed = true;
         console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
@@ -1131,7 +1132,8 @@ async function recordCashback(tx: PrismaClient, params: {
 
         console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
       } else if (result.ambiguous) {
-        // No answer: Shopify may have credited it, so it stays SYNCING
+        // Shopify may have credited it (no answer, a 5xx, an error it can
+        // raise after crediting), so it stays SYNCING
         console.error(`[OrderPaid] Shopify did not confirm the store credit: ${result.error}`);
         await markUnconfirmed(ledgerId, result.error);
       } else {

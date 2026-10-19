@@ -55,27 +55,43 @@ export type StoreCreditCall = { operation: "credit" | "debit"; customerId: strin
  * balance per customer. Returns the calls made, for assertions.
  * `duringCredit` runs while a credit is in flight, before Shopify answers.
  * The next `throttled` credits or debits are turned away with a GraphQL
- * THROTTLED error (nothing applied); the next `unanswered` ones are applied
- * but their answer is lost, as when the connection drops (a network error).
+ * THROTTLED error (nothing applied). The ones after that are applied, but:
+ * - the next `unanswered` lose their answer, as when the connection drops;
+ * - the next `internalErrors` are answered 200 with a top-level
+ *   INTERNAL_SERVER_ERROR, Shopify's GraphQL form of a 500;
+ * - the next `badGateways` are answered 502.
  */
 export function mockStoreCredit(
   shop: string,
   balances: Record<string, number>,
-  options: { failDebits?: number; duringCredit?: () => Promise<void>; throttled?: number; unanswered?: number } = {},
+  options: { duringCredit?: () => Promise<void>; throttled?: number; unanswered?: number; internalErrors?: number; badGateways?: number } = {},
 ): StoreCreditCall[] {
   const calls: StoreCreditCall[] = [];
-  let failDebits = options.failDebits ?? 0;
   let throttled = options.throttled ?? 0;
   let unanswered = options.unanswered ?? 0;
+  let internalErrors = options.internalErrors ?? 0;
+  let badGateways = options.badGateways ?? 0;
   const turnedAway = () => {
     if (throttled === 0) return null;
     throttled--;
     return HttpResponse.json({ errors: [{ message: "Throttled", extensions: { code: "THROTTLED" } }] });
   };
   const answer = (body: Record<string, unknown>) => {
-    if (unanswered === 0) return HttpResponse.json(body);
-    unanswered--;
-    return HttpResponse.error();
+    if (unanswered > 0) {
+      unanswered--;
+      return HttpResponse.error();
+    }
+    if (internalErrors > 0) {
+      internalErrors--;
+      return HttpResponse.json({
+        errors: [{ message: "Internal error. Looks like something went wrong on our end.", extensions: { code: "INTERNAL_SERVER_ERROR", requestId: "test" } }],
+      });
+    }
+    if (badGateways > 0) {
+      badGateways--;
+      return HttpResponse.json({ errors: "Bad Gateway" }, { status: 502 });
+    }
+    return HttpResponse.json(body);
   };
   const link = graphql.link(`https://${shop}/admin/api/2025-01/graphql.json`);
   const transaction = (customerId: string) => ({
@@ -105,10 +121,6 @@ export function mockStoreCredit(
       const customerId = customerOf(variables.id);
       const { amount, currencyCode } = variables.debitInput.debitAmount;
       calls.push({ operation: "debit", customerId, amount, currency: currencyCode });
-      if (failDebits > 0) {
-        failDebits--;
-        return HttpResponse.json({ data: { storeCreditAccountDebit: { storeCreditAccountTransaction: null, userErrors: [{ field: null, message: "Temporarily unavailable", code: "INTERNAL" }] } } });
-      }
       const away = turnedAway();
       if (away) return away;
       balances[customerId] = (balances[customerId] ?? 0) - Number(amount);

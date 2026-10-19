@@ -14,7 +14,8 @@
  * (services/refund-handler.server.ts), and the amount issued is read after
  * it, so a refund reduces what is issued instead of racing it. An entry
  * goes back to PENDING only when Shopify answered that it applied nothing;
- * without an answer it stays SYNCING and is not sent again.
+ * when it may have applied it (no answer, a 5xx, an error Shopify can raise
+ * after running the mutation) the entry stays SYNCING and is not sent again.
  *
  * Schedule: Every 15 minutes
  * Endpoint: GET /api/cron/cashback-reconciliation
@@ -228,7 +229,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             synced++;
             log('info', `Synced cashback entry ${id} successfully`, { balance: actualBalance });
           } else if (result.ambiguous) {
-            // No answer: Shopify may have credited it, so it stays SYNCING
+            // Shopify may have credited it, so it stays SYNCING
             await markUnconfirmed(id, result.error);
             failed++;
             log('error', `Shopify did not confirm cashback entry ${id}`, { error: result.error, leftSyncing: true });

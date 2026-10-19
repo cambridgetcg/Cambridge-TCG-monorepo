@@ -208,15 +208,15 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
     await expect(clawbacks()).resolves.toEqual([]);
   });
 
-  it("answers 5xx when the debit fails and settles once on redelivery", async () => {
+  it("answers 5xx when Shopify turns the debit away and settles once on redelivery", async () => {
     await seedOrder();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 }, { failDebits: 1 });
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 }, { throttled: 1 });
 
     const first = await deliverRefund(refundPayload(1, "100.00"), "wh-1");
     expect(first.status).toBe(503);
     let [clawback] = await clawbacks();
-    expect(clawback.metadata).toMatchObject({ syncStatus: "PENDING", lastError: "Temporarily unavailable" });
+    expect(clawback.metadata).toMatchObject({ syncStatus: "PENDING", lastError: "Throttled" });
 
     const retry = await deliverRefund(refundPayload(1, "100.00"), "wh-1");
     expect(retry.status).toBe(200);
