@@ -24,7 +24,7 @@ import { Prisma } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma from "~/db.server";
 import { jsonObject } from "~/utils/json-object";
-import { claimLedgerEntry, lockLedgerEntry } from "./cashback-ledger.server";
+import { claimLedgerEntry, lockLedgerEntry, lockOrder } from "./cashback-ledger.server";
 import { createStoreCreditService } from "./shopify-store-credit.service";
 
 const LOG_PREFIX = "[Refund Handler]";
@@ -89,15 +89,27 @@ function toShopCurrency(
 /**
  * Record a Shopify refund against its order and reverse the refunded share of
  * the order's cashback (see the module comment). Runs in one transaction that
- * holds the cashback entry's row lock, so the reconciliation cron cannot issue
- * the entry halfway through.
+ * holds the cashback entry's and the order's row locks, so the reconciliation
+ * cron cannot issue the entry halfway through and concurrent refunds of one
+ * order apply one after the other, each from the totals the last one left.
  */
-export async function recordRefund(input: RefundInput): Promise<RefundOutcome> {
+export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "$transaction"> = prisma): Promise<RefundOutcome> {
   const { shop, shopifyOrderId, shopifyRefundId } = input;
 
-  return prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({ where: { shop_shopifyOrderId: { shop, shopifyOrderId } } });
-    if (!order) return { status: "order_not_found" };
+  return db.$transaction(async (tx) => {
+    const orderRef = await tx.order.findUnique({ where: { shop_shopifyOrderId: { shop, shopifyOrderId } }, select: { id: true } });
+    if (!orderRef) return { status: "order_not_found" };
+
+    // Lock the cashback entry, then the order (lockOrder), and only then read
+    // them: under READ COMMITTED each read sees what earlier refunds committed
+    const cashbackRef = await tx.storeCreditLedger.findFirst({
+      where: { orderId: orderRef.id, type: "CASHBACK_EARNED" },
+      select: { id: true },
+    });
+    if (cashbackRef) await lockLedgerEntry(tx, cashbackRef.id);
+    await lockOrder(tx, orderRef.id);
+    const order = await tx.order.findUniqueOrThrow({ where: { id: orderRef.id } });
+    const cashback = cashbackRef ? await tx.storeCreditLedger.findUniqueOrThrow({ where: { id: cashbackRef.id } }) : null;
 
     const existing = await tx.orderRefund.findUnique({
       where: { orderId_shopifyRefundId: { orderId: order.id, shopifyRefundId } },
@@ -115,14 +127,6 @@ export async function recordRefund(input: RefundInput): Promise<RefundOutcome> {
         pendingClawbackId: entry && syncStatusOf(entry) === "PENDING" ? entry.id : null,
       };
     }
-
-    // Lock the order's cashback entry first, then read it
-    const cashbackRef = await tx.storeCreditLedger.findFirst({
-      where: { orderId: order.id, type: "CASHBACK_EARNED" },
-      select: { id: true },
-    });
-    if (cashbackRef) await lockLedgerEntry(tx, cashbackRef.id);
-    const cashback = cashbackRef ? await tx.storeCreditLedger.findUniqueOrThrow({ where: { id: cashbackRef.id } }) : null;
 
     const refundedBefore = order.totalRefunded;
     const refundedAfter = Prisma.Decimal.min(order.totalPrice, refundedBefore.plus(toShopCurrency(input.amount, input.currency, order)));

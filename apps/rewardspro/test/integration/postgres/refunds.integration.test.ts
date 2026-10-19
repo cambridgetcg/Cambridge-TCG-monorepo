@@ -1,7 +1,11 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import prisma from "~/db.server";
+import prisma, { createPrismaClient } from "~/db.server";
 import { action as refundsCreate } from "~/routes/webhooks.orders.refunded";
 import { action as ordersCancelled } from "~/routes/webhooks.orders.cancelled";
+import { issueCashbackByHand, lockLedgerEntry, lockOrder } from "~/services/cashback-ledger.server";
+import { recordRefund } from "~/services/refund-handler.server";
+import { unauthenticated } from "~/shopify.server";
 import { hasTestDatabase, resetDatabase } from "./database";
 import { mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
 
@@ -72,6 +76,26 @@ function deliverRefund(payload: unknown, webhookId?: string) {
 
 const clawbacks = () =>
   prisma.storeCreditLedger.findMany({ where: { shop: SHOP, type: "REFUND_CLAWBACK" }, orderBy: { createdAt: "asc" }, include: { refund: true } });
+
+/** The Orders page issuing an order's cashback; without `amount`, its batch action. */
+async function issueByHand(orderId: string, amount?: number) {
+  const { admin } = await unauthenticated.admin(SHOP);
+  return issueCashbackByHand({ shop: SHOP, admin, orderId, amount, currency: "GBP", reason: "Loyalty reward" });
+}
+
+/**
+ * Wait, inside `tx`, until `count` other sessions are blocked on a lock.
+ * (pg_locks, not pg_stat_activity: a transaction sees the latter frozen.)
+ */
+async function waitForLockWaiters(tx: Prisma.TransactionClient, count: number) {
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const [{ waiting }] = await tx.$queryRaw<Array<{ waiting: number }>>`
+      SELECT count(DISTINCT pid)::int AS waiting FROM pg_locks WHERE NOT granted`;
+    if (waiting >= count) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`${count} sessions never waited on a lock`);
+}
 
 describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
   beforeEach(async () => {
@@ -267,6 +291,88 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
     expect(order.financialStatus).toBe("PAID");
     expect(order.cashbackAmount?.toFixed(2)).toBe("5.00");
     await expect(clawbacks()).resolves.toEqual([]);
+  });
+
+  describe("concurrent refunds of one order", () => {
+    /**
+     * Record a £40 and a £60 refund at once, each on its own connection as two
+     * app instances would, while `hold` locks a row they need until both wait
+     * for it: both have started before either goes on.
+     */
+    async function raceRefunds(hold: (tx: Prisma.TransactionClient) => Promise<void>) {
+      const instances = [createPrismaClient(process.env.DATABASE_URL), createPrismaClient(process.env.DATABASE_URL)];
+      const refund = (id: string, amount: string) => ({
+        shop: SHOP,
+        shopifyOrderId: String(SHOPIFY_ORDER),
+        shopifyRefundId: id,
+        amount: new Prisma.Decimal(amount),
+        currency: "GBP",
+        createdAt: new Date(),
+      });
+      try {
+        let holding!: () => void;
+        const held = new Promise<void>((resolve) => (holding = resolve));
+        const holder = prisma.$transaction(
+          async (tx) => {
+            await hold(tx);
+            holding();
+            await waitForLockWaiters(tx, 2);
+          },
+          { timeout: 20_000 },
+        );
+        await held;
+        await Promise.all([recordRefund(refund("1", "40.00"), instances[0]), recordRefund(refund("2", "60.00"), instances[1]), holder]);
+      } finally {
+        await Promise.all(instances.map((client) => client.$disconnect()));
+      }
+      const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP } });
+      expect(order.totalRefunded.toFixed(2)).toBe("100.00");
+      expect(order.netAmount.toFixed(2)).toBe("0.00");
+      expect(order.financialStatus).toBe("REFUNDED");
+      expect(order.cashbackEligible).toBe(false);
+      return order;
+    }
+
+    it("apply one after the other when the order has cashback", async () => {
+      const { order, entry } = await seedOrder({ cashback: "pending" });
+      const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 0 });
+
+      const after = await raceRefunds((tx) => lockLedgerEntry(tx, entry.id));
+
+      expect(after.cashbackAmount?.toFixed(2)).toBe("0.00");
+      const reversed = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+      expect(reversed.amount.toFixed(2)).toBe("0.00");
+      expect(reversed.metadata).toMatchObject({ syncStatus: "NOT_APPLICABLE" });
+      // Nothing is left for the Orders page to issue
+      await expect(issueByHand(order.id)).resolves.toMatchObject({ success: false });
+      expect(calls).toEqual([]);
+    });
+
+    it("apply one after the other when the order has no cashback entry", async () => {
+      const { order, entry } = await seedOrder({ cashback: "pending" });
+      await prisma.storeCreditLedger.delete({ where: { id: entry.id } });
+
+      await raceRefunds((tx) => lockOrder(tx, order.id));
+    });
+  });
+
+  it("refuses to hand-issue cashback that refunds reversed", async () => {
+    // What a lost refund update used to leave: the order still shows cashback
+    // while its entry was reversed in full
+    const { order, entry } = await seedOrder({ cashback: "pending" });
+    await prisma.storeCreditLedger.update({ where: { id: entry.id }, data: { amount: 0, metadata: { syncStatus: "NOT_APPLICABLE" } } });
+    await prisma.order.update({ where: { id: order.id }, data: { cashbackAmount: 2, totalRefunded: 60, financialStatus: "PARTIALLY_REFUNDED" } });
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 0 });
+
+    // The modal's amount, as the page showed it before the refunds
+    await expect(issueByHand(order.id, 2)).resolves.toEqual({ success: false, error: "No cashback is left to issue for this order" });
+    await expect(issueByHand(order.id)).resolves.toMatchObject({ success: false });
+
+    // A refunded order is refused even without a cashback entry
+    await prisma.storeCreditLedger.delete({ where: { id: entry.id } });
+    await prisma.order.update({ where: { id: order.id }, data: { totalRefunded: 100, financialStatus: "REFUNDED" } });
+    await expect(issueByHand(order.id, 2)).resolves.toEqual({ success: false, error: "This order was refunded or is excluded from cashback" });
+    expect(calls).toEqual([]);
   });
 
   it("acknowledges refunds for orders it never recorded", async () => {

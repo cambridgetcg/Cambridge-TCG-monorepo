@@ -657,13 +657,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       case "process-all-cashback": {
-        // Process all pending cashback orders in batch. Amounts come from the
-        // stored orders, never from the submitted form.
+        // Process all pending cashback orders in batch. Each order's amount is
+        // read as it is issued (a refund may land mid-batch), never taken from
+        // the submitted form.
         const orderIds = (formData.get("orderIds") as string).split(',').filter(Boolean);
         const shopSettings = await prisma.shopSettings.findUnique({ where: { shop }, select: { storeCurrency: true } });
         const orders = await prisma.order.findMany({
           where: { id: { in: orderIds }, shop },
-          select: { id: true, shopifyOrderId: true, shopifyOrderName: true, currency: true, cashbackAmount: true, cashbackPercent: true, customerId: true },
+          select: { id: true, shopifyOrderId: true, shopifyOrderName: true, currency: true, customerId: true },
         });
 
         let successCount = 0;
@@ -675,7 +676,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             shop,
             admin,
             orderId: order.id,
-            amount: order.cashbackAmount ? Number(order.cashbackAmount) : 0,
             currency: shopSettings?.storeCurrency || order.currency || "USD",
             reason: `Loyalty reward - Order ${order.shopifyOrderName}`,
           });
