@@ -2,7 +2,6 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation, useFetcher, useSearchParams, useActionData } from "@remix-run/react";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
 import {
   Page,
   Layout,
@@ -39,6 +38,8 @@ import {
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
+import { issueCashbackByHand } from "../services/cashback-ledger.server";
+import { settleRefundClawback } from "../services/refund-handler.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
 import { formatCurrency, type ShopSettings } from "../utils/currency";
 import type { Decimal } from "@prisma/client/runtime/library";
@@ -590,778 +591,110 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
 
       case "process-cashback-modal": {
-        // New modal-based processing with editable amount
+        // Modal-based processing with an editable amount
         const orderId = formData.get("orderId") as string;
         const amount = parseFloat(formData.get("amount") as string);
         const reason = formData.get("reason") as string;
 
-        // OPTIMIZED: Fetch order with customer in single query
-        const order = await prisma.order.findFirst({
-          where: { id: orderId, shop },
-          include: { customer: true }
-        });
-
+        const shopSettings = await prisma.shopSettings.findUnique({ where: { shop } });
+        const order = await prisma.order.findFirst({ where: { id: orderId, shop }, select: { currency: true, customerId: true } });
         if (!order) {
           throw new Error("Order not found");
         }
 
-        const customer = order.customer;
-
-        if (!customer || !customer.shopifyCustomerId) {
-          throw new Error("Customer not found or missing Shopify ID");
-        }
-
-        if (order.cashbackProcessed) {
-          throw new Error("Cashback already processed");
-        }
-
-        // Get shop settings for currency
-        const shopSettings = await prisma.shopSettings.findUnique({
-          where: { shop }
+        const result = await issueCashbackByHand({
+          shop,
+          admin,
+          orderId,
+          amount,
+          currency: shopSettings?.storeCurrency || order.currency || "USD",
+          reason,
         });
-
-        const currency = shopSettings?.storeCurrency || order.currency || "USD";
-
-        // Use the store credit service to add credit
-        const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
-        const storeCreditService = createStoreCreditService(admin, session.shop);
-
-        try {
-          const result = await storeCreditService.issueStoreCredit(
-            customer.shopifyCustomerId,
-            amount,
-            currency,
-            reason
-          );
-
-          if (!result.success) {
-            throw new Error(result.error || "Failed to add store credit");
-          }
-
-          const newBalance = result.balance || (parseFloat(customer.storeCredit.toString()) + amount);
-
-          // Check if a ledger entry already exists for this order
-          const existingLedger = await prisma.storeCreditLedger.findFirst({
-            where: {
-              shop,
-              shopifyOrderId: order.shopifyOrderId,
-              type: 'CASHBACK_EARNED'
-            }
-          });
-
-          if (!existingLedger) {
-            // Create ledger entry
-            await prisma.storeCreditLedger.create({
-              data: {
-                id: uuidv4(),
-                customerId: order.customerId,
-                shop,
-                amount: amount,
-                balance: newBalance,
-                type: 'CASHBACK_EARNED',
-                shopifyOrderId: order.shopifyOrderId,
-                orderId: order.id,
-                metadata: {
-                  orderNumber: order.shopifyOrderNumber,
-                  orderName: order.shopifyOrderName,
-                  cashbackPercent: order.cashbackPercent,
-                  tierName: order.tierNameAtOrder,
-                  reason: reason,
-                  originalCashbackAmount: order.cashbackAmount,
-                  adjustedAmount: amount,
-                  shopifyBalance: newBalance,
-                  shopifyTransactionId: result.transactionId,
-                  syncStatus: 'SYNCED',
-                  syncedAt: new Date().toISOString()
-                },
-                createdAt: new Date(),
-              }
-            });
-          }
-
-          // Get current totalCashbackEarned to calculate new value
-          const currentTotalCashback = customer.totalCashbackEarned
-            ? parseFloat(customer.totalCashbackEarned.toString())
-            : 0;
-
-          // Update customer balance to match Shopify
-          await prisma.customer.update({
-            where: { id: order.customerId },
-            data: {
-              storeCredit: newBalance,
-              totalCashbackEarned: currentTotalCashback + amount,
-              updatedAt: new Date(),
-            },
-          });
-
-          // Mark order as processed
-          await prisma.order.update({
-            where: { id: orderId },
-            data: {
-              cashbackProcessed: true,
-              cashbackAmount: amount, // Update to actual amount issued
-              processedAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-
-          // Update customer spending totals from Order table
-          await updateCustomerSpendingTotals(order.customerId, shop);
-
-          return json({
-            success: true,
-            message: `Cashback of ${formatCurrency(amount, shopSettings)} successfully added to store credit`
-          });
-
-        } catch (error) {
-          console.error(`[Orders] Error processing cashback:`, error);
-          throw new Error(error instanceof Error ? error.message : "Failed to process cashback");
+        if (!result.success) {
+          throw new Error(result.error);
         }
-      }
 
-      // Legacy direct processing - kept for backward compatibility
-      // Now handled by process-cashback-modal with UI
-      case "process-cashback-old": {
-        const orderId = formData.get("orderId") as string;
+        // Update customer spending totals from Order table
+        await updateCustomerSpendingTotals(order.customerId, shop);
 
-        // OPTIMIZED: Fetch order with customer in single query
-        const order = await prisma.order.findFirst({
-          where: { id: orderId, shop },
-          include: { customer: true }
+        return json({
+          success: true,
+          message: `Cashback of ${formatCurrency(result.amount, shopSettings)} successfully added to store credit`
         });
-
-        if (!order) {
-          throw new Error("Order not found");
-        }
-
-        const customer = order.customer;
-
-        if (!customer || !customer.shopifyCustomerId) {
-          throw new Error("Customer not found or missing Shopify ID");
-        }
-
-        if (order.cashbackProcessed) {
-          throw new Error("Cashback already processed");
-        }
-
-        if (!order.cashbackAmount) {
-          throw new Error("No cashback amount to process");
-        }
-
-        // Get shop settings for currency
-        const shopSettings = await prisma.shopSettings.findUnique({
-          where: { shop }
-        });
-
-        const currency = shopSettings?.storeCurrency || order.currency || "USD";
-        const cashbackAmount = Number(order.cashbackAmount);
-        const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
-
-        // Use GraphQL mutation to add credit directly
-        const creditMutation = `#graphql
-          mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
-            storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
-              storeCreditAccountTransaction {
-                id
-                amount {
-                  amount
-                  currencyCode
-                }
-                balanceAfterTransaction {
-                  amount
-                  currencyCode
-                }
-              }
-              userErrors {
-                message
-                field
-                code
-              }
-            }
-          }
-        `;
-
-        console.log(`[Orders] Attempting to issue credit:`);
-        console.log(`[Orders]   Customer GID: ${gidCustomerId}`);
-        console.log(`[Orders]   Amount: ${cashbackAmount.toFixed(2)} ${currency}`);
-
-        try {
-          const creditResponse = await admin.graphql(creditMutation, {
-            variables: {
-              id: gidCustomerId,
-              creditInput: {
-                creditAmount: {
-                  amount: cashbackAmount.toFixed(2),
-                  currencyCode: currency
-                }
-              }
-            }
-          });
-
-          const creditData = await creditResponse.json() as any;
-
-          console.log(`[Orders] GraphQL Response:`, JSON.stringify(creditData, null, 2));
-
-          if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
-            const errors = creditData.data.storeCreditAccountCredit.userErrors;
-            console.error("[Orders] Credit mutation errors:", errors);
-
-            // Check if it's a "no account" error
-            if (errors.some((e: any) => e.message.toLowerCase().includes("account") || e.message.toLowerCase().includes("does not exist"))) {
-              throw new Error("Customer does not have a store credit account. Please create one in Shopify first.");
-            }
-            throw new Error(errors[0].message || "Failed to add store credit");
-          }
-
-          const transaction = creditData.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
-          if (!transaction) {
-            throw new Error("No transaction returned from Shopify");
-          }
-
-          const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
-          const shopifyTransactionId = transaction.id;
-
-          console.log(`[Orders] ✅ Store credit issued in Shopify: ${shopifyTransactionId}`);
-          console.log(`[Orders]    Amount: ${cashbackAmount} ${currency}`);
-          console.log(`[Orders]    New balance: ${newBalance} ${currency}`);
-
-          // Check if a ledger entry already exists for this order
-          const existingLedger = await prisma.storeCreditLedger.findFirst({
-            where: {
-              shop,
-              shopifyOrderId: order.shopifyOrderId,
-              type: 'CASHBACK_EARNED'
-            }
-          });
-
-          if (!existingLedger) {
-            // Create ledger entry - store sync info in metadata
-            // to avoid column missing errors in Aurora Data API
-            const ledgerId = uuidv4();
-            await prisma.storeCreditLedger.create({
-              data: {
-                id: ledgerId,
-                customerId: order.customerId,
-                shop,
-                amount: cashbackAmount,
-                balance: newBalance,
-                type: 'CASHBACK_EARNED',
-                shopifyOrderId: order.shopifyOrderId,
-                orderId: order.id,
-                metadata: {
-                  orderNumber: order.shopifyOrderNumber,
-                  orderName: order.shopifyOrderName,
-                  cashbackPercent: order.cashbackPercent,
-                  tierName: order.tierNameAtOrder,
-                  description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
-                  shopifyBalance: newBalance,
-                  // Store sync info in metadata since columns may not exist
-                  shopifyTransactionId,
-                  syncStatus: 'SYNCED',
-                  syncedAt: new Date().toISOString()
-                },
-                createdAt: new Date(),
-              }
-            });
-          } else {
-            console.log(`[Orders] Ledger entry already exists for order ${order.shopifyOrderName}, skipping creation`);
-          }
-
-          // Get current totalCashbackEarned to calculate new value
-          const currentTotalCashback = customer.totalCashbackEarned
-            ? parseFloat(customer.totalCashbackEarned.toString())
-            : 0;
-
-          // Update customer balance to match Shopify
-          await prisma.customer.update({
-            where: { id: order.customerId },
-            data: {
-              storeCredit: newBalance,
-              totalCashbackEarned: currentTotalCashback + cashbackAmount,
-              updatedAt: new Date(),
-            },
-          });
-
-          // Mark order as processed
-          await prisma.order.update({
-            where: { id: orderId },
-            data: {
-              cashbackProcessed: true,
-              processedAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-
-          return json({
-            success: true,
-            message: `Cashback of ${formatCurrency(cashbackAmount, shopSettings)} successfully added to store credit`
-          });
-
-        } catch (error) {
-          console.error(`[Orders] Error processing cashback:`, error);
-
-          // Still create a local ledger entry but mark as failed
-          const currentBalance = Number(customer.storeCredit);
-          const localNewBalance = currentBalance + cashbackAmount;
-
-          // Check if a ledger entry already exists before creating failed entry
-          const existingFailedLedger = await prisma.storeCreditLedger.findFirst({
-            where: {
-              shop,
-              shopifyOrderId: order.shopifyOrderId,
-              type: 'CASHBACK_EARNED'
-            }
-          });
-
-          if (!existingFailedLedger) {
-            // Create failed ledger entry - store sync info in metadata
-            // to avoid column missing errors in Aurora Data API
-            await prisma.storeCreditLedger.create({
-              data: {
-                id: uuidv4(),
-                customerId: order.customerId,
-                shop,
-                amount: cashbackAmount,
-                balance: localNewBalance,
-                type: 'CASHBACK_EARNED',
-                shopifyOrderId: order.shopifyOrderId,
-                orderId: order.id,
-                metadata: {
-                  orderNumber: order.shopifyOrderNumber,
-                  orderName: order.shopifyOrderName,
-                  cashbackPercent: order.cashbackPercent,
-                  tierName: order.tierNameAtOrder,
-                  error: error instanceof Error ? error.message : 'Unknown error',
-                  description: `${order.cashbackPercent}% cashback from order ${order.shopifyOrderName}`,
-                  // Store sync info in metadata since columns may not exist
-                  syncStatus: 'FAILED',
-                  syncedAt: new Date().toISOString()
-                },
-                createdAt: new Date(),
-              }
-            });
-          } else {
-            console.log(`[Orders] Failed ledger entry already exists for order ${order.shopifyOrderName}, skipping creation`);
-          }
-
-          // Get current totalCashbackEarned to calculate new value
-          const currentTotalCashbackLocal = customer.totalCashbackEarned
-            ? parseFloat(customer.totalCashbackEarned.toString())
-            : 0;
-
-          // Update customer balance locally
-          await prisma.customer.update({
-            where: { id: order.customerId },
-            data: {
-              storeCredit: localNewBalance,
-              totalCashbackEarned: currentTotalCashbackLocal + cashbackAmount,
-              updatedAt: new Date(),
-            },
-          });
-
-          // Mark order as processed even if Shopify sync failed
-          await prisma.order.update({
-            where: { id: orderId },
-            data: {
-              cashbackProcessed: true,
-              processedAt: new Date(),
-              updatedAt: new Date(),
-            },
-          });
-
-          return json({
-            success: true,
-            message: `Cashback processed locally but failed to sync to Shopify: ${error instanceof Error ? error.message : 'Unknown error'}. The credit has been recorded and will be retried later.`
-          });
-        }
       }
 
       case "process-refund": {
+        // Retry the store-credit debit of a refund's cashback reversal
+        // (services/refund-handler.server.ts); the refunds/create webhook
+        // normally settles it on its own.
         const orderId = formData.get("orderId") as string;
         const refundId = formData.get("refundId") as string;
 
-        // Fetch refund first
         const refund = await prisma.orderRefund.findFirst({
-          where: { id: refundId, orderId },
+          where: { id: refundId, orderId, order: { shop } },
+          include: { creditLedgerEntry: { select: { id: true } } },
         });
 
         if (!refund) {
           throw new Error("Refund not found");
         }
 
-        // Verify order belongs to shop
-        const refundOrder = await prisma.order.findFirst({
-          where: { id: refund.orderId, shop },
-        });
-
-        if (!refundOrder) {
-          throw new Error("Order not found or unauthorized");
+        if (refund.cashbackProcessed || !refund.creditLedgerEntry) {
+          throw new Error("No outstanding cashback reversal for this refund");
         }
 
-        // Fetch customer if needed
-        const refundCustomer = refundOrder.customerId !== "unknown"
-          ? await prisma.customer.findUnique({
-              where: { id: refundOrder.customerId }
-            })
-          : null;
-
-        if (!refund.cashbackAdjustment) {
-          throw new Error("No cashback to adjust for this refund");
+        const settlement = await settleRefundClawback(refund.creditLedgerEntry.id, { shop, admin });
+        if (!settlement.settled) {
+          throw new Error("This reversal is already being processed");
         }
-
-        if (refund.cashbackProcessed) {
-          throw new Error("Refund cashback already processed");
-        }
-
-        if (!refundCustomer) {
-          throw new Error("Customer not found for refund");
-        }
-
-        // Get current balance from customer record
-        const currentBalance = Number(refundCustomer.storeCredit);
-        const adjustmentAmount = Number(refund.cashbackAdjustment);
-        const newBalance = Math.max(0, currentBalance - adjustmentAmount);
-
-        // Create ledger entry for refund
-        await prisma.storeCreditLedger.create({
-          data: {
-            id: uuidv4(),
-            customerId: refundOrder.customerId,
-            shop,
-            amount: -adjustmentAmount,
-            balance: newBalance,
-            type: 'REFUND_CREDIT',
-            shopifyOrderId: refundOrder.shopifyOrderId,
-            orderId: refund.orderId,
-            refundId: refund.id,
-            metadata: {
-              refundAmount: Number(refund.amount),
-              orderNumber: refundOrder.shopifyOrderNumber,
-            },
-            createdAt: new Date(),
-          },
-        });
-
-        // Update customer balance
-        await prisma.customer.update({
-          where: { id: refundOrder.customerId },
-          data: {
-            storeCredit: newBalance,
-            updatedAt: new Date(),
-          },
-        });
-
-        // Mark refund as processed
-        await prisma.orderRefund.update({
-          where: { id: refundId },
-          data: {
-            cashbackProcessed: true,
-            processedAt: new Date(),
-          },
-        });
 
         return json({
           success: true,
-          message: "Refund cashback adjustment processed"
+          message: settlement.unrecovered.gt(0)
+            ? `Cashback reversal processed; ${settlement.unrecovered.toFixed(2)} had already been spent`
+            : "Refund cashback adjustment processed"
         });
       }
 
       case "process-all-cashback": {
-        // Process all pending cashback orders in batch
-        const orderIds = (formData.get("orderIds") as string).split(',');
-        const ordersDataStr = formData.get("ordersData") as string | null;
-        const enableDebugLog = formData.get("enableDebugLog") === "true";
-        const debugLog: string[] = [];
+        // Process all pending cashback orders in batch. Amounts come from the
+        // stored orders, never from the submitted form.
+        const orderIds = (formData.get("orderIds") as string).split(',').filter(Boolean);
+        const shopSettings = await prisma.shopSettings.findUnique({ where: { shop }, select: { storeCurrency: true } });
+        const orders = await prisma.order.findMany({
+          where: { id: { in: orderIds }, shop },
+          select: { id: true, shopifyOrderId: true, shopifyOrderName: true, currency: true, cashbackAmount: true, cashbackPercent: true, customerId: true },
+        });
 
         let successCount = 0;
-        let failCount = 0;
-        const errors: string[] = [];
+        let failCount = orderIds.length - orders.length;
+        const errors: string[] = failCount > 0 ? [`${failCount} order(s) not found`] : [];
 
-        // Debug logging
-        if (enableDebugLog) {
-          debugLog.push(`[SERVER] Received ${orderIds.length} order IDs`);
-          debugLog.push(`[SERVER] Has order data: ${!!ordersDataStr}`);
-          debugLog.push(`[SERVER] Order data length: ${ordersDataStr?.length || 0} chars`);
-        }
-
-        // Parse the orders data if provided (skip DB fetch)
-        let ordersToProcess: any[] = [];
-
-        if (ordersDataStr) {
-          // Use the passed order data directly (no DB fetch needed)
-          try {
-            ordersToProcess = JSON.parse(ordersDataStr);
-            if (enableDebugLog) {
-              debugLog.push(`[PARSE] Successfully parsed ${ordersToProcess.length} orders from client data`);
-            }
-          } catch (e) {
-            const errorMsg = `Failed to parse orders data: ${e instanceof Error ? e.message : 'Unknown error'}`;
-            console.error(errorMsg);
-            if (enableDebugLog) {
-              debugLog.push(`[ERROR] ${errorMsg}`);
-            }
-          }
-        }
-
-        // If no order data passed, fall back to fetching from DB
-        // OPTIMIZED: Use single findMany with IN clause instead of N individual queries
-        if (ordersToProcess.length === 0 && orderIds.length > 0) {
-          const fetchedOrders = await prisma.order.findMany({
-            where: { id: { in: orderIds }, shop },
-            include: { customer: true }
+        for (const order of orders) {
+          const result = await issueCashbackByHand({
+            shop,
+            admin,
+            orderId: order.id,
+            amount: order.cashbackAmount ? Number(order.cashbackAmount) : 0,
+            currency: shopSettings?.storeCurrency || order.currency || "USD",
+            reason: `Loyalty reward - Order ${order.shopifyOrderName}`,
           });
-          ordersToProcess.push(...fetchedOrders);
-        }
-
-        // Process each order
-        for (let i = 0; i < ordersToProcess.length; i++) {
-          const order = ordersToProcess[i];
-
-          if (enableDebugLog) {
-            debugLog.push(`\n[ORDER ${i + 1}/${ordersToProcess.length}] Processing ${order?.shopifyOrderName || order?.id || 'unknown'}`);
-          }
-
-          try {
-            if (!order) {
-              failCount++;
-              const msg = `Order not found (null/undefined)`;
-              errors.push(msg);
-              if (enableDebugLog) debugLog.push(`[SKIP] ${msg}`);
-              continue;
-            }
-
-            if (enableDebugLog) {
-              debugLog.push(`[CHECK] Order ID: ${order.id}`);
-              debugLog.push(`[CHECK] Has customer object: ${!!order.customer}`);
-              debugLog.push(`[CHECK] Order customerId field: ${order.customerId || 'none'}`);
-              debugLog.push(`[CHECK] Customer object ID: ${order.customer?.id || 'none'}`);
-              debugLog.push(`[CHECK] Shopify Customer ID: ${order.customer?.shopifyCustomerId || 'MISSING'}`);
-              debugLog.push(`[CHECK] Cashback amount: ${order.cashbackAmount || 0}`);
-            }
-
-            // Try to fetch customer if not included or if customerId field exists
-            let customer = order.customer;
-
-            // If no customer object but has customerId, try to fetch it
-            if (!customer && order.customerId && order.customerId !== "unknown") {
-              if (enableDebugLog) {
-                debugLog.push(`[FETCH] No customer object, fetching by customerId: ${order.customerId}`);
-              }
-
-              customer = await prisma.customer.findFirst({
-                where: {
-                  id: order.customerId,
-                  shop
-                },
-                include: {
-                  currentTier: true
-                }
-              });
-
-              if (enableDebugLog) {
-                debugLog.push(`[FETCH] Customer fetch result: ${customer ? `found ${customer.email}` : 'not found'}`);
-              }
-            }
-
-            // Now check if we have a valid customer with Shopify ID
-            if (!customer || !customer.shopifyCustomerId) {
-              failCount++;
-              const msg = `Order ${order.shopifyOrderId || order.shopifyOrderName}: No customer or missing Shopify ID`;
-              errors.push(msg);
-              if (enableDebugLog) {
-                debugLog.push(`[SKIP] ${msg}`);
-                if (order.customerId) {
-                  debugLog.push(`[DEBUG] Order has customerId: ${order.customerId} but customer not found or no Shopify ID`);
-                }
-              }
-              continue;
-            }
-
-            const amount = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
-            if (amount <= 0) {
-              failCount++;
-              const msg = `Order ${order.shopifyOrderId}: Invalid cashback amount (${amount})`;
-              errors.push(msg);
-              if (enableDebugLog) debugLog.push(`[SKIP] ${msg}`);
-              continue;
-            }
-
-            // Add store credit through Shopify GraphQL (same as individual processing)
-            const currency = order.currency || 'USD';
-            const gidCustomerId = `gid://shopify/Customer/${customer.shopifyCustomerId}`;
-
-            if (enableDebugLog) {
-              debugLog.push(`[GRAPHQL] Preparing mutation for customer GID: ${gidCustomerId}`);
-              debugLog.push(`[GRAPHQL] Amount: ${amount.toFixed(2)} ${currency}`);
-            }
-
-            // Use the same GraphQL mutation as individual processing
-            const creditMutation = `#graphql
-              mutation storeCreditAccountCredit($id: ID!, $creditInput: StoreCreditAccountCreditInput!) {
-                storeCreditAccountCredit(id: $id, creditInput: $creditInput) {
-                  storeCreditAccountTransaction {
-                    id
-                    amount {
-                      amount
-                      currencyCode
-                    }
-                    balanceAfterTransaction {
-                      amount
-                      currencyCode
-                    }
-                  }
-                  userErrors {
-                    message
-                    field
-                    code
-                  }
-                }
-              }
-            `;
-
-            try {
-              if (enableDebugLog) {
-                debugLog.push(`[API] Calling Shopify GraphQL mutation...`);
-              }
-
-              const creditResponse = await admin.graphql(creditMutation, {
-                variables: {
-                  id: gidCustomerId,
-                  creditInput: {
-                    creditAmount: {
-                      amount: amount.toFixed(2),
-                      currencyCode: currency
-                    }
-                  }
-                }
-              });
-
-              const creditData = await creditResponse.json() as any;
-
-              if (enableDebugLog) {
-                debugLog.push(`[API] Response received`);
-                debugLog.push(`[API] Has data: ${!!creditData.data}`);
-                debugLog.push(`[API] Has errors: ${!!creditData.errors}`);
-                if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
-                  debugLog.push(`[API] User errors: ${JSON.stringify(creditData.data.storeCreditAccountCredit.userErrors)}`);
-                }
-              }
-
-              if (creditData.data?.storeCreditAccountCredit?.userErrors?.length > 0) {
-                const errors = creditData.data.storeCreditAccountCredit.userErrors;
-                throw new Error(errors[0].message || "Failed to add store credit");
-              }
-
-              const transaction = creditData.data?.storeCreditAccountCredit?.storeCreditAccountTransaction;
-              if (!transaction) {
-                throw new Error("No transaction returned from Shopify");
-              }
-
-              const newBalance = parseFloat(transaction.balanceAfterTransaction.amount);
-              const shopifyTransactionId = transaction.id;
-
-            // Get current totalCashbackEarned to calculate new value
-            const currentTotalCashback = customer.totalCashbackEarned
-              ? parseFloat(customer.totalCashbackEarned.toString())
-              : 0;
-
-              // Update customer balance
-              await prisma.customer.update({
-                where: { id: customer.id },
-                data: {
-                  storeCredit: newBalance,
-                  totalCashbackEarned: currentTotalCashback + amount,
-                  updatedAt: new Date(),
-                },
-              });
-
-              // Check if ledger entry already exists
-              const existingLedger = await prisma.storeCreditLedger.findFirst({
-                where: {
-                  shop,
-                  shopifyOrderId: order.shopifyOrderId,
-                  type: 'CASHBACK_EARNED'
-                }
-              });
-
-              if (!existingLedger) {
-                // Create ledger entry - put potentially missing columns in metadata
-                await prisma.storeCreditLedger.create({
-                  data: {
-                    id: uuidv4(),
-                    shop,
-                    customerId: customer.id,
-                    amount: amount,
-                    balance: newBalance,
-                    type: 'CASHBACK_EARNED',
-                    shopifyOrderId: order.shopifyOrderId,
-                    orderId: order.id,
-                    metadata: {
-                      description: `Loyalty reward - Order ${order.shopifyOrderId}`,
-                      orderNumber: order.shopifyOrderNumber,
-                      orderName: order.shopifyOrderName,
-                      cashbackPercent: order.cashbackPercent,
-                      tierName: order.tierNameAtOrder,
-                      processedBy: "batch",
-                      // Store these in metadata in case columns don't exist in DB
-                      shopifyTransactionId: shopifyTransactionId,
-                      syncStatus: "SYNCED",
-                      syncedAt: new Date().toISOString()
-                    },
-                    createdAt: new Date()
-                  },
-                });
-              }
-
-              // Mark order as processed
-              await prisma.order.update({
-                where: { id: order.id },
-                data: {
-                  cashbackProcessed: true,
-                  processedAt: new Date(),
-                  updatedAt: new Date(),
-                },
-              });
-
-              // Update customer spending totals from Order table
-              await updateCustomerSpendingTotals(customer.id, shop);
-
-              successCount++;
-              if (enableDebugLog) {
-                debugLog.push(`[SUCCESS] Order ${order.shopifyOrderName} processed successfully for customer ${customer.email}`);
-              }
-            } catch (error) {
-              failCount++;
-              const errorMsg = `Order ${order.shopifyOrderId}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-              errors.push(errorMsg);
-              if (enableDebugLog) {
-                debugLog.push(`[ERROR] Inner catch: ${errorMsg}`);
-              }
-              continue;
-            }
-          } catch (outerError) {
+          if (result.success) {
+            successCount++;
+            await updateCustomerSpendingTotals(order.customerId, shop);
+          } else {
             failCount++;
-            const errorMsg = `Order ${order.shopifyOrderId || order.id}: ${outerError instanceof Error ? outerError.message : 'Unknown error'}`;
-            errors.push(errorMsg);
-            if (enableDebugLog) {
-              debugLog.push(`[ERROR] Outer catch: ${errorMsg}`);
-            }
-            continue;
+            errors.push(`Order ${order.shopifyOrderName || order.shopifyOrderId}: ${result.error}`);
           }
         }
 
-        if (enableDebugLog) {
-          debugLog.push(`\n[COMPLETE] Processed ${successCount} successfully, ${failCount} failed`);
-        }
-
-        // Return summary with debug log
+        // Return summary
         return json({
           success: failCount === 0,
           message: `Processed ${successCount} orders successfully${failCount > 0 ? `, ${failCount} failed` : ''}`,
           successCount,
           failCount,
           errors: errors.length > 0 ? errors.slice(0, 5) : undefined, // Show first 5 errors
-          debugLog: enableDebugLog ? debugLog : undefined // Include debug log if enabled
         });
       }
 
@@ -1839,16 +1172,11 @@ export default function OrdersPage() {
 
     setProcessingLog(logEntries);
 
-    // Submit batch processing request with full order data
-    const submitData: Record<string, string> = {
+    // Submit batch processing request; the server reads amounts from its own records
+    submit({
       action: "process-all-cashback",
       orderIds: confirmModalData.orderIds.join(','),
-      enableDebugLog: "true" // Enable server-side logging
-    };
-    if (confirmModalData.orders) {
-      submitData.ordersData = JSON.stringify(confirmModalData.orders);
-    }
-    submit(submitData, { method: "post" });
+    }, { method: "post" });
 
     // Clear selection if processing selected orders
     if (confirmModalData.action === "process-selected" && clearSelection) {
@@ -1914,11 +1242,6 @@ export default function OrdersPage() {
   useEffect(() => {
     if (actionData) {
       const data = actionData as any;
-
-      // Handle debug log if present
-      if (data.debugLog && Array.isArray(data.debugLog)) {
-        setProcessingLog(prev => [...prev, ...data.debugLog]);
-      }
 
       // Update processing status for batch operations
       if (data.successCount !== undefined || data.failCount !== undefined) {
@@ -2133,8 +1456,8 @@ export default function OrdersPage() {
                       <Badge>
                         {`${orders.length} of ${pagination.totalCount}`}
                       </Badge>
-                      <Badge tone={shopSettings?.autoCashbackProcessingEnabled !== false ? "success" : "warning"}>
-                        {shopSettings?.autoCashbackProcessingEnabled !== false ? "Auto Processing: On" : "Auto Processing: Off"}
+                      <Badge tone={shopSettings?.autoCashbackProcessingEnabled === true ? "success" : "warning"}>
+                        {shopSettings?.autoCashbackProcessingEnabled === true ? "Auto Processing: On" : "Auto Processing: Off"}
                       </Badge>
                     </InlineStack>
                     <Select

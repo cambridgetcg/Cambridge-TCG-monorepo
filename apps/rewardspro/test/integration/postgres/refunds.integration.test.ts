@@ -1,0 +1,277 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "~/db.server";
+import { action as refundsCreate } from "~/routes/webhooks.orders.refunded";
+import { action as ordersCancelled } from "~/routes/webhooks.orders.cancelled";
+import { hasTestDatabase, resetDatabase } from "./database";
+import { mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
+
+const SHOP = "refunds-test.myshopify.com";
+const SHOPIFY_CUSTOMER = "100";
+const SHOPIFY_ORDER = 7770001;
+
+/** A paid £100 order with £5.00 cashback, issued (SYNCED) or still pending. */
+async function seedOrder({ cashback = "issued" }: { cashback?: "issued" | "pending" } = {}) {
+  await prisma.shopSettings.create({
+    data: { shop: SHOP, storeName: "Refunds", storeUrl: `https://${SHOP}`, storeCurrency: "GBP" },
+  });
+  const issued = cashback === "issued";
+  const customer = await prisma.customer.create({
+    data: { shop: SHOP, shopifyCustomerId: SHOPIFY_CUSTOMER, email: "alice@example.test", storeCredit: issued ? 5 : 0, totalSpent: 100, netSpent: 100, totalCashbackEarned: 5 },
+  });
+  const order = await prisma.order.create({
+    data: {
+      shop: SHOP,
+      shopifyOrderId: String(SHOPIFY_ORDER),
+      shopifyOrderNumber: "1001",
+      shopifyOrderName: "#1001",
+      customerId: customer.id,
+      email: customer.email,
+      currency: "GBP",
+      subtotalPrice: 100,
+      totalDiscounts: 0,
+      totalShipping: 0,
+      totalTax: 0,
+      totalPrice: 100,
+      netAmount: 100,
+      financialStatus: "PAID",
+      cashbackAmount: 5,
+      cashbackProcessed: issued,
+      shopifyCreatedAt: new Date(),
+      shopifyUpdatedAt: new Date(),
+    },
+  });
+  const entry = await prisma.storeCreditLedger.create({
+    data: {
+      shop: SHOP,
+      customerId: customer.id,
+      orderId: order.id,
+      shopifyOrderId: order.shopifyOrderId,
+      type: "CASHBACK_EARNED",
+      amount: 5,
+      balance: 5,
+      metadata: { orderName: "#1001", syncStatus: issued ? "SYNCED" : "PENDING" },
+    },
+  });
+  return { customer, order, entry };
+}
+
+function refundPayload(id: number, amount: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    order_id: SHOPIFY_ORDER,
+    created_at: "2026-10-19T10:00:00Z",
+    refund_line_items: [],
+    transactions: [{ kind: "refund", status: "success", amount, currency: "GBP" }],
+    ...overrides,
+  };
+}
+
+function deliverRefund(payload: unknown, webhookId?: string) {
+  return refundsCreate({ request: signedWebhook("refunds/create", SHOP, payload, webhookId), params: {}, context: {} });
+}
+
+const clawbacks = () =>
+  prisma.storeCreditLedger.findMany({ where: { shop: SHOP, type: "REFUND_CLAWBACK" }, orderBy: { createdAt: "asc" }, include: { refund: true } });
+
+describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
+  beforeEach(async () => {
+    await resetDatabase();
+    await seedOfflineSession(SHOP);
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+  });
+
+  it("rejects a delivery not signed with the app's client secret", async () => {
+    await seedOrder();
+    const request = signedWebhook("refunds/create", SHOP, refundPayload(1, "100.00"));
+    const forged = new Request(request.url, {
+      method: "POST",
+      headers: { ...Object.fromEntries(request.headers), "X-Shopify-Hmac-Sha256": "forged" },
+      body: await request.text(),
+    });
+
+    await expect(refundsCreate({ request: forged, params: {}, context: {} })).rejects.toMatchObject({ status: 401 });
+    await expect(prisma.orderRefund.count()).resolves.toBe(0);
+  });
+
+  it("reverses issued cashback on a full refund with a linked entry and a store-credit debit", async () => {
+    const { customer } = await seedOrder();
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 });
+
+    const response = await deliverRefund(refundPayload(1, "100.00"));
+
+    expect(response.status).toBe(200);
+    expect(calls).toEqual([{ operation: "debit", customerId: SHOPIFY_CUSTOMER, amount: "5.00", currency: "GBP" }]);
+    const [clawback] = await clawbacks();
+    expect(clawback.amount.toFixed(2)).toBe("-5.00");
+    expect(clawback.refund?.shopifyRefundId).toBe("1");
+    expect(clawback.refund?.cashbackProcessed).toBe(true);
+    expect(clawback.metadata).toMatchObject({ syncStatus: "SYNCED", reversalAmount: "5.00", debitedAmount: "5.00" });
+
+    const order = await prisma.order.findUniqueOrThrow({ where: { shop_shopifyOrderId: { shop: SHOP, shopifyOrderId: String(SHOPIFY_ORDER) } } });
+    expect(order.financialStatus).toBe("REFUNDED");
+    expect(order.totalRefunded.toFixed(2)).toBe("100.00");
+    expect(order.cashbackAmount?.toFixed(2)).toBe("0.00");
+    const after = await prisma.customer.findUniqueOrThrow({ where: { id: customer.id } });
+    expect(after.storeCredit.toFixed(2)).toBe("0.00");
+    expect(after.netSpent.toFixed(2)).toBe("0.00");
+  });
+
+  it("reverses partial refunds proportionally, never more than was credited, once per refund", async () => {
+    await seedOrder();
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 });
+
+    expect((await deliverRefund(refundPayload(1, "30.00"), "wh-1")).status).toBe(200);
+    // Redelivery under a new webhook id: same refund, no second debit
+    expect((await deliverRefund(refundPayload(1, "30.00"), "wh-2")).status).toBe(200);
+    expect((await deliverRefund(refundPayload(2, "70.00"), "wh-3")).status).toBe(200);
+
+    expect(calls.map((c) => c.amount)).toEqual(["1.50", "3.50"]);
+    const entries = await clawbacks();
+    expect(entries.map((e) => e.amount.toFixed(2))).toEqual(["-1.50", "-3.50"]);
+    const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP } });
+    expect(order.financialStatus).toBe("REFUNDED");
+    expect(order.totalRefunded.toFixed(2)).toBe("100.00");
+    await expect(prisma.orderRefund.count()).resolves.toBe(2);
+  });
+
+  it("caps the debit at the credit the shopper still holds and records the shortfall", async () => {
+    await seedOrder();
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 2 });
+
+    expect((await deliverRefund(refundPayload(1, "100.00"))).status).toBe(200);
+
+    expect(calls.map((c) => c.amount)).toEqual(["2.00"]);
+    const [clawback] = await clawbacks();
+    expect(clawback.amount.toFixed(2)).toBe("-2.00");
+    expect(clawback.metadata).toMatchObject({ reversalAmount: "5.00", debitedAmount: "2.00", unrecoveredAmount: "3.00" });
+  });
+
+  it("shrinks cashback that was not issued yet instead of debiting", async () => {
+    const { entry } = await seedOrder({ cashback: "pending" });
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 0 });
+
+    expect((await deliverRefund(refundPayload(1, "40.00"))).status).toBe(200);
+    let pending = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+    expect(pending.amount.toFixed(2)).toBe("3.00");
+    expect(pending.metadata).toMatchObject({ syncStatus: "PENDING", originalAmount: "5.00" });
+
+    expect((await deliverRefund(refundPayload(2, "60.00"))).status).toBe(200);
+    pending = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+    expect(pending.amount.toFixed(2)).toBe("0.00");
+    // Fully reversed before issue: never sent
+    expect(pending.metadata).toMatchObject({ syncStatus: "NOT_APPLICABLE" });
+    expect(calls).toEqual([]);
+    await expect(clawbacks()).resolves.toEqual([]);
+  });
+
+  it("answers 5xx when the debit fails and settles once on redelivery", async () => {
+    await seedOrder();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 }, { failDebits: 1 });
+
+    const first = await deliverRefund(refundPayload(1, "100.00"), "wh-1");
+    expect(first.status).toBe(503);
+    let [clawback] = await clawbacks();
+    expect(clawback.metadata).toMatchObject({ syncStatus: "PENDING", lastError: "Temporarily unavailable" });
+
+    const retry = await deliverRefund(refundPayload(1, "100.00"), "wh-1");
+    expect(retry.status).toBe(200);
+    [clawback] = await clawbacks();
+    expect(clawback.metadata).toMatchObject({ syncStatus: "SYNCED", debitedAmount: "5.00" });
+    expect(calls.filter((c) => c.operation === "debit")).toHaveLength(2);
+    expect((await prisma.order.findFirstOrThrow({ where: { shop: SHOP } })).totalRefunded.toFixed(2)).toBe("100.00");
+  });
+
+  it("asks for a retry while the reconciliation cron is issuing the cashback", async () => {
+    const { entry } = await seedOrder({ cashback: "pending" });
+    await prisma.storeCreditLedger.update({ where: { id: entry.id }, data: { metadata: { syncStatus: "SYNCING" } } });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await deliverRefund(refundPayload(1, "100.00"));
+
+    expect(response.status).toBe(503);
+    // Rolled back: the redelivery applies the refund once
+    await expect(prisma.orderRefund.count()).resolves.toBe(0);
+    expect((await prisma.order.findFirstOrThrow({ where: { shop: SHOP } })).totalRefunded.toFixed(2)).toBe("0.00");
+  });
+
+  it("handles cancel-then-refund: the cancellation leaves cashback to the refund", async () => {
+    await seedOrder();
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 });
+
+    const cancelled = await ordersCancelled({
+      request: signedWebhook("orders/cancelled", SHOP, {
+        id: SHOPIFY_ORDER,
+        created_at: "2026-10-18T10:00:00Z",
+        updated_at: "2026-10-19T10:00:00Z",
+        cancelled_at: "2026-10-19T10:00:00Z",
+        cancel_reason: "customer",
+        financial_status: "refunded",
+        fulfillment_status: null,
+        total_price: "100.00",
+        currency: "GBP",
+      }),
+      params: {},
+      context: {},
+    });
+    expect(cancelled.status).toBe(200);
+    expect(calls).toEqual([]);
+
+    expect((await deliverRefund(refundPayload(1, "100.00"))).status).toBe(200);
+
+    expect(calls.map((c) => c.amount)).toEqual(["5.00"]);
+    const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP } });
+    expect(order.financialStatus).toBe("REFUNDED");
+    expect(order.fulfillmentStatus).toBe("CANCELLED");
+  });
+
+  it("keeps a refund recorded before a late cancellation", async () => {
+    await seedOrder();
+    mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 });
+    expect((await deliverRefund(refundPayload(1, "40.00"))).status).toBe(200);
+
+    // A cancellation snapshot taken before the refund still says "paid"
+    await ordersCancelled({
+      request: signedWebhook("orders/cancelled", SHOP, {
+        id: SHOPIFY_ORDER,
+        created_at: "2026-10-18T10:00:00Z",
+        updated_at: "2026-10-19T09:00:00Z",
+        cancelled_at: "2026-10-19T09:00:00Z",
+        cancel_reason: "customer",
+        financial_status: "paid",
+        fulfillment_status: null,
+        total_price: "100.00",
+        currency: "GBP",
+      }),
+      params: {},
+      context: {},
+    });
+
+    const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP } });
+    expect(order.financialStatus).toBe("PARTIALLY_REFUNDED");
+  });
+
+  it("leaves the order alone when a refund returns no money (restock only)", async () => {
+    await seedOrder();
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 5 });
+
+    expect((await deliverRefund(refundPayload(1, "0.00", { transactions: [] }))).status).toBe(200);
+    // A failed refund transaction returned nothing either
+    const failed = { transactions: [{ kind: "refund", status: "failure", amount: "100.00", currency: "GBP" }] };
+    expect((await deliverRefund(refundPayload(2, "0.00", failed))).status).toBe(200);
+
+    expect(calls).toEqual([]);
+    const order = await prisma.order.findFirstOrThrow({ where: { shop: SHOP } });
+    expect(order.financialStatus).toBe("PAID");
+    expect(order.cashbackAmount?.toFixed(2)).toBe("5.00");
+    await expect(clawbacks()).resolves.toEqual([]);
+  });
+
+  it("acknowledges refunds for orders it never recorded", async () => {
+    const response = await deliverRefund(refundPayload(1, "10.00"));
+    expect(response.status).toBe(200);
+    await expect(prisma.orderRefund.count()).resolves.toBe(0);
+  });
+});

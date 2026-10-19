@@ -4,7 +4,6 @@ import {
   AppDistribution,
   shopifyApp,
   BillingInterval,
-  DeliveryMethod,
 } from "@shopify/shopify-app-remix/server";
 import prisma from "./db.server";
 import { toCurrency } from "./utils/currency-code.server";
@@ -176,17 +175,9 @@ const shopify = shopifyApp({
       ],
     },
   },
-  webhooks: {
-    // Billing-related webhooks
-    APP_SUBSCRIPTIONS_UPDATE: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/app-subscriptions-update",
-    },
-    APP_UNINSTALLED: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/app/uninstalled",
-    },
-  },
+  // Webhook subscriptions live only in shopify.app.toml (app-specific
+  // subscriptions); test/unit/webhooks/subscriptions.test.ts keeps every
+  // webhook route and subscription paired.
   hooks: {
     afterAuth: async ({ session, admin }) => {
       console.log(`[AfterAuth] App installed/authenticated for shop: ${session.shop}`);
@@ -311,5 +302,4 @@ export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
-export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorage = shopify.sessionStorage;

@@ -30,6 +30,7 @@ import { SentryService } from "../services/monitoring/sentry.service";
 import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
 import { getPlanOrderLimit } from "../constants/billing.constants";
 import { incrementMonthlyOrderCount } from "../utils/order-count.server";
+import { claimLedgerEntry, isAutoCashbackEnabled } from "../services/cashback-ledger.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'node:crypto';
@@ -57,28 +58,6 @@ function isPermanentOrderError(error: unknown): error is Error {
     error instanceof Error &&
     !causedByPrisma(error) &&
     (error.message.includes('Invalid') || error.message.includes('not found'))
-  );
-}
-
-// HMAC Verification
-function _verifyWebhookHMAC(request: Request, rawBody: string): boolean {
-  const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
-  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
-  
-  if (!hmacHeader || !webhookSecret) {
-    console.error('[Webhook] Missing HMAC header or webhook secret');
-    return false;
-  }
-  
-  const hash = crypto
-    .createHmac('sha256', webhookSecret)
-    .update(rawBody, 'utf8')
-    .digest('base64');
-  
-  // Timing-safe comparison
-  return crypto.timingSafeEqual(
-    Buffer.from(hash),
-    Buffer.from(hmacHeader)
   );
 }
 
@@ -868,7 +847,7 @@ async function recordCashback(tx: PrismaClient, params: {
     select: { autoCashbackProcessingEnabled: true, storeCurrency: true }
   });
 
-  const autoProcessingEnabled = shopSettings?.autoCashbackProcessingEnabled !== false; // Default to true if not set
+  const autoProcessingEnabled = isAutoCashbackEnabled(shopSettings);
 
   if (!order.customer?.id) {
     console.log('[OrderPaid] No customer ID, skipping cashback');
@@ -1009,13 +988,15 @@ async function recordCashback(tx: PrismaClient, params: {
     // =========================================================================
     // TRANSACTIONAL SAFETY FIX: Create ledger entry FIRST as idempotency lock
     // This prevents double-crediting if Shopify succeeds but subsequent ops fail
-    // 1. Create ledger with PENDING status (acts as lock)
+    // 1. Create ledger entry, already claimed (SYNCING) when it will be sent now
     // 2. Attempt Shopify sync
-    // 3. Update ledger to SYNCED if successful
-    // On retry: ledger entry exists → skip processing (even if still PENDING)
+    // 3. Update ledger to SYNCED if successful, back to PENDING if not
+    // On retry: ledger entry exists → skip processing (even if still PENDING).
+    // A crash after Shopify credited leaves it SYNCING, never re-sent
+    // (services/cashback-ledger.server.ts).
     // =========================================================================
 
-    // Step 1: Create ledger entry FIRST with PENDING status
+    // Step 1: Create ledger entry FIRST
     await tx.storeCreditLedger.create({
       data: {
         id: ledgerId,
@@ -1036,17 +1017,18 @@ async function recordCashback(tx: PrismaClient, params: {
           tierName: currentTier.name,
           description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
           paymentBreakdown: breakdown ? { ...breakdown } : null,
-          syncStatus: 'PENDING',
+          syncStatus: autoProcessingEnabled ? 'SYNCING' : 'PENDING',
           autoProcessed: false
         },
         createdAt: now,
       }
     });
 
-    console.log(`[OrderPaid] Created PENDING ledger entry ${ledgerId} for ${cashbackAmount} ${currency} (idempotency lock)`);
+    console.log(`[OrderPaid] Created ledger entry ${ledgerId} for ${cashbackAmount} ${currency} (idempotency lock)`);
 
     let actualBalance: Prisma.Decimal | number = customer.storeCredit;
     let isProcessed = false;
+    let creditSent = false;
 
     // Step 2: If auto-processing enabled, attempt Shopify sync
     if (autoProcessingEnabled) {
@@ -1064,6 +1046,7 @@ async function recordCashback(tx: PrismaClient, params: {
         );
 
         if (result.success) {
+          creditSent = true;
           actualBalance = result.balance ?? customer.storeCredit.plus(cashbackAmount);
           isProcessed = true;
           console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
@@ -1102,11 +1085,13 @@ async function recordCashback(tx: PrismaClient, params: {
           console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
         } else {
           console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
-          // Ledger remains PENDING - will be retried by reconciliation or manual process
+          // Back to PENDING - will be retried by reconciliation or manual process
+          await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
         }
       } catch (error) {
         console.error(`[OrderPaid] Error issuing store credit:`, error);
-        // Ledger remains PENDING - Shopify sync can be retried later
+        // Unsent: back to PENDING for a retry. Sent: stays SYNCING, never re-sent
+        if (!creditSent) await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
       }
     } else {
       console.log(`[OrderPaid] Auto-processing disabled - ledger entry remains PENDING`);

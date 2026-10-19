@@ -29,6 +29,12 @@ api_version = "2026-01"
   topics = [ "orders/cancelled" ]
   uri = "/webhooks/orders/cancelled"
 
+  # Money returned on a refund or a cancellation arrives here; the handler
+  # reverses the refunded share of the cashback (orders/cancelled does not)
+  [[webhooks.subscriptions]]
+  topics = [ "refunds/create" ]
+  uri = "/webhooks/orders/refunded"
+
   [[webhooks.subscriptions]]
   topics = [ "orders/create" ]
   uri = "/webhooks/orders/create"
@@ -44,6 +50,10 @@ api_version = "2026-01"
   [[webhooks.subscriptions]]
   topics = [ "customers/create" ]
   uri = "/webhooks/customers/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "customers/update" ]
+  uri = "/webhooks/customers/update"
 
   [[webhooks.subscriptions]]
   topics = [ "products/update" ]

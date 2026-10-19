@@ -5,7 +5,10 @@
  * It updates the order's financialStatus in our database.
  *
  * Note: This is different from refunds. A cancelled order may or may
- * not have been paid. If it was paid, a refund webhook will also fire.
+ * not have been paid. Money returned on cancellation arrives as its own
+ * refunds/create delivery (webhooks.orders.refunded.tsx), which reverses the
+ * cashback, so this handler never touches cashback and the two webhooks can
+ * arrive in either order.
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
@@ -36,9 +39,10 @@ export async function action({ request }: ActionFunctionArgs) {
   console.log("WEBHOOK: ORDERS/CANCELLED");
   console.log("=".repeat(60));
 
-  try {
-    const { topic, shop, payload } = await authenticate.webhook(request);
+  // Throws a 401 Response for a delivery that Shopify did not sign
+  const { topic, shop, payload } = await authenticate.webhook(request);
 
+  try {
     if (topic !== "ORDERS_CANCELLED") {
       console.log(`[OrdersCancelled] Unexpected topic: ${topic}`);
       return json({ success: false, error: "Invalid topic" }, { status: 400 });
@@ -63,8 +67,8 @@ export async function action({ request }: ActionFunctionArgs) {
         financialStatus: true,
         fulfillmentStatus: true,
         shopifyOrderNumber: true,
-        cashbackProcessed: true,
-        cashbackAmount: true,
+        totalPrice: true,
+        totalRefunded: true,
         customerId: true,
       },
     });
@@ -115,6 +119,16 @@ export async function action({ request }: ActionFunctionArgs) {
         newFinancialStatus = "VOIDED";
     }
 
+    // refunds/create may have arrived first: never report less refunded than
+    // the refunds already recorded against the order
+    if (existingOrder.totalRefunded.gt(0)) {
+      if (existingOrder.totalRefunded.gte(existingOrder.totalPrice)) {
+        newFinancialStatus = "REFUNDED";
+      } else if (newFinancialStatus !== "REFUNDED") {
+        newFinancialStatus = "PARTIALLY_REFUNDED";
+      }
+    }
+
     // Update the order - mark as cancelled
     // Note: Order model doesn't have cancelledAt/cancelReason fields
     // Those details are logged but not persisted
@@ -131,13 +145,6 @@ export async function action({ request }: ActionFunctionArgs) {
     console.log(`[OrdersCancelled] Updated order #${existingOrder.shopifyOrderNumber}:`);
     console.log(`[OrdersCancelled]   Financial: ${previousFinancialStatus} -> ${newFinancialStatus}`);
     console.log(`[OrdersCancelled]   Fulfillment: ${previousFulfillmentStatus} -> CANCELLED`);
-
-    // Note: Cashback clawback is handled by the refund webhook if a refund was issued
-    // The cancelled webhook just updates the status
-    if (existingOrder.cashbackProcessed && existingOrder.cashbackAmount?.gt(0)) {
-      console.log(`[OrdersCancelled] Note: Order had ${existingOrder.cashbackAmount} cashback processed`);
-      console.log(`[OrdersCancelled] Refund webhook will handle clawback if payment was refunded`);
-    }
 
     // Re-evaluate tier to update CustomerTierState
     // This ensures the widget shows correct tier even if no refund webhook fires
@@ -169,12 +176,8 @@ export async function action({ request }: ActionFunctionArgs) {
   } catch (error) {
     console.error("[OrdersCancelled] Error processing webhook:", error);
 
-    // Return 200 to prevent Shopify from retrying
-    return json({
-      success: true,
-      warning: "Error processing webhook",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    // 5xx makes Shopify redeliver; the status update is idempotent
+    return json({ success: false, error: "Cancellation processing failed" }, { status: 500 });
   }
 }
 
