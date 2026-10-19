@@ -12,10 +12,13 @@
  * Each entry is claimed (PENDING to SYNCING) before Shopify is called. The
  * claim waits for any refund holding the entry's row lock
  * (services/refund-handler.server.ts), and the amount issued is read after
- * it, so a refund reduces what is issued instead of racing it. An entry
- * goes back to PENDING only when Shopify answered that it applied nothing;
- * when it may have applied it (no answer, a 5xx, an error Shopify can raise
- * after running the mutation) the entry stays SYNCING and is not sent again.
+ * it, so a refund reduces what is issued instead of racing it, and so do
+ * refunds the order shows that the entry does not reflect yet
+ * (cashbackLeftAfterRefunds): nothing is issued on an order refunded in
+ * full. An entry goes back to PENDING only when Shopify answered that it
+ * applied nothing; when it may have applied it (no answer, a 5xx, an error
+ * Shopify can raise after running the mutation) the entry stays SYNCING and
+ * is not sent again.
  *
  * Schedule: Every 15 minutes
  * Endpoint: GET /api/cron/cashback-reconciliation
@@ -27,7 +30,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma from "~/db.server";
 import { unauthenticated } from "~/shopify.server";
@@ -37,6 +40,7 @@ import { verifyCronAuth } from "~/utils/cron-auth.server";
 import { jsonObject } from "~/utils/json-object";
 import { createStoreCreditService } from "~/services/shopify-store-credit.service";
 import { claimLedgerEntry, markUnconfirmed } from "~/services/cashback-ledger.server";
+import { cashbackLeftAfterRefunds } from "~/services/refund-handler.server";
 
 const JOB_NAME = "cashback-reconciliation";
 const LOCK_TTL_MINUTES = 15;
@@ -162,10 +166,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             where: { id },
             include: {
               customer: { select: { id: true, shopifyCustomerId: true } },
-              order: { select: { id: true, cashbackProcessed: true } },
+              order: {
+                select: {
+                  id: true,
+                  cashbackProcessed: true,
+                  totalPrice: true,
+                  totalRefunded: true,
+                  financialStatus: true,
+                  cashbackEligible: true,
+                  refunds: { orderBy: { createdAt: 'asc' }, select: { id: true, shopifyRefundId: true, amount: true } },
+                },
+              },
             },
           });
-          const metadata = jsonObject(entry.metadata);
+          let metadata = jsonObject(entry.metadata);
 
           // Issued by hand from the Orders page in the meantime
           if (entry.order?.cashbackProcessed) {
@@ -173,7 +187,34 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             skipped++;
             continue;
           }
-          if (entry.amount.lte(0)) {
+
+          // Refunds the order shows that the entry does not reflect yet
+          // ("Sync Orders" copies them from Shopify without reversing any
+          // cashback): take their share before issuing, as recordRefund would
+          // have, and issue nothing on an order refunded in full
+          let amount = entry.amount;
+          if (entry.order) {
+            const recordedOriginal = metadata.originalAmount;
+            const original =
+              typeof recordedOriginal === 'string' || typeof recordedOriginal === 'number' ? new Prisma.Decimal(recordedOriginal) : entry.amount;
+            const { remaining } = cashbackLeftAfterRefunds(original, entry.order);
+            if (remaining.lt(amount)) {
+              const reversals = Array.isArray(metadata.reversedBeforeIssue) ? metadata.reversedBeforeIssue : [];
+              const reversed = amount.minus(remaining);
+              amount = remaining;
+              metadata = {
+                ...metadata,
+                originalAmount: original.toFixed(2),
+                reversedBeforeIssue: [...reversals, { orderRefundedTotal: entry.order.totalRefunded.toFixed(2), amount: reversed.toFixed(2) }],
+              };
+              await prisma.$transaction([
+                prisma.storeCreditLedger.update({ where: { id }, data: { amount, metadata } }),
+                prisma.order.update({ where: { id: entry.order.id }, data: { cashbackAmount: amount, updatedAt: now } }),
+              ]);
+              log('info', `Reduced cashback entry ${id} by refunds it did not reflect`, { reversed: reversed.toFixed(2), remaining: amount.toFixed(2) });
+            }
+          }
+          if (amount.lte(0)) {
             await settle(id, { ...metadata, syncStatus: 'NOT_APPLICABLE' });
             skipped++;
             continue;
@@ -185,13 +226,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           log('info', `Retrying cashback sync for entry ${id}`, {
             shop,
             customerId: entry.customer.id,
-            amount: Number(entry.amount),
+            amount: amount.toNumber(),
           });
 
           issueSent = true;
           const result = await storeCreditService.issueStoreCredit(
             entry.customer.shopifyCustomerId,
-            Number(entry.amount),
+            amount.toNumber(),
             currency,
             description
           );

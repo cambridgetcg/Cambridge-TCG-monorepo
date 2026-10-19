@@ -1,7 +1,9 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "~/db.server";
 import { loader as reconcile } from "~/routes/api.cron.cashback-reconciliation";
 import { claimLedgerEntry } from "~/services/cashback-ledger.server";
+import { recordRefund } from "~/services/refund-handler.server";
 import { hasTestDatabase, resetDatabase } from "./database";
 import { mockStoreCredit, seedOfflineSession } from "./shopify";
 
@@ -158,6 +160,53 @@ describe.skipIf(!hasTestDatabase)("cashback reconciliation cron on Postgres", ()
 
     expect(calls).toHaveLength(2);
     expect(balances["100"]).toBe(5);
+  });
+
+  describe("refunds the order shows that the entry does not reflect", () => {
+    it("issues nothing on an order Sync Orders marked refunded in full", async () => {
+      const { order, entry } = await seedShop(AUTO_SHOP, true);
+      const calls = mockStoreCredit(AUTO_SHOP, { "100": 0 });
+      // "Sync Orders" copies Shopify's status and totals; no refund reached refunds/create
+      await prisma.order.update({ where: { id: order.id }, data: { financialStatus: "REFUNDED", totalRefunded: 100, netAmount: 0 } });
+
+      await expect((await run()).json()).resolves.toMatchObject({ synced: 0, skipped: 1 });
+      await expect((await run()).json()).resolves.toMatchObject({ processed: 0 });
+
+      expect(calls).toEqual([]);
+      const after = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+      expect(after.amount.toFixed(2)).toBe("0.00");
+      expect(after.metadata).toMatchObject({ syncStatus: "NOT_APPLICABLE", originalAmount: "5.00", reversedBeforeIssue: [{ orderRefundedTotal: "100.00", amount: "5.00" }] });
+      expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).cashbackAmount?.toFixed(2)).toBe("0.00");
+    });
+
+    it("issues what a partial refund imported by Sync Orders leaves", async () => {
+      const { order, entry } = await seedShop(AUTO_SHOP, true);
+      const calls = mockStoreCredit(AUTO_SHOP, { "100": 0 });
+      // As OrderSyncService imports it: the order's totals and a refund row, no cashback reversed
+      await prisma.order.update({ where: { id: order.id }, data: { financialStatus: "PARTIALLY_REFUNDED", totalRefunded: 40, netAmount: 60 } });
+      await prisma.orderRefund.create({ data: { orderId: order.id, shopifyRefundId: "9001", amount: 40, shippingAmount: 0, taxAmount: 0, shopifyCreatedAt: new Date() } });
+
+      await expect((await run()).json()).resolves.toMatchObject({ synced: 1 });
+
+      expect(calls.map((c) => c.amount)).toEqual(["3.00"]);
+      const after = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+      expect(after.amount.toFixed(2)).toBe("3.00");
+      expect(after.metadata).toMatchObject({ syncStatus: "SYNCED", originalAmount: "5.00" });
+    });
+
+    it("does not take a refund recorded through refunds/create twice (control)", async () => {
+      const { entry } = await seedShop(AUTO_SHOP, true);
+      const calls = mockStoreCredit(AUTO_SHOP, { "100": 0 });
+      const refund = { shop: AUTO_SHOP, shopifyOrderId: "5001", shopifyRefundId: "9002", amount: new Prisma.Decimal("33.33"), currency: "GBP", createdAt: new Date() };
+      await recordRefund(refund);
+      await recordRefund({ ...refund, shopifyRefundId: "9003" });
+      // Each refund took 1.66 of the 5.00 (its share, rounded down)
+      expect((await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } })).amount.toFixed(2)).toBe("1.68");
+
+      await expect((await run()).json()).resolves.toMatchObject({ synced: 1 });
+
+      expect(calls.map((c) => c.amount)).toEqual(["1.68"]);
+    });
   });
 
   it("requires the cron bearer token", async () => {

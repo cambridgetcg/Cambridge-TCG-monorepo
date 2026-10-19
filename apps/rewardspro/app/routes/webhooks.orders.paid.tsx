@@ -31,7 +31,7 @@ import { logWebhookEntitlementContext } from "../services/webhook-entitlement-mo
 import { getPlanOrderLimit } from "../constants/billing.constants";
 import { incrementMonthlyOrderCount } from "../utils/order-count.server";
 import { claimLedgerEntry, isAutoCashbackEnabled, lockOrder, markUnconfirmed } from "../services/cashback-ledger.server";
-import { reverseRecordedRefunds } from "../services/refund-handler.server";
+import { cashbackLeftAfterRefunds } from "../services/refund-handler.server";
 import { jsonObject } from "../utils/json-object";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
@@ -1007,6 +1007,9 @@ async function recordCashback(tx: PrismaClient, params: {
   // - a refund recorded before it (delivered while an earlier attempt of this
   //   webhook was failing, or during the analyzer call above) is netted off,
   //   as it would have shrunk a pending entry; a full refund leaves none;
+  // - so is a refunded total no recorded refund accounts for ("Sync Orders"
+  //   copies Shopify's totals), and an order refunded in full, as the Orders
+  //   page sees it, gets none (cashbackLeftAfterRefunds);
   // - a refund waiting for the lock finds the entry afterwards and answers
   //   503, and Shopify's redelivery reverses it.
   // With auto-processing on, the entry is created already claimed (SYNCING)
@@ -1027,20 +1030,26 @@ async function recordCashback(tx: PrismaClient, params: {
       where: { id: orderRecord.id },
       select: {
         totalPrice: true,
+        totalRefunded: true,
+        financialStatus: true,
         cashbackEligible: true,
         refunds: { orderBy: { createdAt: 'asc' }, select: { id: true, shopifyRefundId: true, amount: true } },
       },
     });
-    const { remaining, reversals } = reverseRecordedRefunds(earned, current.totalPrice, current.refunds);
+    const { remaining, reversals, unrecorded } = cashbackLeftAfterRefunds(earned, current);
     for (const reversal of reversals) {
       if (reversal.amount.gt(0)) {
         await lockTx.orderRefund.update({ where: { id: reversal.refundId }, data: { cashbackAdjustment: reversal.amount } });
       }
     }
-    if (!current.cashbackEligible || remaining.lte(0)) {
+    if (remaining.lte(0)) {
       await lockTx.order.update({ where: { id: orderRecord.id }, data: { cashbackAmount: 0, updatedAt: now } });
       return { status: 'refunded' as const };
     }
+    const reversedBeforeIssue = [
+      ...reversals.map((r) => ({ shopifyRefundId: r.shopifyRefundId, amount: r.amount.toFixed(2) })),
+      ...(unrecorded.gt(0) ? [{ orderRefundedTotal: current.totalRefunded.toFixed(2), amount: unrecorded.toFixed(2) }] : []),
+    ];
 
     const entry = await lockTx.storeCreditLedger.create({
       data: {
@@ -1055,12 +1064,7 @@ async function recordCashback(tx: PrismaClient, params: {
         metadata: {
           ...entryMetadata,
           // As recordRefund records a refund before issue
-          ...(reversals.length > 0
-            ? {
-                originalAmount: earned.toFixed(2),
-                reversedBeforeIssue: reversals.map((r) => ({ shopifyRefundId: r.shopifyRefundId, amount: r.amount.toFixed(2) })),
-              }
-            : {}),
+          ...(reversedBeforeIssue.length > 0 ? { originalAmount: earned.toFixed(2), reversedBeforeIssue } : {}),
           syncStatus: autoProcessingEnabled ? 'SYNCING' : 'PENDING',
           autoProcessed: false,
         },

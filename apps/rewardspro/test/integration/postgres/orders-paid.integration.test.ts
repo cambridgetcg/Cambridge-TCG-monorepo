@@ -263,6 +263,85 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
     expect(credits).toEqual(["5.00"]);
   });
 
+  describe("an order Sync Orders updated from Shopify before orders/paid recorded its cashback", () => {
+    /** The order as "Sync Orders" leaves it: Shopify's refund totals, no refund recorded here. */
+    async function syncedOrder(refunded: { totalRefunded: number; financialStatus: "REFUNDED" | "PARTIALLY_REFUNDED" }) {
+      const { gold } = await seedShop({ auto: true });
+      const customer = await prisma.customer.create({
+        data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id },
+      });
+      await prisma.order.create({
+        data: {
+          shop: SHOP,
+          shopifyOrderId: "5550006",
+          shopifyOrderNumber: "5550006",
+          shopifyOrderName: "#5550006",
+          customerId: customer.id,
+          email: customer.email,
+          currency: "GBP",
+          subtotalPrice: 100,
+          totalDiscounts: 0,
+          totalShipping: 0,
+          totalTax: 0,
+          totalPrice: 100,
+          netAmount: 100 - refunded.totalRefunded,
+          totalRefunded: refunded.totalRefunded,
+          financialStatus: refunded.financialStatus,
+          cashbackEligible: true,
+          cashbackAmount: 5,
+          shopifyCreatedAt: new Date(),
+          shopifyUpdatedAt: new Date(),
+        },
+      });
+      const credits: string[] = [];
+      shopify.graphql.mockImplementation(async (query: string, options?: { variables?: { creditInput?: { creditAmount: { amount: string } } } }) => {
+        if (!query.includes("IssueStoreCredit")) return cardPaymentResponse(5550006);
+        const amount = options?.variables?.creditInput?.creditAmount.amount ?? "?";
+        credits.push(amount);
+        return {
+          json: async () => ({
+            data: {
+              storeCreditAccountCredit: {
+                storeCreditAccountTransaction: { id: "gid://shopify/StoreCreditAccountTransaction/1", amount: { amount, currencyCode: "GBP" }, balanceAfterTransaction: { amount, currencyCode: "GBP" } },
+                userErrors: [],
+              },
+            },
+          }),
+        };
+      });
+      return credits;
+    }
+
+    it("records and credits no cashback on an order refunded in full", async () => {
+      const credits = await syncedOrder({ totalRefunded: 100, financialStatus: "REFUNDED" });
+
+      expect((await deliver("wh-6", paidOrder({ id: 5550006 }))).status).toBe(200);
+
+      expect(credits).toEqual([]);
+      await expect(prisma.storeCreditLedger.count()).resolves.toBe(0);
+      const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550006" } });
+      expect(order.cashbackAmount?.toFixed(2)).toBe("0.00");
+      expect(order.cashbackProcessed).toBe(false);
+    });
+
+    it("records and credits cashback net of a partial refund's share", async () => {
+      const credits = await syncedOrder({ totalRefunded: 40, financialStatus: "PARTIALLY_REFUNDED" });
+
+      expect((await deliver("wh-7", paidOrder({ id: 5550006 }))).status).toBe(200);
+
+      expect(credits).toEqual(["3.00"]);
+      const [entry] = await prisma.storeCreditLedger.findMany();
+      expect(entry.amount.toFixed(2)).toBe("3.00");
+      expect(entry.metadata).toMatchObject({
+        syncStatus: "SYNCED",
+        originalAmount: "5.00",
+        reversedBeforeIssue: [{ orderRefundedTotal: "40.00", amount: "2.00" }],
+      });
+      const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550006" } });
+      expect(order.cashbackAmount?.toFixed(2)).toBe("3.00");
+    });
+  });
+
   it("records nothing for a guest checkout", async () => {
     await seedShop();
 

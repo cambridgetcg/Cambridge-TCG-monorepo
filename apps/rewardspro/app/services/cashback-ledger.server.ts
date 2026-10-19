@@ -91,6 +91,16 @@ const UNCONFIRMED =
   "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
 
 /**
+ * Whether an order counts as refunded in full: Shopify says REFUNDED (a
+ * refund, a cancellation or "Sync Orders" may have recorded that), or its
+ * refunded total reaches its price. No cashback is issued on such an order,
+ * by hand, by orders/paid or by the reconciliation cron.
+ */
+export function isRefundedInFull(order: Pick<Order, "financialStatus" | "totalPrice" | "totalRefunded">): boolean {
+  return order.financialStatus === "REFUNDED" || (order.totalPrice.gt(0) && order.totalRefunded.gte(order.totalPrice));
+}
+
+/**
  * Why the merchant cannot issue an order's cashback by hand, or null when
  * they can. Only the CASHBACK_EARNED entry orders/paid recorded as PENDING is
  * issued by hand. Without one there is nothing to issue: none was due when
@@ -103,9 +113,7 @@ export function manualCashbackRefusal(
   entry: Pick<StoreCreditLedger, "amount" | "metadata"> | null,
 ): string | null {
   if (order.cashbackProcessed) return "Cashback already processed";
-  const refundedInFull =
-    order.financialStatus === "REFUNDED" || (order.totalPrice.gt(0) && order.totalRefunded.gte(order.totalPrice));
-  if (refundedInFull || !order.cashbackEligible) return "This order was refunded or is excluded from cashback";
+  if (isRefundedInFull(order) || !order.cashbackEligible) return "This order was refunded or is excluded from cashback";
   if (!entry) return NOT_RECORDED;
   const metadata = jsonObject(entry.metadata);
   const status = metadata.syncStatus;

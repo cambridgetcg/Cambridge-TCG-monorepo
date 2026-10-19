@@ -20,11 +20,11 @@
  * refund, so redelivered webhooks and cancel-then-refund sequences are safe.
  */
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type OrderFinancialStatus } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma from "~/db.server";
 import { jsonObject } from "~/utils/json-object";
-import { claimLedgerEntry, lockLedgerEntry, lockOrder, markUnconfirmed } from "./cashback-ledger.server";
+import { claimLedgerEntry, isRefundedInFull, lockLedgerEntry, lockOrder, markUnconfirmed } from "./cashback-ledger.server";
 import { createStoreCreditService } from "./shopify-store-credit.service";
 
 const LOG_PREFIX = "[Refund Handler]";
@@ -171,6 +171,40 @@ export function reverseRecordedRefunds(
     reversals.push({ refundId: refund.id, shopifyRefundId: refund.shopifyRefundId, amount });
   }
   return { remaining, reversals };
+}
+
+export interface OrderRefunds {
+  totalPrice: Prisma.Decimal;
+  totalRefunded: Prisma.Decimal;
+  financialStatus: OrderFinancialStatus;
+  cashbackEligible: boolean;
+  /** The refunds recorded against the order, oldest first */
+  refunds: Array<{ id: string; shopifyRefundId: string; amount: Prisma.Decimal }>;
+}
+
+/**
+ * What is left of an order's `original` cashback after every refund the
+ * order shows, for a writer about to record or issue cashback that has not
+ * been issued: orders/paid under the order's lock, and the reconciliation
+ * cron under its claim.
+ * - Nothing when the order was refunded in full or is excluded from
+ *   cashback, as the Orders page refuses it (isRefundedInFull).
+ * - Otherwise each recorded refund takes its share (reverseRecordedRefunds),
+ *   and so does the part of the order's refunded total that no recorded
+ *   refund accounts for (`unrecorded`): "Sync Orders" copies Shopify's
+ *   totals onto an order it already has without recording its refunds.
+ */
+export function cashbackLeftAfterRefunds(
+  original: Prisma.Decimal,
+  order: OrderRefunds,
+): { remaining: Prisma.Decimal; reversals: RecordedRefundReversal[]; unrecorded: Prisma.Decimal } {
+  const { remaining, reversals } = reverseRecordedRefunds(original, order.totalPrice, order.refunds);
+  if (!order.cashbackEligible || isRefundedInFull(order)) return { remaining: ZERO, reversals, unrecorded: remaining };
+  const recordedRefunds = order.refunds.reduce((sum, refund) => sum.plus(refund.amount), ZERO);
+  const refundedWithoutRecord = order.totalRefunded.minus(recordedRefunds);
+  if (refundedWithoutRecord.lte(0)) return { remaining, reversals, unrecorded: ZERO };
+  const unrecorded = Prisma.Decimal.min(remaining, refundShare(original, refundedWithoutRecord, order.totalPrice, false));
+  return { remaining: remaining.minus(unrecorded), reversals, unrecorded };
 }
 
 /**
