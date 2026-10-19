@@ -4,9 +4,9 @@
  * - Recipients are re-checked here, at send time, against
  *   MARKETING_AUDIENCE (Shopify SUBSCRIBED consent, not unsubscribed since,
  *   not bounced or reported as spam); anyone else is skipped.
- * - Every message carries the recipient's own one-click unsubscribe link and
- *   List-Unsubscribe / List-Unsubscribe-Post headers (RFC 8058), both served
- *   by routes/email.unsubscribe.tsx.
+ * - Every message carries the recipient's own unsubscribe link and
+ *   List-Unsubscribe / List-Unsubscribe-Post headers (RFC 8058 one-click),
+ *   both served by routes/email.unsubscribe.tsx.
  * - Nothing is sent while SendGrid's signed event webhook is unconfigured,
  *   because bounces, spam reports and SendGrid-side unsubscribes would then
  *   be lost (routes/webhooks.sendgrid.tsx refuses unsigned events).

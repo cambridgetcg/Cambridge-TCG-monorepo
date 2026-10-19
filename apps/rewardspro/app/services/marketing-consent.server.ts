@@ -4,7 +4,7 @@
  * Customer.acceptsMarketing is true only when Shopify reports the
  * shopper's email marketing consent as SUBSCRIBED (customer sync and the
  * customers/create and customers/update webhooks), and turns false when
- * they unsubscribe here (signed one-click link, List-Unsubscribe) or at
+ * they unsubscribe here (signed link, List-Unsubscribe one-click) or at
  * SendGrid. Customer.marketingConsentUpdatedAt is the time of the consent
  * now held, so the most recent decision wins: a newer Shopify subscription
  * re-subscribes, an older one never overrides an unsubscribe made here.
@@ -75,7 +75,7 @@ export async function recordUnsubscribe(shop: string, customerId: string, at = n
 }
 
 // ============================================================================
-// One-click unsubscribe links
+// Unsubscribe links
 // ============================================================================
 
 const TOKEN_VERSION = 1;

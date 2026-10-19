@@ -1030,7 +1030,7 @@ export default function EmailSettings() {
 
                 <BlockStack gap="300">
                   <Text as="p" variant="bodyMd">
-                    Every marketing email carries a one-click unsubscribe link and List-Unsubscribe
+                    Every marketing email carries an unsubscribe link and one-click List-Unsubscribe
                     headers, and goes only to customers who subscribed to email marketing in Shopify.
                     This cannot be turned off.
                   </Text>

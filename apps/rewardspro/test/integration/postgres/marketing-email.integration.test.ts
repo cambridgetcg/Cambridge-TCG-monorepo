@@ -69,7 +69,7 @@ describe.skipIf(!hasTestDatabase)("email marketing consent on Postgres", () => {
     const bounced = await customer("bounced@example.test", { acceptsMarketing: true, emailSuppressed: true });
     const unsubscribed = await customer("unsubscribed@example.test", { acceptsMarketing: true });
     const emailOnly = await customer("Mixed.Case@Example.test", { acceptsMarketing: true });
-    await unsubscribeGet({ request: unsubscribeRequest(await unsubscribeLinkFor(unsubscribed.id)), params: {}, context: {} });
+    await unsubscribePost({ request: unsubscribeRequest(await unsubscribeLinkFor(unsubscribed.id), { method: "POST" }), params: {}, context: {} });
 
     const result = await sendMarketingEmail(
       SHOP,
@@ -142,13 +142,23 @@ describe.skipIf(!hasTestDatabase)("email marketing consent on Postgres", () => {
     expect(sent[0].content.find((c) => c.type === "text/html")!.value).not.toContain("<script>");
   });
 
-  it("unsubscribes by link (GET) and by one-click POST, and rejects forged tokens", async () => {
+  it("asks to confirm on the link (GET), unsubscribes by POST and one-click POST, and rejects forged tokens", async () => {
     const shopper = await customer("shopper@example.test", { acceptsMarketing: true });
     const link = await unsubscribeLinkFor(shopper.id);
 
-    const page = await unsubscribeGet({ request: unsubscribeRequest(link), params: {}, context: {} });
+    // Opening the link (as a mail scanner might) changes nothing
+    const confirm = await unsubscribeGet({ request: unsubscribeRequest(link), params: {}, context: {} });
+    expect(confirm.status).toBe(200);
+    const form = await confirm.text();
+    expect(form).toContain("Card &amp; Co &lt;Shop&gt;");
+    expect(form).toContain('<form method="post">');
+    expect(confirm.headers.get("Content-Security-Policy")).toContain("form-action 'self'");
+    await expect(prisma.customer.findUniqueOrThrow({ where: { id: shopper.id } })).resolves.toMatchObject({ acceptsMarketing: true });
+
+    // The page's button posts back to the same URL
+    const page = await unsubscribePost({ request: unsubscribeRequest(link, { method: "POST" }), params: {}, context: {} });
     expect(page.status).toBe(200);
-    await expect(page.text()).resolves.toContain("Card &amp; Co &lt;Shop&gt;");
+    await expect(page.text()).resolves.toContain("You are unsubscribed");
     const after = await prisma.customer.findUniqueOrThrow({ where: { id: shopper.id } });
     expect(after.acceptsMarketing).toBe(false);
     expect(after.marketingConsentUpdatedAt).toBeInstanceOf(Date);
@@ -164,6 +174,7 @@ describe.skipIf(!hasTestDatabase)("email marketing consent on Postgres", () => {
 
     const forged = link.replace(/token=[^&]+/, "token=abc.def");
     expect((await unsubscribeGet({ request: unsubscribeRequest(forged), params: {}, context: {} })).status).toBe(400);
+    expect((await unsubscribePost({ request: unsubscribeRequest(forged, { method: "POST" }), params: {}, context: {} })).status).toBe(400);
   });
 
   describe("consent from Shopify", () => {
@@ -198,7 +209,7 @@ describe.skipIf(!hasTestDatabase)("email marketing consent on Postgres", () => {
     it("keeps an unsubscribe made here when Shopify still reports an older subscription", async () => {
       await deliver(customersCreate, "customers/create", payload("subscribed", "2026-10-02T10:00:00Z"));
       const shopper = await stored();
-      await unsubscribeGet({ request: unsubscribeRequest(await unsubscribeLinkFor(shopper.id)), params: {}, context: {} });
+      await unsubscribePost({ request: unsubscribeRequest(await unsubscribeLinkFor(shopper.id), { method: "POST" }), params: {}, context: {} });
 
       await deliver(customersUpdate, "customers/update", payload("subscribed", "2026-10-02T10:00:00Z"));
       expect((await stored()).acceptsMarketing).toBe(false);
