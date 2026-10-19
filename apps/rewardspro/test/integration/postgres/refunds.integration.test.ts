@@ -375,6 +375,27 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
     expect(calls).toEqual([]);
   });
 
+  it("reverses issued cashback by shares of the original after a refund before issue", async () => {
+    const { order, entry } = await seedOrder({ cashback: "pending" });
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 0 });
+
+    expect((await deliverRefund(refundPayload(1, "50.00"))).status).toBe(200);
+    // The batch issue pays what the refund left, read when it is issued
+    await expect(issueByHand(order.id)).resolves.toMatchObject({ success: true, amount: 2.5 });
+    // 25% of the original £5.00 each, not 25% of the £2.50 issued
+    expect((await deliverRefund(refundPayload(2, "25.00"))).status).toBe(200);
+    expect((await deliverRefund(refundPayload(3, "25.00"))).status).toBe(200);
+
+    expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 2.50", "debit 1.25", "debit 1.25"]);
+    const issued = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+    expect(issued.amount.toFixed(2)).toBe("2.50");
+    expect(issued.metadata).toMatchObject({ syncStatus: "SYNCED", originalAmount: "5.00" });
+    expect(await clawbacks()).toMatchObject([{ metadata: { reversalAmount: "1.25" } }, { metadata: { reversalAmount: "1.25" } }]);
+    const after = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(after.financialStatus).toBe("REFUNDED");
+    expect(after.cashbackAmount?.toFixed(2)).toBe("0.00");
+  });
+
   it("acknowledges refunds for orders it never recorded", async () => {
     const response = await deliverRefund(refundPayload(1, "10.00"));
     expect(response.status).toBe(200);

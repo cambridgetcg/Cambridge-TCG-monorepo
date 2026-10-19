@@ -153,6 +153,10 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
     let reversed = ZERO;
     let pendingClawbackId: string | null = null;
     const syncStatus = cashback ? syncStatusOf(cashback) : undefined;
+    // Refunds reverse shares of the cashback as first recorded, before any
+    // reversal shrank it (a refund before issue sets originalAmount)
+    const metadata = cashback ? jsonObject(cashback.metadata) : {};
+    const original = cashback ? decimalOf(metadata.originalAmount, cashback.amount) : ZERO;
 
     if (cashback && cashback.amount.gt(0)) {
       if (syncStatus === "SYNCING") {
@@ -170,7 +174,7 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
           ZERO,
         );
         const remaining = Prisma.Decimal.max(ZERO, cashback.amount.minus(alreadyReversed));
-        reversed = completesOrder ? remaining : Prisma.Decimal.min(remaining, share(cashback.amount));
+        reversed = completesOrder ? remaining : Prisma.Decimal.min(remaining, share(original));
 
         if (reversed.gt(0)) {
           const customer = await tx.customer.findUniqueOrThrow({ where: { id: order.customerId }, select: { storeCredit: true } });
@@ -202,8 +206,6 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
         }
       } else {
         // Not issued yet: shrink what will be issued; nothing to debit
-        const metadata = jsonObject(cashback.metadata);
-        const original = decimalOf(metadata.originalAmount, cashback.amount);
         reversed = completesOrder ? cashback.amount : Prisma.Decimal.min(cashback.amount, share(original));
         const remaining = cashback.amount.minus(reversed);
         const reversals = Array.isArray(metadata.reversedBeforeIssue) ? metadata.reversedBeforeIssue : [];
