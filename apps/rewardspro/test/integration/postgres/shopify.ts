@@ -106,3 +106,32 @@ export function mockStoreCredit(
   );
   return calls;
 }
+
+/**
+ * An app proxy request signed the way Shopify signs it: HMAC-SHA256 (hex,
+ * client secret) of the sorted `key=value` query pairs. `extra` pairs are
+ * appended as given, so repeated keys can be sent; like the verifier, the
+ * signature covers the last value of a repeated key.
+ */
+export function signedProxyRequest(
+  path: string,
+  shop: string,
+  loggedInCustomerId: string,
+  extra: Array<[string, string]> = [],
+  init: RequestInit = {},
+): Request {
+  const pairs: Array<[string, string]> = [
+    ["shop", shop],
+    ["path_prefix", "/apps/rewardspro"],
+    ["timestamp", String(Math.trunc(Date.now() / 1000))],
+    ["logged_in_customer_id", loggedInCustomerId],
+    ...extra,
+  ];
+  const signed = Object.entries(Object.fromEntries(pairs))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("");
+  const signature = crypto.createHmac("sha256", process.env.SHOPIFY_API_SECRET!).update(signed).digest("hex");
+  const query = new URLSearchParams([...pairs, ["signature", signature]]);
+  return new Request(`https://test.example.com/api/proxy/${path}?${query}`, init);
+}
