@@ -35,7 +35,7 @@
        data-state="guest"
        data-shop-domain="{{ shop.permanent_domain }}"
        data-section-title="{{ block.settings.section_title | default: 'Mystery Boxes' }}"
-       data-guest-message="{{ block.settings.guest_message | default: 'Sign in to open mystery boxes and win rewards!' }}"
+       data-guest-message="{{ block.settings.guest_message | default: 'Sign in to see mystery boxes.' }}"
        data-guest-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
        data-guest-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
     <div class="rp-mb-guest">Sign in to open mystery boxes</div>
@@ -49,7 +49,7 @@
       Welcome back, {{ customer.first_name }}!
       <a href="/account">Visit your account</a> to view mystery boxes.
     {% else %}
-      <a href="/account/login">Sign in</a> to open mystery boxes and win rewards.
+      <a href="/account/login">Sign in</a> to see mystery boxes.
     {% endif %}
   </div>
 </noscript>
@@ -118,7 +118,7 @@
       "type": "text",
       "id": "guest_message",
       "label": "Guest Message",
-      "default": "Sign in to open mystery boxes and win rewards!",
+      "default": "Sign in to see mystery boxes.",
       "info": "Message shown to non-logged-in visitors"
     },
     {

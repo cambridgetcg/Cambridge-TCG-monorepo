@@ -582,7 +582,7 @@
      * Guest state — sign-in prompt
      */
     renderGuest() {
-      var message = escapeHtml(this.config.guest.message || 'Complete missions to earn XP and level up!');
+      var message = escapeHtml(this.config.guest.message || 'Sign in to see your missions.');
       var ctaUrl = escapeHtml(this.config.guest.ctaUrl);
       var ctaText = escapeHtml(this.config.guest.ctaText);
 

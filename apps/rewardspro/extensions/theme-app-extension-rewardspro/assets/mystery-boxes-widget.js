@@ -85,7 +85,7 @@
         animationSpeed: d.animationSpeed || 'normal',
         cacheDuration: parseInt(d.cacheDuration) || CONFIG.DEFAULT_CACHE_DURATION_S,
         guest: {
-          message: d.guestMessage || 'Sign in to open mystery boxes and win rewards!',
+          message: d.guestMessage || 'Sign in to see mystery boxes.',
           ctaText: d.guestCtaText || 'Sign In',
           ctaUrl: d.guestCtaUrl || '/account/login'
         }
@@ -310,25 +310,9 @@
     }
 
     renderGuest() {
+      // The merchant's own prompt only: no sample boxes or rarities, which
+      // would show shoppers prizes that do not exist.
       const { message, ctaText, ctaUrl } = this.config.guest;
-
-      // Teaser boxes shown locked to drive sign-ups
-      const teaserBoxes = [
-        { icon: '🃏', rarity: 'RARE', name: 'Holo Rare Box', cost: '200 pts', rarityColor: '#3b82f6' },
-        { icon: '💜', rarity: 'EPIC', name: 'Alt-Art Mystery Box', cost: '500 pts', rarityColor: '#8b5cf6' },
-        { icon: '✨', rarity: 'LEGENDARY', name: 'Secret Rare Treasure', cost: '1000 pts', rarityColor: '#f59e0b' },
-      ];
-
-      const teaserHtml = teaserBoxes.map(b => `
-        <div class="rp-mb-guest__teaser-card" role="listitem">
-          <div class="rp-mb-guest__teaser-top">
-            <span class="rp-mb-guest__teaser-icon">${b.icon}</span>
-            <span class="rp-mb-guest__teaser-rarity" style="color:${b.rarityColor}">${b.rarity}</span>
-          </div>
-          <div class="rp-mb-guest__teaser-name">${this.escapeHtml(b.name)}</div>
-          <div class="rp-mb-guest__teaser-cost">${this.escapeHtml(b.cost)}</div>
-          <div class="rp-mb-guest__teaser-overlay">🔒</div>
-        </div>`).join('');
 
       this.root.innerHTML = `
         <div class="rp-mb-container">
@@ -343,10 +327,6 @@
                 </svg>
               </a>
             </div>
-            <div class="rp-mb-guest__teasers" aria-label="Sample mystery boxes" role="list">
-              ${teaserHtml}
-            </div>
-            <p class="rp-mb-guest__note">🔒 Sign in to open mystery boxes with your points</p>
           </div>
         </div>
       `;
