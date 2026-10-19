@@ -46,8 +46,7 @@ Guards that need a decision to lift, not a refactor:
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123
 commits, rewritten under `apps/rewardspro/` — `git log`/`blame` work). The
-repo-root [`CLAUDE.md`](../../CLAUDE.md) carries the four doctrines; they apply
-here too.
+repo-root [`AGENTS.md`](../../AGENTS.md) principles apply here too.
 
 ## Commands (pnpm, from repo root)
 
