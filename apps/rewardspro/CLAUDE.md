@@ -46,16 +46,35 @@ Guards that need a decision to lift, not a refactor:
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123
 commits, rewritten under `apps/rewardspro/` — `git log`/`blame` work). The
-repo-root [`CLAUDE.md`](../../CLAUDE.md) carries the four doctrines; they apply
-here too.
+repo-root [`AGENTS.md`](../../AGENTS.md) and the principles it links apply here
+too.
+
+## Facts that bite
+
+- **A merge to `main` deploys production.** Vercel project
+  `rewardspro-production` builds `apps/rewardspro` (region `lhr1`) from `main`;
+  `scripts/vercel-ignore-build.sh` skips builds that change nothing here.
+  Previews have no database.
+- **The build never migrates.** Apply migrations to Supabase first, through
+  `scripts/prisma-tls.ts` (`migrate:deploy`), and run the drift check, before
+  merging code that needs them ([`docs/DATABASE.md`](docs/DATABASE.md)).
+- **`ENCRYPTION_SECRET` and `ENCRYPTION_SALT` encrypt stored Shopify tokens.**
+  Changing either makes every stored token unreadable (DATABASE.md, "Key
+  rotation").
+- **Shopify config is a separate deploy.** `shopify.app.toml` (webhook
+  subscriptions, scopes) and `extensions/` reach Shopify only through
+  `shopify app deploy`, with the owner's login. While
+  `extensions/rewards-pro-membership` targets API `2025-07`, Shopify refuses
+  that deploy (since 2026-10-01), so config changes stay unpublished until the
+  extension is removed or rebuilt.
 
 ## Commands (pnpm, from repo root)
 
 ```
 pnpm dev:rewardspro              # shopify app dev (SKIP_DB_CHECKS=1)
 pnpm build:rewardspro            # prisma generate && remix vite:build
-pnpm test:rewardspro             # vitest unit suite (306 tests at fuse time)
-pnpm --filter rewardspro exec tsc --noEmit   # typecheck (0 errors at fuse time)
+pnpm test:rewardspro             # vitest unit suite
+pnpm --filter rewardspro exec tsc --noEmit   # typecheck
 pnpm --filter rewardspro test:postgres       # Postgres integration suites (needs REWARDSPRO_TEST_DATABASE_URL; docs/DATABASE.md)
 pnpm --filter rewardspro lint    # eslint — RED, see debt below
 ```
@@ -110,5 +129,3 @@ element type"), extend mechanism 1 or 2 — don't pin a global `@types/react`.
   burn it down before re-including.
 - `npm run`-style strings remain inside some package.json script bodies and
   older docs here; they work under pnpm but read stale.
-- Deploy: the Vercel project must point at this monorepo with root directory
-  `apps/rewardspro` (vercel.json already speaks pnpm).
