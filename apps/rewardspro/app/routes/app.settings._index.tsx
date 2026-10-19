@@ -3254,7 +3254,7 @@ export default function SettingsPage() {
                       <Banner tone="info">
                         <Text as="p" variant="bodyMd">
                           <Text as="span" fontWeight="semibold">Need a specific integration?</Text>{" "}
-                          Let us know at support@rewardspro.app and we'll prioritize it.
+                          Let us know at contact@rewardspro.io and we'll prioritize it.
                         </Text>
                       </Banner>
                     </BlockStack>
@@ -3353,7 +3353,7 @@ export default function SettingsPage() {
                       <Banner tone="info">
                         <Text as="p" variant="bodyMd">
                           <Text as="span" fontWeight="semibold">Need billing help?</Text>{" "}
-                          Contact us at support@rewardspro.app for any subscription or billing questions.
+                          Contact us at contact@rewardspro.io for any subscription or billing questions.
                         </Text>
                       </Banner>
                     </BlockStack>
