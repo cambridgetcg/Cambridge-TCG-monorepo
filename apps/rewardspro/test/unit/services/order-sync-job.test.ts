@@ -432,6 +432,41 @@ describe('Order Sync Job Service', () => {
       expect(db.order.create).not.toHaveBeenCalled();
     });
 
+    it("records an existing order's new refunds as rows, by Shopify id, before copying its totals", async () => {
+      const job = createMockJob();
+      const order = createMockShopifyOrder({
+        displayFinancialStatus: 'PARTIALLY_REFUNDED',
+        totalRefundedSet: { shopMoney: { amount: '30.00' } },
+        refunds: [
+          { id: 'gid://shopify/Refund/77', createdAt: '2024-06-16T10:00:00Z', note: null, refundLineItems: { edges: [] }, totalRefundedSet: { shopMoney: { amount: '30.00' } } },
+          { id: 'gid://shopify/Refund/78', createdAt: '2024-06-17T10:00:00Z', note: null, refundLineItems: { edges: [] }, totalRefundedSet: { shopMoney: { amount: '0.00' } } },
+        ],
+      });
+      const mockAdmin = createMockAdminContext({
+        orders: { data: { orders: { edges: [{ cursor: 'c1', node: order }], pageInfo: { hasNextPage: true, endCursor: 'c1' } } } },
+      });
+
+      (db.orderSyncJob.findUnique as Mock).mockResolvedValue(job);
+      (db.customer.findFirst as Mock).mockResolvedValue({ id: 'customer-uuid', shopifyCustomerId: '67890', currentTier: null });
+      (db.order.findFirst as Mock).mockResolvedValue({ id: 'existing-order-uuid', shopifyOrderId: '12345' });
+      // Refund 78 was recorded already (by refunds/create, or an earlier sync)
+      (db.orderRefund.findFirst as Mock).mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'refund-78' });
+      (db.orderRefund.create as Mock).mockResolvedValueOnce({});
+      (db.order.update as Mock).mockResolvedValue({});
+      (db.orderSyncJob.update as Mock).mockImplementation(async ({ data }) => ({ ...job, ...data }));
+
+      const result = await processOrderBatch('job-123', mockAdmin);
+
+      expect(result.success).toBe(true);
+      expect(db.orderRefund.create).toHaveBeenCalledTimes(1);
+      const [{ data }] = (db.orderRefund.create as Mock).mock.calls[0];
+      expect(data).toMatchObject({ orderId: 'existing-order-uuid', shopifyRefundId: '77', cashbackAdjustment: null, processedAt: null });
+      expect(data.amount.toFixed(2)).toBe('30.00');
+      // The row exists before the order's refunded total includes it
+      expect((db.orderRefund.create as Mock).mock.invocationCallOrder[0]).toBeLessThan((db.order.update as Mock).mock.invocationCallOrder[0]);
+      expect(db.order.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ totalRefunded: 30, financialStatus: 'PARTIALLY_REFUNDED' }) }));
+    });
+
     it('should update cursor and mark as completed when no more pages', async () => {
       const job = createMockJob({ processedCount: 90 });
       const order = createMockShopifyOrder();

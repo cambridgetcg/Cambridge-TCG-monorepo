@@ -14,39 +14,7 @@ import prisma from "../db.server";
 import type { PointsRoundingMode } from "@prisma/client";
 import { CHANCE_MECHANICS_PAUSED } from "../constants/chance-mechanics";
 
-// ============================================
-// DEBUG LOGGING - Trace db object state
-// ============================================
-
 const LOG_PREFIX = "[PointsConfig]";
-
-function logDbState(context: string) {
-  console.log(`${LOG_PREFIX} [${context}] Checking db state...`);
-  console.log(`${LOG_PREFIX} [${context}] db exists: ${!!prisma}`);
-  console.log(`${LOG_PREFIX} [${context}] db type: ${typeof prisma}`);
-
-  if (prisma) {
-    const dbKeys = Object.keys(prisma);
-    console.log(`${LOG_PREFIX} [${context}] db keys count: ${dbKeys.length}`);
-    console.log(`${LOG_PREFIX} [${context}] db has pointsConfig: ${!!prisma.pointsConfig}`);
-    console.log(`${LOG_PREFIX} [${context}] db has pointsLedger: ${!!prisma.pointsLedger}`);
-    console.log(`${LOG_PREFIX} [${context}] db has customer: ${!!prisma.customer}`);
-
-    if (prisma.pointsConfig) {
-      console.log(`${LOG_PREFIX} [${context}] pointsConfig type: ${typeof prisma.pointsConfig}`);
-      console.log(`${LOG_PREFIX} [${context}] pointsConfig has findUnique: ${typeof prisma.pointsConfig.findUnique}`);
-    } else {
-      console.error(`${LOG_PREFIX} [${context}] ERROR: prisma.pointsConfig is undefined!`);
-      console.log(`${LOG_PREFIX} [${context}] Available db keys: ${dbKeys.slice(0, 20).join(', ')}...`);
-    }
-  } else {
-    console.error(`${LOG_PREFIX} [${context}] ERROR: db is undefined!`);
-  }
-}
-
-// Run diagnostic on module load
-console.log(`${LOG_PREFIX} Module loading...`);
-logDbState("MODULE_INIT");
 
 // ============================================
 // TYPES
@@ -157,10 +125,6 @@ const DEFAULT_CONFIG: PointsConfigData = {
  * @returns Points configuration (with defaults if not configured)
  */
 export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
-  const startTime = Date.now();
-  console.log(`${LOG_PREFIX} getPointsConfig called for shop: ${shop}`);
-  logDbState("getPointsConfig");
-
   try {
     // Defensive check before accessing prisma.pointsConfig
     if (!prisma) {
@@ -181,18 +145,14 @@ export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
       throw new Error("pointsConfig.findUnique is not available");
     }
 
-    console.log(`${LOG_PREFIX} Calling prisma.pointsConfig.findUnique for shop: ${shop}`);
     const config = await prisma.pointsConfig.findUnique({
       where: { shop },
     });
-    console.log(`${LOG_PREFIX} findUnique completed in ${Date.now() - startTime}ms, config found: ${!!config}`);
 
     if (!config) {
-      console.log(`${LOG_PREFIX} No config found, returning defaults for shop: ${shop}`);
       return DEFAULT_CONFIG;
     }
 
-    console.log(`${LOG_PREFIX} Successfully retrieved config for shop: ${shop}`);
     return {
       isEnabled: config.isEnabled,
       currencyName: config.currencyName,
@@ -235,8 +195,6 @@ export async function getPointsConfig(shop: string): Promise<PointsConfigData> {
  * @returns Whether the points system is enabled
  */
 export async function isPointsEnabled(shop: string): Promise<boolean> {
-  console.log(`${LOG_PREFIX} isPointsEnabled called for shop: ${shop}`);
-
   try {
     if (!prisma?.pointsConfig) {
       console.error(`${LOG_PREFIX} isPointsEnabled: prisma.pointsConfig is undefined`);
@@ -248,9 +206,7 @@ export async function isPointsEnabled(shop: string): Promise<boolean> {
       select: { isEnabled: true },
     });
 
-    const result = config?.isEnabled ?? false;
-    console.log(`${LOG_PREFIX} isPointsEnabled result for ${shop}: ${result}`);
-    return result;
+    return config?.isEnabled ?? false;
   } catch (error) {
     console.error(`${LOG_PREFIX} isPointsEnabled error for ${shop}:`, error);
     return false;
@@ -460,8 +416,6 @@ export async function getEnabledFeatures(shop: string): Promise<{
   dailySpin: boolean;
   streakBonus: boolean;
 }> {
-  console.log(`${LOG_PREFIX} getEnabledFeatures called for shop: ${shop}`);
-
   try {
     if (!prisma?.pointsConfig) {
       console.error(`${LOG_PREFIX} getEnabledFeatures: prisma.pointsConfig is undefined`);
@@ -487,7 +441,6 @@ export async function getEnabledFeatures(shop: string): Promise<{
     });
 
     const isEnabled = config?.isEnabled ?? false;
-    console.log(`${LOG_PREFIX} getEnabledFeatures for ${shop}: pointsSystem=${isEnabled}`);
 
     // Games of chance stay off whatever the merchant set (constants/chance-mechanics.ts)
     const chance = isEnabled && !CHANCE_MECHANICS_PAUSED;
@@ -579,17 +532,12 @@ export async function getPointsStats(shop: string): Promise<{
   activePointsBalance: number;
   customersWithPoints: number;
 }> {
-  const startTime = Date.now();
-  console.log(`${LOG_PREFIX} getPointsStats called for shop: ${shop}`);
-
   try {
     // Validate db models exist
     if (!prisma) {
       console.error(`${LOG_PREFIX} getPointsStats: db is undefined`);
       throw new Error("Database client not initialized");
     }
-
-    console.log(`${LOG_PREFIX} getPointsStats checking models - pointsConfig: ${!!prisma.pointsConfig}, pointsLedger: ${!!prisma.pointsLedger}, customer: ${!!prisma.customer}`);
 
     if (!prisma.pointsConfig) {
       console.error(`${LOG_PREFIX} getPointsStats: prisma.pointsConfig is undefined`);
@@ -600,7 +548,6 @@ export async function getPointsStats(shop: string): Promise<{
       throw new Error("pointsLedger model not registered");
     }
 
-    console.log(`${LOG_PREFIX} getPointsStats: Starting parallel queries...`);
     // DATA API COMPATIBLE: groupBy with _sum is not supported by Aurora Data API adapter
     // Instead, fetch type and amount fields and aggregate in memory
     const [config, ledgerEntries] = await Promise.all([
@@ -614,7 +561,6 @@ export async function getPointsStats(shop: string): Promise<{
         select: { type: true, amount: true },
       }),
     ]);
-    console.log(`${LOG_PREFIX} getPointsStats: Parallel queries completed in ${Date.now() - startTime}ms`);
 
     // Aggregate by type in memory (replaces groupBy + _sum)
     const statsByType: Record<string, number> = {};
@@ -658,7 +604,6 @@ export async function getPointsStats(shop: string): Promise<{
     }
 
     // Get count of customers with points
-    console.log(`${LOG_PREFIX} getPointsStats: Fetching customer counts...`);
     const customersWithPoints = await prisma.customer.count({
       where: {
         shop,
@@ -673,8 +618,6 @@ export async function getPointsStats(shop: string): Promise<{
     });
 
     const activePointsBalance = Number(balanceResult._sum.pointsBalance ?? 0);
-
-    console.log(`${LOG_PREFIX} getPointsStats completed in ${Date.now() - startTime}ms - issued: ${totalPointsIssued}, redeemed: ${totalPointsRedeemed}, balance: ${activePointsBalance}`);
 
     return {
       isEnabled: config?.isEnabled ?? false,

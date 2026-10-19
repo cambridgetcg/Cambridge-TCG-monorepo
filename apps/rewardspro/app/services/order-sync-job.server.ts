@@ -880,61 +880,13 @@ async function createNewOrder(
     }
   }
 
-  // Process refunds
-  if (orderData.refunds?.length > 0) {
-    for (const refund of orderData.refunds) {
-      const shopifyRefundId = refund.id.replace('gid://shopify/Refund/', '');
-
-      const existingRefund = await prisma.orderRefund.findFirst({
-        where: { orderId, shopifyRefundId }
-      });
-
-      if (!existingRefund) {
-        const refundId = uuidv4();
-
-        await prisma.orderRefund.create({
-          data: {
-            id: refundId,
-            orderId,
-            shopifyRefundId,
-            amount: parseFloat(refund.totalRefundedSet?.shopMoney?.amount || "0"),
-            shippingAmount: 0,
-            taxAmount: 0,
-            reason: null,
-            note: refund.note || null,
-            cashbackAdjustment: null,
-            cashbackProcessed: false,
-            shopifyCreatedAt: new Date(refund.createdAt),
-            processedAt: null,
-            createdAt: now
-          }
-        });
-
-        // Process refund line items
-        if (refund.refundLineItems?.edges) {
-          for (const edge of refund.refundLineItems.edges) {
-            const item = edge.node;
-            const shopifyLineItemId = item.lineItem?.id ?
-              item.lineItem.id.replace('gid://shopify/LineItem/', '') : "";
-
-            await prisma.orderRefundLineItem.create({
-              data: {
-                id: uuidv4(),
-                refundId,
-                shopifyLineItemId,
-                quantity: item.quantity || 1,
-                subtotal: parseFloat(item.subtotalSet?.shopMoney?.amount || "0"),
-                createdAt: now
-              }
-            });
-          }
-        }
-      }
-    }
-  }
+  await importRefunds(orderId, orderData.refunds);
 }
 
 async function updateExistingOrder(orderId: string, orderData: any): Promise<void> {
+  // The refund rows first: refunds/create, orders/paid and the cashback cron
+  // then never see a refunded total without the refunds that make it up
+  await importRefunds(orderId, orderData.refunds);
   await prisma.order.update({
     where: { id: orderId },
     data: {
@@ -946,6 +898,83 @@ async function updateExistingOrder(orderId: string, orderData: any): Promise<voi
       updatedAt: new Date()
     }
   });
+}
+
+/** A refund as ORDERS_BATCH_QUERY returns it (the fields read here). */
+interface ShopifyRefundNode {
+  id: string;
+  createdAt: string;
+  note?: string | null;
+  totalRefundedSet?: { shopMoney?: { amount?: string } };
+  refundLineItems?: {
+    edges?: Array<{
+      node: { lineItem?: { id: string } | null; quantity?: number; subtotalSet?: { shopMoney?: { amount?: string } } };
+    }>;
+  };
+}
+
+/**
+ * Record an order's Shopify refunds as OrderRefund rows, once each by the
+ * refund's Shopify id, as the Orders page's "Sync Orders" does
+ * (OrderSyncService). The rows reverse no cashback and carry no
+ * processedAt: orders/paid and the cashback cron take their shares before
+ * recording or issuing cashback, and the refund's own refunds/create finds
+ * its row by that id and applies only what was not taken yet
+ * (services/refund-handler.server.ts). Copying the order's refunded total
+ * without these rows let refunds/create count a refund a second time.
+ */
+async function importRefunds(orderId: string, refunds: ShopifyRefundNode[] | undefined): Promise<void> {
+  for (const refund of refunds ?? []) {
+    const shopifyRefundId = refund.id.replace('gid://shopify/Refund/', '');
+
+    const existingRefund = await prisma.orderRefund.findFirst({
+      where: { orderId, shopifyRefundId }
+    });
+    if (existingRefund) continue;
+
+    const refundId = uuidv4();
+    const now = new Date();
+    try {
+      await prisma.orderRefund.create({
+        data: {
+          id: refundId,
+          orderId,
+          shopifyRefundId,
+          amount: new Prisma.Decimal(refund.totalRefundedSet?.shopMoney?.amount || "0"),
+          shippingAmount: 0,
+          taxAmount: 0,
+          reason: null,
+          note: refund.note || null,
+          cashbackAdjustment: null,
+          cashbackProcessed: false,
+          shopifyCreatedAt: new Date(refund.createdAt),
+          processedAt: null,
+          createdAt: now
+        }
+      });
+    } catch (error) {
+      // refunds/create recorded it since the lookup
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') continue;
+      throw error;
+    }
+
+    for (const edge of refund.refundLineItems?.edges ?? []) {
+      const item = edge.node;
+      const shopifyLineItemId = item.lineItem?.id ?
+        item.lineItem.id.replace('gid://shopify/LineItem/', '') : "";
+
+      await prisma.orderRefundLineItem.create({
+        data: {
+          id: uuidv4(),
+          refundId,
+          shopifyLineItemId,
+          quantity: item.quantity || 1,
+          subtotal: parseFloat(item.subtotalSet?.shopMoney?.amount || "0"),
+          createdAt: now
+        }
+      });
+    }
+  }
 }
 
 function mapFinancialStatus(status: string): OrderFinancialStatus {
