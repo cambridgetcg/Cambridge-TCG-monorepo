@@ -53,11 +53,12 @@ export type StoreCreditCall = { operation: "credit" | "debit"; customerId: strin
 /**
  * Answer the store-credit GraphQL the app sends for `shop`, keeping one
  * balance per customer. Returns the calls made, for assertions.
+ * `duringCredit` runs while a credit is in flight, before Shopify answers.
  */
 export function mockStoreCredit(
   shop: string,
   balances: Record<string, number>,
-  options: { failDebits?: number } = {},
+  options: { failDebits?: number; duringCredit?: () => Promise<void> } = {},
 ): StoreCreditCall[] {
   const calls: StoreCreditCall[] = [];
   let failDebits = options.failDebits ?? 0;
@@ -96,10 +97,11 @@ export function mockStoreCredit(
       balances[customerId] = (balances[customerId] ?? 0) - Number(amount);
       return HttpResponse.json({ data: { storeCreditAccountDebit: { storeCreditAccountTransaction: transaction(customerId), userErrors: [] } } });
     }),
-    link.mutation("IssueStoreCredit", ({ variables }) => {
+    link.mutation("IssueStoreCredit", async ({ variables }) => {
       const customerId = customerOf(variables.id);
       const { amount, currencyCode } = variables.creditInput.creditAmount;
       calls.push({ operation: "credit", customerId, amount, currency: currencyCode });
+      await options.duringCredit?.();
       balances[customerId] = (balances[customerId] ?? 0) + Number(amount);
       return HttpResponse.json({ data: { storeCreditAccountCredit: { storeCreditAccountTransaction: transaction(customerId), userErrors: [] } } });
     }),

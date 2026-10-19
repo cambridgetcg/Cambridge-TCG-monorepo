@@ -26,6 +26,8 @@ interface CreditAdjustmentFormProps {
     currencyDisplayType: string;
   } | null;
   initialAmount?: number;
+  /** The most that may be added, e.g. the cashback an order is due */
+  maxAmount?: number;
   defaultReason?: string;
 }
 
@@ -54,6 +56,7 @@ export function CreditAdjustmentForm({
   loading = false,
   shopSettings,
   initialAmount,
+  maxAmount,
   defaultReason
 }: CreditAdjustmentFormProps) {
   // Initialize amount from props if provided
@@ -106,6 +109,10 @@ export function CreditAdjustmentForm({
       newErrors.amount = 'Amount cannot exceed $999,999.99';
     }
 
+    if (maxAmount !== undefined && amount > maxAmount) {
+      newErrors.amount = `Cannot add more than ${formatCurrency(maxAmount, shopSettings?.storeCurrency)}`;
+    }
+
     if (type === 'remove' && amount > currentBalance) {
       newErrors.amount = `Cannot remove more than current balance (${formatCurrency(currentBalance, shopSettings as any)})`;
     }
@@ -120,7 +127,7 @@ export function CreditAdjustmentForm({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [getAmount, getReason, type, currentBalance, shopSettings]);
+  }, [getAmount, getReason, type, currentBalance, shopSettings, maxAmount]);
 
   const handleSubmit = useCallback(() => {
     if (validate()) {
@@ -145,6 +152,7 @@ export function CreditAdjustmentForm({
           onChange={setCustomAmount}
           prefix={shopSettings?.storeCurrency || '$'}
           error={errors.amount}
+          helpText={maxAmount !== undefined ? `Up to ${formatCurrency(maxAmount, shopSettings?.storeCurrency)}` : undefined}
           disabled={loading}
           autoComplete="off"
         />

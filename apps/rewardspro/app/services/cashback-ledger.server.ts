@@ -11,7 +11,7 @@
  * and the merchant's Orders page never send the same entry twice.
  */
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type Order, type StoreCreditLedger } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma, { databaseSchema } from "~/db.server";
 import { jsonObject } from "~/utils/json-object";
@@ -66,12 +66,44 @@ export type ManualCashbackResult =
   | { success: true; amount: number; balance: number }
   | { success: false; error: string };
 
+const NOT_RECORDED = "No cashback was recorded for this order when it was paid, so there is none to issue";
+const NOTHING_LEFT = "No cashback is left to issue for this order";
+const ALREADY_ISSUING = "Cashback for this order is already being issued or was issued";
+
 /**
- * Issue an order's cashback by hand (the merchant's Orders page). A pending
- * CASHBACK_EARNED entry is claimed first, so the reconciliation cron cannot
- * send it too, and afterwards the entry records what was actually issued, so
- * a later refund reverses the right amount. Without an `amount` it issues
- * what the order is due once claimed, after any refunds so far.
+ * Why the merchant cannot issue an order's cashback by hand, or null when
+ * they can. Only the CASHBACK_EARNED entry orders/paid recorded as PENDING is
+ * issued by hand. Without one there is nothing to issue: none was due when
+ * the order was paid (store credit, gift cards and tier products earn none).
+ * An entry with no syncStatus is a record imported with the order history
+ * (order-sync), never credit owed.
+ */
+export function manualCashbackRefusal(
+  order: Pick<Order, "cashbackProcessed" | "cashbackEligible" | "financialStatus" | "totalPrice" | "totalRefunded">,
+  entry: Pick<StoreCreditLedger, "amount" | "metadata"> | null,
+): string | null {
+  if (order.cashbackProcessed) return "Cashback already processed";
+  const refundedInFull =
+    order.financialStatus === "REFUNDED" || (order.totalPrice.gt(0) && order.totalRefunded.gte(order.totalPrice));
+  if (refundedInFull || !order.cashbackEligible) return "This order was refunded or is excluded from cashback";
+  if (!entry) return NOT_RECORDED;
+  const status = jsonObject(entry.metadata).syncStatus;
+  if (status === "SYNCED" || status === "SYNCING") return ALREADY_ISSUING;
+  // Fully reversed by refunds before it was issued
+  if (status === "NOT_APPLICABLE") return NOTHING_LEFT;
+  if (status !== "PENDING") return "This order's cashback is a record imported with the order history, not cashback waiting to be issued";
+  return entry.amount.gt(0) ? null : NOTHING_LEFT;
+}
+
+/**
+ * Issue an order's cashback by hand (the merchant's Orders page). It only
+ * ever sends the order's PENDING CASHBACK_EARNED entry, after claiming it
+ * (PENDING to SYNCING): the reconciliation cron cannot send it too, and a
+ * refund that arrives while Shopify credits the shopper answers 503 and is
+ * applied, as a clawback, on Shopify's redelivery. Afterwards the entry
+ * records what was actually issued, so later refunds reverse the right
+ * amount. Without an `amount` it issues what the entry holds once claimed,
+ * after any refunds so far; the merchant's `amount` may not exceed that.
  */
 export async function issueCashbackByHand({
   shop,
@@ -84,7 +116,7 @@ export async function issueCashbackByHand({
   shop: string;
   admin: AdminApiContext;
   orderId: string;
-  /** The merchant's own amount; omitted, the order's recorded cashback */
+  /** The merchant's own amount, at most what is due; omitted, what is due */
   amount?: number;
   currency: string;
   reason: string;
@@ -95,37 +127,36 @@ export async function issueCashbackByHand({
   });
   if (!order) return { success: false, error: "Order not found" };
   if (!order.customer?.shopifyCustomerId) return { success: false, error: "Customer not found or missing Shopify ID" };
-  if (order.cashbackProcessed) return { success: false, error: "Cashback already processed" };
   if (amount !== undefined && !(amount > 0)) return { success: false, error: `Invalid cashback amount (${amount})` };
-  const refundedInFull =
-    order.financialStatus === "REFUNDED" || (order.totalPrice.gt(0) && order.totalRefunded.gte(order.totalPrice));
-  if (refundedInFull || !order.cashbackEligible) {
-    return { success: false, error: "This order was refunded or is excluded from cashback" };
-  }
 
+  // The latest entry, as refunds and the Orders page read it: an order the
+  // history import saw before orders/paid also has a history record
   const entry = await prisma.storeCreditLedger.findFirst({
     where: { orderId: order.id, type: "CASHBACK_EARNED" },
     select: { id: true, amount: true, metadata: true },
+    orderBy: { createdAt: "desc" },
   });
-  const status = entry ? jsonObject(entry.metadata).syncStatus : undefined;
-  const busy = { success: false as const, error: "Cashback for this order is already being issued or was issued" };
-  if (status === "SYNCED" || status === "SYNCING") return busy;
-  // Fully reversed by refunds before it was issued
-  if (status === "NOT_APPLICABLE") return { success: false, error: "No cashback is left to issue for this order" };
-  const claimed = entry && status === "PENDING" ? await claimLedgerEntry(entry.id) : false;
-  if (entry && status === "PENDING" && !claimed) return busy;
+  const refusal = manualCashbackRefusal(order, entry);
+  if (!entry || refusal !== null) return { success: false, error: refusal ?? NOT_RECORDED };
+  if (!(await claimLedgerEntry(entry.id))) return { success: false, error: ALREADY_ISSUING };
 
-  // Read under the claim: every refund that reduced the entry has committed
-  const current = entry ? await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id }, select: { amount: true, metadata: true } }) : null;
-  const due = amount ?? Number(current?.amount ?? order.cashbackAmount ?? 0);
-  if (!(due > 0)) {
-    if (claimed && entry) await claimLedgerEntry(entry.id, "SYNCING", "PENDING");
-    return { success: false, error: `Invalid cashback amount (${due})` };
+  // Read under the claim: every refund that reduced the entry has committed,
+  // and one that starts now finds the entry SYNCING and is retried
+  const claimed = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id }, select: { amount: true, metadata: true } });
+  const release = () => claimLedgerEntry(entry.id, "SYNCING", "PENDING");
+  if (!claimed.amount.gt(0)) {
+    await release();
+    return { success: false, error: NOTHING_LEFT };
   }
+  if (amount !== undefined && claimed.amount.lt(amount)) {
+    await release();
+    return { success: false, error: `Only ${claimed.amount.toFixed(2)} ${currency} of cashback is due for this order` };
+  }
+  const due = amount ?? claimed.amount.toNumber();
 
   const result = await createStoreCreditService(admin, shop).issueStoreCredit(order.customer.shopifyCustomerId, due, currency, reason);
   if (!result.success) {
-    if (claimed && entry) await claimLedgerEntry(entry.id, "SYNCING", "PENDING");
+    await release();
     return { success: false, error: result.error || "Failed to add store credit" };
   }
 
@@ -139,30 +170,10 @@ export async function issueCashbackByHand({
     reason,
   };
   await prisma.$transaction([
-    entry
-      ? prisma.storeCreditLedger.update({
-          where: { id: entry.id },
-          data: { amount: due, balance, metadata: { ...jsonObject(current?.metadata), ...synced } },
-        })
-      : prisma.storeCreditLedger.create({
-          data: {
-            customerId: order.customerId,
-            shop,
-            amount: due,
-            balance,
-            type: "CASHBACK_EARNED",
-            shopifyOrderId: order.shopifyOrderId,
-            orderId: order.id,
-            metadata: {
-              ...synced,
-              orderNumber: order.shopifyOrderNumber,
-              orderName: order.shopifyOrderName,
-              cashbackPercent: order.cashbackPercent,
-              tierName: order.tierNameAtOrder,
-              description: `Cashback from order ${order.shopifyOrderName}`,
-            },
-          },
-        }),
+    prisma.storeCreditLedger.update({
+      where: { id: entry.id },
+      data: { amount: due, balance, metadata: { ...jsonObject(claimed.metadata), ...synced } },
+    }),
     prisma.customer.update({
       where: { id: order.customerId },
       data: { storeCredit: balance, totalCashbackEarned: { increment: due } },

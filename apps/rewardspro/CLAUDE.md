@@ -25,6 +25,10 @@ Guards that need a decision to lift, not a refactor:
   headers, and off until `SENDGRID_WEBHOOK_VERIFICATION_KEY` is set.
 - **Webhooks are subscribed only in `shopify.app.toml`**; a unit test pairs
   every `webhooks.*` route with a subscription.
+- **Store credit for an order's cashback moves only through its claimed
+  ledger entry** (`claimLedgerEntry`, PENDING to SYNCING, in
+  `app/services/cashback-ledger.server.ts`). The Orders page issues only a
+  PENDING entry, never `Order.cashbackAmount` or an imported history record.
 
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123

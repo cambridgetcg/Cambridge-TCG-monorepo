@@ -25,6 +25,7 @@ import {
   Toast,
   DescriptionList,
   ProgressBar,
+  Tooltip,
   useIndexResourceState,
 } from "@shopify/polaris";
 import { CreditAdjustmentForm } from "~/components/StoreCredit/CreditAdjustmentForm";
@@ -38,7 +39,7 @@ import {
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { issueCashbackByHand } from "../services/cashback-ledger.server";
+import { issueCashbackByHand, manualCashbackRefusal } from "../services/cashback-ledger.server";
 import { settleRefundClawback } from "../services/refund-handler.server";
 import { getShopSettings } from "../services/shop-data-provider.server";
 import { formatCurrency, type ShopSettings } from "../utils/currency";
@@ -74,6 +75,10 @@ interface Order {
   cashbackAmount: Decimal | null;
   cashbackProcessed: boolean;
   cashbackStatus?: 'PENDING' | 'PROCESSED' | null;  // Computed field
+  /** Cashback the merchant can issue by hand now; null when they cannot */
+  cashbackDue: number | null;
+  /** Why they cannot (manualCashbackRefusal), or null */
+  cashbackRefusal: string | null;
   cashbackPercent: number | null;
   financialStatus: string;
   fulfillmentStatus: string | null;
@@ -410,6 +415,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     // Serialize orders to ensure Decimal values are converted to numbers
     const serializedOrders = orders.map(order => {
       const cashbackAmountNumber = order.cashbackAmount ? Number(order.cashbackAmount) : null;
+      // Only a PENDING cashback entry is issued by hand, never this order's
+      // cashbackAmount (services/cashback-ledger.server.ts)
+      const cashbackEntry = order.creditLedgerEntries?.find((entry: { type: string }) => entry.type === "CASHBACK_EARNED") ?? null;
+      const cashbackRefusal = manualCashbackRefusal(order, cashbackEntry);
       return {
         ...order,
         customerId: order.customerId, // Include the customerId field
@@ -420,6 +429,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         cashbackStatus: cashbackAmountNumber && cashbackAmountNumber > 0
           ? (order.cashbackProcessed ? 'PROCESSED' : 'PENDING')
           : null,
+        cashbackDue: cashbackRefusal === null && cashbackEntry ? Number(cashbackEntry.amount) : null,
+        cashbackRefusal,
         customer: order.customer ? {
           ...order.customer,
           storeCredit: order.customer.storeCredit
@@ -755,6 +766,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // COMPONENT
 // ============================================
 
+/**
+ * Whether the batch actions include an order: its cashback is waiting to be
+ * issued (cashbackDue) and it has a customer to credit.
+ */
+function isIssuableByHand(order: Order): boolean {
+  const hasCustomer = !!(
+    order.customer &&
+    order.customer.id &&
+    order.customer.id !== "unknown" &&
+    order.customer.shopifyCustomerId
+  );
+  // The customer relation may be missing while its ID is set
+  const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
+  return (hasCustomer || hasCustomerId) && order.cashbackDue !== null;
+}
+
 export default function OrdersPage() {
   const loaderData = useLoaderData<LoaderData>() as unknown as LoaderData;
   const { orders, stats, shopSettings, pagination } = loaderData;
@@ -910,25 +937,9 @@ export default function OrdersPage() {
   const bulkActions = useMemo(() => {
     const actions = [];
 
-    // Check if any selected orders have pending cashback
+    // Selected orders whose cashback is waiting to be issued
     const selectedOrders = orders.filter(order => selectedResources.includes(order.id));
-    const pendingCashbackOrders = selectedOrders.filter(order => {
-      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
-      const hasCustomer = !!(
-        order.customer &&
-        order.customer.id &&
-        order.customer.id !== "unknown" &&
-        order.customer.shopifyCustomerId
-      );
-      // Alternative check: order has customerId that could be fetched
-      // This handles cases where customer relation wasn't included but ID exists
-      const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
-      // Order qualifies if it has either a customer object OR a valid customerId
-      const hasValidCustomer = hasCustomer || hasCustomerId;
-      const hasPositiveCashback = cashbackAmountNum > 0;
-      const isNotProcessed = !order.cashbackProcessed;
-      return hasValidCustomer && hasPositiveCashback && isNotProcessed;
-    });
+    const pendingCashbackOrders = selectedOrders.filter(isIssuableByHand);
 
     if (pendingCashbackOrders.length > 0) {
       actions.push({
@@ -996,6 +1007,11 @@ export default function OrdersPage() {
       return;
     }
 
+    if (order.cashbackDue === null) {
+      showError(order.cashbackRefusal ?? 'No cashback is waiting to be issued for this order');
+      return;
+    }
+
     // If customer object not directly available, check if we have customerId
     if (!order.customer && order.customerId === "unknown") {
       showError('This order has no associated customer');
@@ -1035,7 +1051,7 @@ export default function OrdersPage() {
         email: customerData.email || order.email || 'Unknown',
         storeCredit: customerData.storeCredit ? parseFloat(customerData.storeCredit.toString()) : 0
       });
-      setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
+      setDefaultCashbackAmount(order.cashbackDue);
     } else {
       // Fallback to database balance if no Shopify ID
       const currentBalance = customerData.storeCredit
@@ -1048,7 +1064,7 @@ export default function OrdersPage() {
         email: customerData.email || order.email || 'Unknown',
         storeCredit: currentBalance
       });
-      setDefaultCashbackAmount(Number(order.cashbackAmount) || 0);
+      setDefaultCashbackAmount(order.cashbackDue);
       setFetchingBalance(false);
       setIsCashbackModalOpen(true);
     }
@@ -1093,30 +1109,8 @@ export default function OrdersPage() {
 
   // Process all orders (replaces Process All Pending)
   const handleProcessAll = useCallback(() => {
-    // Get all qualifying cashback orders using the same logic as qualifyingOrdersCount
-    const qualifyingOrders = orders.filter(order => {
-      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
-
-      // More detailed customer detection (same as test page)
-      const hasCustomer = !!(
-        order.customer &&
-        order.customer.id &&
-        order.customer.id !== "unknown" &&
-        order.customer.shopifyCustomerId // Also check for Shopify ID
-      );
-
-      // Alternative check: order has customerId that could be fetched
-      // This handles cases where customer relation wasn't included but ID exists
-      const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
-
-      // Order qualifies if it has either a customer object OR a valid customerId
-      const hasValidCustomer = hasCustomer || hasCustomerId;
-
-      const hasPositiveCashback = cashbackAmountNum > 0;
-      const isNotProcessed = !order.cashbackProcessed;
-
-      return hasValidCustomer && hasPositiveCashback && isNotProcessed;
-    });
+    // Orders whose cashback is waiting to be issued, as qualifyingOrdersCount counts them
+    const qualifyingOrders = orders.filter(isIssuableByHand);
 
     if (qualifyingOrders.length === 0) {
       showSuccess('No qualifying orders to process');
@@ -1295,50 +1289,7 @@ export default function OrdersPage() {
 
   // Table rows
   // Count qualifying cashback orders (orders that qualify for processing)
-  const qualifyingOrdersCount = useMemo(() => {
-    const qualifying = orders.filter(order => {
-      const cashbackAmountNum = order.cashbackAmount ? Number(order.cashbackAmount) : 0;
-
-      // More detailed customer detection (same as test page)
-      const hasCustomer = !!(
-        order.customer &&
-        order.customer.id &&
-        order.customer.id !== "unknown" &&
-        order.customer.shopifyCustomerId // Also check for Shopify ID
-      );
-
-      // Alternative check: order has customerId that could be fetched
-      // This handles cases where customer relation wasn't included but ID exists
-      const hasCustomerId = !!(order.customerId && order.customerId !== "unknown");
-
-      // Order qualifies if it has either a customer object OR a valid customerId
-      const hasValidCustomer = hasCustomer || hasCustomerId;
-
-      const hasPositiveCashback = cashbackAmountNum > 0;
-      const isNotProcessed = !order.cashbackProcessed;
-
-      // Debug logging
-      if (cashbackAmountNum > 0) {
-        console.log('Checking order for qualifying:', {
-          orderId: order.id,
-          cashbackProcessed: order.cashbackProcessed,
-          cashbackAmount: cashbackAmountNum,
-          hasValidCustomer,
-          hasCustomer,
-          customerId: order.customer?.id,
-          customerShopifyId: order.customer?.shopifyCustomerId,
-          isNotProcessed,
-          qualifies: hasValidCustomer && hasPositiveCashback && isNotProcessed
-        });
-      }
-
-      // Return true if order qualifies for processing
-      return hasValidCustomer && hasPositiveCashback && isNotProcessed;
-    });
-
-    console.log(`Found ${qualifying.length} qualifying cashback orders out of ${orders.length} total`);
-    return qualifying.length;
-  }, [orders]);
+  const qualifyingOrdersCount = useMemo(() => orders.filter(isIssuableByHand).length, [orders]);
 
   const rowMarkup = orders.map((order, index) => (
     <IndexTable.Row
@@ -1371,7 +1322,7 @@ export default function OrdersPage() {
           <Text variant="bodyMd" as="span">
             {formatCurrency(Number(order.totalPrice), shopSettings)}
           </Text>
-          {order.cashbackAmount && Number(order.cashbackAmount) > 0 && (
+          {Number(order.cashbackAmount) > 0 && (
             <Text variant="bodySm" as="span" tone="subdued">
               {formatCurrency(Number(order.cashbackAmount), shopSettings)} back ({order.cashbackPercent}%)
             </Text>
@@ -1382,7 +1333,7 @@ export default function OrdersPage() {
         <InlineStack gap="200" wrap>
           {getFinancialStatusBadge(order.financialStatus)}
           {getCashbackStatusBadge(order)}
-          {order.cashbackAmount && !order.cashbackProcessed && (
+          {order.cashbackDue !== null ? (
             <Button
               size="slim"
               variant="primary"
@@ -1394,7 +1345,13 @@ export default function OrdersPage() {
             >
               Process
             </Button>
-          )}
+          ) : order.cashbackAmount && !order.cashbackProcessed && order.cashbackRefusal ? (
+            <Tooltip content={order.cashbackRefusal}>
+              <Button size="slim" disabled accessibilityLabel={order.cashbackRefusal}>
+                Process
+              </Button>
+            </Tooltip>
+          ) : null}
         </InlineStack>
       </IndexTable.Cell>
     </IndexTable.Row>
@@ -1765,7 +1722,7 @@ export default function OrdersPage() {
                       },
                     ]}
                   />
-                  {selectedOrder.cashbackAmount && !selectedOrder.cashbackProcessed && (
+                  {selectedOrder.cashbackDue !== null ? (
                     <Box>
                       <Button
                         variant="primary"
@@ -1775,7 +1732,18 @@ export default function OrdersPage() {
                         Process Cashback
                       </Button>
                     </Box>
-                  )}
+                  ) : selectedOrder.cashbackAmount && !selectedOrder.cashbackProcessed && selectedOrder.cashbackRefusal ? (
+                    <BlockStack gap="200">
+                      <Box>
+                        <Button variant="primary" disabled>
+                          Process Cashback
+                        </Button>
+                      </Box>
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        {selectedOrder.cashbackRefusal}
+                      </Text>
+                    </BlockStack>
+                  ) : null}
                 </BlockStack>
 
                 {/* Line Items */}
@@ -1913,6 +1881,7 @@ export default function OrdersPage() {
                   loading={isLoading}
                   shopSettings={shopSettings}
                   initialAmount={defaultCashbackAmount}
+                  maxAmount={defaultCashbackAmount}
                   defaultReason="Loyalty reward"
                 />
               )
