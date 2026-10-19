@@ -4,7 +4,6 @@
  * This module provides services for tier product operations:
  * - TierProductMatcher: Match webhook line items to tier products
  * - TierProductPurchaseService: Create tier purchase records
- * - TierProductManagerEnhanced: Create tier products in Shopify
  * - TierProductDeletion: Delete tier products with cleanup
  */
 
@@ -33,5 +32,3 @@ export {
   type CreatePurchaseOptions,
 } from "./tier-product-purchase.server";
 
-// Existing services (re-export for convenience)
-export { TierProductManagerEnhanced } from "./tier-product-manager-enhanced.server";

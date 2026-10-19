@@ -77,16 +77,14 @@ process.env.SHOPIFY_API_KEY = 'test-api-key';
 process.env.SHOPIFY_API_SECRET = 'test-api-secret';
 process.env.SHOPIFY_APP_URL = 'https://test.example.com';
 process.env.SHOPIFY_WEBHOOK_SECRET = 'test-webhook-secret';
-process.env.ENCRYPTION_KEY = 'dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcw=='; // Base64 encoded 32-byte key
 process.env.SESSION_SECRET = 'test-session-secret-32-bytes-long';
+// Session token encryption (utils/encryption.ts) fails closed without these
+process.env.ENCRYPTION_SECRET = 'test-encryption-secret';
+process.env.ENCRYPTION_SALT = '00112233445566778899aabbccddeeff';
 
-// Mock AWS credentials for Data API testing
-process.env.AURORA_RESOURCE_ARN = 'arn:aws:rds:us-east-1:123456789:cluster:test';
-process.env.AURORA_SECRET_ARN = 'arn:aws:secretsmanager:us-east-1:123456789:secret:test';
-process.env.AURORA_DATABASE_NAME = 'test_db';
-process.env.AWS_ACCESS_KEY_ID = 'test-access-key';
-process.env.AWS_SECRET_ACCESS_KEY = 'test-secret-key';
-process.env.AWS_REGION = 'us-east-1';
+// db.server.ts builds its client at import. Unit tests mock it or never
+// query; integration tests (test/integration) point this at a real database.
+process.env.DATABASE_URL ??= 'postgresql://unit-tests@127.0.0.1:1/unit-tests';
 
 // Mock console methods to reduce test output noise
 const originalError = console.error;

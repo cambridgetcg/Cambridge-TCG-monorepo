@@ -10,6 +10,7 @@
  * This service is designed to be called by a cron job.
  */
 
+import { jsonObject } from "~/utils/json-object";
 import prisma from "~/db.server";
 import { expirePoints } from "./points-ledger.server";
 import { getPointsConfig, getExpirationSettings } from "./points-config.server";
@@ -159,7 +160,7 @@ export async function sendExpirationWarnings(shop: string): Promise<{
     if (!customer?.email) continue;
 
     // Check if already warned recently
-    const metadata = customer.metadata as Record<string, unknown> | null;
+    const metadata = jsonObject(customer.metadata);
     const lastExpirationWarning = metadata?.lastPointsExpirationWarning as string | undefined;
 
     if (lastExpirationWarning) {
@@ -178,9 +179,9 @@ export async function sendExpirationWarnings(shop: string): Promise<{
         where: { id: customerId },
         data: {
           metadata: {
-            ...(metadata || {}),
+            ...metadata,
             lastPointsExpirationWarning: now.toISOString(),
-          } as Prisma.JsonValue,
+          },
         },
       });
 
@@ -298,7 +299,7 @@ export async function processStreakUpdates(shop: string): Promise<{
   let streaksIncremented = 0;
 
   for (const customer of customersWithStreaks) {
-    const metadata = customer.metadata as Record<string, unknown>;
+    const metadata = jsonObject(customer.metadata);
     const streakData = metadata?.pointsStreak as {
       current: number;
       longest: number;
@@ -325,7 +326,7 @@ export async function processStreakUpdates(shop: string): Promise<{
               longest: newLongest,
               lastDate: yesterday.toISOString(),
             },
-          } as Prisma.JsonValue,
+          },
         },
       });
 
@@ -342,7 +343,7 @@ export async function processStreakUpdates(shop: string): Promise<{
               longest: streakData.longest,
               lastDate: streakData.lastDate,
             },
-          } as Prisma.JsonValue,
+          },
         },
       });
 
@@ -377,7 +378,7 @@ export async function recordStreakActivity(
     select: { metadata: true },
   });
 
-  const metadata = (customer?.metadata as Record<string, unknown>) || {};
+  const metadata = jsonObject(customer?.metadata);
   const streakData = metadata?.pointsStreak as {
     current: number;
     longest: number;
@@ -429,7 +430,7 @@ export async function recordStreakActivity(
           longest,
           lastDate: today.toISOString(),
         },
-      } as Prisma.JsonValue,
+      },
     },
   });
 

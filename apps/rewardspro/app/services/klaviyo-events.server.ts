@@ -14,7 +14,7 @@ import {
   buildProfileProperties,
   hashProfileData,
 } from "./klaviyo.server";
-import type { Customer, Tier } from "@prisma/client";
+import type { Customer, Prisma, Tier } from "@prisma/client";
 
 // ============================================
 // EVENT NAMES (Metric Names in Klaviyo)
@@ -94,7 +94,7 @@ interface DispatchOptions {
   eventType: KlaviyoEventName;
   email: string;
   customerId?: string;
-  properties: Record<string, unknown>;
+  properties: Prisma.InputJsonObject;
   value?: number;
   uniqueId: string;
   eventTime?: Date;

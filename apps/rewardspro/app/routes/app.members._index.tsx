@@ -1609,7 +1609,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (tierPurchases.length > 0) {
         tierPurchases.forEach((purchase, idx) => {
           console.log(`  [Purchase ${idx + 1}]:`, {
-            tierName: purchase.tier.name,
+            tierName: purchase.tier?.name ?? null,
             status: purchase.status,
             endDate: purchase.endDate,
             purchasePrice: purchase.purchasePrice.toString(),
@@ -1632,7 +1632,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (tierSubscriptions.length > 0) {
         tierSubscriptions.forEach((subscription, idx) => {
           console.log(`  [Subscription ${idx + 1}]:`, {
-            tierName: subscription.tier.name,
+            tierName: subscription.tier?.name ?? null,
             status: subscription.status,
             currentPeriodEnd: subscription.currentPeriodEnd,
             billingInterval: subscription.billingInterval,

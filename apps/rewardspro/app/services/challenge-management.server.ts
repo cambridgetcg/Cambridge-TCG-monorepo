@@ -20,7 +20,8 @@ export type ChallengeParticipantStatus = "IN_PROGRESS" | "COMPLETED" | "CLAIMED"
 // TYPES
 // ============================================
 
-export interface ObjectiveConfig {
+// A type alias (not an interface) so it is assignable to Prisma JSON input
+export type ObjectiveConfig = {
   // For SPENDING
   minOrderValue?: number;
   excludeDiscounted?: boolean;
@@ -39,9 +40,10 @@ export interface ObjectiveConfig {
   // For STREAK
   streakType?: "ORDER" | "LOGIN";
   periodDays?: number;
-}
+};
 
-export interface RewardValue {
+// A type alias (not an interface) so it is assignable to Prisma JSON input
+export type RewardValue = {
   // For POINTS
   amount?: number;
   // For STORE_CREDIT (in cents)
@@ -57,7 +59,7 @@ export interface RewardValue {
   // For CUSTOM
   description?: string;
   fulfillmentInstructions?: string;
-}
+};
 
 // Mission cadence types (matching Prisma enums)
 export type MissionCadence = "DAILY" | "WEEKLY" | "MONTHLY" | "SPECIAL";

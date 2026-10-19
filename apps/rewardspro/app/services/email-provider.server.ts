@@ -13,7 +13,6 @@ import {
   sendWelcomeEmail as sendGridWelcomeEmail,
   sendTierUpgradeEmail as sendGridTierUpgradeEmail,
 } from "./sendgrid.server";
-import { sendEmail as sesSendEmail } from "./ses.server";
 import { isKlaviyoEnabled } from "./klaviyo.server";
 import {
   trackCustomerEnrolled,
@@ -171,37 +170,25 @@ export async function sendTransactionalEmail(
     case "HYBRID":
     case "SENDGRID":
     default:
-      // Default backend is SendGrid; opt-in to SES with EMAIL_PROVIDER=ses
-      // (SES needs prod access first — see app/services/ses.server.ts header).
-      const useSES = (process.env.EMAIL_PROVIDER || "").toLowerCase() === "ses";
       try {
-        const result = useSES
-          ? await sesSendEmail(shop, {
-              to: { email: params.to.email, name: params.to.name },
-              subject: params.subject,
-              html: params.html,
-              text: params.text,
-              from: params.from ? { email: params.from.email, name: params.from.name } : undefined,
-              replyTo: params.replyTo ? { email: params.replyTo } : undefined,
-            })
-          : await sendGridSendEmail(shop, {
-              to: { email: params.to.email, name: params.to.name },
-              subject: params.subject,
-              html: params.html,
-              text: params.text,
-              from: params.from ? { email: params.from.email, name: params.from.name } : undefined,
-              replyTo: params.replyTo ? { email: params.replyTo } : undefined,
-              categories: params.categories,
-              customArgs: params.customArgs,
-            });
+        const result = await sendGridSendEmail(shop, {
+          to: { email: params.to.email, name: params.to.name },
+          subject: params.subject,
+          html: params.html,
+          text: params.text,
+          from: params.from ? { email: params.from.email, name: params.from.name } : undefined,
+          replyTo: params.replyTo ? { email: params.replyTo } : undefined,
+          categories: params.categories,
+          customArgs: params.customArgs,
+        });
         if (result.success) {
           // Record successful email send
           await recordEmailSent(shop, 1, "transactional");
         }
         return {
           success: result.success,
-          messageId: result.success ? (useSES ? (result as any).messageId : "sent") : undefined,
-          error: result.success ? undefined : (result as any).error,
+          messageId: result.success ? "sent" : undefined,
+          error: result.success ? undefined : result.error,
         };
       } catch (error) {
         return {

@@ -54,7 +54,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ordersWithCashback,
       ordersWithoutCashback,
       unprocessedCashback,
-      totalUnprocessedAmount: totalUnprocessedAmount._sum.cashbackAmount || 0
+      totalUnprocessedAmount: Number(totalUnprocessedAmount._sum.cashbackAmount ?? 0)
     },
     shopSettings: shopSettings || { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' }
   });
@@ -153,7 +153,7 @@ export default function RecalculateCashbackPage() {
                     </BlockStack>
                   </InlineStack>
 
-                  {stats.totalUnprocessedAmount > 0 && (
+                  {Number(stats.totalUnprocessedAmount) > 0 && (
                     <>
                       <Divider />
                       <InlineStack align="space-between">

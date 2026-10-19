@@ -172,9 +172,13 @@ async function generateFromTemplate(
       rarity: template.rarity,
       category: template.category,
       xpReward: template.xpReward,
-      rewardType: template.rewardType,
-      rewardValue: template.rewardValue,
-      rewardDescription: template.rewardDescription,
+      reward: {
+        create: {
+          rewardType: template.rewardType,
+          rewardValue: template.rewardValue ?? {},
+          description: template.rewardDescription,
+        },
+      },
       iconEmoji: template.iconEmoji,
       tierRestrictions: template.tierRestrictions ?? undefined,
       templateId: template.id,

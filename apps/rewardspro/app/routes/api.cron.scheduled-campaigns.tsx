@@ -129,7 +129,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             where: {
               shop: campaign.shop,
               id: { in: segmentRules.targetCustomerIds },
-              email: { not: null },
+              email: { not: "" },
               acceptsMarketing: true,
               emailSuppressed: false,
             },
@@ -147,8 +147,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
           const customers = await prisma.customer.findMany({
             where: {
               shop: campaign.shop,
-              email: { not: null },
-              tierId: { in: segmentRules.selectedTiers },
+              email: { not: "" },
+              currentTierId: { in: segmentRules.selectedTiers },
               acceptsMarketing: true,
               emailSuppressed: false,
             },
@@ -164,7 +164,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         } else {
           // All customers with email (exclude suppressed/unsubscribed)
           const customers = await prisma.customer.findMany({
-            where: { shop: campaign.shop, email: { not: null }, acceptsMarketing: true, emailSuppressed: false },
+            where: { shop: campaign.shop, email: { not: "" }, acceptsMarketing: true, emailSuppressed: false },
             select: { id: true, email: true, firstName: true, lastName: true },
           });
           recipients = customers

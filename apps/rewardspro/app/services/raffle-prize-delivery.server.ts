@@ -319,63 +319,27 @@ async function deliverDiscountPrize(
 }
 
 /**
- * Deliver a STORE_CREDIT prize
- * Adds store credit to customer's account
+ * Deliver a STORE_CREDIT prize: not available.
+ *
+ * The previous implementation only raised the local balance and wrote a
+ * ledger row (with an invalid ledger type and no balance, so it never
+ * succeeded on a real database). It never issued Shopify store credit, so a
+ * successful delivery would have shown the shopper credit they could not
+ * spend at checkout. Store credit must go through Shopify (as cashback
+ * does) before this prize type can be offered.
  */
 async function deliverStoreCreditPrize(
-  winnerId: string,
-  shop: string,
-  customerId: string,
-  prizeValue: PrizeValue,
-  raffleName: string
+  _winnerId: string,
+  _shop: string,
+  _customerId: string,
+  _prizeValue: PrizeValue,
+  _raffleName: string
 ): Promise<DeliveryResult> {
-  console.log(`${LOG_PREFIX} Delivering STORE_CREDIT prize`);
-
-  const amount = prizeValue.amount || 0; // Amount in cents
-  const amountDecimal = amount / 100;
-
-  if (amount <= 0) {
-    return {
-      success: false,
-      error: "Invalid store credit amount",
-    };
-  }
-
-  try {
-    // Create store credit ledger entry
-    const entry = await prisma.storeCreditLedger.create({
-      data: {
-        shop,
-        customerId,
-        amount: amountDecimal,
-        type: "ADJUSTMENT",
-        description: `Raffle prize: ${raffleName}`,
-        metadata: { winnerId, source: "raffle_prize" },
-      },
-    });
-
-    // Update customer's store credit balance
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        storeCredit: { increment: amountDecimal },
-        updatedAt: new Date(),
-      },
-    });
-
-    console.log(`${LOG_PREFIX} Added $${amountDecimal} store credit to customer ${customerId}`);
-
-    return {
-      success: true,
-      storeCreditId: entry.id,
-    };
-  } catch (error) {
-    console.error(`${LOG_PREFIX} Error adding store credit:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to add store credit",
-    };
-  }
+  console.warn(`${LOG_PREFIX} STORE_CREDIT prize requested; not available`);
+  return {
+    success: false,
+    error: "Store credit prizes are not available yet",
+  };
 }
 
 /**

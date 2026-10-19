@@ -140,7 +140,6 @@ describe("api.proxy.$.tsx — source contract (regression guard)", () => {
       "challenges/claim",
       "challenges/join",
       "mystery-boxes/open",
-      "gift-cards/convert",
     ];
 
     for (const pathName of mutating) {
@@ -184,7 +183,6 @@ describe("api.proxy.$.tsx — source contract (regression guard)", () => {
       { path: "raffles/enter", scope: "raffle-enter" },
       { path: "challenges/claim", scope: "challenge-claim" },
       { path: "mystery-boxes/open", scope: "mystery-box-open" },
-      { path: "gift-cards/convert", scope: "gift-card-convert" },
     ];
 
     for (const { path: p, scope } of guarded) {
@@ -198,5 +196,22 @@ describe("api.proxy.$.tsx — source contract (regression guard)", () => {
         `${p} handler must call claimIdempotencyKey("${scope}", ...)`
       ).toContain(`claimIdempotencyKey("${scope}"`);
     }
+  });
+
+  it("gift-cards/convert stays paused: no identity, body read or write", () => {
+    // Converting store credit needs the write_gift_cards scope, which the app
+    // does not request. If this handler is rebuilt, put it back on the two
+    // lists above (getProxyCustomerId first, claimIdempotencyKey before the
+    // write) and delete this test.
+    const action = getActionSource();
+    const blockStart = action.indexOf(`proxyPath === "gift-cards/convert"`);
+    expect(blockStart).toBeGreaterThan(-1);
+    const rest = action.slice(blockStart);
+    const blockEnd = rest.indexOf(`proxyPath ===`, 1);
+    const block = blockEnd > 0 ? rest.slice(0, blockEnd) : rest;
+
+    expect(block).not.toContain("request.json()");
+    expect(block).not.toMatch(/\b(prisma|db|tx)\./);
+    expect(block).toMatch(/status: 403/);
   });
 });

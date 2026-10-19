@@ -7,6 +7,7 @@
  * Includes in-memory caching to prevent excessive API calls.
  */
 
+import type { PrismaClient } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 
 // App extension identifiers - check for various naming patterns
@@ -366,7 +367,7 @@ export async function detectWidgetStatus(
  * Update the cached widget status in the database
  */
 export async function updateWidgetStatusCache(
-  db: any,
+  db: PrismaClient,
   shop: string,
   isEnabled: boolean
 ): Promise<void> {

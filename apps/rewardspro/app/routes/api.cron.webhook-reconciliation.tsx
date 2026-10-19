@@ -332,59 +332,61 @@ async function processReconciliationOrder(shop: string, order: any): Promise<voi
     return;
   }
 
+  // Guest orders have no loyalty account, and Order rows reference a customer
+  if (!order.customer?.id) {
+    console.log(`[WebhookReconciliation] Skipping guest order ${order.name}`);
+    return;
+  }
+  const shopifyCustomerId = String(order.customer.id);
+
   const idempotencyKey = `reconciliation-order-${order.id}-${Date.now()}`;
 
   await db.$transaction(async (tx) => {
-    // Record the reconciliation (without payload to avoid timeout)
-    try {
-      await tx.webhookProcessed.create({
-        data: {
-          id: crypto.randomUUID(),
-          shop,
-          topic: 'reconciliation/orders.paid',
-          webhookId: idempotencyKey,
-          processedAt: new Date()
-        }
-      });
-    } catch (err) {
-      console.warn(`[WebhookReconciliation] Could not record processing:`, err);
-    }
+    // Record the reconciliation (without payload to avoid timeout). The key
+    // is unique per run; a failure here must abort the transaction anyway,
+    // since Postgres cannot continue a transaction after a failed statement.
+    await tx.webhookProcessed.create({
+      data: {
+        id: crypto.randomUUID(),
+        shop,
+        topic: 'reconciliation/orders.paid',
+        webhookId: idempotencyKey,
+        processedAt: new Date()
+      }
+    });
 
     // Get or create customer
-    let customer = null;
-    if (order.customer?.id) {
-      customer = await tx.customer.upsert({
-        where: {
-          shop_shopifyCustomerId: {
-            shop,
-            shopifyCustomerId: order.customer.id
-          }
-        },
-        create: {
-          id: crypto.randomUUID(),
+    const customer = await tx.customer.upsert({
+      where: {
+        shop_shopifyCustomerId: {
           shop,
-          shopifyCustomerId: order.customer.id,
-          email: order.customer.email || '',
-          storeCredit: 0,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        update: {
-          email: order.customer.email || '',
-          updatedAt: new Date()
+          shopifyCustomerId
         }
-      });
-    }
+      },
+      create: {
+        id: crypto.randomUUID(),
+        shop,
+        shopifyCustomerId,
+        email: order.customer.email || '',
+        storeCredit: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      update: {
+        email: order.customer.email || '',
+        updatedAt: new Date()
+      }
+    });
 
     // Create order record
     await tx.order.create({
       data: {
         id: crypto.randomUUID(),
         shop,
-        shopifyOrderId: order.id,
+        shopifyOrderId: String(order.id),
         shopifyOrderNumber: order.name,
         shopifyOrderName: order.name,
-        customerId: customer?.id || null,
+        customerId: customer.id,
         email: order.customer?.email || '',
         currency: order.currency || 'USD',
         subtotalPrice: parseFloat(order.total_price || '0'),

@@ -174,10 +174,10 @@ async function updateCustomerSpendingTotals(customerId: string, shop: string) {
     })
   ]);
 
-  const totalSpent = orderStats._sum.totalPrice || 0;
-  const totalRefunded = orderStats._sum.totalRefunded || 0;
+  const totalSpent = Number(orderStats._sum.totalPrice ?? 0);
+  const totalRefunded = Number(orderStats._sum.totalRefunded ?? 0);
   const netSpent = totalSpent - totalRefunded;
-  const annualSpent = (annualOrderStats._sum.totalPrice || 0) - (annualOrderStats._sum.totalRefunded || 0);
+  const annualSpent = Number(annualOrderStats._sum.totalPrice ?? 0) - Number(annualOrderStats._sum.totalRefunded ?? 0);
 
   console.log(`[Orders] Aggregation results - orders: ${orderStats._count.id}, totalSpent: ${totalSpent}, annualSpent: ${annualSpent}`);
 

@@ -50,7 +50,7 @@ import {
   getPlanPrice,
   getPricingPlan,
 } from "~/constants/pricing-contract";
-import { countOrdersWithFallback, getOrCreateMonthlyCount } from "~/utils/order-count-strategies";
+import { countOrdersInRange } from "~/utils/order-count.server";
 import { formatCurrency } from "~/utils/currency";
 import { v4 as uuidv4 } from "uuid";
 import { ColorPickerFieldInline } from "~/components/ColorPickerField";
@@ -131,20 +131,11 @@ type OrderStats = {
   discrepancies: number;
 };
 
+// The fields of the serialized BillingSubscription row that this page reads
 type BillingPlan = {
-  id: string;
-  shop: string;
   planName: string;
-  status: string;
-  monthlyPrice: number;
-  usageCap: number | null;
+  status: string | null;
   currentPeriodEnd: string | null;
-  cap80AlertSent: boolean;
-  cap90AlertSent: boolean;
-  lastCapAlert: string | null;
-  metadata: any;
-  createdAt: string;
-  updatedAt: string;
 };
 
 type TierOption = {
@@ -649,34 +640,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const month = now.getMonth() + 1;
     const daysRemaining = calculateDaysRemaining();
 
-    // Count orders using multiple strategies (like billing-v2 does)
-    let orderCount = 0;
-    let orderCountStrategy = "unknown";
-
-    try {
-      console.log(`[Settings Page] Attempting to count orders for ${shop} - ${getCurrentMonthName()} ${year}`);
-
-      // Use countOrdersWithFallback which tries multiple strategies
-      // Note: countOrdersDateExtraction removed - causes SerializationException with Aurora Data API
-      const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-      const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-
-      const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
-      orderCount = result.count;
-      orderCountStrategy = result.strategy;
-
-      // If still 0, try pre-aggregated count
-      if (orderCount === 0) {
-        console.log("[Settings Page] Trying pre-aggregated count");
-        orderCount = await getOrCreateMonthlyCount(shop, year, month);
-        orderCountStrategy = "PreAggregated";
-      }
-    } catch (error) {
-      console.error("[Settings Page] Error counting orders:", error);
-      // Fallback to simple total count
-      orderCount = await prisma.order.count({ where: { shop } });
-      orderCountStrategy = "TotalFallback";
-    }
+    // Orders created in Shopify this calendar month (UTC)
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    const orderCount = await countOrdersInRange(shop, startOfMonth, endOfMonth);
 
     // Determine plan based on active subscription using shared plan constants
     // Priority: activeSubscription > subscriptionInfo (GraphQL) > Free plan default
@@ -702,10 +669,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       planLimit,
       planName,
       projectedOrders,
-      countStrategy: orderCountStrategy // Include which strategy worked
     };
-
-    console.log(`[Settings Page] Final count: ${orderCount} using strategy: ${orderCountStrategy}`);
 
     // Serialize dates for JSON
     const serializedSettings = {

@@ -108,6 +108,11 @@ export class TransactionAnalyzer {
 
   /**
    * Fetch order transaction details from Shopify
+   *
+   * Throws when the request or query fails (network, throttling, API error),
+   * so the caller can fail the webhook and let Shopify redeliver it, instead
+   * of treating a transient failure as "no cashback-eligible payment".
+   * Returns null only when Shopify reports no such order.
    */
   async fetchOrderTransactions(orderId: string): Promise<OrderDetails | null> {
     // Ensure we have a properly formatted GID
@@ -115,27 +120,24 @@ export class TransactionAnalyzer {
       ? orderId
       : `gid://shopify/Order/${orderId}`;
 
-    try {
-      console.log(`[TransactionAnalyzer] Fetching transactions for order ${gid}`);
+    console.log(`[TransactionAnalyzer] Fetching transactions for order ${gid}`);
 
-      const response = await this.admin.graphql(ORDER_TRANSACTIONS_QUERY, {
-        variables: { id: gid }
-      });
+    const response = await this.admin.graphql(ORDER_TRANSACTIONS_QUERY, {
+      variables: { id: gid }
+    });
 
-      const result = await response.json();
+    const result = await response.json();
 
-      if (result.errors || !result.data?.order) {
-        console.error("[TransactionAnalyzer] Failed to fetch order details:", result.errors);
-        return null;
-      }
-
-      console.log(`[TransactionAnalyzer] Found ${result.data.order.transactions.length} transactions`);
-      return result.data.order;
-
-    } catch (error) {
-      console.error("[TransactionAnalyzer] GraphQL query failed:", error);
+    if (result.errors) {
+      throw new Error(`Order transactions query failed: ${JSON.stringify(result.errors).slice(0, 300)}`);
+    }
+    if (!result.data?.order) {
+      console.warn(`[TransactionAnalyzer] Order ${gid} not found`);
       return null;
     }
+
+    console.log(`[TransactionAnalyzer] Found ${result.data.order.transactions.length} transactions`);
+    return result.data.order;
   }
 
   /**

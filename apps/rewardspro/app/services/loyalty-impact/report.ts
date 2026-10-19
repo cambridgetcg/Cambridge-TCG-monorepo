@@ -64,7 +64,7 @@ export async function getLoyaltyImpactReport(
             shop,
             OR: [
               { pointsLedger: { some: {} } },
-              { storeCreditLedger: { some: {} } },
+              { creditLedger: { some: {} } },
             ],
           },
           select: { id: true },
@@ -76,7 +76,7 @@ export async function getLoyaltyImpactReport(
             shop,
             OR: [
               { pointsLedger: { some: { amount: { lt: 0 } } } },
-              { storeCreditLedger: { some: { amount: { lt: 0 } } } },
+              { creditLedger: { some: { amount: { lt: 0 } } } },
             ],
           },
           select: { id: true },

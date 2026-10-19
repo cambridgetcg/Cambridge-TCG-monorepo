@@ -273,23 +273,15 @@ export async function openMysteryBox(
   console.log(`${LOG_PREFIX} openMysteryBox: customer=${customerId}, box=${boxId}`);
 
   try {
-    // 1. Get the box (flat query — Data API adapter silently ignores nested include)
+    // 1. Get the box with its rewards
     const box = await prisma.mysteryBox.findFirst({
       where: { id: boxId, shop },
+      include: { rewards: { orderBy: { position: "asc" } } },
     });
 
     if (!box) {
       return { success: false, error: "Mystery box not found" };
     }
-
-    // Fetch rewards separately (Data API adapter compat — same pattern as proxy GET handler)
-    const boxRewards = await prisma.mysteryBoxReward.findMany({
-      where: { boxId },
-      orderBy: { position: "asc" },
-    });
-
-    // Attach rewards to box for downstream code compatibility
-    (box as any).rewards = boxRewards;
 
     // 2. Validate box is active and timing is correct
     if (box.status !== "ACTIVE") {
@@ -402,7 +394,7 @@ export async function openMysteryBox(
           // Track mystery box opened event
           await trackMysteryBoxOpened(
             shop,
-            { ...customer, pointsBalance: newBalance.available },
+            customer, // re-read after the spend, so its balance is current
             {
               id: box.id,
               name: box.name,
@@ -414,7 +406,7 @@ export async function openMysteryBox(
           // Track mystery box prize won event
           await trackMysteryBoxWon(
             shop,
-            { ...customer, pointsBalance: newBalance.available },
+            customer, // re-read after the spend, so its balance is current
             {
               id: box.id,
               name: box.name,
@@ -432,7 +424,7 @@ export async function openMysteryBox(
           // Track points spent event
           await trackPointsSpent(
             shop,
-            { ...customer, pointsBalance: newBalance.available },
+            customer, // re-read after the spend, so its balance is current
             box.openCost,
             "mystery_box",
             {

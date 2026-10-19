@@ -313,7 +313,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   try {
     const [totalCount, withEmailCount] = await Promise.all([
       prisma.customer.count({ where: { shop } }),
-      prisma.customer.count({ where: { shop, email: { not: null } } }),
+      prisma.customer.count({ where: { shop, email: { not: "" } } }),
     ]);
 
     customerStats.total = totalCount;

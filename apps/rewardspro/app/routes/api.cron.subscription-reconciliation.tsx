@@ -198,7 +198,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
                 errorMessage: updateError.message
               });
             }
-          } else if (isStale && !subscription.shopifySubscriptionContractId) {
+          } else if (isStale && !subscription.subscriptionContractId) {
             // Subscription is active but has no Shopify contract ID and hasn't been updated
             // This might be a data integrity issue
             result.discrepanciesFound++;

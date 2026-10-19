@@ -113,7 +113,7 @@ export async function action({ request }: ActionFunctionArgs) {
         shopifyVariantId: true,
         price: true,
         tierId: true,
-        name: true,
+        productHandle: true,
       },
     });
 
@@ -153,7 +153,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const priceChanged = Math.abs(shopifyPrice - currentPrice) > 0.01;
 
       if (priceChanged) {
-        console.log(`[ProductsUpdate] Price change detected for TierProduct ${tierProduct.name || tierProduct.id}:`);
+        console.log(`[ProductsUpdate] Price change detected for TierProduct ${tierProduct.productHandle || tierProduct.id}:`);
         console.log(`[ProductsUpdate]   Current DB price: ${currentPrice}`);
         console.log(`[ProductsUpdate]   New Shopify price: ${shopifyPrice}`);
 
@@ -173,14 +173,10 @@ export async function action({ request }: ActionFunctionArgs) {
               tierProductId: tierProduct.id,
               shop,
               action: "PRICE_UPDATED",
-              changes: {
-                field: "price",
-                previousValue: currentPrice.toString(),
-                newValue: shopifyPrice.toString(),
-                source: "products/update webhook",
-              },
+              previousState: { price: currentPrice.toString() },
+              newState: { price: shopifyPrice.toString() },
+              metadata: { field: "price", source: "products/update webhook" },
               performedBy: "Shopify Webhook",
-              performedAt: new Date(),
             },
           });
         } catch (auditError) {
@@ -190,7 +186,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
         results.push({
           tierProductId: tierProduct.id,
-          name: tierProduct.name || "Unnamed",
+          name: tierProduct.productHandle || "Unnamed",
           previousPrice: currentPrice,
           newPrice: shopifyPrice,
           updated: true,
@@ -200,7 +196,7 @@ export async function action({ request }: ActionFunctionArgs) {
       } else {
         results.push({
           tierProductId: tierProduct.id,
-          name: tierProduct.name || "Unnamed",
+          name: tierProduct.productHandle || "Unnamed",
           previousPrice: currentPrice,
           newPrice: shopifyPrice,
           updated: false,

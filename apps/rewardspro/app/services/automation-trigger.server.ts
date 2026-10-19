@@ -21,7 +21,9 @@
  * - And all rewards engagement triggers (raffle, mystery box, etc.)
  */
 
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
+import { jsonObject } from "~/utils/json-object";
 import { sendTransactionalEmail } from "./email-provider.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
@@ -42,7 +44,7 @@ export interface TriggerEvent {
     customerId?: string;
   };
   /** Optional event-specific data for condition evaluation */
-  data?: Record<string, unknown>;
+  data?: Prisma.InputJsonObject;
 }
 
 interface AutomationMatch {
@@ -50,8 +52,9 @@ interface AutomationMatch {
   name: string;
   templateId: string;
   delayMinutes: number;
-  conditions: Record<string, unknown>;
+  conditions: Prisma.JsonValue;
 }
+
 
 export interface TriggerResult {
   processed: number;
@@ -120,7 +123,7 @@ export async function processAutomationTrigger(
 
     for (const automation of automations) {
       result.processed++;
-      const conditions = (automation.conditions as Record<string, unknown>) || {};
+      const conditions = jsonObject(automation.conditions);
 
       try {
         // Evaluate conditions
@@ -193,7 +196,7 @@ export async function processAutomationTrigger(
  * Returns true if all conditions are met (or no conditions specified).
  */
 function evaluateConditions(
-  conditions: Record<string, unknown>,
+  conditions: Prisma.JsonObject,
   event: TriggerEvent
 ): boolean {
   // Tier filter: only trigger for a specific tier
@@ -226,8 +229,8 @@ async function executeAutomationAction(
   event: TriggerEvent,
   automation: AutomationMatch
 ): Promise<void> {
-  const conditions = automation.conditions || {};
-  const actionType = (conditions.actionType as string) || "send_email";
+  const conditions = jsonObject(automation.conditions);
+  const actionType = typeof conditions.actionType === "string" ? conditions.actionType : "send_email";
 
   if (actionType !== "send_email") {
     console.log(

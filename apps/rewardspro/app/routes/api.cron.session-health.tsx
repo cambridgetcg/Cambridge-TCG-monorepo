@@ -16,8 +16,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { getAuroraClient } from "~/utils/aurora-data-api";
-import { createDataAPIPrismaClient } from "~/utils/prisma-data-api-adapter";
+import db from "~/db.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 const CONFIG = {
@@ -43,24 +42,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   const startTime = Date.now();
-  const aurora = getAuroraClient();
-  const db = createDataAPIPrismaClient();
   const results: ShopHealthStatus[] = [];
   const alerts: string[] = [];
 
   try {
     // Get all shops with an active offline session + billing status
     // Skip INACTIVE billing stores — revoked sessions on uninstalled/lapsed stores are expected
-    const sessionRows = await aurora.executeStatement(
-      `SELECT ses.shop, ses."isActive", LEFT(ses."accessToken", 15) AS tok,
-              COALESCE(ss."billingStatus", 'UNKNOWN') AS billing_status
-       FROM "Session" ses
-       LEFT JOIN "ShopSettings" ss ON ss.shop = ses.shop
-       WHERE ses."isOnline" = false
-       ORDER BY ses.shop ASC`
-    );
+    const offlineSessions = await db.session.findMany({
+      where: { isOnline: false },
+      select: { shop: true, isActive: true, accessToken: true },
+      orderBy: { shop: "asc" },
+    });
 
-    if (!sessionRows.records || sessionRows.records.length === 0) {
+    if (offlineSessions.length === 0) {
       return json({
         success: true,
         message: "No offline sessions found",
@@ -69,60 +63,51 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       });
     }
 
-    for (const row of sessionRows.records as any[]) {
-      // executeStatement returns typed objects keyed by column name
-      const shop: string = row.shop ?? "";
-      const isActive: boolean = row.isActive ?? false;
-      const hasToken: boolean = typeof row.tok === "string" && row.tok.length > 0;
-      const billingStatus: string = row.billing_status ?? "UNKNOWN";
+    const billingStatusByShop = new Map(
+      (
+        await db.shopSettings.findMany({
+          where: { shop: { in: offlineSessions.map((session) => session.shop) } },
+          select: { shop: true, billingStatus: true },
+        })
+      ).map((settings) => [settings.shop, settings.billingStatus]),
+    );
+
+    for (const session of offlineSessions) {
+      const shop = session.shop;
+      const isActive = session.isActive ?? false;
+      const hasToken = session.accessToken.length > 0;
+      const billingStatus = billingStatusByShop.get(shop) ?? "UNKNOWN";
 
       // Skip INACTIVE/UNINSTALLED stores — revoked sessions are expected there
       if (billingStatus === "INACTIVE" || billingStatus === "UNINSTALLED") {
         // Resolve any lingering alert for this shop
         const staleAlert = await db.systemAlert.findFirst({
-          where: { type: "SESSION_TOKEN_REVOKED", resolved: false, message: { contains: shop } } as any,
+          where: { type: "SESSION_TOKEN_REVOKED", resolved: false, message: { contains: shop } },
         });
         if (staleAlert) {
           await db.systemAlert.update({
             where: { id: staleAlert.id },
-            data: { resolved: true, resolvedAt: new Date(), updatedAt: new Date() },
+            data: { resolved: true, resolvedAt: new Date() },
           });
         }
         continue;
       }
 
       // Check last WebhookProcessed for this shop
-      const lastWebhookRows = await aurora.executeStatement(
-        `SELECT MAX("processedAt")::text as last_processed
-         FROM "WebhookProcessed"
-         WHERE shop = :shop AND topic = 'ORDERS_PAID'`,
-        [{ name: "shop", value: { stringValue: shop } }]
-      );
-      const lastWebhookRaw = (lastWebhookRows.records?.[0] as any)?.last_processed;
-      const lastWebhookDate: string | null =
-        lastWebhookRaw instanceof Date
-          ? lastWebhookRaw.toISOString()
-          : typeof lastWebhookRaw === "string"
-          ? lastWebhookRaw
-          : null;
+      const lastWebhook = await db.webhookProcessed.aggregate({
+        where: { shop, topic: "ORDERS_PAID" },
+        _max: { processedAt: true },
+      });
+      const lastProcessedAt = lastWebhook._max.processedAt;
+      const lastWebhookDate = lastProcessedAt ? lastProcessedAt.toISOString() : null;
 
       // Count orders newer than last webhook (indicating active store)
-      const newOrdersRows = await aurora.executeStatement(
-        lastWebhookDate
-          ? `SELECT COUNT(*)::int as cnt FROM "Order"
-             WHERE shop = :shop
-               AND "customerId" IS NOT NULL
-               AND "createdAt" > :last_webhook::timestamp`
-          : `SELECT COUNT(*)::int as cnt FROM "Order"
-             WHERE shop = :shop AND "customerId" IS NOT NULL`,
-        lastWebhookDate
-          ? [
-              { name: "shop", value: { stringValue: shop } },
-              { name: "last_webhook", value: { stringValue: lastWebhookDate } },
-            ]
-          : [{ name: "shop", value: { stringValue: shop } }]
-      );
-      const newOrderCount: number = Number((newOrdersRows.records?.[0] as any)?.cnt ?? 0);
+      const newOrderCount = await db.order.count({
+        where: {
+          shop,
+          ...(lastProcessedAt ? { createdAt: { gt: lastProcessedAt } } : {}),
+        },
+      });
 
       // Determine health status
       let status: ShopHealthStatus["status"] = "healthy";
@@ -170,7 +155,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
         // Upsert: one unresolved alert per shop
         const existing = await db.systemAlert.findFirst({
-          where: { type: alertType, resolved: false, message: { contains: shop } } as any,
+          where: { type: alertType, resolved: false, message: { contains: shop } },
         });
 
         if (existing) {
@@ -186,7 +171,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
                 reason,
                 checkedAt: new Date().toISOString(),
               },
-              updatedAt: new Date(),
             },
           });
         } else {
@@ -212,7 +196,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       } else {
         // Resolve any existing alert for this shop if now healthy
         const existingAlert = await db.systemAlert.findFirst({
-          where: { type: "SESSION_TOKEN_REVOKED", resolved: false, message: { contains: shop } } as any,
+          where: { type: "SESSION_TOKEN_REVOKED", resolved: false, message: { contains: shop } },
         });
         if (existingAlert) {
           await db.systemAlert.update({
@@ -220,7 +204,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             data: {
               resolved: true,
               resolvedAt: new Date(),
-              updatedAt: new Date(),
             },
           });
           console.log(`[SessionHealthCron] Resolved alert for ${shop} — now healthy`);

@@ -35,6 +35,8 @@ interface Campaign {
     recommendationType?: string;
     targetCustomerIds?: string[];
     criteria?: any[];
+    affectedCount?: number;
+    predictedRevenue?: number;
   };
   metadata?: {
     source?: string;
@@ -84,8 +86,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       status: dbCampaign.status,
       templateId: dbCampaign.templateId,
       segmentRules: dbCampaign.segmentRules as Campaign['segmentRules'],
-      metadata: dbCampaign.metadata as Campaign['metadata'],
     };
+    // Recommendation context is stored alongside the targeting in segmentRules
+    campaign.metadata = campaign.segmentRules?.fromRecommendation
+      ? {
+          source: 'analytics_recommendation',
+          recommendationType: campaign.segmentRules.recommendationType,
+          affectedCount: campaign.segmentRules.affectedCount,
+          predictedRevenue: campaign.segmentRules.predictedRevenue,
+        }
+      : undefined;
   } catch (e: any) {
     if (e instanceof Response) throw e;
     console.error("[Campaign Send] Error:", e);
@@ -110,7 +120,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         where: {
           shop,
           id: { in: segmentRules.targetCustomerIds },
-          email: { not: null },
+          email: { not: "" },
         },
         select: { id: true },
       });
@@ -132,16 +142,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const tierIds = dbTiers.map(t => t.id);
     const customerTierAssignments = tierIds.length > 0
       ? await prisma.customer.findMany({
-          where: { shop, tierId: { in: tierIds } },
-          select: { tierId: true },
+          where: { shop, currentTierId: { in: tierIds } },
+          select: { currentTierId: true },
         })
       : [];
 
     // Count customers per tier in memory
     const tierCountMap = new Map<string, number>();
     for (const customer of customerTierAssignments) {
-      if (customer.tierId) {
-        tierCountMap.set(customer.tierId, (tierCountMap.get(customer.tierId) || 0) + 1);
+      if (customer.currentTierId) {
+        tierCountMap.set(customer.currentTierId, (tierCountMap.get(customer.currentTierId) || 0) + 1);
       }
     }
 
@@ -206,7 +216,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
             where: {
               shop,
               id: { in: targetCustomerIds },
-              email: { not: null },
+              email: { not: "" },
               acceptsMarketing: true,
               emailSuppressed: false,
             },
@@ -223,7 +233,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       } else if (sendToAll) {
         // Get all customers with email (exclude suppressed/unsubscribed)
         const customers = await prisma.customer.findMany({
-          where: { shop, email: { not: null }, acceptsMarketing: true, emailSuppressed: false },
+          where: { shop, email: { not: "" }, acceptsMarketing: true, emailSuppressed: false },
           select: { id: true, email: true, firstName: true, lastName: true },
         });
         recipients = customers
@@ -238,8 +248,8 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         const customers = await prisma.customer.findMany({
           where: {
             shop,
-            email: { not: null },
-            tierId: { in: selectedTiers },
+            email: { not: "" },
+            currentTierId: { in: selectedTiers },
             acceptsMarketing: true,
             emailSuppressed: false,
           },

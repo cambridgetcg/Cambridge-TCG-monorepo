@@ -116,13 +116,6 @@ vi.mock('~/services/tier-products', () => ({
   tierPurchaseExists: vi.fn().mockResolvedValue(false),
 }));
 
-// Mock tier subscription bridge
-vi.mock('~/services/subscription/tier-subscription-bridge.server', () => ({
-  TierSubscriptionBridgeV2: {
-    handleOrderPaid: vi.fn().mockResolvedValue({ processed: false }),
-  },
-}));
-
 // Mock logger - must include withContext that returns a new logger
 vi.mock('~/services/logger.server', () => {
   const createMockLogger = () => ({

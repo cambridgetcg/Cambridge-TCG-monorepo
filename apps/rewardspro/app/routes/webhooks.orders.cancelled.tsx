@@ -62,7 +62,7 @@ export async function action({ request }: ActionFunctionArgs) {
         id: true,
         financialStatus: true,
         fulfillmentStatus: true,
-        orderNumber: true,
+        shopifyOrderNumber: true,
         cashbackProcessed: true,
         cashbackAmount: true,
         customerId: true,
@@ -128,13 +128,13 @@ export async function action({ request }: ActionFunctionArgs) {
       },
     });
 
-    console.log(`[OrdersCancelled] Updated order #${existingOrder.orderNumber}:`);
+    console.log(`[OrdersCancelled] Updated order #${existingOrder.shopifyOrderNumber}:`);
     console.log(`[OrdersCancelled]   Financial: ${previousFinancialStatus} -> ${newFinancialStatus}`);
     console.log(`[OrdersCancelled]   Fulfillment: ${previousFulfillmentStatus} -> CANCELLED`);
 
     // Note: Cashback clawback is handled by the refund webhook if a refund was issued
     // The cancelled webhook just updates the status
-    if (existingOrder.cashbackProcessed && existingOrder.cashbackAmount > 0) {
+    if (existingOrder.cashbackProcessed && existingOrder.cashbackAmount?.gt(0)) {
       console.log(`[OrdersCancelled] Note: Order had ${existingOrder.cashbackAmount} cashback processed`);
       console.log(`[OrdersCancelled] Refund webhook will handle clawback if payment was refunded`);
     }
@@ -161,7 +161,7 @@ export async function action({ request }: ActionFunctionArgs) {
       success: true,
       message: "Order cancellation processed",
       orderId: existingOrder.id,
-      orderNumber: existingOrder.orderNumber,
+      orderNumber: existingOrder.shopifyOrderNumber,
       previousFinancialStatus,
       newFinancialStatus,
       cancelReason: order.cancel_reason,

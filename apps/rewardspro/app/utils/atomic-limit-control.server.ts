@@ -10,13 +10,14 @@
  * remain available regardless of the advisory threshold.
  */
 
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { getLimit, getEffectivePlan } from "~/services/entitlements.server";
 import type { LimitKey } from "~/services/entitlements.server";
 import { json } from "@remix-run/node";
 
 // Type for Prisma transaction client
-type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+type TransactionClient = Prisma.TransactionClient;
 
 /**
  * Legacy capacity error retained for compatibility with existing route catches.
@@ -127,7 +128,7 @@ export async function atomicWithinLimit<T>(
   if (maxLimit >= 999999) {
     console.log(`${LOG_PREFIX} Unlimited - skipping transaction`);
     // Use db directly since we don't need atomicity for unlimited
-    return createFn(prisma as unknown as TransactionClient);
+    return createFn(prisma);
   }
 
   // Use transaction for atomic check-and-create
@@ -210,40 +211,10 @@ export const atomicRaffleCreate = async (
       tx.raffle.count({
         where: {
           shop,
-          status: { in: ["ACTIVE", "PENDING"] },
+          status: { in: ["ACTIVE", "SCHEDULED"] },
         },
       }),
     (tx) => tx.raffle.create({ data: { ...data, shop } })
-  );
-};
-
-/**
- * Pre-built atomic operation for creating campaigns
- */
-export const atomicCampaignCreate = async (
-  shop: string,
-  data: any
-) => {
-  return atomicWithinLimit(
-    shop,
-    "maxCampaigns",
-    (tx) => (tx as any).campaign.count({ where: { shop } }),
-    (tx) => (tx as any).campaign.create({ data: { ...data, shop } })
-  );
-};
-
-/**
- * Pre-built atomic operation for creating automations
- */
-export const atomicAutomationCreate = async (
-  shop: string,
-  data: any
-) => {
-  return atomicWithinLimit(
-    shop,
-    "maxAutomations",
-    (tx) => (tx as any).automation.count({ where: { shop } }),
-    (tx) => (tx as any).automation.create({ data: { ...data, shop } })
   );
 };
 

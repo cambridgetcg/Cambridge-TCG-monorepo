@@ -83,7 +83,6 @@ export async function getCustomerOrderSummary(
         totalRefunded: true,
         orderCount: true,
         totalCashbackEarned: true,
-        firstOrderDate: true,
         lastOrderDate: true,
         createdAt: true,
       },
@@ -92,6 +91,11 @@ export async function getCustomerOrderSummary(
     if (!customer) {
       return null;
     }
+
+    const firstOrder = await prisma.order.aggregate({
+      where: { shop, customerId: customer.id },
+      _min: { shopifyCreatedAt: true },
+    });
 
     const totalSpent = Number(customer.totalSpent) || 0;
     const netSpent = Number(customer.netSpent) || 0;
@@ -115,7 +119,7 @@ export async function getCustomerOrderSummary(
       netSpent,
       averageOrderValue: orderCount > 0 ? totalSpent / orderCount : 0,
       totalCashbackEarned,
-      firstOrderDate: customer.firstOrderDate,
+      firstOrderDate: firstOrder._min.shopifyCreatedAt,
       lastOrderDate: customer.lastOrderDate,
       daysSinceLastOrder,
       activityStatus: calculateActivityStatus(daysSinceLastOrder, daysSinceCreated, orderCount),
@@ -221,11 +225,17 @@ export async function getCustomerOrderSummariesBatch(
         totalRefunded: true,
         orderCount: true,
         totalCashbackEarned: true,
-        firstOrderDate: true,
         lastOrderDate: true,
         createdAt: true,
       },
     });
+
+    const firstOrders = await prisma.order.groupBy({
+      by: ["customerId"],
+      where: { shop, customerId: { in: customerIds } },
+      _min: { shopifyCreatedAt: true },
+    });
+    const firstOrderDates = new Map(firstOrders.map((row) => [row.customerId, row._min.shopifyCreatedAt]));
 
     const summaryMap = new Map<string, CustomerOrderSummary>();
 
@@ -252,7 +262,7 @@ export async function getCustomerOrderSummariesBatch(
         netSpent,
         averageOrderValue: orderCount > 0 ? totalSpent / orderCount : 0,
         totalCashbackEarned,
-        firstOrderDate: customer.firstOrderDate,
+        firstOrderDate: firstOrderDates.get(customer.id) ?? null,
         lastOrderDate: customer.lastOrderDate,
         daysSinceLastOrder,
         activityStatus: calculateActivityStatus(daysSinceLastOrder, daysSinceCreated, orderCount),

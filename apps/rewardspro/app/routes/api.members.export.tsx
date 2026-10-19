@@ -99,7 +99,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
         // Stream data in batches using cursor-based pagination
         while (hasMore) {
-          const customers = await prisma.customer.findMany({
+          const customers: Prisma.CustomerGetPayload<{ include: { currentTier: true } }>[] = await prisma.customer.findMany({
             where: whereClause,
             include: {
               currentTier: true,

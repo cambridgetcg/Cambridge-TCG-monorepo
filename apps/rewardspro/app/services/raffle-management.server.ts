@@ -19,7 +19,8 @@ export type RafflePrizeDeliveryStatus = "PENDING" | "PROCESSING" | "DELIVERED" |
 // TYPES
 // ============================================
 
-export interface RafflePrizeValue {
+// A type alias (not an interface) so it is assignable to Prisma JSON input
+export type RafflePrizeValue = {
   // For DISCOUNT prizes
   type?: "percentage" | "fixed";
   value?: number;
@@ -33,7 +34,7 @@ export interface RafflePrizeValue {
   // For POINTS prizes (uses amount)
   // For CUSTOM prizes
   fulfillmentInstructions?: string;
-}
+};
 
 export interface CreateRaffleInput {
   shop: string;
@@ -203,7 +204,7 @@ export async function createRaffle(input: CreateRaffleInput): Promise<any> {
       drawType: input.drawType ?? "RANDOM",
       totalWinners: input.totalWinners ?? 1,
       isPublic: input.isPublic ?? true,
-      tierRestrictions: input.tierRestrictions || null,
+      tierRestrictions: input.tierRestrictions ?? undefined,
       minimumTier: input.minimumTier || null,
       totalEntries: 0,
       uniqueEntrants: 0,

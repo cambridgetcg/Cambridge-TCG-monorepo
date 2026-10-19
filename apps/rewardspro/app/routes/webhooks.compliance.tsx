@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { gdprLogger } from "~/services/logger.server";
+import { cleanupShopData, eraseCustomerData } from "~/services/shop-data-cleanup.server";
 import { maskEmail } from "~/utils/pii-masker";
 
 /**
@@ -73,23 +74,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return json({ received: true, topic }, { status: 200 });
     }
 
-    // Always return 200 to confirm receipt
+    // 200 only once the request has been fully handled
     return json({ received: true, processed: topic }, { status: 200 });
 
   } catch (error) {
-    gdprLogger.error('Compliance webhook processing error', error);
-
-    // If authentication fails (invalid HMAC), return 401
-    if (error instanceof Response && error.status === 401) {
-      return new Response("Unauthorized", { status: 401 });
+    // Authentication failures (invalid HMAC etc.) come back as a Response
+    if (error instanceof Response) {
+      return error;
     }
 
-    // For other errors, still return 200 to acknowledge receipt
-    // but log the error for investigation
-    return json({
-      received: true,
-      error: "Internal processing error - webhook acknowledged"
-    }, { status: 200 });
+    gdprLogger.error('Compliance webhook processing error', error);
+
+    // A compliance request that failed must not be acknowledged: answering
+    // 5xx makes Shopify redeliver it, so the obligation is not lost.
+    return json({ received: true, error: "Processing failed" }, { status: 500 });
   }
 };
 
@@ -111,51 +109,23 @@ async function handleCustomerDataRequest(
   });
 
   try {
-    // DATA API COMPATIBLE: Nested include not supported, use two-step query
-    // Find the customer in our system
-    const customerRaw = await prisma.customer.findFirst({
+    // Find the customer in our system, with everything held about them
+    const customer = await prisma.customer.findUnique({
       where: {
-        shop,
-        shopifyCustomerId: String(payload.customer.id)
+        shop_shopifyCustomerId: {
+          shop,
+          shopifyCustomerId: String(payload.customer.id)
+        }
       },
       include: {
-        orders: true, // Flat include, no nested lineItems/refunds
-        tierSubscriptions: true,
+        orders: { include: { refunds: true } },
+        subscriptions: true,
         tierPurchases: true,
         tierState: true,
         tierChangeLogs: true,
-        storeCreditLedger: true
+        creditLedger: true
       }
     });
-
-    // Fetch refunds separately and join in memory (lineItems not used in data report)
-    let customer = customerRaw;
-    if (customerRaw) {
-      const orderIds = customerRaw.orders.map((o: any) => o.id);
-      const refunds = orderIds.length > 0
-        ? await prisma.orderRefund.findMany({
-            where: { orderId: { in: orderIds } },
-          })
-        : [];
-
-      // Group refunds by orderId
-      const refundsByOrder = new Map<string, typeof refunds>();
-      for (const refund of refunds) {
-        const existing = refundsByOrder.get(refund.orderId) || [];
-        existing.push(refund);
-        refundsByOrder.set(refund.orderId, existing);
-      }
-
-      // Attach refunds to orders
-      customer = {
-        ...customerRaw,
-        orders: customerRaw.orders.map((order: any) => ({
-          ...order,
-          refunds: refundsByOrder.get(order.id) || [],
-          lineItems: [], // Not used in data report
-        })),
-      };
-    }
 
     if (!customer) {
       logger.gdpr('DATA_REQUEST_NO_DATA', {
@@ -166,7 +136,7 @@ async function handleCustomerDataRequest(
     }
 
     // Compile customer data report
-    const _customerDataReport = {
+    const customerDataReport = {
       requestId: payload.data_request.id,
       generatedAt: new Date().toISOString(),
       customer: {
@@ -194,32 +164,32 @@ async function handleCustomerDataRequest(
         tierSource: customer.tierState.tierSource,
         hasManualOverride: customer.tierState.hasManualOverride
       } : null,
-      tierHistory: customer.tierChangeLogs.map((log: any) => ({
+      tierHistory: customer.tierChangeLogs.map((log) => ({
         date: log.createdAt,
         fromTier: log.fromTierName,
         toTier: log.toTierName,
         changeType: log.changeType,
         triggerType: log.triggerType
       })),
-      orders: customer.orders.map((order: any) => ({
+      orders: customer.orders.map((order) => ({
         orderId: order.shopifyOrderId,
         orderNumber: order.shopifyOrderNumber,
         date: order.createdAt,
         total: order.totalPrice,
         currency: order.currency,
-        cashbackEarned: order.cashbackEarned,
-        refunds: order.refunds.map((r: any) => ({
+        cashbackEarned: order.cashbackAmount,
+        refunds: order.refunds.map((r) => ({
           amount: r.amount,
           date: r.shopifyCreatedAt
         }))
       })),
-      subscriptions: customer.tierSubscriptions.map((sub: any) => ({
+      subscriptions: customer.subscriptions.map((sub) => ({
         tierId: sub.tierId,
         status: sub.status,
         startDate: sub.currentPeriodStart,
         billingInterval: sub.billingInterval
       })),
-      storeCreditTransactions: customer.storeCreditLedger.map((entry: any) => ({
+      storeCreditTransactions: customer.creditLedger.map((entry) => ({
         date: entry.createdAt,
         amount: entry.amount,
         type: entry.type,
@@ -233,9 +203,9 @@ async function handleCustomerDataRequest(
       customerId: customer.id,
       dataPointsExported: {
         orders: customer.orders.length,
-        subscriptions: customer.tierSubscriptions.length,
+        subscriptions: customer.subscriptions.length,
         tierChanges: customer.tierChangeLogs.length,
-        creditTransactions: customer.storeCreditLedger.length
+        creditTransactions: customer.creditLedger.length
       }
     });
 
@@ -247,9 +217,9 @@ async function handleCustomerDataRequest(
       customerId: customer.id,
       recordCounts: {
         orders: customer.orders.length,
-        subscriptions: customer.tierSubscriptions.length,
+        subscriptions: customer.subscriptions.length,
         tierChanges: customer.tierChangeLogs.length,
-        creditTransactions: customer.storeCreditLedger.length
+        creditTransactions: customer.creditLedger.length
       },
       generatedAt: new Date().toISOString()
     });
@@ -259,10 +229,11 @@ async function handleCustomerDataRequest(
     // 1. Encrypted at rest
     // 2. Accessible only to the merchant
     // 3. Automatically deleted after the 30-day deadline
+    return customerDataReport;
 
   } catch (error) {
     logger.error('Failed to process data request', error);
-    // Don't throw - we still need to return 200 to Shopify
+    throw error;
   }
 }
 
@@ -283,89 +254,27 @@ async function handleCustomerRedact(
   });
 
   try {
-    // Find the customer in our system
-    const customer = await prisma.customer.findFirst({
-      where: {
-        shop,
-        shopifyCustomerId: String(payload.customer.id)
-      }
+    // Erase every row that references the customer or carries their ids or
+    // email (see services/shop-data-cleanup.server.ts), in one transaction
+    const { customerFound, deletedCounts } = await eraseCustomerData(shop, {
+      shopifyCustomerId: String(payload.customer.id),
+      email: payload.customer.email,
     });
 
-    if (!customer) {
+    if (!customerFound) {
       logger.gdpr('CUSTOMER_REDACT_NO_DATA', {
-        reason: 'Customer not found in our system'
+        reason: 'Customer not found in our system',
+        emailLinkedRecordsDeleted: deletedCounts
       });
       return;
     }
 
-    // Track what we're deleting for audit
-    const deletionSummary = {
-      customerId: customer.id,
-      shopifyCustomerId: payload.customer.id,
-      deletedAt: new Date().toISOString()
-    };
-
-    // Use a transaction to ensure all-or-nothing deletion
-    await prisma.$transaction(async (tx) => {
-      // 1. Delete store credit ledger entries
-      const deletedCredits = await tx.storeCreditLedger.deleteMany({
-        where: { customerId: customer.id }
-      });
-      Object.assign(deletionSummary, { storeCreditEntries: deletedCredits.count });
-
-      // 2. Delete email events (if any)
-      const deletedEmailEvents = await tx.emailEvent.deleteMany({
-        where: {
-          shop,
-          customerId: customer.shopifyCustomerId
-        }
-      });
-      Object.assign(deletionSummary, { emailEvents: deletedEmailEvents.count });
-
-      // 3. Delete tier change logs (will cascade, but explicit for audit)
-      const deletedTierLogs = await tx.tierChangeLog.deleteMany({
-        where: { customerId: customer.id }
-      });
-      Object.assign(deletionSummary, { tierChangeLogs: deletedTierLogs.count });
-
-      // 4. Delete tier subscriptions (will cascade)
-      const deletedSubscriptions = await tx.tierSubscription.deleteMany({
-        where: { customerId: customer.id }
-      });
-      Object.assign(deletionSummary, { tierSubscriptions: deletedSubscriptions.count });
-
-      // 5. Delete tier purchases (will cascade)
-      const deletedPurchases = await tx.tierPurchase.deleteMany({
-        where: { customerId: customer.id }
-      });
-      Object.assign(deletionSummary, { tierPurchases: deletedPurchases.count });
-
-      // 6. Delete customer tier state (will cascade)
-      const deletedTierState = await tx.customerTierState.deleteMany({
-        where: { customerId: customer.id }
-      });
-      Object.assign(deletionSummary, { tierStates: deletedTierState.count });
-
-      // 7. Anonymize orders (keep for financial/tax records, remove PII)
-      // We keep order financial data but remove customer linkage
-      const anonymizedOrders = await tx.order.updateMany({
-        where: { customerId: customer.id },
-        data: {
-          customerId: customer.id, // Keep for now, but anonymize email
-          email: 'redacted@gdpr.deleted'
-        }
-      });
-      Object.assign(deletionSummary, { ordersAnonymized: anonymizedOrders.count });
-
-      // 8. Finally, delete the customer record
-      await tx.customer.delete({
-        where: { id: customer.id }
-      });
-      Object.assign(deletionSummary, { customerDeleted: true });
-    });
-
     // Log successful redaction for compliance audit
-    logger.gdpr('CUSTOMER_REDACT_COMPLETED', deletionSummary);
+    logger.gdpr('CUSTOMER_REDACT_COMPLETED', {
+      shopifyCustomerId: payload.customer.id,
+      deletedAt: new Date().toISOString(),
+      ...deletedCounts
+    });
 
   } catch (error) {
     logger.error('Failed to process customer redaction', error);
@@ -374,8 +283,7 @@ async function handleCustomerRedact(
       shopifyCustomerId: payload.customer.id,
       error: error instanceof Error ? error.message : String(error)
     });
-    // Don't throw - we still need to return 200 to Shopify
-    // The failure is logged and should trigger a manual review
+    throw error;
   }
 }
 
@@ -400,153 +308,19 @@ async function handleShopRedact(
     deletedAt: new Date().toISOString()
   };
 
-  try {
-    // Use a transaction for atomicity, but break into batches for large datasets
-    await prisma.$transaction(async (tx) => {
-      // ============================================
-      // 1. Delete leaf tables first (no dependencies)
-      // ============================================
+  // One erasure for uninstall and shop/redact, derived from the data model
+  const result = await cleanupShopData(shop);
+  Object.assign(deletionSummary, result.deletedCounts);
 
-      // Email events
-      const deletedEmailEvents = await tx.emailEvent.deleteMany({ where: { shop } });
-      deletionSummary.emailEvents = deletedEmailEvents.count;
-
-      // Store credit ledger (depends on customers, but delete explicitly)
-      const deletedCredits = await tx.storeCreditLedger.deleteMany({ where: { shop } });
-      deletionSummary.storeCreditEntries = deletedCredits.count;
-
-      // Tier change logs
-      const deletedTierLogs = await tx.tierChangeLog.deleteMany({ where: { shop } });
-      deletionSummary.tierChangeLogs = deletedTierLogs.count;
-
-      // Cron locks
-      const deletedCronLocks = await tx.cronLockV2.deleteMany({ where: { shop } });
-      deletionSummary.cronLocks = deletedCronLocks.count;
-
-      // ============================================
-      // 2. Delete subscription/purchase related
-      // ============================================
-
-      // Tier subscriptions
-      const deletedSubscriptions = await tx.tierSubscription.deleteMany({ where: { shop } });
-      deletionSummary.tierSubscriptions = deletedSubscriptions.count;
-
-      // Tier purchases
-      const deletedPurchases = await tx.tierPurchase.deleteMany({ where: { shop } });
-      deletionSummary.tierPurchases = deletedPurchases.count;
-
-      // Customer tier states
-      const deletedTierStates = await tx.customerTierState.deleteMany({ where: { shop } });
-      deletionSummary.customerTierStates = deletedTierStates.count;
-
-      // ============================================
-      // 3. Delete order-related data
-      // ============================================
-
-      // Order refund line items (via order cascade, but explicit)
-      // First get all orders for this shop
-      const shopOrders = await tx.order.findMany({
-        where: { shop },
-        select: { id: true }
-      });
-      const orderIds = shopOrders.map((o: any) => o.id);
-
-      if (orderIds.length > 0) {
-        // Delete refund line items
-        const deletedRefundItems = await tx.orderRefundLineItem.deleteMany({
-          where: { refund: { orderId: { in: orderIds } } }
-        });
-        deletionSummary.orderRefundLineItems = deletedRefundItems.count;
-
-        // Delete refunds
-        const deletedRefunds = await tx.orderRefund.deleteMany({
-          where: { orderId: { in: orderIds } }
-        });
-        deletionSummary.orderRefunds = deletedRefunds.count;
-
-        // Delete line items
-        const deletedLineItems = await tx.orderLineItem.deleteMany({
-          where: { orderId: { in: orderIds } }
-        });
-        deletionSummary.orderLineItems = deletedLineItems.count;
-      }
-
-      // Delete orders
-      const deletedOrders = await tx.order.deleteMany({ where: { shop } });
-      deletionSummary.orders = deletedOrders.count;
-
-      // ============================================
-      // 4. Delete sync jobs
-      // ============================================
-
-      const deletedCustomerSyncJobs = await tx.customerSyncJob.deleteMany({ where: { shop } });
-      deletionSummary.customerSyncJobs = deletedCustomerSyncJobs.count;
-
-      const deletedOrderSyncJobs = await tx.orderSyncJob.deleteMany({ where: { shop } });
-      deletionSummary.orderSyncJobs = deletedOrderSyncJobs.count;
-
-      // ============================================
-      // 5. Delete customers (major table)
-      // ============================================
-
-      const deletedCustomers = await tx.customer.deleteMany({ where: { shop } });
-      deletionSummary.customers = deletedCustomers.count;
-
-      // ============================================
-      // 6. Delete tier products and tiers
-      // ============================================
-
-      // Tier product audit logs
-      const deletedTierProductLogs = await tx.tierProductAuditLog.deleteMany({ where: { shop } });
-      deletionSummary.tierProductAuditLogs = deletedTierProductLogs.count;
-
-      // Tier products
-      const deletedTierProducts = await tx.tierProduct.deleteMany({ where: { shop } });
-      deletionSummary.tierProducts = deletedTierProducts.count;
-
-      // Tiers
-      const deletedTiers = await tx.tier.deleteMany({ where: { shop } });
-      deletionSummary.tiers = deletedTiers.count;
-
-      // ============================================
-      // 7. Delete shop-level configuration
-      // ============================================
-
-      // Shop entitlements
-      const deletedEntitlements = await tx.shopEntitlements.deleteMany({ where: { shop } });
-      deletionSummary.shopEntitlements = deletedEntitlements.count;
-
-      // Shop settings
-      const deletedSettings = await tx.shopSettings.deleteMany({ where: { shop } });
-      deletionSummary.shopSettings = deletedSettings.count;
-
-      // Marketing automations (if exists)
-      try {
-        const deletedAutomations = await tx.marketingAutomation.deleteMany({ where: { shop } });
-        deletionSummary.marketingAutomations = deletedAutomations.count;
-      } catch {
-        // Table might not exist in all environments
-      }
-
-      // ============================================
-      // 8. Delete sessions (auth data)
-      // ============================================
-
-      const deletedSessions = await tx.session.deleteMany({ where: { shop } });
-      deletionSummary.sessions = deletedSessions.count;
-    });
-
-    deletionSummary.success = true;
-    logger.gdpr('SHOP_REDACT_COMPLETED', deletionSummary);
-
-  } catch (error) {
-    logger.error('Failed to complete shop redaction', error);
+  if (!result.success) {
     deletionSummary.success = false;
-    deletionSummary.error = error instanceof Error ? error.message : String(error);
+    deletionSummary.error = result.errors.join('; ');
     logger.gdpr('SHOP_REDACT_FAILED', deletionSummary);
-    // Don't throw - we still need to return 200 to Shopify
-    // The failure is logged and should trigger manual intervention
+    throw new Error(`Shop redaction failed for ${shop}`);
   }
+
+  deletionSummary.success = true;
+  logger.gdpr('SHOP_REDACT_COMPLETED', deletionSummary);
 }
 
 // No default export needed - this is a webhook-only route

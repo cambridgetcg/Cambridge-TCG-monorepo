@@ -286,7 +286,7 @@ export async function purchaseRaffleEntries(
           // Track raffle entry event
           await trackRaffleEntered(
             shop,
-            { ...customer, pointsBalance: newBalance },
+            customer, // re-read after the spend, so its balance is current
             {
               id: raffle.id,
               name: raffle.name,
@@ -301,7 +301,7 @@ export async function purchaseRaffleEntries(
           // Track points spent event
           await trackPointsSpent(
             shop,
-            { ...customer, pointsBalance: newBalance },
+            customer, // re-read after the spend, so its balance is current
             pointsCost,
             "raffle",
             {

@@ -1,20 +1,18 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
-// Last regenerated: 2025-12-19 - StoreCreditSyncJob model
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+// Plain Postgres (Supabase in production). The app connects through
+// app/db.server.ts (driver adapter, verified TLS); the CLI uses these URLs.
+// DATABASE_URL is the pooled runtime URL; DIRECT_URL is the session-mode URL
+// that `prisma migrate deploy` needs. See docs/DATABASE.md.
 datasource db {
-  provider = "postgresql"
-  // We use AWS Aurora Data API for all connections
-  // This URL is only for Prisma schema validation and client generation
-  // Actual database operations go through app/utils/aurora-data-api.ts
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Session {
@@ -1309,10 +1307,6 @@ model BillingAuditLog {
 }
 
 // ============================================
-// USAGE CAP ALERT MODEL (Phase 1)
-// ============================================
-
-// ============================================
 // APP-LEVEL SUBSCRIPTION MODELS
 // ============================================
 
@@ -1463,6 +1457,39 @@ model MonthlyOrderUsage {
 }
 
 // Monthly email usage tracking (rate-based gating)
+model MonthlyEmailUsage {
+  id   String @id @default(uuid())
+  shop String
+
+  // Period tracking
+  year  Int // e.g., 2025
+  month Int // 1-12
+
+  // Usage tracking
+  emailCount Int    @default(0)
+  planLimit  Int // From the pricing contract for the shop's plan
+  planName   String // Current plan name
+
+  // Breakdown by type
+  campaignEmails      Int @default(0) // Marketing campaigns
+  automationEmails    Int @default(0) // Triggered automations
+  transactionalEmails Int @default(0) // Order confirmations, etc.
+
+  // Lock state (for plan enforcement - soft limit)
+  isLocked   Boolean   @default(false)
+  lockedAt   DateTime? // When sending was blocked
+  lockReason String? // Why emails were blocked
+
+  // Metadata
+  lastEmailDate DateTime? // Last email sent
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([shop, year, month])
+  @@index([shop, year, month])
+  @@index([shop, isLocked])
+}
+
 // ============================================
 // SUBSCRIPTION MODELS
 // ============================================
@@ -1813,6 +1840,18 @@ model SubscriptionEvent {
 }
 
 // Distributed lock for webhook deduplication
+model SubscriptionProcessingLock {
+  id         String   @id @default(uuid())
+  lockKey    String   @unique // Unique identifier for the operation being locked
+  operation  String // Type of operation (e.g., "webhook:CONTRACT_CREATE")
+  acquiredAt DateTime @default(now())
+  expiresAt  DateTime // When the lock should auto-expire
+  metadata   Json? // Additional context about the lock
+
+  @@index([expiresAt]) // For cleanup queries
+  @@index([operation, acquiredAt]) // For monitoring
+}
+
 // ============================================
 // ORDER TRACKING MODELS
 // ============================================
@@ -2053,7 +2092,8 @@ enum LedgerEntryType {
 enum TierChangeType {
   INITIAL_ASSIGNMENT // First tier assignment
   UPGRADE // Moving to a higher tier
-  DOWNGRADE // Moving to a lower tier  
+  DOWNGRADE // Moving to a lower tier
+  REVOKED // Tier removed with no replacement (e.g. membership ended)
 }
 
 enum TierTriggerType {
@@ -2103,6 +2143,7 @@ enum SubscriptionStatus {
 enum BillingInterval {
   WEEKLY
   MONTHLY
+  QUARTERLY // 3 months (tier products carry a quarterlyPrice)
   ANNUAL // 12 months
 }
 
@@ -2203,6 +2244,16 @@ model WebhookProcessed {
 // Distributed lock for cron jobs to prevent concurrent execution
 // When a cron job starts, it tries to create a lock with unique jobName
 // If creation fails (unique constraint), another instance is running
+model CronLock {
+  id         String   @id @default(uuid())
+  jobName    String   @unique // Only one lock per job type
+  lockedAt   DateTime @default(now())
+  expiresAt  DateTime // Auto-release if instance crashes
+  instanceId String? // Vercel deployment ID or similar
+
+  @@index([expiresAt]) // For cleanup queries
+}
+
 model DeadLetterQueue {
   id        String   @id @default(uuid())
   webhookId String?
@@ -2960,6 +3011,7 @@ enum PointsLedgerType {
   REFERRAL_BONUS // Points from referring friends
   MANUAL_CREDIT // Admin manual credit
   STREAK_BONUS // Daily login streak bonus
+  INSTANT_WIN // Points won from a raffle instant win
 
   // Spending
   RAFFLE_ENTRY // Points spent on raffle entry

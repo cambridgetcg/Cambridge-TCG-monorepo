@@ -82,8 +82,9 @@ export async function withRetry<T>(
     }
   }
   
-  // All attempts failed
-  throw new Error(`Operation failed after ${opts.maxAttempts} attempts: ${lastError?.message}`);
+  // All attempts failed. Keep the last error as `cause` so callers can still
+  // tell what kind of failure it was.
+  throw new Error(`Operation failed after ${opts.maxAttempts} attempts: ${lastError?.message}`, { cause: lastError });
 }
 
 /**

@@ -12,7 +12,7 @@
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { getAuroraClient } from "~/utils/aurora-data-api";
+import prisma from "~/db.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
 
 // Cleanup configuration
@@ -48,32 +48,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   });
 
   try {
-    const client = getAuroraClient();
+    const expiredWhere = {
+      expires: {
+        not: null,
+        lt: new Date(Date.now() - CONFIG.EXPIRY_BUFFER_HOURS * 60 * 60 * 1000),
+      },
+    };
 
     // Get current session count
-    const countResult = await client.executeStatement(
-      `SELECT COUNT(*) as total FROM "Session"`,
-      []
-    );
-    const totalBefore = countResult.records?.[0]?.total || 0;
+    const totalBefore = await prisma.session.count();
 
     // Get expired session count
-    const expiredCountResult = await client.executeStatement(
-      `SELECT COUNT(*) as count FROM "Session"
-       WHERE expires IS NOT NULL
-       AND expires < NOW() - INTERVAL '${CONFIG.EXPIRY_BUFFER_HOURS} hours'`,
-      []
-    );
-    const expiredCount = expiredCountResult.records?.[0]?.count || 0;
+    const expiredCount = await prisma.session.count({ where: expiredWhere });
 
-    // Get orphan session count (no expiry, very old)
-    const orphanCountResult = await client.executeStatement(
-      `SELECT COUNT(*) as count FROM "Session"
-       WHERE expires IS NULL
-       AND id NOT LIKE 'offline_%'`,
-      []
-    );
-    const orphanCount = orphanCountResult.records?.[0]?.count || 0;
+    // Get orphan session count (online sessions without expiry)
+    const orphanCount = await prisma.session.count({
+      where: { expires: null, NOT: { id: { startsWith: "offline_" } } },
+    });
 
     // If stats only, return current statistics
     if (statsOnly) {
@@ -96,14 +87,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     if (!dryRun) {
       // Delete expired sessions (with expiry date in the past)
-      const deleteExpiredResult = await client.executeStatement(
-        `DELETE FROM "Session"
-         WHERE expires IS NOT NULL
-         AND expires < NOW() - INTERVAL '${CONFIG.EXPIRY_BUFFER_HOURS} hours'
-         RETURNING id`,
-        []
-      );
-      expiredDeleted = deleteExpiredResult.records?.length || 0;
+      const deleteExpiredResult = await prisma.session.deleteMany({ where: expiredWhere });
+      expiredDeleted = deleteExpiredResult.count;
 
       console.log(`[SessionCleanupCron] Deleted ${expiredDeleted} expired sessions`);
 
@@ -114,11 +99,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     // Get final count
-    const finalCountResult = await client.executeStatement(
-      `SELECT COUNT(*) as total FROM "Session"`,
-      []
-    );
-    const totalAfter = finalCountResult.records?.[0]?.total || 0;
+    const totalAfter = await prisma.session.count();
 
     const duration = Date.now() - startTime;
 
@@ -144,7 +125,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       durationMs: duration,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     const duration = Date.now() - startTime;
 
     console.error("[SessionCleanupCron] Job failed:", error);

@@ -116,7 +116,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     emailSettings,
     customDomain,
     shopSettings,
-    domains,
+    // sendgridDnsRecords is JSON written by services/sendgrid.server.ts
+    domains: domains.map((domain) => ({
+      ...domain,
+      sendgridDnsRecords: domain.sendgridDnsRecords as SendGridDomain["sendgridDnsRecords"],
+    })),
     sendgridConfigured,
     marketingModeInfo,
     emailUsageStats,

@@ -127,6 +127,11 @@ export async function action({ request }: ActionFunctionArgs) {
     // Clawback and tier recalculation happen OUTSIDE with their own transaction safety.
     // =========================================================================
 
+    // Read through the global client before the transaction opens: inside it,
+    // with connection_limit=1, a second query would wait on the connection the
+    // transaction itself holds.
+    const tierProductIds = await TierProductCache.getTierProductIds(shopDomain);
+
     // 5. STEP 1: Process membership cancellation in transaction (atomic)
     // NOTE: Webhook idempotency record is created AFTER ALL operations succeed
     const transactionResult = await prisma.$transaction(async (tx) => {
@@ -165,7 +170,6 @@ export async function action({ request }: ActionFunctionArgs) {
       const isFullRefund = refundAmount.equals(orderRecord.totalPrice);
 
       // 6. Process tier product refunds (cancel memberships immediately)
-      const tierProductIds = await TierProductCache.getTierProductIds(shopDomain);
       let tierProductRefunded = false;
 
       for (const refundItem of refund.refund_line_items) {

@@ -84,13 +84,6 @@ vi.mock('../../../app/services/monitoring/sentry.service', () => ({
   },
 }));
 
-vi.mock('../../../app/services/sns-event-publisher.server', () => ({
-  snsEventPublisher: {
-    publishTierUpgrade: vi.fn().mockResolvedValue({ success: true }),
-    publishTierDowngrade: vi.fn().mockResolvedValue({ success: true }),
-  },
-}));
-
 // ============================================
 // IMPORTS (after mocks)
 // ============================================

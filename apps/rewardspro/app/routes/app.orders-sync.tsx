@@ -275,7 +275,7 @@ export default function OrdersSyncPage() {
                   <BlockStack gap="200">
                     <Text as="span" tone="subdued">Date Range</Text>
                     <Text as="p" variant="bodyMd">
-                      {new Date(data.stats.oldestOrder).toLocaleDateString()} - {new Date(data.stats.newestOrder).toLocaleDateString()}
+                      {new Date(data.stats.oldestOrder).toLocaleDateString()} - {data.stats.newestOrder ? new Date(data.stats.newestOrder).toLocaleDateString() : ''}
                     </Text>
                   </BlockStack>
                 )}

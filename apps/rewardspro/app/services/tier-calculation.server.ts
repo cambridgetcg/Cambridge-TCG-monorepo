@@ -6,6 +6,7 @@
  */
 
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
+import type { TierTriggerType } from "@prisma/client";
 import prisma from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 import { hasManualOverride } from "./manual-tier-assignment.server";
@@ -66,7 +67,7 @@ export async function calculateCustomerTierFromDB(
   customerId: string,
   context?: {
     orderId?: string;
-    triggerType?: string;
+    triggerType?: TierTriggerType;
     skipOverrideCheck?: boolean;  // Allow skipping override check for tier resolution
     skipUpdate?: boolean;         // Skip DB updates - return calculation result only (for tier resolution)
   }
@@ -243,7 +244,7 @@ export async function calculateCustomerTierFromDB(
           fromTierName: currentTier?.name || null,
           toTierId: qualifyingTier?.id || null,
           toTierName: qualifyingTier?.name || null,
-          changeType: await determineTierChangeType(customer.currentTierId, qualifyingTier?.id),
+          changeType: await determineTierChangeType(customer.currentTierId, qualifyingTier?.id ?? null),
           triggerType: context?.triggerType || 'SPENDING_MILESTONE',
           totalSpending: highestQualifyingSpend,
           periodSpending: highestQualifyingSpend,

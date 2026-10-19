@@ -32,7 +32,8 @@ export interface MissionEvent {
   createdAt: Date;
 }
 
-export interface EventPayload {
+// A type alias (not an interface) so it is assignable to Prisma JSON input
+export type EventPayload = {
   // XP & Level info
   totalXp?: number;
   previousLevel?: number;
@@ -61,7 +62,7 @@ export interface EventPayload {
   // Milestone info
   milestoneType?: string;
   milestoneValue?: number;
-}
+};
 
 export interface CreateEventInput {
   shop: string;

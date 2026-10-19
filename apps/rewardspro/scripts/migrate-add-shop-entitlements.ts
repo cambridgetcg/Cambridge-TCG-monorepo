@@ -9,9 +9,9 @@
 console.error(`
 This schema migration is retired and made no database connection.
 
-Reconcile the live schema against prisma/schema.prisma through a reviewed
-migration first. Then run:
-  npx tsx scripts/backfill-free-first-entitlements.ts --dry-run
+Nothing needs backfilling: the Postgres rebuild (2026-10-18) starts from an
+empty database built by prisma/migrations, and new shops receive the
+free-first ShopEntitlements defaults from the schema.
 `.trim());
 
 process.exitCode = 1;

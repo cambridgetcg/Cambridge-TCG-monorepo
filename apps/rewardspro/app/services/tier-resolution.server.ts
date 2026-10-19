@@ -16,14 +16,13 @@
  */
 
 import prisma from "~/db.server";
-import type { PrismaClient, TierSource as TierSourceEnum } from "@prisma/client";
+import type { PrismaClient, TierChangeType, TierSource as TierSourceEnum, TierTriggerType } from "@prisma/client";
 import { getManualOverride } from "./manual-tier-assignment.server";
 import { calculateCustomerTierFromDB } from "./tier-calculation.server";
 import { getBaseTier, getBaseTierConfig } from "./base-tier.server";
 import { calculateProgress } from "./customer-tier-state-update.server";
 import { createLogger } from "~/services/logger.server";
 import { SentryService } from "~/services/monitoring/sentry.service";
-import { snsEventPublisher } from "./sns-event-publisher.server";
 import { invalidateTierDistribution } from "./shop-data-provider.server";
 
 const logger = createLogger('TierResolution');
@@ -160,7 +159,7 @@ export async function resolveEffectiveTier(
     // FIX: Pass transaction client to getManualOverride for proper isolation
     // FIX: Use the stored override tier ID, not customer.currentTierId
     // FIX: Clear expired overrides from database to prevent stale data
-    const overrideInfo = await getManualOverride(customerId, db as any, { clearIfExpired: true });
+    const overrideInfo = await getManualOverride(customerId, db, { clearIfExpired: true });
 
     if (overrideInfo.hasOverride && overrideInfo.tierId) {
       resolutionLogger.debug('Manual override detected', { tierName: overrideInfo.tierName, tierId: overrideInfo.tierId });
@@ -289,7 +288,7 @@ export async function resolveEffectiveTier(
   )[0];
 
   if (activeTierPurchase && activeTierPurchase.tier) {
-    const isExpired = activeTierPurchase.endDate && activeTierPurchase.endDate < now;
+    const isExpired = !!activeTierPurchase.endDate && activeTierPurchase.endDate < now;
 
     if (isExpired && !options?.includeExpired) {
       resolutionLogger.debug('Tier purchase found but expired', { tierName: activeTierPurchase.tier.name });
@@ -490,33 +489,35 @@ export async function updateCustomerToEffectiveTier(
   );
 
   try {
-    // Wrap ALL reads and writes in a transaction to prevent race conditions
-    // Using ReadCommitted isolation to prevent dirty reads while allowing concurrent access
+    // Resolve before opening the transaction. Resolution reads through
+    // helpers that use the shared client (spending and base-tier lookups).
+    // Inside an open transaction, with the single pooled connection the
+    // serverless runtime uses (connection_limit=1), those reads would wait for
+    // the transaction's own connection until it timed out. Under READ
+    // COMMITTED the reads gave no isolation anyway; the transaction now holds
+    // only the writes, which still commit together.
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, shop },
+      include: { currentTier: true }
+    });
+
+    if (!customer) {
+      sentryTier.finish('ok');
+      return {
+        success: false,
+        previousTierId: null,
+        newTierId: null,
+        changed: false,
+        source: 'NONE' as TierSource,
+        error: 'Customer not found'
+      };
+    }
+
+    const previousTierId = customer.currentTierId;
+    const previousTierName = customer.currentTier?.name || null;
+    const resolution = await resolveEffectiveTier(shop, customerId);
+
     const result = await prisma.$transaction(async (tx) => {
-      // Get current state within transaction
-      const customer = await tx.customer.findFirst({
-        where: { id: customerId, shop },
-        include: { currentTier: true }
-      });
-
-      if (!customer) {
-        return {
-          success: false,
-          previousTierId: null,
-          newTierId: null,
-          changed: false,
-          source: 'NONE' as TierSource,
-          error: 'Customer not found'
-        };
-      }
-
-      const previousTierId = customer.currentTierId;
-      const previousTierName = customer.currentTier?.name || null;
-
-      // Resolve effective tier within the same transaction
-      // This ensures we read consistent state for subscriptions, purchases, etc.
-      const resolution = await resolveEffectiveTier(shop, customerId, { tx });
-
       const newTierId = resolution.effectiveTierId;
       const newTierName = resolution.effectiveTierName;
 
@@ -615,12 +616,10 @@ export async function updateCustomerToEffectiveTier(
       const previousTierMinSpend = Number(customer.currentTier?.minSpend ?? 0);
       const newTierMinSpend = resolution.allSources.find(s => s.tierId === newTierId)?.tierMinSpend ?? 0;
 
-      const changeType = !previousTierId && newTierId ? 'INITIAL_ASSIGNMENT'
-        : previousTierId && !newTierId ? 'REVOKED'
-        : newTierId && previousTierId ? (
-          newTierMinSpend > previousTierMinSpend ? 'UPGRADE' : 'DOWNGRADE'
-        )
-        : 'REASSIGNMENT';
+      // (an unchanged tier returned early above, so at least one id is set)
+      const changeType: TierChangeType = !previousTierId ? 'INITIAL_ASSIGNMENT'
+        : !newTierId ? 'REVOKED'
+        : newTierMinSpend > previousTierMinSpend ? 'UPGRADE' : 'DOWNGRADE';
 
       await tx.tierChangeLog.create({
         data: {
@@ -631,7 +630,7 @@ export async function updateCustomerToEffectiveTier(
           fromTierName: previousTierName,
           toTierId: newTierId,
           toTierName: newTierName,
-          changeType: changeType as any,
+          changeType,
           triggerType: mapContextToTriggerType(context?.triggeredBy),
           orderId: context?.orderId,
           subscriptionId: context?.subscriptionId,
@@ -741,13 +740,6 @@ export async function updateCustomerToEffectiveTier(
         triggered_by: context?.triggeredBy || 'unknown',
       });
 
-      // Best-effort SNS publish so external systems (Klaviyo flows, dashboards,
-      // Slack notifiers etc.) can react to tier changes. Failures are logged
-      // but do not fail the tier update — the DB is already committed.
-      void publishTierChangeToSNS(shop, customerId, result, context).catch(err =>
-        updateLogger.warn('SNS tier-change publish failed (non-fatal)', err)
-      );
-
       // Tier-distribution stats card on /app/members is cached per-shop;
       // invalidate so the new state is reflected on the next loader hit.
       void invalidateTierDistribution(shop).catch(err =>
@@ -799,8 +791,8 @@ export async function updateCustomerToEffectiveTier(
  * SUBSCRIPTION_UPGRADED, SUBSCRIPTION_DOWNGRADED, SUBSCRIPTION_CANCELLED,
  * SUBSCRIPTION_PURCHASE
  */
-function mapContextToTriggerType(trigger?: string): string {
-  const mapping: Record<string, string> = {
+function mapContextToTriggerType(trigger?: string): TierTriggerType {
+  const mapping: Record<string, TierTriggerType> = {
     'order_paid': 'SPENDING_MILESTONE',
     'customer_webhook': 'ACCOUNT_CREATED',
     'subscription_created': 'SUBSCRIPTION_STARTED',
@@ -841,84 +833,4 @@ export async function getTierSourceBreakdown(
     sources: resolution.allSources,
     hasConflict: resolution.conflictResolved
   };
-}
-
-/**
- * Publish a TIER_UPGRADE or TIER_DOWNGRADE event to the SNS tier-changed topic.
- *
- * Runs after the tier-update transaction commits, so external subscribers see
- * a consistent post-commit view. Best-effort — caller wraps in catch.
- */
-async function publishTierChangeToSNS(
-  shop: string,
-  customerId: string,
-  result: { previousTierId: string | null; newTierId: string | null },
-  context: { triggeredBy?: string } | undefined
-): Promise<void> {
-  if (!result.newTierId) {
-    // No SNS event for transitions to no-tier (REVOKED) — schema requires newTier.
-    return;
-  }
-
-  const [previousTier, newTier, customerData] = await Promise.all([
-    result.previousTierId
-      ? prisma.tier.findUnique({ where: { id: result.previousTierId } })
-      : null,
-    prisma.tier.findUnique({ where: { id: result.newTierId } }),
-    prisma.customer.findUnique({
-      where: { id: customerId },
-      select: { id: true, email: true, firstName: true, lastName: true, lifetimeSpent: true },
-    }),
-  ]);
-
-  if (!newTier || !customerData) return;
-
-  const eventCustomer = {
-    id: customerData.id,
-    email: customerData.email,
-    firstName: customerData.firstName,
-    lastName: customerData.lastName,
-  };
-
-  const previousTierEvent = previousTier
-    ? {
-        id: previousTier.id,
-        name: previousTier.name,
-        cashbackPercent: Number(previousTier.cashbackPercent),
-      }
-    : null;
-
-  const newTierEvent = {
-    id: newTier.id,
-    name: newTier.name,
-    cashbackPercent: Number(newTier.cashbackPercent),
-  };
-
-  const isDowngrade =
-    previousTier && Number(newTier.minSpend) < Number(previousTier.minSpend);
-
-  const trigger: 'order' | 'manual' | 'recalculation' =
-    context?.triggeredBy === 'manual_assignment'
-      ? 'manual'
-      : context?.triggeredBy === 'tier_recalculation'
-        ? 'recalculation'
-        : 'order';
-
-  const params = {
-    shop,
-    customer: eventCustomer,
-    previousTier: previousTierEvent,
-    newTier: newTierEvent,
-    trigger,
-    stats: {
-      lifetimeSpend: Number(customerData.lifetimeSpent ?? 0),
-      spendToNextTier: null,
-    },
-  };
-
-  if (isDowngrade) {
-    await snsEventPublisher.publishTierDowngrade(params);
-  } else {
-    await snsEventPublisher.publishTierUpgrade(params);
-  }
 }

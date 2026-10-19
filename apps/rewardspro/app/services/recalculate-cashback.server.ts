@@ -237,7 +237,6 @@ export async function processPendingCashback(shop: string) {
           orderTotal: Number(order.totalPrice)
         },
         createdAt: new Date(),
-        updatedAt: new Date()
       }
     });
 

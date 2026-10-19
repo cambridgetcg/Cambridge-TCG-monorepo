@@ -15,28 +15,49 @@ const TAG_LENGTH = 16; // 128 bits
 const KEY_LENGTH = 32; // 256 bits
 const ITERATIONS = 100000; // PBKDF2 iterations
 
+// Master key cache: PBKDF2 at 100k iterations is deliberately slow, so the
+// master key is derived once per (secret, salt) pair instead of on every call.
+let cachedMasterKey: { secret: string; salt: string; key: Buffer } | null = null;
+
 /**
- * Get or generate encryption key from environment
- * In production, this should use AWS KMS or similar key management service
+ * Derive the master key from ENCRYPTION_SECRET and ENCRYPTION_SALT.
+ *
+ * SECURITY: ENCRYPTION_SECRET is a dedicated key. There is deliberately no
+ * fallback to SHOPIFY_API_SECRET, so rotating the Shopify client secret can
+ * never make stored tokens unreadable, and a missing key fails closed.
  */
 function getEncryptionKey(): Buffer {
-  const secret = process.env.ENCRYPTION_SECRET || process.env.SHOPIFY_API_SECRET;
-  
+  const secret = process.env.ENCRYPTION_SECRET;
+
   if (!secret) {
-    throw new Error('No encryption secret available. Set ENCRYPTION_SECRET environment variable.');
+    throw new Error(
+      'ENCRYPTION_SECRET environment variable is required. ' +
+      'Generate with: openssl rand -hex 32'
+    );
   }
 
-  // Derive a key from the secret using PBKDF2
   // SECURITY: Require explicit salt configuration - no hardcoded fallback
-  if (!process.env.ENCRYPTION_SALT) {
+  const saltHex = process.env.ENCRYPTION_SALT;
+  if (!saltHex) {
     throw new Error(
       'ENCRYPTION_SALT environment variable is required. ' +
       'Generate with: openssl rand -hex 32'
     );
   }
 
-  const salt = Buffer.from(process.env.ENCRYPTION_SALT, 'hex');
-  return crypto.pbkdf2Sync(secret, salt, ITERATIONS, KEY_LENGTH, 'sha256');
+  if (cachedMasterKey?.secret !== secret || cachedMasterKey.salt !== saltHex) {
+    const key = crypto.pbkdf2Sync(secret, Buffer.from(saltHex, 'hex'), ITERATIONS, KEY_LENGTH, 'sha256');
+    cachedMasterKey = { secret, salt: saltHex, key };
+  }
+  return cachedMasterKey.key;
+}
+
+/**
+ * Throw a clear error unless ENCRYPTION_SECRET and ENCRYPTION_SALT are set.
+ * Call at startup from anything that must not run without encryption.
+ */
+export function assertEncryptionConfigured(): void {
+  getEncryptionKey();
 }
 
 /**

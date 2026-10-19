@@ -135,7 +135,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           segmentRules: original.segmentRules || { allCustomers: true },
           scheduledFor: null,
           sentAt: null,
-          metrics: null,
           createdAt: now,
           updatedAt: now,
         },
@@ -164,7 +163,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
           name,
           subject,
           previewText,
-          templateId: templateId || null,
+          templateId: templateId || undefined,
           updatedAt: new Date(),
         },
       });

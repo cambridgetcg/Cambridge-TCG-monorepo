@@ -264,8 +264,8 @@ export async function storeOAuthTokens(
   await prisma.emailSettings.upsert({
     where: { shop },
     create: {
-      id: crypto.randomUUID(),
       shop,
+      senderEmail: `noreply@${shop}`, // Same default sender as marketing-mode.server.ts
       klaviyoEnabled: true,
       klaviyoAccessToken: encryptedAccessToken,
       klaviyoRefreshToken: encryptedRefreshToken,

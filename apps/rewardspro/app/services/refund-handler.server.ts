@@ -237,7 +237,7 @@ export async function handleRefundClawback(
       const refundRecordId = shopifyRefundId || `${shopifyOrderId}-${uuidv4()}`;
       await tx.orderRefund.upsert({
         where: {
-          shopifyRefundId: refundRecordId
+          orderId_shopifyRefundId: { orderId: order.id, shopifyRefundId: refundRecordId }
         },
         create: {
           id: uuidv4(),
@@ -245,6 +245,9 @@ export async function handleRefundClawback(
           shopifyRefundId: refundRecordId,
           shopifyCreatedAt: new Date(),
           amount: refundAmount,
+          // The clawback path only knows the refund total, not its split
+          shippingAmount: 0,
+          taxAmount: 0,
           cashbackAdjustment: clawbackAmount,
           cashbackProcessed: true,
           createdAt: new Date()

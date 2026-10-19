@@ -74,7 +74,8 @@ export async function handleCustomerCreate(
       id: customerId,
       shop: shopDomain,
       shopifyCustomerId: customerData.shopifyCustomerId,
-      email: customerData.email,
+      // Customer.email is required; a shopper without one is stored as "" (no placeholder address)
+      email: customerData.email ?? "",
       firstName: customerData.firstName,
       lastName: customerData.lastName,
       phone: customerData.phone,
@@ -258,7 +259,7 @@ async function updateCustomer(
       id: customerId,
     },
     data: {
-      email: customerData.email,
+      email: customerData.email ?? "",
       firstName: customerData.firstName,
       lastName: customerData.lastName,
       phone: customerData.phone,

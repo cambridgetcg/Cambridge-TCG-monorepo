@@ -56,12 +56,13 @@ interface DomainAuthenticationParams {
   customSpf?: boolean;
 }
 
-interface DnsRecord {
+// A type alias (not an interface) so it is assignable to Prisma JSON input
+type DnsRecord = {
   type: string;
   host: string;
   data: string;
   valid: boolean;
-}
+};
 
 interface DomainAuthResponse {
   id: number;

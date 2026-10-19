@@ -18,7 +18,6 @@ describe("fixed-price billing safety", () => {
     const billingMutationSurfaces = [
       "shopify.server.ts",
       "services/billing/graphql-billing.service.ts",
-      "services/billing/usage-record.service.ts",
       "routes/api.billing.usage.tsx",
       "routes/api.cron.usage-billing.tsx",
       "routes/api.review-claimed.tsx",

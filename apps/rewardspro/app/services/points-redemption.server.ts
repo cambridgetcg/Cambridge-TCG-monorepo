@@ -5,11 +5,9 @@
 //
 // Why this file still exists
 // --------------------------
-// Two live routes import `getRedemptionTiers` and expect an array shape:
-//   - app/routes/api.proxy.$.tsx:454
-//   - app/routes/api.points-analytics.tsx:365
-// For those callers we short-circuit to `[]` (feature disabled → empty
-// UI is the natural fallback).
+// The storefront proxy (app/routes/api.proxy.$.tsx) imports
+// `getRedemptionTiers` and expects an array shape. For that caller we
+// short-circuit to `[]` (feature disabled → empty UI is the natural fallback).
 //
 // Every OTHER exported function throws when called. The old `redeemPoints`
 // implementation spent points via the ledger and THEN called Shopify's

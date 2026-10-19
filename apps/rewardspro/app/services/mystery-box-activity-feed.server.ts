@@ -16,7 +16,7 @@
  */
 
 import prisma from "../db.server";
-import type { MysteryBoxActivityType, MysteryBoxRarity } from "@prisma/client";
+import type { MysteryBoxActivityType, MysteryBoxRarity, Prisma } from "@prisma/client";
 
 const LOG_PREFIX = "[MysteryBoxActivityFeed]";
 
@@ -165,7 +165,7 @@ export async function logActivity(params: {
   activityType: MysteryBoxActivityType;
   customerId: string;
   displayName: string;
-  data: Record<string, unknown>;
+  data: Prisma.InputJsonObject;
   isPublic?: boolean;
 }): Promise<void> {
   const expiresAt = new Date(Date.now() + ACTIVITY_EXPIRATION_MS);
