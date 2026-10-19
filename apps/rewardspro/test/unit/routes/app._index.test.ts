@@ -47,6 +47,9 @@ vi.mock('~/db.server', () => ({
     webhookError: {
       count: vi.fn(),
     },
+    customerDataRequest: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -201,6 +204,9 @@ function setupDefaultMocks() {
     orderCount: 42,
   } as any);
 
+  // No customer data requests waiting
+  vi.mocked(db.customerDataRequest.count).mockResolvedValue(0);
+
   // Webhook stats
   vi.mocked(db.webhookProcessed.count).mockResolvedValue(100);
   vi.mocked(db.webhookError.count)
@@ -216,6 +222,18 @@ describe('app._index (dashboard) loader', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
+  });
+
+  it('should surface customer data requests the merchant has not downloaded', async () => {
+    vi.mocked(db.customerDataRequest.count).mockResolvedValue(2);
+    const request = new Request('https://app.example.com/app');
+    const response = await loader({ request, params: {}, context: {} });
+    const data = await response.json();
+
+    expect(data.pendingDataRequests).toBe(2);
+    expect(db.customerDataRequest.count).toHaveBeenCalledWith({
+      where: { shop: MOCK_SHOP, downloadedAt: null, expiresAt: { gt: expect.any(Date) } },
+    });
   });
 
   it('should load dashboard with all health indicators', async () => {

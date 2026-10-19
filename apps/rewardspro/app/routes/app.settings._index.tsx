@@ -57,6 +57,7 @@ import { ColorPickerFieldInline } from "~/components/ColorPickerField";
 import { DEMO_VALUES } from "~/utils/angel-numbers";
 import { SyncActionCard } from "~/components/SyncActionCard";
 import {
+  APP_ROUTES,
   SETTINGS_SECTIONS,
   isSettingsSectionOnlyNavigation,
   parseSettingsSearch,
@@ -2012,6 +2013,10 @@ export default function SettingsPage() {
             content: "Reset",
             onAction: handleReset,
             disabled: !hasUnsavedChanges,
+          },
+          {
+            content: "Privacy requests",
+            onAction: () => navigate(APP_ROUTES.SETTINGS.PRIVACY),
           },
         ]}
       >

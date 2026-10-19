@@ -2241,6 +2241,27 @@ model WebhookProcessed {
   @@index([shop, topic])
 }
 
+// customers/data_request reports (GDPR Art. 15). The report is every row
+// the app holds about the shopper (services/customer-data-request.server.ts),
+// encrypted at rest, for the merchant to download from Settings > Privacy
+// requests. Deleted after the retention period, on customers/redact and with
+// the shop's data.
+model CustomerDataRequest {
+  id                String    @id @default(uuid())
+  shop              String
+  shopifyRequestId  String // data_request.id from the webhook
+  shopifyCustomerId String
+  report            String    @db.Text // JSON, encrypted with ENCRYPTION_SECRET
+  recordCount       Int
+  createdAt         DateTime  @default(now())
+  downloadedAt      DateTime?
+  expiresAt         DateTime
+
+  @@unique([shop, shopifyRequestId])
+  @@index([shop, createdAt])
+  @@index([expiresAt])
+}
+
 // Distributed lock for cron jobs to prevent concurrent execution
 // When a cron job starts, it tries to create a lock with unique jobName
 // If creation fails (unique constraint), another instance is running

@@ -2,7 +2,9 @@
  * Webhook Cleanup Cron Job
  *
  * Cleans up old processed webhook records to prevent database bloat.
- * Keeps records for 7 days for debugging purposes.
+ * Keeps records for 7 days for debugging purposes. Also deletes customer
+ * data request reports past their retention period
+ * (services/customer-data-request.server.ts).
  *
  * Schedule: Weekly on Sunday at 3 AM
  * Endpoint: GET /api/cron/webhook-cleanup
@@ -17,6 +19,7 @@ import {
   getWebhookStats,
 } from "~/services/billing/webhook-processing.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { deleteExpiredDataRequests } from "~/services/customer-data-request.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!verifyCronAuth(request)) {
@@ -55,6 +58,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Run cleanup
     const deletedCount = await cleanupOldWebhooks();
+    const expiredDataRequests = await deleteExpiredDataRequests();
 
     // Get stats after cleanup
     const statsAfter = await getWebhookStats();
@@ -63,6 +67,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     console.log("[WebhookCleanupCron] Job completed:", {
       deleted: deletedCount,
+      expiredDataRequests,
       before: statsBefore.total,
       after: statsAfter.total,
       durationMs: duration,
@@ -73,6 +78,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       job: "webhook-cleanup",
       result: {
         deleted: deletedCount,
+        expiredDataRequests,
         recordsBefore: statsBefore.total,
         recordsAfter: statsAfter.total,
         currentStats: statsAfter,

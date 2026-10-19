@@ -137,6 +137,11 @@ describe("flattened non-UI analytics and integration routes", () => {
       "routes/app.marketing",
       "klaviyo/connect",
     ],
+    [
+      "routes/app.settings.privacy_.$requestId",
+      "routes/app.settings",
+      "privacy/:requestId",
+    ],
   ])("%s preserves its URL outside its leaf UI parent", (id, parentId, path) => {
     expect(route(id)).toMatchObject({ parentId, path });
   });
