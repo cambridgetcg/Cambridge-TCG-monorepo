@@ -120,8 +120,10 @@ DIRECT_URL='<session pooler URL>' pnpm --filter rewardspro exec \
   explicit deploy step, run before the code that needs them goes live.
 
 The baseline (`prisma/migrations/20261018000000_baseline`) creates all 110
-models in an empty schema. On Postgres 17, `migrate diff` reports no
-difference afterwards; CI checks this on every change.
+models in an empty schema; later migrations build on it (customer data
+request reports, marketing consent defaulting to off). On Postgres 17,
+`migrate diff` reports no difference after `migrate:deploy`; CI checks this
+on every change.
 
 ## Deploy order
 
@@ -130,8 +132,8 @@ difference afterwards; CI checks this on every change.
    reproduces that setup for tests).
 2. Set `DATABASE_URL`, `DIRECT_URL`, `ENCRYPTION_SECRET` and
    `ENCRYPTION_SALT` in Vercel (Production).
-3. Apply the baseline with `migrate:deploy` and confirm the drift check exits
-   0. This must happen before the deploy: without the `Session` table, the
+3. Apply the migrations with `migrate:deploy` and confirm the drift check
+   exits 0. This must happen before the deploy: without the `Session` table, the
    session storage fails at startup and the process exits.
 4. Remove the dead AWS and Aurora variables from Vercel.
 5. Deploy (merge to `main`).

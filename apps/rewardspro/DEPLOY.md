@@ -125,3 +125,11 @@ git push origin main
 
 Functions run in `lhr1` (London), next to the database (`vercel.json`). Node
 24 everywhere: `engines`, `.nvmrc` and CI.
+
+**Marketing email** (campaigns and automations) stays off until SendGrid's
+signed event webhook is configured: set `SENDGRID_WEBHOOK_VERIFICATION_KEY`
+to the public key from SendGrid's Event Webhook settings, so bounces, spam
+reports and unsubscribes are recorded. Unsubscribe links are built from
+`SHOPIFY_APP_URL` and signed with `ENCRYPTION_SECRET`
+(`app/services/marketing-email.server.ts`). Transactional email is not
+affected.

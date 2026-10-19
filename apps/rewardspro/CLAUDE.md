@@ -15,6 +15,17 @@ Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Postgres 17
 on Supabase ([`docs/DATABASE.md`](docs/DATABASE.md)), deployed on Vercel (see
 `vercel.json` — it also carries ~24 cron routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
 
+Guards that need a decision to lift, not a refactor:
+
+- **Raffles, mystery boxes and instant wins are paused** by the code constant
+  `CHANCE_MECHANICS_PAUSED` (`app/constants/chance-mechanics.ts`) pending
+  legal review: no entry, open, draw or near-miss copy.
+- **Marketing email needs consent**: only Shopify `SUBSCRIBED` customers, sent
+  through `app/services/marketing-email.server.ts` with an unsubscribe link and
+  headers, and off until `SENDGRID_WEBHOOK_VERIFICATION_KEY` is set.
+- **Webhooks are subscribed only in `shopify.app.toml`**; a unit test pairs
+  every `webhooks.*` route with a subscription.
+
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123
 commits, rewritten under `apps/rewardspro/` — `git log`/`blame` work). The
