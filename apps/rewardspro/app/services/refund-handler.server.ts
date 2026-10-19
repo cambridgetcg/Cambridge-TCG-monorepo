@@ -101,13 +101,24 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
     if (!orderRef) return { status: "order_not_found" };
 
     // Lock the cashback entry, then the order (lockOrder), and only then read
-    // them: under READ COMMITTED each read sees what earlier refunds committed
-    const cashbackRef = await tx.storeCreditLedger.findFirst({
-      where: { orderId: orderRef.id, type: "CASHBACK_EARNED" },
-      select: { id: true },
-    });
+    // them: under READ COMMITTED each read sees what earlier refunds committed.
+    // The latest entry is the order's cashback: one the history import saw
+    // before its orders/paid webhook was processed also has a history record.
+    const cashbackWhere: Prisma.StoreCreditLedgerWhereInput = { orderId: orderRef.id, type: "CASHBACK_EARNED" };
+    const cashbackRefs = await tx.storeCreditLedger.findMany({ where: cashbackWhere, select: { id: true }, orderBy: { createdAt: "desc" } });
+    const cashbackRef = cashbackRefs[0] ?? null;
     if (cashbackRef) await lockLedgerEntry(tx, cashbackRef.id);
     await lockOrder(tx, orderRef.id);
+    // An entry recorded since the lookup (orders/paid committing while this
+    // refund waited for the order) is not locked, so the cron could issue it
+    // mid-refund. Shopify redelivers on 5xx, and the next attempt locks it.
+    const recordedSince = await tx.storeCreditLedger.findFirst({
+      where: { ...cashbackWhere, id: { notIn: cashbackRefs.map((ref) => ref.id) } },
+      select: { id: true },
+    });
+    if (recordedSince) {
+      throw new RefundRetryableError(`Cashback for order ${shopifyOrderId} was recorded during the refund; retry the refund`);
+    }
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderRef.id } });
     const cashback = cashbackRef ? await tx.storeCreditLedger.findUniqueOrThrow({ where: { id: cashbackRef.id } }) : null;
 

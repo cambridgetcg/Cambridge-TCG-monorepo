@@ -364,6 +364,51 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
     });
   });
 
+  it("asks for a retry when cashback is recorded while the refund waits for the order", async () => {
+    const { order, entry } = await seedOrder({ cashback: "pending" });
+    await prisma.storeCreditLedger.delete({ where: { id: entry.id } });
+    mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 0 });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const instance = createPrismaClient(process.env.DATABASE_URL);
+    let outcome!: Promise<unknown>;
+    try {
+      // orders/paid recording the order's cashback: it writes the entry and
+      // the order in one transaction
+      await prisma.$transaction(
+        async (tx) => {
+          await lockOrder(tx, order.id);
+          // The refund looks for the entry (none yet), then waits for the order
+          outcome = recordRefund(refundInput("1", "100.00"), instance).then((result) => result, (error: unknown) => error);
+          await waitForLockWaiters(tx, 1);
+          await tx.storeCreditLedger.create({
+            data: {
+              shop: SHOP,
+              customerId: order.customerId,
+              orderId: order.id,
+              shopifyOrderId: order.shopifyOrderId,
+              type: "CASHBACK_EARNED",
+              amount: 5,
+              balance: 5,
+              metadata: { orderName: "#1001", syncStatus: "PENDING" },
+            },
+          });
+        },
+        { timeout: 20_000 },
+      );
+      // It did not lock the new entry, so the cron could issue it mid-refund
+      expect(await outcome).toBeInstanceOf(RefundRetryableError);
+    } finally {
+      await instance.$disconnect();
+    }
+    await expect(prisma.orderRefund.count()).resolves.toBe(0);
+
+    // Shopify redelivers: the refund locks the entry and reverses it in full
+    expect((await deliverRefund(refundPayload(1, "100.00"))).status).toBe(200);
+    const reversed = await prisma.storeCreditLedger.findFirstOrThrow({ where: { orderId: order.id, type: "CASHBACK_EARNED" } });
+    expect(reversed.amount.toFixed(2)).toBe("0.00");
+    expect(reversed.metadata).toMatchObject({ syncStatus: "NOT_APPLICABLE" });
+  });
+
   describe("a refund that commits while the Orders page issues cashback", () => {
     /**
      * Give the seeded order's cashback the shape under test: none recorded
@@ -481,6 +526,50 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
       financialStatus: "PARTIALLY_REFUNDED",
       cashbackProcessed: false,
     });
+  });
+
+  it("issues and reverses the entry orders/paid recorded, not an older history record", async () => {
+    // The history import saw the order before its orders/paid webhook was
+    // processed: its record (no shopifyOrderId) escapes the unique key
+    const { order, entry } = await seedOrder({ cashback: "pending" });
+    await prisma.storeCreditLedger.delete({ where: { id: entry.id } });
+    const record = await prisma.storeCreditLedger.create({
+      data: {
+        shop: SHOP,
+        customerId: order.customerId,
+        orderId: order.id,
+        type: "CASHBACK_EARNED",
+        amount: 5,
+        balance: 0,
+        metadata: { orderName: "#1001", historical: true },
+        createdAt: new Date(Date.now() - 86_400_000),
+      },
+    });
+    const live = await prisma.storeCreditLedger.create({
+      data: {
+        shop: SHOP,
+        customerId: order.customerId,
+        orderId: order.id,
+        shopifyOrderId: order.shopifyOrderId,
+        type: "CASHBACK_EARNED",
+        amount: 5,
+        balance: 5,
+        metadata: { orderName: "#1001", syncStatus: "PENDING" },
+      },
+    });
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 0 });
+
+    // A refund before the issue shrinks what orders/paid recorded
+    expect((await deliverRefund(refundPayload(1, "40.00"))).status).toBe(200);
+    await expect(issueByHand(order.id)).resolves.toMatchObject({ success: true, amount: 3 });
+    expect((await deliverRefund(refundPayload(2, "60.00"))).status).toBe(200);
+
+    expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 3.00", "debit 3.00"]);
+    const issued = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: live.id } });
+    expect(issued.metadata).toMatchObject({ syncStatus: "SYNCED", originalAmount: "5.00" });
+    const untouched = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: record.id } });
+    expect(untouched.amount.toFixed(2)).toBe("5.00");
+    expect(untouched.metadata).toEqual({ orderName: "#1001", historical: true });
   });
 
   it("never issues more by hand than a refund left of the cashback", async () => {
