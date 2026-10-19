@@ -633,7 +633,7 @@ async function processLineItem(_tx: PrismaClient, params: {
   order: any;
   lineItem: any;
 }) {
-  const { shop, admin, order, lineItem } = params;
+  const { shop, order, lineItem } = params;
 
   console.log('\n');
   console.log('╔══════════════════════════════════════════════════════════════════════════════╗');

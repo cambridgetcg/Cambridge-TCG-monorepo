@@ -33,7 +33,6 @@ import prisma from "../db.server";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
 import {
   PRICING_PLANS,
-  getPlanKey,
   getPricingPlan,
 } from "~/constants/pricing-contract";
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
