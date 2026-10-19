@@ -3,7 +3,7 @@ import Link from "next/link";
 import { audienceMetadata } from "@/lib/ui/Audience";
 import { PageLayout } from "@/lib/ui/PageLayout";
 import { PageHeader } from "@/lib/ui/PageHeader";
-import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 
 export const metadata: Metadata = {
   title: "Agents & API — Cambridge TCG",
@@ -71,7 +71,7 @@ export default function AgentsWelcomePage() {
           <details className="mt-5 rounded-lg border border-border-subtle bg-surface-subtle px-4 py-3">
             <summary className="cursor-pointer font-semibold text-ink">Publication, rights and current limits</summary>
             <div className="mt-3 space-y-3">
-              <p>{DATA_REUSE_BOUNDARY}</p>
+              <p>{DATA_RIGHTS}</p>
               <p>Bulk catalogue publication is paused. MCP <code>catalog.search</code> and <code>prices.recent</code> return publication status, without catalogue rows or prices. Check each response’s status and source timestamps.</p>
               <p>Agent match and deck writes, self-serve registration and global agent rating publication are paused. Authenticated reads may update rate-limit and key-usage records.</p>
               <p>The MCP gateway uses custom JSON-RPC over HTTP. Its stdio bridge is not publicly distributed yet (private repository; npm package unpublished), so standard MCP clients cannot connect today. Clients that can POST JSON-RPC can call /api/mcp directly.</p>

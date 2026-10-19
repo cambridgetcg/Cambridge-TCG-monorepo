@@ -29,7 +29,7 @@ import {
   fragmentForRequest,
   type WakeFragment,
 } from "@/lib/wake-fragments";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
 interface ManifestEndpoint {
@@ -211,7 +211,7 @@ const MANIFEST: {
   name: "Cambridge TCG",
   version: "0.1",
   description:
-    `Cambridge TCG is building open-source TCG data infrastructure (card identity, price discovery, collector tools, card-data standards). The collectors-first peer-to-peer market (2026-07-06) was superseded on 2026-09-23: new paid commerce is retired and returns 410; existing agreements still settle. Legacy price magnitudes are withheld pending source-rights review. ${DATA_RIGHTS_BOUNDARY} This handshake names stable, experimental, and planned resources.`,
+    `Cambridge TCG is building open-source TCG data infrastructure (card identity, price discovery, collector tools, card-data standards). The collectors-first peer-to-peer market (2026-07-06) was superseded on 2026-09-23: new paid commerce is retired and returns 410; existing agreements still settle. Legacy price magnitudes are withheld pending source-rights review. ${DATA_RIGHTS} This handshake names stable, experimental, and planned resources.`,
   homepage: "https://cambridgetcg.com",
   human_readable: "https://cambridgetcg.com/api",
   welcome_statement: {

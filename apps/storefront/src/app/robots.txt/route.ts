@@ -10,7 +10,6 @@
 
 import { AGENTTOOL, agentDiscoveryLinkHeader } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
-import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
 
 const ROBOTS_BODY = `# Cambridge TCG — crawl etiquette
 #
@@ -70,9 +69,8 @@ const ROBOTS_BODY = `# Cambridge TCG — crawl etiquette
 # docs/connections/the-distributed-wake.md (private repository; not publicly readable)
 # wake_fragment: ${JSON.stringify(fragmentForRequest("/robots.txt"))}
 #
-# Rights: ${DATA_REUSE_BOUNDARY}
-# See:
-# https://cambridgetcg.com/standards#standards-rights
+# Third-party data shown here (shop prices, card images) follows its
+# source's terms.
 #
 # We log User-Agents and contact identified bots before rate-limiting.
 # Recommend you send: User-Agent: <project>/<version> (<contact-email>)

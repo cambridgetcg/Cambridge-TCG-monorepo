@@ -40,7 +40,6 @@ describe("agent entry", () => {
   it("keeps publication and transport limits inspectable", () => {
     const markup = renderToStaticMarkup(<AgentsWelcomePage />);
     expect(markup).toContain("Bulk catalogue publication is paused.");
-    expect(markup).toContain("absence of a license is not permission");
     expect(markup).toContain("without catalogue rows or prices");
     expect(markup).toContain("Agent match and deck writes, self-serve registration and global agent rating publication are paused.");
     expect(markup).toContain("New paid commerce is retired.");
