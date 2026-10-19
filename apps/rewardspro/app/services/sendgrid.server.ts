@@ -42,6 +42,14 @@ interface SendEmailParams {
   dynamicTemplateData?: Record<string, any>;
 }
 
+/** One recipient's copy of a message: its own headers and substitutions. */
+export interface SendGridPersonalization {
+  to: EmailRecipient;
+  headers?: Record<string, string>;
+  substitutions?: Record<string, string>;
+  customArgs?: Record<string, string>;
+}
+
 interface SendGridResponse {
   success: boolean;
   messageId?: string;
@@ -170,7 +178,22 @@ export async function sendEmail(
   params: SendEmailParams
 ): Promise<SendGridResponse> {
   console.log("[SendGrid] Sending email to recipient (address redacted)");
+  const { to, dynamicTemplateData, customArgs, ...message } = params;
+  return deliver(shop, message, [
+    {
+      to: Array.isArray(to) ? to : [to],
+      ...(dynamicTemplateData && { dynamic_template_data: dynamicTemplateData }),
+      ...(customArgs && { custom_args: customArgs }),
+    },
+  ]);
+}
 
+/** POST /mail/send for one message and its personalizations. */
+async function deliver(
+  shop: string,
+  params: Omit<SendEmailParams, "to" | "dynamicTemplateData" | "customArgs">,
+  personalizations: Array<Record<string, unknown>>
+): Promise<SendGridResponse> {
   try {
     // Get email settings for the shop
     const emailSettings = await prisma.emailSettings.findUnique({
@@ -209,14 +232,7 @@ export async function sendEmail(
 
     // Build the email payload
     const payload: any = {
-      personalizations: [
-        {
-          to: Array.isArray(params.to) ? params.to : [params.to],
-          ...(params.dynamicTemplateData && {
-            dynamic_template_data: params.dynamicTemplateData,
-          }),
-        },
-      ],
+      personalizations,
       from: sender,
       subject: params.subject,
       content: [
@@ -235,11 +251,6 @@ export async function sendEmail(
     // Add categories for tracking
     if (params.categories) {
       payload.categories = params.categories;
-    }
-
-    // Add custom args for webhook tracking
-    if (params.customArgs) {
-      payload.personalizations[0].custom_args = params.customArgs;
     }
 
     // Add attachments
@@ -284,27 +295,32 @@ export async function sendEmail(
 }
 
 /**
- * Send a batch of emails (for campaigns)
+ * Send one message to many recipients, each in their own personalization
+ * (up to 1,000 per request): every recipient sees only their own address
+ * and gets their own headers and substitutions.
  */
-export async function sendBatchEmails(
+export async function sendPersonalizedEmails(
   shop: string,
-  recipients: EmailRecipient[],
-  params: Omit<SendEmailParams, "to">
+  personalizations: SendGridPersonalization[],
+  params: Omit<SendEmailParams, "to" | "dynamicTemplateData" | "customArgs">
 ): Promise<{ sent: number; failed: number; errors: string[] }> {
-  console.log(`[SendGrid] Sending batch of ${recipients.length} emails`);
+  console.log(`[SendGrid] Sending ${personalizations.length} personalized emails`);
 
   const results = { sent: 0, failed: 0, errors: [] as string[] };
-
-  // SendGrid supports up to 1000 recipients per request
   const batchSize = 1000;
 
-  for (let i = 0; i < recipients.length; i += batchSize) {
-    const batch = recipients.slice(i, i + batchSize);
-
-    const result = await sendEmail(shop, {
-      ...params,
-      to: batch,
-    });
+  for (let i = 0; i < personalizations.length; i += batchSize) {
+    const batch = personalizations.slice(i, i + batchSize);
+    const result = await deliver(
+      shop,
+      params,
+      batch.map((p) => ({
+        to: [p.to],
+        ...(p.headers && { headers: p.headers }),
+        ...(p.substitutions && { substitutions: p.substitutions }),
+        ...(p.customArgs && { custom_args: p.customArgs }),
+      }))
+    );
 
     if (result.success) {
       results.sent += batch.length;
@@ -316,7 +332,7 @@ export async function sendBatchEmails(
     }
 
     // Rate limiting: wait between batches
-    if (i + batchSize < recipients.length) {
+    if (i + batchSize < personalizations.length) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
@@ -867,7 +883,7 @@ export const sendgrid = {
   // Email sending
   sendEmail,
   sendTransactionalEmail: sendEmail, // Alias for transactional emails
-  sendBatchEmails,
+  sendPersonalizedEmails,
   sendTestEmail,
 
   // Template emails

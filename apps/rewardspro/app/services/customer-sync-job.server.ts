@@ -2,6 +2,7 @@ import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma from "../db.server";
 import { updateCustomerToEffectiveTier } from "./tier-resolution.server";
 import { withRetry } from "../utils/retry";
+import { consentFromShopify, marketingConsentUpdate } from "./marketing-consent.server";
 
 /**
  * Customer Sync Job Service
@@ -57,6 +58,10 @@ const CUSTOMERS_BATCH_QUERY = `
             currencyCode
           }
           numberOfOrders
+          emailMarketingConsent {
+            marketingState
+            consentUpdatedAt
+          }
         }
       }
       pageInfo {
@@ -102,6 +107,10 @@ interface CustomerBatch {
         currencyCode: string;
       } | null;
       numberOfOrders: number;
+      emailMarketingConsent: {
+        marketingState: string;
+        consentUpdatedAt: string | null;
+      } | null;
     };
   }>;
   pageInfo: {
@@ -407,6 +416,12 @@ export async function processNextBatch(
           continue;
         }
 
+        // Only SUBSCRIBED counts as marketing consent
+        const consent = consentFromShopify(
+          shopifyCustomer.emailMarketingConsent?.marketingState,
+          shopifyCustomer.emailMarketingConsent?.consentUpdatedAt
+        );
+
         // Parse spending - explicitly cast to correct types for Data API adapter
         const totalSpent = parseFloat(shopifyCustomer.amountSpent?.amount || '0');
         // Ensure orderCount is an integer (Data API adapter can pass as text otherwise)
@@ -437,6 +452,7 @@ export async function processNextBatch(
               netSpent: initialTotalSpent, // NEW: Initialize to totalSpent (no refunds assumed)
               totalRefunded: 0, // NEW: Initialize to 0
               orderCount: Number(ordersCount),
+              ...marketingConsentUpdate(consent, null),
               storeCredit: 0,
               // Don't set currentTierId - let resolver handle it
               shopifyCreatedAt: new Date(shopifyCustomer.createdAt),
@@ -468,6 +484,7 @@ export async function processNextBatch(
               totalSpent: updatedTotalSpent,
               netSpent: updatedTotalSpent - currentTotalRefunded, // NEW: Keep netSpent in sync
               orderCount: Number(ordersCount),
+              ...marketingConsentUpdate(consent, existingCustomer),
               shopifyUpdatedAt: new Date(shopifyCustomer.updatedAt),
               updatedAt: new Date()
               // DO NOT update tier directly - tier resolution handles this

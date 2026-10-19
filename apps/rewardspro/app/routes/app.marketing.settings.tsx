@@ -1029,12 +1029,11 @@ export default function EmailSettings() {
                 </Text>
 
                 <BlockStack gap="300">
-                  <Checkbox
-                    label="Include unsubscribe link"
-                    checked={formValues.includeUnsubscribe}
-                    onChange={handleChange("includeUnsubscribe")}
-                    helpText="Required by CAN-SPAM Act"
-                  />
+                  <Text as="p" variant="bodyMd">
+                    Every marketing email carries a one-click unsubscribe link and List-Unsubscribe
+                    headers, and goes only to customers who subscribed to email marketing in Shopify.
+                    This cannot be turned off.
+                  </Text>
 
                   <Checkbox
                     label="Add physical address"

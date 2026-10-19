@@ -12,6 +12,7 @@ import { processAutomationTrigger } from './automation-trigger.server';
 import { updateCustomerToEffectiveTier } from './tier-resolution.server';
 import { isKlaviyoEnabled } from './klaviyo.server';
 import { syncCustomerToKlaviyo, trackCustomerEnrolled } from './klaviyo-events.server';
+import { consentFromShopify, marketingConsentUpdate } from './marketing-consent.server';
 import type { Customer, Tier } from '@prisma/client';
 
 /**
@@ -33,8 +34,11 @@ export interface ShopifyCustomerWebhook {
   verified_email?: boolean;
   note?: string | null;
   currency?: string;
-  accepts_marketing?: boolean;
-  marketing_opt_in_level?: string | null;
+  email_marketing_consent?: {
+    state?: string | null;
+    opt_in_level?: string | null;
+    consent_updated_at?: string | null;
+  } | null;
   tax_exempt?: boolean;
   tax_exemptions?: string[];
   admin_graphql_api_id?: string;
@@ -85,6 +89,7 @@ export async function handleCustomerCreate(
       lastOrderDate: customerData.lastOrderDate,
       shopifyCreatedAt: customerData.shopifyCreatedAt,
       shopifyUpdatedAt: customerData.shopifyUpdatedAt,
+      ...marketingConsentUpdate(customerData.marketingConsent, null),
       storeCredit: 0,
       currentTierId: null,
       createdAt: now,
@@ -248,7 +253,7 @@ async function updateCustomer(
   // NEUROSURGICAL FIX: Get existing customer to calculate netSpent properly
   const existingCustomer = await prisma.customer.findUnique({
     where: { id: customerId },
-    select: { totalRefunded: true }
+    select: { totalRefunded: true, acceptsMarketing: true, marketingConsentUpdatedAt: true }
   });
 
   const updatedTotalSpent = customerData.totalSpent;
@@ -269,6 +274,7 @@ async function updateCustomer(
       orderCount: customerData.ordersCount,
       lastOrderDate: customerData.lastOrderDate,
       shopifyUpdatedAt: customerData.shopifyUpdatedAt,
+      ...marketingConsentUpdate(customerData.marketingConsent, existingCustomer),
       updatedAt: new Date(),
     },
   });
@@ -346,6 +352,11 @@ function parseCustomerPayload(payload: ShopifyCustomerWebhook) {
     shopifyUpdatedAt: payload.updated_at 
       ? new Date(payload.updated_at) 
       : new Date(),
+    // Only SUBSCRIBED counts as consent
+    marketingConsent: consentFromShopify(
+      payload.email_marketing_consent?.state,
+      payload.email_marketing_consent?.consent_updated_at
+    ),
   };
 }
 

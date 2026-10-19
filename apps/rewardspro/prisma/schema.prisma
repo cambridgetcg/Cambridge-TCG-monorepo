@@ -426,7 +426,7 @@ model Customer {
   lastOrderDate       DateTime? // Date of most recent order
 
   // Email marketing consent and suppression
-  acceptsMarketing  Boolean   @default(true) // Opt-in to marketing emails (campaigns)
+  acceptsMarketing  Boolean   @default(false) // Shopify email marketing consent is SUBSCRIBED (services/marketing-consent.server.ts)
   emailSuppressed   Boolean   @default(false) // Hard bounce or spam complaint — suppress all marketing
   suppressedAt      DateTime? // When suppression was applied
   suppressionReason String?   @db.VarChar(255) // bounce, spam_report, unsubscribe

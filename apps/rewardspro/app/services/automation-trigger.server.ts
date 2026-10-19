@@ -19,12 +19,16 @@
  * - points_milestone: Points threshold reached
  * - welcome / customer_create: New customer joins
  * - And all rewards engagement triggers (raffle, mystery box, etc.)
+ *
+ * Automation emails are merchant-written marketing, so they are sent through
+ * services/marketing-email.server.ts: only to customers who consent, with an
+ * unsubscribe link and headers. A shopper without consent is skipped.
  */
 
 import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { jsonObject } from "~/utils/json-object";
-import { sendTransactionalEmail } from "./email-provider.server";
+import { sendMarketingEmail, type MarketingRecipient } from "./marketing-email.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
@@ -165,11 +169,15 @@ export async function processAutomationTrigger(
         }
 
         // Immediate execution
-        await executeAutomationAction(event, automation);
+        const outcome = await executeAutomationAction(event, automation);
+        if (outcome === "skipped") {
+          result.skipped++;
+          continue;
+        }
         result.sent++;
 
         console.log(
-          `[AutomationTrigger] Executed automation ${automation.id} (${automation.name}) for ${event.customer.email}`
+          `[AutomationTrigger] Executed automation ${automation.id} (${automation.name})`
         );
       } catch (error: any) {
         result.errors.push(`Automation ${automation.id}: ${error.message}`);
@@ -222,13 +230,30 @@ function evaluateConditions(
 // ACTION EXECUTION
 // ============================================
 
+/** Send one automation email as marketing; "skipped" when the shopper did not consent. */
+async function sendAutomationEmail(
+  shop: string,
+  recipient: MarketingRecipient,
+  email: { subject: string; html: string; automationId: string; trigger: string }
+): Promise<"sent" | "skipped"> {
+  const result = await sendMarketingEmail(shop, [recipient], {
+    subject: email.subject,
+    html: email.html,
+    categories: ["automation", email.automationId],
+    customArgs: { automation_id: email.automationId, trigger: email.trigger, shop },
+  });
+  if (result.sent > 0) return "sent";
+  if (result.failed > 0) throw new Error(result.errors[0] || "Email send failed");
+  return "skipped";
+}
+
 /**
  * Execute the automation's configured action (currently: send email).
  */
 async function executeAutomationAction(
   event: TriggerEvent,
   automation: AutomationMatch
-): Promise<void> {
+): Promise<"sent" | "skipped"> {
   const conditions = jsonObject(automation.conditions);
   const actionType = typeof conditions.actionType === "string" ? conditions.actionType : "send_email";
 
@@ -236,7 +261,7 @@ async function executeAutomationAction(
     console.log(
       `[AutomationTrigger] Action type "${actionType}" not yet implemented for automation ${automation.id}`
     );
-    return;
+    return "skipped";
   }
 
   // Fetch template
@@ -257,27 +282,12 @@ async function executeAutomationAction(
   // Sanitize HTML to strip dangerous tags/attributes
   const htmlContent = sanitizeEmailHtml(rawHtmlContent);
 
-  // Resolve recipient name
-  const recipientName = [event.customer.firstName, event.customer.lastName]
-    .filter(Boolean)
-    .join(" ") || undefined;
-
-  // Send via unified email provider (routes to SendGrid or Klaviyo based on shop config)
-  const result = await sendTransactionalEmail(event.shop, {
-    to: { email: event.customer.email, name: recipientName },
-    subject: template.subject || `Update from your store`,
-    html: htmlContent,
-    categories: ["automation", automation.id],
-    customArgs: {
-      automation_id: automation.id,
-      trigger: event.type,
-      shop: event.shop,
-    },
-  });
-
-  if (!result.success) {
-    throw new Error(result.error || "Email send failed");
-  }
+  const outcome = await sendAutomationEmail(
+    event.shop,
+    event.customer.customerId ? { customerId: event.customer.customerId } : { email: event.customer.email },
+    { subject: template.subject || `Update from your store`, html: htmlContent, automationId: automation.id, trigger: event.type }
+  );
+  if (outcome === "skipped") return outcome;
 
   // Update automation metrics
   try {
@@ -292,6 +302,7 @@ async function executeAutomationAction(
     // Non-critical — don't fail the send if metrics update fails
     console.error(`[AutomationTrigger] Failed to update metrics for automation ${automation.id}`);
   }
+  return "sent";
 }
 
 // ============================================
@@ -347,26 +358,17 @@ export async function processDelayedAutomations(): Promise<{
           throw new Error(`Template ${item.templateId} has no HTML content`);
         }
 
-        const htmlContent = sanitizeEmailHtml(rawHtmlContent);
-        const recipientName = [item.recipientFirstName, item.recipientLastName]
-          .filter(Boolean)
-          .join(" ") || undefined;
-
-        // Send via unified email provider
-        const sendResult = await sendTransactionalEmail(item.shop, {
-          to: { email: item.recipientEmail, name: recipientName },
-          subject: template.subject || "Update from your store",
-          html: htmlContent,
-          categories: ["automation", item.automationId],
-          customArgs: {
-            automation_id: item.automationId,
-            trigger: item.triggerType,
-            shop: item.shop,
-          },
-        });
-
-        if (!sendResult.success) {
-          throw new Error(sendResult.error || "Email send failed");
+        const outcome = await sendAutomationEmail(
+          item.shop,
+          { email: item.recipientEmail },
+          { subject: template.subject || "Update from your store", html: sanitizeEmailHtml(rawHtmlContent), automationId: item.automationId, trigger: item.triggerType }
+        );
+        if (outcome === "skipped") {
+          await prisma.pendingAutomation.update({
+            where: { id: item.id },
+            data: { status: "cancelled", error: "No marketing consent" },
+          });
+          continue;
         }
 
         // Mark as sent
