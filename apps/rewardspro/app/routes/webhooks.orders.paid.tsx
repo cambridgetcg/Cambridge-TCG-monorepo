@@ -962,6 +962,14 @@ async function recordCashback(tx: PrismaClient, params: {
 
   if (cashbackAmount <= 0) {
     console.log('[OrderPaid] No cashback eligible amount after exclusions (store credit, gift cards, tier products)');
+    // The order record still carries createOrderRecord's estimate before
+    // these exclusions; none is due, so the Orders page shows none pending
+    if (orderRecord) {
+      await tx.order.updateMany({
+        where: { id: orderRecord.id, creditLedgerEntries: { none: { type: 'CASHBACK_EARNED' } } },
+        data: { cashbackAmount: 0 },
+      });
+    }
     return;
   }
 

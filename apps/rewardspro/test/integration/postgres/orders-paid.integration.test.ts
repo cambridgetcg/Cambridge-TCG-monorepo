@@ -63,7 +63,7 @@ function paidOrder(overrides: { id?: number; customer?: Record<string, unknown> 
   };
 }
 
-function cardPaymentResponse(orderId: number) {
+function cardPaymentResponse(orderId: number, gateway = "shopify_payments") {
   return {
     json: async () => ({
       data: {
@@ -73,7 +73,7 @@ function cardPaymentResponse(orderId: number) {
           transactions: [
             {
               id: "gid://shopify/OrderTransaction/1",
-              gateway: "shopify_payments",
+              gateway,
               status: "SUCCESS",
               kind: "SALE",
               amountSet: { shopMoney: { amount: "100.00", currencyCode: "GBP" } },
@@ -208,6 +208,24 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
     expect(order.customerId).toBe(customer.id);
     const [entry] = await prisma.storeCreditLedger.findMany({ where: { customerId: customer.id } });
     expect(entry.amount.toFixed(2)).toBe("2.00");
+  });
+
+  it("leaves no cashback on an order paid with store credit", async () => {
+    const { gold } = await seedShop();
+    await prisma.customer.create({
+      data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id, storeCredit: 100 },
+    });
+    shopify.graphql.mockResolvedValue(cardPaymentResponse(5550004, "shopify_store_credit"));
+
+    const response = await deliver("wh-4", paidOrder({ id: 5550004 }));
+
+    expect(response.status).toBe(200);
+    // Store credit earns none: no entry, and not the 5% estimate the order
+    // record started with, which the Orders page would show as pending
+    await expect(prisma.storeCreditLedger.count()).resolves.toBe(0);
+    const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550004" } });
+    expect(order.cashbackAmount?.toFixed(2)).toBe("0.00");
+    expect(order.cashbackProcessed).toBe(false);
   });
 
   it("records nothing for a guest checkout", async () => {
