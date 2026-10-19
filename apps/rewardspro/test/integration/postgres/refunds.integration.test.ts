@@ -591,6 +591,23 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
     expect(calls.map((c) => c.amount)).toEqual(["3.00"]);
   });
 
+  it("reverses a smaller hand issue in proportion to what the shopper got", async () => {
+    const { order, entry } = await seedOrder({ cashback: "pending" });
+    const calls = mockStoreCredit(SHOP, { [SHOPIFY_CUSTOMER]: 0 });
+    expect((await deliverRefund(refundPayload(1, "40.00"))).status).toBe(200);
+
+    // 3.00 is due; the merchant issues 1.00 from the modal
+    await expect(issueByHand(order.id, 1)).resolves.toMatchObject({ success: true, amount: 1 });
+    // Each refund returns half of what was left of the purchase: half of the 1.00
+    expect((await deliverRefund(refundPayload(2, "30.00"))).status).toBe(200);
+    expect((await deliverRefund(refundPayload(3, "30.00"))).status).toBe(200);
+
+    expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 1.00", "debit 0.50", "debit 0.50"]);
+    const issued = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+    // 5.00 as first recorded, scaled by the 1.00 issued of the 3.00 due
+    expect(issued.metadata).toMatchObject({ syncStatus: "SYNCED", originalAmount: "1.67" });
+  });
+
   it("refuses to hand-issue cashback that refunds reversed", async () => {
     // What a lost refund update used to leave: the order still shows cashback
     // while its entry was reversed in full

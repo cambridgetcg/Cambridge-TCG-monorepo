@@ -186,6 +186,17 @@ export async function issueCashbackByHand({
     return { success: false, error: result.error || "Failed to add store credit" };
   }
 
+  // Later refunds reverse shares of the cashback as first recorded
+  // (refund-handler.server.ts). Issuing less than is due scales that by the
+  // part issued, so a refund takes back its share of what the shopper got.
+  const claimedMetadata = jsonObject(claimed.metadata);
+  const recordedOriginal = claimedMetadata.originalAmount;
+  const original =
+    typeof recordedOriginal === "string" || typeof recordedOriginal === "number" ? new Prisma.Decimal(recordedOriginal) : claimed.amount;
+  const issuedOriginal = claimed.amount.gt(due)
+    ? { originalAmount: original.times(due).dividedBy(claimed.amount).toDecimalPlaces(2).toFixed(2) }
+    : {};
+
   const balance = result.balance ?? Number(order.customer.storeCredit) + due;
   const now = new Date();
   const synced = {
@@ -198,7 +209,7 @@ export async function issueCashbackByHand({
   await prisma.$transaction([
     prisma.storeCreditLedger.update({
       where: { id: entry.id },
-      data: { amount: due, balance, metadata: { ...jsonObject(claimed.metadata), ...synced } },
+      data: { amount: due, balance, metadata: { ...claimedMetadata, ...issuedOriginal, ...synced } },
     }),
     prisma.customer.update({
       where: { id: order.customerId },
