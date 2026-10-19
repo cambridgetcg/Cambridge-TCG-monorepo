@@ -43,9 +43,19 @@ type StoreCreditVariables = {
  * Shopify's side of one £100.00 card payment, and the shopper's store credit.
  * `failPaymentLookups` fails the next lookups of the order's payments (each
  * orders/paid delivery tries twice); `duringPaymentLookup` runs inside the
- * next one, after orders/paid has created the order.
+ * next one, after orders/paid has created the order. The order belongs to
+ * a customer and was placed an hour ago unless `guestOrder` or
+ * `placedHoursAgo` say otherwise; `failOrderLookup` makes that query fail.
  */
-function mockShopify(options: { failPaymentLookups?: number; duringPaymentLookup?: () => Promise<void> } = {}) {
+function mockShopify(
+  options: {
+    failPaymentLookups?: number;
+    duringPaymentLookup?: () => Promise<void>;
+    guestOrder?: boolean;
+    placedHoursAgo?: number;
+    failOrderLookup?: boolean;
+  } = {},
+) {
   const shopper = { balance: 0, credited: [] as string[], debited: [] as string[] };
   let failures = options.failPaymentLookups ?? 0;
   let during = options.duringPaymentLookup;
@@ -57,6 +67,19 @@ function mockShopify(options: { failPaymentLookups?: number; duringPaymentLookup
   });
 
   shopify.graphql.mockImplementation(async (query: string, request?: { variables?: StoreCreditVariables }) => {
+    if (query.includes("RefundedOrderCustomer")) {
+      if (options.failOrderLookup) throw new Error("fetch failed");
+      const placed = new Date(Date.now() - (options.placedHoursAgo ?? 1) * 3_600_000);
+      return answer({
+        data: {
+          order: {
+            id: `gid://shopify/Order/${ORDER}`,
+            createdAt: placed.toISOString(),
+            customer: options.guestOrder ? null : { id: "gid://shopify/Customer/100" },
+          },
+        },
+      });
+    }
     if (query.includes("GetOrderPaymentDetails")) {
       if (failures > 0) {
         failures--;
@@ -232,5 +255,70 @@ describe.skipIf(!hasTestDatabase)("refunds that arrive before orders/paid has re
       expect(shopper.debited).toEqual(["3.00"]);
       expect(netPence(shopper)).toBe(0);
     });
+
+    it(`a full refund delivered before orders/paid is retried, then reverses the cashback (${processing})`, async () => {
+      await seedShop(auto);
+      const shopper = mockShopify();
+
+      // Not recorded yet: Shopify is asked to redeliver
+      expect((await refund(1, "100.00")).status).toBe(503);
+      await expect(prisma.order.count()).resolves.toBe(0);
+      expect((await paid()).status).toBe(200);
+      expect(shopper.credited).toEqual(auto ? ["5.00"] : []);
+
+      expect((await refund(1, "100.00")).status).toBe(200);
+
+      const [entry] = await cashbackEntries();
+      if (auto) {
+        expect(shopper.debited).toEqual(["5.00"]);
+      } else {
+        expect(entry.amount.toFixed(2)).toBe("0.00");
+        expect(entry.metadata).toMatchObject({ syncStatus: "NOT_APPLICABLE" });
+        await expect(issueByHand()).resolves.toMatchObject({ success: false });
+      }
+      await expect(recordedOrder()).resolves.toMatchObject({ financialStatus: "REFUNDED", cashbackEligible: false });
+      expect(netPence(shopper)).toBe(0);
+    });
+
+    it(`a partial refund delivered before orders/paid, then the rest, nets to nothing (${processing})`, async () => {
+      await seedShop(auto);
+      const shopper = mockShopify();
+
+      expect((await refund(1, "40.00")).status).toBe(503);
+      expect((await paid()).status).toBe(200);
+      expect((await refund(1, "40.00")).status).toBe(200);
+      if (!auto) await expect(issueByHand()).resolves.toMatchObject({ success: true, amount: 3 });
+      expect((await refund(2, "60.00")).status).toBe(200);
+
+      // On: 5.00 credited, then 2.00 and 3.00 debited. Off: 3.00 issued after the
+      // first refund shrank the entry, then 3.00 debited.
+      expect(shopper.credited).toEqual(auto ? ["5.00"] : ["3.00"]);
+      expect(shopper.debited).toEqual(auto ? ["2.00", "3.00"] : ["3.00"]);
+      expect(netPence(shopper)).toBe(0);
+      await expect(recordedOrder()).resolves.toMatchObject({ financialStatus: "REFUNDED" });
+    });
   }
+
+  it("acknowledges a refund of a guest checkout, or of an order placed long ago, that it never recorded", async () => {
+    await seedShop(true);
+
+    mockShopify({ guestOrder: true });
+    const guest = await refund(1, "100.00");
+    expect(guest.status).toBe(200);
+    await expect(guest.json()).resolves.toMatchObject({ success: true, message: "Order not found" });
+
+    // Older than the 48 hours orders/paid can still take
+    mockShopify({ placedHoursAgo: 49 });
+    expect((await refund(2, "100.00")).status).toBe(200);
+    await expect(prisma.orderRefund.count()).resolves.toBe(0);
+  });
+
+  it("asks for a redelivery when Shopify cannot say whose order a refund is for", async () => {
+    await seedShop(true);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockShopify({ failOrderLookup: true });
+
+    expect((await refund(1, "100.00")).status).toBe(500);
+    await expect(prisma.webhookProcessed.count()).resolves.toBe(0);
+  });
 });

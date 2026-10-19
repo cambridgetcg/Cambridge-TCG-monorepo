@@ -7,7 +7,7 @@ import { issueCashbackByHand, lockLedgerEntry, lockOrder } from "~/services/cash
 import { RefundRetryableError, recordRefund, settleRefundClawback } from "~/services/refund-handler.server";
 import { unauthenticated } from "~/shopify.server";
 import { hasTestDatabase, resetDatabase } from "./database";
-import { mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
+import { mockRefundedOrder, mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
 
 const SHOP = "refunds-test.myshopify.com";
 const SHOPIFY_CUSTOMER = "100";
@@ -688,9 +688,23 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
     });
   });
 
-  it("acknowledges refunds for orders it never recorded", async () => {
-    const response = await deliverRefund(refundPayload(1, "10.00"));
-    expect(response.status).toBe(200);
+  it("acknowledges refunds of guest checkouts and older orders it never recorded", async () => {
+    mockRefundedOrder(SHOP, { customerId: null, createdAt: new Date() });
+    expect((await deliverRefund(refundPayload(1, "10.00"))).status).toBe(200);
+
+    // Placed before orders/paid could still record it (48 hours)
+    mockRefundedOrder(SHOP, { customerId: SHOPIFY_CUSTOMER, createdAt: new Date(Date.now() - 72 * 3_600_000) });
+    expect((await deliverRefund(refundPayload(2, "10.00"))).status).toBe(200);
     await expect(prisma.orderRefund.count()).resolves.toBe(0);
+  });
+
+  it("asks Shopify to redeliver a refund of a recent order orders/paid has not recorded yet", async () => {
+    mockRefundedOrder(SHOP, { customerId: SHOPIFY_CUSTOMER, createdAt: new Date() });
+
+    const response = await deliverRefund(refundPayload(1, "10.00"));
+
+    expect(response.status).toBe(503);
+    await expect(prisma.orderRefund.count()).resolves.toBe(0);
+    await expect(prisma.webhookProcessed.count()).resolves.toBe(0);
   });
 });

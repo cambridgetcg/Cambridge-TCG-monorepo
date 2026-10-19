@@ -7,7 +7,8 @@
  * which authenticate.webhook verifies.
  *
  * Every step is idempotent per refund, so any failure answers 5xx and the
- * redelivery finishes the work.
+ * redelivery finishes the work. A refund of an order orders/paid has not
+ * recorded yet answers 503 as well, so it is applied once the order is.
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
@@ -17,7 +18,7 @@ import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import TierProductCache from "../services/tier-product-cache.server";
-import { recordRefund, settleRefundClawback, RefundRetryableError } from "../services/refund-handler.server";
+import { orderMayStillBeRecorded, recordRefund, settleRefundClawback, RefundRetryableError } from "../services/refund-handler.server";
 import { clawbackPoints } from "../services/points-ledger.server";
 import { isPointsEnabled } from "../services/points-config.server";
 import { invalidateShopCache } from "~/utils/analytics-cache.server";
@@ -128,7 +129,13 @@ export async function action({ request }: ActionFunctionArgs) {
     });
 
     if (outcome.status === "order_not_found") {
-      // Orders from before install or guest checkouts were never recorded
+      if (await orderMayStillBeRecorded(admin, shopifyOrderId)) {
+        // orders/paid has not recorded it yet: Shopify redelivers this refund,
+        // which then reverses the cashback orders/paid records
+        console.log(`[OrderRefunded] Order ${shopifyOrderId} is not recorded yet; asking Shopify to redeliver refund ${refund.id}`);
+        return json({ success: false, error: "Order not recorded yet" }, { status: 503 });
+      }
+      // Guest checkouts and orders from before install are never recorded
       console.log(`[OrderRefunded] Order ${shopifyOrderId} not found; nothing to reverse`);
       return json({ success: true, message: "Order not found" });
     }

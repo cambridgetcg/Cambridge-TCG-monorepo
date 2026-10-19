@@ -64,6 +64,53 @@ export type RefundOutcome =
       pendingClawbackId: string | null;
     };
 
+/**
+ * How long after an order is placed orders/paid may still record it: at
+ * least as long as Shopify keeps redelivering a failed orders/paid (48 hours
+ * at most).
+ */
+const ORDER_RECORDING_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+const REFUNDED_ORDER_QUERY = `#graphql
+  query RefundedOrderCustomer($id: ID!) {
+    order(id: $id) {
+      id
+      createdAt
+      customer {
+        id
+      }
+    }
+  }
+`;
+
+interface RefundedOrder {
+  createdAt: string;
+  customer: { id: string } | null;
+}
+
+/**
+ * Whether orders/paid may still record the order of a refund that arrived
+ * before it. Shopify delivers webhooks in no set order and redelivers a
+ * failed orders/paid later; a refund dropped meanwhile would leave the
+ * cashback orders/paid then records unreversed. True for an order with a
+ * customer placed within the recording window: refunds/create answers 503
+ * so that Shopify redelivers the refund. Guest checkouts are never recorded,
+ * and neither are older orders that are not recorded by now (placed before
+ * the app was installed, say). Without a session nothing can be recorded.
+ */
+export async function orderMayStillBeRecorded(
+  admin: AdminApiContext | undefined,
+  shopifyOrderId: string,
+  now: Date = new Date(),
+): Promise<boolean> {
+  if (!admin) return false;
+  const response = await admin.graphql(REFUNDED_ORDER_QUERY, { variables: { id: `gid://shopify/Order/${shopifyOrderId}` } });
+  const { data } = await response.json();
+  const order: RefundedOrder | null | undefined = data?.order;
+  if (!order?.customer) return false;
+  return now.getTime() - new Date(order.createdAt).getTime() < ORDER_RECORDING_WINDOW_MS;
+}
+
 function syncStatusOf(entry: { metadata: Prisma.JsonValue }): string | undefined {
   const status = jsonObject(entry.metadata).syncStatus;
   return typeof status === "string" ? status : undefined;

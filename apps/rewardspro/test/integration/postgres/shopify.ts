@@ -129,6 +129,26 @@ export function mockStoreCredit(
 }
 
 /**
+ * Answer refunds/create's question about an order the app has not recorded:
+ * whose it is (null for a guest checkout) and when it was placed.
+ */
+export function mockRefundedOrder(shop: string, order: { customerId: string | null; createdAt: Date }): void {
+  server.use(
+    graphql.link(`https://${shop}/admin/api/2025-01/graphql.json`).query("RefundedOrderCustomer", ({ variables }) =>
+      HttpResponse.json({
+        data: {
+          order: {
+            id: variables.id,
+            createdAt: order.createdAt.toISOString(),
+            customer: order.customerId ? { id: `gid://shopify/Customer/${order.customerId}` } : null,
+          },
+        },
+      }),
+    ),
+  );
+}
+
+/**
  * An app proxy request signed the way Shopify signs it: HMAC-SHA256 (hex,
  * client secret) of the sorted `key=value` query pairs. `extra` pairs are
  * appended as given, so repeated keys can be sent; like the verifier, the
