@@ -27,6 +27,7 @@
     "test:ui": "vitest --ui",
     "test:unit": "vitest run --dir test/unit",
     "test:integration": "vitest run --dir test/integration",
+    "test:postgres": "vitest run --config vitest.postgres.config.ts",
     "test:e2e": "playwright test",
     "test:performance": "k6 run test/performance/load-test.js",
     "test:watch": "vitest watch",
