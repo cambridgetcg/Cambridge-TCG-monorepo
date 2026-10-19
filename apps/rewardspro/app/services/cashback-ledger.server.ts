@@ -151,7 +151,12 @@ export async function issueCashbackByHand({
   });
   if (!order) return { success: false, error: "Order not found" };
   if (!order.customer?.shopifyCustomerId) return { success: false, error: "Customer not found or missing Shopify ID" };
-  if (amount !== undefined && !(amount > 0)) return { success: false, error: `Invalid cashback amount (${amount})` };
+  // The merchant's amount in whole cents, rounded down as Shopify is sent
+  // it, so the entry records what the shopper is credited
+  const requested = amount === undefined ? undefined : new Prisma.Decimal(amount).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
+  if (requested !== undefined && !(requested.isFinite() && requested.gt(0))) {
+    return { success: false, error: `Invalid cashback amount (${amount})` };
+  }
 
   // The latest entry, as refunds and the Orders page read it: an order the
   // history import saw before orders/paid also has a history record
@@ -172,11 +177,11 @@ export async function issueCashbackByHand({
     await release();
     return { success: false, error: NOTHING_LEFT };
   }
-  if (amount !== undefined && claimed.amount.lt(amount)) {
+  if (requested !== undefined && claimed.amount.lt(requested)) {
     await release();
     return { success: false, error: `Only ${claimed.amount.toFixed(2)} ${currency} of cashback is due for this order` };
   }
-  const due = amount ?? claimed.amount.toNumber();
+  const due = (requested ?? claimed.amount).toNumber();
 
   const result = await createStoreCreditService(admin, shop).issueStoreCredit(order.customer.shopifyCustomerId, due, currency, reason);
   if (!result.success && result.ambiguous) {

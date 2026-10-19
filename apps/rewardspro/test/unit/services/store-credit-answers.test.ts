@@ -120,3 +120,21 @@ describe("store credit: did Shopify apply a credit or debit that failed?", () =>
     await expect(service.issueStoreCredit("100", 5, "GBP")).resolves.toMatchObject({ success: false, ambiguous: true });
   });
 });
+
+describe("store credit: the amount sent", () => {
+  it("sends the amount the ledger records, not one floored through binary floats", async () => {
+    const sent: string[] = [];
+    const graphql = vi.fn(async (_query: string, { variables }: { variables: { creditInput?: { creditAmount: { amount: string } }; debitInput?: { debitAmount: { amount: string } } } }) => {
+      sent.push((variables.creditInput?.creditAmount ?? variables.debitInput?.debitAmount)?.amount ?? "");
+      return { json: async () => ({ data: { storeCreditAccountCredit: { storeCreditAccountTransaction: transaction, userErrors: [] }, storeCreditAccountDebit: { storeCreditAccountTransaction: transaction, userErrors: [] } } }) };
+    });
+    const service = new ShopifyStoreCreditService({ graphql }, SHOP);
+
+    for (const amount of [2.3, 1.13, 4.35, 0.29, 5]) await service.issueStoreCredit("100", amount, "GBP");
+    await service.debitStoreCredit("100", 1.13, "GBP");
+    // Beyond two places it still rounds down, never up
+    await service.issueStoreCredit("100", 2.305, "GBP");
+
+    expect(sent).toEqual(["2.30", "1.13", "4.35", "0.29", "5.00", "1.13", "2.30"]);
+  });
+});

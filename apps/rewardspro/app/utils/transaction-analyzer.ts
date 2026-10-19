@@ -5,6 +5,8 @@
  * Prevents double cashback on store credit and gift card payments
  */
 
+import { Prisma } from '@prisma/client';
+
 // ============================================================================
 // TYPES & INTERFACES
 // ============================================================================
@@ -82,17 +84,28 @@ const ORDER_TRANSACTIONS_QUERY = `#graphql
 // ============================================================================
 
 /**
- * Round down to 2 decimal places for accurate currency calculations
+ * A money amount cut to whole cents, rounding down. Decimal arithmetic, not
+ * `Math.floor(value * 100)`: in binary floating point 2.30 * 100 is
+ * 229.99999999999997, which floors to 2.29.
  */
-export function roundDownToHundredths(value: number): number {
-  return Math.floor(value * 100) / 100;
+function toCentsRoundingDown(value: Prisma.Decimal.Value): Prisma.Decimal {
+  return new Prisma.Decimal(value).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
 }
 
 /**
- * Format number for Shopify API (exactly 2 decimal places)
+ * Round down to 2 decimal places for accurate currency calculations
  */
-export function formatForShopify(value: number): string {
-  return roundDownToHundredths(value).toFixed(2);
+export function roundDownToHundredths(value: Prisma.Decimal.Value): number {
+  return toCentsRoundingDown(value).toNumber();
+}
+
+/**
+ * Format an amount for Shopify's MoneyInput (exactly 2 decimal places,
+ * rounding down). An amount the ledger stores (2 decimal places) is sent
+ * unchanged: 2.30 is sent as "2.30".
+ */
+export function formatForShopify(value: Prisma.Decimal.Value): string {
+  return toCentsRoundingDown(value).toFixed(2);
 }
 
 // ============================================================================
@@ -144,9 +157,10 @@ export class TransactionAnalyzer {
    * Analyze transactions to determine payment breakdown
    */
   analyzeTransactions(transactions: Transaction[]): PaymentBreakdown {
-    let giftCardAmount = 0;
-    let storeCreditAmount = 0;
-    let externalPaymentAmount = 0;
+    // Summed as decimals: float sums of cents (0.70 + 0.10 = 0.7999…) round down a cent short
+    let giftCardAmount = new Prisma.Decimal(0);
+    let storeCreditAmount = new Prisma.Decimal(0);
+    let externalPaymentAmount = new Prisma.Decimal(0);
     let currency = 'USD';
 
     console.log(`[TransactionAnalyzer] Analyzing ${transactions.length} transactions`);
@@ -179,20 +193,20 @@ export class TransactionAnalyzer {
       }
 
       processedIds.add(tx.id);
-      const amount = parseFloat(tx.amountSet.shopMoney.amount);
+      const amount = new Prisma.Decimal(tx.amountSet.shopMoney.amount);
       const gateway = tx.gateway.toLowerCase();
       currency = tx.amountSet.shopMoney.currencyCode;
 
       // Categorize payment by gateway
       if (gateway.includes('gift_card') || gateway === 'gift_card') {
-        giftCardAmount += amount;
+        giftCardAmount = giftCardAmount.plus(amount);
         console.log(`[TransactionAnalyzer]   Gift card: ${amount} (excluded from cashback)`);
       } else if (gateway.includes('store_credit') || gateway === 'store_credit' ||
                  gateway.includes('cashback') || gateway.includes('rewards')) {
-        storeCreditAmount += amount;
+        storeCreditAmount = storeCreditAmount.plus(amount);
         console.log(`[TransactionAnalyzer]   Store credit: ${amount} (excluded from cashback)`);
       } else {
-        externalPaymentAmount += amount;
+        externalPaymentAmount = externalPaymentAmount.plus(amount);
         console.log(`[TransactionAnalyzer]   External payment (${tx.gateway}): ${amount} (eligible for cashback)`);
       }
     });

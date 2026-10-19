@@ -39,14 +39,14 @@ const ANSWERS: Array<[string, { internalErrors: number } | { badGateways: number
   ["502", { badGateways: 1 }],
 ];
 
-/** A paid £100 order with £5.00 cashback, issued (SYNCED) or still PENDING. */
-async function seedOrder(cashback: "issued" | "pending", { auto = false } = {}) {
+/** A paid £100 order with £5.00 cashback (or `amount`), issued (SYNCED) or still PENDING. */
+async function seedOrder(cashback: "issued" | "pending", { auto = false, amount = 5 } = {}) {
   await prisma.shopSettings.create({
     data: { shop: SHOP, storeName: "Answers", storeUrl: `https://${SHOP}`, storeCurrency: "GBP", autoCashbackProcessingEnabled: auto },
   });
   const issued = cashback === "issued";
   const customer = await prisma.customer.create({
-    data: { shop: SHOP, shopifyCustomerId: CUSTOMER, email: "alice@example.test", storeCredit: issued ? 5 : 0 },
+    data: { shop: SHOP, shopifyCustomerId: CUSTOMER, email: "alice@example.test", storeCredit: issued ? amount : 0 },
   });
   const order = await prisma.order.create({
     data: {
@@ -64,7 +64,7 @@ async function seedOrder(cashback: "issued" | "pending", { auto = false } = {}) 
       totalPrice: 100,
       netAmount: 100,
       financialStatus: "PAID",
-      cashbackAmount: 5,
+      cashbackAmount: amount,
       cashbackProcessed: issued,
       shopifyCreatedAt: new Date(),
       shopifyUpdatedAt: new Date(),
@@ -77,8 +77,8 @@ async function seedOrder(cashback: "issued" | "pending", { auto = false } = {}) 
       orderId: order.id,
       shopifyOrderId: order.shopifyOrderId,
       type: "CASHBACK_EARNED",
-      amount: 5,
-      balance: 5,
+      amount,
+      balance: amount,
       metadata: { orderName: "#1", description: "5% cashback on order #1", syncStatus: issued ? "SYNCED" : "PENDING" },
       // Old enough for the reconciliation cron
       createdAt: new Date(Date.now() - 10 * 60_000),
@@ -230,6 +230,53 @@ describe.skipIf(!hasTestDatabase)("store credit Shopify applied but answered wit
       });
     });
   }
+
+  describe("the amount sent is the amount the ledger records", () => {
+    // In binary floats 2.30 * 100 is 229.99999999999997: flooring it sent 2.29
+    it("hand issue: an entry of 2.30", async () => {
+      const { order, entry } = await seedOrder("pending", { amount: 2.3 });
+      const calls = mockStoreCredit(SHOP, { [CUSTOMER]: 0 });
+      const { admin } = await unauthenticated.admin(SHOP);
+
+      await expect(issueCashbackByHand({ shop: SHOP, admin, orderId: order.id, currency: "GBP", reason: "r" })).resolves.toMatchObject({ success: true, amount: 2.3 });
+
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 2.30"]);
+      expect((await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } })).amount.toFixed(2)).toBe("2.30");
+    });
+
+    it("hand issue: a modal amount beyond two places is sent and recorded in whole cents", async () => {
+      const { order, entry } = await seedOrder("pending");
+      const calls = mockStoreCredit(SHOP, { [CUSTOMER]: 0 });
+      const { admin } = await unauthenticated.admin(SHOP);
+
+      // Postgres would have stored 1.135 as 1.14, a cent more than was sent
+      await expect(issueCashbackByHand({ shop: SHOP, admin, orderId: order.id, amount: 1.135, currency: "GBP", reason: "r" })).resolves.toMatchObject({ success: true, amount: 1.13 });
+
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 1.13"]);
+      expect((await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } })).amount.toFixed(2)).toBe("1.13");
+    });
+
+    it("cron: an entry of 1.13", async () => {
+      const { entry } = await seedOrder("pending", { auto: true, amount: 1.13 });
+      const calls = mockStoreCredit(SHOP, { [CUSTOMER]: 0 });
+
+      await expect((await runCron()).json()).resolves.toMatchObject({ synced: 1 });
+
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 1.13"]);
+      expect((await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } })).amount.toFixed(2)).toBe("1.13");
+    });
+
+    it("refund: a clawback of 4.35", async () => {
+      await seedOrder("issued", { amount: 4.35 });
+      const calls = mockStoreCredit(SHOP, { [CUSTOMER]: 4.35 });
+
+      expect((await refundsCreate({ request: signedWebhook("refunds/create", SHOP, refundPayload), params: {}, context: {} })).status).toBe(200);
+
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["debit 4.35"]);
+      const [clawback] = await prisma.storeCreditLedger.findMany({ where: { shop: SHOP, type: "REFUND_CLAWBACK" } });
+      expect(clawback.metadata).toMatchObject({ syncStatus: "SYNCED", reversalAmount: "4.35", debitedAmount: "4.35" });
+    });
+  });
 
   it("control: a THROTTLED credit is handed back and the next attempt credits once", async () => {
     const { order } = await seedOrder("pending");
