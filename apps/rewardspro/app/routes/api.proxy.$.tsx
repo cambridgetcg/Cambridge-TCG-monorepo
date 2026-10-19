@@ -30,6 +30,15 @@ import { openMysteryBox } from "../services/mystery-box-open.server";
 // Mission gamification imports
 import { getMissionsForCustomer, getPlayerStats } from "../services/mission-stats.server";
 import { acknowledgeEvents, getUnacknowledgedEvents } from "../services/mission-events.server";
+import {
+  CHANCE_MECHANICS_PAUSED,
+  CHANCE_MECHANICS_PAUSED_MESSAGE,
+  CHANCE_MECHANICS_PAUSED_STATUS,
+  chanceMechanicsPausedResult,
+} from "../constants/chance-mechanics";
+
+/** Storefront actions that enter a draw or open a box (games of chance). */
+const CHANCE_PATHS = new Set(["raffles", "raffles/enter", "mystery-boxes/open"]);
 
 // ============================================================================
 // Configurable Logging - Reduces production log verbosity
@@ -859,7 +868,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           success: true,
           enabled: false,
           raffles: [],
-          message: "Raffles are not enabled for this store",
+          message: CHANCE_MECHANICS_PAUSED ? CHANCE_MECHANICS_PAUSED_MESSAGE : "Raffles are not enabled for this store",
         }, { headers });
       }
       log.debug('=== RAFFLES STEP 1 SUCCESS: Feature enabled ===');
@@ -1085,7 +1094,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           success: true,
           enabled: false,
           boxes: [],
-          message: "Mystery boxes are not enabled for this store",
+          message: CHANCE_MECHANICS_PAUSED ? CHANCE_MECHANICS_PAUSED_MESSAGE : "Mystery boxes are not enabled for this store",
         }, { headers });
       }
 
@@ -1749,6 +1758,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY"
   };
+
+  // Raffle entries and box opens are refused while chance mechanics are
+  // paused (constants/chance-mechanics.ts), before any request data is read
+  if (CHANCE_MECHANICS_PAUSED && CHANCE_PATHS.has(proxyPath)) {
+    return json(
+      { ...chanceMechanicsPausedResult(), message: CHANCE_MECHANICS_PAUSED_MESSAGE },
+      { status: CHANCE_MECHANICS_PAUSED_STATUS, headers: { ...headers, "Cache-Control": "no-store" } }
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // RAFFLES POST - Purchase entries or claim free entry

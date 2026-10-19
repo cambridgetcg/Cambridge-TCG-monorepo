@@ -11,6 +11,7 @@
 import * as crypto from "node:crypto";
 import prisma from "../db.server";
 import type { RaffleDrawType, RafflePrizeDeliveryStatus } from "./raffle-management.server";
+import { CHANCE_MECHANICS_PAUSED, chanceMechanicsPausedResult } from "../constants/chance-mechanics";
 
 /**
  * Cryptographically secure random number in [0, 1).
@@ -82,6 +83,10 @@ export async function executeRaffleDraw(
   raffleId: string,
   shop: string
 ): Promise<DrawResult> {
+  if (CHANCE_MECHANICS_PAUSED) {
+    return { ...chanceMechanicsPausedResult(), winnersSelected: 0, winners: [], failedPrizes: [] };
+  }
+
   console.log(`${LOG_PREFIX} executeRaffleDraw starting for raffle: ${raffleId}`);
 
   try {

@@ -36,6 +36,7 @@ import { DEFAULT_ICON_CONFIG } from "~/utils/points-icon-library";
 import { getRaffleStats } from "../services/raffle-management.server";
 import { getMysteryBoxStats } from "../services/mystery-box-management.server";
 import { APP_ROUTES } from "~/navigation/routes";
+import { CHANCE_MECHANICS_PAUSED } from "~/constants/chance-mechanics";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -280,8 +281,8 @@ export default function PointsOverview() {
                   }}
                 >
                   <p>
-                    Create a fun, gamified loyalty experience with points, raffles, mystery boxes,
-                    and more. Points work alongside your cashback program to drive engagement.
+                    Create a loyalty experience with points, missions and more. Points work
+                    alongside your cashback program to drive engagement.
                   </p>
                 </EmptyState>
               </Card>
@@ -391,6 +392,9 @@ export default function PointsOverview() {
                 </Text>
               </InlineStack>
               <Grid>
+                {/* Raffles and mystery boxes are paused (constants/chance-mechanics.ts) */}
+                {!CHANCE_MECHANICS_PAUSED && (
+                <>
                 {/* Raffles Module */}
                 <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>
                   <Card background={!features.raffles ? "bg-surface-secondary" : undefined}>
@@ -587,6 +591,8 @@ export default function PointsOverview() {
                     </BlockStack>
                   </Card>
                 </Grid.Cell>
+                </>
+                )}
 
                 {/* Missions Module */}
                 <Grid.Cell columnSpan={{ xs: 6, sm: 6, md: 4, lg: 4, xl: 4 }}>

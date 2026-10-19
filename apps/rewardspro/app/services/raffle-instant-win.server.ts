@@ -14,11 +14,14 @@
  * Key Psychology:
  * - Variable ratio reinforcement (unpredictable rewards)
  * - Immediate feedback (instant gratification)
- * - Near-miss effect (showing "almost won" increases engagement)
+ *
+ * Paused with all chance mechanics (constants/chance-mechanics.ts): rolls
+ * happen only during raffle entry, which is refused while paused.
  */
 
 import prisma from "../db.server";
 import type { RafflePrizeType, Prisma } from "@prisma/client";
+import { CHANCE_MECHANICS_PAUSED } from "../constants/chance-mechanics";
 
 const LOG_PREFIX = "[RaffleInstantWin]";
 
@@ -40,7 +43,6 @@ export interface InstantWinPrize {
 export interface InstantWinResult {
   won: boolean;
   prize: InstantWinPrize | null;
-  nearMiss: InstantWinPrize | null; // For "almost won" effect
   message: string;
 }
 
@@ -160,7 +162,7 @@ export async function getActiveInstantWins(
 
 /**
  * Process instant win roll for a raffle entry
- * Returns won prizes and near-miss for psychology effect
+ * Returns the prize won, if any. A loss is not dressed up as a near miss.
  */
 export async function processInstantWin(
   raffleId: string,
@@ -168,6 +170,9 @@ export async function processInstantWin(
   customerId: string,
   raffleEntryId: string
 ): Promise<InstantWinResult[]> {
+  // Nothing is rolled while chance mechanics are paused
+  if (CHANCE_MECHANICS_PAUSED) return [];
+
   const prizes = await getActiveInstantWins(raffleId, shop);
   const results: InstantWinResult[] = [];
 
@@ -182,7 +187,6 @@ export async function processInstantWin(
   });
 
   let wonPrize: InstantWinPrize | null = null;
-  let nearMiss: InstantWinPrize | null = null;
 
   for (const prize of sortedPrizes) {
     // Check limits
@@ -207,9 +211,6 @@ export async function processInstantWin(
     if (won) {
       wonPrize = prize;
       break;
-    } else if (!nearMiss && prize.rarity !== "COMMON") {
-      // Track near-miss for rarer prizes (psychology effect)
-      nearMiss = prize;
     }
   }
 
@@ -220,21 +221,12 @@ export async function processInstantWin(
     results.push({
       won: true,
       prize: wonPrize,
-      nearMiss: null,
       message: `You won: ${wonPrize.name}!`,
     });
 
     console.log(
       `${LOG_PREFIX} Customer ${customerId} won instant prize: ${wonPrize.name} (${wonPrize.rarity})`
     );
-  } else if (nearMiss) {
-    // Show near-miss effect (increases engagement)
-    results.push({
-      won: false,
-      prize: null,
-      nearMiss,
-      message: `So close! You almost won: ${nearMiss.name}`,
-    });
   }
 
   return results;
