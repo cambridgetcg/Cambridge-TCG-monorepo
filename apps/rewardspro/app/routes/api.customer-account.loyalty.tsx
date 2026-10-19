@@ -721,17 +721,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // =========================================================================
     const pendingCashback = pendingCashbackOrders.length > 0 ? {
       amount: pendingCashbackOrders.reduce((sum, o) => {
-        const amt = typeof o.cashbackAmount === 'object' && 'toNumber' in o.cashbackAmount
-          ? (o.cashbackAmount as any).toNumber()
-          : Number(o.cashbackAmount || 0);
+        const amt = Number(o.cashbackAmount ?? 0);
         return sum + amt;
       }, 0),
       orderCount: pendingCashbackOrders.length,
       orders: pendingCashbackOrders.map(o => ({
         orderName: o.shopifyOrderName,
-        amount: typeof o.cashbackAmount === 'object' && 'toNumber' in o.cashbackAmount
-          ? (o.cashbackAmount as any).toNumber()
-          : Number(o.cashbackAmount || 0),
+        amount: Number(o.cashbackAmount ?? 0),
         date: o.shopifyCreatedAt.toISOString()
       }))
     } : null;

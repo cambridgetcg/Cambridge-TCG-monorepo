@@ -27,7 +27,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const recommendationsService = new AnalyticsRecommendationsService(shop);
 
   // Get recommendations based on filter
-  let recommendations = [];
+  let recommendations: Awaited<ReturnType<AnalyticsRecommendationsService["getActionRecommendations"]>> = [];
   let pendingCount = 0;
   let appliedCount = 0;
   let dismissedCount = 0;

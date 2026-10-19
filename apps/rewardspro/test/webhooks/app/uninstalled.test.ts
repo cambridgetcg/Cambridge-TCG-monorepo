@@ -187,9 +187,9 @@ describe('App Uninstalled Webhook - Data Cleanup', () => {
       body: JSON.stringify({}),
     });
 
-    // Should still return 200 (acknowledge webhook)
+    // 5xx so Shopify redelivers: the erasure is atomic, so a retry is safe
     const response = await action({ request, params: {}, context: {} });
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(500);
   });
 });
 
@@ -213,8 +213,8 @@ describe('App Uninstalled Webhook - Fallback Session Cleanup', () => {
       where: { shop: TEST_SHOP },
     });
 
-    // Should still return success
-    expect(response.status).toBe(200);
+    // ...and still ask Shopify to redeliver for the full cleanup
+    expect(response.status).toBe(500);
   });
 
   it('should not attempt session deletion if session is null', async () => {
@@ -250,7 +250,7 @@ describe('App Uninstalled Webhook - Fallback Session Cleanup', () => {
 
     // Should not throw even if fallback fails
     const response = await action({ request, params: {}, context: {} });
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(500);
   });
 });
 

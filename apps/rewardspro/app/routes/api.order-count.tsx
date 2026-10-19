@@ -1,12 +1,11 @@
 /**
  * API Endpoint for Order Count
- * Uses DirectDataAPI strategy which is proven to work
  */
 
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import { countOrdersDirectDataAPI, countOrdersWithFallback } from "../utils/order-count-strategies";
+import { countOrdersInRange } from "../utils/order-count.server";
 import prisma from "../db.server";
 import { PRICING_PLANS } from "../constants/pricing-contract";
 
@@ -59,22 +58,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log(`[API OrderCount] Counting orders for ${shop} - ${getCurrentMonthName()} ${year}`);
     console.log(`[API OrderCount] Date range: ${startOfMonth.toISOString()} to ${endOfMonth.toISOString()}`);
 
-    let orderCount = 0;
-    let strategy = "unknown";
-
-    try {
-      // Try DirectDataAPI first (since it's working in V2)
-      orderCount = await countOrdersDirectDataAPI(shop, startOfMonth, endOfMonth);
-      strategy = "DirectDataAPI";
-      console.log(`[API OrderCount] DirectDataAPI succeeded: ${orderCount} orders`);
-    } catch (error) {
-      console.log("[API OrderCount] DirectDataAPI failed, trying fallback strategies");
-
-      // Fall back to multiple strategies
-      const result = await countOrdersWithFallback(shop, startOfMonth, endOfMonth);
-      orderCount = result.count;
-      strategy = result.strategy;
-    }
+    const orderCount = await countOrdersInRange(shop, startOfMonth, endOfMonth);
 
     // Calculate projected orders
     const projectedOrders = calculateProjectedOrders(orderCount);
@@ -107,7 +91,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       currentMonth: getCurrentMonthName(),
       year,
       month: month + 1, // 1-indexed for display
-      strategy,
       dateRange: {
         start: startOfMonth.toISOString(),
         end: endOfMonth.toISOString()

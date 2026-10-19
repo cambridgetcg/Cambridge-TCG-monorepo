@@ -41,15 +41,16 @@ describe("advisory-only plan capacities", () => {
   it("never locks or refuses email because of plan capacity", () => {
     const usageSource = read("services/email-usage-control.server.ts");
     const providerSource = read("services/email-provider.server.ts");
+    const marketingSource = read("services/marketing-email.server.ts");
 
     expect(usageSource).not.toContain("allowed: false");
     expect(usageSource).not.toContain("isLocked: true");
     expect(usageSource).not.toContain("upgradeRequired: true");
     expect(providerSource).not.toContain("if (!usageCheck.allowed)");
     expect(providerSource).toContain("await reportEmailCapacity(shop, 1)");
-    expect(providerSource).toContain(
-      "await reportEmailCapacity(shop, recipientCount)",
-    );
+    // Marketing sends report capacity for the whole send and never refuse on it
+    expect(marketingSource).toContain("await checkEmailLimit(shop, customers.length)");
+    expect(marketingSource).not.toContain(".allowed");
   });
 
   it("retains the Corporate gate for white-label controls", () => {

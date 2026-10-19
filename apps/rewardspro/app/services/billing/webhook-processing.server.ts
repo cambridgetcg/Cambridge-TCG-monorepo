@@ -235,7 +235,7 @@ async function logWebhookAction(
         rejectionReason: action.startsWith("REJECTED_")
           ? action.replace("REJECTED_", "")
           : null,
-        metadata: metadata || null,
+        metadata: metadata ?? undefined,
       },
     });
   } catch (error) {

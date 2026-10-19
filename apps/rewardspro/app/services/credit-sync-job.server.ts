@@ -77,7 +77,6 @@ export async function startCreditSyncJob(
   const totalCustomers = await prisma.customer.count({
     where: {
       shop,
-      shopifyCustomerId: { not: null }
     }
   });
 
@@ -197,7 +196,6 @@ export async function processCreditSyncBatch(
     const customers = await prisma.customer.findMany({
       where: {
         shop,
-        shopifyCustomerId: { not: null },
         ...(job.lastCursor ? { id: { gt: job.lastCursor } } : {})
       },
       orderBy: { id: 'asc' },
@@ -330,7 +328,6 @@ export async function processCreditSyncBatch(
     const remainingCount = await prisma.customer.count({
       where: {
         shop,
-        shopifyCustomerId: { not: null },
         id: { gt: lastCursor || '' }
       }
     });

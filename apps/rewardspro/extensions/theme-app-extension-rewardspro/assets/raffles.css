@@ -1600,7 +1600,7 @@
   }
 }
 
-/* ─── Improved guest state with teasers ──────────────────────────────────── */
+/* ─── Guest state: the merchant's prompt ─────────────────────────────────── */
 .rp-raffles-guest {
   padding: var(--rp-space-2xl, 32px) var(--rp-space-lg, 16px);
 }
@@ -1637,58 +1637,3 @@
 }
 .rp-raffles-guest__cta:hover { opacity: 0.88; transform: translateY(-1px); }
 
-.rp-raffles-guest__teasers {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.rp-raffles-guest__teaser-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  position: relative;
-}
-
-.rp-raffles-guest__teaser-icon {
-  font-size: 26px;
-  flex-shrink: 0;
-  filter: grayscale(0.4);
-}
-
-.rp-raffles-guest__teaser-body {
-  flex: 1;
-}
-
-.rp-raffles-guest__teaser-name {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 5px;
-  opacity: 0.85;
-}
-
-.rp-raffles-guest__teaser-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
-  opacity: 0.5;
-  flex-wrap: wrap;
-}
-
-.rp-raffles-guest__teaser-lock {
-  font-size: 16px;
-  opacity: 0.4;
-  flex-shrink: 0;
-}
-
-.rp-raffles-guest__note {
-  text-align: center;
-  font-size: 12px;
-  opacity: 0.4;
-  margin: 0;
-}

@@ -119,10 +119,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       prisma.raffle?.count({
         where: { shop, status: { in: ['ACTIVE', 'SCHEDULED'] } },
       }) ?? Promise.resolve(0),
-      // Active mystery boxes (isActive = true)
-      prisma.mysteryBox?.count({
-        where: { shop, isActive: true },
-      }) ?? Promise.resolve(0),
+      // Active mystery boxes
+      prisma.mysteryBox.count({
+        where: { shop, status: 'ACTIVE' },
+      }),
     ]);
 
     return json({

@@ -1,46 +1,25 @@
 /**
  * HTTPS Webhook Handler: customers/update
  * 
- * This route handles customers/update webhooks delivered via HTTPS.
- * It's used for development/testing. Production uses EventBridge.
+ * Subscribed in shopify.app.toml. Shopify signs the delivery with the app's
+ * client secret, which authenticate.webhook verifies.
  */
 
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { handleCustomerUpdate, type ShopifyCustomerWebhook } from "../services/webhook-customer-sync.server";
-import { verifyWebhookHMAC } from "../utils/webhook-validation.server";
+import { authenticate } from "../shopify.server";
 import { invalidateShopCache } from "~/utils/analytics-cache.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   console.log("[Webhook] Received customers/update webhook");
   
+  // Throws a 401 Response for a delivery that Shopify did not sign
+  const { shop: shopDomain, payload: body } = await authenticate.webhook(request);
+  const payload = body as ShopifyCustomerWebhook;
+
   try {
-    // Get raw body for HMAC verification
-    const rawBody = await request.text();
-    
-    // Verify HMAC signature
-    const isValid = await verifyWebhookHMAC(request, rawBody);
-    if (!isValid) {
-      console.error("[Webhook] Invalid HMAC signature");
-      return new Response("Unauthorized", { status: 401 });
-    }
-    
-    // Parse webhook payload
-    const payload: ShopifyCustomerWebhook = JSON.parse(rawBody);
-    
-    // Get shop domain from headers
-    const shopDomain = request.headers.get("X-Shopify-Shop-Domain");
-    const webhookId = request.headers.get("X-Shopify-Webhook-Id");
-    const apiVersion = request.headers.get("X-Shopify-API-Version");
-    
-    if (!shopDomain) {
-      console.error("[Webhook] Missing shop domain header");
-      return new Response("Bad Request", { status: 400 });
-    }
-    
     console.log(`[Webhook] Processing customer update for shop: ${shopDomain}`);
-    console.log(`[Webhook] Webhook ID: ${webhookId}, API Version: ${apiVersion}`);
-    console.log(`[Webhook] Customer: ${payload.email} (ID: ${payload.id})`);
-    
+
     // Process the webhook using our sync service
     const result = await handleCustomerUpdate(payload, shopDomain);
     

@@ -116,7 +116,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     emailSettings,
     customDomain,
     shopSettings,
-    domains,
+    // sendgridDnsRecords is JSON written by services/sendgrid.server.ts
+    domains: domains.map((domain) => ({
+      ...domain,
+      sendgridDnsRecords: domain.sendgridDnsRecords as SendGridDomain["sendgridDnsRecords"],
+    })),
     sendgridConfigured,
     marketingModeInfo,
     emailUsageStats,
@@ -1025,12 +1029,11 @@ export default function EmailSettings() {
                 </Text>
 
                 <BlockStack gap="300">
-                  <Checkbox
-                    label="Include unsubscribe link"
-                    checked={formValues.includeUnsubscribe}
-                    onChange={handleChange("includeUnsubscribe")}
-                    helpText="Required by CAN-SPAM Act"
-                  />
+                  <Text as="p" variant="bodyMd">
+                    Every marketing email carries an unsubscribe link and one-click List-Unsubscribe
+                    headers, and goes only to customers who subscribed to email marketing in Shopify.
+                    This cannot be turned off.
+                  </Text>
 
                   <Checkbox
                     label="Add physical address"

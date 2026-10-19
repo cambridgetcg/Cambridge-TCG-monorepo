@@ -1,32 +1,33 @@
 /**
  * Database Connection Utility
  *
- * Provides lazy initialization of Prisma client for CLI tools.
- * Uses Aurora Data API adapter (same as the app) instead of direct PrismaClient.
+ * Provides lazy initialization of Prisma client for CLI tools, using the same
+ * connection setup as the app (app/db.server.ts: DATABASE_URL, verified TLS).
  */
 
-import { createDataAPIPrismaClient } from '../../app/utils/prisma-data-api-adapter';
+import type { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../../app/db.server';
 
 // Singleton instance
-let prismaInstance: ReturnType<typeof createDataAPIPrismaClient> | null = null;
+let prismaInstance: PrismaClient | null = null;
 
 export interface DbConfig {
   verbose?: boolean;
 }
 
 /**
- * Initialize or return existing Prisma client via Data API
+ * Initialize or return existing Prisma client
  */
-export function getDb(config?: DbConfig): ReturnType<typeof createDataAPIPrismaClient> {
+export function getDb(config?: DbConfig): PrismaClient {
   if (prismaInstance) {
     return prismaInstance;
   }
 
   if (config?.verbose) {
-    console.log('[DB] Creating Data API Prisma client...');
+    console.log('[DB] Creating Prisma client...');
   }
 
-  prismaInstance = createDataAPIPrismaClient();
+  prismaInstance = createPrismaClient();
   return prismaInstance;
 }
 
@@ -35,15 +36,14 @@ export function getDb(config?: DbConfig): ReturnType<typeof createDataAPIPrismaC
  * Should be called when CLI exits
  */
 export async function disconnectDb(): Promise<void> {
-  // Data API client doesn't maintain persistent connections,
-  // but we clear the singleton for clean state
+  await prismaInstance?.$disconnect();
   prismaInstance = null;
 }
 
 /**
  * Check if database is connected and accessible
  */
-export async function checkDbConnection(db?: ReturnType<typeof createDataAPIPrismaClient>): Promise<{
+export async function checkDbConnection(db?: PrismaClient): Promise<{
   connected: boolean;
   latencyMs: number;
   error?: string;
@@ -64,11 +64,11 @@ export async function checkDbConnection(db?: ReturnType<typeof createDataAPIPris
       connected: true,
       latencyMs: Date.now() - startTime,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       connected: false,
       latencyMs: Date.now() - startTime,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }

@@ -19,10 +19,16 @@
  * - points_milestone: Points threshold reached
  * - welcome / customer_create: New customer joins
  * - And all rewards engagement triggers (raffle, mystery box, etc.)
+ *
+ * Automation emails are merchant-written marketing, so they are sent through
+ * services/marketing-email.server.ts: only to customers who consent, with an
+ * unsubscribe link and headers. A shopper without consent is skipped.
  */
 
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
-import { sendTransactionalEmail } from "./email-provider.server";
+import { jsonObject } from "~/utils/json-object";
+import { sendMarketingEmail, type MarketingRecipient } from "./marketing-email.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 
 // ============================================
@@ -42,7 +48,7 @@ export interface TriggerEvent {
     customerId?: string;
   };
   /** Optional event-specific data for condition evaluation */
-  data?: Record<string, unknown>;
+  data?: Prisma.InputJsonObject;
 }
 
 interface AutomationMatch {
@@ -50,8 +56,9 @@ interface AutomationMatch {
   name: string;
   templateId: string;
   delayMinutes: number;
-  conditions: Record<string, unknown>;
+  conditions: Prisma.JsonValue;
 }
+
 
 export interface TriggerResult {
   processed: number;
@@ -120,7 +127,7 @@ export async function processAutomationTrigger(
 
     for (const automation of automations) {
       result.processed++;
-      const conditions = (automation.conditions as Record<string, unknown>) || {};
+      const conditions = jsonObject(automation.conditions);
 
       try {
         // Evaluate conditions
@@ -162,11 +169,15 @@ export async function processAutomationTrigger(
         }
 
         // Immediate execution
-        await executeAutomationAction(event, automation);
+        const outcome = await executeAutomationAction(event, automation);
+        if (outcome === "skipped") {
+          result.skipped++;
+          continue;
+        }
         result.sent++;
 
         console.log(
-          `[AutomationTrigger] Executed automation ${automation.id} (${automation.name}) for ${event.customer.email}`
+          `[AutomationTrigger] Executed automation ${automation.id} (${automation.name})`
         );
       } catch (error: any) {
         result.errors.push(`Automation ${automation.id}: ${error.message}`);
@@ -193,7 +204,7 @@ export async function processAutomationTrigger(
  * Returns true if all conditions are met (or no conditions specified).
  */
 function evaluateConditions(
-  conditions: Record<string, unknown>,
+  conditions: Prisma.JsonObject,
   event: TriggerEvent
 ): boolean {
   // Tier filter: only trigger for a specific tier
@@ -219,21 +230,38 @@ function evaluateConditions(
 // ACTION EXECUTION
 // ============================================
 
+/** Send one automation email as marketing; "skipped" when the shopper did not consent. */
+async function sendAutomationEmail(
+  shop: string,
+  recipient: MarketingRecipient,
+  email: { subject: string; html: string; automationId: string; trigger: string }
+): Promise<"sent" | "skipped"> {
+  const result = await sendMarketingEmail(shop, [recipient], {
+    subject: email.subject,
+    html: email.html,
+    categories: ["automation", email.automationId],
+    customArgs: { automation_id: email.automationId, trigger: email.trigger, shop },
+  });
+  if (result.sent > 0) return "sent";
+  if (result.failed > 0) throw new Error(result.errors[0] || "Email send failed");
+  return "skipped";
+}
+
 /**
  * Execute the automation's configured action (currently: send email).
  */
 async function executeAutomationAction(
   event: TriggerEvent,
   automation: AutomationMatch
-): Promise<void> {
-  const conditions = automation.conditions || {};
-  const actionType = (conditions.actionType as string) || "send_email";
+): Promise<"sent" | "skipped"> {
+  const conditions = jsonObject(automation.conditions);
+  const actionType = typeof conditions.actionType === "string" ? conditions.actionType : "send_email";
 
   if (actionType !== "send_email") {
     console.log(
       `[AutomationTrigger] Action type "${actionType}" not yet implemented for automation ${automation.id}`
     );
-    return;
+    return "skipped";
   }
 
   // Fetch template
@@ -254,27 +282,12 @@ async function executeAutomationAction(
   // Sanitize HTML to strip dangerous tags/attributes
   const htmlContent = sanitizeEmailHtml(rawHtmlContent);
 
-  // Resolve recipient name
-  const recipientName = [event.customer.firstName, event.customer.lastName]
-    .filter(Boolean)
-    .join(" ") || undefined;
-
-  // Send via unified email provider (routes to SendGrid or Klaviyo based on shop config)
-  const result = await sendTransactionalEmail(event.shop, {
-    to: { email: event.customer.email, name: recipientName },
-    subject: template.subject || `Update from your store`,
-    html: htmlContent,
-    categories: ["automation", automation.id],
-    customArgs: {
-      automation_id: automation.id,
-      trigger: event.type,
-      shop: event.shop,
-    },
-  });
-
-  if (!result.success) {
-    throw new Error(result.error || "Email send failed");
-  }
+  const outcome = await sendAutomationEmail(
+    event.shop,
+    event.customer.customerId ? { customerId: event.customer.customerId } : { email: event.customer.email },
+    { subject: template.subject || `Update from your store`, html: htmlContent, automationId: automation.id, trigger: event.type }
+  );
+  if (outcome === "skipped") return outcome;
 
   // Update automation metrics
   try {
@@ -289,6 +302,7 @@ async function executeAutomationAction(
     // Non-critical — don't fail the send if metrics update fails
     console.error(`[AutomationTrigger] Failed to update metrics for automation ${automation.id}`);
   }
+  return "sent";
 }
 
 // ============================================
@@ -344,26 +358,17 @@ export async function processDelayedAutomations(): Promise<{
           throw new Error(`Template ${item.templateId} has no HTML content`);
         }
 
-        const htmlContent = sanitizeEmailHtml(rawHtmlContent);
-        const recipientName = [item.recipientFirstName, item.recipientLastName]
-          .filter(Boolean)
-          .join(" ") || undefined;
-
-        // Send via unified email provider
-        const sendResult = await sendTransactionalEmail(item.shop, {
-          to: { email: item.recipientEmail, name: recipientName },
-          subject: template.subject || "Update from your store",
-          html: htmlContent,
-          categories: ["automation", item.automationId],
-          customArgs: {
-            automation_id: item.automationId,
-            trigger: item.triggerType,
-            shop: item.shop,
-          },
-        });
-
-        if (!sendResult.success) {
-          throw new Error(sendResult.error || "Email send failed");
+        const outcome = await sendAutomationEmail(
+          item.shop,
+          { email: item.recipientEmail },
+          { subject: template.subject || "Update from your store", html: sanitizeEmailHtml(rawHtmlContent), automationId: item.automationId, trigger: item.triggerType }
+        );
+        if (outcome === "skipped") {
+          await prisma.pendingAutomation.update({
+            where: { id: item.id },
+            data: { status: "cancelled", error: "No marketing consent" },
+          });
+          continue;
         }
 
         // Mark as sent

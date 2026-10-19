@@ -126,16 +126,6 @@ vi.mock('~/components/analytics/TierPerformanceChart', () => ({
   TierPerformanceChart: () => null,
 }));
 
-vi.mock('~/components/analytics/ExecutiveSummary', () => ({
-  ExecutiveSummary: () => null,
-}));
-
-vi.mock('~/components/analytics/widgets', () => ({
-  InsightWidget: () => null,
-  HealthScoreWidget: () => null,
-  ComparisonWidget: () => null,
-}));
-
 // ============================================
 // IMPORTS (after mocks)
 // ============================================

@@ -468,7 +468,7 @@ async function sendAlert(message: string, details?: any): Promise<void> {
       // Update the existing alert rather than creating a new one
       await prisma.systemAlert.update({
         where: { id: existing.id },
-        data: { severity, message, details: details || {}, updatedAt: new Date() },
+        data: { severity, message, details: details || {} },
       });
     } else {
       await prisma.systemAlert.create({

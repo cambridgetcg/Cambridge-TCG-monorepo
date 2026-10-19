@@ -346,7 +346,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Soft delete by marking as archived
       await prisma.challenge.update({
         where: { id: missionId },
-        data: { status: "ARCHIVED" },
+        data: { status: "CANCELLED" },
       });
 
       return json<ActionData>({ success: true, message: "Mission archived" });

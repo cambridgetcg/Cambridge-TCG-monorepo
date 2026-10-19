@@ -10,6 +10,7 @@
  */
 
 import { db } from "~/db.server";
+import { POINTS_EARNING_TYPES, POINTS_SPENDING_TYPES } from "~/services/points-ledger.server";
 import { getCached, setCache } from "~/utils/analytics-cache.server";
 
 // Cache TTL constants
@@ -407,11 +408,11 @@ export class ComparisonService {
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
-        type: 'EARN',
+        type: { in: POINTS_EARNING_TYPES },
       },
       _sum: { amount: true },
     });
-    return result._sum.amount || 0;
+    return toNumber(result._sum.amount);
   }
 
   private async getPointsRedeemed(period: DateRange): Promise<number> {
@@ -419,11 +420,11 @@ export class ComparisonService {
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
-        type: 'REDEEM',
+        type: { in: POINTS_SPENDING_TYPES },
       },
       _sum: { amount: true },
     });
-    return Math.abs(result._sum.amount || 0);
+    return Math.abs(toNumber(result._sum.amount));
   }
 
   private async getRedemptionRate(period: DateRange): Promise<number> {
@@ -439,7 +440,7 @@ export class ComparisonService {
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
-        type: 'EARN',
+        type: 'CASHBACK_EARNED',
       },
       _sum: { amount: true },
     });
@@ -451,7 +452,7 @@ export class ComparisonService {
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
-        type: 'REDEEM',
+        type: 'ORDER_PAYMENT',
       },
       _sum: { amount: true },
     });
@@ -467,11 +468,11 @@ export class ComparisonService {
   }
 
   private async getTierUpgrades(period: DateRange): Promise<number> {
-    return (db as any).tierEvent.count({
+    return db.tierChangeLog.count({
       where: {
         shop: this.shop,
         createdAt: { gte: period.start, lte: period.end },
-        eventType: 'UPGRADE',
+        changeType: 'UPGRADE',
       },
     });
   }

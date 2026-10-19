@@ -114,7 +114,7 @@ async function loadRecalculationContext(shop: string): Promise<TierRecalculation
       select: {
         customerId: true,
         effectiveTierId: true,
-        manualOverrideExpiresAt: true,
+        manualOverrideExpiry: true,
       },
     }),
 
@@ -152,7 +152,7 @@ async function loadRecalculationContext(shop: string): Promise<TierRecalculation
   const now = new Date();
   for (const state of overrideStates) {
     // Skip expired overrides
-    if (state.manualOverrideExpiresAt && state.manualOverrideExpiresAt < now) {
+    if (state.manualOverrideExpiry && state.manualOverrideExpiry < now) {
       continue;
     }
     if (state.effectiveTierId) {
@@ -160,7 +160,7 @@ async function loadRecalculationContext(shop: string): Promise<TierRecalculation
       overridesMap.set(state.customerId, {
         tierId: state.effectiveTierId,
         tierName: tier?.name || null,
-        expiresAt: state.manualOverrideExpiresAt,
+        expiresAt: state.manualOverrideExpiry,
       });
     }
   }
@@ -530,7 +530,7 @@ async function applyTierChanges(
               nextTierId: progress.nextTierId,
               nextTierName: progress.nextTierName,
               nextTierMinSpend: progress.nextTierMinSpend,
-              amountToNextTier: progress.amountToNextTier,
+              amountToNextTier: progress.amountToNextTier ?? 0,
               isMaxTier: progress.isMaxTier,
               progressCalculatedAt: new Date(),
               lastResolvedAt: new Date(),
@@ -543,7 +543,7 @@ async function applyTierChanges(
               nextTierId: progress.nextTierId,
               nextTierName: progress.nextTierName,
               nextTierMinSpend: progress.nextTierMinSpend,
-              amountToNextTier: progress.amountToNextTier,
+              amountToNextTier: progress.amountToNextTier ?? 0,
               isMaxTier: progress.isMaxTier,
               progressCalculatedAt: new Date(),
               lastResolvedAt: new Date(),
@@ -618,7 +618,7 @@ async function updateUnchangedCustomerStates(
               nextTierId: progress.nextTierId,
               nextTierName: progress.nextTierName,
               nextTierMinSpend: progress.nextTierMinSpend,
-              amountToNextTier: progress.amountToNextTier,
+              amountToNextTier: progress.amountToNextTier ?? 0,
               isMaxTier: progress.isMaxTier,
               progressCalculatedAt: new Date(),
               lastResolvedAt: new Date(),
@@ -628,7 +628,7 @@ async function updateUnchangedCustomerStates(
               nextTierId: progress.nextTierId,
               nextTierName: progress.nextTierName,
               nextTierMinSpend: progress.nextTierMinSpend,
-              amountToNextTier: progress.amountToNextTier,
+              amountToNextTier: progress.amountToNextTier ?? 0,
               isMaxTier: progress.isMaxTier,
               progressCalculatedAt: new Date(),
               lastResolvedAt: new Date(),

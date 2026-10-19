@@ -1,6 +1,7 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import crypto from "node:crypto";
 import prisma from "../db.server";
+import { consentFromShopify, marketingConsentUpdate } from "./marketing-consent.server";
 
 /**
  * Background customer sync function for afterAuth hook
@@ -9,7 +10,7 @@ import prisma from "../db.server";
  */
 export async function syncCustomersInBackground(
   shop: string,
-  admin: AdminApiContext
+  admin: Pick<AdminApiContext, "graphql">
 ): Promise<void> {
   console.log(`[Background Sync] Starting customer sync for shop: ${shop}`);
 
@@ -42,6 +43,10 @@ export async function syncCustomersInBackground(
               displayName
               createdAt
               updatedAt
+              emailMarketingConsent {
+                marketingState
+                consentUpdatedAt
+              }
             }
           }
           pageInfo {
@@ -79,6 +84,11 @@ export async function syncCustomersInBackground(
       for (const edge of customers.edges) {
         const shopifyCustomer = edge.node;
         const shopifyId = shopifyCustomer.id.split('/').pop(); // Extract ID from gid://shopify/Customer/9224704098643
+        // Only SUBSCRIBED counts as marketing consent
+        const consent = consentFromShopify(
+          shopifyCustomer.emailMarketingConsent?.marketingState,
+          shopifyCustomer.emailMarketingConsent?.consentUpdatedAt
+        );
 
         try {
           // Check if customer already exists
@@ -96,7 +106,9 @@ export async function syncCustomersInBackground(
                 id: crypto.randomUUID(),
                 shop,
                 shopifyCustomerId: shopifyId,
-                email: shopifyCustomer.email || `customer${shopifyId}@placeholder.com`, // Fallback email if null
+                // Customer.email is required; a shopper without one is stored as "" (never a placeholder address)
+                email: shopifyCustomer.email || "",
+                ...marketingConsentUpdate(consent, null),
                 storeCredit: 0, // Default to 0
                 createdAt: new Date(shopifyCustomer.createdAt),
                 updatedAt: new Date(shopifyCustomer.updatedAt),
@@ -106,18 +118,25 @@ export async function syncCustomersInBackground(
             totalImported++;
             console.log(`[Background Sync] Imported customer ${shopifyId}`);
           } else {
-            // Update existing customer only if email has changed
-            if (shopifyCustomer.email && shopifyCustomer.email !== existingCustomer.email) {
+            // Update existing customer when its email or consent changed
+            const consentChange = marketingConsentUpdate(consent, existingCustomer);
+            const emailChanged = !!shopifyCustomer.email && shopifyCustomer.email !== existingCustomer.email;
+            const consentChanged =
+              consentChange.acceptsMarketing !== undefined &&
+              (consentChange.acceptsMarketing !== existingCustomer.acceptsMarketing ||
+                consentChange.marketingConsentUpdatedAt?.getTime() !== existingCustomer.marketingConsentUpdatedAt?.getTime());
+            if (emailChanged || consentChanged) {
               await prisma.customer.update({
                 where: { id: existingCustomer.id },
                 data: {
-                  email: shopifyCustomer.email,
+                  ...(emailChanged ? { email: shopifyCustomer.email } : {}),
+                  ...consentChange,
                   updatedAt: new Date(shopifyCustomer.updatedAt),
                 },
               });
 
               totalUpdated++;
-              console.log(`[Background Sync] Updated customer ${shopifyId} email`);
+              console.log(`[Background Sync] Updated customer ${shopifyId}`);
             }
           }
         } catch (customerError) {

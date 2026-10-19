@@ -99,7 +99,8 @@ export class MetricsService {
       db.customer.count({
         where: {
           shop,
-          lastActiveAt: {
+          // "Active" = ordered in the last 30 days
+          lastOrderDate: {
             gte: thirtyDaysAgo,
           },
         },
@@ -146,7 +147,7 @@ export class MetricsService {
     const unassignedCount = await db.customer.count({
       where: {
         shop,
-        tierId: null,
+        currentTierId: null,
       },
     });
 
@@ -177,13 +178,13 @@ export class MetricsService {
     });
 
     // Calculate metrics
-    const totalDistributed = cashbackEntries.reduce((sum, entry) => sum + entry.amount, 0);
+    const totalDistributed = cashbackEntries.reduce((sum, entry) => sum + Number(entry.amount), 0);
 
     const todayEntries = cashbackEntries.filter(
       (entry) => entry.createdAt >= todayStart
     );
 
-    const distributedToday = todayEntries.reduce((sum, entry) => sum + entry.amount, 0);
+    const distributedToday = todayEntries.reduce((sum, entry) => sum + Number(entry.amount), 0);
 
     const averageAmount =
       cashbackEntries.length > 0 ? totalDistributed / cashbackEntries.length : 0;
@@ -209,7 +210,7 @@ export class MetricsService {
       where: { shop },
       select: {
         status: true,
-        monthlyPrice: true,
+        amount: true,
         cancelledAt: true,
         createdAt: true,
       },
@@ -217,7 +218,7 @@ export class MetricsService {
 
     // Calculate MRR (Monthly Recurring Revenue)
     const activeSubscriptions = subscriptions.filter(sub => sub.status === 'ACTIVE');
-    const mrr = activeSubscriptions.reduce((sum, sub) => sum + sub.monthlyPrice, 0);
+    const mrr = activeSubscriptions.reduce((sum, sub) => sum + Number(sub.amount), 0);
 
     // Calculate churn rate (subscriptions cancelled this month / active at month start)
     const cancelledThisMonth = subscriptions.filter(
@@ -237,7 +238,7 @@ export class MetricsService {
       activeCount: activeSubscriptions.length,
       churnRate,
       cancelledThisMonth,
-      totalLifetimeValue: subscriptions.reduce((sum, sub) => sum + sub.monthlyPrice, 0),
+      totalLifetimeValue: subscriptions.reduce((sum, sub) => sum + Number(sub.amount), 0),
     };
   }
 
@@ -252,7 +253,7 @@ export class MetricsService {
       orderBy: { updatedAt: 'desc' }, // Check recently updated customers
       select: {
         id: true,
-        storeCreditBalance: true,
+        storeCredit: true,
       },
     });
 
@@ -270,36 +271,27 @@ export class MetricsService {
         where: { customerId: customer.id },
         select: {
           amount: true,
-          type: true,
         },
       });
 
-      const calculatedBalance = ledgerEntries.reduce((balance, entry) => {
-        // Credits increase balance
-        if (['CASHBACK_EARNED', 'REFUND_CREDIT', 'MANUAL_CREDIT'].includes(entry.type)) {
-          return balance + entry.amount;
-        }
-        // Debits decrease balance
-        if (['ORDER_PAYMENT', 'MANUAL_DEBIT', 'EXPIRED'].includes(entry.type)) {
-          return balance - entry.amount;
-        }
-        return balance;
-      }, 0);
+      // Ledger amounts are signed (credits positive, debits negative)
+      const calculatedBalance = ledgerEntries.reduce((balance, entry) => balance + Number(entry.amount), 0);
+      const actualBalance = Number(customer.storeCredit);
 
       // Check for discrepancy (allowing for small floating point differences)
-      if (Math.abs(calculatedBalance - customer.storeCreditBalance) > 0.01) {
+      if (Math.abs(calculatedBalance - actualBalance) > 0.01) {
         discrepancyCount++;
         discrepancies.push({
           customerId: customer.id,
           expectedBalance: calculatedBalance,
-          actualBalance: customer.storeCreditBalance,
+          actualBalance,
         });
 
         // Log each discrepancy
         Logger.business.ledgerDiscrepancy(
           customer.id,
           calculatedBalance,
-          customer.storeCreditBalance
+          actualBalance
         );
       }
     }
@@ -358,17 +350,14 @@ export class MetricsService {
    * Performance metrics collection
    */
   static async collectPerformanceMetrics() {
-    // Get database connection pool stats (if available)
-    // Note: Aurora Data API doesn't have connection pools, but we can track query performance
-
-    // Get recent query performance
-    const recentQueries = await db.$queryRaw`
+    // Get recent query performance (PostgreSQL 13+ column names)
+    const recentQueries = await db.$queryRaw<Array<{ query: string; duration: number }>>`
       SELECT
         query,
-        total_time as duration
+        total_exec_time as duration
       FROM pg_stat_statements
       WHERE query NOT LIKE '%pg_stat_statements%'
-      ORDER BY mean_time DESC
+      ORDER BY mean_exec_time DESC
       LIMIT 10
     `.catch(() => []); // May not have access to pg_stat_statements
 

@@ -316,59 +316,28 @@ async function deliverPointsReward(
 }
 
 /**
- * Deliver store credit reward.
+ * Deliver store credit reward: not available.
  *
- * The ledger insert and the customer balance increment are executed in a
- * single Prisma transaction so a failure on either side rolls the other
- * back — we never want an unbacked ledger row (credit "awarded" but
- * balance not moved) or a balance change with no audit trail.
- *
- * The balance increment uses `{ increment: N }` which Prisma compiles to
- * an atomic `UPDATE storeCredit = storeCredit + N`, so concurrent claims
- * from multiple challenges on the same customer add correctly without
- * lost updates. The returned row (`.storeCredit`) is the post-commit
- * value for *this* transaction; we surface it as `newBalance` instead of
- * reading with a separate query that could observe intervening writes.
+ * The previous implementation only raised the local balance and wrote a
+ * ledger row (with an invalid ledger type and no balance, so it never
+ * succeeded on a real database). It never issued Shopify store credit, so a
+ * successful claim would have shown the shopper credit they could not spend
+ * at checkout. Store credit must go through Shopify (as cashback does)
+ * before this reward type can be offered.
  */
 async function deliverStoreCreditReward(
-  shop: string,
+  _shop: string,
   customerId: string,
   challengeId: string,
-  challengeName: string,
-  amountInCents: number
+  _challengeName: string,
+  _amountInCents: number
 ): Promise<ClaimResult> {
-  const amountInDollars = amountInCents / 100;
-  console.log(
-    `${LOG_PREFIX} Delivering $${amountInDollars} store credit to customer ${customerId}`
+  console.warn(
+    `${LOG_PREFIX} Store credit reward requested for challenge ${challengeId} by customer ${customerId}; not available`
   );
-
-  const { ledgerEntry, updated } = await prisma.$transaction(async (tx) => {
-    const ledgerEntry = await tx.storeCreditLedger.create({
-      data: {
-        shop,
-        customerId,
-        type: "CHALLENGE_REWARD",
-        amount: amountInDollars,
-        description: `Challenge reward: ${challengeName}`,
-        metadata: { challengeId },
-      },
-    });
-
-    const updated = await tx.customer.update({
-      where: { id: customerId },
-      data: { storeCredit: { increment: amountInDollars } },
-      select: { storeCredit: true },
-    });
-
-    return { ledgerEntry, updated };
-  });
-
   return {
-    success: true,
-    rewardValue: amountInDollars,
-    deliveryId: ledgerEntry.id,
-    newBalance: Number(updated.storeCredit),
-    message: `Earned $${amountInDollars.toFixed(2)} store credit`,
+    success: false,
+    error: "Store credit rewards are not available yet. Please contact the store.",
   };
 }
 

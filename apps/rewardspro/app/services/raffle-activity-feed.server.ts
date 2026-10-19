@@ -38,6 +38,7 @@ export interface ActivityFeedItem {
   iconId: string;
 }
 
+// Type aliases (not interfaces) so activity data is assignable to Prisma JSON input
 export type ActivityData =
   | EntryPurchasedData
   | InstantWinData
@@ -46,38 +47,38 @@ export type ActivityData =
   | EarlyBirdData
   | LuckyNumberData;
 
-export interface EntryPurchasedData {
+export type EntryPurchasedData = {
   entriesCount: number;
   raffleName: string;
-}
+};
 
-export interface InstantWinData {
+export type InstantWinData = {
   prizeName: string;
   rarity: string;
-}
+};
 
-export interface GrandWinnerData {
+export type GrandWinnerData = {
   prizeName: string;
   position: number;
   raffleName: string;
-}
+};
 
-export interface StreakMilestoneData {
+export type StreakMilestoneData = {
   streakDays: number;
   /** @deprecated Use streakIconId instead */
   streakEmoji: string;
   streakIconId: string | null;
-}
+};
 
-export interface EarlyBirdData {
+export type EarlyBirdData = {
   entryNumber: number;
   bonusPercent: number;
-}
+};
 
-export interface LuckyNumberData {
+export type LuckyNumberData = {
   luckyNumber: number;
   bonusEntries: number;
-}
+};
 
 // Activity type configuration
 const ACTIVITY_CONFIG: Record<RaffleActivityType, { iconId: string; template: string }> = {
@@ -195,7 +196,7 @@ export async function logActivity(
       activityType,
       customerId,
       displayName: finalDisplayName,
-      data: data as unknown as Record<string, unknown>,
+      data,
       isPublic: true,
       expiresAt,
     },

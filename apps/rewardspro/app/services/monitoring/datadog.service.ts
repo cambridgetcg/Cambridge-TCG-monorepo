@@ -38,10 +38,9 @@ export function initDatadog() {
       headers: ['x-correlation-id', 'x-shopify-shop-domain'], // Capture these headers
     });
 
-    // Instrument AWS SDK for Aurora Data API
-    tracer.use('aws-sdk', {
-      service: 'rewardspro-aws',
-      splitByAwsService: true, // Split services (RDS, Secrets Manager)
+    // Instrument Postgres (Prisma's pg driver adapter)
+    tracer.use('pg', {
+      service: 'rewardspro-postgres',
     });
   }
 }

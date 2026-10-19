@@ -9,6 +9,7 @@
  */
 
 import { db } from "~/db.server";
+import { POINTS_EARNING_TYPES, POINTS_SPENDING_TYPES } from "~/services/points-ledger.server";
 import { getCached, setCache } from "~/utils/analytics-cache.server";
 import { APP_ROUTES } from "~/navigation/routes";
 
@@ -949,7 +950,7 @@ export class InsightEngine {
         where: {
           shop: this.shop,
           createdAt: { gte: thirtyDaysAgo },
-          type: 'EARN',
+          type: { in: POINTS_EARNING_TYPES },
         },
         _sum: { amount: true },
       }),
@@ -957,7 +958,7 @@ export class InsightEngine {
         where: {
           shop: this.shop,
           createdAt: { gte: thirtyDaysAgo },
-          type: 'REDEEM',
+          type: { in: POINTS_SPENDING_TYPES },
         },
         _sum: { amount: true },
       }),
@@ -968,9 +969,9 @@ export class InsightEngine {
     ]);
 
     return {
-      earned: earned._sum.amount || 0,
-      redeemed: Math.abs(redeemed._sum.amount || 0),
-      outstanding: outstanding._sum.pointsBalance || 0,
+      earned: toNumber(earned._sum.amount),
+      redeemed: Math.abs(toNumber(redeemed._sum.amount)),
+      outstanding: toNumber(outstanding._sum.pointsBalance),
     };
   }
 
@@ -1107,7 +1108,7 @@ export class InsightEngine {
     // DATA API COMPATIBLE: groupBy is not supported, use findMany and count distinct in memory
     const [activeRaffles, totalCustomers, activeCustomers, newMembers, pointsActivityEntries] = await Promise.all([
       db.raffle.count({
-        where: { shop: this.shop, status: 'active' },
+        where: { shop: this.shop, status: 'ACTIVE' },
       }),
       db.customer.count({ where: { shop: this.shop } }),
       db.customer.count({
@@ -1298,14 +1299,14 @@ export class InsightEngine {
           break;
         case 'points_earned':
           const points = await db.pointsLedger.aggregate({
-            where: { shop: this.shop, createdAt: { gte: date, lt: nextDate }, type: 'EARN' },
+            where: { shop: this.shop, createdAt: { gte: date, lt: nextDate }, type: { in: POINTS_EARNING_TYPES } },
             _sum: { amount: true },
           });
-          value = points._sum.amount || 0;
+          value = toNumber(points._sum.amount);
           break;
         case 'redemptions':
           value = await db.pointsLedger.count({
-            where: { shop: this.shop, createdAt: { gte: date, lt: nextDate }, type: 'REDEEM' },
+            where: { shop: this.shop, createdAt: { gte: date, lt: nextDate }, type: { in: POINTS_SPENDING_TYPES } },
           });
           break;
       }

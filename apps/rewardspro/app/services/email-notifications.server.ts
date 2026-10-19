@@ -16,8 +16,8 @@ import * as sendgrid from "./sendgrid.server";
 import {
   sendWelcomeEmailUnified,
   sendTierUpgradeEmailUnified,
-  sendBatchMarketingEmails,
 } from "./email-provider.server";
+import { sendMarketingEmail } from "./marketing-email.server";
 import { checkEmailLimit, recordEmailSent } from "./email-usage-control.server";
 import { sanitizeEmailHtml } from "~/utils/html-sanitizer";
 import {
@@ -356,23 +356,25 @@ export async function sendTierDowngradeEmailNotification(
 
 /**
  * Send campaign emails to recipients
- * Called from campaign send action
+ * Called from campaign send action and the scheduled-campaigns cron.
+ * Marketing email: services/marketing-email.server.ts sends only to
+ * customers who consent, with an unsubscribe link and headers.
  *
  * @param shop - Shop domain
  * @param campaignId - Campaign ID
- * @param recipients - List of recipients
+ * @param recipients - Customers to send to
  */
 export async function sendCampaignEmails(
   shop: string,
   campaignId: string,
-  recipients: Array<{ email: string; name?: string; customerId?: string }>
-): Promise<{ sent: number; failed: number; errors: string[] }> {
+  recipients: Array<{ customerId: string }>
+): Promise<{ sent: number; skipped: number; failed: number; errors: string[] }> {
   console.log(`[EmailNotifications] Sending campaign ${campaignId} to ${recipients.length} recipients`);
 
   // Check if email is enabled
   if (!(await isEmailEnabled(shop))) {
     console.log(`[EmailNotifications] Email not enabled, skipping campaign send`);
-    return { sent: 0, failed: 0, errors: ["Email not enabled"] };
+    return { sent: 0, skipped: 0, failed: 0, errors: ["Email not enabled"] };
   }
 
   // Get campaign details
@@ -381,7 +383,7 @@ export async function sendCampaignEmails(
   });
 
   if (!campaign) {
-    return { sent: 0, failed: recipients.length, errors: ["Campaign not found"] };
+    return { sent: 0, skipped: 0, failed: recipients.length, errors: ["Campaign not found"] };
   }
 
   // Get email content from template
@@ -392,34 +394,18 @@ export async function sendCampaignEmails(
   const rawHtmlContent = template?.htmlContent || "";
 
   if (!rawHtmlContent) {
-    return { sent: 0, failed: recipients.length, errors: ["No email content - template not found or has no content"] };
+    return { sent: 0, skipped: 0, failed: recipients.length, errors: ["No email content - template not found or has no content"] };
   }
 
-  // Sanitize HTML to strip dangerous tags/attributes (XSS prevention)
-  const htmlContent = sanitizeEmailHtml(rawHtmlContent);
-
-  // Filter recipients with valid emails
-  const validRecipients = recipients.filter((r) => r.email && r.email.includes("@"));
-
-  if (validRecipients.length === 0) {
-    return { sent: 0, failed: 0, errors: ["No valid recipients"] };
-  }
-
-  // Route through unified email provider (handles SendGrid vs Klaviyo routing)
-  const batchResult = await sendBatchMarketingEmails(shop, {
-    recipients: validRecipients.map((r) => ({ email: r.email, name: r.name })),
+  const result = await sendMarketingEmail(shop, recipients, {
     subject: campaign.subject || "Update from us",
-    html: htmlContent,
+    // Sanitize HTML to strip dangerous tags/attributes (XSS prevention)
+    html: sanitizeEmailHtml(rawHtmlContent),
     categories: ["campaign", campaignId],
+    customArgs: { campaign_id: campaignId, shop },
   });
 
-  const result = {
-    sent: batchResult.success ? validRecipients.length : 0,
-    failed: batchResult.success ? 0 : validRecipients.length,
-    errors: batchResult.error ? [batchResult.error] : [] as string[],
-  };
-
-  // Log campaign send event
+  // Log campaign send event (counts only)
   try {
     await prisma.emailEvent.create({
       data: {
@@ -427,11 +413,12 @@ export async function sendCampaignEmails(
         shop,
         eventType: "CAMPAIGN",
         campaignId,
-        customerEmail: recipients[0]?.email || "campaign@batch",
+        customerEmail: "campaign@batch",
         metadata: {
           sent: result.sent,
+          skipped: result.skipped,
           failed: result.failed,
-          totalRecipients: validRecipients.length,
+          totalRecipients: recipients.length,
           status: result.sent > 0 ? "SENT" : "FAILED",
         },
         createdAt: new Date(),
@@ -441,11 +428,7 @@ export async function sendCampaignEmails(
     console.log(`[EmailNotifications] Could not log campaign event`);
   }
 
-  return {
-    sent: result.sent,
-    failed: result.failed,
-    errors: result.errors,
-  };
+  return result;
 }
 
 // ============================================

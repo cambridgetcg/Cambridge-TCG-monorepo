@@ -15,12 +15,18 @@ import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
+import { CHANCE_MECHANICS_PAUSED, CHANCE_MECHANICS_PAUSED_CODE } from "~/constants/chance-mechanics";
 import * as crypto from "node:crypto";
 
 // Use loader for GET requests (Vercel sends GET, not POST)
 export async function loader({ request }: LoaderFunctionArgs) {
   if (!verifyCronAuth(request)) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Nothing is opened or closed while chance mechanics are paused (constants/chance-mechanics.ts)
+  if (CHANCE_MECHANICS_PAUSED) {
+    return json({ success: true, skipped: true, reason: CHANCE_MECHANICS_PAUSED_CODE });
   }
 
   const startTime = Date.now();

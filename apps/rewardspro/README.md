@@ -9,8 +9,8 @@ agreements retain their records, cancellation, refund and support paths; this
 decision does not rewrite their entitlements or cancel them automatically.
 
 
-A loyalty and rewards platform built with Remix, TypeScript, Prisma, and Aurora
-Serverless. Shopify is the production commerce connector today; the platform is
+A loyalty and rewards platform built with Remix, TypeScript, Prisma, and Postgres
+(Supabase). Shopify is the production commerce connector today; the platform is
 being separated from Shopify-specific authentication, billing, delivery, and
 storefront surfaces so additional connectors can follow.
 
@@ -56,7 +56,8 @@ Press `P` to open your app in the Shopify admin.
 | [docs/README.md](./docs/README.md) | Complete documentation index |
 | [docs/01-architecture/tier-system.md](./docs/01-architecture/tier-system.md) | Tier system architecture |
 | [docs/02-development/typescript-guide.md](./docs/02-development/typescript-guide.md) | TypeScript patterns |
-| [docs/03-deployment/deployment-guide.md](./docs/03-deployment/deployment-guide.md) | Deployment guide |
+| [DEPLOY.md](./DEPLOY.md) | Deployment guide |
+| [docs/DATABASE.md](./docs/DATABASE.md) | Database: connections, TLS, migrations, deploy order |
 | [docs/05-security/README.md](./docs/05-security/README.md) | Security documentation |
 
 ## Tech Stack
@@ -65,7 +66,7 @@ Press `P` to open your app in the Shopify admin.
 |-------|------------|
 | **Framework** | Remix |
 | **Language** | TypeScript |
-| **Database** | PostgreSQL (Aurora Serverless) |
+| **Database** | PostgreSQL 17 (Supabase) |
 | **ORM** | Prisma |
 | **Hosting** | Vercel |
 | **UI** | Shopify Polaris |
@@ -87,7 +88,7 @@ app/
 docs/
 ├── 01-architecture/  # System design
 ├── 02-development/   # Development patterns
-├── 03-deployment/    # Deployment guides
+├── DATABASE.md       # Database: connections, TLS, migrations
 ├── 04-ui-components/ # UI patterns
 ├── 05-security/      # Security documentation
 ├── 06-troubleshooting/ # Debug guides
@@ -113,15 +114,18 @@ const verified = await verifyHmac(rawBody, hmacHeader, secret);
 
 ## Deployment
 
-- **Deployed runtime**: Aurora Data API through the legacy compatibility client
-  or the Prisma driver adapter, selected by `USE_PRISMA_DRIVER_ADAPTER`
-- **Public health**: `/api/health` proves process liveness only
-- **Operator readiness**: `/api/operator/readiness` performs one authenticated,
-  read-only database probe using the exact `CRON_SECRET` Bearer credential
-- **Local**: uses the same Data API clients when their Aurora and AWS settings
-  are configured
+- **Database**: Postgres on Supabase through the Supavisor pooler, with TLS
+  verified against the bundled Supabase root CA; migrations are an explicit
+  deploy step. See [docs/DATABASE.md](./docs/DATABASE.md).
+- **Public health**: `/api/health` answers 200 only when a bounded `SELECT 1`
+  succeeds, 503 otherwise
+- **Operator readiness**: `/api/operator/readiness` performs the same
+  read-only database probe, authenticated with the exact `CRON_SECRET` Bearer
+  credential
+- **Local**: Postgres 17 on loopback; `test:postgres` runs the integration
+  suites against it
 
-See [Deployment Guide](./docs/03-deployment/deployment-guide.md) for details.
+See the [Deployment Guide](./DEPLOY.md) for details.
 
 ## License
 

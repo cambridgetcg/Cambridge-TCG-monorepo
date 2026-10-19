@@ -418,7 +418,7 @@ We are writing to inform you of a security incident that may have affected your 
 - [Specific action 2]
 
 **For More Information:**
-Contact: security@rewardspro.app
+Contact: contact@rewardspro.io
 Reference: [INCIDENT_ID]
 
 Sincerely,

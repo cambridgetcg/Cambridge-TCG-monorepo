@@ -7,20 +7,19 @@
  * Uses database unique constraint on jobName to ensure only one
  * instance can hold the lock at a time.
  *
- * NOTE: For production, enable DynamoDB locks by setting USE_DYNAMODB_LOCKS=true.
- * DynamoDB provides true atomic conditional writes without race conditions.
- * See: app/services/dynamodb-cron-lock.server.ts
+ * Contention is the only "not acquired" outcome. Any other failure (database
+ * unreachable, missing table) throws, so the cron route answers 5xx and the
+ * outage is visible instead of being reported as a skipped run.
  *
  * Features:
  * - Automatic expiry for crashed instances
  * - Safe cleanup of expired locks
  * - Instance tracking for debugging
- * - DynamoDB fallback for better reliability
  */
 
+import { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import * as crypto from "node:crypto";
-import { getAWSConfig } from "~/utils/aws-clients.server";
 
 export interface CronLockResult {
   acquired: boolean;
@@ -33,12 +32,17 @@ export interface CronLockResult {
   };
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
 /**
  * Attempt to acquire a distributed lock for a cron job
  *
  * @param jobName - Unique identifier for the cron job (e.g., "tier-maintenance")
  * @param ttlMinutes - Time-to-live in minutes before lock auto-expires (default: 10)
  * @returns Object indicating if lock was acquired, with lockId if successful
+ * @throws if the lock table cannot be used; never reports that as contention
  *
  * @example
  * const lock = await acquireCronLock('tier-maintenance', 10);
@@ -87,53 +91,49 @@ export async function acquireCronLock(
       acquired: true,
       lockId: lock.id,
     };
-  } catch (error: any) {
-    // Check if it's a unique constraint violation
-    if (error?.code === "P2002" || error?.message?.includes("Unique constraint")) {
-      // Another instance has the lock - check if it's expired
-      const existingLock = await prisma.cronLock.findUnique({
-        where: { jobName },
+  } catch (error) {
+    if (!isUniqueViolation(error)) {
+      console.error(`[CronLock] Unexpected error acquiring lock for ${jobName}:`, error);
+      throw new Error(`[CronLock] Could not acquire lock for ${jobName}`, { cause: error });
+    }
+
+    // Another instance has the lock - check if it's expired
+    const existingLock = await prisma.cronLock.findUnique({
+      where: { jobName },
+    });
+
+    // Released between our insert and this read: one immediate retry
+    if (!existingLock) {
+      return acquireCronLock(jobName, ttlMinutes);
+    }
+
+    // If expired, delete exactly that lock and retry. Matching the id means
+    // a lock another instance has just re-acquired is never removed.
+    if (existingLock.expiresAt < now) {
+      console.log(
+        `[CronLock] Found expired lock for ${jobName}, attempting cleanup`
+      );
+      const removed = await prisma.cronLock.deleteMany({
+        where: { id: existingLock.id },
       });
-
-      if (existingLock) {
-        // If expired, try to clean it up and retry
-        if (existingLock.expiresAt < now) {
-          console.log(
-            `[CronLock] Found expired lock for ${jobName}, attempting cleanup`
-          );
-
-          try {
-            await prisma.cronLock.delete({
-              where: { jobName },
-            });
-
-            // Retry acquisition
-            return acquireCronLock(jobName, ttlMinutes);
-          } catch {
-            // Another instance probably cleaned it up, return not acquired
-          }
-        }
-
-        console.log(
-          `[CronLock] Lock for ${jobName} held by instance ${existingLock.instanceId} until ${existingLock.expiresAt.toISOString()}`
-        );
-
-        return {
-          acquired: false,
-          existingLock: {
-            lockedAt: existingLock.lockedAt,
-            acquiredAt: existingLock.lockedAt,
-            instanceId: existingLock.instanceId,
-            expiresAt: existingLock.expiresAt,
-          },
-        };
+      if (removed.count === 1) {
+        return acquireCronLock(jobName, ttlMinutes);
       }
     }
 
-    // Unexpected error - log and return not acquired for safety
-    console.error(`[CronLock] Unexpected error acquiring lock for ${jobName}:`, error);
+    console.log(
+      `[CronLock] Lock for ${jobName} held by instance ${existingLock.instanceId} until ${existingLock.expiresAt.toISOString()}`
+    );
 
-    return { acquired: false };
+    return {
+      acquired: false,
+      existingLock: {
+        lockedAt: existingLock.lockedAt,
+        acquiredAt: existingLock.lockedAt,
+        instanceId: existingLock.instanceId,
+        expiresAt: existingLock.expiresAt,
+      },
+    };
   }
 }
 
@@ -164,26 +164,20 @@ export async function releaseCronLock(lockId: string): Promise<void> {
  * that didn't release their locks.
  *
  * @returns Number of expired locks cleaned up
+ * @throws if the lock table cannot be used (the cron route then answers 5xx)
  */
 export async function cleanupExpiredLocks(): Promise<number> {
-  const now = new Date();
+  const result = await prisma.cronLock.deleteMany({
+    where: {
+      expiresAt: { lt: new Date() },
+    },
+  });
 
-  try {
-    const result = await prisma.cronLock.deleteMany({
-      where: {
-        expiresAt: { lt: now },
-      },
-    });
-
-    if (result.count > 0) {
-      console.log(`[CronLock] Cleaned up ${result.count} expired lock(s)`);
-    }
-
-    return result.count;
-  } catch (error) {
-    console.error("[CronLock] Error cleaning up expired locks:", error);
-    return 0;
+  if (result.count > 0) {
+    console.log(`[CronLock] Cleaned up ${result.count} expired lock(s)`);
   }
+
+  return result.count;
 }
 
 /**
@@ -267,89 +261,4 @@ export async function getLockStatus(
     console.error(`[CronLock] Error getting lock status for ${jobName}:`, error);
     return null;
   }
-}
-
-/**
- * Smart lock acquisition that uses DynamoDB when available
- *
- * Automatically tries DynamoDB first (if enabled), then falls back to PostgreSQL.
- * This provides the best of both worlds: DynamoDB's atomic operations when available,
- * with PostgreSQL as a reliable fallback.
- *
- * @param jobName - Unique identifier for the cron job
- * @param ttlMinutes - Time-to-live in minutes (default: 10)
- * @returns Lock result with backend information
- *
- * @example
- * const lock = await acquireCronLockSmart('tier-maintenance', 10);
- * if (!lock.acquired) return;
- * try {
- *   // ... do work ...
- * } finally {
- *   await releaseCronLockSmart(jobName, lock.lockId!, lock.backend);
- * }
- */
-export async function acquireCronLockSmart(
-  jobName: string,
-  ttlMinutes: number = 10
-): Promise<CronLockResult & { backend: "dynamodb" | "postgres" }> {
-  const awsConfig = getAWSConfig();
-
-  // Try DynamoDB first if enabled
-  if (awsConfig.dynamodb.enabled) {
-    try {
-      const { DynamoDBCronLockService } = await import("./dynamodb-cron-lock.server");
-      const dynamoLock = DynamoDBCronLockService.getInstance();
-
-      if (dynamoLock.isEnabled()) {
-        const result = await dynamoLock.acquireLock(jobName, ttlMinutes);
-
-        if (result.acquired || result.existingLock) {
-          return {
-            acquired: result.acquired,
-            lockId: result.lockId,
-            existingLock: result.existingLock,
-            backend: "dynamodb",
-          };
-        }
-
-        // If there was an error (not a lock conflict), log and fall through
-        if (result.error) {
-          console.warn(`[CronLock] DynamoDB error, using PostgreSQL: ${result.error}`);
-        }
-      }
-    } catch (error: any) {
-      console.warn(`[CronLock] DynamoDB unavailable, using PostgreSQL: ${error.message}`);
-    }
-  }
-
-  // Fallback to PostgreSQL
-  const pgResult = await acquireCronLock(jobName, ttlMinutes);
-  return {
-    ...pgResult,
-    backend: "postgres",
-  };
-}
-
-/**
- * Smart lock release that uses the appropriate backend
- */
-export async function releaseCronLockSmart(
-  jobName: string,
-  lockId: string,
-  backend: "dynamodb" | "postgres"
-): Promise<void> {
-  if (backend === "dynamodb") {
-    try {
-      const { DynamoDBCronLockService } = await import("./dynamodb-cron-lock.server");
-      const dynamoLock = DynamoDBCronLockService.getInstance();
-      await dynamoLock.releaseLock(jobName, lockId);
-      return;
-    } catch (error) {
-      console.warn(`[CronLock] Failed to release DynamoDB lock, trying PostgreSQL`);
-    }
-  }
-
-  // PostgreSQL release
-  await releaseCronLock(lockId);
 }

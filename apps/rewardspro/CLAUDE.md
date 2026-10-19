@@ -11,9 +11,32 @@ decision does not rewrite their entitlements or cancel them automatically.
 
 RewardsPro is a **Shopify loyalty & rewards app**: points, tiers, cashback, store
 credit, memberships, mystery boxes, raffles, missions, and email campaigns for
-Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Aurora
-PostgreSQL, deployed on Vercel (see `vercel.json` — it also carries ~24 cron
-routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
+Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Postgres 17
+on Supabase ([`docs/DATABASE.md`](docs/DATABASE.md)), deployed on Vercel (see
+`vercel.json` — it also carries ~24 cron routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
+
+Guards that need a decision to lift, not a refactor:
+
+- **Raffles, mystery boxes and instant wins are paused** by the code constant
+  `CHANCE_MECHANICS_PAUSED` (`app/constants/chance-mechanics.ts`) pending
+  legal review: no entry, open, draw or near-miss copy.
+- **Marketing email needs consent**: only Shopify `SUBSCRIBED` customers, sent
+  through `app/services/marketing-email.server.ts` with an unsubscribe link and
+  headers, and off until `SENDGRID_WEBHOOK_VERIFICATION_KEY` is set.
+- **Webhooks are subscribed only in `shopify.app.toml`**; a unit test pairs
+  every `webhooks.*` route with a subscription.
+- **Store credit for an order's cashback moves only through its claimed
+  ledger entry** (`claimLedgerEntry`, PENDING to SYNCING, in
+  `app/services/cashback-ledger.server.ts`). The Orders page issues only a
+  PENDING entry, never `Order.cashbackAmount` or an imported history record.
+  An entry goes back to PENDING only when nothing was sent or Shopify said
+  it applied nothing: a 4xx, GraphQL errors that all carry a code Shopify
+  documents as refusing before the mutation runs (THROTTLED, ACCESS_DENIED,
+  SHOP_INACTIVE, MAX_COST_EXCEEDED), or a documented userError code
+  (`app/services/shopify-store-credit.service.ts`). Anything else (no
+  answer, a 5xx, INTERNAL_SERVER_ERROR answered as a 200, an unknown code)
+  leaves it SYNCING (`markUnconfirmed`), never re-sent. Amounts reach
+  Shopify through `formatForShopify` (decimal, never float arithmetic).
 
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123
@@ -28,6 +51,7 @@ pnpm dev:rewardspro              # shopify app dev (SKIP_DB_CHECKS=1)
 pnpm build:rewardspro            # prisma generate && remix vite:build
 pnpm test:rewardspro             # vitest unit suite (306 tests at fuse time)
 pnpm --filter rewardspro exec tsc --noEmit   # typecheck (0 errors at fuse time)
+pnpm --filter rewardspro test:postgres       # Postgres integration suites (needs REWARDSPRO_TEST_DATABASE_URL; docs/DATABASE.md)
 pnpm --filter rewardspro lint    # eslint — RED, see debt below
 ```
 

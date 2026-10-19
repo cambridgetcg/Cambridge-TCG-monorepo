@@ -75,12 +75,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         bodyHtml: campaignData.bodyHtml || '<p>Email content here...</p>',
         bodyText: campaignData.bodyHtml?.replace(/<[^>]*>/g, '') || 'Email content here...',
         isActive: true,
-        variables: {
-          customer_name: '{{customer_name}}',
-          tier_name: '{{tier_name}}',
-          store_credit: '{{store_credit}}',
-          shop_name: '{{shop_name}}'
-        }
+        content: { blocks: [], styles: {} },
       }
     });
 
@@ -92,12 +87,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         name: campaignData.name,
         templateId: template.id,
         status: campaignData.status || 'draft',
-        segmentRules: campaignData.segmentCriteria || {},
-        targetCustomerIds: campaignData.targetCustomerIds || [],
-        metadata: {
-          ...campaignData.metadata,
+        // Campaigns keep their targeting and recommendation context in segmentRules
+        segmentRules: {
+          fromRecommendation: true,
           recommendationId,
-          estimatedRevenue: campaignData.estimatedRevenue
+          recommendationType: campaignData.type,
+          targetCustomerIds: campaignData.targetCustomerIds ?? [],
+          criteria: campaignData.segmentCriteria ?? [],
+          affectedCount: campaignData.metadata?.affectedCount ?? 0,
+          predictedRevenue: campaignData.estimatedRevenue ?? 0,
         },
         metrics: {
           estimatedRecipients: campaignData.metadata?.affectedCount || 0,

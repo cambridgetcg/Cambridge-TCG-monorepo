@@ -12,6 +12,7 @@
 
 import prisma from "../db.server";
 import type { PointsRoundingMode } from "@prisma/client";
+import { CHANCE_MECHANICS_PAUSED } from "../constants/chance-mechanics";
 
 // ============================================
 // DEBUG LOGGING - Trace db object state
@@ -488,15 +489,18 @@ export async function getEnabledFeatures(shop: string): Promise<{
     const isEnabled = config?.isEnabled ?? false;
     console.log(`${LOG_PREFIX} getEnabledFeatures for ${shop}: pointsSystem=${isEnabled}`);
 
+    // Games of chance stay off whatever the merchant set (constants/chance-mechanics.ts)
+    const chance = isEnabled && !CHANCE_MECHANICS_PAUSED;
+
     return {
       pointsSystem: isEnabled,
-      raffles: isEnabled && (config?.rafflesEnabled ?? false),
-      mysteryBoxes: isEnabled && (config?.mysteryBoxesEnabled ?? false),
-      spinWheel: isEnabled && (config?.spinWheelEnabled ?? false),
+      raffles: chance && (config?.rafflesEnabled ?? false),
+      mysteryBoxes: chance && (config?.mysteryBoxesEnabled ?? false),
+      spinWheel: chance && (config?.spinWheelEnabled ?? false),
       challenges: isEnabled && (config?.challengesEnabled ?? false),
-      scratchCards: isEnabled && (config?.scratchCardsEnabled ?? false),
+      scratchCards: chance && (config?.scratchCardsEnabled ?? false),
       givebackPools: isEnabled && (config?.givebackPoolsEnabled ?? false),
-      dailySpin: isEnabled && (config?.dailySpinEnabled ?? false),
+      dailySpin: chance && (config?.dailySpinEnabled ?? false),
       streakBonus: isEnabled && (config?.streakBonusEnabled ?? false),
     };
   } catch (error) {

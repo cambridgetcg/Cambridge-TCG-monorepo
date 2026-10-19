@@ -67,7 +67,7 @@ export async function action({ request }: ActionFunctionArgs) {
       select: {
         id: true,
         fulfillmentStatus: true,
-        orderNumber: true,
+        shopifyOrderNumber: true,
       },
     });
 
@@ -117,7 +117,7 @@ export async function action({ request }: ActionFunctionArgs) {
       },
     });
 
-    console.log(`[OrdersFulfilled] Updated order #${order.orderNumber}: ${previousStatus} -> ${newFulfillmentStatus}`);
+    console.log(`[OrdersFulfilled] Updated order #${order.shopifyOrderNumber}: ${previousStatus} -> ${newFulfillmentStatus}`);
 
     // Optionally track tracking info if we want to store it
     if (fulfillment.tracking_number || fulfillment.tracking_url) {
@@ -133,7 +133,7 @@ export async function action({ request }: ActionFunctionArgs) {
       success: true,
       message: "Fulfillment status updated",
       orderId: order.id,
-      orderNumber: order.orderNumber,
+      orderNumber: order.shopifyOrderNumber,
       previousStatus,
       newStatus: newFulfillmentStatus,
     });

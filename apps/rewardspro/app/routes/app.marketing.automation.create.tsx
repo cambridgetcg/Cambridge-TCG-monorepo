@@ -19,6 +19,7 @@ import {
   Checkbox,
 } from "@shopify/polaris";
 import { authenticate } from "../shopify.server";
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { guardInHouseRoute } from "~/services/marketing-mode.server";
 import { checkLimitAccess } from "~/utils/require-feature.server";
@@ -320,14 +321,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const delayMinutes = delayMinutesMap[delay] ?? 0;
 
   // Build conditions JSON
-  const conditions: Record<string, unknown> = {
+  const conditions: Prisma.InputJsonObject = {
     actionType: actionType || "send_email",
     description: description || undefined,
     respectBusinessHours,
     respectTimezone,
+    ...(tierFilter ? { tierFilter } : {}),
+    ...(minSpend ? { minSpend: parseFloat(minSpend) } : {}),
   };
-  if (tierFilter) conditions.tierFilter = tierFilter;
-  if (minSpend) conditions.minSpend = parseFloat(minSpend);
 
   // Resolve templateId — if action is send_email but no template selected,
   // we still need a templateId for the required FK. If no template provided,

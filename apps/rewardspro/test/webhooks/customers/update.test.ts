@@ -2,7 +2,7 @@
  * Customers/Update Webhook Tests
  *
  * Tests the customer update webhook handler including:
- * - HMAC verification (security)
+ * - Authentication through authenticate.webhook (HMAC with the app secret)
  * - Customer update
  * - Create when customer not found
  * - Tier re-calculation
@@ -14,8 +14,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  createInvalidHmacRequest,
   createWebhookTestContext,
-  executeWebhookAction,
+  generateHMAC,
+  TEST_WEBHOOK_SECRET,
 } from '../../helpers/webhook-test-client';
 import {
   createCustomerPayload,
@@ -28,17 +30,31 @@ import { action } from '../../../app/routes/webhooks.customers.update';
 // MOCKS
 // ============================================
 
-// Mock webhook validation
-vi.mock('../../../app/utils/webhook-validation.server', () => ({
-  verifyWebhookHMAC: vi.fn(),
-}));
+// authenticate.webhook as Shopify's library behaves: the body's HMAC with
+// the app secret (TEST_WEBHOOK_SECRET here) and the shop header, otherwise a
+// thrown Response. The real library runs in test/integration/postgres.
+vi.mock('../../../app/shopify.server', async () => {
+  const helpers = await import('../../helpers/webhook-test-client');
+  return {
+    authenticate: {
+      webhook: vi.fn(async (request: Request) => {
+        const body = await request.text();
+        if (request.headers.get('X-Shopify-Hmac-Sha256') !== helpers.generateHMAC(body, helpers.TEST_WEBHOOK_SECRET)) {
+          throw new Response(undefined, { status: 401 });
+        }
+        const shop = request.headers.get('X-Shopify-Shop-Domain');
+        if (!shop) throw new Response(undefined, { status: 400 });
+        return { shop, topic: 'CUSTOMERS_UPDATE', payload: JSON.parse(body) };
+      }),
+    },
+  };
+});
 
 // Mock customer sync service
 vi.mock('../../../app/services/webhook-customer-sync.server', () => ({
   handleCustomerUpdate: vi.fn(),
 }));
 
-import { verifyWebhookHMAC } from '../../../app/utils/webhook-validation.server';
 import { handleCustomerUpdate } from '../../../app/services/webhook-customer-sync.server';
 
 // ============================================
@@ -56,9 +72,6 @@ const TEST_SHOPIFY_CUSTOMER_ID = '7654321098';
 beforeEach(() => {
   vi.clearAllMocks();
 
-  // Default: HMAC verification passes
-  vi.mocked(verifyWebhookHMAC).mockResolvedValue(true);
-
   // Default: handleCustomerUpdate succeeds
   vi.mocked(handleCustomerUpdate).mockResolvedValue({
     action: 'updated',
@@ -70,40 +83,28 @@ beforeEach(() => {
 // HMAC VERIFICATION TESTS
 // ============================================
 
-describe('Customers Update Webhook - HMAC Verification', () => {
-  it('should accept webhook with valid HMAC signature', async () => {
-    const payload = createCustomerUpdatePayload(TEST_SHOPIFY_CUSTOMER_ID, {
-      email: 'updated@example.com',
-    });
-
+describe('Customers Update Webhook - Authentication', () => {
+  it('should accept a delivery signed with the app secret', async () => {
     const ctx = createWebhookTestContext({
       topic: 'customers/update',
       shop: TEST_SHOP,
-      payload,
+      payload: createCustomerUpdatePayload(TEST_SHOPIFY_CUSTOMER_ID, {}),
     });
 
     const response = await ctx.execute(action);
 
     expect(response.status).toBe(200);
     expect(response.body).toBe('OK');
-    expect(verifyWebhookHMAC).toHaveBeenCalled();
   });
 
-  it('should reject webhook with invalid HMAC signature', async () => {
-    vi.mocked(verifyWebhookHMAC).mockResolvedValue(false);
-
-    const payload = createCustomerUpdatePayload(TEST_SHOPIFY_CUSTOMER_ID, {});
-
-    const ctx = createWebhookTestContext({
+  it('should reject a delivery with an invalid HMAC signature', async () => {
+    const request = createInvalidHmacRequest({
       topic: 'customers/update',
       shop: TEST_SHOP,
-      payload,
+      payload: createCustomerUpdatePayload(TEST_SHOPIFY_CUSTOMER_ID, {}),
     });
 
-    const response = await ctx.execute(action);
-
-    expect(response.status).toBe(401);
-    expect(response.body).toBe('Unauthorized');
+    await expect(action({ request, params: {}, context: {} })).rejects.toMatchObject({ status: 401 });
     expect(handleCustomerUpdate).not.toHaveBeenCalled();
   });
 });
@@ -113,27 +114,23 @@ describe('Customers Update Webhook - HMAC Verification', () => {
 // ============================================
 
 describe('Customers Update Webhook - Missing Shop Domain', () => {
-  it('should return 400 when shop domain header is missing', async () => {
-    const payload = createCustomerUpdatePayload(TEST_SHOPIFY_CUSTOMER_ID, {});
+  it('should answer 400 when the shop domain header is missing', async () => {
+    const body = JSON.stringify(createCustomerUpdatePayload(TEST_SHOPIFY_CUSTOMER_ID, {}));
 
-    const body = JSON.stringify(payload);
-
-    const request = new Request('http://localhost/webhooks/customers-update', {
+    const request = new Request('http://localhost/webhooks/customers/update', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Shopify-Topic': 'customers/update',
         'X-Shopify-Webhook-Id': 'webhook-123',
-        'X-Shopify-Hmac-SHA256': 'valid-hmac',
+        'X-Shopify-Hmac-SHA256': generateHMAC(body, TEST_WEBHOOK_SECRET),
         // Missing: 'X-Shopify-Shop-Domain'
       },
       body,
     });
 
-    const response = await executeWebhookAction(action, request);
-
-    expect(response.status).toBe(400);
-    expect(response.body).toBe('Bad Request');
+    await expect(action({ request, params: {}, context: {} })).rejects.toMatchObject({ status: 400 });
+    expect(handleCustomerUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -320,22 +317,6 @@ describe('Customers Update Webhook - Error Handling', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toBe('Internal Server Error');
-  });
-
-  it('should return 500 on HMAC verification error', async () => {
-    vi.mocked(verifyWebhookHMAC).mockRejectedValue(new Error('Verification failed'));
-
-    const payload = createCustomerUpdatePayload(TEST_SHOPIFY_CUSTOMER_ID, {});
-
-    const ctx = createWebhookTestContext({
-      topic: 'customers/update',
-      shop: TEST_SHOP,
-      payload,
-    });
-
-    const response = await ctx.execute(action);
-
-    expect(response.status).toBe(500);
   });
 });
 

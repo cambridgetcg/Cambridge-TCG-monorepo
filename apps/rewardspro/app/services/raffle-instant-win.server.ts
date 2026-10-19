@@ -14,11 +14,14 @@
  * Key Psychology:
  * - Variable ratio reinforcement (unpredictable rewards)
  * - Immediate feedback (instant gratification)
- * - Near-miss effect (showing "almost won" increases engagement)
+ *
+ * Paused with all chance mechanics (constants/chance-mechanics.ts): rolls
+ * happen only during raffle entry, which is refused while paused.
  */
 
 import prisma from "../db.server";
 import type { RafflePrizeType, Prisma } from "@prisma/client";
+import { CHANCE_MECHANICS_PAUSED } from "../constants/chance-mechanics";
 
 const LOG_PREFIX = "[RaffleInstantWin]";
 
@@ -40,7 +43,6 @@ export interface InstantWinPrize {
 export interface InstantWinResult {
   won: boolean;
   prize: InstantWinPrize | null;
-  nearMiss: InstantWinPrize | null; // For "almost won" effect
   message: string;
 }
 
@@ -160,7 +162,7 @@ export async function getActiveInstantWins(
 
 /**
  * Process instant win roll for a raffle entry
- * Returns won prizes and near-miss for psychology effect
+ * Returns the prize won, if any. A loss is not dressed up as a near miss.
  */
 export async function processInstantWin(
   raffleId: string,
@@ -168,6 +170,9 @@ export async function processInstantWin(
   customerId: string,
   raffleEntryId: string
 ): Promise<InstantWinResult[]> {
+  // Nothing is rolled while chance mechanics are paused
+  if (CHANCE_MECHANICS_PAUSED) return [];
+
   const prizes = await getActiveInstantWins(raffleId, shop);
   const results: InstantWinResult[] = [];
 
@@ -182,7 +187,6 @@ export async function processInstantWin(
   });
 
   let wonPrize: InstantWinPrize | null = null;
-  let nearMiss: InstantWinPrize | null = null;
 
   for (const prize of sortedPrizes) {
     // Check limits
@@ -207,9 +211,6 @@ export async function processInstantWin(
     if (won) {
       wonPrize = prize;
       break;
-    } else if (!nearMiss && prize.rarity !== "COMMON") {
-      // Track near-miss for rarer prizes (psychology effect)
-      nearMiss = prize;
     }
   }
 
@@ -220,21 +221,12 @@ export async function processInstantWin(
     results.push({
       won: true,
       prize: wonPrize,
-      nearMiss: null,
       message: `You won: ${wonPrize.name}!`,
     });
 
     console.log(
       `${LOG_PREFIX} Customer ${customerId} won instant prize: ${wonPrize.name} (${wonPrize.rarity})`
     );
-  } else if (nearMiss) {
-    // Show near-miss effect (increases engagement)
-    results.push({
-      won: false,
-      prize: null,
-      nearMiss,
-      message: `So close! You almost won: ${nearMiss.name}`,
-    });
   }
 
   return results;
@@ -329,32 +321,33 @@ export async function deliverInstantWinPrize(
 
   const prize = log.instantWin;
   const prizeValue = prize.prizeValue as Record<string, unknown>;
-  let deliveryData: Record<string, unknown> = {};
+  let deliveryData: Prisma.InputJsonObject = {};
 
   try {
     switch (prize.prizeType) {
       case "POINTS": {
-        // Award points to customer
-        const points = (prizeValue.amount as number) || 0;
-        await prisma.pointsLedger.create({
-          data: {
-            shop: log.shop,
-            customerId: log.customerId,
-            points,
-            balance: 0, // Will be calculated
-            source: "INSTANT_WIN",
-            description: `Instant win: ${prize.name}`,
-            expiresAt: null,
-          },
-        });
-
-        // Update customer balance
-        await prisma.customer.update({
-          where: { id: log.customerId },
-          data: {
-            pointsBalance: { increment: points },
-            lifetimePoints: { increment: points },
-          },
+        // Award points to customer: ledger row and balance move together
+        const points = Math.trunc(Number(prizeValue.amount) || 0);
+        await prisma.$transaction(async (tx) => {
+          const updated = await tx.customer.update({
+            where: { id: log.customerId },
+            data: {
+              pointsBalance: { increment: points },
+              lifetimePoints: { increment: points },
+            },
+            select: { pointsBalance: true },
+          });
+          await tx.pointsLedger.create({
+            data: {
+              shop: log.shop,
+              customerId: log.customerId,
+              amount: points,
+              balance: Math.trunc(Number(updated.pointsBalance)),
+              type: "INSTANT_WIN",
+              description: `Instant win: ${prize.name}`,
+              expiresAt: null,
+            },
+          });
         });
 
         deliveryData = { points, type: "POINTS" };
@@ -362,45 +355,17 @@ export async function deliverInstantWinPrize(
         break;
       }
 
-      case "STORE_CREDIT": {
-        // Award store credit
-        const amount = (prizeValue.amount as number) || 0;
-        await prisma.storeCreditLedger.create({
-          data: {
-            shop: log.shop,
-            customerId: log.customerId,
-            amount,
-            balance: 0, // Will be calculated
-            type: "EARNED",
-            description: `Instant win: ${prize.name}`,
-          },
-        });
-
-        // Update customer balance
-        await prisma.customer.update({
-          where: { id: log.customerId },
-          data: {
-            storeCredit: { increment: amount },
-          },
-        });
-
-        deliveryData = { amount, type: "STORE_CREDIT" };
-        console.log(`${LOG_PREFIX} Delivered $${amount / 100} store credit to customer ${log.customerId}`);
-        break;
-      }
-
-      case "DISCOUNT": {
-        // Generate discount code
-        const discountCode = generateDiscountCode(prize.name);
-        deliveryData = {
-          discountCode,
-          type: "DISCOUNT",
-          value: prizeValue.value,
-          discountType: prizeValue.type,
+      case "STORE_CREDIT":
+      case "DISCOUNT":
+        // Not deliverable: store credit was only ever raised locally (never
+        // issued in Shopify) and discount codes were generated without being
+        // created in Shopify (no write_discounts scope), so a "win" handed the
+        // shopper something unusable. Leave the win undelivered.
+        return {
+          success: false,
+          deliveryData: null,
+          message: `${prize.prizeType} instant-win prizes are not available yet`,
         };
-        console.log(`${LOG_PREFIX} Generated discount code ${discountCode} for customer ${log.customerId}`);
-        break;
-      }
 
       default:
         // For PRODUCT and CUSTOM, just mark as pending manual delivery
@@ -430,15 +395,6 @@ export async function deliverInstantWinPrize(
       message: error instanceof Error ? error.message : "Delivery failed",
     };
   }
-}
-
-/**
- * Generate a unique discount code
- */
-function generateDiscountCode(prizeName: string): string {
-  const prefix = prizeName.replace(/[^A-Z]/gi, "").slice(0, 4).toUpperCase() || "WIN";
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `${prefix}-${random}`;
 }
 
 /**
@@ -496,7 +452,7 @@ export async function createInstantWin(
     description?: string;
     imageUrl?: string;
     prizeType: RafflePrizeType;
-    prizeValue: Record<string, unknown>;
+    prizeValue: Prisma.InputJsonObject;
     winChancePercent: number;
     rarity?: string;
     maxWinsTotal?: number;
@@ -513,7 +469,7 @@ export async function createInstantWin(
       description: data.description,
       imageUrl: data.imageUrl,
       prizeType: data.prizeType,
-      prizeValue: data.prizeValue as Prisma.JsonValue,
+      prizeValue: data.prizeValue,
       winChancePercent: data.winChancePercent,
       rarity: data.rarity || "COMMON",
       maxWinsTotal: data.maxWinsTotal,
@@ -549,7 +505,7 @@ export async function updateInstantWin(
     name: string;
     description: string;
     imageUrl: string;
-    prizeValue: Record<string, unknown>;
+    prizeValue: Prisma.InputJsonObject;
     winChancePercent: number;
     rarity: string;
     maxWinsTotal: number | null;
@@ -563,7 +519,7 @@ export async function updateInstantWin(
     where: { id: instantWinId },
     data: {
       ...data,
-      prizeValue: data.prizeValue as Prisma.JsonValue,
+      prizeValue: data.prizeValue,
     },
   });
 }

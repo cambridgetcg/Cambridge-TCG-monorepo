@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 import { v4 as uuidv4 } from "uuid";
 
@@ -19,6 +20,14 @@ export interface RecommendationSegmentPayload {
   }[];
   customerIds?: string[];
   estimatedSize?: number;
+}
+
+/** A stored segment payload (written by this service), or an empty one if malformed. */
+function segmentPayloadOf(value: Prisma.JsonValue): RecommendationSegmentPayload {
+  if (value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value.criteria)) {
+    return value as unknown as RecommendationSegmentPayload;
+  }
+  return { criteria: [] };
 }
 
 export interface RecommendationMetadata {
@@ -55,7 +64,7 @@ export class AnalyticsRecommendationsService {
         where: {
           shop: this.shop,
           status: 'sent',
-          metrics: { not: null },
+          metrics: { not: Prisma.DbNull },
         },
         select: { metrics: true },
         take: 50,
@@ -710,7 +719,7 @@ export class AnalyticsRecommendationsService {
     }
 
     const metadata = recommendation.metadata as RecommendationMetadata;
-    const segmentPayload = recommendation.segmentPayload as RecommendationSegmentPayload;
+    const segmentPayload = segmentPayloadOf(recommendation.segmentPayload);
 
     // Create draft campaign based on recommendation
     const campaign = {

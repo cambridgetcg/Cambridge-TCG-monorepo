@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const prisma = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   emailEvent: {
     findMany: vi.fn(),
     create: vi.fn(),
@@ -22,6 +23,10 @@ import {
   action as challengesAction,
   loader as challengesLoader,
 } from "~/routes/api.customer-account.challenges";
+import {
+  action as giftCardsAction,
+  loader as giftCardsLoader,
+} from "~/routes/api.customer-account.gift-cards";
 import {
   action as missionsAction,
   loader as missionsLoader,
@@ -56,6 +61,8 @@ const unreadableRequest = new Proxy(
 const customerAccountRoutes: Array<[string, RouteHandler]> = [
   ["challenges GET", challengesLoader as RouteHandler],
   ["challenges POST", challengesAction as RouteHandler],
+  ["gift cards GET", giftCardsLoader as RouteHandler],
+  ["gift cards POST", giftCardsAction as RouteHandler],
   ["missions GET", missionsLoader as RouteHandler],
   ["missions POST", missionsAction as RouteHandler],
   ["mystery boxes GET", mysteryBoxesLoader as RouteHandler],
@@ -377,7 +384,21 @@ describe("SendGrid webhook boundary", () => {
 });
 
 describe("public health boundary", () => {
-  it("returns only bounded process liveness without inspecting the request", async () => {
+  // The route reuses one probe result for 5 s; step the clock past that.
+  let clock = Date.now();
+  function nextProbeWindow() {
+    clock += 10_000;
+    vi.spyOn(Date, "now").mockReturnValue(clock);
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reports database readiness without inspecting the request", async () => {
+    nextProbeWindow();
+    prisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
+
     const response = await (healthLoader as RouteHandler)({
       request: unreadableRequest,
       params: {},
@@ -385,7 +406,38 @@ describe("public health boundary", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    await expect(response.json()).resolves.toEqual({ status: "ok" });
+    await expect(response.json()).resolves.toEqual({ status: "ok", database: "ready" });
+  });
+
+  it("answers 503 with no failure detail when the database is unavailable", async () => {
+    nextProbeWindow();
+    const internalDetail = "password authentication failed for user rewardspro_app";
+    prisma.$queryRaw.mockRejectedValueOnce(new Error(internalDetail));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const response = await (healthLoader as RouteHandler)({
+      request: unreadableRequest,
+      params: {},
+    });
+    const body = await response.text();
+
+    expect(response.status).toBe(503);
+    expect(JSON.parse(body)).toEqual({ status: "unavailable", database: "unavailable" });
+    expect(body).not.toContain(internalDetail);
+  });
+
+  it("shares one probe across requests inside the reuse window", async () => {
+    nextProbeWindow();
+    prisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
+
+    for (let i = 0; i < 3; i++) {
+      const response = await (healthLoader as RouteHandler)({
+        request: unreadableRequest,
+        params: {},
+      });
+      expect(response.status).toBe(200);
+    }
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });
 

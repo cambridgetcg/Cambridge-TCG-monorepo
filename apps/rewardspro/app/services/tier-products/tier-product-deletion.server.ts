@@ -9,7 +9,7 @@
  */
 
 import prisma from "~/db.server";
-import type { TierProduct, Tier } from "@prisma/client";
+import type { Prisma, TierProduct, Tier } from "@prisma/client";
 import { isShopifyGid, toShopifyGid } from "~/utils/shopify-id-normalizer";
 
 // ============================================
@@ -58,9 +58,9 @@ export interface RestoreResult {
 export interface AuditLogEntry {
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'PERMANENT_DELETE';
   performedBy?: string;
-  previousState?: Record<string, unknown>;
-  newState?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
+  previousState?: Prisma.InputJsonObject;
+  newState?: Prisma.InputJsonObject;
+  metadata?: Prisma.InputJsonObject;
 }
 
 // Soft delete recovery period in days
@@ -626,9 +626,9 @@ async function createAuditLog(
         tierProductId,
         action: entry.action,
         performedBy: entry.performedBy || null,
-        previousState: entry.previousState || null,
-        newState: entry.newState || null,
-        metadata: entry.metadata || null,
+        previousState: entry.previousState,
+        newState: entry.newState,
+        metadata: entry.metadata,
       }
     });
     console.log(`[TierProductDeletion] Audit log created: ${entry.action} for ${tierProductId}`);
@@ -847,7 +847,7 @@ export async function permanentlyDeleteTierProduct(
 
     // Wrap in transaction: purchase delete + product delete must be atomic.
     // If product delete fails, we don't want orphaned deleted purchases.
-    const purchasesDeleted = await (prisma as any).$transaction(async (tx: any) => {
+    const purchasesDeleted = await prisma.$transaction(async (tx) => {
       // 1. Delete tier purchases (no onDelete cascade — must be explicit)
       const deleted = await tx.tierPurchase.deleteMany({
         where: { tierProductId: resolvedId }

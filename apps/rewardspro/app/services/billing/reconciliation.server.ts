@@ -14,12 +14,13 @@ import { v4 as uuidv4 } from "uuid";
 // TYPES
 // ============================================
 
-export interface ReconciliationMismatch {
+// A type alias (not an interface) so it is assignable to Prisma JSON input
+export type ReconciliationMismatch = {
   field: string;
   localValue: any;
   expectedValue: any;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-}
+};
 
 export interface ReconciliationResult {
   shop: string;

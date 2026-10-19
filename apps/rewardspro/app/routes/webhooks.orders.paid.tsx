@@ -5,9 +5,9 @@
 
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
+import { Prisma, type Customer, type PrismaClient } from "@prisma/client";
 import { authenticate } from "../shopify.server";
 import { db } from "../db.server";
-import { TierSubscriptionBridgeV2 } from "../services/subscription/tier-subscription-bridge.server";
 import { updateCustomerToEffectiveTier } from "../services/tier-resolution.server";
 import { sendTierUpgradeEmailNotification, sendTierDowngradeEmailNotification } from "../services/email-notifications.server";
 import { processAutomationTrigger } from "../services/automation-trigger.server";
@@ -29,7 +29,10 @@ import { createLogger } from "../services/logger.server";
 import { SentryService } from "../services/monitoring/sentry.service";
 import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
 import { getPlanOrderLimit } from "../constants/billing.constants";
-import { incrementMonthlyOrderCount } from "../utils/order-count-strategies";
+import { incrementMonthlyOrderCount } from "../utils/order-count.server";
+import { claimLedgerEntry, isAutoCashbackEnabled, lockOrder, markUnconfirmed } from "../services/cashback-ledger.server";
+import { cashbackLeftAfterRefunds } from "../services/refund-handler.server";
+import { jsonObject } from "../utils/json-object";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'node:crypto';
@@ -39,25 +42,24 @@ const webhookLogger = createLogger('OrderPaid');
 
 const uuidv4 = () => crypto.randomUUID();
 
-// HMAC Verification
-function _verifyWebhookHMAC(request: Request, rawBody: string): boolean {
-  const hmacHeader = request.headers.get('X-Shopify-Hmac-Sha256');
-  const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
-  
-  if (!hmacHeader || !webhookSecret) {
-    console.error('[Webhook] Missing HMAC header or webhook secret');
-    return false;
+/**
+ * Prisma errors (and failures caused by one) are infrastructure or code
+ * faults, never a verdict on the order. They must not be acknowledged as
+ * handled: answering 5xx lets Shopify redeliver for up to 48 hours.
+ */
+function causedByPrisma(error: unknown): boolean {
+  for (let e: unknown = error; e instanceof Error; e = e.cause) {
+    if (e.name.startsWith("PrismaClient")) return true;
   }
-  
-  const hash = crypto
-    .createHmac('sha256', webhookSecret)
-    .update(rawBody, 'utf8')
-    .digest('base64');
-  
-  // Timing-safe comparison
-  return crypto.timingSafeEqual(
-    Buffer.from(hash),
-    Buffer.from(hmacHeader)
+  return false;
+}
+
+/** Business-rule rejections that a redelivery cannot fix. */
+function isPermanentOrderError(error: unknown): error is Error {
+  return (
+    error instanceof Error &&
+    !causedByPrisma(error) &&
+    (error.message.includes('Invalid') || error.message.includes('not found'))
   );
 }
 
@@ -172,25 +174,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Use the already-declared webhookId, falling back to idempotencyKey if 'unknown'
     const idempotencyWebhookId = webhookId !== 'unknown' ? webhookId : idempotencyKey;
 
-    // Atomic idempotency check: try to INSERT first (acts as lock)
-    // If unique constraint fails, another instance already claimed this webhook
-    try {
-      await db.webhookProcessed.create({
-        data: {
-          id: uuidv4(),
-          shop: shop!,
-          topic: topic || 'orders/paid',
-          webhookId: idempotencyWebhookId,
-          processedAt: new Date(),
-        }
-      });
-    } catch (e: any) {
-      if (e.code === 'P2002' || e.message?.includes('unique') || e.message?.includes('Unique')) {
-        logger.info('Order already processed (atomic check), skipping');
-        return json({ success: true, message: "Already processed" });
-      }
-      // Table might not exist or other error - continue processing
-      logger.debug('Idempotency atomic insert skipped', { error: e.message });
+    // Idempotency: skip deliveries that were already processed successfully.
+    // The marker is written only after processing succeeds (below), so a
+    // failed attempt leaves none and Shopify's redelivery is processed again.
+    // Concurrent duplicates are safe: the Order row is unique per
+    // (shop, shopifyOrderId) and the cashback ledger per (shop, order, type).
+    const alreadyProcessed = await db.webhookProcessed.findUnique({
+      where: { webhookId: idempotencyWebhookId },
+      select: { id: true },
+    });
+    if (alreadyProcessed) {
+      logger.info('Order already processed, skipping');
+      return json({ success: true, message: "Already processed" });
     }
 
     // Process with retry logic - OPTIMIZED VERSION
@@ -200,108 +195,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // NOTE: Webhook idempotency record is created AFTER processing succeeds
         // This prevents partial failures from blocking Shopify retries
 
-        // ========================================
-        // INSPECT LINE ITEMS BEFORE PROCESSING
-        // ========================================
-        console.log('\n========================================');
-        console.log('[OrderPaid Webhook] ORDER LINE ITEMS INSPECTION (Before Duplicate Check)');
-        console.log('========================================');
-        console.log(`[OrderPaid] Order ID: ${order.id}`);
-        console.log(`[OrderPaid] Order Name: ${order.name}`);
-        console.log(`[OrderPaid] Shop: ${shop}`);
-        console.log(`[OrderPaid] Customer ID: ${order.customer?.id || 'Guest'}`);
-        console.log(`[OrderPaid] Total Line Items: ${order.line_items?.length || 0}`);
-        console.log('----------------------------------------');
-
-        // Log each line item details
-        if (order.line_items && order.line_items.length > 0) {
-          for (let i = 0; i < order.line_items.length; i++) {
-            const item = order.line_items[i];
-            console.log(`\n[OrderPaid] Line Item #${i + 1}:`);
-            console.log(`  - Line Item ID: ${item.id}`);
-            console.log(`  - Product ID: ${item.product_id || 'N/A'}`);
-            console.log(`  - Variant ID: ${item.variant_id || 'N/A'}`);
-            console.log(`  - SKU: ${item.sku || 'N/A'}`);
-            console.log(`  - Title: ${item.title || item.name}`);
-            console.log(`  - Price: ${item.price}`);
-            console.log(`  - Quantity: ${item.quantity}`);
-            console.log(`  - Fulfillment Status: ${item.fulfillment_status || 'unfulfilled'}`);
-            console.log(`  - Has Selling Plan: ${!!item.selling_plan_allocation}`);
-
-            // Check if it's a tier product (exclude soft-deleted products)
-            const tierProduct = await db.tierProduct.findFirst({
-              where: {
-                shop: shop!,
-                deletedAt: null,  // Only active tier products
-                OR: [
-                  { shopifyProductId: item.product_id?.toString() },
-                  { shopifyVariantId: item.variant_id?.toString() },
-                  { sku: item.sku },
-                ],
-              },
-              include: {
-                tier: {
-                  select: {
-                    name: true,
-                    id: true
-                  }
-                }
-              }
-            });
-
-            if (tierProduct) {
-              console.log(`  - ✅ TIER PRODUCT MATCH!`);
-              console.log(`    - Tier Product ID: ${tierProduct.id}`);
-              console.log(`    - Tier: ${tierProduct.tier?.name} (${tierProduct.tierId})`);
-              console.log(`    - Purchase Type: ${tierProduct.purchaseType}`);
-              console.log(`    - Duration: ${tierProduct.duration}`);
-              console.log(`    - Price: ${tierProduct.price || tierProduct.oneTimePrice}`);
-            } else {
-              console.log(`  - ❌ Not a tier product`);
-            }
-          }
-        } else {
-          console.log('[OrderPaid] ⚠️ No line items in order');
+        // Guest checkouts have no loyalty account to credit, and Order rows
+        // reference a customer, so there is nothing to record.
+        if (!order.customer?.id) {
+          console.log(`[OrderPaid] Guest order ${order.name}: no customer, nothing to record`);
+          return { success: true, results: [], usageEligible: false };
         }
 
-        // Show all tier products in database for comparison (only active ones)
-        console.log('\n[OrderPaid] DATABASE TIER PRODUCTS FOR THIS SHOP (active only):');
-        console.log('----------------------------------------');
-        const allTierProducts = await db.tierProduct.findMany({
-          where: {
-            shop: shop!,
-            deletedAt: null  // Only active tier products
-          },
-          include: {
-            tier: {
-              select: {
-                name: true,
-                id: true
-              }
-            }
-          }
-        });
-
-        if (allTierProducts.length > 0) {
-          console.log(`[OrderPaid] Found ${allTierProducts.length} tier products in database:`);
-          allTierProducts.forEach((tp, idx) => {
-            console.log(`\n  ${idx + 1}. ${tp.tier?.name || 'Unknown Tier'}`);
-            console.log(`     - Tier Product ID: ${tp.id}`);
-            console.log(`     - Shopify Product ID: ${tp.shopifyProductId || 'N/A'}`);
-            console.log(`     - Shopify Variant ID: ${tp.shopifyVariantId || 'N/A'}`);
-            console.log(`     - SKU: ${tp.sku || 'N/A'}`);
-            console.log(`     - Purchase Type: ${tp.purchaseType}`);
-            console.log(`     - Duration: ${tp.duration}`);
-          });
-        } else {
-          console.log(`[OrderPaid] ⚠️ NO TIER PRODUCTS CONFIGURED FOR THIS SHOP`);
-        }
-        console.log('========================================\n');
+        // Step 1: The order row references the customer, so make sure the
+        // customer exists first (customers/create may not have arrived yet).
+        const { customer: orderCustomer, created: customerCreated } = await ensureCustomer(shop!, order);
 
         // Step 2: Create Order record (NO TRANSACTION - match sync service)
         const orderCreated = await createOrderRecord(db, {
           shop: shop!,
           order,
+          customer: orderCustomer,
         });
 
         if (!orderCreated) {
@@ -345,8 +254,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log(`[OrderPaid] ℹ️ No tier purchases found for this order (it may not contain tier products)`);
           }
 
-          console.log(`[OrderPaid] ℹ️ See line items inspection above for tier product details`);
-          console.log('========================================\n');
+          // A previous attempt may have stopped after creating the order.
+          // Cashback (guarded by its ledger entry) and spending totals
+          // (recomputed from orders) are idempotent, so finish them here.
+          await processCashback(db, { shop: shop!, order, admin });
+          await updateCustomerSpendingFromOrders(db, { shop: shop!, order });
           return { success: true, results: [], usageEligible: false };
         }
 
@@ -451,19 +363,34 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
         }
 
-        // Step 4: Process cashback, points earning, and update customer (separate operations)
+        // Step 4: Cashback and spending totals. These are the money path, so a
+        // failure fails the delivery (5xx) and Shopify redelivers; the retry
+        // path above completes them idempotently.
+        if (customerCreated) {
+          // A first-time customer has no tier yet: place them using this
+          // order's spend, so the order earns at the tier it reaches.
+          await updateCustomerSpendingFromOrders(db, { shop: shop!, order });
+          await checkTierProgression(db, {
+            shop: shop!,
+            customerId: orderCustomer.id,
+            admin: admin,
+            orderId: order.id?.toString()
+          });
+        }
+
+        await processCashback(db, {
+          shop: shop!,
+          order,
+          admin,
+        });
+
+        await updateCustomerSpendingFromOrders(db, {
+          shop: shop!,
+          order,
+        });
+
+        // Steps 4.6+: engagement and tier follow-ups (best-effort)
         try {
-          await processCashback(db, {
-            shop: shop!,
-            order,
-            admin,
-          });
-
-          await updateCustomerSpendingFromOrders(db, {
-            shop: shop!,
-            order,
-          });
-
           // Step 4.6: Process challenge progress (Challenges Engagement System)
           if (order.customer?.id) {
             try {
@@ -515,141 +442,24 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           }
 
           // Check for tier progression
-          if (order.customer?.id) {
-            console.log(`[OrderPaid] Looking for customer with shopifyCustomerId: ${order.customer.id}`);
-
-            const dbCustomer = await db.customer.findFirst({
-              where: {
-                shop: shop!,
-                shopifyCustomerId: order.customer.id.toString()
-              }
-            });
-
-            if (dbCustomer) {
-              // Skip tier resolution if Step 3.5 already resolved this customer's tier
-              const skipTierResolution = tierPurchaseMade && tierPurchaseCustomerId === dbCustomer.id;
-              if (skipTierResolution) {
-                console.log(`[OrderPaid] Skipping tier progression - already resolved in Step 3.5 for customer ${dbCustomer.id}`);
-              } else {
-                console.log(`[OrderPaid] Found customer ${dbCustomer.id}, checking tier progression...`);
-                await checkTierProgression(db, {
-                  shop: shop!,
-                  customerId: dbCustomer.id,
-                  admin: admin,
-                  orderId: order.id?.toString()
-                });
-              }
-
-              // =========================================================================
-              // GIFT CARD MEMBERSHIP ACTIVATION
-              // Check if order used gift card payment and activate any bundled memberships
-              // =========================================================================
-              try {
-                const { GiftCardRedemptionHandler } = await import('../services/gift-card');
-                const redemptionResult = await GiftCardRedemptionHandler.checkAndProcessRedemption(
-                  shop!,
-                  order.id.toString(),
-                  dbCustomer.id,
-                  {
-                    hasGiftCardPayment: false,
-                    paymentGateways: order.payment_gateway_names || [],
-                  }
-                );
-
-                if (redemptionResult.membershipActivated) {
-                  console.log(`[OrderPaid] Gift card membership activated for customer ${dbCustomer.id}:`, {
-                    tierName: redemptionResult.tierName,
-                    giftCardId: redemptionResult.giftCardId,
-                  });
-                } else if (redemptionResult.detected) {
-                  console.log(`[OrderPaid] Gift card payment detected but no membership to activate`);
-                }
-              } catch (giftCardError) {
-                // Non-fatal - log but don't fail the webhook
-                console.error(`[OrderPaid] Gift card redemption check failed (non-fatal):`, giftCardError);
-              }
-            } else {
-              console.log(`[OrderPaid] Customer not found in database for Shopify ID: ${order.customer.id}`);
-
-              // Use upsert to handle race condition with customers/create webhook.
-              // If the customer was just created by another webhook, we'll find and use them.
-              const shopifyCustomerId = order.customer.id.toString();
-              const newCustomer = await db.customer.upsert({
-                where: {
-                  shop_shopifyCustomerId: {
-                    shop: shop!,
-                    shopifyCustomerId,
-                  }
-                },
-                create: {
-                  id: crypto.randomUUID(),
-                  shop: shop!,
-                  shopifyCustomerId,
-                  email: order.customer?.email || order.email || `customer_${order.customer.id}@shop.com`,
-                  firstName: order.customer?.first_name || null,
-                  lastName: order.customer?.last_name || null,
-                  storeCredit: 0,
-                  totalSpent: 0,
-                  netSpent: 0,
-                  totalRefunded: 0,
-                  orderCount: 0,
-                  createdAt: new Date(),
-                  updatedAt: new Date()
-                },
-                update: {
-                  // If already created by customers/create webhook, just touch updatedAt
-                  updatedAt: new Date(),
-                }
-              });
-              console.log(`[OrderPaid] Customer upserted: ${newCustomer.id} (shopify: ${shopifyCustomerId})`);
-
-              // Link the order we just created (which has customerId: "unknown") to the actual customer.
-              // Without this, tier calculation queries orders by customerId and finds nothing.
-              const shopifyOrderId = order.id.toString();
-              const linkedOrder = await db.order.updateMany({
-                where: {
-                  shop: shop!,
-                  shopifyOrderId,
-                  customerId: "unknown",
-                },
-                data: {
-                  customerId: newCustomer.id,
-                }
-              });
-              if (linkedOrder.count > 0) {
-                console.log(`[OrderPaid] Linked order ${shopifyOrderId} to customer ${newCustomer.id}`);
-              }
-
-              // Update spending from orders now that the order is linked to the customer.
-              // This was skipped earlier because the customer didn't exist yet.
-              await updateCustomerSpendingFromOrders(db, {
-                shop: shop!,
-                order,
-              });
-
-              // Check tier progression with actual spending data
-              await checkTierProgression(db, {
-                shop: shop!,
-                customerId: newCustomer.id,
-                admin: admin,
-                orderId: order.id?.toString()
-              });
-
-              // Retry cashback — it was skipped earlier because the customer didn't exist.
-              // Now the customer has a tier assigned, so cashback can be calculated.
-              try {
-                await processCashback(db, {
-                  shop: shop!,
-                  order,
-                  admin,
-                });
-              } catch (cashbackError) {
-                console.error(`[OrderPaid] Cashback for new customer failed (non-fatal):`, cashbackError);
-              }
-            }
+          const dbCustomer = orderCustomer;
+          // Skip tier resolution if Step 3.5 or the first-order placement above already resolved it
+          const skipTierResolution =
+            customerCreated || (tierPurchaseMade && tierPurchaseCustomerId === dbCustomer.id);
+          if (skipTierResolution) {
+            console.log(`[OrderPaid] Skipping tier progression - already resolved for customer ${dbCustomer.id}`);
           } else {
-            console.log(`[OrderPaid] No customer ID in order, skipping tier progression`);
+            console.log(`[OrderPaid] Found customer ${dbCustomer.id}, checking tier progression...`);
+            await checkTierProgression(db, {
+              shop: shop!,
+              customerId: dbCustomer.id,
+              admin: admin,
+              orderId: order.id?.toString()
+            });
           }
+
+          // Gift-card membership activation is not wired: issuing gift cards
+          // needs the write_gift_cards scope, which the app does not request.
         } catch (e) {
           console.error(`[OrderPaid] Error in post-processing:`, e);
           // Don't fail the whole webhook - order is already created
@@ -668,18 +478,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       },
       {
         maxAttempts: 2,
-        shouldRetry: (error) => {
-          // Don't retry on business logic errors
-          if (error.message?.includes('Invalid') ||
-              error.message?.includes('not found')) {
-            return false;
-          }
-          return true;
-        }
+        // Don't retry on business logic errors
+        shouldRetry: (error) => !isPermanentOrderError(error),
       }
     );
 
-    // Webhook was already recorded at the start (atomic insert) for idempotency
+    // Record the delivery only now that processing succeeded
+    try {
+      await db.webhookProcessed.create({
+        data: {
+          shop: shop!,
+          topic: topic || 'orders/paid',
+          webhookId: idempotencyWebhookId,
+          processedAt: new Date(),
+        }
+      });
+    } catch (e) {
+      // A concurrent duplicate delivery recorded it first: nothing to do
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')) throw e;
+    }
     logger.debug('Webhook processing completed successfully');
 
     if (result.usageEligible) {
@@ -788,14 +605,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
     sentryWebhook.finish('error');
 
-    // Log error for monitoring (if model exists and we have required data)
-    if (db.webhookError && shop && order) {
+    // Log error for monitoring (if we have required data)
+    if (shop && order) {
       await db.webhookError.create({
         data: {
-          id: uuidv4(),
           shop,
           topic: topic || 'orders/paid',
-          orderId: order.id,
+          orderId: order.id?.toString() ?? null,
           error: error instanceof Error ? error.message : 'Unknown error',
           payload: order,
           createdAt: new Date(),
@@ -804,9 +620,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     // Return success to prevent Shopify retries for non-recoverable errors
-    if (error instanceof Error &&
-        (error.message.includes('Invalid') ||
-         error.message.includes('not found'))) {
+    if (isPermanentOrderError(error)) {
       return json({ success: false, error: error.message });
     }
 
@@ -815,13 +629,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 };
 
-async function processLineItem(_tx: any, params: {
+async function processLineItem(_tx: PrismaClient, params: {
   shop: string;
   admin: any;
   order: any;
   lineItem: any;
 }) {
-  const { shop, admin, order, lineItem } = params;
+  const { shop, order, lineItem } = params;
 
   console.log('\n');
   console.log('╔══════════════════════════════════════════════════════════════════════════════╗');
@@ -844,19 +658,12 @@ async function processLineItem(_tx: any, params: {
   // SUBSCRIPTION CHECK (handled by matcher, but route separately)
   // ============================================
   if (lineItem.selling_plan_allocation) {
-    console.log('[TPR] ✅ SUBSCRIPTION DETECTED - Routing to TierSubscriptionBridgeV2');
-    const contractId = lineItem.selling_plan_allocation.selling_plan_id;
-
-    return await TierSubscriptionBridgeV2.handleTierSubscriptionPurchase({
-      shop,
-      admin,
-      customerId: order.customer?.id?.toString() || '',
-      customerShopifyId: order.customer?.id?.toString() || '',
-      lineItem,
-      orderId: order.id.toString(),
-      sellingPlanId: lineItem.selling_plan_allocation.selling_plan_id,
-      contractId,
-    });
+    // A recurring membership is a Shopify subscription contract, created by
+    // the contract webhooks (which need the own_subscription_contracts scope
+    // the app does not request yet). The order carries only a selling plan
+    // id, not a contract, so nothing is recorded from the order itself.
+    console.log('[TPR] Subscription line item: recurring memberships are created from subscription contracts, not orders');
+    return { type: 'subscription', processed: false };
   }
 
   console.log('[TPR] ℹ️  Not a subscription - checking for one-time tier product...');
@@ -1004,7 +811,32 @@ async function processOneTimeTierPurchase(
  * Note: Does NOT automatically issue store credit to Shopify
  * Cashback will be marked as PENDING for manual processing
  */
-async function processCashback(tx: any, params: {
+/** Thrown when cashback cannot be recorded; fails the delivery so Shopify retries. */
+class CashbackError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'CashbackError';
+  }
+}
+
+/**
+ * Record cashback for an order. Any failure becomes a CashbackError, which
+ * fails the delivery so Shopify redelivers it; recording is idempotent.
+ */
+async function processCashback(tx: PrismaClient, params: {
+  shop: string;
+  order: any;
+  admin: any;
+}) {
+  try {
+    await recordCashback(tx, params);
+  } catch (error) {
+    if (error instanceof CashbackError) throw error;
+    throw new CashbackError(`Cashback for order ${params.order?.name ?? params.order?.id} could not be recorded`, { cause: error });
+  }
+}
+
+async function recordCashback(tx: PrismaClient, params: {
   shop: string;
   order: any;
   admin: any;
@@ -1017,7 +849,7 @@ async function processCashback(tx: any, params: {
     select: { autoCashbackProcessingEnabled: true, storeCurrency: true }
   });
 
-  const autoProcessingEnabled = shopSettings?.autoCashbackProcessingEnabled !== false; // Default to true if not set
+  const autoProcessingEnabled = isAutoCashbackEnabled(shopSettings);
 
   if (!order.customer?.id) {
     console.log('[OrderPaid] No customer ID, skipping cashback');
@@ -1132,6 +964,14 @@ async function processCashback(tx: any, params: {
 
   if (cashbackAmount <= 0) {
     console.log('[OrderPaid] No cashback eligible amount after exclusions (store credit, gift cards, tier products)');
+    // The order record still carries createOrderRecord's estimate before
+    // these exclusions; none is due, so the Orders page shows none pending
+    if (orderRecord) {
+      await tx.order.updateMany({
+        where: { id: orderRecord.id, creditLedgerEntries: { none: { type: 'CASHBACK_EARNED' } } },
+        data: { cashbackAmount: 0 },
+      });
+    }
     return;
   }
 
@@ -1141,192 +981,266 @@ async function processCashback(tx: any, params: {
     return;
   }
 
-  // Check if cashback already exists (idempotency guard)
-  const existingEntry = await tx.storeCreditLedger.findFirst({
-    where: {
-      shop,
-      shopifyOrderId: order.id.toString(),
-      type: 'CASHBACK_EARNED',
+  const now = new Date();
+  const ledgerId = uuidv4();
+  const currency = shopSettings?.storeCurrency || order.currency || 'USD';
+  const description = `${currentTier.cashbackPercent}% cashback on order ${order.name}`;
+  // The cashback as the ledger's amount column stores it (2 decimal places)
+  const earned = new Prisma.Decimal(cashbackAmount).toDecimalPlaces(2);
+  const entryMetadata = {
+    orderId: order.id,
+    orderName: order.name,
+    orderTotal: eligibleAmount,
+    adjustedOrderTotal: adjustedEligibleAmount,
+    excludedProductAmount: excludedProductAmount,
+    cashbackPercent: currentTier.cashbackPercent,
+    tierName: currentTier.name,
+    description,
+    paymentBreakdown: breakdown ? { ...breakdown } : null,
+  };
+
+  // =========================================================================
+  // The ledger entry is the idempotency lock: it is created once, before
+  // Shopify is called, so a redelivery never credits twice. It is created
+  // under the order's row lock, which refunds take to record themselves
+  // (services/refund-handler.server.ts):
+  // - a refund recorded before it (delivered while an earlier attempt of this
+  //   webhook was failing, or during the analyzer call above) is netted off,
+  //   as it would have shrunk a pending entry; a full refund leaves none;
+  // - so is a refunded total no recorded refund accounts for ("Sync Orders"
+  //   copies Shopify's totals), and an order refunded in full, as the Orders
+  //   page sees it, gets none (cashbackLeftAfterRefunds);
+  // - a refund waiting for the lock finds the entry afterwards and answers
+  //   503, and Shopify's redelivery reverses it.
+  // With auto-processing on, the entry is created already claimed (SYNCING)
+  // and sent after the lock is released; it goes back to PENDING only when
+  // Shopify answered that it applied nothing. A crash after Shopify credited,
+  // or an answer that leaves it unknown, leaves it SYNCING, never re-sent
+  // (services/cashback-ledger.server.ts).
+  // =========================================================================
+  const recorded = await tx.$transaction(async (lockTx) => {
+    await lockOrder(lockTx, orderRecord.id);
+    const existingEntry = await lockTx.storeCreditLedger.findFirst({
+      where: { shop, shopifyOrderId: order.id.toString(), type: 'CASHBACK_EARNED' },
+      select: { id: true },
+    });
+    if (existingEntry) return { status: 'exists' as const };
+
+    const current = await lockTx.order.findUniqueOrThrow({
+      where: { id: orderRecord.id },
+      select: {
+        totalPrice: true,
+        totalRefunded: true,
+        financialStatus: true,
+        cashbackEligible: true,
+        refunds: { orderBy: { createdAt: 'asc' }, select: { id: true, shopifyRefundId: true, amount: true } },
+      },
+    });
+    const { remaining, reversals, unrecorded } = cashbackLeftAfterRefunds(earned, current);
+    for (const reversal of reversals) {
+      if (reversal.amount.gt(0)) {
+        await lockTx.orderRefund.update({ where: { id: reversal.refundId }, data: { cashbackAdjustment: reversal.amount } });
+      }
     }
-  });
+    if (remaining.lte(0)) {
+      await lockTx.order.update({ where: { id: orderRecord.id }, data: { cashbackAmount: 0, updatedAt: now } });
+      return { status: 'refunded' as const };
+    }
+    const reversedBeforeIssue = [
+      ...reversals.map((r) => ({ shopifyRefundId: r.shopifyRefundId, amount: r.amount.toFixed(2) })),
+      ...(unrecorded.gt(0) ? [{ orderRefundedTotal: current.totalRefunded.toFixed(2), amount: unrecorded.toFixed(2) }] : []),
+    ];
 
-  if (!existingEntry) {
-    const now = new Date();
-    const ledgerId = uuidv4();
-    const currency = shopSettings?.storeCurrency || order.currency || 'USD';
-
-    // =========================================================================
-    // TRANSACTIONAL SAFETY FIX: Create ledger entry FIRST as idempotency lock
-    // This prevents double-crediting if Shopify succeeds but subsequent ops fail
-    // 1. Create ledger with PENDING status (acts as lock)
-    // 2. Attempt Shopify sync
-    // 3. Update ledger to SYNCED if successful
-    // On retry: ledger entry exists → skip processing (even if still PENDING)
-    // =========================================================================
-
-    // Step 1: Create ledger entry FIRST with PENDING status
-    await tx.storeCreditLedger.create({
+    const entry = await lockTx.storeCreditLedger.create({
       data: {
         id: ledgerId,
         customerId: customer.id,
         shop,
-        amount: cashbackAmount,
-        balance: customer.storeCredit + cashbackAmount, // Projected balance
+        amount: remaining,
+        balance: customer.storeCredit.plus(remaining), // Projected balance
         type: 'CASHBACK_EARNED',
         shopifyOrderId: order.id.toString(),
         orderId: orderRecord.id,
         metadata: {
-          orderId: order.id,
-          orderName: order.name,
-          orderTotal: eligibleAmount,
-          adjustedOrderTotal: adjustedEligibleAmount,
-          excludedProductAmount: excludedProductAmount,
-          cashbackPercent: currentTier.cashbackPercent,
-          tierName: currentTier.name,
-          description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
-          paymentBreakdown: breakdown,
-          syncStatus: 'PENDING',
-          autoProcessed: false
+          ...entryMetadata,
+          // As recordRefund records a refund before issue
+          ...(reversedBeforeIssue.length > 0 ? { originalAmount: earned.toFixed(2), reversedBeforeIssue } : {}),
+          syncStatus: autoProcessingEnabled ? 'SYNCING' : 'PENDING',
+          autoProcessed: false,
         },
         createdAt: now,
-      }
+      },
     });
+    await lockTx.order.update({ where: { id: orderRecord.id }, data: { cashbackAmount: remaining, updatedAt: now } });
+    return { status: 'recorded' as const, amount: remaining, metadata: jsonObject(entry.metadata) };
+  });
 
-    console.log(`[OrderPaid] Created PENDING ledger entry ${ledgerId} for ${cashbackAmount} ${currency} (idempotency lock)`);
+  if (recorded.status === 'exists') {
+    console.log(`[OrderPaid] Cashback already processed for order ${order.name}`);
+    return;
+  }
+  if (recorded.status === 'refunded') {
+    console.log(`[OrderPaid] Order ${order.name} was refunded in full or excluded before its cashback was recorded; none is due`);
+    return;
+  }
+  const recordedAmount = recorded.amount;
+  console.log(`[OrderPaid] Created ledger entry ${ledgerId} for ${recordedAmount.toFixed(2)} ${currency} (idempotency lock)`);
 
-    let actualBalance = customer.storeCredit;
-    let isProcessed = false;
+  let isProcessed = false;
+  // Set before Shopify is called: from then on a failure leaves the entry SYNCING
+  let creditSent = false;
 
-    // Step 2: If auto-processing enabled, attempt Shopify sync
-    if (autoProcessingEnabled) {
-      try {
-        console.log(`[OrderPaid] Auto-processing enabled - issuing store credit to Shopify`);
-
-        const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
-        const storeCreditService = createStoreCreditService(admin, shop);
-
-        const result = await storeCreditService.issueStoreCredit(
-          customer.shopifyCustomerId,
-          cashbackAmount,
-          currency,
-          `${currentTier.cashbackPercent}% cashback on order ${order.name}`
-        );
-
-        if (result.success) {
-          actualBalance = result.balance || (customer.storeCredit + cashbackAmount);
-          isProcessed = true;
-          console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
-
-          // Step 3: Update ledger and customer ONLY if Shopify succeeded
-          await tx.customer.update({
-            where: { id: customer.id },
-            data: {
-              storeCredit: actualBalance,
-              updatedAt: now
-            }
-          });
-
-          // Update ledger entry to SYNCED
-          await tx.storeCreditLedger.update({
-            where: { id: ledgerId },
-            data: {
-              balance: actualBalance,
-              metadata: {
-                orderId: order.id,
-                orderName: order.name,
-                orderTotal: eligibleAmount,
-                adjustedOrderTotal: adjustedEligibleAmount,
-                excludedProductAmount: excludedProductAmount,
-                cashbackPercent: currentTier.cashbackPercent,
-                tierName: currentTier.name,
-                description: `${currentTier.cashbackPercent}% cashback on order ${order.name}`,
-                paymentBreakdown: breakdown,
-                syncStatus: 'SYNCED',
-                autoProcessed: true,
-                syncedAt: now.toISOString()
-              }
-            }
-          });
-
-          console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
-        } else {
-          console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
-          // Ledger remains PENDING - will be retried by reconciliation or manual process
-        }
-      } catch (error) {
-        console.error(`[OrderPaid] Error issuing store credit:`, error);
-        // Ledger remains PENDING - Shopify sync can be retried later
-      }
-    } else {
-      console.log(`[OrderPaid] Auto-processing disabled - ledger entry remains PENDING`);
-    }
-
-    console.log(`[OrderPaid] Cashback processing complete: ${isProcessed ? 'SYNCED' : 'PENDING'} for ${cashbackAmount} ${currency}`);
-
-    // Update Order record with cashback status
-    await tx.order.update({
-      where: { id: orderRecord.id },
-      data: {
-        cashbackProcessed: isProcessed,
-        cashbackAmount: cashbackAmount,
-        updatedAt: now
-      }
-    });
-
-    // Track order and cashback events in Klaviyo (non-blocking)
+  // If auto-processing enabled, issue the entry's amount to Shopify
+  if (autoProcessingEnabled) {
     try {
-      if (await isKlaviyoEnabled(shop)) {
-        // Build customer object with tier
-        const customerWithTier = {
-          ...customer,
-          currentTier,
-        };
+      console.log(`[OrderPaid] Auto-processing enabled - issuing store credit to Shopify`);
 
-        // Track order placed event (uses trackOrderForKlaviyo from email-provider)
-        await trackOrderForKlaviyo(shop, customerWithTier, {
-          id: order.id.toString(),
-          orderNumber: order.name,
-          totalPrice: eligibleAmount,
-          cashbackEarned: cashbackAmount,
-          cashbackUsed: extractStoreCreditUsed(order),
-          currency: currency,
-          lineItems: order.line_items?.map((item: any) => ({
-            productId: item.product_id?.toString(),
-            sku: item.sku,
-            title: item.title || item.name,
-            quantity: item.quantity,
-            price: parseFloat(item.price || '0'),
-            imageUrl: item.image?.src,
-          })),
+      const { createStoreCreditService } = await import("~/services/shopify-store-credit.service");
+      const storeCreditService = createStoreCreditService(admin, shop);
+
+      creditSent = true;
+      const result = await storeCreditService.issueStoreCredit(
+        customer.shopifyCustomerId,
+        recordedAmount.toNumber(),
+        currency,
+        description
+      );
+
+      if (result.success) {
+        const actualBalance = result.balance ?? customer.storeCredit.plus(recordedAmount);
+        isProcessed = true;
+        console.log(`[OrderPaid] Store credit issued successfully - new balance: ${actualBalance}`);
+
+        // Update ledger and customer ONLY if Shopify succeeded
+        await tx.customer.update({
+          where: { id: customer.id },
+          data: {
+            storeCredit: actualBalance,
+            updatedAt: now
+          }
         });
 
-        // Track cashback earned event if cashback was issued
-        if (cashbackAmount > 0) {
-          await trackCashbackEarned(
-            shop,
-            customerWithTier,
-            cashbackAmount,
-            order.id.toString(),
-            order.name
-          );
-        }
+        await tx.storeCreditLedger.update({
+          where: { id: ledgerId },
+          data: {
+            balance: actualBalance,
+            metadata: { ...recorded.metadata, syncStatus: 'SYNCED', autoProcessed: true, syncedAt: now.toISOString() }
+          }
+        });
 
-        console.log(`[OrderPaid] Klaviyo events tracked for order ${order.name}`);
+        // Only the processed flag: a refund may have reduced cashbackAmount
+        await tx.order.update({
+          where: { id: orderRecord.id },
+          data: { cashbackProcessed: true, updatedAt: now }
+        });
+
+        console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
+      } else if (result.ambiguous) {
+        // Shopify may have credited it (no answer, a 5xx, an error it can
+        // raise after crediting), so it stays SYNCING
+        console.error(`[OrderPaid] Shopify did not confirm the store credit: ${result.error}`);
+        await markUnconfirmed(ledgerId, result.error);
+      } else {
+        console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
+        // Back to PENDING - will be retried by reconciliation or manual process
+        await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
       }
-    } catch (klaviyoError) {
-      // Log but don't fail the webhook
-      console.error(`[OrderPaid] Failed to track Klaviyo events (non-fatal):`, klaviyoError);
+    } catch (error) {
+      console.error(`[OrderPaid] Error issuing store credit:`, error);
+      // Unsent: back to PENDING for a retry. Sent: stays SYNCING, never re-sent
+      if (!creditSent) await claimLedgerEntry(ledgerId, 'SYNCING', 'PENDING', tx);
     }
   } else {
-    console.log(`[OrderPaid] Cashback already processed for order ${order.name}`);
+    console.log(`[OrderPaid] Auto-processing disabled - ledger entry remains PENDING`);
+  }
+
+  console.log(`[OrderPaid] Cashback processing complete: ${isProcessed ? 'SYNCED' : 'PENDING'} for ${recordedAmount.toFixed(2)} ${currency}`);
+
+  // Track order and cashback events in Klaviyo (non-blocking)
+  try {
+    if (await isKlaviyoEnabled(shop)) {
+      // Build customer object with tier
+      const customerWithTier = {
+        ...customer,
+        currentTier,
+      };
+
+      // Track order placed event (uses trackOrderForKlaviyo from email-provider)
+      await trackOrderForKlaviyo(shop, customerWithTier, {
+        id: order.id.toString(),
+        orderNumber: order.name,
+        totalPrice: eligibleAmount,
+        cashbackEarned: recordedAmount.toNumber(),
+        cashbackUsed: extractStoreCreditUsed(order),
+        currency: currency,
+        lineItems: order.line_items?.map((item: any) => ({
+          productId: item.product_id?.toString(),
+          sku: item.sku,
+          title: item.title || item.name,
+          quantity: item.quantity,
+          price: parseFloat(item.price || '0'),
+          imageUrl: item.image?.src,
+        })),
+      });
+
+      // Track cashback earned event
+      await trackCashbackEarned(
+        shop,
+        customerWithTier,
+        recordedAmount.toNumber(),
+        order.id.toString(),
+        order.name
+      );
+
+      console.log(`[OrderPaid] Klaviyo events tracked for order ${order.name}`);
+    }
+  } catch (klaviyoError) {
+    // Log but don't fail the webhook
+    console.error(`[OrderPaid] Failed to track Klaviyo events (non-fatal):`, klaviyoError);
   }
 }
 
-async function createOrderRecord(_dbOrTx: any, params: {
+/**
+ * Find the order's customer, creating them if customers/create has not
+ * arrived yet. `created` is true only when this call made the row.
+ */
+async function ensureCustomer(shop: string, order: any) {
+  const shopifyCustomerId = order.customer.id.toString();
+  const where = { shop_shopifyCustomerId: { shop, shopifyCustomerId } };
+
+  const existing = await db.customer.findUnique({ where });
+  if (existing) {
+    return { customer: existing, created: false };
+  }
+
+  try {
+    const customer = await db.customer.create({
+      data: {
+        shop,
+        shopifyCustomerId,
+        email: order.customer?.email || order.email || `customer_${order.customer.id}@shop.com`,
+        firstName: order.customer?.first_name || null,
+        lastName: order.customer?.last_name || null,
+      }
+    });
+    console.log(`[OrderPaid] Customer created: ${customer.id} (shopify: ${shopifyCustomerId})`);
+    return { customer, created: true };
+  } catch (error) {
+    // customers/create (or a concurrent delivery) created it first
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return { customer: await db.customer.findUniqueOrThrow({ where }), created: false };
+    }
+    throw error;
+  }
+}
+
+async function createOrderRecord(_dbOrTx: PrismaClient, params: {
   shop: string;
   order: any;
+  /** The order's customer, from ensureCustomer */
+  customer: Customer;
 }) {
-  const { shop, order } = params;
+  const { shop, order, customer } = params;
 
   // Extract Shopify order ID (match the sync service pattern)
   const shopifyOrderId = order.id.toString();
@@ -1344,24 +1258,10 @@ async function createOrderRecord(_dbOrTx: any, params: {
     return null; // Return null to indicate already exists
   }
   
-  // Find customer if exists (match sync service pattern - don't create here)
-  let customer = null;
-  let currentTier = null;
-  if (order.customer?.id) {
-    customer = await db.customer.findFirst({
-      where: {
-        shop,
-        shopifyCustomerId: order.customer.id.toString()
-      }
-    });
-
-    // Fetch tier separately
-    if (customer?.currentTierId) {
-      currentTier = await db.tier.findUnique({
-        where: { id: customer.currentTierId }
-      });
-    }
-  }
+  // Fetch tier separately
+  const currentTier = customer.currentTierId
+    ? await db.tier.findUnique({ where: { id: customer.currentTierId } })
+    : null;
 
   // Calculate cashback based on current tier
   let cashbackPercent = 0;
@@ -1418,7 +1318,7 @@ async function createOrderRecord(_dbOrTx: any, params: {
       shopifyOrderId,
       shopifyOrderNumber: order.order_number?.toString() || order.number?.toString() || '',
       shopifyOrderName: order.name || '',
-      customerId: customer?.id || "unknown", // Match sync service - use "unknown" for guest orders
+      customerId: customer.id,
       email: order.email || order.customer?.email || '',
       currency: orderCurrency, // Use shop currency to match total_price amount
       // Multi-currency tracking fields
@@ -1486,7 +1386,7 @@ async function createOrderRecord(_dbOrTx: any, params: {
   return newOrder;
 }
 
-async function updateCustomerSpendingFromOrders(tx: any, params: {
+async function updateCustomerSpendingFromOrders(tx: PrismaClient, params: {
   shop: string;
   order: any;
 }) {
@@ -1535,7 +1435,7 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
       totalSpent: orderStats._sum.totalPrice || 0,
       totalRefunded: orderStats._sum.totalRefunded || 0,
       totalCashbackEarned: orderStats._sum.cashbackAmount || 0,
-      netSpent: (orderStats._sum.totalPrice || 0) - (orderStats._sum.totalRefunded || 0),
+      netSpent: (orderStats._sum.totalPrice ?? new Prisma.Decimal(0)).minus(orderStats._sum.totalRefunded ?? 0),
       orderCount: orderStats._count.id || 0,
       lastOrderDate: orderStats._max.shopifyCreatedAt || null,
       updatedAt: new Date()
@@ -1545,7 +1445,7 @@ async function updateCustomerSpendingFromOrders(tx: any, params: {
   console.log(`[OrderPaid] Updated customer ${customer.id} spending totals`);
 }
 
-async function checkTierProgression(_dbOrTx: any, params: {
+async function checkTierProgression(_dbOrTx: PrismaClient, params: {
   shop: string;
   customerId: string;
   admin: any;  // Not used with local DB calculation, but kept for compatibility

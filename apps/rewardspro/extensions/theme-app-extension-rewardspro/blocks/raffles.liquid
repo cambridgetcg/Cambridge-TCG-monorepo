@@ -37,7 +37,7 @@
        data-shop-domain="{{ shop.permanent_domain }}"
        data-shop-currency="{{ shop.currency }}"
        data-heading="{{ block.settings.heading | default: 'Raffles' }}"
-       data-guest-message="{{ block.settings.guest_message | default: 'Sign in to enter raffles and win prizes!' }}"
+       data-guest-message="{{ block.settings.guest_message | default: 'Sign in to see raffles.' }}"
        data-guest-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
        data-guest-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
     {% comment %} Guest placeholder - replaced by JavaScript {% endcomment %}
@@ -140,7 +140,7 @@
       "type": "text",
       "id": "guest_message",
       "label": "Guest Message",
-      "default": "Sign in to enter raffles and win prizes!",
+      "default": "Sign in to see raffles.",
       "info": "Message shown to non-logged-in visitors"
     },
     {

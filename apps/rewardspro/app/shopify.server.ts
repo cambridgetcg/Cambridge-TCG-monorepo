@@ -4,9 +4,10 @@ import {
   AppDistribution,
   shopifyApp,
   BillingInterval,
-  DeliveryMethod,
 } from "@shopify/shopify-app-remix/server";
-import { createDataAPISessionStorage } from "./utils/session-data-api-adapter";
+import prisma from "./db.server";
+import { toCurrency } from "./utils/currency-code.server";
+import { EncryptedPrismaSessionStorage } from "./utils/session-storage.server";
 import { syncCustomersInBackground } from "./services/background-customer-sync.server";
 import { PRICING_PLANS } from "./constants/pricing-contract";
 
@@ -49,7 +50,7 @@ const shopify = shopifyApp({
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: createDataAPISessionStorage(),
+  sessionStorage: new EncryptedPrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   // Manual Billing API compatibility catalogue. Every selectable current plan
   // is fixed recurring; legacy names remain only for subscription recognition.
@@ -174,30 +175,14 @@ const shopify = shopifyApp({
       ],
     },
   },
-  webhooks: {
-    // Billing-related webhooks
-    APP_SUBSCRIPTIONS_UPDATE: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/app-subscriptions-update",
-    },
-    APP_UNINSTALLED: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/app/uninstalled",
-    },
-  },
+  // Webhook subscriptions live only in shopify.app.toml (app-specific
+  // subscriptions); test/unit/webhooks/subscriptions.test.ts keeps every
+  // webhook route and subscription paired.
   hooks: {
     afterAuth: async ({ session, admin }) => {
       console.log(`[AfterAuth] App installed/authenticated for shop: ${session.shop}`);
 
-      // Import db here to avoid circular dependencies
-      const db = (await import("./db.server")).default;
-
-      // Valid currency codes from our Prisma enum
-      const VALID_CURRENCIES = [
-        'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SEK', 'NZD',
-        'NOK', 'MXN', 'SGD', 'HKD', 'KRW', 'TRY', 'INR', 'RUB', 'BRL', 'ZAR',
-        'AED', 'PLN', 'DKK', 'THB', 'IDR', 'HUF', 'CZK', 'ILS', 'CLP', 'PHP'
-      ];
+      const db = prisma;
 
       // Fetch shop details from Shopify (currency, timezone, name)
       let shopDetails: { currencyCode?: string; ianaTimezone?: string; name?: string; url?: string } = {};
@@ -221,10 +206,8 @@ const shopify = shopifyApp({
         // Continue with defaults
       }
 
-      // Validate currency - only use if it's in our supported list
-      const shopifyCurrency = VALID_CURRENCIES.includes(shopDetails.currencyCode || '')
-        ? shopDetails.currencyCode
-        : 'USD';
+      // Validate currency - only use it if our Prisma Currency enum supports it
+      const shopifyCurrency = toCurrency(shopDetails.currencyCode);
 
       // Check if ShopSettings exists
       let shopSettings = await db.shopSettings.findUnique({
@@ -256,10 +239,9 @@ const shopify = shopifyApp({
         // ShopSettings exists - check if currency needs updating
         // Only update if: currency is not set OR was defaulted to USD but Shopify reports different
         const currentCurrency = shopSettings.storeCurrency;
-        const shouldUpdateCurrency = shopifyCurrency &&
+        const shouldUpdateCurrency =
           shopifyCurrency !== 'USD' &&
-          currentCurrency === 'USD' &&
-          shopifyCurrency !== currentCurrency;
+          currentCurrency === 'USD';
 
         if (shouldUpdateCurrency) {
           console.log(`[AfterAuth] Updating currency from ${currentCurrency} to ${shopifyCurrency} for ${session.shop}`);
@@ -320,5 +302,4 @@ export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
-export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorage = shopify.sessionStorage;

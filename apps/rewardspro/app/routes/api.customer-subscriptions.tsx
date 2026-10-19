@@ -85,7 +85,7 @@ export async function action({ request }: ActionFunctionArgs) {
         pausedAt: sub.pausedAt,
         cancelledAt: sub.cancelledAt,
         trialEndsAt: sub.trialEndsAt,
-        features: sub.tier?.features || [],
+        features: sub.tier?.benefits ?? [],
         lastPaymentStatus: null, // Would need to check billing attempts
         failedPaymentCount: 0,
       })),

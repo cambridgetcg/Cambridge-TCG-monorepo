@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 // Mock the db module before importing the service
 vi.mock('../../../app/db.server', () => ({
@@ -459,7 +460,8 @@ describe('Order Sync Job Service', () => {
       (db.order.create as Mock).mockResolvedValue({});
       (db.customer.findMany as Mock).mockResolvedValue([]);
       (db.order.aggregate as Mock).mockResolvedValue({
-        _sum: { totalPrice: 100, totalRefunded: 0, cashbackAmount: 5 },
+        // Prisma returns Decimal sums
+        _sum: { totalPrice: new Prisma.Decimal(100), totalRefunded: new Prisma.Decimal(0), cashbackAmount: new Prisma.Decimal(5) },
         _count: { id: 1 },
         _max: { shopifyCreatedAt: new Date() },
       });
@@ -950,7 +952,7 @@ describe('Order Sync Job - Integration Scenarios', () => {
     (db.storeCreditLedger.create as Mock).mockResolvedValue({});
     (db.customer.findMany as Mock).mockResolvedValue([{ id: 'cust-1' }]);
     (db.order.aggregate as Mock).mockResolvedValue({
-      _sum: { totalPrice: 200, totalRefunded: 0, cashbackAmount: 10 },
+      _sum: { totalPrice: new Prisma.Decimal(200), totalRefunded: new Prisma.Decimal(0), cashbackAmount: new Prisma.Decimal(10) },
       _count: { id: 2 },
       _max: { shopifyCreatedAt: new Date() },
     });

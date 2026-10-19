@@ -1,4 +1,5 @@
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
+import { Prisma, type OrderFinancialStatus } from "@prisma/client";
 import { db } from "../db.server";
 import { v4 as uuidv4 } from "uuid";
 
@@ -605,7 +606,7 @@ export class OrderSyncService {
 
     // Check if order already exists
     console.log(`[PROCESS] Checking if order exists in database...`);
-    const existingOrder = await (db as any).order.findFirst({
+    const existingOrder = await db.order.findFirst({
       where: {
         shop: this.options.shop,
         shopifyOrderId
@@ -701,7 +702,7 @@ export class OrderSyncService {
       cashbackAmount
     });
 
-    await (db as any).order.create({
+    await db.order.create({
       data: {
         id: orderId,
         shop: this.options.shop,
@@ -785,7 +786,7 @@ export class OrderSyncService {
    */
   private async updateOrder(orderId: string, order: any, _shopifyCustomerId: string | null): Promise<void> {
     // Update order with latest data
-    await (db as any).order.update({
+    await db.order.update({
       where: { id: orderId },
       data: {
         totalRefunded: parseFloat(order.totalRefundedSet?.shopMoney?.amount || "0"),
@@ -812,7 +813,7 @@ export class OrderSyncService {
       const shopifyLineItemId = item.id.replace('gid://shopify/LineItem/', '');
       
       // Check if line item already exists
-      const existingItem = await (db as any).orderLineItem.findFirst({
+      const existingItem = await db.orderLineItem.findFirst({
         where: {
           orderId,
           shopifyLineItemId
@@ -832,7 +833,7 @@ export class OrderSyncService {
       const unitPrice = parseFloat(item.originalUnitPriceSet?.shopMoney?.amount || "0");
       const totalDiscount = parseFloat(item.totalDiscountSet?.shopMoney?.amount || "0");
 
-      await (db as any).orderLineItem.create({
+      await db.orderLineItem.create({
         data: {
           id: uuidv4(),
           orderId,
@@ -866,7 +867,7 @@ export class OrderSyncService {
       const shopifyRefundId = refund.id.replace('gid://shopify/Refund/', '');
       
       // Check if refund already exists
-      const existingRefund = await (db as any).orderRefund.findFirst({
+      const existingRefund = await db.orderRefund.findFirst({
         where: {
           orderId,
           shopifyRefundId
@@ -880,7 +881,7 @@ export class OrderSyncService {
       // Create refund record
       const refundId = uuidv4();
       
-      await (db as any).orderRefund.create({
+      await db.orderRefund.create({
         data: {
           id: refundId,
           orderId,
@@ -905,7 +906,7 @@ export class OrderSyncService {
           const shopifyLineItemId = item.lineItem?.id ? 
             item.lineItem.id.replace('gid://shopify/LineItem/', '') : "";
 
-          await (db as any).orderRefundLineItem.create({
+          await db.orderRefundLineItem.create({
             data: {
               id: uuidv4(),
               refundId,
@@ -923,8 +924,8 @@ export class OrderSyncService {
   /**
    * Map Shopify financial status to our enum
    */
-  private mapFinancialStatus(status: string): string {
-    const statusMap: Record<string, string> = {
+  private mapFinancialStatus(status: string): OrderFinancialStatus {
+    const statusMap: Record<string, OrderFinancialStatus> = {
       'PENDING': 'PENDING',
       'AUTHORIZED': 'AUTHORIZED',
       'PARTIALLY_PAID': 'PARTIALLY_PAID',
@@ -952,7 +953,7 @@ export class OrderSyncService {
 
       for (const customer of customers) {
         // Calculate totals from orders
-        const orderStats = await (db as any).order.aggregate({
+        const orderStats = await db.order.aggregate({
           where: {
             shop: this.options.shop,
             customerId: customer.id,
@@ -978,7 +979,7 @@ export class OrderSyncService {
             totalSpent: orderStats._sum.totalPrice || 0,
             totalRefunded: orderStats._sum.totalRefunded || 0,
             totalCashbackEarned: orderStats._sum.cashbackAmount || 0,
-            netSpent: (orderStats._sum.totalPrice || 0) - (orderStats._sum.totalRefunded || 0),
+            netSpent: (orderStats._sum.totalPrice ?? new Prisma.Decimal(0)).minus(orderStats._sum.totalRefunded ?? 0),
             orderCount: orderStats._count.id || 0,
             lastOrderDate: orderStats._max.shopifyCreatedAt || null,
             updatedAt: new Date()

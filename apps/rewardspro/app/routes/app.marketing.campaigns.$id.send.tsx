@@ -20,7 +20,10 @@ import {
 import { useState } from "react";
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
+import type { Prisma } from "@prisma/client";
 import { sendCampaignEmails } from "~/services/email-notifications.server";
+import { MARKETING_AUDIENCE } from "~/services/marketing-consent.server";
+import { marketingEmailBlockedReason } from "~/services/marketing-email.server";
 
 interface Campaign {
   id: string;
@@ -35,6 +38,8 @@ interface Campaign {
     recommendationType?: string;
     targetCustomerIds?: string[];
     criteria?: any[];
+    affectedCount?: number;
+    predictedRevenue?: number;
   };
   metadata?: {
     source?: string;
@@ -48,8 +53,8 @@ interface Campaign {
 interface AudienceStats {
   total: number;
   withEmail: number;
-  reachable: number;
-  recommendedSegment: number; // Number of customers from recommendation
+  reachable: number; // Customers who consent to marketing email
+  recommendedSegment: number; // Consenting customers from recommendation
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -84,37 +89,38 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       status: dbCampaign.status,
       templateId: dbCampaign.templateId,
       segmentRules: dbCampaign.segmentRules as Campaign['segmentRules'],
-      metadata: dbCampaign.metadata as Campaign['metadata'],
     };
+    // Recommendation context is stored alongside the targeting in segmentRules
+    campaign.metadata = campaign.segmentRules?.fromRecommendation
+      ? {
+          source: 'analytics_recommendation',
+          recommendationType: campaign.segmentRules.recommendationType,
+          affectedCount: campaign.segmentRules.affectedCount,
+          predictedRevenue: campaign.segmentRules.predictedRevenue,
+        }
+      : undefined;
   } catch (e: any) {
     if (e instanceof Response) throw e;
     console.error("[Campaign Send] Error:", e);
     throw new Response("Error loading campaign", { status: 500 });
   }
 
-  // Get audience stats
+  // Get audience stats: only customers who consent can receive the campaign
   let audienceStats: AudienceStats = { total: 0, withEmail: 0, reachable: 0, recommendedSegment: 0 };
   try {
-    const customers = await prisma.customer.findMany({
-      where: { shop },
-    });
-    audienceStats.total = customers.length;
-    audienceStats.withEmail = customers.filter((c) => c.email).length;
-    audienceStats.reachable = audienceStats.withEmail; // Simplified - would check subscription status
+    const [total, withEmail, reachable] = await Promise.all([
+      prisma.customer.count({ where: { shop } }),
+      prisma.customer.count({ where: { shop, email: { not: "" } } }),
+      prisma.customer.count({ where: { shop, ...MARKETING_AUDIENCE } }),
+    ]);
+    audienceStats = { total, withEmail, reachable, recommendedSegment: 0 };
 
     // Calculate recommended segment count if campaign is from recommendation
     const segmentRules = campaign?.segmentRules as Campaign['segmentRules'];
     if (segmentRules?.fromRecommendation && segmentRules.targetCustomerIds?.length) {
-      // Count how many of the target customers have valid emails
-      const targetCustomers = await prisma.customer.findMany({
-        where: {
-          shop,
-          id: { in: segmentRules.targetCustomerIds },
-          email: { not: null },
-        },
-        select: { id: true },
+      audienceStats.recommendedSegment = await prisma.customer.count({
+        where: { shop, ...MARKETING_AUDIENCE, id: { in: segmentRules.targetCustomerIds } },
       });
-      audienceStats.recommendedSegment = targetCustomers.length;
     }
   } catch (e) {
     // Table might not exist
@@ -132,16 +138,16 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     const tierIds = dbTiers.map(t => t.id);
     const customerTierAssignments = tierIds.length > 0
       ? await prisma.customer.findMany({
-          where: { shop, tierId: { in: tierIds } },
-          select: { tierId: true },
+          where: { shop, ...MARKETING_AUDIENCE, currentTierId: { in: tierIds } },
+          select: { currentTierId: true },
         })
       : [];
 
     // Count customers per tier in memory
     const tierCountMap = new Map<string, number>();
     for (const customer of customerTierAssignments) {
-      if (customer.tierId) {
-        tierCountMap.set(customer.tierId, (tierCountMap.get(customer.tierId) || 0) + 1);
+      if (customer.currentTierId) {
+        tierCountMap.set(customer.currentTierId, (tierCountMap.get(customer.currentTierId) || 0) + 1);
       }
     }
 
@@ -156,7 +162,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     // Tables might not exist
   }
 
-  return json({ campaign, audienceStats, tiers });
+  return json({ campaign, audienceStats, tiers, marketingBlocked: marketingEmailBlockedReason() });
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -170,6 +176,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
+
+  // Server-side switch: no marketing email while it cannot be sent safely
+  const blocked = marketingEmailBlockedReason();
+  if (blocked && (intent === "send_now" || intent === "schedule")) {
+    return json({ error: blocked }, { status: 409 });
+  }
 
   if (intent === "send_now") {
     try {
@@ -188,8 +200,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         },
       });
 
-      // Get recipients based on filter
-      let recipients: Array<{ email: string; name?: string; customerId?: string }> = [];
+      // Get recipients based on filter; only customers who consent to
+      // marketing (sendCampaignEmails checks again)
+      const audience = { shop, ...MARKETING_AUDIENCE };
+      let where: Prisma.CustomerWhereInput | null = null;
 
       if (sendToRecommended) {
         // Get the campaign to access targetCustomerIds
@@ -199,60 +213,18 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         });
         const segmentRules = campaignData?.segmentRules as any;
         const targetCustomerIds = segmentRules?.targetCustomerIds || [];
-
         if (targetCustomerIds.length > 0) {
-          // Get customers from the recommendation segment (exclude suppressed/unsubscribed)
-          const customers = await prisma.customer.findMany({
-            where: {
-              shop,
-              id: { in: targetCustomerIds },
-              email: { not: null },
-              acceptsMarketing: true,
-              emailSuppressed: false,
-            },
-            select: { id: true, email: true, firstName: true, lastName: true },
-          });
-          recipients = customers
-            .filter((c) => c.email)
-            .map((c) => ({
-              email: c.email!,
-              name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
-              customerId: c.id,
-            }));
+          where = { ...audience, id: { in: targetCustomerIds } };
         }
       } else if (sendToAll) {
-        // Get all customers with email (exclude suppressed/unsubscribed)
-        const customers = await prisma.customer.findMany({
-          where: { shop, email: { not: null }, acceptsMarketing: true, emailSuppressed: false },
-          select: { id: true, email: true, firstName: true, lastName: true },
-        });
-        recipients = customers
-          .filter((c) => c.email)
-          .map((c) => ({
-            email: c.email!,
-            name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
-            customerId: c.id,
-          }));
+        where = audience;
       } else if (selectedTiers.length > 0) {
-        // Get customers in selected tiers (exclude suppressed/unsubscribed)
-        const customers = await prisma.customer.findMany({
-          where: {
-            shop,
-            email: { not: null },
-            tierId: { in: selectedTiers },
-            acceptsMarketing: true,
-            emailSuppressed: false,
-          },
-          select: { id: true, email: true, firstName: true, lastName: true },
-        });
-        recipients = customers
-          .filter((c) => c.email)
-          .map((c) => ({
-            email: c.email!,
-            name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
-            customerId: c.id,
-          }));
+        where = { ...audience, currentTierId: { in: selectedTiers } };
       }
+
+      const recipients = where
+        ? (await prisma.customer.findMany({ where, select: { id: true } })).map((c) => ({ customerId: c.id }))
+        : [];
 
       // Guard: prevent sending to zero recipients
       if (recipients.length === 0) {
@@ -358,7 +330,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 };
 
 export default function SendCampaign() {
-  const { campaign, audienceStats, tiers } = useLoaderData<typeof loader>();
+  const { campaign, audienceStats, tiers, marketingBlocked } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigate = useNavigate();
 
@@ -428,6 +400,23 @@ export default function SendCampaign() {
             </Banner>
           </Layout.Section>
         )}
+
+        {marketingBlocked && (
+          <Layout.Section>
+            <Banner tone="warning" title="Marketing email is off">
+              <p>{marketingBlocked}</p>
+            </Banner>
+          </Layout.Section>
+        )}
+
+        <Layout.Section>
+          <Banner tone="info">
+            <p>
+              Campaigns go only to customers who subscribed to email marketing in Shopify and have not
+              unsubscribed. Every email includes an unsubscribe link.
+            </p>
+          </Banner>
+        </Layout.Section>
 
         {/* Campaign Preview */}
         <Layout.Section>

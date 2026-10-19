@@ -731,7 +731,7 @@ export async function cleanupExpiredManualOverrides(shop?: string): Promise<{
             fromTierId: state.manualOverrideTierId,
             toTierId: null, // Will be recalculated
             changeType: 'DOWNGRADE',
-            triggerType: 'TIER_RECALCULATION',
+            triggerType: 'PERIODIC_REVIEW',
             note: `Manual override expired on ${state.manualOverrideExpiry?.toISOString()}`,
             metadata: {
               action: 'override_expired',

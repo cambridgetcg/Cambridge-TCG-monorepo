@@ -36,12 +36,35 @@ vi.mock('~/shopify.server', () => ({
       const topic = request.headers.get('X-Shopify-Topic');
       const rawBody = await request.clone().text();
       const payload = JSON.parse(rawBody);
+      // The order was paid in full by card: the transaction analyzer's
+      // Admin GraphQL lookup gets a real-shaped answer.
+      const amount = String(payload.total_price ?? '0');
+      const money = { shopMoney: { amount, currencyCode: payload.currency ?? 'USD' } };
       return {
         shop,
         topic,
         payload,
         admin: {
-          graphql: vi.fn(),
+          graphql: vi.fn().mockResolvedValue({
+            json: async () => ({
+              data: {
+                order: {
+                  id: `gid://shopify/Order/${payload.id}`,
+                  totalReceivedSet: money,
+                  transactions: [
+                    {
+                      id: 'gid://shopify/OrderTransaction/1',
+                      gateway: 'shopify_payments',
+                      status: 'SUCCESS',
+                      kind: 'SALE',
+                      amountSet: money,
+                      parentTransaction: null,
+                    },
+                  ],
+                },
+              },
+            }),
+          }),
         },
       };
     }),
@@ -142,13 +165,6 @@ vi.mock('~/services/tier-products', () => ({
   tierPurchaseExists: mockTierPurchaseExists,
   matchTierProduct: vi.fn().mockResolvedValue(null),
   matchTierProducts: vi.fn().mockResolvedValue([]),
-}));
-
-// Mock tier subscription bridge
-vi.mock('~/services/subscription/tier-subscription-bridge.server', () => ({
-  TierSubscriptionBridgeV2: {
-    handleOrderPaid: vi.fn().mockResolvedValue({ processed: false }),
-  },
 }));
 
 // Mock logger - must include withContext that returns a new logger

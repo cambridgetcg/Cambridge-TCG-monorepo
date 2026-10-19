@@ -129,7 +129,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         results.details.push({
           type: 'subscription_expired',
           customerId: subscription.customerId,
-          tierName: subscription.tier.name,
+          tierName: subscription.tier?.name ?? null,
           shop: subscription.shop
         });
 
@@ -177,7 +177,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         results.details.push({
           type: 'purchase_expired',
           customerId: purchase.customerId,
-          tierName: purchase.tier.name,
+          tierName: purchase.tier?.name ?? null,
           shop: purchase.shop
         });
 
@@ -239,7 +239,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
               eventType: 'TIER_EXPIRATION_WARNING',
               customerEmail: purchase.customer?.email || '',
               metadata: {
-                path: '$.daysUntilExpiry',
+                path: ['daysUntilExpiry'],
                 equals: warningDays
               },
               createdAt: {
@@ -259,7 +259,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             if (purchase.tier.cashbackPercent > 0) {
               tierBenefits.push(`${purchase.tier.cashbackPercent}% cashback on purchases`);
             }
-            if (purchase.tier.pointsMultiplier && purchase.tier.pointsMultiplier > 1) {
+            if (purchase.tier.pointsMultiplier?.gt(1)) {
               tierBenefits.push(`${purchase.tier.pointsMultiplier}x points multiplier`);
             }
             if (purchase.tier.benefits) {
@@ -354,7 +354,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
             where: {
               customerId: customer.id,
               metadata: {
-                path: '$.warningType',
+                path: ['warningType'],
                 equals: 'DOWNGRADE_WARNING'
               },
               createdAt: {

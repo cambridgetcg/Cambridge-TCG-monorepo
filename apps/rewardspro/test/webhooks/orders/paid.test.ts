@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { Prisma } from '@prisma/client';
 import {
   createWebhookTestContext,
   createInvalidHmacRequest,
@@ -180,13 +181,6 @@ vi.mock('~/services/tier-products', () => ({
   tierPurchaseExists: vi.fn().mockResolvedValue(false),
 }));
 
-// Mock tier subscription bridge
-vi.mock('~/services/subscription/tier-subscription-bridge.server', () => ({
-  TierSubscriptionBridgeV2: {
-    handleOrderPaid: vi.fn().mockResolvedValue({ processed: false }),
-  },
-}));
-
 // Mock logger - must include withContext that returns a new logger
 vi.mock('~/services/logger.server', () => {
   const createMockLogger = () => ({
@@ -265,12 +259,13 @@ describe('Webhook: orders/paid', () => {
     }));
     (mockPrisma.orderLineItem.createMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 1 });
 
-    // Setup default mock for order.aggregate (used in updateCustomerSpendingFromOrders)
+    // Setup default mock for order.aggregate (used in updateCustomerSpendingFromOrders).
+    // Prisma returns Decimal sums for Decimal columns.
     (mockPrisma.order.aggregate as ReturnType<typeof vi.fn>).mockResolvedValue({
       _sum: {
-        totalPrice: 100,
-        totalRefunded: 0,
-        cashbackAmount: 5,
+        totalPrice: new Prisma.Decimal(100),
+        totalRefunded: new Prisma.Decimal(0),
+        cashbackAmount: new Prisma.Decimal(5),
       },
       _count: {
         id: 1,
@@ -387,7 +382,8 @@ describe('Webhook: orders/paid', () => {
         shopifyCustomerId: '123456789',
       });
 
-      // First call - webhook create succeeds
+      // First delivery: not yet processed, so it is processed and then recorded
+      (mockPrisma.webhookProcessed.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
       (mockPrisma.webhookProcessed.create as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         id: 'wp-1', webhookId, topic: 'orders/paid', processedAt: new Date(),
       });
@@ -401,11 +397,13 @@ describe('Webhook: orders/paid', () => {
 
       const response1 = await ctx1.execute(action);
       expect(response1.status).toBe(200);
+      expect(mockPrisma.webhookProcessed.create).toHaveBeenCalledTimes(1);
+      const ordersCreated = (mockPrisma.order.create as ReturnType<typeof vi.fn>).mock.calls.length;
 
-      // Second call - create throws unique constraint error (already processed)
-      const uniqueError = new Error('Unique constraint violation');
-      (uniqueError as any).code = 'P2002';
-      (mockPrisma.webhookProcessed.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce(uniqueError);
+      // Redelivery: the idempotency row written after the first success is found
+      (mockPrisma.webhookProcessed.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        id: 'wp-1', webhookId, topic: 'orders/paid', processedAt: new Date(),
+      });
 
       const ctx2 = createWebhookTestContext({
         topic: 'orders/paid',
@@ -421,6 +419,10 @@ describe('Webhook: orders/paid', () => {
       const body2 = response2.body as Record<string, unknown>;
       const bodyStr = JSON.stringify(body2).toLowerCase();
       expect(bodyStr).toContain('already');
+
+      // Nothing was processed or recorded a second time
+      expect((mockPrisma.order.create as ReturnType<typeof vi.fn>).mock.calls.length).toBe(ordersCreated);
+      expect(mockPrisma.webhookProcessed.create).toHaveBeenCalledTimes(1);
     });
 
     it('should handle different webhook IDs for same order (prevent double processing)', async () => {

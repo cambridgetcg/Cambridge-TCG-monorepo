@@ -1,12 +1,12 @@
 /**
- * Pins the consolidation of openMysteryBox + openMysteryBoxEnhanced.
+ * Pins the consolidation of the mystery box open path.
  *
- * Both entry points now delegate the critical-path transaction (atomic
- * stock claim → open record → winner record → box stats → depletion-error
- * handling) to a single private `createOpenTransaction` helper. This
- * eliminates the earlier ~90%-duplicated transaction bodies and ensures
- * any future fix to the stock lock or the transaction ordering lands in
- * exactly one place.
+ * openMysteryBox delegates the critical-path transaction (atomic stock
+ * claim → open record → winner record → box stats → depletion-error
+ * handling) to a single private `createOpenTransaction` helper, so any
+ * future fix to the stock lock or the transaction ordering lands in
+ * exactly one place. (The unreachable openMysteryBoxEnhanced, with its
+ * near-miss "psychology", was deleted when chance mechanics were paused.)
  *
  * Source-level test — no runtime Prisma needed.
  */
@@ -39,12 +39,6 @@ describe("mystery-box-open — consolidated transaction helper", () => {
     expect(fn).not.toMatch(/prisma\.\$transaction/);
   });
 
-  it("openMysteryBoxEnhanced calls createOpenTransaction (not its own prisma.$transaction)", () => {
-    const fn = extractFunctionBody(source, "export async function openMysteryBoxEnhanced");
-    expect(fn).toMatch(/createOpenTransaction\s*\(/);
-    expect(fn).not.toMatch(/prisma\.\$transaction/);
-  });
-
   it("stock-claim logic appears exactly once — in the helper, not at the call sites", () => {
     // The conditional updateMany IS the lock. Finding it more than once
     // in this file means someone re-inlined a transaction body.
@@ -60,27 +54,8 @@ describe("mystery-box-open — consolidated transaction helper", () => {
     expect(translations.length).toBe(1);
   });
 
-  it("enhanced entry point forwards all psychology metadata to the helper", () => {
-    const fn = extractFunctionBody(source, "export async function openMysteryBoxEnhanced");
-    // Every psychology field the open row supports must still be
-    // threaded through. If someone drops one here, the stored open row
-    // will miss context (streak visualization, pity progress, etc.).
-    for (const key of [
-      "streakDay",
-      "streakBonusApplied",
-      "luckyStreakCount",
-      "luckyStreakBonus",
-      "bonusEventId",
-      "discountApplied",
-      "isFreeOpen",
-      "pityTriggered",
-      "nearMissRewardId",
-    ]) {
-      // Match either `key: value` or `key,` (shorthand property).
-      expect(fn, `enhanced open must forward ${key}`).toMatch(
-        new RegExp(`\\b${key}\\s*[:,]`)
-      );
-    }
+  it("no open records a near miss", () => {
+    expect(source).not.toMatch(/nearMiss/);
   });
 
   it("basic entry point does NOT forward psychology metadata (schema defaults apply)", () => {

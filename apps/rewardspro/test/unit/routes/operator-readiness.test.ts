@@ -1,24 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const aurora = vi.hoisted(() => ({
-  executeStatement: vi.fn(),
-  getAuroraClient: vi.fn(),
+const prisma = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
 }));
 
-vi.mock("~/utils/aurora-data-api", () => ({
-  getAuroraClient: aurora.getAuroraClient,
-}));
+vi.mock("~/db.server", () => ({ default: prisma, db: prisma }));
 
 import { loader } from "~/routes/api.operator.readiness";
 
 const originalSecret = process.env.CRON_SECRET;
 
 beforeEach(() => {
-  aurora.executeStatement.mockReset();
-  aurora.getAuroraClient.mockReset();
-  aurora.getAuroraClient.mockReturnValue({
-    executeStatement: aurora.executeStatement,
-  });
+  prisma.$queryRaw.mockReset();
 });
 
 afterEach(() => {
@@ -35,7 +28,7 @@ function request(authorization?: string): Request {
 
 describe("operator readiness", () => {
   it.each([undefined, "Bearer wrong", "bearer readiness-secret"])(
-    "rejects a missing or inexact credential before the Data API client",
+    "rejects a missing or inexact credential before touching the database",
     async (authorization) => {
       process.env.CRON_SECRET = "readiness-secret";
 
@@ -48,14 +41,13 @@ describe("operator readiness", () => {
       expect(response.status).toBe(401);
       expect(response.headers.get("Cache-Control")).toBe("private, no-store");
       await expect(response.json()).resolves.toEqual({ status: "unauthorized" });
-      expect(aurora.getAuroraClient).not.toHaveBeenCalled();
-      expect(aurora.executeStatement).not.toHaveBeenCalled();
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
     },
   );
 
   it("runs exactly one read-only statement for the exact bearer credential", async () => {
     process.env.CRON_SECRET = "readiness-secret";
-    aurora.executeStatement.mockResolvedValueOnce({ records: [{ ready: 1 }] });
+    prisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
 
     const response = await loader({
       request: request("Bearer readiness-secret"),
@@ -66,15 +58,14 @@ describe("operator readiness", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     await expect(response.json()).resolves.toEqual({ status: "ready" });
-    expect(aurora.getAuroraClient).toHaveBeenCalledTimes(1);
-    expect(aurora.executeStatement).toHaveBeenCalledTimes(1);
-    expect(aurora.executeStatement).toHaveBeenCalledWith("SELECT 1 AS ready");
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw.mock.calls[0][0].join("")).toBe("SELECT 1");
   });
 
   it("returns a generic unavailable response without exposing the failure", async () => {
     process.env.CRON_SECRET = "readiness-secret";
     const internalDetail = "credential material was rejected upstream";
-    aurora.executeStatement.mockRejectedValueOnce(new Error(internalDetail));
+    prisma.$queryRaw.mockRejectedValueOnce(new Error(internalDetail));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const response = await loader({
@@ -88,6 +79,28 @@ describe("operator readiness", () => {
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     expect(JSON.parse(body)).toEqual({ status: "unavailable" });
     expect(body).not.toContain(internalDetail);
-    expect(aurora.executeStatement).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers 503 when the database does not respond within the probe timeout", async () => {
+    process.env.CRON_SECRET = "readiness-secret";
+    vi.useFakeTimers();
+    prisma.$queryRaw.mockReturnValueOnce(new Promise(() => {}));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const pending = loader({
+        request: request("Bearer readiness-secret"),
+        params: {},
+        context: {},
+      });
+      await vi.advanceTimersByTimeAsync(2_000);
+      const response = await pending;
+
+      expect(response.status).toBe(503);
+      await expect(response.json()).resolves.toEqual({ status: "unavailable" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

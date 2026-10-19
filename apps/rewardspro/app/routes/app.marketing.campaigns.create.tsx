@@ -120,7 +120,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       // Add tier segments
       for (const tier of tiers) {
-        const tierCustomers = allCustomers.filter(c => c.tierId === tier.id);
+        const tierCustomers = allCustomers.filter(c => c.currentTierId === tier.id);
         segments.push({
           id: tier.id,
           name: tier.name,
@@ -276,7 +276,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             unsubscribed: 0,
             revenue: 0,
             orders: 0,
-          } : null,
+          } : undefined,
           createdAt: now,
           updatedAt: now,
         },

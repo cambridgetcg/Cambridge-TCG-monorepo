@@ -8,10 +8,9 @@
 console.error(`
 This migration is retired and made no database connection.
 
-Use the guarded free-first rollout instead:
-  npx tsx scripts/backfill-free-first-entitlements.ts --dry-run
-
-Review the dry-run and the free-first pricing decision before any --apply.
+Nothing needs backfilling: the Postgres rebuild (2026-10-18) starts from an
+empty database built by prisma/migrations, and new shops receive the
+free-first ShopEntitlements defaults from the schema.
 `.trim());
 
 process.exitCode = 1;

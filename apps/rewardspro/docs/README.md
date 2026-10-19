@@ -12,7 +12,7 @@
 | Learn the tier system | [Tier System](./01-architecture/tier-system.md) |
 | Set up my environment | [Node Requirements](./01-getting-started/03-node-version-requirements.md) |
 | Write TypeScript code | [TypeScript Guide](./02-development/typescript-guide.md) |
-| Deploy to production | [Deployment Guide](./03-deployment/deployment-guide.md) |
+| Deploy to production | [Deployment Guide](../DEPLOY.md) |
 | Fix a security issue | [Security Hub](./05-security/README.md) |
 | Debug a problem | [Troubleshooting](./06-troubleshooting/01-common-issues.md) |
 
@@ -60,9 +60,8 @@ Deployment and infrastructure.
 
 | Page | Description |
 |------|-------------|
-| [Deployment Guide](./03-deployment/deployment-guide.md) | Vercel + Aurora deployment |
-| [AWS IAM](./03-deployment/05-aws-iam-configuration.md) | IAM setup for Data API |
-| [Checklist](./03-deployment/deployment-checklist.md) | Pre-deploy verification |
+| [Deployment Guide](../DEPLOY.md) | Vercel deployment, checklist, rollback |
+| [Database](./DATABASE.md) | Supabase Postgres: connections, TLS, migrations, deploy order |
 
 ### 04 - UI Components
 
@@ -120,8 +119,8 @@ Planned features and improvements.
 ### Before Deploying
 
 1. [Security Hub](./05-security/README.md) - Security checklist
-2. [Deployment Guide](./03-deployment/deployment-guide.md) - Deployment process
-3. [Checklist](./03-deployment/deployment-checklist.md) - Pre-deploy verification
+2. [Deployment Guide](../DEPLOY.md) - Deployment process and checklist
+3. [Database](./DATABASE.md) - Migrations run before the deploy
 
 ---
 

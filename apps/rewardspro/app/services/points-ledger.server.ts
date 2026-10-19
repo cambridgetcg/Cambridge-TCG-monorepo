@@ -17,6 +17,27 @@ import prisma from "~/db.server";
 import type { PointsLedgerType, Prisma } from "@prisma/client";
 import { calculateExpirationDate, isPointsEnabled } from "./points-config.server";
 
+/** Ledger types that award points (positive amounts). */
+export const POINTS_EARNING_TYPES: PointsLedgerType[] = [
+  "ORDER_EARNED",
+  "CHALLENGE_COMPLETED",
+  "SPIN_WHEEL_WIN",
+  "SCRATCH_CARD_WIN",
+  "MYSTERY_BOX_WIN",
+  "BONUS_EVENT",
+  "REFERRAL_BONUS",
+  "MANUAL_CREDIT",
+  "STREAK_BONUS",
+];
+
+/** Ledger types where a customer spends points (negative amounts). */
+export const POINTS_SPENDING_TYPES: PointsLedgerType[] = [
+  "RAFFLE_ENTRY",
+  "MYSTERY_BOX_OPEN",
+  "PREMIUM_SPIN",
+  "GIVEBACK_DONATION",
+];
+
 // ============================================
 // TYPES
 // ============================================
@@ -32,7 +53,7 @@ export interface EarnPointsInput {
   spinResultId?: string;
   scratchCardId?: string;
   bonusEventId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.InputJsonObject;
 }
 
 export interface SpendPointsInput {
@@ -43,7 +64,7 @@ export interface SpendPointsInput {
   description?: string;
   raffleEntryId?: string;
   mysteryBoxOpenId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.InputJsonObject;
 }
 
 export interface PointsTransaction {
@@ -139,7 +160,7 @@ export async function earnPoints(input: EarnPointsInput): Promise<PointsTransact
         scratchCardId: input.scratchCardId ?? null,
         bonusEventId: input.bonusEventId ?? null,
         expiresAt,
-        metadata: input.metadata as Prisma.JsonValue ?? null,
+        metadata: input.metadata,
       },
     });
 
@@ -267,7 +288,7 @@ export async function spendPoints(input: SpendPointsInput): Promise<PointsTransa
         description: input.description ?? null,
         raffleEntryId: input.raffleEntryId ?? null,
         mysteryBoxOpenId: input.mysteryBoxOpenId ?? null,
-        metadata: input.metadata as Prisma.JsonValue ?? null,
+        metadata: input.metadata,
       },
     });
 
@@ -553,7 +574,7 @@ export async function clawbackPoints(
         metadata: {
           originalPointsEarned: originalEntry.amount,
           refundAmount,
-        } as Prisma.JsonValue,
+        },
       },
     });
 

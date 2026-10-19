@@ -6,7 +6,7 @@
 // No runtime tier resolution or progress calculation - all data is pre-computed
 // and updated by the write path (webhooks, handlers).
 //
-// Single Query Approach:
+// Three parallel indexed lookups:
 // - Customer data (storeCredit, netSpent)
 // - CustomerTierState (effectiveTier, progress, tierSource)
 // - Tier details (name, cashbackPercent)
@@ -14,9 +14,7 @@
 //
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
 import { authenticate, unauthenticated } from "../shopify.server";
-import { getAuroraClient } from "../utils/aurora-data-api";
 import prisma from "../db.server";
-import type { SqlParameter } from "@aws-sdk/client-rds-data";
 // SECURITY: Use Redis-backed rate limiter for effective distributed rate limiting
 import { appProxyRateLimit } from "../utils/rate-limiter-redis";
 // Points system imports
@@ -32,7 +30,15 @@ import { openMysteryBox } from "../services/mystery-box-open.server";
 // Mission gamification imports
 import { getMissionsForCustomer, getPlayerStats } from "../services/mission-stats.server";
 import { acknowledgeEvents, getUnacknowledgedEvents } from "../services/mission-events.server";
-import { GiftCardService } from "../services/gift-card";
+import {
+  CHANCE_MECHANICS_PAUSED,
+  CHANCE_MECHANICS_PAUSED_MESSAGE,
+  CHANCE_MECHANICS_PAUSED_STATUS,
+  chanceMechanicsPausedResult,
+} from "../constants/chance-mechanics";
+
+/** Storefront actions that enter a draw or open a box (games of chance). */
+const CHANCE_PATHS = new Set(["raffles", "raffles/enter", "mystery-boxes/open"]);
 
 // ============================================================================
 // Configurable Logging - Reduces production log verbosity
@@ -73,15 +79,20 @@ function proxyError(
 }
 
 /**
- * SECURITY: Resolve the authenticated customer ID from the SIGNED URL query params.
- * Shopify App Proxy HMAC covers URL + query string but NOT the body, so trusting
- * `logged_in_customer_id` from a POST body allowed horizontal authorization bypass
- * (a logged-in customer could swap the ID to impersonate another). Always read from
- * the signed query string; body is ignored for identity.
+ * SECURITY: The only source of a shopper's identity on the app proxy.
+ *
+ * Shopify sets `logged_in_customer_id` on every proxied request (empty for
+ * guests) and signs it. Nothing a visitor supplies counts: not a body field,
+ * not `customer_id`/`customerId`/`cid`, and not a second copy of this
+ * parameter. The signature check reads the last copy of a repeated
+ * parameter while URLSearchParams.get returns the first, so a request that
+ * carries it more than once is treated as a guest.
  */
 export function getProxyCustomerId(request: Request): string | null {
-  const v = new URL(request.url).searchParams.get("logged_in_customer_id");
-  if (!v || v === "" || v === "null" || v === "undefined") return null;
+  const values = new URL(request.url).searchParams.getAll("logged_in_customer_id");
+  if (values.length !== 1) return null;
+  const [v] = values;
+  if (!v || v === "null" || v === "undefined") return null;
   return v;
 }
 
@@ -210,11 +221,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   
   // Membership endpoint
   if (proxyPath === "membership") {
-    // Extract customer ID from various possible parameters
-    const customerId = url.searchParams.get("logged_in_customer_id") ||
-                      url.searchParams.get("customer_id") ||
-                      url.searchParams.get("customerId") ||
-                      url.searchParams.get("cid");
+    // Signed identity only (getProxyCustomerId); guests get no customer data
+    const customerId = getProxyCustomerId(request);
 
     // SECURITY: Use authenticated shop from session ONLY
     // We completely ignore the shop parameter in URL to prevent spoofing
@@ -234,7 +242,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     log.debug('Membership request:', { shop, customerId: customerId || 'guest' });
 
     // Handle non-logged-in users
-    if (!customerId || customerId === "" || customerId === "null" || customerId === "undefined") {
+    if (!customerId) {
       log.debug('Guest user request');
       return json({
         success: false,
@@ -268,140 +276,95 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     try {
-      log.debug('=== STEP 1: Initializing Data API client ===');
-
-      // Use direct Data API for customer lookup with pre-computed data
-      let dataApi;
-      try {
-        dataApi = getAuroraClient();
-        log.debug('=== STEP 1 SUCCESS: Data API client created ===');
-      } catch (clientError: any) {
-        log.error('=== STEP 1 FAILED: Data API client creation failed ===', {
-          error: clientError.message,
-          stack: clientError.stack
-        });
-        throw clientError;
-      }
-
       // ═══════════════════════════════════════════════════════════════════════
-      // SINGLE QUERY - All widget data in one join
+      // THREE INDEXED LOOKUPS - All widget data, read in parallel
       // No runtime tier resolution or progress calculation needed!
       // Data is pre-computed by write path (webhooks, handlers)
       // ═══════════════════════════════════════════════════════════════════════
-      const sql = `
-        SELECT
-          -- Customer core data
-          c.id,
-          c.shop,
-          c."shopifyCustomerId",
-          c.email,
-          c."firstName",
-          c."lastName",
-          c."storeCredit",
-          c."totalCashbackEarned",
-          c."totalSpent",
-          c."netSpent",
-          c."totalRefunded",
-          c."orderCount",
-          c."createdAt",
-          c."updatedAt",
-          c.metadata as "customerMetadata",
-
-          -- Points balance (from Customer table)
-          c."pointsBalance",
-          c."lifetimePoints",
-
-          -- Pre-computed tier state (source of truth for widget)
-          cts."effectiveTierId",
-          cts."tierSource",
-          cts."progressPercent",
-          cts."nextTierMinSpend",
-          cts."amountToNextTier",
-          cts."isMaxTier",
-          cts."nextTierName",
-
-          -- Effective tier details
-          t.id as "tier_id",
-          t.name as "tier_name",
-          t."minSpend" as "tier_minSpend",
-          t."cashbackPercent" as "tier_cashbackPercent",
-          t."pointsMultiplier" as "tier_pointsMultiplier",
-
-          -- Shop settings for theme
-          ss."storeCurrency",
-          ss."widgetThemeMode",
-          ss."widgetPrimaryColor",
-          ss."widgetBackgroundColor",
-          ss."widgetTextColor",
-          ss."widgetAccentColor",
-          -- NOTE: widgetSecondaryTextColor not yet migrated to production
-          ss."widgetBorderRadius",
-          ss."widgetFontFamily",
-          ss."updatedAt" as "settingsUpdatedAt",
-
-          -- Points configuration
-          pc."isEnabled" as "points_enabled",
-          pc."currencyName" as "points_currencyName",
-          pc."currencyNamePlural" as "points_currencyPlural",
-          pc."currencyIcon" as "points_currencyIcon",
-          pc."pointsPerDollar" as "points_perDollar",
-          pc."pointsExpire" as "points_expire",
-          pc."expirationDays" as "points_expirationDays",
-          pc."streakBonusEnabled" as "points_streakEnabled",
-          pc."streakBonusMultiplier" as "points_streakMultiplier"
-
-        FROM "Customer" c
-        LEFT JOIN "CustomerTierState" cts ON cts."customerId" = c.id
-        LEFT JOIN "Tier" t ON t.id = cts."effectiveTierId"
-        LEFT JOIN "ShopSettings" ss ON ss.shop = c.shop
-        LEFT JOIN "PointsConfig" pc ON pc.shop = c.shop
-        WHERE c.shop = :shopDomain
-          AND c."shopifyCustomerId" = :shopifyCustomerId
-        LIMIT 1
-      `;
-
-      const parameters: SqlParameter[] = [
-        { name: 'shopDomain', value: { stringValue: shop } },
-        { name: 'shopifyCustomerId', value: { stringValue: customerId } }
-      ];
-
-      log.debug('=== STEP 2: Executing SQL query ===', {
+      log.debug('=== STEP 2: Loading customer, settings and points config ===', {
         shop,
         customerId,
-        paramCount: parameters.length
       });
 
       const startTime = Date.now();
-      let result;
-      try {
-        result = await dataApi.executeStatement(sql, parameters);
-        const executionTime = Date.now() - startTime;
-        log.debug('=== STEP 2 SUCCESS: Query completed ===', {
-          executionTime: `${executionTime}ms`,
-          recordCount: result.records?.length || 0,
-          found: !!(result.records?.length)
-        });
-      } catch (queryError: any) {
-        const executionTime = Date.now() - startTime;
-        log.error('=== STEP 2 FAILED: SQL query error ===', {
-          executionTime: `${executionTime}ms`,
-          error: queryError.message,
-          code: queryError.code,
-          name: queryError.name,
-          stack: queryError.stack?.split('\n').slice(0, 5).join('\n')
-        });
-        throw queryError;
-      }
+      const [customer, shopSettings, pointsConfig] = await Promise.all([
+        prisma.customer.findUnique({
+          where: { shop_shopifyCustomerId: { shop, shopifyCustomerId: customerId } },
+          select: {
+            id: true,
+            shopifyCustomerId: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            storeCredit: true,
+            totalCashbackEarned: true,
+            totalSpent: true,
+            netSpent: true,
+            totalRefunded: true,
+            orderCount: true,
+            createdAt: true,
+            updatedAt: true,
+            metadata: true,
+            // Points balance (from Customer table)
+            pointsBalance: true,
+            lifetimePoints: true,
+            // Pre-computed tier state (source of truth for widget)
+            tierState: {
+              select: {
+                tierSource: true,
+                progressPercent: true,
+                nextTierMinSpend: true,
+                amountToNextTier: true,
+                isMaxTier: true,
+                nextTierName: true,
+                effectiveTier: {
+                  select: { id: true, name: true, minSpend: true, cashbackPercent: true, pointsMultiplier: true },
+                },
+              },
+            },
+          },
+        }),
+        // Shop settings for theme
+        prisma.shopSettings.findUnique({
+          where: { shop },
+          select: {
+            storeCurrency: true,
+            widgetThemeMode: true,
+            widgetPrimaryColor: true,
+            widgetBackgroundColor: true,
+            widgetTextColor: true,
+            widgetAccentColor: true,
+            widgetBorderRadius: true,
+            widgetFontFamily: true,
+            updatedAt: true,
+          },
+        }),
+        // Points configuration
+        prisma.pointsConfig.findUnique({
+          where: { shop },
+          select: {
+            isEnabled: true,
+            currencyName: true,
+            currencyNamePlural: true,
+            currencyIcon: true,
+            pointsPerDollar: true,
+            pointsExpire: true,
+            expirationDays: true,
+            streakBonusEnabled: true,
+            streakBonusMultiplier: true,
+          },
+        }),
+      ]);
 
       const executionTime = Date.now() - startTime;
 
       // ═══════════════════════════════════════════════════════════════════════
       // SIMPLIFIED RESPONSE - No runtime calculations!
-      // All data comes directly from the single query above
+      // All data comes directly from the lookups above
       // ═══════════════════════════════════════════════════════════════════════
 
       // Return "not found" response if customer doesn't exist
-      if (!result.records || result.records.length === 0) {
+      if (!customer) {
         log.info('Customer not found:', { shop, customerId });
 
         return json({
@@ -413,7 +376,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             shopifyCustomerId: customerId,
             endpoint: '/apps/rewardspro/api/customer',
             foundInDatabase: false,
-            method: 'Single Query (Pre-computed)',
+            method: 'Indexed lookups (Pre-computed)',
             executionTime: executionTime + 'ms'
           },
           customer: null,
@@ -424,7 +387,42 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
       log.debug('=== STEP 3: Processing result row ===');
 
-      const row = result.records[0];
+      // Flatten into the row shape the response builder below reads.
+      const tierState = customer.tierState;
+      const tier = tierState?.effectiveTier;
+      const row = {
+        ...customer,
+        customerMetadata: customer.metadata,
+        tierSource: tierState?.tierSource ?? null,
+        progressPercent: tierState?.progressPercent ?? null,
+        nextTierMinSpend: tierState?.nextTierMinSpend ?? null,
+        amountToNextTier: tierState?.amountToNextTier ?? null,
+        isMaxTier: tierState?.isMaxTier ?? null,
+        nextTierName: tierState?.nextTierName ?? null,
+        tier_id: tier?.id ?? null,
+        tier_name: tier?.name ?? null,
+        tier_minSpend: tier?.minSpend ?? null,
+        tier_cashbackPercent: tier?.cashbackPercent ?? null,
+        tier_pointsMultiplier: tier?.pointsMultiplier ?? null,
+        storeCurrency: shopSettings?.storeCurrency ?? null,
+        widgetThemeMode: shopSettings?.widgetThemeMode ?? null,
+        widgetPrimaryColor: shopSettings?.widgetPrimaryColor ?? null,
+        widgetBackgroundColor: shopSettings?.widgetBackgroundColor ?? null,
+        widgetTextColor: shopSettings?.widgetTextColor ?? null,
+        widgetAccentColor: shopSettings?.widgetAccentColor ?? null,
+        widgetBorderRadius: shopSettings?.widgetBorderRadius ?? null,
+        widgetFontFamily: shopSettings?.widgetFontFamily ?? null,
+        settingsUpdatedAt: shopSettings?.updatedAt ?? null,
+        points_enabled: pointsConfig?.isEnabled ?? null,
+        points_currencyName: pointsConfig?.currencyName ?? null,
+        points_currencyPlural: pointsConfig?.currencyNamePlural ?? null,
+        points_currencyIcon: pointsConfig?.currencyIcon ?? null,
+        points_perDollar: pointsConfig?.pointsPerDollar ?? null,
+        points_expire: pointsConfig?.pointsExpire ?? null,
+        points_expirationDays: pointsConfig?.expirationDays ?? null,
+        points_streakEnabled: pointsConfig?.streakBonusEnabled ?? null,
+        points_streakMultiplier: pointsConfig?.streakBonusMultiplier ?? null,
+      };
 
       log.debug('=== STEP 3 SUCCESS: Row extracted ===', {
         rowKeys: Object.keys(row || {}),
@@ -699,7 +697,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           shopifyCustomerId: customerId,
           endpoint: '/apps/rewardspro/api/customer',
           foundInDatabase: true,
-          method: 'Single Query (Pre-computed)',
+          method: 'Indexed lookups (Pre-computed)',
           executionTime: executionTime + 'ms'
         }
       };
@@ -843,7 +841,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const customerId = url.searchParams.get("logged_in_customer_id");
+    const customerId = getProxyCustomerId(request);
 
     log.info('=== RAFFLES ENDPOINT ===', { shop, customerId: customerId || 'guest' });
 
@@ -870,7 +868,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           success: true,
           enabled: false,
           raffles: [],
-          message: "Raffles are not enabled for this store",
+          message: CHANCE_MECHANICS_PAUSED ? CHANCE_MECHANICS_PAUSED_MESSAGE : "Raffles are not enabled for this store",
         }, { headers });
       }
       log.debug('=== RAFFLES STEP 1 SUCCESS: Feature enabled ===');
@@ -1083,7 +1081,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     try {
       // Check if mystery boxes feature is enabled and fetch currency branding in parallel
@@ -1096,7 +1094,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           success: true,
           enabled: false,
           boxes: [],
-          message: "Mystery boxes are not enabled for this store",
+          message: CHANCE_MECHANICS_PAUSED ? CHANCE_MECHANICS_PAUSED_MESSAGE : "Mystery boxes are not enabled for this store",
         }, { headers });
       }
 
@@ -1252,7 +1250,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     try {
       // Check if challenges are enabled via PointsConfig
@@ -1408,7 +1406,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     try {
       // Check if missions/challenges are enabled via PointsConfig
@@ -1503,7 +1501,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     if (!shopifyCustomerId) {
       return json({
@@ -1556,7 +1554,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     if (!shopifyCustomerId) {
       return json({
@@ -1609,7 +1607,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const customerId = url.searchParams.get("logged_in_customer_id");
+    const customerId = getProxyCustomerId(request);
 
     try {
       // Get feature enablement state
@@ -1689,74 +1687,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // GIFT-CARDS endpoint — bundles and issued cards for storefront widget
+  // GIFT-CARDS endpoint — paused
+  // Converting store credit to gift cards needs the write_gift_cards scope,
+  // which the app does not request, and GiftCardConfig has no enable flag:
+  // the old handler gated on a field that never existed, so shoppers always
+  // saw "disabled". This keeps that response without the broken queries.
   // ═══════════════════════════════════════════════════════════════════════
   if (proxyPath === "gift-cards" && request.method === "GET") {
-    const shop = session?.shop;
-    const customerId = url.searchParams.get("logged_in_customer_id");
-
-    if (!shop) {
-      return json({ success: false, error: "Authentication required" }, { status: 401, headers });
-    }
-    if (!customerId) {
-      return json({ success: false, error: "Customer ID required" }, { status: 400, headers });
-    }
-
-    try {
-      const [config, bundles, issuedCards] = await Promise.all([
-        prisma.giftCardConfig.findUnique({ where: { shop } }),
-        prisma.giftCardBundle.findMany({
-          where: { shop, isActive: true },
-          orderBy: { giftCardValue: "asc" },
-        }),
-        prisma.issuedGiftCard.findMany({
-          where: { shop, customerId },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        }),
-      ]);
-
-      // Feature disabled
-      if (!config?.enabled) {
-        return json({ success: true, enabled: false, bundles: [], issuedGiftCards: [] }, { headers });
-      }
-
-      const transformedBundles = bundles.map((b) => ({
-        id: b.id,
-        name: b.name,
-        bundleType: b.bundleType,
-        giftCardValue: Number(b.giftCardValue),
-        cashbackCost: Number(b.cashbackCost),
-        description: b.description ?? null,
-      }));
-
-      const transformedCards = issuedCards.map((c) => ({
-        id: c.id,
-        code: c.maskedCode ?? null,
-        giftCardValue: Number(c.giftCardValue),
-        remainingBalance: Number(c.remainingBalance ?? c.giftCardValue),
-        currency: c.currency,
-        expiresAt: c.expiresAt?.toISOString() ?? null,
-        createdAt: c.createdAt.toISOString(),
-        status: c.status,
-      }));
-
-      // Store credit balance from membership data
-      const memberRecord = await prisma.customer.findFirst({ where: { shop, shopifyCustomerId: customerId } });
-      const storeCredit = memberRecord ? Number(memberRecord.storeCredit ?? 0) : 0;
-
-      return json({
-        success: true,
-        enabled: true,
-        bundles: transformedBundles,
-        issuedGiftCards: transformedCards,
-        storeCredit,
-        currency: config.currency ?? "USD",
-      }, { headers });
-    } catch (error) {
-      log.error("Failed to load gift card data:", error);
-      return json({ success: false, error: "Failed to load gift card data" }, { status: 500, headers });
-    }
+    return json({ success: true, enabled: false, bundles: [], issuedGiftCards: [] }, { headers });
   }
 
   // 404 for unknown paths
@@ -1820,6 +1758,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY"
   };
+
+  // Raffle entries and box opens are refused while chance mechanics are
+  // paused (constants/chance-mechanics.ts), before any request data is read
+  if (CHANCE_MECHANICS_PAUSED && CHANCE_PATHS.has(proxyPath)) {
+    return json(
+      { ...chanceMechanicsPausedResult(), message: CHANCE_MECHANICS_PAUSED_MESSAGE },
+      { status: CHANCE_MECHANICS_PAUSED_STATUS, headers: { ...headers, "Cache-Control": "no-store" } }
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // RAFFLES POST - Purchase entries or claim free entry
@@ -2201,106 +2148,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // GIFT-CARDS/CONVERT POST - Convert store credit cashback to a gift card
+  // GIFT-CARDS/CONVERT POST - paused (see the GET gift-cards endpoint)
   // ═══════════════════════════════════════════════════════════════════════
   if (proxyPath === "gift-cards/convert") {
-    const shop = session?.shop;
-
-    if (!shop) {
-      return proxyError("Authentication required", { status: 401, headers });
-    }
-
-    const loggedInCustomerId = getProxyCustomerId(request);
-    if (!loggedInCustomerId) {
-      return proxyError("Please sign in to redeem gift cards", { status: 401, headers });
-    }
-
-    try {
-      const body = await request.json();
-      const { bundleId } = body;
-
-      if (!bundleId) {
-        return proxyError("Bundle ID is required", { status: 400, headers });
-      }
-
-      const idem = await claimIdempotencyKey("gift-card-convert", shop, loggedInCustomerId, request);
-      if (!idem.ok && idem.reason === "duplicate") {
-        return proxyError("Duplicate request — redemption already being processed", { status: 409, headers });
-      }
-
-      // Look up bundle and config in parallel
-      const [bundle, config] = await Promise.all([
-        prisma.giftCardBundle.findFirst({ where: { id: bundleId, shop, isActive: true } }),
-        prisma.giftCardConfig.findUnique({ where: { shop } }),
-      ]);
-
-      if (!bundle) {
-        return proxyError("Bundle not found or no longer available", { status: 404, headers });
-      }
-      if (!config?.enabled) {
-        return proxyError("Gift cards are not enabled for this store", { status: 403, headers });
-      }
-
-      // Look up internal customer (ID from signed URL, never body)
-      const customer = await prisma.customer.findFirst({
-        where: { shop, shopifyCustomerId: loggedInCustomerId },
-        select: { id: true, storeCredit: true },
-      });
-
-      if (!customer) {
-        return proxyError("Customer not found. Please contact support.", { status: 404, headers });
-      }
-
-      const cashbackCost = Number(bundle.cashbackCost);
-      if (Number(customer.storeCredit) < cashbackCost) {
-        return proxyError(
-          `Insufficient store credit. You need ${cashbackCost} but have ${Number(customer.storeCredit).toFixed(2)}.`,
-          { status: 400, headers }
-        );
-      }
-
-      // Get admin API for Shopify gift card creation
-      let proxyAdmin: any;
-      try {
-        const unauthResult = await unauthenticated.admin(shop);
-        proxyAdmin = unauthResult.admin;
-      } catch (e) {
-        log.error("[ProxyGiftCards] Failed to get admin API:", e);
-        return proxyError("Failed to connect to store. Please try again.", { status: 503, headers });
-      }
-
-      const result = await GiftCardService.convertCashbackToGiftCard(proxyAdmin, {
-        shop,
-        customerId: customer.id,
-        amount: cashbackCost,
-        currency: config.currency ?? "USD",
-      });
-
-      if (!result.success) {
-        log.warn("Gift card convert rejected:", result.error, { shop, customerId: customer.id, bundleId });
-        return proxyError(result.error || "Conversion failed", { headers });
-      }
-
-      // Fetch updated store credit balance
-      const updated = await prisma.customer.findFirst({
-        where: { id: customer.id },
-        select: { storeCredit: true },
-      });
-
-      return json({
-        success: true,
-        giftCardId: result.giftCardId,
-        issuedGiftCardId: result.issuedGiftCardId,
-        lastFourDigits: result.lastFourDigits,
-        amountConverted: cashbackCost,
-        newStoreCredit: Number(updated?.storeCredit ?? 0),
-        message: "Gift card issued! Check your email for the code.",
-      }, { headers });
-
-    } catch (error: any) {
-      log.error("Gift card convert error:", error.message, error.stack?.split('\n').slice(0, 5).join('\n'));
-      return proxyError("Failed to convert store credit. Please try again.", { status: 500, headers });
-    }
+    return proxyError("Gift cards are not enabled for this store", { status: 403, headers });
   }
 
   return json({ error: "Method not allowed" }, { status: 405, headers });

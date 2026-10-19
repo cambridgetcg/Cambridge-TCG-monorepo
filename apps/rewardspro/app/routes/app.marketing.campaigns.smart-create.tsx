@@ -19,6 +19,8 @@ import {
 import { authenticate } from "~/shopify.server";
 import { AnalyticsRecommendationsService } from "~/services/analytics-recommendations.server";
 import prisma from "~/db.server";
+import type { Prisma } from "@prisma/client";
+import { jsonObject } from "~/utils/json-object";
 import { v4 as uuidv4 } from "uuid";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -50,7 +52,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }
 
   // Get all pending recommendations
-  let recommendations = [];
+  let recommendations: Awaited<ReturnType<AnalyticsRecommendationsService["getActionRecommendations"]>> = [];
   try {
     recommendations = await recommendationsService.getActionRecommendations({
       status: 'pending'
@@ -115,29 +117,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         bodyHtml: bodyHtml || '<p>Email content here...</p>',
         bodyText: bodyHtml?.replace(/<[^>]*>/g, '') || 'Email content here...',
         isActive: true,
+        content: { blocks: [], styles: {} },
       },
     });
 
-    // Get recommendation data if from a recommendation
-    let segmentRules: any = {};
-    let metadata: any = {};
+    // Get recommendation data if from a recommendation. Campaigns keep their
+    // targeting and recommendation context in segmentRules.
+    let segmentRules: Prisma.InputJsonObject = {};
 
     if (recommendationId) {
       const recommendationsService = new AnalyticsRecommendationsService(shop);
       const recommendation = await recommendationsService.getRecommendationById(recommendationId);
 
       if (recommendation) {
-        const segmentPayload = recommendation.segmentPayload as any;
+        const segmentPayload = jsonObject(recommendation.segmentPayload);
         segmentRules = {
           fromRecommendation: true,
-          recommendationType: recommendation.type,
-          targetCustomerIds: segmentPayload?.customerIds || [],
-          criteria: segmentPayload?.criteria || [],
-        };
-        metadata = {
-          source: 'analytics_recommendation',
           recommendationId,
           recommendationType: recommendation.type,
+          targetCustomerIds: segmentPayload.customerIds ?? [],
+          criteria: segmentPayload.criteria ?? [],
           affectedCount: recommendation.affectedCount,
           predictedRevenue: recommendation.predictedRevenue,
         };
@@ -154,7 +153,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         status: sendImmediately ? 'scheduled' : 'draft',
         scheduledFor: sendImmediately ? new Date() : null,
         segmentRules,
-        metadata,
         metrics: {},
       },
     });

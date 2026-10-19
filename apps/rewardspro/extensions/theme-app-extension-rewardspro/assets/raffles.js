@@ -122,7 +122,7 @@
         },
 
         guest: {
-          message: d.guestMessage || 'Sign in to enter raffles and win prizes!',
+          message: d.guestMessage || 'Sign in to see raffles.',
           ctaText: d.guestCtaText || 'Sign In',
           ctaUrl: d.guestCtaUrl || '/account/login'
         }
@@ -685,29 +685,10 @@
     // ──────────────────────────────────────────
 
     renderGuest() {
+      // The merchant's own prompt only: no sample raffles, entry counts or
+      // deadlines, which would show shoppers draws that do not exist.
       const { message, ctaText, ctaUrl } = this.config.guest;
       const heading = this.config.display.heading;
-
-      // Teaser raffle cards shown in locked state to drive sign-ups
-      const teaserRaffles = [
-        { icon: '🃏', name: 'Monthly Mystery Pack Raffle', cost: '100 pts', entries: '47 entered', ends: '6 days left' },
-        { icon: '⭐', name: 'Rare Card Collector Prize', cost: '250 pts', entries: '23 entered', ends: '12 days left' },
-        { icon: '🎁', name: 'Booster Box Bundle', cost: '500 pts', entries: '89 entered', ends: '3 days left' },
-      ];
-
-      const teaserCardsHtml = teaserRaffles.map(r => `
-        <div class="rp-raffles-guest__teaser-card">
-          <div class="rp-raffles-guest__teaser-icon">${r.icon}</div>
-          <div class="rp-raffles-guest__teaser-body">
-            <div class="rp-raffles-guest__teaser-name">${this.escapeHtml(r.name)}</div>
-            <div class="rp-raffles-guest__teaser-meta">
-              <span>🎟 ${this.escapeHtml(r.cost)}</span>
-              <span>👥 ${this.escapeHtml(r.entries)}</span>
-              <span>⏱ ${this.escapeHtml(r.ends)}</span>
-            </div>
-          </div>
-          <div class="rp-raffles-guest__teaser-lock" aria-label="Sign in to enter">🔒</div>
-        </div>`).join('');
 
       this.root.innerHTML = `
         <div class="rp-raffles-guest">
@@ -716,10 +697,6 @@
             <p class="rp-raffles-guest__message">${this.escapeHtml(message)}</p>
             <a href="${this.escapeHtml(ctaUrl)}" class="rp-raffles-guest__cta">${this.escapeHtml(ctaText)}</a>
           </div>
-          <div class="rp-raffles-guest__teasers" aria-label="Sample raffles" role="list">
-            ${teaserCardsHtml}
-          </div>
-          <p class="rp-raffles-guest__note">🔒 Sign in to enter raffles with your points</p>
         </div>
       `;
     }

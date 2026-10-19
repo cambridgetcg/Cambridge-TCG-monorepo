@@ -2,16 +2,15 @@
   "framework": "remix",
   "buildCommand": "pnpm run build",
   "installCommand": "pnpm install --prod=false",
+  "ignoreCommand": "sh scripts/vercel-ignore-build.sh",
   "outputDirectory": "build",
-  "regions": ["arn1"],
+  "regions": ["lhr1"],
   "env": {
-    "NODE_ENV": "production",
-    "DATABASE_URL": "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+    "NODE_ENV": "production"
   },
   "build": {
     "env": {
-      "NODE_ENV": "production",
-      "DATABASE_URL": "postgresql://prisma:generate@localhost:5432/placeholder"
+      "NODE_ENV": "production"
     }
   },
   "crons": [

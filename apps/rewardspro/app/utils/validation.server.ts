@@ -170,9 +170,9 @@ export type KlaviyoConnectionInput = z.infer<typeof klaviyoConnectionSchema>;
  * Safely parse and validate input with a Zod schema
  * Returns { success: true, data } or { success: false, error }
  */
-export function safeValidate<T>(schema: z.ZodSchema<T>, input: unknown): {
+export function safeValidate<S extends z.ZodTypeAny>(schema: S, input: unknown): {
   success: true;
-  data: T;
+  data: z.output<S>;
 } | {
   success: false;
   error: string;

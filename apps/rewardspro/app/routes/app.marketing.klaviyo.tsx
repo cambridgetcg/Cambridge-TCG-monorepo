@@ -261,7 +261,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     try {
       await prisma.emailSettings.upsert({
         where: { shop },
-        create: { shop, ...connectionData },
+        create: { shop, senderEmail: `noreply@${shop}`, ...connectionData },
         update: connectionData,
       });
 

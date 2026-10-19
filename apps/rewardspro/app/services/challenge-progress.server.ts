@@ -9,6 +9,7 @@
  * streaks/combos, and trigger celebration animations on completion.
  */
 
+import type { Prisma } from "@prisma/client";
 import prisma from "../db.server";
 import type {
   ChallengeObjectiveType,
@@ -88,7 +89,7 @@ export async function updateChallengeProgress(
     type: string; // "ORDER", "REFERRAL", "REVIEW", "STREAK", "MANUAL"
     id?: string;
     description?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: Prisma.InputJsonObject;
   }
 ): Promise<ProgressUpdateResult | null> {
   console.log(

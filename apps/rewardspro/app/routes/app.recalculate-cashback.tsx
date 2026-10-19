@@ -2,10 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useActionData, useNavigation, Form } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import {
-  recalculateCashbackForAllOrders,
-  processPendingCashback
-} from "../services/recalculate-cashback.server";
+import { recalculateCashbackForAllOrders } from "../services/recalculate-cashback.server";
 import {
   Page,
   Layout,
@@ -54,7 +51,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       ordersWithCashback,
       ordersWithoutCashback,
       unprocessedCashback,
-      totalUnprocessedAmount: totalUnprocessedAmount._sum.cashbackAmount || 0
+      totalUnprocessedAmount: Number(totalUnprocessedAmount._sum.cashbackAmount ?? 0)
     },
     shopSettings: shopSettings || { storeCurrency: 'USD', currencyDisplayType: 'SYMBOL' }
   });
@@ -73,13 +70,6 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({
         success: true,
         message: `Successfully recalculated cashback for ${result.ordersProcessed} orders. Total cashback: ${result.totalCashback}`,
-        result
-      });
-    } else if (actionType === "process") {
-      const result = await processPendingCashback(shop);
-      return json({
-        success: true,
-        message: `Successfully processed cashback for ${result.ordersProcessed} orders. Total credited: ${result.totalCredited}`,
         result
       });
     }
@@ -153,7 +143,7 @@ export default function RecalculateCashbackPage() {
                     </BlockStack>
                   </InlineStack>
 
-                  {stats.totalUnprocessedAmount > 0 && (
+                  {Number(stats.totalUnprocessedAmount) > 0 && (
                     <>
                       <Divider />
                       <InlineStack align="space-between">
@@ -169,7 +159,7 @@ export default function RecalculateCashbackPage() {
             <Card>
               <Box padding="400">
                 <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">Step 1: Calculate Cashback</Text>
+                  <Text variant="headingMd" as="h2">Calculate Cashback</Text>
                   <Text variant="bodyMd" as="p">
                     This will calculate cashback amounts for all eligible orders based on customer tiers.
                     Orders that already have cashback calculated will not be affected.
@@ -185,36 +175,6 @@ export default function RecalculateCashbackPage() {
                       disabled={isProcessing || stats.ordersWithoutCashback === 0}
                     >
                       Calculate Cashback for {stats.ordersWithoutCashback.toString()} Orders
-                    </Button>
-                  </Form>
-                </BlockStack>
-              </Box>
-            </Card>
-
-            <Card>
-              <Box padding="400">
-                <BlockStack gap="400">
-                  <Text variant="headingMd" as="h2">Step 2: Process Cashback Credits</Text>
-                  <Text variant="bodyMd" as="p">
-                    This will create store credit ledger entries and update customer balances for orders
-                    with calculated but unprocessed cashback.
-                  </Text>
-
-                  <Banner tone="warning">
-                    <p>This action will credit customer accounts. Make sure cashback calculations are correct before proceeding.</p>
-                  </Banner>
-
-                  <Form method="post">
-                    <input type="hidden" name="action" value="process" />
-                    <Button
-                      submit
-                      variant="primary"
-                      size="large"
-                      tone="critical"
-                      loading={isProcessing && navigation.formData?.get("action") === "process"}
-                      disabled={isProcessing || stats.unprocessedCashback === 0}
-                    >
-                      Process {stats.unprocessedCashback.toString()} Orders (Credit {formatAmount(Number(stats.totalUnprocessedAmount))})
                     </Button>
                   </Form>
                 </BlockStack>
@@ -240,7 +200,7 @@ export default function RecalculateCashbackPage() {
                     </InlineStack>
                     <InlineStack gap="200">
                       <Text variant="bodyMd" as="span">•</Text>
-                      <Text variant="bodyMd" as="span">Processing cashback will update store credit balances immediately</Text>
+                      <Text variant="bodyMd" as="span">Calculating does not issue store credit</Text>
                     </InlineStack>
                   </BlockStack>
                 </BlockStack>

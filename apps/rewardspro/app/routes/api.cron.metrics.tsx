@@ -57,13 +57,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       });
 
       // Get all shops to report metrics for
+      // Installed shops (uninstall erases a shop's settings row)
       const shops = await db.shopSettings.findMany({
-        where: {
-          isActive: true,
-        },
         select: {
           shop: true,
-          name: true,
         },
       });
 

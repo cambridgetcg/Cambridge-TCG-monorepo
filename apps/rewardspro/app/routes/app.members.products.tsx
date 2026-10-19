@@ -36,13 +36,11 @@ import {
   ArchiveIcon,
 } from "~/utils/polaris-icons";
 import { authenticate } from "../shopify.server";
+import type { Prisma, ProductDuration } from "@prisma/client";
 import prisma from "../db.server";
 import { formatCurrency } from "../utils/currency";
 import { getTierStyle } from "../utils/tier-styles";
-import { SellingPlanManagerEnhanced } from "../services/subscription/selling-plan-manager-enhanced.server";
 import { ProductCreatorV2 } from "../services/tier-products/product-creator-v2.server";
-import { PriceSyncService } from "../services/subscription/price-sync.server";
-import { SubscriptionOptionsManager, type SubscriptionOption } from "../components/SubscriptionOptionsManager";
 import { v4 as uuidv4 } from 'uuid';
 import { generateTierSKU as generateSKUFromUtils } from "../utils/sku-generator";
 import { extractNumericId, assertShopifyGid } from "../utils/shopify-id-normalizer";
@@ -208,7 +206,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     try {
       // OPTIMIZED: Single query for all tier products, then filter in memory
       // This reduces database round trips from 2 to 1
-      const allTierProducts = await (prisma as any).tierProduct.findMany({
+      const allTierProducts = await prisma.tierProduct.findMany({
         where: { shop },
         include: { tier: true },
         orderBy: { deletedAt: 'desc' } // Deleted products first for sorting
@@ -479,10 +477,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const tierId = formData.get("tierId") as string;
       const tierName = formData.get("tierName") as string;
       const price = parseFloat(formData.get("price") as string);
-      const duration = formData.get("duration") as string;
-      const enableSubscription = formData.get("enableSubscription") === "true";
-      const subscriptionOptions = enableSubscription ? JSON.parse(formData.get("subscriptionOptions") as string || "{}") : null;
-      
+      const durationInput = formData.get("duration");
+      if (durationInput !== "MONTHLY" && durationInput !== "ANNUAL" && durationInput !== "LIFETIME") {
+        return json({ success: false, error: "Invalid membership duration" }, { status: 400 });
+      }
+      const duration: ProductDuration = durationInput;
+      // Every membership product is a one-time purchase: recurring memberships
+      // need Shopify subscription contracts (own_subscription_contracts scope
+      // and contract webhooks), which the app does not have yet.
+
       // Fetch tier and shop settings for currency
       const [tier, shopSettings] = await Promise.all([
         prisma.tier.findFirst({
@@ -567,9 +570,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             "tier-membership",
             tierName.toLowerCase(),
             duration.toLowerCase(),
-            enableSubscription ? "subscription-enabled" : "one-time"
+            "one-time"
           ],
-          requiresSellingPlan: enableSubscription
+          requiresSellingPlan: false
         };
 
         // Create the product
@@ -727,7 +730,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         // Store in database
         if (product.id && variant?.id) {
           try {
-            await (prisma as any).tierProduct.create({
+            await prisma.tierProduct.create({
               data: {
                 id: uuidv4(),
                 shop,
@@ -736,36 +739,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 shopifyVariantId: variant.id.replace('gid://shopify/ProductVariant/', ''),
                 productHandle: product.handle || sku,
                 sku: variant.sku || sku,
-                purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
-                duration: duration as any,
-                hasSubscription: enableSubscription,
+                purchaseType: "ONE_TIME",
+                duration,
+                hasSubscription: false,
                 price: price,  // REQUIRED field
                 currency: shopSettings?.storeCurrency || 'USD',  // REQUIRED field
                 oneTimePrice: price,
-                monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
-                annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
+                monthlyPrice: null,
+                annualPrice: null,
                 isActive: true,
                 createdAt: new Date(),
                 updatedAt: new Date()
               }
             });
 
-            // If subscription is enabled, create selling plans
-            if (enableSubscription && subscriptionOptions) {
-              try {
-                const productVariantMap = new Map<string, string>();
-                productVariantMap.set(tier.id, variant.id);
-                const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
-                  shop,
-                  admin,
-                  tierIds: [tier.id],
-                  productVariantMap,
-                });
-                console.log('[TierProducts] Selling plan group created:', sellingPlanResult.id);
-              } catch (spError: any) {
-                console.warn('[TierProducts] Could not create selling plans:', spError?.message || spError);
-              }
-            }
           } catch (dbError: any) {
             console.error('[TierProducts] ❌ CRITICAL: Could not create database record!');
             console.error('[TierProducts] Error:', dbError?.message || dbError);
@@ -863,7 +850,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             ? `Product created and published to online store for ${tierName} tier`
             : `Product created successfully for ${tierName} tier (manual publication may be required)`,
           productId: product.id,
-          hasSubscription: enableSubscription,
+          hasSubscription: false,
           publicationStatus
         });
 
@@ -881,7 +868,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             "tier-membership",
             tierName.toLowerCase(),
             duration.toLowerCase(),
-            enableSubscription ? "subscription-enabled" : "one-time"
+            "one-time"
           ],
           status: "ACTIVE",
           requiresShipping: false,
@@ -911,7 +898,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         if (result.productId && result.variantId) {
           try {
             const tierProductId = uuidv4();
-            const tierProductData = {
+            const tierProductData: Prisma.TierProductUncheckedCreateInput = {
               id: tierProductId,
               shop,
               tierId: tier.id,  // Use tier.id from database, not form data
@@ -919,14 +906,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               shopifyVariantId: result.variantId.replace('gid://shopify/ProductVariant/', ''),
               productHandle: result.handle || sku,
               sku,
-              purchaseType: enableSubscription ? "BOTH" : "ONE_TIME",
-              duration: duration as any,
-              hasSubscription: enableSubscription,
+              purchaseType: "ONE_TIME",
+              duration,
+              hasSubscription: false,
               price: price,  // Required base price field
               currency: shopSettings?.storeCurrency || 'USD',  // REQUIRED field - was missing!
               oneTimePrice: price,
-              monthlyPrice: enableSubscription && duration === "MONTHLY" ? price : null,
-              annualPrice: enableSubscription && duration === "ANNUAL" ? price : null,
+              monthlyPrice: null,
+              annualPrice: null,
               isActive: true,
               createdAt: new Date(),
               updatedAt: new Date()
@@ -947,7 +934,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log('[TierProducts] Purchase Type:', tierProductData.purchaseType);
             console.log('[TierProducts] ========================================');
 
-            await (prisma as any).tierProduct.create({
+            await prisma.tierProduct.create({
               data: tierProductData
             });
 
@@ -955,22 +942,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             console.log('[TierProducts] TierProduct ID:', tierProductId);
             console.log('[TierProducts] Linked to Tier:', tier.name, '(', tier.id, ')');
 
-            // If subscription is enabled, create selling plans
-            if (enableSubscription && subscriptionOptions) {
-              try {
-                const productVariantMap = new Map<string, string>();
-                productVariantMap.set(tier.id, result.variantId!);
-                const sellingPlanResult = await SellingPlanManagerEnhanced.createSellingPlanGroup({
-                  shop,
-                  admin,
-                  tierIds: [tier.id],
-                  productVariantMap,
-                });
-                console.log('[TierProducts] Selling plan group created:', sellingPlanResult.id);
-              } catch (spError: any) {
-                console.warn('[TierProducts] Could not create selling plans:', spError?.message || spError);
-              }
-            }
           } catch (dbError: any) {
             console.error('[TierProducts] ❌ CRITICAL: Could not create database record!');
             console.error('[TierProducts] Error:', dbError?.message || dbError);
@@ -1013,7 +984,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           success: true,
           message: `Product created successfully for ${tierName} tier`,
           productId: result.productId,
-          hasSubscription: enableSubscription,
+          hasSubscription: false,
           publicationStatus: {
             onlineStore: false,
             totalChannels: 0
@@ -1223,51 +1194,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         success: false, 
         error: "Product not found" 
       }, { status: 404 });
-      
-    } else if (intent === "sync-prices") {
-      const productId = formData.get("productId") as string;
-      const variantId = formData.get("variantId") as string;
-      const newPrice = parseFloat(formData.get("price") as string);
-      
-      // Get tier product to find selling plan group
-      const tierProduct = await prisma.tierProduct.findFirst({
-        where: {
-          shop,
-          shopifyProductId: productId,
-        },
-      });
-      
-      if (!tierProduct) {
-        return json({ 
-          success: false, 
-          error: "Tier product not found" 
-        }, { status: 404 });
-      }
-      
-      // Sync prices between product and selling plans
-      // Use canonical field with legacy fallback for backward compatibility
-      const syncResult = await PriceSyncService.syncProductWithSellingPlans({
-        shop,
-        admin,
-        productId,
-        variantId,
-        newPrice,
-        sellingPlanGroupId: tierProduct.shopifySellingPlanGroupId || tierProduct.sellingPlanGroupId || undefined,
-        discountPercentage: 10, // Default discount, could be made configurable
-      });
-      
-      if (!syncResult.success) {
-        return json({ 
-          success: false, 
-          error: `Failed to sync prices: ${syncResult.errors?.join(", ")}` 
-        }, { status: 400 });
-      }
-      
-      return json({
-        success: true,
-        message: "Prices synchronized successfully",
-        data: syncResult,
-      });
       
     } else if (intent === "publish-product") {
       const productId = formData.get("productId") as string;
@@ -1596,7 +1522,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       try {
         // Find the tier product first
-        const tierProduct = await (prisma as any).tierProduct.findFirst({
+        const tierProduct = await prisma.tierProduct.findFirst({
           where: {
             id: tierProductId,
             shop,
@@ -1608,25 +1534,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }
 
         // Guard: check for linked purchases before orphan cleanup delete
-        const linkedPurchases = await (prisma as any).tierPurchase.count({
+        const linkedPurchases = await prisma.tierPurchase.count({
           where: { tierProductId },
         });
         if (linkedPurchases > 0) {
           // Delete linked purchases first to avoid FK constraint failure
-          await (prisma as any).tierPurchase.deleteMany({
+          await prisma.tierPurchase.deleteMany({
             where: { tierProductId },
           });
           console.log(`[TierProducts] Cleaned up ${linkedPurchases} linked purchase(s) before record deletion`);
         }
 
         // Unlink any subscriptions referencing this product
-        await (prisma as any).tierSubscription.updateMany({
+        await prisma.tierSubscription.updateMany({
           where: { tierProductId },
           data: { tierProductId: null },
         });
 
         // Delete the tier product record
-        await (prisma as any).tierProduct.delete({
+        await prisma.tierProduct.delete({
           where: { id: tierProductId },
         });
 
@@ -1780,14 +1706,6 @@ export default function TierProducts() {
   const [selectedTier, setSelectedTier] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [duration, setDuration] = useState<string>("MONTHLY");
-  const [enableSubscription, setEnableSubscription] = useState(false);
-  const [, setSubscriptionDiscountPercent] = useState("10");
-  const [subscriptionOptions, setSubscriptionOptions] = useState({
-    enableMonthly: true,
-    enableAnnual: true,
-    monthlyDiscount: "0",
-    annualDiscount: "15",
-  });
   const { toast, showSuccess, showError, hideToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1843,26 +1761,10 @@ export default function TierProducts() {
     setSelectedTier("");
     setPrice("");
     setDuration("MONTHLY");
-    setEnableSubscription(false);
-    setSubscriptionDiscountPercent("10");
-    setSubscriptionOptions({
-      enableMonthly: true,
-      enableAnnual: true,
-      monthlyDiscount: "0",
-      annualDiscount: "15",
-    });
   }, []);
 
   const handleModalClose = useCallback(() => {
     setModalActive(false);
-    setEnableSubscription(false);
-    setSubscriptionDiscountPercent("10");
-    setSubscriptionOptions({
-      enableMonthly: true,
-      enableAnnual: true,
-      monthlyDiscount: "0",
-      annualDiscount: "15",
-    });
   }, []);
   
   // Handle edit modal open
@@ -1878,14 +1780,6 @@ export default function TierProducts() {
   const handleEditModalClose = useCallback(() => {
     setEditModalActive(false);
     setEditingProduct(null);
-    setEnableSubscription(false);
-    setSubscriptionDiscountPercent("10");
-    setSubscriptionOptions({
-      enableMonthly: true,
-      enableAnnual: true,
-      monthlyDiscount: "0",
-      annualDiscount: "15",
-    });
   }, []);
   
   // Handle create product
@@ -1917,14 +1811,10 @@ export default function TierProducts() {
     formData.append("tierName", tier.name);
     formData.append("price", price);
     formData.append("duration", duration);
-    formData.append("enableSubscription", enableSubscription.toString());
-    if (enableSubscription) {
-      formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
-    }
 
     submit(formData, { method: "post" });
     handleModalClose();
-  }, [selectedTier, price, duration, enableSubscription, subscriptionOptions, data.tiers, submit, handleModalClose, showError]);
+  }, [selectedTier, price, duration, data.tiers, submit, handleModalClose, showError]);
   
   // Handle update product
   const handleUpdateProduct = useCallback(() => {
@@ -1940,14 +1830,10 @@ export default function TierProducts() {
     formData.append("tierName", editingProduct.tierName);
     formData.append("price", price);
     formData.append("duration", duration);
-    formData.append("enableSubscription", enableSubscription.toString());
-    if (enableSubscription) {
-      formData.append("subscriptionOptions", JSON.stringify(subscriptionOptions));
-    }
 
     submit(formData, { method: "post" });
     handleEditModalClose();
-  }, [editingProduct, price, duration, enableSubscription, subscriptionOptions, submit, handleEditModalClose, showError]);
+  }, [editingProduct, price, duration, submit, handleEditModalClose, showError]);
   
   // Handle action response
   useEffect(() => {
@@ -2941,18 +2827,6 @@ export default function TierProducts() {
                 helpText="How long the membership lasts"
               />
 
-              <Divider />
-              
-              <SubscriptionOptionsManager
-                enabled={enableSubscription}
-                onEnabledChange={setEnableSubscription}
-                options={subscriptionOptions as SubscriptionOption}
-                onOptionsChange={setSubscriptionOptions}
-                basePrice={price}
-                currency={data.shopSettings?.storeCurrency || "USD"}
-                showAdvanced={false}
-                compactMode={true}
-              />
             </FormLayout>
           </Modal.Section>
         </Modal>
@@ -3010,82 +2884,6 @@ export default function TierProducts() {
                     helpText="Change how long the membership lasts"
                   />
 
-                  <BlockStack gap="200">
-                    <Divider />
-                    
-                    <Checkbox
-                      label="Enable recurring subscription"
-                      checked={enableSubscription}
-                      onChange={setEnableSubscription}
-                      helpText="Allow customers to subscribe for automatic renewal"
-                    />
-                    
-                    {enableSubscription && (
-                      <Box paddingInlineStart="600">
-                        <BlockStack gap="400">
-                          <Text variant="bodyMd" fontWeight="semibold" as="span">
-                            Subscription Billing Options
-                          </Text>
-                          
-                          <BlockStack gap="300">
-                            <InlineStack gap="400" align="space-between">
-                              <Checkbox
-                                label="Monthly billing"
-                                checked={subscriptionOptions.enableMonthly}
-                                onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableMonthly: value})}
-                              />
-                              <div style={{ width: '120px' }}>
-                                <TextField
-                                  label="Monthly billing discount"
-                                  labelHidden
-                                  type="number"
-                                  value={subscriptionOptions.monthlyDiscount}
-                                  onChange={(value) => setSubscriptionOptions({...subscriptionOptions, monthlyDiscount: value})}
-                                  suffix="% off"
-                                  disabled={!subscriptionOptions.enableMonthly}
-                                  autoComplete="off"
-                                />
-                              </div>
-                            </InlineStack>
-
-                            <InlineStack gap="400" align="space-between">
-                              <Checkbox
-                                label="Annual billing (12 months)"
-                                checked={subscriptionOptions.enableAnnual}
-                                onChange={(value) => setSubscriptionOptions({...subscriptionOptions, enableAnnual: value})}
-                              />
-                              <div style={{ width: '120px' }}>
-                                <TextField
-                                  label="Annual billing discount"
-                                  labelHidden
-                                  type="number"
-                                  value={subscriptionOptions.annualDiscount}
-                                  onChange={(value) => setSubscriptionOptions({...subscriptionOptions, annualDiscount: value})}
-                                  suffix="% off"
-                                  disabled={!subscriptionOptions.enableAnnual}
-                                  autoComplete="off"
-                                />
-                              </div>
-                            </InlineStack>
-                          </BlockStack>
-                          
-                          <Banner tone="info">
-                            <p>
-                              Customers will be able to choose from the enabled billing frequencies:
-                            </p>
-                            <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
-                              {subscriptionOptions.enableMonthly && (
-                                <li>Monthly: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * (1 - parseFloat(subscriptionOptions.monthlyDiscount) / 100)).toFixed(2)}/month</li>
-                              )}
-                              {subscriptionOptions.enableAnnual && (
-                                <li>Annual: {data.shopSettings?.storeCurrency || "USD"} {(parseFloat(price || '0') * 12 * (1 - parseFloat(subscriptionOptions.annualDiscount) / 100)).toFixed(2)}/year</li>
-                              )}
-                            </ul>
-                          </Banner>
-                        </BlockStack>
-                      </Box>
-                    )}
-                  </BlockStack>
                 </>
               )}
             </FormLayout>

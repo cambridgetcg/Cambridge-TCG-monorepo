@@ -270,7 +270,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         data: {
           name,
           trigger,
-          templateId: templateId || null,
+          templateId: templateId || undefined,
           delayMinutes,
           updatedAt: new Date(),
         },
