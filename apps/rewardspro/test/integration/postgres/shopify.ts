@@ -54,14 +54,29 @@ export type StoreCreditCall = { operation: "credit" | "debit"; customerId: strin
  * Answer the store-credit GraphQL the app sends for `shop`, keeping one
  * balance per customer. Returns the calls made, for assertions.
  * `duringCredit` runs while a credit is in flight, before Shopify answers.
+ * The next `throttled` credits or debits are turned away with a GraphQL
+ * THROTTLED error (nothing applied); the next `unanswered` ones are applied
+ * but their answer is lost, as when the connection drops (a network error).
  */
 export function mockStoreCredit(
   shop: string,
   balances: Record<string, number>,
-  options: { failDebits?: number; duringCredit?: () => Promise<void> } = {},
+  options: { failDebits?: number; duringCredit?: () => Promise<void>; throttled?: number; unanswered?: number } = {},
 ): StoreCreditCall[] {
   const calls: StoreCreditCall[] = [];
   let failDebits = options.failDebits ?? 0;
+  let throttled = options.throttled ?? 0;
+  let unanswered = options.unanswered ?? 0;
+  const turnedAway = () => {
+    if (throttled === 0) return null;
+    throttled--;
+    return HttpResponse.json({ errors: [{ message: "Throttled", extensions: { code: "THROTTLED" } }] });
+  };
+  const answer = (body: Record<string, unknown>) => {
+    if (unanswered === 0) return HttpResponse.json(body);
+    unanswered--;
+    return HttpResponse.error();
+  };
   const link = graphql.link(`https://${shop}/admin/api/2025-01/graphql.json`);
   const transaction = (customerId: string) => ({
     id: `gid://shopify/StoreCreditAccountDebitTransaction/${calls.length}`,
@@ -94,16 +109,20 @@ export function mockStoreCredit(
         failDebits--;
         return HttpResponse.json({ data: { storeCreditAccountDebit: { storeCreditAccountTransaction: null, userErrors: [{ field: null, message: "Temporarily unavailable", code: "INTERNAL" }] } } });
       }
+      const away = turnedAway();
+      if (away) return away;
       balances[customerId] = (balances[customerId] ?? 0) - Number(amount);
-      return HttpResponse.json({ data: { storeCreditAccountDebit: { storeCreditAccountTransaction: transaction(customerId), userErrors: [] } } });
+      return answer({ data: { storeCreditAccountDebit: { storeCreditAccountTransaction: transaction(customerId), userErrors: [] } } });
     }),
     link.mutation("IssueStoreCredit", async ({ variables }) => {
       const customerId = customerOf(variables.id);
       const { amount, currencyCode } = variables.creditInput.creditAmount;
       calls.push({ operation: "credit", customerId, amount, currency: currencyCode });
+      const away = turnedAway();
+      if (away) return away;
       await options.duringCredit?.();
       balances[customerId] = (balances[customerId] ?? 0) + Number(amount);
-      return HttpResponse.json({ data: { storeCreditAccountCredit: { storeCreditAccountTransaction: transaction(customerId), userErrors: [] } } });
+      return answer({ data: { storeCreditAccountCredit: { storeCreditAccountTransaction: transaction(customerId), userErrors: [] } } });
     }),
   );
   return calls;

@@ -656,7 +656,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
         const settlement = await settleRefundClawback(refund.creditLedgerEntry.id, { shop, admin });
         if (!settlement.settled) {
-          throw new Error("This reversal is already being processed");
+          throw new Error(
+            settlement.unconfirmed
+              ? "Shopify did not confirm this reversal's debit when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again"
+              : "This reversal is already being processed",
+          );
         }
 
         return json({

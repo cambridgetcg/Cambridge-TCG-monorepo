@@ -4,7 +4,7 @@ import prisma, { createPrismaClient } from "~/db.server";
 import { action as refundsCreate } from "~/routes/webhooks.orders.refunded";
 import { action as ordersCancelled } from "~/routes/webhooks.orders.cancelled";
 import { issueCashbackByHand, lockLedgerEntry, lockOrder } from "~/services/cashback-ledger.server";
-import { RefundRetryableError, recordRefund } from "~/services/refund-handler.server";
+import { RefundRetryableError, recordRefund, settleRefundClawback } from "~/services/refund-handler.server";
 import { unauthenticated } from "~/shopify.server";
 import { hasTestDatabase, resetDatabase } from "./database";
 import { mockStoreCredit, seedOfflineSession, signedWebhook } from "./shopify";
@@ -16,6 +16,8 @@ const SHOPIFY_ORDER = 7770001;
 // The Orders page's refusals for cashback that is not waiting to be issued
 const NOT_RECORDED = "No cashback was recorded for this order when it was paid, so there is none to issue";
 const HISTORY_RECORD = "This order's cashback is a record imported with the order history, not cashback waiting to be issued";
+const UNCONFIRMED =
+  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
 
 /** A paid £100 order with £5.00 cashback, issued (SYNCED) or still pending. */
 async function seedOrder({ cashback = "issued" }: { cashback?: "issued" | "pending" } = {}) {
@@ -627,6 +629,63 @@ describe.skipIf(!hasTestDatabase)("refunds/create on Postgres", () => {
     const after = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
     expect(after.financialStatus).toBe("REFUNDED");
     expect(after.cashbackAmount?.toFixed(2)).toBe("0.00");
+  });
+
+  describe("a store-credit answer lost after Shopify applied it", () => {
+    it("debits a refund's clawback once, though the refund is redelivered", async () => {
+      await seedOrder();
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      // The shopper holds more credit than this order's cashback
+      const balances = { [SHOPIFY_CUSTOMER]: 50 };
+      const calls = mockStoreCredit(SHOP, balances, { unanswered: 1 });
+
+      // Shopify applies the debit, but its answer never arrives
+      expect((await deliverRefund(refundPayload(1, "100.00"), "wh-1")).status).toBe(503);
+      expect((await deliverRefund(refundPayload(1, "100.00"), "wh-1")).status).toBe(200);
+
+      expect(calls.filter((c) => c.operation === "debit")).toHaveLength(1);
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(45);
+      const [clawback] = await clawbacks();
+      expect(clawback.metadata).toMatchObject({ syncStatus: "SYNCING", unconfirmedAt: expect.any(String) });
+      // Nor does the Orders page's "Process Adjustment" send it again
+      const { admin } = await unauthenticated.admin(SHOP);
+      await expect(settleRefundClawback(clawback.id, { shop: SHOP, admin })).resolves.toMatchObject({ settled: false, unconfirmed: true });
+      expect(calls.filter((c) => c.operation === "debit")).toHaveLength(1);
+    });
+
+    it("credits a hand issue once and says why it is not sent again", async () => {
+      const { order, entry } = await seedOrder({ cashback: "pending" });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const balances = { [SHOPIFY_CUSTOMER]: 0 };
+      const calls = mockStoreCredit(SHOP, balances, { unanswered: 1 });
+
+      await expect(issueByHand(order.id)).resolves.toEqual({ success: false, error: UNCONFIRMED });
+      // The merchant tries again: refused before Shopify is called
+      await expect(issueByHand(order.id)).resolves.toEqual({ success: false, error: UNCONFIRMED });
+
+      expect(calls.map((c) => `${c.operation} ${c.amount}`)).toEqual(["credit 5.00"]);
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(5);
+      const unconfirmed = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+      expect(unconfirmed.metadata).toMatchObject({ syncStatus: "SYNCING", unconfirmedAt: expect.any(String) });
+      // A refund cannot tell what to reverse either: it is retried until
+      // someone settles the entry by hand (a follow-up)
+      expect((await deliverRefund(refundPayload(1, "100.00"))).status).toBe(503);
+      expect(calls).toHaveLength(1);
+    });
+
+    it("hands the entry back when Shopify turns the credit away (control)", async () => {
+      const { order, entry } = await seedOrder({ cashback: "pending" });
+      const balances = { [SHOPIFY_CUSTOMER]: 0 };
+      const calls = mockStoreCredit(SHOP, balances, { throttled: 1 });
+
+      await expect(issueByHand(order.id)).resolves.toEqual({ success: false, error: "Throttled" });
+      const refused = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+      expect(refused.metadata).toMatchObject({ syncStatus: "PENDING" });
+      await expect(issueByHand(order.id)).resolves.toMatchObject({ success: true, amount: 5 });
+
+      expect(calls).toHaveLength(2);
+      expect(balances[SHOPIFY_CUSTOMER]).toBe(5);
+    });
   });
 
   it("acknowledges refunds for orders it never recorded", async () => {

@@ -12,7 +12,9 @@
  * Each entry is claimed (PENDING to SYNCING) before Shopify is called. The
  * claim waits for any refund holding the entry's row lock
  * (services/refund-handler.server.ts), and the amount issued is read after
- * it, so a refund reduces what is issued instead of racing it.
+ * it, so a refund reduces what is issued instead of racing it. An entry
+ * goes back to PENDING only when Shopify answered that it applied nothing;
+ * without an answer it stays SYNCING and is not sent again.
  *
  * Schedule: Every 15 minutes
  * Endpoint: GET /api/cron/cashback-reconciliation
@@ -33,7 +35,7 @@ import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
 import { jsonObject } from "~/utils/json-object";
 import { createStoreCreditService } from "~/services/shopify-store-credit.service";
-import { claimLedgerEntry } from "~/services/cashback-ledger.server";
+import { claimLedgerEntry, markUnconfirmed } from "~/services/cashback-ledger.server";
 
 const JOB_NAME = "cashback-reconciliation";
 const LOCK_TTL_MINUTES = 15;
@@ -225,6 +227,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
             synced++;
             log('info', `Synced cashback entry ${id} successfully`, { balance: actualBalance });
+          } else if (result.ambiguous) {
+            // No answer: Shopify may have credited it, so it stays SYNCING
+            await markUnconfirmed(id, result.error);
+            failed++;
+            log('error', `Shopify did not confirm cashback entry ${id}`, { error: result.error, leftSyncing: true });
           } else {
             // Shopify refused: back to PENDING for the next run
             await settle(id, { ...metadata, syncStatus: 'PENDING' });

@@ -15,7 +15,8 @@ vi.mock("~/shopify.server", () => ({
       admin: { graphql: shopify.graphql },
     })),
   },
-  unauthenticated: {},
+  // The reconciliation cron's Admin API, answered by the same mock
+  unauthenticated: { admin: vi.fn(async () => ({ admin: { graphql: shopify.graphql } })) },
 }));
 // No mail leaves the test
 vi.mock("~/services/email-notifications.server", () => ({
@@ -24,6 +25,7 @@ vi.mock("~/services/email-notifications.server", () => ({
 }));
 
 import prisma from "~/db.server";
+import { loader as reconcile } from "~/routes/api.cron.cashback-reconciliation";
 import { action } from "~/routes/webhooks.orders.paid";
 import { hasTestDatabase, resetDatabase } from "./database";
 
@@ -98,11 +100,11 @@ function deliver(webhookId: string, payload: Record<string, unknown>) {
   });
 }
 
-async function seedShop() {
-  // Auto-processing off: cashback is recorded as PENDING for the
-  // reconciliation cron, and no store credit call is made here.
+async function seedShop({ auto = false }: { auto?: boolean } = {}) {
+  // Auto-processing off: cashback is recorded as PENDING for the Orders
+  // page, and no store credit call is made here. On: it is issued at once.
   await prisma.shopSettings.create({
-    data: { shop: SHOP, storeName: "Cashback Test", storeUrl: `https://${SHOP}`, storeCurrency: "GBP", autoCashbackProcessingEnabled: false },
+    data: { shop: SHOP, storeName: "Cashback Test", storeUrl: `https://${SHOP}`, storeCurrency: "GBP", autoCashbackProcessingEnabled: auto },
   });
   const bronze = await prisma.tier.create({
     data: { id: "bronze", shop: SHOP, name: "Bronze", minSpend: 0, cashbackPercent: 2 },
@@ -226,6 +228,39 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
     const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550004" } });
     expect(order.cashbackAmount?.toFixed(2)).toBe("0.00");
     expect(order.cashbackProcessed).toBe(false);
+  });
+
+  it("never sends cashback again when Shopify's answer to the credit is lost", async () => {
+    const { gold } = await seedShop({ auto: true });
+    const customer = await prisma.customer.create({
+      data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const credits: string[] = [];
+    shopify.graphql.mockImplementation(async (query: string, options?: { variables?: { creditInput?: { creditAmount: { amount: string } } } }) => {
+      if (query.includes("IssueStoreCredit")) {
+        credits.push(options?.variables?.creditInput?.creditAmount.amount ?? "?");
+        // Shopify applies the credit; the connection drops before its answer
+        throw new Error("fetch failed");
+      }
+      return cardPaymentResponse(5550005);
+    });
+
+    expect((await deliver("wh-5", paidOrder({ id: 5550005 }))).status).toBe(200);
+    const [entry] = await prisma.storeCreditLedger.findMany({ where: { customerId: customer.id } });
+    expect(entry.metadata).toMatchObject({ syncStatus: "SYNCING", unconfirmedAt: expect.any(String) });
+    await expect(prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550005" } })).resolves.toMatchObject({ cashbackProcessed: false });
+
+    // The reconciliation cron's next run, once the entry is old enough
+    process.env.CRON_SECRET = "cron-secret-for-tests";
+    await prisma.storeCreditLedger.update({ where: { id: entry.id }, data: { createdAt: new Date(Date.now() - 10 * 60_000) } });
+    const cron = await reconcile({
+      request: new Request("https://example.test/api/cron/cashback-reconciliation", { headers: { Authorization: "Bearer cron-secret-for-tests" } }),
+      params: {},
+      context: {},
+    });
+    await expect(cron.json()).resolves.toMatchObject({ processed: 0 });
+    expect(credits).toEqual(["5.00"]);
   });
 
   it("records nothing for a guest checkout", async () => {

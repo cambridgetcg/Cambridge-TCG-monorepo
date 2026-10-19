@@ -132,6 +132,34 @@ describe.skipIf(!hasTestDatabase)("cashback reconciliation cron on Postgres", ()
     expect(claimed.metadata).toEqual({ description: "5% cashback on order #5001", syncStatus: "SYNCING" });
   });
 
+  it("leaves an entry SYNCING when Shopify's answer is lost, and never sends it again", async () => {
+    const { order, entry } = await seedShop(AUTO_SHOP, true);
+    const balances = { "100": 0 };
+    const calls = mockStoreCredit(AUTO_SHOP, balances, { unanswered: 1 });
+
+    await expect((await run()).json()).resolves.toMatchObject({ synced: 0, failed: 1 });
+    await expect((await run()).json()).resolves.toMatchObject({ processed: 0 });
+
+    expect(calls).toHaveLength(1);
+    expect(balances["100"]).toBe(5);
+    const unconfirmed = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } });
+    expect(unconfirmed.metadata).toMatchObject({ syncStatus: "SYNCING", unconfirmedAt: expect.any(String) });
+    await expect(prisma.order.findUniqueOrThrow({ where: { id: order.id } })).resolves.toMatchObject({ cashbackProcessed: false });
+  });
+
+  it("retries an entry Shopify turned away (control)", async () => {
+    const { entry } = await seedShop(AUTO_SHOP, true);
+    const balances = { "100": 0 };
+    const calls = mockStoreCredit(AUTO_SHOP, balances, { throttled: 1 });
+
+    await expect((await run()).json()).resolves.toMatchObject({ synced: 0, failed: 1 });
+    expect((await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id } })).metadata).toMatchObject({ syncStatus: "PENDING" });
+    await expect((await run()).json()).resolves.toMatchObject({ synced: 1 });
+
+    expect(calls).toHaveLength(2);
+    expect(balances["100"]).toBe(5);
+  });
+
   it("requires the cron bearer token", async () => {
     const response = await reconcile({
       request: new Request("https://test.example.com/api/cron/cashback-reconciliation"),

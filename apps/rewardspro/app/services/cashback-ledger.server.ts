@@ -8,7 +8,9 @@
  *
  * Writers that call Shopify move an entry PENDING to SYNCING first with
  * claimLedgerEntry, so the order webhook, the reconciliation cron, refunds
- * and the merchant's Orders page never send the same entry twice.
+ * and the merchant's Orders page never send the same entry twice. A writer
+ * hands the entry back (PENDING) only when Shopify answered that it applied
+ * nothing; without an answer the entry stays SYNCING (markUnconfirmed).
  */
 
 import { Prisma, type Order, type StoreCreditLedger } from "@prisma/client";
@@ -55,6 +57,20 @@ export async function lockOrder(tx: Prisma.TransactionClient, id: string): Promi
 }
 
 /**
+ * Leave a claimed (SYNCING) entry as it is after Shopify gave no answer to
+ * its credit or debit: Shopify may have applied it, so nothing may send it
+ * again. The note tells the merchant (manualCashbackRefusal) and whoever
+ * reconciles the shopper's balance in Shopify. One statement, like a claim.
+ */
+export async function markUnconfirmed(id: string, error: string | undefined): Promise<void> {
+  const note = JSON.stringify({ unconfirmedAt: new Date().toISOString(), lastError: error ?? "No answer from Shopify" });
+  await prisma.$executeRaw`
+    UPDATE ${ledgerTable()}
+    SET "metadata" = COALESCE("metadata", '{}'::jsonb) || ${note}::jsonb
+    WHERE "id" = ${id} AND "metadata"->>'syncStatus' = 'SYNCING'`;
+}
+
+/**
  * The merchant's "Automatic cashback processing" switch. Off unless turned
  * on, matching the ShopSettings default.
  */
@@ -69,6 +85,8 @@ export type ManualCashbackResult =
 const NOT_RECORDED = "No cashback was recorded for this order when it was paid, so there is none to issue";
 const NOTHING_LEFT = "No cashback is left to issue for this order";
 const ALREADY_ISSUING = "Cashback for this order is already being issued or was issued";
+const UNCONFIRMED =
+  "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again";
 
 /**
  * Why the merchant cannot issue an order's cashback by hand, or null when
@@ -87,7 +105,9 @@ export function manualCashbackRefusal(
     order.financialStatus === "REFUNDED" || (order.totalPrice.gt(0) && order.totalRefunded.gte(order.totalPrice));
   if (refundedInFull || !order.cashbackEligible) return "This order was refunded or is excluded from cashback";
   if (!entry) return NOT_RECORDED;
-  const status = jsonObject(entry.metadata).syncStatus;
+  const metadata = jsonObject(entry.metadata);
+  const status = metadata.syncStatus;
+  if (status === "SYNCING" && typeof metadata.unconfirmedAt === "string") return UNCONFIRMED;
   if (status === "SYNCED" || status === "SYNCING") return ALREADY_ISSUING;
   // Fully reversed by refunds before it was issued
   if (status === "NOT_APPLICABLE") return NOTHING_LEFT;
@@ -104,6 +124,8 @@ export function manualCashbackRefusal(
  * records what was actually issued, so later refunds reverse the right
  * amount. Without an `amount` it issues what the entry holds once claimed,
  * after any refunds so far; the merchant's `amount` may not exceed that.
+ * Without an answer from Shopify the entry stays SYNCING and is refused
+ * from then on: the credit may have been applied.
  */
 export async function issueCashbackByHand({
   shop,
@@ -155,6 +177,10 @@ export async function issueCashbackByHand({
   const due = amount ?? claimed.amount.toNumber();
 
   const result = await createStoreCreditService(admin, shop).issueStoreCredit(order.customer.shopifyCustomerId, due, currency, reason);
+  if (!result.success && result.ambiguous) {
+    await markUnconfirmed(entry.id, result.error);
+    return { success: false, error: UNCONFIRMED };
+  }
   if (!result.success) {
     await release();
     return { success: false, error: result.error || "Failed to add store credit" };

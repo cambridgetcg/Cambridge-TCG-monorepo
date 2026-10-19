@@ -30,7 +30,7 @@ import { SentryService } from "../services/monitoring/sentry.service";
 import { logWebhookEntitlementContext } from "../services/webhook-entitlement-monitor.server";
 import { getPlanOrderLimit } from "../constants/billing.constants";
 import { incrementMonthlyOrderCount } from "../utils/order-count.server";
-import { claimLedgerEntry, isAutoCashbackEnabled } from "../services/cashback-ledger.server";
+import { claimLedgerEntry, isAutoCashbackEnabled, markUnconfirmed } from "../services/cashback-ledger.server";
 // Removed: calculateCustomerTierFromDB - now using tier resolution system
 // Removed: createStoreCreditService - no longer auto-issuing store credit
 import * as crypto from 'node:crypto';
@@ -1000,8 +1000,8 @@ async function recordCashback(tx: PrismaClient, params: {
     // 2. Attempt Shopify sync
     // 3. Update ledger to SYNCED if successful, back to PENDING if not
     // On retry: ledger entry exists → skip processing (even if still PENDING).
-    // A crash after Shopify credited leaves it SYNCING, never re-sent
-    // (services/cashback-ledger.server.ts).
+    // A crash after Shopify credited, or no answer from Shopify, leaves it
+    // SYNCING, never re-sent (services/cashback-ledger.server.ts).
     // =========================================================================
 
     // Step 1: Create ledger entry FIRST
@@ -1091,6 +1091,10 @@ async function recordCashback(tx: PrismaClient, params: {
           });
 
           console.log(`[OrderPaid] Updated ledger entry ${ledgerId} to SYNCED`);
+        } else if (result.ambiguous) {
+          // No answer: Shopify may have credited it, so it stays SYNCING
+          console.error(`[OrderPaid] Shopify did not confirm the store credit: ${result.error}`);
+          await markUnconfirmed(ledgerId, result.error);
         } else {
           console.error(`[OrderPaid] Failed to issue store credit: ${result.error}`);
           // Back to PENDING - will be retried by reconciliation or manual process

@@ -5,6 +5,7 @@
  * Issues credit, queries balances, and handles sync operations
  */
 
+import { GraphqlQueryError, HttpResponseError } from '@shopify/shopify-api';
 import { formatForShopify, roundDownToHundredths } from '../utils/transaction-analyzer';
 import { createLogger } from '~/services/logger.server';
 
@@ -19,6 +20,25 @@ export interface StoreCreditResult {
   transactionId?: string;
   balance?: number;
   error?: string;
+  /**
+   * Set on a failure without an answer from Shopify (the connection failed
+   * or dropped, or Shopify answered 5xx): the credit or debit may have been
+   * applied, so it must not be sent again. Unset when Shopify answered with
+   * an error, so nothing was applied.
+   */
+  ambiguous?: boolean;
+}
+
+/**
+ * Whether a store-credit mutation that threw may still have been applied.
+ * Shopify answering with GraphQL errors, or turning the request away (4xx,
+ * throttling, a re-authentication response), means it was not. No answer,
+ * or a 5xx, leaves it unknown.
+ */
+function mayHaveBeenApplied(error: unknown): boolean {
+  if (error instanceof GraphqlQueryError || error instanceof Response) return false;
+  if (error instanceof HttpResponseError) return error.response.code >= 500;
+  return true;
 }
 
 export interface StoreCreditAccount {
@@ -278,7 +298,8 @@ export class ShopifyStoreCreditService {
       logger.error('API error', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
+        ambiguous: mayHaveBeenApplied(error)
       };
     }
   }
@@ -434,7 +455,8 @@ export class ShopifyStoreCreditService {
       logger.error('Debit error', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
+        ambiguous: mayHaveBeenApplied(error)
       };
     }
   }

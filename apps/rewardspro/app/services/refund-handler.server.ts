@@ -24,7 +24,7 @@ import { Prisma } from "@prisma/client";
 import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
 import prisma from "~/db.server";
 import { jsonObject } from "~/utils/json-object";
-import { claimLedgerEntry, lockLedgerEntry, lockOrder } from "./cashback-ledger.server";
+import { claimLedgerEntry, lockLedgerEntry, lockOrder, markUnconfirmed } from "./cashback-ledger.server";
 import { createStoreCreditService } from "./shopify-store-credit.service";
 
 const LOG_PREFIX = "[Refund Handler]";
@@ -282,14 +282,18 @@ export interface ClawbackSettlement {
   debited: Prisma.Decimal;
   /** Reversal the shopper had already spent */
   unrecovered: Prisma.Decimal;
+  /** Not settled because Shopify never answered an earlier debit of it */
+  unconfirmed: boolean;
 }
 
 /**
  * Debit a REFUND_CLAWBACK entry from the shopper's Shopify store credit.
  *
  * The entry is claimed (PENDING to SYNCING) first, so concurrent deliveries
- * debit once. A Shopify failure returns it to PENDING and throws
- * RefundRetryableError; the webhook answers 5xx and the redelivery retries.
+ * debit once. When Shopify answers that it applied nothing, the entry goes
+ * back to PENDING and RefundRetryableError makes the webhook answer 5xx, so
+ * the redelivery retries. Without an answer the debit may have been applied:
+ * the entry stays SYNCING (markUnconfirmed) and is never sent again.
  */
 export async function settleRefundClawback(
   entryId: string,
@@ -303,8 +307,9 @@ export async function settleRefundClawback(
     },
   });
   if (!entry) throw new Error(`Clawback entry ${entryId} not found`);
-  const idle: ClawbackSettlement = { settled: false, debited: ZERO, unrecovered: ZERO };
-  if (jsonObject(entry.metadata).syncStatus !== "PENDING") return idle;
+  const idle: ClawbackSettlement = { settled: false, debited: ZERO, unrecovered: ZERO, unconfirmed: false };
+  const current = jsonObject(entry.metadata);
+  if (current.syncStatus !== "PENDING") return { ...idle, unconfirmed: typeof current.unconfirmedAt === "string" };
   if (!admin) throw new RefundRetryableError(`No Shopify session for ${shop}; cannot debit store credit`);
   if (!(await claimLedgerEntry(entry.id))) return idle;
 
@@ -324,6 +329,7 @@ export async function settleRefundClawback(
   let debit = ZERO;
   let balanceAfter = ZERO;
   let transactionId: string | null = null;
+  let unanswered: string | null = null;
   try {
     const settings = await prisma.shopSettings.findUnique({ where: { shop }, select: { storeCurrency: true } });
     currency = settings?.storeCurrency || currency;
@@ -338,13 +344,24 @@ export async function settleRefundClawback(
 
     if (debit.gt(0)) {
       const result = await storeCredit.debitStoreCredit(entry.customer.shopifyCustomerId, debit.toNumber(), currency);
-      if (!result.success) throw new Error(result.error ?? "debit failed");
-      balanceAfter = result.balance !== undefined ? new Prisma.Decimal(result.balance) : available.minus(debit);
-      transactionId = result.transactionId ?? null;
+      if (!result.success && result.ambiguous) {
+        unanswered = result.error ?? "No answer from Shopify";
+      } else if (!result.success) {
+        throw new Error(result.error ?? "debit failed");
+      } else {
+        balanceAfter = result.balance !== undefined ? new Prisma.Decimal(result.balance) : available.minus(debit);
+        transactionId = result.transactionId ?? null;
+      }
     }
   } catch (error) {
     // Shopify did not apply a debit: hand the entry back for the redelivery
     throw await release(error instanceof Error ? error.message : String(error));
+  }
+  if (unanswered !== null) {
+    // Shopify may have applied it: neither the redelivery nor the Orders
+    // page sends it again (the entry stays SYNCING)
+    await markUnconfirmed(entry.id, unanswered);
+    throw new RefundRetryableError(`Shopify did not confirm the store credit debit for clawback ${entry.id}; it is not sent again`);
   }
 
   // From here a failure leaves the entry SYNCING: the debit was applied, so
@@ -377,5 +394,5 @@ export async function settleRefundClawback(
   if (unrecovered.gt(0)) {
     console.warn(`${LOG_PREFIX} Clawback ${entry.id}: ${unrecovered.toFixed(2)} ${currency} was already spent and could not be debited`);
   }
-  return { settled: true, debited: debit, unrecovered };
+  return { settled: true, debited: debit, unrecovered, unconfirmed: false };
 }

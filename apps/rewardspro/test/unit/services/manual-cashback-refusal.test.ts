@@ -42,6 +42,12 @@ describe("manualCashbackRefusal (what the Orders page may issue by hand)", () =>
     expect(manualCashbackRefusal(paidOrder, entry({ syncStatus: "NOT_APPLICABLE" }, 0))).toBe("No cashback is left to issue for this order");
   });
 
+  it("says when Shopify never answered the credit, which may have been applied", () => {
+    expect(manualCashbackRefusal(paidOrder, entry({ syncStatus: "SYNCING", unconfirmedAt: "2026-10-19T10:00:00.000Z" }))).toBe(
+      "Shopify did not confirm this order's cashback when it was sent, so it may have been applied. Check the customer's store credit in Shopify: it is not sent again",
+    );
+  });
+
   it("refuses processed, fully refunded and excluded orders before looking at the entry", () => {
     const pending = entry({ syncStatus: "PENDING" });
     expect(manualCashbackRefusal({ ...paidOrder, cashbackProcessed: true }, pending)).toBe("Cashback already processed");
