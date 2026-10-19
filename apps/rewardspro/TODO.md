@@ -32,7 +32,9 @@ _Judy demo preparation + product quality. Updated: 2026-03-20_
 ## 🟣 Infrastructure — AWS (rebuild later)
 
 ### INFRA-002: New AWS home for RewardsPro (future)
-- **Status (2026-10-13):** the old RewardsPro AWS account (eu-north-1: Aurora `rewardspro-dev`, the Lambdas, SES and IAM user `rewardspro-prod-vercel-service`) has been deleted. RewardsPro uses no AWS today.
+- **Status (2026-10-13):** the old RewardsPro AWS account (eu-north-1: Aurora `rewardspro-dev`, the Lambdas, SES and IAM user `rewardspro-prod-vercel-service`) has been deleted.
+- **Database (2026-10-18):** rebuilt on Supabase Postgres 17 (`rewardspro-prod`, eu-west-2), see [docs/DATABASE.md](docs/DATABASE.md). The Data API adapters, DynamoDB/SNS/SES clients and AWS scripts are gone; the core app needs no AWS.
+- **Still AWS-shaped:** the email AI assistant (`app/services/anthropic.server.ts`) calls Claude through AWS Bedrock and fails without AWS credentials. Reconnect it (the direct Anthropic API is a processor change for the privacy policy) or remove it. `lambda/` and `infrastructure/terraform/` are unused leftovers that `docs/modules` still catalogues.
 - **History:** the IAM keys, Aurora password and Lambda secrets visible in this repo's history (and in rewardspro-production / rewardspro-shopify) died with that account, so they need no rotation.
 - **When reviving:** start a fresh AWS account (or use the Cambridge TCG one); give Vercel short-lived access through OIDC rather than long-term IAM keys; keep Terraform state in a remote backend and never commit `tfplan`/`tfstate` (the old plan file carried live secrets); generate new database, cron and internal-API secrets and store them only in Vercel / Secrets Manager.
 
@@ -146,7 +148,8 @@ Every route below is a user-facing feature. Each needs at least one happy-path e
 | Sync APIs | 4 | Partial (2 unit tests) |
 
 ### Existing Tests (35 files)
-- **Unit:** aurora-data-api, connection-strategy, customers route, points-ledger, order-sync, customer-sync, financial calculations
+- **Unit:** database connection/TLS, Postgres TLS bridge, cron locks, shop-data cleanup, customers route, points-ledger, order-sync, customer-sync, financial calculations
+- **Postgres integration** (`test:postgres`, CI `postgres:17`): encrypted session storage, baseline migration, orders/paid end to end, compliance webhooks, cron locks
 - **Financial:** exchange rate, points ledger, cashback calculation, currency formatter, finance properties, store credit ledger
 - **Integration:** order-sync-flow, webhooks
 - **Tools:** retry, validation, logger
@@ -164,7 +167,6 @@ Every route below is a user-facing feature. Each needs at least one happy-path e
 
 ## 🟢 Backlog
 
-- [ ] TS errors (1012 across 146 files — non-blocking, build succeeds)
+- [x] TS errors: `tsc --noEmit` is clean with the typed PrismaClient (2026-10-18)
 - [ ] Polaris v12 `Text` component `as` prop migration (164 instances)
 - [ ] Prisma field renames: `ordersCount`→`orderCount` etc.
-- [ ] Aurora Data API type mismatches (107 instances)

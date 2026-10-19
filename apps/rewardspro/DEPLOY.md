@@ -34,11 +34,11 @@ Cloudflare Pages retains earlier deployments for rollback.
 
 ## Pre-Push Checklist
 
-- [ ] `npm run build` passes with no errors
+- [ ] `pnpm --filter rewardspro build` passes with no errors
 - [ ] No `console.log` left in production code (use `console.error` for error logging)
-- [ ] TypeScript compiles cleanly: `npx tsc --noEmit`
+- [ ] TypeScript compiles cleanly: `pnpm --filter rewardspro exec tsc --noEmit`
 - [ ] All environment variables are set in Vercel dashboard
-- [ ] Database migrations are applied (if schema changed)
+- [ ] Database migrations are applied before deploying (if schema changed; see below)
 
 ## Deployment Steps
 
@@ -52,7 +52,7 @@ git commit -m "feat/fix/chore: description of change"
 ### 2. Verify Build Locally
 
 ```bash
-npm run build
+pnpm --filter rewardspro build
 ```
 
 Fix any build errors before pushing.
@@ -81,17 +81,18 @@ This triggers Vercel auto-deploy for production.
 
 ## Database Migrations
 
-If `prisma/schema.prisma` was changed:
+The database is Postgres on Supabase; [docs/DATABASE.md](./docs/DATABASE.md)
+has the connection recipe, environment variables and deploy order.
+Migrations are an explicit step, applied before the code that needs them is
+deployed (the build never migrates):
 
 ```bash
-# Generate migration SQL
-npx prisma migrate dev --name describe_change
+# Create the migration against a local Postgres you own
+pnpm --filter rewardspro exec prisma migrate dev --name describe_change
 
-# Apply via Data API (for Aurora Serverless)
-node scripts/migrate-via-data-api.js
+# Apply it to production (verified TLS via scripts/prisma-tls.ts)
+DIRECT_URL='<session pooler URL>' pnpm --filter rewardspro migrate:deploy
 ```
-
-Never use `prisma migrate deploy` directly — Aurora Serverless requires the Data API adapter.
 
 ## Rollback
 
@@ -116,8 +117,11 @@ git push origin main
 
 ## Environment Notes
 
-| Environment | DB Connection | Deploy Trigger |
-|-------------|--------------|----------------|
-| Production  | Direct (DATABASE_URL) | Push to `main` |
-| Preview     | Aurora Data API (AURORA_*) | Push to any branch / PR |
-| Local       | Direct (DATABASE_URL) | `npm run dev` |
+| Environment | Database | Deploy Trigger |
+|-------------|----------|----------------|
+| Production  | Supabase Postgres (`DATABASE_URL` pooler 6543; `DIRECT_URL` 5432 for migrations) | Push to `main` (skipped when nothing under `apps/rewardspro` or the workspace install files changed: `scripts/vercel-ignore-build.sh`) |
+| Preview     | None configured: without `DATABASE_URL` a preview fails at runtime. Give previews their own database, never production's. | Push to any branch / PR |
+| Local       | Postgres 17 on loopback (no TLS) | `pnpm dev:rewardspro` |
+
+Functions run in `lhr1` (London), next to the database (`vercel.json`). Node
+24 everywhere: `engines`, `.nvmrc` and CI.

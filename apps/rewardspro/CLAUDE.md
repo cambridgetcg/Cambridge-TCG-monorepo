@@ -11,9 +11,9 @@ decision does not rewrite their entitlements or cancel them automatically.
 
 RewardsPro is a **Shopify loyalty & rewards app**: points, tiers, cashback, store
 credit, memberships, mystery boxes, raffles, missions, and email campaigns for
-Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Aurora
-PostgreSQL, deployed on Vercel (see `vercel.json` — it also carries ~24 cron
-routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
+Shopify merchants. Remix (Vite) + Polaris embedded app, Prisma → Postgres 17
+on Supabase ([`docs/DATABASE.md`](docs/DATABASE.md)), deployed on Vercel (see
+`vercel.json` — it also carries ~24 cron routes). The Shopify surface lives in `shopify.app.toml` + `extensions/`.
 
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123
@@ -28,6 +28,7 @@ pnpm dev:rewardspro              # shopify app dev (SKIP_DB_CHECKS=1)
 pnpm build:rewardspro            # prisma generate && remix vite:build
 pnpm test:rewardspro             # vitest unit suite (306 tests at fuse time)
 pnpm --filter rewardspro exec tsc --noEmit   # typecheck (0 errors at fuse time)
+pnpm --filter rewardspro test:postgres       # Postgres integration suites (needs REWARDSPRO_TEST_DATABASE_URL; docs/DATABASE.md)
 pnpm --filter rewardspro lint    # eslint — RED, see debt below
 ```
 
