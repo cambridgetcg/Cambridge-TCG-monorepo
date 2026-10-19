@@ -426,7 +426,7 @@ model Customer {
   lastOrderDate       DateTime? // Date of most recent order
 
   // Email marketing consent and suppression
-  acceptsMarketing  Boolean   @default(true) // Opt-in to marketing emails (campaigns)
+  acceptsMarketing  Boolean   @default(false) // Shopify email marketing consent is SUBSCRIBED (services/marketing-consent.server.ts)
   emailSuppressed   Boolean   @default(false) // Hard bounce or spam complaint — suppress all marketing
   suppressedAt      DateTime? // When suppression was applied
   suppressionReason String?   @db.VarChar(255) // bounce, spam_report, unsubscribe
@@ -2239,6 +2239,27 @@ model WebhookProcessed {
   processedAt DateTime @default(now())
 
   @@index([shop, topic])
+}
+
+// customers/data_request reports (GDPR Art. 15). The report is every row
+// the app holds about the shopper (services/customer-data-request.server.ts),
+// encrypted at rest, for the merchant to download from Settings > Privacy
+// requests. Deleted after the retention period, on customers/redact and with
+// the shop's data.
+model CustomerDataRequest {
+  id                String    @id @default(uuid())
+  shop              String
+  shopifyRequestId  String // data_request.id from the webhook
+  shopifyCustomerId String
+  report            String    @db.Text // JSON, encrypted with ENCRYPTION_SECRET
+  recordCount       Int
+  createdAt         DateTime  @default(now())
+  downloadedAt      DateTime?
+  expiresAt         DateTime
+
+  @@unique([shop, shopifyRequestId])
+  @@index([shop, createdAt])
+  @@index([expiresAt])
 }
 
 // Distributed lock for cron jobs to prevent concurrent execution

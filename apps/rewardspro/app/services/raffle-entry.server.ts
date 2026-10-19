@@ -21,6 +21,7 @@ import {
 import type { RaffleStreakInfo } from "./raffle-streak.server";
 import type { InstantWinResult } from "./raffle-instant-win.server";
 import { claimFreeEntry } from "./raffle-streak.server";
+import { CHANCE_MECHANICS_PAUSED, chanceMechanicsPausedResult } from "../constants/chance-mechanics";
 
 const LOG_PREFIX = "[RaffleEntry]";
 
@@ -85,6 +86,8 @@ export async function purchaseRaffleEntries(
   input: PurchaseEntriesInput
 ): Promise<PurchaseEntriesResult> {
   const { shop, customerId, raffleId, quantity, tierMultiplier = 1.0 } = input;
+
+  if (CHANCE_MECHANICS_PAUSED) return chanceMechanicsPausedResult();
 
   console.log(`${LOG_PREFIX} purchaseRaffleEntries: customer=${customerId}, raffle=${raffleId}, qty=${quantity}`);
 
@@ -661,6 +664,8 @@ export async function claimDailyFreeEntry(
   customerId: string,
   raffleId: string
 ): Promise<PurchaseEntriesResult> {
+  if (CHANCE_MECHANICS_PAUSED) return chanceMechanicsPausedResult();
+
   console.log(`${LOG_PREFIX} claimDailyFreeEntry: customer=${customerId}, raffle=${raffleId}`);
 
   try {

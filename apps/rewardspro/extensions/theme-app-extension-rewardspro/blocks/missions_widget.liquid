@@ -35,7 +35,7 @@
        class="rp-missions-root"
        data-state="guest"
        data-shop-domain="{{ shop.permanent_domain }}"
-       data-message="{{ block.settings.guest_message | default: 'Complete missions to earn XP and level up!' }}"
+       data-message="{{ block.settings.guest_message | default: 'Sign in to see your missions.' }}"
        data-cta-text="{{ block.settings.guest_cta_text | default: 'Sign In' }}"
        data-cta-url="{{ block.settings.guest_cta_url | default: '/account/login' }}">
     {% comment %} Guest placeholder - replaced by JavaScript {% endcomment %}
@@ -102,7 +102,7 @@
       "type": "text",
       "id": "guest_message",
       "label": "Guest Message",
-      "default": "Complete missions to earn XP and level up!",
+      "default": "Sign in to see your missions.",
       "info": "Message shown to non-logged-in visitors"
     },
     {

@@ -527,7 +527,7 @@ export default function BillingPage() {
                 {hasSubscription && (
                   <Button tone="critical" onClick={() => setShowCancellation(true)} loading={isSubmitting}>Cancel existing subscription</Button>
                 )}
-                <Text as="p">For invoice, cancellation or refund questions, contact support@rewardspro.app.</Text>
+                <Text as="p">For invoice, cancellation or refund questions, contact contact@rewardspro.io.</Text>
               </BlockStack>
             </Card>
           </BlockStack>

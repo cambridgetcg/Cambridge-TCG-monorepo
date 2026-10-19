@@ -261,6 +261,7 @@ export const APP_ROUTES = {
   },
   SETTINGS: {
     ROOT: "/app/settings",
+    PRIVACY: "/app/settings/privacy",
     SECTION: settingsPath,
     GENERAL: settingsPath("general"),
     DATA_SYNC: settingsPath("data-sync"),

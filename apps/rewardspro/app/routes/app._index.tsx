@@ -33,11 +33,12 @@ import prisma from "../db.server";
 import { getPlanOrderLimit } from "~/constants/billing.constants";
 import {
   PRICING_PLANS,
-  getPlanKey,
   getPricingPlan,
 } from "~/constants/pricing-contract";
 import { measureQuery, getDatabaseHealth } from "~/utils/database-health.server";
 import { FeatureTogglesList } from "~/components/DesignSystem";
+import { APP_ROUTES } from "~/navigation/routes";
+import { countPendingDataRequests } from "~/services/customer-data-request.server";
 
 // ============================================
 // HELPER FUNCTIONS
@@ -132,6 +133,8 @@ interface DashboardData {
   };
   // Review banner
   reviewBannerDismissed: boolean;
+  // Customer data requests the merchant has not downloaded
+  pendingDataRequests: number;
 
   // Billing data
   currentPlan: any | null;
@@ -206,7 +209,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
     // Fetch only essential data in parallel
     // Wrap shopSettings query with health monitoring
-    const [shopSettings, billingSubscription, tierCount, syncStatusRecords] = await Promise.all([
+    const [shopSettings, billingSubscription, tierCount, syncStatusRecords, pendingDataRequests] = await Promise.all([
       // Shop settings for feature manager and currency (with health monitoring)
       measureQuery(() =>
         prisma.shopSettings.findUnique({
@@ -241,6 +244,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         where: { shop },
         orderBy: { lastSyncAt: 'desc' }
       }).catch(() => []),
+
+      // Customer data requests waiting for the merchant
+      countPendingDataRequests(shop),
     ]);
 
     // Simple direct order count for current month
@@ -454,6 +460,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const dashboardData: DashboardData = {
       shop,
       reviewBannerDismissed: shopSettings?.reviewBannerDismissed ?? false,
+      pendingDataRequests,
       shopSettings: shopSettings ? {
         storeCurrency: shopSettings.storeCurrency || 'USD',
         tierRecalculationEnabled: false,
@@ -787,6 +794,21 @@ export default function Dashboard() {
     <>
       <Page title="Dashboard">
       <Layout>
+        {/* Customer data requests (GDPR) waiting for the merchant */}
+        {data.pendingDataRequests > 0 && (
+          <Layout.Section>
+            <Banner
+              title={data.pendingDataRequests === 1 ? "A customer asked for their data" : `${data.pendingDataRequests} customers asked for their data`}
+              tone="warning"
+              action={{ content: "Download reports", onAction: () => navigate(APP_ROUTES.SETTINGS.PRIVACY) }}
+            >
+              <Text as="p" variant="bodySm">
+                Shopify sent a customer data request. Download the report and send it to the customer within 30 days.
+              </Text>
+            </Banner>
+          </Layout.Section>
+        )}
+
         {/* Review Banner — compact */}
         {reviewBannerVisible && (
           <Layout.Section>

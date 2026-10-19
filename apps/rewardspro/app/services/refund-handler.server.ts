@@ -1,453 +1,518 @@
-import { v4 as uuidv4 } from "uuid";
-import prisma from "../db.server";
-import { clawbackPoints } from "./points-ledger.server";
-import { isPointsEnabled } from "./points-config.server";
+/**
+ * Refund handling: reverse the cashback of a refunded order.
+ *
+ * An order's cashback is one CASHBACK_EARNED ledger entry. Its
+ * metadata.syncStatus says whether it reached the shopper's Shopify store
+ * credit: PENDING (recorded, not issued yet; the reconciliation cron or the
+ * merchant issues it later), SYNCING (being issued right now) or SYNCED.
+ *
+ * A refund reverses its share of that cashback:
+ * - Not issued yet: the pending entry is reduced, so only the remainder is
+ *   ever issued. Nothing was credited, so nothing is debited.
+ * - Issued: a REFUND_CLAWBACK entry linked to the OrderRefund records the
+ *   reversal, and the same amount is debited from the shopper's store credit
+ *   (settleRefundClawback). Reversals never exceed what was credited for the
+ *   order, and a debit never exceeds what the shopper still holds: spent
+ *   credit cannot be taken back, so the shortfall is recorded on the entry.
+ *
+ * Partial refunds reverse proportionally; the refund that completes the
+ * order reverses whatever remains. Each step is idempotent per Shopify
+ * refund, so redelivered webhooks and cancel-then-refund sequences are safe.
+ */
+
+import { Prisma, type OrderFinancialStatus } from "@prisma/client";
+import type { AdminApiContext } from "@shopify/shopify-app-remix/server";
+import prisma from "~/db.server";
+import { jsonObject } from "~/utils/json-object";
+import { claimLedgerEntry, isRefundedInFull, lockLedgerEntry, lockOrder, markUnconfirmed } from "./cashback-ledger.server";
+import { createStoreCreditService } from "./shopify-store-credit.service";
+
+const LOG_PREFIX = "[Refund Handler]";
+const ZERO = new Prisma.Decimal(0);
+
+/** The refund cannot be applied now; answer 5xx so Shopify redelivers it. */
+export class RefundRetryableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RefundRetryableError";
+  }
+}
+
+export interface RefundInput {
+  shop: string;
+  shopifyOrderId: string;
+  shopifyRefundId: string;
+  /** Money returned to the shopper by this refund, in `currency` */
+  amount: Prisma.Decimal;
+  currency: string | null;
+  createdAt: Date;
+}
+
+export type RefundOutcome =
+  | { status: "order_not_found" }
+  | {
+      status: "recorded";
+      /** False when this refund was already applied by an earlier delivery */
+      newlyRecorded: boolean;
+      orderId: string;
+      customerId: string;
+      /** Refund amount counted against the order, in the shop currency */
+      appliedAmount: Prisma.Decimal;
+      /** Cashback reversed by this refund */
+      reversedCashback: Prisma.Decimal;
+      /** A clawback entry whose store-credit debit is still outstanding */
+      pendingClawbackId: string | null;
+    };
 
 /**
- * Handle refund clawback for cashback AND points rewards
- * Industry standard: Revoke rewards for refunded purchases
+ * How long after an order is placed orders/paid may still record it: at
+ * least as long as Shopify keeps redelivering a failed orders/paid (48 hours
+ * at most).
  */
-export async function handleRefundClawback(
+const ORDER_RECORDING_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+const REFUNDED_ORDER_QUERY = `#graphql
+  query RefundedOrderCustomer($id: ID!) {
+    order(id: $id) {
+      id
+      createdAt
+      customer {
+        id
+      }
+    }
+  }
+`;
+
+interface RefundedOrder {
+  createdAt: string;
+  customer: { id: string } | null;
+}
+
+/**
+ * Whether orders/paid may still record the order of a refund that arrived
+ * before it. Shopify delivers webhooks in no set order and redelivers a
+ * failed orders/paid later; a refund dropped meanwhile would leave the
+ * cashback orders/paid then records unreversed. True for an order with a
+ * customer placed within the recording window: refunds/create answers 503
+ * so that Shopify redelivers the refund. Guest checkouts are never recorded,
+ * and neither are older orders that are not recorded by now (placed before
+ * the app was installed, say). Without a session nothing can be recorded.
+ */
+export async function orderMayStillBeRecorded(
+  admin: AdminApiContext | undefined,
   shopifyOrderId: string,
-  shop: string,
-  refundAmount: number,
-  isFullRefund: boolean,
-  shopifyRefundId?: string
-): Promise<{
-  success: boolean;
-  clawbackAmount: number;
-  newBalance: number;
-  pointsClawback?: {
-    clawedBack: boolean;
-    amount: number;
-    reason: string;
-  };
-  message: string;
-}> {
-  console.log(`[Refund Handler] Processing refund for order ${shopifyOrderId}, amount: ${refundAmount}, full: ${isFullRefund}`);
+  now: Date = new Date(),
+): Promise<boolean> {
+  if (!admin) return false;
+  const response = await admin.graphql(REFUNDED_ORDER_QUERY, { variables: { id: `gid://shopify/Order/${shopifyOrderId}` } });
+  const { data } = await response.json();
+  const order: RefundedOrder | null | undefined = data?.order;
+  if (!order?.customer) return false;
+  return now.getTime() - new Date(order.createdAt).getTime() < ORDER_RECORDING_WINDOW_MS;
+}
 
-  try {
-    // Use transaction to ensure consistency
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Find the order
-      const order = await tx.order.findFirst({
-        where: {
-          shop,
-          shopifyOrderId
-        }
-      });
+function syncStatusOf(entry: { metadata: Prisma.JsonValue }): string | undefined {
+  const status = jsonObject(entry.metadata).syncStatus;
+  return typeof status === "string" ? status : undefined;
+}
 
-      if (!order) {
-        throw new Error(`Order ${shopifyOrderId} not found`);
-      }
+function decimalOf(value: unknown, fallback: Prisma.Decimal): Prisma.Decimal {
+  return typeof value === "string" || typeof value === "number" ? new Prisma.Decimal(value) : fallback;
+}
 
-      if (!order.cashbackAmount || Number(order.cashbackAmount) === 0) {
-        // Still return customerId for points clawback attempt
-        return {
-          success: true,
-          clawbackAmount: 0,
-          newBalance: 0,
-          customerId: order.customerId,
-          message: "No cashback to clawback for this order"
-        };
-      }
+/** `amount` in the shop currency; refund transactions carry the presentment currency. */
+function toShopCurrency(
+  amount: Prisma.Decimal,
+  currency: string | null,
+  order: { currency: string; totalPrice: Prisma.Decimal; presentmentCurrency: string | null; presentmentTotal: Prisma.Decimal | null },
+): Prisma.Decimal {
+  if (!currency || currency === order.currency) return amount;
+  if (currency === order.presentmentCurrency && order.presentmentTotal?.gt(0)) {
+    return amount.times(order.totalPrice).dividedBy(order.presentmentTotal).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
+  }
+  throw new Error(`Refund currency ${currency} matches neither the shop currency nor the order's presentment currency`);
+}
 
-      // =========================================================================
-      // CUMULATIVE REFUND VALIDATION: Prevent over-refunding
-      // Validates that cumulative refunds don't exceed order total
-      // =========================================================================
-      const existingRefunded = Number(order.totalRefunded) || 0;
-      const cumulativeRefund = existingRefunded + refundAmount;
-      const orderTotal = Number(order.totalPrice);
+/**
+ * The share of `cashback` that a refund of `applied` takes back from an order
+ * of `totalPrice`: all of it when the refund completes the order.
+ */
+function refundShare(cashback: Prisma.Decimal, applied: Prisma.Decimal, totalPrice: Prisma.Decimal, completesOrder: boolean): Prisma.Decimal {
+  if (completesOrder || totalPrice.lte(0)) return cashback;
+  return cashback.times(applied).dividedBy(totalPrice).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
+}
 
-      if (cumulativeRefund > orderTotal) {
-        console.warn(`[Refund Handler] WARNING: Cumulative refund (${cumulativeRefund}) exceeds order total (${orderTotal})`);
-        console.warn(`[Refund Handler] Existing refunded: ${existingRefunded}, New refund: ${refundAmount}`);
-        // Cap the effective refund amount to prevent over-clawback
-        const cappedRefundAmount = Math.max(0, orderTotal - existingRefunded);
-        console.warn(`[Refund Handler] Capping refund amount to: ${cappedRefundAmount}`);
-        refundAmount = cappedRefundAmount;
+export interface RecordedRefundReversal {
+  refundId: string;
+  shopifyRefundId: string;
+  amount: Prisma.Decimal;
+}
 
-        if (refundAmount <= 0) {
-          return {
-            success: true,
-            clawbackAmount: 0,
-            newBalance: 0,
-            customerId: order.customerId,
-            message: "Order already fully refunded - no additional clawback needed"
-          };
-        }
-      }
+/**
+ * What the refunds recorded on an order before its cashback entry existed
+ * take back from the `earned` cashback, for orders/paid recording the entry
+ * after them. Each refund, in order, reverses what recordRefund would have
+ * taken from a pending entry: its share of `earned`, or whatever is left
+ * when it completes the order.
+ */
+export function reverseRecordedRefunds(
+  earned: Prisma.Decimal,
+  totalPrice: Prisma.Decimal,
+  refunds: Array<{ id: string; shopifyRefundId: string; amount: Prisma.Decimal }>,
+): { remaining: Prisma.Decimal; reversals: RecordedRefundReversal[] } {
+  let refunded = ZERO;
+  let remaining = earned;
+  const reversals: RecordedRefundReversal[] = [];
+  for (const refund of refunds) {
+    refunded = refunded.plus(refund.amount);
+    const completesOrder = totalPrice.gt(0) && refunded.gte(totalPrice);
+    const amount = completesOrder ? remaining : Prisma.Decimal.min(remaining, refundShare(earned, refund.amount, totalPrice, completesOrder));
+    remaining = remaining.minus(amount);
+    reversals.push({ refundId: refund.id, shopifyRefundId: refund.shopifyRefundId, amount });
+  }
+  return { remaining, reversals };
+}
 
-      // 2. Calculate clawback amount
-      let clawbackAmount: number;
-      if (isFullRefund) {
-        // Full refund = full clawback of REMAINING cashback (accounting for prior partial refunds)
-        // Check for existing clawback entries to calculate remaining
-        const existingClawbacks = await tx.storeCreditLedger.aggregate({
-          where: {
-            shop,
-            shopifyOrderId,
-            type: 'REFUND_CLAWBACK'
-          },
-          _sum: { amount: true }
-        });
-        const alreadyClawedBack = Math.abs(Number(existingClawbacks._sum.amount) || 0);
-        const remainingCashback = Number(order.cashbackAmount) - alreadyClawedBack;
-        clawbackAmount = Math.max(0, remainingCashback);
+export interface OrderRefunds {
+  totalPrice: Prisma.Decimal;
+  totalRefunded: Prisma.Decimal;
+  financialStatus: OrderFinancialStatus;
+  cashbackEligible: boolean;
+  /** The refunds recorded against the order, oldest first */
+  refunds: Array<{ id: string; shopifyRefundId: string; amount: Prisma.Decimal }>;
+}
 
-        if (alreadyClawedBack > 0) {
-          console.log(`[Refund Handler] Prior clawbacks detected: ${alreadyClawedBack}, remaining: ${remainingCashback}`);
-        }
-      } else {
-        // Partial refund = proportional clawback based on refund percentage
-        const refundPercentage = refundAmount / orderTotal;
-        clawbackAmount = Number(order.cashbackAmount) * refundPercentage;
+/**
+ * What is left of an order's `original` cashback after every refund the
+ * order shows, for a writer about to record or issue cashback that has not
+ * been issued: orders/paid under the order's lock, and the reconciliation
+ * cron under its claim.
+ * - Nothing when the order was refunded in full or is excluded from
+ *   cashback, as the Orders page refuses it (isRefundedInFull).
+ * - Otherwise each recorded refund takes its share (reverseRecordedRefunds),
+ *   and so does the part of the order's refunded total that no recorded
+ *   refund accounts for (`unrecorded`): "Sync Orders" copies Shopify's
+ *   totals onto an order it already has without recording its refunds.
+ */
+export function cashbackLeftAfterRefunds(
+  original: Prisma.Decimal,
+  order: OrderRefunds,
+): { remaining: Prisma.Decimal; reversals: RecordedRefundReversal[]; unrecorded: Prisma.Decimal } {
+  const { remaining, reversals } = reverseRecordedRefunds(original, order.totalPrice, order.refunds);
+  if (!order.cashbackEligible || isRefundedInFull(order)) return { remaining: ZERO, reversals, unrecorded: remaining };
+  const recordedRefunds = order.refunds.reduce((sum, refund) => sum.plus(refund.amount), ZERO);
+  const refundedWithoutRecord = order.totalRefunded.minus(recordedRefunds);
+  if (refundedWithoutRecord.lte(0)) return { remaining, reversals, unrecorded: ZERO };
+  const unrecorded = Prisma.Decimal.min(remaining, refundShare(original, refundedWithoutRecord, order.totalPrice, false));
+  return { remaining: remaining.minus(unrecorded), reversals, unrecorded };
+}
 
-        // Ensure we don't clawback more than remaining available
-        const existingClawbacks = await tx.storeCreditLedger.aggregate({
-          where: {
-            shop,
-            shopifyOrderId,
-            type: 'REFUND_CLAWBACK'
-          },
-          _sum: { amount: true }
-        });
-        const alreadyClawedBack = Math.abs(Number(existingClawbacks._sum.amount) || 0);
-        const remainingCashback = Number(order.cashbackAmount) - alreadyClawedBack;
-        clawbackAmount = Math.min(clawbackAmount, remainingCashback);
+/**
+ * Record a Shopify refund against its order and reverse the refunded share of
+ * the order's cashback (see the module comment). Runs in one transaction that
+ * holds the cashback entry's and the order's row locks, so the reconciliation
+ * cron cannot issue the entry halfway through and concurrent refunds of one
+ * order apply one after the other, each from the totals the last one left.
+ */
+export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "$transaction"> = prisma): Promise<RefundOutcome> {
+  const { shop, shopifyOrderId, shopifyRefundId } = input;
 
-        if (alreadyClawedBack > 0) {
-          console.log(`[Refund Handler] Prior clawbacks: ${alreadyClawedBack}, capping this clawback to: ${clawbackAmount}`);
-        }
-      }
+  return db.$transaction(async (tx) => {
+    const orderRef = await tx.order.findUnique({ where: { shop_shopifyOrderId: { shop, shopifyOrderId } }, select: { id: true } });
+    if (!orderRef) return { status: "order_not_found" };
 
-      console.log(`[Refund Handler] Calculated clawback: ${clawbackAmount} for order ${shopifyOrderId}`);
+    // Lock the cashback entry, then the order (lockOrder), and only then read
+    // them: under READ COMMITTED each read sees what earlier refunds committed.
+    // The latest entry is the order's cashback: one the history import saw
+    // before its orders/paid webhook was processed also has a history record.
+    const cashbackWhere: Prisma.StoreCreditLedgerWhereInput = { orderId: orderRef.id, type: "CASHBACK_EARNED" };
+    const cashbackRefs = await tx.storeCreditLedger.findMany({ where: cashbackWhere, select: { id: true }, orderBy: { createdAt: "desc" } });
+    const cashbackRef = cashbackRefs[0] ?? null;
+    if (cashbackRef) await lockLedgerEntry(tx, cashbackRef.id);
+    await lockOrder(tx, orderRef.id);
+    // An entry recorded since the lookup (orders/paid records it under the
+    // order's lock, so while this refund waited for it) is not locked, so the
+    // cron could issue it mid-refund. Shopify redelivers on 5xx, and the next
+    // attempt locks it.
+    const recordedSince = await tx.storeCreditLedger.findFirst({
+      where: { ...cashbackWhere, id: { notIn: cashbackRefs.map((ref) => ref.id) } },
+      select: { id: true },
+    });
+    if (recordedSince) {
+      throw new RefundRetryableError(`Cashback for order ${shopifyOrderId} was recorded during the refund; retry the refund`);
+    }
+    const order = await tx.order.findUniqueOrThrow({ where: { id: orderRef.id } });
+    const cashback = cashbackRef ? await tx.storeCreditLedger.findUniqueOrThrow({ where: { id: cashbackRef.id } }) : null;
 
-      // 3. Check if cashback was already processed
-      if (!order.cashbackProcessed) {
-        // Cashback not yet credited - just update the order
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            cashbackAmount: isFullRefund ? 0 : Number(order.cashbackAmount) - clawbackAmount,
-            cashbackEligible: isFullRefund ? false : order.cashbackEligible,
-            totalRefunded: { increment: refundAmount },
-            netAmount: Number(order.totalPrice) - (Number(order.totalRefunded) + refundAmount)
-          }
-        });
-
-        // Still return customerId for points clawback attempt
-        return {
-          success: true,
-          clawbackAmount,
-          newBalance: 0,
-          customerId: order.customerId,
-          message: "Pending cashback adjusted (not yet credited)"
-        };
-      }
-
-      // 4. Cashback was already credited - need to deduct from customer balance
-      // Check for existing clawback to prevent double processing of the SAME refund.
-      // Important: only dedup on specific shopifyRefundId when available, so that
-      // multiple partial refunds for the same order are NOT blocked.
-      if (shopifyRefundId) {
-        const existingClawback = await tx.storeCreditLedger.findFirst({
-          where: {
-            shop,
-            shopifyOrderId,
-            type: 'REFUND_CLAWBACK',
-            metadata: { path: ['shopifyRefundId'], equals: shopifyRefundId }
-          }
-        });
-
-        if (existingClawback) {
-          console.log(`[Refund Handler] Cashback clawback already processed for refund ${shopifyRefundId}`);
-          return {
-            success: true,
-            clawbackAmount: Number(existingClawback.amount) * -1,
-            newBalance: Number(existingClawback.balance),
-            customerId: order.customerId,
-            message: "Cashback clawback already processed for this refund"
-          };
-        }
-      }
-
-      // 5. Get current customer balance
-      const lastLedger = await tx.storeCreditLedger.findFirst({
-        where: { customerId: order.customerId },
-        orderBy: { createdAt: 'desc' }
-      });
-
-      const currentBalance = lastLedger ? Number(lastLedger.balance) : 0;
-      const newBalance = currentBalance - clawbackAmount;
-
-      // 6. Create negative ledger entry for clawback
-      await tx.storeCreditLedger.create({
-        data: {
-          id: uuidv4(),
-          customerId: order.customerId,
-          shop,
-          amount: -clawbackAmount, // Negative amount for deduction
-          balance: newBalance,
-          type: 'REFUND_CLAWBACK',
-          shopifyOrderId,
-          orderId: order.id,
-          metadata: {
-            refundType: isFullRefund ? 'FULL' : 'PARTIAL',
-            refundAmount,
-            originalCashback: Number(order.cashbackAmount),
-            clawbackAmount,
-            orderNumber: order.shopifyOrderName,
-            ...(shopifyRefundId ? { shopifyRefundId } : {})
-          },
-          createdAt: new Date()
-        }
-      });
-
-      // 7. Update customer balance (can go negative per industry standard)
-      await tx.customer.update({
-        where: { id: order.customerId },
-        data: {
-          storeCredit: newBalance,
-          totalCashbackEarned: {
-            decrement: clawbackAmount
-          },
-          totalRefunded: {
-            increment: refundAmount
-          },
-          netSpent: {
-            decrement: refundAmount
-          }
-        }
-      });
-
-      // 8. Update order to reflect refund
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          totalRefunded: { increment: refundAmount },
-          netAmount: Number(order.totalPrice) - (Number(order.totalRefunded) + refundAmount),
-          cashbackAmount: isFullRefund ? 0 : Number(order.cashbackAmount) - clawbackAmount,
-          financialStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED'
-        }
-      });
-
-      // 9. Create refund record if not exists
-      const refundRecordId = shopifyRefundId || `${shopifyOrderId}-${uuidv4()}`;
-      await tx.orderRefund.upsert({
-        where: {
-          orderId_shopifyRefundId: { orderId: order.id, shopifyRefundId: refundRecordId }
-        },
-        create: {
-          id: uuidv4(),
-          orderId: order.id,
-          shopifyRefundId: refundRecordId,
-          shopifyCreatedAt: new Date(),
-          amount: refundAmount,
-          // The clawback path only knows the refund total, not its split
-          shippingAmount: 0,
-          taxAmount: 0,
-          cashbackAdjustment: clawbackAmount,
-          cashbackProcessed: true,
-          createdAt: new Date()
-        },
-        update: {
-          cashbackProcessed: true
-        }
-      });
-
-      console.log(`[Refund Handler] Successfully processed cashback clawback. New balance: ${newBalance}`);
-
+    const existing = await tx.orderRefund.findUnique({
+      where: { orderId_shopifyRefundId: { orderId: order.id, shopifyRefundId } },
+      include: { creditLedgerEntry: { select: { id: true, metadata: true } } },
+    });
+    if (existing) {
+      const entry = existing.creditLedgerEntry;
       return {
-        success: true,
-        clawbackAmount,
-        newBalance,
+        status: "recorded",
+        newlyRecorded: false,
+        orderId: order.id,
         customerId: order.customerId,
-        message: `Cashback clawback of ${clawbackAmount} processed. New balance: ${newBalance}`
+        appliedAmount: existing.amount,
+        reversedCashback: existing.cashbackAdjustment ?? ZERO,
+        pendingClawbackId: entry && syncStatusOf(entry) === "PENDING" ? entry.id : null,
       };
+    }
+
+    const refundedBefore = order.totalRefunded;
+    const refundedAfter = Prisma.Decimal.min(order.totalPrice, refundedBefore.plus(toShopCurrency(input.amount, input.currency, order)));
+    const applied = refundedAfter.minus(refundedBefore);
+    const completesOrder = order.totalPrice.gt(0) && refundedAfter.gte(order.totalPrice);
+    const share = (amount: Prisma.Decimal) => refundShare(amount, applied, order.totalPrice, completesOrder);
+
+    const refund = await tx.orderRefund.create({
+      data: {
+        orderId: order.id,
+        shopifyRefundId,
+        amount: applied,
+        // The webhook total is not split into shipping and tax here
+        shippingAmount: 0,
+        taxAmount: 0,
+        shopifyCreatedAt: input.createdAt,
+        processedAt: new Date(),
+      },
     });
 
-    // CRITICAL: Also clawback points if points system is enabled
-    // This runs outside the main transaction because clawbackPoints has its own
-    let pointsClawbackResult: { clawedBack: boolean; amount: number; reason: string } | undefined;
+    let reversed = ZERO;
+    let pendingClawbackId: string | null = null;
+    const syncStatus = cashback ? syncStatusOf(cashback) : undefined;
+    // Refunds reverse shares of the cashback as first recorded, before any
+    // reversal shrank it (a refund before issue sets originalAmount)
+    const metadata = cashback ? jsonObject(cashback.metadata) : {};
+    const original = cashback ? decimalOf(metadata.originalAmount, cashback.amount) : ZERO;
 
-    if (result.success && result.customerId) {
-      try {
-        // Check if points system is enabled for this shop
-        const pointsEnabled = await isPointsEnabled(shop);
+    if (cashback && cashback.amount.gt(0)) {
+      if (syncStatus === "SYNCING") {
+        throw new RefundRetryableError(`Cashback for order ${shopifyOrderId} is being issued; retry the refund later`);
+      }
 
-        if (pointsEnabled) {
-          console.log(`[Refund Handler] Points system enabled - attempting points clawback`);
+      if (syncStatus === "SYNCED" || order.cashbackProcessed) {
+        // Credited: reverse at most what is left of the credit, then debit it
+        const priorClawbacks = await tx.storeCreditLedger.findMany({
+          where: { orderId: order.id, type: "REFUND_CLAWBACK" },
+          select: { amount: true, metadata: true },
+        });
+        const alreadyReversed = priorClawbacks.reduce(
+          (sum, entry) => sum.plus(decimalOf(jsonObject(entry.metadata).reversalAmount, entry.amount.negated())),
+          ZERO,
+        );
+        const remaining = Prisma.Decimal.max(ZERO, cashback.amount.minus(alreadyReversed));
+        reversed = completesOrder ? remaining : Prisma.Decimal.min(remaining, share(original));
 
-          // Get the internal order ID from the database
-          const order = await prisma.order.findFirst({
-            where: { shop, shopifyOrderId },
-            select: { id: true }
-          });
-
-          if (order) {
-            pointsClawbackResult = await clawbackPoints(
+        if (reversed.gt(0)) {
+          const customer = await tx.customer.findUniqueOrThrow({ where: { id: order.customerId }, select: { storeCredit: true } });
+          const clawback = await tx.storeCreditLedger.create({
+            data: {
+              customerId: order.customerId,
               shop,
-              result.customerId,
-              order.id,
-              refundAmount
-            );
-
-            console.log(`[Refund Handler] Points clawback result:`, pointsClawbackResult);
-          } else {
-            pointsClawbackResult = {
-              clawedBack: false,
-              amount: 0,
-              reason: "Order not found for points clawback"
-            };
-          }
-        } else {
-          console.log(`[Refund Handler] Points system not enabled, skipping points clawback`);
+              orderId: order.id,
+              refundId: refund.id,
+              type: "REFUND_CLAWBACK",
+              amount: reversed.negated(),
+              // Projected until the debit settles with Shopify's balance
+              balance: customer.storeCredit.minus(reversed),
+              // (shop, shopifyOrderId, type) is unique, and an order can have
+              // several refunds; the order is linked through orderId
+              shopifyOrderId: null,
+              metadata: {
+                shopifyOrderId,
+                shopifyRefundId,
+                orderName: order.shopifyOrderName,
+                refundAmount: applied.toFixed(2),
+                reversalAmount: reversed.toFixed(2),
+                description: `Cashback reversed for refund on order ${order.shopifyOrderName}`,
+                syncStatus: "PENDING",
+              },
+            },
+          });
+          pendingClawbackId = clawback.id;
         }
-      } catch (pointsError: any) {
-        console.error(`[Refund Handler] Error processing points clawback (non-fatal):`, pointsError);
-        pointsClawbackResult = {
-          clawedBack: false,
-          amount: 0,
-          reason: `Error: ${pointsError.message}`
-        };
+      } else {
+        // Not issued yet: shrink what will be issued; nothing to debit
+        reversed = completesOrder ? cashback.amount : Prisma.Decimal.min(cashback.amount, share(original));
+        const remaining = cashback.amount.minus(reversed);
+        const reversals = Array.isArray(metadata.reversedBeforeIssue) ? metadata.reversedBeforeIssue : [];
+        await tx.storeCreditLedger.update({
+          where: { id: cashback.id },
+          data: {
+            amount: remaining,
+            metadata: {
+              ...metadata,
+              originalAmount: original.toFixed(2),
+              reversedBeforeIssue: [...reversals, { shopifyRefundId, amount: reversed.toFixed(2) }],
+              // A fully reversed entry must never be issued
+              ...(remaining.lte(0) && syncStatus === "PENDING" ? { syncStatus: "NOT_APPLICABLE" } : {}),
+            },
+          },
+        });
       }
     }
 
-    return {
-      ...result,
-      pointsClawback: pointsClawbackResult,
-      message: pointsClawbackResult?.clawedBack
-        ? `${result.message} | Points clawback: ${pointsClawbackResult.amount} points`
-        : result.message
-    };
-  } catch (error: any) {
-    console.error(`[Refund Handler] Error processing refund clawback:`, error);
-    return {
-      success: false,
-      clawbackAmount: 0,
-      newBalance: 0,
-      message: error.message
-    };
-  }
-}
-
-/**
- * Calculate tier impact after refund
- * Refunds may cause tier downgrade if spending drops below threshold
- */
-export async function recalculateTierAfterRefund(
-  customerId: string,
-  shop: string
-): Promise<void> {
-  const { calculateAndAssignTier } = await import('./tier-management.server');
-
-  const result = await calculateAndAssignTier(shop, customerId, 'ORDER');
-
-  if (result.changed) {
-    console.log(`[Refund Handler] Customer tier changed after refund`);
-
-    // Optionally notify customer of tier change
-    // await notifyTierChange(customerId, result.previousTierId, result.newTierId);
-  }
-}
-
-/**
- * Handle store credit refunds (no clawback per Starbucks model)
- * If refund goes to store credit instead of original payment, keep the cashback
- */
-export async function handleStoreCreditRefund(
-  shopifyOrderId: string,
-  shop: string,
-  refundAmount: number
-): Promise<{
-  success: boolean;
-  creditAmount: number;
-  message: string;
-}> {
-  console.log(`[Refund Handler] Processing store credit refund for order ${shopifyOrderId}`);
-
-  try {
-    const result = await prisma.$transaction(async (tx) => {
-      // Find the order
-      const order = await tx.order.findFirst({
-        where: {
-          shop,
-          shopifyOrderId
-        }
-      });
-
-      if (!order) {
-        throw new Error(`Order ${shopifyOrderId} not found`);
-      }
-
-      // Get current balance
-      const lastLedger = await tx.storeCreditLedger.findFirst({
-        where: { customerId: order.customerId },
-        orderBy: { createdAt: 'desc' }
-      });
-
-      const currentBalance = lastLedger ? Number(lastLedger.balance) : 0;
-      const newBalance = currentBalance + refundAmount;
-
-      // Create positive ledger entry for store credit refund
-      await tx.storeCreditLedger.create({
-        data: {
-          id: uuidv4(),
-          customerId: order.customerId,
-          shop,
-          amount: refundAmount,
-          balance: newBalance,
-          type: 'REFUND_CREDIT',
-          shopifyOrderId,
-          orderId: order.id,
-          metadata: {
-            refundType: 'STORE_CREDIT',
-            refundAmount,
-            cashbackKept: Number(order.cashbackAmount), // Customer keeps cashback
-            orderNumber: order.shopifyOrderName,
-            note: 'Refund to store credit - cashback retained'
-          },
-          createdAt: new Date()
-        }
-      });
-
-      // Update customer balance
-      await tx.customer.update({
-        where: { id: order.customerId },
-        data: {
-          storeCredit: newBalance
-          // Note: NOT adjusting totalCashbackEarned since they keep the cashback
-        }
-      });
-
-      // Update order status
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          totalRefunded: { increment: refundAmount },
-          financialStatus: 'PARTIALLY_REFUNDED'
-          // Note: NOT adjusting cashbackAmount since they keep it
-        }
-      });
-
-      console.log(`[Refund Handler] Store credit refund processed. New balance: ${newBalance}`);
-
-      return {
-        success: true,
-        creditAmount: refundAmount,
-        message: `Store credit of ${refundAmount} added. Cashback retained per policy.`
-      };
+    await tx.orderRefund.update({
+      where: { id: refund.id },
+      data: { cashbackAdjustment: reversed, cashbackProcessed: pendingClawbackId === null },
     });
 
-    return result;
-  } catch (error: any) {
-    console.error(`[Refund Handler] Error processing store credit refund:`, error);
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        totalRefunded: refundedAfter,
+        netAmount: order.totalPrice.minus(refundedAfter),
+        // A refund that returned no money (a restock, say) changes nothing
+        financialStatus: completesOrder ? "REFUNDED" : refundedAfter.gt(0) ? "PARTIALLY_REFUNDED" : order.financialStatus,
+        ...(order.cashbackAmount ? { cashbackAmount: Prisma.Decimal.max(ZERO, order.cashbackAmount.minus(reversed)) } : {}),
+        ...(completesOrder ? { cashbackEligible: false } : {}),
+      },
+    });
+
+    await tx.customer.update({
+      where: { id: order.customerId },
+      data: {
+        totalRefunded: { increment: applied },
+        netSpent: { decrement: applied },
+        totalCashbackEarned: { decrement: reversed },
+      },
+    });
+
+    console.log(`${LOG_PREFIX} Refund ${shopifyRefundId} on order ${shopifyOrderId}: ${applied.toFixed(2)} refunded, ${reversed.toFixed(2)} cashback reversed`);
+
     return {
-      success: false,
-      creditAmount: 0,
-      message: error.message
+      status: "recorded",
+      newlyRecorded: true,
+      orderId: order.id,
+      customerId: order.customerId,
+      appliedAmount: applied,
+      reversedCashback: reversed,
+      pendingClawbackId,
     };
+  });
+}
+
+export interface ClawbackSettlement {
+  /** False when another delivery is settling it or it is already settled */
+  settled: boolean;
+  debited: Prisma.Decimal;
+  /** Reversal the shopper had already spent */
+  unrecovered: Prisma.Decimal;
+  /** Not settled because Shopify never confirmed an earlier debit of it */
+  unconfirmed: boolean;
+}
+
+/**
+ * Debit a REFUND_CLAWBACK entry from the shopper's Shopify store credit.
+ *
+ * The entry is claimed (PENDING to SYNCING) first, so concurrent deliveries
+ * debit once. When Shopify answers that it applied nothing, the entry goes
+ * back to PENDING and RefundRetryableError makes the webhook answer 5xx, so
+ * the redelivery retries. Otherwise the debit may have been applied (no
+ * answer, a 5xx, an error Shopify can raise after running the mutation):
+ * the entry stays SYNCING (markUnconfirmed) and is never sent again.
+ */
+export async function settleRefundClawback(
+  entryId: string,
+  { shop, admin }: { shop: string; admin: AdminApiContext | undefined },
+): Promise<ClawbackSettlement> {
+  const entry = await prisma.storeCreditLedger.findFirst({
+    where: { id: entryId, shop, type: "REFUND_CLAWBACK" },
+    include: {
+      customer: { select: { id: true, shopifyCustomerId: true } },
+      order: { select: { currency: true } },
+    },
+  });
+  if (!entry) throw new Error(`Clawback entry ${entryId} not found`);
+  const idle: ClawbackSettlement = { settled: false, debited: ZERO, unrecovered: ZERO, unconfirmed: false };
+  const current = jsonObject(entry.metadata);
+  if (current.syncStatus !== "PENDING") return { ...idle, unconfirmed: typeof current.unconfirmedAt === "string" };
+  if (!admin) throw new RefundRetryableError(`No Shopify session for ${shop}; cannot debit store credit`);
+  if (!(await claimLedgerEntry(entry.id))) return idle;
+
+  // This caller now owns the entry until it leaves SYNCING
+  const claimed = await prisma.storeCreditLedger.findUniqueOrThrow({ where: { id: entry.id }, select: { metadata: true } });
+  const { lastError: _previousError, ...metadata } = jsonObject(claimed.metadata);
+  const release = async (error: string) => {
+    await prisma.storeCreditLedger.update({
+      where: { id: entry.id },
+      data: { metadata: { ...metadata, syncStatus: "PENDING", lastError: error } },
+    });
+    return new RefundRetryableError(`Store credit debit for clawback ${entry.id} failed: ${error}`);
+  };
+
+  const reversal = decimalOf(metadata.reversalAmount, entry.amount.negated());
+  let currency = entry.order?.currency || "USD";
+  let debit = ZERO;
+  let balanceAfter = ZERO;
+  let transactionId: string | null = null;
+  let unanswered: string | null = null;
+  try {
+    const settings = await prisma.shopSettings.findUnique({ where: { shop }, select: { storeCurrency: true } });
+    currency = settings?.storeCurrency || currency;
+    const storeCredit = createStoreCreditService(admin, shop);
+
+    const balance = await storeCredit.getStoreCreditBalance(entry.customer.shopifyCustomerId);
+    if (!balance.success) throw new Error(balance.error ?? "balance query failed");
+    const account = balance.accounts?.find((a) => a.balance.currencyCode === currency);
+    const available = account ? new Prisma.Decimal(account.balance.amount) : ZERO;
+    debit = Prisma.Decimal.max(ZERO, Prisma.Decimal.min(reversal, available));
+    balanceAfter = available;
+
+    if (debit.gt(0)) {
+      const result = await storeCredit.debitStoreCredit(entry.customer.shopifyCustomerId, debit.toNumber(), currency);
+      if (!result.success && result.ambiguous) {
+        unanswered = result.error ?? "No answer from Shopify";
+      } else if (!result.success) {
+        throw new Error(result.error ?? "debit failed");
+      } else {
+        balanceAfter = result.balance !== undefined ? new Prisma.Decimal(result.balance) : available.minus(debit);
+        transactionId = result.transactionId ?? null;
+      }
+    }
+  } catch (error) {
+    // Shopify did not apply a debit: hand the entry back for the redelivery
+    throw await release(error instanceof Error ? error.message : String(error));
   }
+  if (unanswered !== null) {
+    // Shopify may have applied it: neither the redelivery nor the Orders
+    // page sends it again (the entry stays SYNCING)
+    await markUnconfirmed(entry.id, unanswered);
+    throw new RefundRetryableError(`Shopify did not confirm the store credit debit for clawback ${entry.id}; it is not sent again`);
+  }
+
+  // From here a failure leaves the entry SYNCING: the debit was applied, so
+  // it must not be sent again (store-credit-reconciliation reports the gap)
+  const unrecovered = reversal.minus(debit);
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.storeCreditLedger.update({
+      where: { id: entry.id },
+      data: {
+        amount: debit.negated(),
+        balance: balanceAfter,
+        shopifyTransactionId: transactionId,
+        syncedAt: now,
+        metadata: {
+          ...metadata,
+          syncStatus: "SYNCED",
+          debitedAmount: debit.toFixed(2),
+          unrecoveredAmount: unrecovered.toFixed(2),
+          syncedAt: now.toISOString(),
+        },
+      },
+    }),
+    prisma.customer.update({ where: { id: entry.customer.id }, data: { storeCredit: balanceAfter } }),
+    ...(entry.refundId
+      ? [prisma.orderRefund.update({ where: { id: entry.refundId }, data: { cashbackProcessed: true, processedAt: now } })]
+      : []),
+  ]);
+
+  if (unrecovered.gt(0)) {
+    console.warn(`${LOG_PREFIX} Clawback ${entry.id}: ${unrecovered.toFixed(2)} ${currency} was already spent and could not be debited`);
+  }
+  return { settled: true, debited: debit, unrecovered, unconfirmed: false };
 }

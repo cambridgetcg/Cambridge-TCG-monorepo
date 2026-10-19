@@ -16,6 +16,9 @@ import { json } from "@remix-run/node";
 import prisma from "../db.server";
 import { acquireCronLock, releaseCronLock, cleanupExpiredLocks } from "../services/cron-lock.server";
 import { sendCampaignEmails } from "../services/email-notifications.server";
+import { MARKETING_AUDIENCE } from "../services/marketing-consent.server";
+import { marketingEmailBlockedReason } from "../services/marketing-email.server";
+import type { Prisma } from "@prisma/client";
 import * as crypto from "node:crypto";
 import { verifyCronAuth } from "~/utils/cron-auth.server";
 
@@ -39,6 +42,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 
   log('info', 'Scheduled campaigns cron started');
+
+  // Leave scheduled campaigns waiting while marketing email is switched off
+  const blocked = marketingEmailBlockedReason();
+  if (blocked) {
+    log('warn', 'Marketing email is off; scheduled campaigns stay scheduled', { reason: blocked });
+    return json({ success: true, skipped: true, reason: blocked, correlationId });
+  }
 
   // 2. Clean up expired locks
   await cleanupExpiredLocks();
@@ -119,62 +129,17 @@ export async function loader({ request }: LoaderFunctionArgs) {
           },
         });
 
-        // Resolve recipients based on segmentRules
+        // Resolve recipients based on segmentRules; only customers who
+        // consent to marketing (sendCampaignEmails checks again)
         const segmentRules = campaign.segmentRules as any;
-        let recipients: Array<{ email: string; name?: string; customerId?: string }> = [];
-
-        if (segmentRules?.fromRecommendation && segmentRules?.targetCustomerIds?.length) {
-          // Recommendation-based targeting (exclude suppressed/unsubscribed)
-          const customers = await prisma.customer.findMany({
-            where: {
-              shop: campaign.shop,
-              id: { in: segmentRules.targetCustomerIds },
-              email: { not: "" },
-              acceptsMarketing: true,
-              emailSuppressed: false,
-            },
-            select: { id: true, email: true, firstName: true, lastName: true },
-          });
-          recipients = customers
-            .filter((c) => c.email)
-            .map((c) => ({
-              email: c.email!,
-              name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
-              customerId: c.id,
-            }));
-        } else if (segmentRules?.selectedTiers?.length) {
-          // Tier-based targeting (exclude suppressed/unsubscribed)
-          const customers = await prisma.customer.findMany({
-            where: {
-              shop: campaign.shop,
-              email: { not: "" },
-              currentTierId: { in: segmentRules.selectedTiers },
-              acceptsMarketing: true,
-              emailSuppressed: false,
-            },
-            select: { id: true, email: true, firstName: true, lastName: true },
-          });
-          recipients = customers
-            .filter((c) => c.email)
-            .map((c) => ({
-              email: c.email!,
-              name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
-              customerId: c.id,
-            }));
-        } else {
-          // All customers with email (exclude suppressed/unsubscribed)
-          const customers = await prisma.customer.findMany({
-            where: { shop: campaign.shop, email: { not: "" }, acceptsMarketing: true, emailSuppressed: false },
-            select: { id: true, email: true, firstName: true, lastName: true },
-          });
-          recipients = customers
-            .filter((c) => c.email)
-            .map((c) => ({
-              email: c.email!,
-              name: [c.firstName, c.lastName].filter(Boolean).join(" ") || undefined,
-              customerId: c.id,
-            }));
-        }
+        const audience = { shop: campaign.shop, ...MARKETING_AUDIENCE };
+        const where: Prisma.CustomerWhereInput =
+          segmentRules?.fromRecommendation && segmentRules?.targetCustomerIds?.length
+            ? { ...audience, id: { in: segmentRules.targetCustomerIds } }
+            : segmentRules?.selectedTiers?.length
+              ? { ...audience, currentTierId: { in: segmentRules.selectedTiers } }
+              : audience;
+        const recipients = (await prisma.customer.findMany({ where, select: { id: true } })).map((c) => ({ customerId: c.id }));
 
         if (recipients.length === 0) {
           log('warn', `Campaign ${campaign.id} has zero recipients, marking as sent with 0`, {
@@ -189,7 +154,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         await prisma.emailCampaign.updateMany({
           where: { id: campaign.id, shop: campaign.shop },
           data: {
-            status: 'sent',
+            status: sendResult.sent > 0 || sendResult.failed === 0 ? 'sent' : 'failed',
             metrics: {
               sent: sendResult.sent,
               delivered: 0, // Actual delivery count comes from SendGrid webhook events

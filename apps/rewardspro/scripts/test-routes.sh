@@ -175,7 +175,6 @@ test_route "/api/billing/usage" "api"
 test_route "/api/order-count" "api"
 test_route "/api/points-analytics" "api"
 test_route "/api/members/export" "api"
-test_route "/api/sentry-events" "api"
 test_route "/api/email/domain" "api"
 test_route "/api/integrations" "api"
 test_route "/api/integrations/points-rules" "api"
@@ -195,7 +194,7 @@ echo "── Shopify App Routes (need Shopify session → expect AUTH/redirect) 
 for page in \
   "" \
   "analytics" "analytics/new" "analytics/realtime" \
-  "billing" "customers" "debug" "locked" "monitoring" \
+  "billing" "customers" "locked" "monitoring" \
   "marketing" "marketing/analytics" "marketing/automation/create" \
   "marketing/automation/workflows" "marketing/campaigns" \
   "marketing/campaigns/create" "marketing/campaigns/smart-create" \

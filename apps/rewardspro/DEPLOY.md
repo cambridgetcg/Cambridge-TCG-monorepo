@@ -125,3 +125,18 @@ git push origin main
 
 Functions run in `lhr1` (London), next to the database (`vercel.json`). Node
 24 everywhere: `engines`, `.nvmrc` and CI.
+
+**Marketing email** (campaigns and automations) stays off until SendGrid's
+signed event webhook is configured: set `SENDGRID_WEBHOOK_VERIFICATION_KEY`
+to the public key from SendGrid's Event Webhook settings, so bounces, spam
+reports and unsubscribes are recorded. Unsubscribe links are built from
+`SHOPIFY_APP_URL` and signed with `ENCRYPTION_SECRET`
+(`app/services/marketing-email.server.ts`); the link opens a confirmation
+page, and mail clients' one-click unsubscribe acts at once. Transactional
+email is not affected.
+
+That key is the only server-side switch: once it is set, every shop's
+campaigns and automations can send. Before setting it, know that marketing
+email does not carry a sender postal address yet, which CAN-SPAM requires
+for US recipients (the "Add physical address" setting is not applied), and
+that SPF, DKIM and DMARC must be in place for the sending domain.

@@ -77,7 +77,6 @@ Every route below is a user-facing feature. Each needs at least one happy-path e
 | `app._index` | Dashboard overview | ❌ | High |
 | `app.billing` | Subscription/billing management | ❌ | High |
 | `app.settings` | App configuration | ❌ | Medium |
-| `app.debug` | Debug tools | ❌ | Low |
 | `app.monitoring` | System monitoring | ❌ | Low |
 
 #### Members (P0 — Judy demo)

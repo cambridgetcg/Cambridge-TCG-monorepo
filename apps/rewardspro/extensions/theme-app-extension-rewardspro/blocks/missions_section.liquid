@@ -29,53 +29,13 @@
       <div class="rp-missions-section-guest__hero">
         <span class="rp-missions-section-guest__icon" aria-hidden="true">🎯</span>
         <h2 class="rp-missions-section-guest__title">{{ block.settings.heading | default: 'Complete Missions. Earn Rewards.' }}</h2>
-        <p class="rp-missions-section-guest__subtitle">{{ block.settings.guest_message | default: 'Sign in to unlock daily, weekly, and special missions. Earn XP, level up your tier, and claim exclusive rewards.' }}</p>
+        <p class="rp-missions-section-guest__subtitle">{{ block.settings.guest_message | default: 'Sign in to see your missions.' }}</p>
         <a href="{{ block.settings.guest_cta_url | default: '/account/login' }}"
            class="rp-missions-section-guest__cta">
           {{ block.settings.guest_cta_text | default: 'Sign In to Start' }}
           <span aria-hidden="true">→</span>
         </a>
       </div>
-
-      <div class="rp-missions-section-guest__preview" aria-label="Sample missions preview" role="list">
-        <div class="rp-missions-section-guest__card rp-missions-section-guest__card--locked" role="listitem">
-          <div class="rp-missions-section-guest__card-icon">🛒</div>
-          <div class="rp-missions-section-guest__card-body">
-            <div class="rp-missions-section-guest__card-name">Daily Purchase</div>
-            <div class="rp-missions-section-guest__card-desc">Make a purchase today</div>
-            <div class="rp-missions-section-guest__card-bar">
-              <div class="rp-missions-section-guest__card-fill" style="width:0%"></div>
-            </div>
-          </div>
-          <div class="rp-missions-section-guest__card-xp">+50 XP</div>
-        </div>
-
-        <div class="rp-missions-section-guest__card rp-missions-section-guest__card--locked" role="listitem">
-          <div class="rp-missions-section-guest__card-icon">📦</div>
-          <div class="rp-missions-section-guest__card-body">
-            <div class="rp-missions-section-guest__card-name">Collector</div>
-            <div class="rp-missions-section-guest__card-desc">Buy 3 items this week</div>
-            <div class="rp-missions-section-guest__card-bar">
-              <div class="rp-missions-section-guest__card-fill" style="width:0%"></div>
-            </div>
-          </div>
-          <div class="rp-missions-section-guest__card-xp">+150 XP</div>
-        </div>
-
-        <div class="rp-missions-section-guest__card rp-missions-section-guest__card--locked" role="listitem">
-          <div class="rp-missions-section-guest__card-icon">⭐</div>
-          <div class="rp-missions-section-guest__card-body">
-            <div class="rp-missions-section-guest__card-name">Monthly Champion</div>
-            <div class="rp-missions-section-guest__card-desc">Reach £100 spend this month</div>
-            <div class="rp-missions-section-guest__card-bar">
-              <div class="rp-missions-section-guest__card-fill" style="width:0%"></div>
-            </div>
-          </div>
-          <div class="rp-missions-section-guest__card-xp">+500 XP</div>
-        </div>
-      </div>
-
-      <p class="rp-missions-section-guest__note">🔒 Sign in to see your real missions and progress</p>
     </div>
   </div>
 {% endif %}
@@ -105,7 +65,7 @@
       "type": "text",
       "id": "guest_message",
       "label": "Guest message",
-      "default": "Sign in to unlock daily, weekly, and special missions. Earn XP, level up your tier, and claim exclusive rewards."
+      "default": "Sign in to see your missions."
     },
     {
       "type": "text",

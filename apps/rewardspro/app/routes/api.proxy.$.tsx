@@ -30,6 +30,15 @@ import { openMysteryBox } from "../services/mystery-box-open.server";
 // Mission gamification imports
 import { getMissionsForCustomer, getPlayerStats } from "../services/mission-stats.server";
 import { acknowledgeEvents, getUnacknowledgedEvents } from "../services/mission-events.server";
+import {
+  CHANCE_MECHANICS_PAUSED,
+  CHANCE_MECHANICS_PAUSED_MESSAGE,
+  CHANCE_MECHANICS_PAUSED_STATUS,
+  chanceMechanicsPausedResult,
+} from "../constants/chance-mechanics";
+
+/** Storefront actions that enter a draw or open a box (games of chance). */
+const CHANCE_PATHS = new Set(["raffles", "raffles/enter", "mystery-boxes/open"]);
 
 // ============================================================================
 // Configurable Logging - Reduces production log verbosity
@@ -70,15 +79,20 @@ function proxyError(
 }
 
 /**
- * SECURITY: Resolve the authenticated customer ID from the SIGNED URL query params.
- * Shopify App Proxy HMAC covers URL + query string but NOT the body, so trusting
- * `logged_in_customer_id` from a POST body allowed horizontal authorization bypass
- * (a logged-in customer could swap the ID to impersonate another). Always read from
- * the signed query string; body is ignored for identity.
+ * SECURITY: The only source of a shopper's identity on the app proxy.
+ *
+ * Shopify sets `logged_in_customer_id` on every proxied request (empty for
+ * guests) and signs it. Nothing a visitor supplies counts: not a body field,
+ * not `customer_id`/`customerId`/`cid`, and not a second copy of this
+ * parameter. The signature check reads the last copy of a repeated
+ * parameter while URLSearchParams.get returns the first, so a request that
+ * carries it more than once is treated as a guest.
  */
 export function getProxyCustomerId(request: Request): string | null {
-  const v = new URL(request.url).searchParams.get("logged_in_customer_id");
-  if (!v || v === "" || v === "null" || v === "undefined") return null;
+  const values = new URL(request.url).searchParams.getAll("logged_in_customer_id");
+  if (values.length !== 1) return null;
+  const [v] = values;
+  if (!v || v === "null" || v === "undefined") return null;
   return v;
 }
 
@@ -207,11 +221,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   
   // Membership endpoint
   if (proxyPath === "membership") {
-    // Extract customer ID from various possible parameters
-    const customerId = url.searchParams.get("logged_in_customer_id") ||
-                      url.searchParams.get("customer_id") ||
-                      url.searchParams.get("customerId") ||
-                      url.searchParams.get("cid");
+    // Signed identity only (getProxyCustomerId); guests get no customer data
+    const customerId = getProxyCustomerId(request);
 
     // SECURITY: Use authenticated shop from session ONLY
     // We completely ignore the shop parameter in URL to prevent spoofing
@@ -231,7 +242,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     log.debug('Membership request:', { shop, customerId: customerId || 'guest' });
 
     // Handle non-logged-in users
-    if (!customerId || customerId === "" || customerId === "null" || customerId === "undefined") {
+    if (!customerId) {
       log.debug('Guest user request');
       return json({
         success: false,
@@ -830,7 +841,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const customerId = url.searchParams.get("logged_in_customer_id");
+    const customerId = getProxyCustomerId(request);
 
     log.info('=== RAFFLES ENDPOINT ===', { shop, customerId: customerId || 'guest' });
 
@@ -857,7 +868,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           success: true,
           enabled: false,
           raffles: [],
-          message: "Raffles are not enabled for this store",
+          message: CHANCE_MECHANICS_PAUSED ? CHANCE_MECHANICS_PAUSED_MESSAGE : "Raffles are not enabled for this store",
         }, { headers });
       }
       log.debug('=== RAFFLES STEP 1 SUCCESS: Feature enabled ===');
@@ -1070,7 +1081,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     try {
       // Check if mystery boxes feature is enabled and fetch currency branding in parallel
@@ -1083,7 +1094,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           success: true,
           enabled: false,
           boxes: [],
-          message: "Mystery boxes are not enabled for this store",
+          message: CHANCE_MECHANICS_PAUSED ? CHANCE_MECHANICS_PAUSED_MESSAGE : "Mystery boxes are not enabled for this store",
         }, { headers });
       }
 
@@ -1239,7 +1250,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     try {
       // Check if challenges are enabled via PointsConfig
@@ -1395,7 +1406,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     try {
       // Check if missions/challenges are enabled via PointsConfig
@@ -1490,7 +1501,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     if (!shopifyCustomerId) {
       return json({
@@ -1543,7 +1554,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const shopifyCustomerId = url.searchParams.get("logged_in_customer_id");
+    const shopifyCustomerId = getProxyCustomerId(request);
 
     if (!shopifyCustomerId) {
       return json({
@@ -1596,7 +1607,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       }, { status: 401, headers });
     }
 
-    const customerId = url.searchParams.get("logged_in_customer_id");
+    const customerId = getProxyCustomerId(request);
 
     try {
       // Get feature enablement state
@@ -1747,6 +1758,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY"
   };
+
+  // Raffle entries and box opens are refused while chance mechanics are
+  // paused (constants/chance-mechanics.ts), before any request data is read
+  if (CHANCE_MECHANICS_PAUSED && CHANCE_PATHS.has(proxyPath)) {
+    return json(
+      { ...chanceMechanicsPausedResult(), message: CHANCE_MECHANICS_PAUSED_MESSAGE },
+      { status: CHANCE_MECHANICS_PAUSED_STATUS, headers: { ...headers, "Cache-Control": "no-store" } }
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // RAFFLES POST - Purchase entries or claim free entry

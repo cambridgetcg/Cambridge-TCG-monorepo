@@ -174,12 +174,13 @@ async function processEvents(events: SendGridEvent[]): Promise<{
           break;
         case "unsubscribe":
           updates.unsubscribed++;
-          // Respect unsubscribe by updating marketing consent
+          // Respect unsubscribe by updating marketing consent; the time keeps
+          // an older Shopify subscription from re-subscribing them
           if (event.email) {
             try {
               await prisma.customer.updateMany({
                 where: { shop, email: event.email },
-                data: { acceptsMarketing: false },
+                data: { acceptsMarketing: false, marketingConsentUpdatedAt: new Date() },
               });
             } catch (e) {
               // Non-critical
@@ -198,6 +199,7 @@ async function processEvents(events: SendGridEvent[]): Promise<{
                   suppressedAt: new Date(),
                   suppressionReason: "spam_report",
                   acceptsMarketing: false,
+                  marketingConsentUpdatedAt: new Date(),
                 },
               });
             } catch (e) {

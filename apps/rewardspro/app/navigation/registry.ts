@@ -12,6 +12,7 @@ import {
   ThemeTemplateIcon,
 } from "@shopify/polaris-icons";
 
+import { CHANCE_MECHANICS_PAUSED } from "~/constants/chance-mechanics";
 import { APP_ROUTES } from "./routes";
 
 export type NavigationMatch = {
@@ -113,12 +114,17 @@ export const SECTION_NAVIGATION = {
     item("Missions", APP_ROUTES.REWARDS.MISSIONS, {
       icon: TargetIcon,
     }),
-    item("Raffles", APP_ROUTES.REWARDS.RAFFLES, {
-      icon: GiftCardIcon,
-    }),
-    item("Mystery boxes", APP_ROUTES.REWARDS.MYSTERY_BOXES, {
-      icon: PackageIcon,
-    }),
+    // Games of chance are paused (constants/chance-mechanics.ts)
+    ...(CHANCE_MECHANICS_PAUSED
+      ? []
+      : [
+          item("Raffles", APP_ROUTES.REWARDS.RAFFLES, {
+            icon: GiftCardIcon,
+          }),
+          item("Mystery boxes", APP_ROUTES.REWARDS.MYSTERY_BOXES, {
+            icon: PackageIcon,
+          }),
+        ]),
   ],
   marketing: [
     item("Overview", APP_ROUTES.MARKETING.ROOT, {

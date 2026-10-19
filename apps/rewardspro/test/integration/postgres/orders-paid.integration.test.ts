@@ -15,7 +15,8 @@ vi.mock("~/shopify.server", () => ({
       admin: { graphql: shopify.graphql },
     })),
   },
-  unauthenticated: {},
+  // The reconciliation cron's Admin API, answered by the same mock
+  unauthenticated: { admin: vi.fn(async () => ({ admin: { graphql: shopify.graphql } })) },
 }));
 // No mail leaves the test
 vi.mock("~/services/email-notifications.server", () => ({
@@ -24,6 +25,7 @@ vi.mock("~/services/email-notifications.server", () => ({
 }));
 
 import prisma from "~/db.server";
+import { loader as reconcile } from "~/routes/api.cron.cashback-reconciliation";
 import { action } from "~/routes/webhooks.orders.paid";
 import { hasTestDatabase, resetDatabase } from "./database";
 
@@ -63,7 +65,7 @@ function paidOrder(overrides: { id?: number; customer?: Record<string, unknown> 
   };
 }
 
-function cardPaymentResponse(orderId: number) {
+function cardPaymentResponse(orderId: number, gateway = "shopify_payments") {
   return {
     json: async () => ({
       data: {
@@ -73,7 +75,7 @@ function cardPaymentResponse(orderId: number) {
           transactions: [
             {
               id: "gid://shopify/OrderTransaction/1",
-              gateway: "shopify_payments",
+              gateway,
               status: "SUCCESS",
               kind: "SALE",
               amountSet: { shopMoney: { amount: "100.00", currencyCode: "GBP" } },
@@ -98,11 +100,11 @@ function deliver(webhookId: string, payload: Record<string, unknown>) {
   });
 }
 
-async function seedShop() {
-  // Auto-processing off: cashback is recorded as PENDING for the
-  // reconciliation cron, and no store credit call is made here.
+async function seedShop({ auto = false }: { auto?: boolean } = {}) {
+  // Auto-processing off: cashback is recorded as PENDING for the Orders
+  // page, and no store credit call is made here. On: it is issued at once.
   await prisma.shopSettings.create({
-    data: { shop: SHOP, storeName: "Cashback Test", storeUrl: `https://${SHOP}`, storeCurrency: "GBP", autoCashbackProcessingEnabled: false },
+    data: { shop: SHOP, storeName: "Cashback Test", storeUrl: `https://${SHOP}`, storeCurrency: "GBP", autoCashbackProcessingEnabled: auto },
   });
   const bronze = await prisma.tier.create({
     data: { id: "bronze", shop: SHOP, name: "Bronze", minSpend: 0, cashbackPercent: 2 },
@@ -208,6 +210,136 @@ describe.skipIf(!hasTestDatabase)("orders/paid on Postgres", () => {
     expect(order.customerId).toBe(customer.id);
     const [entry] = await prisma.storeCreditLedger.findMany({ where: { customerId: customer.id } });
     expect(entry.amount.toFixed(2)).toBe("2.00");
+  });
+
+  it("leaves no cashback on an order paid with store credit", async () => {
+    const { gold } = await seedShop();
+    await prisma.customer.create({
+      data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id, storeCredit: 100 },
+    });
+    shopify.graphql.mockResolvedValue(cardPaymentResponse(5550004, "shopify_store_credit"));
+
+    const response = await deliver("wh-4", paidOrder({ id: 5550004 }));
+
+    expect(response.status).toBe(200);
+    // Store credit earns none: no entry, and not the 5% estimate the order
+    // record started with, which the Orders page would show as pending
+    await expect(prisma.storeCreditLedger.count()).resolves.toBe(0);
+    const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550004" } });
+    expect(order.cashbackAmount?.toFixed(2)).toBe("0.00");
+    expect(order.cashbackProcessed).toBe(false);
+  });
+
+  it("never sends cashback again when Shopify's answer to the credit is lost", async () => {
+    const { gold } = await seedShop({ auto: true });
+    const customer = await prisma.customer.create({
+      data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const credits: string[] = [];
+    shopify.graphql.mockImplementation(async (query: string, options?: { variables?: { creditInput?: { creditAmount: { amount: string } } } }) => {
+      if (query.includes("IssueStoreCredit")) {
+        credits.push(options?.variables?.creditInput?.creditAmount.amount ?? "?");
+        // Shopify applies the credit; the connection drops before its answer
+        throw new Error("fetch failed");
+      }
+      return cardPaymentResponse(5550005);
+    });
+
+    expect((await deliver("wh-5", paidOrder({ id: 5550005 }))).status).toBe(200);
+    const [entry] = await prisma.storeCreditLedger.findMany({ where: { customerId: customer.id } });
+    expect(entry.metadata).toMatchObject({ syncStatus: "SYNCING", unconfirmedAt: expect.any(String) });
+    await expect(prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550005" } })).resolves.toMatchObject({ cashbackProcessed: false });
+
+    // The reconciliation cron's next run, once the entry is old enough
+    process.env.CRON_SECRET = "cron-secret-for-tests";
+    await prisma.storeCreditLedger.update({ where: { id: entry.id }, data: { createdAt: new Date(Date.now() - 10 * 60_000) } });
+    const cron = await reconcile({
+      request: new Request("https://example.test/api/cron/cashback-reconciliation", { headers: { Authorization: "Bearer cron-secret-for-tests" } }),
+      params: {},
+      context: {},
+    });
+    await expect(cron.json()).resolves.toMatchObject({ processed: 0 });
+    expect(credits).toEqual(["5.00"]);
+  });
+
+  describe("an order Sync Orders updated from Shopify before orders/paid recorded its cashback", () => {
+    /** The order as "Sync Orders" leaves it: Shopify's refund totals, no refund recorded here. */
+    async function syncedOrder(refunded: { totalRefunded: number; financialStatus: "REFUNDED" | "PARTIALLY_REFUNDED" }) {
+      const { gold } = await seedShop({ auto: true });
+      const customer = await prisma.customer.create({
+        data: { shop: SHOP, shopifyCustomerId: "100", email: "alice@example.test", currentTierId: gold.id },
+      });
+      await prisma.order.create({
+        data: {
+          shop: SHOP,
+          shopifyOrderId: "5550006",
+          shopifyOrderNumber: "5550006",
+          shopifyOrderName: "#5550006",
+          customerId: customer.id,
+          email: customer.email,
+          currency: "GBP",
+          subtotalPrice: 100,
+          totalDiscounts: 0,
+          totalShipping: 0,
+          totalTax: 0,
+          totalPrice: 100,
+          netAmount: 100 - refunded.totalRefunded,
+          totalRefunded: refunded.totalRefunded,
+          financialStatus: refunded.financialStatus,
+          cashbackEligible: true,
+          cashbackAmount: 5,
+          shopifyCreatedAt: new Date(),
+          shopifyUpdatedAt: new Date(),
+        },
+      });
+      const credits: string[] = [];
+      shopify.graphql.mockImplementation(async (query: string, options?: { variables?: { creditInput?: { creditAmount: { amount: string } } } }) => {
+        if (!query.includes("IssueStoreCredit")) return cardPaymentResponse(5550006);
+        const amount = options?.variables?.creditInput?.creditAmount.amount ?? "?";
+        credits.push(amount);
+        return {
+          json: async () => ({
+            data: {
+              storeCreditAccountCredit: {
+                storeCreditAccountTransaction: { id: "gid://shopify/StoreCreditAccountTransaction/1", amount: { amount, currencyCode: "GBP" }, balanceAfterTransaction: { amount, currencyCode: "GBP" } },
+                userErrors: [],
+              },
+            },
+          }),
+        };
+      });
+      return credits;
+    }
+
+    it("records and credits no cashback on an order refunded in full", async () => {
+      const credits = await syncedOrder({ totalRefunded: 100, financialStatus: "REFUNDED" });
+
+      expect((await deliver("wh-6", paidOrder({ id: 5550006 }))).status).toBe(200);
+
+      expect(credits).toEqual([]);
+      await expect(prisma.storeCreditLedger.count()).resolves.toBe(0);
+      const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550006" } });
+      expect(order.cashbackAmount?.toFixed(2)).toBe("0.00");
+      expect(order.cashbackProcessed).toBe(false);
+    });
+
+    it("records and credits cashback net of a partial refund's share", async () => {
+      const credits = await syncedOrder({ totalRefunded: 40, financialStatus: "PARTIALLY_REFUNDED" });
+
+      expect((await deliver("wh-7", paidOrder({ id: 5550006 }))).status).toBe(200);
+
+      expect(credits).toEqual(["3.00"]);
+      const [entry] = await prisma.storeCreditLedger.findMany();
+      expect(entry.amount.toFixed(2)).toBe("3.00");
+      expect(entry.metadata).toMatchObject({
+        syncStatus: "SYNCED",
+        originalAmount: "5.00",
+        reversedBeforeIssue: [{ orderRefundedTotal: "40.00", amount: "2.00" }],
+      });
+      const order = await prisma.order.findFirstOrThrow({ where: { shopifyOrderId: "5550006" } });
+      expect(order.cashbackAmount?.toFixed(2)).toBe("3.00");
+    });
   });
 
   it("records nothing for a guest checkout", async () => {

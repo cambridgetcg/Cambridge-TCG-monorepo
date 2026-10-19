@@ -1,10 +1,9 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import prisma from "../db.server";
 import { gdprLogger } from "~/services/logger.server";
 import { cleanupShopData, eraseCustomerData } from "~/services/shop-data-cleanup.server";
-import { maskEmail } from "~/utils/pii-masker";
+import { storeCustomerDataReport } from "~/services/customer-data-request.server";
 
 /**
  * Mandatory Compliance Webhooks Handler
@@ -12,8 +11,11 @@ import { maskEmail } from "~/utils/pii-masker";
  * 
  * Handles three mandatory webhook topics:
  * 1. customers/data_request - Customer requests to view their data
- * 2. customers/redact - Customer requests to delete their data  
+ * 2. customers/redact - Customer requests to delete their data
  * 3. shop/redact - Shop data deletion after app uninstall
+ *
+ * Logs carry request ids and counts only, never a shopper's identifiers or
+ * personal data.
  */
 
 // Type definitions for webhook payloads
@@ -95,142 +97,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
  * Handle customers/data_request webhook
  * Customer wants to see what data we have about them
  * GDPR Article 15 - Right of access
+ *
+ * The report (everything held about the shopper) is stored encrypted for the
+ * merchant to download from Settings > Privacy requests; the home page shows
+ * them that it is waiting.
  */
 async function handleCustomerDataRequest(
   payload: CustomerDataRequestPayload,
   shop: string
 ) {
-  const logger = gdprLogger.withContext({ shop, shopifyCustomerId: String(payload.customer.id) });
-  // SECURITY: Mask email in logs to prevent PII exposure
+  const logger = gdprLogger.withContext({ shop, requestId: payload.data_request.id });
   logger.gdpr('DATA_REQUEST_RECEIVED', {
-    requestId: payload.data_request.id,
-    customerEmail: maskEmail(payload.customer.email),
-    ordersRequested: payload.orders_requested
+    ordersRequested: payload.orders_requested?.length ?? 0
   });
 
   try {
-    // Find the customer in our system, with everything held about them
-    const customer = await prisma.customer.findUnique({
-      where: {
-        shop_shopifyCustomerId: {
-          shop,
-          shopifyCustomerId: String(payload.customer.id)
-        }
-      },
-      include: {
-        orders: { include: { refunds: true } },
-        subscriptions: true,
-        tierPurchases: true,
-        tierState: true,
-        tierChangeLogs: true,
-        creditLedger: true
-      }
+    const report = await storeCustomerDataReport(shop, {
+      shopifyRequestId: String(payload.data_request.id),
+      shopifyCustomerId: String(payload.customer.id),
+      email: payload.customer.email,
+      ordersRequested: payload.orders_requested,
     });
 
-    if (!customer) {
-      logger.gdpr('DATA_REQUEST_NO_DATA', {
-        requestId: payload.data_request.id,
-        reason: 'Customer not found in our system'
-      });
-      return;
-    }
-
-    // Compile customer data report
-    const customerDataReport = {
-      requestId: payload.data_request.id,
-      generatedAt: new Date().toISOString(),
-      customer: {
-        internalId: customer.id,
-        email: customer.email,
-        firstName: customer.firstName,
-        lastName: customer.lastName,
-        phone: customer.phone,
-        birthday: customer.birthday,
-        createdAt: customer.createdAt,
-        shopifyCreatedAt: customer.shopifyCreatedAt
-      },
-      financials: {
-        storeCredit: customer.storeCredit,
-        pointsBalance: customer.pointsBalance,
-        lifetimePoints: customer.lifetimePoints,
-        totalSpent: customer.totalSpent,
-        annualSpent: customer.annualSpent,
-        totalCashbackEarned: customer.totalCashbackEarned,
-        totalRefunded: customer.totalRefunded,
-        orderCount: customer.orderCount
-      },
-      tierStatus: customer.tierState ? {
-        currentTierId: customer.tierState.effectiveTierId,
-        tierSource: customer.tierState.tierSource,
-        hasManualOverride: customer.tierState.hasManualOverride
-      } : null,
-      tierHistory: customer.tierChangeLogs.map((log) => ({
-        date: log.createdAt,
-        fromTier: log.fromTierName,
-        toTier: log.toTierName,
-        changeType: log.changeType,
-        triggerType: log.triggerType
-      })),
-      orders: customer.orders.map((order) => ({
-        orderId: order.shopifyOrderId,
-        orderNumber: order.shopifyOrderNumber,
-        date: order.createdAt,
-        total: order.totalPrice,
-        currency: order.currency,
-        cashbackEarned: order.cashbackAmount,
-        refunds: order.refunds.map((r) => ({
-          amount: r.amount,
-          date: r.shopifyCreatedAt
-        }))
-      })),
-      subscriptions: customer.subscriptions.map((sub) => ({
-        tierId: sub.tierId,
-        status: sub.status,
-        startDate: sub.currentPeriodStart,
-        billingInterval: sub.billingInterval
-      })),
-      storeCreditTransactions: customer.creditLedger.map((entry) => ({
-        date: entry.createdAt,
-        amount: entry.amount,
-        type: entry.type,
-        orderId: entry.shopifyOrderId
-      }))
-    };
-
-    // Log the data export for audit trail
-    logger.gdpr('DATA_REQUEST_COMPLETED', {
-      requestId: payload.data_request.id,
-      customerId: customer.id,
-      dataPointsExported: {
-        orders: customer.orders.length,
-        subscriptions: customer.subscriptions.length,
-        tierChanges: customer.tierChangeLogs.length,
-        creditTransactions: customer.creditLedger.length
-      }
+    logger.gdpr(report.customerFound ? 'DATA_REQUEST_COMPLETED' : 'DATA_REQUEST_NO_CUSTOMER', {
+      reportId: report.id,
+      recordCount: report.recordCount
     });
-
-    // SECURITY: Never log full customer data - only log metadata
-    // The actual data should be stored securely and sent to the merchant
-    // via a secure channel, not exposed in application logs
-    console.log('[GDPR Data Export] Generated', {
-      requestId: payload.data_request.id,
-      customerId: customer.id,
-      recordCounts: {
-        orders: customer.orders.length,
-        subscriptions: customer.subscriptions.length,
-        tierChanges: customer.tierChangeLogs.length,
-        creditTransactions: customer.creditLedger.length
-      },
-      generatedAt: new Date().toISOString()
-    });
-
-    // TODO: In production, store this report securely and notify merchant
-    // For GDPR compliance, the report should be:
-    // 1. Encrypted at rest
-    // 2. Accessible only to the merchant
-    // 3. Automatically deleted after the 30-day deadline
-    return customerDataReport;
-
   } catch (error) {
     logger.error('Failed to process data request', error);
     throw error;
@@ -246,11 +138,9 @@ async function handleCustomerRedact(
   payload: CustomerRedactPayload,
   shop: string
 ) {
-  const logger = gdprLogger.withContext({ shop, shopifyCustomerId: String(payload.customer.id) });
-  // SECURITY: Mask email in logs to prevent PII exposure
+  const logger = gdprLogger.withContext({ shop });
   logger.gdpr('CUSTOMER_REDACT_RECEIVED', {
-    customerEmail: maskEmail(payload.customer.email),
-    ordersToRedact: payload.orders_to_redact
+    ordersToRedact: payload.orders_to_redact?.length ?? 0
   });
 
   try {
@@ -271,7 +161,6 @@ async function handleCustomerRedact(
 
     // Log successful redaction for compliance audit
     logger.gdpr('CUSTOMER_REDACT_COMPLETED', {
-      shopifyCustomerId: payload.customer.id,
       deletedAt: new Date().toISOString(),
       ...deletedCounts
     });
@@ -280,7 +169,6 @@ async function handleCustomerRedact(
     logger.error('Failed to process customer redaction', error);
     // Log the failure for compliance tracking
     logger.gdpr('CUSTOMER_REDACT_FAILED', {
-      shopifyCustomerId: payload.customer.id,
       error: error instanceof Error ? error.message : String(error)
     });
     throw error;
