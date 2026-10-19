@@ -37,6 +37,11 @@ Guards that need a decision to lift, not a refactor:
   answer, a 5xx, INTERNAL_SERVER_ERROR answered as a 200, an unknown code)
   leaves it SYNCING (`markUnconfirmed`), never re-sent. Amounts reach
   Shopify through `formatForShopify` (decimal, never float arithmetic).
+- **A refund reaches an order's cashback once.** Both order syncs import
+  Shopify's refunds as `OrderRefund` rows (by refund id) together with the
+  refunded total, never the total alone; refunds/create applies an imported
+  row less what its `cashbackAdjustment` says orders/paid or the cron took
+  (`app/services/refund-handler.server.ts`).
 
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123

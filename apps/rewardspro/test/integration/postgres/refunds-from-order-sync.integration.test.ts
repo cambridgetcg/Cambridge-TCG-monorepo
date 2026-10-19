@@ -214,6 +214,43 @@ describe.skipIf(!hasTestDatabase)("refunds the app learns of through an order sy
     for (const level of ["log", "info", "debug", "warn"] as const) vi.spyOn(console, level).mockImplementation(() => {});
   });
 
+  it("order 9710's sequence: the background sync, the cron, then the refund's delayed refunds/create debits nothing more", async () => {
+    // Automatic processing on; orders/paid's credit is turned away, so the entry waits for the cron
+    await seedShop({ auto: true });
+    mockOrderPayments();
+    const balances = { [CUSTOMER]: 0 };
+    const calls = mockStoreCredit(SHOP, balances, { throttled: 1 });
+    expect((await deliverPaid()).status).toBe(200);
+    const entry = await prisma.storeCreditLedger.findFirstOrThrow({ where: { shop: SHOP, type: "CASHBACK_EARNED" } });
+    expect(entry.metadata).toMatchObject({ syncStatus: "PENDING" });
+    await prisma.storeCreditLedger.update({ where: { id: entry.id }, data: { createdAt: new Date(Date.now() - 10 * 60_000) } });
+
+    // A £30 refund in Shopify; the background sync sees it before its refunds/create is processed
+    await expect(backgroundSync([{ id: 971001, amount: "30.00" }])).resolves.toMatchObject({ success: true, progress: { updatedCount: 1, errorCount: 0 } });
+    expect(await refundRow(971001)).toMatchObject({ processedAt: null, cashbackAdjustment: null });
+    await expect((await runCron()).json()).resolves.toMatchObject({ synced: 1 });
+    expect((await refundRow(971001)).cashbackAdjustment?.toFixed(2)).toBe("1.50");
+
+    const response = await refundDelivery(971001, "30.00");
+    expect(response.status).toBe(200);
+    // Its share was taken before issue (by the cron); nothing is debited now
+    await expect(response.json()).resolves.toMatchObject({ refundedAmount: "30.00", cashbackReversed: "1.50" });
+    // A redelivery changes nothing either
+    expect((await refundDelivery(971001, "30.00", "wh-971001-again")).status).toBe(200);
+
+    expect(money(calls)).toEqual(["credit 5.00", "credit 3.50"]);
+    expect(balances[CUSTOMER]).toBe(3.5);
+    await expect(ledgerNet()).resolves.toBe("3.50");
+    const after = await order();
+    expect({ refunded: after.totalRefunded.toFixed(2), status: after.financialStatus, cashback: after.cashbackAmount?.toFixed(2) }).toEqual({
+      refunded: "30.00",
+      status: "PARTIALLY_REFUNDED",
+      cashback: "3.50",
+    });
+    expect(await refundRow(971001)).toMatchObject({ processedAt: expect.any(Date), cashbackProcessed: true });
+    await expect(prisma.orderRefund.count()).resolves.toBe(1);
+  });
+
   it("a refunded total copied without its row (the job before this fix), the cron, then refunds/create: one share taken", async () => {
     await seedOrder("pending", { auto: true });
     const balances = { [CUSTOMER]: 0 };
@@ -233,7 +270,7 @@ describe.skipIf(!hasTestDatabase)("refunds the app learns of through an order sy
   });
 
   describe("cashback issued before the sync saw the refund", () => {
-    for (const sync of ["totals only"] as const) {
+    for (const sync of ["the background sync", "totals only"] as const) {
       const seen = (refunds: ShopifyRefund[]) =>
         sync === "totals only" ? totalsOnly(refunds.reduce((sum, r) => sum + Number(r.amount), 0)) : backgroundSync(refunds);
 
@@ -278,6 +315,23 @@ describe.skipIf(!hasTestDatabase)("refunds the app learns of through an order sy
     }
   });
 
+  it("a later refund the sync did not see takes its whole share; the synced one's refunds/create takes nothing more", async () => {
+    await seedOrder("pending", { auto: true });
+    const balances = { [CUSTOMER]: 0 };
+    const calls = mockStoreCredit(SHOP, balances);
+    await backgroundSync([{ id: 77, amount: "30.00" }]);
+    await runCron();
+
+    expect((await refundDelivery(78, "20.00")).status).toBe(200);
+    expect((await refundDelivery(77, "30.00")).status).toBe(200);
+
+    // 5.00 less 1.50 (refund 77, before issue) less 1.00 (refund 78)
+    expect(money(calls)).toEqual(["credit 3.50", "debit 1.00"]);
+    expect(balances[CUSTOMER]).toBe(2.5);
+    await expect(ledgerNet()).resolves.toBe("2.50");
+    expect((await order()).totalRefunded.toFixed(2)).toBe("50.00");
+  });
+
   it("orders/paid nets a refund the sync imported first, and its refunds/create takes nothing more", async () => {
     await seedShop({ auto: true });
     mockOrderPayments();
@@ -319,5 +373,20 @@ describe.skipIf(!hasTestDatabase)("refunds the app learns of through an order sy
       status: "REFUNDED",
       cashback: "0.00",
     });
+  });
+
+  it("the background sync skips a refund refunds/create already recorded", async () => {
+    await seedOrder("issued");
+    const balances = { [CUSTOMER]: 5 };
+    const calls = mockStoreCredit(SHOP, balances);
+    expect((await refundDelivery(77, "30.00")).status).toBe(200);
+
+    await expect(backgroundSync([{ id: 77, amount: "30.00" }])).resolves.toMatchObject({ progress: { updatedCount: 1, errorCount: 0 } });
+
+    await expect(prisma.orderRefund.count()).resolves.toBe(1);
+    expect((await refundRow(77)).cashbackAdjustment?.toFixed(2)).toBe("1.50");
+    expect((await order()).totalRefunded.toFixed(2)).toBe("30.00");
+    expect(money(calls)).toEqual(["debit 1.50"]);
+    await expect(ledgerNet()).resolves.toBe("3.50");
   });
 });
