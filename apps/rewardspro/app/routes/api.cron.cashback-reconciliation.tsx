@@ -174,7 +174,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
                   totalRefunded: true,
                   financialStatus: true,
                   cashbackEligible: true,
-                  refunds: { orderBy: { createdAt: 'asc' }, select: { id: true, shopifyRefundId: true, amount: true } },
+                  refunds: { orderBy: { createdAt: 'asc' }, select: { id: true, shopifyRefundId: true, amount: true, cashbackAdjustment: true } },
                 },
               },
             },
@@ -188,16 +188,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
             continue;
           }
 
-          // Refunds the order shows that the entry does not reflect yet
-          // ("Sync Orders" copies them from Shopify without reversing any
+          // Refunds the order shows that the entry does not reflect yet (both
+          // order syncs copy them from Shopify without reversing any
           // cashback): take their share before issuing, as recordRefund would
-          // have, and issue nothing on an order refunded in full
+          // have, and issue nothing on an order refunded in full. Each
+          // imported refund row notes its share (cashbackAdjustment), so its
+          // refunds/create, if it arrives later, does not take it again.
           let amount = entry.amount;
           if (entry.order) {
             const recordedOriginal = metadata.originalAmount;
             const original =
               typeof recordedOriginal === 'string' || typeof recordedOriginal === 'number' ? new Prisma.Decimal(recordedOriginal) : entry.amount;
-            const { remaining } = cashbackLeftAfterRefunds(original, entry.order);
+            const { remaining, reversals: refundShares } = cashbackLeftAfterRefunds(original, entry.order);
+            // Rows a sync imported and nothing has noted a share on yet
+            const imported = new Set(entry.order.refunds.filter((refund) => refund.cashbackAdjustment === null).map((refund) => refund.id));
+            const notes = refundShares
+              .filter((share) => imported.has(share.refundId) && share.amount.gt(0))
+              .map((share) => prisma.orderRefund.update({ where: { id: share.refundId }, data: { cashbackAdjustment: share.amount, cashbackProcessed: true } }));
             if (remaining.lt(amount)) {
               const reversals = Array.isArray(metadata.reversedBeforeIssue) ? metadata.reversedBeforeIssue : [];
               const reversed = amount.minus(remaining);
@@ -210,8 +217,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
               await prisma.$transaction([
                 prisma.storeCreditLedger.update({ where: { id }, data: { amount, metadata } }),
                 prisma.order.update({ where: { id: entry.order.id }, data: { cashbackAmount: amount, updatedAt: now } }),
+                ...notes,
               ]);
               log('info', `Reduced cashback entry ${id} by refunds it did not reflect`, { reversed: reversed.toFixed(2), remaining: amount.toFixed(2) });
+            } else if (notes.length > 0) {
+              // Already taken (orders/paid netted the refunded total before the
+              // rows were imported, or a run before rows noted their shares)
+              await prisma.$transaction(notes);
             }
           }
           if (amount.lte(0)) {

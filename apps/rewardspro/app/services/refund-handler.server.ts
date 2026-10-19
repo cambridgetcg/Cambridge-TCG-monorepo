@@ -18,6 +18,16 @@
  * Partial refunds reverse proportionally; the refund that completes the
  * order reverses whatever remains. Each step is idempotent per Shopify
  * refund, so redelivered webhooks and cancel-then-refund sequences are safe.
+ *
+ * Both order syncs ("Sync Orders" on the Orders page and the background
+ * order-sync job) copy Shopify's refunds onto an order as OrderRefund rows,
+ * with its refunded total, and reverse no cashback. orders/paid and the
+ * reconciliation cron take those refunds' shares before they record or
+ * issue cashback, and note each row's share on it (cashbackAdjustment). A
+ * refund reaches the cashback once, whichever path sees it first: when its
+ * refunds/create arrives, recordRefund applies the row a sync imported
+ * (found by the refund's Shopify id) and reverses only what was not taken
+ * yet (cashbackTakenBefore).
  */
 
 import { Prisma, type OrderFinancialStatus } from "@prisma/client";
@@ -58,7 +68,7 @@ export type RefundOutcome =
       customerId: string;
       /** Refund amount counted against the order, in the shop currency */
       appliedAmount: Prisma.Decimal;
-      /** Cashback reversed by this refund */
+      /** Cashback this refund took back: before issue (orders/paid, the cron or itself) and as a clawback */
       reversedCashback: Prisma.Decimal;
       /** A clawback entry whose store-credit debit is still outstanding */
       pendingClawbackId: string | null;
@@ -118,6 +128,12 @@ function syncStatusOf(entry: { metadata: Prisma.JsonValue }): string | undefined
 
 function decimalOf(value: unknown, fallback: Prisma.Decimal): Prisma.Decimal {
   return typeof value === "string" || typeof value === "number" ? new Prisma.Decimal(value) : fallback;
+}
+
+/** What refunds took off a cashback entry before it was issued (metadata.reversedBeforeIssue). */
+function reversedBeforeIssue(metadata: Prisma.JsonObject): Prisma.Decimal {
+  const reversals = Array.isArray(metadata.reversedBeforeIssue) ? metadata.reversedBeforeIssue : [];
+  return reversals.reduce<Prisma.Decimal>((sum, reversal) => sum.plus(decimalOf(jsonObject(reversal).amount, ZERO)), ZERO);
 }
 
 /** `amount` in the shop currency; refund transactions carry the presentment currency. */
@@ -208,8 +224,36 @@ export function cashbackLeftAfterRefunds(
 }
 
 /**
- * Record a Shopify refund against its order and reverse the refunded share of
- * the order's cashback (see the module comment). Runs in one transaction that
+ * How much of a refund's cashback share was taken off the order before
+ * recordRefund applied the refund, so that it is not taken twice:
+ * - `own`: what the refund's row says was taken for it. orders/paid and the
+ *   reconciliation cron take the share of each refund row a sync imported
+ *   before they record or issue the cashback, and note it on the row.
+ * - from `unclaimed`, the reversals no refund row accounts for, at most
+ *   `matchedShare`: the share of the part of this refund that the order
+ *   counted before its refunds/create arrived. Such reversals are the share
+ *   orders/paid or the cron took of a refunded total the order showed
+ *   without refund rows (as the background order sync left orders until it
+ *   imported refund rows), or of a row the cron netted before it noted
+ *   shares on rows.
+ */
+export function cashbackTakenBefore({
+  matchedShare,
+  own,
+  unclaimed,
+}: {
+  matchedShare: Prisma.Decimal;
+  own: Prisma.Decimal;
+  unclaimed: Prisma.Decimal;
+}): Prisma.Decimal {
+  const notYetOwn = Prisma.Decimal.max(ZERO, matchedShare.minus(own));
+  return own.plus(Prisma.Decimal.min(Prisma.Decimal.max(ZERO, unclaimed), notYetOwn));
+}
+
+/**
+ * Record a Shopify refund against its order, or apply the row a sync imported
+ * for it, and reverse the refunded share of the order's cashback that was not
+ * taken before (see the module comment). Runs in one transaction that
  * holds the cashback entry's and the order's row locks, so the reconciliation
  * cron cannot issue the entry halfway through and concurrent refunds of one
  * order apply one after the other, each from the totals the last one left.
@@ -248,7 +292,9 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
       where: { orderId_shopifyRefundId: { orderId: order.id, shopifyRefundId } },
       include: { creditLedgerEntry: { select: { id: true, metadata: true } } },
     });
-    if (existing) {
+    // Only recordRefund sets processedAt: a row without it was imported by a
+    // sync, and this delivery applies its cashback (the module comment)
+    if (existing?.processedAt) {
       const entry = existing.creditLedgerEntry;
       return {
         status: "recorded",
@@ -261,26 +307,45 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
       };
     }
 
-    const refundedBefore = order.totalRefunded;
-    const refundedAfter = Prisma.Decimal.min(order.totalPrice, refundedBefore.plus(toShopCurrency(input.amount, input.currency, order)));
-    const applied = refundedAfter.minus(refundedBefore);
+    // Count the refund against the order's refund rows, not its refunded
+    // total: a sync copies Shopify's total, which may already include this
+    // refund (the background order sync copied it without the refund's row
+    // until it imported refund rows). The total becomes the larger of the
+    // two, so a refund already in it is not counted twice.
+    const otherRefunds = await tx.orderRefund.findMany({
+      where: { orderId: order.id, shopifyRefundId: { not: shopifyRefundId } },
+      select: { amount: true, cashbackAdjustment: true },
+    });
+    const recordedBefore = otherRefunds.reduce((sum, row) => sum.plus(row.amount), ZERO);
+    const incoming = existing ? existing.amount : toShopCurrency(input.amount, input.currency, order);
+    const applied = Prisma.Decimal.max(ZERO, Prisma.Decimal.min(incoming, order.totalPrice.minus(recordedBefore)));
+    const refundedAfter = Prisma.Decimal.min(order.totalPrice, Prisma.Decimal.max(order.totalRefunded, recordedBefore.plus(applied)));
     const completesOrder = order.totalPrice.gt(0) && refundedAfter.gte(order.totalPrice);
     const share = (amount: Prisma.Decimal) => refundShare(amount, applied, order.totalPrice, completesOrder);
+    // The part of this refund the order counted before it arrived: all of an
+    // imported row; of a new refund, what the total shows beyond the rows
+    const matched = existing
+      ? applied
+      : Prisma.Decimal.min(applied, Prisma.Decimal.max(ZERO, order.totalRefunded.minus(recordedBefore)));
 
-    const refund = await tx.orderRefund.create({
-      data: {
-        orderId: order.id,
-        shopifyRefundId,
-        amount: applied,
-        // The webhook total is not split into shipping and tax here
-        shippingAmount: 0,
-        taxAmount: 0,
-        shopifyCreatedAt: input.createdAt,
-        processedAt: new Date(),
-      },
-    });
+    const now = new Date();
+    const refund = existing
+      ? await tx.orderRefund.update({ where: { id: existing.id }, data: { processedAt: now } })
+      : await tx.orderRefund.create({
+          data: {
+            orderId: order.id,
+            shopifyRefundId,
+            amount: applied,
+            // The webhook total is not split into shipping and tax here
+            shippingAmount: 0,
+            taxAmount: 0,
+            shopifyCreatedAt: input.createdAt,
+            processedAt: now,
+          },
+        });
 
     let reversed = ZERO;
+    let takenBefore = existing?.cashbackAdjustment ?? ZERO;
     let pendingClawbackId: string | null = null;
     const syncStatus = cashback ? syncStatusOf(cashback) : undefined;
     // Refunds reverse shares of the cashback as first recorded, before any
@@ -293,18 +358,28 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
         throw new RefundRetryableError(`Cashback for order ${shopifyOrderId} is being issued; retry the refund later`);
       }
 
+      const priorClawbacks = await tx.storeCreditLedger.findMany({
+        where: { orderId: order.id, type: "REFUND_CLAWBACK" },
+        select: { amount: true, metadata: true },
+      });
+      const alreadyReversed = priorClawbacks.reduce(
+        (sum, entry) => sum.plus(decimalOf(jsonObject(entry.metadata).reversalAmount, entry.amount.negated())),
+        ZERO,
+      );
+      // Every reversal of this cashback, before issue and after, less what the
+      // refund rows say they took: what no refund has claimed yet
+      const claimed = otherRefunds.reduce((sum, row) => sum.plus(row.cashbackAdjustment ?? ZERO), takenBefore);
+      takenBefore = cashbackTakenBefore({
+        matchedShare: refundShare(original, matched, order.totalPrice, false),
+        own: takenBefore,
+        unclaimed: reversedBeforeIssue(metadata).plus(alreadyReversed).minus(claimed),
+      });
+      const due = Prisma.Decimal.max(ZERO, share(original).minus(takenBefore));
+
       if (syncStatus === "SYNCED" || order.cashbackProcessed) {
         // Credited: reverse at most what is left of the credit, then debit it
-        const priorClawbacks = await tx.storeCreditLedger.findMany({
-          where: { orderId: order.id, type: "REFUND_CLAWBACK" },
-          select: { amount: true, metadata: true },
-        });
-        const alreadyReversed = priorClawbacks.reduce(
-          (sum, entry) => sum.plus(decimalOf(jsonObject(entry.metadata).reversalAmount, entry.amount.negated())),
-          ZERO,
-        );
         const remaining = Prisma.Decimal.max(ZERO, cashback.amount.minus(alreadyReversed));
-        reversed = completesOrder ? remaining : Prisma.Decimal.min(remaining, share(original));
+        reversed = completesOrder ? remaining : Prisma.Decimal.min(remaining, due);
 
         if (reversed.gt(0)) {
           const customer = await tx.customer.findUniqueOrThrow({ where: { id: order.customerId }, select: { storeCredit: true } });
@@ -336,7 +411,7 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
         }
       } else {
         // Not issued yet: shrink what will be issued; nothing to debit
-        reversed = completesOrder ? cashback.amount : Prisma.Decimal.min(cashback.amount, share(original));
+        reversed = completesOrder ? cashback.amount : Prisma.Decimal.min(cashback.amount, due);
         const remaining = cashback.amount.minus(reversed);
         const reversals = Array.isArray(metadata.reversedBeforeIssue) ? metadata.reversedBeforeIssue : [];
         await tx.storeCreditLedger.update({
@@ -355,9 +430,10 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
       }
     }
 
+    // The refund's share of the cashback: taken before it arrived, and now
     await tx.orderRefund.update({
       where: { id: refund.id },
-      data: { cashbackAdjustment: reversed, cashbackProcessed: pendingClawbackId === null },
+      data: { cashbackAdjustment: takenBefore.plus(reversed), cashbackProcessed: pendingClawbackId === null },
     });
 
     await tx.order.update({
@@ -372,16 +448,21 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
       },
     });
 
+    // The customer's totals follow the order's (the syncs sum them from orders)
+    const newlyRefunded = refundedAfter.minus(order.totalRefunded);
     await tx.customer.update({
       where: { id: order.customerId },
       data: {
-        totalRefunded: { increment: applied },
-        netSpent: { decrement: applied },
+        totalRefunded: { increment: newlyRefunded },
+        netSpent: { decrement: newlyRefunded },
         totalCashbackEarned: { decrement: reversed },
       },
     });
 
-    console.log(`${LOG_PREFIX} Refund ${shopifyRefundId} on order ${shopifyOrderId}: ${applied.toFixed(2)} refunded, ${reversed.toFixed(2)} cashback reversed`);
+    console.log(
+      `${LOG_PREFIX} Refund ${shopifyRefundId} on order ${shopifyOrderId}${existing ? " (imported by a sync)" : ""}: ` +
+        `${applied.toFixed(2)} refunded, ${reversed.toFixed(2)} cashback reversed, ${takenBefore.toFixed(2)} taken before`,
+    );
 
     return {
       status: "recorded",
@@ -389,7 +470,7 @@ export async function recordRefund(input: RefundInput, db: Pick<typeof prisma, "
       orderId: order.id,
       customerId: order.customerId,
       appliedAmount: applied,
-      reversedCashback: reversed,
+      reversedCashback: takenBefore.plus(reversed),
       pendingClawbackId,
     };
   });

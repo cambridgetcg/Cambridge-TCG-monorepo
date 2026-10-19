@@ -1010,6 +1010,8 @@ async function recordCashback(tx: PrismaClient, params: {
   // - so is a refunded total no recorded refund accounts for ("Sync Orders"
   //   copies Shopify's totals), and an order refunded in full, as the Orders
   //   page sees it, gets none (cashbackLeftAfterRefunds);
+  // - each refund row notes the share taken for it, so the refunds/create of
+  //   a refund a sync imported does not take it again;
   // - a refund waiting for the lock finds the entry afterwards and answers
   //   503, and Shopify's redelivery reverses it.
   // With auto-processing on, the entry is created already claimed (SYNCING)
@@ -1037,14 +1039,17 @@ async function recordCashback(tx: PrismaClient, params: {
       },
     });
     const { remaining, reversals, unrecorded } = cashbackLeftAfterRefunds(earned, current);
-    for (const reversal of reversals) {
-      if (reversal.amount.gt(0)) {
-        await lockTx.orderRefund.update({ where: { id: reversal.refundId }, data: { cashbackAdjustment: reversal.amount } });
-      }
-    }
     if (remaining.lte(0)) {
       await lockTx.order.update({ where: { id: orderRecord.id }, data: { cashbackAmount: 0, updatedAt: now } });
       return { status: 'refunded' as const };
+    }
+    // Each refund row notes the share this entry is recorded without; with
+    // no entry there is nothing to note (a refund applied later reverses an
+    // older history record, if any, from scratch)
+    for (const reversal of reversals) {
+      if (reversal.amount.gt(0)) {
+        await lockTx.orderRefund.update({ where: { id: reversal.refundId }, data: { cashbackAdjustment: reversal.amount, cashbackProcessed: true } });
+      }
     }
     const reversedBeforeIssue = [
       ...reversals.map((r) => ({ shopifyRefundId: r.shopifyRefundId, amount: r.amount.toFixed(2) })),
