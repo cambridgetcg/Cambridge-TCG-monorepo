@@ -29,6 +29,9 @@ Guards that need a decision to lift, not a refactor:
   ledger entry** (`claimLedgerEntry`, PENDING to SYNCING, in
   `app/services/cashback-ledger.server.ts`). The Orders page issues only a
   PENDING entry, never `Order.cashbackAmount` or an imported history record.
+  An entry goes back to PENDING only when Shopify answered that it applied
+  nothing; with no answer it stays SYNCING (`markUnconfirmed`) and is never
+  re-sent.
 
 Fused into the monorepo on 2026-06-10 from
 `github.com/cambridgetcg/rewardspro-production` with full history (1123
