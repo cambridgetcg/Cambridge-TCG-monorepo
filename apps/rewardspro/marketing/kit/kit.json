@@ -1,0 +1,809 @@
+{
+ "generator": "artcraft-brand brandkit.py 1.2",
+ "tools": {
+  "vectorcraft-cli": "vectorcraft-cli 0.13.1"
+ },
+ "spec": {
+  "name": "RewardsPro",
+  "short_name": "RewardsPro",
+  "slug": "rewardspro",
+  "lang": "en",
+  "lang_given": true,
+  "url": "https://rewardspro.io",
+  "description": "Cashback paid as Shopify store credit, plus VIP tiers, for Shopify stores. Free.",
+  "colours": {
+   "primary": "#1A3E5C",
+   "accent": "#17BEBB"
+  },
+  "ground": {},
+  "wordmark": {
+   "text": "RewardsPro",
+   "font": "Inter",
+   "style": "Semi Bold",
+   "tracking": -10,
+   "colour": null
+  },
+  "mark": {
+   "kind": "svg",
+   "path": null,
+   "source": "source/mark-source.svg",
+   "recolour": false,
+   "small_path": null,
+   "small": null
+  },
+  "icon": {
+   "tile": "#FFFFFF",
+   "ink": "original",
+   "padding": 0.18,
+   "radius": 0.22,
+   "ink_given": true,
+   "radius_given": true
+  },
+  "og": {
+   "title": "Cashback your customers spend in your store",
+   "subtitle": "Paid as Shopify store credit, with VIP tiers. Free.",
+   "theme": "light",
+   "alt": null
+  },
+  "app": {
+   "display": "standalone",
+   "theme": "light"
+  }
+ },
+ "colours": {
+  "primary": "#1A3E5C",
+  "on_primary": "#FFFFFF",
+  "monogram_solo": "#1A3E5C"
+ },
+ "facts": {
+  "schemes": {
+   "mark": {
+    "mode": "original",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "mark-mono-black": {
+    "mode": "mono",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "mark-mono-white": {
+    "mode": "mono",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "lockup-horizontal": {
+    "mode": "original",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "lockup-horizontal-reversed": {
+    "mode": "mapped",
+    "ground": "#1B1D1F",
+    "colours": {
+     "#1A3E5C": "#658AAD"
+    },
+    "lifted": {
+     "#1A3E5C": {
+      "to": "#658AAD",
+      "step": "primary 500",
+      "ratio": 4.66,
+      "apca": -36.2,
+      "letters": null,
+      "knockout": false,
+      "letter_ink": null,
+      "ui": true
+     }
+    },
+    "knockouts": [],
+    "gaps": []
+   },
+   "lockup-stacked": {
+    "mode": "original",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "lockup-stacked-reversed": {
+    "mode": "mapped",
+    "ground": "#1B1D1F",
+    "colours": {
+     "#1A3E5C": "#658AAD"
+    },
+    "lifted": {
+     "#1A3E5C": {
+      "to": "#658AAD",
+      "step": "primary 500",
+      "ratio": 4.66,
+      "apca": -36.2,
+      "letters": null,
+      "knockout": false,
+      "letter_ink": null,
+      "ui": true
+     }
+    },
+    "knockouts": [],
+    "gaps": []
+   },
+   "tile": {
+    "mode": "mapped",
+    "ground": "#FFFFFF",
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "og": {
+    "mode": "original",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   }
+  },
+  "mark": {
+   "size": [
+    238,
+    256
+   ]
+  },
+  "wordmark": {
+   "size": [
+    493,
+    65
+   ],
+   "cap": 64,
+   "colour": "#1A3E5C",
+   "colour_dark": "#FFFFFF"
+  },
+  "lockup-horizontal": {
+   "size": [
+    488,
+    96
+   ],
+   "mark_height": 96,
+   "cap_height": 48.0,
+   "gap": 28.8,
+   "clear_space": 48.0,
+   "shared_baseline": false
+  },
+  "lockup-stacked": {
+   "size": [
+    316,
+    197
+   ],
+   "mark_height": 128,
+   "cap_height": 40.96,
+   "gap": 26.88,
+   "clear_space": 40.96,
+   "shared_baseline": false
+  },
+  "app": {
+   "tile": "#FFFFFF",
+   "ink": null,
+   "ink_mode": "original",
+   "ink_brand": false,
+   "ink_default": false,
+   "subset": "all",
+   "remapped": {},
+   "mark_extent": 0.688
+  },
+  "maskable": {
+   "tile": "#FFFFFF",
+   "predicted_radius": 176.1,
+   "safe_radius": 204.8,
+   "mark_extent": 0.515
+  },
+  "favicon": {
+   "small_mark": false,
+   "dark_plan": {},
+   "merged": [],
+   "tile": "#FFFFFF",
+   "radius": 0.22,
+   "radius_reason": "",
+   "ink": null,
+   "ink_mode": "original",
+   "colours": [
+    "#17BEBB",
+    "#1A3E5C"
+   ],
+   "outer_colours": [
+    "#17BEBB",
+    "#1A3E5C"
+   ],
+   "ground_colours": [],
+   "cuts": {
+    "32": {
+     "label": "mark",
+     "size": 32,
+     "longest": 26,
+     "box": [
+      4,
+      3,
+      24,
+      26
+     ],
+     "centre": "box",
+     "margins": [
+      4,
+      3,
+      4,
+      3
+     ],
+     "centred": true,
+     "clear_of_corners": true,
+     "letter_px": null,
+     "letter_basis": null,
+     "letter_min": null,
+     "predicted": {
+      "ink_pixels": 342,
+      "clean_pixels": 304,
+      "crisp": 0.889
+     },
+     "fidelity": {
+      "strokes": 5,
+      "lost_strokes": 0,
+      "collapsed": 0,
+      "where": [],
+      "welded_points": 0,
+      "pockets_filled": [],
+      "specks": []
+     },
+     "reference": {
+      "d": [
+       "M 4 3 L 28 3 L 28 11.25 L 22.11 17.18 L 27.93 23.15 L 21.55 24.91 L 9.81 13.13 L 17.94 13.13 L 22.19 8.85 L 9.74 8.85 Z",
+       "M 6.72 18.34 L 12.5 18.34 L 12.5 27.42 L 6.72 29 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero"
+      ]
+     },
+     "seam": {
+      "d": [
+       "M 4 3 L 28 3 L 28 11.25 L 22.11 17.18 L 27.93 23.15 L 21.55 24.91 L 9.81 13.13 L 17.94 13.13 L 22.19 8.85 L 9.74 8.85 Z",
+       "M 6.72 18.34 L 12.5 18.34 L 12.5 27.42 L 6.72 29 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero"
+      ],
+      "knocked": [],
+      "gap_fronts": []
+     },
+     "extent": 0.812,
+     "considered": [
+      {
+       "label": "mark",
+       "letter_px": null,
+       "crisp": 0.889,
+       "faithful": true
+      }
+     ],
+     "full": true
+    },
+    "48": {
+     "label": "mark",
+     "size": 48,
+     "longest": 38,
+     "box": [
+      6,
+      5,
+      36,
+      38
+     ],
+     "centre": "box",
+     "margins": [
+      6,
+      5,
+      6,
+      5
+     ],
+     "centred": true,
+     "clear_of_corners": true,
+     "letter_px": null,
+     "letter_basis": null,
+     "letter_min": null,
+     "predicted": {
+      "ink_pixels": 740,
+      "clean_pixels": 687,
+      "crisp": 0.928
+     },
+     "fidelity": {
+      "strokes": 5,
+      "lost_strokes": 0,
+      "collapsed": 0,
+      "where": [],
+      "welded_points": 0,
+      "pockets_filled": [],
+      "specks": []
+     },
+     "reference": {
+      "d": [
+       "M 6 5 L 42 5 L 42 17.06 L 33.17 25.73 L 41.89 34.45 L 32.33 37.02 L 14.72 19.81 L 26.91 19.81 L 33.28 13.55 L 14.61 13.55 Z",
+       "M 10.08 27.43 L 18.75 27.43 L 18.75 40.7 L 10.08 43 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero"
+      ]
+     },
+     "seam": {
+      "d": [
+       "M 6 5 L 42 5 L 42 17.06 L 33.17 25.73 L 41.89 34.45 L 32.33 37.02 L 14.72 19.81 L 26.91 19.81 L 33.28 13.55 L 14.61 13.55 Z",
+       "M 10.08 27.43 L 18.75 27.43 L 18.75 40.7 L 10.08 43 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero"
+      ],
+      "knocked": [],
+      "gap_fronts": []
+     },
+     "extent": 0.792,
+     "considered": [
+      {
+       "label": "mark",
+       "letter_px": null,
+       "crisp": 0.928,
+       "faithful": true
+      }
+     ],
+     "full": true
+    },
+    "16": {
+     "label": "mark",
+     "size": 16,
+     "longest": 10,
+     "box": [
+      3,
+      3,
+      10,
+      10
+     ],
+     "centre": "box",
+     "margins": [
+      3,
+      3,
+      3,
+      3
+     ],
+     "centred": true,
+     "clear_of_corners": true,
+     "letter_px": null,
+     "letter_basis": null,
+     "letter_min": null,
+     "predicted": {
+      "ink_pixels": 57,
+      "clean_pixels": 46,
+      "crisp": 0.807
+     },
+     "fidelity": {
+      "strokes": 4,
+      "lost_strokes": 0,
+      "collapsed": 0,
+      "where": [],
+      "welded_points": 0,
+      "pockets_filled": [],
+      "specks": []
+     },
+     "reference": {
+      "d": [
+       "M 3 3 L 13 3 L 13 6.17 L 10.55 8.45 L 12.97 10.75 L 10.31 11.43 L 5.42 6.9 L 8.81 6.9 L 10.58 5.25 L 5.39 5.25 Z",
+       "M 4.13 8.9 L 6.54 8.9 L 6.54 12.39 L 4.13 13 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero"
+      ]
+     },
+     "seam": {
+      "d": [
+       "M 3 3 L 13 3 L 13 6.17 L 10.55 8.45 L 12.97 10.75 L 10.31 11.43 L 5.42 6.9 L 8.81 6.9 L 10.58 5.25 L 5.39 5.25 Z",
+       "M 4.13 8.9 L 6.54 8.9 L 6.54 12.39 L 4.13 13 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero"
+      ],
+      "knocked": [],
+      "gap_fronts": []
+     },
+     "extent": 0.625,
+     "considered": [
+      {
+       "label": "mark",
+       "letter_px": null,
+       "crisp": 0.807,
+       "faithful": true
+      }
+     ],
+     "full": true
+    }
+   },
+   "dark_mapping": {}
+  },
+  "og": {
+   "theme": "light",
+   "bg": "#FFFFFF",
+   "fg": "#1B1D1F",
+   "muted": "#686C70",
+   "title_size": 48,
+   "wordmark": false,
+   "title_lines": [
+    "Cashback your customers",
+    "spend in your store"
+   ],
+   "subtitle_lines": [
+    "Paid as Shopify store",
+    "credit, with VIP tiers. Free."
+   ],
+   "title_cut": false,
+   "subtitle_cut": false,
+   "contrast_title": 16.91,
+   "contrast_subtitle": 5.29,
+   "mark_colours": [
+    "#17BEBB",
+    "#1A3E5C"
+   ],
+   "badge": null,
+   "column": [
+    88,
+    612
+   ],
+   "rule_top": 168,
+   "lines": [
+    {
+     "role": "title",
+     "text": "Cashback your customers",
+     "width": 607.6,
+     "x": 88,
+     "baseline": 250.9,
+     "size": 48
+    },
+    {
+     "role": "title",
+     "text": "spend in your store",
+     "width": 445.7,
+     "x": 88,
+     "baseline": 303.7,
+     "size": 48
+    },
+    {
+     "role": "subtitle",
+     "text": "Paid as Shopify store",
+     "width": 293.8,
+     "x": 88,
+     "baseline": 363.9,
+     "size": 30
+    },
+    {
+     "role": "subtitle",
+     "text": "credit, with VIP tiers. Free.",
+     "width": 363.9,
+     "x": 88,
+     "baseline": 405.9,
+     "size": 30
+    }
+   ],
+   "floor": 524.0,
+   "footer": {
+    "text": "RewardsPro  ·  rewardspro.io",
+    "width": 320.5,
+    "x": 88,
+    "baseline": 566,
+    "size": 24
+   },
+   "mark_box": [
+    774.9,
+    161.4,
+    1090.9,
+    501.4
+   ]
+  },
+  "colour_sheet": {
+   "size": [
+    1200,
+    1128
+   ]
+  },
+  "ground_light": "#FFFFFF",
+  "ground_dark": "#1B1D1F",
+  "measured": {
+   "maskable_radius": 176.6,
+   "maskable_extent": 0.516,
+   "app_extent": 0.688,
+   "favicon": {
+    "16": {
+     "left": 3,
+     "top": 3,
+     "right": 3,
+     "bottom": 3
+    },
+    "32": {
+     "left": 4,
+     "top": 3,
+     "right": 4,
+     "bottom": 3
+    },
+    "48": {
+     "left": 6,
+     "top": 5,
+     "right": 6,
+     "bottom": 5
+    }
+   }
+  }
+ },
+ "fonts": {
+  "wordmark": [
+   "Inter",
+   "Semi Bold"
+  ],
+  "mark": null,
+  "mark_bold_cut": null,
+  "labels": [
+   "Menlo",
+   "Regular"
+  ],
+  "og": {
+   "title": [
+    "Inter",
+    "Semi Bold"
+   ],
+   "subtitle": [
+    "Inter",
+    "Light"
+   ]
+  },
+  "cap_height_em": 0.7275
+ },
+ "mark": {
+  "kind": "svg",
+  "shapes": 2,
+  "names": [
+   null,
+   null
+  ],
+  "colours": [
+   "#17BEBB",
+   "#1A3E5C"
+  ],
+  "outer_colours": [
+   "#17BEBB",
+   "#1A3E5C"
+  ],
+  "coverage": 0.511,
+  "knockouts": {},
+  "shape_colours": [
+   "#1A3E5C",
+   "#17BEBB"
+  ]
+ },
+ "swatches": [
+  [
+   "rewardspro primary",
+   "#1A3E5C"
+  ],
+  [
+   "rewardspro accent",
+   "#17BEBB"
+  ],
+  [
+   "rewardspro ground light",
+   "#FFFFFF"
+  ],
+  [
+   "rewardspro ground dark",
+   "#1B1D1F"
+  ],
+  [
+   "rewardspro primary 50",
+   "#F3F7FC"
+  ],
+  [
+   "rewardspro primary 100",
+   "#E3EDF6"
+  ],
+  [
+   "rewardspro primary 200",
+   "#CADCEC"
+  ],
+  [
+   "rewardspro primary 300",
+   "#A9C5DE"
+  ],
+  [
+   "rewardspro primary 400",
+   "#83A6C5"
+  ],
+  [
+   "rewardspro primary 500",
+   "#658AAD"
+  ],
+  [
+   "rewardspro primary 600",
+   "#4B7091"
+  ],
+  [
+   "rewardspro primary 700",
+   "#355978"
+  ],
+  [
+   "rewardspro primary 800",
+   "#1A3E5C"
+  ],
+  [
+   "rewardspro primary 900",
+   "#1D3245"
+  ],
+  [
+   "rewardspro primary 950",
+   "#0F1E2C"
+  ],
+  [
+   "rewardspro accent 50",
+   "#ECFAF9"
+  ],
+  [
+   "rewardspro accent 100",
+   "#D5F2F1"
+  ],
+  [
+   "rewardspro accent 200",
+   "#B0E5E3"
+  ],
+  [
+   "rewardspro accent 300",
+   "#7BD3D0"
+  ],
+  [
+   "rewardspro accent 400",
+   "#17BEBB"
+  ],
+  [
+   "rewardspro accent 500",
+   "#009A97"
+  ],
+  [
+   "rewardspro accent 600",
+   "#007C7A"
+  ],
+  [
+   "rewardspro accent 700",
+   "#006261"
+  ],
+  [
+   "rewardspro accent 800",
+   "#004D4C"
+  ],
+  [
+   "rewardspro accent 900",
+   "#003938"
+  ],
+  [
+   "rewardspro accent 950",
+   "#002322"
+  ],
+  [
+   "rewardspro neutral 50",
+   "#F6F7F7"
+  ],
+  [
+   "rewardspro neutral 100",
+   "#EAEBEC"
+  ],
+  [
+   "rewardspro neutral 200",
+   "#D7D9DB"
+  ],
+  [
+   "rewardspro neutral 300",
+   "#BEC1C4"
+  ],
+  [
+   "rewardspro neutral 400",
+   "#9EA2A6"
+  ],
+  [
+   "rewardspro neutral 500",
+   "#82878B"
+  ],
+  [
+   "rewardspro neutral 600",
+   "#686C70"
+  ],
+  [
+   "rewardspro neutral 700",
+   "#525659"
+  ],
+  [
+   "rewardspro neutral 800",
+   "#404346"
+  ],
+  [
+   "rewardspro neutral 900",
+   "#2E3133"
+  ],
+  [
+   "rewardspro neutral 950",
+   "#1B1D1F"
+  ]
+ ],
+ "motion": false,
+ "files": [
+  "brand.vectorcraft",
+  "BRAND.md",
+  "index.html",
+  "kit.json",
+  "source/brand.json",
+  "source/mark-source.svg",
+  "logo/mark.svg",
+  "logo/mark.png",
+  "logo/mark@2x.png",
+  "logo/mark-mono-black.svg",
+  "logo/mark-mono-black.png",
+  "logo/mark-mono-black@2x.png",
+  "logo/mark-mono-white.svg",
+  "logo/mark-mono-white.png",
+  "logo/mark-mono-white@2x.png",
+  "logo/wordmark.svg",
+  "logo/wordmark.png",
+  "logo/wordmark@2x.png",
+  "logo/wordmark-reversed.svg",
+  "logo/wordmark-reversed.png",
+  "logo/wordmark-reversed@2x.png",
+  "logo/lockup-horizontal.svg",
+  "logo/lockup-horizontal.png",
+  "logo/lockup-horizontal@2x.png",
+  "logo/lockup-horizontal-reversed.svg",
+  "logo/lockup-horizontal-reversed.png",
+  "logo/lockup-horizontal-reversed@2x.png",
+  "logo/lockup-stacked.svg",
+  "logo/lockup-stacked.png",
+  "logo/lockup-stacked@2x.png",
+  "logo/lockup-stacked-reversed.svg",
+  "logo/lockup-stacked-reversed.png",
+  "logo/lockup-stacked-reversed@2x.png",
+  "logo/mark.pdf",
+  "logo/lockup-horizontal.pdf",
+  "web/favicon.ico",
+  "web/favicon.svg",
+  "web/favicon-16.png",
+  "web/favicon-32.png",
+  "web/apple-touch-icon.png",
+  "web/icon-192.png",
+  "web/icon-512.png",
+  "web/icon-maskable-512.png",
+  "web/site.webmanifest",
+  "web/head-snippet.html",
+  "web/og.jpg",
+  "web/og.png",
+  "colour/palette.json",
+  "colour/tokens.json",
+  "colour/tokens.css",
+  "colour/contrast.md",
+  "colour/swatches.ase",
+  "colour/swatches.gpl",
+  "colour/swatches.css",
+  "colour/colour-sheet.svg",
+  "colour/colour-sheet.png",
+  "colour/colour-sheet@2x.png"
+ ],
+ "og_alt": "RewardsPro card: the RewardsPro logo mark beside the headline “Cashback your customers spend in your store” on a white background."
+}

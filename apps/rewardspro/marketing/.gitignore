@@ -1,0 +1,9 @@
+# The kit is committed exactly as the artcraft-brand skill built it, so files the
+# repo ignores elsewhere (*.png, *.md) are kept here.
+!*.png
+!*.md
+!*.jpg
+!*.ico
+!*.pdf
+# Private working material (prospect lists, contacts) never enters git.
+private/

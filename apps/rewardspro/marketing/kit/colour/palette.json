@@ -1,0 +1,95 @@
+{
+  "name": "RewardsPro",
+  "palette": {
+    "primary": {
+      "base": "#1A3E5C",
+      "base_step": 800,
+      "50": "#F3F7FC",
+      "100": "#E3EDF6",
+      "200": "#CADCEC",
+      "300": "#A9C5DE",
+      "400": "#83A6C5",
+      "500": "#658AAD",
+      "600": "#4B7091",
+      "700": "#355978",
+      "800": "#1A3E5C",
+      "900": "#1D3245",
+      "950": "#0F1E2C"
+    },
+    "accent": {
+      "base": "#17BEBB",
+      "base_step": 400,
+      "50": "#ECFAF9",
+      "100": "#D5F2F1",
+      "200": "#B0E5E3",
+      "300": "#7BD3D0",
+      "400": "#17BEBB",
+      "500": "#009A97",
+      "600": "#007C7A",
+      "700": "#006261",
+      "800": "#004D4C",
+      "900": "#003938",
+      "950": "#002322"
+    },
+    "neutral": {
+      "base": "#6E7276",
+      "base_step": null,
+      "50": "#F6F7F7",
+      "100": "#EAEBEC",
+      "200": "#D7D9DB",
+      "300": "#BEC1C4",
+      "400": "#9EA2A6",
+      "500": "#82878B",
+      "600": "#686C70",
+      "700": "#525659",
+      "800": "#404346",
+      "900": "#2E3133",
+      "950": "#1B1D1F"
+    }
+  },
+  "roles": {
+    "light": {
+      "bg": "#FFFFFF",
+      "surface": "#EAEBEC",
+      "border": "#D7D9DB",
+      "text": "#1B1D1F",
+      "text-muted": "#686C70",
+      "primary": "#1A3E5C",
+      "on-primary": "#FFFFFF",
+      "primary-text": "#1A3E5C",
+      "primary-ui": "#1A3E5C",
+      "accent": "#17BEBB",
+      "on-accent": "#1B1D1F",
+      "accent-text": "#007C7A",
+      "accent-ui": "#009A97",
+      "focus": "#1A3E5C"
+    },
+    "dark": {
+      "bg": "#1B1D1F",
+      "surface": "#2E3133",
+      "border": "#404346",
+      "text": "#F6F7F7",
+      "text-muted": "#9EA2A6",
+      "primary": "#658AAD",
+      "on-primary": "#1B1D1F",
+      "primary-text": "#83A6C5",
+      "primary-ui": "#658AAD",
+      "accent": "#17BEBB",
+      "on-accent": "#1B1D1F",
+      "accent-text": "#17BEBB",
+      "accent-ui": "#17BEBB",
+      "focus": "#658AAD"
+    }
+  },
+  "lifted": {
+    "dark": {
+      "primary": {
+        "from": "#1A3E5C",
+        "to": "#658AAD",
+        "step": "primary 500",
+        "ratio_from": 1.52,
+        "ratio_to": 4.66
+      }
+    }
+  }
+}
