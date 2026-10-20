@@ -28,7 +28,7 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/rewardspro/landing/public](../../../apps/rewardspro/landing/public)
 - [docs/decisions/2026-07-23-rewardspro-platform.md](../../decisions/2026-07-23-rewardspro-platform.md)
 
-**Contained modules:** [RewardsPro customer account extension](../extensions/rewards-pro-membership.md), [RewardsPro theme widgets](../extensions/theme-app-extension-rewardspro.md), [RewardsPro legacy Lambda handlers](../tooling/lambda.md), [RewardsPro development tools](../tooling/tools.md), [Exploration prompt evaluator](../tooling/prompt-evaluator.md).
+**Contained modules:** [RewardsPro theme widgets](../extensions/theme-app-extension-rewardspro.md), [RewardsPro legacy Lambda handlers](../tooling/lambda.md), [RewardsPro development tools](../tooling/tools.md), [Exploration prompt evaluator](../tooling/prompt-evaluator.md).
 
 ## Declared package relationships
 

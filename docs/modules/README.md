@@ -4,7 +4,7 @@
 
 [Project entry](../../README.md) · [Documentation](../README.md) · [Agent guide](../agents/README.md)
 
-Find a module's purpose, source, scope, recorded progress and next review. This map covers **28 module roots**: 24 pnpm workspace packages, 1 extension without package.json, and 3 nested support packages. Source review: **2026-09-28**.
+Find a module's purpose, source, scope, recorded progress and next review. This map covers **27 module roots**: 23 pnpm workspace packages, 1 extension without package.json, and 3 nested support packages. Source review: **2026-09-28**.
 
 **Start with the website:** [Storefront domains](storefront/README.md) groups 70 library directories and 77 route families by purpose.
 
@@ -47,7 +47,6 @@ Find a module's purpose, source, scope, recorded progress and next review. This 
 
 | Module | Purpose |
 |---|---|
-| [RewardsPro customer account extension](extensions/rewards-pro-membership.md) | Render membership and reward experiences inside Shopify customer accounts. |
 | [RewardsPro theme widgets](extensions/theme-app-extension-rewardspro.md) | Embed loyalty and reward widgets into Shopify storefront themes using Liquid, JavaScript and CSS. |
 
 ## Nested support packages

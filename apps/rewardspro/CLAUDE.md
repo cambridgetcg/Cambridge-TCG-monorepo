@@ -63,10 +63,11 @@ too.
   rotation").
 - **Shopify config is a separate deploy.** `shopify.app.toml` (webhook
   subscriptions, scopes) and `extensions/` reach Shopify only through
-  `shopify app deploy`, with the owner's login. While
-  `extensions/rewards-pro-membership` targets API `2025-07`, Shopify refuses
-  that deploy (since 2026-10-01), so config changes stay unpublished until the
-  extension is removed or rebuilt.
+  `shopify app deploy`, with the owner's login. The customer-account
+  extension `extensions/rewards-pro-membership` (API `2025-07`, which Shopify
+  refuses since 2026-10-01) was removed on 2026-10-20 so that deploy can run;
+  it stays in git history. Rebuild it on a current API only if merchants want
+  a customer-account view.
 
 ## Commands (pnpm, from repo root)
 
@@ -109,11 +110,8 @@ element type"), extend mechanism 1 or 2 — don't pin a global `@types/react`.
 ## Workspace shape
 
 - `app/` — Remix routes, services, repositories (the app proper)
-- `extensions/rewards-pro-membership` — checkout/customer-account UI extension;
-  a workspace package (`pnpm-workspace.yaml` includes
-  `apps/rewardspro/extensions/*`) but **excluded from root typecheck** (its own
-  stricter tsconfig was never a gate; its sources still compile under this
-  app's tsconfig)
+- `extensions/theme-app-extension-rewardspro` — theme widgets (Liquid, JS,
+  CSS; no package build step)
 - `prisma/` — schema + migrations (own database; not `@cambridge-tcg/db`)
 - `test/` — vitest unit + integration suites (`test:e2e` is a dangling
   playwright script: no config, no specs — inherited debt)

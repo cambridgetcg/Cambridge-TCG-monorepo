@@ -101,7 +101,7 @@ pnpm verify:fast   # typecheck only — for quick sanity checks
 
 `verify` is the root verification chain in `package.json`. It runs:
 
-- The workspace typecheck set, excluding `@cambridge-tcg/admin`, `rewardspro`, and `rewardspro-membership`
+- The workspace typecheck set, excluding `@cambridge-tcg/admin` and `rewardspro`
 - The registered project audit chain (`pnpm run audit`) and strict CardRush coverage
 - The named Answering Rhymes, Opportunity Signal, PRISM Signals Core, Product Flow, Product Flow Runtime, and RewardsPro API tests
 - Storefront Vitest, including migrated admin tests; there is no separate `pnpm test:admin` script
