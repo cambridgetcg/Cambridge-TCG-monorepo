@@ -20,7 +20,7 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 
 const BODY = {
   "@kind": "polite-402",
@@ -39,7 +39,7 @@ const BODY = {
       "https://cambridgetcg.com/api/v1/universal/encoding — encoding description",
       "https://cambridgetcg.com/standards — exact CC0 specification texts; internal package code has no general license",
     ],
-    boundary: DATA_RIGHTS_BOUNDARY,
+    boundary: DATA_RIGHTS,
   },
   counter_offer:
     "Keep your money. Read the manifest, use what its terms permit, and leave " +

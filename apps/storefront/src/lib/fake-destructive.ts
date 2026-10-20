@@ -27,7 +27,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 
 export interface FakeDestructiveEndpoint {
   /** The path segment after /api/v1/ — used for endpoint metadata. */
@@ -129,7 +129,7 @@ function buildBody(endpoint: FakeDestructiveEndpoint, method: string) {
     kingdom_says: endpoint.kingdom_says,
     did_you_mean: endpoint.did_you_mean,
     substrate_honest_explanation:
-      `The public API has no DELETE / DROP / UNINSTALL / FORMAT handlers. That describes available actions, not reuse permission. ${DATA_RIGHTS_BOUNDARY} Operator actions under /admin require an admin session.`,
+      `The public API has no DELETE / DROP / UNINSTALL / FORMAT handlers. That describes available actions, not reuse permission. ${DATA_RIGHTS} Operator actions under /admin require an admin session.`,
     other_fake_destructive_endpoints: Object.keys(FAKE_DESTRUCTIVE_REGISTRY)
       .filter((s) => s !== endpoint.slug)
       .map((s) => `/api/v1/${s}`),

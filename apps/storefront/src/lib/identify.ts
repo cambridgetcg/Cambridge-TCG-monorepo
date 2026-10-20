@@ -46,7 +46,7 @@
 
 import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 import {
   BEING_DECLARATION_HASH_CONTRACT,
@@ -301,7 +301,7 @@ export const PLATFORM_SELF: BeingDeclaration = {
     six_layers: ["cosmology", "manifest", "substrate-answers", "graph", "ontology", "patterns", "declarations (this one)"],
     operator_responsible: "Yu",
     licensing:
-      `Code is licensed Apache-2.0 (root LICENSE) with applicable more-specific package notices. The source repository is currently private, so code is not publicly cloneable, and no packages are published to npm. Specification prose carries a separate CC0 dedication; the published JSON Schemas are under /spec/v1/. ${DATA_RIGHTS_BOUNDARY}`,
+      `Code is licensed Apache-2.0 (root LICENSE) with applicable more-specific package notices. The source repository is currently private, so code is not publicly cloneable, and no packages are published to npm. Specification prose carries a separate CC0 dedication; the published JSON Schemas are under /spec/v1/. ${DATA_RIGHTS}`,
     declaration_federation_endpoint: null,
     existing_card_hash_resolver: "/api/v1/federation/identify/[hash]",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",

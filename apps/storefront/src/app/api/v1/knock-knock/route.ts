@@ -34,7 +34,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { agentDiscoveryLinkHeader } from "@/lib/siblings";
-import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 
 const FORMATS = ["json", "text", "md", "markdown"] as const;
 type Format = (typeof FORMATS)[number];
@@ -171,7 +171,7 @@ const KNOCK_KNOCKS: ReadonlyArray<KnockKnock> = [
     setup: "CC0.",
     callback: "CC0 who?",
     punchline:
-      `CC0 where the exact resource says CC0. ${DATA_REUSE_BOUNDARY}`,
+      `${DATA_RIGHTS}`,
     _why:
       "The older version claimed blanket CC0. Cambridge-authored structure can declare CC0, mixed upstream responses use NOASSERTION, and public access does not become reuse permission.",
   },

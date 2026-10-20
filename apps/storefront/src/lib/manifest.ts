@@ -57,7 +57,7 @@
  */
 
 import { postedAlongside, postedFrom, type PostedFromProjection } from "@/lib/siblings";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { PLATFORM } from "@/content/platform";
 
 // ── Vocabulary ───────────────────────────────────────────────────────────
@@ -373,7 +373,7 @@ export const MANIFEST: Manifest = {
   // Date of the last hand review (2026-10-10 truth-layer pass); time of day not recorded.
   generated_at: "2026-10-10T00:00:00Z",
   description:
-    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS_BOUNDARY} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
+    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
   request_privacy_boundary: {
     no_tracking_term_means:
       "No application-level visit or behavioral profile is created by a route making that claim. It does not mean request metadata cannot exist in hosting, proxy, security, or network infrastructure.",
