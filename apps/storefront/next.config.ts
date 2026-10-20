@@ -3,6 +3,11 @@ import path from "node:path";
 import { publicDiscoveryLinkHeader } from "./src/lib/siblings";
 
 const nextConfig: NextConfig = {
+  // No `X-Powered-By: Next.js` on responses: it advertises the framework
+  // to scanners and tells visitors nothing. Cloudflare's WAF blocked
+  // ~160 React2Shell (CVE-2025-55182) probes a day here in October 2026.
+  poweredByHeader: false,
+
   // Workspace packages export TS files with `.js`-extension imports
   // (NodeNext-style). Next.js's webpack needs them transpiled in the
   // build pipeline so the `.js` → `.ts` resolution works. Without this,
