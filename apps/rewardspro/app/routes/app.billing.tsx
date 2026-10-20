@@ -523,7 +523,7 @@ export default function BillingPage() {
             <Card>
               <BlockStack gap="300">
                 <Text as="h2" variant="headingMd">{currentPlan || "No active paid subscription found"}</Text>
-                <Text as="p">Existing agreements keep their recorded terms. Retiring new subscriptions does not cancel an agreement or rewrite its entitlements.</Text>
+                <Text as="p">Existing agreements keep their recorded terms. Not offering paid plans doesn't cancel an agreement or rewrite its entitlements.</Text>
                 {hasSubscription && (
                   <Button tone="critical" onClick={() => setShowCancellation(true)} loading={isSubmitting}>Cancel existing subscription</Button>
                 )}

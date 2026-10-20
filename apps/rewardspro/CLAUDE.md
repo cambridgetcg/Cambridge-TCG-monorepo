@@ -1,12 +1,15 @@
 # RewardsPro — per-app agent guide
 
-## Understanding without commercial targets
+## Free-only, without commercial targets
 
-From 2026-09-23, this project has no KPI, revenue, conversion, growth or
-commercialisation requirement. Understanding and exploration are sufficient.
-New paid RewardsPro subscriptions and paid plan changes are retired. Existing
-agreements retain their records, cancellation, refund and support paths; this
-decision does not rewrite their entitlements or cancel them automatically.
+RewardsPro relaunches free-only: Free Forever is the whole offer, and paid plans
+and billing webhooks stay off
+([2026-10-20 decision](../../docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md),
+an agent's call under Yu's delegation). Since 2026-09-23 there has been no KPI,
+revenue, conversion or growth target. Merchant-facing copy says paid plans
+aren't offered; it doesn't talk about retirement. Existing agreements keep
+their records, cancellation, refund and support paths, and nothing rewrites
+their entitlements or cancels them automatically.
 
 
 RewardsPro is a **Shopify loyalty & rewards app**: points, tiers, cashback, store
