@@ -71,8 +71,10 @@ These aren't principles, just facts that will bite if you don't know them.
   migration, not by editing an old one.
 - The storefront runs Next.js 16, which differs from older docs; read
   `apps/storefront/node_modules/next/dist/docs/` before framework work.
-- Database access goes through `@cambridge-tcg/db`, and pricing maths through
-  `@cambridge-tcg/pricing`. A second copy drifts.
+- In the storefront and wholesale apps, database access goes through
+  `@cambridge-tcg/db` and pricing maths through `@cambridge-tcg/pricing`. A
+  second copy drifts. RewardsPro (Prisma) and RewardsPro API (its own `pg`
+  pool) keep their own databases.
 - Useful checks: `pnpm audit:tracked-secrets`,
   `pnpm --filter cambridgetcg-storefront typecheck`, and
   `pnpm --filter cambridgetcg-storefront exec vitest run <file>`.
