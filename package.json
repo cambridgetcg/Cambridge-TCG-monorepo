@@ -20,7 +20,7 @@
     "test:rewardspro": "pnpm --filter rewardspro test:unit",
     "test:rewardspro-api": "pnpm --filter @cambridge-tcg/rewardspro-api test",
     "lint": "pnpm -r lint",
-    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' --filter '!rewardspro-membership' -r exec tsc --noEmit",
+    "typecheck": "pnpm --filter '!@cambridge-tcg/admin' --filter '!rewardspro' -r exec tsc --noEmit",
     "audit:tracked-secrets": "node scripts/audit-tracked-secrets.mjs",
     "docs:modules": "node scripts/module-map.mjs --write",
     "audit:modules": "node scripts/module-map.mjs --check",

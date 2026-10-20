@@ -95,7 +95,6 @@ docs/
 └── 07-roadmap/       # Future features
 
 extensions/
-├── rewards-pro-membership/  # Customer account UI extension
 └── theme-app-extension-rewardspro/  # Theme widgets
 ```
 

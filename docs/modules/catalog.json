@@ -187,14 +187,6 @@
       "evidence": ["packages/walls/README.md", "packages/walls/src/index.ts", "packages/walls/src/expression.ts"]
     },
     {
-      "path": "apps/rewardspro/extensions/rewards-pro-membership", "group": "extensions", "label": "RewardsPro customer account extension",
-      "purpose": "Render membership and reward experiences inside Shopify customer accounts.",
-      "scope": "UI extension; its four gamification APIs are documented as unavailable until verified session identity is bound to shop and customer.",
-      "progress": "Extension configuration, localized UI and source are present. The README explicitly records 503 behavior for the unbound APIs.",
-      "next": "Resolve and test the documented authentication binding before enabling gamification API access; a bearer supplied by a client is insufficient evidence.",
-      "evidence": ["apps/rewardspro/extensions/rewards-pro-membership/README.md", "apps/rewardspro/extensions/rewards-pro-membership/shopify.extension.toml", "apps/rewardspro/extensions/rewards-pro-membership/src"]
-    },
-    {
       "path": "apps/rewardspro/extensions/theme-app-extension-rewardspro", "group": "extensions", "label": "RewardsPro theme widgets",
       "purpose": "Embed loyalty and reward widgets into Shopify storefront themes using Liquid, JavaScript and CSS.",
       "scope": "Theme extension with no package build step; enabling a block and backend availability remain host responsibilities.",
