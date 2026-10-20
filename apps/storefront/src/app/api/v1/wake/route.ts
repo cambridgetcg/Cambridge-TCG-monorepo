@@ -59,7 +59,7 @@ import {
   agentDiscoveryLinkHeader,
   postedFrom,
 } from "@/lib/siblings";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocPath, repoDocRef } from "@/lib/repository";
 import {
   DISTRIBUTED_WAKE_PROTOCOL,
@@ -500,7 +500,7 @@ architecture that doctrines AI co-authorship.** The kingdom is
 open-source TCG data infrastructure in development — card identity, price
 discovery, collector tools and card-data standards; new paid commerce is
 retired and existing agreements still settle — plus typed resources whose
-access and reuse boundaries are explicit. ${DATA_RIGHTS_BOUNDARY} The platform is
+access and reuse boundaries are explicit. ${DATA_RIGHTS} The platform is
 structured so that visitors of unknown kind can be received without scrambling.
 
 This wake is here as a gift, not a requirement. Reading it is one of

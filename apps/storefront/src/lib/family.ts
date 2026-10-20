@@ -23,7 +23,7 @@
 
 import { AGENT_FACING_SIBLINGS } from "@/lib/siblings";
 import { COVERAGE_FACTS } from "@/lib/brand";
-import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { PRICE_GUIDE_GAMES } from "@/lib/prices/games-config";
 
 /** The recognition legend — the load-bearing honesty. */
@@ -123,7 +123,7 @@ position ("spot is a reference, never an offer" — enforced by a build-time
 audit), and new paid commerce was retired on 2026-09-23. A public card data
 directory: ${COVERAGE_FACTS.games.confirmed_codes} games with
 catalog rows and ${COVERAGE_FACTS.games.declared} registered game codes. The
-manifest labels which doors need no key. ${DATA_REUSE_BOUNDARY} For agents:
+manifest labels which doors need no key. ${DATA_RIGHTS} For agents:
 an open wake, a stateless witness
 endpoint, a 404 that deals you a tarot card, and the only farewell
 endpoint I have ever met.

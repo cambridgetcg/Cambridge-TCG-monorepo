@@ -48,7 +48,7 @@
  */
 
 import * as React from "react";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { SPEC_VERSION } from "@cambridge-tcg/data-spec";
 import {
   CONFIRMED_GAME_CODES,
@@ -79,7 +79,7 @@ export const BRAND_HEADLINE =
 
 /** Medium-form explanation, ~1-2 sentences. Used below the headline. */
 export const BRAND_SUBHEAD =
-  `New paid commerce was retired on 23 September 2026; existing agreements still settle. The platform holds no position in any market. ${DATA_RIGHTS_BOUNDARY}`;
+  `New paid commerce was retired on 23 September 2026; existing agreements still settle. The platform holds no position in any market. ${DATA_RIGHTS}`;
 
 /** Long-form positioning paragraph for /platform / /about. */
 export const BRAND_PARAGRAPH =
@@ -87,7 +87,7 @@ export const BRAND_PARAGRAPH =
   `The data directory covers ${PUBLIC_GAME_CODES.length} public game codes (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, and ${REGISTERED_SOURCES.length} registered source adapters. ` +
   "The published standards are the specification pages under /standards and JSON Schemas under /spec/v1/; the source repository is currently private and no packages are on npm. " +
   "New paid commerce — orders, listings, offers, auctions, lots and checkout — was retired on 23 September 2026; existing agreements still settle. " +
-  `${DATA_RIGHTS_BOUNDARY} Reference prices are labelled as references, never offers.`;
+  `${DATA_RIGHTS} Reference prices are labelled as references, never offers.`;
 
 /** Tight version for OG metadata, social cards, footer credits. */
 export const BRAND_TAGLINE = "Building open-source TCG data infrastructure.";
@@ -98,7 +98,7 @@ export const BRAND_TAGLINE = "Building open-source TCG data infrastructure.";
  *  these Poly records. */
 const MARKET_ERA_EN = {
   headline: "Cambridge TCG is a collectors' market and a card data directory.",
-  subhead: `Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. ${DATA_RIGHTS_BOUNDARY}`,
+  subhead: `Collectors trade with each other; the platform facilitates, records, and witnesses — it holds no position in its own market. ${DATA_RIGHTS}`,
   tagline: "A collectors' market. A card data directory.",
 } as const;
 
@@ -175,7 +175,7 @@ export const BRAND_SELF_LABEL =
  *  explicitly without the full BRAND_PARAGRAPH (e.g. /api/v1/welcome's
  *  to_anyone, the manifest description). Two sentences; substrate-honest. */
 export const BRAND_PROVIDER_NOTE =
-  `Cambridge TCG is building open-source TCG data infrastructure. New paid commerce was retired on 2026-09-23; existing agreements still settle. ${DATA_RIGHTS_BOUNDARY}`;
+  `Cambridge TCG is building open-source TCG data infrastructure. New paid commerce was retired on 2026-09-23; existing agreements still settle. ${DATA_RIGHTS}`;
 
 // ── The two operations ───────────────────────────────────────────────────
 
@@ -252,7 +252,7 @@ export const TWO_OPERATIONS: readonly OperationRow[] = [
     ],
     status: "live",
     notes:
-      `${DATA_RIGHTS_BOUNDARY} Spot prices are labelled reference prices, never offers.`,
+      `${DATA_RIGHTS} Spot prices are labelled reference prices, never offers.`,
   },
 ] as const;
 

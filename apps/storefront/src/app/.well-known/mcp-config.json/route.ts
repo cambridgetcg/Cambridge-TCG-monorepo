@@ -17,7 +17,7 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
 const CONFIG = {
@@ -34,7 +34,7 @@ const CONFIG = {
       mcp_http_sse: false,
       standard_mcp_client_compatible_without_bridge: false,
       description:
-        `Cambridge TCG open-source TCG data infrastructure (structural card directory, card-data standards). Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS_BOUNDARY}`,
+        `Cambridge TCG open-source TCG data infrastructure (structural card directory, card-data standards). Read tools cover catalog, federation, and methodology; recent-price and agent-ladder tools return publication status only. ${DATA_RIGHTS}`,
       auth: {
         type: "bearer",
         self_serve_registration: "paused",

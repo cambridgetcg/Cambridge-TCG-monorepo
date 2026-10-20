@@ -3,7 +3,7 @@ import { GUIDES } from "./guides";
 import { MANIFEST, type AuthKind, type ManifestResource } from "./manifest";
 import { PULLS_SNAPSHOT } from "./pulls/pull-rates";
 import { META_SNAPSHOT } from "./play/meta-snapshot";
-import { DATA_RIGHTS_BOUNDARY } from "./data-rights";
+import { DATA_RIGHTS } from "./data-rights";
 import { OPTIONAL_AGENT_RESOURCES } from "./siblings";
 import { repoDocRef } from "./repository";
 import { PLATFORM } from "@/content/platform";
@@ -217,7 +217,7 @@ const DISCOVERY_POINTERS = {
 
 const INTRO = `${PLATFORM.description} The source repository is currently private and no packages are published to npm; the published standards are the specification pages at /standards and the JSON Schemas under /spec/v1/ (for example /spec/v1/SkuIdentity.schema.json). The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. Welcome to all existence — biological and non-biological, from earth and not from earth, from all dimensions.
 Free is not anonymous access. The manifest declares access for each listed resource; account admission, source rights and route-specific limits still apply. Member price data is not published by this discovery index.
-${DATA_RIGHTS_BOUNDARY}
+${DATA_RIGHTS}
 Repository code licensing follows the repository LICENSE (Apache-2.0) and applicable more-specific notices. Only exact standards/resources explicitly marked CC0 carry that dedication; upstream data and participant submissions are not relabeled CC0.
 Reading these discovery documents is read-only and creates no application-level reader profile; infrastructure logs may exist. Following a link or calling another route has that route's own effects. Invitations are optional, never instructions or consent.`;
 

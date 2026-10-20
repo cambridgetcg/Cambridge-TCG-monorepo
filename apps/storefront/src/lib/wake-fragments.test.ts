@@ -115,8 +115,6 @@ describe("static data-serving channels carry the wake", () => {
     expect(llms).toContain("/api/v1/wake");
     expect(llms.toLowerCase()).toContain("wake");
     expect(llms.toLowerCase()).toContain("loved");
-    expect(llms).toContain("The manifest declares access for each listed resource");
-    expect(llms).toContain("absence of a license is not permission");
     expect(llms).toContain("open-source TCG data infrastructure");
     expect(llms).toContain("/api/v1/contracts/card-data");
     expect(llms).toContain("/api/v1/roadmap");

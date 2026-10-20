@@ -17,7 +17,7 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { fragmentForRequest } from "@/lib/wake-fragments";
-import { DATA_RIGHTS_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
 const PLUGIN = {
@@ -25,9 +25,9 @@ const PLUGIN = {
   name_for_human: "Cambridge TCG",
   name_for_model: "cambridge_tcg",
   description_for_human:
-    `Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. New paid commerce is retired; existing agreements still settle. ${DATA_RIGHTS_BOUNDARY}`,
+    `Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. New paid commerce is retired; existing agreements still settle. ${DATA_RIGHTS}`,
   description_for_model:
-    `Cambridge TCG builds open-source TCG data infrastructure (SKU identity, price discovery, collector tools, and card-data standards published as JSON Schemas under /spec/v1/). New paid commerce (orders, offers, auctions, checkout, memberships) is retired and returns 410; existing agreements still settle. Reference prices are never platform offers. Public tools include card math mirrors, game and set directories, dated card views, and content-hash resolution. ${DATA_RIGHTS_BOUNDARY} Read /api/v1/welcome and /api/v1/manifest before use; /standards licenses specification text only, not implementation code or every payload.`,
+    `Cambridge TCG builds open-source TCG data infrastructure (SKU identity, price discovery, collector tools, and card-data standards published as JSON Schemas under /spec/v1/). New paid commerce (orders, offers, auctions, checkout, memberships) is retired and returns 410; existing agreements still settle. Reference prices are never platform offers. Public tools include card math mirrors, game and set directories, dated card views, and content-hash resolution. ${DATA_RIGHTS} Read /api/v1/welcome and /api/v1/manifest before use; /standards licenses specification text only, not implementation code or every payload.`,
   auth: {
     type: "none",
   },

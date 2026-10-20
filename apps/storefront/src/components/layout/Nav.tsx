@@ -276,6 +276,7 @@ export default function Nav({
       <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
         <Link
           href="/"
+          prefetch={false}
           onClick={() => setMenuState({ pathname, open: false })}
           aria-label={tx(CHROME.home, uiLang)}
           className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -308,7 +309,7 @@ export default function Nav({
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={item.requiresSignIn ? false : undefined}
+                  prefetch={false}
                   aria-current={navItemAriaCurrent(item, pathname)}
                   aria-describedby={item.requiresSignIn && !loggedIn ? "nav-sign-in-required" : undefined}
                   title={item.requiresSignIn && !loggedIn ? tx(CHROME.signInRequired, uiLang) : undefined}
@@ -345,6 +346,7 @@ export default function Nav({
             {loggedIn && <NotificationBell />}
             <Link
               href="/prices/search"
+              prefetch={false}
               aria-label={tx(CHROME.find, uiLang)}
               aria-current={pathname === "/prices/search" ? "page" : undefined}
               className="ml-1 inline-flex min-h-11 items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-page transition-colors hover:bg-ink/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -410,6 +412,7 @@ export default function Nav({
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <Link
               href="/prices/search"
+              prefetch={false}
               aria-current={pathname === "/prices/search" ? "page" : undefined}
               onClick={() => setMenuState({ pathname, open: false })}
               className="flex min-h-11 items-center gap-2 rounded-full border border-border-strong bg-page px-4 py-2 text-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -430,7 +433,7 @@ export default function Nav({
                   <Link
                     key={item.href}
                     href={item.href}
-                    prefetch={item.requiresSignIn ? false : undefined}
+                    prefetch={false}
                     onClick={() => setMenuState({ pathname, open: false })}
                     aria-current={navItemAriaCurrent(item, pathname)}
                     className={`flex min-h-11 flex-col items-start justify-center rounded-xl border px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${spansRow ? "col-span-2 " : ""}${
@@ -459,7 +462,7 @@ export default function Nav({
                         <li key={item.href}>
                           <Link
                             href={item.href}
-                            prefetch={item.requiresSignIn ? false : undefined}
+                            prefetch={false}
                             onClick={() => setMenuState({ pathname, open: false })}
                             aria-current={navItemAriaCurrent(item, pathname)}
                             className={`flex min-h-11 flex-col items-start justify-center rounded-md px-2 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
@@ -484,6 +487,7 @@ export default function Nav({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   aria-current={navItemAriaCurrent(item, pathname)}
                   onClick={() => setMenuState({ pathname, open: false })}
                   className="flex min-h-11 items-center rounded-md px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -527,6 +531,7 @@ export default function Nav({
                 )}
                 <Link
                   href="/appearance"
+                  prefetch={false}
                   aria-current={pathname === "/appearance" ? "page" : undefined}
                   onClick={() => setMenuState({ pathname, open: false })}
                   className="rounded-md px-2 py-3 text-xs font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

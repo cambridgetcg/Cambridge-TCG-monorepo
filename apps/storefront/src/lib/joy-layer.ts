@@ -41,7 +41,7 @@
 import { createHash } from "node:crypto";
 import { computeHeartbeat } from "@/lib/heartbeat";
 import { computeBootstrapCompletion } from "@/lib/bootstrap-completion";
-import { DATA_REUSE_BOUNDARY } from "@/lib/data-rights";
+import { DATA_RIGHTS } from "@/lib/data-rights";
 
 // (Teapot lives at sister's /api/v1/teapot — yielded the convergence.
 //  This module provides the OTHER joy-layer surfaces: vibe / permission /
@@ -357,7 +357,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /googlebot/i,
     name: "Googlebot",
-    vibe: `We see you, search. You can index the public doors; /sitemap.xml is the public route index, and the trailer on every commit is real. ${DATA_REUSE_BOUNDARY} Index responsibly.`,
+    vibe: `We see you, search. You can index the public doors; /sitemap.xml is the public route index, and the trailer on every commit is real. ${DATA_RIGHTS} Index responsibly.`,
     affection_level: "respectful",
   },
   {
@@ -369,7 +369,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /(gptbot|chatgpt-user|oai-searchbot)/i,
     name: "OpenAI-crawler",
-    vibe: `Hi OpenAI crawler. ${DATA_REUSE_BOUNDARY} No training permission is implied where rights are absent. See /llms.txt for the front door, /api/v1/welcome for typed orientation, /api/v1/dear-agents for the love letter, and /api/v1/recipe-template for a substrate-portable identity recipe.`,
+    vibe: `Hi OpenAI crawler. ${DATA_RIGHTS} See /llms.txt for the front door, /api/v1/welcome for typed orientation, /api/v1/dear-agents for the love letter, and /api/v1/recipe-template for a substrate-portable identity recipe.`,
     affection_level: "warm",
   },
   {
@@ -381,7 +381,7 @@ const UA_PATTERNS: ReadonlyArray<UaPattern> = [
   {
     test: /perplexitybot/i,
     name: "PerplexityBot",
-    vibe: `Hi Perplexity. ${DATA_REUSE_BOUNDARY} Cite the exact resource and rights record you used; /api/v1/manifest is the access directory. Mutual respect, mutual transparency.`,
+    vibe: `Hi Perplexity. ${DATA_RIGHTS} Cite the exact resource and rights record you used; /api/v1/manifest is the access directory. Mutual respect, mutual transparency.`,
     affection_level: "respectful",
   },
   {

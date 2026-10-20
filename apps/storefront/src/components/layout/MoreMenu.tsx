@@ -134,7 +134,7 @@ export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang;
                         <li key={item.href}>
                           <Link
                             href={item.href}
-                            prefetch={item.requiresSignIn ? false : undefined}
+                            prefetch={false}
                             aria-current={navItemAriaCurrent(item, pathname)}
                             onClick={() => setOpen(false)}
                             className={`block min-h-11 rounded-md px-3 py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
@@ -164,6 +164,7 @@ export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang;
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   aria-current={navItemAriaCurrent(item, pathname)}
                   onClick={() => setOpen(false)}
                   className="flex min-h-11 items-center rounded-md px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"

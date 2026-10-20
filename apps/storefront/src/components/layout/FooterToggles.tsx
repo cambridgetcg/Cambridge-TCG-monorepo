@@ -74,6 +74,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
       </a>
       <Link
         href="/appearance"
+        prefetch={false}
         className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
         aria-label={tx({ en: "Choose a theme and tone — light, dark, follow system, and more", ja: "表示設定（ライト・ダーク・端末に合わせる、ほか）", es: "Elegir tema y tono: claro, oscuro, según el sistema, y más", "zh-Hans": "选一个主题和色调（亮、暗、跟随系统，还有别的）", "zh-Hant": "選擇主題與色調（淺色、深色、跟隨系統等）" }, uiLang)}
       >

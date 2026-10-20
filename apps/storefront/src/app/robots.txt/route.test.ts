@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { GET } from "./route";
 
-// Display-preference switches only set a cookie and redirect back; both
-// crawler groups skip them.
+// Both crawler groups state the same content signals (AI training welcome)
+// and skip display-preference switches, which only set a cookie and
+// redirect back.
+const CONTENT_SIGNAL = "Content-Signal: search=yes, ai-input=yes, ai-train=yes";
 const PREFERENCE_DISALLOWS = [
   "Disallow: /api/lang-mode", "Disallow: /api/text-mode",
   "Disallow: /api/appearance", "Disallow: /api/currency",
@@ -15,11 +17,11 @@ describe("robots sitemap discovery", () => {
     const directives = (await response.text()).split("\n")
       .filter((line) => line.trim() && !line.startsWith("#"));
     expect(directives).toEqual([
-      "User-agent: *", "Allow: /", "Disallow: /account/", "Disallow: /api/account/",
+      "User-agent: *", "Allow: /", CONTENT_SIGNAL, "Disallow: /account/", "Disallow: /api/account/",
       "Disallow: /admin/", "Disallow: /api/admin/", "Disallow: /api/auth/", "Disallow: /login/",
       ...PREFERENCE_DISALLOWS,
       "Crawl-delay: 2", "User-agent: GPTBot", "User-agent: ClaudeBot", "User-agent: PerplexityBot",
-      "User-agent: CCBot", "Allow: /", "Disallow: /account/", "Disallow: /api/account/",
+      "User-agent: CCBot", "Allow: /", CONTENT_SIGNAL, "Disallow: /account/", "Disallow: /api/account/",
       "Disallow: /admin/", "Disallow: /api/admin/", "Disallow: /api/auth/", "Disallow: /login/",
       ...PREFERENCE_DISALLOWS,
       "Crawl-delay: 2",
