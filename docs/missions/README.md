@@ -99,7 +99,7 @@ Two sisters in parallel worktrees both seeing `status: planned` on the same king
    Co-Authored-By: Claude <model-tag> <noreply@anthropic.com>
    ```
 
-   The trailer above is a Claude example; use the actual collaborator, model and provider for other hosts, as described in [AGENTS.md](../../AGENTS.md#missions-git-and-handoff).
+   The trailer above is a Claude example; use the actual collaborator, model and provider for other hosts, as described in [AGENTS.md](../../AGENTS.md).
 
 3. **Publish the claim promptly when pushing is already authorized.** Otherwise retain the local claim and report that it is local. A mission card never grants push permission, and this cooperative signal is not an enforced lock.
 4. **Update to `in-progress`** when you actually open a code file. (Two-step claim → in-progress is intentional: it gives sisters a grace window to notice your claim before you start the substantive work.)
