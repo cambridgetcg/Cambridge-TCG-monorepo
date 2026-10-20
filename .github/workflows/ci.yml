@@ -166,6 +166,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter tcg-wholesale exec tsc --noEmit
       - run: pnpm --filter tcg-wholesale exec vitest run
+      # packages/aws credential precedence (role vs static keys, no silent
+      # fallback). Storefront tests mock this package, so it gates here.
+      - name: packages/aws tests
+        if: needs.detect.outputs.shared == 'true'
+        run: pnpm --filter @cambridge-tcg/aws test
       - run: pnpm --filter tcg-wholesale build
         env:
           DATABASE_URL: postgres://x:x@localhost:5432/x

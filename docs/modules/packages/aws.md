@@ -34,6 +34,8 @@ Derived from dependencies, development, optional and peer dependencies in packag
 
 ## Verification entry points
 
-No standalone typecheck, test or lint script is declared here. Use the evidence above and the owning app or consumer checks.
+Declared scripts; inspect their configuration and prerequisites before running:
+
+- `pnpm --filter @cambridge-tcg/aws test`
 
 Record the exact checks, date and result with the change. Update this card through [catalog.json](../catalog.json); see [map maintenance](../README.md).
