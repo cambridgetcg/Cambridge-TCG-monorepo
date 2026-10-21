@@ -3741,7 +3741,7 @@ export default function Customers() {
                 onChange={(value) => setTierFormData({ ...tierFormData, evaluationPeriod: value as "ANNUAL" | "LIFETIME" })}
                 helpText={
                   !data.hasAnnualEval
-                    ? "Annual evaluation is unavailable under the existing agreement. New paid plan changes are retired."
+                    ? "Annual evaluation is unavailable under the existing agreement. Paid plans aren't offered right now."
                     : "Choose how tier status is calculated: annually reset or lifetime cumulative"
                 }
               />
