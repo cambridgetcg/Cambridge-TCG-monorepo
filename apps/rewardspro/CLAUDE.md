@@ -7,7 +7,9 @@ and billing webhooks stay off
 ([2026-10-20 decision](../../docs/decisions/2026-10-20-rewardspro-free-only-relaunch.md),
 an agent's call under Yu's delegation). Since 2026-09-23 there has been no KPI,
 revenue, conversion or growth target. Merchant-facing copy says paid plans
-aren't offered; it doesn't talk about retirement. Existing agreements keep
+aren't offered; it doesn't talk about retirement, and it never tells a shop
+that still pays that RewardsPro is free (`paidPlansNotOfferedMessage` in
+`app/constants/commercial-retirement.ts` branches on that). Existing agreements keep
 their records, cancellation, refund and support paths, and nothing rewrites
 their entitlements or cancels them automatically.
 

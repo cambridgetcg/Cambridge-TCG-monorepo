@@ -31,7 +31,7 @@ import {
   ULTRA_PLAN,
   ULTRA_ANNUAL_PLAN,
 } from "~/constants/plans";
-import { PAID_SUBSCRIPTIONS_RETIRED_MESSAGE, PAID_SUBSCRIPTIONS_RETIRED_STATUS, paidSubscriptionsRetiredResult } from "~/constants/commercial-retirement";
+import { PAID_SUBSCRIPTIONS_RETIRED_STATUS, hasActivePaidAgreement, paidPlansNotOfferedMessage, paidSubscriptionsRetiredResult } from "~/constants/commercial-retirement";
 import { settingsPath } from "~/navigation/routes";
 
 // Map plan IDs to Shopify plan constants
@@ -497,6 +497,8 @@ export default function BillingPage() {
   const currentSubscription = data.appSubscriptions[0];
   const currentPlan = data.subscriptionInfo?.name || currentSubscription?.name;
   const hasSubscription = Boolean(data.hasActivePayment || currentSubscription || data.subscriptionInfo);
+  // billing.check() above asks only about paid plans, so hasActivePayment means a paid agreement.
+  const paidAgreement = data.hasActivePayment || hasActivePaidAgreement([currentSubscription?.name, data.subscriptionInfo?.name]);
 
   function cancelSubscription() {
     setShowCancellation(false);
@@ -510,7 +512,7 @@ export default function BillingPage() {
       <Layout>
         <Layout.Section>
           <BlockStack gap="400">
-            <Banner tone="info"><Text as="p">{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</Text></Banner>
+            <Banner tone="info"><Text as="p">{paidPlansNotOfferedMessage({ hasActivePaidAgreement: paidAgreement })}</Text></Banner>
             {actionData && !(actionData as any).success && (actionData as any).error && (
               <Banner tone="critical"><Text as="p">{(actionData as any).error}</Text></Banner>
             )}

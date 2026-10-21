@@ -19,6 +19,9 @@ Free Forever is the whole offer for now.
   stay unsubscribed.
 - Merchants see no retirement copy. The app tells them paid plans aren't
   offered right now. It doesn't say that anything is being retired.
+  A shop that still has an active paid agreement is never told RewardsPro is
+  free: its copy says Free Forever is the only plan offered and that its
+  subscription keeps its recorded terms.
 - The App Store listing stays Free, and the scopes stay as they are.
 - Raffles, mystery boxes and instant wins stay paused (`CHANCE_MECHANICS_PAUSED`),
   and nothing is spent on a solicitor for now.
