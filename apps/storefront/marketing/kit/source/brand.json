@@ -1,0 +1,39 @@
+{
+  "name": "Cambridge TCG",
+  "slug": "cambridge-tcg",
+  "url": "https://cambridgetcg.com",
+  "description": "Building open-source tools and shared standards for card identity, images, prices and market data.",
+  "lang": "en-GB",
+  "colours": {
+    "primary": "#9b3b12",
+    "accent": "#ec7838",
+    "neutral": "#2c1836"
+  },
+  "ground": {
+    "light": "#fbf7f1",
+    "dark": "#1d1425"
+  },
+  "mark": {
+    "svg": "mark-source.svg",
+    "small": "mark-small.svg",
+    "dark": "#ffb078"
+  },
+  "wordmark": {
+    "text": "Cambridge TCG",
+    "font": "Inter",
+    "style": "SemiBold",
+    "tracking": -40,
+    "colour": "#2c1836",
+    "colour_dark": "#fff6e9"
+  },
+  "icon": {
+    "tile": "primary",
+    "ink": "#fbf7f1",
+    "padding": 0.18,
+    "radius": 0.22
+  },
+  "og": {
+    "title": "TCG data. Made to connect.",
+    "theme": "light"
+  }
+}

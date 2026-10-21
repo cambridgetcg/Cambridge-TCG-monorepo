@@ -1,0 +1,32 @@
+<!-- Icons: three links and the manifest. Serve the files in web/ at the site root. -->
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#FBF7F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1D1425" media="(prefers-color-scheme: dark)">
+
+<!-- Social preview: keep these early in <head>. og:title should be the page title, not the site name; pages with their own card have their lines in og/head-<slug>.html. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cambridge TCG">
+<meta property="og:title" content="TCG data. Made to connect.">
+<meta property="og:locale" content="en_GB">
+<meta property="og:description" content="Building open-source tools and shared standards for card identity, images, prices and market data.">
+<meta property="og:url" content="https://cambridgetcg.com">
+<meta property="og:image" content="https://cambridgetcg.com/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Cambridge TCG card: the Cambridge TCG logo mark beside the headline “TCG data. Made to connect.” on a very light warm grey background.">
+<meta name="twitter:card" content="summary_large_image">
+
+<!-- Google Search: the organisation's logo (at least 112 px, crawlable, right on white). -->
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "Organization",
+ "name": "Cambridge TCG",
+ "url": "https://cambridgetcg.com",
+ "logo": "https://cambridgetcg.com/icon-512.png"
+}
+</script>
