@@ -28,9 +28,20 @@ three colours; its dark `--primary-ui` is `#CA6540`, not the site's apricot.
 
 ## Rebuild
 
-This needs vectorcraft-cli 0.13.1 and the artcraft-brand skill (generator 1.5). Inter (SIL Open Font
-License) is bundled with vectorcraft-cli and also installed on the Studio. Which copy draws the
-wordmark is not known, so a rebuild on another Mac may differ slightly; `--rebuild-check` will show it.
+The kit was built with vectorcraft-cli 0.13.1 and the artcraft-brand skill (generator 1.5). On
+2026-10-22 the Studio moved to vectorcraft-cli 0.14.0 and generator 1.6. Those draw every image
+byte for byte the same, so a rebuild now changes only the files that record the build: `kit.json`,
+`BRAND.md`, `verify.json`, `.brandkit-fingerprint` and the header of `brand.vectorcraft`, plus the
+two PDFs, which carry the build time.
+
+Fonts (checked 2026-10-22):
+- The wordmark, the lockups and the share card's title use the Inter SemiBold built into
+  vectorcraft-cli (Inter 4.001, SIL Open Font License). All 12 glyph outlines match it and not the
+  copy installed on the Studio, so they come out the same on any Mac.
+- The share card's subtitle and footer are in Inter Light, which vectorcraft-cli does not bundle.
+  They come from the copy installed on the Studio, so another Mac needs Inter Light installed and
+  may draw them slightly differently; `--rebuild-check` will show it.
+
 From this folder:
 
 ```sh
