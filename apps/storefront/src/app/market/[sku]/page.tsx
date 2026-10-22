@@ -21,6 +21,7 @@ import {
 import { resolveReferencePrice } from "@/lib/market/reference-price";
 import { query } from "@/lib/db";
 import CardMarketClient, { type AlsoAtAuction } from "./CardMarketClient";
+import { SHARE_CARD } from "@/lib/share-card";
 
 /**
  * Live auctions for this exact card (auctions.sku, migration 0113) — a
@@ -98,7 +99,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
-      ...(card.image_url ? { images: [{ url: card.image_url }] } : {}),
+      images: card.image_url ? [{ url: card.image_url }] : [SHARE_CARD],
     },
   };
 }

@@ -43,7 +43,9 @@ describe("brand kit served from public/", () => {
 });
 
 // Next.js merges metadata shallowly: a page that sets `openGraph` replaces the
-// layout's, image included. Every such page names an image (SHARE_CARD or its own).
+// layout's, image included. Every such block names SHARE_CARD, as its image or
+// as the fallback when the page has no image of its own (card images are
+// often withheld, so "its own image" alone can resolve to none).
 describe("share card on pages with their own openGraph", () => {
   const appDir = join(app, "src/app");
   const sources = (readdirSync(appDir, { recursive: true }) as string[])
@@ -63,10 +65,10 @@ describe("share card on pages with their own openGraph", () => {
     expect(sources.filter((file) => openGraphBlocks(readFileSync(file, "utf8")).length).length).toBeGreaterThan(5);
   });
 
-  it("gives every openGraph block an image", () => {
+  it("gives every openGraph block the share card", () => {
     const missing = sources.flatMap((file) =>
       openGraphBlocks(readFileSync(file, "utf8"))
-        .filter((block) => !/\bimages\s*:/.test(block) && !/\.\.\.\(/.test(block))
+        .filter((block) => !/\bimages\s*:[^\n]*\bSHARE_CARD\b/.test(block))
         .map(() => relative(app, file)),
     );
     expect(missing).toEqual([]);

@@ -31,6 +31,7 @@ import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
 import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
+import { SHARE_CARD } from "@/lib/share-card";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -66,7 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: `${cardName} ${setCode} ${state.card.card_number} — Structural Catalog`,
       description: `Structural catalog record for ${cardName}; legacy prices, images, and history are withheld.`,
-      images: state.card.image_url ? [{ url: state.card.image_url }] : undefined,
+      images: state.card.image_url ? [{ url: state.card.image_url }] : [SHARE_CARD],
     },
   };
 }

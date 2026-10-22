@@ -18,7 +18,7 @@ The colours and type are the site's own "collector's desk" look (`src/app/themes
 `#ec7838` as the highlight, and the name in Inter SemiBold. On dark grounds the mark is apricot
 `#ffb078` and the name cream `#fff6e9` on midnight `#1d1425`, as the dark theme draws them.
 
-The older navy and cyan bolt (`public/images/logo.png`, `public/favicon.ico`, the current share
+The older navy and cyan bolt (`public/images/logo.png`, the old `favicon.ico` and the old share
 images) is not used. An agent made that call on 2026-10-20, under Yu's word that agents decide pending
 choices; Yu has not chosen it. The bolt stays in git history, and `brand.json` rebuilds this kit
 around any other mark.
@@ -67,15 +67,19 @@ draws other paths than `cambridge-tcg-mark-nav.svg`.
 
 - `src/app/layout.tsx` declares the icons, the manifest and `og.jpg` as the default share card for
   Open Graph and X. Next.js replaces the whole `openGraph` object on a page that sets its own, so
-  those pages add `images: [SHARE_CARD]` from `src/lib/share-card.ts` (card pages use the card's
-  image). The test fails if a page's `openGraph` names no image.
+  those pages add `images: [SHARE_CARD]` from `src/lib/share-card.ts`. Card, market and auction
+  pages use the card's image when there is one and fall back to `SHARE_CARD` (card images are
+  withheld for now, so today they all show the brand card). The test fails if a page's `openGraph`
+  doesn't name `SHARE_CARD`.
 - The Organization logo in the layout's JSON-LD, the publisher logo in `guides/buying` and
   `guides/how-to-play`, and `logo_url` in `.well-known/ai-plugin.json` are
   `https://cambridgetcg.com/icon-512.png`.
 - The manifest says `"display": "browser"` (`app` in `brand.json`), so a home-screen shortcut opens
   the site in the browser, as it did before there was a manifest.
-- The site sets no `theme-color`: a visitor can choose one of four themes regardless of the device's
-  light or dark setting, so a colour picked by media query would be wrong for some of them.
+- The pages set no `<meta name="theme-color">`: a visitor can choose one of four themes regardless
+  of the device's light or dark setting, so a colour picked by media query would be wrong for some
+  of them. The manifest's `theme_color` (#FBF7F1) only colours an installed app window, which
+  `"display": "browser"` never opens.
 - The older files (`public/images/logo.png`, `logo.svg`, `icon.png`, `icon-square.svg`,
   `og-image.png`, `twitter-image.png`) are no longer referenced here. They stay because other sites
   or caches may still link to them.
