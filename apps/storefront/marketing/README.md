@@ -55,13 +55,20 @@ deterministic, so a rebuild leaves the same bytes.
 ## Marketplaces (state on 2026-10-22)
 
 For now Cambridge TCG sells only on eBay and Cardmarket (Yu, 2026-10-20). Both accounts are
-`cambridgetcg` (Yu, 2026-10-22). Neither profile page could be read by a script, so their public
-addresses are not confirmed here.
+`cambridgetcg` (Yu, 2026-10-22). Another agent session looked on 2026-10-22:
+
+- eBay: <https://www.ebay.co.uk/usr/cambridgetcg> is live. It shows "Registered as a private seller",
+  340 feedback and 87 listings, and its avatar already reads "Cambridge TCG".
+- Cardmarket: the profile sits behind a Cloudflare check, so it has not been seen.
+
+eBay's User Agreement bars automated access, so agents don't look again; further checks are Yu's.
 
 - **eBay UK shop:** `ebay-logo-300.png` (300 x 300), plus `ebay-billboard-light-1280x290.png` and
   `ebay-billboard-dark-1280x290.png`. eBay states no crop for the billboard, so the lockup sits in
   its middle. eBay allows no web address, contact details or links (policy 4248) and no third-party
-  artwork (policy 4240). These images carry none, so keep it that way if a slogan is added.
+  artwork (policy 4240). These images carry none, so keep it that way if a slogan is added. The
+  billboard is an eBay Shop feature; whether this account, registered as a private seller, can use
+  one was not checked.
 - **Cardmarket:** no image size is published. Use `kit/social/avatar-1024.png`, which stays whole
   inside a circle crop. No links go on it either.
 - **Uploading is Yu's.** The shop accounts are Yu's, and nothing here has been uploaded.
