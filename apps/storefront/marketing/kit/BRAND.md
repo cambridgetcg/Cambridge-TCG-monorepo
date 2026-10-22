@@ -177,7 +177,7 @@ Copy the files in `web/` to the site root and put this early in `<head>` (from `
 </script>
 ```
 
-`web/site.webmanifest` sets `"display": "standalone"`, `theme_color` #FBF7F1 and `background_color` #FBF7F1 (the defaults: set "app" in brand.json for "browser", "minimal-ui" or the dark ground). Its `lang` is en-GB.
+`web/site.webmanifest` sets `"display": "browser"`, `theme_color` #FBF7F1 and `background_color` #FBF7F1 (from brand.json "app"; the default is a standalone app on the light ground). Its `lang` is en-GB.
 
 With a `url`, the snippet ends with a schema.org `Organization` block for Google Search: its logo is `https://cambridgetcg.com/icon-512.png`, the square app icon (512 px, opaque, so it looks right on white as Google asks). Keep that file at that URL; Google shows the logo only if it chooses to.
 

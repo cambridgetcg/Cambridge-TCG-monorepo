@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
+import { SHARE_CARD } from "@/lib/share-card";
 
 export const metadata: Metadata = {
   title: "Every Way to Buy a Card — The Honest Buying Guide | Cambridge TCG",
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
       "Buy across Europe, order from Japan, or grade a card. Real costs, real waits, and where the import fees hide. Cambridge TCG is the map, not the merchant.",
     type: "article",
     siteName: "Cambridge TCG",
+    images: [SHARE_CARD],
   },
   twitter: {
     card: "summary_large_image",
@@ -147,7 +149,7 @@ export default function BuyingGuidePage() {
       url: "https://cambridgetcg.com",
       logo: {
         "@type": "ImageObject",
-        url: "https://cambridgetcg.com/images/logo.png",
+        url: "https://cambridgetcg.com/icon-512.png",
       },
     },
     mainEntityOfPage: "https://cambridgetcg.com/guides/buying",

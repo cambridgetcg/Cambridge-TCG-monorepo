@@ -54,7 +54,7 @@
    "alt": null
   },
   "app": {
-   "display": "standalone",
+   "display": "browser",
    "theme": "light"
   },
   "pages": []

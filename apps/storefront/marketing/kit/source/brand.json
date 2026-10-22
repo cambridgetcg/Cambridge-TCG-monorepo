@@ -32,6 +32,9 @@
     "padding": 0.18,
     "radius": 0.22
   },
+  "app": {
+    "display": "browser"
+  },
   "og": {
     "title": "TCG data. Made to connect.",
     "theme": "light"

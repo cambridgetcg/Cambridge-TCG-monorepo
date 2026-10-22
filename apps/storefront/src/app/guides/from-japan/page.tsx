@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
+import { SHARE_CARD } from "@/lib/share-card";
 
 /**
  * /guides/from-japan — the CardRush directory and the Remambo walkthrough.
@@ -42,6 +43,7 @@ export const metadata: Metadata = {
       "Every CardRush store linked directly, plus the whole proxy flow: fees, condition ranks, consolidation, shipping and the traps — verified against the live pages.",
     type: "article",
     siteName: "Cambridge TCG",
+    images: [SHARE_CARD],
   },
   alternates: {
     canonical: "https://cambridgetcg.com/guides/from-japan",

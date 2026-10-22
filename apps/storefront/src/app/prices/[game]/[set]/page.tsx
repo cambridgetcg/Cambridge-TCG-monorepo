@@ -23,6 +23,7 @@ import {
   type PriceGuideGameConfig,
 } from "@/lib/prices/games-config";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { SHARE_CARD } from "@/lib/share-card";
 
 /** Registry status per source id — in-process, no network or database. */
 const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
@@ -108,6 +109,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: `${setCode} ${setName} Structural Catalog — Legacy Prices Withheld`,
       description: `Structural catalog rows for ${setCode} ${setName}; legacy price values and images are withheld.`,
+      images: [SHARE_CARD],
     },
   };
 }

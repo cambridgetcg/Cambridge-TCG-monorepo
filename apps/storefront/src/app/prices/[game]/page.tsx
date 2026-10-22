@@ -46,6 +46,7 @@ import {
 import { weatherClass } from "@/lib/wardrobe/weather";
 import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { SHARE_CARD } from "@/lib/share-card";
 
 /** Registry status per source id — in-process, no network or database. */
 const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
@@ -96,6 +97,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: cfg.seo_title,
       description: cfg.seo_description,
+      images: [SHARE_CARD],
     },
   };
 }

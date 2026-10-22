@@ -281,20 +281,18 @@ export default function Nav({
           aria-label={tx(CHROME.home, uiLang)}
           className="flex min-h-11 shrink-0 items-center gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
+          {/* The brand mark (marketing/cambridge-tcg-mark-nav.svg): one
+              viewBox unit is one CSS pixel of the h-8 w-7 box. */}
           <svg
-            viewBox="0 0 32 36"
+            viewBox="-3 -3 28 32"
             aria-hidden="true"
             focusable="false"
             className="hidden h-8 w-7 shrink-0 text-accent sm:block"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            fill="currentColor"
           >
-            <path d="M10 4h15a2 2 0 0 1 2 2v22" opacity="0.55" />
-            <rect x="4" y="9" width="18" height="23" rx="2.5" />
-            <path d="m13 16 3.5 4.5-3.5 4.5-3.5-4.5Z" fill="currentColor" stroke="none" />
+            <path d="M5.75 0H19A3 3 0 0 1 22 3V20.25A0.75 0.75 0 0 1 20.5 20.25V3A1.5 1.5 0 0 0 19 1.5H5.75A0.75 0.75 0 0 1 5.75 0Z" />
+            <path d="M3 5H14A3 3 0 0 1 17 8V23A3 3 0 0 1 14 26H3A3 3 0 0 1 0 23V8A3 3 0 0 1 3 5ZM3 7A1 1 0 0 0 2 8V23A1 1 0 0 0 3 24H14A1 1 0 0 0 15 23V8A1 1 0 0 0 14 7Z" />
+            <path d="M8.5 10.625L12.25 15.5L8.5 20.375L4.75 15.5Z" />
           </svg>
           <span className="whitespace-nowrap font-display text-lg font-semibold tracking-[-0.04em] text-ink sm:text-xl">
             Cambridge TCG
