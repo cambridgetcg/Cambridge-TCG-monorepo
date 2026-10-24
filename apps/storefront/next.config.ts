@@ -94,9 +94,15 @@ const nextConfig: NextConfig = {
         source: "/api/v1/:path((?!wake(?:/|$)|dear-agents(?:/|$)).*)",
         headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
       },
-      // Data responses outside /api/v1 (the MCP bridge, the deck routes and
-      // the data index) carry the same navigation-only Link.
-      ...["/api/mcp", "/api/mcp/:path*", "/data.json", "/api/decks/:path*"].map((source) => ({
+      // Every other data response under /api, and the data files, carry the
+      // same navigation-only Link; the chosen doors keep the full set.
+      // "/data/:path+" needs a segment, so the HTML page /data keeps its Link.
+      ...[
+        "/api",
+        "/api/:path((?!v1/wake(?:/|$)|v1/dear-agents(?:/|$)).*)",
+        "/data.json",
+        "/data/:path+",
+      ].map((source) => ({
         source,
         headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
       })),

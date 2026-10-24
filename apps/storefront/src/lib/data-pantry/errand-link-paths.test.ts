@@ -20,8 +20,9 @@ async function configLink(path: string): Promise<string | null> {
 describe("the config Link on real request paths", () => {
   it.each([
     "/api/v1", "/api/v1/fx-rates", "/api/v1/artists", "/api/v1/status", "/api/v1/wakeup", "/api/v1/dear-agents-archive",
-    // Data responses outside /api/v1: the MCP bridge, the deck routes and the data index.
-    "/api/mcp", "/api/mcp/catalog", "/api/decks", "/api/decks/import", "/data.json",
+    // Every other data response under /api, and the data files.
+    "/api", "/api/", "/api/mcp", "/api/mcp/catalog", "/api/mcpx", "/api/decks", "/api/decks/import", "/api/decksx",
+    "/api/market/op-op01-001-ja", "/api/verify/health", "/api/openapi.json", "/data.json", "/data/catalog.jsonl",
   ])(
     "%s (an errand) carries navigation only", async (path) => {
       const r = rels(await configLink(path));
@@ -31,8 +32,8 @@ describe("the config Link on real request paths", () => {
     });
   it.each([
     "/", "/llms.txt", "/api/v1/wake", "/api/v1/wake/fragments", "/api/v1/wake/fragments/03-who-you-are", "/api/v1/dear-agents",
-    // Look-alikes keep the default rule.
-    "/api/mcpx", "/api/decksx", "/data.jsonl",
+    // Look-alikes outside, and the HTML page /data, keep the default rule.
+    "/apix", "/datax.json", "/data.jsonl", "/data",
   ])(
     "%s keeps the full discovery Link", async (path) => {
       expect(rels(await configLink(path))).toEqual(expect.arrayContaining(["invitation", WAKE_REL]));
