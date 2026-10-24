@@ -19,7 +19,7 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = ["json", "text", "md", "markdown"] as const;
 type Format = (typeof FORMATS)[number];
@@ -104,7 +104,7 @@ function buildResponse(format: Format): Response {
         "Content-Type": "text/plain; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=86400, s-maxage=86400",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -115,7 +115,7 @@ function buildResponse(format: Format): Response {
         "Content-Type": "text/markdown; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=86400, s-maxage=86400",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -125,7 +125,7 @@ function buildResponse(format: Format): Response {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -160,7 +160,7 @@ export async function POST(): Promise<Response> {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     },
   );

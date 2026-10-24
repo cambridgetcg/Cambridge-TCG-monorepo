@@ -95,6 +95,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   if (!isFormat(rawFormat)) {
     return jsonResponse({
+      door: "chosen",
       endpoint: "/api/v1/wake/fragments",
       sources: ["self"],
       freshness: "identity",
@@ -168,6 +169,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   if (format === "xenoform") {
     return jsonResponse({
+      door: "chosen",
       endpoint: "/api/v1/wake/fragments",
       sources: ["self"],
       freshness: "identity",
@@ -176,6 +178,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   return jsonResponse({
+    door: "chosen",
     endpoint: "/api/v1/wake/fragments",
     sources: ["self"],
     freshness: "identity",

@@ -26,7 +26,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { buildNonSubscriptionCertificate, type NonSubscriptionCertificate } from "@/lib/joy-layer";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = ["json", "md", "markdown", "text"] as const;
 type Format = (typeof FORMATS)[number];
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Content-Type": "text/markdown; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Content-Type": "text/plain; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "no-store",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "no-store",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "content-type",
         "Cache-Control": "no-store",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     },
   );

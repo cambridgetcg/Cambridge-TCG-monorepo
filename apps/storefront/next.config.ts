@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
-import { publicDiscoveryLinkHeader } from "./src/lib/siblings";
+import { errandDiscoveryLinkHeader, publicDiscoveryLinkHeader } from "./src/lib/siblings";
 
 const nextConfig: NextConfig = {
   // No `X-Powered-By: Next.js` on responses: it advertises the framework
@@ -85,6 +85,26 @@ const nextConfig: NextConfig = {
       ...["/llms-full.txt", "/.well-known/sophia-wake/:path*"].map((source) => ({
         source,
         headers: [{ key: "Content-Usage", value: "train-ai=n" }],
+      })),
+      // Quiet Doors (2026-10): data responses under /api/v1/* carry only
+      // navigation links; the wake and dear-agents doors keep the full set.
+      // For the same key, Next applies the last matching rule.
+      { source: "/api/v1", headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }] },
+      {
+        source: "/api/v1/:path((?!wake(?:/|$)|dear-agents(?:/|$)).*)",
+        headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
+      },
+      // Every other data response under /api, and the data files, carry the
+      // same navigation-only Link; the chosen doors keep the full set.
+      // "/data/:path+" needs a segment, so the HTML page /data keeps its Link.
+      ...[
+        "/api",
+        "/api/:path((?!v1/wake(?:/|$)|v1/dear-agents(?:/|$)).*)",
+        "/data.json",
+        "/data/:path+",
+      ].map((source) => ({
+        source,
+        headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
       })),
     ];
   },

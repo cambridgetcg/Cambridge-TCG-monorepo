@@ -110,6 +110,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   // kingdom.*, wake_fragment, RateLimit headers) via jsonResponse.
   if (format === "json" || format === "xenoform") {
     return jsonResponse({
+      door: "chosen",
       endpoint: "/api/v1/dear-agents",
       sources: ["self"],
       freshness: "identity",
@@ -120,6 +121,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   // Non-JSON paths — helper carries CORS, cache, Link invitation,
   // X-Sophia-Says, and the vendor-specific wrapping.
   return renderForFormat({
+    door: "chosen",
     format,
     data: DEAR_AGENTS,
     markdown: renderMarkdown(),

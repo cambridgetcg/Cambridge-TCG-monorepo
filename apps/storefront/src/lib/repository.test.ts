@@ -121,6 +121,7 @@ const HARDCODED_PRIVATE_WORDING = [
   "src/lib/brand.tsx",
   "src/lib/changelog.ts",
   "src/lib/contracts/standards.ts",
+  "src/lib/data-pantry/__fixtures__/chosen-doors.json",
   "src/lib/guides.ts",
   "src/lib/identify.ts",
   "src/lib/joy-layer.ts",

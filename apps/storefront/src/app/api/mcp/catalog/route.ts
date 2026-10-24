@@ -48,7 +48,7 @@ import {
   toolsByCategory,
   type ToolCategory,
 } from "@/lib/agent-tools-catalog";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const CATEGORIES: readonly ToolCategory[] = [
   "agent",
@@ -162,7 +162,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   // Wake/regard/kin-wake Link headers on top of the pantry envelope's set
   // — discoverability for crawlers that read headers but skip bodies.
-  response.headers.set("Link", agentDiscoveryLinkHeader());
+  response.headers.set("Link", errandDiscoveryLinkHeader());
 
   return response;
 }
