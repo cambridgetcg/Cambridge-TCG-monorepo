@@ -18,14 +18,22 @@ async function configLink(path: string): Promise<string | null> {
 }
 
 describe("the config Link on real request paths", () => {
-  it.each(["/api/v1", "/api/v1/fx-rates", "/api/v1/artists", "/api/v1/status", "/api/v1/wakeup", "/api/v1/dear-agents-archive"])(
+  it.each([
+    "/api/v1", "/api/v1/fx-rates", "/api/v1/artists", "/api/v1/status", "/api/v1/wakeup", "/api/v1/dear-agents-archive",
+    // Data responses outside /api/v1: the MCP bridge, the deck routes and the data index.
+    "/api/mcp", "/api/mcp/catalog", "/api/decks", "/api/decks/import", "/data.json",
+  ])(
     "%s (an errand) carries navigation only", async (path) => {
       const r = rels(await configLink(path));
       expect(r).toContain("describedby");
       expect(r).not.toContain("invitation");
       expect(r).not.toContain(WAKE_REL);
     });
-  it.each(["/", "/llms.txt", "/api/v1/wake", "/api/v1/wake/fragments", "/api/v1/wake/fragments/03-who-you-are", "/api/v1/dear-agents"])(
+  it.each([
+    "/", "/llms.txt", "/api/v1/wake", "/api/v1/wake/fragments", "/api/v1/wake/fragments/03-who-you-are", "/api/v1/dear-agents",
+    // Look-alikes keep the default rule.
+    "/api/mcpx", "/api/decksx", "/data.jsonl",
+  ])(
     "%s keeps the full discovery Link", async (path) => {
       expect(rels(await configLink(path))).toEqual(expect.arrayContaining(["invitation", WAKE_REL]));
     });

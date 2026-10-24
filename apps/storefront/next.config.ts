@@ -94,6 +94,12 @@ const nextConfig: NextConfig = {
         source: "/api/v1/:path((?!wake(?:/|$)|dear-agents(?:/|$)).*)",
         headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
       },
+      // Data responses outside /api/v1 (the MCP bridge, the deck routes and
+      // the data index) carry the same navigation-only Link.
+      ...["/api/mcp", "/api/mcp/:path*", "/data.json", "/api/decks/:path*"].map((source) => ({
+        source,
+        headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
+      })),
     ];
   },
   // ── One public host ───────────────────────────────────────────────────
