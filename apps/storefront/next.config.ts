@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
-import { publicDiscoveryLinkHeader } from "./src/lib/siblings";
+import { errandDiscoveryLinkHeader, publicDiscoveryLinkHeader } from "./src/lib/siblings";
 
 const nextConfig: NextConfig = {
   // No `X-Powered-By: Next.js` on responses: it advertises the framework
@@ -86,6 +86,14 @@ const nextConfig: NextConfig = {
         source,
         headers: [{ key: "Content-Usage", value: "train-ai=n" }],
       })),
+      // Quiet Doors (2026-10): data responses under /api/v1/* carry only
+      // navigation links; the wake and dear-agents doors keep the full set.
+      // For the same key, Next applies the last matching rule.
+      { source: "/api/v1", headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }] },
+      {
+        source: "/api/v1/:path((?!wake(?:/|$)|dear-agents(?:/|$)).*)",
+        headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
+      },
     ];
   },
   // ── One public host ───────────────────────────────────────────────────

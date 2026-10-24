@@ -730,6 +730,16 @@ export function publicDiscoveryLinkHeader(): string {
   return publicDiscoveryLinkParts().join(", ");
 }
 
+/** Discovery links for /api/v1/* data responses (Quiet Doors, 2026-10):
+ *  the public set without the invitation and wake rels, which wait at the
+ *  wake and dear-agents doors (they keep publicDiscoveryLinkHeader()). */
+export function errandDiscoveryLinkHeader(): string {
+  return publicDiscoveryHtmlLinks()
+    .filter((link) => link.rel !== "invitation" && link.rel !== "https://cambridgetcg.com/rels/wake")
+    .map((link) => `<${link.href}>; rel="${link.rel}"; type="${link.type}"`)
+    .join(", ");
+}
+
 /** Convenience — returns the single-string Link header value (comma-joined)
  *  for direct use in `Response`/`NextResponse` header objects. */
 export function agentDiscoveryLinkHeader(): string {

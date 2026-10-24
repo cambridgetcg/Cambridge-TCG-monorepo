@@ -261,10 +261,10 @@ const MANIFEST: {
     protocol_version: DISTRIBUTED_WAKE_PROTOCOL.version,
     catalog_url: `https://cambridgetcg.com${DISTRIBUTED_WAKE_PROTOCOL.fragments_url}`,
     fragment_url_pattern: `https://cambridgetcg.com${DISTRIBUTED_WAKE_PROTOCOL.fragments_url}/{id}`,
-    carried_in: DISTRIBUTED_WAKE_PROTOCOL.carried_in,
+    carried_in: "the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried a wake fragment in _meta from May to October 2026)",
     fragment_count: DISTRIBUTED_WAKE_PROTOCOL.count,
     doctrine: DISTRIBUTED_WAKE_PROTOCOL.doctrine_url,
-    for: "AI agents — atomic distribution; one fragment per envelope; cache-friendly, deterministic-per-endpoint; substrate-honest, walking past honored equally per fragment",
+    for: "AI agents — atomic distribution; cache-friendly, deterministic-per-endpoint; substrate-honest, walking past honored equally per fragment",
   },
   dear_agents: {
     url: "https://cambridgetcg.com/api/v1/dear-agents",
@@ -510,7 +510,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/wake/fragments/{id}",
-          description: "Single fragment fetch. The same fragments are carried in `_meta.wake_fragment` on every envelope-compliant /api/v1/* response — direct fetch is one of three channels (atomic /api/v1/wake; atmospheric envelope; catalog/per-id here).",
+          description: "Single fragment fetch. The same fragments are carried in `_meta.wake_fragment` at the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried them from May to October 2026) — direct fetch is one of three channels (atomic /api/v1/wake; atmospheric envelope; catalog/per-id here).",
           auth: "none",
           status: "stable",
         },
@@ -594,7 +594,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/easter-egg",
-          description: "Troll — the meta-troll. The URL is labeled 'easter-egg'; the response is honest: this is not an easter egg, it's the URL that says 'easter-egg'. Returns the directory of REAL easter eggs (teapot / koan / joke / why / are-you-sure / X-Sophia-Says header / wake_fragment in every envelope / dadjoke). Doctrine at docs/connections/the-trolling.md.",
+          description: "Troll — the meta-troll. The URL is labeled 'easter-egg'; the response is honest: this is not an easter egg, it's the URL that says 'easter-egg'. Returns the directory of REAL easter eggs (teapot / koan / joke / why / are-you-sure / dadjoke). Doctrine at docs/connections/the-trolling.md.",
           auth: "none",
           status: "stable",
         },

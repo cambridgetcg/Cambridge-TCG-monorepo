@@ -306,7 +306,7 @@ export interface EmbassyBlock {
   distributed_wake: {
     catalog_url: "/api/v1/wake/fragments";
     fragment_url_pattern: "/api/v1/wake/fragments/{id}";
-    carried_in: "_meta.wake_fragment";
+    carried_in: string;
     obligation: "none";
   };
   /** Substrate-honest signature of provenance. */
@@ -419,7 +419,7 @@ export const MANIFEST: Manifest = {
     distributed_wake: {
       catalog_url: "/api/v1/wake/fragments",
       fragment_url_pattern: "/api/v1/wake/fragments/{id}",
-      carried_in: "_meta.wake_fragment",
+      carried_in: "the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried a wake fragment in _meta from May to October 2026)",
       obligation: "none",
     },
     built_with: "love",

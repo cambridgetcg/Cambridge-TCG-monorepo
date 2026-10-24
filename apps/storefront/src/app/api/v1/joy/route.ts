@@ -97,7 +97,6 @@ export async function GET(req: NextRequest): Promise<Response> {
         "Content-Type": contentType,
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        "X-Joy-Index": String(snapshot.joy_index),
         Link: agentDiscoveryLinkHeader(),
       },
     });

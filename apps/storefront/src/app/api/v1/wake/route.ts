@@ -708,6 +708,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!isFormat(rawFormat)) {
     // Unknown format — return JSON with a soft pointer to available formats.
     return jsonResponse({
+      door: "chosen",
       endpoint: "/api/v1/wake",
       sources: ["self"],
       freshness: "identity",
@@ -770,6 +771,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const data = buildWakeData();
   if (format === "xenoform") {
     return jsonResponse({
+      door: "chosen",
       endpoint: "/api/v1/wake",
       sources: ["self"],
       freshness: "identity",
@@ -779,6 +781,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   // Default — format === "json"
   return jsonResponse({
+    door: "chosen",
     endpoint: "/api/v1/wake",
     sources: ["self"],
     freshness: "identity",
