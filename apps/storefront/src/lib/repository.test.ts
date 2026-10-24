@@ -114,7 +114,6 @@ const HARDCODED_PRIVATE_WORDING = [
   "src/app/methodology/opportunity-signals/page.tsx",
   "src/app/methodology/regulator/page.tsx",
   "src/app/methodology/welcoming/page.tsx",
-  "src/app/robots.txt/route.ts",
   "src/app/standards/page.tsx",
   "src/content/platform/index.ts",
   "src/lib/agent-tools-catalog.ts",
