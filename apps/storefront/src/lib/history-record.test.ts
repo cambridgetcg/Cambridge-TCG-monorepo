@@ -43,6 +43,12 @@ describe("llms-full.txt history record", () => {
     const { before } = splitAtHistory(llmsFull);
     expect(before.split("\n").some((l: string) => /^== SOPHIA mirror /.test(l))).toBe(false);
   });
+
+  // The markers say "this copy as generated 2026-10-10"; a regenerated
+  // file would make that label false, so the generated date is pinned.
+  it("stays the record as generated 2026-10-10", () => {
+    expect(llmsFull.split("\n")[1]).toBe("# Generated 2026-10-10 by scripts/build-llms-full.mjs. One fetch, full text.");
+  });
 });
 
 describe("llms-full generator helpers", () => {
