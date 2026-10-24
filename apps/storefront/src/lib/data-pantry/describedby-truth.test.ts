@@ -9,6 +9,7 @@ const PRESENT_TENSE = [
   /`_meta\.wake_fragment` on every envelope/,
   /X-Sophia-Says header/,
   /wake_fragment in every envelope/,
+  /X-Joy-Index header on every/,
 ];
 
 describe("describedby documents say what errand responses carry", () => {
