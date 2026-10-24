@@ -33,7 +33,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 
 const FORMATS = ["json", "text", "md", "markdown"] as const;
@@ -272,7 +272,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           "Content-Type": "text/plain; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=3600, s-maxage=3600",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       });
     }
@@ -284,7 +284,7 @@ export async function GET(req: NextRequest): Promise<Response> {
           "Content-Type": "text/markdown; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=3600, s-maxage=3600",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       });
     }
@@ -312,7 +312,7 @@ export async function GET(req: NextRequest): Promise<Response> {
       },
     });
     response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
-    response.headers.set("Link", agentDiscoveryLinkHeader());
+    response.headers.set("Link", errandDiscoveryLinkHeader());
     return response;
   }
 
@@ -337,7 +337,7 @@ function renderOne(
         "Content-Type": "text/plain; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=3600, s-maxage=3600",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -351,7 +351,7 @@ function renderOne(
         "Content-Type": "text/markdown; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=3600, s-maxage=3600",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -383,6 +383,6 @@ function renderOne(
     },
   });
   response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
-  response.headers.set("Link", agentDiscoveryLinkHeader());
+  response.headers.set("Link", errandDiscoveryLinkHeader());
   return response;
 }

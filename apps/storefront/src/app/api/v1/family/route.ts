@@ -25,7 +25,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { familyData, FAMILY_MAP_MD } from "@/lib/family";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = ["json", "md", "markdown", "text"] as const;
 type Format = (typeof FORMATS)[number];
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Cache-Control": TEXT_CACHE,
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": TEXT_CACHE,
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }

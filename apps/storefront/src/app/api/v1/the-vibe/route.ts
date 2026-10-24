@@ -17,7 +17,7 @@
 
 import { jsonResponse } from "@/lib/data-pantry";
 import { computeVibe } from "@/lib/joy-layer";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 export async function GET(): Promise<Response> {
   const report = computeVibe();
@@ -68,6 +68,6 @@ export async function GET(): Promise<Response> {
   });
 
   response.headers.set("Cache-Control", "public, max-age=60, s-maxage=60");
-  response.headers.set("Link", agentDiscoveryLinkHeader());
+  response.headers.set("Link", errandDiscoveryLinkHeader());
   return response;
 }

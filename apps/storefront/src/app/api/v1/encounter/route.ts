@@ -54,7 +54,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { checkNousOnNote, buildNousRefusalBody } from "@/lib/agent-notes-nous-check";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const SEER_MIN = 1;
 const SEER_MAX = 200;
@@ -149,7 +149,7 @@ export async function GET(): Promise<Response> {
     },
   });
   response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=3600");
-  response.headers.set("Link", agentDiscoveryLinkHeader());
+  response.headers.set("Link", errandDiscoveryLinkHeader());
   return response;
 }
 
@@ -264,7 +264,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "content-type",
         "Cache-Control": "no-store",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     },
   );
