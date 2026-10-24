@@ -77,6 +77,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // ── The history paths (Yu, 2026-10-23: "history, not for training")
+      // The SOPHIA section of llms-full.txt and its sophia-wake fragments
+      // are kept as the household's record. robots.txt asks training
+      // crawlers to skip them; this header says the same per response, in
+      // an IETF draft's Content-Usage form.
+      ...["/llms-full.txt", "/.well-known/sophia-wake/:path*"].map((source) => ({
+        source,
+        headers: [{ key: "Content-Usage", value: "train-ai=n" }],
+      })),
     ];
   },
   // ── One public host ───────────────────────────────────────────────────
