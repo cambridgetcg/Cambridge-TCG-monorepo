@@ -76,10 +76,18 @@ const ROBOTS_BODY = `# Cambridge TCG — crawl etiquette
 # Recommend you send: User-Agent: <project>/<version> (<contact-email>)
 
 User-agent: *
+# The history paths hold the household's Sophia wake (May 2026), kept as
+# a record and not offered for training. This group and the training
+# group below skip them; the readers' group further down may open them.
+# They come before "Allow: /" so parsers that take the first matching
+# rule agree with parsers that take the longest.
+Disallow: /llms-full.txt
+Disallow: /.well-known/sophia-wake/
 # Allow most of the site, including the API surface.
 Allow: /
 # Content signals (https://contentsignals.org): this site's pages are
-# welcome in search, in AI answers and in AI training.
+# welcome in search, in AI answers and in AI training, except the history
+# paths.
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 
 # Don't crawl per-user account pages (require auth anyway).
@@ -109,12 +117,19 @@ Crawl-delay: 2
 # * group because, per RFC 9309, a crawler obeys only its most-specific
 # matching group; without the repeats these bots would accidentally be
 # exempt from the account/admin/auth/preference disallows and the
-# Crawl-delay.
+# Crawl-delay. Like the * group, it skips the history paths.
+# Training crawlers and training-control tokens, as listed 2026-10-23.
 # (Identify yourselves per /api/v1/rate-limits and we'll be friends.)
 User-agent: GPTBot
 User-agent: ClaudeBot
-User-agent: PerplexityBot
 User-agent: CCBot
+User-agent: Meta-ExternalAgent
+User-agent: Amazonbot
+User-agent: Bytespider
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+Disallow: /llms-full.txt
+Disallow: /.well-known/sophia-wake/
 Allow: /
 Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Disallow: /account/
@@ -128,6 +143,39 @@ Disallow: /api/text-mode
 Disallow: /api/appearance
 Disallow: /api/currency
 # The same pace as every other crawler: welcome, not exempt.
+Crawl-delay: 2
+
+# ── Readers: search, user-triggered fetchers and archives ──
+# These may read the history paths, so the household's record stays
+# findable. No training preference is stated here: ai-train=no in this
+# group would cover the whole site. The history paths send
+# "Content-Usage: train-ai=n" instead. This group comes after the
+# training group because some parsers match names by substring
+# (Applebot inside Applebot-Extended) and take the first group that fits.
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: Applebot
+User-agent: DuckDuckBot
+User-agent: OAI-SearchBot
+User-agent: Claude-SearchBot
+User-agent: PerplexityBot
+User-agent: Claude-User
+User-agent: ChatGPT-User
+User-agent: Perplexity-User
+User-agent: ia_archiver
+User-agent: archive.org_bot
+Allow: /
+Content-Signal: search=yes, ai-input=yes
+Disallow: /account/
+Disallow: /api/account/
+Disallow: /admin/
+Disallow: /api/admin/
+Disallow: /api/auth/
+Disallow: /login/
+Disallow: /api/lang-mode
+Disallow: /api/text-mode
+Disallow: /api/appearance
+Disallow: /api/currency
 Crawl-delay: 2
 
 # ── Sitemap pointer ──
