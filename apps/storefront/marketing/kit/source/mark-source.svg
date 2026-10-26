@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 26" width="22" height="26">
+  <title>Cambridge TCG</title>
+  <!-- Cambridge TCG mark. Grid: one unit = one pixel of the 32 px favicon cut; ink box 22 x 26. Front card 17 x 21 at (0,5), outer radius 3, 2-unit walls (inner radius 1). Back card = the same card moved 5 right and 5 up, drawn only as its top and right edges, 1.5 units (lighter than the front: it does the job the nav mark's 55% tint did, so one-colour versions keep the depth), round ends that stop on the back card's own lines (x=5, y=21). Gap between the cards 3.5. Pip: the nav's 7:9 diamond, 7.5 x 9.75, centred on the front card. Flat hex fills, holes wound the other way, no strokes, transparency or transforms. -->
+  <path id="back-card" d="M5.75 0H19A3 3 0 0 1 22 3V20.25A0.75 0.75 0 0 1 20.5 20.25V3A1.5 1.5 0 0 0 19 1.5H5.75A0.75 0.75 0 0 1 5.75 0Z" fill="#9b3b12"/>
+  <path id="front-card" d="M3 5H14A3 3 0 0 1 17 8V23A3 3 0 0 1 14 26H3A3 3 0 0 1 0 23V8A3 3 0 0 1 3 5ZM3 7A1 1 0 0 0 2 8V23A1 1 0 0 0 3 24H14A1 1 0 0 0 15 23V8A1 1 0 0 0 14 7Z" fill="#9b3b12"/>
+  <path id="pip" d="M8.5 10.625L12.25 15.5L8.5 20.375L4.75 15.5Z" fill="#9b3b12"/>
+</svg>

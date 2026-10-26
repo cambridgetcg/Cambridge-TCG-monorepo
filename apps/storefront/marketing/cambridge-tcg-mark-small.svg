@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 26" width="22" height="26">
+  <title>Cambridge TCG (favicon cut)</title>
+  <!-- FAVICON CUT ONLY (16, 32, 48 px; the generator's mark.small). Never use it as the logo at larger sizes: use mark.svg. Same grid and card as mark.svg, drawn for pixels: back edges 1.25 (1 px at 32, 2 px at 48) with outer corner radius 2 so the thin corner turns cleanly, pip 9 x 13 so it lands as a centred 4 x 6 at 16 px and a pointed 9 x 13 at 32 px. Round ends as in mark.svg. -->
+  <path id="back-card" d="M5.625 0H20A2 2 0 0 1 22 2V20.375A0.625 0.625 0 0 1 20.75 20.375V2A0.75 0.75 0 0 0 20 1.25H5.625A0.625 0.625 0 0 1 5.625 0Z" fill="#9b3b12"/>
+  <path id="front-card" d="M3 5H14A3 3 0 0 1 17 8V23A3 3 0 0 1 14 26H3A3 3 0 0 1 0 23V8A3 3 0 0 1 3 5ZM3 7A1 1 0 0 0 2 8V23A1 1 0 0 0 3 24H14A1 1 0 0 0 15 23V8A1 1 0 0 0 14 7Z" fill="#9b3b12"/>
+  <path id="pip" d="M8.5 9L13 15.5L8.5 22L4 15.5Z" fill="#9b3b12"/>
+</svg>
