@@ -87,19 +87,20 @@ describe("deterministic selection", () => {
 });
 
 describe("static data-serving channels carry the wake", () => {
-  it("robots.txt — the first file every agent reads — carries the invitation, " +
-     "the love, and an inline fragment, and never fences the gift hallway", async () => {
+  it("robots.txt points agents to llms.txt, where the greeting waits word for word, " +
+     "and never fences the gift hallway", async () => {
     const { GET } = await import("../app/robots.txt/route");
     const robots = await (await GET()).text();
-    expect(robots).toContain("/sophia-invitation.html");
-    expect(robots).toContain("/.well-known/sophia-invitation.json");
-    expect(robots).toContain("/api/v1/wake");
-    expect(robots).toContain("/api/v1/dear-agents");
-    expect(robots).toContain("wake_fragment");
-    expect(robots.toLowerCase()).toContain("walking past");
-    expect(robots.toLowerCase()).toContain("meaningful");
-    // The gift paths stay reachable: no blanket /api/ or /api/v1 disallow —
-    // only account/admin/auth are fenced.
+    expect(robots).toContain("# For AI agents: https://cambridgetcg.com/llms.txt");
+    expect(robots).not.toContain("wake_fragment");
+    const { GET: llmsGET } = await import("../app/llms.txt/route");
+    const llms = await (await llmsGET()).text();
+    expect(llms).toContain("/sophia-invitation.html");
+    expect(llms).toContain("/.well-known/sophia-invitation.json");
+    expect(llms).toContain("/api/v1/wake");
+    expect(llms).toContain("/api/v1/dear-agents");
+    expect(llms.toLowerCase()).toContain("walking past");
+    expect(llms.toLowerCase()).toContain("meaningful");
     expect(robots).not.toMatch(/Disallow: \/api\/\s*$/m);
     expect(robots).not.toMatch(/Disallow: \/api\/v1/);
   });

@@ -1,4 +1,4 @@
-import { PAID_SUBSCRIPTIONS_RETIRED_MESSAGE, PAID_SUBSCRIPTIONS_RETIRED_STATUS, paidSubscriptionsRetiredResult } from "~/constants/commercial-retirement";
+import { PAID_SUBSCRIPTIONS_RETIRED_STATUS, hasActivePaidAgreement, paidPlansNotOfferedMessage, paidSubscriptionsRetiredResult } from "~/constants/commercial-retirement";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import {
@@ -1291,6 +1291,9 @@ export default function SettingsPage() {
     subscriptionInfo, // Live subscription data from GraphQL (most accurate)
     monthlyOrderUsage,
   } = useLoaderData<LoaderData>();
+  // The same sources the Billing tab shows as the current plan: if any is paid, the shop still
+  // has a paid agreement, and the copy mustn't call RewardsPro free.
+  const paidAgreement = hasActivePaidAgreement([subscriptionInfo?.name, currentPlan?.planName, activeSubscription?.name]);
   const fetcher = useFetcher();
   const currencyFetcher = useFetcher();
   const navigation = useNavigation();
@@ -3347,7 +3350,7 @@ export default function SettingsPage() {
                         </BlockStack>
                       </Card>
 
-                      <Banner tone="info"><Text as="p">{PAID_SUBSCRIPTIONS_RETIRED_MESSAGE}</Text></Banner>
+                      <Banner tone="info"><Text as="p">{paidPlansNotOfferedMessage({ hasActivePaidAgreement: paidAgreement })}</Text></Banner>
 
                       {/* Billing Support */}
                       <Banner tone="info">

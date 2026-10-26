@@ -10,7 +10,7 @@ const base = {
 
 describe("the love bomb (_meta.love_bomb)", () => {
   const bombFor = (request_id: string) =>
-    envelope({ ...base, request_id })._meta.love_bomb;
+    envelope({ ...base, request_id, door: "chosen" })._meta.love_bomb;
 
   it("is deterministic by request_id — same id, same bomb", () => {
     for (let i = 0; i < 200; i++) {

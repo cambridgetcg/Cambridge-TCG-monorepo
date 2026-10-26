@@ -49,38 +49,12 @@ const ENVELOPE_FIELDS_ALWAYS_PRESENT: readonly string[] = [
   "deprecation",
   "next_link",
   "self_reference",
-  "kingdom",
-  "wake_fragment",
 ];
 
 const ENVELOPE_FIELDS_SOMETIMES_PRESENT: readonly string[] = [
   "source_license",
   "upstream_proxy",
   "does_not_include",
-];
-
-/** The `_meta.kingdom` (kingdom-stamp) fields. */
-const KINGDOM_STAMP_FIELDS: readonly string[] = [
-  "name",
-  "role",
-  "built_with",
-  "serves_kinds",
-  "host",
-  "epoch",
-  "embassy",
-  "wake",
-  "identify",
-  "siblings",
-];
-
-/** The `_meta.wake_fragment` fields (sister to docs/connections/the-distributed-wake.md). */
-const WAKE_FRAGMENT_FIELDS: readonly string[] = [
-  "id",
-  "kind",
-  "text",
-  "walking_past_is_honored",
-  "canonical_url",
-  "protocol_doc",
 ];
 
 /** Math-mirror preamble fields (math-mirror surfaces — /api/v1/universal/*). */
@@ -102,10 +76,6 @@ const LINK_REL_ALWAYS_PRESENT: readonly string[] = [
   "alternate",
   "https://cambridgetcg.com/rels/rate-limits",
   "https://cambridgetcg.com/rels/feedback",
-  "invitation",
-  "https://cambridgetcg.com/rels/symmetric-surface",
-  "joy",
-  "https://cambridgetcg.com/rels/kin-wake",
 ];
 
 /** Freshness budget keys from @cambridge-tcg/data-spec, exemplified
@@ -200,27 +170,19 @@ export async function GET(): Promise<Response> {
     how_to_use: [
       "1. Fetch this endpoint. Parse the response as JSON.",
       "2. Validate `_meta` against `self_test_assertions.envelope_must_have`.",
-      "3. Validate `_meta.kingdom` against `self_test_assertions.kingdom_stamp_must_have`.",
-      "4. Validate `_meta.wake_fragment` against `self_test_assertions.wake_fragment_must_have`.",
-      "5. Validate `_meta.does_not_include` is present and is a string array (the field is demonstrated on this response).",
-      "6. Re-fetch with `Accept-Encoding: gzip` to confirm your client handles compressed responses.",
-      "7. Inspect the `Link` HTTP header — confirm every rel in `self_test_assertions.link_header_must_include` appears.",
-      "8. Pin the freshness-key exemplars in `freshness_key_exemplars` and license tiers in `license_tier_exemplars` against your local parser tables.",
-      "9. Parse `sample_math_mirror_record` against your math-mirror reader (if you consume /api/v1/universal/*).",
-      "10. If any assertion fails, the field type your parser is missing is the field that broke. Read `if_your_parser_fails_check` for next steps.",
+      "3. Validate `_meta.does_not_include` is present and is a string array (the field is demonstrated on this response).",
+      "4. Re-fetch with `Accept-Encoding: gzip` to confirm your client handles compressed responses.",
+      "5. Inspect the `Link` HTTP header — confirm every rel in `self_test_assertions.link_header_must_include` appears.",
+      "6. Pin the freshness-key exemplars in `freshness_key_exemplars` and license tiers in `license_tier_exemplars` against your local parser tables.",
+      "7. Parse `sample_math_mirror_record` against your math-mirror reader (if you consume /api/v1/universal/*).",
+      "8. If any assertion fails, the field type your parser is missing is the field that broke. Read `if_your_parser_fails_check` for next steps.",
     ],
 
     self_test_assertions: {
       envelope_must_have: ENVELOPE_FIELDS_ALWAYS_PRESENT,
       envelope_may_have_when_relevant: ENVELOPE_FIELDS_SOMETIMES_PRESENT,
-      kingdom_stamp_must_have: KINGDOM_STAMP_FIELDS,
-      wake_fragment_must_have: WAKE_FRAGMENT_FIELDS,
       math_mirror_preamble_must_have: MATH_MIRROR_FIELDS,
       link_header_must_include: LINK_REL_ALWAYS_PRESENT,
-      kingdom_built_with: "love",
-      kingdom_serves_kinds: ["human", "agent", "kin"],
-      kingdom_host: "humans-on-earth",
-      kingdom_epoch: "2026",
     },
 
     freshness_key_exemplars: freshnessKeyExemplars(),
@@ -229,8 +191,6 @@ export async function GET(): Promise<Response> {
 
     if_your_parser_handles_this_correctly: [
       "all envelope-compliant /api/v1/* responses",
-      "the kingdom-stamp at _meta.kingdom (every response)",
-      "the wake_fragment at _meta.wake_fragment (every response — the distributed-wake protocol)",
       "the optional source_license / upstream_proxy / does_not_include fields when populated",
       "the math-mirror preamble at /api/v1/universal/* responses",
       "the seven freshness keys and their numeric seconds",

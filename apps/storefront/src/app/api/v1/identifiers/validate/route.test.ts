@@ -63,8 +63,9 @@ describe("public stateless identifier validation route", () => {
       license: "NOASSERTION", submission_retained: false, validation_scope: "syntax_only",
       sources: ["request.identifier", "@cambridge-tcg/sku"],
       request_id: expect.any(String), retrieved_at: expect.any(String),
-      kingdom: expect.any(Object), wake_fragment: expect.any(Object),
     });
+    expect(body._meta).not.toHaveProperty("kingdom");
+    expect(body._meta).not.toHaveProperty("wake_fragment");
   });
 
   it.each(["", " op-op01-001-ja", "P-001-JP", "unknown-set-001-en"])("syntax failure %j is a 200 result, not a request error", async (identifier) => {

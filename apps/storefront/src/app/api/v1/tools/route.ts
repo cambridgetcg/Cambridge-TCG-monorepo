@@ -46,7 +46,7 @@ import {
   toolsForGemini,
   toolsForOpenAI,
 } from "@/lib/tools";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = [
   "json",
@@ -206,7 +206,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -230,7 +230,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -255,7 +255,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );
@@ -279,7 +279,7 @@ export async function GET(req: NextRequest): Promise<Response> {
         headers: {
           "Cache-Control": TEXT_CACHE,
           "Access-Control-Allow-Origin": "*",
-          Link: agentDiscoveryLinkHeader(),
+          Link: errandDiscoveryLinkHeader(),
         },
       },
     );

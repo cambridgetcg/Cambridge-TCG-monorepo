@@ -2009,7 +2009,7 @@ export default function TierProducts() {
             <Layout.Section>
               <LockedFeature
                 feature="Purchasable Tier Products"
-                upgradeMessage="This feature is outside the existing plan. New paid upgrades are retired."
+                upgradeMessage="This feature is outside the existing plan. Paid plans aren't offered right now."
               />
             </Layout.Section>
           )}
@@ -2530,7 +2530,7 @@ export default function TierProducts() {
                   {!data.canCreateProducts && (
                     <Box paddingBlockStart="400">
                       <Text as="p" tone="subdued">
-                        This feature is unavailable under the existing agreement. New paid plan changes are retired.
+                        This feature is unavailable under the existing agreement. Paid plans aren't offered right now.
                       </Text>
                     </Box>
                   )}

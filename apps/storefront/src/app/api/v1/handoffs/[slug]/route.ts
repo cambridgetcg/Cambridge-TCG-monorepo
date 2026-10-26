@@ -29,7 +29,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { errorResponse, jsonResponse } from "@/lib/data-pantry";
 import { handoffBySlug, listHandoffs, type Handoff } from "@/lib/handoffs";
-import { agentDiscoveryLinkHeader } from "@/lib/siblings";
+import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
 const FORMATS = [
   "json",
@@ -192,7 +192,7 @@ export async function GET(
         "Content-Type": contentType,
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }
@@ -210,7 +210,7 @@ export async function GET(
       headers: {
         "Cache-Control": TEXT_CACHE,
         "Access-Control-Allow-Origin": "*",
-        Link: agentDiscoveryLinkHeader(),
+        Link: errandDiscoveryLinkHeader(),
       },
     });
   }

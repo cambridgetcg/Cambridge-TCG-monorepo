@@ -690,7 +690,7 @@ export default function TiersPage() {
                 }
                 helpText={
                   !data.hasAnnualEval
-                    ? "Annual evaluation is unavailable under the existing agreement. New paid plan changes are retired."
+                    ? "Annual evaluation is unavailable under the existing agreement. Paid plans aren't offered right now."
                     : "Choose how tier status is calculated: annually reset or lifetime cumulative"
                 }
               />

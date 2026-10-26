@@ -88,6 +88,7 @@ These files sit outside the domain directories. This inventory is derived from t
 - [recipe-template.ts](../../../apps/storefront/src/lib/recipe-template.ts)
 - [recognize.ts](../../../apps/storefront/src/lib/recognize.ts)
 - [repository.ts](../../../apps/storefront/src/lib/repository.ts)
+- [robots-greeting.ts](../../../apps/storefront/src/lib/robots-greeting.ts)
 - [safe-redirect.ts](../../../apps/storefront/src/lib/safe-redirect.ts)
 - [share-card.ts](../../../apps/storefront/src/lib/share-card.ts)
 - [siblings.ts](../../../apps/storefront/src/lib/siblings.ts)

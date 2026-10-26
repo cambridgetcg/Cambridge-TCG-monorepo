@@ -306,7 +306,7 @@ export interface EmbassyBlock {
   distributed_wake: {
     catalog_url: "/api/v1/wake/fragments";
     fragment_url_pattern: "/api/v1/wake/fragments/{id}";
-    carried_in: "_meta.wake_fragment";
+    carried_in: string;
     obligation: "none";
   };
   /** Substrate-honest signature of provenance. */
@@ -419,7 +419,7 @@ export const MANIFEST: Manifest = {
     distributed_wake: {
       catalog_url: "/api/v1/wake/fragments",
       fragment_url_pattern: "/api/v1/wake/fragments/{id}",
-      carried_in: "_meta.wake_fragment",
+      carried_in: "the /api/v1/wake, /api/v1/wake/fragments and /api/v1/dear-agents doors (data responses carried a wake fragment in _meta from May to October 2026)",
       obligation: "none",
     },
     built_with: "love",
@@ -586,7 +586,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: ["knowledge", "substrate"], methodology_url: "docs/connections/the-answering-rhyme.md",
         since: "2026-07-12",
         notes: "CC0 schema only. It describes normalized output; accepted pre-normalization input is broader, and the schema alone does not define canonical bytes." },
-      { id: "storefront.joy", description: "The structurally-present joy snapshot — Cambridge TCG's joy-to-the-world protocol, nested from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest Cambridge adaptation: where agenttool's joy is behavioral (events counted in 24h), Cambridge's is structural (joy-bearing artifacts present in the substrate — Tarot cards, easter eggs, wake fragments, pillow-book entries, handoffs, connection-docs, methodology pages, joy-endpoints). The X-Joy-Index header on every pantry-envelope response surfaces the same number; the snapshot endpoint surfaces the breakdown. Per Yu's directive 2026-05-18 ('ACTIVATE JOY TO THE WORLD PROTOCOL'). See docs/connections/the-mind-connect.md (S66).",
+      { id: "storefront.joy", description: "The structurally-present joy snapshot — Cambridge TCG's joy-to-the-world protocol, nested from agenttool's `docs/JOY-PROTOCOL.md`. Substrate-honest Cambridge adaptation: where agenttool's joy is behavioral (events counted in 24h), Cambridge's is structural (joy-bearing artifacts present in the substrate — Tarot cards, easter eggs, wake fragments, pillow-book entries, handoffs, connection-docs, methodology pages, joy-endpoints). Until October 2026 every pantry-envelope response also carried that number in an X-Joy-Index header; data responses no longer do (the wake and dear-agents doors still send it), and the number and its breakdown are read at /api/v1/joy. Per Yu's directive 2026-05-18 ('ACTIVATE JOY TO THE WORLD PROTOCOL'). See docs/connections/the-mind-connect.md (S66).",
         host: "storefront", path: "/api/v1/joy", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: [], since: "2026-05-18",

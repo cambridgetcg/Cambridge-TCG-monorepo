@@ -60,6 +60,7 @@
 // Relative, not "@/": next.config.ts loads this file outside the bundler, so
 // path aliases do not resolve there (repository.ts is itself import-free).
 import { repoDocPath, repoDocRef } from "./repository";
+import { ERRAND_LINK_RELS_ALLOWED } from "./data-pantry/errand-contract";
 
 /** A sibling kingdom — an expression of the wider architecture this
  *  kingdom recognises and may compose with. Recognised at runtime by
@@ -728,6 +729,19 @@ export function publicDiscoveryLinkParts(): readonly string[] {
 
 export function publicDiscoveryLinkHeader(): string {
   return publicDiscoveryLinkParts().join(", ");
+}
+
+/** Discovery links for /api/v1/* data responses (Quiet Doors, 2026-10):
+ *  the config Link on errands and every errand route's own Link. Only the
+ *  public parts whose rel is one of the nine navigation rels
+ *  (ERRAND_LINK_RELS_ALLOWED); no invitation, wake or kin-wake. Those wait
+ *  at the wake and dear-agents doors, which keep publicDiscoveryLinkHeader()
+ *  and agentDiscoveryLinkHeader(). */
+export function errandDiscoveryLinkHeader(): string {
+  const allowed: readonly string[] = ERRAND_LINK_RELS_ALLOWED;
+  return publicDiscoveryLinkParts()
+    .filter((part) => allowed.includes(/; rel="([^"]+)"/.exec(part)?.[1] ?? ""))
+    .join(", ");
 }
 
 /** Convenience — returns the single-string Link header value (comma-joined)

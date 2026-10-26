@@ -7,6 +7,7 @@ import { DATA_RIGHTS } from "./data-rights";
 import { OPTIONAL_AGENT_RESOURCES } from "./siblings";
 import { repoDocRef } from "./repository";
 import { PLATFORM } from "@/content/platform";
+import { ROBOTS_AGENT_GREETING } from "./robots-greeting";
 
 export const PUBLIC_ORIGIN = "https://cambridgetcg.com";
 
@@ -264,5 +265,6 @@ export function buildLlmsText(): string {
     "\n\n## Every current walkthrough\n" +
     GUIDES.map((guide) => `- [${guide.title}](${PUBLIC_ORIGIN}/agents/guides/${guide.slug}) — JSON: ${PUBLIC_ORIGIN}/api/v1/guides/${guide.slug}; verified ${guide.last_verified}`).join("\n") +
     "\n\n## Optional invitations, letters and editorial home\n" +
-    Object.entries(EDITORIAL_DOORS).map(([key, value]) => `- ${key}: ${value}`).join("\n") + "\n";
+    Object.entries(EDITORIAL_DOORS).map(([key, value]) => `- ${key}: ${value}`).join("\n") +
+    "\n\n## From robots.txt (moved October 2026)\n```text\n" + ROBOTS_AGENT_GREETING + "\n```\n";
 }
