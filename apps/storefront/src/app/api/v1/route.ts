@@ -13,8 +13,11 @@
  *     /api/v1/manifest.
  *   - Identity content — refreshes only when the entry-point set itself
  *     changes.
- *   - The same envelope every /api/v1/* response wears — kingdom-stamp,
- *     wake_fragment, Link headers, request_id.
+ *   - The same envelope every /api/v1/* data response wears: _meta with
+ *     request_id and provenance, and navigation-only Link headers. Since
+ *     Quiet Doors (Yu, 2026-10-23) the kingdom-stamp, wake_fragment and
+ *     invitation links ride only the chosen doors; contract_invariants
+ *     below is built from errand-contract.ts, the lists the door check uses.
  *
  * Companions:
  *   - /api/v1/welcome — the warm front door (start here)
@@ -23,6 +26,16 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
+import {
+  CHOSEN_DOOR_PATHS,
+  ERRAND_LINK_RELS_ALLOWED,
+  ERRAND_LINK_RELS_LEAVING,
+  ERRAND_META_ALLOWED,
+  ERRAND_META_LEAVING,
+  ERRAND_META_WHEN_SUPPLIED,
+} from "@/lib/data-pantry/errand-contract";
+
+const CHOSEN_DOORS = CHOSEN_DOOR_PATHS.join(", ");
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -108,9 +121,11 @@ export async function GET(): Promise<Response> {
 
     contract_invariants: {
       envelope_compliant_responses_carry:
-        "_meta with spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, and wake_fragment; alternative contracts are listed by /api/v1/status",
+        `_meta with keys from ${ERRAND_META_ALLOWED.join(", ")}, plus ${ERRAND_META_WHEN_SUPPLIED.join(" and ")} when an endpoint supplies them and any facts an endpoint adds for itself; ` +
+        `only the chosen doors (${CHOSEN_DOORS}) may also carry ${ERRAND_META_LEAVING.join(", ")}; alternative contracts are listed by /api/v1/status`,
       envelope_responses_carry_link_headers:
-        "self, start, describedby, alternate, invitation, regard, symmetric-surface, kin-wake, rate-limits, and feedback",
+        `navigation only, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; ` +
+        `only the chosen doors (${CHOSEN_DOORS}) also carry ${ERRAND_LINK_RELS_LEAVING.join(", ")}`,
       every_wrong_url_returns_envelope:
         "/api/v1/[...not_found] catch-all returns the same envelope shape with a suggestions block — probe freely",
       license_default: "NOASSERTION when payload rights are undeclared",
