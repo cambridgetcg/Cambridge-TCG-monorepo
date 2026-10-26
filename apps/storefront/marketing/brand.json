@@ -10,5 +10,6 @@
   "wordmark": {"text": "Cambridge TCG", "font": "Inter", "style": "SemiBold", "tracking": -40,
                "colour": "#2c1836", "colour_dark": "#fff6e9"},
   "icon": {"tile": "primary", "ink": "#fbf7f1", "padding": 0.18, "radius": 0.22},
+  "app": {"display": "browser"},
   "og": {"title": "TCG data. Made to connect.", "theme": "light"}
 }

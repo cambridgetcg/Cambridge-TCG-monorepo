@@ -18,23 +18,33 @@ import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
 import { PLATFORM } from "@/content/platform";
+import { SHARE_CARD } from "@/lib/share-card";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 // One self-hosted sans family. Monospace and CJK glyphs use system fallbacks.
+
+// Icons, manifest and the default share card are the brand kit's web files
+// (marketing/kit/web), copied into public/. brand-kit.sync.test.ts keeps the
+// copies identical to the kit.
 
 export const metadata: Metadata = {
   title: PLATFORM.title,
   description: PLATFORM.description,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cambridgetcg.com"),
   icons: {
-    icon: "/favicon.ico",
+    // The .ico holds 16, 32 and 48 px; sizes="32x32" lets Chrome choose the SVG.
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
     apple: "/apple-touch-icon.png",
   },
+  manifest: "/site.webmanifest",
   openGraph: {
     title: PLATFORM.title,
     description: PLATFORM.description,
-    images: [{ url: "/images/og-image.png", width: 1200, height: 630 }],
+    images: [SHARE_CARD],
     siteName: "Cambridge TCG",
     type: "website",
   },
@@ -42,7 +52,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: PLATFORM.title,
     description: PLATFORM.description,
-    images: ["/images/twitter-image.png"],
+    images: [SHARE_CARD],
   },
   // Site discovery is emitted as actual <link> elements below, not
   // metadata.other (which emits <meta>) or fake per-page alternates.
@@ -107,7 +117,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           "@type": "Organization",
           name: "Cambridge TCG",
           url: "https://cambridgetcg.com",
-          logo: "https://cambridgetcg.com/images/logo.png",
+          logo: "https://cambridgetcg.com/icon-512.png",
           description: "Card research, collection tools and play resources based in Cambridge, UK. Published data carries source and reuse information. New paid commerce is retired.",
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],

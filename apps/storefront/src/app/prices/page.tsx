@@ -18,6 +18,7 @@ import {
 import { CardPriceSearchForm } from "@/app/prices/_components/CardPriceSearchForm";
 import { MemberPriceBrowser } from "@/components/prices/member-browser";
 import type { MemberPriceSearchParams } from "@/components/prices/member-query";
+import { SHARE_CARD } from "@/lib/share-card";
 
 export const metadata: Metadata = {
   title: "Card prices — Cambridge TCG",
@@ -27,6 +28,7 @@ export const metadata: Metadata = {
     title: "Card prices — Cambridge TCG",
     description:
       "Find a card, browse its set and check available source prices.",
+    images: [SHARE_CARD],
   },
 };
 

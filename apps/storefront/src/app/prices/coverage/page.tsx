@@ -22,6 +22,7 @@ import {
 } from "@/lib/wholesale/client";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { SHARE_CARD } from "@/lib/share-card";
 
 /** Registry status per source id — in-process, no network or database. */
 const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
@@ -34,6 +35,7 @@ export const metadata: Metadata = {
     title: "Aggregator coverage map — Cambridge TCG",
     description:
       "The legacy observation archive, per game and per source: counts and date ranges, no price values.",
+    images: [SHARE_CARD],
   },
 };
 

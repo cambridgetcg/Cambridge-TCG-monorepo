@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
+import { SHARE_CARD } from "@/lib/share-card";
 
 export const metadata: Metadata = {
   title: "How to Play One Piece TCG — Complete Beginner's Guide | Cambridge TCG",
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
       "Learn how to play One Piece TCG from scratch. Card types, setup, turn structure, combat, and deck building basics.",
     type: "article",
     siteName: "Cambridge TCG",
+    images: [SHARE_CARD],
   },
   twitter: {
     card: "summary_large_image",
@@ -143,7 +145,7 @@ export default function HowToPlayPage() {
       url: "https://cambridgetcg.com",
       logo: {
         "@type": "ImageObject",
-        url: "https://cambridgetcg.com/images/logo.png",
+        url: "https://cambridgetcg.com/icon-512.png",
       },
     },
     mainEntityOfPage: "https://cambridgetcg.com/guides/how-to-play",

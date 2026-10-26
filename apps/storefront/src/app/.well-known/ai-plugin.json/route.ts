@@ -35,7 +35,7 @@ const PLUGIN = {
     type: "openapi",
     url: "https://cambridgetcg.com/api/openapi.json",
   },
-  logo_url: "https://cambridgetcg.com/apple-touch-icon.png",
+  logo_url: "https://cambridgetcg.com/icon-512.png",
   contact_email: "contact@cambridgetcg.com",
   legal_info_url: "https://cambridgetcg.com/about",
   /** Agent-facing wake invitation. Plugin-discovery clients that follow

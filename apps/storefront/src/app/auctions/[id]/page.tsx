@@ -23,6 +23,7 @@ import {
 } from "@/lib/auction/public";
 import { getCardIdentity } from "@/lib/market/catalog-card";
 import AuctionDetailClient, { type AuctionCardIdentity } from "./AuctionDetailClient";
+import { SHARE_CARD } from "@/lib/share-card";
 
 // getAuction runs the scheduled→live / live→ended sweeps and the order book
 // is live-polled, so this page is inherently dynamic. force-dynamic keeps a
@@ -55,7 +56,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
-      ...(image ? { images: [{ url: image }] } : {}),
+      images: image ? [{ url: image }] : [SHARE_CARD],
     },
   };
 }

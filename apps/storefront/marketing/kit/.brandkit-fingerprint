@@ -2,7 +2,7 @@
 "format": "brandkit inventory 1",
 "generator": "artcraft-brand brandkit.py 1.5",
 "paths": {
-"BRAND.md": "file c327a829e2ed12fb851adee4522a12a8a1ccbe9d55a706088b72b195e33f9942",
+"BRAND.md": "file 4e83eeef55f14db1fd48d1d4070ed72ab314b971fe195160ecc7b9ec6e1409ee",
 "brand.vectorcraft": "file 3548f72b33e4a07ad8964eb038c203f015c376e3a65cdfc8a4f3415baaf5cefb",
 "colour": "dir",
 "colour/colour-sheet.png": "file 5beb54b755424f549e9f20c08967a1d72b3a3f99ccdcb3d7389bf5eb7bf02294",
@@ -18,12 +18,12 @@
 "colour/tokens.css": "file 6ce0a5a45596f6aeaeaef2f14075b4d795290d4023cd9079c4f64fcd2f903c83",
 "colour/tokens.json": "file 7141daa0c6cb6fc162a0b458c852ad2513410c41b6b28fcfee1d658c774af21f",
 "index.html": "file 194646b054bce97e3782011d084cc3c4b37f62731087acc43e63e4ac904bae40",
-"kit.json": "file 2808caebb9286ad3347228fa55b4297394a1e915e86330865ee373c681d0893b",
+"kit.json": "file f346050e51e51373673d9318840a9180e62cb2584441dcfb0e9046b71f50d2f4",
 "logo": "dir",
 "logo/lockup-horizontal-reversed.png": "file f723b91e5240d77db371da42003b529c7b93b9ffac18be273368a0f7a9b9d7d7",
 "logo/lockup-horizontal-reversed.svg": "file ca97fc3f6326b9a884389630ccf581fdde9ff1d82f17c6538345f81c549b5474",
 "logo/lockup-horizontal-reversed@2x.png": "file 56f4941bed86c4449d836f04216116cd2b8ea9718f49d915febe8f2aa51118f4",
-"logo/lockup-horizontal.pdf": "file f5bf8fca9b4390840f214a217da0bfbdc77faed0436caea7237defd8beb5d059",
+"logo/lockup-horizontal.pdf": "file 2bd429c36d63cc04cae4dececef27848eef1ff4c401b264c03fb0696c17968f5",
 "logo/lockup-horizontal.png": "file f7362b8685b854e90b717e1b98979cecd0d928d1cd1d1cfeb157f3b339ce4ddc",
 "logo/lockup-horizontal.svg": "file 5ea2eea4f882debe3bc20eeb5f0cdef2a52dbb5a1d684246673efb451bfe3697",
 "logo/lockup-horizontal@2x.png": "file 079d03c8330742ab74301d27e9ddc56f2e70f5cb4fa273daa41585acf4300794",
@@ -39,7 +39,7 @@
 "logo/mark-mono-white.png": "file 1ba9cc37a58903aa6739da7c73f2a55653443d6fe1a60946c906f85421469d0a",
 "logo/mark-mono-white.svg": "file 866e1e18d3285c9cae32a1bf82705b6f4568160b05ab0235e91f6c4419a7248e",
 "logo/mark-mono-white@2x.png": "file fd812b1c98e61bf8e5b90639ceb08827491e801f6b4cd29b0b25b40a534a4fc3",
-"logo/mark.pdf": "file 128dd0c284e6d4f0af3f4ef2f3ee5821006d3ec07af1e1859d9b5ddb07acf1de",
+"logo/mark.pdf": "file dc8b7854c7a9cd7f6ba76d0c97eb5195472bcee2dbae8635a1e3f56c8f9cb1b6",
 "logo/mark.png": "file 578218c67efe29fbe0b337267bbe355c42ed0b9afdbd695ede821711eaf04c47",
 "logo/mark.svg": "file cf6b587b2e67a5216371c3cee330c5fc3a05f6ec8736432a13d760eae0ce9f15",
 "logo/mark@2x.png": "file 7027ddd83910b611cfc1d24601a84c971403fd9b7c2eb0bb27ee2d86caceee6b",
@@ -63,7 +63,7 @@
 "social/avatar-1024.png": "file 23a51c0ab164429ad7bed5de3680e700c55c25b3e921b8bdd76e4ed405fe71ec",
 "social/avatar-400.png": "file 6f28808a7f3b6fc2f697f656afb30775a666bb54dbf09b974efde470434dc975",
 "source": "dir",
-"source/brand.json": "file 5cf56ccae4633764e656ffac3038efb0b1905752cdba35490faa90b5061d8714",
+"source/brand.json": "file 6838e97df3614e78c9b87f9f8d1c7f39e4c7fe7ca4407eeff425e00b6f853d66",
 "source/mark-small.svg": "file 2ae0888607390a5c77014e56a8123c08944e0202202c66a8f9fe90bf194dec59",
 "source/mark-source.svg": "file 934a7e082005ab8496adcdcb67711d8007e29d1297b3662c2e60574fbbb9b1f6",
 "verify.json": "file",
@@ -79,6 +79,6 @@
 "web/icon-maskable-512.png": "file 16d6c18029ec184531952d26b717e315f72b5b24045e80ee04f93dd1cb40f2ae",
 "web/og.jpg": "file f6b5d8485fd4af30f3b455163e526c4b39750a16b7b70c152ce31c3b976f43af",
 "web/og.png": "file 0625351f25a401d3edd948986f85011382e455f4347d51ddc0dd63753b18dcbc",
-"web/site.webmanifest": "file 9c0f215dde981d84d16fd2762ade2d6915c05e4fe0f1a233a066a0f682fb5b3b"
+"web/site.webmanifest": "file e7bcd1282845068fee0701b76f7b51764277c2d9b1f398d20c7a635fb1100d07"
 }
 }

@@ -6,7 +6,7 @@
   "lang": "en-GB",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#FBF7F1",
   "theme_color": "#FBF7F1",
   "icons": [

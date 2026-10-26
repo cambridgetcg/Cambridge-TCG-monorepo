@@ -26,7 +26,7 @@
    "pass": true,
    "level": "error",
    "file": "BRAND.md",
-   "measured": 24251
+   "measured": 23856
   },
   {
    "id": "file.exists",
@@ -40,14 +40,14 @@
    "pass": true,
    "level": "error",
    "file": "kit.json",
-   "measured": 20524
+   "measured": 20521
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "source/brand.json",
-   "measured": 845
+   "measured": 886
   },
   {
    "id": "file.exists",
@@ -383,7 +383,7 @@
    "pass": true,
    "level": "error",
    "file": "web/site.webmanifest",
-   "measured": 678
+   "measured": 675
   },
   {
    "id": "file.exists",
@@ -2451,7 +2451,7 @@
    "level": "error",
    "file": "web/site.webmanifest",
    "measured": {
-    "display": "standalone",
+    "display": "browser",
     "theme_color": "#FBF7F1",
     "background_color": "#FBF7F1"
    },
@@ -2525,10 +2525,9 @@
    "measured": {
     "identical": 68,
     "different": [],
-    "fingerprint": "fc5aacf03cd572dca9e7b06ca05c6fcc1c981ed74a6125077958f614526ceb9c"
+    "fingerprint": "0dd252170d92c15851678477b3121fc28f87459c6a8147ee10dcbb4e28f4d00b"
    },
-   "note": "second build from source/brand.json in a temp folder, compared byte for byte; recorded by brandkit --rebuild-check, the kit files are unchanged since",
-   "carried": true
+   "note": "second build from source/brand.json in a temp folder, compared byte for byte"
   },
   {
    "id": "rebuild.pdf",
@@ -2538,8 +2537,7 @@
     "logo/lockup-horizontal.pdf": "differs",
     "logo/mark.pdf": "differs"
    },
-   "note": "PDFs are not reproducible on vectorcraft-cli 0.13.1 (wall-clock dates and /ID); not compared; recorded by brandkit --rebuild-check, the kit files are unchanged since",
-   "carried": true
+   "note": "PDFs are not reproducible on vectorcraft-cli 0.13.1 (wall-clock dates and /ID); not compared"
   }
  ]
 }

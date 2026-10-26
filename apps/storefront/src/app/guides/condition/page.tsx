@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
+import { SHARE_CARD } from "@/lib/share-card";
 
 /**
  * /guides/condition — the inspector's guide to condition and grading.
@@ -42,6 +43,7 @@ export const metadata: Metadata = {
       "White spots, centering, and the published standards that turn them into price: marketplace ladders, grading-house centering tables, and dated evidence.",
     type: "article",
     siteName: "Cambridge TCG",
+    images: [SHARE_CARD],
   },
   alternates: {
     canonical: "https://cambridgetcg.com/guides/condition",

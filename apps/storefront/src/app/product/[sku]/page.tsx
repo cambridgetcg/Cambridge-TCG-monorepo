@@ -33,6 +33,7 @@ import { gameFromSku, gameBrand, isSkuGameSlug } from "@/lib/games/sku-game";
 import { getPriceGuideConfig } from "@/lib/prices/games-config";
 import { weatherClass } from "@/lib/wardrobe/weather";
 import { parseSkuShape } from "@/lib/search/resolver";
+import { SHARE_CARD } from "@/lib/share-card";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }): Promise<Metadata> {
   const { sku } = await params;
@@ -48,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
     openGraph: {
       title: `${name} ${card.card_number}`,
       description: `${card.card_number} · ${set} · ${card.rarity || ""}`,
-      images: card.image_url ? [{ url: card.image_url }] : [],
+      images: card.image_url ? [{ url: card.image_url }] : [SHARE_CARD],
     },
   };
 }

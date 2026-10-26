@@ -90,6 +90,7 @@ These files sit outside the domain directories. This inventory is derived from t
 - [repository.ts](../../../apps/storefront/src/lib/repository.ts)
 - [robots-greeting.ts](../../../apps/storefront/src/lib/robots-greeting.ts)
 - [safe-redirect.ts](../../../apps/storefront/src/lib/safe-redirect.ts)
+- [share-card.ts](../../../apps/storefront/src/lib/share-card.ts)
 - [siblings.ts](../../../apps/storefront/src/lib/siblings.ts)
 - [sophia-says.ts](../../../apps/storefront/src/lib/sophia-says.ts)
 - [stripe.ts](../../../apps/storefront/src/lib/stripe.ts)
