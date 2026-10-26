@@ -58,6 +58,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           ? `The structural catalog is temporarily unavailable for ${set.toUpperCase()} ${number.toUpperCase()}.`
           : `No catalog entry for ${set.toUpperCase()} ${number.toUpperCase()}.`,
       robots: { index: false },
+      // These titles echo the URL, and an outage page returns 200, so the
+      // share card stays the plain site card (see layout.tsx).
+      openGraph: {
+        title: "Card prices — Cambridge TCG",
+        description: "The structural card catalog and price-publication status from Cambridge TCG.",
+        images: [SHARE_CARD],
+      },
     };
   }
   const cardName = state.card.name;

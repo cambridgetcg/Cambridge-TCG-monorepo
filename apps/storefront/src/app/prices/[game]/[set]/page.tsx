@@ -99,6 +99,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${setCode} — set not found · ${cfg.display_name}`,
       description: `No catalog entry for ${setCode} in ${cfg.display_name}.`,
       robots: { index: false },
+      // The title echoes the URL, so the share card stays the plain site card
+      // (see layout.tsx).
+      openGraph: {
+        title: "Card prices — Cambridge TCG",
+        description: "The structural card catalog and price-publication status from Cambridge TCG.",
+        images: [SHARE_CARD],
+      },
     };
   }
 

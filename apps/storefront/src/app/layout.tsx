@@ -46,6 +46,9 @@ export const metadata: Metadata = {
   // and description, and every twitter: tag from the page's resolved openGraph
   // (so a card page's X preview shows its card too). Setting them here gave
   // every page without its own openGraph the site-wide title when shared.
+  // A page whose title echoes the URL (a search query, an unchecked slug, a
+  // not-found or outage branch) sets a fixed openGraph title instead, or a
+  // shared link could put anyone's text on a cambridgetcg.com card.
   openGraph: {
     images: [SHARE_CARD],
     siteName: "Cambridge TCG",

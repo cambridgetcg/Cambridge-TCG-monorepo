@@ -20,6 +20,7 @@
  */
 
 import type { Metadata } from "next";
+import { SHARE_CARD } from "@/lib/share-card";
 import Link from "next/link";
 import Image from "next/image";
 import { PageLayout } from "@/lib/ui/PageLayout";
@@ -85,6 +86,8 @@ export async function generateMetadata({
     title,
     description:
       "Search structural card fields by number. Legacy prices, images, and transaction history are withheld; source status and known language variants remain visible.",
+    // The title echoes the URL, so the share card gets a fixed one (see layout.tsx).
+    openGraph: { title: "Structural Card Search — Cambridge TCG", images: [SHARE_CARD] },
   };
 }
 
