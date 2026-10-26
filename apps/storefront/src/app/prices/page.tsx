@@ -19,6 +19,7 @@ import { CardPriceSearchForm } from "@/app/prices/_components/CardPriceSearchFor
 import { MemberPriceBrowser } from "@/components/prices/member-browser";
 import type { MemberPriceSearchParams } from "@/components/prices/member-query";
 import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 export const metadata: Metadata = {
   title: "Card prices — Cambridge TCG",
@@ -109,10 +110,7 @@ export default async function PricesLandingPage({ searchParams }: {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
 
       <PageLayout>
         <div lang="en">

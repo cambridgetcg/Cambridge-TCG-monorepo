@@ -31,7 +31,8 @@ import { fetchRates } from "@/lib/fx/rates";
 import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
 import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
-import { SHARE_CARD } from "@/lib/share-card";
+import { SHARE_CARD, fixedShareCard } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -57,6 +58,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           ? `The structural catalog is temporarily unavailable for ${set.toUpperCase()} ${number.toUpperCase()}.`
           : `No catalog entry for ${set.toUpperCase()} ${number.toUpperCase()}.`,
       robots: { index: false },
+      // These titles echo the URL and the page returns 200, so the share
+      // card is fixed.
+      openGraph: fixedShareCard(
+        "Card prices — Cambridge TCG",
+        "The structural card catalog and price-publication status from Cambridge TCG.",
+      ),
     };
   }
   const cardName = state.card.name;
@@ -148,15 +155,9 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
       {productJsonLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-        />
+        <JsonLd data={productJsonLd} />
       )}
 
       <main className="max-w-5xl mx-auto px-4 py-12">

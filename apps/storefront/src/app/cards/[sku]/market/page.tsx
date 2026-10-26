@@ -26,6 +26,7 @@
  */
 
 import type { Metadata } from "next";
+import { fixedShareCard } from "@/lib/share-card";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { loadCardMarket } from "@/lib/market/card-market";
@@ -45,6 +46,7 @@ export async function generateMetadata({
     title: `${sku} — Market`,
     description:
       "Public read-only mirror of one card's deliberate order intent and non-person reference history. Completed-trade analytics are paused. No auth required.",
+    openGraph: fixedShareCard("Card market mirror — Cambridge TCG"),
     other: audienceMetadata("consumer", ["market", "card", "public-read"]),
   };
 }

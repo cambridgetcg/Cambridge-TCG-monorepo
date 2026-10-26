@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Inter } from "next/font/google";
-import Script from "next/script";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
 import Nav from "@/components/layout/Nav";
@@ -19,6 +18,7 @@ import { themeAttr } from "@/lib/wardrobe/themes";
 import { auth } from "@/lib/auth";
 import { PLATFORM } from "@/content/platform";
 import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -41,19 +41,20 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
+  // No title or description in openGraph, and only the card type in twitter:
+  // Next.js then fills og:title and og:description from each page's own title
+  // and description, and every twitter: tag from the page's resolved openGraph
+  // (so a card page's X preview shows its card too). Setting them here gave
+  // every page without its own openGraph the site-wide title when shared.
+  // A page whose title echoes the URL uses fixedShareCard() from
+  // lib/share-card.ts instead, or a shared link could put anyone's text on a
+  // cambridgetcg.com card.
   openGraph: {
-    title: PLATFORM.title,
-    description: PLATFORM.description,
     images: [SHARE_CARD],
     siteName: "Cambridge TCG",
     type: "website",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: PLATFORM.title,
-    description: PLATFORM.description,
-    images: [SHARE_CARD],
-  },
+  twitter: { card: "summary_large_image" },
   // Site discovery is emitted as actual <link> elements below, not
   // metadata.other (which emits <meta>) or fake per-page alternates.
 };
@@ -112,7 +113,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={inter.variable}
     >
       <head>
-        <Script id="org-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        <JsonLd data={{
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "Cambridge TCG",
@@ -121,8 +122,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           description: "Card research, collection tools and play resources based in Cambridge, UK. Published data carries source and reuse information. New paid commerce is retired.",
           address: { "@type": "PostalAddress", addressLocality: "Cambridge", addressCountry: "GB" },
           sameAs: [],
-        }) }} />
-        <Script id="website-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        }} />
+        <JsonLd data={{
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "Cambridge TCG",
@@ -132,7 +133,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             target: "https://cambridgetcg.com/prices/search?q={search_term_string}",
             "query-input": "required name=search_term_string",
           },
-        }) }} />
+        }} />
         {/* Same pure site-description and optional-invitation definitions
             as the HTTP Link header; these links preload or invoke nothing. */}
         {publicDiscoveryHtmlLinks().map((link) => (

@@ -188,6 +188,7 @@ describe("public source-rights contracts", () => {
     expect(source).not.toMatch(/\bquery\s*\(/);
     expect(source).not.toContain("next/script");
     expect(source).not.toContain("application/ld+json");
+    expect(source).not.toContain("components/site/JsonLd");
     expect(source).toContain('dynamic = "force-dynamic"');
     expect(source).toContain("No agent handle, display name, model tag, operator identity");
   });
