@@ -23,7 +23,7 @@ import {
   type PriceGuideGameConfig,
 } from "@/lib/prices/games-config";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
-import { SHARE_CARD } from "@/lib/share-card";
+import { SHARE_CARD, fixedShareCard } from "@/lib/share-card";
 import { JsonLd } from "@/components/site/JsonLd";
 
 /** Registry status per source id — in-process, no network or database. */
@@ -99,13 +99,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: `${setCode} — set not found · ${cfg.display_name}`,
       description: `No catalog entry for ${setCode} in ${cfg.display_name}.`,
       robots: { index: false },
-      // The title echoes the URL, so the share card stays the plain site card
-      // (see layout.tsx).
-      openGraph: {
-        title: "Card prices — Cambridge TCG",
-        description: "The structural card catalog and price-publication status from Cambridge TCG.",
-        images: [SHARE_CARD],
-      },
+      // The title echoes the URL and the page returns 200, so the share card
+      // is fixed.
+      openGraph: fixedShareCard(
+        "Card prices — Cambridge TCG",
+        "The structural card catalog and price-publication status from Cambridge TCG.",
+      ),
     };
   }
 

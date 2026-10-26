@@ -52,9 +52,17 @@ describe("share card on pages with their own openGraph", () => {
     .filter((name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name))
     .map((name) => join(appDir, name));
 
+  // Every `openGraph:` value: a block over several lines (to its closing
+  // brace), or the rest of the line (a one-line block, a fixedShareCard()
+  // call, anything else). Anything else fails the check below rather than
+  // escaping it.
   function openGraphBlocks(source: string): string[] {
     const blocks: string[] = [];
-    for (const match of source.matchAll(/^([ \t]*)openGraph: \{$/gm)) {
+    for (const match of source.matchAll(/^([ \t]*)openGraph:(.*)$/gm)) {
+      if (match[2].trim() !== "{") {
+        blocks.push(match[0]);
+        continue;
+      }
       const end = source.indexOf(`\n${match[1]}},`, match.index);
       blocks.push(source.slice(match.index, end < 0 ? undefined : end));
     }
@@ -68,7 +76,7 @@ describe("share card on pages with their own openGraph", () => {
   it("gives every openGraph block the share card", () => {
     const missing = sources.flatMap((file) =>
       openGraphBlocks(readFileSync(file, "utf8"))
-        .filter((block) => !/\bimages\s*:[^\n]*\bSHARE_CARD\b/.test(block))
+        .filter((block) => !/\bimages\s*:[^\n]*\bSHARE_CARD\b/.test(block) && !/\bfixedShareCard\(/.test(block))
         .map(() => relative(app, file)),
     );
     expect(missing).toEqual([]);

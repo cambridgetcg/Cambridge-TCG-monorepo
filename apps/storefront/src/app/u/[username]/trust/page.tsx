@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SHARE_CARD } from "@/lib/share-card";
+import { fixedShareCard } from "@/lib/share-card";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadPublishedTrustState } from "@/lib/trust/public";
@@ -21,8 +21,7 @@ export async function generateMetadata({
     title: `${username} — Trust`,
     description:
       "Narrow public trust evidence for an explicitly-public profile: score, tier, completed trades and public-review aggregates.",
-    // The title echoes the URL, so the share card gets a fixed one (see layout.tsx).
-    openGraph: { title: "Public trust profile — Cambridge TCG", images: [SHARE_CARD] },
+    openGraph: fixedShareCard("Public trust profile — Cambridge TCG"),
     other: audienceMetadata("consumer", ["trust", "user", "public-read"]),
   };
 }
