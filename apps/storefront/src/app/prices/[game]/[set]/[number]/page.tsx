@@ -32,6 +32,7 @@ import { getDisplayCurrency } from "@/lib/fx/currency-server";
 import { CurrencySelector, CurrencyWhyLink } from "@/components/CurrencySelector";
 import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
 import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 interface PageProps {
   params: Promise<{ game: string; set: string; number: string }>;
@@ -148,15 +149,9 @@ export default async function CardPriceGuidePage({ params }: PageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
       {productJsonLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-        />
+        <JsonLd data={productJsonLd} />
       )}
 
       <main className="max-w-5xl mx-auto px-4 py-12">

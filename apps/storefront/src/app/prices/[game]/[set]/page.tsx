@@ -24,6 +24,7 @@ import {
 } from "@/lib/prices/games-config";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 /** Registry status per source id — in-process, no network or database. */
 const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
@@ -246,10 +247,7 @@ export default async function SetPriceGuidePage({
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
 
       <main className="max-w-6xl mx-auto px-4 py-12">
         {/* Breadcrumb */}

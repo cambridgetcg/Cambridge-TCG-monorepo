@@ -26,8 +26,8 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import Script from "next/script";
 import { audienceMetadata } from "@/lib/ui";
+import { JsonLd } from "@/components/site/JsonLd";
 
 export const metadata: Metadata = {
   title: "Glossary — Cambridge TCG",
@@ -371,11 +371,7 @@ function jsonLdForGroups(): unknown {
 export default function GlossaryPage() {
   return (
     <>
-      <Script
-        id="glossary-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdForGroups()) }}
-      />
+      <JsonLd data={jsonLdForGroups()} />
       <div className="min-h-screen bg-page">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <header className="mb-10">

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Script from "next/script";
 import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 export const metadata: Metadata = {
   title: "Every Way to Buy a Card — The Honest Buying Guide | Cambridge TCG",
@@ -188,21 +188,9 @@ export default function BuyingGuidePage() {
 
   return (
     <main className="min-h-screen bg-page">
-      <Script
-        id="buying-breadcrumb-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      <Script
-        id="buying-article-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
-      />
-      <Script
-        id="buying-faq-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
+      <JsonLd data={articleJsonLd} />
+      <JsonLd data={faqJsonLd} />
 
       {/* ============================================================ */}
       {/*  HERO                                                         */}

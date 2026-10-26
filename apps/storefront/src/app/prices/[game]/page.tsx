@@ -47,6 +47,7 @@ import { weatherClass } from "@/lib/wardrobe/weather";
 import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 /** Registry status per source id — in-process, no network or database. */
 const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
@@ -407,10 +408,7 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
 
       <main className="max-w-6xl mx-auto px-4 py-12">
         <Audience kind="public-documentation" contexts={["prices", cfg.slug]} />

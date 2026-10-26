@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Script from "next/script";
 import { SHARE_CARD } from "@/lib/share-card";
+import { JsonLd } from "@/components/site/JsonLd";
 
 export const metadata: Metadata = {
   title: "How to Play One Piece TCG — Complete Beginner's Guide | Cambridge TCG",
@@ -184,21 +184,9 @@ export default function HowToPlayPage() {
 
   return (
     <main className="min-h-screen bg-page">
-      <Script
-        id="how-to-play-breadcrumb-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      <Script
-        id="how-to-play-article-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
-      />
-      <Script
-        id="how-to-play-faq-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
+      <JsonLd data={breadcrumbJsonLd} />
+      <JsonLd data={articleJsonLd} />
+      <JsonLd data={faqJsonLd} />
 
       {/* ============================================================ */}
       {/*  HERO                                                         */}
