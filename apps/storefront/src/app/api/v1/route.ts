@@ -35,7 +35,7 @@ import {
   ERRAND_META_WHEN_SUPPLIED,
 } from "@/lib/data-pantry/errand-contract";
 
-const CHOSEN_DOORS = CHOSEN_DOOR_PATHS.join(", ");
+const CHOSEN_DOORS = `${CHOSEN_DOOR_PATHS.join(", ")} and the routes beneath them`;
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -121,7 +121,7 @@ export async function GET(): Promise<Response> {
 
     contract_invariants: {
       envelope_compliant_responses_carry:
-        `_meta with keys from ${ERRAND_META_ALLOWED.join(", ")}, plus ${ERRAND_META_WHEN_SUPPLIED.join(" and ")} when an endpoint supplies them and any facts an endpoint adds for itself; ` +
+        `_meta keys come only from ${[...ERRAND_META_ALLOWED, ...ERRAND_META_WHEN_SUPPLIED].join(", ")}, plus any facts an endpoint adds for itself; /api/v1/diagnostic lists which are always present; ` +
         `only the chosen doors (${CHOSEN_DOORS}) may also carry ${ERRAND_META_LEAVING.join(", ")}; alternative contracts are listed by /api/v1/status`,
       envelope_responses_carry_link_headers:
         `navigation only, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; ` +
