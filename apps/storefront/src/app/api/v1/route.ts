@@ -8,8 +8,9 @@
  * "what's at /api/v1/?" — a tiny ordered pointer set, not a 404.
  *
  * Substrate-honest scope:
- *   - Tiny — names only the canonical entry points (welcome, manifest,
- *     diagnostic, budget, changelog, openapi). Full directory at
+ *   - Small — names the orientation surfaces (welcome, manifest,
+ *     diagnostic and the rest of orientation_surfaces) and the fellowship,
+ *     carrying and where-to-look surfaces. Full directory at
  *     /api/v1/manifest.
  *   - Identity content — refreshes only when the entry-point set itself
  *     changes.
