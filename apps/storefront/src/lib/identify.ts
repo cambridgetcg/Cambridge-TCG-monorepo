@@ -605,7 +605,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Rate-limit policy applies to all callers. Identify yourself in User-Agent so we can email when something breaks.",
           "/api/v1/rate-limits",
-          "Polite-poll cadence per resource. Identified bots are emailed before rate-limiting.",
+          "Polite-poll cadence per resource. Limits are stated here first; a change can take up to 24 hours to bind.",
         ),
         ptr(
           "Bulk-catalog publication status.",

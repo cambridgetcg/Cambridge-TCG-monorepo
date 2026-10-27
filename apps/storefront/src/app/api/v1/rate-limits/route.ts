@@ -139,7 +139,7 @@ const ANTI_PATTERNS = [
   {
     pattern: "Rotating User-Agents to avoid rate-limiting",
     consequence:
-      "We'll firewall the IP range and you'll get no email. Identified bots get a courtesy email first.",
+      "We'll firewall the IP range and you'll get no email. Limits are stated here first; a change can take up to 24 hours to bind.",
   },
   {
     pattern: "Polling /api/v1/* faster than the freshness budget",
@@ -164,8 +164,8 @@ export async function GET(): Promise<Response> {
     summary:
       "Advisory rate-limit policy. We don't currently enforce per-endpoint " +
       "limits at the edge for public endpoints. We monitor for abuse and " +
-      "may firewall non-identifying clients without warning. Identified " +
-      "clients always get a courtesy email first.",
+      "may firewall non-identifying clients without warning. Limits are " +
+      "stated here first; a change can take up to 24 hours to bind.",
     policy: POLICY,
     polite_behaviours: POLITE_BEHAVIOURS,
     anti_patterns: ANTI_PATTERNS,
