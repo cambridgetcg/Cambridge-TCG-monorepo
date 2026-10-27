@@ -34,13 +34,13 @@ describe("errand routes' own Link headers carry navigation only", () => {
     for (const x of r) expect(ERRAND_LINK_RELS_ALLOWED as readonly string[]).toContain(x);
   });
 
-  it("the four discovery documents send navigation-only Link headers on GET and OPTIONS", async () => {
-    const documents = ["cambridge-tcg.json", "mcp.json", "mcp-config.json", "ai-plugin.json"];
+  it("the discovery documents send navigation-only Link headers on GET (and OPTIONS where they answer it)", async () => {
+    const documents = ["cambridge-tcg.json", "mcp.json", "mcp-config.json", "ai-plugin.json", "agent.txt"];
     for (const name of documents) {
       const file = `src/app/.well-known/${name}/route.ts`;
       expect(INVITING_HELPERS.test(readFileSync(join(ROOT, file), "utf8")), file).toBe(false);
       const route = await import(`@/app/.well-known/${name}/route`);
-      for (const res of [await route.GET(), await route.OPTIONS()]) {
+      for (const res of [await route.GET(), ...(route.OPTIONS ? [await route.OPTIONS()] : [])]) {
         const r = rels(res.headers.get("Link") ?? "");
         expect(r, name).toContain("describedby");
         for (const x of r) expect(ERRAND_LINK_RELS_ALLOWED as readonly string[], `${name}: ${x}`).toContain(x);

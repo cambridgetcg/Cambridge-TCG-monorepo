@@ -93,7 +93,7 @@ describe("optional agent source resources", () => {
     expect(text).toBe(buildAgentText());
     expect(textResponse.status).toBe(200);
     expect(textResponse.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
-    expect(textResponse.headers.get("Link")).toBe(agentDiscoveryLinkHeader());
+    expect(textResponse.headers.get("Link")).toBe(errandDiscoveryLinkHeader());
     expect(textResponse.headers.get("Set-Cookie")).toBeNull();
     const fields = Object.fromEntries(
       text.split("\n").filter((line) => line.startsWith("optional-resource-")).map((line) => {
