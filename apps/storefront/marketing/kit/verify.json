@@ -1,7 +1,7 @@
 {
  "kit": "Cambridge TCG",
  "ok": true,
- "checks_run": 265,
+ "checks_run": 269,
  "errors": 0,
  "warnings": 0,
  "not_checked": [
@@ -19,28 +19,28 @@
    "pass": true,
    "level": "error",
    "file": "brand.vectorcraft",
-   "measured": 3201555
+   "measured": 714354
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "BRAND.md",
-   "measured": 23856
+   "measured": 26131
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "index.html",
-   "measured": 32292
+   "measured": 33494
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "kit.json",
-   "measured": 20521
+   "measured": 20612
   },
   {
    "id": "file.exists",
@@ -257,14 +257,14 @@
    "pass": true,
    "level": "error",
    "file": "logo/mark.pdf",
-   "measured": 2717
+   "measured": 2760
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal.pdf",
-   "measured": 8130
+   "measured": 8173
   },
   {
    "id": "file.exists",
@@ -390,7 +390,14 @@
    "pass": true,
    "level": "error",
    "file": "web/head-snippet.html",
-   "measured": 1824
+   "measured": 1974
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-home.html",
+   "measured": 760
   },
   {
    "id": "file.exists",
@@ -1893,7 +1900,7 @@
     "bytes": 1407,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1905,7 +1912,7 @@
     "bytes": 1392,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1917,7 +1924,7 @@
     "bytes": 1392,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1929,7 +1936,7 @@
     "bytes": 11396,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1941,7 +1948,7 @@
     "bytes": 11414,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1953,7 +1960,7 @@
     "bytes": 12484,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1965,7 +1972,7 @@
     "bytes": 12502,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1977,7 +1984,7 @@
     "bytes": 13112,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1989,7 +1996,7 @@
     "bytes": 13130,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -2001,7 +2008,7 @@
     "bytes": 2174,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -2013,7 +2020,7 @@
     "bytes": 1083310,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "colour_sheet.hex_fills",
@@ -2247,7 +2254,7 @@
    "level": "error",
    "file": "index.html",
    "measured": {
-    "links": 75,
+    "links": 76,
     "inline_images": 4,
     "missing": [],
     "external": []
@@ -2326,7 +2333,7 @@
    "level": "error",
    "file": "web/og.jpg",
    "measured": 63619,
-   "note": "hard limit 1 MB"
+   "note": "WhatsApp: should be under 600 KB (600,000 bytes), at least 300 px wide, aspect at most 4:1; larger may get a small preview or none (Facebook allows 8 MB)"
   },
   {
    "id": "og.jpg_bytes_target",
@@ -2334,7 +2341,7 @@
    "level": "warn",
    "file": "web/og.jpg",
    "measured": 63619,
-   "note": "target 300 KB"
+   "note": "the kit's own target, 300 KB (not WhatsApp's 300 KB rule, which is for the page's <head>)"
   },
   {
    "id": "og.jpg_decodes",
@@ -2492,10 +2499,37 @@
    "note": "og:locale en_GB for lang en-GB"
   },
   {
-   "id": "head.organization",
+   "id": "head.color_scheme",
    "pass": true,
    "level": "error",
    "file": "web/head-snippet.html",
+   "measured": [
+    "light dark"
+   ],
+   "note": "exactly one color-scheme meta, \"light dark\" (brand.json app.color_scheme)"
+  },
+  {
+   "id": "head.theme_color",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-snippet.html",
+   "measured": [
+    [
+     "#FBF7F1",
+     "light"
+    ],
+    [
+     "#1D1425",
+     "dark"
+    ]
+   ],
+   "note": "the pair for a page with both schemes, one colour (no media) for a one-scheme page"
+  },
+  {
+   "id": "head.organization",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-home.html",
    "measured": {
     "found": true,
     "logo": "https://cambridgetcg.com/icon-512.png",
@@ -2508,36 +2542,52 @@
    "note": "JSON-LD Organization with the brand's name and url; its logo is an absolute URL of a file in web/, square, at least 112 px and opaque (Google: it must look right on white)"
   },
   {
+   "id": "head.website",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-home.html",
+   "measured": {
+    "name": "Cambridge TCG",
+    "url": "https://cambridgetcg.com/"
+   },
+   "note": "JSON-LD WebSite (Google site name): the brand's name, its short name as alternateName when it differs, and url the home page at the root of the host"
+  },
+  {
+   "id": "head.site_root",
+   "pass": true,
+   "level": "warn",
+   "file": "web/head-home.html",
+   "measured": {
+    "url": "https://cambridgetcg.com",
+    "website_url": "https://cambridgetcg.com/"
+   },
+   "note": "Google does not support site names below the host: brand.json url names a path, so the WebSite url is the root of its host; the site name applies there"
+  },
+  {
    "id": "tools.tested",
    "pass": true,
    "level": "warn",
    "measured": {
     "tool": "vectorcraft-cli",
-    "built_with": "vectorcraft-cli 0.13.1",
-    "tested": "0.13.1"
+    "built_with": "vectorcraft-cli 0.17.0",
+    "tested": [
+     "0.13.1",
+     "0.14.0",
+     "0.17.0"
+    ]
    },
-   "note": "built with the version this tool was tested with; after an update re-run the examples with --rebuild-check and re-check references/apps.md \"Version skew\""
+   "note": "built with a version this tool was tested with (a warning means another one); after an update re-run the examples with --rebuild-check and re-check references/apps.md \"Version skew\""
   },
   {
    "id": "rebuild.identical",
    "pass": true,
    "level": "error",
    "measured": {
-    "identical": 68,
+    "identical": 71,
     "different": [],
-    "fingerprint": "0dd252170d92c15851678477b3121fc28f87459c6a8147ee10dcbb4e28f4d00b"
+    "fingerprint": "dc209a18094955473ee04fbb2217723df07211b3a1360dfb43025a2a44ca34f2"
    },
-   "note": "second build from source/brand.json in a temp folder, compared byte for byte"
-  },
-  {
-   "id": "rebuild.pdf",
-   "pass": true,
-   "level": "info",
-   "measured": {
-    "logo/lockup-horizontal.pdf": "differs",
-    "logo/mark.pdf": "differs"
-   },
-   "note": "PDFs are not reproducible on vectorcraft-cli 0.13.1 (wall-clock dates and /ID); not compared"
+   "note": "second build from source/brand.json in a temp folder, compared byte for byte (the PDFs too: both builds gave VectorCraft SOURCE_DATE_EPOCH 1793094182)"
   }
  ]
 }

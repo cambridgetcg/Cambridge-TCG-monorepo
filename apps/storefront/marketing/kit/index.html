@@ -76,7 +76,7 @@ video { width: 100%; height: auto; display: block; }
 <main>
 <h1>Cambridge TCG brand kit</h1>
 <p class="lede">Review sheet: every asset on the light ground (#FBF7F1) and the dark ground (#1D1425). This page uses the kit's own <code>colour/tokens.css</code> and follows your system light/dark setting.</p>
-<nav><a href="BRAND.md">Guide (BRAND.md)</a><a href="verify.json">Checks (verify.json)</a><a href="web/head-snippet.html">Head snippet</a><a href="colour/contrast.md">Contrast table</a><a href="brand.vectorcraft">Source (brand.vectorcraft)</a></nav>
+<nav><a href="BRAND.md">Guide (BRAND.md)</a><a href="verify.json">Checks (verify.json)</a><a href="web/head-snippet.html">Head snippet</a><a href="web/head-home.html">Home-page head</a><a href="colour/contrast.md">Contrast table</a><a href="brand.vectorcraft">Source (brand.vectorcraft)</a></nav>
 <h2>Logo</h2>
 <p class="muted">Reversed and white versions are made for dark grounds; they are shown on both so you can see why.</p>
 <div class="grid">
@@ -202,7 +202,10 @@ video { width: 100%; height: auto; display: block; }
 &lt;meta name=&quot;theme-color&quot; content=&quot;#FBF7F1&quot; media=&quot;(prefers-color-scheme: light)&quot;&gt;
 &lt;meta name=&quot;theme-color&quot; content=&quot;#1D1425&quot; media=&quot;(prefers-color-scheme: dark)&quot;&gt;
 
-&lt;!-- Social preview: keep these early in &lt;head&gt;. og:title should be the page title, not the site name; pages with their own card have their lines in og/head-&lt;slug&gt;.html. --&gt;
+&lt;!-- Colour schemes this page supports (brand.json app.color_scheme). &quot;light dark&quot; is true when the page loads colour/tokens.css or has its own dark theme. Light-only page: &quot;only light&quot; (plain &quot;light&quot; lets browsers auto-darken it). Dark-only: &quot;dark&quot; (&quot;only dark&quot; is invalid). One per page: leave this out if your framework writes one (Next.js viewport.colorScheme). --&gt;
+&lt;meta name=&quot;color-scheme&quot; content=&quot;light dark&quot;&gt;
+
+&lt;!-- Social preview: keep these early in &lt;head&gt;, within the first 300 KB of the HTML (WhatsApp). og:title should be the page title, not the site name; pages with their own card have their lines in og/head-&lt;slug&gt;.html. --&gt;
 &lt;meta property=&quot;og:type&quot; content=&quot;website&quot;&gt;
 &lt;meta property=&quot;og:site_name&quot; content=&quot;Cambridge TCG&quot;&gt;
 &lt;meta property=&quot;og:title&quot; content=&quot;TCG data. Made to connect.&quot;&gt;
@@ -215,8 +218,10 @@ video { width: 100%; height: auto; display: block; }
 &lt;meta property=&quot;og:image:height&quot; content=&quot;630&quot;&gt;
 &lt;meta property=&quot;og:image:alt&quot; content=&quot;Cambridge TCG card: the Cambridge TCG logo mark beside the headline “TCG data. Made to connect.” on a very light warm grey background.&quot;&gt;
 &lt;meta name=&quot;twitter:card&quot; content=&quot;summary_large_image&quot;&gt;
-
-&lt;!-- Google Search: the organisation&#x27;s logo (at least 112 px, crawlable, right on white). --&gt;
+</code></pre>
+<h2>Home-page head</h2>
+<pre><code>&lt;!-- Home page only (Google). If your site already has a WebSite or Organization block, add these properties to that node instead of pasting a second one. --&gt;
+&lt;!-- The organisation&#x27;s logo (at least 112 px, crawlable, right on white). --&gt;
 &lt;script type=&quot;application/ld+json&quot;&gt;
 {
  &quot;@context&quot;: &quot;https://schema.org&quot;,
@@ -224,6 +229,15 @@ video { width: 100%; height: auto; display: block; }
  &quot;name&quot;: &quot;Cambridge TCG&quot;,
  &quot;url&quot;: &quot;https://cambridgetcg.com&quot;,
  &quot;logo&quot;: &quot;https://cambridgetcg.com/icon-512.png&quot;
+}
+&lt;/script&gt;
+&lt;!-- The site name Google shows. Its url is the home page at the root of the host: Google does not support site names below it. --&gt;
+&lt;script type=&quot;application/ld+json&quot;&gt;
+{
+ &quot;@context&quot;: &quot;https://schema.org&quot;,
+ &quot;@type&quot;: &quot;WebSite&quot;,
+ &quot;name&quot;: &quot;Cambridge TCG&quot;,
+ &quot;url&quot;: &quot;https://cambridgetcg.com/&quot;
 }
 &lt;/script&gt;
 </code></pre>

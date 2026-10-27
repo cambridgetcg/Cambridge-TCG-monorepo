@@ -6,7 +6,10 @@
 <meta name="theme-color" content="#FBF7F1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1D1425" media="(prefers-color-scheme: dark)">
 
-<!-- Social preview: keep these early in <head>. og:title should be the page title, not the site name; pages with their own card have their lines in og/head-<slug>.html. -->
+<!-- Colour schemes this page supports (brand.json app.color_scheme). "light dark" is true when the page loads colour/tokens.css or has its own dark theme. Light-only page: "only light" (plain "light" lets browsers auto-darken it). Dark-only: "dark" ("only dark" is invalid). One per page: leave this out if your framework writes one (Next.js viewport.colorScheme). -->
+<meta name="color-scheme" content="light dark">
+
+<!-- Social preview: keep these early in <head>, within the first 300 KB of the HTML (WhatsApp). og:title should be the page title, not the site name; pages with their own card have their lines in og/head-<slug>.html. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Cambridge TCG">
 <meta property="og:title" content="TCG data. Made to connect.">
@@ -19,14 +22,3 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Cambridge TCG card: the Cambridge TCG logo mark beside the headline “TCG data. Made to connect.” on a very light warm grey background.">
 <meta name="twitter:card" content="summary_large_image">
-
-<!-- Google Search: the organisation's logo (at least 112 px, crawlable, right on white). -->
-<script type="application/ld+json">
-{
- "@context": "https://schema.org",
- "@type": "Organization",
- "name": "Cambridge TCG",
- "url": "https://cambridgetcg.com",
- "logo": "https://cambridgetcg.com/icon-512.png"
-}
-</script>

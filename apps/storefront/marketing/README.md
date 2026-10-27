@@ -28,13 +28,22 @@ three colours; its dark `--primary-ui` is `#CA6540`, not the site's apricot.
 
 ## Rebuild
 
-The kit was built with vectorcraft-cli 0.13.1 and the artcraft-brand skill (generator 1.5). On
-2026-10-22 the Studio moved to vectorcraft-cli 0.14.0 and generator 1.6. Those draw every image
-byte for byte the same, so a rebuild now changes only the files that record the build: `kit.json`,
-`BRAND.md`, `verify.json`, `.brandkit-fingerprint` and the header of `brand.vectorcraft`, plus the
-two PDFs, which carry the build time.
+The kit was first built on 2026-10-22 with vectorcraft-cli 0.13.1 and the artcraft-brand skill
+(generator 1.5). It was rebuilt in place on 2026-10-27 with vectorcraft-cli 0.17.0 and generator
+1.8, from the same `brand.json` and marks. Every image, icon and the share card came out byte for
+byte the same, so the copies in `public/` did not change. What the rebuild changed:
 
-Fonts (checked 2026-10-22):
+- the files that record the build: `kit.json`, `BRAND.md`, `verify.json`, `.brandkit-fingerprint`
+  and `index.html`;
+- the two PDFs, whose creation date is now fixed at 2026-10-27 09:43:02 UTC (`source_date_epoch`
+  in `kit.json`) and kept across in-place rebuilds;
+- `brand.vectorcraft`, which vectorcraft-cli 0.17.0 saves as compact JSON on one line (3.2 MB down
+  to 0.7 MB), so any later change rewrites it whole;
+- `web/head-snippet.html`, which gained `<meta name="color-scheme" content="light dark">` and moved
+  the Organization JSON-LD into the new `web/head-home.html` (see "On the site").
+
+Fonts (checked 2026-10-22 on vectorcraft-cli 0.13.1 and 0.14.0; the 0.17.0 rebuild drew the same
+bytes):
 - The wordmark, the lockups and the share card's title use the Inter SemiBold built into
   vectorcraft-cli (Inter 4.001, SIL Open Font License). All 12 glyph outlines match it and not the
   copy installed on the Studio, so they come out the same on any Mac.
@@ -49,8 +58,11 @@ python3 ~/.kingdom/tools/artcraft-brand/scripts/brandkit.py brand.json --out kit
 python3 marketplaces/build.py
 ```
 
-Exit 0 means every check passed: 265 on 2026-10-22, with 0 warnings. `marketplaces/build.py` is
-deterministic, so a rebuild leaves the same bytes.
+Exit 0 means every check passed: 269 on 2026-10-27, with 0 warnings (265 on 2026-10-22).
+`--rebuild-check` builds the kit a second time in a temp folder and compares every file, the PDFs
+included. The previous kit goes to the Trash; where `trash` is missing or `ARTCRAFT_NO_TRASH=1`
+is set it is kept at `kit/.replaced/` instead, which git does not ignore, so leave it out of a
+commit. `marketplaces/build.py` is deterministic, so a rebuild leaves the same bytes.
 
 ## Marketplaces (state on 2026-10-22)
 
@@ -92,6 +104,9 @@ draws other paths than `cambridge-tcg-mark-nav.svg`.
 - The Organization logo in the layout's JSON-LD, the publisher logo in `guides/buying` and
   `guides/how-to-play`, and `logo_url` in `.well-known/ai-plugin.json` are
   `https://cambridgetcg.com/icon-512.png`.
+- `kit/web/head-home.html` (Organization and WebSite JSON-LD for the home page) is not pasted
+  anywhere: the layout already emits both nodes, with the same names, addresses and logo, in the
+  `<head>` of every page.
 - The manifest says `"display": "browser"` (`app` in `brand.json`), so a home-screen shortcut opens
   the site in the browser, as it did before there was a manifest.
 - The pages set no `<meta name="theme-color">`: a visitor can choose one of four themes regardless
