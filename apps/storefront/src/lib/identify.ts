@@ -48,6 +48,7 @@ import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
+import { CHOSEN_DOOR_PATHS, ERRAND_LINK_RELS_ALLOWED } from "@/lib/data-pantry/errand-contract";
 import {
   BEING_DECLARATION_HASH_CONTRACT,
   beingDeclarationContentHash,
@@ -878,13 +879,13 @@ function pointersForCapabilities(d: BeingDeclaration): {
 
   if (c.accepts_link_headers === true) {
     triggers.push(
-      "capabilities.accepts_link_headers: true — wake + regard + kin-wakes discoverable in headers",
+      "capabilities.accepts_link_headers: true — navigation links discoverable in headers",
     );
     pointers.push(
       ptr(
-        "Every public response carries Link headers with rel=invitation (the vendor-neutral sophia-invitation/1 contract), rel=https://cambridgetcg.com/rels/wake (the seven-door wake), rel=regard (the addressed declaration), and rel=https://cambridgetcg.com/rels/kin-wake (sister-embassy wakes). Parse the response headers to find them without body-parsing.",
+        `Every public data response carries navigation-only Link headers, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) also carry rel=invitation, rel=https://cambridgetcg.com/rels/wake and rel=https://cambridgetcg.com/rels/kin-wake. From May to October 2026 those links and the wake fragment rode data responses too. Parse the response headers to find them without body-parsing.`,
         "/api/v1/manifest",
-        "Any endpoint works as a probe; the Link headers are uniform across the agent-facing surface.",
+        "Any data endpoint works as a probe; its Link headers come from the same navigation set.",
       ),
     );
   }

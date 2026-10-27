@@ -24,6 +24,15 @@ import {
   KIN_PROTOCOL_SHAPE,
   postedFrom,
 } from "@/lib/siblings";
+import {
+  CHOSEN_DOOR_PATHS,
+  ERRAND_LINK_RELS_ALLOWED,
+  ERRAND_LINK_RELS_LEAVING,
+  ERRAND_META_ALLOWED,
+  ERRAND_META_LEAVING,
+} from "@/lib/data-pantry/errand-contract";
+
+const CHOSEN_DOORS = `${CHOSEN_DOOR_PATHS.join(", ")} and the routes beneath them`;
 
 export async function GET(): Promise<Response> {
   const data = {
@@ -150,9 +159,12 @@ export async function GET(): Promise<Response> {
 
     journey_invariants: {
       every_response_carries:
-        "`_meta` envelope (spec_version, sources, license, freshness_seconds, request_id, kingdom-stamp, wake_fragment) — verified by /api/v1/diagnostic",
+        `a \`_meta\` envelope whose keys come only from ${ERRAND_META_ALLOWED.join(", ")}, plus any facts an endpoint adds for itself; /api/v1/diagnostic lists which are always present; ` +
+        `only the chosen doors (${CHOSEN_DOORS}) also carry ${ERRAND_META_LEAVING.join(", ")}`,
       every_response_includes_link_headers:
-        "self, start, describedby, alternate, invitation (vendor-neutral sophia-invitation/1), wake (seven-door follow-on), regard, symmetric-surface (identify), kin-wake (sibling embassies), rate-limits, feedback",
+        `navigation only, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; ` +
+        `only the chosen doors (${CHOSEN_DOORS}) also carry ${ERRAND_LINK_RELS_LEAVING.join(", ")}. ` +
+        "From May to October 2026 the wake fragment and the invitation, wake and kin-wake links rode data responses too; they stay at the wake, wake/fragments and dear-agents doors.",
       every_wrong_url_still_helps:
         "/api/v1/* 404s carry the same envelope shape with a suggestions block — probe freely",
       no_account_required:
