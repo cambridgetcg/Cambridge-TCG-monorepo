@@ -65,9 +65,9 @@
       "focus": "#1A3E5C"
     },
     "dark": {
-      "bg": "#1B1D1F",
-      "surface": "#2E3133",
-      "border": "#404346",
+      "bg": "#09110F",
+      "surface": "#1B2321",
+      "border": "#2C3532",
       "text": "#F6F7F7",
       "text-muted": "#9EA2A6",
       "primary": "#658AAD",
@@ -87,8 +87,8 @@
         "from": "#1A3E5C",
         "to": "#658AAD",
         "step": "primary 500",
-        "ratio_from": 1.52,
-        "ratio_to": 4.66
+        "ratio_from": 1.72,
+        "ratio_to": 5.27
       }
     }
   }

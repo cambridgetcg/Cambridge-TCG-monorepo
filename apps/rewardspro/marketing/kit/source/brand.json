@@ -2,11 +2,14 @@
   "name": "RewardsPro",
   "slug": "rewardspro",
   "url": "https://rewardspro.io",
-  "description": "Cashback paid as Shopify store credit, plus VIP tiers, for Shopify stores. Free.",
+  "description": "Read Shopify cashback, points, tier rules and existing customer records.",
   "lang": "en",
   "colours": {
     "primary": "#1A3E5C",
     "accent": "#17BEBB"
+  },
+  "ground": {
+    "dark": "#09110F"
   },
   "mark": {
     "svg": "mark-source.svg"
@@ -29,6 +32,7 @@
     "theme": "light"
   },
   "app": {
-    "theme": "light"
+    "theme": "dark",
+    "color_scheme": "dark"
   }
 }

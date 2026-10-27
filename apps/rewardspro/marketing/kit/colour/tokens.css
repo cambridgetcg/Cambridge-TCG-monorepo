@@ -33,6 +33,9 @@
   --neutral-800: #404346;
   --neutral-900: #2E3133;
   --neutral-950: #1B1D1F;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Menlo", monospace;
 }
 :root, [data-theme="light"] {
   color-scheme: light;
@@ -54,9 +57,9 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #1B1D1F;
-    --surface: #2E3133;
-    --border: #404346;
+    --bg: #09110F;
+    --surface: #1B2321;
+    --border: #2C3532;
     --text: #F6F7F7;
     --text-muted: #9EA2A6;
     --primary: #658AAD;
@@ -72,9 +75,9 @@
 }
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1B1D1F;
-  --surface: #2E3133;
-  --border: #404346;
+  --bg: #09110F;
+  --surface: #1B2321;
+  --border: #2C3532;
   --text: #F6F7F7;
   --text-muted: #9EA2A6;
   --primary: #658AAD;

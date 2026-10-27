@@ -27,7 +27,7 @@ nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 14px 0 0; font-size
 .ground { display: flex; align-items: center; justify-content: center; padding: 24px 16px; min-height: 150px; min-width: 0; }
 .ground img { max-width: 100%; max-height: 110px; height: auto; }
 .g-light { background: #FFFFFF; }
-.g-dark { background: #1B1D1F; }
+.g-dark { background: #09110F; }
 .clear { --k: 1; display: inline-block; outline: 1px dashed #1A3E5C; outline-offset: 0; padding: calc(var(--cs) * var(--h) * var(--k)); background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(127,127,127,.12) 6px 7px); }
 .clear img { display: block; height: calc(var(--h) * var(--k)); width: auto; max-width: none; max-height: none; }
 .tabs { display: grid; gap: 10px; padding: 14px; }
@@ -55,14 +55,28 @@ nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 14px 0 0; font-size
 .fail { color: #c5221f; font-weight: 600; }
 pre { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow-x: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; }
 video { width: 100%; height: auto; display: block; }
+.email { padding: 18px 16px; background: #fff; color: #202124; font: 13px/1.45 Arial, Helvetica, sans-serif; }
+.email img { display: block; margin-top: 10px; }
 @media (max-width: 560px) { .scale { grid-template-columns: repeat(4, minmax(0, 1fr)); } .pair { grid-template-columns: minmax(0, 1fr); } .clear { --k: .6; } }
+@page { margin: 12mm; }
+@media print {
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html:root:not([data-theme="light"]) { --bg: #FFFFFF; --surface: #EAEBEC; --border: #D7D9DB; --text: #1B1D1F; --text-muted: #686C70; --primary-text: #1A3E5C; }
+  main { max-width: none; padding: 0; }
+  nav, video { display: none; }
+  h2 { break-after: avoid; }
+  .card, .scale, pre, figure { break-inside: avoid; }
+  .grid, .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  a { color: inherit; text-decoration: none; }
+}
 </style>
 </head>
 <body>
 <main>
 <h1>RewardsPro brand kit</h1>
-<p class="lede">Review sheet: every asset on the light ground (#FFFFFF) and the dark ground (#1B1D1F). This page uses the kit's own <code>colour/tokens.css</code> and follows your system light/dark setting.</p>
-<nav><a href="BRAND.md">Guide (BRAND.md)</a><a href="verify.json">Checks (verify.json)</a><a href="web/head-snippet.html">Head snippet</a><a href="colour/contrast.md">Contrast table</a><a href="brand.vectorcraft">Source (brand.vectorcraft)</a></nav>
+<p class="lede">Review sheet: every asset on the light ground (#FFFFFF) and the dark ground (#09110F). This page uses the kit's own <code>colour/tokens.css</code> and follows your system light/dark setting.</p>
+<nav><a href="BRAND.md">Guide (BRAND.md)</a><a href="verify.json">Checks (verify.json)</a><a href="web/head-snippet.html">Head snippet</a><a href="web/head-home.html">Home-page head</a><a href="colour/contrast.md">Contrast table</a><a href="brand.vectorcraft">Source (brand.vectorcraft)</a></nav>
 <h2>Logo</h2>
 <p class="muted">Reversed and white versions are made for dark grounds; they are shown on both so you can see why.</p>
 <div class="grid">
@@ -79,6 +93,14 @@ video { width: 100%; height: auto; display: block; }
 <div class="grid two">
 <section class="card"><h3>Clear space <span>horizontal lockup · x = cap height = 48 px at 1x</span></h3><div class="ground g-light"><span class="clear" style="--cs:0.500;--h:64.0px"><img src="logo/lockup-horizontal.svg" alt="Horizontal lockup with its clear space"></span></div></section>
 <section class="card"><h3>Clear space <span>wordmark · x = cap height = 64 px at 1x</span></h3><div class="ground g-light"><span class="clear" style="--cs:0.985;--h:50.2px"><img src="logo/wordmark.svg" alt="Wordmark with its clear space"></span></div></section>
+</div>
+<h3 style="font-size:15px;margin:22px 0 0">On grounds <span class="muted">opaque PNGs, clear space included: logo/on-light/ and logo/on-dark/</span></h3>
+<div class="grid">
+<section class="card"><h3>Horizontal <span>lockup-horizontal@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/lockup-horizontal@2x.png" alt="RewardsPro horizontal on the light ground"></div><div class="ground"><img src="logo/on-dark/lockup-horizontal@2x.png" alt="RewardsPro horizontal on the dark ground"></div></div></section>
+<section class="card"><h3>Stacked <span>lockup-stacked@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/lockup-stacked@2x.png" alt="RewardsPro stacked on the light ground"></div><div class="ground"><img src="logo/on-dark/lockup-stacked@2x.png" alt="RewardsPro stacked on the dark ground"></div></div></section>
+<section class="card"><h3>Wordmark <span>wordmark@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/wordmark@2x.png" alt="RewardsPro wordmark on the light ground"></div><div class="ground"><img src="logo/on-dark/wordmark@2x.png" alt="RewardsPro wordmark on the dark ground"></div></div></section>
+<section class="card"><h3>Mark <span>mark@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/mark@2x.png" alt="RewardsPro mark on the light ground"></div><div class="ground"><img src="logo/on-dark/mark@2x.png" alt="RewardsPro mark on the dark ground"></div></div></section>
+<section class="card"><h3>Email signature <span>logo/on-light/lockup-horizontal@2x.png at 195×64</span></h3><div class="email">Kind regards,<br>A. Person<img src="logo/on-light/lockup-horizontal@2x.png" width="195" height="64" alt="RewardsPro"></div></section>
 </div>
 <h2>Favicons</h2>
 <p class="muted">Browser tabs at true size (16 CSS px), then the raster cuts at 1x and zoomed.</p>
@@ -97,6 +119,7 @@ video { width: 100%; height: auto; display: block; }
 <section class="card"><h3>Home screen <span>on light</span></h3><div class="icons g-light"><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="120" height="120" alt="">iOS mask</figure><figure><img class="mask-circle" src="web/icon-maskable-512.png" width="120" height="120" alt="">Android circle</figure><figure><img src="web/icon-192.png" width="96" height="96" alt="">any, 192</figure><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="60" height="60" alt="">60</figure></div></section>
 <section class="card"><h3>Home screen <span>on dark</span></h3><div class="icons g-dark"><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="120" height="120" alt="">iOS mask</figure><figure><img class="mask-circle" src="web/icon-maskable-512.png" width="120" height="120" alt="">Android circle</figure><figure><img src="web/icon-192.png" width="96" height="96" alt="">any, 192</figure><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="60" height="60" alt="">60</figure></div></section>
 <section class="card"><h3>Maskable safe zone <span>dashed: 40% radius circle</span></h3><div class="icons"><figure><span class="safe"><img src="web/icon-maskable-512.png" width="150" height="150" alt="Maskable icon with its safe circle"></span>icon-maskable-512.png</figure><figure><img src="web/icon-512.png" width="150" height="150" alt="App icon, square">icon-512.png</figure></div></section>
+<section class="card"><h3>Profile picture <span>social/avatar-1024.png · circle and square crops</span></h3><div class="icons"><figure><img class="mask-circle" src="social/avatar-400.png" width="120" height="120" alt="">circle crop</figure><figure><img src="social/avatar-400.png" width="120" height="120" alt="">square</figure><figure><img class="mask-circle" src="social/avatar-400.png" width="40" height="40" alt="">40</figure></div></section>
 </div>
 <h2>Social card</h2>
 <section class="card og"><h3>web/og.jpg <span>1200×630 · light · title 16.91:1</span></h3><img src="web/og.jpg" alt="RewardsPro social preview card"></section>
@@ -157,17 +180,17 @@ video { width: 100%; height: auto; display: block; }
 <div><i style="background:#FFFFFF;color:#1A3E5C">Aa</i><span>primary-ui on bg<br>11.13:1 (needs 3) ✓</span></div>
 <div><i style="background:#FFFFFF;color:#009A97">Aa</i><span>accent-ui on bg<br>3.46:1 (needs 3) ✓</span></div>
 </div></section>
-<section class="card" style="background:#1B1D1F;color:#F6F7F7;border-color:#404346"><h3 style="color:#F6F7F7">Dark roles <span style="color:#9EA2A6">required pairs</span></h3><div class="pairs">
-<div><i style="background:#1B1D1F;color:#F6F7F7">Aa</i><span>text on bg<br>15.75:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1B1D1F;color:#9EA2A6">Aa</i><span>text-muted on bg<br>6.58:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#2E3133;color:#F6F7F7">Aa</i><span>text on surface<br>12.20:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1B1D1F;color:#658AAD">Aa</i><span>focus on bg<br>4.66:1 (needs 3) ✓</span></div>
-<div><i style="background:#1B1D1F;color:#83A6C5">Aa</i><span>primary-text on bg<br>6.62:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1B1D1F;color:#17BEBB">Aa</i><span>accent-text on bg<br>7.34:1 (needs 4.5) ✓</span></div>
+<section class="card" style="background:#09110F;color:#F6F7F7;border-color:#2C3532"><h3 style="color:#F6F7F7">Dark roles <span style="color:#9EA2A6">required pairs</span></h3><div class="pairs">
+<div><i style="background:#09110F;color:#F6F7F7">Aa</i><span>text on bg<br>17.81:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#09110F;color:#9EA2A6">Aa</i><span>text-muted on bg<br>7.44:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#1B2321;color:#F6F7F7">Aa</i><span>text on surface<br>14.95:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#09110F;color:#658AAD">Aa</i><span>focus on bg<br>5.27:1 (needs 3) ✓</span></div>
+<div><i style="background:#09110F;color:#83A6C5">Aa</i><span>primary-text on bg<br>7.49:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#09110F;color:#17BEBB">Aa</i><span>accent-text on bg<br>8.30:1 (needs 4.5) ✓</span></div>
 <div><i style="background:#658AAD;color:#1B1D1F">Aa</i><span>on-primary on primary<br>4.66:1 (needs 4.5) ✓</span></div>
 <div><i style="background:#17BEBB;color:#1B1D1F">Aa</i><span>on-accent on accent<br>7.34:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1B1D1F;color:#658AAD">Aa</i><span>primary-ui on bg<br>4.66:1 (needs 3) ✓</span></div>
-<div><i style="background:#1B1D1F;color:#17BEBB">Aa</i><span>accent-ui on bg<br>7.34:1 (needs 3) ✓</span></div>
+<div><i style="background:#09110F;color:#658AAD">Aa</i><span>primary-ui on bg<br>5.27:1 (needs 3) ✓</span></div>
+<div><i style="background:#09110F;color:#17BEBB">Aa</i><span>accent-ui on bg<br>8.30:1 (needs 3) ✓</span></div>
 </div></section>
 </div>
 <h2>Head snippet</h2>
@@ -176,10 +199,12 @@ video { width: 100%; height: auto; display: block; }
 &lt;link rel=&quot;icon&quot; href=&quot;/favicon.svg&quot; type=&quot;image/svg+xml&quot;&gt;
 &lt;link rel=&quot;apple-touch-icon&quot; href=&quot;/apple-touch-icon.png&quot;&gt;
 &lt;link rel=&quot;manifest&quot; href=&quot;/site.webmanifest&quot;&gt;
-&lt;meta name=&quot;theme-color&quot; content=&quot;#FFFFFF&quot; media=&quot;(prefers-color-scheme: light)&quot;&gt;
-&lt;meta name=&quot;theme-color&quot; content=&quot;#1B1D1F&quot; media=&quot;(prefers-color-scheme: dark)&quot;&gt;
+&lt;meta name=&quot;theme-color&quot; content=&quot;#09110F&quot;&gt;
 
-&lt;!-- Social preview: keep these early in &lt;head&gt;. og:title should be the page title, not the site name. --&gt;
+&lt;!-- Colour schemes this page supports (brand.json app.color_scheme). &quot;light dark&quot; is true when the page loads colour/tokens.css or has its own dark theme. Light-only page: &quot;only light&quot; (plain &quot;light&quot; lets browsers auto-darken it). Dark-only: &quot;dark&quot; (&quot;only dark&quot; is invalid). One per page: leave this out if your framework writes one (Next.js viewport.colorScheme). --&gt;
+&lt;meta name=&quot;color-scheme&quot; content=&quot;dark&quot;&gt;
+
+&lt;!-- Social preview: keep these early in &lt;head&gt;, within the first 300 KB of the HTML (WhatsApp). og:title should be the page title, not the site name; pages with their own card have their lines in og/head-&lt;slug&gt;.html. --&gt;
 &lt;meta property=&quot;og:type&quot; content=&quot;website&quot;&gt;
 &lt;meta property=&quot;og:site_name&quot; content=&quot;RewardsPro&quot;&gt;
 &lt;meta property=&quot;og:title&quot; content=&quot;Cashback your customers spend in your store&quot;&gt;
@@ -192,6 +217,28 @@ video { width: 100%; height: auto; display: block; }
 &lt;meta property=&quot;og:image:height&quot; content=&quot;630&quot;&gt;
 &lt;meta property=&quot;og:image:alt&quot; content=&quot;RewardsPro card: the RewardsPro logo mark beside the headline “Cashback your customers spend in your store” on a white background.&quot;&gt;
 &lt;meta name=&quot;twitter:card&quot; content=&quot;summary_large_image&quot;&gt;
+</code></pre>
+<h2>Home-page head</h2>
+<pre><code>&lt;!-- Home page only (Google). If your site already has a WebSite or Organization block, add these properties to that node instead of pasting a second one. --&gt;
+&lt;!-- The organisation&#x27;s logo (at least 112 px, crawlable, right on white). --&gt;
+&lt;script type=&quot;application/ld+json&quot;&gt;
+{
+ &quot;@context&quot;: &quot;https://schema.org&quot;,
+ &quot;@type&quot;: &quot;Organization&quot;,
+ &quot;name&quot;: &quot;RewardsPro&quot;,
+ &quot;url&quot;: &quot;https://rewardspro.io&quot;,
+ &quot;logo&quot;: &quot;https://rewardspro.io/icon-512.png&quot;
+}
+&lt;/script&gt;
+&lt;!-- The site name Google shows. Its url is the home page at the root of the host: Google does not support site names below it. --&gt;
+&lt;script type=&quot;application/ld+json&quot;&gt;
+{
+ &quot;@context&quot;: &quot;https://schema.org&quot;,
+ &quot;@type&quot;: &quot;WebSite&quot;,
+ &quot;name&quot;: &quot;RewardsPro&quot;,
+ &quot;url&quot;: &quot;https://rewardspro.io/&quot;
+}
+&lt;/script&gt;
 </code></pre>
 </main>
 </body>

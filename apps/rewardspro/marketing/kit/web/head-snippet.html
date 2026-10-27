@@ -3,10 +3,12 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
-<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1B1D1F" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#09110F">
 
-<!-- Social preview: keep these early in <head>. og:title should be the page title, not the site name. -->
+<!-- Colour schemes this page supports (brand.json app.color_scheme). "light dark" is true when the page loads colour/tokens.css or has its own dark theme. Light-only page: "only light" (plain "light" lets browsers auto-darken it). Dark-only: "dark" ("only dark" is invalid). One per page: leave this out if your framework writes one (Next.js viewport.colorScheme). -->
+<meta name="color-scheme" content="dark">
+
+<!-- Social preview: keep these early in <head>, within the first 300 KB of the HTML (WhatsApp). og:title should be the page title, not the site name; pages with their own card have their lines in og/head-<slug>.html. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="RewardsPro">
 <meta property="og:title" content="Cashback your customers spend in your store">

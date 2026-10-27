@@ -1,15 +1,16 @@
 {
  "kit": "RewardsPro",
  "ok": true,
- "checks_run": 206,
+ "checks_run": 269,
  "errors": 0,
- "warnings": 3,
+ "warnings": 4,
  "not_checked": [
   "Rendering in real browsers: tab favicons, the favicon.svg size switch and dark-scheme rule, and how a browser chooses between favicon.ico and favicon.svg were not observed.",
   "Home-screen and launcher masks on real iOS and Android devices; only the 40% safe circle was measured.",
   "Social previews on live platforms (X, LinkedIn, Slack, iMessage): only file size, dimensions, tags, the JPEG scan layout and a decode by djpeg or sips were checked. Post a test link once before relying on the card.",
-  "Print: PDF colour stays RGB; no CMYK proof, bleed or spot colours.",
-  "Font licensing for outlined wordmarks and embedded OG text.",
+  "Print: PDF colour stays RGB; the CMYK values in BRAND.md are VectorCraft's conversion, not a proof; no bleed or spot colours.",
+  "Font licences beyond what BRAND.md \"Typefaces and licences\" states: faces bundled with vectorcraft-cli are OFL-1.1; the licence of any other face was not checked.",
+  "Email clients (the on-light PNG in a signature: dark modes, scaling), platforms' avatar crops, and whether Google uses the Organization logo were not observed; the Tailwind files were checked as text against palette.json, not built with Tailwind.",
   "APCA contrast is guidance (WCAG 3 drafts); the colour roles use it as a floor, but WCAG 2.2 is the bar that was checked for conformance."
  ],
  "checks": [
@@ -18,35 +19,35 @@
    "pass": true,
    "level": "error",
    "file": "brand.vectorcraft",
-   "measured": 1644088
+   "measured": 587641
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "BRAND.md",
-   "measured": 17323
+   "measured": 26279
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "index.html",
-   "measured": 27678
+   "measured": 32204
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "kit.json",
-   "measured": 14719
+   "measured": 17193
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "source/brand.json",
-   "measured": 739
+   "measured": 799
   },
   {
    "id": "file.exists",
@@ -249,35 +250,91 @@
    "pass": true,
    "level": "error",
    "file": "logo/mark.pdf",
-   "measured": 2510
+   "measured": 2553
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal.pdf",
-   "measured": 6714
+   "measured": 6757
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-horizontal@2x.png",
+   "measured": 14343
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-stacked@2x.png",
+   "measured": 13177
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/wordmark@2x.png",
+   "measured": 16372
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/mark@2x.png",
+   "measured": 6703
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-horizontal@2x.png",
+   "measured": 14147
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-stacked@2x.png",
+   "measured": 12953
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/wordmark@2x.png",
+   "measured": 15640
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/mark@2x.png",
+   "measured": 6763
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/favicon.ico",
-   "measured": 1496
+   "measured": 1504
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/favicon.svg",
-   "measured": 1278
+   "measured": 1276
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/favicon-16.png",
-   "measured": 281
+   "measured": 289
   },
   {
    "id": "file.exists",
@@ -319,14 +376,21 @@
    "pass": true,
    "level": "error",
    "file": "web/site.webmanifest",
-   "measured": 651
+   "measured": 643
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/head-snippet.html",
-   "measured": 1397
+   "measured": 1806
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-home.html",
+   "measured": 745
   },
   {
    "id": "file.exists",
@@ -346,6 +410,20 @@
    "id": "file.exists",
    "pass": true,
    "level": "error",
+   "file": "social/avatar-1024.png",
+   "measured": 8884
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-400.png",
+   "measured": 2953
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
    "file": "colour/palette.json",
    "measured": 2115
   },
@@ -354,21 +432,35 @@
    "pass": true,
    "level": "error",
    "file": "colour/tokens.json",
-   "measured": 10752
+   "measured": 11597
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/tokens.css",
-   "measured": 2117
+   "measured": 2281
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "colour/tailwind.theme.css",
+   "measured": 3343
+  },
+  {
+   "id": "file.exists",
+   "pass": true,
+   "level": "error",
+   "file": "colour/tailwind.colors.js",
+   "measured": 1641
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/contrast.md",
-   "measured": 2285
+   "measured": 2284
   },
   {
    "id": "file.exists",
@@ -396,21 +488,21 @@
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet.svg",
-   "measured": 1000563
+   "measured": 1093501
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet.png",
-   "measured": 145003
+   "measured": 131597
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet@2x.png",
-   "measured": 189994
+   "measured": 176504
   },
   {
    "id": "png.size",
@@ -963,6 +1055,166 @@
    "note": "transparent background"
   },
   {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-horizontal@2x.png",
+   "measured": "1168x384",
+   "note": "expected 1168x384"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-horizontal@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-stacked@2x.png",
+   "measured": "796x558",
+   "note": "expected 796x558"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-stacked@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/wordmark@2x.png",
+   "measured": "1242x386",
+   "note": "expected 1242x386"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/wordmark@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/mark@2x.png",
+   "measured": "732x768",
+   "note": "expected 732x768"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/mark@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-horizontal@2x.png",
+   "measured": "1168x384",
+   "note": "expected 1168x384"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-horizontal@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-stacked@2x.png",
+   "measured": "796x558",
+   "note": "expected 796x558"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-stacked@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/wordmark@2x.png",
+   "measured": "1242x386",
+   "note": "expected 1242x386"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/wordmark@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/mark@2x.png",
+   "measured": "732x768",
+   "note": "expected 732x768"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/mark@2x.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-1024.png",
+   "measured": "1024x1024",
+   "note": "expected 1024x1024"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-1024.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
+   "id": "png.size",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-400.png",
+   "measured": "400x400",
+   "note": "expected 400x400"
+  },
+  {
+   "id": "png.opaque_rgb",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-400.png",
+   "measured": "RGB",
+   "note": "must be RGB with no alpha channel"
+  },
+  {
    "id": "favicon.transparent_corners",
    "pass": true,
    "level": "error",
@@ -981,9 +1233,9 @@
    "level": "error",
    "file": "web/favicon-16.png",
    "measured": {
-    "ink_pixels": 60,
-    "clean_pixels": 43,
-    "crisp": 0.717
+    "ink_pixels": 80,
+    "clean_pixels": 62,
+    "crisp": 0.775
    },
    "note": "share of mark pixels (not tile or badge) that are a clean colour rather than a blend (fail < 0.30)"
   },
@@ -1038,12 +1290,25 @@
    "level": "error",
    "file": "web/favicon-16.png",
    "measured": {
-    "left": 3,
-    "top": 3,
+    "left": 2,
+    "top": 2,
     "right": 3,
-    "bottom": 3
+    "bottom": 2
    },
    "note": "ink box margins differ by at most 1 px"
+  },
+  {
+   "id": "favicon.centred_exact",
+   "pass": false,
+   "level": "warn",
+   "file": "web/favicon-16.png",
+   "measured": {
+    "left": 2,
+    "top": 2,
+    "right": 3,
+    "bottom": 2
+   },
+   "note": "margins differ by 1 px (the mark's proportions do not centre on whole pixels)"
   },
   {
    "id": "favicon.transparent_corners",
@@ -1336,6 +1601,286 @@
    "note": "tile colour at the corner"
   },
   {
+   "id": "avatar.ground",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-1024.png",
+   "measured": [
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF"
+   ],
+   "note": "the tile colour #FFFFFF at every corner"
+  },
+  {
+   "id": "avatar.circle_safe",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-1024.png",
+   "measured": {
+    "farthest_px": 353.1,
+    "limit_px": 409.6
+   },
+   "note": "every pixel unlike the tile within 0.40 of the side from the centre, so a circle crop keeps the whole mark"
+  },
+  {
+   "id": "avatar.ground",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-400.png",
+   "measured": [
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF"
+   ],
+   "note": "the tile colour #FFFFFF at every corner"
+  },
+  {
+   "id": "avatar.circle_safe",
+   "pass": true,
+   "level": "error",
+   "file": "social/avatar-400.png",
+   "measured": {
+    "farthest_px": 137.8,
+    "limit_px": 160.0
+   },
+   "note": "every pixel unlike the tile within 0.40 of the side from the centre, so a circle crop keeps the whole mark"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-horizontal@2x.png",
+   "measured": [
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF"
+   ],
+   "note": "opaque, on the light ground #FFFFFF"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-horizontal@2x.png",
+   "measured": {
+    "margins": {
+     "left": 96,
+     "top": 96,
+     "right": 97,
+     "bottom": 96
+    },
+    "clear_space": 96
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-stacked@2x.png",
+   "measured": [
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF"
+   ],
+   "note": "opaque, on the light ground #FFFFFF"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/lockup-stacked@2x.png",
+   "measured": {
+    "margins": {
+     "left": 82,
+     "top": 82,
+     "right": 83,
+     "bottom": 83
+    },
+    "clear_space": 82
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/wordmark@2x.png",
+   "measured": [
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF"
+   ],
+   "note": "opaque, on the light ground #FFFFFF"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/wordmark@2x.png",
+   "measured": {
+    "margins": {
+     "left": 128,
+     "top": 128,
+     "right": 128,
+     "bottom": 128
+    },
+    "clear_space": 128
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/mark@2x.png",
+   "measured": [
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF",
+    "#FFFFFF"
+   ],
+   "note": "opaque, on the light ground #FFFFFF"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-light/mark@2x.png",
+   "measured": {
+    "margins": {
+     "left": 128,
+     "top": 128,
+     "right": 128,
+     "bottom": 128
+    },
+    "clear_space": 128
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-horizontal@2x.png",
+   "measured": [
+    "#09110F",
+    "#09110F",
+    "#09110F",
+    "#09110F"
+   ],
+   "note": "opaque, on the dark ground #09110F"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-horizontal@2x.png",
+   "measured": {
+    "margins": {
+     "left": 96,
+     "top": 96,
+     "right": 97,
+     "bottom": 96
+    },
+    "clear_space": 96
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-stacked@2x.png",
+   "measured": [
+    "#09110F",
+    "#09110F",
+    "#09110F",
+    "#09110F"
+   ],
+   "note": "opaque, on the dark ground #09110F"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/lockup-stacked@2x.png",
+   "measured": {
+    "margins": {
+     "left": 82,
+     "top": 82,
+     "right": 83,
+     "bottom": 83
+    },
+    "clear_space": 82
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/wordmark@2x.png",
+   "measured": [
+    "#09110F",
+    "#09110F",
+    "#09110F",
+    "#09110F"
+   ],
+   "note": "opaque, on the dark ground #09110F"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/wordmark@2x.png",
+   "measured": {
+    "margins": {
+     "left": 128,
+     "top": 128,
+     "right": 128,
+     "bottom": 128
+    },
+    "clear_space": 128
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
+   "id": "logo_on_ground.ground",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/mark@2x.png",
+   "measured": [
+    "#09110F",
+    "#09110F",
+    "#09110F",
+    "#09110F"
+   ],
+   "note": "opaque, on the dark ground #09110F"
+  },
+  {
+   "id": "logo_on_ground.clear_space",
+   "pass": true,
+   "level": "error",
+   "file": "logo/on-dark/mark@2x.png",
+   "measured": {
+    "margins": {
+     "left": 128,
+     "top": 128,
+     "right": 128,
+     "bottom": 128
+    },
+    "clear_space": 128
+   },
+   "note": "the logo has ink, and at least its clear space x on every side"
+  },
+  {
    "id": "icon.mark_extent",
    "pass": true,
    "level": "warn",
@@ -1361,7 +1906,7 @@
     "bytes": 670,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1373,7 +1918,7 @@
     "bytes": 657,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1385,7 +1930,7 @@
     "bytes": 657,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1397,7 +1942,7 @@
     "bytes": 9000,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1409,7 +1954,7 @@
     "bytes": 9018,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1421,7 +1966,7 @@
     "bytes": 9335,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1433,7 +1978,7 @@
     "bytes": 9353,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1445,7 +1990,7 @@
     "bytes": 9855,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1457,7 +2002,7 @@
     "bytes": 9873,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1466,10 +2011,10 @@
    "file": "web/favicon.svg",
    "measured": {
     "paths": 5,
-    "bytes": 1278,
+    "bytes": 1276,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "svg.clean",
@@ -1478,10 +2023,10 @@
    "file": "colour/colour-sheet.svg",
    "measured": {
     "paths": 275,
-    "bytes": 1000563,
+    "bytes": 1093501,
     "problems": []
    },
-   "note": "XML parses; viewBox, <title>; no <text>, strokes, oklch(); named ids; not empty"
+   "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
   },
   {
    "id": "colour_sheet.hex_fills",
@@ -1531,6 +2076,45 @@
    "pass": true,
    "level": "error",
    "file": "colour/tokens.css"
+  },
+  {
+   "id": "colour.font_tokens",
+   "pass": true,
+   "level": "error",
+   "file": "colour/tokens.css",
+   "measured": {
+    "stacks": {
+     "font-display": "\"Inter\", system-ui, sans-serif",
+     "font-body": "\"Inter\", system-ui, sans-serif",
+     "font-mono": "\"JetBrains Mono\", ui-monospace, \"Menlo\", monospace"
+    },
+    "wrong": []
+   },
+   "note": "--font-display, --font-body and --font-mono in tokens.css and tailwind.theme.css, fontFamily tokens in tokens.json"
+  },
+  {
+   "id": "colour.tailwind_v4",
+   "pass": true,
+   "level": "error",
+   "file": "colour/tailwind.theme.css",
+   "measured": {
+    "scale_steps": 33,
+    "roles": 14,
+    "wrong": [],
+    "balanced": true
+   },
+   "note": "Tailwind v4 @theme: every scale step and role of palette.json, and the light and dark role values"
+  },
+  {
+   "id": "colour.tailwind_v3",
+   "pass": true,
+   "level": "error",
+   "file": "colour/tailwind.colors.js",
+   "measured": {
+    "parses": true,
+    "keys": 11
+   },
+   "note": "module.exports is an object literal holding every scale step (hex) and role (var(--role)) of palette.json"
   },
   {
    "id": "swatch.ase",
@@ -1583,12 +2167,13 @@
    "measured": {
     "to": "#658AAD",
     "step": "primary 500",
-    "ratio": 4.66,
-    "apca": -36.2,
+    "ratio": 5.27,
+    "apca": -37.5,
     "letters": null,
     "knockout": false,
     "letter_ink": null,
     "ui": true,
+    "chosen": false,
     "from": "#1A3E5C"
    },
    "note": "lockup-horizontal-reversed: a mark colour moved up its scale to the dark-mode UI bar (3:1 and APCA Lc 30)"
@@ -1600,12 +2185,13 @@
    "measured": {
     "to": "#658AAD",
     "step": "primary 500",
-    "ratio": 4.66,
-    "apca": -36.2,
+    "ratio": 5.27,
+    "apca": -37.5,
     "letters": null,
     "knockout": false,
     "letter_ink": null,
     "ui": true,
+    "chosen": false,
     "from": "#1A3E5C"
    },
    "note": "lockup-stacked-reversed: a mark colour moved up its scale to the dark-mode UI bar (3:1 and APCA Lc 30)"
@@ -1650,6 +2236,14 @@
     "lockup-horizontal-reversed",
     "lockup-stacked",
     "lockup-stacked-reversed",
+    "on-light-lockup-horizontal",
+    "on-light-lockup-stacked",
+    "on-light-wordmark",
+    "on-light-mark",
+    "on-dark-lockup-horizontal",
+    "on-dark-lockup-stacked",
+    "on-dark-wordmark",
+    "on-dark-mark",
     "app",
     "maskable",
     "favicon-32",
@@ -1666,7 +2260,7 @@
    "level": "error",
    "file": "index.html",
    "measured": {
-    "links": 63,
+    "links": 76,
     "inline_images": 4,
     "missing": [],
     "external": []
@@ -1745,7 +2339,7 @@
    "level": "error",
    "file": "web/og.jpg",
    "measured": 49446,
-   "note": "hard limit 1 MB"
+   "note": "WhatsApp: should be under 600 KB (600,000 bytes), at least 300 px wide, aspect at most 4:1; larger may get a small preview or none (Facebook allows 8 MB)"
   },
   {
    "id": "og.jpg_bytes_target",
@@ -1753,7 +2347,7 @@
    "level": "warn",
    "file": "web/og.jpg",
    "measured": 49446,
-   "note": "target 300 KB"
+   "note": "the kit's own target, 300 KB (not WhatsApp's 300 KB rule, which is for the page's <head>)"
   },
   {
    "id": "og.jpg_decodes",
@@ -1785,7 +2379,14 @@
      "first": []
     }
    },
-   "note": "every OG line fits its column (measured widths), clears the mark and stays above the footer; og.png has no ink more than 8 px right of the column in the text's rows, outside the mark"
+   "note": "every OG line fits its column (measured widths), clears the mark and stays above the footer; the card has no ink more than 8 px right of the column in the text's rows, outside the mark"
+  },
+  {
+   "id": "og.text_cut",
+   "pass": true,
+   "level": "warn",
+   "file": "web/og.jpg",
+   "note": "the title and subtitle are shown whole"
   },
   {
    "id": "manifest.members",
@@ -1864,8 +2465,8 @@
    "file": "web/site.webmanifest",
    "measured": {
     "display": "standalone",
-    "theme_color": "#FFFFFF",
-    "background_color": "#FFFFFF"
+    "theme_color": "#09110F",
+    "background_color": "#09110F"
    },
    "note": "display and colours as brand.json \"app\" asks"
   },
@@ -1904,27 +2505,91 @@
    "note": "og:locale en_US for lang en"
   },
   {
+   "id": "head.color_scheme",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-snippet.html",
+   "measured": [
+    "dark"
+   ],
+   "note": "exactly one color-scheme meta, \"dark\" (brand.json app.color_scheme)"
+  },
+  {
+   "id": "head.theme_color",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-snippet.html",
+   "measured": [
+    [
+     "#09110F",
+     null
+    ]
+   ],
+   "note": "the pair for a page with both schemes, one colour (no media) for a one-scheme page"
+  },
+  {
+   "id": "head.organization",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-home.html",
+   "measured": {
+    "found": true,
+    "logo": "https://rewardspro.io/icon-512.png",
+    "size": [
+     512,
+     512
+    ],
+    "colour_type": "RGB"
+   },
+   "note": "JSON-LD Organization with the brand's name and url; its logo is an absolute URL of a file in web/, square, at least 112 px and opaque (Google: it must look right on white)"
+  },
+  {
+   "id": "head.website",
+   "pass": true,
+   "level": "error",
+   "file": "web/head-home.html",
+   "measured": {
+    "name": "RewardsPro",
+    "url": "https://rewardspro.io/"
+   },
+   "note": "JSON-LD WebSite (Google site name): the brand's name, its short name as alternateName when it differs, and url the home page at the root of the host"
+  },
+  {
+   "id": "head.site_root",
+   "pass": true,
+   "level": "warn",
+   "file": "web/head-home.html",
+   "measured": {
+    "url": "https://rewardspro.io",
+    "website_url": "https://rewardspro.io/"
+   },
+   "note": "Google does not support site names below the host: brand.json url names a path, so the WebSite url is the root of its host; the site name applies there"
+  },
+  {
+   "id": "tools.tested",
+   "pass": true,
+   "level": "warn",
+   "measured": {
+    "tool": "vectorcraft-cli",
+    "built_with": "vectorcraft-cli 0.17.0",
+    "tested": [
+     "0.13.1",
+     "0.14.0",
+     "0.17.0"
+    ]
+   },
+   "note": "built with a version this tool was tested with (a warning means another one); after an update re-run the examples with --rebuild-check and re-check references/apps.md \"Version skew\""
+  },
+  {
    "id": "rebuild.identical",
    "pass": true,
    "level": "error",
    "measured": {
-    "identical": 55,
+    "identical": 70,
     "different": [],
-    "fingerprint": "a3b67483641a7eff6181c30c4d824ec6456158d9dc2e3331f03f5c2d2fb138fb"
+    "fingerprint": "a34c41117c959c656e88c437d6aabe3067d4c80f1f856935157e140776a81c0a"
    },
-   "note": "second build from source/brand.json in a temp folder, compared byte for byte; recorded by brandkit --rebuild-check, the kit files are unchanged since",
-   "carried": true
-  },
-  {
-   "id": "rebuild.pdf",
-   "pass": true,
-   "level": "info",
-   "measured": {
-    "logo/lockup-horizontal.pdf": "differs",
-    "logo/mark.pdf": "differs"
-   },
-   "note": "PDFs are not reproducible on vectorcraft-cli 0.13.1 (wall-clock dates and /ID); not compared; recorded by brandkit --rebuild-check, the kit files are unchanged since",
-   "carried": true
+   "note": "second build from source/brand.json in a temp folder, compared byte for byte (the PDFs too: both builds gave VectorCraft SOURCE_DATE_EPOCH 1793094207)"
   }
  ]
 }

@@ -23,7 +23,26 @@ Inter (SIL Open Font License) must be installed. Then, from this folder:
 python3 ~/.kingdom/tools/artcraft-brand/scripts/brandkit.py brand.json --out kit --rebuild-check
 ```
 
-Exit 0 means every check passed (206 on 2026-10-20, 3 warnings explained in `kit/BRAND.md`).
+Exit 0 means every check passed. Last rebuilt 2026-10-27 with artcraft-brand generator 1.8 and
+vectorcraft-cli 0.17.0: 269 checks, 0 failed, 4 warnings explained in `kit/BRAND.md`, and the
+rebuild check found all 70 files byte-identical. Every logo SVG and PNG, the app icons and the
+share card are the same bytes as the 2026-10-20 build (generator 1.2). The 16 px favicon cut is
+re-hinted, and the kit gains `web/head-home.html`, on-light and on-dark logos, avatars and
+Tailwind colour files.
+
+### Metadata change, 2026-10-27
+
+rewardspro.io's landing is dark only (ink #09110F, no light theme), so `brand.json` now says so.
+Marks, colours, wordmark and the share card's words are unchanged.
+
+- `app.color_scheme` and `app.theme` are `"dark"`: the head snippet writes one color-scheme meta
+  (`dark`) and one theme-color, and the manifest's theme and background colours are dark.
+- `ground.dark` is the landing's ink, so that theme-color and the dark tokens match the page.
+- `description` is the landing's live meta description. The old one made the three claims in
+  `claims.toml`, and the served manifest would have carried them.
+
+brand.json's sha256 no longer matches `approvals.jsonl` line 1, which approved the look. That file
+stays append-only; no new approval is claimed.
 
 ## State on 2026-10-20
 

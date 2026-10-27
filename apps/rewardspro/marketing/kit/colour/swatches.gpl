@@ -7,7 +7,7 @@ Columns: 0
  23 190 187	rewardspro accent
 # Group: rewardspro ground
 255 255 255	rewardspro ground light
- 27  29  31	rewardspro ground dark
+  9  17  15	rewardspro ground dark
 # Group: rewardspro primary scale
 243 247 252	rewardspro primary 50
 227 237 246	rewardspro primary 100
