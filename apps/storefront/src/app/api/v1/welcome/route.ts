@@ -160,7 +160,7 @@ export async function GET(): Promise<Response> {
     journey_invariants: {
       every_response_carries:
         `a \`_meta\` envelope whose keys come only from ${ERRAND_META_ALLOWED.join(", ")}, plus any facts an endpoint adds for itself; /api/v1/diagnostic lists which are always present; ` +
-        `only the chosen doors (${CHOSEN_DOORS}) also carry ${ERRAND_META_LEAVING.join(", ")}`,
+        `only the chosen doors (${CHOSEN_DOORS}) may also carry ${ERRAND_META_LEAVING.join(", ")}`,
       every_response_includes_link_headers:
         `navigation only, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; ` +
         `only the chosen doors (${CHOSEN_DOORS}) also carry ${ERRAND_LINK_RELS_LEAVING.join(", ")}. ` +
