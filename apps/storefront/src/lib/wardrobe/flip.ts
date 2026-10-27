@@ -20,6 +20,11 @@
  *
  * If the persist fails (offline), the flip stands for this page-view and
  * the next full load honestly reverts to the cookie's truth.
+ *
+ * The root layout never re-renders on a client navigation, so <html> keeps
+ * the flip, but Next's router cache restores a route's head as it was
+ * rendered (Back, Forward, a cached revisit), which can predate the flip.
+ * keepThemeViewport() puts the tags back on the theme <html> wears.
  */
 
 import { isThemeId } from "./themes";
@@ -51,7 +56,8 @@ export function applyLightsFlip(
  * React owns those tags, so only their content changes: none is added or
  * removed. One colour goes on every theme-color tag (a page that followed
  * the system has two, one per media query); a pair puts each colour on
- * the tag with its media.
+ * the tag with its media. A tag that already says the right thing is not
+ * written, so keepThemeViewport's observer settles after one pass.
  */
 export function applyThemeViewport(theme: string, head: ParentNode): void {
   const { themeColor, colorScheme } = themeViewport(isThemeId(theme) ? theme : null);
@@ -60,7 +66,27 @@ export function applyThemeViewport(theme: string, head: ParentNode): void {
     const colour = typeof themeColor === "string"
       ? themeColor
       : (themeColor.find((entry) => entry.media === media) ?? themeColor[0]).color;
-    meta.setAttribute("content", colour);
+    setContent(meta, colour);
   }
-  head.querySelector('meta[name="color-scheme"]')?.setAttribute("content", colorScheme);
+  const scheme = head.querySelector('meta[name="color-scheme"]');
+  if (scheme) setContent(scheme, colorScheme);
+}
+
+function setContent(meta: Element, content: string): void {
+  if (meta.getAttribute("content") !== content) meta.setAttribute("content", content);
+}
+
+/**
+ * Hold the head's theme-color and color-scheme tags to the theme <html>
+ * wears, now and whenever React re-renders them. Returns the disconnect.
+ */
+export function keepThemeViewport(
+  root: Element = document.documentElement,
+  head: Node & ParentNode = document.head,
+): () => void {
+  const sync = () => applyThemeViewport(root.getAttribute("data-theme") ?? "", head);
+  const observer = new MutationObserver(sync);
+  observer.observe(head, { subtree: true, childList: true, attributes: true, attributeFilter: ["content"] });
+  sync();
+  return () => observer.disconnect();
 }

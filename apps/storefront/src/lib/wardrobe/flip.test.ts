@@ -8,7 +8,7 @@
  * cookie in the background over the SAME url the <a> would navigate to.
  */
 import { describe, expect, it, vi } from "vitest";
-import { applyLightsFlip, applyThemeViewport } from "./flip";
+import { applyLightsFlip, applyThemeViewport, keepThemeViewport } from "./flip";
 
 describe("the instant lights flip", () => {
   it("re-inks the root immediately and persists over the anchor's own url", () => {
@@ -87,5 +87,52 @@ describe("the browser bar follows the flip", () => {
       ["(prefers-color-scheme: dark)", "#1D1425"],
     ]);
     expect(colorScheme(doc)).toBe("light dark");
+  });
+
+  it("writes nothing when the tags already say it", () => {
+    const doc = page(MIDNIGHT_HEAD);
+    const setAttribute = vi.spyOn(Element.prototype, "setAttribute");
+    applyThemeViewport("midnight", doc.head);
+    expect(setAttribute).not.toHaveBeenCalled();
+    setAttribute.mockRestore();
+  });
+});
+
+// MutationObserver callbacks run as microtasks; let every pass finish.
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("a cached route's head after a flip (Back, Forward)", () => {
+  it("puts the restored tags back on the theme <html> wears", async () => {
+    const doc = page(SYSTEM_HEAD);
+    const stop = keepThemeViewport(doc.documentElement, doc.head);
+    const fetchFn = vi.fn().mockResolvedValue(undefined);
+    applyLightsFlip({ target: "midnight", href: "/x" }, doc.documentElement, fetchFn, doc.head);
+    // Back: React re-renders the head the route had before the flip.
+    doc.head.querySelectorAll('meta[name="theme-color"]')[0].setAttribute("content", "#FBF7F1");
+    doc.head.querySelectorAll('meta[name="theme-color"]')[1].setAttribute("content", "#1D1425");
+    doc.head.querySelector('meta[name="color-scheme"]')?.setAttribute("content", "light dark");
+    await settle();
+    expect(themeColors(doc)).toEqual([
+      ["(prefers-color-scheme: light)", "#1d1425"],
+      ["(prefers-color-scheme: dark)", "#1d1425"],
+    ]);
+    expect(colorScheme(doc)).toBe("dark");
+    stop();
+  });
+
+  it("holds tags React swaps in, and stops when disconnected", async () => {
+    const doc = page(SYSTEM_HEAD);
+    doc.documentElement.setAttribute("data-theme", "gallery");
+    const stop = keepThemeViewport(doc.documentElement, doc.head);
+    expect(themeColors(doc).map(([, colour]) => colour)).toEqual(["#fbf7f1", "#fbf7f1"]);
+    // A route rendered under Dark: one tag replaces the pair.
+    doc.head.innerHTML = MIDNIGHT_HEAD;
+    await settle();
+    expect(themeColors(doc)).toEqual([[null, "#fbf7f1"]]);
+    expect(colorScheme(doc)).toBe("light");
+    stop();
+    doc.head.innerHTML = MIDNIGHT_HEAD;
+    await settle();
+    expect(themeColors(doc)).toEqual([[null, "#1d1425"]]);
   });
 });

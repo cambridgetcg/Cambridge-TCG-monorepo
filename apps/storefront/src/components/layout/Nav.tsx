@@ -27,7 +27,7 @@ import {
 import type { UiLang } from "@/lib/lang-mode";
 import { tx } from "@/lib/i18n";
 import type { ThemeChoice } from "@/lib/wardrobe/themes";
-import { applyLightsFlip } from "@/lib/wardrobe/flip";
+import { applyLightsFlip, keepThemeViewport } from "@/lib/wardrobe/flip";
 
 /** Chrome labels in both prose languages (the-japanese-voice.md). */
 const CHROME = {
@@ -175,6 +175,10 @@ export default function Nav({
     applyLightsFlip(toggle);
     setWearing(toggle.target as ThemeChoice);
   };
+
+  // A cached route's head can predate a flip (Back, Forward): keep the
+  // browser bar on the theme <html> wears.
+  useEffect(() => keepThemeViewport(), []);
 
   useEffect(() => {
     fetch("/api/auth/session")

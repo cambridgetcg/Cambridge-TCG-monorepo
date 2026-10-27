@@ -4,8 +4,9 @@
  * What the browser wears around the page: the theme-color that tints its
  * bar and the color-scheme its own controls follow. The root layout's
  * generateViewport() writes it on every render, and the lights flip
- * (flip.ts) rewrites the same tags when it changes the theme in place, so
- * the bar matches the page either way.
+ * (flip.ts) rewrites the same tags when it changes the theme in place, and
+ * again when a cached route's head would undo that, so the bar matches the
+ * page either way.
  *
  * With no saved theme the page follows the device (themes.css,
  * [data-theme="system"]), and so does the bar: the brand kit's pair from
