@@ -109,10 +109,22 @@ draws other paths than `cambridge-tcg-mark-nav.svg`.
   `<head>` of every page.
 - The manifest says `"display": "browser"` (`app` in `brand.json`), so a home-screen shortcut opens
   the site in the browser, as it did before there was a manifest.
-- The pages set no `<meta name="theme-color">`: a visitor can choose one of four themes regardless
-  of the device's light or dark setting, so a colour picked by media query would be wrong for some
-  of them. The manifest's `theme_color` (#FBF7F1) only colours an installed app window, which
-  `"display": "browser"` never opens.
+- The browser bar's colour (`<meta name="theme-color">`) and the `color-scheme` tag follow the
+  theme the page wears, not only the device. `generateViewport()` in `src/app/layout.tsx` reads the
+  same theme cookie as the layout and takes both from `src/lib/wardrobe/viewport.ts`:
+  - no saved theme: the page follows the device, so the bar does too, with the kit's pair from
+    `kit/web/head-snippet.html` (#FBF7F1 in a light scheme, #1D1425 in a dark one: the Light and
+    Dark page grounds) and `color-scheme: light dark`;
+  - a saved theme (Light, Dark, Terminal or High contrast): that theme's page ground as one colour,
+    and its own scheme, because a saved theme can disagree with the device. The kit's pair alone
+    would give Dark on a light phone an ivory bar; that is why the pages set no theme-color until
+    2026-10-27.
+
+  The Nav's lights switch changes the theme without a reload, so `src/lib/wardrobe/flip.ts`
+  rewrites the same tags when it flips. An agent chose this cookie-aware form on 2026-10-27 while
+  wiring the kit (Yu: "yes, go ahead and wire the kits into the sites"); the plain pair is the
+  simpler alternative. The manifest's `theme_color` (#FBF7F1) only colours an installed app
+  window, which `"display": "browser"` never opens.
 - The older files (`public/images/logo.png`, `logo.svg`, `icon.png`, `icon-square.svg`,
   `og-image.png`, `twitter-image.png`) are no longer referenced here. They stay because other sites
   or caches may still link to them.
