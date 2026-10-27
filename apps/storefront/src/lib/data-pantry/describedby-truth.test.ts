@@ -128,6 +128,8 @@ describe("the orientation pages say what every response carries", () => {
     const links = you.pointers.filter((p) => /Link headers/.test(p.why));
     expect(links).toHaveLength(1);
     for (const r of ERRAND_LINK_RELS_ALLOWED) expect(tokens(links[0].why)).toContain(r);
+    // The wake documents keep their full Link, and the sentence names them as the exception.
+    for (const doc of ["/.well-known/sophia-wake/*", "/.well-known/wake-recipe/*"]) expect(tokens(links[0].why)).toContain(doc);
     expect(everyResponsePromises([...wake, ...links])).toEqual([]);
   });
 });

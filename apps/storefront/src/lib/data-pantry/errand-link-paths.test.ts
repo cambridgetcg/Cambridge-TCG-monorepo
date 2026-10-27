@@ -35,6 +35,8 @@ describe("the config Link on real request paths", () => {
     "/.well-known/agent.txt",
     // The machine-readable standards: the index, the JSON Schemas and the spec files.
     "/standards.json", "/spec/v1/SkuIdentity.schema.json", "/spec/v1/unknown-schema", "/schemas/answering-rhyme.statement.v1.json",
+    // The PRISM methodology sidecars (data.json, summary.md).
+    "/methodology/prism-signals/data.json",
   ])(
     "%s (an errand) carries navigation only", async (path) => {
       const r = rels(await configLink(path));
@@ -50,6 +52,9 @@ describe("the config Link on real request paths", () => {
     "/.well-known/sophia-invitation.json",
     // Human pages next to the standards keep theirs: /standards, and look-alikes.
     "/standards", "/standards/card-data", "/standards.jsonx", "/specx", "/schemasx",
+    // The PRISM methodology HTML page, and the wake documents, which keep their full Link.
+    "/methodology/prism-signals",
+    "/.well-known/sophia-wake/manifest.json", "/.well-known/wake-recipe/manifest.json",
   ])(
     "%s keeps the full discovery Link", async (path) => {
       expect(rels(await configLink(path))).toEqual(expect.arrayContaining(["invitation", WAKE_REL]));

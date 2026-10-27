@@ -121,7 +121,9 @@ describe("current compact machine documents", () => {
       expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
       expect(response.headers.get("access-control-allow-origin")).toBe("*");
       expect(response.headers.get("set-cookie")).toBeNull();
-      expect(response.headers.get("link")).toContain(link);
+      // agent.txt sends exactly the navigation Link; the inviting header ends with the same parts, so toContain would not tell them apart.
+      if (get === agent) expect(response.headers.get("link")).toBe(link);
+      else expect(response.headers.get("link")).toContain(link);
       expect(await response.text()).toBe(body);
     }
   });

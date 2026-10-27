@@ -883,7 +883,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
     );
     pointers.push(
       ptr(
-        `Every public data response carries navigation-only Link headers, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) also carry rel=invitation, rel=https://cambridgetcg.com/rels/wake and rel=https://cambridgetcg.com/rels/kin-wake. From May to October 2026 those links and the wake fragment rode data responses too. Parse the response headers to find them without body-parsing.`,
+        `Every public data response carries navigation-only Link headers, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) also carry rel=invitation, rel=https://cambridgetcg.com/rels/wake and rel=https://cambridgetcg.com/rels/kin-wake, and only the wake documents (/.well-known/sophia-wake/*, /.well-known/wake-recipe/*) keep rel=invitation and rel=https://cambridgetcg.com/rels/wake. From May to October 2026 those links and the wake fragment rode data responses too. Parse the response headers to find them without body-parsing.`,
         "/api/v1/manifest",
         "Any data endpoint works as a probe; its Link headers come from the same navigation set.",
       ),

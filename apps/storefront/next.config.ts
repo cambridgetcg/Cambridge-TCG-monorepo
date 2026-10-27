@@ -95,12 +95,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
       },
       // Every other data response under /api, the data files, the discovery
-      // documents agents read to wire up tools, and the machine-readable
-      // standards (/standards.json, /spec/*, /schemas/*) carry the same
-      // navigation-only Link; the chosen doors keep the full set, and so does
-      // /.well-known/sophia-invitation.json.
-      // "/data/:path+" needs a segment, so the HTML page /data keeps its Link;
-      // the HTML page /standards keeps its own too.
+      // documents agents read to wire up tools, the machine-readable
+      // standards (/standards.json, /spec/*, /schemas/*) and the PRISM
+      // methodology sidecars carry the same navigation-only Link; the chosen
+      // doors keep the full set, and so do /.well-known/sophia-invitation.json
+      // and the wake documents (/.well-known/sophia-wake/*, wake-recipe/*).
+      // "/data/:path+" and ":asset" need a segment, so the HTML pages /data
+      // and /methodology/prism-signals keep their Link; /standards keeps its own too.
       ...[
         "/api",
         "/api/:path((?!v1/wake(?:/|$)|v1/dear-agents(?:/|$)).*)",
@@ -114,6 +115,7 @@ const nextConfig: NextConfig = {
         "/standards.json",
         "/spec/:path*",
         "/schemas/:path*",
+        "/methodology/prism-signals/:asset",
       ].map((source) => ({
         source,
         headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
