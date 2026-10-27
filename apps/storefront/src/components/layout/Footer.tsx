@@ -13,12 +13,11 @@ export default async function Footer() {
   const uiLang = uiLangFromLangMode(langMode);
 
   return (
-    <footer className="mt-12 border-t border-border-strong bg-surface-subtle py-8">
+    <footer className="mt-16 border-t border-border-subtle bg-page py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] lg:gap-12">
           <div>
-            <span aria-hidden="true" className="mb-2 block h-1 w-8 rounded-full bg-accent" />
-            <Link href="/" prefetch={false} className="inline-flex min-h-11 items-center rounded-sm font-display text-xl font-semibold tracking-[-0.04em] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+            <Link href="/" prefetch={false} className="inline-flex min-h-11 items-center rounded-sm font-display text-lg font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
               Cambridge TCG
             </Link>
             <p className="mt-1 max-w-sm text-sm leading-6 text-ink-muted">
@@ -35,13 +34,13 @@ export default async function Footer() {
           <div className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
             {FOOTER_NAV_GROUPS.map((group, index) => (
               <nav key={group.heading} aria-labelledby={`footer-group-${index}`}>
-                <h2 id={`footer-group-${index}`} className="mb-1 border-b border-border-subtle pb-3 text-sm font-semibold text-ink">
+                <h2 id={`footer-group-${index}`} className="mb-1 break-words border-b border-border-subtle pb-3 text-sm font-semibold text-ink">
                   {navGroupHeading(group, uiLang)}
                 </h2>
                 <ul>
                   {group.items.map((item) => (
                     <li key={item.href}>
-                      <Link href={item.href} prefetch={false} className="inline-flex min-h-11 items-center rounded-sm text-sm text-ink-muted transition-colors hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+                      <Link href={item.href} prefetch={false} className="inline-flex min-h-11 items-center rounded-sm text-sm text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
                         {navLabel(item, uiLang)}
                       </Link>
                     </li>

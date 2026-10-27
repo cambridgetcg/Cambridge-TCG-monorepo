@@ -19,7 +19,7 @@ export default function DevBannerDismiss() {
       type="button"
       onClick={dismiss}
       aria-label="Dismiss site notice"
-      className="flex-shrink-0 rounded p-0.5 text-ink-muted transition-colors hover:bg-warning/20 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className="-my-2 -mr-3 inline-flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       {/* X icon — inline SVG, no dependency */}
       <svg

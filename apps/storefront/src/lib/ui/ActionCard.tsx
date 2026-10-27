@@ -13,7 +13,7 @@ export function ActionCard({
   return (
     <Link href={href} className="group flex h-full flex-col rounded-lg border border-border-subtle bg-surface p-5 text-ink transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-base font-semibold leading-6 group-hover:text-accent">{title}</h3>
+        <h3 className="font-display text-lg font-semibold leading-6 tracking-tight group-hover:text-accent">{title}</h3>
         <span aria-hidden="true" className="text-ink-muted">→</span>
       </div>
       <p className="mt-2 text-sm leading-6 text-ink-muted">{description}</p>

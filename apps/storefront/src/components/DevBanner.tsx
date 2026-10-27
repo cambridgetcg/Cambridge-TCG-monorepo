@@ -30,9 +30,9 @@ export default function DevBanner() {
       role="region"
       aria-label="Site notice"
       aria-live="polite"
-      className="w-full bg-warning/10 border-b border-warning/30 px-4 py-2.5 text-ink"
+      className="w-full bg-surface-subtle border-b border-border-subtle px-4 py-2.5 text-ink"
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-2">
         {/* Single line on desktop (truncates with tooltip); wraps on mobile */}
         <p
           className="min-w-0 flex-1 text-sm font-medium leading-snug

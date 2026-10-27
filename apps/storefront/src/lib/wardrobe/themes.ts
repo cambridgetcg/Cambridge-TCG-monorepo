@@ -40,9 +40,9 @@ export const THEMES: readonly WardrobeTheme[] = [
   {
     id: "gallery",
     label: "Light",
-    gloss: "Warm ivory, plum text and mandarin accents.",
+    gloss: "Warm paper, ink type and one bronze accent.",
     entitlement: "free",
-    swatches: ["#fbf7f1", "#fffdf9", "#2c1836", "#9b3b12"],
+    swatches: ["#faf8f4", "#ffffff", "#201d18", "#86661c"],
     scheme: "light",
   },
   {
@@ -56,11 +56,11 @@ export const THEMES: readonly WardrobeTheme[] = [
   {
     id: "midnight",
     label: "Dark",
-    gloss: "Deep plum, warm light text and mandarin accents.",
+    gloss: "Midnight blue, warm light text and moonlight gilt.",
     // Un-gated 2026-07-06: dark mode is table stakes, not a perk. The
     // entitlement mechanism stays for a future skin that may earn a lock.
     entitlement: "free",
-    swatches: ["#1d1425", "#291e32", "#fff6e9", "#ffb078"],
+    swatches: ["#0b0f1a", "#121829", "#e9e4d6", "#d9b36c"],
     scheme: "dark",
   },
   {

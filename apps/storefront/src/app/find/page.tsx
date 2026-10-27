@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { fetchGames } from "@/lib/wholesale/client";
 import CardFinderHero from "@/components/home/CardFinderHero";
+import { PageLayout } from "@/lib/ui/PageLayout";
 
 /**
  * /find — the dedicated, memorable front door for "find what you need".
@@ -20,8 +21,8 @@ export const metadata: Metadata = {
 export default async function FindPage() {
   const games = await fetchGames().catch(() => []);
   return (
-    <main className="min-h-[70vh] pt-10">
+    <PageLayout width="reading" className="min-h-[70vh]">
       <CardFinderHero games={games} />
-    </main>
+    </PageLayout>
   );
 }

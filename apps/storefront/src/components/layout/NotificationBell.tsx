@@ -154,7 +154,7 @@ export default function NotificationBell() {
       <button
         onClick={toggle}
         aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""}`}
-        className="relative p-2 text-ink-muted hover:text-ink transition"
+        className="relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full p-2 text-ink-muted transition-colors hover:bg-surface-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -167,7 +167,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-surface border border-border-subtle rounded-lg shadow-mat overflow-hidden">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-surface border border-border-subtle rounded-xl shadow-mat overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
             <span className="text-sm font-semibold text-ink">Notifications</span>
             {count > 0 && (
@@ -182,9 +182,9 @@ export default function NotificationBell() {
 
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <p className="text-xs text-ink-faint text-center py-8">Loading…</p>
+              <p className="text-sm text-ink-muted text-center py-8">Loading…</p>
             ) : items.length === 0 ? (
-              <p className="text-xs text-ink-faint text-center py-8">No notifications yet.</p>
+              <p className="text-sm text-ink-muted text-center py-8">No notifications yet.</p>
             ) : (
               <ul className="divide-y divide-border-subtle">
                 {items.map((n) => {
@@ -197,9 +197,9 @@ export default function NotificationBell() {
                             {n.title}
                           </p>
                           {n.body && (
-                            <p className="text-xs text-ink-faint mt-0.5 line-clamp-2">{n.body}</p>
+                            <p className="text-xs text-ink-muted mt-0.5 line-clamp-2">{n.body}</p>
                           )}
-                          <p className="text-[10px] text-ink-faint mt-1">{timeAgo(n.created_at)}</p>
+                          <p className="mt-1 font-mono text-xs text-ink-muted tabular-nums">{timeAgo(n.created_at)}</p>
                         </div>
                         {!n.read_at && (
                           <span className="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0" aria-hidden />

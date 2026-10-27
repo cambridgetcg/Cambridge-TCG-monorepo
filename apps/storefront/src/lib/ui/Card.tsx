@@ -1,6 +1,7 @@
 /**
  * Card — a simple surface for a related group of content.
- * Variants change surface and border emphasis without decorative shadows.
+ * Every variant keeps the hairline border; elevated adds the mat shadow,
+ * the only elevation on the site.
  */
 
 import * as React from "react";
@@ -10,7 +11,7 @@ type Padding = "none" | "sm" | "md" | "lg";
 
 const VARIANT_CLS: Record<Variant, string> = {
   default:  "bg-surface border border-border-subtle",
-  elevated: "bg-surface-elevated border border-border-strong",
+  elevated: "bg-surface-elevated border border-border-subtle shadow-mat",
   subtle:   "bg-surface-subtle border border-border-subtle",
 };
 

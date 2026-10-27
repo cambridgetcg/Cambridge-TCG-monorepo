@@ -43,7 +43,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
           key={l.lang}
           href={`/api/lang-mode?mode=${l.lang === "en" ? "default" : l.lang}&back=${back}`}
           rel="nofollow"
-          className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
+          className="inline-flex min-h-11 items-center underline decoration-border-strong underline-offset-4 transition-colors hover:text-ink"
         >
           <span lang={l.lang}>{l.label}</span>
         </a>
@@ -51,7 +51,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
       <a
         href={`/api/lang-mode?mode=${mathLang ? "default" : "math"}&back=${back}`}
         rel="nofollow"
-        className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
+        className="inline-flex min-h-11 items-center underline decoration-border-strong underline-offset-4 transition-colors hover:text-ink"
         aria-label={
           mathLang
             ? tx({ en: "Switch back to default English rendering", ja: "ふだんの表示に戻す", "zh-Hant": "切回平常的顯示", "zh-Hans": "切换回平常的显示", es: "Volver a la vista de siempre" }, uiLang)
@@ -63,7 +63,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
       <a
         href={`/api/text-mode?on=${textMode ? "0" : "1"}&back=${back}`}
         rel="nofollow"
-        className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
+        className="inline-flex min-h-11 items-center underline decoration-border-strong underline-offset-4 transition-colors hover:text-ink"
         aria-label={
           textMode
             ? tx({ en: "Switch back to the visual layout", ja: "もとの表示に戻す", "zh-Hant": "切回原本的版面", "zh-Hans": "切换回图文显示", es: "Volver a la vista original" }, uiLang)
@@ -75,7 +75,7 @@ export default function FooterToggles({ mathLang, textMode, uiLang = "en" }: Foo
       <Link
         href="/appearance"
         prefetch={false}
-        className="inline-flex min-h-11 items-center hover:text-ink transition underline underline-offset-2"
+        className="inline-flex min-h-11 items-center underline decoration-border-strong underline-offset-4 transition-colors hover:text-ink"
         aria-label={tx({ en: "Choose a theme and tone — light, dark, follow system, and more", ja: "表示設定（ライト・ダーク・端末に合わせる、ほか）", es: "Elegir tema y tono: claro, oscuro, según el sistema, y más", "zh-Hans": "选一个主题和色调（亮、暗、跟随系统，还有别的）", "zh-Hant": "選擇主題與色調（淺色、深色、跟隨系統等）" }, uiLang)}
       >
         {tx({ en: "Appearance", ja: "表示設定", es: "Apariencia", "zh-Hans": "外观", "zh-Hant": "外觀" }, uiLang)}

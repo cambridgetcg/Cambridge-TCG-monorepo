@@ -52,7 +52,7 @@ export function Callout({ tone = "note", title, children }: CalloutProps) {
     >
       {title && (
         <p
-          className={`mb-1 text-xs font-semibold uppercase tracking-wider ${cls.title}`}
+          className={`mb-1 font-mono text-xs font-semibold uppercase tracking-[0.16em] ${cls.title}`}
         >
           {title}
         </p>

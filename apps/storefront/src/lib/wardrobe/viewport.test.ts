@@ -19,16 +19,16 @@ describe("the theme's viewport", () => {
       colorScheme: "light dark",
     });
     expect(themeViewport(null).themeColor).toEqual([
-      { media: "(prefers-color-scheme: light)", color: "#fbf7f1" },
-      { media: "(prefers-color-scheme: dark)", color: "#1d1425" },
+      { media: "(prefers-color-scheme: light)", color: "#faf8f4" },
+      { media: "(prefers-color-scheme: dark)", color: "#0b0f1a" },
     ]);
   });
 
   it("gives a saved theme its own page ground as one colour, and its own scheme", () => {
     expect(Object.fromEntries(THEMES.map((theme) => [theme.id, themeViewport(theme.id)]))).toEqual({
-      gallery: { themeColor: "#fbf7f1", colorScheme: "light" },
+      gallery: { themeColor: "#faf8f4", colorScheme: "light" },
       terminal: { themeColor: "#0a0a0a", colorScheme: "dark" },
-      midnight: { themeColor: "#1d1425", colorScheme: "dark" },
+      midnight: { themeColor: "#0b0f1a", colorScheme: "dark" },
       "high-contrast": { themeColor: "#ffffff", colorScheme: "light" },
     });
   });
