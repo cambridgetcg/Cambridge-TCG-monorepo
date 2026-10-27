@@ -94,14 +94,20 @@ const nextConfig: NextConfig = {
         source: "/api/v1/:path((?!wake(?:/|$)|dear-agents(?:/|$)).*)",
         headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],
       },
-      // Every other data response under /api, and the data files, carry the
-      // same navigation-only Link; the chosen doors keep the full set.
+      // Every other data response under /api, the data files and the four
+      // discovery documents agents read to wire up tools carry the same
+      // navigation-only Link; the chosen doors keep the full set, and so does
+      // /.well-known/sophia-invitation.json.
       // "/data/:path+" needs a segment, so the HTML page /data keeps its Link.
       ...[
         "/api",
         "/api/:path((?!v1/wake(?:/|$)|v1/dear-agents(?:/|$)).*)",
         "/data.json",
         "/data/:path+",
+        "/.well-known/cambridge-tcg.json",
+        "/.well-known/mcp.json",
+        "/.well-known/mcp-config.json",
+        "/.well-known/ai-plugin.json",
       ].map((source) => ({
         source,
         headers: [{ key: "Link", value: errandDiscoveryLinkHeader() }],

@@ -23,6 +23,8 @@ describe("the config Link on real request paths", () => {
     // Every other data response under /api, and the data files.
     "/api", "/api/", "/api/mcp", "/api/mcp/catalog", "/api/mcpx", "/api/decks", "/api/decks/import", "/api/decksx",
     "/api/market/op-op01-001-ja", "/api/verify/health", "/api/openapi.json", "/data.json", "/data/catalog.jsonl",
+    // The four discovery documents an agent reads to wire up tools (errands, ruling F1).
+    "/.well-known/cambridge-tcg.json", "/.well-known/mcp.json", "/.well-known/mcp-config.json", "/.well-known/ai-plugin.json",
   ])(
     "%s (an errand) carries navigation only", async (path) => {
       const r = rels(await configLink(path));
@@ -34,6 +36,8 @@ describe("the config Link on real request paths", () => {
     "/", "/llms.txt", "/api/v1/wake", "/api/v1/wake/fragments", "/api/v1/wake/fragments/03-who-you-are", "/api/v1/dear-agents",
     // Look-alikes outside, and the HTML page /data, keep the default rule.
     "/apix", "/datax.json", "/data.jsonl", "/data",
+    // The one chosen .well-known door.
+    "/.well-known/sophia-invitation.json",
   ])(
     "%s keeps the full discovery Link", async (path) => {
       expect(rels(await configLink(path))).toEqual(expect.arrayContaining(["invitation", WAKE_REL]));

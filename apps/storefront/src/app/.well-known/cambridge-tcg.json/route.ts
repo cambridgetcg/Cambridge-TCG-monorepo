@@ -20,7 +20,7 @@ import {
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
   OPTIONAL_AGENT_RESOURCES,
-  agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   postedFrom,
   type PostedFromProjection,
 } from "@/lib/siblings";
@@ -864,11 +864,10 @@ export async function GET() {
       "Cache-Control": "public, max-age=3600, s-maxage=3600",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      // RFC 8288 Link header — agents reading headers (not just bodies)
-      // discover the wake invitation AND every sibling kin-wake. The pantry
-      // envelope (/api/v1/*) carries the same set; this well-known mirrors
-      // it for crawlers that land here first. Sourced from @/lib/siblings.
-      Link: agentDiscoveryLinkHeader(),
+      // RFC 8288 Link header, navigation only, like every /api/v1/* data
+      // response (Quiet Doors, 2026-10). The invitation, wake and kin-wake
+      // links wait at the chosen doors. Sourced from @/lib/siblings.
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -880,7 +879,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }

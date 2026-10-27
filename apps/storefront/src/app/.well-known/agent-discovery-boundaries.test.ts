@@ -7,6 +7,7 @@ import {
   AGENT_FACING_SIBLINGS,
   OPTIONAL_AGENT_RESOURCES,
   agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   kinWakeHtmlLinks,
   kinWakeLinkParts,
   postedAlongside,
@@ -169,8 +170,8 @@ describe("optional agent source resources", () => {
       await (await getMcpConfig()).json(),
       await (await getMcpDiscovery()).json(),
     ];
-    expect(manifest.headers.get("Link")).toBe(agentDiscoveryLinkHeader());
-    expect(options.headers.get("Link")).toBe(agentDiscoveryLinkHeader());
+    expect(manifest.headers.get("Link")).toBe(errandDiscoveryLinkHeader());
+    expect(options.headers.get("Link")).toBe(errandDiscoveryLinkHeader());
     expect(options.status).toBe(204);
     for (const response of [manifest, options, wake, health]) {
       projections.push(Object.fromEntries(response.headers));
