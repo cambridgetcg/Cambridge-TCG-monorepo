@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { Inter } from "next/font/google";
 import { cookies, headers } from "next/headers";
@@ -15,6 +15,7 @@ import { langModeFromCookies } from "@/lib/lang-mode-server";
 import { uiLangFromLangMode } from "@/lib/lang-mode";
 import { appearanceFromCookies } from "@/lib/wardrobe/server";
 import { themeAttr } from "@/lib/wardrobe/themes";
+import { themeViewport } from "@/lib/wardrobe/viewport";
 import { auth } from "@/lib/auth";
 import { PLATFORM } from "@/content/platform";
 import { SHARE_CARD } from "@/lib/share-card";
@@ -58,6 +59,14 @@ export const metadata: Metadata = {
   // Site discovery is emitted as actual <link> elements below, not
   // metadata.other (which emits <meta>) or fake per-page alternates.
 };
+
+// The browser bar's theme-color and the color-scheme tag follow the theme
+// <html> wears: the brand kit's light/dark pair while the page follows the
+// device, else the saved theme's own page ground. Read from the same cookie
+// as the layout, so a saved Dark theme on a light phone gets a dark bar.
+export async function generateViewport(): Promise<Viewport> {
+  return themeViewport(appearanceFromCookies(await cookies()).theme);
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Read the x-pathname header forwarded by proxy.ts for /admin/* requests.

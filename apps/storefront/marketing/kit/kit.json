@@ -1,8 +1,9 @@
 {
- "generator": "artcraft-brand brandkit.py 1.5",
+ "generator": "artcraft-brand brandkit.py 1.8",
  "tools": {
-  "vectorcraft-cli": "vectorcraft-cli 0.13.1"
+  "vectorcraft-cli": "vectorcraft-cli 0.17.0"
  },
+ "source_date_epoch": 1793094182,
  "spec": {
   "name": "Cambridge TCG",
   "short_name": "Cambridge TCG",
@@ -55,7 +56,8 @@
   },
   "app": {
    "display": "browser",
-   "theme": "light"
+   "theme": "light",
+   "color_scheme": "light dark"
   },
   "pages": []
  },
@@ -961,6 +963,7 @@
   "web/icon-maskable-512.png",
   "web/site.webmanifest",
   "web/head-snippet.html",
+  "web/head-home.html",
   "web/og.jpg",
   "web/og.png",
   "social/avatar-1024.png",
