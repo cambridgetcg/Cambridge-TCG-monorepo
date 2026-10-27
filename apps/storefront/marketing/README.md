@@ -112,9 +112,10 @@ draws other paths than `cambridge-tcg-mark-nav.svg`.
 - The browser bar's colour (`<meta name="theme-color">`) and the `color-scheme` tag follow the
   theme the page wears, not only the device. `generateViewport()` in `src/app/layout.tsx` reads the
   same theme cookie as the layout and takes both from `src/lib/wardrobe/viewport.ts`:
-  - no saved theme: the page follows the device, so the bar does too, with the kit's pair from
-    `kit/web/head-snippet.html` (#FBF7F1 in a light scheme, #1D1425 in a dark one: the Light and
-    Dark page grounds) and `color-scheme: light dark`;
+  - no saved theme: the page follows the device, so the bar does too, with the Light and Dark page
+    grounds as a pair (read from `src/lib/wardrobe/themes.ts`, so a palette change carries through;
+    today #fbf7f1 in a light scheme and #1d1425 in a dark one, the same pair as
+    `kit/web/head-snippet.html`) and `color-scheme: light dark`;
   - a saved theme (Light, Dark, Terminal or High contrast): that theme's page ground as one colour,
     and its own scheme, because a saved theme can disagree with the device. The kit's pair alone
     would give Dark on a light phone an ivory bar; that is why the pages set no theme-color until

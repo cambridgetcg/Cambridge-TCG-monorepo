@@ -9,10 +9,11 @@
  * page either way.
  *
  * With no saved theme the page follows the device (themes.css,
- * [data-theme="system"]), and so does the bar: the brand kit's pair from
- * marketing/kit/web/head-snippet.html, which is the Light and Dark page
- * grounds. A saved theme can disagree with the device (Dark on a light
- * phone), so it gets its own page ground as one colour and its own scheme.
+ * [data-theme="system"]), and so does the bar: the Light and Dark page
+ * grounds as a pair, read from the registry so a palette change carries
+ * through (the brand kit's head-snippet.html pair is the same two grounds).
+ * A saved theme can disagree with the device (Dark on a light phone), so it
+ * gets its own page ground as one colour and its own scheme.
  */
 
 import { getTheme, type ThemeId } from "./themes";
@@ -28,8 +29,8 @@ export function themeViewport(theme: ThemeId | null): ThemeViewport {
   if (!theme) {
     return {
       themeColor: [
-        { media: "(prefers-color-scheme: light)", color: "#FBF7F1" },
-        { media: "(prefers-color-scheme: dark)", color: "#1D1425" },
+        { media: "(prefers-color-scheme: light)", color: getTheme("gallery").swatches[0] },
+        { media: "(prefers-color-scheme: dark)", color: getTheme("midnight").swatches[0] },
       ],
       colorScheme: "light dark",
     };

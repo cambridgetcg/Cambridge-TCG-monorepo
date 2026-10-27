@@ -39,8 +39,8 @@ describe("the instant lights flip", () => {
 
 // The tags as generateViewport renders them (layout.tsx).
 const SYSTEM_HEAD = `
-  <meta name="theme-color" content="#FBF7F1" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1D1425" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#fbf7f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1d1425" media="(prefers-color-scheme: dark)">
   <meta name="color-scheme" content="light dark">`;
 const MIDNIGHT_HEAD = `
   <meta name="theme-color" content="#1d1425">
@@ -83,8 +83,8 @@ describe("the browser bar follows the flip", () => {
     expect(themeColors(doc).map(([, colour]) => colour)).toEqual(["#0a0a0a", "#0a0a0a"]);
     applyThemeViewport("system", doc.head);
     expect(themeColors(doc)).toEqual([
-      ["(prefers-color-scheme: light)", "#FBF7F1"],
-      ["(prefers-color-scheme: dark)", "#1D1425"],
+      ["(prefers-color-scheme: light)", "#fbf7f1"],
+      ["(prefers-color-scheme: dark)", "#1d1425"],
     ]);
     expect(colorScheme(doc)).toBe("light dark");
   });
@@ -108,8 +108,8 @@ describe("a cached route's head after a flip (Back, Forward)", () => {
     const fetchFn = vi.fn().mockResolvedValue(undefined);
     applyLightsFlip({ target: "midnight", href: "/x" }, doc.documentElement, fetchFn, doc.head);
     // Back: React re-renders the head the route had before the flip.
-    doc.head.querySelectorAll('meta[name="theme-color"]')[0].setAttribute("content", "#FBF7F1");
-    doc.head.querySelectorAll('meta[name="theme-color"]')[1].setAttribute("content", "#1D1425");
+    doc.head.querySelectorAll('meta[name="theme-color"]')[0].setAttribute("content", "#fbf7f1");
+    doc.head.querySelectorAll('meta[name="theme-color"]')[1].setAttribute("content", "#1d1425");
     doc.head.querySelector('meta[name="color-scheme"]')?.setAttribute("content", "light dark");
     await settle();
     expect(themeColors(doc)).toEqual([
