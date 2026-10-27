@@ -4,41 +4,30 @@
    which follow prefers-color-scheme and [data-theme] as colour/tokens.css does. A scale named neutral
    replaces Tailwind's own neutral palette. */
 @theme {
-  --color-primary-50: #FFF4F0;
-  --color-primary-100: #FFE5DC;
-  --color-primary-200: #FECCBA;
-  --color-primary-300: #F7AC91;
-  --color-primary-400: #E28564;
-  --color-primary-500: #CA6540;
-  --color-primary-600: #AB4A24;
-  --color-primary-700: #9B3B12;
-  --color-primary-800: #702808;
-  --color-primary-900: #541C05;
-  --color-primary-950: #360E01;
-  --color-accent-50: #FFF4EF;
-  --color-accent-100: #FFE5D9;
-  --color-accent-200: #FFCDB5;
-  --color-accent-300: #FEAA81;
-  --color-accent-400: #EC7838;
-  --color-accent-500: #D26019;
-  --color-accent-600: #AD4900;
-  --color-accent-700: #8A3900;
-  --color-accent-800: #6D2C00;
-  --color-accent-900: #521F00;
-  --color-accent-950: #341100;
-  --color-neutral-50: #F8F5FA;
-  --color-neutral-100: #EFE8F2;
-  --color-neutral-200: #E0D4E6;
-  --color-neutral-300: #CBB9D5;
-  --color-neutral-400: #AE98BA;
-  --color-neutral-500: #937CA0;
-  --color-neutral-600: #786285;
-  --color-neutral-700: #614B6D;
-  --color-neutral-800: #4E3859;
-  --color-neutral-900: #3B2746;
-  --color-neutral-950: #2C1836;
-  --font-display: "Inter", system-ui, sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  --color-primary-50: #FAF6EE;
+  --color-primary-100: #F3EAD9;
+  --color-primary-200: #E7D7B9;
+  --color-primary-300: #D6BE8F;
+  --color-primary-400: #BB9D60;
+  --color-primary-500: #A2813B;
+  --color-primary-600: #86661C;
+  --color-primary-700: #6D5007;
+  --color-primary-800: #563E01;
+  --color-primary-900: #3F2D01;
+  --color-primary-950: #271B00;
+  --color-neutral-50: #F7F7F6;
+  --color-neutral-100: #ECEBE9;
+  --color-neutral-200: #DBD9D6;
+  --color-neutral-300: #C3C0BC;
+  --color-neutral-400: #A4A19B;
+  --color-neutral-500: #89867F;
+  --color-neutral-600: #6F6B65;
+  --color-neutral-700: #58554F;
+  --color-neutral-800: #45423C;
+  --color-neutral-900: #33302A;
+  --color-neutral-950: #201D18;
+  --font-display: "Fraunces", system-ui, sans-serif;
+  --font-body: "Fraunces", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Menlo", monospace;
 }
 @theme inline {
@@ -51,62 +40,46 @@
   --color-on-primary: var(--on-primary);
   --color-primary-text: var(--primary-text);
   --color-primary-ui: var(--primary-ui);
-  --color-accent: var(--accent);
-  --color-on-accent: var(--on-accent);
-  --color-accent-text: var(--accent-text);
-  --color-accent-ui: var(--accent-ui);
   --color-focus: var(--focus);
 }
 :root, [data-theme="light"] {
   color-scheme: light;
-  --bg: #FBF7F1;
-  --surface: #E8E1EB;
-  --border: #D9CDDF;
-  --text: #2C1836;
-  --text-muted: #786285;
-  --primary: #9B3B12;
+  --bg: #FAF8F4;
+  --surface: #E5E4E2;
+  --border: #D4D2CF;
+  --text: #201D18;
+  --text-muted: #6F6B65;
+  --primary: #86661C;
   --on-primary: #FFFFFF;
-  --primary-text: #9B3B12;
-  --primary-ui: #9B3B12;
-  --accent: #EC7838;
-  --on-accent: #2C1836;
-  --accent-text: #AD4900;
-  --accent-ui: #D26019;
-  --focus: #9B3B12;
+  --primary-text: #86661C;
+  --primary-ui: #86661C;
+  --focus: #86661C;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #1D1425;
-    --surface: #302739;
-    --border: #42394C;
-    --text: #F8F5FA;
-    --text-muted: #AE98BA;
-    --primary: #9B3B12;
+    --bg: #0B0F1A;
+    --surface: #1D212D;
+    --border: #2E333F;
+    --text: #F7F7F6;
+    --text-muted: #A4A19B;
+    --primary: #86661C;
     --on-primary: #FFFFFF;
-    --primary-text: #E28564;
-    --primary-ui: #CA6540;
-    --accent: #EC7838;
-    --on-accent: #2C1836;
-    --accent-text: #EC7838;
-    --accent-ui: #EC7838;
-    --focus: #CA6540;
+    --primary-text: #BB9D60;
+    --primary-ui: #A2813B;
+    --focus: #A2813B;
   }
 }
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1D1425;
-  --surface: #302739;
-  --border: #42394C;
-  --text: #F8F5FA;
-  --text-muted: #AE98BA;
-  --primary: #9B3B12;
+  --bg: #0B0F1A;
+  --surface: #1D212D;
+  --border: #2E333F;
+  --text: #F7F7F6;
+  --text-muted: #A4A19B;
+  --primary: #86661C;
   --on-primary: #FFFFFF;
-  --primary-text: #E28564;
-  --primary-ui: #CA6540;
-  --accent: #EC7838;
-  --on-accent: #2C1836;
-  --accent-text: #EC7838;
-  --accent-ui: #EC7838;
-  --focus: #CA6540;
+  --primary-text: #BB9D60;
+  --primary-ui: #A2813B;
+  --focus: #A2813B;
 }

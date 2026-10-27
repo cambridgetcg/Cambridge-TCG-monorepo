@@ -5,30 +5,29 @@
   "description": "Building open-source tools and shared standards for card identity, images, prices and market data.",
   "lang": "en-GB",
   "colours": {
-    "primary": "#9b3b12",
-    "accent": "#ec7838",
-    "neutral": "#2c1836"
+    "primary": "#86661c",
+    "neutral": "#201d18"
   },
   "ground": {
-    "light": "#fbf7f1",
-    "dark": "#1d1425"
+    "light": "#faf8f4",
+    "dark": "#0b0f1a"
   },
   "mark": {
     "svg": "mark-source.svg",
     "small": "mark-small.svg",
-    "dark": "#ffb078"
+    "dark": "#d9b36c"
   },
   "wordmark": {
     "text": "Cambridge TCG",
-    "font": "Inter",
+    "font": "Fraunces",
     "style": "SemiBold",
-    "tracking": -40,
-    "colour": "#2c1836",
-    "colour_dark": "#fff6e9"
+    "tracking": -20,
+    "colour": "#201d18",
+    "colour_dark": "#e9e4d6"
   },
   "icon": {
     "tile": "primary",
-    "ink": "#fbf7f1",
+    "ink": "#faf8f4",
     "padding": 0.18,
     "radius": 0.22
   },

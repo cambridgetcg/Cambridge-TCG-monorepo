@@ -1,46 +1,33 @@
 /* Cambridge TCG */
 :root {
   /* cambridge-tcg brand */
-  --cambridge-tcg-primary: #9b3b12;
-  --cambridge-tcg-accent: #ec7838;
-  --cambridge-tcg-neutral: #2c1836;
+  --cambridge-tcg-primary: #86661c;
+  --cambridge-tcg-neutral: #201d18;
   /* cambridge-tcg ground */
-  --cambridge-tcg-ground-light: #fbf7f1;
-  --cambridge-tcg-ground-dark: #1d1425;
+  --cambridge-tcg-ground-light: #faf8f4;
+  --cambridge-tcg-ground-dark: #0b0f1a;
   /* cambridge-tcg primary scale */
-  --cambridge-tcg-primary-50: #fff4f0;
-  --cambridge-tcg-primary-100: #ffe5dc;
-  --cambridge-tcg-primary-200: #feccba;
-  --cambridge-tcg-primary-300: #f7ac91;
-  --cambridge-tcg-primary-400: #e28564;
-  --cambridge-tcg-primary-500: #ca6540;
-  --cambridge-tcg-primary-600: #ab4a24;
-  --cambridge-tcg-primary-700: #9b3b12;
-  --cambridge-tcg-primary-800: #702808;
-  --cambridge-tcg-primary-900: #541c05;
-  --cambridge-tcg-primary-950: #360e01;
-  /* cambridge-tcg accent scale */
-  --cambridge-tcg-accent-50: #fff4ef;
-  --cambridge-tcg-accent-100: #ffe5d9;
-  --cambridge-tcg-accent-200: #ffcdb5;
-  --cambridge-tcg-accent-300: #feaa81;
-  --cambridge-tcg-accent-400: #ec7838;
-  --cambridge-tcg-accent-500: #d26019;
-  --cambridge-tcg-accent-600: #ad4900;
-  --cambridge-tcg-accent-700: #8a3900;
-  --cambridge-tcg-accent-800: #6d2c00;
-  --cambridge-tcg-accent-900: #521f00;
-  --cambridge-tcg-accent-950: #341100;
+  --cambridge-tcg-primary-50: #faf6ee;
+  --cambridge-tcg-primary-100: #f3ead9;
+  --cambridge-tcg-primary-200: #e7d7b9;
+  --cambridge-tcg-primary-300: #d6be8f;
+  --cambridge-tcg-primary-400: #bb9d60;
+  --cambridge-tcg-primary-500: #a2813b;
+  --cambridge-tcg-primary-600: #86661c;
+  --cambridge-tcg-primary-700: #6d5007;
+  --cambridge-tcg-primary-800: #563e01;
+  --cambridge-tcg-primary-900: #3f2d01;
+  --cambridge-tcg-primary-950: #271b00;
   /* cambridge-tcg neutral scale */
-  --cambridge-tcg-neutral-50: #f8f5fa;
-  --cambridge-tcg-neutral-100: #efe8f2;
-  --cambridge-tcg-neutral-200: #e0d4e6;
-  --cambridge-tcg-neutral-300: #cbb9d5;
-  --cambridge-tcg-neutral-400: #ae98ba;
-  --cambridge-tcg-neutral-500: #937ca0;
-  --cambridge-tcg-neutral-600: #786285;
-  --cambridge-tcg-neutral-700: #614b6d;
-  --cambridge-tcg-neutral-800: #4e3859;
-  --cambridge-tcg-neutral-900: #3b2746;
-  --cambridge-tcg-neutral-950: #2c1836;
+  --cambridge-tcg-neutral-50: #f7f7f6;
+  --cambridge-tcg-neutral-100: #ecebe9;
+  --cambridge-tcg-neutral-200: #dbd9d6;
+  --cambridge-tcg-neutral-300: #c3c0bc;
+  --cambridge-tcg-neutral-400: #a4a19b;
+  --cambridge-tcg-neutral-500: #89867f;
+  --cambridge-tcg-neutral-600: #6f6b65;
+  --cambridge-tcg-neutral-700: #58554f;
+  --cambridge-tcg-neutral-800: #45423c;
+  --cambridge-tcg-neutral-900: #33302a;
+  --cambridge-tcg-neutral-950: #201d18;
 }

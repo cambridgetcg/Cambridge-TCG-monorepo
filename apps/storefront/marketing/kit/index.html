@@ -26,9 +26,9 @@ nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 14px 0 0; font-size
 .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .ground { display: flex; align-items: center; justify-content: center; padding: 24px 16px; min-height: 150px; min-width: 0; }
 .ground img { max-width: 100%; max-height: 110px; height: auto; }
-.g-light { background: #FBF7F1; }
-.g-dark { background: #1D1425; }
-.clear { --k: 1; display: inline-block; outline: 1px dashed #9B3B12; outline-offset: 0; padding: calc(var(--cs) * var(--h) * var(--k)); background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(127,127,127,.12) 6px 7px); }
+.g-light { background: #FAF8F4; }
+.g-dark { background: #0B0F1A; }
+.clear { --k: 1; display: inline-block; outline: 1px dashed #86661C; outline-offset: 0; padding: calc(var(--cs) * var(--h) * var(--k)); background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(127,127,127,.12) 6px 7px); }
 .clear img { display: block; height: calc(var(--h) * var(--k)); width: auto; max-width: none; max-height: none; }
 .tabs { display: grid; gap: 10px; padding: 14px; }
 .tab { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 8px 8px 0 0; font: 12px system-ui, sans-serif; max-width: 260px; }
@@ -61,7 +61,7 @@ video { width: 100%; height: auto; display: block; }
 @page { margin: 12mm; }
 @media print {
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  html:root:not([data-theme="light"]) { --bg: #FBF7F1; --surface: #E8E1EB; --border: #D9CDDF; --text: #2C1836; --text-muted: #786285; --primary-text: #9B3B12; }
+  html:root:not([data-theme="light"]) { --bg: #FAF8F4; --surface: #E5E4E2; --border: #D4D2CF; --text: #201D18; --text-muted: #6F6B65; --primary-text: #86661C; }
   main { max-width: none; padding: 0; }
   nav, video { display: none; }
   h2 { break-after: avoid; }
@@ -75,24 +75,24 @@ video { width: 100%; height: auto; display: block; }
 <body>
 <main>
 <h1>Cambridge TCG brand kit</h1>
-<p class="lede">Review sheet: every asset on the light ground (#FBF7F1) and the dark ground (#1D1425). This page uses the kit's own <code>colour/tokens.css</code> and follows your system light/dark setting.</p>
+<p class="lede">Review sheet: every asset on the light ground (#FAF8F4) and the dark ground (#0B0F1A). This page uses the kit's own <code>colour/tokens.css</code> and follows your system light/dark setting.</p>
 <nav><a href="BRAND.md">Guide (BRAND.md)</a><a href="verify.json">Checks (verify.json)</a><a href="web/head-snippet.html">Head snippet</a><a href="web/head-home.html">Home-page head</a><a href="colour/contrast.md">Contrast table</a><a href="brand.vectorcraft">Source (brand.vectorcraft)</a></nav>
 <h2>Logo</h2>
 <p class="muted">Reversed and white versions are made for dark grounds; they are shown on both so you can see why.</p>
 <div class="grid">
-<section class="card"><h3>Horizontal <span>logo/lockup-horizontal.svg · 581×96</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-horizontal.svg" alt="Cambridge TCG horizontal on light"></div><div class="ground g-dark"><img src="logo/lockup-horizontal.svg" alt="Cambridge TCG horizontal on dark"></div></div></section>
-<section class="card"><h3>Horizontal, reversed <span>logo/lockup-horizontal-reversed.svg · 581×96</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-horizontal-reversed.svg" alt="Cambridge TCG horizontal, reversed on light"></div><div class="ground g-dark"><img src="logo/lockup-horizontal-reversed.svg" alt="Cambridge TCG horizontal, reversed on dark"></div></div></section>
-<section class="card"><h3>Stacked <span>logo/lockup-stacked.svg · 402×208</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-stacked.svg" alt="Cambridge TCG stacked on light"></div><div class="ground g-dark"><img src="logo/lockup-stacked.svg" alt="Cambridge TCG stacked on dark"></div></div></section>
-<section class="card"><h3>Stacked, reversed <span>logo/lockup-stacked-reversed.svg · 402×208</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-stacked-reversed.svg" alt="Cambridge TCG stacked, reversed on light"></div><div class="ground g-dark"><img src="logo/lockup-stacked-reversed.svg" alt="Cambridge TCG stacked, reversed on dark"></div></div></section>
+<section class="card"><h3>Horizontal <span>logo/lockup-horizontal.svg · 623×96</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-horizontal.svg" alt="Cambridge TCG horizontal on light"></div><div class="ground g-dark"><img src="logo/lockup-horizontal.svg" alt="Cambridge TCG horizontal on dark"></div></div></section>
+<section class="card"><h3>Horizontal, reversed <span>logo/lockup-horizontal-reversed.svg · 623×96</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-horizontal-reversed.svg" alt="Cambridge TCG horizontal, reversed on light"></div><div class="ground g-dark"><img src="logo/lockup-horizontal-reversed.svg" alt="Cambridge TCG horizontal, reversed on dark"></div></div></section>
+<section class="card"><h3>Stacked <span>logo/lockup-stacked.svg · 438×211</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-stacked.svg" alt="Cambridge TCG stacked on light"></div><div class="ground g-dark"><img src="logo/lockup-stacked.svg" alt="Cambridge TCG stacked on dark"></div></div></section>
+<section class="card"><h3>Stacked, reversed <span>logo/lockup-stacked-reversed.svg · 438×211</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-stacked-reversed.svg" alt="Cambridge TCG stacked, reversed on light"></div><div class="ground g-dark"><img src="logo/lockup-stacked-reversed.svg" alt="Cambridge TCG stacked, reversed on dark"></div></div></section>
 <section class="card"><h3>Mark <span>logo/mark.svg · 217×256</span></h3><div class="pair"><div class="ground g-light"><img src="logo/mark.svg" alt="Cambridge TCG mark on light"></div><div class="ground g-dark"><img src="logo/mark.svg" alt="Cambridge TCG mark on dark"></div></div></section>
 <section class="card"><h3>Mark, mono black <span>logo/mark-mono-black.svg · 217×256</span></h3><div class="pair"><div class="ground g-light"><img src="logo/mark-mono-black.svg" alt="Cambridge TCG mark, mono black on light"></div><div class="ground g-dark"><img src="logo/mark-mono-black.svg" alt="Cambridge TCG mark, mono black on dark"></div></div></section>
 <section class="card"><h3>Mark, mono white <span>logo/mark-mono-white.svg · 217×256</span></h3><div class="pair"><div class="ground g-light"><img src="logo/mark-mono-white.svg" alt="Cambridge TCG mark, mono white on light"></div><div class="ground g-dark"><img src="logo/mark-mono-white.svg" alt="Cambridge TCG mark, mono white on dark"></div></div></section>
-<section class="card"><h3>Wordmark <span>logo/wordmark.svg · 627×87</span></h3><div class="pair"><div class="ground g-light"><img src="logo/wordmark.svg" alt="Cambridge TCG wordmark on light"></div><div class="ground g-dark"><img src="logo/wordmark.svg" alt="Cambridge TCG wordmark on dark"></div></div></section>
-<section class="card"><h3>Wordmark, reversed <span>logo/wordmark-reversed.svg · 627×87</span></h3><div class="pair"><div class="ground g-light"><img src="logo/wordmark-reversed.svg" alt="Cambridge TCG wordmark, reversed on light"></div><div class="ground g-dark"><img src="logo/wordmark-reversed.svg" alt="Cambridge TCG wordmark, reversed on dark"></div></div></section>
+<section class="card"><h3>Wordmark <span>logo/wordmark.svg · 684×91</span></h3><div class="pair"><div class="ground g-light"><img src="logo/wordmark.svg" alt="Cambridge TCG wordmark on light"></div><div class="ground g-dark"><img src="logo/wordmark.svg" alt="Cambridge TCG wordmark on dark"></div></div></section>
+<section class="card"><h3>Wordmark, reversed <span>logo/wordmark-reversed.svg · 684×91</span></h3><div class="pair"><div class="ground g-light"><img src="logo/wordmark-reversed.svg" alt="Cambridge TCG wordmark, reversed on light"></div><div class="ground g-dark"><img src="logo/wordmark-reversed.svg" alt="Cambridge TCG wordmark, reversed on dark"></div></div></section>
 </div>
 <div class="grid two">
 <section class="card"><h3>Clear space <span>horizontal lockup · x = cap height = 48 px at 1x</span></h3><div class="ground g-light"><span class="clear" style="--cs:0.500;--h:64.0px"><img src="logo/lockup-horizontal.svg" alt="Horizontal lockup with its clear space"></span></div></section>
-<section class="card"><h3>Clear space <span>wordmark · x = cap height = 64 px at 1x</span></h3><div class="ground g-light"><span class="clear" style="--cs:0.736;--h:55.3px"><img src="logo/wordmark.svg" alt="Wordmark with its clear space"></span></div></section>
+<section class="card"><h3>Clear space <span>wordmark · x = cap height = 64 px at 1x</span></h3><div class="ground g-light"><span class="clear" style="--cs:0.703;--h:53.8px"><img src="logo/wordmark.svg" alt="Wordmark with its clear space"></span></div></section>
 </div>
 <h3 style="font-size:15px;margin:22px 0 0">On grounds <span class="muted">opaque PNGs, clear space included: logo/on-light/ and logo/on-dark/</span></h3>
 <div class="grid">
@@ -100,7 +100,7 @@ video { width: 100%; height: auto; display: block; }
 <section class="card"><h3>Stacked <span>lockup-stacked@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/lockup-stacked@2x.png" alt="Cambridge TCG stacked on the light ground"></div><div class="ground"><img src="logo/on-dark/lockup-stacked@2x.png" alt="Cambridge TCG stacked on the dark ground"></div></div></section>
 <section class="card"><h3>Wordmark <span>wordmark@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/wordmark@2x.png" alt="Cambridge TCG wordmark on the light ground"></div><div class="ground"><img src="logo/on-dark/wordmark@2x.png" alt="Cambridge TCG wordmark on the dark ground"></div></div></section>
 <section class="card"><h3>Mark <span>mark@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/mark@2x.png" alt="Cambridge TCG mark on the light ground"></div><div class="ground"><img src="logo/on-dark/mark@2x.png" alt="Cambridge TCG mark on the dark ground"></div></div></section>
-<section class="card"><h3>Email signature <span>logo/on-light/lockup-horizontal@2x.png at 226×64</span></h3><div class="email">Kind regards,<br>A. Person<img src="logo/on-light/lockup-horizontal@2x.png" width="226" height="64" alt="Cambridge TCG"></div></section>
+<section class="card"><h3>Email signature <span>logo/on-light/lockup-horizontal@2x.png at 240×64</span></h3><div class="email">Kind regards,<br>A. Person<img src="logo/on-light/lockup-horizontal@2x.png" width="240" height="64" alt="Cambridge TCG"></div></section>
 </div>
 <h2>Favicons</h2>
 <p class="muted">Browser tabs at true size (16 CSS px), then the raster cuts at 1x and zoomed.</p>
@@ -111,8 +111,8 @@ video { width: 100%; height: auto; display: block; }
 <section class="card"><h3>Raster cuts <span>on dark · 16, 32, then zoomed</span></h3><div class="strip g-dark"><img src="web/favicon-16.png" width="16" height="16" alt="16 px favicon"><img src="web/favicon-32.png" width="32" height="32" alt="32 px favicon"><img class="zoom" src="web/favicon-16.png" width="96" height="96" alt="16 px favicon zoomed"><img class="zoom" src="web/favicon-32.png" width="96" height="96" alt="32 px favicon zoomed"></div></section>
 </div>
 <div class="grid two">
-<section class="card"><h3>favicon.ico frames <span>on light · 16, 32, 48, then zoomed</span></h3><div class="strip g-light"><img src="web/favicon-16.png" width="16" height="16" alt="16 px frame"><img src="web/favicon-32.png" width="32" height="32" alt="32 px frame"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAy9JREFUeJzVWk1oE0EUfjOJLYUgISgWKqGgIPTSeJFCA20Fiyj+RLyIUKogRS8KUk8VDd4Mgr0opaBpD/VWQVoQPdhCSosX4yXgQZTSg4LoIj1oTLLybbMh3exu0uxMuvPBsuzsY/K+N9/OmzcTRg542hfuDgb5KOlsgEiPEVGYWguNiGWJ6cuFQil9fU37amfE7BzfE+D3dKJR8hEYUfpfsZS0EtlGYDq+b5D00stdiHaj0IjxxLXMj6UaAmXn35EKYHzIJMEqeg/wDz6OvBVaoVg6CjkF8VTW/I6dPzu1SJFDPcK9y2/+ptz8c8rOPnYyCcNnIroSQPQ5Z+lmfujImcvUEdlPohFoa6fO3j5DIN8+rjmZxU51tc+w6XjkPukENr5BtH+YjienjJGYO9/rbMgoybfmeX9hfeWNcW8L7XU31NkALycpRaHHuEIzjx3CIKA0jGm0HqDFngtXKdp/Qsi0+fNzjtZX3lJu/pnxoUolAOdPPnohdL5HX7gQkNe3L3kiUVdCiLyMZAWgX/QvdQQQJRPZ2Um37NgwYiO3KDZys9K/lz7rjkB19EU4b+3H6+gqPwsJJxC/kyJlCUDbh4cvGnflCGD1aH6YuG+tJhUhgFxhlQ6e6y7G/EIAEQ8dOLitDc/miPiaAKTilIzQLltKXLR0rJAtJU8E4uOpGulYgfew8x0BlH24RNu2jMCxG3el2ksn8P7JA6n20gmg8DaLb5G2Lf2IM6lx2vy+4WqD97CTBU8EUEllHro7h/dey0apiQw7Z6ht7YB2l501/ywlUKlZpYRntMuGEAJ2UpItHeHLaUjFjDjuXqWDrRdcQvaFdlLrhjq7hNTOr8ZO705JWW9WEg0Q0EhdaNw4ynRBtQ5F1brV/TSic2ewbBDnsKTToJMJ9jDNvRtUWKKrLPTfNJi+zHGI7GaDZOQtSs5Av05JsBHA98Dixh/tXLSjGwG2Myrm/9KXpQUq5vNGZSXiTAyOf1qYo9XJiaZzBQ6+x1Z/zSh/zGpMo8bxPeMJUgWMJ8y/HFTygHHyzfiQz6dVrfqUviaR4QWGBvoin4ERpeFbtfPldnuo8neb/yZoVrEIq83tAAAAAElFTkSuQmCC" width="48" height="48" alt="48 px frame"><img class="zoom" src="web/favicon-16.png" width="64" height="64" alt="16 px frame zoomed"><img class="zoom" src="web/favicon-32.png" width="128" height="128" alt="32 px frame zoomed"><img class="zoom" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAy9JREFUeJzVWk1oE0EUfjOJLYUgISgWKqGgIPTSeJFCA20Fiyj+RLyIUKogRS8KUk8VDd4Mgr0opaBpD/VWQVoQPdhCSosX4yXgQZTSg4LoIj1oTLLybbMh3exu0uxMuvPBsuzsY/K+N9/OmzcTRg542hfuDgb5KOlsgEiPEVGYWguNiGWJ6cuFQil9fU37amfE7BzfE+D3dKJR8hEYUfpfsZS0EtlGYDq+b5D00stdiHaj0IjxxLXMj6UaAmXn35EKYHzIJMEqeg/wDz6OvBVaoVg6CjkF8VTW/I6dPzu1SJFDPcK9y2/+ptz8c8rOPnYyCcNnIroSQPQ5Z+lmfujImcvUEdlPohFoa6fO3j5DIN8+rjmZxU51tc+w6XjkPukENr5BtH+YjienjJGYO9/rbMgoybfmeX9hfeWNcW8L7XU31NkALycpRaHHuEIzjx3CIKA0jGm0HqDFngtXKdp/Qsi0+fNzjtZX3lJu/pnxoUolAOdPPnohdL5HX7gQkNe3L3kiUVdCiLyMZAWgX/QvdQQQJRPZ2Um37NgwYiO3KDZys9K/lz7rjkB19EU4b+3H6+gqPwsJJxC/kyJlCUDbh4cvGnflCGD1aH6YuG+tJhUhgFxhlQ6e6y7G/EIAEQ8dOLitDc/miPiaAKTilIzQLltKXLR0rJAtJU8E4uOpGulYgfew8x0BlH24RNu2jMCxG3el2ksn8P7JA6n20gmg8DaLb5G2Lf2IM6lx2vy+4WqD97CTBU8EUEllHro7h/dey0apiQw7Z6ht7YB2l501/ywlUKlZpYRntMuGEAJ2UpItHeHLaUjFjDjuXqWDrRdcQvaFdlLrhjq7hNTOr8ZO705JWW9WEg0Q0EhdaNw4ynRBtQ5F1brV/TSic2ewbBDnsKTToJMJ9jDNvRtUWKKrLPTfNJi+zHGI7GaDZOQtSs5Av05JsBHA98Dixh/tXLSjGwG2Myrm/9KXpQUq5vNGZSXiTAyOf1qYo9XJiaZzBQ6+x1Z/zSh/zGpMo8bxPeMJUgWMJ8y/HFTygHHyzfiQz6dVrfqUviaR4QWGBvoin4ERpeFbtfPldnuo8neb/yZoVrEIq83tAAAAAElFTkSuQmCC" width="144" height="144" alt="48 px frame zoomed"></div></section>
-<section class="card"><h3>favicon.ico frames <span>on dark · 16, 32, 48, then zoomed</span></h3><div class="strip g-dark"><img src="web/favicon-16.png" width="16" height="16" alt="16 px frame"><img src="web/favicon-32.png" width="32" height="32" alt="32 px frame"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAy9JREFUeJzVWk1oE0EUfjOJLYUgISgWKqGgIPTSeJFCA20Fiyj+RLyIUKogRS8KUk8VDd4Mgr0opaBpD/VWQVoQPdhCSosX4yXgQZTSg4LoIj1oTLLybbMh3exu0uxMuvPBsuzsY/K+N9/OmzcTRg542hfuDgb5KOlsgEiPEVGYWguNiGWJ6cuFQil9fU37amfE7BzfE+D3dKJR8hEYUfpfsZS0EtlGYDq+b5D00stdiHaj0IjxxLXMj6UaAmXn35EKYHzIJMEqeg/wDz6OvBVaoVg6CjkF8VTW/I6dPzu1SJFDPcK9y2/+ptz8c8rOPnYyCcNnIroSQPQ5Z+lmfujImcvUEdlPohFoa6fO3j5DIN8+rjmZxU51tc+w6XjkPukENr5BtH+YjienjJGYO9/rbMgoybfmeX9hfeWNcW8L7XU31NkALycpRaHHuEIzjx3CIKA0jGm0HqDFngtXKdp/Qsi0+fNzjtZX3lJu/pnxoUolAOdPPnohdL5HX7gQkNe3L3kiUVdCiLyMZAWgX/QvdQQQJRPZ2Um37NgwYiO3KDZys9K/lz7rjkB19EU4b+3H6+gqPwsJJxC/kyJlCUDbh4cvGnflCGD1aH6YuG+tJhUhgFxhlQ6e6y7G/EIAEQ8dOLitDc/miPiaAKTilIzQLltKXLR0rJAtJU8E4uOpGulYgfew8x0BlH24RNu2jMCxG3el2ksn8P7JA6n20gmg8DaLb5G2Lf2IM6lx2vy+4WqD97CTBU8EUEllHro7h/dey0apiQw7Z6ht7YB2l501/ywlUKlZpYRntMuGEAJ2UpItHeHLaUjFjDjuXqWDrRdcQvaFdlLrhjq7hNTOr8ZO705JWW9WEg0Q0EhdaNw4ynRBtQ5F1brV/TSic2ewbBDnsKTToJMJ9jDNvRtUWKKrLPTfNJi+zHGI7GaDZOQtSs5Av05JsBHA98Dixh/tXLSjGwG2Myrm/9KXpQUq5vNGZSXiTAyOf1qYo9XJiaZzBQ6+x1Z/zSh/zGpMo8bxPeMJUgWMJ8y/HFTygHHyzfiQz6dVrfqUviaR4QWGBvoin4ERpeFbtfPldnuo8neb/yZoVrEIq83tAAAAAElFTkSuQmCC" width="48" height="48" alt="48 px frame"><img class="zoom" src="web/favicon-16.png" width="64" height="64" alt="16 px frame zoomed"><img class="zoom" src="web/favicon-32.png" width="128" height="128" alt="32 px frame zoomed"><img class="zoom" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAy9JREFUeJzVWk1oE0EUfjOJLYUgISgWKqGgIPTSeJFCA20Fiyj+RLyIUKogRS8KUk8VDd4Mgr0opaBpD/VWQVoQPdhCSosX4yXgQZTSg4LoIj1oTLLybbMh3exu0uxMuvPBsuzsY/K+N9/OmzcTRg542hfuDgb5KOlsgEiPEVGYWguNiGWJ6cuFQil9fU37amfE7BzfE+D3dKJR8hEYUfpfsZS0EtlGYDq+b5D00stdiHaj0IjxxLXMj6UaAmXn35EKYHzIJMEqeg/wDz6OvBVaoVg6CjkF8VTW/I6dPzu1SJFDPcK9y2/+ptz8c8rOPnYyCcNnIroSQPQ5Z+lmfujImcvUEdlPohFoa6fO3j5DIN8+rjmZxU51tc+w6XjkPukENr5BtH+YjienjJGYO9/rbMgoybfmeX9hfeWNcW8L7XU31NkALycpRaHHuEIzjx3CIKA0jGm0HqDFngtXKdp/Qsi0+fNzjtZX3lJu/pnxoUolAOdPPnohdL5HX7gQkNe3L3kiUVdCiLyMZAWgX/QvdQQQJRPZ2Um37NgwYiO3KDZys9K/lz7rjkB19EU4b+3H6+gqPwsJJxC/kyJlCUDbh4cvGnflCGD1aH6YuG+tJhUhgFxhlQ6e6y7G/EIAEQ8dOLitDc/miPiaAKTilIzQLltKXLR0rJAtJU8E4uOpGulYgfew8x0BlH24RNu2jMCxG3el2ksn8P7JA6n20gmg8DaLb5G2Lf2IM6lx2vy+4WqD97CTBU8EUEllHro7h/dey0apiQw7Z6ht7YB2l501/ywlUKlZpYRntMuGEAJ2UpItHeHLaUjFjDjuXqWDrRdcQvaFdlLrhjq7hNTOr8ZO705JWW9WEg0Q0EhdaNw4ynRBtQ5F1brV/TSic2ewbBDnsKTToJMJ9jDNvRtUWKKrLPTfNJi+zHGI7GaDZOQtSs5Av05JsBHA98Dixh/tXLSjGwG2Myrm/9KXpQUq5vNGZSXiTAyOf1qYo9XJiaZzBQ6+x1Z/zSh/zGpMo8bxPeMJUgWMJ8y/HFTygHHyzfiQz6dVrfqUviaR4QWGBvoin4ERpeFbtfPldnuo8neb/yZoVrEIq83tAAAAAElFTkSuQmCC" width="144" height="144" alt="48 px frame zoomed"></div></section>
+<section class="card"><h3>favicon.ico frames <span>on light · 16, 32, 48, then zoomed</span></h3><div class="strip g-light"><img src="web/favicon-16.png" width="16" height="16" alt="16 px frame"><img src="web/favicon-32.png" width="32" height="32" alt="32 px frame"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAyxJREFUeJzVWj9oE1EY/97lJFQxDUFcUiFDBUGoLVoFEYw2S7fWRUEIFUQ6iGvJ1HaQ4Kod6pYEBLuokx00GgcdivVPp4IZirWLgxx1KIEkJ793uZhcc8mRe6+994PjcndfXr7fd79833v3HSMXZGcTiXq9OqMxumqaNEpEUTpYGIzRt7pJHzRNz2WWt7Y6GbFOjpNZmzdNc4YCBMZYjlho0UmkjUB2dihp1unlIUTbKwym0XRm+VdpH4GG8+9JATCNrtkkmC0bs179GuDIO2EwTR+DnHR+aNbm+3E+PfeKTsbPCPeusveX1kt5+rS65GYSbfh8J8Sjb9Zz/fzQuSu36FjkBImGfiRMp05f5J+3y2tuZqOp8ViePbw3tMCIwCYwGB5J0dTdJX4nnsyNu9qZRIsa8jwFDOWNt3wfHjje1Q6+a40ipSTgu6ZQ5umEKAgoDSuN9kB4IELnk2n+5xKRNn/vbHKdr5cKVNnblUsAzt98UBCa7zEWNgRk5XHaF4meEkLkZRQrAONifKl3AFGygcrYpTp6xuXJ+3yzx/czZs870Bp9Ec47x/F7d5XPQsIJTN7OkrIEoOuzl6ab+laKAGaPtuPY27NJJQigVjilg2OcV4IAIh6JxdvO4fggpOSbAKTiVoxwXraUNNHScUK2lHwRgHNO6TiB6zJTa98EMAUYHpnwaDvRNiUJBIHrNzJS7aUTePciK9VeOgEsSMobRY+2xeZCPVB/4tVnGdr9s9PVBtdhJwu+CGAl1cs5XPe7bJRayLZ/rPG1bSfgPK4HfiqBBYpTSjgWtQCSTqCTlGRLR/h0GlKxI469X+ng0Qs2Ic+FvAKOD8biQqRTeDR1OEtKmSnTjYBB6sLQ0MrsZtGqQ1ELlNZxvOjcDfBdRx+WESXdjDAFsJ/dtD6QEgU/Uwyrh6zpXdtLKEZ+otQNGNetCHoBfA8VPxtG6sJgAj2nTka1aoU2v7zm+/DRiJCeGBz//vE5vVlZ6LtWoPGdefozr3ybladRfEAHnBSB1a23Xjlo1gF0vtEBD3haNVq79PsKmUVCH+MvVgQMjLGcJZv/zvPzbl9Q5XWbf8snVEC6HGVYAAAAAElFTkSuQmCC" width="48" height="48" alt="48 px frame"><img class="zoom" src="web/favicon-16.png" width="64" height="64" alt="16 px frame zoomed"><img class="zoom" src="web/favicon-32.png" width="128" height="128" alt="32 px frame zoomed"><img class="zoom" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAyxJREFUeJzVWj9oE1EY/97lJFQxDUFcUiFDBUGoLVoFEYw2S7fWRUEIFUQ6iGvJ1HaQ4Kod6pYEBLuokx00GgcdivVPp4IZirWLgxx1KIEkJ793uZhcc8mRe6+994PjcndfXr7fd79833v3HSMXZGcTiXq9OqMxumqaNEpEUTpYGIzRt7pJHzRNz2WWt7Y6GbFOjpNZmzdNc4YCBMZYjlho0UmkjUB2dihp1unlIUTbKwym0XRm+VdpH4GG8+9JATCNrtkkmC0bs179GuDIO2EwTR+DnHR+aNbm+3E+PfeKTsbPCPeusveX1kt5+rS65GYSbfh8J8Sjb9Zz/fzQuSu36FjkBImGfiRMp05f5J+3y2tuZqOp8ViePbw3tMCIwCYwGB5J0dTdJX4nnsyNu9qZRIsa8jwFDOWNt3wfHjje1Q6+a40ipSTgu6ZQ5umEKAgoDSuN9kB4IELnk2n+5xKRNn/vbHKdr5cKVNnblUsAzt98UBCa7zEWNgRk5XHaF4meEkLkZRQrAONifKl3AFGygcrYpTp6xuXJ+3yzx/czZs870Bp9Ec47x/F7d5XPQsIJTN7OkrIEoOuzl6ab+laKAGaPtuPY27NJJQigVjilg2OcV4IAIh6JxdvO4fggpOSbAKTiVoxwXraUNNHScUK2lHwRgHNO6TiB6zJTa98EMAUYHpnwaDvRNiUJBIHrNzJS7aUTePciK9VeOgEsSMobRY+2xeZCPVB/4tVnGdr9s9PVBtdhJwu+CGAl1cs5XPe7bJRayLZ/rPG1bSfgPK4HfiqBBYpTSjgWtQCSTqCTlGRLR/h0GlKxI469X+ng0Qs2Ic+FvAKOD8biQqRTeDR1OEtKmSnTjYBB6sLQ0MrsZtGqQ1ELlNZxvOjcDfBdRx+WESXdjDAFsJ/dtD6QEgU/Uwyrh6zpXdtLKEZ+otQNGNetCHoBfA8VPxtG6sJgAj2nTka1aoU2v7zm+/DRiJCeGBz//vE5vVlZ6LtWoPGdefozr3ybladRfEAHnBSB1a23Xjlo1gF0vtEBD3haNVq79PsKmUVCH+MvVgQMjLGcJZv/zvPzbl9Q5XWbf8snVEC6HGVYAAAAAElFTkSuQmCC" width="144" height="144" alt="48 px frame zoomed"></div></section>
+<section class="card"><h3>favicon.ico frames <span>on dark · 16, 32, 48, then zoomed</span></h3><div class="strip g-dark"><img src="web/favicon-16.png" width="16" height="16" alt="16 px frame"><img src="web/favicon-32.png" width="32" height="32" alt="32 px frame"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAyxJREFUeJzVWj9oE1EY/97lJFQxDUFcUiFDBUGoLVoFEYw2S7fWRUEIFUQ6iGvJ1HaQ4Kod6pYEBLuokx00GgcdivVPp4IZirWLgxx1KIEkJ793uZhcc8mRe6+994PjcndfXr7fd79833v3HSMXZGcTiXq9OqMxumqaNEpEUTpYGIzRt7pJHzRNz2WWt7Y6GbFOjpNZmzdNc4YCBMZYjlho0UmkjUB2dihp1unlIUTbKwym0XRm+VdpH4GG8+9JATCNrtkkmC0bs179GuDIO2EwTR+DnHR+aNbm+3E+PfeKTsbPCPeusveX1kt5+rS65GYSbfh8J8Sjb9Zz/fzQuSu36FjkBImGfiRMp05f5J+3y2tuZqOp8ViePbw3tMCIwCYwGB5J0dTdJX4nnsyNu9qZRIsa8jwFDOWNt3wfHjje1Q6+a40ipSTgu6ZQ5umEKAgoDSuN9kB4IELnk2n+5xKRNn/vbHKdr5cKVNnblUsAzt98UBCa7zEWNgRk5XHaF4meEkLkZRQrAONifKl3AFGygcrYpTp6xuXJ+3yzx/czZs870Bp9Ec47x/F7d5XPQsIJTN7OkrIEoOuzl6ab+laKAGaPtuPY27NJJQigVjilg2OcV4IAIh6JxdvO4fggpOSbAKTiVoxwXraUNNHScUK2lHwRgHNO6TiB6zJTa98EMAUYHpnwaDvRNiUJBIHrNzJS7aUTePciK9VeOgEsSMobRY+2xeZCPVB/4tVnGdr9s9PVBtdhJwu+CGAl1cs5XPe7bJRayLZ/rPG1bSfgPK4HfiqBBYpTSjgWtQCSTqCTlGRLR/h0GlKxI469X+ng0Qs2Ic+FvAKOD8biQqRTeDR1OEtKmSnTjYBB6sLQ0MrsZtGqQ1ELlNZxvOjcDfBdRx+WESXdjDAFsJ/dtD6QEgU/Uwyrh6zpXdtLKEZ+otQNGNetCHoBfA8VPxtG6sJgAj2nTka1aoU2v7zm+/DRiJCeGBz//vE5vVlZ6LtWoPGdefozr3ybladRfEAHnBSB1a23Xjlo1gF0vtEBD3haNVq79PsKmUVCH+MvVgQMjLGcJZv/zvPzbl9Q5XWbf8snVEC6HGVYAAAAAElFTkSuQmCC" width="48" height="48" alt="48 px frame"><img class="zoom" src="web/favicon-16.png" width="64" height="64" alt="16 px frame zoomed"><img class="zoom" src="web/favicon-32.png" width="128" height="128" alt="32 px frame zoomed"><img class="zoom" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAyxJREFUeJzVWj9oE1EY/97lJFQxDUFcUiFDBUGoLVoFEYw2S7fWRUEIFUQ6iGvJ1HaQ4Kod6pYEBLuokx00GgcdivVPp4IZirWLgxx1KIEkJ793uZhcc8mRe6+994PjcndfXr7fd79833v3HSMXZGcTiXq9OqMxumqaNEpEUTpYGIzRt7pJHzRNz2WWt7Y6GbFOjpNZmzdNc4YCBMZYjlho0UmkjUB2dihp1unlIUTbKwym0XRm+VdpH4GG8+9JATCNrtkkmC0bs179GuDIO2EwTR+DnHR+aNbm+3E+PfeKTsbPCPeusveX1kt5+rS65GYSbfh8J8Sjb9Zz/fzQuSu36FjkBImGfiRMp05f5J+3y2tuZqOp8ViePbw3tMCIwCYwGB5J0dTdJX4nnsyNu9qZRIsa8jwFDOWNt3wfHjje1Q6+a40ipSTgu6ZQ5umEKAgoDSuN9kB4IELnk2n+5xKRNn/vbHKdr5cKVNnblUsAzt98UBCa7zEWNgRk5XHaF4meEkLkZRQrAONifKl3AFGygcrYpTp6xuXJ+3yzx/czZs870Bp9Ec47x/F7d5XPQsIJTN7OkrIEoOuzl6ab+laKAGaPtuPY27NJJQigVjilg2OcV4IAIh6JxdvO4fggpOSbAKTiVoxwXraUNNHScUK2lHwRgHNO6TiB6zJTa98EMAUYHpnwaDvRNiUJBIHrNzJS7aUTePciK9VeOgEsSMobRY+2xeZCPVB/4tVnGdr9s9PVBtdhJwu+CGAl1cs5XPe7bJRayLZ/rPG1bSfgPK4HfiqBBYpTSjgWtQCSTqCTlGRLR/h0GlKxI469X+ng0Qs2Ic+FvAKOD8biQqRTeDR1OEtKmSnTjYBB6sLQ0MrsZtGqQ1ELlNZxvOjcDfBdRx+WESXdjDAFsJ/dtD6QEgU/Uwyrh6zpXdtLKEZ+otQNGNetCHoBfA8VPxtG6sJgAj2nTka1aoU2v7zm+/DRiJCeGBz//vE5vVlZ6LtWoPGdefozr3ybladRfEAHnBSB1a23Xjlo1gF0vtEBD3haNVq79PsKmUVCH+MvVgQMjLGcJZv/zvPzbl9Q5XWbf8snVEC6HGVYAAAAAElFTkSuQmCC" width="144" height="144" alt="48 px frame zoomed"></div></section>
 </div>
 <h2>App icons</h2>
 <div class="grid">
@@ -122,75 +122,55 @@ video { width: 100%; height: auto; display: block; }
 <section class="card"><h3>Profile picture <span>social/avatar-1024.png · circle and square crops</span></h3><div class="icons"><figure><img class="mask-circle" src="social/avatar-400.png" width="120" height="120" alt="">circle crop</figure><figure><img src="social/avatar-400.png" width="120" height="120" alt="">square</figure><figure><img class="mask-circle" src="social/avatar-400.png" width="40" height="40" alt="">40</figure></div></section>
 </div>
 <h2>Social card</h2>
-<section class="card og"><h3>web/og.jpg <span>1200×630 · light · title 15.24:1</span></h3><img src="web/og.jpg" alt="Cambridge TCG social preview card"></section>
+<section class="card og"><h3>web/og.jpg <span>1200×630 · light · title 15.83:1</span></h3><img src="web/og.jpg" alt="Cambridge TCG social preview card"></section>
 <h2>Colour</h2>
 <p class="muted">OKLCH scales; each chip shows the better of white or black text on it and that contrast. ● marks the brand colour. Full sheet: <a href="colour/colour-sheet.png">colour-sheet.png</a>.</p>
-<h3 style="font-size:14px;margin:18px 0 0">primary <span class="muted">#9B3B12 · oklch(48.1% 0.138 40.4)</span></h3>
+<h3 style="font-size:14px;margin:18px 0 0">primary <span class="muted">#86661C · oklch(52.9% 0.097 83.9)</span></h3>
 <div class="scale">
-<div><div class="chip" style="background:#FFF4F0;color:#000000"><b>50</b><span>19.5 AAA</span></div><div class="under">#FFF4F0</div></div>
-<div><div class="chip" style="background:#FFE5DC;color:#000000"><b>100</b><span>17.5 AAA</span></div><div class="under">#FFE5DC</div></div>
-<div><div class="chip" style="background:#FECCBA;color:#000000"><b>200</b><span>14.6 AAA</span></div><div class="under">#FECCBA</div></div>
-<div><div class="chip" style="background:#F7AC91;color:#000000"><b>300</b><span>11.3 AAA</span></div><div class="under">#F7AC91</div></div>
-<div><div class="chip" style="background:#E28564;color:#000000"><b>400</b><span>7.8 AAA</span></div><div class="under">#E28564</div></div>
-<div><div class="chip" style="background:#CA6540;color:#000000"><b>500</b><span>5.4 AA</span></div><div class="under">#CA6540</div></div>
-<div><div class="chip" style="background:#AB4A24;color:#FFFFFF"><b>600</b><span>5.6 AA</span></div><div class="under">#AB4A24</div></div>
-<div><div class="chip" style="background:#9B3B12;color:#FFFFFF"><b>700 ●</b><span>6.9 AA</span></div><div class="under">#9B3B12</div></div>
-<div><div class="chip" style="background:#702808;color:#FFFFFF"><b>800</b><span>10.5 AAA</span></div><div class="under">#702808</div></div>
-<div><div class="chip" style="background:#541C05;color:#FFFFFF"><b>900</b><span>13.6 AAA</span></div><div class="under">#541C05</div></div>
-<div><div class="chip" style="background:#360E01;color:#FFFFFF"><b>950</b><span>17.2 AAA</span></div><div class="under">#360E01</div></div>
+<div><div class="chip" style="background:#FAF6EE;color:#000000"><b>50</b><span>19.5 AAA</span></div><div class="under">#FAF6EE</div></div>
+<div><div class="chip" style="background:#F3EAD9;color:#000000"><b>100</b><span>17.6 AAA</span></div><div class="under">#F3EAD9</div></div>
+<div><div class="chip" style="background:#E7D7B9;color:#000000"><b>200</b><span>14.8 AAA</span></div><div class="under">#E7D7B9</div></div>
+<div><div class="chip" style="background:#D6BE8F;color:#000000"><b>300</b><span>11.6 AAA</span></div><div class="under">#D6BE8F</div></div>
+<div><div class="chip" style="background:#BB9D60;color:#000000"><b>400</b><span>8.1 AAA</span></div><div class="under">#BB9D60</div></div>
+<div><div class="chip" style="background:#A2813B;color:#000000"><b>500</b><span>5.7 AA</span></div><div class="under">#A2813B</div></div>
+<div><div class="chip" style="background:#86661C;color:#FFFFFF"><b>600 ●</b><span>5.3 AA</span></div><div class="under">#86661C</div></div>
+<div><div class="chip" style="background:#6D5007;color:#FFFFFF"><b>700</b><span>7.5 AAA</span></div><div class="under">#6D5007</div></div>
+<div><div class="chip" style="background:#563E01;color:#FFFFFF"><b>800</b><span>10.1 AAA</span></div><div class="under">#563E01</div></div>
+<div><div class="chip" style="background:#3F2D01;color:#FFFFFF"><b>900</b><span>13.2 AAA</span></div><div class="under">#3F2D01</div></div>
+<div><div class="chip" style="background:#271B00;color:#FFFFFF"><b>950</b><span>16.9 AAA</span></div><div class="under">#271B00</div></div>
 </div>
-<h3 style="font-size:14px;margin:18px 0 0">accent <span class="muted">#EC7838 · oklch(69.6% 0.162 46.7)</span></h3>
+<h3 style="font-size:14px;margin:18px 0 0">neutral <span class="muted">#201D18 · oklch(23.2% 0.010 80.6)</span></h3>
 <div class="scale">
-<div><div class="chip" style="background:#FFF4EF;color:#000000"><b>50</b><span>19.4 AAA</span></div><div class="under">#FFF4EF</div></div>
-<div><div class="chip" style="background:#FFE5D9;color:#000000"><b>100</b><span>17.5 AAA</span></div><div class="under">#FFE5D9</div></div>
-<div><div class="chip" style="background:#FFCDB5;color:#000000"><b>200</b><span>14.7 AAA</span></div><div class="under">#FFCDB5</div></div>
-<div><div class="chip" style="background:#FEAA81;color:#000000"><b>300</b><span>11.3 AAA</span></div><div class="under">#FEAA81</div></div>
-<div><div class="chip" style="background:#EC7838;color:#000000"><b>400 ●</b><span>7.3 AAA</span></div><div class="under">#EC7838</div></div>
-<div><div class="chip" style="background:#D26019;color:#000000"><b>500</b><span>5.4 AA</span></div><div class="under">#D26019</div></div>
-<div><div class="chip" style="background:#AD4900;color:#FFFFFF"><b>600</b><span>5.6 AA</span></div><div class="under">#AD4900</div></div>
-<div><div class="chip" style="background:#8A3900;color:#FFFFFF"><b>700</b><span>7.9 AAA</span></div><div class="under">#8A3900</div></div>
-<div><div class="chip" style="background:#6D2C00;color:#FFFFFF"><b>800</b><span>10.4 AAA</span></div><div class="under">#6D2C00</div></div>
-<div><div class="chip" style="background:#521F00;color:#FFFFFF"><b>900</b><span>13.5 AAA</span></div><div class="under">#521F00</div></div>
-<div><div class="chip" style="background:#341100;color:#FFFFFF"><b>950</b><span>17.1 AAA</span></div><div class="under">#341100</div></div>
-</div>
-<h3 style="font-size:14px;margin:18px 0 0">neutral <span class="muted">#2C1836 · oklch(25.1% 0.060 313.5)</span></h3>
-<div class="scale">
-<div><div class="chip" style="background:#F8F5FA;color:#000000"><b>50</b><span>19.4 AAA</span></div><div class="under">#F8F5FA</div></div>
-<div><div class="chip" style="background:#EFE8F2;color:#000000"><b>100</b><span>17.5 AAA</span></div><div class="under">#EFE8F2</div></div>
-<div><div class="chip" style="background:#E0D4E6;color:#000000"><b>200</b><span>14.7 AAA</span></div><div class="under">#E0D4E6</div></div>
-<div><div class="chip" style="background:#CBB9D5;color:#000000"><b>300</b><span>11.4 AAA</span></div><div class="under">#CBB9D5</div></div>
-<div><div class="chip" style="background:#AE98BA;color:#000000"><b>400</b><span>8.0 AAA</span></div><div class="under">#AE98BA</div></div>
-<div><div class="chip" style="background:#937CA0;color:#000000"><b>500</b><span>5.6 AA</span></div><div class="under">#937CA0</div></div>
-<div><div class="chip" style="background:#786285;color:#FFFFFF"><b>600</b><span>5.4 AA</span></div><div class="under">#786285</div></div>
-<div><div class="chip" style="background:#614B6D;color:#FFFFFF"><b>700</b><span>7.7 AAA</span></div><div class="under">#614B6D</div></div>
-<div><div class="chip" style="background:#4E3859;color:#FFFFFF"><b>800</b><span>10.3 AAA</span></div><div class="under">#4E3859</div></div>
-<div><div class="chip" style="background:#3B2746;color:#FFFFFF"><b>900</b><span>13.4 AAA</span></div><div class="under">#3B2746</div></div>
-<div><div class="chip" style="background:#2C1836;color:#FFFFFF"><b>950 ●</b><span>16.3 AAA</span></div><div class="under">#2C1836</div></div>
+<div><div class="chip" style="background:#F7F7F6;color:#000000"><b>50</b><span>19.6 AAA</span></div><div class="under">#F7F7F6</div></div>
+<div><div class="chip" style="background:#ECEBE9;color:#000000"><b>100</b><span>17.6 AAA</span></div><div class="under">#ECEBE9</div></div>
+<div><div class="chip" style="background:#DBD9D6;color:#000000"><b>200</b><span>14.9 AAA</span></div><div class="under">#DBD9D6</div></div>
+<div><div class="chip" style="background:#C3C0BC;color:#000000"><b>300</b><span>11.6 AAA</span></div><div class="under">#C3C0BC</div></div>
+<div><div class="chip" style="background:#A4A19B;color:#000000"><b>400</b><span>8.1 AAA</span></div><div class="under">#A4A19B</div></div>
+<div><div class="chip" style="background:#89867F;color:#000000"><b>500</b><span>5.8 AA</span></div><div class="under">#89867F</div></div>
+<div><div class="chip" style="background:#6F6B65;color:#FFFFFF"><b>600</b><span>5.3 AA</span></div><div class="under">#6F6B65</div></div>
+<div><div class="chip" style="background:#58554F;color:#FFFFFF"><b>700</b><span>7.4 AAA</span></div><div class="under">#58554F</div></div>
+<div><div class="chip" style="background:#45423C;color:#FFFFFF"><b>800</b><span>10.0 AAA</span></div><div class="under">#45423C</div></div>
+<div><div class="chip" style="background:#33302A;color:#FFFFFF"><b>900</b><span>13.1 AAA</span></div><div class="under">#33302A</div></div>
+<div><div class="chip" style="background:#201D18;color:#FFFFFF"><b>950 ●</b><span>16.8 AAA</span></div><div class="under">#201D18</div></div>
 </div>
 <div class="grid">
-<section class="card" style="background:#FBF7F1;color:#2C1836;border-color:#D9CDDF"><h3 style="color:#2C1836">Light roles <span style="color:#786285">required pairs</span></h3><div class="pairs">
-<div><i style="background:#FBF7F1;color:#2C1836">Aa</i><span>text on bg<br>15.24:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#FBF7F1;color:#786285">Aa</i><span>text-muted on bg<br>5.07:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#E8E1EB;color:#2C1836">Aa</i><span>text on surface<br>12.70:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#FBF7F1;color:#9B3B12">Aa</i><span>focus on bg<br>6.50:1 (needs 3) ✓</span></div>
-<div><i style="background:#FBF7F1;color:#9B3B12">Aa</i><span>primary-text on bg<br>6.50:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#FBF7F1;color:#AD4900">Aa</i><span>accent-text on bg<br>5.28:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#9B3B12;color:#FFFFFF">Aa</i><span>on-primary on primary<br>6.94:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#EC7838;color:#2C1836">Aa</i><span>on-accent on accent<br>5.66:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#FBF7F1;color:#9B3B12">Aa</i><span>primary-ui on bg<br>6.50:1 (needs 3) ✓</span></div>
-<div><i style="background:#FBF7F1;color:#D26019">Aa</i><span>accent-ui on bg<br>3.63:1 (needs 3) ✓</span></div>
+<section class="card" style="background:#FAF8F4;color:#201D18;border-color:#D4D2CF"><h3 style="color:#201D18">Light roles <span style="color:#6F6B65">required pairs</span></h3><div class="pairs">
+<div><i style="background:#FAF8F4;color:#201D18">Aa</i><span>text on bg<br>15.83:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#FAF8F4;color:#6F6B65">Aa</i><span>text-muted on bg<br>4.99:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#E5E4E2;color:#201D18">Aa</i><span>text on surface<br>13.22:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#FAF8F4;color:#86661C">Aa</i><span>focus on bg<br>5.04:1 (needs 3) ✓</span></div>
+<div><i style="background:#FAF8F4;color:#86661C">Aa</i><span>primary-text on bg<br>5.04:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#86661C;color:#FFFFFF">Aa</i><span>on-primary on primary<br>5.34:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#FAF8F4;color:#86661C">Aa</i><span>primary-ui on bg<br>5.04:1 (needs 3) ✓</span></div>
 </div></section>
-<section class="card" style="background:#1D1425;color:#F8F5FA;border-color:#42394C"><h3 style="color:#F8F5FA">Dark roles <span style="color:#AE98BA">required pairs</span></h3><div class="pairs">
-<div><i style="background:#1D1425;color:#F8F5FA">Aa</i><span>text on bg<br>16.48:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1D1425;color:#AE98BA">Aa</i><span>text-muted on bg<br>6.79:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#302739;color:#F8F5FA">Aa</i><span>text on surface<br>13.18:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1D1425;color:#CA6540">Aa</i><span>focus on bg<br>4.62:1 (needs 3) ✓</span></div>
-<div><i style="background:#1D1425;color:#E28564">Aa</i><span>primary-text on bg<br>6.59:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1D1425;color:#EC7838">Aa</i><span>accent-text on bg<br>6.20:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#9B3B12;color:#FFFFFF">Aa</i><span>on-primary on primary<br>6.94:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#EC7838;color:#2C1836">Aa</i><span>on-accent on accent<br>5.66:1 (needs 4.5) ✓</span></div>
-<div><i style="background:#1D1425;color:#CA6540">Aa</i><span>primary-ui on bg<br>4.62:1 (needs 3) ✓</span></div>
-<div><i style="background:#1D1425;color:#EC7838">Aa</i><span>accent-ui on bg<br>6.20:1 (needs 3) ✓</span></div>
+<section class="card" style="background:#0B0F1A;color:#F7F7F6;border-color:#2E333F"><h3 style="color:#F7F7F6">Dark roles <span style="color:#A4A19B">required pairs</span></h3><div class="pairs">
+<div><i style="background:#0B0F1A;color:#F7F7F6">Aa</i><span>text on bg<br>17.85:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#0B0F1A;color:#A4A19B">Aa</i><span>text-muted on bg<br>7.43:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#1D212D;color:#F7F7F6">Aa</i><span>text on surface<br>14.98:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#0B0F1A;color:#A2813B">Aa</i><span>focus on bg<br>5.23:1 (needs 3) ✓</span></div>
+<div><i style="background:#0B0F1A;color:#BB9D60">Aa</i><span>primary-text on bg<br>7.38:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#86661C;color:#FFFFFF">Aa</i><span>on-primary on primary<br>5.34:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#0B0F1A;color:#A2813B">Aa</i><span>primary-ui on bg<br>5.23:1 (needs 3) ✓</span></div>
 </div></section>
 </div>
 <h2>Head snippet</h2>
@@ -199,8 +179,8 @@ video { width: 100%; height: auto; display: block; }
 &lt;link rel=&quot;icon&quot; href=&quot;/favicon.svg&quot; type=&quot;image/svg+xml&quot;&gt;
 &lt;link rel=&quot;apple-touch-icon&quot; href=&quot;/apple-touch-icon.png&quot;&gt;
 &lt;link rel=&quot;manifest&quot; href=&quot;/site.webmanifest&quot;&gt;
-&lt;meta name=&quot;theme-color&quot; content=&quot;#FBF7F1&quot; media=&quot;(prefers-color-scheme: light)&quot;&gt;
-&lt;meta name=&quot;theme-color&quot; content=&quot;#1D1425&quot; media=&quot;(prefers-color-scheme: dark)&quot;&gt;
+&lt;meta name=&quot;theme-color&quot; content=&quot;#FAF8F4&quot; media=&quot;(prefers-color-scheme: light)&quot;&gt;
+&lt;meta name=&quot;theme-color&quot; content=&quot;#0B0F1A&quot; media=&quot;(prefers-color-scheme: dark)&quot;&gt;
 
 &lt;!-- Colour schemes this page supports (brand.json app.color_scheme). &quot;light dark&quot; is true when the page loads colour/tokens.css or has its own dark theme. Light-only page: &quot;only light&quot; (plain &quot;light&quot; lets browsers auto-darken it). Dark-only: &quot;dark&quot; (&quot;only dark&quot; is invalid). One per page: leave this out if your framework writes one (Next.js viewport.colorScheme). --&gt;
 &lt;meta name=&quot;color-scheme&quot; content=&quot;light dark&quot;&gt;
@@ -216,7 +196,7 @@ video { width: 100%; height: auto; display: block; }
 &lt;meta property=&quot;og:image:type&quot; content=&quot;image/jpeg&quot;&gt;
 &lt;meta property=&quot;og:image:width&quot; content=&quot;1200&quot;&gt;
 &lt;meta property=&quot;og:image:height&quot; content=&quot;630&quot;&gt;
-&lt;meta property=&quot;og:image:alt&quot; content=&quot;Cambridge TCG card: the Cambridge TCG logo mark beside the headline “TCG data. Made to connect.” on a very light warm grey background.&quot;&gt;
+&lt;meta property=&quot;og:image:alt&quot; content=&quot;Cambridge TCG card: the Cambridge TCG logo mark beside the headline “TCG data. Made to connect.” on a very light grey background.&quot;&gt;
 &lt;meta name=&quot;twitter:card&quot; content=&quot;summary_large_image&quot;&gt;
 </code></pre>
 <h2>Home-page head</h2>

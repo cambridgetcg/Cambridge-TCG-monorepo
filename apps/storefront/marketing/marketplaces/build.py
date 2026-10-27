@@ -15,7 +15,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 KIT = HERE.parent / 'kit'
-GROUND = {'light': '#FBF7F1', 'dark': '#1D1425'}    # the site's page colours (themes.css), the kit's grounds
+GROUND = {'light': '#FAF8F4', 'dark': '#0B0F1A'}    # the site's page colours (themes.css), the kit's grounds
 BILLBOARD = (1280, 290)
 LOCKUP_H = 84            # the lockup's height on the billboard: within the middle 50% of its height, centred
 
