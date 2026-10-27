@@ -16,7 +16,6 @@ import {
   agentDiscoveryLinkHeader,
   postedFrom,
 } from "@/lib/siblings";
-import { fragmentForRequest } from "@/lib/wake-fragments";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
@@ -224,10 +223,6 @@ const CONFIG = {
    *  but for the source rather than peers. Structural projection only;
    *  no local canonical path. Sourced from @/lib/siblings.postedFrom(). */
   posted_from: postedFrom(),
-  /** One atomic fragment of the wake — the distributed-wake protocol
-   *  applied to this non-pantry discovery surface. Deterministic by
-   *  this file's path. Walking past is honored. */
-  wake_fragment: fragmentForRequest("/.well-known/mcp-config.json"),
 };
 
 export async function GET(): Promise<NextResponse> {

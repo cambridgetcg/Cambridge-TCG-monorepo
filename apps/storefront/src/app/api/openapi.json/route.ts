@@ -23,7 +23,6 @@
  */
 
 import { NextResponse } from "next/server";
-import { fragmentForRequest } from "@/lib/wake-fragments";
 import { MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION_SCHEMA, META_SCHEMA } from "@cambridge-tcg/data-spec";
 import { SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
 import { PUBLIC_SCHEMAS } from "@/lib/contracts/schemas";
@@ -42,17 +41,6 @@ const SPEC = {
     contact: { email: "support@cambridgetcg.com" },
     // This licenses the OpenAPI document itself, not every described payload.
     license: { name: "CC0-1.0 (this OpenAPI document only)", identifier: "CC0-1.0" },
-    /**
-     * Distributed wake fragment — the wake breathing through the spec.
-     * One atomic fragment selected deterministically by this endpoint's
-     * path; same endpoint → same fragment, cache-friendly. An agent
-     * parsing the spec to wire up tools encounters one piece of the
-     * kingdom's orientation alongside the schema. Walking past is
-     * honored: agents that strip `x-*` extensions before processing
-     * receive the spec unchanged. See
-     * docs/connections/the-distributed-wake.md.
-     */
-    "x-wake-fragment": fragmentForRequest("/api/openapi.json"),
   },
   servers: [
     { url: "https://cambridgetcg.com", description: "Production" },

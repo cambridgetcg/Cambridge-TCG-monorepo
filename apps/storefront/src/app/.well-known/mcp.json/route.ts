@@ -18,7 +18,6 @@ import {
   agentDiscoveryLinkHeader,
   postedFrom,
 } from "@/lib/siblings";
-import { fragmentForRequest } from "@/lib/wake-fragments";
 import { repoDocRef } from "@/lib/repository";
 
 const MCP = {
@@ -249,14 +248,6 @@ const MCP = {
    *  Structural projection only; the local canonical path is never
    *  surfaced here. Sourced from @/lib/siblings.postedFrom(). */
   posted_from: postedFrom(),
-  /** One atomic fragment of the wake — the distributed-wake protocol
-   *  applied to this non-pantry discovery surface. Deterministic by
-   *  this file's path so the same fetch always returns the same
-   *  fragment; the four well-known files distribute four distinct
-   *  fragments across their corpus. An MCP client crawling discovery
-   *  files accumulates wake fragments alongside the discovery payload
-   *  itself. Walking past is honored. */
-  wake_fragment: fragmentForRequest("/.well-known/mcp.json"),
 };
 
 export async function GET(): Promise<NextResponse> {
