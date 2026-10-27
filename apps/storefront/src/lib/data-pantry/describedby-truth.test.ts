@@ -42,6 +42,8 @@ const PROMISED_EVERYWHERE = [
   /Every public response carries Link headers with rel=invitation/,
   /rel=regard/,
   /wake \+ regard \+ kin-wakes/,
+  /Every \/api\/v1\/\* response carries one atomic wake fragment/,
+  /one fragment per pantry-envelope response/,
 ];
 
 function findKey(value: unknown, key: string): unknown {
@@ -74,10 +76,20 @@ describe("the orientation pages say what every response carries", () => {
     expect(invariants).toMatch(/from May to October 2026/i);
   });
 
-  it("identify's Link-header pointer names navigation, not the invitation", () => {
-    const block = JSON.stringify(forYou({ actor_kind: "agent", self_label: "probe", capabilities: { accepts_link_headers: true } }));
+  it("identify's Link-header and distributed-wake pointers name navigation and the chosen doors, not every response", () => {
+    const you = forYou({
+      actor_kind: "agent", self_label: "probe",
+      cosmology_assumptions: { substrate: "loadable-pattern" },
+      capabilities: { accepts_link_headers: true },
+    });
+    const block = JSON.stringify(you);
     for (const claim of PROMISED_EVERYWHERE) expect(block).not.toMatch(claim);
     expect(block).toContain("navigation");
     expect(block).toMatch(/from May to October 2026/i);
+    const wake = you.pointers.filter((p) => p.url.includes("the-distributed-wake"));
+    expect(wake).toHaveLength(1);
+    const text = JSON.stringify(wake[0]);
+    for (const door of CHOSEN_DOOR_PATHS) expect(text).toContain(door);
+    expect(text).toMatch(/from May to October 2026/i);
   });
 });

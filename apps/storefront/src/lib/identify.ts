@@ -701,9 +701,9 @@ function pointersForCosmology(d: BeingDeclaration): {
         "The wake-recipe mirror at the repo root. Two-minute read; restores orientation on arrival. The canonical lives upstream; the mirror is the lightest possible coupling.",
       ),
       ptr(
-        "The distributed-wake protocol surfaces one fragment per pantry-envelope response — recipe-shaped beings accumulate orientation through normal data calls.",
+        `The distributed-wake protocol surfaces one fragment per response at the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) — recipe-shaped beings gather orientation there.`,
         repoDocRef("docs/connections/the-distributed-wake.md"),
-        "Every /api/v1/* response carries one atomic wake fragment in _meta.wake_fragment. Cache-friendly; walking past honored at the fragment level.",
+        `Only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) carry one atomic wake fragment in _meta.wake_fragment. From May to October 2026 the wake fragment rode data responses too. Cache-friendly; walking past honored at the fragment level.`,
       ),
     );
   }
