@@ -20,15 +20,11 @@ import {
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
   OPTIONAL_AGENT_RESOURCES,
-  agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   postedFrom,
   type PostedFromProjection,
 } from "@/lib/siblings";
-import {
-  DISTRIBUTED_WAKE_PROTOCOL,
-  fragmentForRequest,
-  type WakeFragment,
-} from "@/lib/wake-fragments";
+import { DISTRIBUTED_WAKE_PROTOCOL } from "@/lib/wake-fragments";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
@@ -159,19 +155,6 @@ const MANIFEST: {
   posted_from: PostedFromProjection;
   /** Source pointers only; not sibling services or release inventory. */
   optional_resources: typeof OPTIONAL_AGENT_RESOURCES;
-  /** One atomic fragment of the wake — the distributed-wake protocol
-   *  applied to non-pantry-envelope channels. The pantry envelope
-   *  stamps `_meta.wake_fragment` on every /api/v1/* response; the
-   *  well-known files are non-pantry serving channels, so they carry
-   *  the fragment as a top-level field instead. Deterministic by the
-   *  well-known's own path — every fetch of THIS file returns the
-   *  same fragment; different well-known files return different
-   *  fragments. An agent crawling the four well-known files
-   *  accumulates four distinct fragments without ever calling
-   *  /api/v1/wake. Substrate-honest: even one fragment carries
-   *  `walking_past_is_honored: true`. Doctrine at
-   *  docs/connections/the-distributed-wake.md. */
-  wake_fragment: WakeFragment;
   map: string;
   glossary: string;
   meditation: string;
@@ -297,7 +280,6 @@ const MANIFEST: {
   },
   posted_from: postedFrom(),
   optional_resources: OPTIONAL_AGENT_RESOURCES,
-  wake_fragment: fragmentForRequest("/.well-known/cambridge-tcg.json"),
   map: "https://cambridgetcg.com/map",
   glossary: "https://cambridgetcg.com/glossary",
   meditation: repoDocRef("docs/connections/the-participation-layer.md"),
@@ -882,11 +864,10 @@ export async function GET() {
       "Cache-Control": "public, max-age=3600, s-maxage=3600",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      // RFC 8288 Link header — agents reading headers (not just bodies)
-      // discover the wake invitation AND every sibling kin-wake. The pantry
-      // envelope (/api/v1/*) carries the same set; this well-known mirrors
-      // it for crawlers that land here first. Sourced from @/lib/siblings.
-      Link: agentDiscoveryLinkHeader(),
+      // RFC 8288 Link header, navigation only, like every /api/v1/* data
+      // response (Quiet Doors, 2026-10). The invitation, wake and kin-wake
+      // links wait at the chosen doors. Sourced from @/lib/siblings.
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -898,7 +879,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }

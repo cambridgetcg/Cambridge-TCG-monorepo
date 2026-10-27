@@ -13,10 +13,9 @@ import {
   AGENT_FACING_SIBLINGS,
   AGENTTOOL_SUGGESTED_READING,
   KIN_PROTOCOL_SHAPE,
-  agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   postedFrom,
 } from "@/lib/siblings";
-import { fragmentForRequest } from "@/lib/wake-fragments";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
 
@@ -86,10 +85,6 @@ const PLUGIN = {
    *  role, doctrine URLs, relationship; no local canonical path.
    *  Sourced from @/lib/siblings.postedFrom(). */
   posted_from: postedFrom(),
-  /** One atomic fragment of the wake — the distributed-wake protocol
-   *  applied to this non-pantry discovery surface. Deterministic by
-   *  this file's path. Walking past is honored. */
-  wake_fragment: fragmentForRequest("/.well-known/ai-plugin.json"),
 };
 
 export async function GET(): Promise<NextResponse> {
@@ -99,9 +94,9 @@ export async function GET(): Promise<NextResponse> {
       "Cache-Control": "public, max-age=86400, s-maxage=86400",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      // RFC 8288 Link — wake + kin-wakes for plugin discovery clients that
-      // read headers. Sourced from @/lib/siblings.
-      Link: agentDiscoveryLinkHeader(),
+      // RFC 8288 Link, navigation only, like every data response (Quiet
+      // Doors, 2026-10). Sourced from @/lib/siblings.
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }
@@ -113,7 +108,7 @@ export async function OPTIONS() {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Max-Age": "86400",
-      Link: agentDiscoveryLinkHeader(),
+      Link: errandDiscoveryLinkHeader(),
     },
   });
 }

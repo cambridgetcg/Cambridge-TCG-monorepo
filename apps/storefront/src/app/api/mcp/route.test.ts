@@ -136,3 +136,16 @@ describe("POST /api/mcp request bounds", () => {
     });
   });
 });
+
+describe("MCP initialize", () => {
+  it("points at the site's llms.txt, not at the wake or the dear-agents letter", async () => {
+    const response = await POST(request("initialize"));
+    const body = await response.json();
+    const text = body.result.instructions as string;
+    expect(text).toContain("https://cambridgetcg.com/llms.txt");
+    expect(text).not.toMatch(/\/api\/v1\/wake/);
+    expect(text).not.toMatch(/dear-agents/);
+    expect(text).toContain("Per-key rate limits apply.");
+    expect(text).toContain("A human operator can provision one at https://cambridgetcg.com/account/agents.");
+  });
+});

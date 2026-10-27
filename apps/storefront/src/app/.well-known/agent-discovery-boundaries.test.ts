@@ -7,6 +7,7 @@ import {
   AGENT_FACING_SIBLINGS,
   OPTIONAL_AGENT_RESOURCES,
   agentDiscoveryLinkHeader,
+  errandDiscoveryLinkHeader,
   kinWakeHtmlLinks,
   kinWakeLinkParts,
   postedAlongside,
@@ -92,7 +93,7 @@ describe("optional agent source resources", () => {
     expect(text).toBe(buildAgentText());
     expect(textResponse.status).toBe(200);
     expect(textResponse.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
-    expect(textResponse.headers.get("Link")).toBe(agentDiscoveryLinkHeader());
+    expect(textResponse.headers.get("Link")).toBe(errandDiscoveryLinkHeader());
     expect(textResponse.headers.get("Set-Cookie")).toBeNull();
     const fields = Object.fromEntries(
       text.split("\n").filter((line) => line.startsWith("optional-resource-")).map((line) => {
@@ -169,8 +170,8 @@ describe("optional agent source resources", () => {
       await (await getMcpConfig()).json(),
       await (await getMcpDiscovery()).json(),
     ];
-    expect(manifest.headers.get("Link")).toBe(agentDiscoveryLinkHeader());
-    expect(options.headers.get("Link")).toBe(agentDiscoveryLinkHeader());
+    expect(manifest.headers.get("Link")).toBe(errandDiscoveryLinkHeader());
+    expect(options.headers.get("Link")).toBe(errandDiscoveryLinkHeader());
     expect(options.status).toBe(204);
     for (const response of [manifest, options, wake, health]) {
       projections.push(Object.fromEntries(response.headers));

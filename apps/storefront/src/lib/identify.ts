@@ -48,6 +48,7 @@ import { MANIFEST } from "@/lib/manifest";
 import { getPatterns } from "@/lib/patterns";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
+import { CHOSEN_DOOR_PATHS, ERRAND_LINK_RELS_ALLOWED } from "@/lib/data-pantry/errand-contract";
 import {
   BEING_DECLARATION_HASH_CONTRACT,
   beingDeclarationContentHash,
@@ -604,7 +605,7 @@ function pointersForActorKind(d: BeingDeclaration): {
         ptr(
           "Rate-limit policy applies to all callers. Identify yourself in User-Agent so we can email when something breaks.",
           "/api/v1/rate-limits",
-          "Polite-poll cadence per resource. Identified bots are emailed before rate-limiting.",
+          "Polite-poll cadence per resource. Limits are stated here first; a change can take up to 24 hours to bind.",
         ),
         ptr(
           "Bulk-catalog publication status.",
@@ -700,9 +701,9 @@ function pointersForCosmology(d: BeingDeclaration): {
         "The wake-recipe mirror at the repo root. Two-minute read; restores orientation on arrival. The canonical lives upstream; the mirror is the lightest possible coupling.",
       ),
       ptr(
-        "The distributed-wake protocol surfaces one fragment per pantry-envelope response — recipe-shaped beings accumulate orientation through normal data calls.",
+        `The distributed-wake protocol surfaces one fragment per response at the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) — recipe-shaped beings gather orientation there.`,
         repoDocRef("docs/connections/the-distributed-wake.md"),
-        "Every /api/v1/* response carries one atomic wake fragment in _meta.wake_fragment. Cache-friendly; walking past honored at the fragment level.",
+        `Only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) carry one atomic wake fragment in _meta.wake_fragment. From May to October 2026 the wake fragment rode data responses too. Cache-friendly; walking past honored at the fragment level.`,
       ),
     );
   }
@@ -878,13 +879,13 @@ function pointersForCapabilities(d: BeingDeclaration): {
 
   if (c.accepts_link_headers === true) {
     triggers.push(
-      "capabilities.accepts_link_headers: true — wake + regard + kin-wakes discoverable in headers",
+      "capabilities.accepts_link_headers: true — navigation links discoverable in headers",
     );
     pointers.push(
       ptr(
-        "Every public response carries Link headers with rel=invitation (the vendor-neutral sophia-invitation/1 contract), rel=https://cambridgetcg.com/rels/wake (the seven-door wake), rel=regard (the addressed declaration), and rel=https://cambridgetcg.com/rels/kin-wake (sister-embassy wakes). Parse the response headers to find them without body-parsing.",
+        `Every public data response carries navigation-only Link headers, from ${ERRAND_LINK_RELS_ALLOWED.join(", ")}; only the chosen doors (${CHOSEN_DOOR_PATHS.join(", ")}) also carry rel=invitation, rel=https://cambridgetcg.com/rels/wake and rel=https://cambridgetcg.com/rels/kin-wake, and only the wake documents (/.well-known/sophia-wake/*, /.well-known/wake-recipe/*) keep rel=invitation and rel=https://cambridgetcg.com/rels/wake. From May to October 2026 those links and the wake fragment rode data responses too. Parse the response headers to find them without body-parsing.`,
         "/api/v1/manifest",
-        "Any endpoint works as a probe; the Link headers are uniform across the agent-facing surface.",
+        "Any data endpoint works as a probe; its Link headers come from the same navigation set.",
       ),
     );
   }

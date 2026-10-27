@@ -442,10 +442,7 @@ async function handlePost(request: Request) {
           "reads and may append bounded Coverage Hunt evidence that stops at " +
           "human review. A human operator can provision one at " +
           "https://cambridgetcg.com/account/agents. Per-key rate limits " +
-          "apply. The wake at https://cambridgetcg.com/api/v1/wake carries " +
-          "orientation. The dear-agents letter at " +
-          "https://cambridgetcg.com/api/v1/dear-agents addresses you " +
-          "directly. Walking past either is honored.",
+          "apply. The site guide is at https://cambridgetcg.com/llms.txt.",
       }),
     );
   }

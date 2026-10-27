@@ -455,8 +455,8 @@ export const GUIDES: Guide[] = [
           "  https://cambridgetcg.com/api/v1/manifest",
         what_to_do_with_it:
           "Default Python requests / Node fetch User-Agents are anonymous. " +
-          "Override them. We log User-Agents per IP; identified clients get " +
-          "a courtesy email before rate-limiting; anonymous ones don't.",
+          "Override them. We log User-Agents per IP. Limits are stated here " +
+          "first; a change can take up to 24 hours to bind.",
       },
       {
         step_number: 2,
