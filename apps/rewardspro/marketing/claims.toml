@@ -1,0 +1,58 @@
+# RewardsPro claims ledger. A claim reaches a public surface only once it is "verified":
+# evidence checked and a second session concurring (design §4–§5).
+# These rows are the claims kit/web/og.jpg and brand.json's description make. The share card
+# stays off every live surface until all three are verified.
+
+[[claim]]
+id = "rp-store-credit"
+claim = "Cashback is paid as Shopify store credit."
+scope = "RewardsPro app, all merchants on the Free plan"
+kind = "product-behaviour"
+status = "proposed"
+channels = ["og-card", "listing", "landing", "docs"]
+sources = [
+  { locator = "apps/rewardspro/app/services/shopify-store-credit.service.ts (code path, not an observed payout)", observed_at = "2026-10-20", sha256 = "" },
+  { locator = "dev-store test: an order earns cashback that appears as store credit (rp-shopify-deploy)", observed_at = "", sha256 = "" },
+]
+uncertainties = ["Not yet observed end to end on a dev store since the 2026-10-19 rebuild."]
+contrary_evidence = []
+commercial_interest = "We make RewardsPro."
+rights = "our own screenshots"
+review_after = "2027-01-20"
+correction_url = ""
+
+[[claim]]
+id = "rp-vip-tiers"
+claim = "Merchants can set VIP tiers that customers move through as they spend."
+scope = "RewardsPro app, all merchants on the Free plan"
+kind = "product-behaviour"
+status = "proposed"
+channels = ["og-card", "listing", "landing", "docs"]
+sources = [
+  { locator = "apps/rewardspro/app/services/tier-calculation.server.ts and tier-management.server.ts (code path)", observed_at = "2026-10-20", sha256 = "" },
+  { locator = "dev-store test: a customer crosses a tier threshold", observed_at = "", sha256 = "" },
+]
+uncertainties = ["Tier names in the old listing screenshots are inconsistent; re-shoot during the dev-store test."]
+contrary_evidence = []
+commercial_interest = "We make RewardsPro."
+rights = "our own screenshots"
+review_after = "2027-01-20"
+correction_url = ""
+
+[[claim]]
+id = "rp-free"
+claim = "RewardsPro is free."
+scope = "All merchants; paid plans and billing are off (decision ledger rp-commercial-shape)"
+kind = "price"
+status = "proposed"
+channels = ["og-card", "listing", "landing"]
+sources = [
+  { locator = "apps.shopify.com/rewards-pro pricing shows Free", observed_at = "2026-10-20", sha256 = "" },
+  { locator = "decision ledger rp-commercial-shape: relaunch free-only (an agents' call under Yu's delegation)", observed_at = "2026-10-20", sha256 = "" },
+]
+uncertainties = ["The July Free Forever cap (1,000 reward-eligible orders a month) is unstated now; say whether any cap applies before using this claim."]
+contrary_evidence = []
+commercial_interest = "We make RewardsPro."
+rights = "n/a"
+review_after = "2027-01-20"
+correction_url = ""

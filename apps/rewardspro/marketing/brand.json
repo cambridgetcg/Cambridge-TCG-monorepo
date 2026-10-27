@@ -1,0 +1,14 @@
+{
+  "name": "RewardsPro",
+  "slug": "rewardspro",
+  "url": "https://rewardspro.io",
+  "description": "Read Shopify cashback, points, tier rules and existing customer records.",
+  "lang": "en",
+  "colours": {"primary": "#1A3E5C", "accent": "#17BEBB"},
+  "ground": {"dark": "#09110F"},
+  "mark": {"svg": "rewardspro-mark.svg"},
+  "wordmark": {"text": "RewardsPro", "font": "Inter", "style": "Semi Bold", "tracking": -10},
+  "icon": {"tile": "#FFFFFF", "ink": "original", "padding": 0.18, "radius": 0.22},
+  "og": {"title": "Cashback your customers spend in your store", "subtitle": "Paid as Shopify store credit, with VIP tiers. Free.", "theme": "light"},
+  "app": {"theme": "dark", "color_scheme": "dark"}
+}

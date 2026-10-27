@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RewardsPro brand kit</title>
+<link rel="icon" href="web/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="colour/tokens.css">
+<style>
+:root { --gap: 16px; --radius: 12px; --check-a: #e8e8e8; --check-b: #f6f6f6; }
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: clamp(26px, 5vw, 38px); line-height: 1.15; margin: 0 0 6px; }
+h2 { font-size: 20px; margin: 48px 0 6px; padding-top: 16px; border-top: 1px solid var(--border); }
+p.lede, .muted { color: var(--text-muted); }
+p.lede { margin: 0 0 8px; max-width: 70ch; }
+a { color: var(--primary-text); }
+nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 14px 0 0; font-size: 14px; }
+.grid { display: grid; align-items: start; gap: var(--gap); grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); margin-top: 14px; }
+.grid.two { grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-width: 0; }
+.card h3 { font-size: 13px; font-weight: 600; margin: 0; padding: 10px 12px; display: flex; justify-content: space-between; gap: 8px; }
+.card h3 span { color: var(--text-muted); font-weight: 400; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.ground { display: flex; align-items: center; justify-content: center; padding: 24px 16px; min-height: 150px; min-width: 0; }
+.ground img { max-width: 100%; max-height: 110px; height: auto; }
+.g-light { background: #FFFFFF; }
+.g-dark { background: #09110F; }
+.clear { --k: 1; display: inline-block; outline: 1px dashed #1A3E5C; outline-offset: 0; padding: calc(var(--cs) * var(--h) * var(--k)); background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(127,127,127,.12) 6px 7px); }
+.clear img { display: block; height: calc(var(--h) * var(--k)); width: auto; max-width: none; max-height: none; }
+.tabs { display: grid; gap: 10px; padding: 14px; }
+.tab { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 8px 8px 0 0; font: 12px system-ui, sans-serif; max-width: 260px; }
+.tab.light { background: #fff; color: #202124; box-shadow: 0 0 0 1px #dadce0; }
+.tab.dark { background: #35363a; color: #e8eaed; }
+.strip { padding: 10px 14px 14px; display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
+.zoom { image-rendering: pixelated; image-rendering: crisp-edges; }
+.icons { display: flex; flex-wrap: wrap; gap: 18px; align-items: end; padding: 16px; }
+.icons figure { margin: 0; display: flex; flex-direction: column; align-items: center; font-size: 12px; color: var(--text-muted); }
+.icons img { display: block; margin: 0 auto 6px; }
+.mask-ios { border-radius: 22.37%; }
+.mask-circle { border-radius: 50%; }
+.safe { position: relative; display: block; margin: 0 auto 6px; }
+.safe img { margin: 0; }
+.safe::after { content: ""; position: absolute; inset: 10%; border-radius: 50%; outline: 2px dashed rgba(255,255,255,.85); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.og img { width: 100%; height: auto; display: block; }
+.scale { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 3px; margin-top: 8px; }
+.chip { border-radius: 6px; padding: 8px 6px 6px; min-height: 76px; display: flex; flex-direction: column; justify-content: space-between; font: 11px/1.25 ui-monospace, Menlo, monospace; box-shadow: inset 0 0 0 1px rgba(127,127,127,.28); }
+.chip b { font-weight: 600; }
+.under { font: 10px/1.3 ui-monospace, Menlo, monospace; color: var(--text-muted); overflow-wrap: anywhere; }
+.pairs { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); padding: 14px; }
+.pairs div { display: flex; gap: 10px; align-items: center; font-size: 12px; }
+.pairs i { font-style: normal; width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; font-size: 18px; font-weight: 600; flex: none; box-shadow: inset 0 0 0 1px rgba(127,127,127,.25); }
+.fail { color: #c5221f; font-weight: 600; }
+pre { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow-x: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; }
+video { width: 100%; height: auto; display: block; }
+.email { padding: 18px 16px; background: #fff; color: #202124; font: 13px/1.45 Arial, Helvetica, sans-serif; }
+.email img { display: block; margin-top: 10px; }
+@media (max-width: 560px) { .scale { grid-template-columns: repeat(4, minmax(0, 1fr)); } .pair { grid-template-columns: minmax(0, 1fr); } .clear { --k: .6; } }
+@page { margin: 12mm; }
+@media print {
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html:root:not([data-theme="light"]) { --bg: #FFFFFF; --surface: #EAEBEC; --border: #D7D9DB; --text: #1B1D1F; --text-muted: #686C70; --primary-text: #1A3E5C; }
+  main { max-width: none; padding: 0; }
+  nav, video { display: none; }
+  h2 { break-after: avoid; }
+  .card, .scale, pre, figure { break-inside: avoid; }
+  .grid, .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+<main>
+<h1>RewardsPro brand kit</h1>
+<p class="lede">Review sheet: every asset on the light ground (#FFFFFF) and the dark ground (#09110F). This page uses the kit's own <code>colour/tokens.css</code> and follows your system light/dark setting.</p>
+<nav><a href="BRAND.md">Guide (BRAND.md)</a><a href="verify.json">Checks (verify.json)</a><a href="web/head-snippet.html">Head snippet</a><a href="web/head-home.html">Home-page head</a><a href="colour/contrast.md">Contrast table</a><a href="brand.vectorcraft">Source (brand.vectorcraft)</a></nav>
+<h2>Logo</h2>
+<p class="muted">Reversed and white versions are made for dark grounds; they are shown on both so you can see why.</p>
+<div class="grid">
+<section class="card"><h3>Horizontal <span>logo/lockup-horizontal.svg · 488×96</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-horizontal.svg" alt="RewardsPro horizontal on light"></div><div class="ground g-dark"><img src="logo/lockup-horizontal.svg" alt="RewardsPro horizontal on dark"></div></div></section>
+<section class="card"><h3>Horizontal, reversed <span>logo/lockup-horizontal-reversed.svg · 488×96</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-horizontal-reversed.svg" alt="RewardsPro horizontal, reversed on light"></div><div class="ground g-dark"><img src="logo/lockup-horizontal-reversed.svg" alt="RewardsPro horizontal, reversed on dark"></div></div></section>
+<section class="card"><h3>Stacked <span>logo/lockup-stacked.svg · 316×197</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-stacked.svg" alt="RewardsPro stacked on light"></div><div class="ground g-dark"><img src="logo/lockup-stacked.svg" alt="RewardsPro stacked on dark"></div></div></section>
+<section class="card"><h3>Stacked, reversed <span>logo/lockup-stacked-reversed.svg · 316×197</span></h3><div class="pair"><div class="ground g-light"><img src="logo/lockup-stacked-reversed.svg" alt="RewardsPro stacked, reversed on light"></div><div class="ground g-dark"><img src="logo/lockup-stacked-reversed.svg" alt="RewardsPro stacked, reversed on dark"></div></div></section>
+<section class="card"><h3>Mark <span>logo/mark.svg · 238×256</span></h3><div class="pair"><div class="ground g-light"><img src="logo/mark.svg" alt="RewardsPro mark on light"></div><div class="ground g-dark"><img src="logo/mark.svg" alt="RewardsPro mark on dark"></div></div></section>
+<section class="card"><h3>Mark, mono black <span>logo/mark-mono-black.svg · 238×256</span></h3><div class="pair"><div class="ground g-light"><img src="logo/mark-mono-black.svg" alt="RewardsPro mark, mono black on light"></div><div class="ground g-dark"><img src="logo/mark-mono-black.svg" alt="RewardsPro mark, mono black on dark"></div></div></section>
+<section class="card"><h3>Mark, mono white <span>logo/mark-mono-white.svg · 238×256</span></h3><div class="pair"><div class="ground g-light"><img src="logo/mark-mono-white.svg" alt="RewardsPro mark, mono white on light"></div><div class="ground g-dark"><img src="logo/mark-mono-white.svg" alt="RewardsPro mark, mono white on dark"></div></div></section>
+<section class="card"><h3>Wordmark <span>logo/wordmark.svg · 493×65</span></h3><div class="pair"><div class="ground g-light"><img src="logo/wordmark.svg" alt="RewardsPro wordmark on light"></div><div class="ground g-dark"><img src="logo/wordmark.svg" alt="RewardsPro wordmark on dark"></div></div></section>
+<section class="card"><h3>Wordmark, reversed <span>logo/wordmark-reversed.svg · 493×65</span></h3><div class="pair"><div class="ground g-light"><img src="logo/wordmark-reversed.svg" alt="RewardsPro wordmark, reversed on light"></div><div class="ground g-dark"><img src="logo/wordmark-reversed.svg" alt="RewardsPro wordmark, reversed on dark"></div></div></section>
+</div>
+<div class="grid two">
+<section class="card"><h3>Clear space <span>horizontal lockup · x = cap height = 48 px at 1x</span></h3><div class="ground g-light"><span class="clear" style="--cs:0.500;--h:64.0px"><img src="logo/lockup-horizontal.svg" alt="Horizontal lockup with its clear space"></span></div></section>
+<section class="card"><h3>Clear space <span>wordmark · x = cap height = 64 px at 1x</span></h3><div class="ground g-light"><span class="clear" style="--cs:0.985;--h:50.2px"><img src="logo/wordmark.svg" alt="Wordmark with its clear space"></span></div></section>
+</div>
+<h3 style="font-size:15px;margin:22px 0 0">On grounds <span class="muted">opaque PNGs, clear space included: logo/on-light/ and logo/on-dark/</span></h3>
+<div class="grid">
+<section class="card"><h3>Horizontal <span>lockup-horizontal@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/lockup-horizontal@2x.png" alt="RewardsPro horizontal on the light ground"></div><div class="ground"><img src="logo/on-dark/lockup-horizontal@2x.png" alt="RewardsPro horizontal on the dark ground"></div></div></section>
+<section class="card"><h3>Stacked <span>lockup-stacked@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/lockup-stacked@2x.png" alt="RewardsPro stacked on the light ground"></div><div class="ground"><img src="logo/on-dark/lockup-stacked@2x.png" alt="RewardsPro stacked on the dark ground"></div></div></section>
+<section class="card"><h3>Wordmark <span>wordmark@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/wordmark@2x.png" alt="RewardsPro wordmark on the light ground"></div><div class="ground"><img src="logo/on-dark/wordmark@2x.png" alt="RewardsPro wordmark on the dark ground"></div></div></section>
+<section class="card"><h3>Mark <span>mark@2x.png</span></h3><div class="pair"><div class="ground"><img src="logo/on-light/mark@2x.png" alt="RewardsPro mark on the light ground"></div><div class="ground"><img src="logo/on-dark/mark@2x.png" alt="RewardsPro mark on the dark ground"></div></div></section>
+<section class="card"><h3>Email signature <span>logo/on-light/lockup-horizontal@2x.png at 195×64</span></h3><div class="email">Kind regards,<br>A. Person<img src="logo/on-light/lockup-horizontal@2x.png" width="195" height="64" alt="RewardsPro"></div></section>
+</div>
+<h2>Favicons</h2>
+<p class="muted">Browser tabs at true size (16 CSS px), then the raster cuts at 1x and zoomed.</p>
+<div class="grid two">
+<section class="card"><h3>Light browser <span>favicon.svg</span></h3><div class="tabs" style="background:#dee1e6"><div class="tab light"><img src="web/favicon.svg" width="16" height="16" alt="">RewardsPro</div><div class="tab light"><img src="web/favicon-16.png" width="16" height="16" alt="">favicon-16.png</div></div></section>
+<section class="card"><h3>Dark browser <span>favicon.svg</span></h3><div class="tabs" style="background:#202124"><div class="tab dark"><img src="web/favicon.svg" width="16" height="16" alt="">RewardsPro</div><div class="tab dark"><img src="web/favicon-16.png" width="16" height="16" alt="">favicon-16.png</div></div></section>
+<section class="card"><h3>Raster cuts <span>on light · 16, 32, then zoomed</span></h3><div class="strip g-light"><img src="web/favicon-16.png" width="16" height="16" alt="16 px favicon"><img src="web/favicon-32.png" width="32" height="32" alt="32 px favicon"><img class="zoom" src="web/favicon-16.png" width="96" height="96" alt="16 px favicon zoomed"><img class="zoom" src="web/favicon-32.png" width="96" height="96" alt="32 px favicon zoomed"></div></section>
+<section class="card"><h3>Raster cuts <span>on dark · 16, 32, then zoomed</span></h3><div class="strip g-dark"><img src="web/favicon-16.png" width="16" height="16" alt="16 px favicon"><img src="web/favicon-32.png" width="32" height="32" alt="32 px favicon"><img class="zoom" src="web/favicon-16.png" width="96" height="96" alt="16 px favicon zoomed"><img class="zoom" src="web/favicon-32.png" width="96" height="96" alt="32 px favicon zoomed"></div></section>
+</div>
+<div class="grid two">
+<section class="card"><h3>favicon.ico frames <span>on light · 16, 32, 48, then zoomed</span></h3><div class="strip g-light"><img src="web/favicon-16.png" width="16" height="16" alt="16 px frame"><img src="web/favicon-32.png" width="32" height="32" alt="32 px frame"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAnRJREFUeJzdmj9IG1Ecx7/vyNAWlQQsuGgVXMQOESfFooGCcRSKUwet0E2kY+sgLu3UqriJkIBORXS1IMRgoVNpFnERtIWCW0MR11d+x7vjKnrJu9z753e5JCTw+ebe+/5+j98x3CHOeS+AWQDjAPIAstCrOoAagCqAMmPsoqlfETjnvMTtU0n8qbHwE5zzP9xeEdtElJlF4QFU4IYKjLGj0IC4NT8MrPNW9scQ7YuM+GD5JvybD5v4fHAMW/S7uh19mxXMc14kbf7T6tvXmCk+g8WaJXbvNniXTHgi5+GoiXFPFCk4aiLvNZs8ZKI4NgzLlCUDTYtMDPY/gU2SMtDR9gi76++sMiFlwEYTjBoMkwAHX7/7RfPv1bVMIQsVVGIjokpP8FqXkE3wxgzIwsftN+1L6FN5Hx9Le1LwFBpWGJDtcAN4Sr7UDVBqvFpaw7faKVSIWpeVhZex8KnEqIpzA8FT1deyidNu9GTgU0uhtEzIwqcao62aSAKfeh1IaiIpvJJClsTEydmvhr1QyynUVTls+J3LwvPw9fLGDrZ2v6Sa+VpbCcpwmWVxcvYTLxbfS98Jpb2Q7NpOYkJ5M6fahJZuVKUJbe20KhNazwMqTGg/0AQmZOKSzs13yciZmEwM9vfc+u92d3ViJD+AkaEB/0rv42TsUB8UrvmlNf81AU+ODTcE1laJdckT0w5XVffEKNNV1Twxh21Zo9kcDKjKxIjpXHYPPG1r96FHczn/2pExkgd9GZr0cc7LcaMmUveDhyHwVOdjU8BR+dN758esfiUWzyFMwx1NB89OhK2EmHwXLI/VenRKfy8e9mBxRlx43OYfSQLrUoFeBZAAAAAASUVORK5CYII=" width="48" height="48" alt="48 px frame"><img class="zoom" src="web/favicon-16.png" width="64" height="64" alt="16 px frame zoomed"><img class="zoom" src="web/favicon-32.png" width="128" height="128" alt="32 px frame zoomed"><img class="zoom" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAnRJREFUeJzdmj9IG1Ecx7/vyNAWlQQsuGgVXMQOESfFooGCcRSKUwet0E2kY+sgLu3UqriJkIBORXS1IMRgoVNpFnERtIWCW0MR11d+x7vjKnrJu9z753e5JCTw+ebe+/5+j98x3CHOeS+AWQDjAPIAstCrOoAagCqAMmPsoqlfETjnvMTtU0n8qbHwE5zzP9xeEdtElJlF4QFU4IYKjLGj0IC4NT8MrPNW9scQ7YuM+GD5JvybD5v4fHAMW/S7uh19mxXMc14kbf7T6tvXmCk+g8WaJXbvNniXTHgi5+GoiXFPFCk4aiLvNZs8ZKI4NgzLlCUDTYtMDPY/gU2SMtDR9gi76++sMiFlwEYTjBoMkwAHX7/7RfPv1bVMIQsVVGIjokpP8FqXkE3wxgzIwsftN+1L6FN5Hx9Le1LwFBpWGJDtcAN4Sr7UDVBqvFpaw7faKVSIWpeVhZex8KnEqIpzA8FT1deyidNu9GTgU0uhtEzIwqcao62aSAKfeh1IaiIpvJJClsTEydmvhr1QyynUVTls+J3LwvPw9fLGDrZ2v6Sa+VpbCcpwmWVxcvYTLxbfS98Jpb2Q7NpOYkJ5M6fahJZuVKUJbe20KhNazwMqTGg/0AQmZOKSzs13yciZmEwM9vfc+u92d3ViJD+AkaEB/0rv42TsUB8UrvmlNf81AU+ODTcE1laJdckT0w5XVffEKNNV1Twxh21Zo9kcDKjKxIjpXHYPPG1r96FHczn/2pExkgd9GZr0cc7LcaMmUveDhyHwVOdjU8BR+dN758esfiUWzyFMwx1NB89OhK2EmHwXLI/VenRKfy8e9mBxRlx43OYfSQLrUoFeBZAAAAAASUVORK5CYII=" width="144" height="144" alt="48 px frame zoomed"></div></section>
+<section class="card"><h3>favicon.ico frames <span>on dark · 16, 32, 48, then zoomed</span></h3><div class="strip g-dark"><img src="web/favicon-16.png" width="16" height="16" alt="16 px frame"><img src="web/favicon-32.png" width="32" height="32" alt="32 px frame"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAnRJREFUeJzdmj9IG1Ecx7/vyNAWlQQsuGgVXMQOESfFooGCcRSKUwet0E2kY+sgLu3UqriJkIBORXS1IMRgoVNpFnERtIWCW0MR11d+x7vjKnrJu9z753e5JCTw+ebe+/5+j98x3CHOeS+AWQDjAPIAstCrOoAagCqAMmPsoqlfETjnvMTtU0n8qbHwE5zzP9xeEdtElJlF4QFU4IYKjLGj0IC4NT8MrPNW9scQ7YuM+GD5JvybD5v4fHAMW/S7uh19mxXMc14kbf7T6tvXmCk+g8WaJXbvNniXTHgi5+GoiXFPFCk4aiLvNZs8ZKI4NgzLlCUDTYtMDPY/gU2SMtDR9gi76++sMiFlwEYTjBoMkwAHX7/7RfPv1bVMIQsVVGIjokpP8FqXkE3wxgzIwsftN+1L6FN5Hx9Le1LwFBpWGJDtcAN4Sr7UDVBqvFpaw7faKVSIWpeVhZex8KnEqIpzA8FT1deyidNu9GTgU0uhtEzIwqcao62aSAKfeh1IaiIpvJJClsTEydmvhr1QyynUVTls+J3LwvPw9fLGDrZ2v6Sa+VpbCcpwmWVxcvYTLxbfS98Jpb2Q7NpOYkJ5M6fahJZuVKUJbe20KhNazwMqTGg/0AQmZOKSzs13yciZmEwM9vfc+u92d3ViJD+AkaEB/0rv42TsUB8UrvmlNf81AU+ODTcE1laJdckT0w5XVffEKNNV1Twxh21Zo9kcDKjKxIjpXHYPPG1r96FHczn/2pExkgd9GZr0cc7LcaMmUveDhyHwVOdjU8BR+dN758esfiUWzyFMwx1NB89OhK2EmHwXLI/VenRKfy8e9mBxRlx43OYfSQLrUoFeBZAAAAAASUVORK5CYII=" width="48" height="48" alt="48 px frame"><img class="zoom" src="web/favicon-16.png" width="64" height="64" alt="16 px frame zoomed"><img class="zoom" src="web/favicon-32.png" width="128" height="128" alt="32 px frame zoomed"><img class="zoom" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAnRJREFUeJzdmj9IG1Ecx7/vyNAWlQQsuGgVXMQOESfFooGCcRSKUwet0E2kY+sgLu3UqriJkIBORXS1IMRgoVNpFnERtIWCW0MR11d+x7vjKnrJu9z753e5JCTw+ebe+/5+j98x3CHOeS+AWQDjAPIAstCrOoAagCqAMmPsoqlfETjnvMTtU0n8qbHwE5zzP9xeEdtElJlF4QFU4IYKjLGj0IC4NT8MrPNW9scQ7YuM+GD5JvybD5v4fHAMW/S7uh19mxXMc14kbf7T6tvXmCk+g8WaJXbvNniXTHgi5+GoiXFPFCk4aiLvNZs8ZKI4NgzLlCUDTYtMDPY/gU2SMtDR9gi76++sMiFlwEYTjBoMkwAHX7/7RfPv1bVMIQsVVGIjokpP8FqXkE3wxgzIwsftN+1L6FN5Hx9Le1LwFBpWGJDtcAN4Sr7UDVBqvFpaw7faKVSIWpeVhZex8KnEqIpzA8FT1deyidNu9GTgU0uhtEzIwqcao62aSAKfeh1IaiIpvJJClsTEydmvhr1QyynUVTls+J3LwvPw9fLGDrZ2v6Sa+VpbCcpwmWVxcvYTLxbfS98Jpb2Q7NpOYkJ5M6fahJZuVKUJbe20KhNazwMqTGg/0AQmZOKSzs13yciZmEwM9vfc+u92d3ViJD+AkaEB/0rv42TsUB8UrvmlNf81AU+ODTcE1laJdckT0w5XVffEKNNV1Twxh21Zo9kcDKjKxIjpXHYPPG1r96FHczn/2pExkgd9GZr0cc7LcaMmUveDhyHwVOdjU8BR+dN758esfiUWzyFMwx1NB89OhK2EmHwXLI/VenRKfy8e9mBxRlx43OYfSQLrUoFeBZAAAAAASUVORK5CYII=" width="144" height="144" alt="48 px frame zoomed"></div></section>
+</div>
+<h2>App icons</h2>
+<div class="grid">
+<section class="card"><h3>Home screen <span>on light</span></h3><div class="icons g-light"><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="120" height="120" alt="">iOS mask</figure><figure><img class="mask-circle" src="web/icon-maskable-512.png" width="120" height="120" alt="">Android circle</figure><figure><img src="web/icon-192.png" width="96" height="96" alt="">any, 192</figure><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="60" height="60" alt="">60</figure></div></section>
+<section class="card"><h3>Home screen <span>on dark</span></h3><div class="icons g-dark"><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="120" height="120" alt="">iOS mask</figure><figure><img class="mask-circle" src="web/icon-maskable-512.png" width="120" height="120" alt="">Android circle</figure><figure><img src="web/icon-192.png" width="96" height="96" alt="">any, 192</figure><figure><img class="mask-ios" src="web/apple-touch-icon.png" width="60" height="60" alt="">60</figure></div></section>
+<section class="card"><h3>Maskable safe zone <span>dashed: 40% radius circle</span></h3><div class="icons"><figure><span class="safe"><img src="web/icon-maskable-512.png" width="150" height="150" alt="Maskable icon with its safe circle"></span>icon-maskable-512.png</figure><figure><img src="web/icon-512.png" width="150" height="150" alt="App icon, square">icon-512.png</figure></div></section>
+<section class="card"><h3>Profile picture <span>social/avatar-1024.png · circle and square crops</span></h3><div class="icons"><figure><img class="mask-circle" src="social/avatar-400.png" width="120" height="120" alt="">circle crop</figure><figure><img src="social/avatar-400.png" width="120" height="120" alt="">square</figure><figure><img class="mask-circle" src="social/avatar-400.png" width="40" height="40" alt="">40</figure></div></section>
+</div>
+<h2>Social card</h2>
+<section class="card og"><h3>web/og.jpg <span>1200×630 · light · title 16.91:1</span></h3><img src="web/og.jpg" alt="RewardsPro social preview card"></section>
+<h2>Colour</h2>
+<p class="muted">OKLCH scales; each chip shows the better of white or black text on it and that contrast. ● marks the brand colour. Full sheet: <a href="colour/colour-sheet.png">colour-sheet.png</a>.</p>
+<h3 style="font-size:14px;margin:18px 0 0">primary <span class="muted">#1A3E5C · oklch(35.3% 0.067 246.4)</span></h3>
+<div class="scale">
+<div><div class="chip" style="background:#F3F7FC;color:#000000"><b>50</b><span>19.5 AAA</span></div><div class="under">#F3F7FC</div></div>
+<div><div class="chip" style="background:#E3EDF6;color:#000000"><b>100</b><span>17.7 AAA</span></div><div class="under">#E3EDF6</div></div>
+<div><div class="chip" style="background:#CADCEC;color:#000000"><b>200</b><span>15.0 AAA</span></div><div class="under">#CADCEC</div></div>
+<div><div class="chip" style="background:#A9C5DE;color:#000000"><b>300</b><span>11.7 AAA</span></div><div class="under">#A9C5DE</div></div>
+<div><div class="chip" style="background:#83A6C5;color:#000000"><b>400</b><span>8.2 AAA</span></div><div class="under">#83A6C5</div></div>
+<div><div class="chip" style="background:#658AAD;color:#000000"><b>500</b><span>5.8 AA</span></div><div class="under">#658AAD</div></div>
+<div><div class="chip" style="background:#4B7091;color:#FFFFFF"><b>600</b><span>5.2 AA</span></div><div class="under">#4B7091</div></div>
+<div><div class="chip" style="background:#355978;color:#FFFFFF"><b>700</b><span>7.4 AAA</span></div><div class="under">#355978</div></div>
+<div><div class="chip" style="background:#1A3E5C;color:#FFFFFF"><b>800 ●</b><span>11.1 AAA</span></div><div class="under">#1A3E5C</div></div>
+<div><div class="chip" style="background:#1D3245;color:#FFFFFF"><b>900</b><span>13.2 AAA</span></div><div class="under">#1D3245</div></div>
+<div><div class="chip" style="background:#0F1E2C;color:#FFFFFF"><b>950</b><span>16.9 AAA</span></div><div class="under">#0F1E2C</div></div>
+</div>
+<h3 style="font-size:14px;margin:18px 0 0">accent <span class="muted">#17BEBB · oklch(72.6% 0.121 192.8)</span></h3>
+<div class="scale">
+<div><div class="chip" style="background:#ECFAF9;color:#000000"><b>50</b><span>19.6 AAA</span></div><div class="under">#ECFAF9</div></div>
+<div><div class="chip" style="background:#D5F2F1;color:#000000"><b>100</b><span>17.8 AAA</span></div><div class="under">#D5F2F1</div></div>
+<div><div class="chip" style="background:#B0E5E3;color:#000000"><b>200</b><span>15.2 AAA</span></div><div class="under">#B0E5E3</div></div>
+<div><div class="chip" style="background:#7BD3D0;color:#000000"><b>300</b><span>12.1 AAA</span></div><div class="under">#7BD3D0</div></div>
+<div><div class="chip" style="background:#17BEBB;color:#000000"><b>400 ●</b><span>9.1 AAA</span></div><div class="under">#17BEBB</div></div>
+<div><div class="chip" style="background:#009A97;color:#000000"><b>500</b><span>6.1 AA</span></div><div class="under">#009A97</div></div>
+<div><div class="chip" style="background:#007C7A;color:#FFFFFF"><b>600</b><span>5.0 AA</span></div><div class="under">#007C7A</div></div>
+<div><div class="chip" style="background:#006261;color:#FFFFFF"><b>700</b><span>7.2 AAA</span></div><div class="under">#006261</div></div>
+<div><div class="chip" style="background:#004D4C;color:#FFFFFF"><b>800</b><span>9.7 AAA</span></div><div class="under">#004D4C</div></div>
+<div><div class="chip" style="background:#003938;color:#FFFFFF"><b>900</b><span>12.8 AAA</span></div><div class="under">#003938</div></div>
+<div><div class="chip" style="background:#002322;color:#FFFFFF"><b>950</b><span>16.6 AAA</span></div><div class="under">#002322</div></div>
+</div>
+<h3 style="font-size:14px;margin:18px 0 0">neutral <span class="muted">derived from the primary's hue · no brand colour of its own</span></h3>
+<div class="scale">
+<div><div class="chip" style="background:#F6F7F7;color:#000000"><b>50</b><span>19.6 AAA</span></div><div class="under">#F6F7F7</div></div>
+<div><div class="chip" style="background:#EAEBEC;color:#000000"><b>100</b><span>17.6 AAA</span></div><div class="under">#EAEBEC</div></div>
+<div><div class="chip" style="background:#D7D9DB;color:#000000"><b>200</b><span>14.8 AAA</span></div><div class="under">#D7D9DB</div></div>
+<div><div class="chip" style="background:#BEC1C4;color:#000000"><b>300</b><span>11.6 AAA</span></div><div class="under">#BEC1C4</div></div>
+<div><div class="chip" style="background:#9EA2A6;color:#000000"><b>400</b><span>8.2 AAA</span></div><div class="under">#9EA2A6</div></div>
+<div><div class="chip" style="background:#82878B;color:#000000"><b>500</b><span>5.8 AA</span></div><div class="under">#82878B</div></div>
+<div><div class="chip" style="background:#686C70;color:#FFFFFF"><b>600</b><span>5.3 AA</span></div><div class="under">#686C70</div></div>
+<div><div class="chip" style="background:#525659;color:#FFFFFF"><b>700</b><span>7.4 AAA</span></div><div class="under">#525659</div></div>
+<div><div class="chip" style="background:#404346;color:#FFFFFF"><b>800</b><span>10.0 AAA</span></div><div class="under">#404346</div></div>
+<div><div class="chip" style="background:#2E3133;color:#FFFFFF"><b>900</b><span>13.1 AAA</span></div><div class="under">#2E3133</div></div>
+<div><div class="chip" style="background:#1B1D1F;color:#FFFFFF"><b>950</b><span>16.9 AAA</span></div><div class="under">#1B1D1F</div></div>
+</div>
+<div class="grid">
+<section class="card" style="background:#FFFFFF;color:#1B1D1F;border-color:#D7D9DB"><h3 style="color:#1B1D1F">Light roles <span style="color:#686C70">required pairs</span></h3><div class="pairs">
+<div><i style="background:#FFFFFF;color:#1B1D1F">Aa</i><span>text on bg<br>16.91:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#FFFFFF;color:#686C70">Aa</i><span>text-muted on bg<br>5.29:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#EAEBEC;color:#1B1D1F">Aa</i><span>text on surface<br>14.16:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#FFFFFF;color:#1A3E5C">Aa</i><span>focus on bg<br>11.13:1 (needs 3) ✓</span></div>
+<div><i style="background:#FFFFFF;color:#1A3E5C">Aa</i><span>primary-text on bg<br>11.13:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#FFFFFF;color:#007C7A">Aa</i><span>accent-text on bg<br>5.04:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#1A3E5C;color:#FFFFFF">Aa</i><span>on-primary on primary<br>11.13:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#17BEBB;color:#1B1D1F">Aa</i><span>on-accent on accent<br>7.34:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#FFFFFF;color:#1A3E5C">Aa</i><span>primary-ui on bg<br>11.13:1 (needs 3) ✓</span></div>
+<div><i style="background:#FFFFFF;color:#009A97">Aa</i><span>accent-ui on bg<br>3.46:1 (needs 3) ✓</span></div>
+</div></section>
+<section class="card" style="background:#09110F;color:#F6F7F7;border-color:#2C3532"><h3 style="color:#F6F7F7">Dark roles <span style="color:#9EA2A6">required pairs</span></h3><div class="pairs">
+<div><i style="background:#09110F;color:#F6F7F7">Aa</i><span>text on bg<br>17.81:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#09110F;color:#9EA2A6">Aa</i><span>text-muted on bg<br>7.44:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#1B2321;color:#F6F7F7">Aa</i><span>text on surface<br>14.95:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#09110F;color:#658AAD">Aa</i><span>focus on bg<br>5.27:1 (needs 3) ✓</span></div>
+<div><i style="background:#09110F;color:#83A6C5">Aa</i><span>primary-text on bg<br>7.49:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#09110F;color:#17BEBB">Aa</i><span>accent-text on bg<br>8.30:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#658AAD;color:#1B1D1F">Aa</i><span>on-primary on primary<br>4.66:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#17BEBB;color:#1B1D1F">Aa</i><span>on-accent on accent<br>7.34:1 (needs 4.5) ✓</span></div>
+<div><i style="background:#09110F;color:#658AAD">Aa</i><span>primary-ui on bg<br>5.27:1 (needs 3) ✓</span></div>
+<div><i style="background:#09110F;color:#17BEBB">Aa</i><span>accent-ui on bg<br>8.30:1 (needs 3) ✓</span></div>
+</div></section>
+</div>
+<h2>Head snippet</h2>
+<pre><code>&lt;!-- Icons: three links and the manifest. Serve the files in web/ at the site root. --&gt;
+&lt;link rel=&quot;icon&quot; href=&quot;/favicon.ico&quot; sizes=&quot;32x32&quot;&gt;
+&lt;link rel=&quot;icon&quot; href=&quot;/favicon.svg&quot; type=&quot;image/svg+xml&quot;&gt;
+&lt;link rel=&quot;apple-touch-icon&quot; href=&quot;/apple-touch-icon.png&quot;&gt;
+&lt;link rel=&quot;manifest&quot; href=&quot;/site.webmanifest&quot;&gt;
+&lt;meta name=&quot;theme-color&quot; content=&quot;#09110F&quot;&gt;
+
+&lt;!-- Colour schemes this page supports (brand.json app.color_scheme). &quot;light dark&quot; is true when the page loads colour/tokens.css or has its own dark theme. Light-only page: &quot;only light&quot; (plain &quot;light&quot; lets browsers auto-darken it). Dark-only: &quot;dark&quot; (&quot;only dark&quot; is invalid). One per page: leave this out if your framework writes one (Next.js viewport.colorScheme). --&gt;
+&lt;meta name=&quot;color-scheme&quot; content=&quot;dark&quot;&gt;
+
+&lt;!-- Social preview: keep these early in &lt;head&gt;, within the first 300 KB of the HTML (WhatsApp). og:title should be the page title, not the site name; pages with their own card have their lines in og/head-&lt;slug&gt;.html. --&gt;
+&lt;meta property=&quot;og:type&quot; content=&quot;website&quot;&gt;
+&lt;meta property=&quot;og:site_name&quot; content=&quot;RewardsPro&quot;&gt;
+&lt;meta property=&quot;og:title&quot; content=&quot;Cashback your customers spend in your store&quot;&gt;
+&lt;meta property=&quot;og:locale&quot; content=&quot;en_US&quot;&gt;
+&lt;meta property=&quot;og:description&quot; content=&quot;Paid as Shopify store credit, with VIP tiers. Free.&quot;&gt;
+&lt;meta property=&quot;og:url&quot; content=&quot;https://rewardspro.io&quot;&gt;
+&lt;meta property=&quot;og:image&quot; content=&quot;https://rewardspro.io/og.jpg&quot;&gt;
+&lt;meta property=&quot;og:image:type&quot; content=&quot;image/jpeg&quot;&gt;
+&lt;meta property=&quot;og:image:width&quot; content=&quot;1200&quot;&gt;
+&lt;meta property=&quot;og:image:height&quot; content=&quot;630&quot;&gt;
+&lt;meta property=&quot;og:image:alt&quot; content=&quot;RewardsPro card: the RewardsPro logo mark beside the headline “Cashback your customers spend in your store” on a white background.&quot;&gt;
+&lt;meta name=&quot;twitter:card&quot; content=&quot;summary_large_image&quot;&gt;
+</code></pre>
+<h2>Home-page head</h2>
+<pre><code>&lt;!-- Home page only (Google). If your site already has a WebSite or Organization block, add these properties to that node instead of pasting a second one. --&gt;
+&lt;!-- The organisation&#x27;s logo (at least 112 px, crawlable, right on white). --&gt;
+&lt;script type=&quot;application/ld+json&quot;&gt;
+{
+ &quot;@context&quot;: &quot;https://schema.org&quot;,
+ &quot;@type&quot;: &quot;Organization&quot;,
+ &quot;name&quot;: &quot;RewardsPro&quot;,
+ &quot;url&quot;: &quot;https://rewardspro.io&quot;,
+ &quot;logo&quot;: &quot;https://rewardspro.io/icon-512.png&quot;
+}
+&lt;/script&gt;
+&lt;!-- The site name Google shows. Its url is the home page at the root of the host: Google does not support site names below it. --&gt;
+&lt;script type=&quot;application/ld+json&quot;&gt;
+{
+ &quot;@context&quot;: &quot;https://schema.org&quot;,
+ &quot;@type&quot;: &quot;WebSite&quot;,
+ &quot;name&quot;: &quot;RewardsPro&quot;,
+ &quot;url&quot;: &quot;https://rewardspro.io/&quot;
+}
+&lt;/script&gt;
+</code></pre>
+</main>
+</body>
+</html>

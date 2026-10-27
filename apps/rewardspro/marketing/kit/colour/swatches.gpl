@@ -1,0 +1,46 @@
+GIMP Palette
+Name: RewardsPro
+Columns: 0
+#
+# Group: rewardspro brand
+ 26  62  92	rewardspro primary
+ 23 190 187	rewardspro accent
+# Group: rewardspro ground
+255 255 255	rewardspro ground light
+  9  17  15	rewardspro ground dark
+# Group: rewardspro primary scale
+243 247 252	rewardspro primary 50
+227 237 246	rewardspro primary 100
+202 220 236	rewardspro primary 200
+169 197 222	rewardspro primary 300
+131 166 197	rewardspro primary 400
+101 138 173	rewardspro primary 500
+ 75 112 145	rewardspro primary 600
+ 53  89 120	rewardspro primary 700
+ 26  62  92	rewardspro primary 800
+ 29  50  69	rewardspro primary 900
+ 15  30  44	rewardspro primary 950
+# Group: rewardspro accent scale
+236 250 249	rewardspro accent 50
+213 242 241	rewardspro accent 100
+176 229 227	rewardspro accent 200
+123 211 208	rewardspro accent 300
+ 23 190 187	rewardspro accent 400
+  0 154 151	rewardspro accent 500
+  0 124 122	rewardspro accent 600
+  0  98  97	rewardspro accent 700
+  0  77  76	rewardspro accent 800
+  0  57  56	rewardspro accent 900
+  0  35  34	rewardspro accent 950
+# Group: rewardspro neutral scale
+246 247 247	rewardspro neutral 50
+234 235 236	rewardspro neutral 100
+215 217 219	rewardspro neutral 200
+190 193 196	rewardspro neutral 300
+158 162 166	rewardspro neutral 400
+130 135 139	rewardspro neutral 500
+104 108 112	rewardspro neutral 600
+ 82  86  89	rewardspro neutral 700
+ 64  67  70	rewardspro neutral 800
+ 46  49  51	rewardspro neutral 900
+ 27  29  31	rewardspro neutral 950

@@ -1,0 +1,45 @@
+/* RewardsPro */
+:root {
+  /* rewardspro brand */
+  --rewardspro-primary: #1a3e5c;
+  --rewardspro-accent: #17bebb;
+  /* rewardspro ground */
+  --rewardspro-ground-light: #ffffff;
+  --rewardspro-ground-dark: #09110f;
+  /* rewardspro primary scale */
+  --rewardspro-primary-50: #f3f7fc;
+  --rewardspro-primary-100: #e3edf6;
+  --rewardspro-primary-200: #cadcec;
+  --rewardspro-primary-300: #a9c5de;
+  --rewardspro-primary-400: #83a6c5;
+  --rewardspro-primary-500: #658aad;
+  --rewardspro-primary-600: #4b7091;
+  --rewardspro-primary-700: #355978;
+  --rewardspro-primary-800: #1a3e5c;
+  --rewardspro-primary-900: #1d3245;
+  --rewardspro-primary-950: #0f1e2c;
+  /* rewardspro accent scale */
+  --rewardspro-accent-50: #ecfaf9;
+  --rewardspro-accent-100: #d5f2f1;
+  --rewardspro-accent-200: #b0e5e3;
+  --rewardspro-accent-300: #7bd3d0;
+  --rewardspro-accent-400: #17bebb;
+  --rewardspro-accent-500: #009a97;
+  --rewardspro-accent-600: #007c7a;
+  --rewardspro-accent-700: #006261;
+  --rewardspro-accent-800: #004d4c;
+  --rewardspro-accent-900: #003938;
+  --rewardspro-accent-950: #002322;
+  /* rewardspro neutral scale */
+  --rewardspro-neutral-50: #f6f7f7;
+  --rewardspro-neutral-100: #eaebec;
+  --rewardspro-neutral-200: #d7d9db;
+  --rewardspro-neutral-300: #bec1c4;
+  --rewardspro-neutral-400: #9ea2a6;
+  --rewardspro-neutral-500: #82878b;
+  --rewardspro-neutral-600: #686c70;
+  --rewardspro-neutral-700: #525659;
+  --rewardspro-neutral-800: #404346;
+  --rewardspro-neutral-900: #2e3133;
+  --rewardspro-neutral-950: #1b1d1f;
+}
