@@ -58,10 +58,12 @@ jobs:
             # the storefront holds both scripts and the routes they scan,
             # redistribution pins wholesale's legacy acquisition paths, and
             # tributaries checks meta.games against the SKU registry and
-            # catalog_section against the tributaries catalog.
+            # catalog_section against the tributaries catalog. data-spec's
+            # tests import packages/pricing's money helper.
             data:
               - 'packages/data-ingest/**'
               - 'packages/data-spec/**'
+              - 'packages/pricing/**'
               - 'packages/sku/**'
               - 'apps/storefront/**'
               - 'apps/wholesale/**'
