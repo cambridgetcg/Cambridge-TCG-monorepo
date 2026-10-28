@@ -1118,7 +1118,7 @@ function emptyMovers(game: string): MoversResponse {
     publication_status: "blocked",
     policy_url: "https://cardrush.media/data_policy",
     reason:
-      "CardRush-derived movements are withheld because no written collection or downstream publication permission is recorded.",
+      "CardRush-derived movements from the legacy archive are withheld: its rows were gathered before the written permission recorded 2026-10-28 and are never published or used as inputs.",
     channel: "cambridgetcg",
     game_code: game,
     computed_at: null,

@@ -16,9 +16,10 @@
 import type { Fetcher } from "../http";
 
 export const TCGPLAYER_ACCESS_BLOCKED_MESSAGE =
-  "TCGplayer access is blocked: Cambridge has no recorded written approval " +
-  "for its multi-source aggregation or redistribution use. Credentials do " +
-  "not grant that permission; no token request was made.";
+  "TCGplayer API access is blocked: TCGplayer grants no new API access, and " +
+  "Cambridge reads TCGplayer only through its page collector. Credentials do " +
+  "not grant API access; no token request " +
+  "was made.";
 
 export interface TcgplayerCredentials {
   /** From env TCGPLAYER_CLIENT_ID. */

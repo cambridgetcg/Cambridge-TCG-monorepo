@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Audience, audienceMetadata } from "@/lib/ui";
+import { collectionOn, collectionSchedule } from "@/lib/datafeed/collection-flags";
 
 export const metadata: Metadata = {
   title: "Free member pricing — access, sources and limits",
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default function MemberPricingMethodology() {
+  // Built statically, so this follows the deployment's DATA_COLLECT_CARDMARKET.
+  const cardmarketScheduled = collectionOn("cardmarket");
   return (
     <>
       <Audience kind="public-documentation" contexts={["pricing", "methodology"]} />
@@ -53,13 +56,13 @@ export default function MemberPricingMethodology() {
           attached rather than being renamed Cambridge.
         </li>
         <li>
-          <strong>CardRush and direct TCGplayer.</strong>{" "}
-          <a href="https://cardrush.media/data_policy">CardRush&apos;s data policy</a>{" "}
-          requires a formal partnership for automated collection;{" "}
-          <a href="https://docs.tcgplayer.com/docs/getting-started">TCGplayer</a>{" "}
-          is not granting new API access. The recorded collection and legacy
-          publication blocks remain. An old stored price is not newly authorized
-          because a member asks for it.
+          <strong>CardRush and TCGplayer.</strong> Written permission recorded
+          2026-10-28. Their prices are display-only: they appear on Cambridge
+          pages with the source named and are never served by the member API or
+          in downloads. Collection runs only while scheduled (see the{" "}
+          <Link href="/api/v1/sources">source registry</Link>). Prices stored
+          before that date stay withheld; an old stored price is not newly
+          authorized because a member asks for it.
         </li>
         <li>
           <strong>Pokémon TCG API and YGOPRODeck.</strong> Their documented
@@ -97,11 +100,22 @@ export default function MemberPricingMethodology() {
       </p>
       <p>
         Source observation time and Cambridge retrieval time are different
-        facts. The pagination snapshot time is neither. Cardmarket and
-        Scryfall publish their files daily, but Cambridge does not refresh them
-        on a schedule: Cardmarket imports are manual (see the Cardmarket entry
-        at /api/v1/sources) and Scryfall bulk activation is deferred. An
-        observation is only as fresh as its retrieval time.
+        facts. The pagination snapshot time is neither.{" "}
+        {cardmarketScheduled ? (
+          <>
+            Cardmarket and Scryfall publish their files daily. Cambridge
+            collects {collectionSchedule("cardmarket")} (see the Cardmarket
+            entry at /api/v1/sources); Scryfall bulk activation is deferred.
+          </>
+        ) : (
+          <>
+            Cardmarket and Scryfall publish their files daily, but Cambridge
+            does not refresh them on a schedule: Cardmarket imports are manual
+            (see the Cardmarket entry at /api/v1/sources) and Scryfall bulk
+            activation is deferred.
+          </>
+        )}{" "}
+        An observation is only as fresh as its retrieval time.
         Missing observations remain gaps; migration, a new request, or a failed
         collector does not make an old observation fresh. Prices remain in
         their native currency; the separate <Link href="/methodology/fx-rates">FX

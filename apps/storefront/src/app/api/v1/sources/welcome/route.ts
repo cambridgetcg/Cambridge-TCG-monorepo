@@ -24,6 +24,7 @@
 import type { NextResponse } from "next/server";
 import { jsonResponse } from "@/lib/data-pantry";
 import { sourcesByStatus, listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { legacyAcquisitionClosed } from "@cambridge-tcg/data-ingest/registry";
 
 interface WelcomeEntry {
   id: string;
@@ -123,16 +124,19 @@ interface WelcomeBody {
  * how recently it shipped. We don't try to read git history here — the
  * `status` field on SourceMeta is authoritative; we map it to a more
  * hospitable phrase. Sources known to predate kingdom-066 (the alignment
- * baseline) get 'long-with-us'.
+ * baseline) get 'long-with-us' only while the path that relationship ran
+ * on is open. CardRush's was the legacy daily snapshot; its lock stays
+ * closed, so CardRush reads by its status (partial, for the page collector
+ * permitted on 2026-10-28) rather than as a relationship that never paused.
  */
 const LONG_WITH_US: ReadonlySet<string> = new Set([
-  "cardrush", // daily snapshot since well before kingdom-066
+  "cardrush", // daily snapshot since well before kingdom-066, until its acquisition was locked
 ]);
 
 function arrivalState(meta: ReturnType<typeof listSourceMeta>[number]): WelcomeEntry["arrival_state"] {
   if (meta.status === "blocked") return "blocked";
   if (meta.status === "planned") return "anticipated";
-  if (LONG_WITH_US.has(meta.id)) return "long-with-us";
+  if (LONG_WITH_US.has(meta.id) && !legacyAcquisitionClosed(meta)) return "long-with-us";
   if (meta.status === "partial") return "partial";
   // status === "shipped"
   return "newly-shipped";

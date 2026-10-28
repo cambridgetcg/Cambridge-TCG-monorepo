@@ -76,8 +76,7 @@ export async function GET(
     freshness: 300,
     as_of: card.updated_at ?? undefined,
     does_not_include: [
-      "raw CardRush values or source URLs (internal-only)",
-      "TCGplayer values (collection is blocked)",
+      "raw CardRush or TCGplayer values or source URLs (display-only: shown with the source named on Cambridge price pages, never served by API)",
       "buyer, seller, contributor, account, payment, shipping, or receipt identity",
       "individual community-observation rows or evidence SHA-256 commitments",
       "community-observation prices, counts, dates, conditions, or threshold totals while publication is paused",

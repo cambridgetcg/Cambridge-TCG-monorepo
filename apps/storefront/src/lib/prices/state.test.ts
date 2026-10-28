@@ -29,6 +29,21 @@ describe("catalog price-guide provenance", () => {
     } });
     expect(JSON.stringify(result)).not.toContain("cambridgetcg-marketplace");
   });
+  // CardRush and TCGplayer are display-only since 2026-10-28, not blocked:
+  // on Cambridge pages with their names while collected, never here.
+  it("names CardRush and TCGplayer as display-only, with legacy rows withheld", async () => {
+    const result = await loadCardState("one-piece", "OP01", "001");
+    if (!result || result === "unavailable") throw new Error("expected a card");
+    const signals = result.cross_source_signals.filter(({ source_id }) => source_id === "cardrush" || source_id === "tcgplayer");
+    expect(signals.map(({ source_id, available }) => [source_id, available])).toEqual([["cardrush", false], ["tcgplayer", false]]);
+    for (const { detail } of signals) {
+      expect(detail).toContain("written permission recorded 2026-10-28");
+      expect(detail).toContain("only while its collector is scheduled");
+      expect(detail).toContain("legacy rows stay withheld");
+      expect(detail).toContain("never in this guide, an API or a download");
+      expect(detail).not.toMatch(/Blocked|pending a formal partnership|without written consent/);
+    }
+  });
   it("keeps withheld values null and outage distinct from absence", async () => {
     const result = await loadCardState("one-piece", "OP01", "001");
     expect(result).toMatchObject({ card: { price_gbp: null, image_url: null } });

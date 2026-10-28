@@ -29,6 +29,7 @@
  */
 
 import { jsonResponse, FRESHNESS } from "@/lib/data-pantry";
+import { scheduledCollection } from "@/lib/datafeed/collection-flags";
 
 export const dynamic = "force-static";
 export const revalidate = 3600;
@@ -52,6 +53,9 @@ const CATALOG_SIZE_ESTIMATE = {
     "Live per-source status: /api/v1/sources.",
 };
 
+// Static route: read when the page is built, as the deployment's flags stand.
+const SCHEDULED_COLLECTION = scheduledCollection();
+
 /** Recommended polite-poll cadence by auth class. */
 const RECOMMENDED_PACE = {
   member_data_key: {
@@ -59,7 +63,7 @@ const RECOMMENDED_PACE = {
     per: "member data key",
     enforcement: "atomic application rate limit on /api/v1/member-prices",
     provision: "/account/data",
-    note: "Free account-owned read-only key, distinct from an agent or wholesale key. Cambridge does not refresh member source prices on a schedule (imports are manual); each observation carries source_updated_at and retrieved_at. The request limit is not a freshness claim.",
+    note: `Free account-owned read-only key, distinct from an agent or wholesale key. ${SCHEDULED_COLLECTION ? `Cambridge collects ${SCHEDULED_COLLECTION} for member source prices; other imports are manual` : "Cambridge does not refresh member source prices on a schedule (imports are manual)"}; each observation carries source_updated_at and retrieved_at. The request limit is not a freshness claim.`,
   },
   unauth: {
     requests_per_minute: 60,

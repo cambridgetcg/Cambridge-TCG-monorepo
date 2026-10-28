@@ -549,7 +549,7 @@ Each row that enters the pipeline transitions through a known set of states. *Su
 | Envelope shape | `{ data, _meta }` | shipped |
 | Required `_meta` fields | spec_version, endpoint, retrieved_at, as_of, sources, freshness_seconds, license, request_id, deprecation, next_link, self_reference | shipped |
 | Error shape | `{ error: { code, message, request_id, docs?, details? } }` | shipped |
-| FreshnessKey set | catalog, price_current, price_historical, market_signal, status, methodology, identity, adopters | shipped |
+| FreshnessKey set | catalog, price_current, price_historical, market_signal, status, methodology, identity, adopters, directory, live, rotating, page_collector, daily_file | shipped (page_collector and daily_file added 2026-10-28) |
 | Error code set | INVALID_INPUT, INVALID_SKU, MISSING_PARAM, NOT_FOUND, RATE_LIMITED, INSUFFICIENT_TIER, UNAUTHORIZED, SOURCE_UNAVAILABLE, DEPRECATED, INTERNAL | shipped |
 | Per-record provenance | `@as_of` / `@retrieved_at` / `@sources` | shipped |
 | `_meta.source_license` per-record license propagation | **planned** | breaking? — additive optional field is non-breaking |

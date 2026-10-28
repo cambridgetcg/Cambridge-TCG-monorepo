@@ -26,12 +26,20 @@ import {
   isValidCoverageToken,
 } from "@/lib/wholesale/db-source";
 import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { legacyAcquisitionClosed } from "@cambridge-tcg/data-ingest/registry";
 
 const AGGREGATION_SOURCE = "cambridge-tcg.coverage-aggregation";
 const GAME_MAPPING_SOURCE = "cambridge-tcg.catalog-game-mapping";
 const SOURCE_LICENSE_BY_ID: ReadonlyMap<string, string> = new Map(
   listSourceMeta().map((source) => [source.id, source.license] as const),
 );
+/** Sources whose legacy collection, the only path into this archive, is
+ * closed: every blocked source, and CardRush and TCGplayer, whose legacy paths
+ * stay locked in code while their status is partial for collectors that
+ * write elsewhere. Read from the registry, so the list follows its locks. */
+const LEGACY_COLLECTION_CLOSED: readonly string[] = listSourceMeta()
+  .filter((source) => legacyAcquisitionClosed(source))
+  .map((source) => source.id);
 
 export async function GET(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -88,10 +96,12 @@ export async function GET(req: Request): Promise<Response> {
     description:
       "What the legacy observation archive holds. Per-(game × source) " +
       "observation counts, distinct-card counts, date ranges, and freshness. " +
-      "Collection is not ongoing for sources whose registry status (/api/v1/sources) is blocked. " +
+      "Legacy collection into it is closed for the sources in legacy_collection_closed: those whose registry status (/api/v1/sources) is blocked, and those whose legacy path is locked in code. " +
+      "Collectors, which run only while scheduled (see /api/v1/sources), write to the member feed, not here. " +
       "Operational metadata only. Cambridge dedicates whatever rights it holds " +
       "in the aggregation shape and explanations to CC0; the internal card-to-game " +
       "mapping remains proprietary, and upstream terms govern upstream material.",
+    legacy_collection_closed: LEGACY_COLLECTION_CLOSED,
     summary: coverage.summary,
     by_game_source: coverage.by_game_source,
     by_game: coverage.by_game,
@@ -99,6 +109,8 @@ export async function GET(req: Request): Promise<Response> {
     filter: coverage.filter,
     upstream_queried_at: coverage.queried_at,
     legend: {
+      legacy_collection_closed:
+        "Registry ids whose legacy collection is closed: every blocked source, and each source whose legacy path is locked in code whatever its status. Their rows here are history.",
       observations:
         "Total rows in price_archive matching the filter (at most one row per card × snapshot_date × source × condition).",
       distinct_cards:
@@ -110,7 +122,7 @@ export async function GET(req: Request): Promise<Response> {
       days_of_coverage:
         "Calendar days between earliest_snapshot and latest_snapshot inclusive.",
       freshest_age_hours:
-        "Hours elapsed since latest_snapshot at end-of-day (rounded to 0.1). A blocked source does not refresh, so this age keeps growing.",
+        "Hours elapsed since latest_snapshot at end-of-day (rounded to 0.1). A source in legacy_collection_closed does not refresh here, so this age keeps growing.",
     },
     related: {
       registry: "/api/v1/sources",

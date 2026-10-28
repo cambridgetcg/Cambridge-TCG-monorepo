@@ -12,16 +12,16 @@ const mockSources = vi.mocked(listSourceMeta);
 beforeEach(() => {
   vi.resetAllMocks();
   mockSources.mockReturnValue([{
-    id: "cardrush",
-    name: "CardRush",
+    id: "cardmarket",
+    name: "Cardmarket",
     description: "",
     upstream: "https://example.test",
     catalog_section: "x",
-    access: "scrape",
-    license: "internal-only",
+    access: "public-file",
+    license: "proprietary",
     redistribute: false,
     freshness: "price_current",
-    canonical_effort: "high",
+    canonical_effort: "medium",
     status: "partial",
     games: ["op"],
     tos_notes: "",
@@ -60,13 +60,34 @@ describe("GET /api/v1/coverage/hunt", () => {
     expect(body._meta.sources).toEqual([
       "cambridge-tcg.coverage-hunt-board",
       "cambridge-tcg.catalog-game-mapping",
-      "cardrush",
+      "cardmarket",
     ]);
-    expect(body._meta.source_license).toEqual(["cc0", "proprietary", "internal-only"]);
+    expect(body._meta.source_license).toEqual(["cc0", "proprietary", "proprietary"]);
     expect(body._meta.does_not_include).toContain(
       "CC0 applies only to rights Cambridge holds in the board shape and explanatory metadata; the internal card-to-game mapping is proprietary, and upstream terms still govern upstream material",
     );
     expect(JSON.stringify(body.data.board)).not.toMatch(/price_gbp|price_amount|user_id|email/);
+  });
+
+  // The registry's own CardRush and TCGplayer metas: partial for their page
+  // collectors, legacy locks closed. Their archive rows stay documentation
+  // review and none of their declared games becomes an invitation.
+  it("offers no acquisition-shaped candidate for a source whose legacy lock is closed", async () => {
+    const actual = await vi.importActual<typeof import("@cambridge-tcg/data-ingest")>("@cambridge-tcg/data-ingest");
+    mockSources.mockReturnValue(actual.listSourceMeta().filter((meta) => meta.id === "cardrush" || meta.id === "tcgplayer"));
+    const base = await fetchAggregatorCoverage();
+    mockCoverage.mockResolvedValue({
+      ...base!,
+      by_game_source: [{
+        game_code: "op", game_slug: "one-piece", game_name: "One Piece", source: "cardrush",
+        observations: 12, distinct_cards: 4, earliest_snapshot: "2026-06-01", latest_snapshot: "2026-07-11",
+        days_of_coverage: 41, freshest_age_hours: 2600,
+      }],
+    });
+    const body = await (await GET(new Request("https://example.test/api/v1/coverage/hunt?limit=24"))).json();
+    expect(body.data.board.candidates.map((entry: { selection_trace: { rule: string } }) => entry.selection_trace.rule))
+      .toEqual(["observed_pair_conflicts_with_current_source_gate"]);
+    expect(body.data.board.candidates[0].selection_trace).toMatchObject({ registry_status: "partial", acquisition_task: false });
   });
 
   it("returns 503 rather than an invented board when coverage is unavailable", async () => {

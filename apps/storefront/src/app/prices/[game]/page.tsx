@@ -45,12 +45,9 @@ import {
 } from "@/lib/prices/game-context";
 import { weatherClass } from "@/lib/wardrobe/weather";
 import { MemberCatalogLink } from "@/components/prices/member-catalog-link";
-import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { legacyAcquisitionClosed } from "@cambridge-tcg/data-ingest/registry";
 import { SHARE_CARD } from "@/lib/share-card";
 import { JsonLd } from "@/components/site/JsonLd";
-
-/** Registry status per source id — in-process, no network or database. */
-const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
 
 /**
  * Resolve the page's config: curated first, fall through to catalog-
@@ -351,13 +348,15 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
     coverage?.by_game_source.filter(
       (r) => r.game_code === cfg.game_code,
     ) ?? [];
-  // Registry-derived freshness: an archive whose every source is blocked
-  // is not refreshing, whatever its latest snapshot says.
+  // An archive whose every source's legacy acquisition is closed is not
+  // refreshing, whatever its latest snapshot says. Read from the legacy
+  // locks, not the status: CardRush is partial for its page collector,
+  // which writes elsewhere.
   const archiveBlocked =
     gameCoverage !== null &&
     gameCoverage.sources.length > 0 &&
-    gameCoverage.sources.every((id) => SOURCE_STATUS.get(id) === "blocked");
-  const cardrushBlocked = SOURCE_STATUS.get("cardrush") === "blocked";
+    gameCoverage.sources.every((id) => legacyAcquisitionClosed(id));
+  const cardrushBlocked = legacyAcquisitionClosed("cardrush");
 
   // Substrate-honest: if the catalog returns nothing for this game, the
   // page renders with an empty-but-honest body rather than fabricating
@@ -475,9 +474,9 @@ export default async function PriceGuidePerGamePage({ params }: PageProps) {
             {cfg.cardrush && cardrushBlocked && (
               <span
                 className="inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 bg-accent-wash text-accent border border-accent/30 rounded"
-                title="Registered host; automated acquisition is disabled pending a formal partnership"
+                title="Registered host. The legacy acquisition that filled this archive stays disabled; the CardRush page collector permitted on 2026-10-28 writes elsewhere and runs only while it is scheduled"
               >
-                CardRush acquisition disabled
+                CardRush legacy acquisition disabled
               </span>
             )}
           </div>

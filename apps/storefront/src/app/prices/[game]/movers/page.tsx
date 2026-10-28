@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${config.short_name} movers unavailable - Cambridge TCG`,
     description:
-      "The historical CardRush-derived movers view is withheld pending written source and publication permission.",
+      "The historical CardRush-derived movers view is withdrawn: the legacy CardRush rows it read, gathered before the written permission recorded 2026-10-28, are never inputs.",
   };
 }
 
@@ -51,9 +51,10 @@ export default async function GameMoversPage({ params }: PageProps) {
           that source lineage; they are not a new permission to publish.
         </p>
         <p className="text-sm text-ink-muted leading-relaxed">
-          Cambridge TCG has no recorded written partnership or downstream
-          publication permission for those values, so the route returns no rows
-          and performs no archive read.
+          Cambridge treats the written CardRush permission recorded on
+          2026-10-28 as forward-only. Those stored values were gathered before
+          it, so they stay withheld and are never inputs: the route returns no
+          rows and performs no archive read.
         </p>
         <a
           href="https://cardrush.media/data_policy"

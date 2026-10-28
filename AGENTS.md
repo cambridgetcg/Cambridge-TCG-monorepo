@@ -36,8 +36,10 @@ with practical notes about that app.
 
 5. **Real money and real people come first.** New paid sales are off
    (Yu, 2026-09-23), but existing orders, payouts, refunds and support must
-   keep working. Personal data stays private unless its owner agrees. Secrets
-   never go into commits, logs or output.
+   keep working. Data-API plans will get a separate, test-only admission
+   ([Yu, 2026-10-28](docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md));
+   all other new paid commerce stays retired. Personal data stays private
+   unless its owner agrees. Secrets never go into commits, logs or output.
    *Why:* these are the places where a mistake hurts someone.
 
 6. **Open by default.** Our own data, specs and pages are free to read and

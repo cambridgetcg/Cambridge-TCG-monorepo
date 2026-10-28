@@ -69,6 +69,36 @@ const CRON_SCHEDULE: readonly CronJob[] = [
     description:
       "Every hour at :15. Reconciles Stripe webhook events against local order state.",
   },
+  {
+    path: "/api/cron/prism-signals-beta-retention",
+    schedule: "17 4 * * *",
+    description:
+      "Daily at 04:17. Deletes PRISM Signals beta interest rows that have expired or were given under a superseded consent version.",
+  },
+  {
+    path: "/api/cron/collect/cardmarket",
+    schedule: "30 5 * * *",
+    description:
+      "Daily at 05:30. Collects Cardmarket's official daily price files, only while DATA_COLLECT_CARDMARKET is on; otherwise it answers ran:false and does nothing.",
+  },
+  {
+    path: "/api/cron/collect/cardrush",
+    schedule: "15 */2 * * *",
+    description:
+      "Every two hours at :15. Reads one CardRush host's stalest product pages at 0.5 rps, only while DATA_COLLECT_CARDRUSH is on; otherwise it does nothing.",
+  },
+  {
+    path: "/api/cron/collect/tcgplayer",
+    schedule: "45 * * * *",
+    description:
+      "Every hour at :45. Reads TCGplayer set price guides one request per 10 s, only while DATA_COLLECT_TCGPLAYER is on; otherwise it does nothing.",
+  },
+  {
+    path: "/api/cron/derive/market",
+    schedule: "0 7 * * *",
+    description:
+      "Daily at 07:00. Derives the day's reference prices, indices and premiums, only while DATA_DERIVE_MARKET is on; otherwise it does nothing.",
+  },
 ];
 
 export interface HeartbeatState {

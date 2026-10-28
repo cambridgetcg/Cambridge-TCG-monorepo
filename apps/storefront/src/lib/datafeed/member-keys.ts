@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { query, transaction } from "@/lib/db";
+import { readAccountEntitlementInTransaction } from "@/lib/data-api/entitlements";
 
 export const MEMBER_KEY_LIMIT = 5;
 export const MEMBER_KEY_DAYS = 90;
@@ -21,6 +22,19 @@ export interface MemberKeySummary {
 export class MemberKeyError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
 }
+
+/** The member key in an Authorization header, or null. Bearer only: no URL
+ * token, cookie or other credential. Shared with the data API's bearer. */
+export function memberKeyFromHeader(header: string | null): string | null {
+  const match = header?.match(/^Bearer ([A-Za-z0-9_-]+)$/i);
+  return match && TOKEN_RE.test(match[1]) ? match[1] : null;
+}
+
+/** The one rule for a usable key, given its hash as $1: owner exists, scope,
+ * not revoked, not expired. Checked on every use, uncached. */
+export const VALID_MEMBER_KEY_SQL = `SELECT k.id, k.user_id FROM member_data_keys k JOIN users u ON u.id = k.user_id
+       WHERE k.key_hash = $1 AND k.scope = 'price-read'
+         AND k.revoked_at IS NULL AND k.expires_at > NOW()`;
 
 export function hashMemberKey(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
@@ -56,8 +70,16 @@ export async function createMemberKey(userId: string, name: string) {
       `SELECT count(*)::int AS n FROM member_data_keys
        WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()`, [userId],
     );
-    if (Number(active.rows[0].n) >= MEMBER_KEY_LIMIT) {
-      throw new MemberKeyError("You have five active keys. Revoke one before creating another.", 409);
+    const activeKeys = Number(active.rows[0].n);
+    // Every plan allows at least the free cap (plans.test.ts), so the
+    // entitlement is read only above it: below five, minting is unchanged.
+    if (activeKeys >= MEMBER_KEY_LIMIT) {
+      const { entitlement } = await readAccountEntitlementInTransaction(tx, userId);
+      if (activeKeys >= entitlement.maxActiveKeys) {
+        throw new MemberKeyError(entitlement.planId === "free"
+          ? "You have five active keys. Revoke one before creating another."
+          : `You have ${activeKeys} active keys, the most your plan allows. Revoke one before creating another.`, 409);
+      }
     }
     const secret = mintMemberSecret();
     const result = await tx(
@@ -84,13 +106,11 @@ export type MemberBearerResult =
 
 /** No token in a URL, session fallback, agent credential, tier, or per-read tracking. */
 export async function resolveMemberBearer(header: string | null): Promise<MemberBearerResult> {
-  const match = header?.match(/^Bearer ([A-Za-z0-9_-]+)$/i);
-  if (!match || !TOKEN_RE.test(match[1])) return { ok: false, status: 401 };
+  const token = memberKeyFromHeader(header);
+  if (!token) return { ok: false, status: 401 };
   const result = await query(
     `WITH valid_key AS (
-       SELECT k.id, k.user_id FROM member_data_keys k JOIN users u ON u.id = k.user_id
-       WHERE k.key_hash = $1 AND k.scope = 'price-read'
-         AND k.revoked_at IS NULL AND k.expires_at > NOW()
+       ${VALID_MEMBER_KEY_SQL}
      ), pruned AS (
        DELETE FROM member_data_rate_buckets WHERE (key_id, bucket_minute) IN (
          SELECT key_id, bucket_minute FROM member_data_rate_buckets
@@ -108,7 +128,7 @@ export async function resolveMemberBearer(header: string | null): Promise<Member
      SELECT v.user_id, c.request_count,
        GREATEST(1, CEIL(EXTRACT(EPOCH FROM (date_trunc('minute', NOW()) + interval '1 minute' - NOW()))))::int AS reset_seconds
      FROM consumed c JOIN valid_key v ON v.id = c.key_id`,
-    [hashMemberKey(match[1])],
+    [hashMemberKey(token)],
   );
   const row = result.rows[0];
   if (!row) return { ok: false, status: 401 };

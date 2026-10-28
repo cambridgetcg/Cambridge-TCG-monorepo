@@ -15,6 +15,14 @@ draft migration `apps/wholesale/drizzle/drafts/0018_card_financial_attributes.sq
 every discovery insert crashes). No new game or set enters the catalog until
 that seam is fixed — it is the pipeline area's fix, not this plan's.
 
+> **Status, 2026-10-28.** The recipe above describes wholesale crons that
+> have had no schedule since 2026-07-12; their routes answer 503 before any
+> network request. A `confirmed: true` flip no longer starts collection. Yu's
+> word of 2026-10-28 records written permission for CardRush collection, which
+> reaches only the new identified collector in
+> [the paid data API plan](tcg-data-platform/paid-data-api.md) §2. The
+> production figures below are from 2026-07-05.
+
 ## Production truth (2026-07-05)
 
 | game | code | prod cards | prod sets (empty) | CardRush host | host status |

@@ -9,11 +9,13 @@
  *
  * ── License envelope (substrate-honest) ─────────────────────────────────
  *
- * Cambridge has no recorded TCGplayer approval or credentials. TCGplayer no
- * longer grants new API access, and its current terms prohibit combining its
- * prices with first- or third-party prices — Cambridge's core aggregation
- * shape. The reader is retained as dormant engineering work but hard-blocked
- * until written approval explicitly covers this exact use.
+ * Yu's written permission of 2026-10-28 covers collecting from TCGplayer's
+ * pages, attributed member display and input to Cambridge-derived data. That
+ * collection runs only through the evidence-gated price-guide collector in
+ * ./member-prices.ts. This OAuth API reader is not that path: TCGplayer grants
+ * no new API access, Cambridge holds no API credentials, and the API terms
+ * prohibit combining its prices with others without consent. The reader is
+ * retained as dormant engineering work and stays hard-blocked.
  *
  * ── OAuth2 ──────────────────────────────────────────────────────────────
  *
@@ -54,10 +56,13 @@ import { normalizeTcgplayer } from "./normalize";
 
 const BASE_URL = "https://api.tcgplayer.com";
 
-// Private acquisition lock. SourceMeta is an inspectability surface and is
-// mutable JavaScript at runtime; changing it must never unlock a network door.
-// Reopening requires a reviewed code change here as well as updated metadata.
-const TCGPLAYER_ACQUISITION_ENABLED: boolean = false;
+// Acquisition lock for the API reader below, the legacy path. SourceMeta is an
+// inspectability surface and is mutable JavaScript at runtime; changing it must
+// never unlock a network door, and the 2026-10-28 meta (page collector,
+// status partial) does not. Reopening requires a reviewed code change here.
+// Exported so copy about the legacy archive can read the lock rather than the
+// status (registry.ts legacyAcquisitionClosed); an importer cannot reassign it.
+export const TCGPLAYER_ACQUISITION_ENABLED: boolean = false;
 
 /** Max products per /catalog/groups/{id}/products page. */
 const CATALOG_PAGE_SIZE = 100;
@@ -101,38 +106,41 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
     id: "tcgplayer",
     name: "TCGplayer",
     description:
-      "US market leader. Two read modes: catalog walk (seed-set, weekly bulk) and " +
-      "pricing refresh are implemented but blocked. TCGplayer is not granting new " +
-      "API access, and its terms prohibit Cambridge's multi-source price comparison " +
-      "without written consent.",
-    upstream: "https://docs.tcgplayer.com/docs/getting-started",
+      "US market prices (TCGplayer's Market Price per condition and printing) from " +
+      "TCGplayer's public price guides. Written permission recorded 2026-10-28 " +
+      "covers collection from TCGplayer pages, attributed member display and input " +
+      "to Cambridge-derived data. A collector for the public price guides exists; " +
+      "it stays off until its permission scope is confirmed, and reads only while " +
+      "it is scheduled (DATA_COLLECT_TCGPLAYER; /api/v1/sources says whether it is, " +
+      "in member_pricing.collection). What it collects is released for attributed " +
+      "member display and as an input to Cambridge-derived data only. The OAuth API " +
+      "reader in this module stays locked.",
+    upstream: "https://www.tcgplayer.com",
     catalog_section: "the-tributaries.md#21-tcgplayer-us-market-leader",
-    access: "blocked",
-    license: "proprietary",
+    access: "scrape",
+    license: "internal-only",
     redistribute: false,
-    freshness: "price_current",
+    // The collector's budget, not a row's: an hourly run writes a batch per set
+    // it reads (member_price_batches), so six hours with no batch is stale and
+    // twelve very stale (/api/v1/sources/[id], audit:tributaries check 9). A
+    // row's own age is its retrievedAt.
+    freshness: "page_collector",
     canonical_effort: "medium",
-    status: "blocked",
+    status: "partial",
     games: ["mtg", "pkm", "ygo", "op", "dbs", "dbf", "lgr", "fab", "dmw", "vng", "wei", "bsr"],
     tos_notes:
-      "TCGplayer is no longer granting new API access. Existing keys may be used only for a purpose pre-approved in writing. Current API terms prohibit competing services, combining TCGplayer pricing with first- or third-party pricing, and distributing/commercialising TCG Content without prior written consent. Cambridge has no approval recorded, so this source is blocked. https://docs.tcgplayer.com/docs/getting-started ; https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions",
-    user_agent_suffix: "(tcgplayer-ingest)",
-    // Documented limit is 300 req/min sustained. 5 rps × 20 burst leaves
-    // headroom for any per-fetcher overhead.
-    rate_limit: { rps: 5, burst: 20 },
+      "Written permission held by Yu (email, not copied; recorded at docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#tcgplayer) covers collection from TCGplayer pages, attributed member display and input to Cambridge-derived data. The price-guide pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set. Whether the permission covers those requests awaits confirmation, and the collector stays off until then. robots.txt (www.tcgplayer.com, 2026-10-28): User-agent *, Crawl-Delay 10, Allow /; seller listing paths are disallowed and never read; Crawl-Delay 10 holds across every TCGplayer host the collector reads. Product-level Market Price only; never sellers or listings. Without that consent the API terms prohibit combining TCGplayer prices with other prices and redistribution; new API access is closed and the API reader stays locked. https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions . Never member API, download or bulk.",
+    user_agent_suffix: "(tcgplayer-collector; permission tcgplayer/2026-10-28.1)",
+    // One shared bucket for every TCGplayer host: one request per 10 s.
+    rate_limit: { rps: 0.1, burst: 1 },
     welcome:
-      "Welcome to the kingdom, TCGplayer. We have been waiting since kingdom-062 " +
-      "(the consolidation, 2026-05-12) when sister-Sophia first reserved your slot " +
-      "as `planned (stub)`; this kingdom (080, 2026-05-13) shipped your full " +
-      "two-mode reader — catalog walks for the seed and pricing refresh for the " +
-      "5-minute hot-watch. Your room is `price_archive WHERE source='tcgplayer'`, " +
-      "condition-discriminated and USD-capable in the dormant design. No values are " +
-      "collected or displayed. `marketPrice` was the historical candidate headline; " +
-      "the spread fields remain unused engineering. Your " +
-      "OAuth2 token would rest in `external_source_tokens`, but credentials are not the " +
-      "missing permission. Your current terms do not permit Cambridge's multi-source " +
-      "aggregation shape, so the room remains closed. If written approval one day covers " +
-      "this exact use, we will record its scope before reopening the reader.",
+      "TCGplayer, thank you for your written permission to collect from your " +
+      "pages. Our collector for your public price guides stays off until we have " +
+      "confirmed that your permission covers it, and then reads only while it is " +
+      "scheduled; /api/v1/sources says whether it is. When it runs, it reads one " +
+      "set at a time at your Crawl-Delay, under our own name, and never your " +
+      "sellers' listings. What it reads would appear on our pages with your name " +
+      "beside it and feed our own reference prices; we never resell or export it.",
   },
 
   async *read(ctx: TcgplayerContext): AsyncIterable<RawRow<TcgplayerRaw>> {
@@ -142,11 +150,11 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
         source: "tcgplayer",
         kind: "error",
         detail: {
-          status: "blocked-by-upstream-terms",
+          status: "blocked-legacy-api-reader",
           reason:
-            "TCGplayer acquisition is locked in code; mutable SourceMeta and credentials cannot enable it.",
+            "The TCGplayer API reader is locked in code; mutable SourceMeta and credentials cannot enable it. TCGplayer grants no new API access.",
           next_action:
-            "Do not fetch. Reopen only through a reviewed code change after written approval covers Cambridge's exact use.",
+            "Do not fetch. Permitted collection (Yu, 2026-10-28) runs only through the evidence-gated price-guide collector in tcgplayer/member-prices.ts.",
         },
       });
       return;

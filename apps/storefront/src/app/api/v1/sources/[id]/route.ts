@@ -4,10 +4,15 @@
  * Wholesale run notes and quarantine reasons are operator data. They can
  * contain upstream titles, search terms, or exception text, so this public
  * projection never fetches quarantine and strips all free-text run fields.
+ *
+ * A source with a collector (Cardmarket, CardRush, TCGplayer) takes its
+ * health from the member_price_batches rows written for it, not from the
+ * legacy ingest_run: CardRush's and TCGplayer's legacy paths stay locked,
+ * and Cardmarket's files never ran through it (../collector-health.ts).
  */
 
 import type { NextRequest, NextResponse } from "next/server";
-import { jsonResponse } from "@/lib/data-pantry";
+import { FRESHNESS, jsonResponse } from "@/lib/data-pantry";
 import { getSource, listSourceMeta } from "@cambridge-tcg/data-ingest";
 import {
   fetchSourceLastRuns,
@@ -16,6 +21,8 @@ import {
   type SourceRunRow,
 } from "@/lib/wholesale/client";
 import { repoDocRef } from "@/lib/repository";
+import { batchCollected, collectionFlag, collectionOn } from "@/lib/datafeed/collection-flags";
+import { deriveCollectorHealth, readLatestCollectorBatch, type CollectorBatch } from "../collector-health";
 
 const VALID_WINDOWS = ["1h", "24h", "7d", "30d", "90d"] as const;
 type Window = (typeof VALID_WINDOWS)[number];
@@ -26,17 +33,6 @@ const WINDOW_HOURS: Record<Window, number> = {
   "7d": 7 * 24,
   "30d": 30 * 24,
   "90d": 90 * 24,
-};
-
-const FRESHNESS_SECONDS: Record<string, number> = {
-  catalog: 86400,
-  price_current: 300,
-  price_historical: Number.MAX_SAFE_INTEGER,
-  market_signal: 60,
-  status: 30,
-  methodology: 86400,
-  identity: 3600,
-  adopters: 86400,
 };
 
 type Health =
@@ -120,7 +116,18 @@ interface SourceDetailBody {
   redistributable: boolean;
   ingest_runs_available: boolean;
   run_history_available: boolean;
-  health: { state: Health; reason: string };
+  health: { state: Health; reason: string; basis: "ingest_run" | "member_price_batches" };
+  /** Sources with a collector only: the latest batch written for the source,
+   * which health reads, and whether its DATA_COLLECT_* flag is on. Null for
+   * every other source. */
+  collector: {
+    batches: "member_price_batches";
+    available: boolean;
+    reason?: string;
+    latest_batch: CollectorBatch | null;
+    collection: { flag: string | null; scheduled: boolean };
+  } | null;
+  /** Legacy wholesale ingest_run only; a page collector's runs are its batches. */
   last_run: PublicRunRow | null;
   recent_runs: PublicRunRow[];
   run_summary: {
@@ -160,9 +167,11 @@ export async function GET(
   const meta = allMeta.find((candidate) => candidate.id === id) ?? null;
   const is_planned_only = mod === undefined;
 
-  const [lastRuns, runHistory] = await Promise.all([
+  const collected = batchCollected(id);
+  const [lastRuns, runHistory, batches] = await Promise.all([
     fetchSourceLastRuns(),
     fetchSourceRunHistory({ source: id, window, limit: 50 }),
+    collected ? readLatestCollectorBatch(id) : Promise.resolve(null),
   ]);
 
   const ingest_runs_available = lastRuns !== null;
@@ -191,12 +200,16 @@ export async function GET(
     },
   );
 
-  const freshness_seconds = meta ? FRESHNESS_SECONDS[meta.freshness] ?? 0 : 0;
-  const { health, reason } = deriveHealth({
-    last_run: last_run_internal,
-    freshness_seconds,
-    ingest_runs_available,
-  });
+  // FRESHNESS itself, not a copy, so a key added there is known here.
+  const freshness_seconds = meta && Object.hasOwn(FRESHNESS, meta.freshness) ? FRESHNESS[meta.freshness] : 0;
+  const { health, reason } = batches
+    ? deriveCollectorHealth(batches, freshness_seconds)
+    : deriveHealth({
+        last_run: last_run_internal,
+        freshness_seconds,
+        ingest_runs_available,
+      });
+  const flag = collectionFlag(id);
 
   const data: SourceDetailBody = {
     id,
@@ -206,7 +219,16 @@ export async function GET(
     redistributable: meta?.redistribute ?? false,
     ingest_runs_available,
     run_history_available,
-    health: { state: health, reason },
+    health: { state: health, reason, basis: batches ? "member_price_batches" : "ingest_run" },
+    collector: batches
+      ? {
+          batches: "member_price_batches",
+          available: batches.available,
+          ...(batches.available ? {} : { reason: batches.reason }),
+          latest_batch: batches.available ? batches.latest : null,
+          collection: { flag, scheduled: flag !== null && collected && collectionOn(id) },
+        }
+      : null,
     last_run: last_run_internal ? publicRun(last_run_internal) : null,
     recent_runs: recent_runs_internal.map(publicRun),
     run_summary,
@@ -228,21 +250,29 @@ export async function GET(
   };
 
   const operationalDataIncluded = ingest_runs_available || run_history_available;
+  const batchesIncluded = batches?.available === true;
 
   return jsonResponse({
     data,
     endpoint: "/api/v1/sources/[id]",
-    sources: operationalDataIncluded
-      ? ["ctcg-derived", "wholesale-rds.ingest_run"]
-      : ["ctcg-derived"],
-    source_license: operationalDataIncluded
-      ? ["proprietary", "internal-only"]
-      : ["proprietary"],
+    sources: [
+      "ctcg-derived",
+      ...(operationalDataIncluded ? ["wholesale-rds.ingest_run"] : []),
+      ...(batchesIncluded ? ["storefront-rds.member_price_batches"] : []),
+    ],
+    source_license: [
+      "proprietary",
+      ...(operationalDataIncluded ? ["internal-only"] : []),
+      ...(batchesIncluded ? ["internal-only"] : []),
+    ],
     license: "NOASSERTION",
     freshness: "status",
     does_not_include: [
       "Run notes, trigger labels, and internal row identifiers are not returned.",
       "Quarantine reasons, rows, payload keys, and payload bytes are not fetched or returned.",
+      ...(batches
+        ? ["Health counts a batch as fresh only if it recorded observations. A run that fails before writing any batch leaves none, so such a collector reads as stale or never_run, not as failing."]
+        : []),
     ],
   });
 }

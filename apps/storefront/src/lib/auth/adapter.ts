@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { query, transaction } from "@/lib/db";
 import { assertAccountAdmissionOpen } from "@/lib/release/production-gates";
 import { generateHandle, fallbackHandle, HANDLE_MAX_ATTEMPTS } from "@/lib/users/handle";
+import { AccountErasureHeldError, accountErasureHold } from "./erasure";
 import type { Adapter, AdapterUser, AdapterSession, VerificationToken } from "next-auth/adapters";
 
 export const MAX_ACTIVE_MAGIC_LINKS_PER_EMAIL = 5;
@@ -200,7 +201,14 @@ export function PgAdapter(): Adapter {
     },
 
     async deleteUser(userId) {
-      await query(`DELETE FROM users WHERE id = $1`, [userId]);
+      try {
+        await query(`DELETE FROM users WHERE id = $1`, [userId]);
+      } catch (error) {
+        // A test subscription Stripe may still bill holds erasure (lib/auth/erasure.ts).
+        const hold = accountErasureHold(error);
+        if (hold) throw new AccountErasureHeldError(hold, { cause: error });
+        throw error;
+      }
     },
 
     async linkAccount(account) {

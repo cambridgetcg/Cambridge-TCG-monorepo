@@ -14,6 +14,7 @@
  * Filed for kingdom-082 (the-hospitality.md).
  */
 
+import { listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { jsonResponse } from "@/lib/data-pantry";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { GUIDES } from "@/lib/guides";
@@ -33,6 +34,17 @@ import {
 } from "@/lib/data-pantry/errand-contract";
 
 const CHOSEN_DOORS = `${CHOSEN_DOOR_PATHS.join(", ")} and the routes beneath them`;
+
+/** " Scryfall, YGOPRODeck, and Cardmarket currently use this tier.": the
+ * registered sources on a license tier, by name in registry order, read from
+ * the registry so the note moves with it (TCGplayer left `proprietary` for
+ * `internal-only` on 2026-10-28). Empty when none does. */
+function sourcesOnTier(license: string, tier: string): string {
+  const names = listSourceMeta().filter((meta) => meta.license === license).map((meta) => meta.name);
+  if (!names.length) return "";
+  const list = names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+  return ` ${list} currently use ${tier}.`;
+}
 
 export async function GET(): Promise<Response> {
   const data = {
@@ -280,11 +292,12 @@ export async function GET(): Promise<Response> {
       NOASSERTION:
         "No reuse permission is asserted. Read the endpoint and per-source rights before redistribution, training, or commercial reuse.",
       "internal-only":
-        "Stored or private operational data that is not publicly licensed. This label is not permission: source-specific policy may require complete withholding, including after sign-in or bearer authentication.",
+        "Stored or private operational data that is not publicly licensed. This label is not permission: source-specific policy may require complete withholding, including after sign-in or bearer authentication." +
+        sourcesOnTier("internal-only", "this tier"),
       "partner-redistributable":
         "Future tier; partner agreement required. No endpoints today.",
       "proprietary":
-        "Source policy or retained rights govern use. Scryfall, Pokémon TCG API, YGOPRODeck, TCGplayer, and Cardmarket currently use this conservative tier.",
+        "Source policy or retained rights govern use." + sourcesOnTier("proprietary", "this conservative tier"),
     },
 
     feedback: {

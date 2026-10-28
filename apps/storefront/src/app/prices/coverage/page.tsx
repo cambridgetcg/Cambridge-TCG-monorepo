@@ -21,11 +21,8 @@ import {
   type AggregatorCoverageResponse,
 } from "@/lib/wholesale/client";
 import { Provenance, WhyLink, Audience } from "@/lib/ui";
-import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { legacyAcquisitionClosed } from "@cambridge-tcg/data-ingest/registry";
 import { SHARE_CARD } from "@/lib/share-card";
-
-/** Registry status per source id — in-process, no network or database. */
-const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
 
 export const metadata: Metadata = {
   title: "Aggregator coverage map — Cambridge TCG",
@@ -66,15 +63,17 @@ export default async function CoverageMapPage() {
   // page's Provenance pill. Falls back to "—" when wholesale is unreachable.
   const freshestAt = coverage?.summary?.latest_snapshot ?? null;
   const summary = coverage?.summary;
-  // Registry-derived: a blocked source adds no rows, so its archive is a
-  // snapshot that is not refreshing, not a synced feed.
+  // A source whose legacy acquisition is closed adds no rows, so its archive
+  // is a snapshot that is not refreshing, not a synced feed. Read from the
+  // legacy locks, not the status: CardRush and TCGplayer are partial for
+  // their page collectors, which write elsewhere.
   const allSourcesBlocked =
     !!coverage &&
     coverage.by_source.length > 0 &&
-    coverage.by_source.every((r) => SOURCE_STATUS.get(r.source) === "blocked");
+    coverage.by_source.every((r) => legacyAcquisitionClosed(r.source));
   const blockedSources =
     coverage?.by_source
-      .filter((r) => SOURCE_STATUS.get(r.source) === "blocked")
+      .filter((r) => legacyAcquisitionClosed(r.source))
       .map((r) => r.source) ?? [];
 
   return (
@@ -159,15 +158,19 @@ export default async function CoverageMapPage() {
         <p className="mb-2">
           Source: <code className="text-ink-muted">price_archive</code>{" "}
           (wholesale RDS) — a legacy archive of stored snapshots. No
-          acquisition job is scheduled; a source whose registry status is
-          blocked will not add rows. See{" "}
+          acquisition job is scheduled for it: the legacy paths that filled it
+          stay locked, whatever a source&rsquo;s registry status, and
+          Cambridge&rsquo;s collectors (Cardmarket, CardRush, TCGplayer) write
+          member price observations to the storefront database instead, so
+          they add no rows here. See{" "}
           <Link
             href="/api/v1/sources"
             className="text-info hover:underline"
           >
             /api/v1/sources
           </Link>{" "}
-          for the per-source status (shipped / partial / planned / blocked), and{" "}
+          for the per-source status (shipped / partial / planned / blocked) and
+          whether each collector is scheduled, and{" "}
           <Link
             href="/methodology/cross-source-pricing"
             className="text-info hover:underline"

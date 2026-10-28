@@ -25,10 +25,14 @@
  *   7. License coherence — `redistribute: true` only when license tier
  *      is `cc0` / `cc-by` / `cc-by-sa` / `mit`; `false` otherwise.
  *   8. Game validity — every entry in `meta.games` is a registered code.
- *   9. Ingest-run recency — each shipped source's last `ingest_run.finished_at`
- *      is within 2× the FreshnessKey budget. Skips gracefully when
- *      WHOLESALE_DATABASE_URL is unset OR the ingest_run table doesn't
- *      yet exist (Phase A migration not applied).
+ *   9. Run recency — each shipped or partial source's last run is within 2×
+ *      the FreshnessKey budget. A legacy source's run is its last
+ *      `ingest_run.finished_at` (wholesale RDS); a source with a collector's
+ *      (Cardmarket, CardRush, TCGplayer) is its latest `member_price_batches`
+ *      row (storefront RDS), since CardRush's and TCGplayer's legacy paths
+ *      stay locked and Cardmarket's files never ran through ingest_run. Each
+ *      half skips gracefully, saying why, when its database URL is unset or
+ *      its table doesn't exist yet.
  *  10. License propagation (kingdom-081) — every emission site (route file
  *      under apps/{storefront,wholesale}/src/app/api/) that references a
  *      non-redistributable upstream by name (e.g. "cardrush") in its
@@ -47,6 +51,9 @@
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { FRESHNESS } from "@cambridge-tcg/data-spec";
+import { batchCollected } from "../src/lib/datafeed/collection-flags";
+import { deriveCollectorHealth, readLatestCollectorBatch } from "../src/app/api/v1/sources/collector-health";
 
 const ADMIN_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const REPO_ROOT = resolve(ADMIN_DIR, "..", "..");
@@ -57,25 +64,19 @@ const SKU_GAMES_PATH = resolve(REPO_ROOT, "packages", "sku", "src", "games.ts");
 
 const STRICT = process.argv.includes("--strict");
 
-// Check 9 (ingest-run recency) needs the wholesale RDS to read ingest_run.
-// Skips gracefully when the env var isn't set or the table doesn't yet exist
-// (Phase A migration not applied) — substrate-honest about scope.
+// Check 9 (run recency) needs the wholesale RDS to read ingest_run, and the
+// storefront RDS to read the collectors' member_price_batches. Each half
+// skips gracefully when its env var isn't set or its table doesn't yet exist
+// — substrate-honest about scope.
 const WHOLESALE_DATABASE_URL =
   process.env.WHOLESALE_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
+const STOREFRONT_DATABASE_URL = process.env.DATABASE_URL ?? "";
 
-// FreshnessKey → seconds. Mirrors `packages/data-spec/src/freshness.ts` so
-// we don't add a runtime dep just for the table. Stays in sync via the
-// pricing-style audit (future) — for now, hand-mirrored.
-const FRESHNESS_SECONDS: Record<string, number> = {
-  catalog: 86400,
-  price_current: 300,
-  price_historical: Number.MAX_SAFE_INTEGER,
-  market_signal: 60,
-  status: 30,
-  methodology: 86400,
-  identity: 3600,
-  adopters: 86400,
-};
+// FreshnessKey → seconds, read from `packages/data-spec/src/freshness.ts`.
+// A hand-mirrored copy missed every key added after it (directory, live,
+// rotating, page_collector, daily_file); the storefront already depends on
+// the package.
+const FRESHNESS_SECONDS: Readonly<Record<string, number>> = FRESHNESS;
 
 interface Finding {
   check: number;
@@ -358,11 +359,12 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── Check 9: ingest-run recency (substrate-honest about scope) ───────
-  // For each shipped source, verify the last `ingest_run.finished_at`
-  // is within 2× the FreshnessKey budget. Skips gracefully when
-  // WHOLESALE_DATABASE_URL is unset, the ingest_run table doesn't exist
-  // (Phase A migration not applied), or the source hasn't run yet.
+  // ── Check 9: run recency (substrate-honest about scope) ──────────────
+  // For each shipped or partial legacy source, verify the last
+  // `ingest_run.finished_at` is within 2× the FreshnessKey budget. Skips
+  // gracefully when WHOLESALE_DATABASE_URL is unset, the ingest_run table
+  // doesn't exist (Phase A migration not applied), or the source hasn't run
+  // yet. Sources with a collector are judged by their batches, below.
   //
   // Designed in `docs/connections/the-cardrush-alignment.md` §3 (Phase E).
   if (!WHOLESALE_DATABASE_URL) {
@@ -389,6 +391,8 @@ async function main(): Promise<void> {
           for (const [id, mod] of Object.entries(sources)) {
             if (!mod) continue;
             if (mod.meta.status !== "shipped" && mod.meta.status !== "partial") continue;
+            // Legacy ingest_run rows say nothing about a collector's runs.
+            if (batchCollected(id)) continue;
 
             const recent = await client<{ finished_at: Date | null }[]>`
               SELECT finished_at
@@ -422,6 +426,41 @@ async function main(): Promise<void> {
     } catch (err) {
       console.log(
         `  [check 9] skipped — DB query failed (${
+          err instanceof Error ? err.message : String(err)
+        })`,
+      );
+    }
+  }
+
+  // Collectors (Cardmarket, CardRush, TCGplayer) record runs as
+  // member_price_batches in the storefront database; CardRush's and
+  // TCGplayer's legacy ingest_run rows come from locked paths. Same
+  // thresholds as above: past 2× the budget fails, none warns.
+  const collectedIds = Object.entries(sources)
+    .filter(([id, mod]) => mod && batchCollected(id) && (mod.meta.status === "shipped" || mod.meta.status === "partial"))
+    .map(([id]) => id);
+  if (collectedIds.length && !STOREFRONT_DATABASE_URL) {
+    console.log(
+      `  [check 9] collectors skipped — DATABASE_URL not set (member_price_batches lives in the storefront database)`,
+    );
+  } else if (collectedIds.length) {
+    try {
+      const { createCompatDb } = await import("@cambridge-tcg/db/compat");
+      const { query, close } = createCompatDb({ url: STOREFRONT_DATABASE_URL });
+      try {
+        for (const id of collectedIds) {
+          const read = await readLatestCollectorBatch(id, query);
+          const { health, reason } = deriveCollectorHealth(read, FRESHNESS_SECONDS[sources[id]!.meta.freshness] ?? 86400);
+          if (health === "unknown") console.log(`  [check 9] ${id} skipped — ${reason}`);
+          else if (health === "never_run") warn(9, id, reason);
+          else if (health === "very_stale" || health === "failing") fail(9, id, reason);
+        }
+      } finally {
+        await close();
+      }
+    } catch (err) {
+      console.log(
+        `  [check 9] collectors skipped — DB connection failed (${
           err instanceof Error ? err.message : String(err)
         })`,
       );

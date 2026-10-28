@@ -13,6 +13,11 @@ gates; [the agent layer](agent-layer.md) separates existing access from planned
 capabilities. The [storefront rebuild plan](../storefront-rebuild/README.md)
 continues to cover the wider pages and room structure.
 
+**Added 2026-10-28:** [the paid data API](paid-data-api.md) plans collection
+from CardRush and TCGplayer, derived market data and test-mode plans, under
+[Yu's decision of that day](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md).
+Where this 2026-09-29 review and that decision differ, the decision is newer.
+
 ## Foundations already present
 
 | Area | Implemented foundation | Remaining gap |
