@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Inter } from "next/font/google";
+import { Fraunces, Inter, Schibsted_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
 import Nav from "@/components/layout/Nav";
@@ -21,9 +21,19 @@ import { PLATFORM } from "@/content/platform";
 import { SHARE_CARD } from "@/lib/share-card";
 import { JsonLd } from "@/components/site/JsonLd";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-
-// One self-hosted sans family. Monospace and CJK glyphs use system fallbacks.
+// Self-hosted faces, exposed as CSS variables and bound per theme in
+// themes.css: Fraunces headings, Schibsted Grotesk text and Spline Sans Mono
+// for numbers in Light and Dark. Inter is the terminal theme's face only, so
+// it is not preloaded. CJK glyphs use system fallbacks.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
+const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", preload: false });
 
 // Icons, manifest and the default share card are the brand kit's web files
 // (marketing/kit/web), copied into public/. brand-kit.sync.test.ts keeps the
@@ -119,7 +129,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html
       lang={uiLang}
       data-theme={themeAttr(appearance.theme)}
-      className={inter.variable}
+      className={`${fraunces.variable} ${schibsted.variable} ${splineMono.variable} ${inter.variable}`}
     >
       <head>
         <JsonLd data={{

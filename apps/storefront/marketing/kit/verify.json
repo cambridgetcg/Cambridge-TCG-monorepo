@@ -19,35 +19,35 @@
    "pass": true,
    "level": "error",
    "file": "brand.vectorcraft",
-   "measured": 714354
+   "measured": 1140950
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "BRAND.md",
-   "measured": 26131
+   "measured": 25760
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "index.html",
-   "measured": 33494
+   "measured": 31088
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "kit.json",
-   "measured": 20612
+   "measured": 19850
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "source/brand.json",
-   "measured": 886
+   "measured": 864
   },
   {
    "id": "file.exists",
@@ -75,14 +75,14 @@
    "pass": true,
    "level": "error",
    "file": "logo/mark.png",
-   "measured": 3737
+   "measured": 3734
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/mark@2x.png",
-   "measured": 7467
+   "measured": 7553
   },
   {
    "id": "file.exists",
@@ -131,203 +131,203 @@
    "pass": true,
    "level": "error",
    "file": "logo/wordmark.svg",
-   "measured": 11396
+   "measured": 24171
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/wordmark.png",
-   "measured": 9529
+   "measured": 10444
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/wordmark@2x.png",
-   "measured": 18879
+   "measured": 21592
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/wordmark-reversed.svg",
-   "measured": 11414
+   "measured": 24189
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/wordmark-reversed.png",
-   "measured": 8672
+   "measured": 11063
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/wordmark-reversed@2x.png",
-   "measured": 17604
+   "measured": 22986
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal.svg",
-   "measured": 12484
+   "measured": 25762
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal.png",
-   "measured": 8970
+   "measured": 9982
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal@2x.png",
-   "measured": 17772
+   "measured": 21027
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal-reversed.svg",
-   "measured": 12502
+   "measured": 25780
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal-reversed.png",
-   "measured": 8311
+   "measured": 10558
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal-reversed@2x.png",
-   "measured": 16470
+   "measured": 22012
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked.svg",
-   "measured": 13112
+   "measured": 27093
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked.png",
-   "measured": 8468
+   "measured": 9131
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked@2x.png",
-   "measured": 17944
+   "measured": 19375
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked-reversed.svg",
-   "measured": 13130
+   "measured": 27111
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked-reversed.png",
-   "measured": 7888
+   "measured": 9486
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked-reversed@2x.png",
-   "measured": 16606
+   "measured": 20248
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/mark.pdf",
-   "measured": 2760
+   "measured": 2755
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal.pdf",
-   "measured": 8173
+   "measured": 13591
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-light/lockup-horizontal@2x.png",
-   "measured": 17523
+   "measured": 21503
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-light/lockup-stacked@2x.png",
-   "measured": 17070
+   "measured": 20316
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-light/wordmark@2x.png",
-   "measured": 19106
+   "measured": 23202
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-light/mark@2x.png",
-   "measured": 8501
+   "measured": 8675
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-dark/lockup-horizontal@2x.png",
-   "measured": 17761
+   "measured": 22449
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-dark/lockup-stacked@2x.png",
-   "measured": 17464
+   "measured": 20977
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-dark/wordmark@2x.png",
-   "measured": 19198
+   "measured": 24877
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "logo/on-dark/mark@2x.png",
-   "measured": 8956
+   "measured": 8920
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/favicon.ico",
-   "measured": 1831
+   "measured": 1854
   },
   {
    "id": "file.exists",
@@ -341,42 +341,42 @@
    "pass": true,
    "level": "error",
    "file": "web/favicon-16.png",
-   "measured": 295
+   "measured": 307
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/favicon-32.png",
-   "measured": 597
+   "measured": 611
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/apple-touch-icon.png",
-   "measured": 2235
+   "measured": 2325
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/icon-192.png",
-   "measured": 2361
+   "measured": 2431
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/icon-512.png",
-   "measured": 6032
+   "measured": 6247
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/icon-maskable-512.png",
-   "measured": 5309
+   "measured": 5497
   },
   {
    "id": "file.exists",
@@ -390,7 +390,7 @@
    "pass": true,
    "level": "error",
    "file": "web/head-snippet.html",
-   "measured": 1974
+   "measured": 1969
   },
   {
    "id": "file.exists",
@@ -404,112 +404,112 @@
    "pass": true,
    "level": "error",
    "file": "web/og.jpg",
-   "measured": 63619
+   "measured": 59050
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "web/og.png",
-   "measured": 40083
+   "measured": 43100
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "social/avatar-1024.png",
-   "measured": 12729
+   "measured": 13695
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "social/avatar-400.png",
-   "measured": 4294
+   "measured": 4431
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/palette.json",
-   "measured": 1949
+   "measured": 1377
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/tokens.json",
-   "measured": 11799
+   "measured": 8507
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/tokens.css",
-   "measured": 2281
+   "measured": 1720
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/tailwind.theme.css",
-   "measured": 3343
+   "measured": 2562
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/tailwind.colors.js",
-   "measured": 1641
+   "measured": 1251
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/contrast.md",
-   "measured": 2114
+   "measured": 1500
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/swatches.ase",
-   "measured": 3242
+   "measured": 2272
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/swatches.gpl",
-   "measured": 1633
+   "measured": 1158
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/swatches.css",
-   "measured": 1688
+   "measured": 1190
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet.svg",
-   "measured": 1083310
+   "measured": 830889
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet.png",
-   "measured": 133039
+   "measured": 94986
   },
   {
    "id": "file.exists",
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet@2x.png",
-   "measured": 176222
+   "measured": 173211
   },
   {
    "id": "png.size",
@@ -612,16 +612,16 @@
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet.png",
-   "measured": "1200x1128",
-   "note": "expected 1200x1128"
+   "measured": "1200x844",
+   "note": "expected 1200x844"
   },
   {
    "id": "png.size",
    "pass": true,
    "level": "error",
    "file": "colour/colour-sheet@2x.png",
-   "measured": "2400x2256",
-   "note": "expected 2400x2256"
+   "measured": "2400x1688",
+   "note": "expected 2400x1688"
   },
   {
    "id": "png.size",
@@ -742,8 +742,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/wordmark.png",
-   "measured": "627x87",
-   "note": "expected 627x87"
+   "measured": "684x91",
+   "note": "expected 684x91"
   },
   {
    "id": "png.has_ink",
@@ -769,8 +769,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/wordmark@2x.png",
-   "measured": "1254x174",
-   "note": "expected 1254x174"
+   "measured": "1368x182",
+   "note": "expected 1368x182"
   },
   {
    "id": "png.has_ink",
@@ -796,8 +796,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/wordmark-reversed.png",
-   "measured": "627x87",
-   "note": "expected 627x87"
+   "measured": "684x91",
+   "note": "expected 684x91"
   },
   {
    "id": "png.has_ink",
@@ -823,8 +823,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/wordmark-reversed@2x.png",
-   "measured": "1254x174",
-   "note": "expected 1254x174"
+   "measured": "1368x182",
+   "note": "expected 1368x182"
   },
   {
    "id": "png.has_ink",
@@ -850,8 +850,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal.png",
-   "measured": "581x96",
-   "note": "expected 581x96"
+   "measured": "623x96",
+   "note": "expected 623x96"
   },
   {
    "id": "png.has_ink",
@@ -877,8 +877,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal@2x.png",
-   "measured": "1162x192",
-   "note": "expected 1162x192"
+   "measured": "1246x192",
+   "note": "expected 1246x192"
   },
   {
    "id": "png.has_ink",
@@ -904,8 +904,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal-reversed.png",
-   "measured": "581x96",
-   "note": "expected 581x96"
+   "measured": "623x96",
+   "note": "expected 623x96"
   },
   {
    "id": "png.has_ink",
@@ -931,8 +931,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-horizontal-reversed@2x.png",
-   "measured": "1162x192",
-   "note": "expected 1162x192"
+   "measured": "1246x192",
+   "note": "expected 1246x192"
   },
   {
    "id": "png.has_ink",
@@ -958,8 +958,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked.png",
-   "measured": "402x208",
-   "note": "expected 402x208"
+   "measured": "438x211",
+   "note": "expected 438x211"
   },
   {
    "id": "png.has_ink",
@@ -985,8 +985,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked@2x.png",
-   "measured": "804x416",
-   "note": "expected 804x416"
+   "measured": "876x422",
+   "note": "expected 876x422"
   },
   {
    "id": "png.has_ink",
@@ -1012,8 +1012,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked-reversed.png",
-   "measured": "402x208",
-   "note": "expected 402x208"
+   "measured": "438x211",
+   "note": "expected 438x211"
   },
   {
    "id": "png.has_ink",
@@ -1039,8 +1039,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/lockup-stacked-reversed@2x.png",
-   "measured": "804x416",
-   "note": "expected 804x416"
+   "measured": "876x422",
+   "note": "expected 876x422"
   },
   {
    "id": "png.has_ink",
@@ -1066,8 +1066,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/on-light/lockup-horizontal@2x.png",
-   "measured": "1354x384",
-   "note": "expected 1354x384"
+   "measured": "1438x384",
+   "note": "expected 1438x384"
   },
   {
    "id": "png.opaque_rgb",
@@ -1082,8 +1082,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/on-light/lockup-stacked@2x.png",
-   "measured": "968x580",
-   "note": "expected 968x580"
+   "measured": "1040x586",
+   "note": "expected 1040x586"
   },
   {
    "id": "png.opaque_rgb",
@@ -1098,8 +1098,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/on-light/wordmark@2x.png",
-   "measured": "1510x430",
-   "note": "expected 1510x430"
+   "measured": "1624x438",
+   "note": "expected 1624x438"
   },
   {
    "id": "png.opaque_rgb",
@@ -1130,8 +1130,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/on-dark/lockup-horizontal@2x.png",
-   "measured": "1354x384",
-   "note": "expected 1354x384"
+   "measured": "1438x384",
+   "note": "expected 1438x384"
   },
   {
    "id": "png.opaque_rgb",
@@ -1146,8 +1146,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/on-dark/lockup-stacked@2x.png",
-   "measured": "968x580",
-   "note": "expected 968x580"
+   "measured": "1040x586",
+   "note": "expected 1040x586"
   },
   {
    "id": "png.opaque_rgb",
@@ -1162,8 +1162,8 @@
    "pass": true,
    "level": "error",
    "file": "logo/on-dark/wordmark@2x.png",
-   "measured": "1510x430",
-   "note": "expected 1510x430"
+   "measured": "1624x438",
+   "note": "expected 1624x438"
   },
   {
    "id": "png.opaque_rgb",
@@ -1539,44 +1539,44 @@
    "pass": true,
    "level": "warn",
    "measured": {
-    "wcag": 6.94,
-    "delta_e": 0.537,
+    "wcag": 5.34,
+    "delta_e": 0.481,
     "by": "lightness"
    },
-   "note": "tile #9B3B12 on white (light, active tab): needs 1.5:1 or OKLab dE 0.15"
+   "note": "tile #86661C on white (light, active tab): needs 1.5:1 or OKLab dE 0.15"
   },
   {
    "id": "favicon.tab_contrast",
    "pass": true,
    "level": "warn",
    "measured": {
-    "wcag": 5.29,
-    "delta_e": 0.452,
+    "wcag": 4.07,
+    "delta_e": 0.394,
     "by": "lightness"
    },
-   "note": "tile #9B3B12 on #DEE1E6 (light, tab strip): needs 1.5:1 or OKLab dE 0.15"
+   "note": "tile #86661C on #DEE1E6 (light, tab strip): needs 1.5:1 or OKLab dE 0.15"
   },
   {
    "id": "favicon.tab_contrast",
    "pass": true,
    "level": "warn",
    "measured": {
-    "wcag": 2.32,
-    "delta_e": 0.272,
+    "wcag": 3.01,
+    "delta_e": 0.299,
     "by": "lightness"
    },
-   "note": "tile #9B3B12 on #202124 (dark, tab strip): needs 1.5:1 or OKLab dE 0.15"
+   "note": "tile #86661C on #202124 (dark, tab strip): needs 1.5:1 or OKLab dE 0.15"
   },
   {
    "id": "favicon.tab_contrast",
    "pass": true,
    "level": "warn",
    "measured": {
-    "wcag": 1.74,
-    "delta_e": 0.205,
+    "wcag": 2.26,
+    "delta_e": 0.222,
     "by": "lightness"
    },
-   "note": "tile #9B3B12 on #35363A (dark, active tab): needs 1.5:1 or OKLab dE 0.15"
+   "note": "tile #86661C on #35363A (dark, active tab): needs 1.5:1 or OKLab dE 0.15"
   },
   {
    "id": "maskable.safe_zone",
@@ -1591,7 +1591,7 @@
    "pass": true,
    "level": "error",
    "file": "web/icon-maskable-512.png",
-   "measured": "#9B3B12",
+   "measured": "#86661C",
    "note": "tile colour at the corner"
   },
   {
@@ -1600,12 +1600,12 @@
    "level": "error",
    "file": "social/avatar-1024.png",
    "measured": [
-    "#9B3B12",
-    "#9B3B12",
-    "#9B3B12",
-    "#9B3B12"
+    "#86661C",
+    "#86661C",
+    "#86661C",
+    "#86661C"
    ],
-   "note": "the tile colour #9B3B12 at every corner"
+   "note": "the tile colour #86661C at every corner"
   },
   {
    "id": "avatar.circle_safe",
@@ -1624,12 +1624,12 @@
    "level": "error",
    "file": "social/avatar-400.png",
    "measured": [
-    "#9B3B12",
-    "#9B3B12",
-    "#9B3B12",
-    "#9B3B12"
+    "#86661C",
+    "#86661C",
+    "#86661C",
+    "#86661C"
    ],
-   "note": "the tile colour #9B3B12 at every corner"
+   "note": "the tile colour #86661C at every corner"
   },
   {
    "id": "avatar.circle_safe",
@@ -1648,12 +1648,12 @@
    "level": "error",
    "file": "logo/on-light/lockup-horizontal@2x.png",
    "measured": [
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1"
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4"
    ],
-   "note": "opaque, on the light ground #FBF7F1"
+   "note": "opaque, on the light ground #FAF8F4"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1677,12 +1677,12 @@
    "level": "error",
    "file": "logo/on-light/lockup-stacked@2x.png",
    "measured": [
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1"
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4"
    ],
-   "note": "opaque, on the light ground #FBF7F1"
+   "note": "opaque, on the light ground #FAF8F4"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1694,7 +1694,7 @@
      "left": 82,
      "top": 82,
      "right": 83,
-     "bottom": 82
+     "bottom": 83
     },
     "clear_space": 82
    },
@@ -1706,12 +1706,12 @@
    "level": "error",
    "file": "logo/on-light/wordmark@2x.png",
    "measured": [
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1"
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4"
    ],
-   "note": "opaque, on the light ground #FBF7F1"
+   "note": "opaque, on the light ground #FAF8F4"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1720,10 +1720,10 @@
    "file": "logo/on-light/wordmark@2x.png",
    "measured": {
     "margins": {
-     "left": 128,
-     "top": 129,
-     "right": 128,
-     "bottom": 129
+     "left": 129,
+     "top": 128,
+     "right": 129,
+     "bottom": 128
     },
     "clear_space": 128
    },
@@ -1735,12 +1735,12 @@
    "level": "error",
    "file": "logo/on-light/mark@2x.png",
    "measured": [
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1",
-    "#FBF7F1"
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4",
+    "#FAF8F4"
    ],
-   "note": "opaque, on the light ground #FBF7F1"
+   "note": "opaque, on the light ground #FAF8F4"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1764,12 +1764,12 @@
    "level": "error",
    "file": "logo/on-dark/lockup-horizontal@2x.png",
    "measured": [
-    "#1D1425",
-    "#1D1425",
-    "#1D1425",
-    "#1D1425"
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A"
    ],
-   "note": "opaque, on the dark ground #1D1425"
+   "note": "opaque, on the dark ground #0B0F1A"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1793,12 +1793,12 @@
    "level": "error",
    "file": "logo/on-dark/lockup-stacked@2x.png",
    "measured": [
-    "#1D1425",
-    "#1D1425",
-    "#1D1425",
-    "#1D1425"
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A"
    ],
-   "note": "opaque, on the dark ground #1D1425"
+   "note": "opaque, on the dark ground #0B0F1A"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1810,7 +1810,7 @@
      "left": 82,
      "top": 82,
      "right": 83,
-     "bottom": 82
+     "bottom": 83
     },
     "clear_space": 82
    },
@@ -1822,12 +1822,12 @@
    "level": "error",
    "file": "logo/on-dark/wordmark@2x.png",
    "measured": [
-    "#1D1425",
-    "#1D1425",
-    "#1D1425",
-    "#1D1425"
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A"
    ],
-   "note": "opaque, on the dark ground #1D1425"
+   "note": "opaque, on the dark ground #0B0F1A"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1836,10 +1836,10 @@
    "file": "logo/on-dark/wordmark@2x.png",
    "measured": {
     "margins": {
-     "left": 128,
-     "top": 129,
-     "right": 128,
-     "bottom": 129
+     "left": 129,
+     "top": 128,
+     "right": 129,
+     "bottom": 128
     },
     "clear_space": 128
    },
@@ -1851,12 +1851,12 @@
    "level": "error",
    "file": "logo/on-dark/mark@2x.png",
    "measured": [
-    "#1D1425",
-    "#1D1425",
-    "#1D1425",
-    "#1D1425"
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A",
+    "#0B0F1A"
    ],
-   "note": "opaque, on the dark ground #1D1425"
+   "note": "opaque, on the dark ground #0B0F1A"
   },
   {
    "id": "logo_on_ground.clear_space",
@@ -1933,7 +1933,7 @@
    "file": "logo/wordmark.svg",
    "measured": {
     "paths": 12,
-    "bytes": 11396,
+    "bytes": 24171,
     "problems": []
    },
    "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
@@ -1945,7 +1945,7 @@
    "file": "logo/wordmark-reversed.svg",
    "measured": {
     "paths": 12,
-    "bytes": 11414,
+    "bytes": 24189,
     "problems": []
    },
    "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
@@ -1957,7 +1957,7 @@
    "file": "logo/lockup-horizontal.svg",
    "measured": {
     "paths": 15,
-    "bytes": 12484,
+    "bytes": 25762,
     "problems": []
    },
    "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
@@ -1969,7 +1969,7 @@
    "file": "logo/lockup-horizontal-reversed.svg",
    "measured": {
     "paths": 15,
-    "bytes": 12502,
+    "bytes": 25780,
     "problems": []
    },
    "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
@@ -1981,7 +1981,7 @@
    "file": "logo/lockup-stacked.svg",
    "measured": {
     "paths": 15,
-    "bytes": 13112,
+    "bytes": 27093,
     "problems": []
    },
    "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
@@ -1993,7 +1993,7 @@
    "file": "logo/lockup-stacked-reversed.svg",
    "measured": {
     "paths": 15,
-    "bytes": 13130,
+    "bytes": 27111,
     "problems": []
    },
    "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
@@ -2016,8 +2016,8 @@
    "level": "error",
    "file": "colour/colour-sheet.svg",
    "measured": {
-    "paths": 275,
-    "bytes": 1083310,
+    "paths": 189,
+    "bytes": 830889,
     "problems": []
    },
    "note": "XML parses; viewBox, <title>; no <text>, <image>, strokes, oklch(); named ids; not empty"
@@ -2037,7 +2037,7 @@
    "pass": true,
    "level": "error",
    "measured": {
-    "pairs": 24,
+    "pairs": 16,
     "failing": []
    },
    "note": "every required WCAG 2.2 pair from colour.py passes (logo colours are exempt, shown as info)"
@@ -2057,11 +2057,11 @@
    "measured": {
     "colorSpace": "srgb",
     "components": [
-     1.0,
-     0.9569,
-     0.9412
+     0.9804,
+     0.9647,
+     0.9333
     ],
-    "hex": "#fff4f0"
+    "hex": "#faf6ee"
    },
    "note": "DTCG 2025.10 colour object values"
   },
@@ -2078,8 +2078,8 @@
    "file": "colour/tokens.css",
    "measured": {
     "stacks": {
-     "font-display": "\"Inter\", system-ui, sans-serif",
-     "font-body": "\"Inter\", system-ui, sans-serif",
+     "font-display": "\"Fraunces\", system-ui, sans-serif",
+     "font-body": "\"Fraunces\", system-ui, sans-serif",
      "font-mono": "\"JetBrains Mono\", ui-monospace, \"Menlo\", monospace"
     },
     "wrong": []
@@ -2092,8 +2092,8 @@
    "level": "error",
    "file": "colour/tailwind.theme.css",
    "measured": {
-    "scale_steps": 33,
-    "roles": 14,
+    "scale_steps": 22,
+    "roles": 10,
     "wrong": [],
     "balanced": true
    },
@@ -2106,7 +2106,7 @@
    "file": "colour/tailwind.colors.js",
    "measured": {
     "parses": true,
-    "keys": 11
+    "keys": 9
    },
    "note": "module.exports is an object literal holding every scale step (hex) and role (var(--role)) of palette.json"
   },
@@ -2116,12 +2116,11 @@
    "level": "error",
    "file": "colour/swatches.ase",
    "measured": {
-    "swatches": 38,
+    "swatches": 26,
     "groups": [
      "cambridge-tcg brand",
      "cambridge-tcg ground",
      "cambridge-tcg primary scale",
-     "cambridge-tcg accent scale",
      "cambridge-tcg neutral scale"
     ],
     "missing": []
@@ -2144,31 +2143,31 @@
    "id": "icon.ink_contrast",
    "pass": true,
    "level": "warn",
-   "measured": 6.5,
-   "note": "ink #FBF7F1 on tile #9B3B12"
+   "measured": 5.04,
+   "note": "ink #FAF8F4 on tile #86661C"
   },
   {
    "id": "mark.contrast_light_ground",
    "pass": true,
    "level": "warn",
-   "measured": 6.5,
-   "note": "mark colour #9B3B12 on the light ground #FBF7F1 (logos are exempt; 3:1 keeps shapes legible)"
+   "measured": 5.04,
+   "note": "mark colour #86661C on the light ground #FAF8F4 (logos are exempt; 3:1 keeps shapes legible)"
   },
   {
    "id": "mark.dark_lift",
    "pass": true,
    "level": "warn",
    "measured": {
-    "to": "#FFB078",
+    "to": "#D9B36C",
     "step": "mark.dark in brand.json",
-    "ratio": 9.95,
-    "apca": -68.6,
+    "ratio": 9.67,
+    "apca": -63.9,
     "letters": null,
     "knockout": false,
     "letter_ink": null,
     "ui": false,
     "chosen": true,
-    "from": "#9B3B12"
+    "from": "#86661C"
    },
    "note": "lockup-horizontal-reversed: a mark colour brand.json chose for dark grounds (mark.dark), held to the dark-mode UI bar (3:1 and APCA Lc 30)"
   },
@@ -2177,16 +2176,16 @@
    "pass": true,
    "level": "warn",
    "measured": {
-    "to": "#FFB078",
+    "to": "#D9B36C",
     "step": "mark.dark in brand.json",
-    "ratio": 9.95,
-    "apca": -68.6,
+    "ratio": 9.67,
+    "apca": -63.9,
     "letters": null,
     "knockout": false,
     "letter_ink": null,
     "ui": false,
     "chosen": true,
-    "from": "#9B3B12"
+    "from": "#86661C"
    },
    "note": "lockup-stacked-reversed: a mark colour brand.json chose for dark grounds (mark.dark), held to the dark-mode UI bar (3:1 and APCA Lc 30)"
   },
@@ -2332,7 +2331,7 @@
    "pass": true,
    "level": "error",
    "file": "web/og.jpg",
-   "measured": 63619,
+   "measured": 59050,
    "note": "WhatsApp: should be under 600 KB (600,000 bytes), at least 300 px wide, aspect at most 4:1; larger may get a small preview or none (Facebook allows 8 MB)"
   },
   {
@@ -2340,7 +2339,7 @@
    "pass": true,
    "level": "warn",
    "file": "web/og.jpg",
-   "measured": 63619,
+   "measured": 59050,
    "note": "the kit's own target, 300 KB (not WhatsApp's 300 KB rule, which is for the page's <head>)"
   },
   {
@@ -2350,7 +2349,7 @@
    "file": "web/og.jpg",
    "measured": {
     "decoder": "djpeg",
-    "mean_abs_diff_vs_og_png": 0.96
+    "mean_abs_diff_vs_og_png": 0.75
    },
    "note": "decoded by an independent decoder, it matches og.png (mean absolute difference at most 4 of 255)"
   },
@@ -2364,7 +2363,7 @@
      88,
      612
     ],
-    "widest": 573.2,
+    "widest": 559.0,
     "too_wide": [],
     "on_mark": [],
     "into_footer": [],
@@ -2459,8 +2458,8 @@
    "file": "web/site.webmanifest",
    "measured": {
     "display": "browser",
-    "theme_color": "#FBF7F1",
-    "background_color": "#FBF7F1"
+    "theme_color": "#FAF8F4",
+    "background_color": "#FAF8F4"
    },
    "note": "display and colours as brand.json \"app\" asks"
   },
@@ -2515,11 +2514,11 @@
    "file": "web/head-snippet.html",
    "measured": [
     [
-     "#FBF7F1",
+     "#FAF8F4",
      "light"
     ],
     [
-     "#1D1425",
+     "#0B0F1A",
      "dark"
     ]
    ],
@@ -2585,9 +2584,9 @@
    "measured": {
     "identical": 71,
     "different": [],
-    "fingerprint": "dc209a18094955473ee04fbb2217723df07211b3a1360dfb43025a2a44ca34f2"
+    "fingerprint": "691f8360cba483e839110aaa9eaf2afa61ed40f2c7fa52a45e345e72483a6927"
    },
-   "note": "second build from source/brand.json in a temp folder, compared byte for byte (the PDFs too: both builds gave VectorCraft SOURCE_DATE_EPOCH 1793094182)"
+   "note": "second build from source/brand.json in a temp folder, compared byte for byte (the PDFs too: both builds gave VectorCraft SOURCE_DATE_EPOCH 1793092226)"
   }
  ]
 }

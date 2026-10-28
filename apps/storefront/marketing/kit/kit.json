@@ -3,7 +3,7 @@
  "tools": {
   "vectorcraft-cli": "vectorcraft-cli 0.17.0"
  },
- "source_date_epoch": 1793094182,
+ "source_date_epoch": 1793092226,
  "spec": {
   "name": "Cambridge TCG",
   "short_name": "Cambridge TCG",
@@ -13,21 +13,20 @@
   "url": "https://cambridgetcg.com",
   "description": "Building open-source tools and shared standards for card identity, images, prices and market data.",
   "colours": {
-   "primary": "#9B3B12",
-   "accent": "#EC7838",
-   "neutral": "#2C1836"
+   "primary": "#86661C",
+   "neutral": "#201D18"
   },
   "ground": {
-   "light": "#FBF7F1",
-   "dark": "#1D1425"
+   "light": "#FAF8F4",
+   "dark": "#0B0F1A"
   },
   "wordmark": {
    "text": "Cambridge TCG",
-   "font": "Inter",
+   "font": "Fraunces",
    "style": "SemiBold",
-   "tracking": -40,
-   "colour": "#2C1836",
-   "colour_dark": "#FFF6E9"
+   "tracking": -20,
+   "colour": "#201D18",
+   "colour_dark": "#E9E4D6"
   },
   "mark": {
    "kind": "svg",
@@ -37,12 +36,12 @@
    "small_path": null,
    "small": "source/mark-small.svg",
    "dark": {
-    "*": "#FFB078"
+    "*": "#D9B36C"
    }
   },
   "icon": {
    "tile": "primary",
-   "ink": "#FBF7F1",
+   "ink": "#FAF8F4",
    "padding": 0.18,
    "radius": 0.22,
    "ink_given": true,
@@ -62,9 +61,9 @@
   "pages": []
  },
  "colours": {
-  "primary": "#9B3B12",
+  "primary": "#86661C",
   "on_primary": "#FFFFFF",
-  "monogram_solo": "#9B3B12"
+  "monogram_solo": "#86661C"
  },
  "facts": {
   "schemes": {
@@ -102,16 +101,16 @@
    },
    "lockup-horizontal-reversed": {
     "mode": "mapped",
-    "ground": "#1D1425",
+    "ground": "#0B0F1A",
     "colours": {
-     "#9B3B12": "#FFB078"
+     "#86661C": "#D9B36C"
     },
     "lifted": {
-     "#9B3B12": {
-      "to": "#FFB078",
+     "#86661C": {
+      "to": "#D9B36C",
       "step": "mark.dark in brand.json",
-      "ratio": 9.95,
-      "apca": -68.6,
+      "ratio": 9.67,
+      "apca": -63.9,
       "letters": null,
       "knockout": false,
       "letter_ink": null,
@@ -132,16 +131,16 @@
    },
    "lockup-stacked-reversed": {
     "mode": "mapped",
-    "ground": "#1D1425",
+    "ground": "#0B0F1A",
     "colours": {
-     "#9B3B12": "#FFB078"
+     "#86661C": "#D9B36C"
     },
     "lifted": {
-     "#9B3B12": {
-      "to": "#FFB078",
+     "#86661C": {
+      "to": "#D9B36C",
       "step": "mark.dark in brand.json",
-      "ratio": 9.95,
-      "apca": -68.6,
+      "ratio": 9.67,
+      "apca": -63.9,
       "letters": null,
       "knockout": false,
       "letter_ink": null,
@@ -169,16 +168,16 @@
   },
   "wordmark": {
    "size": [
-    627,
-    87
+    684,
+    91
    ],
    "cap": 64,
-   "colour": "#2C1836",
-   "colour_dark": "#FFF6E9"
+   "colour": "#201D18",
+   "colour_dark": "#E9E4D6"
   },
   "lockup-horizontal": {
    "size": [
-    581,
+    623,
     96
    ],
    "mark_height": 96,
@@ -189,8 +188,8 @@
   },
   "lockup-stacked": {
    "size": [
-    402,
-    208
+    438,
+    211
    ],
    "mark_height": 128,
    "cap_height": 40.96,
@@ -199,28 +198,28 @@
    "shared_baseline": false
   },
   "on_ground": {
-   "light": "#FBF7F1",
-   "dark": "#1D1425",
+   "light": "#FAF8F4",
+   "dark": "#0B0F1A",
    "scale": 2,
    "boards": {
     "light/lockup-horizontal": {
      "size": [
-      677,
+      719,
       192
      ],
      "clear_space": 48
     },
     "light/lockup-stacked": {
      "size": [
-      484,
-      290
+      520,
+      293
      ],
      "clear_space": 41
     },
     "light/wordmark": {
      "size": [
-      755,
-      215
+      812,
+      219
      ],
      "clear_space": 64
     },
@@ -233,22 +232,22 @@
     },
     "dark/lockup-horizontal": {
      "size": [
-      677,
+      719,
       192
      ],
      "clear_space": 48
     },
     "dark/lockup-stacked": {
      "size": [
-      484,
-      290
+      520,
+      293
      ],
      "clear_space": 41
     },
     "dark/wordmark": {
      "size": [
-      755,
-      215
+      812,
+      219
      ],
      "clear_space": 64
     },
@@ -262,9 +261,9 @@
    }
   },
   "app": {
-   "tile": "#9B3B12",
-   "ink": "#FBF7F1",
-   "ink_mode": "#FBF7F1",
+   "tile": "#86661C",
+   "ink": "#FAF8F4",
+   "ink_mode": "#FAF8F4",
    "ink_brand": false,
    "ink_default": false,
    "subset": "all",
@@ -272,7 +271,7 @@
    "mark_extent": 0.7
   },
   "maskable": {
-   "tile": "#9B3B12",
+   "tile": "#86661C",
    "predicted_radius": 176.1,
    "safe_radius": 204.8,
    "mark_extent": 0.552
@@ -281,16 +280,16 @@
    "small_mark": true,
    "dark_plan": {},
    "merged": [],
-   "tile": "#9B3B12",
+   "tile": "#86661C",
    "radius": 0.22,
    "radius_reason": "",
-   "ink": "#FBF7F1",
-   "ink_mode": "#FBF7F1",
+   "ink": "#FAF8F4",
+   "ink_mode": "#FAF8F4",
    "colours": [
-    "#FBF7F1"
+    "#FAF8F4"
    ],
    "outer_colours": [
-    "#FBF7F1"
+    "#FAF8F4"
    ],
    "ground_colours": [],
    "cuts": {
@@ -521,9 +520,9 @@
   },
   "og": {
    "theme": "light",
-   "bg": "#FBF7F1",
-   "fg": "#2C1836",
-   "muted": "#786285",
+   "bg": "#FAF8F4",
+   "fg": "#201D18",
+   "muted": "#6F6B65",
    "title_size": 68,
    "wordmark": false,
    "title_lines": [
@@ -537,63 +536,63 @@
    ],
    "title_cut": false,
    "subtitle_cut": false,
-   "contrast_title": 15.24,
-   "contrast_subtitle": 5.07,
+   "contrast_title": 15.83,
+   "contrast_subtitle": 4.99,
    "mark_colours": [
-    "#9B3B12"
+    "#86661C"
    ],
    "badge": null,
    "column": [
     88,
     612
    ],
-   "rule_top": 121,
+   "rule_top": 122,
    "lines": [
     {
      "role": "title",
      "text": "TCG data.",
-     "width": 327.5,
+     "width": 326.9,
      "x": 88,
-     "baseline": 218.5,
+     "baseline": 217.6,
      "size": 68
     },
     {
      "role": "title",
      "text": "Made to connect.",
-     "width": 573.2,
+     "width": 559.0,
      "x": 88,
-     "baseline": 293.3,
+     "baseline": 292.4,
      "size": 68
     },
     {
      "role": "subtitle",
      "text": "Building open-source tools and",
-     "width": 436.0,
+     "width": 426.8,
      "x": 88,
-     "baseline": 369.5,
+     "baseline": 367.8,
      "size": 30
     },
     {
      "role": "subtitle",
      "text": "shared standards for card identity,",
-     "width": 475.8,
+     "width": 467.8,
      "x": 88,
-     "baseline": 411.5,
+     "baseline": 409.8,
      "size": 30
     },
     {
      "role": "subtitle",
      "text": "images, prices and market data.",
-     "width": 444.6,
+     "width": 430.9,
      "x": 88,
-     "baseline": 453.5,
+     "baseline": 451.8,
      "size": 30
     }
    ],
    "floor": 524.0,
    "footer": {
     "text": "Cambridge TCG  ·  cambridgetcg.com",
-    "width": 423.3,
+    "width": 408.1,
     "x": 88,
     "baseline": 566,
     "size": 24
@@ -609,58 +608,49 @@
   "colour_sheet": {
    "size": [
     1200,
-    1128
+    844
    ]
   },
   "cmyk": {
-   "#9B3B12": {
+   "#86661C": {
     "cmyk": [
-     24,
-     76,
-     100,
-     18
+     31,
+     40,
+     98,
+     32
     ],
-    "out_of_gamut": true
+    "out_of_gamut": false
    },
-   "#EC7838": {
+   "#201D18": {
     "cmyk": [
-     3,
-     60,
+     28,
+     25,
+     36,
+     95
+    ],
+    "out_of_gamut": false
+   },
+   "#FAF8F4": {
+    "cmyk": [
+     2,
+     2,
+     4,
+     0
+    ],
+    "out_of_gamut": false
+   },
+   "#0B0F1A": {
+    "cmyk": [
      78,
-     0
-    ],
-    "out_of_gamut": false
-   },
-   "#2C1836": {
-    "cmyk": [
-     79,
-     93,
-     42,
-     51
-    ],
-    "out_of_gamut": false
-   },
-   "#FBF7F1": {
-    "cmyk": [
-     2,
-     2,
-     5,
-     0
-    ],
-    "out_of_gamut": false
-   },
-   "#1D1425": {
-    "cmyk": [
-     74,
-     76,
-     45,
-     69
+     68,
+     48,
+     80
     ],
     "out_of_gamut": false
    }
   },
-  "ground_light": "#FBF7F1",
-  "ground_dark": "#1D1425",
+  "ground_light": "#FAF8F4",
+  "ground_dark": "#0B0F1A",
   "measured": {
    "maskable_radius": 174.8,
    "maskable_extent": 0.555,
@@ -689,7 +679,7 @@
  },
  "fonts": {
   "wordmark": [
-   "Inter",
+   "Fraunces",
    "SemiBold"
   ],
   "mark": null,
@@ -700,26 +690,24 @@
   ],
   "og": {
    "title": [
-    "Inter",
+    "Fraunces",
     "SemiBold"
    ],
    "subtitle": [
-    "Inter",
+    "Fraunces",
     "Light"
    ]
   },
-  "cap_height_em": 0.7275,
-  "also_installed": [
-   "Inter"
-  ],
+  "cap_height_em": 0.7,
+  "also_installed": [],
   "stacks": {
    "display": [
-    "Inter",
+    "Fraunces",
     "system-ui",
     "sans-serif"
    ],
    "body": [
-    "Inter",
+    "Fraunces",
     "system-ui",
     "sans-serif"
    ],
@@ -740,171 +728,123 @@
    "pip"
   ],
   "colours": [
-   "#9B3B12"
+   "#86661C"
   ],
   "outer_colours": [
-   "#9B3B12"
+   "#86661C"
   ],
   "coverage": 0.381,
   "knockouts": {},
   "shape_colours": [
-   "#9B3B12",
-   "#9B3B12",
-   "#9B3B12"
+   "#86661C",
+   "#86661C",
+   "#86661C"
   ]
  },
  "swatches": [
   [
    "cambridge-tcg primary",
-   "#9B3B12"
-  ],
-  [
-   "cambridge-tcg accent",
-   "#EC7838"
+   "#86661C"
   ],
   [
    "cambridge-tcg neutral",
-   "#2C1836"
+   "#201D18"
   ],
   [
    "cambridge-tcg ground light",
-   "#FBF7F1"
+   "#FAF8F4"
   ],
   [
    "cambridge-tcg ground dark",
-   "#1D1425"
+   "#0B0F1A"
   ],
   [
    "cambridge-tcg primary 50",
-   "#FFF4F0"
+   "#FAF6EE"
   ],
   [
    "cambridge-tcg primary 100",
-   "#FFE5DC"
+   "#F3EAD9"
   ],
   [
    "cambridge-tcg primary 200",
-   "#FECCBA"
+   "#E7D7B9"
   ],
   [
    "cambridge-tcg primary 300",
-   "#F7AC91"
+   "#D6BE8F"
   ],
   [
    "cambridge-tcg primary 400",
-   "#E28564"
+   "#BB9D60"
   ],
   [
    "cambridge-tcg primary 500",
-   "#CA6540"
+   "#A2813B"
   ],
   [
    "cambridge-tcg primary 600",
-   "#AB4A24"
+   "#86661C"
   ],
   [
    "cambridge-tcg primary 700",
-   "#9B3B12"
+   "#6D5007"
   ],
   [
    "cambridge-tcg primary 800",
-   "#702808"
+   "#563E01"
   ],
   [
    "cambridge-tcg primary 900",
-   "#541C05"
+   "#3F2D01"
   ],
   [
    "cambridge-tcg primary 950",
-   "#360E01"
-  ],
-  [
-   "cambridge-tcg accent 50",
-   "#FFF4EF"
-  ],
-  [
-   "cambridge-tcg accent 100",
-   "#FFE5D9"
-  ],
-  [
-   "cambridge-tcg accent 200",
-   "#FFCDB5"
-  ],
-  [
-   "cambridge-tcg accent 300",
-   "#FEAA81"
-  ],
-  [
-   "cambridge-tcg accent 400",
-   "#EC7838"
-  ],
-  [
-   "cambridge-tcg accent 500",
-   "#D26019"
-  ],
-  [
-   "cambridge-tcg accent 600",
-   "#AD4900"
-  ],
-  [
-   "cambridge-tcg accent 700",
-   "#8A3900"
-  ],
-  [
-   "cambridge-tcg accent 800",
-   "#6D2C00"
-  ],
-  [
-   "cambridge-tcg accent 900",
-   "#521F00"
-  ],
-  [
-   "cambridge-tcg accent 950",
-   "#341100"
+   "#271B00"
   ],
   [
    "cambridge-tcg neutral 50",
-   "#F8F5FA"
+   "#F7F7F6"
   ],
   [
    "cambridge-tcg neutral 100",
-   "#EFE8F2"
+   "#ECEBE9"
   ],
   [
    "cambridge-tcg neutral 200",
-   "#E0D4E6"
+   "#DBD9D6"
   ],
   [
    "cambridge-tcg neutral 300",
-   "#CBB9D5"
+   "#C3C0BC"
   ],
   [
    "cambridge-tcg neutral 400",
-   "#AE98BA"
+   "#A4A19B"
   ],
   [
    "cambridge-tcg neutral 500",
-   "#937CA0"
+   "#89867F"
   ],
   [
    "cambridge-tcg neutral 600",
-   "#786285"
+   "#6F6B65"
   ],
   [
    "cambridge-tcg neutral 700",
-   "#614B6D"
+   "#58554F"
   ],
   [
    "cambridge-tcg neutral 800",
-   "#4E3859"
+   "#45423C"
   ],
   [
    "cambridge-tcg neutral 900",
-   "#3B2746"
+   "#33302A"
   ],
   [
    "cambridge-tcg neutral 950",
-   "#2C1836"
+   "#201D18"
   ]
  ],
  "motion": false,
@@ -981,6 +921,6 @@
   "colour/colour-sheet.png",
   "colour/colour-sheet@2x.png"
  ],
- "og_alt": "Cambridge TCG card: the Cambridge TCG logo mark beside the headline “TCG data. Made to connect.” on a very light warm grey background.",
+ "og_alt": "Cambridge TCG card: the Cambridge TCG logo mark beside the headline “TCG data. Made to connect.” on a very light grey background.",
  "page_alts": {}
 }

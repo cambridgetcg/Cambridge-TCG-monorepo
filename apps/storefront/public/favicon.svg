@@ -2,8 +2,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32" height="32" viewBox="0 0 32 32">
   <defs>
     <style>
-      .cls-1{fill:#9b3b12}
-      .cls-2{fill:#fbf7f1}
+      .cls-1{fill:#86661c}
+      .cls-2{fill:#faf8f4}
       #cut-16{display:none}
       @media (max-width:24px){#cut-32{display:none}#cut-16{display:inline}}
     </style>

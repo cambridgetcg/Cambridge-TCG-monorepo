@@ -4,12 +4,12 @@
   "url": "https://cambridgetcg.com",
   "description": "Building open-source tools and shared standards for card identity, images, prices and market data.",
   "lang": "en-GB",
-  "colours": {"primary": "#9b3b12", "accent": "#ec7838", "neutral": "#2c1836"},
-  "ground": {"light": "#fbf7f1", "dark": "#1d1425"},
-  "mark": {"svg": "cambridge-tcg-mark.svg", "small": "cambridge-tcg-mark-small.svg", "dark": "#ffb078"},
-  "wordmark": {"text": "Cambridge TCG", "font": "Inter", "style": "SemiBold", "tracking": -40,
-               "colour": "#2c1836", "colour_dark": "#fff6e9"},
-  "icon": {"tile": "primary", "ink": "#fbf7f1", "padding": 0.18, "radius": 0.22},
+  "colours": {"primary": "#86661c", "neutral": "#201d18"},
+  "ground": {"light": "#faf8f4", "dark": "#0b0f1a"},
+  "mark": {"svg": "cambridge-tcg-mark.svg", "small": "cambridge-tcg-mark-small.svg", "dark": "#d9b36c"},
+  "wordmark": {"text": "Cambridge TCG", "font": "Fraunces", "style": "SemiBold", "tracking": -20,
+               "colour": "#201d18", "colour_dark": "#e9e4d6"},
+  "icon": {"tile": "primary", "ink": "#faf8f4", "padding": 0.18, "radius": 0.22},
   "app": {"display": "browser"},
   "og": {"title": "TCG data. Made to connect.", "theme": "light"}
 }

@@ -39,11 +39,11 @@ describe("the instant lights flip", () => {
 
 // The tags as generateViewport renders them (layout.tsx).
 const SYSTEM_HEAD = `
-  <meta name="theme-color" content="#fbf7f1" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1d1425" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0f1a" media="(prefers-color-scheme: dark)">
   <meta name="color-scheme" content="light dark">`;
 const MIDNIGHT_HEAD = `
-  <meta name="theme-color" content="#1d1425">
+  <meta name="theme-color" content="#0b0f1a">
   <meta name="color-scheme" content="dark">`;
 
 function page(head: string) {
@@ -63,8 +63,8 @@ describe("the browser bar follows the flip", () => {
     applyLightsFlip({ target: "midnight", href: "/x" }, doc.documentElement, fetchFn, doc.head);
     expect(doc.documentElement.getAttribute("data-theme")).toBe("midnight");
     expect(themeColors(doc)).toEqual([
-      ["(prefers-color-scheme: light)", "#1d1425"],
-      ["(prefers-color-scheme: dark)", "#1d1425"],
+      ["(prefers-color-scheme: light)", "#0b0f1a"],
+      ["(prefers-color-scheme: dark)", "#0b0f1a"],
     ]);
     expect(colorScheme(doc)).toBe("dark");
   });
@@ -73,7 +73,7 @@ describe("the browser bar follows the flip", () => {
     const doc = page(MIDNIGHT_HEAD);
     const fetchFn = vi.fn().mockResolvedValue(undefined);
     applyLightsFlip({ target: "gallery", href: "/x" }, doc.documentElement, fetchFn, doc.head);
-    expect(themeColors(doc)).toEqual([[null, "#fbf7f1"]]);
+    expect(themeColors(doc)).toEqual([[null, "#faf8f4"]]);
     expect(colorScheme(doc)).toBe("light");
   });
 
@@ -83,8 +83,8 @@ describe("the browser bar follows the flip", () => {
     expect(themeColors(doc).map(([, colour]) => colour)).toEqual(["#0a0a0a", "#0a0a0a"]);
     applyThemeViewport("system", doc.head);
     expect(themeColors(doc)).toEqual([
-      ["(prefers-color-scheme: light)", "#fbf7f1"],
-      ["(prefers-color-scheme: dark)", "#1d1425"],
+      ["(prefers-color-scheme: light)", "#faf8f4"],
+      ["(prefers-color-scheme: dark)", "#0b0f1a"],
     ]);
     expect(colorScheme(doc)).toBe("light dark");
   });
@@ -108,13 +108,13 @@ describe("a cached route's head after a flip (Back, Forward)", () => {
     const fetchFn = vi.fn().mockResolvedValue(undefined);
     applyLightsFlip({ target: "midnight", href: "/x" }, doc.documentElement, fetchFn, doc.head);
     // Back: React re-renders the head the route had before the flip.
-    doc.head.querySelectorAll('meta[name="theme-color"]')[0].setAttribute("content", "#fbf7f1");
-    doc.head.querySelectorAll('meta[name="theme-color"]')[1].setAttribute("content", "#1d1425");
+    doc.head.querySelectorAll('meta[name="theme-color"]')[0].setAttribute("content", "#faf8f4");
+    doc.head.querySelectorAll('meta[name="theme-color"]')[1].setAttribute("content", "#0b0f1a");
     doc.head.querySelector('meta[name="color-scheme"]')?.setAttribute("content", "light dark");
     await settle();
     expect(themeColors(doc)).toEqual([
-      ["(prefers-color-scheme: light)", "#1d1425"],
-      ["(prefers-color-scheme: dark)", "#1d1425"],
+      ["(prefers-color-scheme: light)", "#0b0f1a"],
+      ["(prefers-color-scheme: dark)", "#0b0f1a"],
     ]);
     expect(colorScheme(doc)).toBe("dark");
     stop();
@@ -124,15 +124,15 @@ describe("a cached route's head after a flip (Back, Forward)", () => {
     const doc = page(SYSTEM_HEAD);
     doc.documentElement.setAttribute("data-theme", "gallery");
     const stop = keepThemeViewport(doc.documentElement, doc.head);
-    expect(themeColors(doc).map(([, colour]) => colour)).toEqual(["#fbf7f1", "#fbf7f1"]);
+    expect(themeColors(doc).map(([, colour]) => colour)).toEqual(["#faf8f4", "#faf8f4"]);
     // A route rendered under Dark: one tag replaces the pair.
     doc.head.innerHTML = MIDNIGHT_HEAD;
     await settle();
-    expect(themeColors(doc)).toEqual([[null, "#fbf7f1"]]);
+    expect(themeColors(doc)).toEqual([[null, "#faf8f4"]]);
     expect(colorScheme(doc)).toBe("light");
     stop();
     doc.head.innerHTML = MIDNIGHT_HEAD;
     await settle();
-    expect(themeColors(doc)).toEqual([[null, "#1d1425"]]);
+    expect(themeColors(doc)).toEqual([[null, "#0b0f1a"]]);
   });
 });

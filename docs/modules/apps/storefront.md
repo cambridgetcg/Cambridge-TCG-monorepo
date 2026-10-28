@@ -12,7 +12,7 @@ Human and API entry to Cambridge TCG data infrastructure: SKU identity, images, 
 
 ## Progress
 
-Source review recorded **2026-09-28**. The 2026-09-29 rebuild adds card-data contracts, room records, collector services, shared roadmap/standards registries and the ivory/plum/mandarin interface. Shared image publication checks now serve market/universal English-base references and separate starter/practice card-number references. Image credit and selected variant context survive practice setup/saves, with bounded browser enrichment, readable text faces and accessible card inspection. Existing attributed text remains. Native-price writes and member reads now share monetary, mapping and source-scope checks before storage or publication. Independent readers and removal remain open; no provider activation, verified printing coverage or public package release is claimed.
+Source review recorded **2026-09-28**. The 2026-09-29 rebuild adds card-data contracts, room records, collector services and shared roadmap/standards registries. On 2026-10-27 the interface returned to the quiet gallery's core look (paper, ink and one bronze accent; midnight and gilt in dark; Fraunces headings, mats and hairlines) with a rebuilt brand kit. Shared image publication checks now serve market/universal English-base references and separate starter/practice card-number references. Image credit and selected variant context survive practice setup/saves, with bounded browser enrichment, readable text faces and accessible card inspection. Existing attributed text remains. Native-price writes and member reads now share monetary, mapping and source-scope checks before storage or publication. Independent readers and removal remain open; no provider activation, verified printing coverage or public package release is claimed.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -29,6 +29,7 @@ This records source and documentation evidence. It does not establish deployment
 - [docs/design/interface.md](../../design/interface.md)
 - [docs/operations/2026-09-28-entry-verification.md](../../operations/2026-09-28-entry-verification.md)
 - [docs/operations/2026-09-29-ui-verification.md](../../operations/2026-09-29-ui-verification.md)
+- [docs/operations/2026-10-27-quiet-gallery-return.md](../../operations/2026-10-27-quiet-gallery-return.md)
 - [docs/plans/storefront-rebuild/implementation.md](../../plans/storefront-rebuild/implementation.md)
 - [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
 - [apps/storefront/src/content/rooms](../../../apps/storefront/src/content/rooms)

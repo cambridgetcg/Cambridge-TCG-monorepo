@@ -75,7 +75,7 @@ export function Consequences({
       className="rounded-lg border border-border-subtle bg-surface-subtle p-3"
     >
       {title !== null && (
-        <div className="text-[10px] uppercase tracking-wider text-ink-faint mb-2">
+        <div className="mb-2 font-mono text-xs uppercase tracking-[0.16em] text-ink-muted">
           {title}
         </div>
       )}

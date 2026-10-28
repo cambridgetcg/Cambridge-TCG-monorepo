@@ -152,7 +152,7 @@ export function CurrencySelector({
               <span
                 className={
                   "text-[10px] font-mono " +
-                  (isSelected ? "text-accent/80" : "text-ink-faint")
+                  (isSelected ? "text-accent-strong" : "text-ink-faint")
                 }
               >
                 {formatRateForPill(code, rate)}

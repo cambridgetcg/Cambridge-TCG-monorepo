@@ -81,7 +81,7 @@ export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang;
   return (
     <div ref={containerRef} className="relative">
       <noscript>
-        <a href={SITE_MAP_NAV_ITEM.href} className="inline-flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium text-ink-muted">
+        <a href={SITE_MAP_NAV_ITEM.href} className="inline-flex min-h-11 items-center rounded-full px-3 py-2 text-sm font-medium text-ink-muted">
           {navLabel(SITE_MAP_NAV_ITEM, uiLang)}
         </a>
       </noscript>
@@ -92,17 +92,19 @@ export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang;
         aria-controls={PANEL_ID}
         aria-expanded={open}
         onClick={toggleMenu}
-        className={`inline-flex min-h-11 items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-          active || open
-            ? "bg-surface-subtle text-ink"
-            : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
+        className={`inline-flex min-h-11 items-center gap-1 rounded-full px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+          active
+            ? "bg-surface-subtle text-ink ring-1 ring-inset ring-border-strong"
+            : open
+              ? "bg-surface-subtle text-ink"
+              : "text-ink-muted hover:bg-surface-subtle hover:text-ink"
         }`}
       >
         {tx({ en: "More", ja: "そのほか", es: "Más", "zh-Hans": "还有", "zh-Hant": "更多" }, uiLang)}
         {active && <span className="sr-only">{tx({ en: " — contains current location", ja: " — 現在のページを含む", es: " — contiene la ubicación actual", "zh-Hans": " — 包含当前页面", "zh-Hant": " — 包含目前頁面" }, uiLang)}</span>}
         <svg
           viewBox="0 0 12 12"
-          className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-3 w-3 ${open ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
@@ -116,14 +118,14 @@ export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang;
         <div className="absolute right-0 top-full z-50 pt-3">
           <div
             id={PANEL_ID}
-            className="w-[34rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-border-strong bg-surface"
+            className="w-[34rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-mat"
           >
             <div className="grid grid-cols-2 gap-3 p-3">
               {MORE_NAV_GROUPS.map((group) => (
                 <section key={group.heading} aria-labelledby={`more-${group.heading.replaceAll(" ", "-").toLowerCase()}`}>
                   <h2
                     id={`more-${group.heading.replaceAll(" ", "-").toLowerCase()}`}
-                    className="px-3 pb-1 pt-2 text-sm font-semibold text-ink"
+                    className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-[0.16em] text-ink-muted"
                   >
                     {navGroupHeading(group, uiLang)}
                   </h2>
@@ -137,8 +139,8 @@ export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang;
                             prefetch={false}
                             aria-current={navItemAriaCurrent(item, pathname)}
                             onClick={() => setOpen(false)}
-                            className={`block min-h-11 rounded-md px-3 py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
-                              itemActive ? "bg-surface-subtle" : "hover:bg-surface-subtle"
+                            className={`block min-h-11 rounded-lg px-3 py-2.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent ${
+                              itemActive ? "bg-surface-subtle ring-1 ring-inset ring-border-strong" : "hover:bg-surface-subtle"
                             }`}
                           >
                             <span>
@@ -167,7 +169,7 @@ export function MoreMenu({ uiLang = "en", loggedIn = false }: { uiLang?: UiLang;
                   prefetch={false}
                   aria-current={navItemAriaCurrent(item, pathname)}
                   onClick={() => setOpen(false)}
-                  className="flex min-h-11 items-center rounded-md px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
                   {navLabel(item, uiLang)} {item.href === "/map" ? "→" : ""}
                 </Link>

@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 /** The default share card, from the brand kit (marketing/kit/web/og.jpg,
  *  served from public/). The root layout uses it; a page that sets its own
  *  `openGraph` replaces the layout's whole object (Next.js merges metadata
- *  shallowly), so such a page adds `images: [SHARE_CARD]` itself. */
+ *  shallowly), so such a page adds `images: [SHARE_CARD]` itself. Platforms
+ *  cache og:image by URL, so `v` changes whenever the card is rebuilt. */
 export const SHARE_CARD = {
-  url: "/og.jpg",
+  url: "/og.jpg?v=2026-10-27",
   width: 1200,
   height: 630,
   type: "image/jpeg",

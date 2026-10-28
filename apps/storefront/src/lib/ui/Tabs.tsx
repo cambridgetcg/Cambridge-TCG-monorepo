@@ -33,7 +33,7 @@ interface LinkedProps<T extends string> {
   selected: T;
 }
 
-const tabBase = "px-4 py-2 text-sm font-medium rounded-md transition border";
+const tabBase = "inline-flex min-h-11 items-center px-4 py-2 text-sm font-medium rounded-md transition-colors border";
 const tabActive = "bg-accent-wash text-accent-strong border-accent/30";
 const tabIdle = "border-transparent text-ink-muted hover:text-ink";
 const wrapper = "flex gap-1 bg-surface-subtle rounded-lg p-1 mb-6 w-fit";

@@ -138,7 +138,7 @@ export function TypeSignature({
       data-artifact-audience={audience}
     >
       <header className="mb-3 flex items-baseline gap-2 flex-wrap">
-        <span className="text-[10px] uppercase tracking-wider text-ink-faint">
+        <span className="text-xs uppercase tracking-wider text-ink-muted">
           type signature
         </span>
         <span className="text-accent-strong font-semibold">{label ?? TYPE_LABELS[type]}</span>
