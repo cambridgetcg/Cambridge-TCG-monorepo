@@ -160,6 +160,7 @@ jobs:
           src/lib/datafeed/collector-lease.integration.test.ts
           src/lib/datafeed/collectors/cardrush.integration.test.ts
           src/lib/datafeed/collectors/tcgplayer.integration.test.ts
+          src/lib/datafeed/member-price-latest.integration.test.ts
           src/lib/datafeed/member-prices.integration.test.ts
           src/lib/datafeed/price-sources.integration.test.ts
           src/lib/market-derived/derive.integration.test.ts
