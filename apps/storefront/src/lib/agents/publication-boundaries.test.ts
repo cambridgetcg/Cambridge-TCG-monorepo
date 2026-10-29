@@ -429,4 +429,35 @@ describe("agent publication boundaries", () => {
       availability: "available",
     });
   });
+
+  it("catalogs the holder's own exit as a preview-first key-holder tool", () => {
+    const revoke = AGENT_TOOLS.find((tool) => tool.dotted_name === "agent.revoke_key");
+    const self = AGENT_TOOLS.find((tool) => tool.dotted_name === "agent.self");
+
+    expect(revoke).toMatchObject({
+      mcp_spec_name: "agent.revoke_key",
+      category: "agent",
+      gating: "bearer-key",
+      authority: "key-holder",
+      availability: "available",
+      // The worked example is the preview, so trying it first ends nothing.
+      example_input: {},
+      example_output_shape: { performed: false, revoked: false, key_state: "active" },
+    });
+    expect(revoke?.input_schema).toMatchObject({
+      properties: { confirm: { type: "boolean", const: true } },
+      additionalProperties: false,
+    });
+    expect(revoke?.description).toContain("Ends only the presented key");
+    expect(JSON.stringify(revoke)).not.toMatch(/operator_user_id|xenia|covenant/i);
+
+    const grant = describeAgentToolGrant("operator");
+    expect(self?.example_output_shape).toMatchObject({
+      read_only: true,
+      read_only_scope: "domain-state",
+      review_submissions: grant.review_submissions,
+      self_lifecycle: grant.self_lifecycle,
+      operational_metadata_writes: grant.operational_metadata_writes,
+    });
+  });
 });

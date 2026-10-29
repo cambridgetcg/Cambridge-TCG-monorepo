@@ -47,6 +47,10 @@ import {
   toolsForOpenAI,
 } from "@/lib/tools";
 import { errandDiscoveryLinkHeader } from "@/lib/siblings";
+import {
+  SELF_LIFECYCLE_TOOLS,
+  reviewSubmissionsByRegistration,
+} from "@/lib/agents/tool-access";
 
 const FORMATS = [
   "json",
@@ -141,8 +145,11 @@ function buildToolCatalogData() {
         "https://cambridgetcg.com/.well-known/mcp-config.json",
       mcp_example_catalog: "https://cambridgetcg.com/api/mcp/catalog",
       domain_writes: "paused for every key",
+      // Neither is a domain write; both come from lib/agents/tool-access.ts.
+      review_submissions: reviewSubmissionsByRegistration(),
+      self_lifecycle: [...SELF_LIFECYCLE_TOOLS],
       read_only_scope:
-        "Domain state only; allowed authenticated calls write a per-key rate bucket and successful calls best-effort stamp last_used_at.",
+        "Domain state only; allowed authenticated calls write a per-key rate bucket and successful calls best-effort stamp last_used_at. agent.revoke_key with confirm: true sets revoked_at and revoked_reason on the presented key only.",
     },
 
     walking_past_is_honored:

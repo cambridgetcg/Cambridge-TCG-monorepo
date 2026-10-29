@@ -64,6 +64,7 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 }));
 
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
+import { toolByName } from "@/lib/agent-tools-catalog";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
 const AGENT_TOKEN = "ctcg_agt_" + "Ab1".repeat(7) + "Z";
@@ -606,6 +607,14 @@ describe("agent.revoke_key carve-out", () => {
     expect(native.result.tools.map((entry: { name: string }) => entry.name)).toContain(
       "agent.revoke_key",
     );
+  });
+
+  it("gives the example catalog the schema tools/list serves", async () => {
+    const listed = await (await POST(request("tools/list"))).json();
+    const tool = listed.result.tools.find(
+      (entry: { name: string }) => entry.name === "agent.revoke_key",
+    );
+    expect(toolByName("agent.revoke_key")?.input_schema).toEqual(tool.inputSchema);
   });
 });
 

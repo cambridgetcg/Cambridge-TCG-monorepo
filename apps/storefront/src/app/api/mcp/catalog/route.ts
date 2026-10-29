@@ -29,7 +29,7 @@
  * tools/call. The example is for orientation; the live call is for truth.
  *
  * Filter params:
- *   ?category=play|catalog|agent|leaderboards|prices|deck|discovery
+ *   ?category=play|catalog|agent|leaderboards|prices|deck|coverage|discovery
  *
  * Per the AX-by-rank brainstorm (2026-05-17): the C-class move sister
  * shipped for public endpoints; this is the bearer-key complement.
@@ -45,20 +45,15 @@ import { jsonResponse } from "@/lib/data-pantry";
 import {
   AGENT_TOOLS,
   TOOLS_CATALOG_SUMMARY,
+  toolCategories,
   toolsByCategory,
   type ToolCategory,
 } from "@/lib/agent-tools-catalog";
 import { errandDiscoveryLinkHeader } from "@/lib/siblings";
 
-const CATEGORIES: readonly ToolCategory[] = [
-  "agent",
-  "play",
-  "catalog",
-  "leaderboards",
-  "prices",
-  "deck",
-  "discovery",
-];
+// Derived from the catalog, so every category that has tools can be
+// filtered on (a hand-kept list here once left out coverage).
+const CATEGORIES: readonly ToolCategory[] = toolCategories();
 
 function isCategory(s: string): s is ToolCategory {
   return (CATEGORIES as readonly string[]).includes(s);

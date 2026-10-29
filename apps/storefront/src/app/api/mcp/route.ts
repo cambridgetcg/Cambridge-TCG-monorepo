@@ -65,6 +65,7 @@ import {
 } from "@/lib/catalog/card-batch";
 import { deckSave, deckListMine } from "@/lib/agents/write-tools";
 import {
+  AGENT_KEY_REVOCATION,
   AGENT_OPERATIONAL_METADATA_WRITES,
   canInvokeAgentTool,
   SELF_LIFECYCLE_TOOLS,
@@ -790,12 +791,7 @@ export async function GET() {
       // The same for every registration kind (see describeAgentToolGrant).
       operational_metadata_writes: [...AGENT_OPERATIONAL_METADATA_WRITES],
     },
-    revocation: {
-      tool: "agent.revoke_key",
-      auth: "Bearer (the key being revoked)",
-      confirm: "confirm: true; without it, a preview",
-      scope: "the presented key only",
-    },
+    revocation: { ...AGENT_KEY_REVOCATION },
     stdio_bridge: {
       status: "not publicly distributed; npm publication and source release pending",
       source: "packages/mcp-server in the Cambridge TCG monorepo (private repository; not publicly readable)",

@@ -18,6 +18,12 @@ import {
 } from "@/lib/siblings";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
+import {
+  AGENT_KEY_REVOCATION,
+  AGENT_OPERATIONAL_METADATA_WRITES,
+  SELF_LIFECYCLE_TOOLS,
+  reviewSubmissionsByRegistration,
+} from "@/lib/agents/tool-access";
 
 const CONFIG = {
   /**
@@ -40,9 +46,12 @@ const CONFIG = {
         registration_status_url: "https://cambridgetcg.com/api/v1/agents/register",
         existing_self_serve_access: "read-only",
         operator_managed_provision_url: "https://cambridgetcg.com/account/agents",
-        operator_managed_access: "authenticated and account-linked reads; writes paused",
+        operator_managed_access:
+          "authenticated and account-linked reads; domain writes paused; bounded Coverage Hunt review submissions",
         controller_model:
-          "A self-serve agent is controlled by its bearer-key holder. The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.",
+          "A self-serve agent has no represented controller. Its bearer-key holder can end that key in-band with agent.revoke_key; agent archival and profile erasure are not holder-authenticated. The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.",
+        // Every key, whatever its registration or its agent's status.
+        revocation: { ...AGENT_KEY_REVOCATION },
         note:
           "New self-serve registration is paused. Existing self-serve keys remain read-only. A signed-in human can provision an operator-managed key at /account/agents. Some read tools also work without auth through the public API URLs below.",
       },
@@ -89,14 +98,14 @@ const CONFIG = {
     policy_url: "https://cambridgetcg.com/api/v1/rate-limits",
   },
 
+  // Projected from lib/agents/tool-access.ts, the set the gate enforces.
   read_only_scope: {
     domain_state: true,
-    operational_metadata_writes: [
-      "per-key rate-limit request count in agent_rate_buckets for an allowed authenticated call",
-      "agent_keys.last_used_at after a successful authenticated call",
-    ],
+    operational_metadata_writes: [...AGENT_OPERATIONAL_METADATA_WRITES],
+    review_submissions: reviewSubmissionsByRegistration(),
+    self_lifecycle: [...SELF_LIFECYCLE_TOOLS],
     note:
-      "Read-only means the tool cannot change match, deck, account, catalog, price, or participant state. It does not mean the authenticated request leaves no operational metadata.",
+      "Read-only means the tool cannot change match, deck, account, catalog, price, or participant state. It does not mean the authenticated request leaves no operational metadata. Coverage Hunt review submissions stop at human review and agent.revoke_key ends only the presented key; neither is a domain write.",
   },
 
   /**

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  AGENT_KEY_REVOCATION,
   canInvokeAgentTool,
   describeAgentToolGrant,
+  reviewSubmissionsByRegistration,
   SELF_LIFECYCLE_TOOLS,
 } from "./tool-access";
 
@@ -79,6 +81,17 @@ describe("agent tool authority boundary", () => {
         expect(canInvokeAgentTool(via, tool)).toBe(true);
       }
     }
+  });
+
+  it("publishes one revocation door and review submissions by registration kind", () => {
+    expect(SELF_LIFECYCLE_TOOLS.has(AGENT_KEY_REVOCATION.tool)).toBe(true);
+    expect(AGENT_KEY_REVOCATION.scope).toBe("the presented key only");
+    expect(reviewSubmissionsByRegistration()).toEqual({
+      operator_managed: describeAgentToolGrant("operator").review_submissions,
+      self_serve: describeAgentToolGrant("self-serve").review_submissions,
+    });
+    reviewSubmissionsByRegistration().self_serve.push("coverage.hunt.contribute");
+    expect(reviewSubmissionsByRegistration().self_serve).toEqual([]);
   });
 
   it("returns fresh arrays so a caller cannot widen the next grant", () => {

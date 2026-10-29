@@ -92,3 +92,24 @@ export function describeAgentToolGrant(
     operational_metadata_writes: [...AGENT_OPERATIONAL_METADATA_WRITES],
   };
 }
+
+/** How a holder ends its own key. GET /api/mcp and the discovery documents
+ *  publish this one object, so they cannot describe the door differently. */
+export const AGENT_KEY_REVOCATION = {
+  tool: "agent.revoke_key",
+  auth: "Bearer (the key being revoked)",
+  confirm: "confirm: true; without it, a preview",
+  scope: "the presented key only",
+} as const;
+
+/** Review submissions by registration kind, for the discovery documents
+ *  that describe both kinds at once. Neither list is a domain write. */
+export function reviewSubmissionsByRegistration(): {
+  operator_managed: string[];
+  self_serve: string[];
+} {
+  return {
+    operator_managed: describeAgentToolGrant("operator").review_submissions,
+    self_serve: describeAgentToolGrant("self-serve").review_submissions,
+  };
+}
