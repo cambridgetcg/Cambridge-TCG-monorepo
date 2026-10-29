@@ -112,7 +112,9 @@ async function rows(table: string, day: string) {
   const columns = table === 'market_indices' ? 'index_key, level::text AS level, constituents, previous_as_of::text AS previous_as_of, sources'
     : table === 'market_reference_prices' ? 'sku, amount::text AS amount, confidence, sources, source_count'
       : 'set_code, market, base_market, ratio_p25::text AS p25, ratio_median::text AS median, ratio_p75::text AS p75, sku_count, sources, market_languages, base_languages';
-  const order = table === 'market_indices' ? 'index_key' : table === 'market_reference_prices' ? 'sku' : 'market, base_market';
+  // Byte order, so the expected lists hold under any database collation
+  // (en_US ignores the '*' in a game-wide index key at the first level).
+  const order = table === 'market_indices' ? 'index_key COLLATE "C"' : table === 'market_reference_prices' ? 'sku COLLATE "C"' : 'market COLLATE "C", base_market COLLATE "C"';
   return (await state.pool.query(`SELECT ${columns} FROM ${table} WHERE as_of = $1 ORDER BY ${order}`, [day])).rows;
 }
 const counts = async () => (await state.pool.query(`SELECT (SELECT count(*) FROM market_derivation_runs)::int AS runs,
