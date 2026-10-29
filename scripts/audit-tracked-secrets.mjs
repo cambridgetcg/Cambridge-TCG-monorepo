@@ -45,10 +45,11 @@ const tokenPatterns = [
 // keys that includes `-` and `_`) is therefore missed, because it cannot be
 // told apart from a longer run.
 //
-// Minted keys are uniformly random (agent keys base62, member keys
-// base64url), so a random part drawn from one character class, such as a
-// repeated letter or the lowercase alphabet, is treated as a test fixture.
-// About one minted agent key in 10^8 falls in one class and would be missed.
+// Minted keys are near-uniformly random (agent keys base62 from
+// `byte % 62`, which slightly favours a-h; member keys base64url), so a random
+// part drawn from one character class, such as a repeated letter or the
+// lowercase alphabet, is treated as a test fixture. One or two minted agent
+// keys in 10^8 fall in one class and would be missed.
 const agentKeyCharacterClasses = [/[a-z]/, /[A-Z]/, /[0-9]/];
 const memberKeyCharacterClasses = [...agentKeyCharacterClasses, /[-_]/];
 
@@ -543,6 +544,9 @@ function runSelfTest() {
       length: 22,
       classes: agentKeyCharacterClasses,
       classSamples: ["q", "Q", "7"],
+      // `_` is outside the agent alphabet, so a trailing `_` (Markdown
+      // `_italic_`, a snake_case suffix) still ends the key.
+      trailingContexts: (key) => [`${key}_`, `_${key}_`],
       concrete: ["aB3dE6gH9jK2mN5pQ8sT1v"],
       quiet: [
         "abcdefghijklmnopqrstuv",
@@ -604,6 +608,7 @@ function runSelfTest() {
           `\x1b[1m${key}\x1b[0m`,
           JSON.stringify({ text: `\x1b[1m${key}\x1b[0m` }),
           `_${key}.`,
+          ...(shape.trailingContexts?.(key) ?? []),
         ]) {
           assert.equal(
             labelsInBody(body, "apps/storefront/src/lib/client.ts").has(label),
