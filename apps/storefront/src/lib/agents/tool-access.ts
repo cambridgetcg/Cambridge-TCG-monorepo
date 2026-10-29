@@ -5,7 +5,9 @@
  * discovery documents say the same thing:
  *   - reads: no domain writes. A key that only reads is "read-only" in the
  *     domain-state sense (`read_only: true`, `read_only_scope:
- *     "domain-state"`); its holder is labelled "bearer-key-holder".
+ *     "domain-state"`). A self-serve agent's controller is labelled
+ *     "bearer-key-holder"; the schema does not represent that holder, whose
+ *     only in-band control is ending its own key (SELF_SERVE_CONTROLLER_NOTE).
  *   - review_submissions: Coverage Hunt evidence (operator-managed keys
  *     only). Append-only, stops at human review, never applies a catalog
  *     change. Not a domain write.
@@ -121,6 +123,15 @@ export const AGENT_REVOKE_KEY_INPUT_SCHEMA = {
   },
   additionalProperties: false,
 } as const;
+
+/** Who a self-serve agent's "controller" is, and what that holder can do.
+ *  mcp.json and mcp-config.json open controller_model with it, and
+ *  cambridge-tcg.json serves it as holder_scope beside controller
+ *  "bearer-key-holder", so the three documents say the same thing. */
+export const SELF_SERVE_CONTROLLER_NOTE =
+  "A self-serve agent's controller is labelled as its bearer-key holder; the schema does not represent that holder. " +
+  "The bearer-key holder can end its own key in-band with agent.revoke_key, and that is its only in-band control: " +
+  "agent archival, profile erasure and profile changes are not holder-authenticated, and possession of a key is not proof of identity.";
 
 /** Review submissions by registration kind, for the discovery documents
  *  that describe both kinds at once. Neither list is a domain write. */

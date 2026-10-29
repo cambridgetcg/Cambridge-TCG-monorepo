@@ -24,7 +24,11 @@ import {
 } from "./cambridge-tcg.json/route";
 import { GET as getMcpConfig } from "./mcp-config.json/route";
 import { GET as getMcpDiscovery } from "./mcp.json/route";
-import { AGENT_KEY_REVOCATION, describeAgentToolGrant } from "@/lib/agents/tool-access";
+import {
+  AGENT_KEY_REVOCATION,
+  SELF_SERVE_CONTROLLER_NOTE,
+  describeAgentToolGrant,
+} from "@/lib/agents/tool-access";
 
 // Keep the real audience helper without importing unrelated UI/database modules.
 vi.mock("@/lib/ui", () => import("@/lib/ui/Audience"));
@@ -343,5 +347,33 @@ describe("well-known agent discovery boundaries", () => {
       expect(encoded).not.toMatch(/xenia|covenant/i);
       expect(encoded).not.toContain("account-linked reads; writes paused");
     }
+  });
+
+  it("says the same thing about a self-serve agent's controller in all three documents", async () => {
+    const mcp = await (await getMcpDiscovery()).json();
+    const config = await (await getMcpConfig()).json();
+    const manifest = await (await getCambridgeManifest()).json();
+
+    // The enum value stays; its meaning is the shared sentence beside it.
+    expect(manifest.agent_access.self_serve.controller).toBe("bearer-key-holder");
+    expect(manifest.agent_access.self_serve.holder_scope).toBe(SELF_SERVE_CONTROLLER_NOTE);
+    expect(mcp.server.auth.controller_model.startsWith(SELF_SERVE_CONTROLLER_NOTE)).toBe(true);
+    expect(
+      config.remote_json_rpc_endpoint["cambridge-tcg"].auth.controller_model.startsWith(
+        SELF_SERVE_CONTROLLER_NOTE,
+      ),
+    ).toBe(true);
+    expectHolderScope(SELF_SERVE_CONTROLLER_NOTE);
+    for (const body of [mcp, config, manifest]) {
+      expect(JSON.stringify(body)).not.toContain("no represented controller");
+    }
+  });
+
+  it("tells llms.txt readers what an authenticated key can write", () => {
+    const llms = buildLlmsText();
+
+    expect(llms).toContain("Read-only means domain state");
+    expect(llms).toContain("may make bounded Coverage Hunt review submissions");
+    expect(llms).toContain("every key may end itself with agent.revoke_key");
   });
 });

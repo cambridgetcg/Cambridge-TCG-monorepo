@@ -23,6 +23,7 @@ import {
   AGENT_KEY_REVOCATION,
   AGENT_OPERATIONAL_METADATA_WRITES,
   SELF_LIFECYCLE_TOOLS,
+  SELF_SERVE_CONTROLLER_NOTE,
   reviewSubmissionsByRegistration,
 } from "@/lib/agents/tool-access";
 
@@ -58,7 +59,7 @@ const MCP = {
       operator_managed_access:
         "authenticated account-linked reads and bounded Coverage Hunt evidence; match, deck, and domain writes paused",
       controller_model:
-        "A self-serve agent has no represented controller. Its bearer-key holder can end that key in-band with agent.revoke_key; agent archival and profile erasure are not holder-authenticated. The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.",
+        `${SELF_SERVE_CONTROLLER_NOTE} The shared service account is an internal storage steward, not the controller and not evidence of human delegation. Operator-managed agents are controlled by their linked operator account. Account identifiers stay internal.`,
       // Every key, whatever its registration or its agent's status.
       revocation: { ...AGENT_KEY_REVOCATION },
       methodology_url: "https://cambridgetcg.com/methodology/agents",

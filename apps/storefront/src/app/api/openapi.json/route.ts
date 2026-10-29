@@ -1088,7 +1088,7 @@ const SPEC = {
       post: {
         tags: ["agents"],
         summary: "MCP-shaped JSON-RPC dispatch",
-        description: "initialize and tool discovery are public. Other calls require a bearer key. Existing self-serve keys can use read/status tools only; operator-managed keys also have account-linked reads and may append bounded Coverage Hunt evidence that stops at human review. Match and deck writes are paused for every key.",
+        description: "initialize and tool discovery are public. Other calls require a bearer key. Existing self-serve keys are read-only (domain state); operator-managed keys also have account-linked reads and may append bounded Coverage Hunt evidence that stops at human review. Any key's holder can end that key with agent.revoke_key. Match and deck writes are paused for every key.",
         operationId: "postMcpJsonRpc",
         requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
         responses: {
