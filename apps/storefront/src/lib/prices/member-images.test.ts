@@ -83,10 +83,10 @@ describe('/prices identity images', () => {
       mocks.query.mockRejectedValue(Object.assign(new Error('relation does not exist'), { code: '42P01' }));
       expect((await readMemberPriceImages([cardrush('1', 15600)])).byItem.size).toBe(0);
       expect(error).not.toHaveBeenCalled();
-      mocks.query.mockRejectedValue(new Error('postgres://user:secret@db'));
-      mocks.official.mockRejectedValue(new Error('postgres://user:secret@db'));
+      mocks.query.mockRejectedValue(new Error('connection to internal-db.example failed'));
+      mocks.official.mockRejectedValue(new Error('connection to internal-db.example failed'));
       expect((await readMemberPriceImages([cardrush('1', 15600, true)])).byItem.size).toBe(0);
-      expect(error.mock.calls.flat().join(' ')).not.toContain('secret');
+      expect(error.mock.calls.flat().join(' ')).not.toContain('internal-db.example');
     } finally { error.mockRestore(); }
   });
 
