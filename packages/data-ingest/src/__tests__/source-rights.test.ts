@@ -21,6 +21,7 @@ import {
 } from "../tcgcollector";
 import { fetchSitemap as fetchTcgcollectorSitemap } from "../tcgcollector/discovery";
 import { getSource, legacyAcquisitionClosed, legacyArchiveFreshness, sourcesByStatus } from "../registry";
+import { MEMBER_PRICE_POLICIES } from "../member-prices";
 import { FRESHNESS } from "@cambridge-tcg/data-spec";
 import type { IngestEvent, SourceModule } from "../types";
 
@@ -314,19 +315,20 @@ describe("source rights declarations", () => {
     expect(source.meta.tos_notes).not.toMatch(/open with Yu|question/i);
   });
 
-  // Whether "Scrape TCGplayer pages" covers the data the price-guide page
-  // loads is open for Yu (decision record), and these fields are public from
-  // deploy (/api/v1/sources, /api/v1/sources/welcome). They say what is
-  // settled, keep those reads apart from the permission, and name no API host.
-  it("keeps TCGplayer's price-guide reads apart from its permission until the scope is confirmed", () => {
+  // Yu confirmed on 2026-10-29 that "Scrape TCGplayer pages" covers the data
+  // the price-guide page loads (decision record). These fields are public
+  // from deploy (/api/v1/sources, /api/v1/sources/welcome), so they say so
+  // plainly, leave scheduling to the flag, and name no API host.
+  it("says TCGplayer's permission covers its price-guide reads, and names no API host", () => {
     const { description, tos_notes, welcome } = tcgplayer.meta;
     for (const text of [description, tos_notes, welcome ?? ""]) {
       expect(text).not.toMatch(/api\.tcgplayer\.com|mpapi\.|infinite-api\./);
-      expect(text).not.toMatch(/(?:from|under) (?:the |your )?written permission/i);
+      expect(text).not.toMatch(/stays? off until|awaits confirmation|scope is confirmed/i);
     }
-    expect(description).toContain("covers collection from TCGplayer pages");
-    expect(description).toContain("stays off until its permission scope is confirmed");
-    expect(tos_notes).toContain("Whether the permission covers those requests awaits confirmation");
-    expect(welcome).toContain("stays off until we have confirmed that your permission covers it");
+    expect(description).toContain("covers collection from TCGplayer pages, including the data TCGplayer's public price-guide pages load (confirmed 2026-10-29)");
+    expect(tos_notes).toContain("Yu confirmed on 2026-10-29 that the permission covers those requests");
+    expect(welcome).toContain("reads them only while it is scheduled");
+    expect(MEMBER_PRICE_POLICIES.tcgplayer.basis).toContain("The permission covers the data TCGplayer's public price-guide pages load (confirmed 2026-10-29)");
+    expect(MEMBER_PRICE_POLICIES.tcgplayer.basis).not.toMatch(/stays? off until|scope is confirmed|api\.tcgplayer\.com|mpapi\.|infinite-api\./);
   });
 });

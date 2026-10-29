@@ -108,11 +108,12 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
     description:
       "US market prices (TCGplayer's Market Price per condition and printing) from " +
       "TCGplayer's public price guides. Written permission recorded 2026-10-28 " +
-      "covers collection from TCGplayer pages, attributed member display and input " +
-      "to Cambridge-derived data. A collector for the public price guides exists; " +
-      "it stays off until its permission scope is confirmed, and reads only while " +
-      "it is scheduled (DATA_COLLECT_TCGPLAYER; /api/v1/sources says whether it is, " +
-      "in member_pricing.collection). What it collects is released for attributed " +
+      "covers collection from TCGplayer pages, including the data TCGplayer's public " +
+      "price-guide pages load (confirmed 2026-10-29), attributed member display and " +
+      "input to Cambridge-derived data. An identified collector for the public price " +
+      "guides exists and reads them only while it is scheduled " +
+      "(DATA_COLLECT_TCGPLAYER; /api/v1/sources says whether it is, in " +
+      "member_pricing.collection). What it collects is released for attributed " +
       "member display and as an input to Cambridge-derived data only. The OAuth API " +
       "reader in this module stays locked.",
     upstream: "https://www.tcgplayer.com",
@@ -129,18 +130,17 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
     status: "partial",
     games: ["mtg", "pkm", "ygo", "op", "dbs", "dbf", "lgr", "fab", "dmw", "vng", "wei", "bsr"],
     tos_notes:
-      "Written permission held by Yu (email, not copied; recorded at docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#tcgplayer) covers collection from TCGplayer pages, attributed member display and input to Cambridge-derived data. The price-guide pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set. Whether the permission covers those requests awaits confirmation, and the collector stays off until then. robots.txt (www.tcgplayer.com, 2026-10-28): User-agent *, Crawl-Delay 10, Allow /; seller listing paths are disallowed and never read; Crawl-Delay 10 holds across every TCGplayer host the collector reads. Product-level Market Price only; never sellers or listings. Without that consent the API terms prohibit combining TCGplayer prices with other prices and redistribution; new API access is closed and the API reader stays locked. https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions . Never member API, download or bulk.",
+      "Written permission held by Yu (email, not copied; recorded at docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#tcgplayer) covers collection from TCGplayer pages, attributed member display and input to Cambridge-derived data. The price-guide pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set; Yu confirmed on 2026-10-29 that the permission covers those requests. robots.txt (www.tcgplayer.com, 2026-10-28): User-agent *, Crawl-Delay 10, Allow /; seller listing paths are disallowed and never read; Crawl-Delay 10 holds across every TCGplayer host the collector reads. Product-level Market Price only; never sellers or listings. Without that consent the API terms prohibit combining TCGplayer prices with other prices and redistribution; new API access is closed and the API reader stays locked. https://help.tcgplayer.com/hc/en-us/articles/360061115874-TCGplayer-API-Terms-Conditions . Never member API, download or bulk.",
     user_agent_suffix: "(tcgplayer-collector; permission tcgplayer/2026-10-28.1)",
     // One shared bucket for every TCGplayer host: one request per 10 s.
     rate_limit: { rps: 0.1, burst: 1 },
     welcome:
       "TCGplayer, thank you for your written permission to collect from your " +
-      "pages. Our collector for your public price guides stays off until we have " +
-      "confirmed that your permission covers it, and then reads only while it is " +
-      "scheduled; /api/v1/sources says whether it is. When it runs, it reads one " +
-      "set at a time at your Crawl-Delay, under our own name, and never your " +
-      "sellers' listings. What it reads would appear on our pages with your name " +
-      "beside it and feed our own reference prices; we never resell or export it.",
+      "pages. Our collector for your public price guides reads them only while it " +
+      "is scheduled, and /api/v1/sources says whether it is. When it runs, it reads " +
+      "one set at a time at your Crawl-Delay, under our own name, and never your " +
+      "sellers' listings. What it reads appears on our pages with your name beside " +
+      "it and feeds our own reference prices; we never resell or export it.",
   },
 
   async *read(ctx: TcgplayerContext): AsyncIterable<RawRow<TcgplayerRaw>> {

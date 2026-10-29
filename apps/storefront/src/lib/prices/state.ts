@@ -349,7 +349,7 @@ export async function loadCardState(
     license: "proprietary",
     available: false,
     detail:
-      "TCGplayer's legacy rows stay withheld. TCGplayer prices Cambridge collects under the written permission recorded 2026-10-28, only while its collector is scheduled (see /api/v1/sources; it stays off until that permission's scope is confirmed), are display-only: shown on Cambridge pages with TCGplayer named, never in this guide, an API or a download. TCGplayer's API stays closed to Cambridge.",
+      "TCGplayer's legacy rows stay withheld. TCGplayer prices Cambridge collects under the written permission recorded 2026-10-28, only while its collector is scheduled (see /api/v1/sources), are display-only: shown on Cambridge pages with TCGplayer named, never in this guide, an API or a download. TCGplayer's API stays closed to Cambridge.",
     signed_in_path: null,
   });
 
