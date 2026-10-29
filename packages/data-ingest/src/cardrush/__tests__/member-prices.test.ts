@@ -329,7 +329,7 @@ describe('CardRush page acquisition', () => {
     const result = await run({ evidenceVersion: CARDRUSH_EVIDENCE_VERSION, host: 'www.cardrush-op.jp', budgetMs: 60_000, choose: picker }, fetch);
     // robots.txt at 0 s and the sitemap at 2 s leave 58 s: 29 pages.
     expect(picker).toHaveBeenCalledWith(listed, 29);
-    expect(result).toMatchObject({ host: 'www.cardrush-op.jp', game: 'one-piece', sitemapProducts: listed.length, robotsDisallowed: 0, requested: 3, unavailable: null });
+    expect(result).toMatchObject({ host: 'www.cardrush-op.jp', game: 'one-piece', sitemapProducts: listed.length, robotsDisallowed: 0, requested: 3, unavailable: null, refused: null });
     expect(result.parsed.observations.map(row => row.sourceProductId)).toEqual(['www.cardrush-op.jp/product/15600', 'www.cardrush-op.jp/product/169', 'www.cardrush-op.jp/product/1555']);
     expect(calls.map(call => call.url)).toEqual(['https://www.cardrush-op.jp/robots.txt', 'https://www.cardrush-op.jp/sitemap.xml', 'https://www.cardrush-op.jp/product/15600', 'https://www.cardrush-op.jp/product/169', 'https://www.cardrush-op.jp/product/1555']);
     for (let index = 1; index < calls.length; index += 1) expect(calls[index]!.at - calls[index - 1]!.at).toBeGreaterThanOrEqual(2000);
@@ -359,15 +359,19 @@ describe('CardRush page acquisition', () => {
   });
 
   it.each([
-    ['403', () => new Response('denied', { status: 403 }), 'http-403'],
-    ['429', () => new Response('slow down', { status: 429, headers: { 'retry-after': '60' } }), 'http-429'],
-    ['challenge header', () => new Response('<html></html>', { status: 403, headers: { 'cf-mitigated': 'challenge' } }), 'challenge-challenge'],
+    ['403', () => new Response('denied', { status: 403 }), 'http-403', { status: 403, retryAfter: null }],
+    ['429', () => new Response('slow down', { status: 429, headers: { 'retry-after': '60' } }), 'http-429', { status: 429, retryAfter: '60' }],
+    ['challenge header', () => new Response('<html></html>', { status: 403, headers: { 'cf-mitigated': 'challenge' } }), 'challenge-challenge', { status: 403, retryAfter: null }],
     // Edit: Cloudflare's interstitial title on an otherwise successful answer.
-    ['challenge page', () => htmlResponse('<!DOCTYPE html><html><head><title>Just a moment...</title></head><body></body></html>'), 'challenge-page'],
-  ])('stops the host for the run when it refuses the identified collector (%s)', async (_label, refused, reason) => {
-    const { calls, fetch } = upstream({ 'https://www.cardrush-op.jp/product/169': refused });
+    ['challenge page', () => htmlResponse('<!DOCTYPE html><html><head><title>Just a moment...</title></head><body></body></html>'), 'challenge-page', { status: 200, retryAfter: null }],
+    // Stopped, but not a refusal of this collector.
+    ['503 with no Retry-After', () => new Response('down', { status: 503 }), 'http-503', null],
+    ['500', () => new Response('error', { status: 500 }), 'http-500', null],
+  ])('stops the host for the run when it refuses the identified collector (%s)', async (_label, answer, reason, refused) => {
+    const { calls, fetch } = upstream({ 'https://www.cardrush-op.jp/product/169': answer });
     const result = await run({ evidenceVersion: CARDRUSH_EVIDENCE_VERSION, host: 'www.cardrush-op.jp', budgetMs: 60_000, choose: choose(['https://www.cardrush-op.jp/product/15600', 'https://www.cardrush-op.jp/product/169', 'https://www.cardrush-op.jp/product/1555']) }, fetch);
     expect(result.unavailable).toEqual({ code: 'SOURCE_UNAVAILABLE', reason });
+    expect(result.refused).toEqual(refused);
     expect(result.requested).toBe(2);
     expect(calls.map(call => call.url)).not.toContain('https://www.cardrush-op.jp/product/1555');
     // What was read before the refusal is kept; the refused page is not a row.
@@ -379,7 +383,7 @@ describe('CardRush page acquisition', () => {
     const picker = choose(listed);
     const { calls, fetch } = upstream({}, () => new Response('', { status: 403, headers: { 'cf-mitigated': 'challenge' } }));
     const result = await run({ evidenceVersion: CARDRUSH_EVIDENCE_VERSION, host: 'www.cardrush-op.jp', budgetMs: 60_000, choose: picker }, fetch);
-    expect(result).toMatchObject({ requested: 0, sitemapProducts: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason: 'sitemap-challenge-challenge' } });
+    expect(result).toMatchObject({ requested: 0, sitemapProducts: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason: 'sitemap-challenge-challenge' }, refused: { status: 403, retryAfter: null } });
     expect(calls.map(call => call.url)).toEqual(['https://www.cardrush-op.jp/robots.txt', 'https://www.cardrush-op.jp/sitemap.xml']); expect(picker).not.toHaveBeenCalled();
   });
 
@@ -426,7 +430,8 @@ describe('CardRush page acquisition', () => {
     ['for this collector though everyone else may', 'User-agent: *\nAllow: /product/\n\nUser-agent: cambridgetcg\nDisallow: /\n'],
   ])('stops before the sitemap when robots.txt disallows product pages %s', async (_label, robots) => {
     const { result, calls, picker } = await robotsRun(text(robots));
-    expect(result).toMatchObject({ requested: 0, sitemapProducts: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason: 'robots-disallows-product-pages' } });
+    // A disallow is the host refusing this collector, with no Retry-After.
+    expect(result).toMatchObject({ requested: 0, sitemapProducts: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason: 'robots-disallows-product-pages' }, refused: { status: null, retryAfter: null } });
     expect(calls).toEqual(['https://www.cardrush-op.jp/robots.txt']);
     expect(picker).not.toHaveBeenCalled();
   });
@@ -440,6 +445,7 @@ describe('CardRush page acquisition', () => {
   ])('reads on under %s', async (_label, robots) => {
     const { result, calls } = await robotsRun(robots === null ? () => new Response('', { status: 404 }) : text(robots));
     expect(result.unavailable).toBeNull();
+    expect(result.refused).toBeNull();
     expect(result.robotsDisallowed).toBe(0);
     expect(calls.slice(0, 2)).toEqual(['https://www.cardrush-op.jp/robots.txt', 'https://www.cardrush-op.jp/sitemap.xml']);
     expect(result.requested).toBe(listed.length);
@@ -475,19 +481,23 @@ describe('CardRush page acquisition', () => {
   });
 
   it.each([
-    ['403', () => new Response('denied', { status: 403 }), 'robots-http-403'],
-    ['429', () => new Response('slow down', { status: 429 }), 'robots-http-429'],
-    ['503', () => new Response('down', { status: 503 }), 'robots-http-503'],
-    ['500', () => new Response('error', { status: 500 }), 'robots-http-500'],
-    ['redirect, not followed', () => new Response(null, { status: 301, headers: { location: 'https://cdn.example/robots.txt' } }), 'robots-http-301'],
-    ['challenge header', () => new Response('', { status: 403, headers: { 'cf-mitigated': 'challenge' } }), 'robots-challenge-challenge'],
-    ['challenge page', () => new Response('<html><head><title>Just a moment...</title></head></html>', { status: 200 }), 'robots-challenge-page'],
-    ['oversized', () => new Response('#'.repeat(512 * 1024 + 1), { status: 200 }), 'robots-too-large'],
-    ['network failure', () => { throw new TypeError('fetch failed'); }, 'robots-fetch-error'],
-    ['a sitemap it disallows', () => new Response('User-agent: *\nDisallow: /sitemap.xml\n', { status: 200 }), 'robots-disallows-sitemap'],
-  ])('stops when robots.txt cannot be read or forbids the sitemap (%s)', async (_label, robots, reason) => {
+    ['403', () => new Response('denied', { status: 403 }), 'robots-http-403', { status: 403, retryAfter: null }],
+    ['429', () => new Response('slow down', { status: 429 }), 'robots-http-429', { status: 429, retryAfter: null }],
+    ['429 with Retry-After', () => new Response('slow down', { status: 429, headers: { 'retry-after': '7200' } }), 'robots-http-429', { status: 429, retryAfter: '7200' }],
+    ['503', () => new Response('down', { status: 503 }), 'robots-http-503', null],
+    ['503 with Retry-After', () => new Response('down', { status: 503, headers: { 'retry-after': 'Fri, 30 Oct 2026 00:00:00 GMT' } }), 'robots-http-503', { status: 503, retryAfter: 'Fri, 30 Oct 2026 00:00:00 GMT' }],
+    ['401', () => new Response('who', { status: 401 }), 'robots-http-401', null],
+    ['500', () => new Response('error', { status: 500 }), 'robots-http-500', null],
+    ['redirect, not followed', () => new Response(null, { status: 301, headers: { location: 'https://cdn.example/robots.txt' } }), 'robots-http-301', null],
+    ['challenge header', () => new Response('', { status: 403, headers: { 'cf-mitigated': 'challenge' } }), 'robots-challenge-challenge', { status: 403, retryAfter: null }],
+    ['challenge page', () => new Response('<html><head><title>Just a moment...</title></head></html>', { status: 200 }), 'robots-challenge-page', { status: 200, retryAfter: null }],
+    ['oversized', () => new Response('#'.repeat(512 * 1024 + 1), { status: 200 }), 'robots-too-large', null],
+    ['network failure', () => { throw new TypeError('fetch failed'); }, 'robots-fetch-error', null],
+    ['a sitemap it disallows', () => new Response('User-agent: *\nDisallow: /sitemap.xml\n', { status: 200 }), 'robots-disallows-sitemap', { status: null, retryAfter: null }],
+  ])('stops when robots.txt cannot be read or forbids the sitemap (%s), counting only refusals', async (_label, robots, reason, refused) => {
     const { result, calls, picker } = await robotsRun(robots);
     expect(result.unavailable).toEqual({ code: 'SOURCE_UNAVAILABLE', reason });
+    expect(result.refused).toEqual(refused);
     expect(calls).toEqual(['https://www.cardrush-op.jp/robots.txt']);
     expect(picker).not.toHaveBeenCalled();
   });

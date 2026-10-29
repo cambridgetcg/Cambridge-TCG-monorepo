@@ -45,7 +45,7 @@ import {
 import { normalizeCardmarket, type CardmarketRaw } from "./normalize";
 import type { CardmarketProduct } from "./types";
 
-export { assertCardmarketPublicFileUrl, CardmarketPublicFileError } from './public-files';
+export { assertCardmarketPublicFileUrl, CARDMARKET_PUBLIC_FILE_ORIGIN, CardmarketPublicFileError } from './public-files';
 export type { CardmarketPublicFileArtifact, CardmarketPublicFileRequest, CardmarketPublicFileKind } from './public-files';
 import { fetchCardmarketPublicFileWithMeta, type CardmarketPublicFileRequest } from './public-files';
 export function fetchCardmarketPublicFile(ctx: IngestContext, request: CardmarketPublicFileRequest) {
@@ -92,7 +92,11 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     games: ["mtg", "pkm", "ygo", "op", "lgr", "fab", "dmw"],
     tos_notes:
       "Official Product Catalog / Price Guide statement says “use them however you see fit”; member-prices.ts records normalized member display/API/download permission with attribution. This is not CC0 or a site-wide license. Raw files stay private in this implementation. Yu's word of 2026-10-28 (docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#cardmarket) adds Cardmarket prices as an input to Cambridge-derived data (cardmarket-derivation/2026-10-28.1). robots.txt (2026-10-28): Content-Signal search=yes, ai-train=no, use=reference, with an EU DSM Art. 4 reservation; Cambridge-derived data from these prices is not CC0 and excludes AI training. API applications are closed, and existing credentials must not be shared. The API base for grandfathered users is apiv2.cardmarket.com. https://www.cardmarket.com/en/Magic/Data/Price-Guide ; https://www.cardmarket.com/en/Magic/Data/Product-List ; https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024 ; https://help.cardmarket.com/en/cardmarket-api",
-    user_agent_suffix: "(cardmarket-ingest)",
+    // The collector and the evidence it reads under, in the form CardRush's
+    // and TCGplayer's agents use: the official files' grant
+    // (member-prices/2026-09-07.1) and their use in derived data
+    // (cardmarket-derivation/2026-10-28.1).
+    user_agent_suffix: "(cardmarket-collector; permission member-prices/2026-09-07.1, cardmarket-derivation/2026-10-28.1)",
     rate_limit: { rps: 2, burst: 5 },
     welcome:
       "Welcome to the kingdom, Cardmarket. Your slot was reserved in kingdom-062 " +
