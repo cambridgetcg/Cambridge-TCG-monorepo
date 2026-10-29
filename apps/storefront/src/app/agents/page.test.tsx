@@ -52,7 +52,7 @@ describe("agent entry", () => {
   it("links contribution and validation work without promising releases or automatic writes", () => {
     const markup = renderToStaticMarkup(<AgentsWelcomePage />);
     const build = markup.slice(markup.indexOf('aria-labelledby="agent-build"'));
-    for (const href of ["/roadmap", "/standards/validator", "/agents/guides", "/standards"]) {
+    for (const href of ["/roadmap", "/standards/validator", "/agents/guides", "/standards", "/agents/guides/transparent-data-playbook"]) {
       expect(build).toContain(`href="${href}"`);
     }
     expect(build).toContain("Contributions are proposals for review");
