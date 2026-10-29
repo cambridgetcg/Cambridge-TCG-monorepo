@@ -221,7 +221,7 @@ has room to write and report.
 | --- | --- | --- | --- |
 | Cardmarket daily | `/api/cron/collect/cardmarket`, `30 5 * * *` | Existing public-file transport and ingest seam, Cambridge's identifying User-Agent. One Piece (18) only ([why](#cardmarket-measured)). Each run also writes the reviewed One Piece set crosswalk seed; an unchanged live row is left as it is. | Existing observations, unmapped to SKUs, with `source_set_key`, plus the set crosswalks |
 | CardRush | `/api/cron/collect/cardrush`, `15 */2 * * *` | `createFetcher` with the identifying User-Agent, one bucket per host at 0.5 rps (burst 1), no retries, no proxy options. Hosts in turn by run time, so each of the six is read every 12 hours. Each run reads the host's robots.txt once, first, through the same bucket: if it disallows product pages (or the sitemap) to this collector or to every crawler, or cannot be read, the run stops as `SOURCE_UNAVAILABLE`, and a listed page it disallows is never requested; a host with no robots.txt (404, 410) sets no rule. Product URLs come from the host sitemap, never-read pages first and then the oldest reading; a quarantined reading counts as read, so sealed products and supplies do not starve the singles. 60 s of the budget is kept for writes, so a run reads about 103 pages ([rhythm](#cardrush-rhythm)). | `sell`, JPY, `printing`. Language comes from the title (default `ja`), finish from parallel markers. Condition is recorded only when the page states a grade. No structured price means quarantine: there is no first-yen fallback. Product and set crosswalks under `cardrush-title/1`, exact only for One Piece plain base rarities; the other five hosts' rows are unmapped. |
-| TCGplayer | `/api/cron/collect/tcgplayer`, `45 * * * *` | One bucket for every TCGplayer host at 0.1 rps (burst 1): `www.tcgplayer.com`'s robots.txt asks `Crawl-Delay: 10`, and neither API host serves a robots.txt (404, 2026-10-28). The fetcher ignores any caller rate, refuses a proxy and never retries. The pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set ([intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)); it never reads seller listings, which robots.txt disallows. Each run first reads robots.txt on all three hosts (`www.tcgplayer.com` and the two data hosts), through the same bucket, and reuses no earlier reading. The group naming the collector applies if one exists, otherwise `*`; a host with no robots.txt (404) sets no rule. A file that disallows a path every run reads (the set lists, product types, price-guide data, or a line's price-guide pages) refuses the run before any data request, as a refusal; one that disallows a single set's page or data skips that set, recorded as read. A failed read (a network error, a 5xx) collects nothing that run. Requests are spaced by the larger of 10 s and the Crawl-delay asked, and a Crawl-delay over 60 s refuses the run. Lines collected: One Piece (68) and Pokemon Japan (85), whose ids and row labels were read; Pokemon (3) is off until a probe confirms its id and row label, and Magic and Yu-Gi-Oh are off. A set is not begun with under 30 s left, so a run reads about 20 sets. A set whose read or write fails is recorded as read, by an empty batch whose quarantine names the failure, so stalest-first moves on. | `market` (Market Price) per condition × printing, USD. The data has no Listed Median, so none is collected; `lowPrice` and `sales` are not collected. Crosswalks under `tcgplayer-number/1`. |
+| TCGplayer | `/api/cron/collect/tcgplayer`, `45 * * * *` | One bucket for every TCGplayer host at 0.1 rps (burst 1): `www.tcgplayer.com`'s robots.txt asks `Crawl-Delay: 10`, and neither API host serves a robots.txt (404, 2026-10-28). The fetcher ignores any caller rate, refuses a proxy and never retries. The pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set ([intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)); it never reads seller listings, which robots.txt disallows. Each run first reads robots.txt on all three hosts (`www.tcgplayer.com` and the two data hosts), through the same bucket, and reuses no earlier reading. The group naming the collector applies if one exists, otherwise `*`; a host with no robots.txt (404) sets no rule. A file that disallows a path every run reads (the set lists, product types, every set's price-guide data as its request has it, query included, or a line's price-guide pages) refuses the run before any data request, as a refusal. A set whose page or data it disallows is skipped without a request and without a batch, so it starves no other set and leaves nothing in the append-only store; a file that leaves no listed set readable refuses the run, as CardRush's does when it permits no listed page. A failed read (a network error, a 5xx) collects nothing that run. Requests are spaced by the larger of 10 s and the Crawl-delay asked. A Crawl-delay over 60 s refuses the run, and so does a shorter one that leaves the budget no set: with both lines, anything over about 40 s. Lines collected: One Piece (68) and Pokemon Japan (85), whose ids and row labels were read; Pokemon (3) is off until a probe confirms its id and row label, and Magic and Yu-Gi-Oh are off. A set is not begun with under 30 s left, so a run reads about 20 sets. A set whose read or write fails is recorded as read, by an empty batch whose quarantine names the failure, so stalest-first moves on. | `market` (Market Price) per condition × printing, USD. The data has no Listed Median, so none is collected; `lowPrice` and `sales` are not collected. Crosswalks under `tcgplayer-number/1`. |
 
 A host that refuses the identified collector or cannot serve it ends the run
 as `SOURCE_UNAVAILABLE`, with no further request in that run; each collector
@@ -246,8 +246,12 @@ refused runs in a row the host suspends itself (`suspended_at`,
 `suspended_reason`); the cron then answers `503 HOST_SUSPENDED` and sends
 nothing, and no run reads, writes or clears that row. Three, because one
 refusal can be a blip and two in a row chance, while a third, each after the
-host's own wait or 6 hours, is a pattern of at least 12 hours a person should
-read first. A run the host serves resets the count. Only a person clears a
+host's own wait, is a pattern a person should read first. How long that
+takes is the host's to say: two gaps of the longer of its wait and the
+schedule. With no Retry-After (6 hours) it is at least 12 hours, and a day or
+more for a CardRush host, read every 12 hours; a TCGplayer host that asks a
+short Retry-After on three hourly runs is suspended after about 2 hours. A
+run the host serves resets the count. Only a person clears a
 suspension, by name, with the statement in the migration's header:
 
 ```sql
@@ -302,13 +306,23 @@ by the legacy `ingest_run`: `/api/v1/sources/[id]` reports it, and
 declare `page_collector` (6 h) and Cardmarket `daily_file` (26 h). Since 0146
 it is judged per host too: `collector.hosts` on `/api/v1/sources/[id]` and on
 each collected source in `/api/v1/sources` lists every host the collector
-reads with its state (`ok`, `refused`, `failing`, `suspended`, `never_run`,
-`unknown`). A host refused on its latest run and not served within the budget
-is `failing`, and a failing or suspended host makes the source `failing`
-whatever its batches say, so a CardRush host refused on every run no longer
-reads healthy beside five that collect, and repeated TCGplayer refusals,
-which write no batch, read failing rather than stale. `audit:tributaries`
-still reads batches only.
+reads with its state (`ok`, `refused`, `stale`, `failing`, `suspended`,
+`never_run`, `unknown`), judged by the host's own turn: its budget is the
+source's plus how much longer it waits between reads than the source between
+runs, so 16 hours for a CardRush host (read every 12) and the budget itself
+for TCGplayer's and Cardmarket's hosts (read every run). A host refused on
+its last two runs or more is `failing`; one refused once is `refused`, since
+one refusal is often a blip; one not served within its budget is `stale`,
+whatever it answered since, so a host whose every run fails in a way that is
+not counted (a 5xx without Retry-After, a robots.txt redirect) does not read
+`ok`. A failing or suspended host makes the source `failing` whatever its
+batches say, and a stale host makes a healthy source `stale`. So a CardRush
+host refused on every run no longer reads healthy beside five that collect,
+and repeated TCGplayer refusals, which write no batch, read failing rather
+than stale. A host no run has reached reads `never_run`, which says nothing
+about the source; one whose every run fails uncounted from the start keeps
+no row, so it stays `never_run`. `audit:tributaries` still reads batches
+only.
 
 <a id="cardmarket-measured"></a>
 

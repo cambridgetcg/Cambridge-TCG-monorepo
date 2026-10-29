@@ -165,8 +165,11 @@ plan.").
   run reads the host's robots.txt first and stops if it disallows product
   pages (or the sitemap) to this collector or to every crawler, or cannot be
   read; a host with no robots.txt (404, 410) sets no rule. *Since 2026-10-29* a
-  TCGplayer run does the same on all three hosts it reads, keeping the larger
-  of 10 s and the Crawl-delay asked, and a host that refuses (a 403, a 429, a
+  TCGplayer run reads robots.txt first on all three hosts it reads, under its
+  own rule: the group naming the collector if one does, otherwise `*` (RFC
+  9309). A disallowed path every run reads refuses the run, a disallowed set
+  is skipped, and a file that leaves no listed set refuses the run. It keeps
+  the larger of 10 s and the Crawl-delay asked, and a host that refuses (a 403, a 429, a
   503 with Retry-After, a challenge, robots.txt disallowing the collector) is
   left alone until its Retry-After or 6 hours, and suspends itself after three
   refused runs in a row until a person clears it (migration 0146). One run at a time (collector leases,

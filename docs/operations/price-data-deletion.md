@@ -69,10 +69,11 @@ remain and for how long, once that is known.
 ## Why it cannot be done today, and the path to build first
 
 The guards above raise on every `DELETE`. The only ways round them are
-`ALTER TABLE ... DISABLE TRIGGER` or `SET session_replication_role = replica`.
-Both switch the guards off silently, for every row and every writer, for as
-long as they are left that way, and neither leaves a record. This procedure
-never uses them.
+`ALTER TABLE ... DISABLE TRIGGER`, which switches the guards off for every
+row and every writer until they are switched on again, and
+`SET session_replication_role = replica` (a superuser's), which silently
+switches them off for whatever that session does. Neither leaves a record.
+This procedure never uses them.
 
 The smallest guarded path is a **deletion receipt written in the same
 transaction as the deletes**, the pattern the store already uses for writes
@@ -280,8 +281,10 @@ Then:
   `DELETE FROM member_price_batches WHERE id = (SELECT min(id) FROM member_price_batches)`
   is refused (a row guard fires only on a row that exists, so the statement
   must name one), and the transaction is rolled back either way;
-- `/api/v1/sources/<source>` reads `never_run` (no batch is left), and
-  `/prices` shows none of the source's rows;
+- `/api/v1/sources/<source>` reads `never_run` (no batch is left), or
+  `failing` naming only hosts: `price_collector_hosts` is kept, so a host
+  left suspended, or refused on its last runs, still reads so. `/prices`
+  shows none of the source's rows;
 - the release row is still revoked, and the collector flag still off.
 
 Turning the source back on later, if it ever grants permission again, starts
