@@ -93,6 +93,34 @@ export function parseAgentBearer(header: string | null | undefined): ParsedAgent
   return { kind: "token", token: match[1] };
 }
 
+/** A thrown value's code or name, for logs. Never its message or the query's
+ *  parameters: a lookup error can carry the key hash. */
+export function loggableErrorCode(err: unknown): string {
+  if (err && typeof err === "object") {
+    const { code, name } = err as { code?: unknown; name?: unknown };
+    if (typeof code === "string" && code) return code;
+    if (typeof name === "string" && name) return name;
+  }
+  return "unknown";
+}
+
+/** The 401 for a header refused before any lookup. */
+export function unparsedBearerFailure(kind: "missing" | "malformed"): AgentAuthFailure {
+  return kind === "missing"
+    ? {
+        ok: false,
+        status: 401,
+        reason_code: "missing_credentials",
+        error: "missing Authorization header",
+      }
+    : {
+        ok: false,
+        status: 401,
+        reason_code: "malformed_credentials",
+        error: "expected 'Authorization: Bearer ctcg_agt_<22 base62 characters>'",
+      };
+}
+
 function iso(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const parsed = value instanceof Date ? value : new Date(String(value));
@@ -112,22 +140,7 @@ function iso(value: unknown): string | null {
  */
 export async function resolveAgentBearer(authHeader: string | null): Promise<ResolvedAgentAuth> {
   const parsed = parseAgentBearer(authHeader);
-  if (parsed.kind === "missing") {
-    return {
-      ok: false,
-      status: 401,
-      reason_code: "missing_credentials",
-      error: "missing Authorization header",
-    };
-  }
-  if (parsed.kind === "malformed") {
-    return {
-      ok: false,
-      status: 401,
-      reason_code: "malformed_credentials",
-      error: "expected 'Authorization: Bearer ctcg_agt_<22 base62 characters>'",
-    };
-  }
+  if (parsed.kind !== "token") return unparsedBearerFailure(parsed.kind);
 
   const hash = hashAgentToken(parsed.token);
 
