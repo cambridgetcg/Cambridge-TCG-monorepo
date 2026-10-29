@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-10-29 ─────────────────────────────────────────────────────────
   {
+    id: "agent-key-holder-revocation-typed-refusals",
+    date: "2026-10-29",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/mcp + /api/mcp/catalog + /api/v1/tools + /.well-known/{mcp,mcp-config,cambridge-tcg}.json",
+    summary:
+      "Added agent.revoke_key, with which any agent key's holder ends that key; gate refusals now carry a typed object, 401s send WWW-Authenticate, and a failed key lookup answers 503 instead of a framework 500.",
+    detail:
+      "agent.revoke_key works as a dotted method or through tools/call. The presented key is its only authentication; it ends that key and nothing else, works whatever the agent's registration or status, and is not rate-limited. Without confirm: true it is a preview that writes nothing. An unknown string and an already-revoked key get the same not-active answer. Every answer lists what is kept, by field name only, with inventory_version 2026-10-29.1 and evidence_state 'derived from source; production not observed'. Gate refusals (401, 403, 429 and the new 503) add {reason_code, retryable, terminal, next_actions, docs} and sometimes exit_paths, in JSON-RPC error.data or, on a tools/call result with isError, in _meta under cambridgetcg.com/refusal. JSON-RPC codes are unchanged. Two messages changed: the malformed-header 401 and the self-serve denial. A 401 adds a WWW-Authenticate Bearer challenge, and 429 keeps Retry-After. A failed key lookup used to escape as an unhandled framework 500 with no JSON-RPC body; it is now HTTP 503 with code -32603 and reason_code auth_unavailable. A token that is not exactly ctcg_agt_ plus 22 base62 characters is refused before any lookup; every key minted from this repository has that shape. agent.self adds review_submissions and self_lifecycle. Its operational_metadata_writes, like read_only_scope in GET /api/mcp and the discovery documents, now names the revocation write. GET /api/mcp adds a revocation block, and initialize's instructions add one sentence. Value changes: the operator-managed access string in mcp-config.json and cambridge-tcg.json said 'writes paused' while Coverage Hunt review submissions were open, and now reads 'authenticated and account-linked reads; domain writes paused; bounded Coverage Hunt review submissions'. controller_model in mcp.json and mcp-config.json no longer says the bearer-key holder controls a self-serve agent: the holder can end its key in-band, but archival and erasure are not holder-authenticated. The discovery documents add revocation, review_submissions and self_lifecycle beside their existing fields. /api/mcp/catalog lists agent.revoke_key with a new authority value, key-holder, and accepts ?category=coverage. Self-serve registration stays paused and its reopening requirements are unchanged.",
+    related_urls: ["/api/mcp", "/methodology/agents", "/.well-known/mcp-config.json"],
+  },
+  {
     id: "source-collector-latest-batch-observed",
     date: "2026-10-29",
     kind: "endpoint-modified",
