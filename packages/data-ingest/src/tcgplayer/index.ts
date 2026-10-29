@@ -109,7 +109,7 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
       "US market prices (TCGplayer's Market Price per condition and printing) from " +
       "TCGplayer's public price guides. Written permission recorded 2026-10-28 " +
       "covers collection from TCGplayer pages, including the data TCGplayer's public " +
-      "price-guide pages load (confirmed 2026-10-29), attributed member display and " +
+      "price-guide pages load (Yu confirmed 2026-10-29), attributed member display and " +
       "input to Cambridge-derived data. An identified collector for the public price " +
       "guides exists and reads them only while it is scheduled " +
       "(DATA_COLLECT_TCGPLAYER; /api/v1/sources says whether it is, in " +
@@ -139,8 +139,8 @@ export const tcgplayer: SourceModule<TcgplayerRaw, CanonicalPrice | CanonicalMap
       "pages. Our collector for your public price guides reads them only while it " +
       "is scheduled, and /api/v1/sources says whether it is. When it runs, it reads " +
       "one set at a time at your Crawl-Delay, under our own name, and never your " +
-      "sellers' listings. What it reads appears on our pages with your name beside " +
-      "it and feeds our own reference prices; we never resell or export it.",
+      "sellers' listings. What it reads would appear on our pages with your name " +
+      "beside it and feed our own reference prices; we never resell or export it.",
   },
 
   async *read(ctx: TcgplayerContext): AsyncIterable<RawRow<TcgplayerRaw>> {

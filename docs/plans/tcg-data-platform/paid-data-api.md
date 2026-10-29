@@ -683,7 +683,7 @@ line 3, below, they change only when plans go on sale with Yu's word. The
 draft wording for that day lives in this section.
 
 - **Line 3: done.** Reworded at Yu's request on 2026-10-29 (the wording is an
-  agent's) and served now: "Third-party prices name their source, and we use
+  agent's) and served once #99 deploys: "Third-party prices name their source, and we use
   them only as that source permits: some appear only on our pages, never in
   our API or downloads." The draft starts from it and adds one sentence on
   paid plans after it.

@@ -325,10 +325,10 @@ describe("source rights declarations", () => {
       expect(text).not.toMatch(/api\.tcgplayer\.com|mpapi\.|infinite-api\./);
       expect(text).not.toMatch(/stays? off until|awaits confirmation|scope is confirmed/i);
     }
-    expect(description).toContain("covers collection from TCGplayer pages, including the data TCGplayer's public price-guide pages load (confirmed 2026-10-29)");
+    expect(description).toContain("covers collection from TCGplayer pages, including the data TCGplayer's public price-guide pages load (Yu confirmed 2026-10-29)");
     expect(tos_notes).toContain("Yu confirmed on 2026-10-29 that the permission covers those requests");
     expect(welcome).toContain("reads them only while it is scheduled");
-    expect(MEMBER_PRICE_POLICIES.tcgplayer.basis).toContain("The permission covers the data TCGplayer's public price-guide pages load (confirmed 2026-10-29)");
+    expect(MEMBER_PRICE_POLICIES.tcgplayer.basis).toContain("The permission covers the data TCGplayer's public price-guide pages load (Yu confirmed 2026-10-29)");
     expect(MEMBER_PRICE_POLICIES.tcgplayer.basis).not.toMatch(/stays? off until|scope is confirmed|api\.tcgplayer\.com|mpapi\.|infinite-api\./);
   });
 });

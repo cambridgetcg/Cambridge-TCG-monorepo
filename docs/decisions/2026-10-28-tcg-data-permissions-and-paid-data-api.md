@@ -230,7 +230,8 @@ DATA_RIGHTS line, were answered by Yu on 2026-10-29
   `statement_timeout`, after which the free Cardmarket feed answers
   unavailable.
   `DATA_COLLECT_CARDRUSH` and `DATA_COLLECT_TCGPLAYER` wait for no further
-  answer (Yu, 2026-10-29), only for the Vercel limits and migrations above.
+  answer (Yu's answers, 2026-10-29), only for the Vercel limits and migrations
+  above; turning them on stays a separate act.
 - **Stripe test mode:** a test key, the test products and prices
   (`apps/storefront/scripts/data-api-stripe-setup.ts`, not yet run), the
   webhook secret, and a data-API portal configuration named by

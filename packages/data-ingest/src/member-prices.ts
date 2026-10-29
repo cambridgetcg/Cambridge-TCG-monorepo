@@ -69,7 +69,7 @@ export const MEMBER_PRICE_POLICIES = {
   tcgplayer: {
     evidenceVersion: TCGPLAYER_EVIDENCE_VERSION,
     evidenceUrl: `${PERMISSIONS_RECORD}#tcgplayer`,
-    basis: 'Written permission by email, held by Yu and recorded 2026-10-28 without a copy: collection from TCGplayer product pages, attributed member display, input to Cambridge-derived data. Raw values are display-only: no member API, download or bulk copy. Not TCGplayer\'s partner API. The permission covers the data TCGplayer\'s public price-guide pages load (confirmed 2026-10-29), which the collector reads only while it is scheduled (see /api/v1/sources).',
+    basis: 'Written permission by email, held by Yu and recorded 2026-10-28 without a copy: collection from TCGplayer product pages, attributed member display, input to Cambridge-derived data. Raw values are display-only: no member API, download or bulk copy. Not TCGplayer\'s partner API. The permission covers the data TCGplayer\'s public price-guide pages load (Yu confirmed 2026-10-29), which the collector reads only while it is scheduled (see /api/v1/sources).',
     attribution: 'TCGplayer price guide: TCGplayer’s USD Market Price (its figure from recent sales) for this printing and condition when Cambridge read the guide. Not an individual sale.',
     uses: ['member-display'] as readonly MemberPriceUse[],
     derivation: { evidenceVersion: TCGPLAYER_EVIDENCE_VERSION, evidenceUrl: `${PERMISSIONS_RECORD}#tcgplayer` },
