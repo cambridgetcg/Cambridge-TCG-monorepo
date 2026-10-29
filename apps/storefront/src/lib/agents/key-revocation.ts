@@ -16,11 +16,12 @@
  * state, so this tool tells nobody which strings were ever keys.
  *
  * Answers never carry revoked_reason, who revoked a key, the agent's
- * handle or id, or anything about its operator. A preview or a performed
- * revocation of a live key says whether its agent is suspended or archived
- * (this_key_future_authority, replacement): the gate's 403 already tells any
- * holder of a live key that much, so this adds no oracle. The not-active
- * answer carries nothing about any agent.
+ * handle or id, or anything about its operator. A preview of a live key can
+ * show that its agent is suspended or archived (this_key_future_authority),
+ * and a performed revocation of an operator-managed key can show it through
+ * the replacement text: the gate's 403 already tells any holder of a live key
+ * that much, so this adds no oracle. The not-active answer carries nothing
+ * about any agent.
  *
  * Designed against XENIA Covenant 0.1 candidate duty
  * exit.revocation-is-immediate (xenia d4727ec); Cambridge TCG has not adopted

@@ -286,10 +286,11 @@ export default function AgentsMethodology() {
         Without <code>confirm: true</code> the call is a preview that changes nothing:
         agents often call a listed tool with no arguments to learn what it does, and an
         irreversible act should not happen by exploration. Its answers never include the
-        revocation reason, who revoked a key, or the agent&apos;s handle or id. A preview or
-        a revocation of a live key says whether its agent is suspended or archived, which
-        the gate&apos;s 403 already tells that key&apos;s holder; the not-active answer says
-        nothing about any agent.
+        revocation reason, who revoked a key, or the agent&apos;s handle or id. A preview of a
+        live key can show that its agent is suspended or archived, and so can the
+        replacement text after an operator-managed key is revoked; the gate&apos;s 403 already
+        tells that key&apos;s holder as much. The not-active answer says nothing about any
+        agent.
       </p>
       <ul>
         <li>

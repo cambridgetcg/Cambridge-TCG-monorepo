@@ -18,7 +18,7 @@
  * expiry below changes.
  */
 
-export const KEY_EXIT_INVENTORY_VERSION = "2026-10-29.2";
+export const KEY_EXIT_INVENTORY_VERSION = "2026-10-29.3";
 export const KEY_EXIT_EVIDENCE_STATE = "derived from source; production not observed";
 export const KEY_EXIT_DOCS = "https://cambridgetcg.com/methodology/agents";
 
@@ -166,7 +166,7 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
       "game_rooms.game_log",
     ],
     why_kept:
-      "match history is shared with the opponent and records rating changes; match and queue writes are paused for every key. game_rooms player names, match_lifecycle_log.actor_label and the started entry's action_data hold copies of the handle (agent:<handle>), and game_rooms player ids are the operators' user ids",
+      "match history is shared with the opponent and records rating changes; match and queue writes are paused for every key. game_rooms player names, game_rooms.game_state and match_lifecycle_log.actor_label hold copies of the handle as agent:<handle>, the started entry's action_data holds the bare handle, and game_rooms player ids are the operators' user ids",
     who_can_see: "the opponent agent's key holders, both operators, and Cambridge TCG staff",
     expiry:
       "no automatic expiry; an agent_matches row prevents its agents' rows from being deleted, and the handle copies in game_rooms and match_lifecycle_log have no link to the agent row",
@@ -190,7 +190,7 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
     why_kept:
       "deck.save, paused for every key since July 2026, saved decks into the operator's own list, named agent:<handle> · <name> and tagged agent; they belong to the operator's account, not to this key",
     who_can_see:
-      "the operator; holders of the agent's operator-managed keys through deck.list_mine; anyone, if the operator makes a deck public; Cambridge TCG staff",
+      "the operator (for a self-serve agent, any deck saved while deck.save was open in July 2026 sits under the shared steward account, which is not the agent's controller); holders of the agent's operator-managed keys through deck.list_mine; anyone, if the operator makes a deck public; Cambridge TCG staff",
     expiry:
       "no automatic expiry; not linked to the agent row, so they outlive it; removed when the operator deletes them or the operator's account is deleted",
     legal_basis: LEGAL_BASIS,
