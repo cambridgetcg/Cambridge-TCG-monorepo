@@ -135,11 +135,19 @@ a CardRush listing's own image is linked at CardRush's own URL, never copied.
   shows no image and no placeholder.
 - **Never in the API or downloads.** The member item, its CSV and NDJSON,
   and `/api/v1/market/*` carry no image field; a test pins that.
-- **One switch.** `CARDRUSH_LISTING_IMAGES=off` turns the CardRush lane off
-  on the next render; the official lane is unaffected.
+- **One switch, for the display.** `CARDRUSH_LISTING_IMAGES=off` stops
+  `/prices` showing CardRush listing images; the official lane is
+  unaffected. On Vercel a changed value reaches only a new deployment, so the
+  lane goes off with the next deployment. The collector still records URLs
+  while it is off.
 - **Removal.** Setting `withdrawn_at` stops the link on the next read; a
-  trigger keeps a withdrawal from being cleared. Cambridge holds no copy to
+  trigger keeps a withdrawal from being cleared. The link holds no copy to
   purge, but a browser or CardRush's own caches may still hold the image.
+  Withdrawal does not reach the catalogue fallback photos above: some are
+  CardRush images copied into `jp-*-photos` before this lane (by the old
+  `self-host-cardrush.mjs` and the wholesale `hires/` scrape described in
+  `apps/wholesale/tools/lib/s3-images.ts`), and removing those is a separate
+  step.
 
 The URL says where CardRush keeps the listing's image. It does not verify the
 printing, the condition, or that the image shows the card the title names.

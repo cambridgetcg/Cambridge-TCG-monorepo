@@ -89,8 +89,9 @@ An agent took the more careful reading of these words for Yu:
   display-only line CardRush prices follow: `/api/v1/member-prices`, the
   member CSV and NDJSON, and `/api/v1/market/*` carry no image.
 - **One switch turns the CardRush image lane off** if Yu says the email does
-  not cover linking: `CARDRUSH_LISTING_IMAGES=off`. The official lane is
-  unaffected.
+  not cover linking: `CARDRUSH_LISTING_IMAGES=off`. It stops the display, from
+  the next deployment; the collector still records URLs while it is off. The
+  official lane is unaffected.
 - **Takedown:** `withdrawn_at` on a listing's row stops Cambridge linking its
   image.
 - **The old copy script refuses to run.** `apps/storefront/scripts/self-host-cardrush.mjs`
@@ -255,10 +256,13 @@ DATA_RIGHTS line, were answered by Yu on 2026-10-29
 
 - **Vercel limits.** Confirm the plan allows the new cron routes'
   `maxDuration = 300`, their memory and their schedules. Not checked.
-- **Migrations 0139–0144** on the production storefront database. This uses a
+- **Migrations 0139–0145** on the production storefront database. This uses a
   database credential the work was not given. The collectors refuse to run
   without 0143's lease table. 0144 (added 2026-10-29) bounds the free member
-  feed's current view; without it the feed reads as it did before.
+  feed's current view; without it the feed reads as it did before. 0145
+  (added 2026-10-29) holds the CardRush listing image links; without it the
+  CardRush collector records none (each run that writes a batch logs one
+  line), and `/prices` shows official references only.
 - **Turning on each collector** (`DATA_COLLECT_CARDMARKET`,
   `DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER`) **and the derivation job**
   (`DATA_DERIVE_MARKET`). `DATA_COLLECT_CARDMARKET` waits for migration
