@@ -99,7 +99,7 @@ export default async function GuidePage({
                   {s.step_number}
                 </span>
                 <h3 className="font-semibold text-ink mb-2">{s.title}</h3>
-                <p className="text-sm text-ink-muted leading-relaxed mb-3">
+                <p className="text-sm text-ink-muted leading-relaxed mb-3 whitespace-pre-line">
                   {s.instruction}
                 </p>
                 {s.curl && (
