@@ -141,8 +141,10 @@ const rankedStatement = (releaseColumn: string) => `${snapshot(releaseColumn)}, 
  * the rows written in the day a cursor lives), the latest of the key's own
  * observations under it, read newest first from member_price_observations_key.
  * A key with no previous has no observation before its latest. $8 after, $9 limit.
+ * keyed is MATERIALIZED: computed once, so no plan (a generic prepared plan,
+ * or a misestimated filter) can rescan it once per filtered observation.
  */
-const latestStatement = (releaseColumn: string) => `${snapshot(releaseColumn)}, keyed AS (
+const latestStatement = (releaseColumn: string) => `${snapshot(releaseColumn)}, keyed AS MATERIALIZED (
       SELECT CASE WHEN l.batch_id <= c.watermark THEN l.observation_id ELSE l.previous_observation_id END AS id
       FROM member_price_latest l JOIN allowed r ON r.source=l.source AND r.evidence_version=l.evidence_version
       CROSS JOIN ceiling c
@@ -209,6 +211,8 @@ export async function readMemberPrices(actor: { userId: string }, input: MemberP
     const shared = [cursor?.watermark ?? null, JSON.stringify(policies), query.game ?? null, query.set ?? null, query.sku ?? null, query.metric ?? null, query.q ?? null];
     const after = cursor?.after ?? '0';
     const ranked = () => dbQuery(rankedStatement(releaseColumn), [...shared, query.mode, after, query.limit + 1]);
+    // Until 0144 is applied each current read costs one failed statement (an
+    // ERROR in the server log) before the ranked one; apply 0144 with 0139-0143.
     const response = query.mode === 'current'
       ? await dbQuery(latestStatement(releaseColumn), [...shared, after, query.limit + 1]).catch(error => { if (undefinedTable(error)) return ranked(); throw error; })
       : await ranked();
