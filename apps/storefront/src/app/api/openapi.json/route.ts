@@ -28,6 +28,7 @@ import { SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
 import { PUBLIC_SCHEMAS } from "@/lib/contracts/schemas";
 import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 import { CARD_NUMBER_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/card-number-image-reference";
+import { withDataApiOperations } from "@/lib/data-api/openapi";
 
 const SPEC = {
   openapi: "3.1.0",
@@ -37,7 +38,7 @@ const SPEC = {
     summary:
       "Public participation, structural card lookup, publication-status, methodology, and stateless witness surfaces.",
     description:
-      "This document describes a reviewed subset of public read, publication-status, and stateless witness surfaces. Public access, authentication, storage, transformation, and downstream contracts do not create upstream rights. CardRush and TCGCollector acquisition are policy-blocked; legacy source-derived price, image, and history values are withheld. Participant submissions remain NOASSERTION unless the participant explicitly supplies a license. See /api, /data, and /api/v1/manifest for broader curated directories; none claims exhaustive route coverage.",
+      "This document describes a reviewed subset of public read, publication-status, and stateless witness surfaces. Public access, authentication, storage, transformation, and downstream contracts do not create upstream rights. TCGCollector acquisition is policy-blocked. TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads; collection runs only while scheduled (see /api/v1/sources). Legacy source-derived price, image, and history values are withheld. Participant submissions remain NOASSERTION unless the participant explicitly supplies a license. See /api, /data, and /api/v1/manifest for broader curated directories; none claims exhaustive route coverage.",
     contact: { email: "support@cambridgetcg.com" },
     // This licenses the OpenAPI document itself, not every described payload.
     license: { name: "CC0-1.0 (this OpenAPI document only)", identifier: "CC0-1.0" },
@@ -571,7 +572,7 @@ const SPEC = {
       get: {
         tags: ["prices"],
         summary: "Curated price guide for one card",
-        description: "JSON sibling of /prices/[game]/[set]/[number]. Resolves structural card identity and explicit source status. CardRush acquisition is hard-blocked and legacy values are withheld; TCGplayer remains blocked and Cardmarket has no wired reader. Aggregate mixed-card rights are NOASSERTION.",
+        description: "JSON sibling of /prices/[game]/[set]/[number]. Resolves structural card identity and explicit source status. Legacy CardRush values are withheld; TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads. Cardmarket has no wired reader. Aggregate mixed-card rights are NOASSERTION.",
         operationId: "getPriceGuideCard",
         parameters: [
           { name: "game", in: "path", required: true, schema: { type: "string" }, description: "Curated game slug." },
@@ -719,14 +720,14 @@ const SPEC = {
     "/api/v1/cards/{sku}/tcgplayer-history": {
       get: {
         tags: ["prices"],
-        summary: "Blocked TCGplayer history status door",
-        description: "TCGplayer is blocked. This endpoint returns SOURCE_UNAVAILABLE and exposes no observations because Cambridge has no recorded written approval for its multi-source use.",
+        summary: "TCGplayer history status door",
+        description: "TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads (written permission recorded 2026-10-28), so this endpoint returns SOURCE_UNAVAILABLE and exposes no observations. details.state keeps its earlier value, blocked-by-upstream-terms, for clients that read it.",
         operationId: "getTcgplayerHistory",
         parameters: [
           { name: "sku", in: "path", required: true, schema: { type: "string" }, description: "Canonical SKU." },
         ],
         responses: {
-          "503": { description: "Source blocked; no TCGplayer observations are exposed.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "503": { description: "Display-only source; no TCGplayer observations are exposed.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },
@@ -1741,7 +1742,8 @@ const SPEC = {
 } as const;
 
 export async function GET() {
-  return NextResponse.json(SPEC, {
+  // Data-API operations join only once the data API is published (lib/data-api/openapi.ts).
+  return NextResponse.json(withDataApiOperations(SPEC), {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "public, max-age=3600, s-maxage=3600",

@@ -1,5 +1,6 @@
 import { FRESHNESS } from "@cambridge-tcg/data-spec";
 import type { SourceMeta } from "@cambridge-tcg/data-ingest";
+import { legacyAcquisitionClosed, legacyArchiveFreshness } from "@cambridge-tcg/data-ingest/registry";
 import type { AggregatorCoverageResponse } from "@/lib/wholesale/client";
 import { createCoverageCandidate } from "./candidates";
 import type {
@@ -42,10 +43,18 @@ function stableMoment(value: string | null | undefined, fallback: string): strin
   return `${fallback.slice(0, 10)}T00:00:00.000Z`;
 }
 
+/**
+ * The observation archive is the legacy price_archive. A source whose legacy
+ * acquisition is closed adds nothing to it, whatever its status: CardRush and
+ * TCGplayer are partial for page collectors that write member_price_batches
+ * instead. Its declared games are not archive gaps to document, and its
+ * archive rows are judged as restricted, as they were while it was blocked.
+ */
 function canInviteEvidence(source: SourceMeta): boolean {
   return (
     (source.status === "shipped" || source.status === "partial") &&
-    source.access !== "blocked"
+    source.access !== "blocked" &&
+    !legacyAcquisitionClosed(source)
   );
 }
 
@@ -120,10 +129,13 @@ export function buildCoverageHuntBoard(
     const declaredForGame = source
       ? (source.games as readonly string[]).includes(row.game_code)
       : false;
+    // Archive rows keep the budget their source declared before its
+    // collector (the registry's legacyArchiveFreshness, CardRush, TCGplayer
+    // and Cardmarket alike), so a collector's budget never re-dates them.
     const budgetHours = source
-      ? FRESHNESS[source.freshness] / 3600
+      ? FRESHNESS[legacyArchiveFreshness(source)] / 3600
       : undefined;
-    const restricted = source?.status === "blocked" || source?.status === "planned" || source?.access === "blocked";
+    const restricted = source !== undefined && (legacyAcquisitionClosed(source) || source.status === "planned" || source.access === "blocked");
     const stale = budgetHours !== undefined && row.freshest_age_hours > budgetHours;
     if (source && declaredForGame && !restricted && !stale) continue;
 

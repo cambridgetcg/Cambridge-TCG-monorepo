@@ -1,0 +1,39 @@
+{
+ "_fixture": "Trimmed from https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=85&active=true, read 2026-10-28 by the identified collector. The listed rows are verbatim; the rest are left out.",
+ "errors": [],
+ "results": [
+  {
+   "setNameId": 23598,
+   "categoryId": 85,
+   "name": "SV1a: Triplet Beat",
+   "cleanSetName": "SV1a Triplet Beat",
+   "urlName": "sv1a-triplet-beat",
+   "abbreviation": "SV1a",
+   "releaseDate": "2023-03-10T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 23599,
+   "categoryId": 85,
+   "name": "SV2a: Pokemon Card 151",
+   "cleanSetName": "SV2a Pokemon Card 151",
+   "urlName": "sv2a-pokemon-card-151",
+   "abbreviation": "SV2a",
+   "releaseDate": "2023-06-16T00:00:00",
+   "isSupplemental": false,
+   "active": true
+  },
+  {
+   "setNameId": 24172,
+   "categoryId": 85,
+   "name": "Unnumbered Promotional cards",
+   "cleanSetName": "Unnumbered Promotional cards",
+   "urlName": "unnumbered-promotional-cards",
+   "abbreviation": "",
+   "releaseDate": null,
+   "isSupplemental": false,
+   "active": true
+  }
+ ]
+}

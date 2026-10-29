@@ -1,7 +1,7 @@
 import { createFetcher } from '../http';
 import { scryfall } from './index';
 import type { IngestContext } from '../types';
-import { artifactDigest, jsonObject, MEMBER_PRICE_REVIEW_VERSION, nativeAmount, resolvePriceCrosswalk, sourceTimestamp, type ExactPriceCrosswalk, type ParsedMemberPrices } from '../member-prices';
+import { artifactDigest, jsonObject, SCRYFALL_EVIDENCE_VERSION, nativeAmount, resolvePriceCrosswalk, sourceTimestamp, type ExactPriceCrosswalk, type ParsedMemberPrices } from '../member-prices';
 
 export const SCRYFALL_PRICE_PARSER = 'scryfall-daily-prices/1';
 export function assertScryfallBulkUrl(value: string): string {
@@ -38,7 +38,7 @@ export function parseScryfallMemberPrices(input: {
       if (mapping.mappingStatus === 'ambiguous') result.quarantine.push({ sourceProductId: id, reason: 'ambiguous-crosswalk-no-sku-assigned' });
       result.observations.push({ source: 'scryfall', sourceProductId: id, ...mapping, game: 'magic', productName: typeof card.name === 'string' ? card.name : null,
         granularity: 'printing', finish, language: card.lang, condition: null, metric, amount, currency: metric.startsWith('eur') ? 'EUR' : 'USD', underlyingMarket: metric.startsWith('eur') ? 'cardmarket' : 'tcgplayer',
-        sourceUpdatedAt, retrievedAt, sourceUrl, parserVersion: SCRYFALL_PRICE_PARSER, crosswalkVersion: input.crosswalkVersion ?? 'none', evidenceVersion: MEMBER_PRICE_REVIEW_VERSION, artifactSha256, catalogSourceUrl: null, catalogUpdatedAt: null, catalogArtifactSha256: null, quality: 'accepted' });
+        sourceUpdatedAt, retrievedAt, sourceUrl, parserVersion: SCRYFALL_PRICE_PARSER, crosswalkVersion: input.crosswalkVersion ?? 'none', evidenceVersion: SCRYFALL_EVIDENCE_VERSION, artifactSha256, catalogSourceUrl: null, catalogUpdatedAt: null, catalogArtifactSha256: null, quality: 'accepted' });
     }
   }
   return result;

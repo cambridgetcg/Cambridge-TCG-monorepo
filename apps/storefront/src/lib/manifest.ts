@@ -373,7 +373,7 @@ export const MANIFEST: Manifest = {
   // Date of the last hand review (2026-10-10 truth-layer pass); time of day not recorded.
   generated_at: "2026-10-10T00:00:00Z",
   description:
-    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. CardRush and TCGCollector acquisition are policy-blocked; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
+    `${PLATFORM.description} The roadmap separates existing foundations from planned integrations. New paid commerce is retired; existing account records, agreements and remedies retain their own access and release rules. ${DATA_RIGHTS} Envelope responses with undeclared aggregate rights default to NOASSERTION, mixed catalog responses remain NOASSERTION, and participant submissions remain NOASSERTION unless the participant explicitly supplies a license. TCGCollector acquisition is policy-blocked, and TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads; auth, storage, transformation, and downstream contracts do not create upstream rights. This manifest lists participant-facing resources, their access class, modalities, provenance kind, and supporting methodology so a fresh participant can orient before committing.`,
   request_privacy_boundary: {
     no_tracking_term_means:
       "No application-level visit or behavioral profile is created by a route making that claim. It does not mean request metadata cannot exist in hosting, proxy, security, or network infrastructure.",
@@ -918,7 +918,7 @@ export const MANIFEST: Manifest = {
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/pricing",
         since: "2026-05-13" },
-      { id: "storefront.prices.per_card", description: "Per-card guide detail — /prices/[game]/[set]/[number]. Resolves structural card identity by (game, set, number). CardRush is shown only as policy-blocked legacy lineage with values withheld; TCGplayer remains blocked and Cardmarket has no wired reader. Product metadata is mixed upstream content and remains NOASSERTION.",
+      { id: "storefront.prices.per_card", description: "Per-card guide detail — /prices/[game]/[set]/[number]. Resolves structural card identity by (game, set, number). CardRush is shown only as legacy lineage with its legacy values withheld; TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads. Cardmarket's member observations live in the member browser and are not merged into this guide. Product metadata is mixed upstream content and remains NOASSERTION.",
         host: "storefront", path: "/prices/[game]/[set]/[number]", methods: ["GET"],
         modalities: ["html"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge", "identity"], methodology_url: "/methodology/cross-source-pricing",
@@ -943,7 +943,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge"], methodology_url: "/methodology/cross-source-pricing",
         since: "2026-05-14" },
-      { id: "storefront.api.prices.per_card", description: "JSON sibling of /prices/[game]/[set]/[number]. Reuses loadCardState. Returns mixed card metadata plus explicit observed, planned, and blocked source states. Aggregate rights NOASSERTION; Cambridge-authored envelope and schema remain CC0 separately.",
+      { id: "storefront.api.prices.per_card", description: "JSON sibling of /prices/[game]/[set]/[number]. Reuses loadCardState. Returns mixed card metadata plus each source's state: CardRush and TCGplayer display-only on Cambridge pages with legacy rows withheld, Cardmarket's observations member-only and not merged. Aggregate rights NOASSERTION; Cambridge-authored envelope and schema remain CC0 separately.",
         host: "storefront", path: "/api/v1/prices/games/[game]/sets/[set]/cards/[number]", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "synced",
         cosmology_axes: ["value", "knowledge", "identity"], methodology_url: "/methodology/cross-source-pricing",
@@ -1343,7 +1343,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "wholesale-key", provenance: "live",
         cosmology_axes: ["value"], methodology_url: "docs/connections/the-license-propagation.md",
         since: "2026-05-14" },
-      { id: "wholesale.tcgplayer.history", description: "Dormant TCGplayer history route. Cambridge has no recorded approval or observations; TCGplayer is not granting new API access and its terms prohibit Cambridge's multi-source comparison use without written consent. Must remain unavailable until that approval is recorded.",
+      { id: "wholesale.tcgplayer.history", description: "Dormant TCGplayer history route. It returns no observations and stays unavailable: TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads.",
         host: "wholesale", path: "/api/v1/tcgplayer/history/[sku]", methods: ["GET"],
         modalities: ["json"], auth: "wholesale-key", provenance: "live",
         cosmology_axes: ["time", "value"], methodology_url: "docs/connections/the-tcgplayer-alignment.md",
@@ -1353,7 +1353,7 @@ export const MANIFEST: Manifest = {
         modalities: ["json"], auth: "wholesale-key", provenance: "computed",
         cosmology_axes: ["identity"], methodology_url: "docs/connections/the-tcgplayer-alignment.md",
         since: "2026-05-13" },
-      { id: "storefront.cards.tcgplayer_history", description: "Blocked TCGplayer history door retained for explicit status. No credentials, approval, or observations are recorded; it must not expose TCGplayer data unless written approval explicitly covers Cambridge's multi-source use.",
+      { id: "storefront.cards.tcgplayer_history", description: "TCGplayer history door retained for explicit status. It answers SOURCE_UNAVAILABLE with no observations: TCGplayer and CardRush prices are display-only on Cambridge pages and never served by the API or in downloads (written permission recorded 2026-10-28). Its details.state keeps its earlier value.",
         host: "storefront", path: "/api/v1/cards/[sku]/tcgplayer-history", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "live",
         cosmology_axes: ["time", "value"], methodology_url: "docs/connections/the-tcgplayer-alignment.md",

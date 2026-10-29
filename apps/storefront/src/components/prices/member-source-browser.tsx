@@ -1,19 +1,32 @@
 import Link from "next/link";
+import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices";
 import { Field, Input, Select } from "@/lib/ui/Input";
-import type { MemberPricePage } from "@/lib/prices/member-feed-types";
+import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, DISPLAY_ONLY_INPUT_PAGES, DISPLAY_ONLY_INPUT_PAGES_END, isDisplayOnlyInput, type MemberPriceItem, type MemberPricePage, type MemberPriceSource } from "@/lib/prices/member-feed-types";
 import { memberPriceExportHref, memberPriceHref } from "./member-query";
 
-const METRICS = ["avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil", "usd", "usd_foil", "usd_etched", "eur", "eur_foil"];
+const METRICS = ["avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil", "usd", "usd_foil", "usd_etched", "eur", "eur_foil", "sell", "market", "listed-median"];
+const SOURCE_NAMES = { cardmarket: "Cardmarket", scryfall: "Scryfall", cardrush: "CardRush", tcgplayer: "TCGplayer" } as const satisfies Record<MemberPriceSource, string>;
+const MARKET_NAMES = { cardmarket: "Cardmarket", tcgplayer: "TCGplayer", cardrush: "CardRush" } as const satisfies Record<MemberPriceItem["underlyingMarket"], string>;
+// The yen has no minor unit; euro and dollar amounts show at least cents.
+const MINOR_DIGITS = { EUR: 2, USD: 2, JPY: 0 } as const satisfies Record<MemberPriceItem["currency"], number>;
+const isSource = (value: string | null): value is MemberPriceSource => value !== null && Object.hasOwn(MEMBER_PRICE_POLICIES, value);
+const DISPLAY_ONLY_INPUTS = (Object.keys(MEMBER_PRICE_POLICIES) as MemberPriceSource[]).filter((source) => isDisplayOnlyInput(MEMBER_PRICE_POLICIES[source]));
 
 // Display only: the reader and export retain the exact decimal string. Avoid
 // Number coercion (precision loss) and the shared GBP-only price formatters.
-function formatNativeAmount(amount: string): string {
+// Trailing zeros past the currency's minor unit are storage scale, not data.
+function formatNativeAmount(amount: string, currency: MemberPriceItem["currency"]): string {
   const parts = /^(\d+)(?:\.(\d{1,6}))?$/.exec(amount);
   if (!parts) return "—";
-  return `${parts[1]}.${(parts[2] ?? "").replace(/0+$/, "").padEnd(2, "0")}`;
+  const fraction = (parts[2] ?? "").replace(/0+$/, "").padEnd(MINOR_DIGITS[currency], "0");
+  return fraction ? `${parts[1]}.${fraction}` : parts[1]!;
 }
 
-export function MemberPriceFilters({ params }: { params: URLSearchParams }) {
+/** `displayOnly`: the display-only sources holding rows to show
+ * (displayOnlySourcesWithRows). Only those are offered, with the filter in use. */
+export function MemberPriceFilters({ params, displayOnly }: { params: URLSearchParams; displayOnly: readonly MemberPriceSource[] }) {
+  const selected = params.get("source");
+  const offered = DISPLAY_ONLY_INPUTS.filter((source) => displayOnly.includes(source) || selected === source);
   return (
     <form action="/prices" method="get" className="my-6 space-y-4" aria-label="Filter member prices">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -25,6 +38,7 @@ export function MemberPriceFilters({ params }: { params: URLSearchParams }) {
             <option value="">All eligible display sources</option>
             <option value="cardmarket">Cardmarket · display and export</option>
             <option value="scryfall">Scryfall · display only</option>
+            {offered.map((source) => <option key={source} value={source}>{SOURCE_NAMES[source]} · display only</option>)}
           </Select>
         </Field>
         <Field label="Game slug" htmlFor="member-price-game" hint="Coverage depends on imported observations, not the presence of a filter option.">
@@ -84,7 +98,7 @@ export function MemberPriceResults({ page, params }: { page: MemberPricePage; pa
   );
   return (
     <>
-      <p className="mb-3 text-xs text-ink-muted">{page.count} observations on this page; {page.total} in this filtered snapshot. {page.complete ? "End of results." : "More results follow."}</p>
+      <p className="mb-3 text-xs text-ink-muted">{page.count} observations on this page; {page.total} in this filtered snapshot. {page.complete ? "End of results." : page.nextCursor ? "More results follow." : "More results match than this view shows."}</p>
       <p className="mb-4 text-xs text-ink-muted">Snapshot opened: <ObservationTime value={page.asOf} />. This is a pagination boundary, not source freshness. Source and retrieval times appear on each row.</p>
       <div className="overflow-x-auto rounded-lg border border-border-subtle" role="region" aria-label="Source price observations" tabIndex={0}>
         <table className="w-full text-left text-sm">
@@ -101,13 +115,13 @@ export function MemberPriceResults({ page, params }: { page: MemberPricePage; pa
                   <p className="mt-1 break-all font-mono text-xs text-ink-muted">{item.sku ?? `Source ID: ${item.sourceProductId}`}</p>
                 </th>
                 <td className="min-w-48 px-4 py-4">
-                  <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">{item.source === "cardmarket" ? "Cardmarket" : "Scryfall"}</a>
+                  <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">{SOURCE_NAMES[item.source]}</a>
                   <p className="mt-1 font-mono text-xs text-ink">{item.metric}</p>
-                  <p className="mt-1 text-xs text-ink-muted">Market: {item.underlyingMarket === "cardmarket" ? "Cardmarket" : "TCGplayer"}</p>
+                  <p className="mt-1 text-xs text-ink-muted">Market: {MARKET_NAMES[item.underlyingMarket]}</p>
                   <p className="mt-2 text-xs text-ink-muted">{item.attribution}</p>
                   <p className="mt-2 text-xs text-ink-muted">{item.permittedUses.includes("member-download") ? "Eligible for member export" : "View only · not in API or downloads"}</p>
                 </td>
-                <td className="whitespace-nowrap px-4 py-4 font-mono text-ink">{formatNativeAmount(item.amount)} {item.currency}</td>
+                <td className="whitespace-nowrap px-4 py-4 font-mono text-ink">{formatNativeAmount(item.amount, item.currency)} {item.currency}</td>
                 <td className="min-w-56 px-4 py-4 text-xs text-ink-muted">
                   <p>{item.granularity === "source-product" ? "Source-product aggregate" : "Printing-level observation"}</p>
                   <p className="mt-1">Mapping: {item.mappingStatus === "exact" ? "exact catalog mapping" : item.mappingStatus === "ambiguous" ? "ambiguous · no exact card match" : "unmapped · source product only"}</p>
@@ -138,18 +152,42 @@ export function MemberPriceResults({ page, params }: { page: MemberPricePage; pa
       <nav aria-label="Member price pages" className="mt-5 flex flex-wrap gap-5 text-sm">
         {params.has("cursor") && <Link href={memberPriceHref(params)} prefetch={false} className="text-accent underline underline-offset-4">Back to first page</Link>}
         {page.nextCursor && <Link href={memberPriceHref(params, page.nextCursor)} prefetch={false} className="text-accent underline underline-offset-4">Next page</Link>}
+        {/* Only a view that includes display-only sources ends before its results do. */}
+        {!page.complete && !page.nextCursor && <p role="note" className="text-ink-muted">{DISPLAY_ONLY_INPUT_PAGES_END}</p>}
       </nav>
     </>
   );
 }
 
+/** The reader leaves display-only derivation inputs out of history, of pages
+ * over DISPLAY_ONLY_INPUT_PAGE_LIMIT rows and of searches not narrowed to a
+ * name, a SKU or a set within a game. Say so for `sources`, the ones holding
+ * rows to show; link the view that shows them when the search is narrowed.
+ * Names come from the policy, never from the URL. */
+export function MemberPriceDisplayOnlyNote({ params, sources, narrowed }: { params: URLSearchParams; sources: readonly MemberPriceSource[]; narrowed: boolean }) {
+  const names = DISPLAY_ONLY_INPUTS.filter((source) => sources.includes(source)).map((name) => SOURCE_NAMES[name]).join(" and ");
+  if (!names) return null;
+  const next = new URLSearchParams(params);
+  next.set("mode", "current");
+  next.set("limit", String(DISPLAY_ONLY_INPUT_PAGE_LIMIT));
+  return (
+    <p role="note" className="my-4 max-w-3xl text-sm text-ink-muted">
+      {names} prices are not in this view. They are for looking at, not collecting, so they appear only in the current view of a search narrowed by product name, SKU, or set and game, at most {DISPLAY_ONLY_INPUT_PAGE_LIMIT} rows a page and {DISPLAY_ONLY_INPUT_PAGES} pages.
+      {narrowed && <>{" "}<Link href={memberPriceHref(next)} prefetch={false} className="text-accent underline underline-offset-4">Show this search at {DISPLAY_ONLY_INPUT_PAGE_LIMIT} rows a page</Link></>}
+    </p>
+  );
+}
+
 export function MemberPriceDownloads({ params }: { params: URLSearchParams }) {
-  const displayOnly = params.get("source") === "scryfall";
+  // Named from the policy, never echoed from the URL. An unknown source is
+  // refused by the reader and the export alike.
+  const source = params.get("source");
+  const displayOnly = isSource(source) && !(MEMBER_PRICE_POLICIES[source].uses as readonly string[]).includes("member-download") ? SOURCE_NAMES[source] : null;
   return (
     <section aria-labelledby="member-downloads-heading" className="mt-8 border-t border-border-subtle pt-5">
       <h3 id="member-downloads-heading" className="font-display text-lg font-medium text-ink">Take permitted data with you</h3>
-      <p className="mt-2 max-w-3xl text-sm text-ink-muted">Cardmarket official-file observations can be exported. Scryfall observations are for these value-added views only and are excluded from every API and download. These are source-specific permissions, not a CC0 license for a mixed dataset.</p>
-      {displayOnly ? <p className="mt-3 text-sm text-ink-muted">Downloads are unavailable for the Scryfall-only filter.</p> : (
+      <p className="mt-2 max-w-3xl text-sm text-ink-muted">Cardmarket official-file observations can be exported. Scryfall, CardRush and TCGplayer observations are for these views only and are excluded from every API and download. These are source-specific permissions, not a CC0 license for a mixed dataset.</p>
+      {displayOnly ? <p className="mt-3 text-sm text-ink-muted">Downloads are unavailable for the {displayOnly}-only filter.</p> : (
         <div className="mt-3 flex flex-wrap gap-4 text-sm">
           <a href={memberPriceExportHref(params, "csv")} className="text-accent underline underline-offset-4">Download CSV</a>
           <a href={memberPriceExportHref(params, "ndjson")} className="text-accent underline underline-offset-4">Download NDJSON</a>

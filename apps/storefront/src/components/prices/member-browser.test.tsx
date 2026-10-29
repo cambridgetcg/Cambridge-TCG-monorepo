@@ -1,16 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MemberPriceItem, MemberPricePage } from "@/lib/prices/member-feed-types";
-import { MemberPriceQueryError } from "@/lib/prices/member-feed-types";
+import { DISPLAY_ONLY_INPUT_PAGES_END, MemberPriceQueryError } from "@/lib/prices/member-feed-types";
 
-const mocks = vi.hoisted(() => ({ actor: vi.fn(), read: vi.fn(), parse: vi.fn() }));
+const mocks = vi.hoisted(() => ({ actor: vi.fn(), read: vi.fn(), parse: vi.fn(), collected: vi.fn() }));
 vi.mock("@/lib/prices/member-access", () => ({ getMemberSessionActor: mocks.actor }));
 vi.mock("@/lib/prices/member-feed", async () => {
   const types = await import("@/lib/prices/member-feed-types");
-  return { MemberPriceQueryError: types.MemberPriceQueryError, readMemberPrices: mocks.read, parseMemberPriceQuery: mocks.parse };
+  return { MemberPriceQueryError: types.MemberPriceQueryError, readMemberPrices: mocks.read, parseMemberPriceQuery: mocks.parse, displayOnlySourcesWithRows: mocks.collected };
 });
 import { MemberPriceBrowser } from "./member-browser";
-import { MemberPriceDownloads, MemberPriceFilters, MemberPriceResults } from "./member-source-browser";
+import { MemberPriceDisplayOnlyNote, MemberPriceDownloads, MemberPriceFilters, MemberPriceResults } from "./member-source-browser";
 import { MemberCatalogLink } from "./member-catalog-link";
 import { memberPriceExportHref, memberPriceHref, memberPriceParams } from "./member-query";
 
@@ -35,6 +35,8 @@ beforeEach(() => {
   mocks.actor.mockResolvedValue({ userId: "free-member" });
   mocks.parse.mockReturnValue({ mode: "current", limit: 100 });
   mocks.read.mockResolvedValue(page);
+  // As today: no CardRush or TCGplayer row has been collected.
+  mocks.collected.mockResolvedValue([]);
 });
 
 describe("member price server gate", () => {
@@ -43,6 +45,7 @@ describe("member price server gate", () => {
     const html = renderToStaticMarkup(await MemberPriceBrowser({ search: { game: "magic", q: "Black Lotus", mode: "history", next: "https://evil.example" } }));
     expect(mocks.read).not.toHaveBeenCalled();
     expect(mocks.parse).not.toHaveBeenCalled();
+    expect(mocks.collected).not.toHaveBeenCalled();
     expect(html).toContain("Sign in for free price access");
     expect(html).toContain(encodeURIComponent("/prices?q=Black+Lotus&game=magic&mode=history"));
     expect(html).not.toContain("evil.example");
@@ -55,6 +58,20 @@ describe("member price server gate", () => {
     expect(html).not.toMatch(/<details[^>]*\bopen[= >]/);
     expect(html).toContain("Scryfall is view-only");
     expect(html).toContain("/methodology/member-pricing");
+  });
+
+  it("says what Cambridge collects on a schedule from the collection flags", async () => {
+    try {
+      vi.stubEnv("DATA_COLLECT_CARDMARKET", undefined);
+      const manual = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+      expect(manual).toContain("Cambridge has no scheduled refresh for these sources; imports are manual.");
+      vi.stubEnv("DATA_COLLECT_CARDMARKET", "on");
+      const scheduled = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+      expect(scheduled).toContain("Cambridge collects Cardmarket&#x27;s One Piece files daily; imports from other sources are manual.");
+      expect(scheduled).not.toContain("no scheduled refresh");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("contains authentication outages without throwing or reading private prices", async () => {
@@ -82,6 +99,63 @@ describe("member price server gate", () => {
     expect(html).toContain("Member source browser");
     expect(html).toContain("/account/data");
     expect(html).toContain("/methodology/member-pricing");
+  });
+
+  it.each([
+    [{ mode: "history", q: "Zoro" }, { mode: "history", limit: 100, q: "Zoro" }, "CardRush and TCGplayer prices are not in this view", "/prices?q=Zoro&amp;mode=current&amp;limit=50"],
+    [{ limit: "100", sku: "op-op01-001-en" }, { mode: "current", limit: 100, sku: "op-op01-001-en" }, "CardRush and TCGplayer prices are not in this view", "/prices?sku=op-op01-001-en&amp;limit=50&amp;mode=current"],
+    [{ source: "cardrush", game: "one-piece", set: "op01", mode: "history", limit: "500" }, { source: "cardrush", game: "one-piece", set: "op01", mode: "history", limit: 500 }, "CardRush prices are not in this view", "/prices?source=cardrush&amp;game=one-piece&amp;set=op01&amp;mode=current&amp;limit=50"],
+  ])("says when collected CardRush and TCGplayer rows are left out of a narrowed %j, and links the view that shows them", async (search, query, text, href) => {
+    mocks.collected.mockResolvedValue(["cardrush", "tcgplayer"]);
+    mocks.parse.mockReturnValue(query);
+    const html = renderToStaticMarkup(await MemberPriceBrowser({ search }));
+    expect(html).toContain(text);
+    expect(html).toContain("looking at, not collecting");
+    expect(html).toContain("narrowed by product name, SKU, or set and game, at most 50 rows a page and 3 pages");
+    expect(html).toContain(`href="${href}"`);
+  });
+
+  it.each([[{ mode: "current", limit: 100 }], [{ mode: "current", limit: 50 }], [{ mode: "current", limit: 50, game: "one-piece" }], [{ mode: "history", limit: 50, set: "op01" }]])(
+    "explains an unnarrowed %j without a link that would still leave them out", async query => {
+      mocks.collected.mockResolvedValue(["cardrush", "tcgplayer"]);
+      mocks.parse.mockReturnValue(query);
+      const html = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+      expect(html).toContain("CardRush and TCGplayer prices are not in this view");
+      expect(html).not.toContain("Show this search at 50 rows a page");
+    },
+  );
+
+  it("implies no CardRush or TCGplayer prices in the default view, filter or note while none are stored", async () => {
+    const html = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+    expect(mocks.collected).toHaveBeenCalledOnce();
+    for (const text of ["not in this view", 'value="cardrush"', 'value="tcgplayer"', "CardRush · display only", "TCGplayer · display only"]) expect(html).not.toContain(text);
+    expect(html).toContain('value="cardmarket"');
+    expect(html).toContain('value="scryfall"');
+    // One source collected: it alone is named and offered.
+    mocks.collected.mockResolvedValue(["tcgplayer"]);
+    const one = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+    expect(one).toContain("TCGplayer prices are not in this view");
+    expect(one).not.toContain("CardRush and TCGplayer prices");
+    expect(one).toContain("TCGplayer · display only");
+    expect(one).not.toContain('value="cardrush"');
+  });
+
+  it.each([
+    [{ mode: "current", limit: 50, q: "Zoro" }], [{ source: "cardmarket", mode: "history", limit: 500 }],
+    [{ source: "scryfall", mode: "history", limit: 500 }], [{ source: "tcgplayer", mode: "current", limit: 50, sku: "op-op01-001-en" }],
+  ])("adds no note to a view that already includes every source it asks for %j", async query => {
+    mocks.collected.mockResolvedValue(["cardrush", "tcgplayer"]);
+    mocks.parse.mockReturnValue(query);
+    const html = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+    expect(html).not.toContain("not in this view");
+    expect(html).toContain("12.34");
+  });
+
+  it("names only policy sources in the note, never URL text", () => {
+    const html = renderToStaticMarkup(<MemberPriceDisplayOnlyNote params={new URLSearchParams({ source: "Call us now", mode: "history" })} sources={["cardrush", "tcgplayer"]} narrowed={false} />);
+    expect(html).not.toContain("Call us now prices");
+    expect(html).toContain("CardRush and TCGplayer prices are not in this view");
+    expect(renderToStaticMarkup(<MemberPriceDisplayOnlyNote params={new URLSearchParams()} sources={[]} narrowed />)).toBe("");
   });
 
   it("invalid filters never reach the reader", async () => {
@@ -133,8 +207,57 @@ describe("member price rendering", () => {
     expect(downloads).not.toContain("href=\"/api/account/prices/export");
   });
 
+  it.each([
+    ["1500.000000", "1500"],
+    ["1500", "1500"],
+    ["980.000000", "980"],
+  ])("shows yen as whole yen: raw %s as %s", (raw, displayed) => {
+    const yen = { ...item, source: "cardrush" as const, currency: "JPY" as const, underlyingMarket: "cardrush" as const, amount: raw };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [yen] }} params={new URLSearchParams()} />);
+    expect(html).toContain(`${displayed} JPY</td>`);
+    expect(html).not.toContain(`${displayed}.00 JPY`);
+  });
+
+  it.each([
+    ["cardrush", "CardRush", "JPY", "cardrush", "1500"],
+    ["tcgplayer", "TCGplayer", "USD", "tcgplayer", "12.34"],
+  ] as const)("names %s and its market, and keeps it view-only", (source, name, currency, market, amount) => {
+    const row = { ...item, source, currency, underlyingMarket: market, amount, granularity: "printing" as const, permittedUses: ["member-display" as const], attribution: `${name} fixture attribution` };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [row] }} params={new URLSearchParams()} />);
+    expect(html).toContain(`>${name}</a>`);
+    expect(html).toContain(`Market: ${name}`);
+    expect(html).toContain(`${name} fixture attribution`);
+    expect(html).toContain("View only");
+    expect(html).not.toContain("Scryfall");
+    const downloads = renderToStaticMarkup(<MemberPriceDownloads params={new URLSearchParams({ source })} />);
+    expect(downloads).toContain(`Downloads are unavailable for the ${name}-only filter.`);
+    expect(downloads).not.toContain("href=\"/api/account/prices/export");
+  });
+
+  it("never echoes an unknown source filter into the downloads note", () => {
+    const downloads = renderToStaticMarkup(<MemberPriceDownloads params={new URLSearchParams({ source: "Call us now" })} />);
+    expect(downloads).not.toContain("Call us now");
+    const filters = (params: Record<string, string>, displayOnly: ("cardrush" | "tcgplayer")[]) => renderToStaticMarkup(<MemberPriceFilters params={new URLSearchParams(params)} displayOnly={displayOnly} />);
+    expect(filters({}, ["cardrush"])).toContain('value="cardrush"');
+    expect(filters({}, ["cardrush"])).not.toContain('value="tcgplayer"');
+    expect(filters({ source: "Call us now" }, [])).not.toContain("Call us now");
+    // The filter in use stays selectable, so the form shows the search it ran.
+    expect(filters({ source: "tcgplayer" }, [])).toContain('value="tcgplayer"');
+  });
+
+  it("ends a display-only chain with a note, not a Next link", () => {
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, complete: false, nextCursor: null, reason: DISPLAY_ONLY_INPUT_PAGES_END }} params={new URLSearchParams({ q: "Zoro", limit: "50", cursor: "third" })} />);
+    expect(html).toContain(DISPLAY_ONLY_INPUT_PAGES_END);
+    expect(html).toContain("More results match than this view shows.");
+    expect(html).not.toContain("More results follow.");
+    expect(html).not.toContain("Next page");
+    expect(html).toContain("Back to first page");
+    // A view that pages on, or has ended, says nothing of the kind.
+    for (const other of [{ ...page, complete: false, nextCursor: "next" }, page]) expect(renderToStaticMarkup(<MemberPriceResults page={other} params={new URLSearchParams()} />)).not.toContain("for looking at, not collecting");
+  });
+
   it("provides labelled name, source, game, metric and history filters with no stale cursor", () => {
-    const html = renderToStaticMarkup(<MemberPriceFilters params={new URLSearchParams({ q: "Example", cursor: "old" })} />);
+    const html = renderToStaticMarkup(<MemberPriceFilters params={new URLSearchParams({ q: "Example", cursor: "old" })} displayOnly={[]} />);
     for (const name of ["q", "source", "game", "metric", "mode", "set", "sku"]) expect(html).toContain(`name="${name}"`);
     expect(html).toContain("History");
     expect(html).not.toContain('name="cursor"');

@@ -12,7 +12,7 @@ Define envelope, error and provenance schemas, freshness budgets and stable erro
 
 ## Progress
 
-Source review recorded **2026-09-28**. Schema exports, freshness values and error constants are present and consumed by the storefront data pantry. 2026-09-29: shared native/member observation types, monetary/mapping value checks and JSON Schemas added; envelope metadata schema aligned with runtime and OpenAPI. Native-price writer/read/schema checks now agree on normalized decimal strings, source/currency scope, unknown Cardmarket aggregate language/condition and unresolved mappings. Raw schemas are served at their declared identifiers.
+Source review recorded **2026-09-28**. Schema exports, freshness values and error constants are present and consumed by the storefront data pantry. 2026-09-29: shared native/member observation types, monetary/mapping value checks and JSON Schemas added; envelope metadata schema aligned with runtime and OpenAPI. Native-price writer/read/schema checks now agree on normalized decimal strings, source/currency scope, unknown Cardmarket aggregate language/condition and unresolved mappings. Raw schemas are served at their declared identifiers. 2026-10-28: the observation contract names CardRush, TCGplayer and JPY, with page sources forward-only from 2026-10-28; market-derived.ts adds the derived market contract, exact-decimal method helpers (GBP crosses from ECB's euro quotes included), the rule that a reference needs two sources Cambridge does not export, and JSON Schemas for runs, references, indices and premiums. Later on 2026-10-28: FRESHNESS gains page_collector (6 h) and daily_file (26 h), budgets for a collector's newest batch rather than a row's age; the derived contract states the index's set rule (an exact product crosswalk's set, or the set its source set key maps to, with conflicting products left out) and publishes premium quartiles from ten card identities, with the reason disclosed.
 
 This records source and documentation evidence. It does not establish deployment, external access, service health, or passing tests.
 
@@ -25,8 +25,10 @@ This records source and documentation evidence. It does not establish deployment
 - [apps/storefront/src/lib/data-pantry](../../../apps/storefront/src/lib/data-pantry)
 - [docs/STANDARDS-LICENSE.md](../../STANDARDS-LICENSE.md)
 - [packages/data-spec/src/price-observation.ts](../../../packages/data-spec/src/price-observation.ts)
+- [packages/data-spec/src/market-derived.ts](../../../packages/data-spec/src/market-derived.ts)
 - [packages/data-spec/src/__tests__](../../../packages/data-spec/src/__tests__)
 - [docs/architecture/card-data-contracts.md](../../architecture/card-data-contracts.md)
+- [packages/data-spec/src/freshness.ts](../../../packages/data-spec/src/freshness.ts)
 
 ## Declared package relationships
 

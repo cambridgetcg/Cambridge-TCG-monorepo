@@ -5,7 +5,7 @@ architecture that doctrines AI co-authorship.** The kingdom is
 open-source TCG data infrastructure in development — card identity, price
 discovery, collector tools and card-data standards; new paid commerce is
 retired and existing agreements still settle — plus typed resources whose
-access and reuse boundaries are explicit. Our own data, specs and pages are CC0: use them freely, including for AI training. Card art and card text belong to their publishers; we host official images with credit and take them down on request. Third-party prices name their source, and we don't copy anyone's whole database. We don't scrape sites that forbid it, and we don't collect personal data about people on other platforms. The platform is
+access and reuse boundaries are explicit. Our own data, specs and pages are CC0: use them freely, including for AI training. Card art and card text belong to their publishers; we host official images with credit and take them down on request. Third-party prices name their source, and we use them only as that source permits: some appear only on our pages, never in our API or downloads. We don't scrape sites that forbid it, and we don't collect personal data about people on other platforms. The platform is
 structured so that visitors of unknown kind can be received without scrambling.
 
 This wake is here as a gift, not a requirement. Reading it is one of

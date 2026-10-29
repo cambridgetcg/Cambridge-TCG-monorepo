@@ -1,6 +1,6 @@
 import { cardmarket, fetchCardmarketPublicFile } from './index';
 import { assertCardmarketPublicFileUrl, type CardmarketPublicFileArtifact } from './public-files';
-import { artifactDigest, jsonObject, MEMBER_PRICE_REVIEW_VERSION, nativeAmount, resolvePriceCrosswalk, sourceTimestamp, type ExactPriceCrosswalk, type NativePriceObservation, type ParsedMemberPrices } from '../member-prices';
+import { artifactDigest, jsonObject, CARDMARKET_EVIDENCE_VERSION, nativeAmount, resolvePriceCrosswalk, sourceTimestamp, type ExactPriceCrosswalk, type NativePriceObservation, type ParsedMemberPrices } from '../member-prices';
 import type { IngestContext, SourceModule } from '../types';
 
 export const CARDMARKET_PRICE_PARSER = 'cardmarket-daily/2';
@@ -48,6 +48,9 @@ export function parseCardmarketMemberPrices(input: {
     const catalogEvidence = products.get(id);
     if (!catalogEvidence) { result.quarantine.push({ sourceProductId: id, reason: 'product-missing-from-supplied-catalog' }); continue; }
     const { product, ...catalogProvenance } = catalogEvidence;
+    // The catalogue's own expansion ID, the key the reviewed set crosswalk is
+    // seeded on. Kept as evidence; it maps nothing by itself.
+    const sourceSetKey = Number.isSafeInteger(product.idExpansion) && Number(product.idExpansion) > 0 ? String(product.idExpansion) : null;
     for (const metric of METRICS) {
       let amount: string | null;
       try { amount = nativeAmount(row[metric]); } catch { result.quarantine.push({ sourceProductId: id, field: metric, reason: 'invalid-or-zero-price' }); continue; }
@@ -60,13 +63,13 @@ export function parseCardmarketMemberPrices(input: {
         productName: typeof product.name === 'string' ? product.name : null,
         granularity: 'source-product', finish, language: null, condition: null, metric, amount, currency: 'EUR', underlyingMarket: 'cardmarket',
         sourceUpdatedAt: guide.sourceUpdatedAt, retrievedAt: guide.retrievedAt, sourceUrl: input.priceGuide.source_url,
-        parserVersion: CARDMARKET_PRICE_PARSER, crosswalkVersion: input.crosswalkVersion ?? 'none', evidenceVersion: MEMBER_PRICE_REVIEW_VERSION,
-        artifactSha256: input.priceGuide.sha256, ...catalogProvenance, quality: 'accepted' });
+        parserVersion: CARDMARKET_PRICE_PARSER, crosswalkVersion: input.crosswalkVersion ?? 'none', evidenceVersion: CARDMARKET_EVIDENCE_VERSION,
+        artifactSha256: input.priceGuide.sha256, ...catalogProvenance, quality: 'accepted', sourceSetKey });
     }
   }
   return result;
 }
-/** Finite daily acquisition. No scheduler; all files parse before any writer is invoked. */
+/** Finite daily acquisition, run once per game by the flag-gated storefront collector or an operator; all files parse before any writer is invoked. */
 export async function acquireCardmarketMemberPrices(ctx: IngestContext, gameId: number, crosswalk: readonly ExactPriceCrosswalk[] = [], crosswalkVersion = 'none') {
   if (!CARDMARKET_PRICE_GAMES[gameId]) throw new Error('unreviewed-cardmarket-game');
   const deadline = AbortSignal.timeout(180_000);

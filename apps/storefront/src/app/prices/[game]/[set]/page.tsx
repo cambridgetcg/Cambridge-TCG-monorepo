@@ -22,12 +22,9 @@ import {
   synthesizeConfigFromCatalog,
   type PriceGuideGameConfig,
 } from "@/lib/prices/games-config";
-import { listSourceMeta } from "@cambridge-tcg/data-ingest";
+import { legacyAcquisitionClosed } from "@cambridge-tcg/data-ingest/registry";
 import { SHARE_CARD, fixedShareCard } from "@/lib/share-card";
 import { JsonLd } from "@/components/site/JsonLd";
-
-/** Registry status per source id — in-process, no network or database. */
-const SOURCE_STATUS: ReadonlyMap<string, string> = new Map(listSourceMeta().map((meta) => [meta.id, meta.status] as const));
 
 /** Resolve config: curated, else synthesize from catalog, else null. */
 async function resolveConfig(slug: string): Promise<PriceGuideGameConfig | null> {
@@ -355,7 +352,7 @@ export default async function SetPriceGuidePage({
               {releaseDate ? ` (released ${releaseDate})` : ""}, but no card
               rows are held for it yet. No acquisition job is scheduled for this
               set
-              {cfg.cardrush && SOURCE_STATUS.get("cardrush") === "blocked"
+              {cfg.cardrush && legacyAcquisitionClosed("cardrush")
                 ? ": CardRush acquisition is disabled by source policy"
                 : ""}
               . See{" "}

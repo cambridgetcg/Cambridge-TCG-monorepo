@@ -36,6 +36,20 @@ self_reference: this entry names itself in `this_entry_names` (see the-nesting.m
 > Access, storage, authentication, normalization, and transformation do not
 > create publication rights.
 
+> **Update, 2026-10-28.** Yu's word records written permission for collection
+> from CardRush and TCGplayer product pages, and for Cardmarket prices as an
+> input to derived data
+> ([decision](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md)).
+> Intake records are in [`source-intake.md`](../methodology/source-intake.md).
+> Once collected, raw CardRush and TCGplayer prices are for attributed member
+> display only, never member API, download or bulk. Code blocks each source
+> until its identified collector lands; both landed 2026-10-28, each behind
+> its flag (`DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER`): the CardRush
+> page collector (`packages/data-ingest/src/cardrush/member-prices.ts`, cron
+> `/api/cron/collect/cardrush`) and the TCGplayer price-guide collector. The
+> legacy paths stay locked. Legacy CardRush rows stay withheld and are not
+> inputs.
+
 > *"Lets dive deeper to collect existing sources of data that we could aggregate from: cardrush, cardmarket, tcgplayer, ebay and other platforms."* — Yu, 2026-05-12.
 
 The previous two entries — [`the-pantry.md`](./the-pantry.md) and [`the-modules.md`](./the-modules.md) — named *how the kingdom emits data*. This entry names *where the kingdom could draw it from*. The pantry is the reservoir; the tributaries are the rivers that fill it.
@@ -52,7 +66,7 @@ The previous two entries — [`the-pantry.md`](./the-pantry.md) and [`the-module
 |--------|--------|---------------|----------|-------|--------|
 | **Cambridge TCG wholesale RDS** | catalog + price + stock | all 13 games | self-hosted PostgreSQL on AWS RDS | `wholesale-rds` in `_meta.sources` | shipped — the canonical store |
 | **Cambridge TCG storefront RDS** | orders + accounts + lifecycle | all 13 games | self-hosted PostgreSQL on AWS RDS | `storefront-rds` in `_meta.sources` | shipped |
-| **CardRush (JP)** | legacy retail observations | six games in the retained archive | dormant adapter with immutable pre-network policy gate | `cardrush` source-module | **blocked** — formal partnership required; legacy values/assets withheld |
+| **CardRush (JP)** | retail prices (page collector); legacy retail observations | six hosts collected; six games in the retained archive | identified page collector, flag-gated; legacy adapter behind its immutable pre-network gate | `cardrush` source-module | **partial** (2026-10-28) — written permission; collector runs only while `DATA_COLLECT_CARDRUSH` is `on`, display-only; legacy archive frozen, values/assets withheld |
 | **eBay (order import)** | partner orders | all (B2B sales channel) | eBay Trading/Finding APIs via [`apps/wholesale/src/lib/channels/ebay.ts`](../../apps/wholesale/src/lib/channels/ebay.ts) | `ebay` channel in `channel_pricing` | shipped (orders only — channel-side write path) |
 | **eBay (read-side aggregator)** | current asks → future sold-comps | all 13 games (game-agnostic; parser-driven) | Browse API via [`packages/data-ingest/src/ebay/`](../../packages/data-ingest/src/ebay/); Marketplace Insights API gated on partner approval | `ebay` source-module | shipped (Phase A — kingdom-080; see [`the-ebay-alignment.md`](./the-ebay-alignment.md)) |
 | **Shopify (channel sync)** | inventory + order sync | per-store | Shopify Admin API ([`apps/wholesale/src/lib/shopify-sync.ts`](../../apps/wholesale/src/lib/shopify-sync.ts), [`shopify-client.ts`](../../apps/wholesale/src/lib/shopify-client.ts)) | `shopify` channel in `channel_pricing` | shipped (channel multipliers wired) |
@@ -74,15 +88,18 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Field | Value |
 |-------|-------|
 | Coverage | MTG, Pokémon, Yu-Gi-Oh, One Piece, Dragon Ball, Lorcana, Flesh and Blood, Digimon, Vanguard, FaB, Weiß Schwarz |
-| URL | `api.tcgplayer.com` |
-| Access | **Blocked for Cambridge.** Official docs say no new API access; existing keys are purpose-limited by prior written approval. |
+| URL | `www.tcgplayer.com` price-guide pages, whose data comes from `infinite-api.tcgplayer.com` and `mpapi.tcgplayer.com`; `api.tcgplayer.com` is the API, closed to Cambridge |
+| Access | **Pages, by written permission (2026-10-28), the price-guide data included (Yu, 2026-10-29).** The identified collector reads the data the public set price-guide pages load, one request per set at Crawl-Delay 10, never seller listings. Yu confirmed on 2026-10-29 that "Scrape TCGplayer pages" covers those requests ([intake record](../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)); the collector reads only while `DATA_COLLECT_TCGPLAYER` is `on`, as `/api/v1/sources` shows. The API stays closed: no new access, and existing keys are purpose-limited by prior written approval. |
 | Public API? | No new access. Existing access is not transferable. |
 | Bulk feed? | Third-party mirrors do not cure the upstream restriction; do not use them without a written chain of rights. |
-| License | Proprietary. Terms prohibit a competing service, combining TCGplayer prices with first/third-party prices, and redistribution/commercialisation without prior written consent. |
-| Freshness | real-time on `/pricing`; daily on TCGCSV bulk |
+| License | Proprietary. Terms prohibit a competing service, combining TCGplayer prices with first/third-party prices, and redistribution/commercialisation without prior written consent. Yu's written permission (2026-10-28) covers page collection, attributed member display and derivation input; raw values are never exported (`internal-only`, `redistribute: false`). |
+| Freshness | Market Price as the page data shows it when read. While scheduled, the collector runs hourly, stalest set first. Module freshness `page_collector` (6 h) is a budget for the collector's latest batch, not for each row. |
 | Canonical-form effort | **medium** — TCGplayer uses its own `productId` (integer) per printing; SKU mapping requires their `group_id` (set) + product attributes. Worth caching their productId on `card_set_cards`. |
-| Status | **blocked 2026-07-11** — the reader is dormant and refuses network access. Reopen only after written approval explicitly covers Cambridge's multi-source aggregation and display use. |
+| Status | **partial** since 2026-10-28 (blocked 2026-07-11 to 2026-10-28). The price-guide collector exists and runs only while `DATA_COLLECT_TCGPLAYER` is `on`; `/api/v1/sources` says whether it is (`member_pricing.collection`). Its runs are `member_price_batches` rows, which `/api/v1/sources/tcgplayer` health and `audit:tributaries` check 9 read. The API reader stays locked (`TCGPLAYER_ACQUISITION_ENABLED = false`). |
+| Update, 2026-10-28 | Written permission recorded for page collection, attributed member display and derivation input; the API reader stays locked. The identified collector landed the same day and the module is `partial` in code: it reads the data the public set price-guide page loads (`infinite-api.tcgplayer.com`, `mpapi.tcgplayer.com`), one request per set at Crawl-Delay 10, and runs only when `DATA_COLLECT_TCGPLAYER` is `on`. The module's public description, `tos_notes` and welcome named no API host and kept those requests apart from the permission until Yu answered. |
+| Update, 2026-10-29 | Yu confirmed that "Scrape TCGplayer pages" covers the data the public price-guide pages load ("yes permission allows that"; [decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)). The description, `tos_notes`, welcome and policy basis now say so, and that the collector reads only while it is scheduled; they still name no API host. The collector and its limits are unchanged: Yu kept the agents' choice. |
 | Recurses to | a `tcgplayer_product_id` column on `card_set_cards` (mapping table — first step of any TCGplayer pipeline) |
+| Intake record | [`source-intake.md` — TCGplayer, 2026-10-28](../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28) |
 
 ### 2.2 Cardmarket (EU market leader)
 
@@ -93,25 +110,29 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Access | `public-file`; no credentials. API applications are closed; grandfathered API users moved to `apiv2.cardmarket.com`. |
 | Public API? | Not available to new applicants. |
 | Bulk feed? | Daily public Product Catalog and Price Guide files. |
-| License | Proprietary/policy-governed. Cardmarket explicitly permits website/app use of the public files, but publishes no open-data license; do not relabel raw files CC0. |
-| Freshness | daily files |
+| License | Proprietary/policy-governed. Cardmarket explicitly permits website/app use of the public files, but publishes no open-data license; do not relabel raw files CC0. Input to Cambridge-derived data since 2026-10-28 (`cardmarket-derivation/2026-10-28.1`); robots.txt reserves AI training, so that derived data is not CC0. |
+| Freshness | daily files. Module freshness `daily_file` (26 h) is a budget for the collector's latest batch: a day, and two hours for a late run. |
 | Canonical-form effort | **medium-high** — Cardmarket uses `idProduct` per printing per language; cross-language same-card has multiple ids. Mapping table required per game. |
-| Status | **planned** — normalizer and dormant legacy OAuth code exist, but the active reader refuses network access until the public daily-file reader + writer are wired. Missing credentials are not the gap. |
+| Status | **partial** — the official-file reader and member-price writer are wired. One One Piece batch was imported by hand on 2026-09-08 UTC. A daily collector of the configured games (One Piece) runs only while `DATA_COLLECT_CARDMARKET` is `on`; `/api/v1/sources` says whether it is. The legacy OAuth reader stays locked. |
+| Intake record | [`source-intake.md` — Cardmarket as a derivation input, 2026-10-28](../methodology/source-intake.md#addendum--cardmarket-as-a-derivation-input-2026-10-28). The 2026-09-07 member grant is unchanged. |
 
-### 2.3 CardRush (JP — legacy observations; acquisition blocked)
+### 2.3 CardRush (JP — page collector; legacy archive frozen)
 
 | Field | Value |
 |-------|-------|
-| Coverage | Observed archive rows for Pokémon, One Piece, Dragon Ball Fusion World, Digimon, Vanguard, and Battle Spirits. MTG remains an unconfirmed price-only candidate; five nonexistent alternate hosts are explicitly blocked. |
+| Coverage | The page collector reads six hosts: One Piece, Pokémon, Dragon Ball Fusion World, Digimon, Vanguard and Battle Spirits. The legacy archive holds rows for the same six games, gathered before any permission. MTG remains an unconfirmed price-only candidate; five nonexistent alternate hosts are explicitly blocked. |
 | URL | `cardrush-{game}.jp/product/{id}` |
-| Access | **Blocked.** Official cross-site data policy requires a formal partnership for automated crawling, scraping, and price collection. |
+| Access | **Product pages, by written permission (2026-10-28).** Without it, the cross-site data policy prohibits automated crawling, scraping and price collection. Only the identified page collector reads: the host's robots.txt, then its sitemap, then product pages at 0.5 rps per host under Cambridge's own User-Agent. A robots.txt that disallows product pages to this collector or to every crawler, or that cannot be read, stops the run as `SOURCE_UNAVAILABLE` (a host that has none, answering 404 or 410, sets no rule), and a listed page it disallows is never requested. The legacy paths stay locked. |
 | Public API? | no |
 | Bulk feed? | no — product pages individually |
-| License | No written partnership or downstream publication grant is recorded. `internal-only` metadata does not create permission. |
-| Freshness | none — acquisition is disabled |
+| License | Written permission held by Yu (email, not copied) covers collection, attributed member display and derivation input, forward-only. No API, download or bulk publication, and the legacy rows are not covered. `internal-only` names that recorded scope; it does not create permission. |
+| Freshness | A page's price when it is read. While scheduled, each two-hourly run reads one host, stalest pages first: about 103 pages a run and 206 per host a day, so a full pass takes about two months on One Piece and nearly a year on Pokémon ([plan §2](../plans/tcg-data-platform/paid-data-api.md#cardrush-rhythm)), and a row's age is its `retrievedAt`. Module freshness `page_collector` (6 h) is a budget for the collector's latest batch. The legacy archive is frozen. |
 | Canonical-form effort | **high** — CardRush's URL ids don't map cleanly to printing; site search + parsing required per card |
-| Status | **blocked** — readers, discovery routes, and ingest routes refuse network access. Legacy archive rows and images remain stored for review but are not published. |
-| Recurses to | record a formal written partnership covering exact collection, storage, and publication uses before changing the immutable gate; policy: `https://cardrush.media/data_policy`. |
+| Status | **partial** since 2026-10-28 (blocked 2026-07-12 to 2026-10-28). The page collector exists and runs only while `DATA_COLLECT_CARDRUSH` is `on`; `/api/v1/sources` says whether it is. Its runs are `member_price_batches` rows, which `/api/v1/sources/cardrush` health and `audit:tributaries` check 9 read. Legacy readers, discovery routes and ingest routes still refuse network access (`CARDRUSH_ACQUISITION_ENABLED = false`); legacy archive rows and images stay stored for review, unpublished and not inputs. |
+| Recurses to | the collector's limits are the agents' choice, which Yu kept on 2026-10-29 ("keep your choice on limits"). The legacy gate stays closed; policy: `https://cardrush.media/data_policy`. |
+| Update, 2026-10-28 | Written permission recorded for product-page collection, attributed member display and derivation input, forward-only. Graduated `blocked → partial` when the identified collector landed the same day; the legacy paths stay locked. |
+| Collector, 2026-10-28 | `packages/data-ingest/src/cardrush/member-prices.ts` behind `/api/cron/collect/cardrush` and `DATA_COLLECT_CARDRUSH`. One host per run, robots.txt and sitemap then stalest product pages, 0.5 rps per host under Cambridge's own User-Agent; a refusal is `SOURCE_UNAVAILABLE`. Nothing is collected until the flag is `on` and migrations 0139, 0140 and 0143 (the collector lease) are applied; the cron is in `apps/storefront/vercel.json`. |
+| Intake record | [`source-intake.md` — CardRush, 2026-10-28](../methodology/source-intake.md#intake-record--cardrush-jp-2026-10-28) |
 
 ### 2.4 CardTrader (EU alt-marketplace)
 
@@ -480,7 +501,8 @@ Aggregating the sources above by *how we'd reach them*:
 | **Public file download** | Cardmarket Product Catalog + Price Guide | no credentials; preserve attribution and proprietary rights |
 | **OAuth + per-store** | eBay, Shopify, grandfathered Cardmarket accounts | store-scoped credentials and written scope; applications may be closed |
 | **HTML scrape, no API** | Bandai TCG+ web, Yahoo Auctions, Mercari, publisher catalogs | **high** — permission must be established before courtesy controls matter |
-| **Policy-blocked automation** | CardRush; TCGCollector without partner approval | no network access until the required written agreement is recorded |
+| **Pages by written permission** | CardRush product pages; TCGplayer price-guide page data (2026-10-28) | identified collectors only, flag-gated, at the recorded rates; a refusal is `SOURCE_UNAVAILABLE`, never routed around |
+| **Policy-blocked automation** | TCGCollector without partner approval; CardRush's and TCGplayer's legacy paths | no network access until the required written agreement is recorded |
 | **Partner / paid feed** | TCGCSV, distributor EDI, sentiment APIs | medium — billing + ToS + service-level expectations |
 | **Mobile/desktop app (blocked)** | Mercari, Snkrdunk, Bandai TCG+ | reverse-engineering ToS-prohibited; do not pursue |
 
@@ -560,7 +582,7 @@ packages/data-ingest/
 2. **Validation at edge:** reader produces `unknown`; normalizer produces typed; writer rejects invalid.
 3. **Identity stable:** canonical SKU first; upstream source-id stored as side-mapping (e.g. `card_set_cards.tcgplayer_product_id`).
 4. **Versioning visible:** each ingest run emits a lifecycle log with the ingest module version + spec version + source version (where the upstream declares one).
-5. **Freshness declared:** module maps to a `FreshnessKey` in `packages/data-spec` — e.g. Scryfall bulk → `catalog`, TCGplayer pricing → `price_current`.
+5. **Freshness declared:** module maps to a `FreshnessKey` in `packages/data-spec` — e.g. Scryfall bulk → `catalog`, the CardRush and TCGplayer page collectors → `page_collector`, Cardmarket's daily files → `daily_file`.
 6. **License attached:** module declares the upstream's license; this propagates to `_meta.source_license` in downstream responses.
 7. **Errors blameless:** when upstream returns 4xx/5xx, module emits a `SOURCE_UNAVAILABLE` lifecycle entry (not silent), retries with back-off, and surfaces the gap honestly downstream.
 8. **Null-honest:** missing fields → `null`; missing entire records → `null` row reference; failed-but-retryable → quarantined for retry.
@@ -569,15 +591,17 @@ packages/data-ingest/
 
 | Source | Cadence | Freshness budget |
 |--------|---------|------------------|
-| CardRush | legacy observed rows; acquisition and publication blocked | none |
+| CardRush | page collector, `15 */2 * * *` in `vercel.json`, one host per run; does its work only while `DATA_COLLECT_CARDRUSH` is `on`; legacy acquisition and publication blocked | `page_collector` (6 h) for the latest `member_price_batches` row; each row's own age is its `retrievedAt` |
 | TCGCollector | adapter retained; partner approval not recorded | none |
 | Scryfall | adapter built, never run; no scheduled job | catalog |
 | Pokémon TCG API | adapter built, never run; no scheduled job | catalog |
 | YGOPRODeck | blocked pending written commercial-content permission | none |
-| TCGplayer | blocked; no acquisition or serving cadence | none |
-| Cardmarket | public daily files; reader not wired | none yet |
+| TCGplayer | price-guide collector, `45 * * * *` in `vercel.json`, stalest sets first; does its work only while `DATA_COLLECT_TCGPLAYER` is `on` | `page_collector` (6 h) for the latest `member_price_batches` row |
+| Cardmarket | official daily files; One Piece collector, `30 5 * * *` in `vercel.json`; does its work only while `DATA_COLLECT_CARDMARKET` is `on` | `daily_file` (26 h) for the latest `member_price_batches` row, which `/api/v1/sources/cardmarket` and check 9 read |
 | eBay | partial adapter; no observed rows in current coverage | market_signal intent |
 | Other reserved slots | no module or scheduled job | none |
+
+For every source with a collector (`batchCollected` in `apps/storefront/src/lib/datafeed/collection-flags.ts`: Cardmarket, CardRush, TCGplayer), `/api/v1/sources/[id]` health and `audit:tributaries` check 9 read the newest `member_price_batches` row in the storefront database, not `ingest_run`. Health is `stale` past the freshness budget, `very_stale` past twice it and `never_run` with no batch; check 9 fails on the second and warns on the third. A manual import's batch counts too: health says when the newest batch was written, not who ran it. The other sources' runs are their `ingest_run` rows in the wholesale database.
 
 ---
 
@@ -585,7 +609,7 @@ packages/data-ingest/
 
 Beyond the eight from `the-modules.md`, ingestion-specific:
 
-1. **Current official policy is a pre-network gate, not a one-time note.** CardRush's formal-partnership requirement is enforced by an immutable false acquisition flag; TCGCollector is likewise blocked pending partner approval. Re-check before every activation and at review intervals.
+1. **Current official policy is a pre-network gate, not a one-time note.** CardRush's formal-partnership requirement keeps its legacy paths behind an immutable false acquisition flag; only the evidence-gated page collector reads, under the written permission recorded 2026-10-28. TCGCollector is blocked pending partner approval. Re-check before every activation and at review intervals.
 2. **User-Agent identifies us.** Every outbound request carries `User-Agent: cambridgetcg.com/<version> (admin@cambridgetcg.com)`. Operators of upstreams can find us, ask us to stop, and we comply.
 3. **Rate-limited at module boundary.** Each module exports a `getRateLimit(): { rps, burst }`; the shared HTTP wrapper enforces it. Default is conservative (1 rps, burst 5).
 4. **Back-off on 429 + retry-after.** Honour the header; never bypass.

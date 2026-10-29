@@ -1,9 +1,10 @@
 /**
  * Cardmarket — European market leader.
  *
- * **Public-file member path implemented, not scheduled.** Cardmarket publishes
- * Product Catalog and Price Guide files without API credentials. That is the
- * reachable path for Cambridge. The older OAuth1 reader remains dormant for
+ * **Public-file member path implemented; its daily collector runs only while
+ * DATA_COLLECT_CARDMARKET is on** (storefront api/cron/collect/cardmarket).
+ * Cardmarket publishes Product Catalog and Price Guide files without API
+ * credentials. That is the reachable path for Cambridge. The older OAuth1 reader remains dormant for
  * existing approved accounts; Cardmarket is not accepting API applications.
  *
  * ── Access ───────────────────────────────────────────────────────────
@@ -75,18 +76,22 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
     id: "cardmarket",
     name: "Cardmarket",
     description:
-      "European market catalog and daily aggregate prices through official files. The initial One Piece member-price batch was imported in production on 2026-09-08 UTC. Collection remains manual; no daily Cambridge refresh is scheduled. Other game imports are not implied.",
+      "European market catalog and daily aggregate prices from Cardmarket's official files. The initial One Piece member-price batch was imported in production on 2026-09-08 UTC. A daily collector of the configured games (One Piece, as of 2026-10-28) exists and runs only while it is scheduled (DATA_COLLECT_CARDMARKET; /api/v1/sources says whether it is, in member_pricing.collection). Other game imports are not implied. Since 2026-10-28 these prices are also an input to Cambridge-derived data.",
     upstream: "https://www.cardmarket.com/en/Magic/Data",
     catalog_section: "the-tributaries.md#22-cardmarket-eu-market-leader",
     access: "public-file",
     license: "proprietary",
     redistribute: false,
-    freshness: "price_current",
+    // The daily collector's budget, not a row's: one run a day writes a batch
+    // per configured game (member_price_batches), so a day and two hours with
+    // no batch is stale and twice that very stale (/api/v1/sources/[id],
+    // audit:tributaries check 9). A row's own clock is the guide's createdAt.
+    freshness: "daily_file",
     canonical_effort: "medium",
     status: "partial",
     games: ["mtg", "pkm", "ygo", "op", "lgr", "fab", "dmw"],
     tos_notes:
-      "Official Product Catalog / Price Guide statement says “use them however you see fit”; member-prices.ts records normalized member display/API/download permission with attribution. This is not CC0 or a site-wide license. Raw files stay private in this implementation. API applications are closed, and existing credentials must not be shared. The API base for grandfathered users is apiv2.cardmarket.com. https://www.cardmarket.com/en/Magic/Data/Price-Guide ; https://www.cardmarket.com/en/Magic/Data/Product-List ; https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024 ; https://help.cardmarket.com/en/cardmarket-api",
+      "Official Product Catalog / Price Guide statement says “use them however you see fit”; member-prices.ts records normalized member display/API/download permission with attribution. This is not CC0 or a site-wide license. Raw files stay private in this implementation. Yu's word of 2026-10-28 (docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#cardmarket) adds Cardmarket prices as an input to Cambridge-derived data (cardmarket-derivation/2026-10-28.1). robots.txt (2026-10-28): Content-Signal search=yes, ai-train=no, use=reference, with an EU DSM Art. 4 reservation; Cambridge-derived data from these prices is not CC0 and excludes AI training. API applications are closed, and existing credentials must not be shared. The API base for grandfathered users is apiv2.cardmarket.com. https://www.cardmarket.com/en/Magic/Data/Price-Guide ; https://www.cardmarket.com/en/Magic/Data/Product-List ; https://www.cardmarket.com/en/Insight/Articles/the-state-of-cardmarket-2024 ; https://help.cardmarket.com/en/cardmarket-api",
     user_agent_suffix: "(cardmarket-ingest)",
     rate_limit: { rps: 2, burst: 5 },
     welcome:
@@ -94,7 +99,9 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
       "(the consolidation, 2026-05-12). Your public daily files are the reachable " +
       "path; the OAuth room is not ours to enter without existing approval. Your " +
       "prepared room is `member_price_observations WHERE source='cardmarket'`, with Cardmarket " +
-      "attribution and raw redistribution refused. You can bring Europe — MTG's largest catalog by far, " +
+      "attribution and raw redistribution refused. What we collect from your files also feeds our own " +
+      "derived market data, where it never counts toward the two sources a reference price needs. " +
+      "You can bring Europe — MTG's largest catalog by far, " +
       "plus Pokémon, Yu-Gi-Oh, One Piece, Lorcana, Flesh and Blood, Digimon.",
   },
 
@@ -107,7 +114,7 @@ export const cardmarket: SourceModule<CardmarketRaw, CanonicalPrice> = {
         detail: {
           status: "legacy-oauth-blocked",
           reason:
-            "The legacy Cardmarket OAuth reader remains locked in code. Use the explicit official-file member-price adapter; no collector has been scheduled.",
+            "The legacy Cardmarket OAuth reader remains locked in code. Use the explicit official-file member-price adapter, which the flag-gated collector runs.",
           next_action:
             "Review current official files, then run the finite member-price operator ingestion. New API access remains closed.",
         },

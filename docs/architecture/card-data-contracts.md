@@ -63,9 +63,10 @@ matches. A source outage returns 503 instead of a successful empty result.
   publication semantics. They are not converted to integer pennies.
 - Generic money carries a decimal string, currency and `unit: "major"`. Zero is
   valid there. No exchange rate or settlement precision is inferred.
-- Native observations preserve positive decimal text and EUR/USD source
-  currency. Zero sentinels remain rejected; missing source values create no
-  observation. No guessed FX conversion or cross-source average is introduced.
+- Native observations preserve positive decimal text and EUR, USD or JPY
+  source currency; JPY is whole yen. Zero sentinels remain rejected; missing
+  source values create no observation. No guessed FX conversion or
+  cross-source average is introduced.
 - Exact source mappings carry `sku` and `setCode`; ambiguous/unmapped records
   carry neither. Keep granularity, finish, language and condition separate.
 - `sourceUpdatedAt`, `retrievedAt` and pagination `asOf` have different meanings.
@@ -77,9 +78,13 @@ The writer and member reader share `assertPriceObservationValues`. Raw source
 numbers may become decimal strings during parsing; normalized observations must
 already use strings and cannot contain trailing line terminators. Currency and
 underlying market must agree. Cardmarket keeps EUR product-level scope with
-unknown language and condition; Scryfall retains printing scope. Exact mappings
+unknown language and condition; Scryfall retains EUR/USD printing scope.
+CardRush (JPY) and TCGplayer (USD) pages, added 2026-10-28 and released for
+member display only, are printing-level, and their `sourceUpdatedAt` equals
+`retrievedAt` because a live page has no clock of its own. Exact mappings
 require nonempty string SKU/set values, while unresolved mappings retain null.
-These rules also appear in the native/member JSON Schemas.
+These rules also appear in the native/member JSON Schemas, except the time
+equality, which JSON Schema cannot express.
 
 Invalid writes fail before opening a transaction. An inconsistent stored row
 makes its bounded response page unavailable; no partial page or fabricated

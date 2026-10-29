@@ -106,9 +106,10 @@ export default function DataIntentionsMethodology() {
         <li>
           <strong>Reference-only / internal — reviewed use only.</strong>{" "}
           Third-party prices enter only when permission covers the exact
-          display or computation. CardRush has a bounded internal-use path;
-          TCGplayer is blocked because Cambridge has no written approval for
-          its multi-source use.
+          display or computation. CardRush and TCGplayer prices (permission on
+          file, 2026-10-28) are display-only on Cambridge pages and never
+          served by the API or in downloads; collection runs only while
+          scheduled (see <Link href="/api/v1/sources">/api/v1/sources</Link>).
         </li>
         <li>
           <strong>Off-limits.</strong> Anything obtained by scraping a

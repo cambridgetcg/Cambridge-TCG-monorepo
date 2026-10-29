@@ -102,6 +102,17 @@ bypass access controls, robots rules, a publisher's terms, or a rights review.
 A disagreement involving a blocked source may become a documentation case. It
 must not become a collection mission.
 
+The board reads a source's legacy acquisition lock as well as its status
+(`legacyAcquisitionClosed` in `packages/data-ingest/src/registry.ts`), because
+the observation archive is the legacy `price_archive`. Since 2026-10-28
+CardRush and TCGplayer are `partial`, for page collectors that write
+`member_price_batches`, not the archive. Their legacy locks stay closed, so
+their archive rows remain documentation cases and their declared games are not
+invitations. Archive rows keep the freshness budget their legacy path declared
+(five minutes), not the page collector's, so no candidate's id changed when the
+collectors landed. `selection_trace.registry_status` reports the current
+registry, so it reads `partial` for both.
+
 Every board entry exposes a small `selection_trace`: the rule that included
 it, the source registry status and access mode considered, whether an observed
 pair exists, and the literal `acquisition_task: false`. This closes a subtle

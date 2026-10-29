@@ -6,6 +6,13 @@
 > movements, and external channel publication are withheld. Shopify, eBay, and
 > buylist/KV writers stop before database, secret, or network work. No formula,
 > stored row, authentication layer, or sales channel creates source rights.
+>
+> **Since 2026-10-28:** the legacy CardRush acquisition behind these formulas
+> stays hard-blocked, and its stored prices stay withheld. A separate,
+> evidence-gated page collector reads CardRush under the written permission
+> recorded 2026-10-28, only while it is scheduled (`/api/v1/sources` says
+> whether). Its prices are display-only on Cambridge pages, never served by the
+> API or in downloads, and feed none of these formulas.
 
 Cambridge TCG sets a price for every card we stock and every channel we sell on. The same card has up to **seven different customer-facing prices** at any moment — one for our own storefront, one for Shopify, one for eBay, one for Cardmarket, one for trade-in cash, one for trade-in store credit — plus an internal **wholesale base** that the others derive from. This page explains exactly how each number is computed.
 

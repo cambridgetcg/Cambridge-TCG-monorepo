@@ -326,16 +326,12 @@ export function createFetcher(
     }
   };
 
-  return Object.assign(f, {
-    get count() {
-      return count;
-    },
-    get via_proxy() {
-      return via_proxy_attr;
-    },
-    get via_proxy_label() {
-      return proxy_label;
-    },
+  // defineProperties, not Object.assign: assign would copy each getter's
+  // value once, freezing `count` at 0.
+  return Object.defineProperties(f, {
+    count: { get: () => count, enumerable: true },
+    via_proxy: { get: () => via_proxy_attr, enumerable: true },
+    via_proxy_label: { get: () => proxy_label, enumerable: true },
   }) as Fetcher;
 }
 

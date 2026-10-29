@@ -3,7 +3,9 @@
  *
  * Signed-in access does not create upstream publication permission. Legacy
  * observations remain stored for review; this route never calls wholesale or
- * emits an observation.
+ * emits an observation. The written permission recorded 2026-10-28 is
+ * forward-only and display-only: it reaches neither the legacy rows nor any
+ * API, so this route stays a status door.
  */
 
 import { auth } from "@/lib/auth";
@@ -29,7 +31,7 @@ export async function GET(): Promise<Response> {
     code: "SOURCE_UNAVAILABLE",
     status: 503,
     message:
-      "CardRush observation publication is withheld pending written source rights.",
+      "No CardRush observations are published here. Legacy CardRush observations, gathered before the written permission recorded 2026-10-28, stay withheld and are not inputs; CardRush prices collected under that permission appear only on Cambridge pages with CardRush named, never through an API or download.",
     details: {
       source: "cardrush",
       reason: CARDRUSH_BLOCK_REASON,

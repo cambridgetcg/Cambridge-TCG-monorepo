@@ -11,7 +11,11 @@ import {
   holderForStripeSession,
 } from "@/lib/stock/reservations";
 import { recordOrderFromStripeSession } from "@/lib/orders/record";
-import { isDedicatedCheckoutSessionType } from "@/lib/payments/checkout-session-kind";
+import {
+  DATA_API_SUBSCRIPTION_TYPE,
+  isDataApiSubscriptionObject,
+  isDedicatedCheckoutSessionType,
+} from "@/lib/payments/checkout-session-kind";
 import {
   findStripeMarketCheckoutBinding,
   markStripeCheckoutAttemptTerminal,
@@ -166,6 +170,21 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("[webhook] Signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  // Data-API subscriptions and their invoices belong to their own webhook
+  // (/api/webhooks/stripe/data-api), which runs under its own test-mode key.
+  // The Platinum handlers below match users.subscription_stripe_id and would
+  // find no row, but they would still fetch payment methods with this
+  // account's key and stamp the event as handled; leave the objects alone.
+  if (
+    (event.type === "invoice.payment_succeeded"
+      || event.type === "customer.subscription.updated"
+      || event.type === "customer.subscription.deleted")
+    && isDataApiSubscriptionObject(event.data.object)
+  ) {
+    console.log(`[webhook] ${event.type} ${event.id} belongs to the data-API webhook; ignored here`);
+    return NextResponse.json({ received: true, ignored: DATA_API_SUBSCRIPTION_TYPE });
   }
 
   // Subscription renewal — fires monthly/annually when Stripe collects the

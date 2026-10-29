@@ -12,6 +12,22 @@
     {
       "path": "/api/cron/prism-signals-beta-retention",
       "schedule": "17 4 * * *"
+    },
+    {
+      "path": "/api/cron/collect/cardmarket",
+      "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/collect/cardrush",
+      "schedule": "15 */2 * * *"
+    },
+    {
+      "path": "/api/cron/collect/tcgplayer",
+      "schedule": "45 * * * *"
+    },
+    {
+      "path": "/api/cron/derive/market",
+      "schedule": "0 7 * * *"
     }
   ]
 }

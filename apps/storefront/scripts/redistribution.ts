@@ -12,7 +12,7 @@
  *   pnpm audit:redistribution
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -126,6 +126,16 @@ function requireBefore(
   if (guardAt < 0 || workAt < 0 || guardAt > workAt) {
     fail(check, boundary, message);
   }
+}
+
+// The collect routes gate on collectionOn (collection-flags.ts), which the
+// scheduling copy reads too. Pins its flag name and its exact-'on' rule, so the
+// gate the routes call cannot loosen without this audit seeing it.
+const COLLECTION_FLAGS = "apps/storefront/src/lib/datafeed/collection-flags.ts";
+function requireCollectionGate(check: number, collected: string, flag: string): void {
+  const flags = source(COLLECTION_FLAGS);
+  requireText(check, COLLECTION_FLAGS, flags, `${collected}: '${flag}',`, `${collected}'s collection flag must stay ${flag}`);
+  requireText(check, COLLECTION_FLAGS, functionBlock(flags, "export function collectionOn("), "return env[DATA_COLLECT_FLAGS[source]] === 'on';", "collectionOn must stay off unless the flag is exactly 'on'");
 }
 
 function activeSourceFiles(directory: string): string[] {
@@ -316,7 +326,6 @@ function auditAcquisitionLocks(): void {
   const cardrush = source("packages/data-ingest/src/cardrush/index.ts");
   requireText(7, "CardRush acquisition", cardrush, "CARDRUSH_ACQUISITION_ENABLED = false as const", "CardRush immutable acquisition lock must remain false");
   requireText(7, "CardRush acquisition", cardrush, "https://cardrush.media/data_policy", "CardRush lock must name the official cross-site policy");
-  requireText(7, "CardRush registry", cardrush, 'status: "blocked"', "CardRush source status must remain blocked");
 
   const tcgcollectorPolicy = source("packages/data-ingest/src/tcgcollector/policy.ts");
   const tcgcollector = source("packages/data-ingest/src/tcgcollector/index.ts");
@@ -354,6 +363,162 @@ function auditAcquisitionLocks(): void {
     requireText(7, `CardRush discovery.${helper}`, block, "CARDRUSH_ACQUISITION_ENABLED", `${helper} must consult the immutable acquisition lock`);
   }
 }
+
+// The scheduled Cardmarket collector is the one permitted Cardmarket path
+// (plan §2, docs/plans/tcg-data-platform/paid-data-api.md): official files,
+// cron auth, then its flag, then evidence, with no proxy lane. The legacy
+// OAuth reader stays locked.
+function auditCardmarketCollector(): void {
+  const legacy = source("packages/data-ingest/src/cardmarket/index.ts");
+  requireText(7, "Cardmarket legacy OAuth", legacy, "CARDMARKET_LEGACY_OAUTH_ENABLED: boolean = false;", "the legacy OAuth reader lock must remain false");
+
+  const routePath = "apps/storefront/src/app/api/cron/collect/cardmarket/route.ts";
+  const route = source(routePath);
+  requireBefore(7, routePath, route, "requireCronAuth(request)", 'collectionOn("cardmarket")', "cron auth must run before the collection flag is read");
+  requireBefore(7, routePath, route, 'collectionOn("cardmarket")', 'import("@/lib/datafeed/cardmarket-collector")', "a disabled run must return before loading the collector");
+
+  const collectorPath = "apps/storefront/src/lib/datafeed/cardmarket-collector.ts";
+  const collector = source(collectorPath);
+  requireBefore(7, collectorPath, collector, "evidenceVersion !== MEMBER_PRICE_POLICIES.cardmarket.evidenceVersion", "ingestMemberPriceSource(", "the collector must refuse another evidence version before acquisition");
+  for (const path of [collectorPath, "packages/data-ingest/src/cardmarket/public-files.ts"]) {
+    for (const forbidden of ["proxy_url", "api_token", "brightdata"]) {
+      forbidText(7, path, source(path), forbidden, `the Cardmarket collection path must not contain '${forbidden}'`);
+    }
+  }
+}
+
+// ── CardRush page collector (Yu, 2026-10-28) ─────────────────────────────
+// The written permission reaches one CardRush path: the identified page
+// collector. It refuses without the policy's evidence version before it
+// creates its one fetcher, which is createFetcher with no proxy options and
+// Cambridge's own User-Agent, and it is reached only through the run module
+// and the flag-gated cron route. Every legacy path stays pinned to
+// CARDRUSH_ACQUISITION_ENABLED in auditAcquisitionLocks. This block is the
+// CardRush collector's alone; other collectors keep their own.
+
+const CARDRUSH_COLLECTOR = "packages/data-ingest/src/cardrush/member-prices.ts";
+const CARDRUSH_COLLECTOR_RUN = "apps/storefront/src/lib/datafeed/collectors/cardrush.ts";
+const CARDRUSH_COLLECTOR_ROUTE = "apps/storefront/src/app/api/cron/collect/cardrush/route.ts";
+
+function functionBlock(body: string, name: string): string {
+  const start = body.indexOf(name);
+  if (start < 0) return "";
+  const next = body.indexOf("\nexport ", start + 1);
+  return body.slice(start, next < 0 ? undefined : next);
+}
+
+function auditCardRushPageCollector(): void {
+  const legacy = source("packages/data-ingest/src/cardrush/index.ts");
+  requireText(7, "CardRush registry", legacy, 'status: "partial"', "CardRush is partial: one identified collector open, every legacy path locked");
+  requireText(7, "CardRush registry", legacy, "redistribute: false", "raw CardRush values must remain non-redistributable");
+  requireText(7, "CardRush registry", legacy, 'user_agent_suffix: "(cardrush-collector; permission cardrush/2026-10-28.1)"', "the CardRush User-Agent must name the collector and its permission");
+  requireText(7, "CardRush registry", legacy, "rate_limit: { rps: 0.5, burst: 1 }", "CardRush meta must keep 0.5 rps with burst 1");
+  for (const helper of ["function getOrCreateFetcher", "function scrapeCardRush", "async *read("]) {
+    requireText(7, `CardRush legacy ${helper}`, functionBlock(legacy, helper), "if (!CARDRUSH_ACQUISITION_ENABLED)", `legacy ${helper} must consult the immutable acquisition lock`);
+  }
+
+  const collector = source(CARDRUSH_COLLECTOR);
+  requireBefore(7, CARDRUSH_COLLECTOR, collector, "if (input.evidenceVersion !== MEMBER_PRICE_POLICIES.cardrush.evidenceVersion) throw", "createFetcher(", "the collector must refuse without the CardRush evidence version before creating a fetcher");
+  if (collector.split("createFetcher(").length !== 2) fail(7, CARDRUSH_COLLECTOR, "the collector must create exactly one fetcher");
+  requireText(7, CARDRUSH_COLLECTOR, collector, "createFetcher({ ...ctx, signal, rate_limit: CARDRUSH_PAGE_RATE }, cardrush.meta, { max_retries: 0 })", "the collector's fetcher must take the collector rate and no proxy options");
+  requireText(7, CARDRUSH_COLLECTOR, collector, "CARDRUSH_PAGE_RATE = { rps: 0.5, burst: 1 }", "the collector must read at most 0.5 requests per second per host, burst 1");
+  for (const forbidden of [
+    "proxy_url", "api_token", "api_zone", "dispatcher", "brightdata", "superproxy", "unlocker", "residential", "CARDRUSH_EGRESS",
+    "CARDRUSH_BROWSER_HEADERS", "BROWSER_UA", "Mozilla/", "Sec-Fetch", "sec-ch-ua", "getOrCreateFetcher", "pickDiscoveryFetcher", "createDiscoveryFetcher",
+    "'User-Agent'", '"User-Agent"', "'user-agent'", '"user-agent"', "redirect: 'follow'",
+  ]) {
+    forbidText(7, CARDRUSH_COLLECTOR, collector, forbidden, `the identified collector must not contain '${forbidden}'`);
+  }
+
+  const run = source(CARDRUSH_COLLECTOR_RUN);
+  requireText(7, CARDRUSH_COLLECTOR_RUN, run, "const policy = MEMBER_PRICE_POLICIES.cardrush;", "the run must take the evidence version from the CardRush policy");
+  requireText(7, CARDRUSH_COLLECTOR_RUN, run, "evidenceVersion: policy.evidenceVersion", "the run must pass the policy's evidence version to acquisition");
+  requireBefore(7, CARDRUSH_COLLECTOR_RUN, run, "FROM member_price_source_releases", "acquireCardRushMemberPrices(", "the run must check the release row before network work");
+  requireText(7, CARDRUSH_COLLECTOR_RUN, run, "writeMemberPriceBatch('cardrush'", "observations must enter through the member-price writer");
+  for (const forbidden of ["createFetcher", "fetch(", "proxy", "INSERT INTO", "UPDATE "]) {
+    forbidText(7, CARDRUSH_COLLECTOR_RUN, run, forbidden, `the run must not contain '${forbidden}'; network and writes belong to the collector and the writers`);
+  }
+
+  const route = source(CARDRUSH_COLLECTOR_ROUTE);
+  requireBefore(7, CARDRUSH_COLLECTOR_ROUTE, route, "requireCronAuth(request)", 'if (!collectionOn("cardrush"))', "the route must authenticate before reading its flag");
+  requireBefore(7, CARDRUSH_COLLECTOR_ROUTE, route, 'if (!collectionOn("cardrush"))', "collectCardRush()", "the route must stay off unless DATA_COLLECT_CARDRUSH is on");
+  requireCollectionGate(7, "cardrush", "DATA_COLLECT_CARDRUSH");
+
+  requireText(7, "data-ingest exports", source("packages/data-ingest/package.json"), '"./cardrush/member-prices"', "the collector must stay a named subpath export");
+  for (const file of [...activeSourceFiles(ACTIVE_SOURCE_ROOT), ...activeSourceFiles(INGEST_SRC)]) {
+    const path = file.slice(REPO_ROOT.length + 1);
+    const body = readFileSync(file, "utf8");
+    if (body.includes("acquireCardRushMemberPrices") && path !== CARDRUSH_COLLECTOR && path !== CARDRUSH_COLLECTOR_RUN) {
+      fail(7, path, "only the CardRush run module may reach the page collector");
+    }
+    if (/\bcollectCardRush\b/.test(body) && path !== CARDRUSH_COLLECTOR_RUN && path !== CARDRUSH_COLLECTOR_ROUTE) {
+      fail(7, path, "only the flag-gated cron route may start a CardRush run");
+    }
+  }
+}
+
+// ── end CardRush page collector ──────────────────────────────────────────
+
+// ── TCGplayer acquisition (check 11) ────────────────────────────────────
+// Yu's permission of 2026-10-28 opened one TCGplayer path: the evidence-gated
+// price-guide collector. The legacy OAuth reader, its token mint and the
+// wholesale cron stay locked, no other code holds a URL on the price-guide
+// data hosts (prose such as tos_notes may name them), and the cron runs the
+// collector only after authentication and its flag. This block is
+// TCGplayer's own; other sources keep theirs.
+
+const TCGPLAYER_COLLECTOR = "packages/data-ingest/src/tcgplayer/member-prices.ts";
+const TCGPLAYER_DATA_HOSTS = ["infinite-api.tcgplayer.com", "mpapi.tcgplayer.com", "mp-search-api.tcgplayer.com"];
+
+function auditTcgplayerAcquisition(): void {
+  const legacy = source("packages/data-ingest/src/tcgplayer/index.ts");
+  requireText(11, "TCGplayer API reader", legacy, "const TCGPLAYER_ACQUISITION_ENABLED: boolean = false;", "the legacy TCGplayer API reader lock must remain false");
+  requireBefore(11, "TCGplayer API reader", legacy, "if (!TCGPLAYER_ACQUISITION_ENABLED)", "createFetcher(ctx, tcgplayer.meta)", "the legacy reader must consult its lock before building a fetcher");
+  requireText(11, "TCGplayer token mint", source("packages/data-ingest/src/tcgplayer/oauth.ts"), "throw new Error(TCGPLAYER_ACCESS_BLOCKED_MESSAGE)", "TCGplayer token minting must keep failing before network access");
+  const wholesaleCron = source("apps/wholesale/src/app/api/cron/ingest/tcgplayer/route.ts");
+  requireText(11, "wholesale ingest/tcgplayer", wholesaleCron, 'code: "SOURCE_UNAVAILABLE"', "the wholesale TCGplayer cron must remain a blocked door");
+  forbidText(11, "wholesale ingest/tcgplayer", wholesaleCron, "@/lib/ingest/tcgplayer", "the wholesale TCGplayer cron must not reach its old dispatcher");
+  forbidText(11, "apps/wholesale/vercel.json", source("apps/wholesale/vercel.json"), "ingest/tcgplayer", "the wholesale TCGplayer cron must remain unscheduled");
+
+  const collector = source(TCGPLAYER_COLLECTOR);
+  requireText(11, TCGPLAYER_COLLECTOR, collector, "TCGPLAYER_RATE_LIMIT = { rps: 0.1, burst: 1 }", "the collector must hold one request per 10 s across TCGplayer hosts");
+  requireText(11, TCGPLAYER_COLLECTOR, collector, "rate_limit: TCGPLAYER_RATE_LIMIT }, tcgplayer.meta, { max_retries: 0 })", "the collector's fetcher must ignore caller rates and never retry a refusal");
+  requireText(11, TCGPLAYER_COLLECTOR, collector, "fetcher.via_proxy !== null", "the collector must refuse a proxied fetcher");
+  for (const helper of ["fetchTcgplayerSets", "fetchTcgplayerCardsProductType", "acquireTcgplayerPriceGuide"]) {
+    const start = collector.indexOf(`export async function ${helper}(`);
+    const next = collector.indexOf("\nexport ", start + 1);
+    const body = start < 0 ? "" : collector.slice(start, next < 0 ? undefined : next);
+    requireBefore(11, `${TCGPLAYER_COLLECTOR} ${helper}`, body, "assertEvidence(evidenceVersion)", "await read(", `${helper} must refuse without the permission's evidence version before any request`);
+  }
+  const run = source("apps/storefront/src/lib/datafeed/collectors/tcgplayer.ts");
+  requireBefore(11, "storefront TCGplayer collector", run, "FROM member_price_source_releases", "createTcgplayerFetcher(", "the collector must check its release row before building a fetcher");
+  requireText(11, "storefront TCGplayer collector", run, "writeMemberPriceBatch('tcgplayer'", "TCGplayer observations must be written through member-price-writer");
+  for (const [path, body] of [[TCGPLAYER_COLLECTOR, collector], ["storefront TCGplayer collector", run]] as const) {
+    for (const forbidden of ["proxy_url", "api_token", "api_zone", "brightdata", "superproxy", "residential"]) {
+      forbidText(11, path, body, forbidden, `the TCGplayer collector must not contain '${forbidden}'`);
+    }
+  }
+  const cron = source("apps/storefront/src/app/api/cron/collect/tcgplayer/route.ts");
+  requireBefore(11, "/api/cron/collect/tcgplayer", cron, "requireCronAuth(request)", 'if (!collectionOn("tcgplayer"))', "the cron must authenticate before reading its flag");
+  requireBefore(11, "/api/cron/collect/tcgplayer", cron, 'if (!collectionOn("tcgplayer"))', "collectTcgplayer(", "the cron must collect only when DATA_COLLECT_TCGPLAYER is on");
+  requireCollectionGate(11, "tcgplayer", "DATA_COLLECT_TCGPLAYER");
+
+  const roots = [
+    ...readdirSync(resolve(REPO_ROOT, "packages")).map((name) => resolve(REPO_ROOT, "packages", name, "src")),
+    ...readdirSync(resolve(REPO_ROOT, "apps")).map((name) => resolve(REPO_ROOT, "apps", name, "src")),
+    resolve(REPO_ROOT, "apps", "wholesale", "tools"),
+  ].filter((root) => existsSync(root));
+  for (const file of roots.flatMap(activeSourceFiles)) {
+    const path = file.slice(REPO_ROOT.length + 1);
+    if (path === TCGPLAYER_COLLECTOR) continue;
+    const body = readFileSync(file, "utf8");
+    for (const host of TCGPLAYER_DATA_HOSTS) {
+      forbidText(11, path, body, `//${host}`, `TCGplayer's page-data host '${host}' may be read only by the evidence-gated collector (${TCGPLAYER_COLLECTOR})`);
+    }
+  }
+}
+
+// ── end TCGplayer acquisition ───────────────────────────────────────────
 
 function auditLegacyPublicationLocks(): void {
   const policy = source("apps/storefront/src/lib/public-wholesale-fields.ts");
@@ -669,6 +834,9 @@ async function main(): Promise<void> {
   auditSoldComps();
   auditGlobalCopy();
   auditAcquisitionLocks();
+  auditCardmarketCollector();
+  auditCardRushPageCollector();
+  auditTcgplayerAcquisition();
   auditLegacyPublicationLocks();
   auditFxSources();
   auditParticipantNoteBoundary();
@@ -688,6 +856,9 @@ async function main(): Promise<void> {
     console.log("ok - sold comps remain paused and off participant data");
     console.log("ok - the bulk catalog does not mistake storage for ownership");
     console.log("ok - blocked acquisition paths cannot reopen through tools or audits");
+    console.log("ok - Cardmarket collection runs only through its flag-gated, evidence-gated official-file collector");
+    console.log("ok - the CardRush page collector is the one permitted CardRush path: evidence-gated, identified, no proxy");
+    console.log("ok - TCGplayer is read only by the evidence-gated price-guide collector; its API reader stays locked");
     console.log("ok - reviewed legacy wholesale projections retain their price/image locks; catalog photo fallback has a separate display rule");
     console.log("ok - official card images publish only self-hosted (s3_key), takedown-clear, and attributed - never a publisher url");
     console.log("ok - live FX paths use attributed ECB statistics");

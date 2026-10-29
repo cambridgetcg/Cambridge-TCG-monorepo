@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getSource, listSourceMeta } from "@cambridge-tcg/data-ingest";
 import { fetchAggregatorCoverage } from "@/lib/wholesale/client";
 import { GET } from "./route";
 
@@ -98,5 +99,31 @@ describe("GET /api/v1/coverage", () => {
       "internal-only",
       "proprietary",
     ]);
+  });
+
+  // CardRush and TCGplayer are partial for collectors that write the member
+  // feed, while their legacy paths into this archive stay locked: "blocked"
+  // alone no longer names every source the archive stopped hearing from.
+  it("names every source whose legacy collection is closed, whatever its status", async () => {
+    mockFetchCoverage.mockResolvedValueOnce({
+      summary: {
+        total_observations: 0, distinct_cards: 0, distinct_games: 0, distinct_sources: 0,
+        unassigned_observations: 0, earliest_snapshot: null, latest_snapshot: null, days_of_coverage: 0,
+      },
+      by_game_source: [], by_game: [], by_source: [],
+      filter: { source: null, game: null, since: null },
+      queried_at: "2026-10-28T12:00:00.000Z",
+    });
+
+    const body = await (await GET(new Request("https://example.test/api/v1/coverage"))).json();
+    const closed: string[] = body.data.legacy_collection_closed;
+    for (const id of ["cardrush", "tcgplayer"] as const) {
+      expect(getSource(id)?.meta.status).toBe("partial");
+      expect(closed).toContain(id);
+    }
+    for (const meta of listSourceMeta().filter((source) => source.status === "blocked")) expect(closed).toContain(meta.id);
+    expect(closed).not.toContain("cardmarket");
+    expect(body.data.description).toContain("legacy path is locked in code");
+    expect(body.data.description).not.toMatch(/not ongoing for sources whose registry status .* is blocked\./);
   });
 });

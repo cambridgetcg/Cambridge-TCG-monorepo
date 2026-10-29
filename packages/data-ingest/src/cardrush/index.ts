@@ -7,11 +7,16 @@
  * the optional `scrapeCardRush(url, ctx)` helper; the contract's `read()`
  * yields the watch-list if one is provided via `ctx.cardrush.urls`.
  *
- * ── License ──────────────────────────────────────────────────────────
+ * ── Permission (2026-10-28) ──────────────────────────────────────────
  *
- * CardRush ToS does not authorise commercial redistribution of scraped
- * price data. Internal-decision use is the safer position. The
- * `redistribute: false` flag propagates this to `_meta.source_license`.
+ * Yu's written permission (docs/decisions/2026-10-28-tcg-data-permissions-
+ * and-paid-data-api.md#cardrush) covers collection from product pages,
+ * attributed member display and input to Cambridge-derived data. It reaches
+ * only the identified page collector in `./member-prices.ts`. Everything in
+ * this file (read(), scrapeCardRush, the access-mode fetchers and the
+ * browser-shaped headers) and the discovery fetch helpers stay behind
+ * CARDRUSH_ACQUISITION_ENABLED = false. Raw values are never redistributed:
+ * `redistribute: false` propagates to `_meta.source_license`.
  *
  * ── Why this lives here ──────────────────────────────────────────────
  *
@@ -65,14 +70,17 @@ import type { GameCode } from "@cambridge-tcg/sku";
 import { createFetcher, type Fetcher } from "../http";
 
 /**
- * Hard legal gate. CardRush's cross-site data policy requires a formal
- * partnership for automated crawling, scraping, or price collection. Keep
- * immutable and false until written permission is recorded in source intake.
+ * Legacy lock. CardRush's cross-site data policy prohibits automated
+ * crawling, scraping and price collection without a formal partnership. The
+ * written permission of 2026-10-28 opens only the identified page collector
+ * (`./member-prices.ts`); this constant keeps every path below, and the
+ * wholesale crons, CLI, stock checks and image copies, closed. Keep it
+ * immutable and false.
  */
 export const CARDRUSH_ACQUISITION_ENABLED = false as const;
 export const CARDRUSH_DATA_POLICY_URL = "https://cardrush.media/data_policy";
 export const CARDRUSH_BLOCK_REASON =
-  "CardRush prohibits automated crawling, scraping, and price collection without a formal partnership; no written partnership is recorded.";
+  "This legacy CardRush path stays locked. CardRush's data policy requires a formal partnership for automated collection; under the written permission recorded 2026-10-28 Cambridge collects only through the identified page collector.";
 
 // ── Subdomain → GameCode map ────────────────────────────────────────────
 
@@ -781,29 +789,40 @@ export const cardrush: SourceModule<CardRushRaw, CanonicalPrice> = {
     id: "cardrush",
     name: "CardRush (JP)",
     description:
-      "Blocked acquisition adapter. Legacy archives contain observations from " +
-      "One Piece, Pokémon, Dragon Ball Fusion World, Digimon, Vanguard, and " +
-      "Battle Spirits, but no new CardRush network access is permitted until a " +
-      "formal written partnership is recorded.",
+      "Japanese retail prices from CardRush product pages, under written permission " +
+      "recorded 2026-10-28. An identified page collector exists and reads them only " +
+      "while it is scheduled (DATA_COLLECT_CARDRUSH; /api/v1/sources says whether " +
+      "it is, in member_pricing.collection). What it collects is released for " +
+      "attributed member display and as an input to Cambridge-derived data only. " +
+      "The legacy archive, gathered before the permission, is frozen, withheld and " +
+      "not an input.",
     upstream: "https://www.cardrush-op.jp",
-    catalog_section: "the-tributaries.md#23-cardrush-jp--already-partial",
+    catalog_section: "the-tributaries.md#23-cardrush-jp--page-collector-legacy-archive-frozen",
     access: "scrape",
     license: "internal-only",
     redistribute: false,
-    freshness: "price_current",
+    // The collector's budget, not a row's: each two-hourly run reads one host
+    // and writes one batch (member_price_batches), so six hours with no batch
+    // is stale and twelve, a full round of the six hosts, very stale
+    // (/api/v1/sources/[id], audit:tributaries check 9). A product is re-read
+    // weeks to months apart (about two months a pass for One Piece at this
+    // rate); its row's own age is its retrievedAt.
+    freshness: "page_collector",
     canonical_effort: "high",
-    status: "blocked",
-    games: ["op", "pkm", "dbs", "dbf", "mtg", "ygo", "dmw", "vng", "wei", "fab", "lgr", "bsr"],
+    status: "partial",
+    games: ["op", "pkm", "dbf", "dmw", "vng", "bsr"],
     tos_notes:
-      `The cross-site policy at ${CARDRUSH_DATA_POLICY_URL} requires contact for a formal partnership and, absent partnership, prohibits automated crawling, scraping, and automated collection of prices or other content across all CardRush-operated sites. Acquisition is hard-disabled; legacy observations remain internal under review.`,
-    user_agent_suffix: "(cardrush-ingest)",
-    rate_limit: { rps: 0.5, burst: 2 },
+      `Written permission held by Yu (email, not copied; recorded at docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#cardrush) covers collection from CardRush product pages, attributed member display and input to Cambridge-derived data. Without it, ${CARDRUSH_DATA_POLICY_URL} prohibits automated crawling, scraping and price collection. robots.txt (www.cardrush.jp, cardrush.jp, www.cardrush-op.jp, and the pokemon, db, digimon, vanguard and bs hosts; 2026-10-28) disallows only GPTBot, Bytespider, TikTokSpider and meta-externalagent. Never member API, download or bulk. Rows gathered before 2026-10-28 are not inputs.`,
+    user_agent_suffix: "(cardrush-collector; permission cardrush/2026-10-28.1)",
+    // Per host: the collector gives each host its own bucket.
+    rate_limit: { rps: 0.5, burst: 1 },
     welcome:
-      "CardRush, Cambridge previously collected observations without a recorded " +
-      "formal partnership. Your published data policy makes the boundary clear: " +
-      "automated acquisition is now hard-disabled, scheduled jobs are removed, " +
-      "and legacy observations remain internal under review. Reopening requires " +
-      "written partnership terms covering the exact collection and use.",
+      "CardRush, thank you for your written permission. Our collector reads your " +
+      "product pages only while it is scheduled, and /api/v1/sources says whether " +
+      "it is. When it runs, it reads slowly and under our own name. The prices it " +
+      "reads appear on our pages with your name beside them and, combined with " +
+      "other markets, feed our own reference prices. We never resell or export " +
+      "your prices, and nothing gathered before your permission is used.",
   },
 
   async *read(ctx: CardRushContext): AsyncIterable<RawRow<CardRushRaw>> {

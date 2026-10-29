@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { scryfall } from "../scryfall";
 import { pokemonTcgApi } from "../pokemon-tcg-api";
 import { ygoprodeck } from "../ygoprodeck";
-import { tcgplayer } from "../tcgplayer";
-import { mintTcgplayerToken } from "../tcgplayer/oauth";
+import { tcgplayer, TCGPLAYER_ACQUISITION_ENABLED } from "../tcgplayer";
+import { mintTcgplayerToken, TCGPLAYER_ACCESS_BLOCKED_MESSAGE } from "../tcgplayer/oauth";
 import { cardmarket } from "../cardmarket";
 import {
   cardrush,
@@ -20,7 +20,9 @@ import {
   scrapeOne as scrapeOneTcgcollector,
 } from "../tcgcollector";
 import { fetchSitemap as fetchTcgcollectorSitemap } from "../tcgcollector/discovery";
-import { sourcesByStatus } from "../registry";
+import { getSource, legacyAcquisitionClosed, legacyArchiveFreshness, sourcesByStatus } from "../registry";
+import { MEMBER_PRICE_POLICIES } from "../member-prices";
+import { FRESHNESS } from "@cambridge-tcg/data-spec";
 import type { IngestEvent, SourceModule } from "../types";
 
 async function drain(source: SourceModule<unknown, unknown>, events: IngestEvent[]) {
@@ -52,7 +54,6 @@ describe("source rights declarations", () => {
 
   it.each([
     ["ygoprodeck", ygoprodeck],
-    ["tcgplayer", tcgplayer],
     ["tcgcollector", tcgcollector],
   ] as const)("hard-blocks %s until written rights or approval exist", async (_id, source) => {
     const events: IngestEvent[] = [];
@@ -61,6 +62,21 @@ describe("source rights declarations", () => {
     expect(source.meta.status).toBe("blocked");
     expect(source.meta.license).toBe("proprietary");
     expect(source.meta.redistribute).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.kind).toBe("error");
+    expect(String(events[0]?.detail.status)).toContain("blocked");
+  });
+
+  // Yu, 2026-10-28: written permission for TCGplayer pages. Collection runs
+  // only through the evidence-gated price-guide collector; the API reader
+  // stays locked whatever its meta says.
+  it("keeps the TCGplayer API reader locked while its meta names the page collector", async () => {
+    const events: IngestEvent[] = [];
+    const fetch = await drain(tcgplayer, events);
+
+    expect(tcgplayer.meta).toMatchObject({ access: "scrape", license: "internal-only", redistribute: false, status: "partial", rate_limit: { rps: 0.1, burst: 1 } });
+    expect(tcgplayer.meta.user_agent_suffix).toBe("(tcgplayer-collector; permission tcgplayer/2026-10-28.1)");
     expect(fetch).not.toHaveBeenCalled();
     expect(events).toHaveLength(1);
     expect(events[0]?.kind).toBe("error");
@@ -84,7 +100,9 @@ describe("source rights declarations", () => {
     );
 
     expect(CARDRUSH_ACQUISITION_ENABLED).toBe(false);
-    expect(cardrush.meta.status).toBe("blocked");
+    // The page collector (cardrush/member-prices.ts) is the one open path;
+    // the module turns partial while every legacy adapter stays blocked.
+    expect(cardrush.meta.status).toBe("partial");
     expect(cardrush.meta.redistribute).toBe(false);
     expect(scraped.raw.error_reason).toContain("acquisition_blocked");
     expect(discovered.error_reason).toContain("acquisition_blocked");
@@ -126,6 +144,11 @@ describe("source rights declarations", () => {
 
     expect(cardmarket.meta.access).toBe("public-file");
     expect(cardmarket.meta.status).toBe("partial");
+    // One daily run: past a day and its late-run margin is stale, not past
+    // five minutes as price_current would say.
+    expect(cardmarket.meta.freshness).toBe("daily_file");
+    expect(FRESHNESS.daily_file).toBeGreaterThan(24 * 60 * 60);
+    expect(FRESHNESS.daily_file).toBeLessThan(2 * 24 * 60 * 60);
     expect(cardmarket.meta.license).toBe("proprietary");
     expect(cardmarket.meta.redistribute).toBe(false);
     expect(fetch).not.toHaveBeenCalled();
@@ -145,6 +168,10 @@ describe("source rights declarations", () => {
       ),
     ).rejects.toThrow(/blocked/i);
     expect(fetcher).not.toHaveBeenCalled();
+    // The 2026-10-28 permission covers pages, not the API: the message says
+    // the API is closed without saying no permission exists.
+    expect(TCGPLAYER_ACCESS_BLOCKED_MESSAGE).toContain("grants no new API access");
+    expect(TCGPLAYER_ACCESS_BLOCKED_MESSAGE).not.toMatch(/no recorded written approval/i);
   });
 
   it("separates implemented planned sources from empty reserved slots", () => {
@@ -221,5 +248,87 @@ describe("source rights declarations", () => {
     }
 
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  // CardRush and TCGplayer turned partial because their page collectors
+  // exist, but the legacy archive their old paths filled is still frozen.
+  // Copy about that archive reads the locks, so a status change cannot alter it.
+  it("answers legacy acquisition from the code locks, not from status", () => {
+    expect(TCGPLAYER_ACQUISITION_ENABLED).toBe(false);
+    expect([cardrush.meta.status, tcgplayer.meta.status]).toEqual(["partial", "partial"]);
+    expect(legacyAcquisitionClosed("cardrush")).toBe(true);
+    expect(legacyAcquisitionClosed("tcgplayer")).toBe(true);
+    expect(legacyAcquisitionClosed({ id: "cardrush", status: "shipped" })).toBe(true);
+    // Without a lock, the status answers, as archive copy always read it.
+    expect(legacyAcquisitionClosed("ygoprodeck")).toBe(true);
+    expect(legacyAcquisitionClosed("cardmarket")).toBe(false);
+    expect(legacyAcquisitionClosed({ id: "ebay", status: "blocked" })).toBe(true);
+    expect(legacyAcquisitionClosed("not-a-registered-source")).toBe(false);
+
+    const original = tcgplayer.meta.status;
+    try {
+      tcgplayer.meta.status = "shipped";
+      expect(legacyAcquisitionClosed("tcgplayer")).toBe(true);
+    } finally {
+      tcgplayer.meta.status = original;
+    }
+  });
+
+  // Ids reach these from URLs and archive rows. An inherited name is not a
+  // registered source: it neither throws nor answers as one.
+  it.each(["toString", "constructor", "hasOwnProperty", "__proto__", "valueOf"])("treats the inherited name %s as an unknown id", (id) => {
+    expect(getSource(id as never)).toBeUndefined();
+    expect(legacyAcquisitionClosed(id)).toBe(false);
+    expect(legacyAcquisitionClosed({ id, status: "blocked" })).toBe(true);
+    expect(legacyArchiveFreshness({ id, freshness: "catalog" })).toBe("catalog");
+  });
+
+  // Archive rows keep the budget their source declared before its
+  // collector; the metas now carry the collectors' (page_collector,
+  // daily_file). The registry is the one answer, Cardmarket's included.
+  it("measures legacy archive rows by the budget their source declared before its collector", () => {
+    expect([cardrush, tcgplayer, cardmarket].map((source) => source.meta.freshness)).toEqual(["page_collector", "page_collector", "daily_file"]);
+    expect([cardrush, tcgplayer, cardmarket].map((source) => legacyArchiveFreshness(source.meta))).toEqual(["price_current", "price_current", "price_current"]);
+    expect(legacyArchiveFreshness({ id: "cardrush", freshness: "daily_file" })).toBe("price_current");
+    expect(legacyArchiveFreshness(ygoprodeck.meta)).toBe("catalog");
+    // A budget is not a lock: Cardmarket's archive rows are not closed.
+    expect(legacyAcquisitionClosed("cardmarket")).toBe(false);
+  });
+
+  it.each([
+    ["cardrush", cardrush, "DATA_COLLECT_CARDRUSH"],
+    ["tcgplayer", tcgplayer, "DATA_COLLECT_TCGPLAYER"],
+  ] as const)("keeps %s meta true whether or not its collector is scheduled", (_id, source, flag) => {
+    // Health compares the latest member_price_batches row with this budget:
+    // the page collectors' own key, not the card catalog's.
+    expect(source.meta.freshness).toBe("page_collector");
+    // Two-hourly and hourly runs: a missed run or two stays within budget,
+    // and a full round of CardRush's six hosts with no batch is past twice it.
+    expect(FRESHNESS.page_collector).toBeGreaterThanOrEqual(2 * 2 * 60 * 60);
+    expect(2 * FRESHNESS.page_collector).toBeLessThanOrEqual(6 * 2 * 60 * 60);
+    for (const text of [source.meta.description, source.meta.welcome ?? ""]) {
+      expect(text).toContain("only while it is scheduled");
+      expect(text).toContain("/api/v1/sources");
+      expect(text).not.toMatch(/\bWe read\b/);
+    }
+    expect(source.meta.description).toContain(flag);
+    expect(source.meta.tos_notes).not.toMatch(/open with Yu|question/i);
+  });
+
+  // Yu confirmed on 2026-10-29 that "Scrape TCGplayer pages" covers the data
+  // the price-guide page loads (decision record). These fields are public
+  // from deploy (/api/v1/sources, /api/v1/sources/welcome), so they say so
+  // plainly, leave scheduling to the flag, and name no API host.
+  it("says TCGplayer's permission covers its price-guide reads, and names no API host", () => {
+    const { description, tos_notes, welcome } = tcgplayer.meta;
+    for (const text of [description, tos_notes, welcome ?? ""]) {
+      expect(text).not.toMatch(/api\.tcgplayer\.com|mpapi\.|infinite-api\./);
+      expect(text).not.toMatch(/stays? off until|awaits confirmation|scope is confirmed/i);
+    }
+    expect(description).toContain("covers collection from TCGplayer pages, including the data TCGplayer's public price-guide pages load (Yu confirmed 2026-10-29)");
+    expect(tos_notes).toContain("Yu confirmed on 2026-10-29 that the permission covers those requests");
+    expect(welcome).toContain("reads them only while it is scheduled");
+    expect(MEMBER_PRICE_POLICIES.tcgplayer.basis).toContain("The permission covers the data TCGplayer's public price-guide pages load (Yu confirmed 2026-10-29)");
+    expect(MEMBER_PRICE_POLICIES.tcgplayer.basis).not.toMatch(/stays? off until|scope is confirmed|api\.tcgplayer\.com|mpapi\.|infinite-api\./);
   });
 });

@@ -384,7 +384,7 @@ export async function GET(
       : []),
     ...(blockedTcgplayerRows > 0
       ? [
-          "Stored TCGplayer rows were withheld. Cambridge has no recorded written approval for this multi-source use.",
+          "Stored TCGplayer rows were withheld: legacy TCGplayer rows stay withheld, and TCGplayer prices Cambridge collects, only while its collector is scheduled (see /api/v1/sources), appear only on Cambridge pages with TCGplayer named, never through an API.",
         ]
       : []),
   ];

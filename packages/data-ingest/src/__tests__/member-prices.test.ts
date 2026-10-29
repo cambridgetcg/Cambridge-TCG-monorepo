@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { artifactDigest, MEMBER_PRICE_REVIEW_VERSION, nativeAmount, priceUseAllowed, resolvePriceCrosswalk, sourceTimestamp, type ExactPriceCrosswalk } from '../member-prices';
+import { artifactDigest, CARDMARKET_DERIVATION_EVIDENCE_VERSION, CARDRUSH_EVIDENCE_VERSION, derivationAllowed, MEMBER_PRICE_POLICIES, MEMBER_PRICE_REVIEW_VERSION, nativeAmount, priceUseAllowed, resolvePriceCrosswalk, sourceTimestamp, TCGPLAYER_EVIDENCE_VERSION, WITHHELD_PRICE_SOURCES, type ExactPriceCrosswalk } from '../member-prices';
+import { cardrush, CARDRUSH_ACQUISITION_ENABLED } from '../cardrush';
+import { tcgplayer } from '../tcgplayer';
 import { acquireCardmarketMemberPrices, cardmarketObservationSource, parseCardmarketMemberPrices } from '../cardmarket/member-prices';
 import type { CardmarketPublicFileArtifact } from '../cardmarket/public-files';
 import { parseScryfallMemberPrices } from '../scryfall/member-prices';
@@ -24,7 +26,40 @@ describe('operation-specific member price permissions', () => {
     expect(priceUseAllowed('scryfall', 'member-api', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
     expect(priceUseAllowed('scryfall', 'member-download', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
     expect(priceUseAllowed('cardmarket', 'member-api', 'old')).toBe(false);
-    for (const source of ['cardrush','tcgplayer','pokemon-tcg-api','ygoprodeck','ebay','vinted','__proto__']) expect(priceUseAllowed(source, 'member-display', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
+    for (const source of ['pokemon-tcg-api','ygoprodeck','ebay','vinted','__proto__']) expect(priceUseAllowed(source, 'member-display', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
+  });
+  // Yu, 2026-10-28: written permission for CardRush and TCGplayer pages, raw
+  // values display-only. The earlier withheld pin is replaced by this one.
+  it.each([['cardrush', CARDRUSH_EVIDENCE_VERSION], ['tcgplayer', TCGPLAYER_EVIDENCE_VERSION]] as const)('releases %s raw page values for member display only, under its own evidence', (source, version) => {
+    expect(priceUseAllowed(source, 'member-display', version)).toBe(true);
+    expect(priceUseAllowed(source, 'member-api', version)).toBe(false);
+    expect(priceUseAllowed(source, 'member-download', version)).toBe(false);
+    expect(priceUseAllowed(source, 'member-display', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
+    expect(MEMBER_PRICE_POLICIES[source].uses).toEqual(['member-display']);
+    expect(MEMBER_PRICE_POLICIES[source].attribution).toMatch(/not (a|an individual) sale/i);
+    expect(MEMBER_PRICE_POLICIES[source].evidenceUrl).toBe(`repo:docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#${source}`);
+    expect(Object.keys(WITHHELD_PRICE_SOURCES)).not.toContain(source);
+  });
+  it('keeps the legacy CardRush and TCGplayer readers locked; a release policy is not an acquisition path', () => {
+    expect(CARDRUSH_ACQUISITION_ENABLED).toBe(false);
+    // Both are partial since their identified page collectors landed; their
+    // legacy readers stay locked (source-rights.test.ts).
+    expect(cardrush.meta.status).toBe('partial');
+    expect(tcgplayer.meta).toMatchObject({ access: 'scrape', license: 'internal-only', redistribute: false, status: 'partial' });
+    expect(Object.keys(WITHHELD_PRICE_SOURCES)).toEqual(['pokemon-tcg-api', 'ygoprodeck', 'ebay', 'tcgcollector', 'vinted']);
+  });
+  it('separates derivation permission from display permission, and never derives from Scryfall', () => {
+    expect(derivationAllowed('cardmarket', CARDMARKET_DERIVATION_EVIDENCE_VERSION)).toBe(true);
+    expect(derivationAllowed('cardmarket', MEMBER_PRICE_REVIEW_VERSION)).toBe(false);
+    expect(derivationAllowed('cardrush', CARDRUSH_EVIDENCE_VERSION)).toBe(true);
+    expect(derivationAllowed('tcgplayer', TCGPLAYER_EVIDENCE_VERSION)).toBe(true);
+    expect(derivationAllowed('tcgplayer', CARDRUSH_EVIDENCE_VERSION)).toBe(false);
+    expect(MEMBER_PRICE_POLICIES.scryfall.derivation).toBeNull();
+    for (const version of [MEMBER_PRICE_REVIEW_VERSION, CARDMARKET_DERIVATION_EVIDENCE_VERSION, '']) expect(derivationAllowed('scryfall', version)).toBe(false);
+    for (const source of ['ebay', '__proto__', 'constructor']) expect(derivationAllowed(source, CARDMARKET_DERIVATION_EVIDENCE_VERSION)).toBe(false);
+    // Stored Cardmarket and Scryfall rows match on the unchanged review version.
+    expect(MEMBER_PRICE_POLICIES.cardmarket.evidenceVersion).toBe('member-prices/2026-09-07.1');
+    expect(MEMBER_PRICE_POLICIES.scryfall.evidenceVersion).toBe('member-prices/2026-09-07.1');
   });
   it.each([0, -1, '', 'NaN', Infinity, true, '1e2', '1.1234567'])('does not invent a price for %s', value => expect(() => nativeAmount(value)).toThrow());
   it('separates missing amounts from zero and parses source offset without refreshing it', () => {
@@ -51,6 +86,15 @@ describe('official Cardmarket native files', () => {
   });
   it('quarantines missing product links rather than assigning another product', () => {
     expect(parse({ idProduct: 999, trend: 1 }).quarantine[0]?.reason).toBe('product-missing-from-supplied-catalog');
+  });
+  it("keeps the catalogue's idExpansion as the source set key, mapping nothing by it", () => {
+    const result = parse({ idProduct: 690368, trend: 2.95, 'trend-foil': 3.99 });
+    expect(result.observations.map(row => [row.metric, row.sourceSetKey, row.setCode, row.mappingStatus])).toEqual([['trend', '5229', null, 'unmapped'], ['trend-foil', '5229', null, 'unmapped']]);
+    // A catalogue row with no usable expansion names no set.
+    for (const idExpansion of [undefined, null, 0, -3, 1.5, '5229']) {
+      const rows = parseCardmarketMemberPrices({ gameId: 18, priceGuide: artifact('price-guide', [{ idProduct: 690368, trend: 2.95 }]), catalogs: [artifact('product-list', [{ ...product, idExpansion }])] }).observations;
+      expect(rows.map(row => row.sourceSetKey)).toEqual([null]);
+    }
   });
   it('only maps established source ID and identical scope; ambiguous links remain source-product rows', () => {
     const link: ExactPriceCrosswalk = { source: 'cardmarket', sourceProductId: '690368', finish: null, language: null, sku: 'op-op01-001-en', game: 'one-piece', setCode: 'op01', evidence: 'operator reviewed exact ID scope' };

@@ -95,6 +95,43 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-10-28 ─────────────────────────────────────────────────────────
+  {
+    id: "card-evidence-display-only-state",
+    date: "2026-10-28",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/cards/[sku]/evidence",
+    summary:
+      "source_states[].state adds display_only and drops observed_withheld: CardRush (was observed_withheld) and TCGplayer (was blocked) now read display_only.",
+    detail:
+      "Under the written permission recorded 2026-10-28, CardRush and TCGplayer prices are display-only: shown on Cambridge pages with the source named while their collectors are scheduled, never served by an API or a download, and their legacy rows stay withheld. The state is read from each source's release policy (display, and neither the member API nor downloads), and the reason text changed with it. The values are now display_only, blocked and planned. A client that switches on observed_withheld needs display_only; no route returns observed_withheld any more. Cardmarket, partial with a member API release, is left out of source_states as before.",
+    related_urls: ["/api/v1/sources", "/methodology/member-pricing"],
+  },
+  {
+    id: "coverage-legacy-collection-closed",
+    date: "2026-10-28",
+    kind: "envelope-field-added",
+    impact: "additive",
+    surface: "/api/v1/coverage",
+    summary:
+      "Added legacy_collection_closed (and its legend entry): the registry ids whose collection into the legacy observation archive is closed.",
+    detail:
+      "The list holds every blocked source and each source whose legacy path is locked in code, whatever its status. CardRush and TCGplayer turned partial on 2026-10-28 for page collectors that write the member feed, not this archive, so a blocked status alone no longer says whether the archive refreshes; their rows here are history. The description and the freshest_age_hours legend now name the field instead of blocked sources. Existing fields are unchanged.",
+    related_urls: ["/api/v1/coverage", "/api/v1/sources"],
+  },
+  {
+    id: "freshness-keys-page-collector-daily-file",
+    date: "2026-10-28",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "@cambridge-tcg/data-spec FRESHNESS + FreshnessKey; /api/v1/sources + /api/v1/sources/[id]",
+    summary:
+      "Added `page_collector` (6h) and `daily_file` (26h) to the FRESHNESS budget table; CardRush and TCGplayer now declare page_collector and Cardmarket daily_file, and /api/v1/sources/[id] reads health for those three from member_price_batches.",
+    detail:
+      "The two keys are appended; existing keys keep their meaning. Each budget is the age of a collector's newest batch, not of any row. Declared values changed: CardRush and TCGplayer from price_current to page_collector, Cardmarket from price_current to daily_file. A client with its own table of FreshnessKey seconds needs the two new keys, which is why this is marked breaking; /api/v1/sources now lists every key in its freshness_keys convention, generated from FRESHNESS. On /api/v1/sources/[id], health adds basis, which says what health was read from: member_price_batches for Cardmarket, CardRush and TCGplayer, judged by their newest batch (Cardmarket's health was read from ingest_run, where it has no rows), and ingest_run for every other source. A new collector block, null for every other source, names the latest batch and whether its DATA_COLLECT_* flag is on. A collector runs only while scheduled.",
+    related_urls: ["/api/v1/sources", "/api/v1/sources/cardmarket"],
+  },
   // ── 2026-10-10 ─────────────────────────────────────────────────────────
   {
     id: "truth-layer-data-infrastructure-positioning",
