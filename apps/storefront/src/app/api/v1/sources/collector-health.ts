@@ -15,8 +15,11 @@
  * budget that recorded none read as failing; otherwise stale, or very stale
  * past twice the budget. A run that fails before writing any batch (one that
  * rolls back, as Cardmarket's do) still leaves nothing, and reads as stale.
- * Only counts and times are read: quarantine entries hold source text and stay
- * operator-only.
+ * Only counts, times and whether a batch recorded observations are read:
+ * quarantine entries hold source text and stay operator-only. How many
+ * observations a batch holds is not counted, since health needs only none or
+ * some, and counting reads every row of a daily file (about 74,600 for One
+ * Piece) on each anonymous request.
  */
 
 type RunQuery = (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
@@ -26,8 +29,8 @@ export interface CollectorBatch {
   source_rows: number;
   missing_prices: number;
   quarantined: number;
-  /** Observations the batch recorded; 0 for a batch of quarantine only. */
-  observations: number;
+  /** Whether the batch recorded any observation; false for a batch of quarantine only. */
+  observed: boolean;
 }
 
 export type CollectorBatchRead =
@@ -59,7 +62,7 @@ export async function readLatestCollectorBatch(source: string, runQuery?: RunQue
     }
     const latest = await run(
       `SELECT b.id::text AS id, b.inserted_at, b.source_rows, b.missing_prices, jsonb_array_length(b.quarantine) AS quarantined,
-              (SELECT count(*) FROM member_price_observations o WHERE o.batch_id = b.id) AS observations
+              EXISTS (SELECT 1 FROM member_price_observations o WHERE o.batch_id = b.id) AS observed
          FROM member_price_batches b WHERE b.source = $1 ORDER BY b.id DESC LIMIT 1`,
       [source],
     );
@@ -70,9 +73,9 @@ export async function readLatestCollectorBatch(source: string, runQuery?: RunQue
       source_rows: Number(row.source_rows),
       missing_prices: Number(row.missing_prices),
       quarantined: Number(row.quarantined),
-      observations: Number(row.observations),
+      observed: row.observed === true,
     };
-    if (batch.observations > 0) return { available: true, latest: batch, latest_observed_at: batch.inserted_at };
+    if (batch.observed) return { available: true, latest: batch, latest_observed_at: batch.inserted_at };
     const observed = await run(
       `SELECT b.inserted_at FROM member_price_batches b
         WHERE b.source = $1 AND b.id < $2::bigint AND EXISTS (SELECT 1 FROM member_price_observations o WHERE o.batch_id = b.id)
