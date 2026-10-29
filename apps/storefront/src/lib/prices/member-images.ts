@@ -2,7 +2,7 @@ import 'server-only';
 import { query as dbQuery } from '@/lib/db';
 import { cardRushListingImageUrl } from '@cambridge-tcg/data-ingest/cardrush/member-prices';
 import { getEnCardImages } from '@/lib/cards/en-card-data';
-import type { MemberPriceItem } from './member-feed-types';
+import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, type MemberPriceItem } from './member-feed-types';
 
 /** Identity images beside /prices rows, so a person or an agent reading the
  * page can check the item against its price (Yu, 2026-10-29). Display only,
@@ -32,11 +32,13 @@ export interface MemberPriceImages {
 
 /** At most this many rows a page are looked up: the display-only page size,
  * so a CardRush view is always covered whole. */
-export const MEMBER_PRICE_IMAGE_ROWS = 50;
+export const MEMBER_PRICE_IMAGE_ROWS = DISPLAY_ONLY_INPUT_PAGE_LIMIT;
 
-/** The one switch for the CardRush image lane, read on every render. On
- * unless set to "off" (for when Yu says the permission does not cover
- * linking); the official lane is not affected. */
+/** The one switch for the CardRush image lane, read on every render (on
+ * Vercel a changed value reaches only a new deployment). On unless set to
+ * "off" (for when Yu says the permission does not cover linking); it stops
+ * the display only, so the collector still records URLs, and the official
+ * lane is not affected. */
 export function cardRushListingImagesOn(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return env.CARDRUSH_LISTING_IMAGES?.trim().toLowerCase() !== 'off';
 }

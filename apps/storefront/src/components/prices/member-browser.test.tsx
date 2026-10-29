@@ -282,7 +282,7 @@ describe("member price rendering", () => {
     const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { lane: "cardrush-listing", url: listingUrl }]])} />);
     const img = /<img [^>]*>/.exec(html)![0];
     expect(img).toContain(`src="${listingUrl}"`);
-    for (const attribute of ['loading="lazy"', 'decoding="async"', 'width="56"', 'height="78"', 'alt="〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}: CardRush listing image"']) expect(img).toContain(attribute);
+    for (const attribute of ['loading="lazy"', 'decoding="async"', 'width="56"', 'height="78"', 'referrerPolicy="no-referrer"', 'alt="〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}: CardRush listing image"']) expect(img).toContain(attribute);
     // A plain img: never next/image, its optimiser or any other proxy.
     expect(html).not.toContain("/_next/image");
     expect(html).not.toContain("srcSet");

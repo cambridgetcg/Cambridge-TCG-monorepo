@@ -117,6 +117,11 @@ describe('the API and downloads never read identity images', () => {
       expect(body, path).not.toContain('price_source_listing_images');
     }
   });
+  // The derived market API carries no image of any kind, official or CardRush:
+  // nothing on its path names one, so an image field cannot arrive unnoticed.
+  it.each(['app/api/v1/market', 'lib/data-api', 'lib/market-derived'])('%s names no image', dir => {
+    for (const path of files(join(root, dir))) expect(readFileSync(path, 'utf8'), path).not.toMatch(/image/i);
+  });
   it.each(['lib/prices/member-feed.ts', 'lib/prices/member-export.ts', 'lib/prices/member-http.ts'])('%s', file => {
     const body = readFileSync(join(root, file), 'utf8');
     expect(body).not.toContain('member-images');

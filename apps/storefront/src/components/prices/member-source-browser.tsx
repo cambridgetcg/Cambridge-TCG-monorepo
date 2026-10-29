@@ -86,7 +86,9 @@ function ObservationTime({ value }: { value: string | null }) {
 /** A row's identity image, small and fixed-size, for checking the item: a
  * CardRush listing's own image at CardRush's URL (a plain img, never
  * next/image or a proxy: Cambridge links it and never copies it), or an
- * official English base reference. ImageCredit says which, beside the row's name. */
+ * official English base reference. ImageCredit says which, beside the row's name.
+ * The CardRush request sends no Referer (member-http.ts sets the same policy),
+ * so CardRush is not told which member page asked. */
 function ItemImage({ image, item }: { image: MemberPriceImage; item: MemberPriceItem }) {
   const name = item.productName ?? item.sourceProductId;
   return (
@@ -98,6 +100,7 @@ function ItemImage({ image, item }: { image: MemberPriceImage; item: MemberPrice
       height={78}
       loading="lazy"
       decoding="async"
+      referrerPolicy={image.lane === "cardrush-listing" ? "no-referrer" : undefined}
       className="h-[78px] w-14 shrink-0 rounded border border-border-subtle bg-surface-subtle object-contain"
     />
   );
