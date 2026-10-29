@@ -17,7 +17,7 @@ import {
   postedFrom,
 } from "@/lib/siblings";
 import { DATA_RIGHTS } from "@/lib/data-rights";
-import { repoDocRef } from "@/lib/repository";
+import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
 
 const CONFIG = {
   /**
@@ -54,17 +54,18 @@ const CONFIG = {
     npm_published: false,
     npm_name_reserved_for_future_use: "@cambridge-tcg/mcp-server",
     source: repoDocRef("packages/mcp-server"),
-    repository_visibility: "private",
-    publicly_obtainable: false,
+    repository_visibility: REPOSITORY_VISIBILITY,
+    publicly_obtainable: REPOSITORY_VISIBILITY === "public",
     run_from_clone_requires:
-      "repository access; the repository is private, so these steps cannot be followed publicly",
+      "a clone of the public repository and Node.js 18 or later",
     run_from_clone: [
       "cd packages/mcp-server",
+      "npm install",
       "npm run build",
       "node dist/index.js",
     ],
     note:
-      "Native MCP clients that expect stdio need this bridge, which is not publicly distributed yet: the repository is private, and npx @cambridge-tcg/mcp-server does not work because the package is not published. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+      "Native MCP clients that expect stdio need this bridge. Its source is in the public repository, so it can be built from a clone; npx @cambridge-tcg/mcp-server does not work because the package is not published to npm. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
   },
 
   publication_boundaries: {

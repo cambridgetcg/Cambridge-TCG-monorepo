@@ -673,6 +673,12 @@ deploy state is still shown.
 
 ## Branch protection (NOT enabled — manual workaround)
 
+> **2026-10-29:** the repository is now public (`gh repo view` reported
+> PUBLIC), so the Free-plan block on private repositories described below
+> no longer applies; workaround 2 has happened. Whether branch protection
+> has since been enabled was not checked. The text below is kept as it
+> was written.
+
 `cambridgetcg/Cambridge-TCG-monorepo` is owned by a personal GitHub
 account on the Free plan. **GitHub Free does not allow branch
 protection on private repos.** You'll see "Upgrade to GitHub Pro"

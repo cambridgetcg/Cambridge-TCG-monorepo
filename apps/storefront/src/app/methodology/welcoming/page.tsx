@@ -177,8 +177,7 @@ export default function WelcomingMethodology() {
         <li>
           If the gap is technical (an API field, a missing endpoint, a curation
           that should expose substrate), email support at
-          contact@cambridgetcg.com. There is no public issue tracker yet: the
-          source repository is currently private.
+          contact@cambridgetcg.com.
         </li>
       </ol>
 
