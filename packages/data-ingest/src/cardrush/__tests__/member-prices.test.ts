@@ -19,7 +19,7 @@ import { artifactDigest, CARDRUSH_EVIDENCE_VERSION, MEMBER_PRICE_REVIEW_VERSION,
 import { createFetcher } from '../../http';
 import { cardrush } from '../index';
 import { buildSku, SkuBuildError } from '@cambridge-tcg/sku';
-import { acquireCardRushMemberPrices, cardRushRobotsAllow, compileCardRushRobots, cardRushSourceProductId, CARDRUSH_COLLECTOR_HOSTS, CARDRUSH_CROSSWALK_VERSION, CARDRUSH_MAX_BUDGET_MS, CARDRUSH_PAGE_RATE, CARDRUSH_PRICE_PARSER, CARDRUSH_ROBOTS_AGENTS, parseCardRushMemberPrices, type CardRushPage } from '../member-prices';
+import { acquireCardRushMemberPrices, cardRushListingImageUrl, cardRushRobotsAllow, compileCardRushRobots, cardRushSourceProductId, CARDRUSH_COLLECTOR_HOSTS, CARDRUSH_CROSSWALK_VERSION, CARDRUSH_MAX_BUDGET_MS, CARDRUSH_PAGE_RATE, CARDRUSH_PRICE_PARSER, CARDRUSH_ROBOTS_AGENTS, parseCardRushMemberPrices, type CardRushPage } from '../member-prices';
 
 vi.mock('../../http', async importOriginal => {
   const actual = await importOriginal<typeof import('../../http')>();
@@ -177,6 +177,63 @@ describe('CardRush product page parsing', () => {
     // Forward-only: a page read before the permission is not an observation.
     expect(parseCardRushMemberPrices([{ ...page(15600), retrievedAt: '2026-10-27T23:59:59.000Z' }]).quarantine).toEqual([{ sourceProductId: 'www.cardrush-op.jp/product/15600', reason: 'invalid-observation' }]);
     expect(Date.parse(PAGE_SOURCE_COLLECTION_START)).toBeLessThanOrEqual(Date.parse(readAt));
+  });
+
+  // The 15600 and 169 excerpts carry a synthetic og:image in the URL form
+  // CardRush listing images take; the other four carry none.
+  const listingImage = (path: string) => `https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from(path).toString('hex')}.jpg`;
+  it('keeps the listing image URL its page declares beside the observations, from the same read, never inside one', () => {
+    const result = parseCardRushMemberPrices([169, 778, 15600].map(id => page(id)));
+    expect(result.listingImages).toEqual([
+      { sourceProductId: 'www.cardrush-op.jp/product/169', imageUrl: listingImage('product/SYNTHETIC_169.jpg') },
+      { sourceProductId: 'www.cardrush-op.jp/product/15600', imageUrl: listingImage('product/SYNTHETIC_15600.jpg') },
+    ]);
+    for (const observation of result.observations) expect(JSON.stringify(observation)).not.toMatch(/image|\/data\//i);
+    // A page that yields no observation yields no image either.
+    const missing = html(15600).replace(/<p class="selling_price">[\s\S]*?<\/p>/, '<p>参考価格 123円</p>');
+    expect(one(page(15600, missing)).listingImages).toEqual([]);
+    // Another host's page never takes an image on cardrush-op.jp.
+    expect(one(page(15600, html(15600), 'https://www.cardrush-db.jp/product/15600')).listingImages).toEqual([]);
+  });
+
+  it('reads only og:image, never the first CardRush image elsewhere on the page', () => {
+    // Edit: the og:image removed, another listing's image left in the body.
+    const other = listingImage('product/SYNTHETIC_1.jpg');
+    const edited = html(15600).replace(/ *<meta property="og:image"[^>]*>\n/, '').replace('<body>', `<body><img src="${other}">`);
+    expect(edited).not.toMatch(/<meta[^>]+og:image/);
+    expect(one(page(15600, edited))).toMatchObject({ observations: [expect.objectContaining({ sourceProductId: 'www.cardrush-op.jp/product/15600' })], listingImages: [] });
+  });
+
+  it('accepts a listing image only on its own host, under its host\'s directory, in the real path shape', () => {
+    const hex = Buffer.from('product/SYNTHETIC_1.jpg').toString('hex');
+    expect(cardRushListingImageUrl(`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp')).toBe(`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg`);
+    // The Pokémon host's directory has no hyphen (stored URLs, 2026-07-05).
+    expect(cardRushListingImageUrl(`https://www.cardrush-pokemon.jp/data/cardrushpokemon/_/${hex}.jpg`, 'www.cardrush-pokemon.jp')).not.toBeNull();
+    expect(cardRushListingImageUrl(`https://www.cardrush-db.jp/data/cardrush-db/_/${hex}.webp`, 'www.cardrush-db.jp')).not.toBeNull();
+    for (const [value, host] of [
+      [`http://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg?w=160`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg?`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg#top`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp:8443/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      [`https://user@www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      [`https://WWW.CARDRUSH-OP.JP/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/../data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      [` https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      // Another host's image, directory or listing.
+      [`https://www.cardrush-db.jp/data/cardrush-db/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-db/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-mtg.jp/data/cardrush-mtg/_/${hex}.jpg`, 'www.cardrush-mtg.jp'],
+      [`https://cdn.example/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
+      // Not a product image: the hex must spell a product/ path.
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from('shop/logo.png').toString('hex')}.png`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/product/OP01_006.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex.toUpperCase()}.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}7.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.svg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/_/70726f647563742f${'61'.repeat(300)}.jpg`, 'www.cardrush-op.jp'],
+    ] as const) expect(cardRushListingImageUrl(value, host)).toBeNull();
+    for (const value of [null, undefined, 42, '', 'not a url']) expect(cardRushListingImageUrl(value, 'www.cardrush-op.jp')).toBeNull();
   });
 });
 

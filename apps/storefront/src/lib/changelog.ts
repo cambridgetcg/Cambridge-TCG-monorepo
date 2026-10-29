@@ -109,6 +109,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     related_urls: ["https://github.com/cambridgetcg/Cambridge-TCG-monorepo", "/.well-known/mcp.json", "/standards"],
   },
   {
+    id: "prices-identity-images",
+    date: "2026-10-29",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Member price rows can carry an identity image: the official English base reference inline, and a CardRush listing's own image, linked at CardRush's URL, behind a control the member opens.",
+    detail:
+      "So a person or an agent can check the item against its price. CardRush images are linked, never copied, and load from CardRush only when the member opens them; they are never in the member API, downloads or /api/v1/market/*. CardRush links need migration 0145 and a collector run. The rule is the agents' reading of Yu's words of 2026-10-29, in docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  {
     id: "standard-ctcg-names-v1-draft",
     date: "2026-10-29",
     kind: "spec-version-bump",

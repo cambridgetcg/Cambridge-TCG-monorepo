@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { CARDRUSH_COLLECTOR_HOSTS, CARDRUSH_CROSSWALK_VERSION, parseCardRushMemberPrices } from '@cambridge-tcg/data-ingest/cardrush/member-prices';
 
 vi.mock('server-only', () => ({}));
-const ports = vi.hoisted(() => ({ query: vi.fn(), transaction: vi.fn(), acquire: vi.fn(), write: vi.fn(), product: vi.fn(), set: vi.fn(), lease: vi.fn() }));
+const ports = vi.hoisted(() => ({ query: vi.fn(), transaction: vi.fn(), acquire: vi.fn(), write: vi.fn(), product: vi.fn(), set: vi.fn(), lease: vi.fn(), images: vi.fn() }));
 vi.mock('@/lib/db', () => ({ query: ports.query, transaction: ports.transaction }));
 vi.mock('@cambridge-tcg/data-ingest/cardrush/member-prices', async importOriginal => ({
   ...await importOriginal<typeof import('@cambridge-tcg/data-ingest/cardrush/member-prices')>(), acquireCardRushMemberPrices: ports.acquire,
@@ -11,6 +11,7 @@ vi.mock('@cambridge-tcg/data-ingest/cardrush/member-prices', async importOrigina
 vi.mock('../member-price-writer', () => ({ writeMemberPriceBatch: ports.write }));
 vi.mock('../crosswalks', () => ({ writeProductCrosswalk: ports.product, writeSetCrosswalk: ports.set }));
 vi.mock('../collector-lease', () => ({ withCollectorLease: ports.lease }));
+vi.mock('../listing-images', () => ({ writeCardRushListingImages: ports.images }));
 import { cardRushHostFor, chooseStalestCardRushPages, collectCardRush } from './cardrush';
 
 const fixtures = new URL('../../../../../../packages/data-ingest/src/cardrush/__tests__/fixtures/', import.meta.url);
@@ -83,11 +84,13 @@ describe('CardRush collector run', () => {
     // The writers decide under their lock: the second product and the set are an operator's.
     ports.product.mockResolvedValueOnce({ id: '9', supersededId: null, unchanged: false }).mockResolvedValueOnce({ id: '4', supersededId: null, unchanged: true, foreign: true });
     ports.set.mockResolvedValue({ id: '5', supersededId: null, unchanged: true, foreign: true });
+    ports.images.mockResolvedValue({ written: 2 });
     const summary = await collectCardRush({ runAt: opRun });
     expect(summary).toEqual({
       ran: true, host: 'www.cardrush-op.jp', runAt: opRun.toISOString(), requested: 2, observed: 2, quarantined: 1,
       unavailable: { code: 'SOURCE_UNAVAILABLE', reason: 'http-429' }, sitemapProducts: 14887,
       batch: { id: '21', inserted: 2, duplicate: false }, crosswalks: { written: 1, unchanged: 0, skipped: 2, refused: 0 },
+      listingImages: { written: 2 },
     });
     const [source, batch, , options] = ports.write.mock.calls[0]!;
     expect(source).toBe('cardrush');
@@ -98,6 +101,24 @@ describe('CardRush collector run', () => {
     expect(ports.product.mock.calls[0]![0]).toEqual({ source: 'cardrush', ...parsed.productCrosswalks[0], crosswalkVersion: CARDRUSH_CROSSWALK_VERSION });
     for (const call of [...ports.product.mock.calls, ...ports.set.mock.calls]) expect(call[2]).toEqual({ collector: true });
     expect(ports.set).toHaveBeenCalledOnce();
+    // The listing image URLs go to their own writer, last, with the observations the batch wrote; never into the batch.
+    expect(parsed.listingImages).toHaveLength(2);
+    expect(ports.images).toHaveBeenCalledWith(parsed.listingImages, parsed.observations, expect.any(Function));
+  });
+
+  it('links no listing image for a repeated run key, and reports a store without 0145 without failing the run', async () => {
+    const parsed = parseCardRushMemberPrices([page(15600)]);
+    ports.query.mockResolvedValueOnce(released);
+    ports.acquire.mockResolvedValue({ host: 'www.cardrush-op.jp', game: 'one-piece', sitemapProducts: 9, requested: 1, unavailable: null, parsed });
+    ports.product.mockResolvedValue({ id: '3', supersededId: null, unchanged: true });
+    ports.set.mockResolvedValue({ id: '4', supersededId: null, unchanged: true });
+    ports.write.mockResolvedValue({ batchId: '24', inserted: 0, duplicate: true });
+    expect((await collectCardRush({ runAt: opRun })).listingImages).toBeUndefined();
+    expect(ports.images).not.toHaveBeenCalled();
+    ports.query.mockResolvedValueOnce(released);
+    ports.write.mockResolvedValue({ batchId: '25', inserted: 1, duplicate: false });
+    ports.images.mockResolvedValue({ written: 0, skipped: 'not-provisioned' });
+    expect(await collectCardRush({ runAt: opRun })).toMatchObject({ batch: { id: '25', inserted: 1 }, listingImages: { written: 0, skipped: 'not-provisioned' } });
   });
 
   it('counts a malformed link the writers refuse, and lets any other failure surface', async () => {
@@ -116,7 +137,7 @@ describe('CardRush collector run', () => {
   it('records a host that refused its sitemap as that host\'s reading: a batch with no observation, naming the refusal', async () => {
     ports.query.mockResolvedValueOnce(released);
     ports.acquire.mockResolvedValue({ host: 'www.cardrush-op.jp', game: 'one-piece', sitemapProducts: 0, requested: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason: 'sitemap-http-403' },
-      parsed: { observations: [], quarantine: [], sourceRows: 0, missingPrices: 0, productCrosswalks: [], setCrosswalks: [] } });
+      parsed: { observations: [], quarantine: [], sourceRows: 0, missingPrices: 0, productCrosswalks: [], setCrosswalks: [], listingImages: [] } });
     ports.write.mockResolvedValue({ batchId: '23', inserted: 0, duplicate: false });
     expect(await collectCardRush({ runAt: opRun })).toMatchObject({ ran: true, requested: 0, batch: { id: '23', inserted: 0 }, unavailable: { reason: 'sitemap-http-403' } });
     expect(ports.write.mock.calls[0]!.slice(0, 2)).toEqual(['cardrush', { observations: [], quarantine: [{ sourceProductId: null, field: 'host', reason: 'sitemap-http-403' }], sourceRows: 0, missingPrices: 0 }]);
@@ -127,7 +148,7 @@ describe('CardRush collector run', () => {
   it('writes nothing when the run read no page and nothing refused it', async () => {
     ports.query.mockResolvedValueOnce(released);
     ports.acquire.mockResolvedValue({ host: 'www.cardrush-op.jp', game: 'one-piece', sitemapProducts: 9, requested: 0, unavailable: null,
-      parsed: { observations: [], quarantine: [], sourceRows: 0, missingPrices: 0, productCrosswalks: [], setCrosswalks: [] } });
+      parsed: { observations: [], quarantine: [], sourceRows: 0, missingPrices: 0, productCrosswalks: [], setCrosswalks: [], listingImages: [] } });
     expect(await collectCardRush({ runAt: opRun })).toMatchObject({ ran: true, requested: 0, batch: null });
     expect(ports.write).not.toHaveBeenCalled();
   });

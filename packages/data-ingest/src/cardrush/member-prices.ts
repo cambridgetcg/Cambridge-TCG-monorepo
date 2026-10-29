@@ -48,9 +48,15 @@ export interface CardRushProductCrosswalk {
   mappingStatus: 'exact' | 'ambiguous'; sku: string | null; setCode: string | null; evidence: string;
 }
 export interface CardRushSetCrosswalk { sourceSetKey: string; game: string; setCode: string; evidence: string }
+/** Where a listing's own image lives on CardRush, read from the page its
+ * observation came from. A URL to link to, never fetched or copied. Kept
+ * beside the observations, not in them: every observation key goes to the
+ * member CSV, and this never does. */
+export interface CardRushListingImage { sourceProductId: string; imageUrl: string }
 export interface ParsedCardRushPrices extends ParsedMemberPrices {
   productCrosswalks: CardRushProductCrosswalk[];
   setCrosswalks: CardRushSetCrosswalk[];
+  listingImages: CardRushListingImage[];
 }
 export interface CardRushAcquisition {
   host: string; game: string;
@@ -72,6 +78,31 @@ export function cardRushSourceProductId(value: string): string | null {
   if (url.protocol !== 'https:' || url.username || url.password || url.port || url.search || url.hash || !id || !Object.hasOwn(CARDRUSH_COLLECTOR_HOSTS, url.hostname)) return null;
   return `${url.hostname}/product/${id}`;
 }
+
+/** CardRush listing images are linked at CardRush's own URL, never copied
+ * (the agents' reading of Yu's words of 2026-10-29, in the decision record).
+ * A URL is kept only in the shape of the stored CardRush image URLs recorded
+ * in apps/wholesale/src/lib/cardrush-hires-upload.ts (2026-07-05): on the
+ * listing's own host, under that host's own directory (cardrush-op,
+ * cardrushpokemon, cardrush-db; the other three hosts' directories are not on
+ * record, so theirs must match their host's name, with or without the
+ * hyphen), then /_/ and the hex of a product/ path. A shop logo or another
+ * listing's image would mislead the reader it is shown to, so anything else
+ * is no image. */
+export const CARDRUSH_LISTING_IMAGE_MAX_LENGTH = 512;
+const LISTING_IMAGE_PATH = /^\/data\/(cardrush-?[a-z]+)\/_\/70726f647563742f(?:[0-9a-f]{2})+\.(?:jpe?g|png|webp)$/;
+export function cardRushListingImageUrl(value: unknown, host: string): string | null {
+  if (typeof value !== 'string' || value.length > CARDRUSH_LISTING_IMAGE_MAX_LENGTH || /[\s?#\\]/.test(value) || !Object.hasOwn(CARDRUSH_COLLECTOR_HOSTS, host)) return null;
+  let url: URL;
+  try { url = new URL(value); } catch { return null; }
+  const directory = LISTING_IMAGE_PATH.exec(url.pathname)?.[1];
+  const hostName = host.replace(/^www\./, '').replace(/\.jp$/, '');
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hostname !== host || url.href !== value || !directory || directory.replaceAll('-', '') !== hostName.replaceAll('-', '')) return null;
+  return value;
+}
+// The og:image pattern parseCardMetadata reads, without its fallback to the
+// first CardRush image anywhere on the page, which can be another listing's.
+const OG_IMAGE = /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i;
 
 // Condition is recorded only where the title states it: 〔状態A-〕 or a
 // grading marker such as 〔PSA10鑑定済〕. No marker means no stated condition.
@@ -112,9 +143,11 @@ function structuredPrice(html: string): { amount: string } | { reason: string } 
 
 /** Parses product pages read in one run. Every page yields observations or
  * a quarantine entry; nothing is dropped and no zero or guessed price is stored.
+ * A page with an observation and an og:image of the listing-image shape also
+ * yields that URL, from the same read.
  */
 export function parseCardRushMemberPrices(pages: readonly CardRushPage[]): ParsedCardRushPrices {
-  const result: ParsedCardRushPrices = { observations: [], quarantine: [], sourceRows: pages.length, missingPrices: 0, productCrosswalks: [], setCrosswalks: [] };
+  const result: ParsedCardRushPrices = { observations: [], quarantine: [], sourceRows: pages.length, missingPrices: 0, productCrosswalks: [], setCrosswalks: [], listingImages: [] };
   const seen = new Set<string>(), sets = new Set<string>();
   for (const page of pages) {
     const id = cardRushSourceProductId(page.url);
@@ -186,6 +219,8 @@ export function parseCardRushMemberPrices(pages: readonly CardRushPage[]): Parse
     result.observations.push(observation);
     if (crosswalk) result.productCrosswalks.push(crosswalk);
     if (setCrosswalk && !sets.has(setCrosswalk.setCode)) { sets.add(setCrosswalk.setCode); result.setCrosswalks.push(setCrosswalk); }
+    const imageUrl = cardRushListingImageUrl(OG_IMAGE.exec(html)?.[1], id.split('/')[0]!);
+    if (imageUrl) result.listingImages.push({ sourceProductId: id, imageUrl });
   }
   return result;
 }
@@ -299,7 +334,7 @@ export async function acquireCardRushMemberPrices(ctx: IngestContext, input: {
   // The caller's rate is ignored: this host gets its own bucket at the collector's rate.
   const fetcher = createFetcher({ ...ctx, signal, rate_limit: CARDRUSH_PAGE_RATE }, cardrush.meta, { max_retries: 0 });
   const interval = 1000 / CARDRUSH_PAGE_RATE.rps;
-  const empty = (): ParsedCardRushPrices => ({ observations: [], quarantine: [], sourceRows: 0, missingPrices: 0, productCrosswalks: [], setCrosswalks: [] });
+  const empty = (): ParsedCardRushPrices => ({ observations: [], quarantine: [], sourceRows: 0, missingPrices: 0, productCrosswalks: [], setCrosswalks: [], listingImages: [] });
   const stop = (reason: string, sitemapProducts = 0): CardRushAcquisition => ({ host, game, sitemapProducts, robotsDisallowed: 0, requested: 0, unavailable: { code: 'SOURCE_UNAVAILABLE', reason }, parsed: empty() });
 
   // Read once, first, through the host's own bucket. Not followed if it
