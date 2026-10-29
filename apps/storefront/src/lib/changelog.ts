@@ -95,6 +95,19 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-10-29 ─────────────────────────────────────────────────────────
+  {
+    id: "source-collector-latest-batch-observed",
+    date: "2026-10-29",
+    kind: "endpoint-modified",
+    impact: "breaking",
+    surface: "/api/v1/sources/[id] collector.latest_batch",
+    summary:
+      "collector.latest_batch.observations (a count) is now observed (true or false): whether the source's newest batch recorded any observation.",
+    detail:
+      "Health only needs to know whether a batch collected anything, and counting a batch's observations on every anonymous request grew with the batch. The field shipped the same day (2026-10-29) with the collector block; a client that read the count reads observed instead. Health and its basis are unchanged.",
+    related_urls: ["/api/v1/sources/cardmarket"],
+  },
   // ── 2026-10-28 ─────────────────────────────────────────────────────────
   {
     id: "card-evidence-display-only-state",
