@@ -146,9 +146,10 @@ jobs:
           DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           PRODUCT_FLOW_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           PRISM_STRIPE_OPERATOR_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
-      # The data service's suites: member prices, crosswalks, collectors and
-      # their leases, market derivation, and data-API reads and billing. Each
-      # applies 0137-0143 into its own schema, so they share this database.
+      # The data service's suites: member prices, crosswalks, collectors,
+      # their leases and host state, listing-image links, market derivation,
+      # and data-API reads and billing. Each applies the migrations it needs
+      # (0137-0146) into its own schema, so they share this database.
       - name: Run PostgreSQL member-price, collector, derivation and data-API suites
         run: >-
           pnpm --filter cambridgetcg-storefront exec vitest run
@@ -157,9 +158,11 @@ jobs:
           src/lib/data-api/data-api.integration.test.ts
           src/lib/data-api/schema.integration.test.ts
           src/lib/datafeed/cardmarket-collector.integration.test.ts
+          src/lib/datafeed/collector-hosts.integration.test.ts
           src/lib/datafeed/collector-lease.integration.test.ts
           src/lib/datafeed/collectors/cardrush.integration.test.ts
           src/lib/datafeed/collectors/tcgplayer.integration.test.ts
+          src/lib/datafeed/listing-images.integration.test.ts
           src/lib/datafeed/member-price-latest.integration.test.ts
           src/lib/datafeed/member-prices.integration.test.ts
           src/lib/datafeed/price-sources.integration.test.ts
@@ -197,7 +200,7 @@ jobs:
         run: pnpm --filter @cambridge-tcg/answering-rhymes pack:check
 
   data:
-    name: data (data-spec + data-ingest tests, rights audits)
+    name: data (sku + data-spec + data-ingest tests, rights audits)
     runs-on: ubuntu-latest
     needs: [detect, install]
     if: needs.detect.outputs.data == 'true'
@@ -209,6 +212,8 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      # packages/sku holds CTCG-SKU-v1 and CTCG-NAMES-v1's reference code.
+      - run: pnpm --filter @cambridge-tcg/sku test
       - run: pnpm --filter @cambridge-tcg/data-spec test
       - run: pnpm --filter @cambridge-tcg/data-ingest test
       # Both audits read source and docs only. Tributaries' ingest-run
