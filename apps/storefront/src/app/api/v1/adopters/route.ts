@@ -12,7 +12,7 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
-import { repoDocRef } from "@/lib/repository";
+import { repoDocPath, repoDocRef } from "@/lib/repository";
 
 interface Adopter {
   name: string;
@@ -57,7 +57,7 @@ export async function GET(): Promise<Response> {
     standards: {
       "CTCG-SKU-v1": {
         package: "@cambridge-tcg/sku",
-        github: null,
+        github: repoDocPath("packages/sku"),
         source: repoDocRef("packages/sku"),
         package_published: false,
         spec: "/methodology/sku-standard",
@@ -69,7 +69,7 @@ export async function GET(): Promise<Response> {
       },
       "CTCG-PRICING-v1": {
         package: "@cambridge-tcg/pricing",
-        github: null,
+        github: repoDocPath("packages/pricing"),
         source: repoDocRef("packages/pricing"),
         package_published: false,
         spec: "/methodology/pricing",
@@ -88,7 +88,7 @@ export async function GET(): Promise<Response> {
       },
       "CTCG-NAMES-v1": {
         package: "@cambridge-tcg/sku",
-        github: null,
+        github: repoDocPath("packages/sku/src/names.ts"),
         source: repoDocRef("packages/sku/src/names.ts"),
         package_published: false,
         spec: "/methodology/card-names",

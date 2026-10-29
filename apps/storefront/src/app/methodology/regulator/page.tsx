@@ -22,7 +22,7 @@ export default function RegulatorMethodology() {
         agreements still settle. The current direction is open-source TCG data
         infrastructure; see <Link href="/roadmap">the roadmap</Link> and{" "}
         <Link href="/methodology/fees">fees</Link>. The commerce boundary is recorded in{" "}
-        <code>apps/storefront/docs/commercial-retirement.md</code> (private repository). The
+        <code>apps/storefront/docs/commercial-retirement.md</code> (public repository). The
         text below is kept as last published (its commission line was already updated on 21
         July 2026), with dated notes where it no longer holds.
       </blockquote>

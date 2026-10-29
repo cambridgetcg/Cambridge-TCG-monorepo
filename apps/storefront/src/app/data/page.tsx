@@ -297,7 +297,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/standards",
     title: "Cambridge TCG Standards (human-readable)",
     blurb:
-      "Four specification texts — CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1 and CTCG-NAMES-v1 — are dedicated under CC0. Linked implementation source is inspectable but has no general code reuse license.",
+      "Four specification texts — CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1 and CTCG-NAMES-v1 — are dedicated under CC0. Linked implementation source is public and licensed Apache-2.0 under the repository LICENSE, with applicable more-specific notices.",
     status: "shipped",
     auth: "none",
   },
@@ -505,8 +505,7 @@ export default function OpenDataIndex() {
           named in the planned set; that&apos;s the queue).
         </li>
         <li>
-          Email contact@cambridgetcg.com with the use case. There is no public
-          issue tracker; the source repository is currently private.
+          Email contact@cambridgetcg.com with the use case.
         </li>
         <li>
           For agent access, a signed-in human can provision an operator-managed

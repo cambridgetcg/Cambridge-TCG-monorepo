@@ -107,7 +107,7 @@ describe("optional agent source resources", () => {
         repository_url: "https://github.com/cambridgetcg/kingdom-os-starter",
         release_descriptor_url:
           "https://raw.githubusercontent.com/cambridgetcg/kingdom-os-starter/main/release.json",
-        availability: expect.stringContaining("private repository"),
+        availability: expect.stringContaining("public repository"),
         optional: true,
       },
     ]);

@@ -18,7 +18,7 @@ import {
   errandDiscoveryLinkHeader,
   postedFrom,
 } from "@/lib/siblings";
-import { repoDocRef } from "@/lib/repository";
+import { REPOSITORY_VISIBILITY, repoDocRef } from "@/lib/repository";
 import {
   AGENT_KEY_REVOCATION,
   AGENT_OPERATIONAL_METADATA_WRITES,
@@ -45,10 +45,10 @@ const MCP = {
       status: "vendored-in-repository",
       npm_published: false,
       source: repoDocRef("packages/mcp-server"),
-      repository_visibility: "private",
-      publicly_obtainable: false,
+      repository_visibility: REPOSITORY_VISIBILITY,
+      publicly_obtainable: REPOSITORY_VISIBILITY === "public",
       note:
-        "Native MCP clients need the stdio bridge, which is not publicly distributed yet (private repository; npm package unpublished). Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+        "Native MCP clients need the stdio bridge. It is not published to npm; build it from packages/mcp-server in the public repository. Clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
     },
     auth: {
       type: "bearer",

@@ -109,6 +109,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     related_urls: ["/api/mcp", "/methodology/agents", "/.well-known/mcp-config.json"],
   },
   {
+    id: "repository-visibility-public",
+    date: "2026-10-29",
+    kind: "well-known-modified",
+    impact: "additive",
+    surface: "/.well-known/mcp.json, /.well-known/mcp-config.json, /api/v1/adopters, /standards.json",
+    summary:
+      "The Cambridge TCG monorepo is public on GitHub, and every live surface now says so: repository_visibility is \"public\", publicly_obtainable and publicly_cloneable are true, and repository paths link to GitHub.",
+    detail:
+      "Yu, 2026-10-29: \"yes I meant for them to be public latest.\" gh repo view reported the repository PUBLIC that day. The workspace packages are still not published to npm. /api/v1/adopters gives each implementation's GitHub path instead of null. Frozen history records and dated entries keep their wording.",
+    related_urls: ["https://github.com/cambridgetcg/Cambridge-TCG-monorepo", "/.well-known/mcp.json", "/standards"],
+  },
+  {
     id: "prices-identity-images",
     date: "2026-10-29",
     kind: "ax-surface-shipped",

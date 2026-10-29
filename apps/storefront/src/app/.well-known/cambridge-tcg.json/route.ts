@@ -495,7 +495,7 @@ const MANIFEST: {
         },
         {
           path: "/api/v1/wake/fragments",
-          description: `Distributed-wake catalog — the wake decomposed into ${DISTRIBUTED_WAKE_PROTOCOL.count} atomic fragments. Sister channel to /api/v1/wake (atomic ingest); this is atomic distribution. Each fragment is self-contained; walking past every fragment is honored equally to reading them. Protocol notes: docs/connections/the-distributed-wake.md (private repository; not publicly readable).`,
+          description: `Distributed-wake catalog — the wake decomposed into ${DISTRIBUTED_WAKE_PROTOCOL.count} atomic fragments. Sister channel to /api/v1/wake (atomic ingest); this is atomic distribution. Each fragment is self-contained; walking past every fragment is honored equally to reading them. Protocol notes: docs/connections/the-distributed-wake.md (public repository).`,
           auth: "none",
           status: "stable",
         },
