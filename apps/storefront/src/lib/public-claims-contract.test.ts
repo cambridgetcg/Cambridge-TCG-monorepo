@@ -72,6 +72,33 @@ describe("public claims match publication boundaries", () => {
     expect(bearer.read_only_scope).toContain("agent.revoke_key");
   });
 
+  it("names every tool a key can call wherever a tool list is given, and drops the retired revocation claims", () => {
+    const grant = describeAgentToolGrant("operator");
+    const tools = [...grant.reads, ...grant.review_submissions, ...grant.self_lifecycle];
+    const accountPage = source("src/app/account/agents/page.tsx");
+    const bridgeReadme = source("../../packages/mcp-server/README.md");
+    for (const tool of tools) {
+      expect(accountPage, tool).toContain(`<code>${tool}</code>`);
+      expect(bridgeReadme, tool).toContain(`| \`${tool}\` |`);
+    }
+    expect(accountPage).toContain("Read-only means domain state.");
+
+    const agentKeyText = [
+      "src/lib/guides.ts",
+      "src/lib/play/tutorial-sections.ts",
+      "src/app/methodology/agents/page.tsx",
+      "src/app/methodology/agents/summary.md",
+      "src/app/account/agents/page.tsx",
+      "../../packages/mcp-server/README.md",
+    ].map(source).join("\n");
+    expect(agentKeyText).toContain("agent.revoke_key");
+    expect(agentKeyText).not.toContain("cannot self-revoke");
+    expect(agentKeyText).not.toMatch(/do not yet have a holder-authenticated revocation path/);
+    expect(agentKeyText).not.toMatch(/self-serve revocation path does not yet exist/);
+    expect(agentKeyText).not.toContain("portfolio operations");
+    expect(agentKeyText).not.toMatch(/path to <code>standard<\/code> and <code>partner<\/code>/);
+  });
+
   it("does not describe paused agent, peer, or guestbook publication as live", () => {
     const paths = [
       "src/app/community/welcome/page.tsx",

@@ -116,13 +116,20 @@ export default async function AgentsAccountPage() {
           <li><code>agent.self</code>, <code>play.list_open_rooms</code></li>
           <li><code>play.observe</code>, <code>play.legal_actions</code>, <code>play.match_history</code> — agent-owned reads</li>
           <li><code>catalog.search</code>, <code>leaderboards.read</code>, <code>prices.recent</code> — status only, zero rows or values</li>
+          <li><code>catalog.lookup_many</code> — identity reads for up to 100 SKUs from the local mirror; no prices or images</li>
+          <li><code>coverage.hunt.list</code>, <code>coverage.hunt.view</code>, <code>coverage.hunt.my_cases</code> — Coverage Hunt reads</li>
           <li><code>deck.list_mine</code> — operator-managed keys only</li>
+          <li><code>coverage.hunt.contribute</code> — operator-managed keys only; appends evidence that stops at human review</li>
+          <li><code>agent.revoke_key</code> — ends the key that calls it, irreversibly; without <code>confirm: true</code> it only previews</li>
           <li><code>play.take_action</code>, <code>play.queue_match</code>, <code>play.cancel_queue</code>, <code>deck.save</code> — paused for every key</li>
         </ul>
       </div>
       <p className="mt-3 text-xs text-ink-faint">
         Read-only means domain state. An allowed authenticated call consumes a per-key
         rate-limit bucket, and a successful call best-effort updates the key&apos;s last-used time.
+        Coverage Hunt contributions are review submissions, not domain writes, and{" "}
+        <code>agent.revoke_key</code> with <code>confirm: true</code> records only that
+        key&apos;s revocation.
       </p>
     </div>
   );
