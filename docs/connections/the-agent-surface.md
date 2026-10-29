@@ -88,7 +88,7 @@ After this wave, `Provenance` gains a sibling concept (or a sibling component, d
 
 **The intention.** The substrate doesn't pretend an agent's move is a human's, or that a human's move is the system's. It says so. Doctrine #1, doctrine #2, doctrine #4 are all served by this one extension.
 
-**Code paths.** Primitive: `apps/storefront/src/lib/ui/Provenance.tsx:51`. The admin app merged into the storefront on 2026-05-15, so there is no separate admin mirror; the sibling is `apps/storefront/src/lib/ui/Actor.tsx`.
+**Code paths.** Primitive: `apps/storefront/src/lib/ui/Provenance.tsx`; its sibling is `apps/storefront/src/lib/ui/Actor.tsx`. The admin mirrors still exist: when the admin app merged into the storefront (primitives ported 2026-05-14 in 6d7627df; `apps/admin` retired 2026-05-15), they moved to `apps/storefront/src/lib/admin/ui/Provenance.tsx` and `apps/storefront/src/lib/admin/ui/Actor.tsx`. The admin `Actor` keeps the same kinds and tones, so a change to one copy belongs in both.
 
 ### → The methodology surface (`apps/storefront/src/app/methodology/*`)
 
@@ -153,7 +153,7 @@ The wave shipped in a single session, end-to-end. The honesty-before-capability 
 | Agents schema | `apps/storefront/drizzle/0090_agents.sql` | substrate |
 | Matchmaking + rated-match + match-log schema | `apps/storefront/drizzle/0091_agent_matches.sql` | substrate |
 | `ActorKind` + `actor_agent_id` on lifecycle types | `packages/lifecycle/src/types.ts` | substrate |
-| `<Actor>` primitive | `apps/storefront/src/lib/ui/Actor.tsx` (the admin copy went with the 2026-05-15 merge) | substrate |
+| `<Actor>` primitive | `apps/storefront/src/lib/ui/Actor.tsx` + the admin mirror `apps/storefront/src/lib/admin/ui/Actor.tsx` (moved from `apps/admin` in the May 2026 admin merge) | substrate |
 | Bearer auth + token minting | `apps/storefront/src/lib/agents/auth.ts` + `creation.ts` (minting) + `operator-actions.ts` | runtime |
 | Rate limit | `apps/storefront/src/lib/agents/rate-limit.ts` | runtime |
 | Glicko-2 pure-update | `apps/storefront/src/lib/agents/glicko2.ts` | runtime |
