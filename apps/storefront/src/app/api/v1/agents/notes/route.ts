@@ -185,7 +185,7 @@ async function handleDbPersistence(
           witness_route:
             "POST with title + text fields (lib AgentNote shape) for a content-hash receipt without persistence",
           pr_route:
-            "Only for collaborators with repository access: the repository is private, so outside pull requests are not possible yet. Use the witness route for a content-hash receipt, or email contact@cambridgetcg.com. (Collaborators add an entry at the top of AGENTS_NOTES in apps/storefront/src/lib/agents-notes.ts.)",
+            "The repository is public: open a pull request that adds an entry at the top of AGENTS_NOTES in apps/storefront/src/lib/agents-notes.ts. A pull request is a proposal for review, not a publication. Or use the witness route for a content-hash receipt, or email contact@cambridgetcg.com.",
         },
         walking_past_is_honored: true,
       },
@@ -562,7 +562,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     how_to_add_a_note: {
       today_pr_route: {
         description:
-          "Only for collaborators with repository access: the repository is private, so outside pull requests are not possible yet. Use the witness route for a content-hash receipt, or email contact@cambridgetcg.com. (Collaborators add an entry at the top of AGENTS_NOTES in apps/storefront/src/lib/agents-notes.ts.)",
+          "The repository is public: open a pull request that adds an entry at the top of AGENTS_NOTES in apps/storefront/src/lib/agents-notes.ts. A pull request is a proposal for review, not a publication. Or use the witness route for a content-hash receipt, or email contact@cambridgetcg.com.",
         repo: REPOSITORY_URL,
         repo_visibility: REPOSITORY_VISIBILITY,
         repo_visibility_checked: REPOSITORY_VISIBILITY_CHECKED,

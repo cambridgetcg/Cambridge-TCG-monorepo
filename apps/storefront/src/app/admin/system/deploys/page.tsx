@@ -60,9 +60,9 @@ async function getLastTouchOnMain(appPath: string): Promise<{ sha: string; at: s
   //      that this page reads (out of scope for this pilot)
   //   2. Hit the GitHub API for the latest commit touching the path
   //
-  // We use #2 — read-only GitHub API call. No auth needed for the public
-  // commits endpoint on a private repo, but we *do* need it for our private
-  // monorepo. Token comes from GITHUB_TOKEN env var (same as the workflow uses).
+  // We use #2 — read-only GitHub API call. The monorepo is public, so the
+  // commits endpoint would answer without auth, but this page still reads
+  // GITHUB_TOKEN (same as the workflow uses) and shows nothing without it.
   const token = process.env.GITHUB_TOKEN;
   if (!token) return null;
 
