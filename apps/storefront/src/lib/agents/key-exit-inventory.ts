@@ -26,6 +26,7 @@ const LEGAL_BASIS = "not separately stated; see https://cambridgetcg.com/privacy
 
 export const KEY_EXIT_LINEARIZATION =
   "Prospective from the commit of this update. Requests whose authentication completed earlier may still finish, and last_used_at may postdate revoked_at for them. " +
+  "A Coverage Hunt contribution re-checks this key inside its own write transaction, so none commits after this update. " +
   "Holds while the gate and this write use the same primary database.";
 
 /** The states that do not depend on the particular key. */

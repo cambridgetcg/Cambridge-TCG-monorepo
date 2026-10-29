@@ -1,9 +1,11 @@
 /**
  * Coverage Hunt persistence.
  *
- * This module reads and writes only coverage_hunt_* tables. It has no import
- * from a catalog, source adapter, classifier, archive writer, or pricing
- * module. A human resolution is a review receipt, never an application step.
+ * This module writes only coverage_hunt_* tables; beyond them it reads agent
+ * handles and share-locks the contributing agent's row and key. It has no
+ * import from a catalog, source adapter, classifier, archive writer, or
+ * pricing module. A human resolution is a review receipt, never an
+ * application step.
  */
 
 import { randomUUID } from "node:crypto";
@@ -295,6 +297,29 @@ async function lockScoutAdmission(
   );
 }
 
+async function lockLiveActorKey(
+  q: CompatQueryFn,
+  keyId: string,
+  agentId: string,
+): Promise<void> {
+  // First in every agent write transaction, so a contribution and the key
+  // holder's agent.revoke_key are strictly ordered: the revocation's UPDATE
+  // waits for this share lock, and a contribution that starts after a
+  // revocation committed finds no live key and writes nothing. Locks follow
+  // the agent code's order (agents, then agent_keys); the agents lock is the
+  // same strength a turn's foreign key takes.
+  await q(`SELECT 1 FROM agents WHERE id = $1 FOR KEY SHARE`, [agentId]);
+  const live = await q(
+    `SELECT 1 FROM agent_keys
+      WHERE id = $1 AND agent_id = $2 AND revoked_at IS NULL
+      FOR SHARE`,
+    [keyId, agentId],
+  );
+  if (live.rows.length === 0) {
+    throw new CoverageHuntError("key_revoked", "This key was revoked.");
+  }
+}
+
 type NormalizedTurnInput = {
   case_id: string;
   actor: CoverageHuntActor;
@@ -400,6 +425,8 @@ async function persistCoverageHuntTurnWithin(
 export async function persistCoverageHuntTurn(input: {
   case_id: string;
   actor: CoverageHuntActor | unknown;
+  /** The agent_keys row that authenticated this contribution. */
+  actor_key_id: string;
   client_request_id: string;
   submission: CoverageHuntSubmission | unknown;
   now?: Date;
@@ -411,7 +438,9 @@ export async function persistCoverageHuntTurn(input: {
     submission: input.submission,
     now: input.now ?? new Date(),
   };
+  const keyId = validateUuid(input.actor_key_id, "actor_key_id");
   return transaction(async (q) => {
+    await lockLiveActorKey(q, keyId, normalized.actor.agent_id);
     await lockScoutAdmission(q, normalized.actor.agent_id);
     return persistCoverageHuntTurnWithin(q, normalized);
   });
@@ -422,6 +451,8 @@ export async function persistCoverageHuntTurn(input: {
 export async function persistCoverageHuntScoutTurn(input: {
   candidate: CoverageCandidateSnapshot;
   actor: CoverageHuntActor | unknown;
+  /** The agent_keys row that authenticated this contribution. */
+  actor_key_id: string;
   client_request_id: string;
   submission: CoverageHuntSubmission | unknown;
   now?: Date;
@@ -432,7 +463,9 @@ export async function persistCoverageHuntScoutTurn(input: {
     submission: validateSubmission("scout", input.submission),
     now: input.now ?? new Date(),
   };
+  const keyId = validateUuid(input.actor_key_id, "actor_key_id");
   return transaction(async (q) => {
+    await lockLiveActorKey(q, keyId, normalized.actor.agent_id);
     await lockScoutAdmission(q, normalized.actor.agent_id);
     const state = await createCoverageHuntCaseWithin(
       q,

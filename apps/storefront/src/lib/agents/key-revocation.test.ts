@@ -37,6 +37,8 @@ const NOT_ACTIVE = {
 
 function expectNoLeak(outcome: unknown) {
   const encoded = JSON.stringify(outcome);
+  // The design reference stays in code comments, never on the wire.
+  expect(encoded).not.toMatch(/xenia|covenant|exit\.revocation|exit\.states|exit\.retention/i);
   for (const value of [
     AGENT_ID,
     OPERATOR_ID,
@@ -165,6 +167,9 @@ describe("revokePresentedKey with confirm: true", () => {
     });
     if (outcome.key_state !== "revoked") throw new Error("expected a revocation");
     expect(outcome.linearization).toContain("Prospective from the commit of this update.");
+    expect(outcome.linearization).toContain(
+      "A Coverage Hunt contribution re-checks this key inside its own write transaction",
+    );
     expect(outcome.unknown_layers.length).toBeGreaterThan(0);
     expect(outcome.third_party_copies).toContain("cannot recall those copies");
     expect(outcome.retained).toEqual(KEY_EXIT_RETAINED);
