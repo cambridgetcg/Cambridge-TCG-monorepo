@@ -34,22 +34,24 @@ The CC0 dedication applies to the **text of the specification**: definitions, gr
 
 ## Release availability
 
-The SKU, pricing, data-spec and data-ingest reference packages currently declare
-`private: true` in the workspace. They are not npm releases. The September 29
-release review received HTTP 404 from anonymous GitHub repository and license
-API requests; public repository availability was not established. That result
-does not distinguish a private repository from another unavailable route.
-Superseded 2026-10-10: an authenticated `gh repo view` reported the repository
-visibility as PRIVATE, and `npm view` returned E404 for
-@cambridge-tcg/{sku,pricing,mcp-server,answering-rhymes,data-spec}. Code is not
-publicly obtainable yet; source-code release is pending. The published standards
-are the specification pages and the JSON Schemas at
+The source repository is public at
+https://github.com/cambridgetcg/Cambridge-TCG-monorepo, so the code can be read
+and cloned under the root license. Yu, 2026-10-29: "yes I meant for them to be
+public latest." The same day `gh repo view` reported the visibility as PUBLIC.
+
+The SKU, pricing, data-spec and data-ingest reference packages still declare
+`private: true` in the workspace. They are not npm releases: on 2026-10-10
+`npm view` returned E404 for
+@cambridge-tcg/{sku,pricing,mcp-server,answering-rhymes,data-spec}. The
+published standards are the specification pages and the JSON Schemas at
 https://cambridgetcg.com/spec/v1/{name}.schema.json.
 
-The root license is present in this checkout. Its existence does not establish
-public download access. The [data-platform roadmap](plans/tcg-data-platform/README.md)
-keeps repository publication, package releases, build reproducibility and
-provider permissions as separate gates.
+Earlier checks, kept as history: the September 29 release review received HTTP
+404 from anonymous GitHub repository and license API requests, and on
+2026-10-10 an authenticated `gh repo view` reported the visibility as PRIVATE.
+
+The [data-platform roadmap](plans/tcg-data-platform/README.md) keeps package
+releases, build reproducibility and provider permissions as separate gates.
 
 ## Why CC0
 

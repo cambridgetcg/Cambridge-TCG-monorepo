@@ -808,7 +808,7 @@ export const TOOLS_CATALOG_SUMMARY = {
   dispatch_url: "/api/mcp",
   protocol: "JSON-RPC 2.0 over HTTP POST",
   transport_scope:
-    "Custom request/response HTTPS endpoint; not MCP Streamable HTTP or HTTP+SSE. The stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished).",
+    "Custom request/response HTTPS endpoint; not MCP Streamable HTTP or HTTP+SSE. The stdio bridge for native MCP clients is not published to npm (its source is packages/mcp-server in the public repository).",
   mcp_spec_version: "2024-11-05",
   auth:
     "mcp.list_tools/tools/list is public; every other tool requires Bearer <agent-key>",

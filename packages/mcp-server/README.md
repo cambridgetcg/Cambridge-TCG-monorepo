@@ -8,11 +8,12 @@ Cambridge TCG exposes structural card lookup, publication-status, play-read, and
 
 ## Install
 
-**Not on the npm registry** (404, rechecked 2026-10-10), so `npx @cambridge-tcg/mcp-server` does not work. The source repository is currently private, so the bridge cannot be built publicly yet. With repository access, build it from a clone:
+**Not on the npm registry** (404, rechecked 2026-10-10), so `npx @cambridge-tcg/mcp-server` does not work. The source repository is public, so build the bridge from a clone:
 
 ```sh
 git clone https://github.com/cambridgetcg/Cambridge-TCG-monorepo
 cd Cambridge-TCG-monorepo/packages/mcp-server
+npm install
 npm run build
 node dist/index.js   # the stdio bridge
 ```
@@ -31,7 +32,7 @@ Discovery methods (`tools/list`, `initialize`) work **without** a token — the 
 
 ## Configure Claude Desktop
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the platform equivalent, pointing `args` at a clone built with repository access:
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or the platform equivalent, pointing `args` at your built clone:
 
 ```json
 {

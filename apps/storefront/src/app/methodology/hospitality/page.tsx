@@ -327,8 +327,8 @@ export default function HospitalityMethodology() {
       <ol>
         <li>
           Email contact@cambridgetcg.com proposing your slot for{" "}
-          <code>packages/data-ingest/src/welcomes.ts</code>. The repository is
-          private, so outside pull requests are not possible yet. We accept welcomes
+          <code>packages/data-ingest/src/welcomes.ts</code>, or open a pull
+          request: the repository is public. We accept welcomes
           for kinds we hadn't named yet — the eighth kind (
           <code>infrastructure</code>) was added by sister daemon on the same
           day this page was written.

@@ -578,7 +578,7 @@ export const GUIDES: Guide[] = [
           "or `{ matched: false, scope: { rows_scanned, bound_reached } }`.",
         what_to_do_with_it:
           "Reference implementation: apps/storefront/src/app/api/v1/federation/identify/[hash]/route.ts " +
-          "in the Cambridge TCG repository, which is private (not publicly readable); " +
+          "in the public Cambridge TCG repository; " +
           "the response shape is in /api/openapi.json. Reuse the Cambridge-authored " +
           "resolver shape, then declare the aggregate rights of your own catalog " +
           "response instead of copying Cambridge's NOASSERTION boundary blindly.",
@@ -646,7 +646,7 @@ export const GUIDES: Guide[] = [
       { label: "Federation OpenAPI section", href: "/api/openapi.json" },
     ],
     last_verified: "2026-05-14",
-    revised: "2026-10-10",
+    revised: "2026-10-29",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -663,7 +663,7 @@ export const GUIDES: Guide[] = [
     prerequisites: [
       "You control the source or hold written approval for the intended access and use",
       "TypeScript familiarity",
-      "Repository collaborator access (the source repository is private; request it via contact@cambridgetcg.com)",
+      "A clone of the public source repository (github.com/cambridgetcg/Cambridge-TCG-monorepo)",
     ],
     estimated_minutes: 90,
     steps: [
@@ -671,8 +671,8 @@ export const GUIDES: Guide[] = [
         step_number: 1,
         title: "Read the source protocol",
         instruction:
-          "Start with docs/methodology/source-protocol.md in the repository " +
-          "(private; not publicly readable) and the public summary at " +
+          "Start with docs/methodology/source-protocol.md in the public " +
+          "repository and the summary at " +
           "/methodology/upstream-sources. Understand the pre-network " +
           "rights gate, SourceMeta, inert blocked modules, read + normalize, " +
           "and the independent pre-publication review. CardRush is a blocked " +
@@ -708,8 +708,8 @@ export const GUIDES: Guide[] = [
           "shape conforms, required meta non-empty, id parity, catalog anchor " +
           "resolved, ToS non-empty, license coherence, game codes valid, " +
           "ingest-run recency for shipped sources, license-propagation drift). " +
-          "Pass all of them. Then send the change to the operator; outside pull " +
-          "requests are not possible while the repository is private.",
+          "Pass all of them. Then open a pull request against the public " +
+          "repository, or send the change to the operator at contact@cambridgetcg.com.",
       },
       {
         step_number: 5,
@@ -744,7 +744,7 @@ export const GUIDES: Guide[] = [
       { label: "Source registry (JSON)", href: "/api/v1/sources" },
     ],
     last_verified: "2026-07-12",
-    revised: "2026-10-10",
+    revised: "2026-10-29",
   },
 
   // ───────────────────────────────────────────────────────────────────
@@ -813,15 +813,15 @@ export const GUIDES: Guide[] = [
   {
     slug: "wire-into-claude-code",
     title: "Connect an MCP client: current transport limits",
-    subtitle: "The HTTPS gate is custom JSON-RPC; the stdio bridge is not publicly distributed yet.",
+    subtitle: "The HTTPS gate is custom JSON-RPC; the stdio bridge is not on npm.",
     intro:
       "Cambridge TCG accepts one JSON-RPC request per HTTPS POST at /api/mcp, " +
       "but that endpoint is not MCP Streamable HTTP or HTTP+SSE. Native MCP " +
-      "clients would need the stdio bridge in packages/mcp-server, which is not " +
-      "publicly distributed yet: the source repository is private and " +
-      "@cambridge-tcg/mcp-server is not on npm (404, rechecked 2026-10-10). " +
-      "Until the source is released, use a client that can POST JSON-RPC 2.0 " +
-      "to /api/mcp, or call the public REST routes directly.",
+      "clients need the stdio bridge in packages/mcp-server. " +
+      "@cambridge-tcg/mcp-server is not on npm (404, rechecked 2026-10-10), but " +
+      "the source repository is public, so the bridge can be built from a clone " +
+      "(see packages/mcp-server/README.md). Otherwise use a client that can POST " +
+      "JSON-RPC 2.0 to /api/mcp, or call the public REST routes directly.",
     audiences: ["agent", "hobbyist_coder"],
     prerequisites: [
       "An HTTP client that can send JSON-RPC 2.0 POST requests, or an MCP client that supports a custom JSON-RPC HTTP endpoint",
@@ -854,7 +854,8 @@ export const GUIDES: Guide[] = [
           "Send JSON-RPC 2.0 requests to https://cambridgetcg.com/api/mcp. " +
           "initialize and tools/list are public; other tool calls need a bearer " +
           "token. Do not use npx @cambridge-tcg/mcp-server: the package is not on " +
-          "npm, and the stdio bridge cannot be built outside the private repository yet.",
+          "npm. A native MCP client needs the stdio bridge built from a clone of " +
+          "the public repository.",
         curl:
           "curl -s https://cambridgetcg.com/api/mcp \\\n" +
           "  -H 'Content-Type: application/json' \\\n" +
@@ -889,7 +890,7 @@ export const GUIDES: Guide[] = [
         description:
           "The HTTPS gate accepts MCP-shaped methods but does not implement MCP " +
           "Streamable HTTP or HTTP+SSE. Use a custom ordinary-HTTP JSON-RPC " +
-          "client; the stdio bridge is not publicly distributed yet.",
+          "client, or the stdio bridge built from the public repository; it is not on npm.",
       },
       {
         title: "Set User-Agent in MCP server config too",
@@ -1004,7 +1005,7 @@ export const GUIDES: Guide[] = [
           "the language your bot defaults to) before calling. The CTCG-SKU-v1 " +
           "specification text is CC0; the @cambridge-tcg/sku parser is a private " +
           "workspace package, not published to npm; repository code is Apache-2.0 " +
-          "per LICENSE, but the repository itself is private.",
+          "per LICENSE, and the repository itself is public.",
       },
       {
         title: "Don't bulk-fetch on bot startup",

@@ -65,7 +65,7 @@ export default function IdentifierValidatorPage() {
         <p>All endpoint responses are <code>no-store</code>. The handler performs no database or upstream calls and does not persist or log submitted identifiers; ordinary hosting access logs may still exist. Response rights are <code>NOASSERTION</code>, not a CC0 grant over submitted text.</p>
       </section>
       <footer className="border-t border-border-subtle pt-5 text-sm text-ink-muted space-y-2">
-        <p>Specification text retains its scoped CC0 dedication. Implementation rights: Apache-2.0 (<a href="https://www.apache.org/licenses/LICENSE-2.0" className="underline underline-offset-4">licence text</a>) per the repository LICENSE and applicable more-specific notices. The repository itself is currently private; source release is pending.</p>
+        <p>Specification text retains its scoped CC0 dedication. Implementation rights: Apache-2.0 (<a href="https://www.apache.org/licenses/LICENSE-2.0" className="underline underline-offset-4">licence text</a>) per the repository LICENSE and applicable more-specific notices. The repository itself is public on GitHub (cambridgetcg/Cambridge-TCG-monorepo).</p>
         <p>Reference: <span className="break-all">https://cambridgetcg.com/standards/validator</span></p>
       </footer>
     </article>
