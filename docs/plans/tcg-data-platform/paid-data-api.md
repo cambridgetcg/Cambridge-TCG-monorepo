@@ -97,15 +97,15 @@ Some limits are constants, changed only by a reviewed code change:
 collected lines (`collect` in `TCGPLAYER_PRODUCT_LINES`); the six CardRush
 hosts (`CARDRUSH_COLLECTOR_HOSTS`); and every rate and budget in §2.
 
-## Migrations 0139–0143
+## Migrations 0139–0144
 
 Apply them in number order. This work assumed 0001–0138 are already applied
 in production; that was not checked. The Postgres integration tests do not
 replay 0001–0138: on an empty database `scripts/migrate.mjs` stops at legacy
 0106 (`invalid input value for enum dispute_status: "escalated"`, found in the
 final review). Each suite instead applies, by name and one transaction per
-file as `migrate.mjs` does, the migrations it needs from 0137–0143, over a
-stub `users` table where 0138 or 0142 references one. How 0139–0143 meet
+file as `migrate.mjs` does, the migrations it needs from 0137–0144, over a
+stub `users` table where 0138 or 0142 references one. How 0139–0144 meet
 production's full schema is therefore not tested.
 
 | Migration | Adds | Needed by |
@@ -115,6 +115,7 @@ production's full schema is therefore not tested.
 | 0141 `market_derived` | derivation runs, reference prices, indices and premiums, with their CHECKs, write guards and immutability triggers (§3) | the derivation job, the reads |
 | 0142 `data_api_plans` | test-only customers, subscriptions, Stripe events, monthly usage and per-key minute buckets (§4); references `member_data_keys` (0138) | the reads (every authenticated read is metered there), checkout, portal, webhook |
 | 0143 `price_collector_leases` | one lease row per running collector (§2) | every collector: without it a run answers 503 and reads nothing |
+| 0144 `member_price_latest` | per feed key, the latest observation and the latest before its batch, kept by the observation insert itself under its own guards; index `member_price_observations_key` ([the free feed's current view](#member-feed-current-view)) | the free member feed's current view, bounded. Without it the feed reads exactly as before 0144, ranking every observation on each request |
 
 Applying them uses a production database credential this work was not given.
 
@@ -319,7 +320,10 @@ were not checked.
 - *Rows:* the observation key includes the guide's `createdAt`, so each daily
   file is a full new set of rows, append-only by design, in the storefront's
   production database. Estimated growth a day: One Piece 57 MB (about 21 GB
-  a year), Pokémon 320 MB, Yu-Gi-Oh! 360 MB, Magic 540 MB or more.
+  a year), Pokémon 320 MB, Yu-Gi-Oh! 360 MB, Magic 540 MB or more. 0144's
+  per-key index adds about 8% to each ([storage](#storage-growth)), and the
+  free feed's current view no longer reads them all
+  ([0144](#member-feed-current-view)).
 - *Scheduled:* One Piece only (`CARDMARKET_COLLECT_GAMES` in
   `apps/storefront/src/lib/datafeed/collection-flags.ts`, which the collector
   imports). It is the game Cambridge has set crosswalks for, so its rows can
@@ -368,6 +372,167 @@ key `price_source_set_crosswalks` is written under, so a Cardmarket row reaches
 its reviewed set and can be an index constituent. The key is evidence, not a
 mapping, and not part of the observation key, so re-reading an artifact adds
 no row. Rows stored before it stay NULL.
+
+<a id="member-feed-current-view"></a>
+
+### The free feed's current view (migration 0144)
+
+**Why** (final review, MIG-1). The free member feed's current view
+(`readMemberPrices` in `apps/storefront/src/lib/prices/member-feed.ts`, behind
+`/prices`, `/api/v1/member-prices` and the session export) ranked every
+eligible observation per key and counted the result, on every page and every
+cursor page. Observations are append-only and each daily Cardmarket file is a
+full new set of rows (above), so that read grew with every day collected. The
+final review measured 0.4–0.5 s at one daily batch, 11.6–13.4 s at 30 and
+22.6–31.6 s at 60; the scale test below measured 25.7 s at 60 (4,478,820
+rows, sorting 2.7 GB on disk), against the pool's 30 s `statement_timeout`.
+With `DATA_COLLECT_CARDMARKET` on, the free feed would have answered
+"unavailable" within two to three months.
+
+**What 0144 adds.** `member_price_latest` holds, for each key the feed has
+always ranked by (source, evidence version, product, metric, currency, and
+finish, language and condition with NULL read as `''`, as the feed's
+`COALESCE` always merged them), the latest accepted observation by (source
+time, id) and the latest from the batches before its batch. It is a derived
+index, not evidence: every row names an observation, the observations stay
+the record, and 0137's append-only guards are unchanged. The observation
+insert maintains it. An `AFTER INSERT … FOR EACH STATEMENT` trigger on
+`member_price_observations` advances the keys each inserting statement names,
+in that statement, so no insert path, the writer or any other, can leave it
+behind, and the writer's statements are what they were. Its guards: a row
+changes only toward an observation of its own key that the current
+transaction's own batch inserted (so under 0137's lock), only forward, keeping
+the row it replaces as its previous; a new key must have no earlier
+observation; DELETE and TRUNCATE are refused. The migration takes the writers'
+advisory lock first, builds `member_price_observations_key` (one key's
+observations, newest first), backfills, and only then creates the triggers, so
+no batch commits between the backfill and the trigger.
+
+**The read.** The current view reads one row a key. Under the snapshot's
+watermark, a key's row is its latest when that batch is under the watermark;
+otherwise its previous, when that one is (a cursor one daily file behind);
+otherwise, for a key moved twice since the watermark, the latest of its own
+observations under it, from the key index. That last case is bounded by what
+was written in the 24 hours a cursor lives. Everything else is as before: one
+MVCC statement, release flags and evidence checked by every statement, filters
+applied to the row a key chose (so an old SKU, set or name brings nothing
+back), the display-only bounds (a narrowed search, 50 rows, three-page
+chains), cursors and counts. History mode is unchanged. On a store without
+0144 the statement fails with 42P01, and the reader answers from the ranked
+statement, byte for byte today's, so applying 0144 changes the cost and
+nothing else.
+
+**Proof.** `apps/storefront/src/lib/datafeed/member-price-latest.integration.test.ts`
+keeps the observations in one schema and applies 0144 in a second ahead of it
+on one pool's search path. The other pool meets the real 42P01 and reads
+through the ranked statement, over the same rows. Over random batches from all
+four sources (NULL, `''` and named finish, language and condition; source times
+out of order; batches crossing the writer's 500-row statements; rows under
+another review's evidence, written past the writer), random revocations and
+release-flag flips, and batches committed between pages, 570 cursor chains
+(about 1,375 pages) across member display, API and download were compared
+whole: items, totals, completeness and signed cursors. At cursor watermarks, keys were answered from
+their latest 31,616 times, their previous 231 and their own observations 398.
+After the backfill and after each walk, the table equals one recomputed from
+the observations in plain code. The guards and a rolled-back writer are tested
+there too. `apps/storefront/src/lib/datafeed/member-price-feed.scale.integration.test.ts`
+is the scale proof: opt-in, set `MEMBER_PRICE_SCALE_TEST_DATABASE_URL` (the
+command is in its header).
+
+**Measured**, by that scale test on local PostgreSQL 16 with its default
+settings (128 MB `shared_buffers`, 4 MB `work_mem`), 60 One-Piece-shaped daily
+Cardmarket batches of 74,647 rows each, 4.48 million rows:
+
+| | Before 0144 | With 0144 |
+| --- | ---: | ---: |
+| Current page 1 (100 rows, member API) | 25,651–25,655 ms | 71–77 ms |
+| Cursor page, one daily file after its watermark | the same statement, 25–26 s | 96–98 ms |
+| Cursor page, two files after it (each of 74,647 keys read from its own observations) | the same statement, 25–27 s | 1,189–1,198 ms |
+| `q=OP03-01`, 50 rows | | 72–73 ms |
+| History page 1 (unchanged by 0144) | the same statement | 31,773 ms over 4,702,761 rows (63 days) |
+| The writer, one daily file (74,647 rows in 150 statements) | 5,834 and 8,199 ms | 8,797–11,452 ms |
+| Applying 0144 over 4,553,467 rows | | 34.2–34.5 s |
+| Storage | 823 B a row with indexes | 68 B a row more (the key index); `member_price_latest` 24.8 MiB for 74,647 keys |
+
+Ranges are two runs. `EXPLAIN ANALYZE` before: a `WindowAgg` over all 4.48
+million rows behind an external merge sort of 2.7 GB on disk, reading 2.1
+million buffers. After: a sequential scan of the 74,647 latest rows, one
+primary-key probe each, and a top-N sort; for two files later, one probe of
+the key index a key (about 16 µs each here).
+
+Two files within one cursor's day do not happen on the daily schedule. In
+production today the store holds one batch (2026-09-08), so 0144 applies in
+well under a second.
+
+**Limits.** History mode still ranks and counts every eligible observation on
+each request, so it grows with every day as the current view did; it was left
+as it was. At 63 days an unfiltered history page took 31.8 s here, past the
+30 s `statement_timeout`, so with `DATA_COLLECT_CARDMARKET` on, an unfiltered
+history read answers unavailable within about two months. Bounding it needs
+its own design (a key-filtered history read, or history pages walked by
+batch); that is a follow-up. A current page's cost grows with the number of keys its sources
+hold, not with history: about 1 µs a key here. A display view narrowed by a
+name search includes CardRush and TCGplayer keys too, which at full coverage
+could reach several hundred thousand ([storage](#storage-growth)); copying the
+filter columns (game, set, SKU, name) into `member_price_latest` would let such
+reads filter there and fetch only the page's rows, a change MIG-1 did not need.
+
+<a id="storage-growth"></a>
+
+### Storage growth, per collector
+
+Measured bytes a row include every index, 0144's key index among them:
+Cardmarket's One Piece rows 891 B (the scale test, 823 B before 0144);
+CardRush- and TCGplayer-shaped rows 845 to 1,005 B in a local test of 20,000
+rows each (their titles and URLs are longer; re-reads cost more than first
+reads as the indexes split). `member_price_latest` adds about 400 B a key
+(fillfactor 50), once per key, not per reading. Rates are the configured ones
+(§2); production volumes were not read.
+
+| Collector | Readings a day | Rows a day | Storage a day | A year |
+| --- | --- | ---: | ---: | ---: |
+| Cardmarket, One Piece | one daily file, every product × metric | about 74,600 | about 63 MiB | about 23 GiB |
+| CardRush | 12 runs of about 103 pages (one host a run, 0.5 rps) | at most about 1,240 (one row a priced page) | about 1.1 MiB | about 0.4 GiB |
+| TCGplayer | 24 runs of about 20 sets (one set per 10 s); 548 sets collected (87 One Piece, 461 Pokemon Japan), so each set is re-read about every 27 hours | 480 × R, R the rows a set's guide yields (product × printing × condition with a Market Price): 96,000 to 480,000 for R from 200 to 1,000 | 82 to 412 MiB | 29 to 147 GiB |
+| Together | | | | about 53 to 171 GiB |
+
+R was not measured: the 2026-10-28 probe kept trimmed fixtures only. A
+reading of a page source is a new observation even when nothing changed, since
+its source time is the instant it was read; a Cardmarket file is a new set of
+rows because its key includes the file's `createdAt`. So TCGplayer likely
+grows fastest, and most of its rows are likely repeats: a Market Price for a
+little-traded card at a lower grade can stay the same for weeks.
+
+**Not writing identical re-readings: recommended, not done.** A page
+collector could store, for a reading whose value equals its key's latest, a
+confirmation (batch, the latest observation's id, the reading's instant)
+instead of a new full row: about 60 to 80 B with its index against about
+900 B. It must be a record of its own, appended per batch, and not a
+"confirmed at" column on `member_price_latest`, because four readers depend on
+observations by source or read time:
+
+- the derivation (`apps/storefront/src/lib/market-derived/derive.ts`) takes
+  inputs whose source time is within 7 days of the date, and re-values an
+  earlier date at that run's own batch ceiling, so it needs every
+  confirmation by batch, not only the newest;
+- collector health (`apps/storefront/src/app/api/v1/sources/collector-health.ts`)
+  calls a batch with no observations failing, so a batch of confirmations
+  would read as a collector collecting nothing;
+- CardRush's stalest-first scheduling (`chooseStalestCardRushPages` in
+  `apps/storefront/src/lib/datafeed/collectors/cardrush.ts`) reads each
+  page's latest `retrieved_at` from observations, so a confirmed page would be
+  chosen again on every run and starve the rest;
+- the member feed shows each row's `retrievedAt`, which would become the
+  first reading of the value rather than the latest, and history mode would
+  list fewer rows.
+
+Each would read observations and confirmations together, with tests. None of
+that is built. Before choosing, measure on the first runs: the share of moves
+whose value repeats is one query over 0144's table (`member_price_latest`
+joined to the observation and its previous, comparing amounts). Two other
+levers are Yu's: reading each TCGplayer set less often (inputs need to be at
+most 7 days old), or collecting only Near Mint, the one condition the
+derivation reads, when the other grades are display only.
 
 ## 3. Derived market data (migration 0141, method `ctcg.market-derived/v1`)
 
@@ -706,7 +871,7 @@ Ready to merge when each of these holds. Storefront typecheck and tests
 pass. The data-ingest and data-spec tests, `audit:redistribution` and
 `audit:tributaries` pass. The Postgres integration tests pass against a
 throwaway database with the migrations each applies (see
-[Migrations 0139–0143](#migrations-01390143); the earlier chain is not
+[Migrations 0139–0144](#migrations-01390144); the earlier chain is not
 replayed). With every switch off, the free feed returns exactly what it
 returned before, and every new route either answers `ran: false`, 404
 `NOT_PUBLISHED` or 410.
@@ -744,27 +909,29 @@ Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
    §7 starts from it.
 3. **Confirm the Vercel plan's limits**: `maxDuration = 300` on the four new
    cron routes, function memory, and the cron schedules. Not checked here.
-4. **Apply migrations 0139–0143** to the production storefront database, in
+4. **Apply migrations 0139–0144** to the production storefront database, in
    order.
 5. **Turn on the collectors one at a time**: `DATA_COLLECT_CARDMARKET`, then
    `DATA_COLLECT_CARDRUSH`, then `DATA_COLLECT_TCGPLAYER`. Each needs steps 3
    and 4 first:
-   - `DATA_COLLECT_CARDMARKET` also waits for a follow-up PR that bounds the
-     free member feed's latest-per-key read
-     (`apps/storefront/src/lib/prices/member-feed.ts`). Every free member-feed
-     page, each cursor page included, ranks every eligible observation per key
-     and counts the result, and each daily One Piece batch adds a full new set
-     of about 73,000 rows, since the observation key includes the guide's
-     `createdAt` (§2). Measured in the final review on local PostgreSQL 16 with
-     the real query and 0139's index: about 13 s a request at 30 daily batches
-     and 26 to 31 s at 60, sorting more than a gigabyte on disk each time,
-     against the pool's 30 s `statement_timeout`. Past that, the free
-     Cardmarket feed answers that member pricing storage is unavailable.
+   - `DATA_COLLECT_CARDMARKET` also waits for migration 0144, applied with
+     the code that reads it ([the free feed's current view](#member-feed-current-view)).
+     Before 0144, every free member-feed page ranked every eligible
+     observation per key, and each daily One Piece batch adds a full new set
+     of about 73,000 rows, so within two to three months a request would have
+     passed the pool's 30 s `statement_timeout` and the free Cardmarket feed
+     would have answered that member pricing storage is unavailable. With 0144
+     a current page reads one row a key: 77 ms at 60 daily batches locally,
+     against 25.7 s before. Without 0144 the feed reads exactly as before, so
+     apply it first. History mode still ranks every observation (the limits
+     are in that section).
    - `DATA_COLLECT_CARDRUSH` and `DATA_COLLECT_TCGPLAYER` no longer wait for
      an answer from Yu: steps 1 and 2 were answered on 2026-10-29.
 
    After each, read its first run's summary and `/api/v1/sources/[id]`
-   health. Watch storage: Cardmarket's One Piece files add about 57 MB a day.
+   health. Watch storage ([per collector](#storage-growth)): Cardmarket's One
+   Piece files add about 63 MiB a day with 0144's index, and TCGplayer, whose
+   every set re-read is a new set of rows, may add more than that.
 6. **Turn on `DATA_DERIVE_MARKET`** after the collectors' first batches. A
    series starts at 100 on its first day with 10 constituents and chains from
    then on, and a date before the latest run can never be derived, so there is

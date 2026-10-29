@@ -210,8 +210,8 @@ describe("public source projections", () => {
     /** The newest batch at `insertedAt`, recording `observations`; the newest one that recorded any at `observedAt`. */
     const batchesAt = (insertedAt: string | null, observations = 317, observedAt: string | null = insertedAt) => async (sql: string) => {
       if (sql.includes("to_regclass")) return { rows: [{ provisioned: true }] };
-      if (sql.includes("EXISTS")) return { rows: observedAt ? [{ inserted_at: new Date(observedAt) }] : [] };
-      return { rows: insertedAt ? [{ id: "9", inserted_at: new Date(insertedAt), source_rows: 320, missing_prices: 1, quarantined: 2, observations }] : [] };
+      if (sql.includes("b.id < $2")) return { rows: observedAt ? [{ inserted_at: new Date(observedAt) }] : [] };
+      return { rows: insertedAt ? [{ id: "9", inserted_at: new Date(insertedAt), source_rows: 320, missing_prices: 1, quarantined: 2, observed: observations > 0 }] : [] };
     };
 
     it("reads CardRush's latest batch, not a fresh legacy ingest_run", async () => {
@@ -223,7 +223,7 @@ describe("public source projections", () => {
       expect(body.data.health.reason).toMatch(/^latest batch with observations written 50\.0h ago; freshness budget 6\.0h \(2x exceeded\)$/);
       expect(body.data.collector).toMatchObject({
         batches: "member_price_batches", available: true,
-        latest_batch: { source_rows: 320, missing_prices: 1, quarantined: 2, observations: 317 },
+        latest_batch: { source_rows: 320, missing_prices: 1, quarantined: 2, observed: true },
         collection: { flag: "DATA_COLLECT_CARDRUSH", scheduled: false },
       });
       expect(body.data.last_run).not.toBeNull();
@@ -252,7 +252,7 @@ describe("public source projections", () => {
         state: "failing", basis: "member_price_batches",
         reason: "batches written within the freshness budget 6.0h recorded no observations; latest batch with observations written 9.0h ago",
       });
-      expect(body.data.collector.latest_batch).toMatchObject({ observations: 0 });
+      expect(body.data.collector.latest_batch).toMatchObject({ observed: false });
     });
 
     it("reads Cardmarket's daily batches against a daily budget, not ingest_run", async () => {

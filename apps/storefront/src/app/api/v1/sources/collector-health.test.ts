@@ -12,7 +12,7 @@ const ago = (hours: number) => new Date(NOW - hours * 3_600_000).toISOString();
 /** The newest batch `hoursAgo`, holding `observations`; the newest batch that recorded any at `observedHoursAgo`. */
 const at = (hoursAgo: number, observations = 300, observedHoursAgo: number | null = observations > 0 ? hoursAgo : null): CollectorBatchRead => ({
   available: true,
-  latest: { inserted_at: ago(hoursAgo), source_rows: 300, missing_prices: 2, quarantined: 4, observations },
+  latest: { inserted_at: ago(hoursAgo), source_rows: 300, missing_prices: 2, quarantined: 4, observed: observations > 0 },
   latest_observed_at: observedHoursAgo === null ? null : ago(observedHoursAgo),
 });
 
@@ -49,17 +49,19 @@ describe("page collector health from member_price_batches", () => {
       .toEqual({ health: "unknown", reason: "member_price_batches could not be read" });
   });
 
-  it("reads the newest batch's time and counts only", async () => {
+  it("reads the newest batch's time and counts only, and whether it recorded observations without counting them", async () => {
     const runQuery = vi.fn(async (sql: string, params?: unknown[]) => {
       if (sql.includes("to_regclass")) return { rows: [{ provisioned: true }] };
       expect(params).toEqual(["cardrush"]);
       expect(sql).toContain("ORDER BY b.id DESC LIMIT 1");
       expect(sql).not.toMatch(/quarantine\s*(,|FROM)/);
-      return { rows: [{ id: "41", inserted_at: new Date("2026-10-29T10:15:00.000Z"), source_rows: "320", missing_prices: 0, quarantined: 3, observations: "317" }] };
+      expect(sql).toContain("EXISTS (SELECT 1 FROM member_price_observations o WHERE o.batch_id = b.id) AS observed");
+      expect(sql).not.toMatch(/count\(\*\) FROM member_price_observations/);
+      return { rows: [{ id: "41", inserted_at: new Date("2026-10-29T10:15:00.000Z"), source_rows: "320", missing_prices: 0, quarantined: 3, observed: true }] };
     });
     await expect(readLatestCollectorBatch("cardrush", runQuery)).resolves.toEqual({
       available: true,
-      latest: { inserted_at: "2026-10-29T10:15:00.000Z", source_rows: 320, missing_prices: 0, quarantined: 3, observations: 317 },
+      latest: { inserted_at: "2026-10-29T10:15:00.000Z", source_rows: 320, missing_prices: 0, quarantined: 3, observed: true },
       latest_observed_at: "2026-10-29T10:15:00.000Z",
     });
     expect(runQuery).toHaveBeenCalledTimes(2);
@@ -68,16 +70,16 @@ describe("page collector health from member_price_batches", () => {
   it("looks further back for the newest batch that recorded observations when the newest recorded none", async () => {
     const runQuery = vi.fn(async (sql: string, params?: unknown[]) => {
       if (sql.includes("to_regclass")) return { rows: [{ provisioned: true }] };
-      if (sql.includes("EXISTS")) {
+      if (sql.includes("b.id < $2")) {
         expect(params).toEqual(["tcgplayer", "41"]);
         expect(sql).toMatch(/b\.id < \$2::bigint[\s\S]*ORDER BY b\.id DESC LIMIT 1/);
         return { rows: [{ inserted_at: new Date("2026-10-29T04:45:00.000Z") }] };
       }
-      return { rows: [{ id: "41", inserted_at: new Date("2026-10-29T10:45:00.000Z"), source_rows: "0", missing_prices: 0, quarantined: 1, observations: "0" }] };
+      return { rows: [{ id: "41", inserted_at: new Date("2026-10-29T10:45:00.000Z"), source_rows: "0", missing_prices: 0, quarantined: 1, observed: false }] };
     });
     await expect(readLatestCollectorBatch("tcgplayer", runQuery)).resolves.toEqual({
       available: true,
-      latest: { inserted_at: "2026-10-29T10:45:00.000Z", source_rows: 0, missing_prices: 0, quarantined: 1, observations: 0 },
+      latest: { inserted_at: "2026-10-29T10:45:00.000Z", source_rows: 0, missing_prices: 0, quarantined: 1, observed: false },
       latest_observed_at: "2026-10-29T04:45:00.000Z",
     });
   });

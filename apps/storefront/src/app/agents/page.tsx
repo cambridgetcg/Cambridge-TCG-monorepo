@@ -93,6 +93,7 @@ export default function AgentsWelcomePage() {
             <Link href="/standards" className={linkClass}>Published standards</Link>
           </nav>
           <p className="mt-3">Source-code release is pending: the repository is currently private and no @cambridge-tcg packages are on npm. Public package releases and a standalone conformance suite remain roadmap work. Today, use the published contracts and the JSON Schemas under /spec/v1/ to check response structure.</p>
+          <p className="mt-3">Collecting public information from any source? Read the <Link href="/agents/guides/transparent-data-playbook" className={linkClass}>Transparent Data Playbook</Link> first: one rule, ask first; three hard lines; nine steps. It is public and CC0, and not legal advice.</p>
         </div>
       </section>
 
