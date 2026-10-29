@@ -205,7 +205,7 @@ describe('TCGplayer collector run', () => {
     expect(hostState.record.mock.calls.at(-1)![1]).toEqual([{ host: 'www.tcgplayer.com', kind: 'refused', reason: 'robots-disallows-collector', retryAfter: null }]);
   });
 
-  it('keeps a longer Crawl-delay for its budget and between runs, and records a set robots.txt disallows as read', async () => {
+  it('keeps a longer Crawl-delay for its budget and between runs, and skips a set robots.txt disallows, unrecorded', async () => {
     const clock = { at: 0 };
     // Crawl-delay 20 on the site; the stand-in's clock moves 20 s a request, as the spacing would make it.
     const fetcher = source(clock, 20_000, url => url === ROBOTS[0] ? new Response('User-agent: *\nCrawl-delay: 20\nDisallow: /categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/romance-dawn\n', { status: 200 }) : undefined);
@@ -218,9 +218,49 @@ describe('TCGplayer collector run', () => {
       // A set is begun only with the interval and 20 s for its writes left: 40 s.
       expect(run.elapsedMs).toBeLessThanOrEqual(270_000 - 20_000);
       expect(lease.mock.calls[0]![2].spacingMs()).toBe(20_000);
-      // Romance Dawn's page is disallowed: never requested, recorded as read by its reason.
+      // Romance Dawn's page is disallowed: never requested, and no empty batch is written for it.
       expect(fetcher.urls).not.toContain(guide(3188));
-      expect(run.errors).toContainEqual({ line: 'one-piece-card-game', setId: 3188, error: 'tcgplayer-robots-disallows-set', recorded: true });
+      expect(run.robotsDisallowed).toBe(1);
+      expect(run.errors).toEqual([]);
+      expect(vi.mocked(writeMemberPriceBatch).mock.calls.map(call => call[3]?.ingestKey)).not.toContain(`tcgplayer:3188:${run.runAt}`);
+      expect(run.status).toBe('ok');
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each([
+    ['one product type\'s data', 'infinite-api.tcgplayer.com', 'Disallow: /priceguide/set/*/cards/?rows=5000&productTypeID=110$', guide(24537)],
+    ['every listed set\'s page', 'www.tcgplayer.com', 'Disallow: /categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/*-', 'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/the-azure-seas-seven'],
+  ])('refuses the run, as a refusal, writing no batch, when robots.txt leaves no listed set readable (%s)', async (_label, host, rule, url) => {
+    const clock = { at: 0 };
+    // Neither rule reaches what every run reads (the line's page, any set's data), so the run reads on until no set is left.
+    const fetcher = source(clock, 10_000, answered => answered === `https://${host}/robots.txt` ? new Response(`User-agent: *\n${rule}\n`, { status: 200 }) : undefined);
+    const run = await collect({ fetcher, now: () => clock.at, runQuery: released as never, lines: onePiece });
+    expect(run).toMatchObject({ status: 'source-unavailable', setsListed: 6, robotsDisallowed: 6, sets: [], errors: [], unavailable: { reason: 'robots-disallows-collector', status: null, url, refused: true } });
+    // robots.txt, the set list and the product types: no set was asked for.
+    expect(run.requests).toBe(5);
+    expect(writeMemberPriceBatch).not.toHaveBeenCalled();
+    expect(hostState.record.mock.calls[0]![1]).toEqual([{ host: new URL(url).hostname, kind: 'refused', reason: 'robots-disallows-collector', retryAfter: null }]);
+  });
+
+  it('refuses the run, as a refusal against the host that asked, when a Crawl-delay leaves its budget no set', async () => {
+    const delayed = (seconds: number) => {
+      const clock = { at: 0 };
+      const fetcher = source(clock, seconds * 1000, url => url === ROBOTS[1] ? new Response(`User-agent: *\nCrawl-delay: ${seconds}\n`, { status: 200 }) : undefined);
+      return { fetcher, pending: collect({ fetcher, now: () => clock.at, runQuery: released as never, lines: onePiece }) };
+    };
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      // The stand-in's clock moves the Crawl-delay a request. At 42 s, robots.txt three times, the
+      // set list and the product types end at 210 s: under the 62 s a set's wait and writes need.
+      const long = delayed(42);
+      await vi.runAllTimersAsync();
+      expect(await long.pending).toMatchObject({ status: 'source-unavailable', requests: 3, sets: [], unavailable: { reason: 'robots-crawl-delay-too-long', url: ROBOTS[1], refused: true } });
+      expect(long.fetcher.urls).toEqual(ROBOTS);
+      expect(hostState.record.mock.calls.at(-1)![1]).toEqual([{ host: 'mpapi.tcgplayer.com', kind: 'refused', reason: 'robots-crawl-delay-too-long', retryAfter: null }]);
+      // At 41 s the same run reads one set, at 246 s.
+      const kept = delayed(41);
+      await vi.runAllTimersAsync();
+      expect(await kept.pending).toMatchObject({ status: 'ok', stoppedBy: 'budget', intervalMs: 41_000, requests: 6, elapsedMs: 246_000 });
     } finally { vi.useRealTimers(); }
   });
 

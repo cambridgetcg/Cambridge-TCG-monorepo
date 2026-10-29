@@ -6,7 +6,7 @@ import { createFetcher, type Fetcher } from '../../http';
 import { tcgplayer } from '../index';
 import {
   acquireTcgplayerPriceGuide, createTcgplayerFetcher, fetchTcgplayerCardsProductType, fetchTcgplayerSets, parseTcgplayerPriceGuide, parseTcgplayerSets, readTcgplayerRobots,
-  TCGPLAYER_COLLECTOR_HOSTS, TCGPLAYER_CROSSWALK_VERSION, TCGPLAYER_PRICE_GUIDE_PARSER, TCGPLAYER_PRODUCT_LINES, TcgplayerUnavailableError, type TcgplayerRunFetcher, type TcgplayerSet,
+  tcgplayerSetDisallowed, TCGPLAYER_COLLECTOR_HOSTS, TCGPLAYER_CROSSWALK_VERSION, TCGPLAYER_PRICE_GUIDE_PARSER, TCGPLAYER_PRODUCT_LINES, TcgplayerUnavailableError, type TcgplayerRunFetcher, type TcgplayerSet,
 } from '../member-prices';
 
 // Trimmed responses read 2026-10-28; prices in them are synthetic stand-ins.
@@ -335,6 +335,8 @@ describe('TCGplayer robots.txt, read every run', () => {
   afterEach(() => { vi.useRealTimers(); });
   // The file as recorded on 2026-10-28, and variants of it.
   const recorded = 'User-agent: *\nCrawl-Delay: 10\nAllow: /\nDisallow: /search/*/product?seller=*\nDisallow: /sellers/*/product/*\n';
+  // Every set's price-guide data as robots.txt is asked about it before any data.
+  const anySetGuide = 'https://infinite-api.tcgplayer.com/priceguide/set/0/cards/?rows=5000&productTypeID=0';
   const refusal = async (robots: (() => Response)[], lines = [onePiece]) => {
     const fetcher = fakeFetcher(robots);
     const failure = await readTcgplayerRobots(fetcher, TCGPLAYER_EVIDENCE_VERSION, lines).catch(error => error);
@@ -359,7 +361,11 @@ describe('TCGplayer robots.txt, read every run', () => {
     ['the price-guide pages, for every crawler', [text('User-agent: *\nDisallow: /categories/\n'), none, none], 'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/'],
     ['the set lists', [none, text('User-agent: *\nDisallow: /v2/Catalog/\n'), none], 'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true'],
     ['the product types, by query-free path', [none, text('User-agent: *\nDisallow: /v2/Product/\n'), none], 'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/'],
-    ['the guides', [none, none, text('User-agent: *\nDisallow: /priceguide\n')], 'https://infinite-api.tcgplayer.com/priceguide/set/'],
+    ['the guides', [none, none, text('User-agent: *\nDisallow: /priceguide\n')], anySetGuide],
+    // Every set's data has a query and a /cards/ path: a rule for either reaches each one.
+    ['every URL with a query', [none, none, text('User-agent: *\nDisallow: /*?\n')], anySetGuide],
+    ['every set\'s cards', [none, none, text('User-agent: *\nDisallow: /priceguide/set/*/cards\n')], anySetGuide],
+    ['the guide query', [none, none, text('User-agent: *\nDisallow: /*?rows=\n')], anySetGuide],
     ['everything, to this collector by name', [text('User-agent: tcgplayer-collector\nDisallow: /\n\nUser-agent: *\nAllow: /\n'), none, none], 'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/'],
   ] as const)('refuses the run before any data when robots.txt disallows %s, recorded as a refusal', async (_label, robots, url) => {
     const { failure, urls } = await refusal([...robots]);
@@ -380,13 +386,18 @@ describe('TCGplayer robots.txt, read every run', () => {
     expect(other.robots.allows(guideUrl)).toBe(true);
   });
 
-  it('skips one set whose page or data robots.txt disallows, as that set\'s failure, without requesting it', async () => {
+  it('names a set whose page or data robots.txt disallows, and never requests it', async () => {
     const fetcher = await opened([], [text('User-agent: *\nDisallow: /categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/romance-dawn\n'), none, text('User-agent: *\nDisallow: /priceguide/set/3189/\n')]);
+    const starter = parseTcgplayerSets(onePiece, fixture('set-names-68.json')).find(set => set.setId === 3189)!;
+    const azure = parseTcgplayerSets(onePiece, fixture('set-names-68.json')).find(set => set.setId === 24537)!;
+    expect(tcgplayerSetDisallowed(fetcher, { line: onePiece, set: romanceDawn, productTypeId: 110 })).toBe('https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/romance-dawn');
+    expect(tcgplayerSetDisallowed(fetcher, { line: onePiece, set: starter, productTypeId: 110 })).toBe('https://infinite-api.tcgplayer.com/priceguide/set/3189/cards/?rows=5000&productTypeID=110');
+    expect(tcgplayerSetDisallowed(fetcher, { line: onePiece, set: azure, productTypeId: 110 })).toBeNull();
     const page = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: romanceDawn, productTypeId: 110 }).catch(error => error);
     expect(page).not.toBeInstanceOf(TcgplayerUnavailableError);
     expect(String(page)).toContain('tcgplayer-robots-disallows-set');
-    const starter = parseTcgplayerSets(onePiece, fixture('set-names-68.json')).find(set => set.setId === 3189)!;
     await expect(acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: starter, productTypeId: 110 })).rejects.toThrow('tcgplayer-robots-disallows-set');
+    expect(() => tcgplayerSetDisallowed(unread(fakeFetcher([])), { line: onePiece, set: romanceDawn, productTypeId: 110 })).toThrow('tcgplayer-robots-not-read');
     expect(fetcher.urls).toEqual(ROBOTS);
   });
 
@@ -427,6 +438,7 @@ describe('TCGplayer robots.txt, read every run', () => {
     const reads = Promise.all([fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece), fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece)]);
     await vi.advanceTimersByTimeAsync(30_000);
     await reads;
+    expect(fetcher.robots.delayHost).toBe('www.tcgplayer.com');
     const gaps = seen.slice(1).map((at, index) => at - seen[index]!);
     // www.tcgplayer.com's own robots.txt came at once; every request after it waited its 15 s.
     expect(gaps.length).toBe(4);
@@ -434,7 +446,7 @@ describe('TCGplayer robots.txt, read every run', () => {
   });
 
   it('keeps 10 s when the Crawl-delay asks less, prefers the named group\'s delay, and refuses one over 60 s', async () => {
-    expect((await opened([], [text('User-agent: *\nCrawl-delay: 2\n'), none, none])).robots.intervalMs).toBe(10_000);
+    expect((await opened([], [text('User-agent: *\nCrawl-delay: 2\n'), none, none])).robots).toMatchObject({ intervalMs: 10_000, delayHost: null });
     vi.useFakeTimers({ now: Date.parse(readAt), toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     const named = opened([], [text('User-agent: tcgplayer-collector\nCrawl-delay: 12\nAllow: /\n\nUser-agent: *\nCrawl-delay: 30\n'), none, none]);
     await vi.advanceTimersByTimeAsync(30_000);

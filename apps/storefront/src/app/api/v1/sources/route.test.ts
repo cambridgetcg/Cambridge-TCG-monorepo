@@ -326,7 +326,7 @@ describe("public source projections", () => {
       ]);
       const body = await detail("tcgplayer");
       expect(body.data.health).toMatchObject({ state: "failing", basis: "member_price_batches" });
-      expect(body.data.health.reason).toMatch(/^infinite-api\.tcgplayer\.com refused on its last 2 runs \(http-429\) and not served within the freshness budget 6\.0h; batches: latest batch with observations written 9\.0h ago/);
+      expect(body.data.health.reason).toMatch(/^infinite-api\.tcgplayer\.com refused on its last 2 runs \(http-429\); batches: latest batch with observations written 9\.0h ago/);
     });
 
     it("keeps the batches' health, and says so, when the host table is not provisioned", async () => {

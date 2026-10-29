@@ -6,7 +6,7 @@ import type { IngestContext } from '@cambridge-tcg/data-ingest/types';
 import { writeMemberPriceBatch } from '../member-price-writer';
 import { writeProductCrosswalk, writeSetCrosswalk, type CrosswalkWrite } from '../crosswalks';
 import { withCollectorLease } from '../collector-lease';
-import { closedHost, readCollectorHosts, recordCollectorHostOutcomes, type HostClosed, type HostOutcome, type HostStateWrite } from '../collector-hosts';
+import { CARDRUSH_RUN_INTERVAL_MS, closedHost, readCollectorHosts, recordCollectorHostOutcomes, type HostClosed, type HostOutcome, type HostStateWrite } from '../collector-hosts';
 import { writeCardRushListingImages, type ListingImageWrite } from '../listing-images';
 
 /** The CardRush page collector (Yu, 2026-10-28). One run reads one host:
@@ -33,8 +33,6 @@ import { writeCardRushListingImages, type ListingImageWrite } from '../listing-i
 const WRITE_RESERVE_MS = 60_000;
 /** The crosswalk writers' own refusals of a malformed link; anything else is a fault. */
 const CROSSWALK_REFUSALS = new Set(['invalid-price-crosswalk', 'price-crosswalk-not-exact', 'invalid-price-set-crosswalk']);
-/** The route's schedule: every two hours, each run the next host in turn. */
-const RUN_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
 export interface CardRushRunSummary {
   ran: boolean; host: string; runAt: string; reason?: string;
@@ -54,11 +52,12 @@ export interface CardRushRunSummary {
   hostState?: HostStateWrite;
 }
 
-/** Round-robin by run time, so a missed run shifts nothing and two runs in
- * one slot read the same host. */
+/** Round-robin by run time, every two hours (CARDRUSH_RUN_INTERVAL_MS, the
+ * route's schedule), so a missed run shifts nothing and two runs in one slot
+ * read the same host. */
 export function cardRushHostFor(runAt: Date): string {
   const hosts = Object.keys(CARDRUSH_COLLECTOR_HOSTS);
-  return hosts[Math.floor(runAt.getTime() / RUN_INTERVAL_MS) % hosts.length]!;
+  return hosts[Math.floor(runAt.getTime() / CARDRUSH_RUN_INTERVAL_MS) % hosts.length]!;
 }
 
 /** Never-read pages first, in sitemap order, then the page whose latest

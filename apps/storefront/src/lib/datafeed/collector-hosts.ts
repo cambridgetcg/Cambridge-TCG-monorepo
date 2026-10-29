@@ -24,10 +24,13 @@ import type { CollectedSource } from './collection-flags';
 
 /** Three refused runs in a row suspend a host. One is often a blip (a deploy,
  * a burst); two in a row can still be chance across a backoff; a third,
- * each after waiting out the host's own Retry-After or the 6 h default, is a
- * pattern of at least 12 hours that a person should read before the host is
- * asked again. CardRush reads each host every 12 hours, so its third refused
- * run comes a day or more after the first. */
+ * each after waiting out the host's wait, is a pattern a person should read
+ * before the host is asked again. How long the pattern takes is the host's
+ * to say: two gaps of the longer of its wait and the collector's schedule.
+ * With no Retry-After (6 h) that is at least 12 hours; a TCGplayer host
+ * asking a short Retry-After on hourly runs is suspended after about 2 hours.
+ * CardRush reads each host every 12 hours, so its third refused run comes a
+ * day or more after the first. */
 export const HOST_SUSPEND_AFTER = 3;
 /** A refusal that names no time (or names one this does not read) waits 6 h:
  * the page collectors' freshness budget, six hourly TCGplayer runs. */
@@ -36,12 +39,25 @@ export const HOST_DEFAULT_BACKOFF_MS = 6 * 60 * 60 * 1000;
  * and a person are the better answer. */
 export const HOST_MAX_BACKOFF_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** CardRush's schedule (vercel.json): a run every two hours, each the next
+ * host in turn (collectors/cardrush.ts). */
+export const CARDRUSH_RUN_INTERVAL_MS = 2 * 60 * 60 * 1000;
+
 /** Every host each collector reads: the six CardRush hosts, TCGplayer's site
  * and two data hosts, and Cardmarket's file host. */
 export const COLLECTOR_HOSTS: Readonly<Record<CollectedSource, readonly string[]>> = {
   cardmarket: [new URL(CARDMARKET_PUBLIC_FILE_ORIGIN).hostname],
   cardrush: Object.keys(CARDRUSH_COLLECTOR_HOSTS),
   tcgplayer: TCGPLAYER_COLLECTOR_HOSTS,
+};
+/** How much longer each host goes between its reads than its source goes
+ * between runs: a CardRush host waits out the other five hosts' runs (10 h);
+ * TCGplayer and Cardmarket read every host each run. A host's health allows
+ * its source's freshness budget plus this (collector-health.ts). */
+export const COLLECTOR_HOST_ROTATION_MS: Readonly<Record<CollectedSource, number>> = {
+  cardmarket: 0,
+  cardrush: (COLLECTOR_HOSTS.cardrush.length - 1) * CARDRUSH_RUN_INTERVAL_MS,
+  tcgplayer: 0,
 };
 
 export interface CollectorHostRow {
@@ -70,16 +86,35 @@ const undefinedTable = (error: unknown) => typeof error === 'object' && error !=
 const REASON = /^[a-z0-9][a-z0-9-]{0,79}$/;
 const iso = (value: unknown) => value === null || value === undefined ? null : new Date(value as string | Date).toISOString();
 
-/** Retry-After, as RFC 9110 defines it: whole seconds, or an HTTP date in
- * IMF-fixdate form (`Sun, 06 Nov 1994 08:49:37 GMT`). The obsolete date
- * forms and anything else read as no value. A date already past is 0. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH = MONTHS.join('|'), TIME = '(\\d{2}):(\\d{2}):(\\d{2})';
+// RFC 9110 §5.6.7's three HTTP-date forms, which a recipient must all accept.
+const IMF_FIXDATE = new RegExp(`^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\\d{2}) (${MONTH}) (\\d{4}) ${TIME} GMT$`); // Sun, 06 Nov 1994 08:49:37 GMT
+const RFC_850 = new RegExp(`^(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, (\\d{2})-(${MONTH})-(\\d{2}) ${TIME} GMT$`); // Sunday, 06-Nov-94 08:49:37 GMT
+const ASCTIME = new RegExp(`^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (${MONTH}) ([ \\d]\\d) ${TIME} (\\d{4})$`); // Sun Nov  6 08:49:37 1994, UTC
+function httpDate(text: string, now: number): number | null {
+  const dated = IMF_FIXDATE.exec(text) ?? RFC_850.exec(text), asctime = dated ? null : ASCTIME.exec(text);
+  const parts = dated ? dated.slice(1) : asctime ? [asctime[2]!, asctime[1]!, asctime[6]!, asctime[3]!, asctime[4]!, asctime[5]!] : null;
+  if (!parts) return null;
+  const [day, month, year, hour, minute, second] = parts as [string, string, string, string, string, string];
+  let fullYear = Number(year);
+  // RFC 850's two digits: a year more than 50 years ahead is the century before.
+  if (year.length === 2) {
+    const current = new Date(now).getUTCFullYear();
+    fullYear += Math.floor(current / 100) * 100;
+    if (fullYear > current + 50) fullYear -= 100;
+  }
+  return Date.UTC(fullYear, MONTHS.indexOf(month), Number(day), Number(hour), Number(minute), Number(second));
+}
+/** Retry-After, as RFC 9110 defines it: whole seconds, however many digits,
+ * or an HTTP date in any of its three forms. Anything else reads as no value.
+ * A date already past is 0. backoffMs caps every wait at 7 days. */
 export function retryAfterMs(value: string | null, now: number): number | null {
   if (value === null) return null;
   const text = value.trim();
-  if (/^\d{1,12}$/.test(text)) return Number(text) * 1000;
-  if (!/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(text)) return null;
-  const at = Date.parse(text);
-  return Number.isNaN(at) ? null : Math.max(0, at - now);
+  if (/^\d+$/.test(text)) return Math.min(Number(text) * 1000, Number.MAX_SAFE_INTEGER);
+  const at = httpDate(text, now);
+  return at === null ? null : Math.max(0, at - now);
 }
 /** How long a refused host is left alone: its Retry-After, at most 7 days,
  * or 6 hours when it names none this reads. */

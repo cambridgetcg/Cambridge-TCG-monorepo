@@ -24,9 +24,10 @@ export const TCGPLAYER_HEADLINE_CONDITION = 'near-mint';
 export const TCGPLAYER_RATE_LIMIT = { rps: 0.1, burst: 1 } as const;
 /** The least a run keeps between requests: the bucket's 10 s. */
 export const TCGPLAYER_REQUEST_INTERVAL_MS = 1000 / TCGPLAYER_RATE_LIMIT.rps;
-/** The most a run will keep. A Crawl-delay asking more leaves a 270 s run no
- * room to read a set, so it refuses this collector; the lease's spacing
- * between runs (collector-lease.ts) stops at the same 60 s. */
+/** The most a run will keep: the lease's spacing between runs
+ * (collector-lease.ts) stops at 60 s, so a Crawl-delay asking more refuses
+ * this collector. The collector refuses a shorter one too when its budget
+ * then has no room to read a set (collectors/tcgplayer.ts). */
 export const TCGPLAYER_MAX_REQUEST_INTERVAL_MS = 60_000;
 const SITE = 'https://www.tcgplayer.com';
 const CATALOG_API = 'https://mpapi.tcgplayer.com';
@@ -134,6 +135,8 @@ export interface TcgplayerRobots {
   /** Between one request's answer and the next, across every host: the
    * larger of 10 s and the longest Crawl-delay any host asks. */
   readonly intervalMs: number;
+  /** The host whose Crawl-delay set intervalMs; null when it is the 10 s. */
+  readonly delayHost: string | null;
   /** Whether the host's rules let this collector read `url` (path and query).
    * A host whose robots.txt the run did not read allows nothing. */
   allows(url: string): boolean;
@@ -145,6 +148,11 @@ export interface TcgplayerRunFetcher extends Fetcher { readonly robots: Tcgplaye
 const RUN_FETCHERS = new WeakSet<Fetcher>();
 // A disallow is the host refusing this collector, with no Retry-After.
 const DISALLOWED: HostRefusal = { status: null, retryAfter: null };
+
+// The price-guide data as every set's request has it, path and query, with
+// ids no set or product type has (TCGplayer's start at 1): only a rule for
+// every set's data matches it. A rule naming sets is those sets' own.
+const ANY_SET_GUIDE = tcgplayerPriceGuideUrl(0, 0);
 
 /** The price-guide page on www.tcgplayer.com whose data a set's guide is,
  * and the line's price-guide pages: robots.txt is asked about these. */
@@ -159,17 +167,18 @@ export function tcgplayerPriceGuidePageUrl(line: TcgplayerProductLine, set?: Tcg
  * serving none (404, 410) sets no rule. A refusal, a challenge, a redirect,
  * a 5xx or a failed read stops the run before any data is read, and so does
  * a file that disallows a path every run reads (a line's set list or product
- * types, the price-guide data, the line's price-guide pages) or asks a
- * Crawl-delay over 60 s. The returned fetcher keeps the larger of 10 s and
- * the Crawl-delay asked between requests. A single set whose page or data
- * robots.txt disallows is that set's failure, read by acquireTcgplayerPriceGuide.
+ * types, every set's price-guide data, the line's price-guide pages) or asks
+ * a Crawl-delay over 60 s. The returned fetcher keeps the larger of 10 s and
+ * the Crawl-delay asked between requests. A set whose page or data robots.txt
+ * disallows is not requested (tcgplayerSetDisallowed); the collector refuses
+ * the run when that leaves no listed set.
  */
 export async function readTcgplayerRobots(fetcher: Fetcher, evidenceVersion: string, lines: readonly TcgplayerProductLine[]): Promise<TcgplayerRunFetcher> {
   assertEvidence(evidenceVersion);
   if (fetcher.via_proxy !== null) throw new Error('tcgplayer-proxied-fetcher-refused');
   const collected = lines.map(collectedLine);
   const rules = new Map<string, RobotsRules | null>();
-  let intervalMs = TCGPLAYER_REQUEST_INTERVAL_MS, answeredAt: number | null = null, previous: Promise<unknown> = Promise.resolve();
+  let intervalMs = TCGPLAYER_REQUEST_INTERVAL_MS, delayHost: string | null = null, answeredAt: number | null = null, previous: Promise<unknown> = Promise.resolve();
   // The bucket keeps 10 s from each request's start; a longer Crawl-delay is
   // kept here, one request at a time, from the previous answer, so it is at
   // least as long.
@@ -192,12 +201,13 @@ export async function readTcgplayerRobots(fetcher: Fetcher, evidenceVersion: str
     if (group?.crawlDelaySeconds != null) {
       const asked = Math.ceil(group.crawlDelaySeconds * 1000);
       if (asked > TCGPLAYER_MAX_REQUEST_INTERVAL_MS) throw new TcgplayerUnavailableError('robots-crawl-delay-too-long', null, url, DISALLOWED);
-      intervalMs = Math.max(intervalMs, asked);
+      if (asked > intervalMs) { intervalMs = asked; delayHost = host; }
     }
   }
   const robots: TcgplayerRobots = {
     hosts: Object.fromEntries([...rules].map(([host, group]) => [host, group ? 'rules' : 'none'])),
     intervalMs,
+    delayHost,
     allows(target) {
       let parsed: URL;
       try { parsed = new URL(target); } catch { return false; }
@@ -207,7 +217,7 @@ export async function readTcgplayerRobots(fetcher: Fetcher, evidenceVersion: str
   };
   // Every path a run reads, asked before its first data request.
   for (const line of collected) {
-    for (const target of [tcgplayerSetListUrl(line), tcgplayerProductTypesUrl(line), tcgplayerPriceGuidePageUrl(line), `${PRICE_GUIDE_API}/priceguide/set/`]) {
+    for (const target of [tcgplayerSetListUrl(line), tcgplayerProductTypesUrl(line), tcgplayerPriceGuidePageUrl(line), ANY_SET_GUIDE]) {
       if (!robots.allows(target)) throw new TcgplayerUnavailableError('robots-disallows-collector', null, target, DISALLOWED);
     }
   }
@@ -302,16 +312,25 @@ export async function fetchTcgplayerCardsProductType(fetcher: TcgplayerRunFetche
   return Number(cards[0]!.productTypeId);
 }
 
-/** One set's singles: one request, at the run's interval. A set whose
- * price-guide page or data robots.txt disallows is not requested; that is
- * the set's failure, not a refusal of the run. */
+/** The first of a set's two URLs this run's robots.txt disallows (the set's
+ * price-guide page, then its data), or null when both may be read. The
+ * collector skips such a set unrequested, and refuses the run when robots.txt
+ * leaves no listed set. */
+export function tcgplayerSetDisallowed(fetcher: TcgplayerRunFetcher, input: { line: TcgplayerProductLine; set: TcgplayerSet; productTypeId: number }): string | null {
+  if (!RUN_FETCHERS.has(fetcher)) throw new Error('tcgplayer-robots-not-read');
+  const line = collectedLine(input.line);
+  return [tcgplayerPriceGuidePageUrl(line, input.set), tcgplayerPriceGuideUrl(input.set.setId, input.productTypeId)].find(url => !fetcher.robots.allows(url)) ?? null;
+}
+
+/** One set's singles: one request, at the run's interval. A set robots.txt
+ * disallows (tcgplayerSetDisallowed) is not requested. */
 export async function acquireTcgplayerPriceGuide(fetcher: TcgplayerRunFetcher, evidenceVersion: string, input: { line: TcgplayerProductLine; set: TcgplayerSet; productTypeId: number }): Promise<TcgplayerPriceGuide> {
   assertEvidence(evidenceVersion);
   const line = collectedLine(input.line);
   if (input.set.categoryId !== line.categoryId || !Number.isSafeInteger(input.productTypeId) || input.productTypeId <= 0) throw new Error('tcgplayer-set-not-in-line');
   const sourceUrl = tcgplayerPriceGuideUrl(input.set.setId, input.productTypeId);
   if (!RUN_FETCHERS.has(fetcher)) throw new Error('tcgplayer-robots-not-read');
-  if (!fetcher.robots.allows(tcgplayerPriceGuidePageUrl(line, input.set)) || !fetcher.robots.allows(sourceUrl)) throw new Error('tcgplayer-robots-disallows-set');
+  if (tcgplayerSetDisallowed(fetcher, { line, set: input.set, productTypeId: input.productTypeId })) throw new Error('tcgplayer-robots-disallows-set');
   const { bytes, retrievedAt } = await read(fetcher, sourceUrl);
   return parseTcgplayerPriceGuide({ line, set: input.set, bytes, sourceUrl, retrievedAt });
 }

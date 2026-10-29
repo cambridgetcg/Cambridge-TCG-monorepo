@@ -2,10 +2,10 @@ import 'server-only';
 import { query, transaction } from '@/lib/db';
 import { MEMBER_PRICE_POLICIES, TCGPLAYER_EVIDENCE_VERSION } from '@cambridge-tcg/data-ingest/member-prices';
 import {
-  acquireTcgplayerPriceGuide, createTcgplayerFetcher, fetchTcgplayerCardsProductType, fetchTcgplayerSets, readTcgplayerRobots,
+  acquireTcgplayerPriceGuide, createTcgplayerFetcher, fetchTcgplayerCardsProductType, fetchTcgplayerSets, readTcgplayerRobots, tcgplayerSetDisallowed,
   TCGPLAYER_COLLECTOR_HOSTS, TCGPLAYER_PRODUCT_LINES, TCGPLAYER_REQUEST_INTERVAL_MS, TcgplayerUnavailableError, type TcgplayerProductLine, type TcgplayerSet,
 } from '@cambridge-tcg/data-ingest/tcgplayer/member-prices';
-import type { Fetcher } from '@cambridge-tcg/data-ingest/http';
+import type { Fetcher, HostRefusal } from '@cambridge-tcg/data-ingest/http';
 import { writeMemberPriceBatch } from '../member-price-writer';
 import { writeProductCrosswalk, writeSetCrosswalk } from '../crosswalks';
 import { withCollectorLease, type CollectorLeaseRefusal } from '../collector-lease';
@@ -35,12 +35,16 @@ export interface TcgplayerRun {
   /** Between requests this run: 10 s, or the longer Crawl-delay robots.txt asked. */
   intervalMs: number;
   setsListed: number; sets: TcgplayerSetResult[];
+  /** Listed sets whose page or data robots.txt disallows: never requested,
+   * and no batch written for them. */
+  robotsDisallowed: number;
   /** skipped: live rows another writer holds (an operator review), left standing. */
   crosswalks: { setWritten: number; productWritten: number; productUnchanged: number; skipped: number; failed: number };
   /** A set's entry says whether its failure was recorded as that set's reading. */
   errors: { line: string; setId?: number; error: string; recorded?: boolean }[];
   /** refused: the host refused this collector (a 403, a 429, a 503 with
-   * Retry-After, robots.txt disallowing it), which its host state counts. */
+   * Retry-After, robots.txt disallowing it or every listed set, a Crawl-delay
+   * the run cannot keep), which its host state counts. */
   unavailable?: { reason: string; status: number | null; url: string; refused: boolean };
   /** Every host's state after this run; skipped while 0146 is not applied. */
   hostState?: HostStateWrite;
@@ -66,6 +70,8 @@ const errorCode = (error: unknown) => error instanceof Error && /^[a-z0-9-]{1,80
 /** The run's budget timeout (or the caller's abort) cut a request short. */
 const aborted = (error: unknown) => error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
 const REVOKED = 'member-price-source-revoked-or-unreviewed';
+/** robots.txt refusing this collector: no HTTP answer, no Retry-After. */
+const ROBOTS_REFUSAL: HostRefusal = { status: null, retryAfter: null };
 const released = (date: string | null) => (date ? Date.parse(date) : NaN) || 0;
 
 /** One run: read every TCGplayer host's robots.txt (readTcgplayerRobots),
@@ -77,8 +83,12 @@ const released = (date: string | null) => (date ? Date.parse(date) : NaN) || 0;
  * the run as SOURCE_UNAVAILABLE; revocation ends it before or between sets.
  * A set whose read or write fails is recorded as read, with an empty batch
  * whose quarantine names the failure: no observation is invented, and the next
- * run moves on to other sets instead of starting with it forever. The budget's
- * timeout cutting a request short is a budget stop, not that set's failure.
+ * run moves on to other sets instead of starting with it forever. A set
+ * robots.txt disallows is skipped unasked and unrecorded: it costs no request,
+ * so it starves no other set, and leaves no empty batch in the append-only
+ * store; robots.txt that leaves no listed set, or a Crawl-delay that leaves
+ * the budget no set, refuses the run. The budget's timeout cutting a request
+ * short is a budget stop, not that set's failure.
  * Every TCGplayer host shares one bucket, so one lease ('tcgplayer', migration
  * 0143) covers the run from before its first request to its last write, and
  * keeps the next run's first request the run's interval after it ends. Under
@@ -92,7 +102,7 @@ export async function collectTcgplayer(options: TcgplayerCollectorOptions = {}):
   const runQuery = options.runQuery ?? query, runTransaction = options.runTransaction ?? transaction;
   const started = now(), deadline = started + TCGPLAYER_RUN_BUDGET_MS;
   const run: TcgplayerRun = {
-    ran: true, status: 'ok', stoppedBy: 'all-sets-read', runAt: new Date(started).toISOString(), elapsedMs: 0, requests: 0, intervalMs: TCGPLAYER_REQUEST_INTERVAL_MS, setsListed: 0, sets: [],
+    ran: true, status: 'ok', stoppedBy: 'all-sets-read', runAt: new Date(started).toISOString(), elapsedMs: 0, requests: 0, intervalMs: TCGPLAYER_REQUEST_INTERVAL_MS, setsListed: 0, sets: [], robotsDisallowed: 0,
     crosswalks: { setWritten: 0, productWritten: 0, productUnchanged: 0, skipped: 0, failed: 0 }, errors: [],
   };
   // The writer re-checks the release in each transaction; checking first spares the source.
@@ -137,6 +147,13 @@ async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & 
     // Before any data request, every run: no reading of an earlier run is reused.
     const fetcher = await readTcgplayerRobots(base, TCGPLAYER_EVIDENCE_VERSION, lines);
     run.intervalMs = fetcher.robots.intervalMs;
+    // A Crawl-delay under readTcgplayerRobots' 60 s cap can still leave this
+    // budget no set: each line's set list, the product types and then a set,
+    // each the interval apart, and that set's writes must fit in what is left.
+    // Otherwise every run would spend its requests on lists and read nothing.
+    if (fetcher.robots.delayHost && left() < (lines.length + 2) * run.intervalMs + SET_WRITE_RESERVE_MS) {
+      throw new TcgplayerUnavailableError('robots-crawl-delay-too-long', null, `https://${fetcher.robots.delayHost}/robots.txt`, ROBOTS_REFUSAL);
+    }
     const lastRead = new Map<number, number>();
     for (const row of (await runQuery(`SELECT split_part(ingest_key, ':', 2) AS set_id, EXTRACT(EPOCH FROM max(inserted_at))::float8 AS last_read
       FROM member_price_batches WHERE source='tcgplayer' AND ingest_key LIKE 'tcgplayer:%' GROUP BY 1`)).rows) {
@@ -153,6 +170,7 @@ async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & 
     candidates.sort((a, b) => (age(a.set) - age(b.set)) || (released(b.set.releaseDate) - released(a.set.releaseDate)) || (a.set.setId - b.set.setId));
 
     const productTypes = new Map<string, number | null>();
+    let disallowed: string | null = null;
     for (const { line, set } of candidates) {
       if (left() < reserve()) { run.stoppedBy = 'budget'; break; }
       if (!productTypes.has(line.slug)) {
@@ -162,6 +180,8 @@ async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & 
       }
       const productTypeId = productTypes.get(line.slug);
       if (productTypeId == null) continue;
+      const refused = tcgplayerSetDisallowed(fetcher, { line, set, productTypeId });
+      if (refused) { run.robotsDisallowed++; disallowed ??= refused; continue; }
       let guide: Awaited<ReturnType<typeof acquireTcgplayerPriceGuide>>;
       try { guide = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line, set, productTypeId }); }
       catch (error) { if (error instanceof TcgplayerUnavailableError || aborted(error)) throw error; await recordFailure(line, set, error); continue; }
@@ -189,6 +209,8 @@ async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & 
         setCode: guide.setCrosswalk?.setCode ?? null, productCrosswalks: guide.productCrosswalks.length,
       });
     }
+    // As CardRush's run stops when robots.txt permits no listed page.
+    if (disallowed && run.robotsDisallowed === candidates.length) throw new TcgplayerUnavailableError('robots-disallows-collector', null, disallowed, ROBOTS_REFUSAL);
   } catch (error) {
     if (error instanceof TcgplayerUnavailableError) {
       run.status = 'source-unavailable'; run.stoppedBy = 'source-unavailable';

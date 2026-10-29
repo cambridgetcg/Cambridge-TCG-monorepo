@@ -362,6 +362,8 @@ describe('CardRush page acquisition', () => {
     ['403', () => new Response('denied', { status: 403 }), 'http-403', { status: 403, retryAfter: null }],
     ['429', () => new Response('slow down', { status: 429, headers: { 'retry-after': '60' } }), 'http-429', { status: 429, retryAfter: '60' }],
     ['challenge header', () => new Response('<html></html>', { status: 403, headers: { 'cf-mitigated': 'challenge' } }), 'challenge-challenge', { status: 403, retryAfter: null }],
+    // Any other value is a challenge too, under Cambridge's own code: the header's text is never stored.
+    ['other challenge header', () => new Response('<html></html>', { status: 403, headers: { 'cf-mitigated': 'blocked-contact-legal' } }), 'challenge-header', { status: 403, retryAfter: null }],
     // Edit: Cloudflare's interstitial title on an otherwise successful answer.
     ['challenge page', () => htmlResponse('<!DOCTYPE html><html><head><title>Just a moment...</title></head><body></body></html>'), 'challenge-page', { status: 200, retryAfter: null }],
     // Stopped, but not a refusal of this collector.

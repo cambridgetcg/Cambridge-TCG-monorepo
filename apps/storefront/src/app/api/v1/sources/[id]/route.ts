@@ -217,7 +217,7 @@ export async function GET(
   const freshness_seconds = meta && Object.hasOwn(FRESHNESS, meta.freshness) ? FRESHNESS[meta.freshness] : 0;
   const hosts = collected && hostStates ? deriveHostHealth(id, hostStates, freshness_seconds) : null;
   const { health, reason } = batches
-    ? withHostHealth(deriveCollectorHealth(batches, freshness_seconds), hosts?.hosts ?? [], freshness_seconds)
+    ? withHostHealth(deriveCollectorHealth(batches, freshness_seconds), hosts?.hosts ?? [])
     : deriveHealth({
         last_run: last_run_internal,
         freshness_seconds,
@@ -292,7 +292,7 @@ export async function GET(
       "Quarantine reasons, rows, payload keys, and payload bytes are not fetched or returned.",
       ...(batches
         ? [
-            "Health counts a batch as fresh only if it recorded observations. A run that fails before writing any batch leaves none, so such a collector reads as stale or never_run, not as failing, unless a host refused it: a host refused on every recent run, or suspended, makes the source failing (collector.hosts).",
+            "Health counts a batch as fresh only if it recorded observations. A run that fails before writing any batch leaves none, so such a collector reads as stale or never_run, not as failing, unless a host refused it: a host refused on its last two runs or more, or suspended, makes the source failing, and a host not served within its own budget makes a healthy source stale (collector.hosts).",
             "How many observations a batch holds is not read: latest_batch.observed says only whether it recorded any.",
             "A host's refusals are Cambridge's own codes (http-429, robots-disallows-collector); no upstream response text is stored or returned.",
           ]

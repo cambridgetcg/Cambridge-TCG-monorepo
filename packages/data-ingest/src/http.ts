@@ -353,11 +353,12 @@ export function hostRefusal(status: number, retryAfter: string | null): HostRefu
  * not obstacles. A challenge is the cf-mitigated header or the interstitial's
  * title; Cloudflare also injects its beacon script into ordinary pages, so
  * that script alone is not one. Shared by the page collectors (CardRush,
- * TCGplayer's robots.txt).
+ * TCGplayer's robots.txt). Every reason is Cambridge's own code: the header's
+ * value is read, never copied, since a reason is stored and served.
  */
 export function pageRefusal(response: Response, head = ''): string | null {
   const mitigated = response.headers.get('cf-mitigated');
-  if (mitigated) return `challenge-${mitigated}`;
+  if (mitigated) return mitigated.trim().toLowerCase() === 'challenge' ? 'challenge-challenge' : 'challenge-header';
   if ([401, 403, 407, 429, 503].includes(response.status)) return `http-${response.status}`;
   if (/<title>\s*Just a moment\.\.\.\s*<\/title>/i.test(head)) return 'challenge-page';
   return null;

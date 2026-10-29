@@ -22,7 +22,7 @@
  * Piece) on each anonymous request.
  */
 
-import { COLLECTOR_HOSTS, HOST_COLUMNS, hostRowFrom, type CollectorHostRow } from "../../../../lib/datafeed/collector-hosts";
+import { COLLECTOR_HOST_ROTATION_MS, COLLECTOR_HOSTS, HOST_COLUMNS, hostRowFrom, type CollectorHostRow } from "../../../../lib/datafeed/collector-hosts";
 import type { CollectedSource } from "../../../../lib/datafeed/collection-flags";
 
 type RunQuery = (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }>;
@@ -133,17 +133,27 @@ export function deriveCollectorHealth(read: CollectorBatchRead, freshnessSeconds
  * run writes no batch at all. Each host the collector reads is listed with
  * its state:
  *   suspended  refused three runs in a row; off until a person clears it.
- *   failing    refused on its latest run, and not served within the
- *              freshness budget: every run of it in that time was refused.
- *   refused    refused on its latest run; served within the budget.
- *   ok         its latest counted run was served (or a person cleared it).
+ *   failing    refused on its last two runs or more.
+ *   stale      not served within its budget (below), whatever it answered
+ *              since: a failure that is not a refusal (a 5xx, a redirect,
+ *              a network error) changes no count, but does not serve.
+ *   refused    refused on its latest run only, and served within its budget
+ *              or never served: one refusal is often a blip.
+ *   ok         served within its budget, and not refused since.
  *   never_run  no run has reached it.
  *   unknown    the state could not be read.
- * A failing or suspended host makes the source failing, whatever its batches
- * say; otherwise the batches decide, as before. Only Cambridge's own codes
- * and times are read: no upstream text is stored there.
+ * Judged by each host's own turn: its budget is the source's freshness
+ * budget plus how much longer it waits between reads than the source between
+ * runs (collector-hosts.ts COLLECTOR_HOST_ROTATION_MS): 16 h for a CardRush
+ * host, read every 12 h, and the budget itself for TCGplayer's and
+ * Cardmarket's hosts, read every run. A failing or suspended host makes the
+ * source failing, whatever its batches say, and a stale one makes a healthy
+ * source stale; otherwise the batches decide, as before. Only Cambridge's own
+ * codes and times are read: no upstream text is stored there.
  */
-export type CollectorHostState = "ok" | "refused" | "failing" | "suspended" | "never_run" | "unknown";
+export type CollectorHostState = "ok" | "refused" | "stale" | "failing" | "suspended" | "never_run" | "unknown";
+/** Refused runs in a row that read failing; HOST_SUSPEND_AFTER (3) suspends. */
+const HOST_FAILING_AFTER = 2;
 export interface CollectorHostHealth {
   host: string;
   state: CollectorHostState;
@@ -187,6 +197,7 @@ export async function readCollectorHostStates(runQuery?: RunQuery): Promise<Coll
 
 /** Each host the source's collector reads, in its configured order. */
 export function deriveHostHealth(source: CollectedSource, read: CollectorHostsRead, freshnessSeconds: number, now: number = Date.now()): CollectorHostsHealth {
+  const budgetSeconds = freshnessSeconds + COLLECTOR_HOST_ROTATION_MS[source] / 1000;
   const empty = (host: string, state: CollectorHostState): CollectorHostHealth => ({
     host, state, consecutive_refusals: 0, last_success_at: null, last_refusal_at: null, last_refusal_reason: null, not_before: null, suspended_at: null, suspended_reason: null,
   });
@@ -197,8 +208,13 @@ export function deriveHostHealth(source: CollectedSource, read: CollectorHostsRe
     hosts: COLLECTOR_HOSTS[source].map(host => {
       const row = rows?.get(host);
       if (!row) return empty(host, "never_run");
-      const servedRecently = row.lastSuccessAt !== null && (now - Date.parse(row.lastSuccessAt)) / 1000 <= freshnessSeconds;
-      const state: CollectorHostState = row.suspendedAt ? "suspended" : row.consecutiveRefusals > 0 ? (servedRecently ? "refused" : "failing") : row.lastSuccessAt || row.lastRefusalAt ? "ok" : "never_run";
+      const served = row.lastSuccessAt !== null && (now - Date.parse(row.lastSuccessAt)) / 1000 <= budgetSeconds;
+      const state: CollectorHostState = row.suspendedAt ? "suspended"
+        : row.consecutiveRefusals >= HOST_FAILING_AFTER ? "failing"
+          : row.consecutiveRefusals > 0 && (served || row.lastSuccessAt === null) ? "refused"
+            : served ? "ok"
+              // Served too long ago, or never since a person cleared its refusals.
+              : row.lastSuccessAt || row.lastRefusalAt ? "stale" : "never_run";
       return {
         host, state, consecutive_refusals: row.consecutiveRefusals, last_success_at: row.lastSuccessAt, last_refusal_at: row.lastRefusalAt,
         last_refusal_reason: row.lastRefusalReason, not_before: row.notBefore, suspended_at: row.suspendedAt, suspended_reason: row.suspendedReason,
@@ -208,13 +224,15 @@ export function deriveHostHealth(source: CollectedSource, read: CollectorHostsRe
 }
 
 /** The source's health once its hosts are read: failing when any host is
- * failing or suspended, naming them before the batches' own reason. */
-export function withHostHealth(health: { health: CollectorHealth; reason: string }, hosts: readonly CollectorHostHealth[], freshnessSeconds: number): { health: CollectorHealth; reason: string } {
-  const budget = `${(freshnessSeconds / 3600).toFixed(1)}h`;
-  const named = hosts.flatMap(host =>
+ * failing or suspended, and stale when it was healthy and a host is stale,
+ * naming those hosts before the batches' own reason. */
+export function withHostHealth(health: { health: CollectorHealth; reason: string }, hosts: readonly CollectorHostHealth[]): { health: CollectorHealth; reason: string } {
+  const failing = hosts.flatMap(host =>
     host.state === "suspended" ? [`${host.host} suspended after ${host.consecutive_refusals} refused runs in a row (${host.suspended_reason})`]
-      : host.state === "failing" ? [`${host.host} refused on its last ${host.consecutive_refusals === 1 ? "run" : `${host.consecutive_refusals} runs`} (${host.last_refusal_reason}) and not served within the freshness budget ${budget}`]
+      : host.state === "failing" ? [`${host.host} refused on its last ${host.consecutive_refusals} runs (${host.last_refusal_reason})`]
         : []);
-  if (!named.length) return health;
-  return { health: "failing", reason: `${named.join("; ")}; batches: ${health.reason}` };
+  const stale = hosts.flatMap(host => host.state === "stale" ? [`${host.host} not served within its budget (last served ${host.last_success_at ?? "never"})`] : []);
+  if (!failing.length && !stale.length) return health;
+  const state = failing.length ? "failing" : health.health === "healthy" ? "stale" : health.health;
+  return { health: state, reason: `${[...failing, ...stale].join("; ")}; batches: ${health.reason}` };
 }

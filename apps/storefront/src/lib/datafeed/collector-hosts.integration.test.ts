@@ -177,8 +177,8 @@ describe.skipIf(!localUrl)('collector host state PostgreSQL integration, migrati
     await state.pool.query(`UPDATE price_collector_leases SET expires_at = acquired_at + interval '1 millisecond' WHERE lease_key = 'tcgplayer' AND holder = 'request-spacing'`);
     expect(await collectTcgplayer({ fetcher: refusing, lines })).toMatchObject({ ran: false, reason: 'host-backing-off', host: 'mpapi.tcgplayer.com', notBefore: retryAt.toISOString(), requests: 0 });
     expect(urls).toHaveLength(2);
-    // Health: refused, not yet failing (one refused run, and nothing served in the budget would make it failing).
+    // Health: refused, not yet failing; failing takes two refused runs in a row.
     const hosts = deriveHostHealth('tcgplayer', await readCollectorHostStates(run), 6 * 3600);
-    expect(hosts.hosts.map(entry => [entry.host, entry.state])).toEqual([['www.tcgplayer.com', 'never_run'], ['mpapi.tcgplayer.com', 'failing'], ['infinite-api.tcgplayer.com', 'never_run']]);
+    expect(hosts.hosts.map(entry => [entry.host, entry.state])).toEqual([['www.tcgplayer.com', 'never_run'], ['mpapi.tcgplayer.com', 'refused'], ['infinite-api.tcgplayer.com', 'never_run']]);
   }, 30_000);
 });

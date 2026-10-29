@@ -27,13 +27,20 @@ describe('collector host state', () => {
     });
   });
 
-  it('reads Retry-After in both forms RFC 9110 defines: seconds and an HTTP date', () => {
+  it('reads Retry-After as RFC 9110 defines it: seconds, or an HTTP date in any of its three forms', () => {
     expect(retryAfterMs('120', NOW)).toBe(120_000);
     expect(retryAfterMs('0', NOW)).toBe(0);
     expect(retryAfterMs('Thu, 29 Oct 2026 14:30:00 GMT', NOW)).toBe(2.5 * HOUR);
+    // The two obsolete forms a recipient must still accept: RFC 850, and asctime (UTC).
+    expect(retryAfterMs('Thursday, 29-Oct-26 14:30:00 GMT', NOW)).toBe(2.5 * HOUR);
+    expect(retryAfterMs('Thu Oct 29 14:30:00 2026', NOW)).toBe(2.5 * HOUR);
+    expect(retryAfterMs('Sun Nov  1 12:00:00 2026', NOW)).toBe(72 * HOUR);
+    // RFC 850's two-digit year: one more than 50 years ahead is the century before.
+    expect(retryAfterMs('Sunday, 01-Nov-76 12:00:00 GMT', NOW)).toBe(Date.parse('2076-11-01T12:00:00Z') - NOW);
+    expect(retryAfterMs('Monday, 01-Nov-77 12:00:00 GMT', NOW)).toBe(0);
     // A date already past asks for no wait.
     expect(retryAfterMs('Wed, 28 Oct 2026 12:00:00 GMT', NOW)).toBe(0);
-    for (const value of [null, '', '1.5', '-5', '0x10', 'soon', '2026-10-29T14:30:00Z', 'Thursday, 29-Oct-26 14:30:00 GMT', 'Thu Oct 29 14:30:00 2026', 'Thu, 29 Oct 2026 14:30:00 UTC']) {
+    for (const value of [null, '', '1.5', '-5', '0x10', 'soon', '2026-10-29T14:30:00Z', 'Thu, 29 Oct 2026 14:30:00 UTC', 'Thu, 29-Oct-26 14:30:00 GMT', 'Thu Oct 29 14:30:00 2026 GMT']) {
       expect(retryAfterMs(value, NOW)).toBeNull();
     }
   });
@@ -42,6 +49,11 @@ describe('collector host state', () => {
     expect(backoffMs('3600', NOW)).toBe(HOUR);
     expect(backoffMs('Fri, 30 Oct 2026 12:00:00 GMT', NOW)).toBe(24 * HOUR);
     expect(backoffMs(String(30 * 24 * 3600), NOW)).toBe(HOST_MAX_BACKOFF_MS);
+    // However many digits it has: a longer wait asked is never a shorter one waited.
+    expect(backoffMs('999999999999', NOW)).toBe(HOST_MAX_BACKOFF_MS);
+    expect(backoffMs('1000000000000', NOW)).toBe(HOST_MAX_BACKOFF_MS);
+    expect(backoffMs('9'.repeat(400), NOW)).toBe(HOST_MAX_BACKOFF_MS);
+    expect(backoffMs('Sunday, 01-Nov-26 12:00:00 GMT', NOW)).toBe(72 * HOUR);
     expect(backoffMs('Sun, 29 Nov 2026 12:00:00 GMT', NOW)).toBe(HOST_MAX_BACKOFF_MS);
     expect(HOST_MAX_BACKOFF_MS).toBe(7 * 24 * HOUR);
     expect(backoffMs(null, NOW)).toBe(HOST_DEFAULT_BACKOFF_MS);
