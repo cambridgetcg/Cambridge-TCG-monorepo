@@ -83,33 +83,48 @@ function ObservationTime({ value }: { value: string | null }) {
   return value ? <time dateTime={value}>{value}</time> : <>Unknown</>;
 }
 
-/** A row's identity image, small and fixed-size, for checking the item: a
- * CardRush listing's own image at CardRush's URL (a plain img, never
- * next/image or a proxy: Cambridge links it and never copies it), or an
- * official English base reference. ImageCredit says which, beside the row's name.
- * The CardRush request sends no Referer (member-http.ts sets the same policy),
- * so CardRush is not told which member page asked. */
-function ItemImage({ image, item }: { image: MemberPriceImage; item: MemberPriceItem }) {
-  const name = item.productName ?? item.sourceProductId;
+/** A row's official English base reference, small and fixed-size, from
+ * Cambridge's own image host, for checking the item. */
+function OfficialImage({ image, item }: { image: NonNullable<MemberPriceImage["official"]>; item: MemberPriceItem }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- linked at the source's own URL, never optimised or proxied
+    // eslint-disable-next-line @next/next/no-img-element -- the projector's URL as served, never re-optimised
     <img
       src={image.url}
-      alt={image.lane === "cardrush-listing" ? `${name}: CardRush listing image` : `${name}: official English base reference image, printing not verified`}
+      alt={`${item.productName ?? item.sourceProductId}: official English base reference image, printing not verified`}
       width={56}
       height={78}
       loading="lazy"
       decoding="async"
-      referrerPolicy={image.lane === "cardrush-listing" ? "no-referrer" : undefined}
       className="h-[78px] w-14 shrink-0 rounded border border-border-subtle bg-surface-subtle object-contain"
     />
   );
 }
 
-function ImageCredit({ image, item }: { image: MemberPriceImage; item: MemberPriceItem }) {
-  return image.lane === "cardrush-listing"
-    ? <p className="mt-2 text-xs"><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">Image: CardRush</a></p>
-    : <p className="mt-2 text-xs text-ink-muted">Official image · English base reference<span className="block text-ink-faint">{image.attribution}</span></p>;
+/** A CardRush listing's own image at CardRush's URL: a plain img, never
+ * next/image or a proxy, so Cambridge links it and never copies it. It sits
+ * in a closed details element and loads lazily, so the member's browser asks
+ * CardRush for it only when the member opens it (checked in Chromium: a lazy
+ * image in a closed details element is not fetched). The request sends no
+ * Referer, so CardRush is not told which member page asked. */
+function ListingImage({ url, item }: { url: string; item: MemberPriceItem }) {
+  return (
+    <details className="mt-2 text-xs">
+      <summary className="cursor-pointer text-accent">Show CardRush&apos;s listing image</summary>
+      <p className="mt-1 text-ink-muted">Loads from CardRush, which then sees your IP address.</p>
+      {/* eslint-disable-next-line @next/next/no-img-element -- linked at the source's own URL, never optimised or proxied */}
+      <img
+        src={url}
+        alt={`${item.productName ?? item.sourceProductId}: CardRush listing image`}
+        width={56}
+        height={78}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="mt-2 h-[78px] w-14 rounded border border-border-subtle bg-surface-subtle object-contain"
+      />
+      <p className="mt-1"><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">Image: CardRush</a></p>
+    </details>
+  );
 }
 
 /** `images`: the rows' identity images (readMemberPriceImages); a row with none shows none. */
@@ -145,12 +160,13 @@ export function MemberPriceResults({ page, params, images }: { page: MemberPrice
                 <tr key={item.id} className="align-top">
                   <th scope="row" className="min-w-64 px-4 py-4 font-normal">
                     <div className="flex gap-3">
-                      {image && <ItemImage image={image} item={item} />}
+                      {image?.official && <OfficialImage image={image.official} item={item} />}
                       <div className="min-w-0">
                         <p className="font-medium text-ink">{item.productName ?? "Source product name unknown"}</p>
                         <p className="mt-1 text-xs text-ink-muted">{item.game}{item.setCode ? ` · ${item.setCode}` : ""}</p>
                         <p className="mt-1 break-all font-mono text-xs text-ink-muted">{item.sku ?? `Source ID: ${item.sourceProductId}`}</p>
-                        {image && <ImageCredit image={image} item={item} />}
+                        {image?.official && <p className="mt-2 text-xs text-ink-muted">Official image · English base reference<span className="block text-ink-faint">{image.official.attribution}</span></p>}
+                        {image?.listing && <ListingImage url={image.listing} item={item} />}
                       </div>
                     </div>
                   </th>

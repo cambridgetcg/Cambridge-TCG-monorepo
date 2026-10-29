@@ -111,7 +111,7 @@ describe("member price server gate", () => {
     renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
     expect(mocks.images).not.toHaveBeenCalled();
     mocks.read.mockResolvedValue(page);
-    mocks.images.mockResolvedValue({ byItem: new Map([[item.id, { lane: "official-reference", url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit" }]]), rowsLookedUp: 1 });
+    mocks.images.mockResolvedValue({ byItem: new Map([[item.id, { official: { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit" } }]]), rowsLookedUp: 1 });
     const html = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
     expect(html).toContain('src="https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png"');
     expect(html).toContain("Publisher credit");
@@ -278,9 +278,14 @@ describe("member price rendering", () => {
   const reference = { ...item, id: "cardmarket-1", sku: "op-op01-006-ja", mappingStatus: "exact" as const };
   const imagesFor = (entries: [string, MemberPriceImage][], rowsLookedUp = entries.length) => ({ byItem: new Map(entries), rowsLookedUp });
 
-  it("shows a CardRush listing image at CardRush's own URL, lazily, fixed-size and credited to the listing", () => {
-    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { lane: "cardrush-listing", url: listingUrl }]])} />);
-    const img = /<img [^>]*>/.exec(html)![0];
+  it("offers a CardRush listing image at CardRush's own URL only behind a closed details element, lazily, fixed-size and credited to the listing", () => {
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { listing: listingUrl }]])} />);
+    // Closed and lazy: the member's browser asks CardRush only when the member opens it.
+    const details = /<details[^>]*>[\s\S]*?<\/details>/.exec(html)![0];
+    expect(details).not.toMatch(/<details[^>]*\bopen\b/);
+    expect(details).toContain("Show CardRush&#x27;s listing image");
+    expect(details).toContain("Loads from CardRush, which then sees your IP address.");
+    const img = /<img [^>]*>/.exec(details)![0];
     expect(img).toContain(`src="${listingUrl}"`);
     for (const attribute of ['loading="lazy"', 'decoding="async"', 'width="56"', 'height="78"', 'referrerPolicy="no-referrer"', 'alt="〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}: CardRush listing image"']) expect(img).toContain(attribute);
     // A plain img: never next/image, its optimiser or any other proxy.
@@ -292,8 +297,8 @@ describe("member price rendering", () => {
   });
 
   it("labels an official image as an English base reference with its credit, and shows nothing for a row without one", () => {
-    const official: MemberPriceImage = { lane: "official-reference", url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD." };
-    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [reference, item] }} params={new URLSearchParams()} images={imagesFor([[reference.id, official]], 2)} />);
+    const official = { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD." };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [reference, item] }} params={new URLSearchParams()} images={imagesFor([[reference.id, { official }]], 2)} />);
     expect(html.match(/<img /g)).toHaveLength(1);
     expect(html).toContain(`src="${official.url}"`);
     expect(html).toContain("Official image · English base reference");
@@ -305,6 +310,17 @@ describe("member price rendering", () => {
     expect(none).not.toContain("<img");
     expect(none).not.toMatch(/No image|N\/A|placeholder/i);
     expect(renderToStaticMarkup(<MemberPriceResults page={page} params={new URLSearchParams()} />)).not.toContain("<img");
+  });
+
+  it("shows a mapped CardRush row its official reference inline and its listing image behind the member's click", () => {
+    const official = { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit" };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [{ ...listing, sku: "op-op01-006-ja", mappingStatus: "exact" as const }] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { official, listing: listingUrl }]])} />);
+    const details = /<details[^>]*>[\s\S]*?<\/details>/.exec(html)![0];
+    // The official image sits outside the details element; the CardRush one inside it.
+    expect(html.replace(details, "")).toContain(`src="${official.url}"`);
+    expect(html.replace(details, "")).not.toContain(listingUrl);
+    expect(details).toContain(`src="${listingUrl}"`);
+    expect(html).toContain("Official image · English base reference");
   });
 
   it("says when a page has more rows than were looked up for images", () => {

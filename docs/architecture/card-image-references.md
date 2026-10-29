@@ -126,13 +126,17 @@ a CardRush listing's own image is linked at CardRush's own URL, never copied.
   upserts rows only for listings whose observations a batch wrote, and a
   store without 0145 records none.
 - **Shown on `/prices` only.** [`member-images.ts`](../../apps/storefront/src/lib/prices/member-images.ts)
-  looks up the page's first 50 rows. A CardRush row shows its listing image
-  as a plain lazy `<img>` at CardRush's URL (no `next/image`, no proxy),
-  credited "Image: CardRush" and linked to the listing. A row with an exact
-  SKU shows the official English base reference through `getEnCardImages`,
-  labelled "Official image · English base reference" with its credit; a
-  CardRush row without a listing image falls back to it. A row with neither
-  shows no image and no placeholder.
+  looks up the page's first 50 rows. A row with an exact SKU shows the
+  official English base reference through `getEnCardImages`, from
+  Cambridge's own image host, labelled "Official image · English base
+  reference" with its credit. A CardRush row offers its listing image as a
+  plain lazy `<img>` at CardRush's URL (no `next/image`, no proxy), with no
+  Referer, credited "Image: CardRush" and linked to the listing, inside a
+  closed `<details>`: the member's browser asks CardRush for it only when the
+  member opens it, so viewing `/prices` tells CardRush nothing (checked in
+  Chromium; other engines not checked). The image URL is in the page's HTML
+  either way, so an agent reading the page has it. A mapped CardRush row can
+  show both. A row with neither shows no image and no placeholder.
 - **Never in the API or downloads.** The member item, its CSV and NDJSON,
   and `/api/v1/market/*` carry no image field; a test pins that.
 - **One switch, for the display.** `CARDRUSH_LISTING_IMAGES=off` stops

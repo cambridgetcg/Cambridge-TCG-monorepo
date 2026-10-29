@@ -38,12 +38,12 @@ beforeEach(() => {
 });
 
 describe('/prices identity images', () => {
-  it('shows a CardRush row its listing image, an exact row the official reference, and a row with neither none', async () => {
+  it('offers a CardRush row its listing image, an exact row the official reference, a mapped CardRush row both, and a row with neither none', async () => {
     const images = await readMemberPriceImages([cardrush('1', 15600, true), cardrush('2', 169), exact, { ...base, id: '4' }]);
-    expect(images.byItem.get('1')).toEqual({ lane: 'cardrush-listing', url: listingImage });
+    expect(images.byItem.get('1')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution }, listing: listingImage });
     // A CardRush row with no listing image and no exact SKU shows none.
     expect(images.byItem.has('2')).toBe(false);
-    expect(images.byItem.get('9')).toEqual({ lane: 'official-reference', url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution });
+    expect(images.byItem.get('9')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution } });
     expect(images.byItem.has('4')).toBe(false);
     expect(images.rowsLookedUp).toBe(4);
     // One bounded lookup per lane: listings by (source, source product), references by SKU.
@@ -54,9 +54,11 @@ describe('/prices identity images', () => {
     expect(mocks.official).toHaveBeenCalledWith(['op-op01-006-ja']);
   });
 
-  it('falls back to the official reference for a mapped CardRush row without a listing image', async () => {
+  it('keeps the official reference alone for a mapped CardRush row without a listing image, and the listing alone for an unmapped one', async () => {
     mocks.query.mockResolvedValue({ rows: [], rowCount: 0 });
-    expect((await readMemberPriceImages([cardrush('1', 15600, true)])).byItem.get('1')).toMatchObject({ lane: 'official-reference', url: officialUrl });
+    expect((await readMemberPriceImages([cardrush('1', 15600, true)])).byItem.get('1')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution } });
+    mocks.query.mockResolvedValue({ rows: [{ source_product_id: 'www.cardrush-op.jp/product/15600', image_url: listingImage }], rowCount: 1 });
+    expect((await readMemberPriceImages([cardrush('1', 15600)])).byItem.get('1')).toEqual({ listing: listingImage });
   });
 
   it('rejects a stored URL that is not the listing\'s own host and shape', async () => {
@@ -73,7 +75,7 @@ describe('/prices identity images', () => {
     for (const value of [undefined, '', 'on', 'of']) expect(cardRushListingImagesOn({ CARDRUSH_LISTING_IMAGES: value })).toBe(true);
     const images = await readMemberPriceImages([cardrush('1', 15600, true), cardrush('2', 169)], { CARDRUSH_LISTING_IMAGES: 'off' });
     expect(mocks.query).not.toHaveBeenCalled();
-    expect(images.byItem.get('1')).toMatchObject({ lane: 'official-reference' });
+    expect(images.byItem.get('1')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution } });
     expect(images.byItem.has('2')).toBe(false);
   });
 

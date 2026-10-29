@@ -85,6 +85,12 @@ An agent took the more careful reading of these words for Yu:
   mirrors, re-hosts, proxies or caches it. The collector records only the URL
   the listing's page declares (its `og:image`), from the read it already makes
   for the price (`price_source_listing_images`, migration 0145).
+- **The member chooses when CardRush is asked.** `/privacy` does not name
+  CardRush as a recipient, so a CardRush image sits behind a closed "Show
+  CardRush's listing image" control and loads only when the member opens it,
+  with no Referer; the official reference, from Cambridge's own image host,
+  shows at once. Showing CardRush images at once would need a CardRush entry
+  in `/privacy` first, which is Yu's call.
 - **CardRush images never appear in Cambridge's API or downloads,** the same
   display-only line CardRush prices follow: `/api/v1/member-prices`, the
   member CSV and NDJSON, and `/api/v1/market/*` carry no image.

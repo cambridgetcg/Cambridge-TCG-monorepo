@@ -6,23 +6,26 @@ import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, type MemberPriceItem } from './member-fe
 
 /** Identity images beside /prices rows, so a person or an agent reading the
  * page can check the item against its price (Yu, 2026-10-29). Display only,
- * in two lanes:
- * - A CardRush row shows the listing's own image at CardRush's own URL,
- *   credited and linked to the listing (price_source_listing_images, 0145).
- *   Cambridge never copies, mirrors, re-hosts, proxies or caches it: the
- *   viewer's browser loads it from CardRush. That is the agents' reading of
- *   Yu's words, in the decision record, and CARDRUSH_LISTING_IMAGES=off
- *   turns the lane off.
+ * in two lanes, and a row may have both:
  * - A row with an exact SKU shows the official English base reference
  *   through the existing reader and projector (en-card-data.ts), labelled
- *   as a reference. A CardRush row without a listing image falls back to it.
+ *   as a reference, from Cambridge's own image host.
+ * - A CardRush row offers the listing's own image at CardRush's own URL,
+ *   credited and linked to the listing (price_source_listing_images, 0145).
+ *   Cambridge never copies, mirrors, re-hosts, proxies or caches it, and the
+ *   member's browser asks CardRush for it only when the member opens it
+ *   (member-source-browser.tsx), so viewing /prices tells CardRush nothing.
+ *   That is the agents' reading of Yu's words, in the decision record, and
+ *   CARDRUSH_LISTING_IMAGES=off turns the lane off.
  * A row with neither shows none. Nothing in the member API, the downloads or
  * /api/v1/market/* reads this: the item projection (member-feed.ts) is
  * unchanged.
  */
-export type MemberPriceImage =
-  | { lane: 'cardrush-listing'; url: string }
-  | { lane: 'official-reference'; url: string; attribution: string };
+export interface MemberPriceImage {
+  official?: { url: string; attribution: string };
+  /** The CardRush listing's own image URL. */
+  listing?: string;
+}
 export interface MemberPriceImages {
   /** By item id. */
   byItem: ReadonlyMap<string, MemberPriceImage>;
@@ -88,8 +91,11 @@ export async function readMemberPriceImages(items: readonly MemberPriceItem[], e
     const listing = item.source === 'cardrush' ? linked.get(item.sourceProductId) : undefined;
     const sku = exactSku(item);
     const reference = sku ? official.get(sku) : undefined;
-    if (listing) byItem.set(item.id, { lane: 'cardrush-listing', url: listing });
-    else if (reference) byItem.set(item.id, { lane: 'official-reference', url: reference.url, attribution: reference.attribution });
+    if (!listing && !reference) continue;
+    byItem.set(item.id, {
+      ...(reference ? { official: { url: reference.url, attribution: reference.attribution } } : {}),
+      ...(listing ? { listing } : {}),
+    });
   }
   return { byItem, rowsLookedUp: rows.length };
 }
