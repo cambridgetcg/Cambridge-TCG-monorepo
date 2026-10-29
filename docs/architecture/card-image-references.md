@@ -104,6 +104,58 @@ and publication of unrelated wholesale fields are unchanged by this contract.
   Restricting their URL host prevents arbitrary remote URLs but does not supply
   that evidence or retrospectively verify the records.
 
+## CardRush listing images (linked)
+
+Added 2026-10-29, from Yu's words that day ("images linked to each item
+(official or use cardrush) so that humans and agents can double confirm the
+item"). The rule is the agents' reading of them, recorded in the
+[decision record](../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-words-2026-10-29-images):
+a CardRush listing's own image is linked at CardRush's own URL, never copied.
+
+- **Collected as a URL, from the price read.** The CardRush page collector
+  ([`cardrush/member-prices.ts`](../../packages/data-ingest/src/cardrush/member-prices.ts))
+  keeps the `og:image` a listing's page declares, beside its observations,
+  never inside one. `cardRushListingImageUrl` accepts only https on the
+  listing's own host, under that host's directory, `/_/` and the hex of a
+  `product/` path, with no query and at most 512 characters. No request is
+  made for the image.
+- **Stored as a link record.** `price_source_listing_images` (migration 0145)
+  holds one row per listing: the URL, the listing URL, first and last
+  sighting (forward-only from 2026-10-28) and the digest of the page that
+  declared it. [`listing-images.ts`](../../apps/storefront/src/lib/datafeed/listing-images.ts)
+  upserts rows only for listings whose observations a batch wrote, and a
+  store without 0145 records none.
+- **Shown on `/prices` only.** [`member-images.ts`](../../apps/storefront/src/lib/prices/member-images.ts)
+  looks up the page's first 50 rows. A row with an exact SKU shows the
+  official English base reference through `getEnCardImages`, from
+  Cambridge's own image host, labelled "Official image · English base
+  reference" with its credit. A CardRush row offers its listing image as a
+  plain lazy `<img>` at CardRush's URL (no `next/image`, no proxy), with no
+  Referer, credited "Image: CardRush" and linked to the listing, inside a
+  closed `<details>`: the member's browser asks CardRush for it only when the
+  member opens it, so viewing `/prices` tells CardRush nothing (checked in
+  Chromium; other engines not checked). The image URL is in the page's HTML
+  either way, so an agent reading the page has it. A mapped CardRush row can
+  show both. A row with neither shows no image and no placeholder.
+- **Never in the API or downloads.** The member item, its CSV and NDJSON,
+  and `/api/v1/market/*` carry no image field; a test pins that.
+- **One switch, for the display.** `CARDRUSH_LISTING_IMAGES=off` stops
+  `/prices` showing CardRush listing images; the official lane is
+  unaffected. On Vercel a changed value reaches only a new deployment, so the
+  lane goes off with the next deployment. The collector still records URLs
+  while it is off.
+- **Removal.** Setting `withdrawn_at` stops the link on the next read; a
+  trigger keeps a withdrawal from being cleared. The link holds no copy to
+  purge, but a browser or CardRush's own caches may still hold the image.
+  Withdrawal does not reach the catalogue fallback photos above: some are
+  CardRush images copied into `jp-*-photos` before this lane (by the old
+  `self-host-cardrush.mjs` and the wholesale `hires/` scrape described in
+  `apps/wholesale/tools/lib/s3-images.ts`), and removing those is a separate
+  step.
+
+The URL says where CardRush keeps the listing's image. It does not verify the
+printing, the condition, or that the image shows the card the title names.
+
 ## Removal and verification
 
 The clear-state gate controls fresh reads. It does not revoke issued object
