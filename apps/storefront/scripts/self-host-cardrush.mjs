@@ -1,5 +1,13 @@
 /**
- * self-host-cardrush.mjs — make the p2p market's images STABLE.
+ * self-host-cardrush.mjs — REFUSED since 2026-10-29. It stops before it reads
+ * credentials, the database or the network, and has no switch to turn back
+ * on: CardRush images are linked at CardRush's own URL and never copied (the
+ * agents' reading of Yu's words of 2026-10-29, "Yu's words, 2026-10-29:
+ * images" in docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md).
+ * The redistribution audit pins the refusal. What the script did, below, is
+ * kept as history; it predates that permission and that reading.
+ *
+ * Was: make the p2p market's images STABLE.
  *
  * ~602 card_set_cards rows still hotlink cardrush.jp (unstable; some already
  * 404). Every other card image is already self-hosted on jp-op-photos. This
@@ -19,6 +27,9 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
+
+console.error("CardRush images are linked, never copied: docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md (Yu's words, 2026-10-29: images).");
+process.exit(1);
 
 const env = Object.fromEntries(
   readFileSync("/tmp/prod.env", "utf8").split("\n").filter((l) => l.includes("="))

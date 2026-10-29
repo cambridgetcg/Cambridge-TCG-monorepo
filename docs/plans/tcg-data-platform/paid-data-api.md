@@ -770,6 +770,7 @@ As built (2026-10-28), once `DATA_API_READS` is on:
   pending."), the method version (`derived_market_contract`) and the plan. No
   route returns a provider's own value, a per-source value or breakdown, or a
   numeric spread.
+- No market row, page or export carries an image or an image URL, official or CardRush ([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-words-2026-10-29-images)).
 
 ## 6. Billing, test mode only
 
@@ -909,7 +910,7 @@ Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
    §7 starts from it.
 3. **Confirm the Vercel plan's limits**: `maxDuration = 300` on the four new
    cron routes, function memory, and the cron schedules. Not checked here.
-4. **Apply migrations 0139–0144** to the production storefront database, in
+4. **Apply migrations 0139–0145** to the production storefront database, in
    order.
 5. **Turn on the collectors one at a time**: `DATA_COLLECT_CARDMARKET`, then
    `DATA_COLLECT_CARDRUSH`, then `DATA_COLLECT_TCGPLAYER`. Each needs steps 3

@@ -45,6 +45,7 @@ export const PUBLIC_REFERENCES: readonly PublicReference[] = [
   ...[
     "sku-standard", "oracle-policies", "universal-representation", "pricing",
     "member-pricing", "fees", "play-module", "known-gaps", "hospitality",
+    "card-names",
   ].map((topic) => ({ path: `/methodology/${topic}`, title: `Methodology: ${topic}` })),
 ];
 
