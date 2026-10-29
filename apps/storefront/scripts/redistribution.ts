@@ -347,6 +347,17 @@ function auditAcquisitionLocks(): void {
   ]) {
     requireText(7, path, source(path), "CARDRUSH_ACQUISITION_ENABLED", "direct CardRush network path must consult the immutable lock");
   }
+  // Copying CardRush images is refused outright rather than locked behind a
+  // switch: CardRush listing images are linked at CardRush's own URL, never
+  // copied (the agents' reading of Yu's words of 2026-10-29, in the decision
+  // record). The old copy script must stop before it reads credentials, the
+  // database or the network.
+  const selfHostPath = "apps/storefront/scripts/self-host-cardrush.mjs";
+  const selfHost = source(selfHostPath);
+  requireText(7, selfHostPath, selfHost, "CardRush images are linked, never copied", "the CardRush image copy script must name why it refuses");
+  for (const work of ['readFileSync("/tmp/prod.env"', "new pg.Client(", "fetch(row.image_url", 'execFileSync("aws"']) {
+    requireBefore(7, selfHostPath, selfHost, "process.exit(1);", work, "the CardRush image copy script must refuse before it reads credentials, the database or the network");
+  }
 
   const cli = source("apps/wholesale/tools/scrape-cardrush.ts");
   const gateAt = cli.indexOf("if (!CARDRUSH_ACQUISITION_ENABLED)");

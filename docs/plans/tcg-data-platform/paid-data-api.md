@@ -770,6 +770,7 @@ As built (2026-10-28), once `DATA_API_READS` is on:
   pending."), the method version (`derived_market_contract`) and the plan. No
   route returns a provider's own value, a per-source value or breakdown, or a
   numeric spread.
+- No market row, page or export carries an image or an image URL, official or CardRush ([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-words-2026-10-29-images)).
 
 ## 6. Billing, test mode only
 

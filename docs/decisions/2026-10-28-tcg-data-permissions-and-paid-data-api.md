@@ -14,7 +14,8 @@ review, which also took an agents' reading of the third DATA_RIGHTS line out
 of "What this changes" and put the question to Yu. Yu's words and the table
 below are unchanged. Updated again on 2026-10-29 with Yu's answers to four
 more questions; the answered items left "What still needs Yu's hand", and
-every earlier quote is unchanged.
+every earlier quote is unchanged. Updated again on 2026-10-29 with Yu's words
+on images and the agents' reading of them.
 
 ## Yu's words
 
@@ -62,6 +63,44 @@ What the answers change:
 - **The collection limits stay the agents' choice, which Yu confirmed.** The
   answer does not say whether the emails name rates or hours, and this record
   does not claim either.
+
+## Yu's words, 2026-10-29: images
+
+On 2026-10-29, verbatim:
+
+> Also would be great to have images linked to each item (official or use
+> cardrush) so that humans and agents can double confirm the item.
+
+**What follows is the agents' reading, not Yu's decision.** The permission
+above covers prices; it names no image, and image copies stay locked (below).
+An agent took the more careful reading of these words for Yu:
+
+- **Official images keep their existing lane, unchanged:** self-hosted,
+  attributed Bandai English samples, through the existing projector and
+  readers (`apps/storefront/src/lib/cards/image-publication.ts`, and
+  `getEnCardImages` in `en-card-data.ts`). Today that is an English base
+  reference only, and it is labelled as one.
+- **A CardRush listing's own image is linked at CardRush's own URL,** credited
+  "Image: CardRush" and linked to the listing. Cambridge never copies,
+  mirrors, re-hosts, proxies or caches it. The collector records only the URL
+  the listing's page declares (its `og:image`), from the read it already makes
+  for the price (`price_source_listing_images`, migration 0145).
+- **CardRush images never appear in Cambridge's API or downloads,** the same
+  display-only line CardRush prices follow: `/api/v1/member-prices`, the
+  member CSV and NDJSON, and `/api/v1/market/*` carry no image.
+- **One switch turns the CardRush image lane off** if Yu says the email does
+  not cover linking: `CARDRUSH_LISTING_IMAGES=off`. The official lane is
+  unaffected.
+- **Takedown:** `withdrawn_at` on a listing's row stops Cambridge linking its
+  image.
+- **The old copy script refuses to run.** `apps/storefront/scripts/self-host-cardrush.mjs`
+  copied CardRush images into Cambridge's buckets before the permission; it
+  now stops before any work, and `pnpm audit:redistribution` pins that.
+
+Whether the emails cover linking CardRush images is not recorded; the
+repository holds no copy of them. Migration 0145, like 0139–0144, is not
+applied to production by this work. Until it is, `/prices` shows official
+references only and the collector records no image links.
 
 ## What this changes
 
