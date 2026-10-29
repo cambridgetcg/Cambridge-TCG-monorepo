@@ -1118,7 +1118,7 @@ export const MANIFEST: Manifest = {
         cosmology_axes: [], since: "2026-04-20" },
     ],
     agent: [
-      { id: "storefront.mcp", description: "Custom request/response JSON-RPC gate over HTTPS POST. It accepts MCP-shaped methods but is not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished), so native MCP clients cannot connect today; clients that can POST JSON-RPC 2.0 can call this endpoint directly. GET, initialize, and tool discovery are public. Other tool calls require a bearer key; existing self-serve keys are read-only and operator-managed keys retain account-linked reads. Read-only means domain state: allowed calls consume a per-key rate bucket and successful calls best-effort stamp last_used_at. Match and deck writes are paused for every key. Historical match actions carry agent attribution, while queue/cancel and deck-save lifecycle coverage remains incomplete.",
+      { id: "storefront.mcp", description: "Custom request/response JSON-RPC gate over HTTPS POST. It accepts MCP-shaped methods but is not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not published to npm, so native MCP clients connect only through a bridge built from packages/mcp-server in the public repository; clients that can POST JSON-RPC 2.0 can call this endpoint directly. GET, initialize, and tool discovery are public. Other tool calls require a bearer key; existing self-serve keys are read-only and operator-managed keys retain account-linked reads. Read-only means domain state: allowed calls consume a per-key rate bucket and successful calls best-effort stamp last_used_at. Match and deck writes are paused for every key. Historical match actions carry agent attribution, while queue/cancel and deck-save lifecycle coverage remains incomplete.",
         host: "storefront", path: "/api/mcp", methods: ["GET", "POST"],
         modalities: ["json"], auth: "agent", provenance: "live",
         cosmology_axes: ["identity", "authority"], methodology_url: "/methodology/agents",
@@ -1675,7 +1675,7 @@ export const MANIFEST: Manifest = {
 
   contact: {
     operator: "Yu (contact@cambridgetcg.com)",
-    repo_canonical: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo (private)",
+    repo_canonical: "https://github.com/cambridgetcg/Cambridge-TCG-monorepo (public)",
     repo_mirrors: [
       "https://codeberg.org/zerone-dev/Cambridge-TCG (private)",
     ],
