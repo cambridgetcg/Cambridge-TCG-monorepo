@@ -216,19 +216,21 @@ DATA_RIGHTS line, were answered by Yu on 2026-10-29
 
 - **Vercel limits.** Confirm the plan allows the new cron routes'
   `maxDuration = 300`, their memory and their schedules. Not checked.
-- **Migrations 0139–0143** on the production storefront database. This uses a
+- **Migrations 0139–0144** on the production storefront database. This uses a
   database credential the work was not given. The collectors refuse to run
-  without 0143's lease table.
+  without 0143's lease table. 0144 (added 2026-10-29) bounds the free member
+  feed's current view; without it the feed reads as it did before.
 - **Turning on each collector** (`DATA_COLLECT_CARDMARKET`,
   `DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER`) **and the derivation job**
-  (`DATA_DERIVE_MARKET`). `DATA_COLLECT_CARDMARKET` waits for a follow-up PR
-  that bounds the free member feed's latest-per-key read. That read ranks
-  every eligible observation on each request, and each daily Cardmarket batch
-  adds a full new set of about 73,000 One Piece rows. Measured in the final
-  review on local PostgreSQL 16 with the real query, a request took about
-  13 s at 30 daily batches and 26 to 31 s at 60, against the pool's 30 s
+  (`DATA_DERIVE_MARKET`). `DATA_COLLECT_CARDMARKET` waits for migration
+  0144, which bounds the free member feed's current view (final-review
+  finding MIG-1). Before it, that read ranked every eligible observation on
+  each request, and each daily Cardmarket batch adds a full new set of about
+  73,000 One Piece rows: about 13 s a request at 30 daily batches and 26 to
+  31 s at 60 on local PostgreSQL 16, against the pool's 30 s
   `statement_timeout`, after which the free Cardmarket feed answers
-  unavailable.
+  unavailable. With 0144 a current page reads one row a key, 77 ms at 60
+  daily batches locally ([plan](../plans/tcg-data-platform/paid-data-api.md#member-feed-current-view)).
   `DATA_COLLECT_CARDRUSH` and `DATA_COLLECT_TCGPLAYER` wait for no further
   answer (Yu's answers, 2026-10-29), only for the Vercel limits and migrations
   above; turning them on stays a separate act.

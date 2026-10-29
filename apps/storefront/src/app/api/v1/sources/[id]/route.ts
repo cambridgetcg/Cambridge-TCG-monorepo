@@ -271,7 +271,10 @@ export async function GET(
       "Run notes, trigger labels, and internal row identifiers are not returned.",
       "Quarantine reasons, rows, payload keys, and payload bytes are not fetched or returned.",
       ...(batches
-        ? ["Health counts a batch as fresh only if it recorded observations. A run that fails before writing any batch leaves none, so such a collector reads as stale or never_run, not as failing."]
+        ? [
+            "Health counts a batch as fresh only if it recorded observations. A run that fails before writing any batch leaves none, so such a collector reads as stale or never_run, not as failing.",
+            "How many observations a batch holds is not read: latest_batch.observed says only whether it recorded any.",
+          ]
         : []),
     ],
   });

@@ -142,7 +142,9 @@ describe('private member reader query boundary', () => {
         await readMemberPrices({userId:'test'},parse(`source=cardmarket&mode=${mode}&limit=${limit}`),use);
         const [sql, args] = database.mock.calls[0]!;
         expect(JSON.parse(args[1])).toEqual([cardmarket]);
-        expect(args.slice(2)).toEqual([null, null, null, null, null, mode, '0', Number(limit) + 1]);
+        // The current view reads one row a key (0144); history ranks every observation, as before.
+        expect(args.slice(2)).toEqual(mode === 'current' ? [null, null, null, null, null, '0', Number(limit) + 1] : [null, null, null, null, null, mode, '0', Number(limit) + 1]);
+        expect(sql.includes('FROM member_price_latest l')).toBe(mode === 'current');
         expect(sql).toContain(`r.${use.replace('-', '_')}`);
       }
       database.mockClear();
@@ -153,6 +155,34 @@ describe('private member reader query boundary', () => {
     // A stored Cardmarket row still reaches a 500-row history page.
     database.mockResolvedValue({ rows: [{ watermark: '1', total: '1', items: [row] }] });
     expect((await readMemberPrices({userId:'test'},parse('mode=history&limit=500'),'member-api')).items).toHaveLength(1);
+  });
+  it('answers the current view from the ranked statement, as before, on a store without 0144', async () => {
+    const missing = Object.assign(new Error('relation "member_price_latest" does not exist'), { code: '42P01' });
+    for (const [value, use] of [['', 'member-api'], ['limit=50&q=Zoro', 'member-display'], ['source=cardmarket&limit=1&sku=op-op01-001-en', 'member-download']] as const) {
+      database.mockReset();
+      database.mockRejectedValueOnce(missing).mockResolvedValueOnce({ rows: [{ watermark: '1', total: '1', items: [{ ...row, permitted_uses: ['member-display', 'member-api', 'member-download'] }] }] });
+      const page = await readMemberPrices({ userId: 'test' }, parse(value), use);
+      expect(page).toMatchObject({ status: 'available', count: 1, total: 1, complete: true });
+      expect(database).toHaveBeenCalledTimes(2);
+      const [[bounded, boundedArgs], [ranked, rankedArgs]] = database.mock.calls as [string, unknown[]][];
+      expect(bounded).toContain('FROM member_price_latest l');
+      expect(ranked).not.toContain('member_price_latest');
+      expect(ranked).toContain("($8::text='history' OR recency=1)");
+      // The same snapshot inputs, with today's mode parameter between them and the page bounds.
+      expect(rankedArgs).toEqual([...boundedArgs.slice(0, 7), 'current', ...boundedArgs.slice(7)]);
+    }
+    // Any other failure is unavailable, with no second statement.
+    database.mockReset();
+    database.mockRejectedValueOnce(Object.assign(new Error('canceling statement due to statement timeout'), { code: '57014' }));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try { expect(await readMemberPrices({ userId: 'test' }, parse(), 'member-api')).toMatchObject({ status: 'unavailable', items: [] }); } finally { log.mockRestore(); }
+    expect(database).toHaveBeenCalledTimes(1);
+    // History never reads the latest table, so a missing one is never consulted.
+    database.mockReset();
+    database.mockResolvedValueOnce({ rows: [{ watermark: '0', total: '0', items: [] }] });
+    await readMemberPrices({ userId: 'test' }, parse('mode=history'), 'member-api');
+    expect(database).toHaveBeenCalledTimes(1);
+    expect(database.mock.calls[0]![0]).not.toContain('member_price_latest');
   });
   it('returns honest unavailable on storage failure, without leaking SQL or credentials', async () => {
     database.mockRejectedValue(new Error('private SQL host password'));

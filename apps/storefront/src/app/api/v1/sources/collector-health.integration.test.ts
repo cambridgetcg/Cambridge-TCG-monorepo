@@ -73,7 +73,7 @@ describe.skipIf(!localUrl)('page collector health PostgreSQL integration (explic
     const stored = (await state.pool.query(`SELECT inserted_at FROM member_price_batches WHERE ingest_key = 'cardrush:www.cardrush-pokemon.jp:2026-10-29T10:15:00.000Z'`)).rows[0];
     expect(cardrush.latest.inserted_at).toBe(new Date(stored.inserted_at).toISOString());
     expect(JSON.stringify(cardrush)).not.toContain('upstream text');
-    await expect(read('tcgplayer')).resolves.toMatchObject({ available: true, latest: { source_rows: 9, quarantined: 0, observations: 0 }, latest_observed_at: null });
+    await expect(read('tcgplayer')).resolves.toMatchObject({ available: true, latest: { source_rows: 9, quarantined: 0, observed: false }, latest_observed_at: null });
   });
 
   it('judges health by the newest batch that recorded observations, and calls quarantine-only batches failing', async () => {
@@ -86,7 +86,7 @@ describe.skipIf(!localUrl)('page collector health PostgreSQL integration (explic
     const observedAt = new Date((await state.pool.query(`SELECT inserted_at FROM member_price_batches WHERE ingest_key = 'cardrush:www.cardrush-op.jp:2026-10-29T11:00:00.000Z'`)).rows[0].inserted_at).toISOString();
     await writeMemberPriceBatch('cardrush', { observations: [], quarantine: [{ sourceProductId: null, field: 'host', reason: 'robots-challenge' }], sourceRows: 0, missingPrices: 0 }, undefined, { ingestKey: 'cardrush:www.cardrush-pokemon.jp:2026-10-29T12:15:00.000Z' });
     const now = await read('cardrush');
-    expect(now).toMatchObject({ available: true, latest: { source_rows: 0, quarantined: 1, observations: 0 }, latest_observed_at: observedAt });
+    expect(now).toMatchObject({ available: true, latest: { source_rows: 0, quarantined: 1, observed: false }, latest_observed_at: observedAt });
     expect(deriveCollectorHealth(now, 6 * 3600)).toEqual({ health: 'healthy', reason: 'latest batch with observations within freshness budget' });
     expect(deriveCollectorHealth(now, 6 * 3600, Date.parse(observedAt) + 7 * 3_600_000)).toMatchObject({ health: 'stale' });
     expect(JSON.stringify(now)).not.toContain('robots-challenge');
