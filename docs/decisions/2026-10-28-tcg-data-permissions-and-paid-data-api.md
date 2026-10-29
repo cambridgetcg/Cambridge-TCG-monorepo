@@ -1,7 +1,9 @@
 # CardRush, Cardmarket and TCGplayer data, and paid plans for derived data
 
 **Status:** decided 2026-10-28. The permissions, the derived-only scope, the
-collection methods and the start of paid plans are Yu's word. Everything under
+collection methods and the start of paid plans are Yu's word. Since
+2026-10-29 the TCGplayer collector's scope is Yu's word too
+([Yu's answers](#yus-answers-2026-10-29)). Everything under
 [Agents' calls](#agents-calls) is an agent's call under Yu's delegation of
 2026-10-20; Yu overturns any of it by saying so.
 
@@ -10,7 +12,9 @@ collection methods and the start of paid plans are Yu's word. Everything under
 updated the same day after the integration review and again after the final
 review, which also took an agents' reading of the third DATA_RIGHTS line out
 of "What this changes" and put the question to Yu. Yu's words and the table
-below are unchanged.
+below are unchanged. Updated again on 2026-10-29 with Yu's answers to four
+more questions; the answered items left "What still needs Yu's hand", and
+every earlier quote is unchanged.
 
 ## Yu's words
 
@@ -29,6 +33,35 @@ is the agent's wording, which Yu chose; it is not Yu's own prose.
 | How did the providers agree we collect their data? | **Scrape CardRush pages**, **Scrape TCGplayer pages**, **Cardmarket files/API** |
 | Where is the written permission kept? | **Email thread.** Yu holds it. The repository records that it exists and never copies it. No mailbox or date was given. |
 | How should the paid plans be shaped? | **You propose:** "I design tiers … build them in Stripe test mode, and stop before anything charges real money for your sign-off." |
+
+## Yu's answers, 2026-10-29
+
+The agent asked four more questions. The questions are the agent's wording.
+Yu answered on 2026-10-29, verbatim:
+
+> 1.yes 2. yes permission allows that 3. reword it 4.keep your choice on limits
+
+| Question | Yu's answer |
+| --- | --- |
+| 1. Merge #99? (it publishes that Cambridge holds written permission, recorded 2026-10-28, from CardRush and TCGplayer) | "yes" |
+| 2. Does the permission cover reading the data TCGplayer's public price-guide pages load (one request per set, instead of rendering ~7,700 pages)? | "yes permission allows that" |
+| 3. DATA_RIGHTS line 3 ("Third-party prices name their source, and we don't copy anyone's whole database.") under whole-catalogue collection: keep or reword? | "reword it" |
+| 4. Do the emails name agreed rates or hours? (current limits are the agent's choice: 0.5 rps per CardRush host, TCGplayer Crawl-Delay 10) | "keep your choice on limits" |
+
+What the answers change:
+
+- **Merging #99 is Yu's word** (answer 1).
+- **The TCGplayer scope is Yu's word.** The permission covers reading the data
+  the public price-guide pages load, one request per set. The collector is
+  unchanged, and it reads only while `DATA_COLLECT_TCGPLAYER` is on.
+- **The third DATA_RIGHTS line is reworded at Yu's request.** It now reads
+  "Third-party prices name their source, and we use them only as that source
+  permits: some appear only on our pages, never in our API or downloads."
+  The wording is the agent's, written because Yu asked for a rewording; Yu
+  did not write it. Lines 1, 2 and 4 are unchanged.
+- **The collection limits stay the agents' choice, which Yu confirmed.** The
+  answer does not say whether the emails name rates or hours, and this record
+  does not claim either.
 
 ## What this changes
 
@@ -75,13 +108,14 @@ plan.").
   source, Cardmarket's 2026-09-08 batch included.
 - **Collect politely and openly.** Use an identifying User-Agent that names
   Cambridge TCG and the permission. Stay at or below 0.5 requests per second
-  per CardRush host and honour TCGplayer's `Crawl-Delay: 10`. Use no Bright
-  Data, no unlocker, no residential lanes and no browser impersonation. If a
-  host refuses an identified collector, it reports `SOURCE_UNAVAILABLE`
-  rather than being routed around. A CardRush run reads the host's
-  robots.txt first and stops if it disallows product pages (or the sitemap)
-  to this collector or to every crawler, or cannot be read; a host with no
-  robots.txt (404, 410) sets no rule. One run at a time (collector leases,
+  per CardRush host and honour TCGplayer's `Crawl-Delay: 10`. These limits
+  are the agents' choice; Yu kept them on 2026-10-29 ("keep your choice on
+  limits"). Use no Bright Data, no unlocker, no residential lanes and no
+  browser impersonation. If a host refuses an identified collector, it
+  reports `SOURCE_UNAVAILABLE` rather than being routed around. A CardRush
+  run reads the host's robots.txt first and stops if it disallows product
+  pages (or the sitemap) to this collector or to every crawler, or cannot be
+  read; a host with no robots.txt (404, 410) sets no rule. One run at a time (collector leases,
   migration 0143: one per CardRush host, one for all TCGplayer hosts, one
   for Cardmarket), so a duplicate delivery never doubles the rate. The legacy collection paths (wholesale
   crons, the `scrape-cardrush` CLI, stock checks and image copies) stay
@@ -126,12 +160,12 @@ plan.").
   (`mpapi.tcgplayer.com` for set lists and product types,
   `infinite-api.tcgplayer.com` for one set's guide), one request per set,
   at most one request every 10 s across all TCGplayer hosts (robots.txt
-  `Crawl-Delay: 10`), and never seller listings. Whether "Scrape TCGplayer
-  pages" covers this is a question for Yu
-  ([intake record](../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28));
-  `DATA_COLLECT_TCGPLAYER` stays off until it is answered. TCGplayer's
-  English Pokémon line (3) is not collected until a probe confirms its
-  category id and row label.
+  `Crawl-Delay: 10`), and never seller listings. That "Scrape TCGplayer
+  pages" covers this is Yu's word since 2026-10-29 ("yes permission allows
+  that"); the transport is the agents' call
+  ([intake record](../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)).
+  TCGplayer's English Pokémon line (3) is not collected until a probe
+  confirms its category id and row label.
 - **Cardmarket: One Piece files only.** It is the game with reviewed set
   crosswalks, so its rows can feed derived data, and it is estimated to take 15
   to 30 s of a 270 s run. Its daily files add about 57 MB a day to an append-only
@@ -145,7 +179,8 @@ plan.").
   (`ai-train=no`, EU DSM Art. 4). Derived data is offered under Cambridge
   data-API terms, which do not cover AI training. The first DATA_RIGHTS line
   ("Our own data, specs and pages are CC0") is Yu's wording. The proposed
-  rewording waits for Yu and is not served until then.
+  rewording waits for Yu and is not served until then: it is published with
+  the plans. (The third line was reworded on 2026-10-29, above.)
 - **The free floor is generous, as Yu asked for RewardsPro.** Paid tiers are
   for scale and commercial redisplay. Tiers and prices are a proposal in
   [the plan](../plans/tcg-data-platform/paid-data-api.md#plans); Yu sets the
@@ -174,21 +209,11 @@ plan.").
 ## What still needs Yu's hand
 
 In order, as the plan's [activation list](../plans/tcg-data-platform/paid-data-api.md#9-activation-in-order)
-gives them. None was done by this work.
+gives them. None was done by this work. The list's first two steps, the
+emails against the code (the TCGplayer scope and the limits) and the third
+DATA_RIGHTS line, were answered by Yu on 2026-10-29
+([above](#yus-answers-2026-10-29)).
 
-- **The emails against the code.** Answer the TCGplayer scope question above.
-  If an email names agreed rates, hours or fields, the collectors' limits
-  should be set to match before they run.
-- **The third DATA_RIGHTS line under whole-catalogue collection.** Before
-  `DATA_COLLECT_CARDRUSH` or `DATA_COLLECT_TCGPLAYER` is on, confirm that
-  "Third-party prices name their source, and we don't copy anyone's whole
-  database." still holds when the CardRush collector reads every product in
-  each host's sitemap and the TCGplayer collector every set of each collected
-  line, or approve a rewording. The plan's
-  [§7 draft](../plans/tcg-data-platform/paid-data-api.md#7-public-copy) keeps
-  that clause as it stands, so it does not answer this on its own.
-  Display-only release limits what Cambridge passes on, not what it copies,
-  and these records do not settle what the line means.
 - **Vercel limits.** Confirm the plan allows the new cron routes'
   `maxDuration = 300`, their memory and their schedules. Not checked.
 - **Migrations 0139–0144** on the production storefront database. This uses a
@@ -206,8 +231,9 @@ gives them. None was done by this work.
   `statement_timeout`, after which the free Cardmarket feed answers
   unavailable. With 0144 a current page reads one row a key, 77 ms at 60
   daily batches locally ([plan](../plans/tcg-data-platform/paid-data-api.md#member-feed-current-view)).
-  `DATA_COLLECT_CARDRUSH` and `DATA_COLLECT_TCGPLAYER` wait for the
-  data-rights answer above, and TCGplayer for its scope answer too.
+  `DATA_COLLECT_CARDRUSH` and `DATA_COLLECT_TCGPLAYER` wait for no further
+  answer (Yu's answers, 2026-10-29), only for the Vercel limits and migrations
+  above; turning them on stays a separate act.
 - **Stripe test mode:** a test key, the test products and prices
   (`apps/storefront/scripts/data-api-stripe-setup.ts`, not yet run), the
   webhook secret, and a data-API portal configuration named by
@@ -223,8 +249,8 @@ gives them. None was done by this work.
   while Stripe still bills it. Then the test round trip as an operator.
 - **The final tier prices and the data-API terms text.**
 - **Publication:** `DATA_API_READS` and `DATA_API_PLANS_PUBLISHED`, together
-  with the DATA_RIGHTS rewording, the "no paid data tier" copy and the other
-  public copy, all published at once.
+  with the first DATA_RIGHTS line's rewording, the "no paid data tier" copy
+  and the other public copy, all published at once.
 - **Live mode, later:** live keys and prices, VAT treatment and Stripe Tax,
   and account admission for paying members.
 - **Whether to add Cardmarket's Pokémon or Yu-Gi-Oh! files**, weighing the

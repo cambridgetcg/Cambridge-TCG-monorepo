@@ -78,7 +78,7 @@ in production.
 | --- | --- | --- |
 | `DATA_COLLECT_CARDMARKET` | off: anything but exactly `on` | `/api/cron/collect/cardmarket` reads Cardmarket's One Piece files daily (§2) |
 | `DATA_COLLECT_CARDRUSH` | off | `/api/cron/collect/cardrush` reads one CardRush host per run (§2) |
-| `DATA_COLLECT_TCGPLAYER` | off | `/api/cron/collect/tcgplayer` reads TCGplayer price guides, stalest set first (§2). Waits for the scope question in the decision record. |
+| `DATA_COLLECT_TCGPLAYER` | off | `/api/cron/collect/tcgplayer` reads TCGplayer price guides, stalest set first (§2). Yu confirmed on 2026-10-29 that the permission covers these reads (decision record). |
 | `DATA_DERIVE_MARKET` | off | `/api/cron/derive/market` derives today's UTC date once (§3) |
 | `DATA_API_READS` | off | `/api/v1/market/*` and `/api/v1/account/usage` serve, and OpenAPI lists them and the derived-row schemas (§5) |
 | `DATA_API_PLANS_PUBLISHED` | off | `/api/v1/plans` serves, and OpenAPI lists it (§5) |
@@ -843,17 +843,27 @@ records the same admission from the retirement's side.
 ## 7. Public copy
 
 The "no paid data tier" copy, the four DATA_RIGHTS lines, the member-pricing
-methodology and `/account/data` stay true while nothing is on sale, and they
-change only when plans go on sale with Yu's word. The draft wording for that
-day lives in this section:
+methodology and `/account/data` stay true while nothing is on sale. Apart from
+line 3, below, they change only when plans go on sale with Yu's word. The
+draft wording for that day lives in this section.
+
+- **Line 3: done.** Reworded at Yu's request on 2026-10-29 (the wording is an
+  agent's) and served once #99 deploys: "Third-party prices name their source, and we use
+  them only as that source permits: some appear only on our pages, never in
+  our API or downloads." The draft starts from it and adds one sentence on
+  paid plans after it.
+- **Line 1: waits for plan publication.** Derived market data will not be
+  CC0, so "Our own data" becomes "Our own catalogue data" when plans are
+  published.
 
 > Our own catalogue data, specs and pages are CC0: use them freely, including
 > for AI training. Card art and card text belong to their publishers; we host
 > official images with credit and take them down on request. Third-party
-> prices name their source, and we don't copy anyone's whole database: paid
-> plans sell market data we derive, never a source's own prices. We don't
-> scrape sites that forbid it, and we don't collect personal data about people
-> on other platforms.
+> prices name their source, and we use them only as that source permits: some
+> appear only on our pages, never in our API or downloads. Paid plans sell
+> market data we derive, never a source's own prices. We don't scrape sites
+> that forbid it, and we don't collect personal data about people on other
+> platforms.
 
 ## 8. Readiness
 
@@ -886,30 +896,25 @@ choice is Yu's.
 
 ## 9. Activation, in order
 
-Each step is Yu's; none was taken by this work.
+Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
+2026-10-29 ([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)).
 
-1. **Read the emails against the code.** Answer the TCGplayer scope question
-   (whether "Scrape TCGplayer pages" covers reading the data the public
-   price-guide page loads; [intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)).
-   If an email names agreed rates, hours or fields, change the collector's
-   constants to match before turning it on.
-2. **Confirm the third DATA_RIGHTS line under whole-catalogue collection**,
-   before `DATA_COLLECT_CARDRUSH` or `DATA_COLLECT_TCGPLAYER` is on. The
-   CardRush collector reads every product in each host's sitemap, never-read
-   pages first, and the TCGplayer collector every set of each collected line.
-   Confirm that "Third-party prices name their source, and we don't copy
-   anyone's whole database." still holds under that, or approve a rewording.
-   The §7 draft keeps that clause as it stands, so it does not answer this on
-   its own. Display-only release limits what Cambridge passes on, not what it
-   copies, and these records do not settle what the line means.
+1. **Read the emails against the code. Answered by Yu, 2026-10-29.** The
+   permission covers reading the data the public price-guide page loads
+   ("yes permission allows that"; [intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)),
+   and the collectors keep the agents' limits ("keep your choice on limits"):
+   0.5 requests per second per CardRush host and TCGplayer's `Crawl-Delay: 10`.
+2. **The third DATA_RIGHTS line under whole-catalogue collection. Reworded at
+   Yu's request, 2026-10-29** ("reword it"). The wording is an agent's, and
+   §7 starts from it.
 3. **Confirm the Vercel plan's limits**: `maxDuration = 300` on the four new
    cron routes, function memory, and the cron schedules. Not checked here.
 4. **Apply migrations 0139–0144** to the production storefront database, in
    order.
 5. **Turn on the collectors one at a time**: `DATA_COLLECT_CARDMARKET`, then
-   `DATA_COLLECT_CARDRUSH`, then `DATA_COLLECT_TCGPLAYER`. Each waits for
-   something first:
-   - `DATA_COLLECT_CARDMARKET` waits only for migration 0144, applied with
+   `DATA_COLLECT_CARDRUSH`, then `DATA_COLLECT_TCGPLAYER`. Each needs steps 3
+   and 4 first:
+   - `DATA_COLLECT_CARDMARKET` also waits for migration 0144, applied with
      the code that reads it ([the free feed's current view](#member-feed-current-view)).
      Before 0144, every free member-feed page ranked every eligible
      observation per key, and each daily One Piece batch adds a full new set
@@ -920,8 +925,8 @@ Each step is Yu's; none was taken by this work.
      against 25.7 s before. Without 0144 the feed reads exactly as before, so
      apply it first. History mode still ranks every observation (the limits
      are in that section).
-   - `DATA_COLLECT_CARDRUSH` waits for step 2.
-   - `DATA_COLLECT_TCGPLAYER` waits for steps 1 and 2.
+   - `DATA_COLLECT_CARDRUSH` and `DATA_COLLECT_TCGPLAYER` no longer wait for
+     an answer from Yu: steps 1 and 2 were answered on 2026-10-29.
 
    After each, read its first run's summary and `/api/v1/sources/[id]`
    health. Watch storage ([per collector](#storage-growth)): Cardmarket's One
@@ -958,8 +963,8 @@ Each step is Yu's; none was taken by this work.
    opens the reads to every member key, so either run the round trip where
    that is acceptable or read `data_api_subscriptions` directly.
 9. **Publish together**: the final tier prices (`plans.ts`, a new catalogue
-   version), the data-API terms text, the DATA_RIGHTS rewording (§7), the "no
-   paid data tier" copy and "minute and monthly counts", then
+   version), the data-API terms text, the first DATA_RIGHTS line's rewording
+   (§7), the "no paid data tier" copy and "minute and monthly counts", then
    `DATA_API_READS` and `DATA_API_PLANS_PUBLISHED`, and the deploy-verify
    manifest entries.
 10. **Live mode, later**: live keys, VAT treatment and Stripe Tax, and account

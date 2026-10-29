@@ -82,7 +82,10 @@ jobs:
 
   storefront:
     name: storefront (typecheck + test + build)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 on 2026-10-29, and the pinned
+    # Playwright has no Chromium build for it, so the browser-fixture
+    # install failed before any test ran. Unpin when Playwright supports it.
+    runs-on: ubuntu-24.04
     needs: [detect, install]
     if: needs.detect.outputs.storefront == 'true' || needs.detect.outputs.shared == 'true'
     services:
