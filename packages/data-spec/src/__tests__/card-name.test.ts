@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { CARD_NAME_SCHEMA, cardName, cardRushName, tcgplayerName, type CardName } from "../../../sku/src/names";
+import { CARD_NAME_SCHEMA, CardNameError, cardName, cardRushName, tcgplayerName, type CardName, type CardNameInput } from "../../../sku/src/names";
 
 const ajv = new Ajv2020({ allErrors: true });
 addFormats(ajv);
@@ -39,11 +39,43 @@ describe("shared CardName schema", () => {
     ["doubled spaces", { text: "Roronoa  Zoro" }],
     ["a key with a middle dot", { key: "ロロノア・ゾロ" }],
     ["an http source", { source_url: "http://example.test/card" }],
+    ["a source URL with a space", { source_url: "https://example.test/a b" }],
+    ["a source URL that is not percent-encoded", { source_url: "https://www.cardrush-op.jp/product-list?keyword=ナミ" }],
+    ["a source URL with credentials", { source_url: "https://user:pass@example.test/card" }],
     ["a date without a time", { observed_at: "2026-10-29" }],
+    ["a day the calendar lacks", { observed_at: "2026-02-30T00:00:00Z" }],
     ["an unversioned rule", { rule: "cardrush-title" }],
+    ["an official name taken through a vendor rule", { rule: "cardrush-title/names-1" }],
     ["a non-canonical printing", { sku: "OP-OP01-001-EN" }],
   ])("rejects %s", (_, change) => {
     expect(validate({ ...records[0], ...change })).toBe(false);
+  });
+
+  // cardName() checks more than the schema can, never less: whatever it
+  // builds, the published schema accepts.
+  it.each<[string, Partial<CardNameInput>]>([
+    ["a leap day with an offset", { observed_at: "2028-02-29T23:59:59.5+09:00" }],
+    ["February 30", { observed_at: "2026-02-30T00:00:00Z" }],
+    ["hour 24", { observed_at: "2026-10-29T24:00:00Z" }],
+    ["a leap second", { observed_at: "2026-12-31T23:59:60Z" }],
+    ["a percent-encoded query", { source_url: "https://www.cardrush-op.jp/product-list?keyword=%E3%83%8A%E3%83%9F" }],
+    ["a raw Japanese query", { source_url: "https://www.cardrush-op.jp/product-list?keyword=ナミ" }],
+    ["a trailing space", { source_url: "https://www.cardrush-op.jp/product/15600 " }],
+    ["an inner space", { source_url: "https://www.cardrush-op.jp/a b" }],
+    ["a pipe in the path", { source_url: "https://example.test/a|b" }],
+    ["an IPv6 host", { source_url: "https://[::1]/card" }],
+    ["a fragment", { source_url: "https://example.test/card#name" }],
+    ["a vendor rule on an official name", { rule: "tcgplayer-product/names-1" }],
+    ["a vendor rule on a vendor name", { status: "vendor", rule: "tcgplayer-product/names-1" }],
+  ])("accepts in the schema what cardName() builds: %s", (_, change) => {
+    let record: CardName;
+    try {
+      record = cardName({ card_key: "op-op01-001", lang: "en", text: "Roronoa Zoro", status: "official", source: "bandai-en", observed_at: at, rule: "verbatim", ...change });
+    } catch (error) {
+      expect(error).toBeInstanceOf(CardNameError);
+      return;
+    }
+    expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
   });
 
   it("requires every field cardName() always emits", () => {

@@ -41,6 +41,10 @@ describe("text form and match key", () => {
     expect(sameCardName("Roronoa Zoro", "Roronoa Zoro (001)")).toBe(false);
     expect(sameCardName("・", " ")).toBe(false);
   });
+  it("removes whitespace before lowercasing, so a Greek final sigma does not depend on spacing", () => {
+    expect(cardNameKey("ΑΣ ΒΑ")).toBe("ασβα");
+    expect(sameCardName("ΑΣ ΒΑ", "ΑΣΒΑ")).toBe(true);
+  });
 });
 
 describe("cardrush-title/names-1", () => {
@@ -64,6 +68,9 @@ describe("cardrush-title/names-1", () => {
     expect(cardRushName("ナミ(英語版)【SR】{OP01-016}")).toEqual({ rule: "cardrush-title/names-1", text: "ナミ", markers: ["英語版"] });
     expect(cardRushName("ナミ【英語版】【SR】{OP01-016}")).toEqual({ rule: "cardrush-title/names-1", text: "ナミ", markers: ["英語版"] });
   });
+  it("lists markers in the order it removes them: conditions, then language markers, then the trailing group", () => {
+    expect(cardRushName("〔状態B〕ナミ(パラレル)(英語版)【SR】{OP01-016}")).toMatchObject({ text: "ナミ", markers: ["状態B", "英語版", "パラレル"] });
+  });
   it.each([
     ["", "empty_title"],
     ["ロロノア・ゾロ(パラレル)", "not_a_card_title"],
@@ -78,6 +85,14 @@ describe("cardrush-title/names-1", () => {
   ])("refuses %s rather than guess", (title, reason) => {
     expect(cardRushName(title)).toMatchObject({ rule: "cardrush-title/names-1", reason });
   });
+  it.each([
+    ["英語版ナミ【SR】{OP01-016}", "英語版"],
+    ["ナミ 英語版【SR】{OP01-016}", "英語版"],
+    ["ナミ パラレル【SP】{OP01-016}", "パラレル"],
+    ["ナミ パラレル(illust:S-KINOKO)【SP】{OP01-016}", "パラレル"],
+  ])("refuses %s, whose name keeps a marker the collector or classifier reads anywhere", (title, detail) => {
+    expect(cardRushName(title)).toEqual({ rule: "cardrush-title/names-1", reason: "marker_in_name", detail });
+  });
 });
 
 describe("tcgplayer-product/names-1 and cardmarket-product/names-1", () => {
@@ -85,7 +100,7 @@ describe("tcgplayer-product/names-1 and cardmarket-product/names-1", () => {
     ["Roronoa Zoro (001)", "Roronoa Zoro", []],
     ["Roronoa Zoro (001) (Parallel)", "Roronoa Zoro", ["Parallel"]],
     ["Alvida (Box Topper)", "Alvida", ["Box Topper"]],
-    ["DON!! Card (Manga) (Alternate Art)", "DON!! Card", ["Manga", "Alternate Art"]],
+    ["DON!! Card (Manga) (Alternate Art)", "DON!! Card", ["Alternate Art", "Manga"]],
     ["Boss's Orders - 069/073", "Boss's Orders", []],
     ["Amoonguss", "Amoonguss", []],
   ])("takes the name out of %s", (productName, text, markers) => {
@@ -101,8 +116,19 @@ describe("tcgplayer-product/names-1 and cardmarket-product/names-1", () => {
   });
   it("removes one Cardmarket collector number and keeps the rest verbatim", () => {
     expect(cardmarketName("Roronoa Zoro (OP01-001)")).toEqual({ rule: "cardmarket-product/names-1", text: "Roronoa Zoro", markers: [] });
-    expect(cardmarketName("Roronoa Zoro (Parallel)")).toEqual({ rule: "cardmarket-product/names-1", text: "Roronoa Zoro (Parallel)", markers: [] });
-    expect(cardmarketName("")).toMatchObject({ reason: "empty_title" });
+    expect(cardmarketName("Roronoa Zoro (P-001)")).toEqual({ rule: "cardmarket-product/names-1", text: "Roronoa Zoro", markers: [] });
+    expect(cardmarketName("Ho-Oh")).toEqual({ rule: "cardmarket-product/names-1", text: "Ho-Oh", markers: [] });
+  });
+  it.each([
+    ["", "empty_title"],
+    ["Roronoa Zoro (Parallel)", "unexpected_bracket"],
+    ["Roronoa Zoro (Pre-Release)", "unexpected_bracket"],
+    ["Roronoa Zoro (Alt-Art)", "unexpected_bracket"],
+    ["Ho-Oh (Full-Art)", "unexpected_bracket"],
+    ["Roronoa Zoro (Parallel) (OP01-001)", "unexpected_bracket"],
+    ["(OP01-001)", "empty_name"],
+  ])("refuses Cardmarket %s rather than keep a marker or guess", (name, reason) => {
+    expect(cardmarketName(name)).toMatchObject({ rule: "cardmarket-product/names-1", reason });
   });
   it("gives the English sources' names one key with the official name", () => {
     const official = record();
@@ -127,6 +153,11 @@ describe("name records", () => {
       source: "cardrush", source_url: "https://www.cardrush-op.jp/product/15600", observed_at: at, rule: otama.rule,
     })).toMatchObject({ text: "お玉", key: "お玉", illustrator: "sowsow", status: "vendor", rule: "cardrush-title/names-1" });
   });
+  it("accepts a leap day, an offset and a percent-encoded URL as given", () => {
+    expect(record({ observed_at: "2028-02-29T23:59:59.5+09:00" }).observed_at).toBe("2028-02-29T23:59:59.5+09:00");
+    const url = "https://www.cardrush-op.jp/product-list?keyword=%E3%83%8A%E3%83%9F";
+    expect(record({ source_url: url }).source_url).toBe(url);
+  });
   it.each([
     [{ card_key: "op-op01-001-en" }, "card_key"],
     [{ lang: "jp" }, "lang"],
@@ -137,8 +168,16 @@ describe("name records", () => {
     [{ source: "Bandai EN" }, "source"],
     [{ source_url: "http://example.test/card" }, "source_url"],
     [{ source_url: "https://user:pass@example.test/card" }, "source_url"],
+    [{ source_url: "https://www.cardrush-op.jp/product-list?keyword=ナミ" }, "source_url"],
+    [{ source_url: "https://www.cardrush-op.jp/product/15600 " }, "source_url"],
+    [{ source_url: "https://example.test/a b" }, "source_url"],
     [{ observed_at: "2026-10-29" }, "observed_at"],
+    [{ observed_at: "2026-02-30T00:00:00Z" }, "observed_at"],
+    [{ observed_at: "2026-10-29T24:00:00Z" }, "observed_at"],
+    [{ observed_at: "2026-10-29T23:59:60Z" }, "observed_at"],
+    [{ observed_at: "2026-10-29T00:00:00+24:00" }, "observed_at"],
     [{ rule: "cardrush-title" }, "rule"],
+    [{ rule: "cardrush-title/names-1" }, "rule"],
     [{ illustrator: "  " }, "illustrator"],
     [{ sku: "op-op01-002-en" }, "sku"],
     [{ sku: "op-op01-001-ja-p1" }, "sku"],
@@ -171,6 +210,16 @@ describe("choosing the name to show", () => {
     const wide = record({ lang: "ja", card_key: "op-op16-034", text: "モンキー・Ｄ・ルフィ" });
     const narrow = record({ lang: "ja", card_key: "op-op16-034", text: "モンキー・D・ルフィ", observed_at: "2026-10-30T00:00:00Z" });
     expect(chooseCardName([wide, narrow], { card_key: "op-op16-034", lang: "ja" })).toEqual({ state: "named", status: "official", name: narrow });
+  });
+  it("breaks a tie between equal instants by source, then text, whatever the input order", () => {
+    const tcgplayer = record({ text: "Roronoa Zoro", status: "vendor", source: "tcgplayer", rule: "tcgplayer-product/names-1" });
+    const cardmarket = record({ text: "RORONOA ZORO", status: "vendor", source: "cardmarket", observed_at: "2026-10-29T00:00:00.000Z", rule: "cardmarket-product/names-1" });
+    const query = { card_key: "op-op01-001", lang: "en" };
+    expect(chooseCardName([tcgplayer, cardmarket], query)).toMatchObject({ name: cardmarket });
+    expect(chooseCardName([cardmarket, tcgplayer], query)).toMatchObject({ name: cardmarket });
+    const upper = record({ text: "RORONOA ZORO", status: "vendor", source: "tcgplayer", rule: "tcgplayer-product/names-1" });
+    expect(chooseCardName([tcgplayer, upper], query)).toMatchObject({ name: upper });
+    expect(chooseCardName([upper, tcgplayer], query)).toMatchObject({ name: upper });
   });
   it("names a printing by its card key and language, with its own override first within a status", () => {
     const override = record({ text: "Roronoa Zoro (Special)", sku: "op-op01-001-en-p1" });

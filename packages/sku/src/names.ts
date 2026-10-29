@@ -5,10 +5,12 @@
  *
  * A card key is a CTCG-SKU-v1 SKU without its language and variant
  * segments. A name belongs to (card key, language), and a printing's name
- * is its card key's name in the printing's language. Variant, parallel,
- * reprint, rarity, condition, grade, illustrator credit and art-style
- * markers are never part of a name. A record may carry one printing's sku
- * only where the publisher prints a different name on that printing.
+ * is its card key's name in the printing's language. A record's language
+ * is the language its text is written in, never the printing's or the
+ * source row's. Variant, parallel, reprint, rarity, condition, grade,
+ * illustrator credit and art-style markers are never part of a name. A
+ * record may carry one printing's sku only where the publisher prints a
+ * different name on that printing.
  *
  * Every record says how it is known (official, vendor, community or
  * machine) and where it came from. The vendor rules below take markers off
@@ -40,9 +42,11 @@ export interface CardName {
   spec_version: typeof CARD_NAME_SPEC_VERSION;
   /** `<game>-<set>-<number>`. */
   card_key: string;
-  /** CTCG-SKU-v1 language code: lowercase ISO 639-1. */
+  /** The language the text is written in, as a CTCG-SKU-v1 language code
+   * (lowercase ISO 639-1); never the printing's or the source row's. */
   lang: string;
-  /** ISO 15924, e.g. "Latn" for a romanisation. Absent: the language's usual script. */
+  /** The script the text is written in, ISO 15924, e.g. "Latn" for a
+   * romanisation. Absent: the language's usual script. */
   script?: string;
   /** Text form: NFC, trimmed, whitespace runs collapsed to one space. */
   text: string;
@@ -75,9 +79,25 @@ const SEGMENT = /^[a-z0-9]+$/;
 const SCRIPT = /^[A-Z][a-z]{3}$/;
 const SOURCE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RULE = /^(?:verbatim|[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:[.-][a-z0-9]+)*)$/;
-const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/;
+// An https URL in RFC 3986 characters, with a DNS host and no credentials.
+// Spaces and non-ASCII must already be percent-encoded: nothing is repaired.
+const PCHAR = "(?:[A-Za-z0-9._~!$&'()*+,;=:@-]|%[0-9A-Fa-f]{2})";
+const SOURCE_URL = new RegExp(`^https://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/${PCHAR}*)*(?:\\?(?:${PCHAR}|[/?])*)?(?:#(?:${PCHAR}|[/?])*)?$`);
 // ・ (U+30FB), ･ (U+FF65) and · (U+00B7): sources print names with and without them.
 const KEY_DROPPED = /[\s・･·]/g;
+
+/** RFC 3339 on a real calendar day and clock time. Date.parse alone rolls
+ * 02-30 over to March and reads 24:00; leap seconds are refused too. */
+function isTimestamp(value: string): boolean {
+  const match = RFC3339.exec(value);
+  if (!match) return false;
+  const [year, month, day, hour, minute, second, offsetHour, offsetMinute] = match.slice(1).map((part) => Number(part ?? 0));
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  return date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+    && hour <= 23 && minute <= 59 && second <= 59 && offsetHour <= 23 && offsetMinute <= 59;
+}
 
 /** The card key of a canonical SKU. Normalize legacy forms first with
  * `normalizeSku()`; this does not. Unlike `strippedOracleId()`, the
@@ -99,10 +119,12 @@ export function cardNameText(raw: string): string {
   return raw.normalize("NFC").replace(/\s+/g, " ").trim();
 }
 
-/** Match key: NFKC, then locale-independent lowercase, then no whitespace
- * and no middle dots. モンキー・Ｄ・ルフィ and モンキー・D・ルフィ share one. */
+/** Match key: NFKC, then no whitespace and no middle dots, then
+ * locale-independent lowercase. モンキー・Ｄ・ルフィ and モンキー・D・ルフィ
+ * share one. Removing before lowercasing keeps a Greek final sigma (ς) from
+ * depending on spacing. */
 export function cardNameKey(text: string): string {
-  return text.normalize("NFKC").toLowerCase().replace(KEY_DROPPED, "");
+  return text.normalize("NFKC").replace(KEY_DROPPED, "").toLowerCase();
 }
 
 /** Two texts name the same thing exactly when their keys are equal. */
@@ -126,12 +148,14 @@ export function cardName(input: CardNameInput): CardName {
   if (!(CARD_NAME_STATUSES as readonly string[]).includes(input.status)) fail("status", `Unknown status: ${input.status}`);
   if (!SOURCE.test(input.source)) fail("source", `Source must be a registry id such as bandai-en: ${input.source}`);
   if (input.source_url !== undefined) {
-    let url: URL | null = null;
-    try { url = new URL(input.source_url); } catch { url = null; }
-    if (!url || url.protocol !== "https:" || url.username || url.password) fail("source_url", `Source URL must be https without credentials: ${input.source_url}`);
+    let parses = true;
+    try { new URL(input.source_url); } catch { parses = false; }
+    if (!parses || !SOURCE_URL.test(input.source_url)) fail("source_url", `Source URL must be https with a DNS host and no credentials, percent-encoded: ${input.source_url}`);
   }
-  if (!RFC3339.test(input.observed_at) || !Number.isFinite(Date.parse(input.observed_at))) fail("observed_at", `observed_at must be an RFC 3339 timestamp: ${input.observed_at}`);
+  if (!isTimestamp(input.observed_at)) fail("observed_at", `observed_at must be an RFC 3339 timestamp on a real date and time: ${input.observed_at}`);
   if (!RULE.test(input.rule)) fail("rule", `Rule must be "verbatim" or <rule>/<version>: ${input.rule}`);
+  // An official name is the rights holder's text as printed; a vendor rule's output is a vendor name.
+  if (input.status === "official" && input.rule !== "verbatim") fail("rule", `An official name's rule is verbatim: ${input.rule}`);
   const illustrator = input.illustrator === undefined ? undefined : cardNameText(input.illustrator);
   if (illustrator === "") fail("illustrator", "Illustrator is empty after normalization");
   if (input.sku !== undefined) {
@@ -169,11 +193,23 @@ export type CardNameChoice =
   | { state: "conflict"; status: CardNameStatus; candidates: CardName[] }
   | { state: "missing" };
 
+/** Unicode code point order. `<` compares UTF-16 code units, which sorts
+ * characters beyond U+FFFF before U+E000–U+FFFF. */
+function byCodePoint(a: string, b: string): number {
+  const left = [...a], right = [...b];
+  for (let index = 0; index < Math.min(left.length, right.length); index++) {
+    const difference = left[index]!.codePointAt(0)! - right[index]!.codePointAt(0)!;
+    if (difference) return difference;
+  }
+  return left.length - right.length;
+}
+
 /** Choose the name to show. The highest status present wins; within it a
  * printing's override beats the card key's name. Records of that status
  * that disagree are a conflict, not a choice. Records that agree may differ
- * in form, such as character width; the most recently observed is shown.
- * No record is a missing name, never a guess. */
+ * in form, such as character width; the most recently observed is shown,
+ * and between equal instants the first by source, then text, in code point
+ * order. No record is a missing name, never a guess. */
 export function chooseCardName(records: readonly CardName[], query: CardNameQuery): CardNameChoice {
   const pool = records.filter((record) => record.card_key === query.card_key && record.lang === query.lang
     && record.script === query.script && (record.sku === undefined || record.sku === query.sku));
@@ -183,7 +219,8 @@ export function chooseCardName(records: readonly CardName[], query: CardNameQuer
   const overrides = ranked.filter((record) => record.sku !== undefined);
   const candidates = overrides.length ? overrides : ranked;
   if (new Set(candidates.map((record) => record.key)).size > 1) return { state: "conflict", status, candidates };
-  const name = candidates.reduce((latest, record) => Date.parse(record.observed_at) > Date.parse(latest.observed_at) ? record : latest);
+  const name = candidates.reduce((shown, record) => (Date.parse(record.observed_at) - Date.parse(shown.observed_at)
+    || byCodePoint(shown.source, record.source) || byCodePoint(shown.text, record.text)) > 0 ? record : shown);
   return { state: "named", status, name };
 }
 
@@ -201,6 +238,7 @@ export type CardNameRefusalReason =
   | "unrecognised_marker"
   | "conflicting_illustrators"
   | "unexpected_bracket"
+  | "marker_in_name"
   | "empty_name";
 
 export interface CardNameExtraction {
@@ -237,6 +275,9 @@ export const CARD_NAME_MARKERS = {
 
 const CARDRUSH_LANGUAGE_BRACKETS = new RegExp(`[(【](${CARD_NAME_MARKERS.cardrush_language.join("|")})[)】]`, "g");
 const CARDRUSH_GROUP_MARKERS: readonly string[] = [...CARD_NAME_MARKERS.cardrush, ...CARD_NAME_MARKERS.cardrush_language];
+// The collector reads a language marker, and the classifier パラレル,
+// anywhere in a title, so neither may be left standing in a name.
+const CARDRUSH_READ_ANYWHERE: readonly string[] = [...CARD_NAME_MARKERS.cardrush_language, "パラレル"];
 const TCGPLAYER_MARKERS: readonly string[] = CARD_NAME_MARKERS.tcgplayer;
 const BRACKETS = /[()（）[\]［］【】{}〔〕]/;
 
@@ -247,7 +288,8 @@ const BRACKETS = /[()（）[\]［］【】{}〔〕]/;
  * Leading 〔…〕 groups (conditions and grades) and bracketed language
  * markers come off, the name ends at the first 【 or {, and one trailing
  * half-width (…) group comes off only when every slash-separated token is
- * a known marker or illust:<credit>. */
+ * a known marker or illust:<credit>. A language marker names the printing,
+ * not the language of the text left behind. */
 export function cardRushName(title: string): CardNameExtraction | CardNameRefusal {
   const rule = CARD_NAME_RULES.cardrush;
   let rest = cardNameText(title);
@@ -276,6 +318,8 @@ export function cardRushName(title: string): CardNameExtraction | CardNameRefusa
     name = name.slice(0, group.index);
   }
   if (BRACKETS.test(name)) return { rule, reason: "unexpected_bracket", detail: name };
+  const stray = CARDRUSH_READ_ANYWHERE.find((token) => name.includes(token));
+  if (stray) return { rule, reason: "marker_in_name", detail: stray };
   const text = cardNameText(name);
   if (!cardNameKey(text)) return { rule, reason: "empty_name" };
   return { rule, text, ...(illustrator !== undefined ? { illustrator } : {}), markers };
@@ -286,7 +330,8 @@ const TCGPLAYER_TAIL = /(?: - [A-Za-z0-9]+\/[A-Za-z0-9]+| ?\(([^()]*)\))$/;
 
 /** tcgplayer-product/names-1, for a price-guide productName. Trailing
  * " - NNN/NNN" numbers and (…) groups come off from the end: a group that
- * is a card number such as (001), or a known variant marker. */
+ * is a card number such as (001), or a known variant marker. In the
+ * captured price guides the text is English, also on the Pokemon Japan line. */
 export function tcgplayerName(productName: string): CardNameExtraction | CardNameRefusal {
   const rule = CARD_NAME_RULES.tcgplayer;
   let name = cardNameText(productName);
@@ -297,7 +342,7 @@ export function tcgplayerName(productName: string): CardNameExtraction | CardNam
     const token = tail[1]?.trim();
     if (token !== undefined && !/^\d+$/.test(token)) {
       if (!TCGPLAYER_MARKERS.includes(token)) return { rule, reason: "unrecognised_marker", detail: token };
-      markers.unshift(token);
+      markers.push(token);
     }
     name = name.slice(0, tail.index);
   }
@@ -308,12 +353,16 @@ export function tcgplayerName(productName: string): CardNameExtraction | CardNam
 }
 
 /** cardmarket-product/names-1, for a product-list name. One trailing
- * (SET-NNN) collector number comes off; the rest is kept verbatim. */
+ * collector number such as (OP01-001) or (P-001) comes off and the rest is
+ * kept verbatim. The rule knows no variant markers, so a bracket left in
+ * the rest, such as (Pre-Release) or (Parallel), refuses. */
 export function cardmarketName(name: string): CardNameExtraction | CardNameRefusal {
   const rule = CARD_NAME_RULES.cardmarket;
   const full = cardNameText(name);
   if (!full) return { rule, reason: "empty_title" };
-  const text = cardNameText(full.replace(/ ?\([A-Za-z0-9]+-[A-Za-z0-9]+\)$/, ""));
+  const rest = full.replace(/ ?\([A-Z]+[0-9]*-[0-9]+[A-Z]?\)$/, "");
+  if (BRACKETS.test(rest)) return { rule, reason: "unexpected_bracket", detail: rest };
+  const text = cardNameText(rest);
   if (!cardNameKey(text)) return { rule, reason: "empty_name" };
   return { rule, text, markers: [] };
 }
@@ -332,16 +381,18 @@ export const CARD_NAME_SCHEMA = {
   properties: {
     spec_version: { const: CARD_NAME_SPEC_VERSION },
     card_key: { type: "string", pattern: `^(${GAME_CODES.join("|")})-[a-z0-9]+-[a-z0-9]+$`, description: "A CTCG-SKU-v1 SKU without its language and variant segments." },
-    lang: { type: "string", pattern: "^[a-z]{2}$", description: "CTCG-SKU-v1 language code, lowercase ISO 639-1. Two-letter syntax only; ISO membership is not checked." },
-    script: { type: "string", pattern: "^[A-Z][a-z]{3}$", description: "ISO 15924 code, such as Latn for a romanisation. Absent means the language's usual script." },
+    lang: { type: "string", pattern: "^[a-z]{2}$", description: "The language the text is written in, never the printing's or the source row's: a CTCG-SKU-v1 language code, lowercase ISO 639-1. Two-letter syntax only; ISO membership is not checked." },
+    script: { type: "string", pattern: "^[A-Z][a-z]{3}$", description: "The script the text is written in, as an ISO 15924 code, such as Latn for a romanisation. Absent means the language's usual script." },
     text: { type: "string", pattern: "^\\S+(?: \\S+)*$", description: "NFC, trimmed, whitespace runs collapsed to one U+0020; otherwise exactly as the source prints it." },
-    key: { type: "string", pattern: "^[^\\s\\u30FB\\uFF65\\u00B7]+$", description: "Match key: NFKC, then lowercase, then whitespace and middle dots removed. For matching only; never displayed." },
+    key: { type: "string", pattern: "^[^\\s\\u30FB\\uFF65\\u00B7]+$", description: "Match key: NFKC, then whitespace and middle dots removed, then lowercase. For matching only; never displayed." },
     status: { type: "string", enum: CARD_NAME_STATUSES, description: "Rank order: official, vendor, community, machine." },
     source: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", description: "Source registry id, such as bandai-en, cardrush, tcgplayer or cardmarket." },
-    source_url: { type: "string", format: "uri", pattern: "^https://" },
+    source_url: { type: "string", format: "uri", pattern: SOURCE_URL.source, description: "The https page the name was read from, with a DNS host and no credentials, percent-encoded as RFC 3986 requires." },
     observed_at: { type: "string", format: "date-time", description: "RFC 3339 time the source was read." },
-    rule: { type: "string", pattern: "^(?:verbatim|[a-z0-9]+(?:-[a-z0-9]+)*/[a-z0-9]+(?:[.-][a-z0-9]+)*)$", description: "Extraction rule id and version, such as cardrush-title/names-1, or verbatim." },
+    rule: { type: "string", pattern: "^(?:verbatim|[a-z0-9]+(?:-[a-z0-9]+)*/[a-z0-9]+(?:[.-][a-z0-9]+)*)$", description: "Extraction rule id and version, such as cardrush-title/names-1, or verbatim. An official name's rule is verbatim." },
     illustrator: { type: "string", pattern: "^\\S+(?: \\S+)*$", description: "A credit taken from the source's markers; never part of the name." },
     sku: { type: "string", pattern: `^(${GAME_CODES.join("|")})-[a-z0-9]+-[a-z0-9]+-[a-z]{2}(?:-[a-z0-9]+)*$`, description: "A printing's canonical SKU, present only when the publisher prints a different name on that printing." },
   },
+  if: { properties: { status: { const: "official" } }, required: ["status"] },
+  then: { properties: { rule: { const: "verbatim" } } },
 } as const;

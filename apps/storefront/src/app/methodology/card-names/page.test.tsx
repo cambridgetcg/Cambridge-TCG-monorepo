@@ -17,6 +17,8 @@ describe("CTCG-NAMES-v1 specification page", () => {
     expect(html).toContain("<td>モンキー・Ｄ・ルフィ</td>");
     expect(html).toContain("<td>DON!! Card</td>");
     expect(html).toContain("Refused: <code>unrecognised_marker</code> (<code>SP仕様</code>)");
+    expect(html).toContain("Refused: <code>unexpected_bracket</code> (<code>Roronoa Zoro (Parallel)</code>)");
+    expect(html).toContain("<td>DON!! Card</td><td>—</td><td><code>Alternate Art</code>, <code>Manga</code></td>");
     expect(html).toContain("モンキーdルフィ");
     expect(html).toContain('&quot;spec_version&quot;: &quot;ctcg.card-name/1&quot;');
   });
@@ -33,7 +35,6 @@ describe("CTCG-NAMES-v1 specification page", () => {
   it("is the registered spec, with its sidecars and served schema", () => {
     const entry = STANDARDS.find((standard) => standard.code === "CTCG-NAMES-v1");
     expect(entry).toMatchObject({ version: "1.0", status: "draft", spec_url: "/methodology/card-names", impl_path_in_repo: "packages/sku/src/names.ts" });
-    expect(STANDARDS.map((standard) => standard.code).indexOf("CTCG-NAMES-v1")).toBe(STANDARDS.length - 1);
     expect(PUBLIC_SCHEMAS["CardName.schema.json"]).toBe(CARD_NAME_SCHEMA);
     const sidecar = JSON.parse(readFileSync(resolve(DIR, "data.json"), "utf8"));
     expect(sidecar).toMatchObject({ topic: "card-names", url: "/methodology/card-names", schema_url: "/spec/v1/CardName.schema.json" });

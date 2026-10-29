@@ -26,6 +26,7 @@ const EXAMPLES = [
   ["TCGplayer", "Boss's Orders - 069/073", tcgplayerName],
   ["Cardmarket", "Roronoa Zoro (OP01-001)", cardmarketName],
   ["CardRush", "ロロノア・ゾロ(パラレル/SP仕様)【L/P】{OP01-001}", cardRushName],
+  ["Cardmarket", "Roronoa Zoro (Parallel)", cardmarketName],
 ] as const;
 
 const EXAMPLE_RECORD = cardName({
@@ -92,6 +93,12 @@ export default function CardNamesMethodology() {
       <ul>
         <li>A name belongs to a card key and a language.</li>
         <li>
+          A record&apos;s <code>lang</code> and <code>script</code> are the
+          language and script its text is written in, never the
+          printing&apos;s or the source row&apos;s. An English name read from a
+          listing of a Japanese printing is an English name.
+        </li>
+        <li>
           A printing&apos;s name is its card key&apos;s name in the printing&apos;s
           language: <code>op-op01-001-en-p1</code> is named by the English name
           of <code>op-op01-001</code>.
@@ -125,15 +132,15 @@ export default function CardNamesMethodology() {
         <tbody>
           <tr><th scope="row"><code>spec_version</code></th><td>yes</td><td>Always <code>{CARD_NAME_SPEC_VERSION}</code>.</td></tr>
           <tr><th scope="row"><code>card_key</code></th><td>yes</td><td><code>{"<game>-<set>-<number>"}</code>, with a registered game code.</td></tr>
-          <tr><th scope="row"><code>lang</code></th><td>yes</td><td>The CTCG-SKU-v1 language code: lowercase ISO 639-1, such as <code>ja</code> or <code>en</code>. Legacy aliases such as <code>jp</code> are refused.</td></tr>
-          <tr><th scope="row"><code>script</code></th><td>no</td><td>An ISO 15924 code such as <code>Latn</code>, for a romanisation. Absent means the language&apos;s usual script.</td></tr>
+          <tr><th scope="row"><code>lang</code></th><td>yes</td><td>The language the text is written in, as a CTCG-SKU-v1 language code: lowercase ISO 639-1, such as <code>ja</code> or <code>en</code>. Legacy aliases such as <code>jp</code> are refused.</td></tr>
+          <tr><th scope="row"><code>script</code></th><td>no</td><td>The script the text is written in, as an ISO 15924 code such as <code>Latn</code>, for a romanisation. Absent means the language&apos;s usual script.</td></tr>
           <tr><th scope="row"><code>text</code></th><td>yes</td><td>The name, in the text form below.</td></tr>
           <tr><th scope="row"><code>key</code></th><td>yes</td><td>The match key below. For matching only; never displayed.</td></tr>
           <tr><th scope="row"><code>status</code></th><td>yes</td><td>One of {list(CARD_NAME_STATUSES)}.</td></tr>
           <tr><th scope="row"><code>source</code></th><td>yes</td><td>A source registry id, such as <code>bandai-en</code>, <code>cardrush</code>, <code>tcgplayer</code> or <code>cardmarket</code>.</td></tr>
-          <tr><th scope="row"><code>source_url</code></th><td>no</td><td>The https page the name was read from.</td></tr>
-          <tr><th scope="row"><code>observed_at</code></th><td>yes</td><td>When the source was read, in RFC 3339.</td></tr>
-          <tr><th scope="row"><code>rule</code></th><td>yes</td><td>The extraction rule and its version, such as <code>{CARD_NAME_RULES.cardrush}</code>, or <code>verbatim</code> when the text was taken as printed.</td></tr>
+          <tr><th scope="row"><code>source_url</code></th><td>no</td><td>The https page the name was read from, with a DNS host and no credentials. Spaces and non-ASCII characters must already be percent-encoded; the URL is not repaired.</td></tr>
+          <tr><th scope="row"><code>observed_at</code></th><td>yes</td><td>When the source was read, in RFC 3339, on a real date and clock time.</td></tr>
+          <tr><th scope="row"><code>rule</code></th><td>yes</td><td>The extraction rule and its version, such as <code>{CARD_NAME_RULES.cardrush}</code>, or <code>verbatim</code> when the text was taken as printed. An official name&apos;s rule is always <code>verbatim</code>.</td></tr>
           <tr><th scope="row"><code>illustrator</code></th><td>no</td><td>An illustrator credit taken from the source&apos;s markers. Never part of the name.</td></tr>
           <tr><th scope="row"><code>sku</code></th><td>no</td><td>One printing&apos;s canonical SKU, for a name printed on that printing only. Its card key and language must be the record&apos;s.</td></tr>
         </tbody>
@@ -179,7 +186,9 @@ export default function CardNamesMethodology() {
         </li>
         <li>
           Records that agree can still differ in form, such as character width.
-          Show the most recently observed one.
+          Show the most recently observed one. Between records observed at the
+          same instant, show the first by <code>source</code>, then by{" "}
+          <code>text</code>, in Unicode code point order.
         </li>
         <li>
           A missing name is reported as missing. It is never guessed, and a name
@@ -201,10 +210,12 @@ export default function CardNamesMethodology() {
       <h2>Match key</h2>
 
       <p>
-        To compare names, compute the key: Unicode NFKC, then locale-independent
-        lowercase, then remove all whitespace and the middle dots U+30FB (・),
-        U+FF65 (･) and U+00B7 (·). Two texts name the same thing exactly when
-        their keys are equal. Keys are for matching and are never displayed.
+        To compare names, compute the key: Unicode NFKC, then remove all
+        whitespace and the middle dots U+30FB (・), U+FF65 (･) and U+00B7 (·),
+        then lowercase without regard to locale. Removing comes before
+        lowercasing so that a Greek final sigma (ς) does not depend on spacing.
+        Two texts name the same thing exactly when their keys are equal. Keys
+        are for matching and are never displayed.
       </p>
 
       <pre>
@@ -228,7 +239,8 @@ export default function CardNamesMethodology() {
         refuses, with a reason. A rule never guesses. A changed rule ships under
         a new version, so a record&apos;s <code>rule</code> says exactly how its
         text was made. Official names need no rule: their <code>rule</code> is{" "}
-        <code>verbatim</code> and only the text form applies.
+        <code>verbatim</code> and only the text form applies, and{" "}
+        <code>cardName()</code> refuses an official record with any other rule.
       </p>
 
       <h3><code>{CARD_NAME_RULES.cardrush}</code></h3>
@@ -263,14 +275,27 @@ export default function CardNamesMethodology() {
         </li>
         <li>
           Any other bracket that is left is refused
-          (<code>unexpected_bracket</code>), and so is an empty name
-          (<code>empty_name</code>).
+          (<code>unexpected_bracket</code>). A language marker or パラレル left
+          in the name outside those brackets is refused
+          (<code>marker_in_name</code>): the collector reads language markers,
+          and the classifier パラレル, anywhere in a title. An empty name is
+          refused (<code>empty_name</code>).
         </li>
       </ol>
 
       <p>
         Known markers: {list(CARD_NAME_MARKERS.cardrush)}, and the language
         markers above.
+      </p>
+
+      <p>
+        A language marker says which printing a listing is for, not which
+        language its name is written in, so a record&apos;s <code>lang</code>{" "}
+        comes from the text and the marker stays in <code>markers</code>. The
+        names in the One Piece titles captured on 2026-10-28 are written in
+        Japanese (<code>lang: &quot;ja&quot;</code>). None of those titles
+        carried a language marker, so how CardRush writes the name on a
+        listing marked 英語版 has not been seen.
       </p>
 
       <h3><code>{CARD_NAME_RULES.tcgplayer}</code></h3>
@@ -287,11 +312,23 @@ export default function CardNamesMethodology() {
         <li>Any other bracket that is left, or an empty name, is refused.</li>
       </ol>
 
+      <p>
+        The product names in the captured price guides are written in
+        English, also on the Pokemon Japan line, whose rows are Japanese
+        printings: <code>Boss&apos;s Orders - 069/073</code> is one of them and
+        gives an English name, <code>lang: &quot;en&quot;</code>.
+      </p>
+
       <h3><code>{CARD_NAME_RULES.cardmarket}</code></h3>
 
       <p>
-        Remove one trailing collector-number group such as{" "}
-        <code>(OP01-001)</code>. Keep the rest verbatim.
+        Remove one trailing collector number, an upper-case set code and a
+        number such as <code>(OP01-001)</code> or <code>(P-001)</code>. Keep
+        the rest verbatim. The rule knows no variant markers, so any bracket
+        left in the rest, such as <code>(Parallel)</code> or{" "}
+        <code>(Pre-Release)</code>, is refused (<code>unexpected_bracket</code>),
+        and so is an empty name. The product-list names in the collector&apos;s
+        test fixtures are English, <code>lang: &quot;en&quot;</code>.
       </p>
 
       <h3>Examples</h3>
