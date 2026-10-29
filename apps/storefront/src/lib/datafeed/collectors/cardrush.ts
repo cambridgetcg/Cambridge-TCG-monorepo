@@ -6,6 +6,7 @@ import type { IngestContext } from '@cambridge-tcg/data-ingest/types';
 import { writeMemberPriceBatch } from '../member-price-writer';
 import { writeProductCrosswalk, writeSetCrosswalk, type CrosswalkWrite } from '../crosswalks';
 import { withCollectorLease } from '../collector-lease';
+import { writeCardRushListingImages, type ListingImageWrite } from '../listing-images';
 
 /** The CardRush page collector (Yu, 2026-10-28). One run reads one host:
  * its robots.txt and sitemap once, then the stalest product pages the budget allows, and
@@ -16,7 +17,10 @@ import { withCollectorLease } from '../collector-lease';
  * writers. A run holds the host's lease (cardrush:<host>, migration 0143)
  * from before its first request to its last write, so two runs never read
  * one host at once, and the lease keeps the next run's first request 2 s
- * after it ends. Scheduling and the on switch belong to the cron route.
+ * after it ends. Listing image URLs, read from the same pages, are recorded
+ * last, for the listings whose observations the batch wrote (listing-images.ts,
+ * migration 0145): links, never copies. Scheduling and the on switch belong
+ * to the cron route.
  */
 /** Of the run's 270 s (CARDRUSH_MAX_BUDGET_MS), kept back for the writes: at
  * 0.5 rps the other 210 s send about 105 requests: robots.txt, the sitemap
@@ -37,6 +41,8 @@ export interface CardRushRunSummary {
   robotsDisallowed?: number;
   batch?: { id: string; inserted: number; duplicate: boolean } | null;
   crosswalks?: { written: number; unchanged: number; skipped: number; refused: number };
+  /** Listing image links recorded; skipped while 0145 is not applied. */
+  listingImages?: ListingImageWrite;
 }
 
 /** Round-robin by run time, so a missed run shifts nothing and two runs in
@@ -99,7 +105,7 @@ async function readHost({ host, runAt, started, base, context, runQuery, runTran
     budgetMs: CARDRUSH_MAX_BUDGET_MS - WRITE_RESERVE_MS - (Date.now() - started),
     choose: (productUrls, capacity) => chooseStalestCardRushPages(host, productUrls, capacity, runQuery),
   });
-  const { productCrosswalks, setCrosswalks, ...parsed } = acquired.parsed;
+  const { productCrosswalks, setCrosswalks, listingImages, ...parsed } = acquired.parsed;
   const summary: CardRushRunSummary = {
     ...base, ran: true, requested: acquired.requested, observed: parsed.observations.length, quarantined: parsed.quarantine.length,
     ...(acquired.unavailable ? { unavailable: acquired.unavailable } : {}), sitemapProducts: acquired.sitemapProducts, robotsDisallowed: acquired.robotsDisallowed, batch: null,
@@ -126,5 +132,7 @@ async function readHost({ host, runAt, started, base, context, runQuery, runTran
     await record(() => writeSetCrosswalk({ source: 'cardrush', ...set, crosswalkVersion: CARDRUSH_CROSSWALK_VERSION }, runTransaction, { collector: true }));
   }
   summary.crosswalks = counts;
+  // A repeated run key wrote nothing, so it links nothing.
+  if (!written.duplicate) summary.listingImages = await writeCardRushListingImages(listingImages, batch.observations, runQuery);
   return summary;
 }
