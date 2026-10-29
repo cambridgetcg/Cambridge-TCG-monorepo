@@ -98,6 +98,27 @@ describe("CardRush collector cron", () => {
     expect(inserted[1]).toEqual([`cardrush:${body.host}:${body.runAt}`, "cardrush", 0, 0, JSON.stringify([{ sourceProductId: null, field: "host", reason: body.unavailable.reason }])]);
   });
 
+  it("answers a suspended host as 503 HOST_SUSPENDED and one backing off as ran:false, asking it nothing", async () => {
+    vi.stubEnv("DATA_COLLECT_CARDRUSH", "on");
+    for (const [state, status, body] of [
+      [{ not_before: "2999-01-01T00:00:00.000Z", suspended_at: null, suspended_reason: null }, 200, { ok: true, ran: false, reason: "host-backing-off", notBefore: "2999-01-01T00:00:00.000Z" }],
+      [{ not_before: "2026-10-29T06:00:00.000Z", suspended_at: "2026-10-29T00:00:00.000Z", suspended_reason: "challenge-challenge" }, 503,
+        { ok: false, ran: false, reason: "host-suspended", suspendedAt: "2026-10-29T00:00:00.000Z", suspendedReason: "challenge-challenge", error: { code: "HOST_SUSPENDED" } }],
+    ] as const) {
+      db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+        if (sql.includes("INSERT INTO price_collector_leases")) return { rows: [{ holder: params![1], held_by: null }], rowCount: 1 };
+        if (sql.includes("FROM price_collector_hosts")) return { rows: (params![1] as string[]).map(host => ({ source: "cardrush", host, consecutive_refusals: 3, last_success_at: null, last_refusal_at: "2026-10-29T00:00:00.000Z", last_refusal_reason: "challenge-challenge", ...state })), rowCount: 1 };
+        return { rows: [{ source: "cardrush" }], rowCount: 1 };
+      });
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      const response = await GET(request("Bearer fixture-cron-secret"));
+      log.mockRestore();
+      expect(response.status).toBe(status);
+      expect(await response.json()).toMatchObject({ ...body, requested: 0 });
+    }
+    expect(fetchSpy).not.toHaveBeenCalled(); expect(db.transaction).not.toHaveBeenCalled();
+  });
+
   it("answers a failure without echoing it", async () => {
     vi.stubEnv("DATA_COLLECT_CARDRUSH", "on");
     db.query.mockRejectedValue(new Error("connection to 10.0.0.1 refused"));

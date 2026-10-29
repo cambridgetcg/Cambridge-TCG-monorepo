@@ -75,17 +75,21 @@ export class CardmarketPublicFileError extends Error {
   readonly code: CardmarketPublicFileErrorCode;
   readonly url?: string;
   readonly status?: number;
+  /** The host's Retry-After, as sent, on an HTTP refusal; read by the
+   * collector's per-host backoff (storefront migration 0146). */
+  readonly retryAfter?: string;
 
   constructor(
     code: CardmarketPublicFileErrorCode,
     message: string,
-    details: { url?: string; status?: number } = {},
+    details: { url?: string; status?: number; retryAfter?: string } = {},
   ) {
     super(message);
     this.name = "CardmarketPublicFileError";
     this.code = code;
     this.url = details.url;
     this.status = details.status;
+    this.retryAfter = details.retryAfter;
   }
 }
 
@@ -421,7 +425,7 @@ export async function fetchCardmarketPublicFileWithMeta(
       throw new CardmarketPublicFileError(
         "http-error",
         `Cardmarket public-file request failed with HTTP ${response?.status ?? "unknown"}`,
-        { url: currentUrl.toString(), status: response?.status },
+        { url: currentUrl.toString(), status: response?.status, retryAfter: response?.headers.get("retry-after") ?? undefined },
       );
     }
 

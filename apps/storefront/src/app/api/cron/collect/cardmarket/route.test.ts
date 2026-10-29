@@ -74,6 +74,19 @@ describe("Cardmarket collection cron", () => {
     expect(await missing.json()).toMatchObject({ ok: false, ran: false, reason: "lease-not-provisioned" });
   });
 
+  it("answers a file host backing off as ran:false, and a suspended one as 503 until a person clears it", async () => {
+    vi.stubEnv("DATA_COLLECT_CARDMARKET", "on");
+    const host = { host: "downloads.s3.cardmarket.com", notBefore: "2026-10-29T12:00:00.000Z", suspendedAt: null, suspendedReason: null };
+    mocks.collect.mockResolvedValueOnce({ ran: false, reason: "host-backing-off", ...host });
+    const waiting = await GET(request());
+    expect(waiting.status).toBe(200);
+    expect(await waiting.json()).toEqual({ ok: true, ran: false, reason: "host-backing-off", host: host.host, notBefore: host.notBefore });
+    mocks.collect.mockResolvedValueOnce({ ran: false, reason: "host-suspended", ...host, suspendedAt: "2026-10-29T06:00:00.000Z", suspendedReason: "http-429" });
+    const suspended = await GET(request());
+    expect(suspended.status).toBe(503);
+    expect(await suspended.json()).toMatchObject({ ok: false, ran: false, reason: "host-suspended", host: host.host, suspendedAt: "2026-10-29T06:00:00.000Z", suspendedReason: "http-429" });
+  });
+
   it("keeps an unexpected failure's text out of the response", async () => {
     vi.stubEnv("DATA_COLLECT_CARDMARKET", "on");
     mocks.collect.mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.1:5432 password=..."));
