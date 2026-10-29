@@ -26,7 +26,12 @@
 
 import { NextResponse } from "next/server";
 import { readBoundedUtf8Body } from "@/lib/http/read-bounded-utf8-body";
-import { resolveAgentBearer, stampKeyUse } from "@/lib/agents/auth";
+import {
+  resolveAgentBearer,
+  stampKeyUse,
+  type AgentAuthFailure,
+  type ResolvedAgentAuth,
+} from "@/lib/agents/auth";
 import { checkAndConsume } from "@/lib/agents/rate-limit";
 import {
   agentSelf,
@@ -57,6 +62,14 @@ import {
   coverageHuntMyCases,
   coverageHuntView,
 } from "@/lib/agents/coverage-hunt-tools";
+import {
+  authRefusal,
+  authUnavailableRefusal,
+  MCP_REFUSAL_META_KEY,
+  rateLimitedRefusal,
+  toolNotPermittedRefusal,
+  type AgentRefusal,
+} from "@/lib/agents/refusals";
 import type { AgentActor } from "@/lib/agents/auth";
 
 interface JsonRpcRequest {
@@ -70,7 +83,7 @@ interface JsonRpcResponse {
   jsonrpc: "2.0";
   id?: string | number | null;
   result?: unknown;
-  error?: { code: number; message: string };
+  error?: { code: number; message: string; data?: unknown };
 }
 
 // JSON-RPC 2.0 error codes + a small Cambridge-TCG-specific reservoir.
@@ -195,8 +208,13 @@ function rpcError(
   id: JsonRpcRequest["id"],
   code: number,
   message: string,
+  data?: unknown,
 ): JsonRpcResponse {
-  return { jsonrpc: "2.0", id: id ?? null, error: { code, message } };
+  return {
+    jsonrpc: "2.0",
+    id: id ?? null,
+    error: data === undefined ? { code, message } : { code, message, data },
+  };
 }
 
 // ── MCP-spec tool input schemas (JSON Schema, drives `tools/list`) ──────
@@ -361,6 +379,68 @@ function wrapMcpContent(result: unknown): { content: Array<{ type: "text"; text:
   return { content: [{ type: "text", text }], isError: false };
 }
 
+/** A thrown value's code or name, never its message or parameters. */
+function errorLabel(err: unknown): string {
+  if (err && typeof err === "object") {
+    const { code, name } = err as { code?: unknown; name?: unknown };
+    if (typeof code === "string" && code) return code;
+    if (typeof name === "string" && name) return name;
+  }
+  return "unknown";
+}
+
+/** RFC 6750 challenge for a 401. `error="invalid_token"` only when a bearer
+ *  token was actually presented; a missing header or another scheme gets
+ *  the bare challenge. */
+function bearerChallenge(authHeader: string | null): string {
+  const presented = /^Bearer\s+\S/i.test(authHeader ?? "");
+  return presented
+    ? 'Bearer realm="cambridgetcg-mcp", error="invalid_token"'
+    : 'Bearer realm="cambridgetcg-mcp"';
+}
+
+function authFailureResponse(
+  id: JsonRpcRequest["id"],
+  failure: AgentAuthFailure,
+  authHeader: string | null,
+) {
+  return NextResponse.json(
+    rpcError(id, ERR_UNAUTHENTICATED, failure.error, authRefusal(failure)),
+    {
+      status: failure.status,
+      headers:
+        failure.status === 401
+          ? { "WWW-Authenticate": bearerChallenge(authHeader) }
+          : undefined,
+    },
+  );
+}
+
+/** A tool-level failure. MCP spec says tool errors should be reported via
+ *  `{isError: true, content: [...]}` in the result rather than a JSON-RPC
+ *  error; we follow that for `tools/call` (a refusal rides in `_meta`).
+ *  Native dotted dispatch keeps JSON-RPC error semantics so old clients
+ *  don't break (a refusal rides in `error.data`). */
+function toolErrorResponse(
+  id: JsonRpcRequest["id"],
+  isMcpCall: boolean,
+  message: string,
+  status: number,
+  refusal?: AgentRefusal,
+) {
+  if (isMcpCall) {
+    return NextResponse.json(
+      rpcResult(id, {
+        content: [{ type: "text", text: message }],
+        isError: true,
+        ...(refusal ? { _meta: { [MCP_REFUSAL_META_KEY]: refusal } } : {}),
+      }),
+      { status },
+    );
+  }
+  return NextResponse.json(rpcError(id, ERR_TOOL_ERROR, message, refusal), { status });
+}
+
 async function handlePost(request: Request) {
   const declaredLength = request.headers.get("content-length");
   if (declaredLength !== null) {
@@ -412,6 +492,19 @@ async function handlePost(request: Request) {
   const method = body.method;
   const params = body.params ?? {};
 
+  // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
+  // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
+  // handler is the same one a Cambridge-native dotted call would hit;
+  // only the result wrapping differs (MCP returns `{content: [...]}`).
+  // Computed once, before any carve-out, so every path below agrees on
+  // which tool was asked for and which arguments it carries.
+  const isMcpCall = method === "tools/call";
+  const callName = typeof params.name === "string" ? params.name : "";
+  const dispatchName = isMcpCall ? callName : method;
+  const dispatchParams: Record<string, unknown> = isMcpCall
+    ? (params.arguments as Record<string, unknown> | undefined) ?? {}
+    : params;
+
   // ── MCP-spec discovery + lifecycle (no auth) ──────────────────────────
   // The methods below are MCP-spec aliases that compose with the
   // Cambridge-native dotted handlers. A client speaking strict MCP
@@ -453,11 +546,7 @@ async function handlePost(request: Request) {
     return new NextResponse(null, { status: 204 });
   }
 
-  if (
-    method === "tools/list" ||
-    method === "mcp.list_tools" ||
-    (method === "tools/call" && params.name === "mcp.list_tools")
-  ) {
+  if (method === "tools/list" || dispatchName === "mcp.list_tools") {
     // All three names work. mcp.list_tools returns the Cambridge-native
     // shape (flat array of {name, description}); tools/list returns the
     // MCP-spec shape (with inputSchema per tool). tools/call with
@@ -469,7 +558,7 @@ async function handlePost(request: Request) {
     }
     const result = await TOOLS["mcp.list_tools"]({} as AgentActor, params);
     return NextResponse.json(
-      rpcResult(body.id, method === "tools/call" ? wrapMcpContent(result) : result),
+      rpcResult(body.id, isMcpCall ? wrapMcpContent(result) : result),
     );
   }
 
@@ -483,38 +572,32 @@ async function handlePost(request: Request) {
     return NextResponse.json(rpcResult(body.id, { prompts: [] }));
   }
 
-  const auth = await resolveAgentBearer(request.headers.get("authorization"));
-  if (!auth.ok) {
+  const authHeader = request.headers.get("authorization");
+  let auth: ResolvedAgentAuth;
+  try {
+    auth = await resolveAgentBearer(authHeader);
+  } catch (err) {
+    // The error object can carry query parameters (the key hash); log only
+    // its code or name.
+    console.error("[mcp] auth lookup failed", errorLabel(err));
     return NextResponse.json(
-      rpcError(body.id, ERR_UNAUTHENTICATED, auth.error),
-      { status: auth.status },
+      rpcError(
+        body.id,
+        ERR_INTERNAL,
+        "authentication is temporarily unavailable",
+        authUnavailableRefusal(),
+      ),
+      { status: 503 },
     );
   }
+  if (!auth.ok) return authFailureResponse(body.id, auth, authHeader);
   const actor = auth.actor;
 
-  // ── tools/call (MCP-spec) — unwrap to dotted-name dispatch ────────────
-  // `tools/call` carries `{name: "<dotted-name>", arguments: {...}}`. The
-  // handler is the same one a Cambridge-native dotted call would hit;
-  // only the result wrapping differs (MCP returns `{content: [...]}`).
-  let dispatchName: string;
-  let dispatchParams: Record<string, unknown>;
-  let isMcpCall = false;
-
-  if (method === "tools/call") {
-    isMcpCall = true;
-    const name = typeof params.name === "string" ? params.name : "";
-    if (!name) {
-      return NextResponse.json(
-        rpcError(body.id, ERR_INVALID_PARAMS, "tools/call requires { name, arguments? }"),
-        { status: 400 },
-      );
-    }
-    dispatchName = name;
-    dispatchParams =
-      (params.arguments as Record<string, unknown> | undefined) ?? {};
-  } else {
-    dispatchName = method;
-    dispatchParams = params;
+  if (isMcpCall && !dispatchName) {
+    return NextResponse.json(
+      rpcError(body.id, ERR_INVALID_PARAMS, "tools/call requires { name, arguments? }"),
+      { status: 400 },
+    );
   }
 
   const handler = TOOLS[dispatchName];
@@ -525,18 +608,23 @@ async function handlePost(request: Request) {
     );
   }
 
-  try {
-    if (!canInvokeAgentTool(actor.registeredVia, dispatchName)) {
-      throw new ToolError(
-        actor.registeredVia === "operator"
-          ? "Agent match and deck writes are paused for every key until exact validation and complete attribution ship together."
-          : "Existing self-serve keys are read-only. Account-linked reads and all writes remain closed.",
-        403,
-      );
-    }
+  if (!canInvokeAgentTool(actor.registeredVia, dispatchName)) {
     // Authority is checked before the limiter so a denied or unknown tool
-    // cannot mutate operational rate metadata. Successful authenticated reads
-    // still consume a per-key bucket and stamp last_used_at.
+    // cannot mutate operational rate metadata.
+    return toolErrorResponse(
+      body.id,
+      isMcpCall,
+      actor.registeredVia === "operator"
+        ? "Agent match and deck writes are paused for every key until exact validation and complete attribution ship together."
+        : "Existing self-serve keys are read-only. Account-linked reads and all writes remain closed.",
+      403,
+      toolNotPermittedRefusal(),
+    );
+  }
+
+  try {
+    // Successful authenticated reads consume a per-key bucket and stamp
+    // last_used_at.
     const rl = await checkAndConsume(actor.keyId, actor.rateLimitTier);
     if (!rl.allowed) {
       return NextResponse.json(
@@ -544,6 +632,7 @@ async function handlePost(request: Request) {
           body.id,
           ERR_RATE_LIMITED,
           `rate limit exceeded; retry in ${rl.resetSeconds}s`,
+          rateLimitedRefusal(rl.resetSeconds),
         ),
         { status: 429, headers: { "Retry-After": String(rl.resetSeconds) } },
       );
@@ -560,22 +649,7 @@ async function handlePost(request: Request) {
     });
   } catch (err) {
     if (err instanceof ToolError) {
-      // MCP spec says tool errors should be reported via `{isError: true,
-      // content: [...]}` in the result rather than JSON-RPC error. We follow
-      // that for `tools/call`; native dotted dispatch keeps the existing
-      // JSON-RPC error semantics so old clients don't break.
-      if (isMcpCall) {
-        return NextResponse.json(
-          rpcResult(body.id, {
-            content: [{ type: "text", text: err.message }],
-            isError: true,
-          }),
-          { status: err.status },
-        );
-      }
-      return NextResponse.json(rpcError(body.id, ERR_TOOL_ERROR, err.message), {
-        status: err.status,
-      });
+      return toolErrorResponse(body.id, isMcpCall, err.message, err.status);
     }
     console.error("[mcp]", dispatchName, err);
     return NextResponse.json(rpcError(body.id, ERR_INTERNAL, "internal error"), {
