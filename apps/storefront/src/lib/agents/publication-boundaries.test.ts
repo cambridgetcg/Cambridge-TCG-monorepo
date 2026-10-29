@@ -34,6 +34,7 @@ import {
   playTakeAction,
 } from "./play-tools";
 import { deckSave } from "./write-tools";
+import { describeAgentToolGrant } from "./tool-access";
 
 const OPERATOR_A = "11111111-1111-4111-8111-111111111111";
 const OPERATOR_B = "22222222-2222-4222-8222-222222222222";
@@ -340,6 +341,13 @@ describe("agent publication boundaries", () => {
 
     expect(self.operator_bound).toBe(true);
     expect(self.read_only).toBe(true);
+    expect(self.read_only_scope).toBe("domain-state");
+    // Coverage Hunt evidence is a review submission, not a domain write.
+    expect(self.review_submissions).toEqual(["coverage.hunt.contribute"]);
+    expect(self.self_lifecycle).toEqual(["agent.revoke_key"]);
+    expect(self.operational_metadata_writes).toEqual(
+      describeAgentToolGrant("operator").operational_metadata_writes,
+    );
     expect(JSON.stringify(self)).not.toContain(OPERATOR_A);
     expect(self).not.toHaveProperty("operator_user_id");
     expect(mocks.query).toHaveBeenCalledTimes(1);
@@ -372,6 +380,9 @@ describe("agent publication boundaries", () => {
 
     expect(self.operator_bound).toBe(false);
     expect(self.read_only).toBe(true);
+    expect(self.review_submissions).toEqual([]);
+    expect(self.self_lifecycle).toEqual(["agent.revoke_key"]);
+    expect(self.operational_metadata_writes.join(" ")).toContain("agent.revoke_key");
     expect(JSON.stringify(self)).not.toContain(OPERATOR_B);
   });
 
