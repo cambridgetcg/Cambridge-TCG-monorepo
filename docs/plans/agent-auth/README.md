@@ -172,15 +172,15 @@ wire responses.
 | Candidate duty | What the code does | Evidence | Gap |
 | --- | --- | --- | --- |
 | `exit.revocation-is-immediate` | `agent.revoke_key`: one `UPDATE` linearizes; repeats are safe; `stampKeyUse` skips revoked keys; a Coverage Hunt write takes a share lock on its key row. | Tested with mocks and on Postgres | Requests authenticated before the commit may still finish. `revoked_at` records when the revoking statement started, so a contribution that took its key lock first may commit after that time, though none commits after the revocation does. The answer says both. |
-| `exit.states-are-separate` | The answer reports this key's authority (a preview says whether the agent is active, suspended or archived), other keys (a count), profile, deletion, export, shared records, settlement, backups and holds separately. | Tested | Backups are "unknown": the provider's snapshot window is not in the repo. |
+| `exit.states-are-separate` | The answer reports this key's authority (a preview says whether the agent is active, suspended or archived), other keys (a count), profile, deletion, export, shared records, settlement, backups and holds separately. | Tested with mocks | Backups are "unknown": the provider's snapshot window is not in the repo. |
 | `exit.retention-is-itemized` | Retained categories by field name, with why kept, who can see, expiry and "legal basis not separately stated", plus unknown layers and third-party copies. After the fix round it also lists Coverage Hunt chronicle rows, agent-tagged `user_decks` rows under the operator, the handle copies in rooms and match logs, and the legacy registration buckets. | Asserted from the schema and code | Written by an agent and unreviewed. The answer's `completeness` field says it may be incomplete. |
-| `legibility.refusals-are-typed` | Gate refusals carry `reason_code`, `retryable`, `terminal`, `next_actions`, `docs`; terminal means no next action, otherwise at least one, all optional. OpenAPI documents the object. | Tested | Covers gate refusals only. Parse 400s, 413, unknown-method 404 and tools' own errors stay bare. |
-| `rest.silence-is-not-consent` | `confirm` must be exactly `true`; anything else previews. Under `tools/call` it is read only from the arguments. Its schema is a plain boolean, so a strict-schema client can still send `false`. | Tested | — |
+| `legibility.refusals-are-typed` | Gate refusals carry `reason_code`, `retryable`, `terminal`, `next_actions`, `docs`; terminal means no next action, otherwise at least one, all optional. OpenAPI documents the object. | Tested with mocks | Covers gate refusals only. Parse 400s, 413, unknown-method 404 and tools' own errors stay bare. |
+| `rest.silence-is-not-consent` | `confirm` must be exactly `true`; anything else previews. Under `tools/call` it is read only from the arguments. Its schema is a plain boolean, so a strict-schema client can still send `false`. | Tested with mocks | — |
 | `exchange.rights-are-not-hostage` | Revocation has no rate limit, no status check and no review step. | Tested with mocks and on Postgres (a suspended or archived agent's holder can still revoke) | — |
-| `consent.terms-before-binding` | The preview and the tool description state irreversibility and the replacement path by registration kind and agent status. | Tested | The sentences for suspended, archived and self-serve agents are true only once A lands. |
+| `consent.terms-before-binding` | The preview and the tool description state irreversibility and the replacement path by registration kind and agent status. | Tested with mocks | The sentences for suspended, archived and self-serve agents are true only once A lands. |
 | `identity.credentials-are-bounded` | Answers say possession authorised the act and is not proof of identity. Agent and member keys stay separate realms. | Asserted | — |
-| `identity.no-impersonation-or-silent-rewrite` | A: the steward login can no longer mint keys for self-serve agents. | Tested with mocks and on Postgres on A's branch | A is not merged. The steward login can still revoke those agents' keys and archive them. |
-| `repair.challenge-and-restoration`, `safety.protective-limits-are-bounded` | A suspended agent's refusal offers an optional review request to support@; the revocation answer offers optional erasure and correction requests. | Tested | No review procedure is written down, and the review and correction actions now say so. Unsuspend erases the suspension's reason and time. |
+| `identity.no-impersonation-or-silent-rewrite` | A: the steward login can no longer mint keys for self-serve agents. | Tested with mocks and on Postgres on A's branch | A is not merged. The steward login can still revoke those agents' keys, archive them, and read their profiles and key lists at `/account/agents`. |
+| `repair.challenge-and-restoration`, `safety.protective-limits-are-bounded` | A suspended agent's refusal offers an optional review request to support@; the revocation answer offers optional erasure and correction requests. | Tested with mocks | No review procedure is written down, and the review and correction actions now say so. Unsuspend erases the suspension's reason and time. |
 | `consent.exact-authority` | Not met. A key carries no audience, expiry or per-key scope; its authority is the grant for its registration kind. | Asserted | Design needed. |
 | `privacy.layered-inventory` | Unknown layers are named in the answer. | Asserted | The privacy notice has no entry for agent profiles, keys or rate buckets. |
 
@@ -292,8 +292,9 @@ Nothing below is built, and none of it has a migration.
 Results are as each implementer, and the run that merged all four branches,
 reported them. The writer of this page ran the C fix round and the D
 self-test noted below. Typecheck means
-`pnpm --filter cambridgetcg-storefront typecheck`. A, B and C ran it; D
-changes only `scripts/audit-tracked-secrets.mjs` and did not. Every full
+`pnpm --filter cambridgetcg-storefront typecheck`. A, B and C ran it. D
+changes only `scripts/audit-tracked-secrets.mjs`, and no D run recorded a
+typecheck. Every full
 storefront `vitest run` below had the same 8 failures as `main`'s baseline,
 all in `src/lib/verification/browser-journey.test.ts`, which needs a local
 Chromium.
@@ -390,6 +391,18 @@ against a throwaway Postgres 17.11 made for this work (trust auth, TCP on
   the worst-interleaving test. A scratch test there found the bug the fix
   round then fixed: a suspended operator agent's holder was told the operator
   could mint a new key, which A's door refuses.
+
+- **All four merged, after the fix round:** a fresh detached worktree held
+  `origin/main` cbc04652 (after #104, #105 and #106) plus A at a627606e, C
+  at eae05bb4 (which carries B at e7360df7) and D at a7f078ff. They merged
+  with no conflicts. B's own merges of `main` resolved conflicts only in
+  `changelog.ts` (both entries kept) and, from #106's public-repository
+  wording, in imports and the `storefront.mcp` manifest line. Typecheck
+  passed. Full suite: 3783 passed, 8 failed (the browser-journey tests), 214
+  skipped. Both Postgres files together: 17 tests passed.
+  `audit:tracked-secrets` with D's script (4458 files) and its
+  `--self-test`, `audit:modules` and `audit:hospitality` (8 of 8) passed.
+  This page's last wording edits came after that run and change no code.
 
 Never run by any branch: `pnpm verify`, `pnpm run audit`, deploy-verify,
 `build-llms-full.mjs`, and anything against production.
