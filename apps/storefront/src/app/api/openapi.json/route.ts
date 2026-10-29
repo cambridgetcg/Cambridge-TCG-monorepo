@@ -1776,6 +1776,7 @@ const SPEC = {
               properties: {
                 action: { type: "string", enum: ["read_docs", "request_review", "retry"] },
                 href: { type: "string", description: "A documentation URL, or a mailto: address for request_review." },
+                text: { type: "string", description: "What following the action can and cannot be expected to do. request_review says no review procedure is written down yet." },
                 after_seconds: { type: "integer", minimum: 0 },
                 optional: { const: true },
               },

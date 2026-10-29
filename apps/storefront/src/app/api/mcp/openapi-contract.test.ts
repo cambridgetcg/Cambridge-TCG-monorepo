@@ -298,11 +298,15 @@ describe("the gate answers with the statuses and carriers OpenAPI lists", () => 
   it("previews agent.revoke_key as a 200 without a confirm, and its unknown state as a 503", async () => {
     const { responses } = await documented();
     mocks.query.mockResolvedValueOnce({
-      rows: [{ key_prefix: AGENT_TOKEN.slice(0, 12), registered_via: "operator", other_live_keys: 0 }],
+      rows: [{ key_prefix: AGENT_TOKEN.slice(0, 12), registered_via: "operator", status: "active", other_live_keys: 0 }],
     });
     const preview = await POST(request("agent.revoke_key", {}, `Bearer ${AGENT_TOKEN}`));
     expect(preview.status).toBe(200);
-    expect((await preview.json()).result).toMatchObject({ performed: false, key_state: "active" });
+    expect((await preview.json()).result).toMatchObject({
+      performed: false,
+      key_state: "active",
+      states: { this_key_future_authority: "active" },
+    });
 
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.query.mockRejectedValueOnce(Object.assign(new Error("timeout"), { code: "57014" }));

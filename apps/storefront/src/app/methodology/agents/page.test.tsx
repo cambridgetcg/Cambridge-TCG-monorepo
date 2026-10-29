@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  KEY_EXIT_COMPLETENESS,
   KEY_EXIT_CREDENTIAL_NOTE,
   KEY_EXIT_EVIDENCE_STATE,
   KEY_EXIT_INVENTORY_VERSION,
@@ -10,8 +11,8 @@ import {
   KEY_EXIT_RETAINED,
   KEY_EXIT_STATIC_STATES,
   KEY_EXIT_UNKNOWN_LAYERS,
+  KEY_REPLACEMENT_CASES,
   keyExitNextActions,
-  keyReplacementText,
 } from "@/lib/agents/key-exit-inventory";
 import AgentsMethodology from "./page";
 
@@ -23,6 +24,8 @@ function pageText(): string {
     .replace(/<[^>]+>/g, "")
     .replace(/&#x27;|&apos;/g, "'")
     .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ");
 }
@@ -43,7 +46,21 @@ describe("agents methodology: ending a key", () => {
       expect(text).toContain(`${state}: ${value}.`);
     }
     for (const layer of KEY_EXIT_UNKNOWN_LAYERS) expect(text).toContain(layer);
+    expect(text).toContain(KEY_EXIT_COMPLETENESS);
     expect(text).not.toMatch(/\.\. /);
+  });
+
+  it("scopes the inventory to the answers that carry it", () => {
+    const text = pageText();
+
+    expect(text).toContain(
+      "The tool returns the same list with a preview of a live key and with a performed revocation",
+    );
+    expect(text).toContain("the not-active answer carries only its message and the docs link");
+    expect(text).not.toContain("every preview and every revocation");
+    expect(text).not.toContain("One answer for every string");
+    expect(text).toContain("suspended_with_agent");
+    expect(text).toContain("archived_with_agent");
   });
 
   it("states the door, its timing, its replacement path and what possession proves", () => {
@@ -53,8 +70,10 @@ describe("agents methodology: ending a key", () => {
     expect(markup).toContain('id="ending-a-key"');
     expect(text).toContain("Any key's holder can end that key at the MCP gate with agent.revoke_key");
     expect(text).toContain(KEY_EXIT_LINEARIZATION);
-    expect(text).toContain(keyReplacementText("operator"));
-    expect(text).toContain(keyReplacementText("self-serve"));
+    // Every replacement case, so the page never states the active one alone.
+    for (const entry of KEY_REPLACEMENT_CASES) {
+      expect(text).toContain(`${entry.label}: ${entry.text}`);
+    }
     expect(text).toContain(KEY_EXIT_CREDENTIAL_NOTE);
     expect(text).toContain("Neither is holder-authenticated");
     for (const next of keyExitNextActions()) {

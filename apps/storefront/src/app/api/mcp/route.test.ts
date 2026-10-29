@@ -65,6 +65,7 @@ vi.mock("@/lib/agents/coverage-hunt-tools", () => ({
 
 import { GET, MCP_MAX_REQUEST_BYTES, POST } from "./route";
 import { toolByName } from "@/lib/agent-tools-catalog";
+import { KEY_REPLACEMENT_CASES } from "@/lib/agents/key-exit-inventory";
 
 // Built at runtime so no literal key-shaped string sits in the repository.
 const AGENT_TOKEN = "ctcg_agt_" + "Ab1".repeat(7) + "Z";
@@ -277,6 +278,7 @@ describe("MCP typed refusals", () => {
         {
           action: "request_review",
           href: "mailto:support@cambridgetcg.com?subject=Agent%20suspension%20review",
+          text: "You may write to support@cambridgetcg.com. No review procedure is written down yet.",
           optional: true,
         },
       ],
@@ -587,15 +589,22 @@ describe("agent.revoke_key carve-out", () => {
     const tool = listed.result.tools.find(
       (entry: { name: string }) => entry.name === "agent.revoke_key",
     );
+    // A plain boolean: a strict schema converter that marks every property
+    // required still leaves the model false, which previews.
     expect(tool.inputSchema).toEqual({
       type: "object",
       properties: {
-        confirm: expect.objectContaining({ type: "boolean", const: true }),
+        confirm: { type: "boolean", description: "true to act; false or absent to preview" },
       },
       additionalProperties: false,
     });
+    expect(JSON.stringify(tool.inputSchema)).not.toContain("const");
     expect(tool.description).toContain("Ends only the presented key");
     expect(tool.description).toContain("Irreversible");
+    // Every replacement case, never the active operator sentence alone.
+    for (const entry of KEY_REPLACEMENT_CASES) {
+      expect(tool.description).toContain(`${entry.label}: ${entry.text}`);
+    }
     expect(tool.description).toContain("/account/agents");
     expect(tool.description).toContain("self-serve registration is paused");
     expect(tool.description).toContain("without it, a preview");

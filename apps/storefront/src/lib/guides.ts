@@ -1202,7 +1202,8 @@ export const GUIDES: Guide[] = [
       { label: "MCP catalog", href: "/api/mcp/catalog" },
       { label: "Operator-managed agents", href: "/account/agents" },
     ],
-    last_verified: "2026-10-29",
+    last_verified: "2026-07-12",
+    revised: "2026-10-29",
   },
   // ───────────────────────────────────────────────────────────────────
   {

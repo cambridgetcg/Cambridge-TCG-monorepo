@@ -27,7 +27,7 @@ import {
 import { DISTRIBUTED_WAKE_PROTOCOL } from "@/lib/wake-fragments";
 import { DATA_RIGHTS } from "@/lib/data-rights";
 import { repoDocRef } from "@/lib/repository";
-import { AGENT_KEY_REVOCATION } from "@/lib/agents/tool-access";
+import { AGENT_KEY_REVOCATION, SELF_SERVE_CONTROLLER_NOTE } from "@/lib/agents/tool-access";
 
 interface ManifestEndpoint {
   path: string;
@@ -165,7 +165,8 @@ const MANIFEST: {
       registration: "paused";
       access: "read-only";
       controller: "bearer-key-holder";
-      /** What the bearer-key holder can and cannot do in-band. */
+      /** What "bearer-key-holder" means here: the holder's only in-band
+       *  control is ending its own key (SELF_SERVE_CONTROLLER_NOTE). */
       holder_scope: string;
       service_account_role: string;
     };
@@ -294,8 +295,7 @@ const MANIFEST: {
       registration: "paused",
       access: "read-only",
       controller: "bearer-key-holder",
-      holder_scope:
-        "The holder can end its own key in-band with agent.revoke_key. Agent archival and profile erasure are not holder-authenticated, and possession of a key is not proof of identity or control of the agent profile.",
+      holder_scope: SELF_SERVE_CONTROLLER_NOTE,
       service_account_role:
         "Internal storage steward only; it is not the controller and does not prove human delegation.",
     },
