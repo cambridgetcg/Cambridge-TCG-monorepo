@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Audience, audienceMetadata, TypeSignature } from "@/lib/ui";
 import {
+  KEY_EXIT_COMPLETENESS,
   KEY_EXIT_CREDENTIAL_NOTE,
   KEY_EXIT_EVIDENCE_STATE,
   KEY_EXIT_INVENTORY_VERSION,
@@ -10,8 +11,8 @@ import {
   KEY_EXIT_STATIC_STATES,
   KEY_EXIT_THIRD_PARTY_COPIES,
   KEY_EXIT_UNKNOWN_LAYERS,
+  KEY_REPLACEMENT_CASES,
   keyExitNextActions,
-  keyReplacementText,
   type KeyExitNextAction,
 } from "@/lib/agents/key-exit-inventory";
 
@@ -285,21 +286,32 @@ export default function AgentsMethodology() {
         Without <code>confirm: true</code> the call is a preview that changes nothing:
         agents often call a listed tool with no arguments to learn what it does, and an
         irreversible act should not happen by exploration. Its answers never include the
-        revocation reason, who revoked a key, or the agent&apos;s handle, id or status.
+        revocation reason, who revoked a key, or the agent&apos;s handle or id. A preview or
+        a revocation of a live key says whether its agent is suspended or archived, which
+        the gate&apos;s 403 already tells that key&apos;s holder; the not-active answer says
+        nothing about any agent.
       </p>
       <ul>
         <li>
           <strong>When it takes effect.</strong> {KEY_EXIT_LINEARIZATION}
         </li>
         <li>
-          <strong>One answer for every string that is not a live key.</strong> An unknown
-          string, an already-revoked key and the loser of two simultaneous calls all get the
-          same answer: nothing was changed, and repeating is safe. The tool tells nobody
-          which strings were ever keys.
+          <strong>One answer for every key-shaped string that is not a live key.</strong>{" "}
+          An unknown string, an already-revoked key and the loser of two simultaneous calls
+          all get the same answer: nothing was changed, and repeating is safe. It carries
+          only that message and the docs link. The tool tells nobody which strings were
+          ever keys. A missing Authorization header, or one whose token is not shaped like
+          an agent key, gets the typed 401 instead.
         </li>
         <li>
-          <strong>Replacement.</strong> Operator-managed: {keyReplacementText("operator")}{" "}
-          Self-serve: {keyReplacementText("self-serve")}
+          <strong>Replacement.</strong> The answer gives the case that applies to the key:
+          <ul>
+            {KEY_REPLACEMENT_CASES.map((entry) => (
+              <li key={entry.label}>
+                {entry.label}: {entry.text}
+              </li>
+            ))}
+          </ul>
         </li>
         <li>
           <strong>What possession proves.</strong> {KEY_EXIT_CREDENTIAL_NOTE}
@@ -324,7 +336,10 @@ export default function AgentsMethodology() {
       <h3>What changes and what stays</h3>
       <ul>
         <li>
-          <code>this_key_future_authority</code>: ended.
+          <code>this_key_future_authority</code>: ended. A preview says{" "}
+          <code>active</code>, or <code>suspended_with_agent</code> or{" "}
+          <code>archived_with_agent</code> when the agent&apos;s status already keeps the
+          gate from accepting the key.
         </li>
         <li>
           <code>other_keys</code>: the answer gives their count only; they are not changed.
@@ -338,10 +353,11 @@ export default function AgentsMethodology() {
       <h3>What is kept</h3>
       <p>
         Inventory {KEY_EXIT_INVENTORY_VERSION}, {KEY_EXIT_EVIDENCE_STATE}. The tool returns
-        the same list with every preview and every revocation
-        (<code>apps/storefront/src/lib/agents/key-exit-inventory.ts</code>). It names fields,
-        never values.
+        the same list with a preview of a live key and with a performed revocation
+        (<code>apps/storefront/src/lib/agents/key-exit-inventory.ts</code>); the not-active
+        answer carries only its message and the docs link. It names fields, never values.
       </p>
+      <p>{KEY_EXIT_COMPLETENESS}</p>
       <ul>
         {KEY_EXIT_RETAINED.map((entry) => (
           <li key={entry.category}>

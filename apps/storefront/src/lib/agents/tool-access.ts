@@ -102,6 +102,26 @@ export const AGENT_KEY_REVOCATION = {
   scope: "the presented key only",
 } as const;
 
+/**
+ * agent.revoke_key's input schema, for tools/list and the tool catalog.
+ *
+ * `confirm` is a plain boolean, not `const: true`. Clients that convert MCP
+ * schemas to strict function schemas mark every property required; with
+ * `const: true` the model could then only ever send `confirm: true`, and its
+ * first exploratory call would end the key. As a plain boolean it can send
+ * false and get the preview. The server still acts only on `confirm === true`.
+ */
+export const AGENT_REVOKE_KEY_INPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    confirm: {
+      type: "boolean",
+      description: "true to act; false or absent to preview",
+    },
+  },
+  additionalProperties: false,
+} as const;
+
 /** Review submissions by registration kind, for the discovery documents
  *  that describe both kinds at once. Neither list is a domain write. */
 export function reviewSubmissionsByRegistration(): {

@@ -16,7 +16,11 @@
  * state, so this tool tells nobody which strings were ever keys.
  *
  * Answers never carry revoked_reason, who revoked a key, the agent's
- * status, handle or id, or anything about its operator.
+ * handle or id, or anything about its operator. A preview or a performed
+ * revocation of a live key says whether its agent is suspended or archived
+ * (this_key_future_authority, replacement): the gate's 403 already tells any
+ * holder of a live key that much, so this adds no oracle. The not-active
+ * answer carries nothing about any agent.
  *
  * Designed against XENIA Covenant 0.1 candidate duty
  * exit.revocation-is-immediate (xenia d4727ec); Cambridge TCG has not adopted
@@ -27,6 +31,7 @@ import { query } from "@/lib/db";
 import { hashAgentToken, isAgentToken, loggableErrorCode } from "./auth";
 import { HOLDER_REVOCATION_REASON } from "./revocation-reasons";
 import {
+  KEY_EXIT_COMPLETENESS,
   KEY_EXIT_CREDENTIAL_NOTE,
   KEY_EXIT_DOCS,
   KEY_EXIT_EVIDENCE_STATE,
@@ -39,12 +44,16 @@ import {
   KEY_EXIT_UNKNOWN_LAYERS,
   keyExitNextActions,
   keyReplacementText,
+  type KeyAgentStatus,
 } from "./key-exit-inventory";
 
 type RegisteredVia = "operator" | "self-serve";
 
+// a.status is read, never filtered on: it only chooses the replacement text
+// and the preview's this_key_future_authority.
 const PREVIEW_SQL = `SELECT k.key_prefix,
             a.registered_via,
+            a.status,
             (SELECT count(*)::int
                FROM agent_keys k2
               WHERE k2.agent_id = k.agent_id
@@ -63,7 +72,7 @@ const REVOKE_SQL = `WITH r AS (
         WHERE key_hash = $1 AND revoked_at IS NULL
         RETURNING id, agent_id, key_prefix, revoked_at
      )
-     SELECT r.key_prefix, r.revoked_at, a.registered_via,
+     SELECT r.key_prefix, r.revoked_at, a.registered_via, a.status,
             (SELECT count(*)::int
                FROM agent_keys k2
               WHERE k2.agent_id = r.agent_id
@@ -71,16 +80,20 @@ const REVOKE_SQL = `WITH r AS (
                 AND k2.id <> r.id) AS other_live_keys
        FROM r JOIN agents a ON a.id = r.agent_id`;
 
+type FutureAuthority = "ended" | "active" | "suspended_with_agent" | "archived_with_agent";
+
 function keyExitFacts(input: {
-  futureAuthority: "ended" | "active";
+  futureAuthority: FutureAuthority;
   otherLiveKeys: number;
   registeredVia: RegisteredVia;
+  agentStatus: KeyAgentStatus;
 }) {
   return {
     inventory_version: KEY_EXIT_INVENTORY_VERSION,
     evidence_state: KEY_EXIT_EVIDENCE_STATE,
+    completeness: KEY_EXIT_COMPLETENESS,
     reversible: false as const,
-    replacement: keyReplacementText(input.registeredVia),
+    replacement: keyReplacementText(input.registeredVia, input.agentStatus),
     linearization: KEY_EXIT_LINEARIZATION,
     states: {
       this_key_future_authority: input.futureAuthority,
@@ -151,6 +164,18 @@ function registeredVia(value: unknown): RegisteredVia {
   return value === "operator" ? "operator" : "self-serve";
 }
 
+/** agents_status_values (migration 0090) admits only these three. Anything
+ *  else is read as archived, which offers no replacement and no authority. */
+function agentStatus(value: unknown): KeyAgentStatus {
+  return value === "active" || value === "suspended" ? value : "archived";
+}
+
+/** A live key's authority while its agent is in this status. */
+function previewAuthority(status: KeyAgentStatus): FutureAuthority {
+  if (status === "active") return "active";
+  return status === "suspended" ? "suspended_with_agent" : "archived_with_agent";
+}
+
 /**
  * End the presented key, or preview doing so. `confirm` must be exactly
  * `true` to act; any other value, including "true" or 1, previews.
@@ -171,6 +196,7 @@ export async function revokePresentedKey(
       const row = preview.rows[0];
       if (!row) return notActive();
       const via = registeredVia(row.registered_via);
+      const status = agentStatus(row.status);
       const otherLiveKeys = Number(row.other_live_keys ?? 0);
       return {
         performed: false,
@@ -180,7 +206,12 @@ export async function revokePresentedKey(
         other_live_keys: otherLiveKeys,
         would_end: "This key's future authority here. Nothing else changes.",
         to_act: "Call agent.revoke_key again with confirm: true.",
-        ...keyExitFacts({ futureAuthority: "active", otherLiveKeys, registeredVia: via }),
+        ...keyExitFacts({
+          futureAuthority: previewAuthority(status),
+          otherLiveKeys,
+          registeredVia: via,
+          agentStatus: status,
+        }),
       };
     }
 
@@ -188,6 +219,7 @@ export async function revokePresentedKey(
     const row = revoked.rows[0];
     if (!row) return notActive();
     const via = registeredVia(row.registered_via);
+    const status = agentStatus(row.status);
     const otherLiveKeys = Number(row.other_live_keys ?? 0);
     const keyPrefix = String(row.key_prefix);
     const revokedAt = iso(row.revoked_at);
@@ -203,7 +235,12 @@ export async function revokePresentedKey(
         revoked_at: revokedAt,
         note: KEY_EXIT_RECEIPT_NOTE,
       },
-      ...keyExitFacts({ futureAuthority: "ended", otherLiveKeys, registeredVia: via }),
+      ...keyExitFacts({
+        futureAuthority: "ended",
+        otherLiveKeys,
+        registeredVia: via,
+        agentStatus: status,
+      }),
     };
   } catch (err) {
     // The error's parameters include the key hash: log its code only.

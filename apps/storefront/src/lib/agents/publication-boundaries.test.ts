@@ -34,7 +34,7 @@ import {
   playTakeAction,
 } from "./play-tools";
 import { deckSave } from "./write-tools";
-import { describeAgentToolGrant } from "./tool-access";
+import { AGENT_REVOKE_KEY_INPUT_SCHEMA, describeAgentToolGrant } from "./tool-access";
 
 const OPERATOR_A = "11111111-1111-4111-8111-111111111111";
 const OPERATOR_B = "22222222-2222-4222-8222-222222222222";
@@ -444,10 +444,13 @@ describe("agent publication boundaries", () => {
       example_input: {},
       example_output_shape: { performed: false, revoked: false, key_state: "active" },
     });
+    // The same schema tools/list serves: a plain boolean, never const: true.
+    expect(revoke?.input_schema).toEqual(AGENT_REVOKE_KEY_INPUT_SCHEMA);
     expect(revoke?.input_schema).toMatchObject({
-      properties: { confirm: { type: "boolean", const: true } },
+      properties: { confirm: { type: "boolean" } },
       additionalProperties: false,
     });
+    expect(JSON.stringify(revoke?.input_schema)).not.toContain("const");
     expect(revoke?.description).toContain("Ends only the presented key");
     expect(JSON.stringify(revoke)).not.toMatch(/operator_user_id|xenia|covenant/i);
 

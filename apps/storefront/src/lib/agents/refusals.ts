@@ -31,6 +31,8 @@ export interface RefusalNextAction {
   action: "read_docs" | "request_review" | "retry";
   href?: string;
   after_seconds?: number;
+  /** What following the action can and cannot be expected to do. */
+  text?: string;
   optional: true;
 }
 
@@ -65,6 +67,7 @@ export function authRefusal(failure: AgentAuthFailure): AgentRefusal {
         {
           action: "request_review",
           href: "mailto:support@cambridgetcg.com?subject=Agent%20suspension%20review",
+          text: "You may write to support@cambridgetcg.com. No review procedure is written down yet.",
           optional: true,
         },
       ],

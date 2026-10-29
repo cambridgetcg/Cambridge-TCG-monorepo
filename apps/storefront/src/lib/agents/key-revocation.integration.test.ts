@@ -42,6 +42,7 @@ vi.mock("@/lib/auth", () => ({ auth: async () => ({ user: { id: state.userId } }
 
 import { resolveAgentBearer, stampKeyUse } from "./auth";
 import { createAgentWithKey, mintRawToken } from "./creation";
+import { keyReplacementText } from "./key-exit-inventory";
 import { revokePresentedKey } from "./key-revocation";
 import { archiveAgent } from "./operator-actions";
 import { ARCHIVE_REVOCATION_REASON, HOLDER_REVOCATION_REASON } from "./revocation-reasons";
@@ -206,7 +207,14 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
     const [live, other] = keys;
 
     const preview = await revokePresentedKey(live.token);
-    expect(preview).toMatchObject({ performed: false, revoked: false, key_state: "active", other_live_keys: 2 });
+    expect(preview).toMatchObject({
+      performed: false,
+      revoked: false,
+      key_state: "active",
+      other_live_keys: 2,
+      replacement: keyReplacementText("operator", "active"),
+      states: { this_key_future_authority: "active" },
+    });
     expect((await keyRow(live.keyId)).revoked_at).toBeNull();
 
     const performed = await revokePresentedKey(live.token, { confirm: true });
@@ -282,18 +290,43 @@ describe.skipIf(!target)("agent key revocation isolated PostgreSQL integration",
     expect((await keyRow(key.keyId)).last_used_at).toEqual(stamped);
   });
 
-  it("a suspended (or archived) agent's key can still be revoked by its holder", async () => {
+  it("a suspended (or archived) agent's key can still be revoked by its holder, and is told no key can be minted", async () => {
     const suspended = await seedAgent();
     await pool.query("UPDATE agents SET status = 'suspended', suspended_at = NOW(), suspended_reason = 'integration' WHERE id = $1", [suspended.agentId]);
     const [key] = suspended.keys;
+    const whileSuspended = keyReplacementText("operator", "suspended");
     expect(await resolveAgentBearer(`Bearer ${key.token}`)).toMatchObject({ ok: false, status: 403, reason_code: "agent_suspended" });
-    expect(await revokePresentedKey(key.token)).toMatchObject({ key_state: "active", performed: false });
-    expect(await revokePresentedKey(key.token, { confirm: true })).toMatchObject({ performed: true, key_state: "revoked" });
+    expect(await revokePresentedKey(key.token)).toMatchObject({
+      key_state: "active",
+      performed: false,
+      replacement: whileSuspended,
+      states: { this_key_future_authority: "suspended_with_agent" },
+    });
+    expect(await revokePresentedKey(key.token, { confirm: true })).toMatchObject({
+      performed: true,
+      key_state: "revoked",
+      replacement: whileSuspended,
+      states: { this_key_future_authority: "ended" },
+    });
     expect(await resolveAgentBearer(`Bearer ${key.token}`)).toMatchObject({ ok: false, status: 401, reason_code: "unknown_or_revoked_key" });
 
     const archived = await seedAgent();
     await pool.query("UPDATE agents SET status = 'archived', archived_at = NOW() WHERE id = $1", [archived.agentId]);
-    expect(await revokePresentedKey(archived.keys[0].token, { confirm: true })).toMatchObject({ performed: true });
+    expect(await revokePresentedKey(archived.keys[0].token)).toMatchObject({
+      replacement: keyReplacementText("operator", "archived"),
+      states: { this_key_future_authority: "archived_with_agent" },
+    });
+    expect(await revokePresentedKey(archived.keys[0].token, { confirm: true })).toMatchObject({
+      performed: true,
+      replacement: keyReplacementText("operator", "archived"),
+    });
+
+    const selfServe = await seedAgent();
+    await pool.query("UPDATE agents SET registered_via = 'self-serve' WHERE id = $1", [selfServe.agentId]);
+    expect(await revokePresentedKey(selfServe.keys[0].token)).toMatchObject({
+      replacement: keyReplacementText("self-serve", "active"),
+      states: { this_key_future_authority: "active" },
+    });
   });
 
   it("Coverage Hunt: a contribution holding its key's share lock delays the revocation; later contributions are refused key_revoked", async () => {
