@@ -15,7 +15,7 @@ export default function CardImagesPolicyPage() {
     <PageLayout width="reading">
       <div lang="en">
         <PageHeader title="Card images and text" description="A picture can help identify a card without proving which printing it shows. Publisher credit and image context belong beside it." />
-        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
+        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026; the section on linked CardRush listing images was added 29 October 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
 
         <div className="space-y-8 text-sm leading-7 text-ink-muted">
           <section>
@@ -35,6 +35,11 @@ export default function CardImagesPolicyPage() {
             <h2 className={headingClass}>Other image paths</h2>
             <p>A separate decision on 16 July retained catalogue photos as a market fallback. These images are labelled unverified: the legacy record does not establish the source and printing evidence required by the official-reference reader.</p>
             <p className="mt-3">Gallery, artist and retained multiplayer readers still have separate limitations. Starter and browser-practice images now use the shared source checks and carry reference context. The <Link href="/roadmap#images" className={linkClass}>image roadmap</Link> tracks the remaining work.</p>
+          </section>
+
+          <section>
+            <h2 className={headingClass}>Linked CardRush listing images</h2>
+            <p>Member price pages may show a CardRush listing&apos;s own image beside that listing&apos;s price, so the item can be checked. Cambridge does not host it: the page links the image at CardRush&apos;s own address, credits it &ldquo;Image: CardRush&rdquo; and links to the listing, and your browser loads it from CardRush. Cambridge does not copy, mirror, proxy or cache it, and it is not part of any Cambridge API or download. The image belongs to CardRush and shows what the listing shows; Cambridge does not verify it. On request, Cambridge stops linking it: the listing&apos;s link is marked withdrawn, and pages read afterwards no longer show it.</p>
           </section>
 
           <section>

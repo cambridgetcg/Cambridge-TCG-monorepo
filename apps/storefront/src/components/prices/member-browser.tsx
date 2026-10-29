@@ -4,6 +4,7 @@ import { scheduledCollection } from "@/lib/datafeed/collection-flags";
 import { getMemberSessionActor } from "@/lib/prices/member-access";
 import { displayOnlySourcesWithRows, MemberPriceQueryError, parseMemberPriceQuery, readMemberPrices } from "@/lib/prices/member-feed";
 import { displayOnlyInputsNarrowed, displayOnlyInputsOffered, type MemberPriceQuery } from "@/lib/prices/member-feed-types";
+import { readMemberPriceImages } from "@/lib/prices/member-images";
 import { memberPriceParams, type MemberPriceSearchParams } from "./member-query";
 import { MemberPriceDisplayOnlyNote, MemberPriceDownloads, MemberPriceFilters, MemberPriceResults } from "./member-source-browser";
 
@@ -50,13 +51,15 @@ export async function MemberPriceBrowser({ search }: { search: MemberPriceSearch
   } catch (error) {
     if (!(error instanceof MemberPriceQueryError)) throw error;
   }
+  // Identity images for the page's rows, display only; it never throws.
+  const images = page?.status === "available" ? await readMemberPriceImages(page.items) : undefined;
   const displayOnly = await collected;
   // The reader leaves CardRush and TCGplayer out of this view; say why, but
   // only for a source with rows to show, so no view implies prices that do not exist.
   const filter = query?.source;
   const leftOut = page && query && !displayOnlyInputsOffered(query) ? displayOnly.filter((source) => !filter || filter === source) : [];
   const narrowed = query ? displayOnlyInputsNarrowed(query) : false;
-  const results = page ? <MemberPriceResults page={page} params={params} /> : (
+  const results = page ? <MemberPriceResults page={page} params={params} images={images} /> : (
     <div role="alert" className="my-5 border-y border-border-subtle py-5 text-sm text-ink-muted">
       <h3 className="font-medium text-ink">These price filters could not be used</h3>
       <p className="mt-2">Check the filters or return to the first page. A continuation cursor must match its original filters.</p>

@@ -1,14 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MemberPriceItem, MemberPricePage } from "@/lib/prices/member-feed-types";
+import type { MemberPriceImage } from "@/lib/prices/member-images";
 import { DISPLAY_ONLY_INPUT_PAGES_END, MemberPriceQueryError } from "@/lib/prices/member-feed-types";
 
-const mocks = vi.hoisted(() => ({ actor: vi.fn(), read: vi.fn(), parse: vi.fn(), collected: vi.fn() }));
+const mocks = vi.hoisted(() => ({ actor: vi.fn(), read: vi.fn(), parse: vi.fn(), collected: vi.fn(), images: vi.fn() }));
 vi.mock("@/lib/prices/member-access", () => ({ getMemberSessionActor: mocks.actor }));
 vi.mock("@/lib/prices/member-feed", async () => {
   const types = await import("@/lib/prices/member-feed-types");
   return { MemberPriceQueryError: types.MemberPriceQueryError, readMemberPrices: mocks.read, parseMemberPriceQuery: mocks.parse, displayOnlySourcesWithRows: mocks.collected };
 });
+vi.mock("@/lib/prices/member-images", () => ({ readMemberPriceImages: mocks.images }));
 import { MemberPriceBrowser } from "./member-browser";
 import { MemberPriceDisplayOnlyNote, MemberPriceDownloads, MemberPriceFilters, MemberPriceResults } from "./member-source-browser";
 import { MemberCatalogLink } from "./member-catalog-link";
@@ -37,6 +39,7 @@ beforeEach(() => {
   mocks.read.mockResolvedValue(page);
   // As today: no CardRush or TCGplayer row has been collected.
   mocks.collected.mockResolvedValue([]);
+  mocks.images.mockResolvedValue({ byItem: new Map(), rowsLookedUp: 1 });
 });
 
 describe("member price server gate", () => {
@@ -99,6 +102,19 @@ describe("member price server gate", () => {
     expect(html).toContain("Member source browser");
     expect(html).toContain("/account/data");
     expect(html).toContain("/methodology/member-pricing");
+    // The page's rows, once read, are looked up for identity images.
+    expect(mocks.images).toHaveBeenCalledWith(page.items);
+  });
+
+  it("looks up no images for a page that is not available, and shows the images it is given", async () => {
+    mocks.read.mockResolvedValue({ ...page, status: "unavailable", items: [], count: 0, total: 0 });
+    renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+    expect(mocks.images).not.toHaveBeenCalled();
+    mocks.read.mockResolvedValue(page);
+    mocks.images.mockResolvedValue({ byItem: new Map([[item.id, { lane: "official-reference", url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit" }]]), rowsLookedUp: 1 });
+    const html = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
+    expect(html).toContain('src="https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png"');
+    expect(html).toContain("Publisher credit");
   });
 
   it.each([
@@ -254,6 +270,47 @@ describe("member price rendering", () => {
     expect(html).toContain("Back to first page");
     // A view that pages on, or has ended, says nothing of the kind.
     for (const other of [{ ...page, complete: false, nextCursor: "next" }, page]) expect(renderToStaticMarkup(<MemberPriceResults page={other} params={new URLSearchParams()} />)).not.toContain("for looking at, not collecting");
+  });
+
+  const listingUrl = `https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from("product/SYNTHETIC_15600.jpg").toString("hex")}.jpg`;
+  const listing = { ...item, id: "cardrush-1", source: "cardrush" as const, sourceProductId: "www.cardrush-op.jp/product/15600", sourceUrl: "https://www.cardrush-op.jp/product/15600",
+    productName: "〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}", currency: "JPY" as const, underlyingMarket: "cardrush" as const, amount: "123", granularity: "printing" as const, permittedUses: ["member-display" as const] };
+  const reference = { ...item, id: "cardmarket-1", sku: "op-op01-006-ja", mappingStatus: "exact" as const };
+  const imagesFor = (entries: [string, MemberPriceImage][], rowsLookedUp = entries.length) => ({ byItem: new Map(entries), rowsLookedUp });
+
+  it("shows a CardRush listing image at CardRush's own URL, lazily, fixed-size and credited to the listing", () => {
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { lane: "cardrush-listing", url: listingUrl }]])} />);
+    const img = /<img [^>]*>/.exec(html)![0];
+    expect(img).toContain(`src="${listingUrl}"`);
+    for (const attribute of ['loading="lazy"', 'decoding="async"', 'width="56"', 'height="78"', 'alt="〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}: CardRush listing image"']) expect(img).toContain(attribute);
+    // A plain img: never next/image, its optimiser or any other proxy.
+    expect(html).not.toContain("/_next/image");
+    expect(html).not.toContain("srcSet");
+    expect(html).not.toContain("srcset");
+    expect(html).toContain('<a href="https://www.cardrush-op.jp/product/15600" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-4">Image: CardRush</a>');
+    expect(html).not.toContain("Official image");
+  });
+
+  it("labels an official image as an English base reference with its credit, and shows nothing for a row without one", () => {
+    const official: MemberPriceImage = { lane: "official-reference", url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD." };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [reference, item] }} params={new URLSearchParams()} images={imagesFor([[reference.id, official]], 2)} />);
+    expect(html.match(/<img /g)).toHaveLength(1);
+    expect(html).toContain(`src="${official.url}"`);
+    expect(html).toContain("Official image · English base reference");
+    expect(html).toContain(official.attribution);
+    expect(html).toContain("official English base reference image, printing not verified");
+    expect(html).not.toContain("Image: CardRush");
+    // No images at all: no img and no placeholder that implies one.
+    const none = renderToStaticMarkup(<MemberPriceResults page={page} params={new URLSearchParams()} images={imagesFor([], 1)} />);
+    expect(none).not.toContain("<img");
+    expect(none).not.toMatch(/No image|N\/A|placeholder/i);
+    expect(renderToStaticMarkup(<MemberPriceResults page={page} params={new URLSearchParams()} />)).not.toContain("<img");
+  });
+
+  it("says when a page has more rows than were looked up for images", () => {
+    const rows = Array.from({ length: 3 }, (_, index) => ({ ...item, id: `row-${index}` }));
+    expect(renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: rows, count: 3 }} params={new URLSearchParams()} images={imagesFor([], 2)} />)).toContain("Images are looked up for the first 2 rows of a page.");
+    expect(renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: rows, count: 3 }} params={new URLSearchParams()} images={imagesFor([], 3)} />)).not.toContain("Images are looked up");
   });
 
   it("provides labelled name, source, game, metric and history filters with no stale cursor", () => {

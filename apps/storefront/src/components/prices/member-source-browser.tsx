@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices";
 import { Field, Input, Select } from "@/lib/ui/Input";
 import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, DISPLAY_ONLY_INPUT_PAGES, DISPLAY_ONLY_INPUT_PAGES_END, isDisplayOnlyInput, type MemberPriceItem, type MemberPricePage, type MemberPriceSource } from "@/lib/prices/member-feed-types";
+import type { MemberPriceImage, MemberPriceImages } from "@/lib/prices/member-images";
 import { memberPriceExportHref, memberPriceHref } from "./member-query";
 
 const METRICS = ["avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil", "usd", "usd_foil", "usd_etched", "eur", "eur_foil", "sell", "market", "listed-median"];
@@ -82,7 +83,34 @@ function ObservationTime({ value }: { value: string | null }) {
   return value ? <time dateTime={value}>{value}</time> : <>Unknown</>;
 }
 
-export function MemberPriceResults({ page, params }: { page: MemberPricePage; params: URLSearchParams }) {
+/** A row's identity image, small and fixed-size, for checking the item: a
+ * CardRush listing's own image at CardRush's URL (a plain img, never
+ * next/image or a proxy: Cambridge links it and never copies it), or an
+ * official English base reference. ImageCredit says which, beside the row's name. */
+function ItemImage({ image, item }: { image: MemberPriceImage; item: MemberPriceItem }) {
+  const name = item.productName ?? item.sourceProductId;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- linked at the source's own URL, never optimised or proxied
+    <img
+      src={image.url}
+      alt={image.lane === "cardrush-listing" ? `${name}: CardRush listing image` : `${name}: official English base reference image, printing not verified`}
+      width={56}
+      height={78}
+      loading="lazy"
+      decoding="async"
+      className="h-[78px] w-14 shrink-0 rounded border border-border-subtle bg-surface-subtle object-contain"
+    />
+  );
+}
+
+function ImageCredit({ image, item }: { image: MemberPriceImage; item: MemberPriceItem }) {
+  return image.lane === "cardrush-listing"
+    ? <p className="mt-2 text-xs"><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">Image: CardRush</a></p>
+    : <p className="mt-2 text-xs text-ink-muted">Official image · English base reference<span className="block text-ink-faint">{image.attribution}</span></p>;
+}
+
+/** `images`: the rows' identity images (readMemberPriceImages); a row with none shows none. */
+export function MemberPriceResults({ page, params, images }: { page: MemberPricePage; params: URLSearchParams; images?: MemberPriceImages }) {
   if (page.status === "unavailable") return (
     <div role="status" className="my-6 border-y border-border-subtle py-6">
       <h3 className="font-display text-lg italic text-ink">Member price source unavailable</h3>
@@ -100,6 +128,7 @@ export function MemberPriceResults({ page, params }: { page: MemberPricePage; pa
     <>
       <p className="mb-3 text-xs text-ink-muted">{page.count} observations on this page; {page.total} in this filtered snapshot. {page.complete ? "End of results." : page.nextCursor ? "More results follow." : "More results match than this view shows."}</p>
       <p className="mb-4 text-xs text-ink-muted">Snapshot opened: <ObservationTime value={page.asOf} />. This is a pagination boundary, not source freshness. Source and retrieval times appear on each row.</p>
+      {images && page.items.length > images.rowsLookedUp && <p className="mb-4 text-xs text-ink-muted">Images are looked up for the first {images.rowsLookedUp} rows of a page.</p>}
       <div className="overflow-x-auto rounded-lg border border-border-subtle" role="region" aria-label="Source price observations" tabIndex={0}>
         <table className="w-full text-left text-sm">
           <caption className="sr-only">Stored source price observations in native currency. Product-level aggregates are not exact-printing sales.</caption>
@@ -107,45 +136,54 @@ export function MemberPriceResults({ page, params }: { page: MemberPricePage; pa
             <tr>{["Product", "Source & metric", "Native amount", "Specificity", "Observation times"].map((heading) => <th key={heading} scope="col" className="px-4 py-3 font-medium">{heading}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
-            {page.items.map((item) => (
-              <tr key={item.id} className="align-top">
-                <th scope="row" className="min-w-48 px-4 py-4 font-normal">
-                  <p className="font-medium text-ink">{item.productName ?? "Source product name unknown"}</p>
-                  <p className="mt-1 text-xs text-ink-muted">{item.game}{item.setCode ? ` · ${item.setCode}` : ""}</p>
-                  <p className="mt-1 break-all font-mono text-xs text-ink-muted">{item.sku ?? `Source ID: ${item.sourceProductId}`}</p>
-                </th>
-                <td className="min-w-48 px-4 py-4">
-                  <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">{SOURCE_NAMES[item.source]}</a>
-                  <p className="mt-1 font-mono text-xs text-ink">{item.metric}</p>
-                  <p className="mt-1 text-xs text-ink-muted">Market: {MARKET_NAMES[item.underlyingMarket]}</p>
-                  <p className="mt-2 text-xs text-ink-muted">{item.attribution}</p>
-                  <p className="mt-2 text-xs text-ink-muted">{item.permittedUses.includes("member-download") ? "Eligible for member export" : "View only · not in API or downloads"}</p>
-                </td>
-                <td className="whitespace-nowrap px-4 py-4 font-mono text-ink">{formatNativeAmount(item.amount, item.currency)} {item.currency}</td>
-                <td className="min-w-56 px-4 py-4 text-xs text-ink-muted">
-                  <p>{item.granularity === "source-product" ? "Source-product aggregate" : "Printing-level observation"}</p>
-                  <p className="mt-1">Mapping: {item.mappingStatus === "exact" ? "exact catalog mapping" : item.mappingStatus === "ambiguous" ? "ambiguous · no exact card match" : "unmapped · source product only"}</p>
-                  <p className="mt-1">Finish: {item.finish ?? "unknown"}</p>
-                  <p>Language: {item.language ?? "unknown"}</p>
-                  <p>Condition: {item.condition ?? "unknown · not condition-adjusted"}</p>
-                </td>
-                <td className="min-w-56 px-4 py-4 text-xs text-ink-muted">
-                  <p>Stored snapshot · not a live quote</p>
-                  <p className="mt-2">Source updated: <ObservationTime value={item.sourceUpdatedAt} /></p>
-                  <p className="mt-2">Retrieved: <ObservationTime value={item.retrievedAt} /></p>
-                  <details className="mt-3">
-                    <summary className="cursor-pointer text-accent">Provenance details</summary>
-                    <dl className="mt-2 space-y-1 break-all">
-                      <div><dt>Parser</dt><dd className="font-mono">{item.parserVersion}</dd></div>
-                      <div><dt>Crosswalk</dt><dd className="font-mono">{item.crosswalkVersion}</dd></div>
-                      <div><dt>Source evidence</dt><dd className="font-mono">{item.evidenceVersion}</dd></div>
-                      {item.catalogSourceUrl && <div><dt>Product catalog</dt><dd><a href={item.catalogSourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">Catalog source</a></dd></div>}
-                      {item.catalogUpdatedAt && <div><dt>Catalog updated</dt><dd><ObservationTime value={item.catalogUpdatedAt} /></dd></div>}
-                    </dl>
-                  </details>
-                </td>
-              </tr>
-            ))}
+            {page.items.map((item) => {
+              const image = images?.byItem.get(item.id);
+              return (
+                <tr key={item.id} className="align-top">
+                  <th scope="row" className="min-w-64 px-4 py-4 font-normal">
+                    <div className="flex gap-3">
+                      {image && <ItemImage image={image} item={item} />}
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{item.productName ?? "Source product name unknown"}</p>
+                        <p className="mt-1 text-xs text-ink-muted">{item.game}{item.setCode ? ` · ${item.setCode}` : ""}</p>
+                        <p className="mt-1 break-all font-mono text-xs text-ink-muted">{item.sku ?? `Source ID: ${item.sourceProductId}`}</p>
+                        {image && <ImageCredit image={image} item={item} />}
+                      </div>
+                    </div>
+                  </th>
+                  <td className="min-w-48 px-4 py-4">
+                    <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">{SOURCE_NAMES[item.source]}</a>
+                    <p className="mt-1 font-mono text-xs text-ink">{item.metric}</p>
+                    <p className="mt-1 text-xs text-ink-muted">Market: {MARKET_NAMES[item.underlyingMarket]}</p>
+                    <p className="mt-2 text-xs text-ink-muted">{item.attribution}</p>
+                    <p className="mt-2 text-xs text-ink-muted">{item.permittedUses.includes("member-download") ? "Eligible for member export" : "View only · not in API or downloads"}</p>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-4 font-mono text-ink">{formatNativeAmount(item.amount, item.currency)} {item.currency}</td>
+                  <td className="min-w-56 px-4 py-4 text-xs text-ink-muted">
+                    <p>{item.granularity === "source-product" ? "Source-product aggregate" : "Printing-level observation"}</p>
+                    <p className="mt-1">Mapping: {item.mappingStatus === "exact" ? "exact catalog mapping" : item.mappingStatus === "ambiguous" ? "ambiguous · no exact card match" : "unmapped · source product only"}</p>
+                    <p className="mt-1">Finish: {item.finish ?? "unknown"}</p>
+                    <p>Language: {item.language ?? "unknown"}</p>
+                    <p>Condition: {item.condition ?? "unknown · not condition-adjusted"}</p>
+                  </td>
+                  <td className="min-w-56 px-4 py-4 text-xs text-ink-muted">
+                    <p>Stored snapshot · not a live quote</p>
+                    <p className="mt-2">Source updated: <ObservationTime value={item.sourceUpdatedAt} /></p>
+                    <p className="mt-2">Retrieved: <ObservationTime value={item.retrievedAt} /></p>
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-accent">Provenance details</summary>
+                      <dl className="mt-2 space-y-1 break-all">
+                        <div><dt>Parser</dt><dd className="font-mono">{item.parserVersion}</dd></div>
+                        <div><dt>Crosswalk</dt><dd className="font-mono">{item.crosswalkVersion}</dd></div>
+                        <div><dt>Source evidence</dt><dd className="font-mono">{item.evidenceVersion}</dd></div>
+                        {item.catalogSourceUrl && <div><dt>Product catalog</dt><dd><a href={item.catalogSourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">Catalog source</a></dd></div>}
+                        {item.catalogUpdatedAt && <div><dt>Catalog updated</dt><dd><ObservationTime value={item.catalogUpdatedAt} /></dd></div>}
+                      </dl>
+                    </details>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
