@@ -97,15 +97,15 @@ Some limits are constants, changed only by a reviewed code change:
 collected lines (`collect` in `TCGPLAYER_PRODUCT_LINES`); the six CardRush
 hosts (`CARDRUSH_COLLECTOR_HOSTS`); and every rate and budget in §2.
 
-## Migrations 0139–0144
+## Migrations 0139–0146
 
 Apply them in number order. This work assumed 0001–0138 are already applied
 in production; that was not checked. The Postgres integration tests do not
 replay 0001–0138: on an empty database `scripts/migrate.mjs` stops at legacy
 0106 (`invalid input value for enum dispute_status: "escalated"`, found in the
 final review). Each suite instead applies, by name and one transaction per
-file as `migrate.mjs` does, the migrations it needs from 0137–0144, over a
-stub `users` table where 0138 or 0142 references one. How 0139–0144 meet
+file as `migrate.mjs` does, the migrations it needs from 0137–0146, over a
+stub `users` table where 0138 or 0142 references one. How 0139–0146 meet
 production's full schema is therefore not tested.
 
 | Migration | Adds | Needed by |
@@ -116,6 +116,8 @@ production's full schema is therefore not tested.
 | 0142 `data_api_plans` | test-only customers, subscriptions, Stripe events, monthly usage and per-key minute buckets (§4); references `member_data_keys` (0138) | the reads (every authenticated read is metered there), checkout, portal, webhook |
 | 0143 `price_collector_leases` | one lease row per running collector (§2) | every collector: without it a run answers 503 and reads nothing |
 | 0144 `member_price_latest` | per feed key, the latest observation and the latest before its batch, kept by the observation insert itself under its own guards; index `member_price_observations_key` ([the free feed's current view](#member-feed-current-view)) | the free member feed's current view, bounded. Without it the feed reads exactly as before 0144, ranking every observation on each request |
+| 0145 `price_source_listing_images` | where each CardRush listing's own image lives on CardRush: a link, never a copy | the CardRush collector's image links and `/prices`. Without it the collector records none |
+| 0146 `price_collector_hosts` | per collector and host: last served, last refused, not-before, suspension (§2, [refusals](#refusals-backoff-suspension)) | every collector's backoff and suspension, and per-host health. Without it a collector runs as before, with neither, and health is judged by batches alone |
 
 Applying them uses a production database credential this work was not given.
 
@@ -219,7 +221,7 @@ has room to write and report.
 | --- | --- | --- | --- |
 | Cardmarket daily | `/api/cron/collect/cardmarket`, `30 5 * * *` | Existing public-file transport and ingest seam, Cambridge's identifying User-Agent. One Piece (18) only ([why](#cardmarket-measured)). Each run also writes the reviewed One Piece set crosswalk seed; an unchanged live row is left as it is. | Existing observations, unmapped to SKUs, with `source_set_key`, plus the set crosswalks |
 | CardRush | `/api/cron/collect/cardrush`, `15 */2 * * *` | `createFetcher` with the identifying User-Agent, one bucket per host at 0.5 rps (burst 1), no retries, no proxy options. Hosts in turn by run time, so each of the six is read every 12 hours. Each run reads the host's robots.txt once, first, through the same bucket: if it disallows product pages (or the sitemap) to this collector or to every crawler, or cannot be read, the run stops as `SOURCE_UNAVAILABLE`, and a listed page it disallows is never requested; a host with no robots.txt (404, 410) sets no rule. Product URLs come from the host sitemap, never-read pages first and then the oldest reading; a quarantined reading counts as read, so sealed products and supplies do not starve the singles. 60 s of the budget is kept for writes, so a run reads about 103 pages ([rhythm](#cardrush-rhythm)). | `sell`, JPY, `printing`. Language comes from the title (default `ja`), finish from parallel markers. Condition is recorded only when the page states a grade. No structured price means quarantine: there is no first-yen fallback. Product and set crosswalks under `cardrush-title/1`, exact only for One Piece plain base rarities; the other five hosts' rows are unmapped. |
-| TCGplayer | `/api/cron/collect/tcgplayer`, `45 * * * *` | One bucket for every TCGplayer host at 0.1 rps (burst 1): `www.tcgplayer.com`'s robots.txt asks `Crawl-Delay: 10`, and neither API host serves a robots.txt (404, 2026-10-28). The fetcher ignores any caller rate, refuses a proxy and never retries. The pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set ([intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)); it never reads seller listings, which robots.txt disallows. It does not re-read robots.txt at run time: the rate is fixed in code. Lines collected: One Piece (68) and Pokemon Japan (85), whose ids and row labels were read; Pokemon (3) is off until a probe confirms its id and row label, and Magic and Yu-Gi-Oh are off. A set is not begun with under 30 s left, so a run reads about 20 sets. A set whose read or write fails is recorded as read, by an empty batch whose quarantine names the failure, so stalest-first moves on. | `market` (Market Price) per condition × printing, USD. The data has no Listed Median, so none is collected; `lowPrice` and `sales` are not collected. Crosswalks under `tcgplayer-number/1`. |
+| TCGplayer | `/api/cron/collect/tcgplayer`, `45 * * * *` | One bucket for every TCGplayer host at 0.1 rps (burst 1): `www.tcgplayer.com`'s robots.txt asks `Crawl-Delay: 10`, and neither API host serves a robots.txt (404, 2026-10-28). The fetcher ignores any caller rate, refuses a proxy and never retries. The pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set ([intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)); it never reads seller listings, which robots.txt disallows. Each run first reads robots.txt on all three hosts (`www.tcgplayer.com` and the two data hosts), through the same bucket, and reuses no earlier reading. The group naming the collector applies if one exists, otherwise `*`; a host with no robots.txt (404) sets no rule. A file that disallows a path every run reads (the set lists, product types, every set's price-guide data as its request has it, query included, or a line's price-guide pages) refuses the run before any data request, as a refusal. A set whose page or data it disallows is skipped without a request and without a batch, so it starves no other set and leaves nothing in the append-only store; a file that leaves no listed set readable refuses the run, as CardRush's does when it permits no listed page. A failed read (a network error, a 5xx) collects nothing that run. Requests are spaced by the larger of 10 s and the Crawl-delay asked. A Crawl-delay over 60 s refuses the run, and so does a shorter one that leaves the budget no set: with both lines, anything over about 40 s. Lines collected: One Piece (68) and Pokemon Japan (85), whose ids and row labels were read; Pokemon (3) is off until a probe confirms its id and row label, and Magic and Yu-Gi-Oh are off. A set is not begun with under 30 s left, so a run reads about 20 sets. A set whose read or write fails is recorded as read, by an empty batch whose quarantine names the failure, so stalest-first moves on. | `market` (Market Price) per condition × printing, USD. The data has no Listed Median, so none is collected; `lowPrice` and `sales` are not collected. Crosswalks under `tcgplayer-number/1`. |
 
 A host that refuses the identified collector or cannot serve it ends the run
 as `SOURCE_UNAVAILABLE`, with no further request in that run; each collector
@@ -227,6 +229,41 @@ names the statuses and challenge signs it treats so (`refusal` in the CardRush
 module, `REFUSAL_STATUSES` and the redirect and non-JSON checks in the
 TCGplayer one, the public-file transport's errors for Cardmarket). Nothing is
 retried or routed around; the next scheduled run is the retry.
+
+<a id="refusals-backoff-suspension"></a>**Refusals, backoff and suspension (migration 0146).** Per collector and
+host (the six CardRush hosts, TCGplayer's three, Cardmarket's file host),
+`price_collector_hosts` keeps when the host last served the collector, when
+and why it last refused it, the time before which it is not asked again, and
+whether it is suspended (`apps/storefront/src/lib/datafeed/collector-hosts.ts`).
+A refusal is a 403 or 429, a 503 with Retry-After, a challenge, or robots.txt
+disallowing the collector; a 5xx without Retry-After or a network error stops
+the run but is not counted. On a refusal the host is left alone until its
+Retry-After (seconds or an HTTP date, capped at 7 days), or for 6 hours when it
+names none, whatever the schedule: the run that finds it so answers
+`200 {ran: false, reason: "host-backing-off"}` and sends nothing. TCGplayer's
+run reads all three hosts, so any of them backing off holds the run. After 3
+refused runs in a row the host suspends itself (`suspended_at`,
+`suspended_reason`); the cron then answers `503 HOST_SUSPENDED` and sends
+nothing, and no run reads, writes or clears that row. Three, because one
+refusal can be a blip and two in a row chance, while a third, each after the
+host's own wait, is a pattern a person should read first. How long that
+takes is the host's to say: two gaps of the longer of its wait and the
+schedule. With no Retry-After (6 hours) it is at least 12 hours, and a day or
+more for a CardRush host, read every 12 hours; a TCGplayer host that asks a
+short Retry-After on three hourly runs is suspended after about 2 hours. A
+run the host serves resets the count. Only a person clears a
+suspension, by name, with the statement in the migration's header:
+
+```sql
+UPDATE price_collector_hosts
+   SET suspended_at = NULL, suspended_reason = NULL, consecutive_refusals = 0, not_before = NULL,
+       cleared_at = now(), cleared_by = '<who>: <why it may be asked again>', updated_at = now()
+ WHERE source = '<source>' AND host = '<host>';
+```
+
+The table's guard refuses any other way out of a suspension. Without 0146 a
+collector runs as before, with no backoff and no suspension, and its summary
+says `hostState: { skipped: "not-provisioned" }`.
 
 <a id="cardrush-rhythm"></a>**CardRush's rhythm at these budgets.** A run has 210 s to read (the 270 s
 budget less the 60 s write reserve) at one request every 2 s, and robots.txt
@@ -266,7 +303,26 @@ new collectors as the only permitted acquisition paths.
 `collection-flags.ts`) is judged by its newest `member_price_batches` row, not
 by the legacy `ingest_run`: `/api/v1/sources/[id]` reports it, and
 `audit:tributaries` check 9 fails past twice the budget. The page collectors
-declare `page_collector` (6 h) and Cardmarket `daily_file` (26 h).
+declare `page_collector` (6 h) and Cardmarket `daily_file` (26 h). Since 0146
+it is judged per host too: `collector.hosts` on `/api/v1/sources/[id]` and on
+each collected source in `/api/v1/sources` lists every host the collector
+reads with its state (`ok`, `refused`, `stale`, `failing`, `suspended`,
+`never_run`, `unknown`), judged by the host's own turn: its budget is the
+source's plus how much longer it waits between reads than the source between
+runs, so 16 hours for a CardRush host (read every 12) and the budget itself
+for TCGplayer's and Cardmarket's hosts (read every run). A host refused on
+its last two runs or more is `failing`; one refused once is `refused`, since
+one refusal is often a blip; one not served within its budget is `stale`,
+whatever it answered since, so a host whose every run fails in a way that is
+not counted (a 5xx without Retry-After, a robots.txt redirect) does not read
+`ok`. A failing or suspended host makes the source `failing` whatever its
+batches say, and a stale host makes a healthy source `stale`. So a CardRush
+host refused on every run no longer reads healthy beside five that collect,
+and repeated TCGplayer refusals, which write no batch, read failing rather
+than stale. A host no run has reached reads `never_run`, which says nothing
+about the source; one whose every run fails uncounted from the start keeps
+no row, so it stays `never_run`. `audit:tributaries` still reads batches
+only.
 
 <a id="cardmarket-measured"></a>
 
@@ -770,6 +826,7 @@ As built (2026-10-28), once `DATA_API_READS` is on:
   pending."), the method version (`derived_market_contract`) and the plan. No
   route returns a provider's own value, a per-source value or breakdown, or a
   numeric spread.
+- No market row, page or export carries an image or an image URL, official or CardRush ([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-words-2026-10-29-images)).
 
 ## 6. Billing, test mode only
 
@@ -871,7 +928,7 @@ Ready to merge when each of these holds. Storefront typecheck and tests
 pass. The data-ingest and data-spec tests, `audit:redistribution` and
 `audit:tributaries` pass. The Postgres integration tests pass against a
 throwaway database with the migrations each applies (see
-[Migrations 0139–0144](#migrations-01390144); the earlier chain is not
+[Migrations 0139–0146](#migrations-01390146); the earlier chain is not
 replayed). With every switch off, the free feed returns exactly what it
 returned before, and every new route either answers `ran: false`, 404
 `NOT_PUBLISHED` or 410.
@@ -909,8 +966,9 @@ Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
    §7 starts from it.
 3. **Confirm the Vercel plan's limits**: `maxDuration = 300` on the four new
    cron routes, function memory, and the cron schedules. Not checked here.
-4. **Apply migrations 0139–0144** to the production storefront database, in
-   order.
+4. **Apply migrations 0139–0146** to the production storefront database, in
+   order. 0146 gives the collectors their per-host backoff and suspension;
+   apply it before turning a collector on.
 5. **Turn on the collectors one at a time**: `DATA_COLLECT_CARDMARKET`, then
    `DATA_COLLECT_CARDRUSH`, then `DATA_COLLECT_TCGPLAYER`. Each needs steps 3
    and 4 first:

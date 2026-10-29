@@ -85,7 +85,7 @@ export const BRAND_SUBHEAD =
 export const BRAND_PARAGRAPH =
   "Cambridge TCG is building open-source TCG data infrastructure: card identity, price discovery, collector tools and card-data standards. " +
   `The data directory covers ${PUBLIC_GAME_CODES.length} public game codes (plus one internal test code), ${PUBLIC_CONFIRMED_GAME_CODES.length} games with public catalog rows, and ${REGISTERED_SOURCES.length} registered source adapters. ` +
-  "The published standards are the specification pages under /standards and JSON Schemas under /spec/v1/; the source repository is currently private and no packages are on npm. " +
+  "The published standards are the specification pages under /standards and JSON Schemas under /spec/v1/; the source repository is public on GitHub and no packages are on npm. " +
   "New paid commerce — orders, listings, offers, auctions, lots and checkout — was retired on 23 September 2026; existing agreements still settle. " +
   `${DATA_RIGHTS} Reference prices are labelled as references, never offers.`;
 

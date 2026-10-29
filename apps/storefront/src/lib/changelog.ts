@@ -97,6 +97,54 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-10-29 ─────────────────────────────────────────────────────────
   {
+    id: "source-collector-hosts",
+    date: "2026-10-29",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/sources, /api/v1/sources/[id] collector.hosts",
+    summary:
+      "Collected sources gain collector.hosts[]: each host's state (ok, refused, failing, stale, suspended, never_run, unknown), last success and refusal, not_before and suspension. A failing or suspended host makes its source failing.",
+    detail:
+      "The collectors now honour a Retry-After as long as the host asks (capped at 7 days), suspend themselves at a host after three refused runs in a row until a person clears it, and TCGplayer reads robots.txt on every run. Cardmarket's user-agent names its permission. This needs migration 0146; until then hosts[] is empty and the collectors behave as before. Existing health fields and vocabulary are unchanged.",
+    related_urls: ["/api/v1/sources/cardrush", "/api/v1/sources/tcgplayer", "/api/v1/sources/cardmarket"],
+  },
+  {
+    id: "repository-visibility-public",
+    date: "2026-10-29",
+    kind: "well-known-modified",
+    impact: "additive",
+    surface: "/.well-known/mcp.json, /.well-known/mcp-config.json, /api/v1/adopters, /standards.json",
+    summary:
+      "The Cambridge TCG monorepo is public on GitHub, and every live surface now says so: repository_visibility is \"public\", publicly_obtainable and publicly_cloneable are true, and repository paths link to GitHub.",
+    detail:
+      "Yu, 2026-10-29: \"yes I meant for them to be public latest.\" gh repo view reported the repository PUBLIC that day. The workspace packages are still not published to npm. /api/v1/adopters gives each implementation's GitHub path instead of null. Frozen history records and dated entries keep their wording.",
+    related_urls: ["https://github.com/cambridgetcg/Cambridge-TCG-monorepo", "/.well-known/mcp.json", "/standards"],
+  },
+  {
+    id: "prices-identity-images",
+    date: "2026-10-29",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Member price rows can carry an identity image: the official English base reference inline, and a CardRush listing's own image, linked at CardRush's URL, behind a control the member opens.",
+    detail:
+      "So a person or an agent can check the item against its price. CardRush images are linked, never copied, and load from CardRush only when the member opens them; they are never in the member API, downloads or /api/v1/market/*. CardRush links need migration 0145 and a collector run. The rule is the agents' reading of Yu's words of 2026-10-29, in docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  {
+    id: "standard-ctcg-names-v1-draft",
+    date: "2026-10-29",
+    kind: "spec-version-bump",
+    impact: "additive",
+    surface: "/methodology/card-names",
+    summary:
+      "CTCG-NAMES-v1 (draft): card names and official translations. A name belongs to a card key and a language, carries its status (official, vendor, community or machine) and its source, and has a match key.",
+    detail:
+      "Registered in /standards.json and served as /spec/v1/CardName.schema.json. The reference implementation is packages/sku/src/names.ts, with versioned rules that take a name out of CardRush, TCGplayer and Cardmarket titles and refuse rather than guess. A name never establishes a SKU mapping. Specification text CC0.",
+    related_urls: ["/methodology/card-names", "/standards", "/spec/v1/CardName.schema.json"],
+  },
+  {
     id: "source-collector-latest-batch-observed",
     date: "2026-10-29",
     kind: "endpoint-modified",

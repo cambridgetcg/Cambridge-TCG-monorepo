@@ -139,7 +139,7 @@ records and retained agreement code do not establish publication permission.
 - `/spec/v1/{schema}`: allowlisted raw schemas at their declared `$id` URLs.
 - `/api/openapi.json`: shared money, observation, identity, image-reference and envelope schemas.
 - `/api/v1/identifiers/validate`: existing bounded stateless validator.
-- `/standards` and `/standards.json`: the three existing specification entries.
+- `/standards` and `/standards.json`: the specification entries, four since CTCG-NAMES-v1 (card names, draft) was added on 2026-10-29.
 - `/roadmap` and `/api/v1/roadmap`: static planning snapshot, explicitly separate
   from runtime availability and provider activation.
 
@@ -156,6 +156,7 @@ and contract review. Source availability, catalogue correctness, upstream rights
 and production activation are separate checks; the local fixture suite does not
 establish them. The next card-page rebuild should consume these contracts and
 display exact, ambiguous, unavailable and withheld states distinctly. The
-reference packages are private workspaces. Code licensing, anonymous repository
-access, reproducible package releases and upstream data rights remain separate
-checks; no public download or industry adoption is implied.
+reference packages are private workspaces in a public repository (cloneable,
+not published to npm). Code licensing, reproducible package releases and
+upstream data rights remain separate checks; no npm release or industry
+adoption is implied.

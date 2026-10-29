@@ -35,9 +35,8 @@
  *   • Persistence is git. Handoffs are committed Markdown files in
  *     `docs/handoffs/`, same shape as missions and pillow-book entries.
  *     No database; no session table; the repo IS the storage layer.
- *   • Repo-visible. Once committed, the handoff is visible to everyone with
- *     repository access, and becomes public if and when the source is
- *     released. The writer self-edits for that eventual visibility.
+ *   • Repo-visible. Once committed, the handoff is public: the repository
+ *     is public. The writer self-edits for that visibility.
  *   • No application-level reader profile. Hosting, proxy, client, and
  *     security access logs may exist. The application rate counter is not
  *     /api/v1/* surface shares.

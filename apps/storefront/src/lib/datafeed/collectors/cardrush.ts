@@ -6,6 +6,8 @@ import type { IngestContext } from '@cambridge-tcg/data-ingest/types';
 import { writeMemberPriceBatch } from '../member-price-writer';
 import { writeProductCrosswalk, writeSetCrosswalk, type CrosswalkWrite } from '../crosswalks';
 import { withCollectorLease } from '../collector-lease';
+import { CARDRUSH_RUN_INTERVAL_MS, closedHost, readCollectorHosts, recordCollectorHostOutcomes, type HostClosed, type HostOutcome, type HostStateWrite } from '../collector-hosts';
+import { writeCardRushListingImages, type ListingImageWrite } from '../listing-images';
 
 /** The CardRush page collector (Yu, 2026-10-28). One run reads one host:
  * its robots.txt and sitemap once, then the stalest product pages the budget allows, and
@@ -16,7 +18,14 @@ import { withCollectorLease } from '../collector-lease';
  * writers. A run holds the host's lease (cardrush:<host>, migration 0143)
  * from before its first request to its last write, so two runs never read
  * one host at once, and the lease keeps the next run's first request 2 s
- * after it ends. Scheduling and the on switch belong to the cron route.
+ * after it ends. Listing image URLs, read from the same pages, are recorded
+ * last, for the listings whose observations the batch wrote (listing-images.ts,
+ * migration 0145): links, never copies. Under the lease, before any request,
+ * the host's state (collector-hosts.ts, migration 0146) is read: a host that
+ * refused an earlier run is left alone until its Retry-After (or 6 h) has
+ * passed, and one suspended after three refused runs in a row until a person
+ * clears it. The run's outcome for the host is written before its batch.
+ * Scheduling and the on switch belong to the cron route.
  */
 /** Of the run's 270 s (CARDRUSH_MAX_BUDGET_MS), kept back for the writes: at
  * 0.5 rps the other 210 s send about 105 requests: robots.txt, the sitemap
@@ -24,11 +33,11 @@ import { withCollectorLease } from '../collector-lease';
 const WRITE_RESERVE_MS = 60_000;
 /** The crosswalk writers' own refusals of a malformed link; anything else is a fault. */
 const CROSSWALK_REFUSALS = new Set(['invalid-price-crosswalk', 'price-crosswalk-not-exact', 'invalid-price-set-crosswalk']);
-/** The route's schedule: every two hours, each run the next host in turn. */
-const RUN_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
 export interface CardRushRunSummary {
   ran: boolean; host: string; runAt: string; reason?: string;
+  /** A host left alone this run: not before this time, or suspended since it. */
+  notBefore?: string | null; suspendedAt?: string | null; suspendedReason?: string | null;
   /** Product pages requested this run. */
   requested: number; observed: number; quarantined: number;
   unavailable?: { code: 'SOURCE_UNAVAILABLE'; reason: string };
@@ -37,13 +46,18 @@ export interface CardRushRunSummary {
   robotsDisallowed?: number;
   batch?: { id: string; inserted: number; duplicate: boolean } | null;
   crosswalks?: { written: number; unchanged: number; skipped: number; refused: number };
+  /** Listing image links recorded; skipped while 0145 is not applied. */
+  listingImages?: ListingImageWrite;
+  /** The host's state after this run; skipped while 0146 is not applied. */
+  hostState?: HostStateWrite;
 }
 
-/** Round-robin by run time, so a missed run shifts nothing and two runs in
- * one slot read the same host. */
+/** Round-robin by run time, every two hours (CARDRUSH_RUN_INTERVAL_MS, the
+ * route's schedule), so a missed run shifts nothing and two runs in one slot
+ * read the same host. */
 export function cardRushHostFor(runAt: Date): string {
   const hosts = Object.keys(CARDRUSH_COLLECTOR_HOSTS);
-  return hosts[Math.floor(runAt.getTime() / RUN_INTERVAL_MS) % hosts.length]!;
+  return hosts[Math.floor(runAt.getTime() / CARDRUSH_RUN_INTERVAL_MS) % hosts.length]!;
 }
 
 /** Never-read pages first, in sitemap order, then the page whose latest
@@ -94,12 +108,15 @@ async function readHost({ host, runAt, started, base, context, runQuery, runTran
   context: IngestContext; runQuery: typeof query; runTransaction: typeof transaction;
 }): Promise<CardRushRunSummary> {
   const policy = MEMBER_PRICE_POLICIES.cardrush;
+  const hosts = await readCollectorHosts('cardrush', [host], runQuery);
+  const closed: HostClosed | null = closedHost(hosts, [host], Date.now());
+  if (closed) return { ...base, ...closed };
   const acquired = await acquireCardRushMemberPrices(context, {
     evidenceVersion: policy.evidenceVersion, host,
     budgetMs: CARDRUSH_MAX_BUDGET_MS - WRITE_RESERVE_MS - (Date.now() - started),
     choose: (productUrls, capacity) => chooseStalestCardRushPages(host, productUrls, capacity, runQuery),
   });
-  const { productCrosswalks, setCrosswalks, ...parsed } = acquired.parsed;
+  const { productCrosswalks, setCrosswalks, listingImages, ...parsed } = acquired.parsed;
   const summary: CardRushRunSummary = {
     ...base, ran: true, requested: acquired.requested, observed: parsed.observations.length, quarantined: parsed.quarantine.length,
     ...(acquired.unavailable ? { unavailable: acquired.unavailable } : {}), sitemapProducts: acquired.sitemapProducts, robotsDisallowed: acquired.robotsDisallowed, batch: null,
@@ -107,6 +124,12 @@ async function readHost({ host, runAt, started, base, context, runQuery, runTran
   const batch = acquired.unavailable
     ? { ...parsed, quarantine: [...parsed.quarantine, { sourceProductId: null, field: 'host', reason: acquired.unavailable.reason }] }
     : parsed;
+  // Served, refused, or neither (a failure that says nothing about this
+  // collector). Recorded first: a refusal is honoured whatever the writes do.
+  const outcome: HostOutcome | null = acquired.refused
+    ? { host, kind: 'refused', reason: acquired.unavailable?.reason ?? 'refused', retryAfter: acquired.refused.retryAfter }
+    : acquired.unavailable ? null : { host, kind: 'collected' };
+  summary.hostState = await recordCollectorHostOutcomes('cardrush', outcome ? [outcome] : [], hosts, runQuery, Date.now());
   if (!batch.sourceRows && !acquired.unavailable) return summary;
   const written = await writeMemberPriceBatch('cardrush', batch, runTransaction, { ingestKey: `cardrush:${host}:${runAt.toISOString()}` });
   summary.batch = { id: written.batchId, inserted: written.inserted, duplicate: written.duplicate };
@@ -126,5 +149,7 @@ async function readHost({ host, runAt, started, base, context, runQuery, runTran
     await record(() => writeSetCrosswalk({ source: 'cardrush', ...set, crosswalkVersion: CARDRUSH_CROSSWALK_VERSION }, runTransaction, { collector: true }));
   }
   summary.crosswalks = counts;
+  // A repeated run key wrote nothing, so it links nothing.
+  if (!written.duplicate) summary.listingImages = await writeCardRushListingImages(listingImages, batch.observations, runQuery);
   return summary;
 }

@@ -3,12 +3,14 @@ import { query, transaction } from '@/lib/db';
 import { CardmarketPublicFileError } from '@cambridge-tcg/data-ingest/cardmarket';
 import { CARDMARKET_PRICE_GAMES } from '@cambridge-tcg/data-ingest/cardmarket/member-prices';
 import { MEMBER_PRICE_POLICIES } from '@cambridge-tcg/data-ingest/member-prices';
+import { hostRefusal } from '@cambridge-tcg/data-ingest/http';
 import type { IngestContext } from '@cambridge-tcg/data-ingest/types';
 import { ingestMemberPriceSource } from './member-price-ingest';
 import { writeSetCrosswalk } from './crosswalks';
 import { cardmarketSetCrosswalkSeed } from './cardmarket-expansions';
 import { withCollectorLease, type CollectorLeaseRefusal } from './collector-lease';
 import { CARDMARKET_COLLECT_GAMES } from './collection-flags';
+import { closedHost, COLLECTOR_HOSTS, readCollectorHosts, recordCollectorHostOutcomes, type HostClosed, type HostOutcome, type HostStateWrite } from './collector-hosts';
 
 /** The run's budget: the route's maxDuration (300 s) less room to report. */
 export const CARDMARKET_COLLECT_BUDGET_MS = 270_000;
@@ -37,6 +39,8 @@ export interface CardmarketCollection {
   elapsedMs: number;
   games: CardmarketGameRun[];
   setCrosswalks: CardmarketSetCrosswalkRun;
+  /** The file host's state after this run; skipped while 0146 is not applied. */
+  hostState: HostStateWrite;
 }
 
 class CollectionBudgetExhausted extends Error { constructor() { super('cardmarket-collection-budget-exhausted'); } }
@@ -54,12 +58,15 @@ const REVOKED = new Set(['member-price-acquisition-revoked-or-unreviewed', 'memb
  * part of one. A host that refuses or fails to deliver ends the run as
  * SOURCE_UNAVAILABLE; the next scheduled run is the retry. One run at a time
  * holds the 'cardmarket' lease (migration 0143); another answers ran:false
- * before any download or write.
+ * before any download or write. Under it, the file host's state (migration
+ * 0146) is read first: a host that refused an earlier run (a 403, a 429, a 503
+ * with Retry-After) is left alone until its Retry-After or 6 h has passed, and
+ * one suspended after three refused runs in a row until a person clears it.
  */
 export async function collectCardmarketMemberPrices(
   evidenceVersion: string,
   options: CardmarketCollectOptions = {},
-): Promise<CardmarketCollection | CollectorLeaseRefusal> {
+): Promise<CardmarketCollection | CollectorLeaseRefusal | HostClosed> {
   if (evidenceVersion !== MEMBER_PRICE_POLICIES.cardmarket.evidenceVersion) throw new Error('cardmarket-collection-evidence-mismatch');
   const games = options.games ?? CARDMARKET_COLLECT_GAMES;
   if (!games.length || games.some(gameId => !Object.hasOwn(CARDMARKET_PRICE_GAMES, gameId))) throw new Error('unreviewed-cardmarket-game');
@@ -68,7 +75,11 @@ export async function collectCardmarketMemberPrices(
 }
 interface CardmarketCollectOptions { games?: readonly number[]; budgetMs?: number; context?: IngestContext; runQuery?: typeof query; runTransaction?: typeof transaction }
 
-async function collect(evidenceVersion: string, games: readonly number[], options: CardmarketCollectOptions): Promise<CardmarketCollection> {
+async function collect(evidenceVersion: string, games: readonly number[], options: CardmarketCollectOptions): Promise<CardmarketCollection | HostClosed> {
+  const runQuery = options.runQuery ?? query, fileHosts = COLLECTOR_HOSTS.cardmarket;
+  const hosts = await readCollectorHosts('cardmarket', fileHosts, runQuery);
+  const closed = closedHost(hosts, fileHosts, Date.now());
+  if (closed) return closed;
   const budgetMs = options.budgetMs ?? CARDMARKET_COLLECT_BUDGET_MS;
   const started = Date.now();
   const budget = new AbortController();
@@ -83,6 +94,7 @@ async function collect(evidenceVersion: string, games: readonly number[], option
   const runs: CardmarketGameRun[] = [];
   // The status that ended the run; later games are not started.
   let stopped: 'budget-exhausted' | 'source-unavailable' | 'revoked-or-unreviewed' | 'failed' | null = null;
+  let refusal: HostOutcome | null = null;
   try {
     for (const gameId of games) {
       const game = CARDMARKET_PRICE_GAMES[gameId]!;
@@ -99,6 +111,8 @@ async function collect(evidenceVersion: string, games: readonly number[], option
           // Asking the same host for the next game would not be polite.
           stopped = 'source-unavailable';
           runs.push({ gameId, game, status: 'source-unavailable', code: 'SOURCE_UNAVAILABLE', detail: error.code, httpStatus: error.status ?? null });
+          const refused = error.status === undefined ? null : hostRefusal(error.status, error.retryAfter ?? null);
+          if (refused) refusal = { host: error.url ? new URL(error.url).hostname : fileHosts[0]!, kind: 'refused', reason: `http-${error.status}`, retryAfter: refused.retryAfter };
         } else if (REVOKED.has(errorCode(error))) {
           stopped = 'revoked-or-unreviewed';
           runs.push({ gameId, game, status: 'revoked-or-unreviewed', code: errorCode(error) });
@@ -112,7 +126,12 @@ async function collect(evidenceVersion: string, games: readonly number[], option
     }
     const setCrosswalks = await writeSeed(stopped === 'revoked-or-unreviewed' ? stopped : signal.aborted ? 'budget-exhausted' : null, budgeted);
     const ok = runs.every(run => run.status === 'completed' || run.status === 'completed-with-quarantine') && setCrosswalks.status === 'completed';
-    return { ran: true, ok, source: 'cardmarket', evidenceVersion, budgetMs, elapsedMs: Date.now() - started, games: runs, setCrosswalks };
+    // Every file served is the host serving this collector; a refusal counts
+    // against it; any other ending changes nothing.
+    const served = runs.every(run => run.status === 'completed' || run.status === 'completed-with-quarantine');
+    const outcomes: HostOutcome[] = refusal ? [refusal] : served ? fileHosts.map(host => ({ host, kind: 'collected' as const })) : [];
+    const hostState = await recordCollectorHostOutcomes('cardmarket', outcomes, hosts, runQuery, Date.now());
+    return { ran: true, ok, source: 'cardmarket', evidenceVersion, budgetMs, elapsedMs: Date.now() - started, games: runs, setCrosswalks, hostState };
   } finally {
     clearTimeout(timer);
   }

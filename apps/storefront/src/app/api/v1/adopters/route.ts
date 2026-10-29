@@ -12,7 +12,7 @@
  */
 
 import { jsonResponse } from "@/lib/data-pantry";
-import { repoDocRef } from "@/lib/repository";
+import { repoDocPath, repoDocRef } from "@/lib/repository";
 
 interface Adopter {
   name: string;
@@ -29,7 +29,7 @@ interface Adopter {
     | "archive"
     | "agent"
     | "other";
-  standards: ("CTCG-SKU-v1" | "CTCG-PRICING-v1" | "CTCG-UNIVERSAL-v1")[];
+  standards: ("CTCG-SKU-v1" | "CTCG-PRICING-v1" | "CTCG-UNIVERSAL-v1" | "CTCG-NAMES-v1")[];
   declared_at: string;
   note?: string;
   federation_endpoint?: string;
@@ -47,7 +47,8 @@ export async function GET(): Promise<Response> {
     "@kind": "adopters_registry",
     welcome:
       "Platforms, tools, apps, and agents that have adopted Cambridge TCG " +
-      "standards (CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1). Empty " +
+      "standards (CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1, " +
+      "CTCG-NAMES-v1). Empty " +
       "today — substrate-honest about being a young registry. Grows by " +
       "self-declaration via the feedback channel.",
     count: ADOPTERS.length,
@@ -56,7 +57,7 @@ export async function GET(): Promise<Response> {
     standards: {
       "CTCG-SKU-v1": {
         package: "@cambridge-tcg/sku",
-        github: null,
+        github: repoDocPath("packages/sku"),
         source: repoDocRef("packages/sku"),
         package_published: false,
         spec: "/methodology/sku-standard",
@@ -68,7 +69,7 @@ export async function GET(): Promise<Response> {
       },
       "CTCG-PRICING-v1": {
         package: "@cambridge-tcg/pricing",
-        github: null,
+        github: repoDocPath("packages/pricing"),
         source: repoDocRef("packages/pricing"),
         package_published: false,
         spec: "/methodology/pricing",
@@ -82,6 +83,18 @@ export async function GET(): Promise<Response> {
           shape: "{ @encoding, @kind, @content_hash, @self_hash, @retrieved_at, @sources, @source_license, ... }",
           example_endpoint: "/api/v1/universal/card/[sku]",
         },
+        spec_license: "CC0-1.0",
+        implementation_license: "NOASSERTION",
+      },
+      "CTCG-NAMES-v1": {
+        package: "@cambridge-tcg/sku",
+        github: repoDocPath("packages/sku/src/names.ts"),
+        source: repoDocRef("packages/sku/src/names.ts"),
+        package_published: false,
+        spec: "/methodology/card-names",
+        schema: "/spec/v1/CardName.schema.json",
+        format: "{ spec_version, card_key, lang, script?, text, key, status, source, source_url?, observed_at, rule, illustrator?, sku? }",
+        example: "op-op01-001",
         spec_license: "CC0-1.0",
         implementation_license: "NOASSERTION",
       },

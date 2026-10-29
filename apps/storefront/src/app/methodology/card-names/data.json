@@ -1,0 +1,11 @@
+{
+  "topic": "card-names",
+  "title": "Card names and official translations",
+  "url": "/methodology/card-names",
+  "kind": "methodology-sidecar",
+  "summary_url": "/methodology/card-names/summary.md",
+  "source_code": ["packages/sku/src/names.ts"],
+  "schema_url": "/spec/v1/CardName.schema.json",
+  "standard": { "code": "CTCG-NAMES-v1", "version": "1.0", "status": "draft" },
+  "status": "published"
+}

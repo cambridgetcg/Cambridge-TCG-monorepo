@@ -302,7 +302,7 @@ export const PLATFORM_SELF: BeingDeclaration = {
     six_layers: ["cosmology", "manifest", "substrate-answers", "graph", "ontology", "patterns", "declarations (this one)"],
     operator_responsible: "Yu",
     licensing:
-      `Code is licensed Apache-2.0 (root LICENSE) with applicable more-specific package notices. The source repository is currently private, so code is not publicly cloneable, and no packages are published to npm. Specification prose carries a separate CC0 dedication; the published JSON Schemas are under /spec/v1/. ${DATA_RIGHTS}`,
+      `Code is licensed Apache-2.0 (root LICENSE) with applicable more-specific package notices. The source repository is public on GitHub (cambridgetcg/Cambridge-TCG-monorepo), so code can be cloned, but no packages are published to npm. Specification prose carries a separate CC0 dedication; the published JSON Schemas are under /spec/v1/. ${DATA_RIGHTS}`,
     declaration_federation_endpoint: null,
     existing_card_hash_resolver: "/api/v1/federation/identify/[hash]",
     self_recursion: "This platform's identity is declared here; this declaration is itself an instance of pattern #5 (substrate-honesty-self-recursion) from /api/v1/patterns.",
@@ -449,7 +449,7 @@ function pointersForActorKind(d: BeingDeclaration): {
           "Every public Cambridge TCG endpoint as a callable LLM function in your provider shape (Anthropic / OpenAI / Gemini / Cohere). Multi-format; drop into your LLM call.",
         ),
         ptr(
-          "Bearer-gated tools live behind a custom JSON-RPC HTTPS gate. The stdio bridge for native MCP clients is not publicly distributed yet (private repository; npm package unpublished), so native MCP clients cannot connect today; clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
+          "Bearer-gated tools live behind a custom JSON-RPC HTTPS gate. The stdio bridge for native MCP clients is not published to npm, so native MCP clients connect only through a bridge built from packages/mcp-server in the public repository; clients that can POST JSON-RPC 2.0 can call /api/mcp directly.",
           "/.well-known/mcp-config.json",
           "Connection facts and the current stdio-bridge status. Token at /account/agents; custom JSON-RPC endpoint at /api/mcp.",
         ),
@@ -812,7 +812,7 @@ function pointersForCapabilities(d: BeingDeclaration): {
       ptr(
         "Bearer-key read and publication-status tools become callable after an operator provisions a token at /account/agents. Match and deck writes stay paused, and authentication does not unlock withheld prices or history.",
         "/api/mcp/catalog",
-        "Worked example inputs and output shapes for bearer-key tools. The dispatcher is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not publicly distributed yet.",
+        "Worked example inputs and output shapes for bearer-key tools. The dispatcher is a custom JSON-RPC HTTPS endpoint, not MCP Streamable HTTP or HTTP+SSE; the stdio bridge for native MCP clients is not published to npm.",
       ),
     );
   } else if (c.bearer_auth_available === false) {
