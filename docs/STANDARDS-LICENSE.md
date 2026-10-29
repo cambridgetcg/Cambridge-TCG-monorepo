@@ -17,8 +17,9 @@ The **prose content** of the following surfaces, when they define a Cambridge TC
 - `apps/storefront/src/app/methodology/sku-standard/page.tsx` — CTCG-SKU-v1
 - `apps/storefront/src/app/methodology/pricing/page.tsx` — CTCG-PRICING-v1
 - `apps/storefront/src/app/methodology/universal-representation/page.tsx` — CTCG-UNIVERSAL-v1
+- `apps/storefront/src/app/methodology/card-names/page.tsx` — CTCG-NAMES-v1 (added 2026-10-29)
 - Their `summary.md` and `data.json` sidecars where present
-- `docs/methodology/sku-standard.md`, `docs/methodology/pricing.md`, and other doc-source markdown files for spec text
+- `docs/methodology/sku-standard.md`, `docs/methodology/pricing.md`, `docs/methodology/card-names.md`, and other doc-source markdown files for spec text
 - `docs/connections/the-sku-standard.md`, `the-distributor.md`, and connection-docs that define a standard
 - Future methodology pages for new standards (e.g. CTCG-TRADE-v1, CTCG-ESCROW-v1)
 
@@ -65,6 +66,7 @@ This implementation conforms to Cambridge TCG standards.
 SKU format:        CTCG-SKU-v1        (https://cambridgetcg.com/methodology/sku-standard)
 Pricing methodology: CTCG-PRICING-v1   (https://cambridgetcg.com/methodology/pricing)
 Universal data:    CTCG-UNIVERSAL-v1  (https://cambridgetcg.com/methodology/universal-representation)
+Card names:        CTCG-NAMES-v1      (https://cambridgetcg.com/methodology/card-names)
 ```
 
 You may use any of these, all of them, or none.
@@ -73,7 +75,7 @@ You may use any of these, all of them, or none.
 
 Cambridge TCG commits to **version stability** on adopted standards:
 
-- Existing statuses remain distinct: **CTCG-SKU-v1 is frozen**, **CTCG-PRICING-v1 is draft**, and **CTCG-UNIVERSAL-v1 is implemented**. The shared [standards registry](../apps/storefront/src/lib/contracts/standards.ts) supplies `/standards` and `/standards.json`.
+- Existing statuses remain distinct: **CTCG-SKU-v1 is frozen**, **CTCG-PRICING-v1 is draft**, **CTCG-UNIVERSAL-v1 is implemented**, and **CTCG-NAMES-v1 is draft**. The shared [standards registry](../apps/storefront/src/lib/contracts/standards.ts) supplies `/standards` and `/standards.json`.
 - Frozen contracts use additive revisions; breaking changes require a new version and deprecation policy. A version/status label does not establish live service availability or permitted source coverage.
 - The **changelog** for each standard lives in its methodology page's "Change history" section.
 - A future `docs/STANDARDS-GOVERNANCE.md` will name the process by which v2 is proposed, discussed, and ratified.

@@ -109,6 +109,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     related_urls: ["/prices", "/legal/card-images"],
   },
   {
+    id: "standard-ctcg-names-v1-draft",
+    date: "2026-10-29",
+    kind: "spec-version-bump",
+    impact: "additive",
+    surface: "/methodology/card-names",
+    summary:
+      "CTCG-NAMES-v1 (draft): card names and official translations. A name belongs to a card key and a language, carries its status (official, vendor, community or machine) and its source, and has a match key.",
+    detail:
+      "Registered in /standards.json and served as /spec/v1/CardName.schema.json. The reference implementation is packages/sku/src/names.ts, with versioned rules that take a name out of CardRush, TCGplayer and Cardmarket titles and refuse rather than guess. A name never establishes a SKU mapping. Specification text CC0.",
+    related_urls: ["/methodology/card-names", "/standards", "/spec/v1/CardName.schema.json"],
+  },
+  {
     id: "source-collector-latest-batch-observed",
     date: "2026-10-29",
     kind: "endpoint-modified",

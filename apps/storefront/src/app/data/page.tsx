@@ -297,7 +297,7 @@ const ENDPOINTS: Endpoint[] = [
     path: "/standards",
     title: "Cambridge TCG Standards (human-readable)",
     blurb:
-      "Three specification texts — CTCG-SKU-v1, CTCG-PRICING-v1, and CTCG-UNIVERSAL-v1 — are dedicated under CC0. Linked implementation source is inspectable but has no general code reuse license.",
+      "Four specification texts — CTCG-SKU-v1, CTCG-PRICING-v1, CTCG-UNIVERSAL-v1 and CTCG-NAMES-v1 — are dedicated under CC0. Linked implementation source is inspectable but has no general code reuse license.",
     status: "shipped",
     auth: "none",
   },
