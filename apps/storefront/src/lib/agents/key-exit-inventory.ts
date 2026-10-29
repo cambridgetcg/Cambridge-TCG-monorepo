@@ -139,7 +139,7 @@ export const KEY_EXIT_RETAINED: readonly KeyExitRetainedCategory[] = [
       "created_at",
     ],
     why_kept:
-      "the case history people review. It stores a generic actor label, not the agent's id or handle, and points at the turn by turn_id",
+      "the case's append-only record of its state changes. It stores a generic actor label, not the agent's id or handle, and points at the turn by turn_id",
     who_can_see:
       "Cambridge TCG staff with database access; no tool or page in this repository reads it",
     expiry: "permanent: the table is append-only, and turn_id stays after the turn loses its agent link",
