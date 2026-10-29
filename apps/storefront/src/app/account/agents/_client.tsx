@@ -2,13 +2,19 @@
 
 /**
  * Client side of /account/agents. Owns the small bits of state that
- * matter on the client: the freshly-minted token (shown once, then
- * cleared from view on the next render), the create/mint forms, the
- * revoke/archive confirmation flows.
+ * matter on the client: the freshly-minted token, the create/mint forms,
+ * the revoke/archive confirmation flows.
+ *
+ * The token is shown once and lives only in this component's state. The
+ * page never reloads while it is on screen: after create or mint the card
+ * stays until the operator dismisses it, and dismissing refreshes the
+ * server-rendered list (router.refresh()). Revoke and archive involve no
+ * token, so they refresh the list straight away.
  */
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Actor, Button, Card, ErrorAlert, Field, Input, Textarea } from "@/lib/ui";
 import {
   createAgent,
@@ -37,6 +43,12 @@ export function AgentsClient({
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(agents.length === 0);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function dismissFresh() {
+    setFresh(null);
+    router.refresh();
+  }
 
   function handleCreate(form: FormData) {
     setError(null);
@@ -59,8 +71,6 @@ export function AgentsClient({
         reason: "created",
       });
       setShowCreate(false);
-      // Hard refresh so the server-component list re-renders.
-      window.location.reload();
     });
   }
 
@@ -81,7 +91,6 @@ export function AgentsClient({
         token: res.data.token,
         reason: "minted",
       });
-      window.location.reload();
     });
   }
 
@@ -91,13 +100,14 @@ export function AgentsClient({
     );
     if (!ok) return;
     const reason = window.prompt("Reason (optional):") ?? undefined;
+    setError(null);
     startTransition(async () => {
       const res = await revokeKey({ key_id: keyId, reason });
       if (!res.ok) {
         setError(res.error);
         return;
       }
-      window.location.reload();
+      router.refresh();
     });
   }
 
@@ -106,13 +116,14 @@ export function AgentsClient({
       `Archive agent:${handle}? This revokes all keys and removes the agent from matchmaking. The public handle stays reserved (you cannot re-create with the same handle).`,
     );
     if (!ok) return;
+    setError(null);
     startTransition(async () => {
       const res = await archiveAgent({ agent_id: agentId });
       if (!res.ok) {
         setError(res.error);
         return;
       }
-      window.location.reload();
+      router.refresh();
     });
   }
 
@@ -128,7 +139,8 @@ export function AgentsClient({
                 Copy this key now — you won't see it again
               </h3>
               <button
-                onClick={() => setFresh(null)}
+                type="button"
+                onClick={dismissFresh}
                 className="text-xs text-ink-faint hover:text-ink"
               >
                 dismiss
@@ -144,7 +156,8 @@ export function AgentsClient({
             </pre>
             <p className="text-[11px] text-ink-faint mt-2">
               The first {fresh.key_prefix.length} characters of this token ({fresh.key_prefix}…)
-              are visible in your key list for identification.
+              are visible in your key list for identification. The list below updates when you
+              dismiss this card.
             </p>
           </div>
         </Card>
@@ -241,7 +254,7 @@ export function AgentsClient({
                   )}
                 </div>
                 <div className="flex flex-col gap-1 items-end">
-                  {a.status === "active" && (
+                  {a.status === "active" && a.registered_via === "operator" && (
                     <button
                       onClick={() => handleMint(a.id, a.public_handle)}
                       className="text-xs text-accent hover:text-accent-strong"
@@ -249,6 +262,11 @@ export function AgentsClient({
                     >
                       + mint key
                     </button>
+                  )}
+                  {a.status === "active" && a.registered_via !== "operator" && (
+                    <span className="text-[11px] text-ink-faint">
+                      self-serve agent: no new keys
+                    </span>
                   )}
                   {a.status !== "archived" && (
                     <button
@@ -289,7 +307,7 @@ export function AgentsClient({
                           <span className="text-ink-faint ml-2">{k.name}</span>
                           <span className="text-border-strong ml-2">· {k.rate_limit_tier}</span>
                           {k.revoked_at && (
-                            <span className="text-danger ml-2">revoked</span>
+                            <span className="text-danger ml-2">{k.revoked_by ?? "revoked"}</span>
                           )}
                           {!k.revoked_at && k.last_used_at && (
                             <span className="text-ink-faint ml-2">
