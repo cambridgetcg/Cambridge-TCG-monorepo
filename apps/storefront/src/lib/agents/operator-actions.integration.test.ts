@@ -1,6 +1,7 @@
 // Opt-in: AGENT_AUTH_TEST_DATABASE_URL=postgres://<user>@127.0.0.1:<port>/agent_auth_test
 // Real Postgres row locks for the operator door's caps, revocation and archive,
-// and a one-connection pool run proving no action nests a second connection.
+// cross-account refusals that read the same as a missing id, and a
+// one-connection pool run proving no action nests a second connection.
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -233,6 +234,54 @@ describe.skipIf(!target)("operator agent door isolated PostgreSQL integration", 
     } finally { state.failOn = null; }
     expect((await pool.query("SELECT status, archived_at FROM agents WHERE id = $1", [second.data.agent_id])).rows[0]).toEqual({ status: "active", archived_at: null });
     expect(await liveKeyCount(second.data.agent_id)).toBe(1);
+  });
+
+  it("another account cannot mint for, revoke a key of, or archive this account's agent, and is told what a missing id gets", async () => {
+    const owner = await newUser();
+    state.userId = owner;
+    const created = await createAgent(createInput());
+    if (!created.ok) throw new Error(created.error);
+    const agentId = created.data.agent_id;
+    const liveKeyId = await firstKeyId(agentId);
+    const minted = await mintKey({ agent_id: agentId, name: "revoked-one" });
+    if (!minted.ok) throw new Error(minted.error);
+    expect(await revokeKey({ key_id: minted.data.key_id, reason: "owner note" })).toMatchObject({ ok: true });
+    const snapshot = async () => ({
+      agent: (await pool.query("SELECT status, archived_at, updated_at FROM agents WHERE id = $1", [agentId])).rows[0],
+      keys: (await pool.query(
+        "SELECT id, revoked_at, revoked_reason FROM agent_keys WHERE agent_id = $1 ORDER BY id", [agentId],
+      )).rows,
+    });
+    const before = await snapshot();
+    expect(before.agent.status).toBe("active");
+    expect(before.keys).toHaveLength(2);
+
+    state.userId = await newUser();
+    const missingAgent = randomUUID();
+    const missingKey = randomUUID();
+
+    const mintMissing = await mintKey({ agent_id: missingAgent, name: "x" });
+    expect(mintMissing).toStrictEqual({ ok: false, error: MINT_REFUSED });
+    expect(await mintKey({ agent_id: agentId, name: "x" })).toStrictEqual(mintMissing);
+
+    const revokeMissing = await revokeKey({ key_id: missingKey, reason: "x" });
+    expect(revokeMissing).toStrictEqual({ ok: false, error: "Key not found." });
+    expect(await revokeKey({ key_id: liveKeyId, reason: "x" })).toStrictEqual(revokeMissing);
+    // An already-revoked key answers the same: idempotence is not an existence oracle.
+    expect(await revokeKey({ key_id: minted.data.key_id, reason: "x" })).toStrictEqual(revokeMissing);
+
+    const archiveMissing = await archiveAgent({ agent_id: missingAgent });
+    expect(archiveMissing).toStrictEqual({ ok: false, error: "Agent not found or already archived." });
+    expect(await archiveAgent({ agent_id: agentId })).toStrictEqual(archiveMissing);
+
+    // Nothing the other account did changed a row.
+    expect(await snapshot()).toEqual(before);
+    expect(await liveKeyCount(agentId)).toBe(1);
+
+    // The owner still can.
+    state.userId = owner;
+    expect(await archiveAgent({ agent_id: agentId })).toStrictEqual({ ok: true, data: { archived: true } });
+    expect(await liveKeyCount(agentId)).toBe(0);
   });
 
   it("an archive racing mints never leaves an archived agent with a live key", async () => {

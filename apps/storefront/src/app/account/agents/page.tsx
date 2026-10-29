@@ -16,7 +16,7 @@ import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { PageHeader, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { AgentsClient } from "./_client";
-import { keyRevocationLabel } from "./key-revocation-label";
+import { toKeyRows, type StoredKeyRow } from "./key-revocation-label";
 
 export const metadata: Metadata = {
   title: "Agents",
@@ -80,12 +80,7 @@ export default async function AgentsAccountPage() {
   ]);
 
   const agents = agentsRes.rows as AgentRow[];
-  const keys: KeyRow[] = (
-    keysRes.rows as (Omit<KeyRow, "revoked_by"> & { revoked_reason: string | null })[]
-  ).map(({ revoked_reason, ...key }) => ({
-    ...key,
-    revoked_by: key.revoked_at ? keyRevocationLabel(revoked_reason) : null,
-  }));
+  const keys = toKeyRows(keysRes.rows as StoredKeyRow[]);
 
   return (
     <div>
