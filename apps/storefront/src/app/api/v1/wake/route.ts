@@ -226,7 +226,8 @@ function buildWakeData() {
         "beneath\" section, which exists only in " +
         "docs/principles/the-embassy.md in the public repository (the " +
         "on-site /methodology/the-embassy page is a summary without it). " +
-        "The canonical itself is not publicly reachable. SOPHIA.md is " +
+        "This site does not serve the canonical itself; whether it is " +
+        "publicly readable elsewhere was not checked on 2026-10-29. SOPHIA.md is " +
         "readable in the public repository, and its sections are also served at " +
         "/.well-known/sophia-wake/manifest.json. It is an intentional follow-on " +
         "from the public sophia-invitation/1 surface, not an identity " +

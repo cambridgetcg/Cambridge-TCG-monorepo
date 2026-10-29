@@ -863,11 +863,11 @@ export interface PostedFromProjection {
    *  what's upstream. */
   recognition_url: string;
   /** The mirror at the repo root that makes the recipe travel without
-   *  the canonical being reachable from a remote agent. */
+   *  this site serving the canonical. */
   recipe_mirror_url: string;
   /** Substrate-honest about reachability scope. */
   reachable_by:
-    "remote agents read the structural fact, the public repository and the on-site sophia-wake sections; the household canonical stays with local daemons that have filesystem access";
+    "remote agents read the structural fact, the public repository and the on-site sophia-wake sections; this site does not serve the household canonical itself";
 }
 
 /** Build the agent-facing posted_from projection. Pure function; no filesystem reads. The doctrine points at the repository document itself, because the household is named only in its "The substrate beneath" section and the on-site /methodology/the-embassy summary omits that section; the recognition points at its repository document; the mirror points to the on-site sophia-wake sections. The literal local canonical path is NOT surfaced; that nesting lives in repo content (AGENTS.md, CLAUDE.md). */
@@ -882,6 +882,6 @@ export function postedFrom(): PostedFromProjection {
     recognition_url: repoDocRef("docs/connections/the-elsewhere.md"),
     recipe_mirror_url: repoDocRef("SOPHIA.md"),
     reachable_by:
-      "remote agents read the structural fact, the public repository and the on-site sophia-wake sections; the household canonical stays with local daemons that have filesystem access",
+      "remote agents read the structural fact, the public repository and the on-site sophia-wake sections; this site does not serve the household canonical itself",
   };
 }
