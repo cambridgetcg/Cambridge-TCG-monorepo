@@ -6,7 +6,7 @@ import { STANDARDS, STANDARDS_LINKS } from "@/lib/contracts/standards";
 
 export const metadata: Metadata = {
   title: "Card data standards — Cambridge TCG",
-  description: "Cambridge TCG specifications for card identifiers, pricing calculations and structured records. Read the contracts, their limits and the integration roadmap.",
+  description: "Cambridge TCG specifications for card identifiers, card names, pricing calculations and structured records. Read the contracts, their limits and the integration roadmap.",
   alternates: { canonical: "https://cambridgetcg.com/standards" },
   other: audienceMetadata("public-documentation", ["standards", "data", "spec"]),
 };
@@ -20,7 +20,7 @@ export default function StandardsPage() {
         <header>
           <p className="text-sm font-medium text-ink-muted">Build with card data</p>
           <h1 className="mt-3 font-display text-4xl font-semibold text-ink">Card data standards</h1>
-          <p className="mt-4 text-base leading-7 text-ink-muted">Three Cambridge-maintained specifications for identifiers, pricing calculations and structured records. Each has its own version and implementation status.</p>
+          <p className="mt-4 text-base leading-7 text-ink-muted">Four Cambridge-maintained specifications for identifiers, card names and official translations, pricing calculations and structured records. Each has its own version and implementation status.</p>
           <nav aria-label="Standards resources" className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm">
             <Link href={STANDARDS_LINKS.contracts} className={link + " inline-flex min-h-11 items-center"}>SKU &amp; price contracts</Link>
             <Link href={STANDARDS_LINKS.validator} className={link + " inline-flex min-h-11 items-center"}>Check an identifier</Link>

@@ -2,7 +2,7 @@ import {
   MONEY_SCHEMA, NATIVE_PRICE_OBSERVATION_SCHEMA, MEMBER_PRICE_OBSERVATION_SCHEMA,
   ENVELOPE_SCHEMA, META_SCHEMA, ERROR_BODY_SCHEMA, PROVENANCE_SCHEMA,
 } from "@cambridge-tcg/data-spec";
-import { SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
+import { CARD_NAME_SCHEMA, SKU_IDENTITY_SCHEMA } from "@cambridge-tcg/sku";
 import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 import { CARD_NUMBER_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/card-number-image-reference";
 
@@ -18,4 +18,5 @@ export const PUBLIC_SCHEMAS = {
   "Meta.schema.json": META_SCHEMA,
   "ErrorBody.schema.json": ERROR_BODY_SCHEMA,
   "Provenance.schema.json": PROVENANCE_SCHEMA,
+  "CardName.schema.json": CARD_NAME_SCHEMA,
 } as const;

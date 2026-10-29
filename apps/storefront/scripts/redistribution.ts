@@ -347,6 +347,25 @@ function auditAcquisitionLocks(): void {
   ]) {
     requireText(7, path, source(path), "CARDRUSH_ACQUISITION_ENABLED", "direct CardRush network path must consult the immutable lock");
   }
+  // Copying CardRush images is refused outright rather than locked behind a
+  // switch: CardRush listing images are linked at CardRush's own URL, never
+  // copied (the agents' reading of Yu's words of 2026-10-29, in the decision
+  // record). The old copy script must stop before it reads credentials, the
+  // database or the network, with nothing that could switch the stop off: the
+  // refusal is its first statement, at the top level, with only comments and
+  // imports before it. Its imports are Node built-ins and pg alone, because an
+  // imported module runs before any statement of the script.
+  const selfHostPath = "apps/storefront/scripts/self-host-cardrush.mjs";
+  const selfHost = source(selfHostPath);
+  const staticImport = /^import\b[^;()]*?["']([^"'\n]+)["'];$/gm;
+  const refusal = /^console\.error\("CardRush images are linked, never copied[^"\\\n]*"\);\nprocess\.exit\(1\);$/m.exec(selfHost);
+  const beforeRefusal = refusal
+    ? selfHost.slice(0, refusal.index).replace(/\/\*[\s\S]*?\*\//g, "").replace(staticImport, "").replace(/^\/\/.*$/gm, "").trim()
+    : null;
+  if (beforeRefusal !== "") fail(7, selfHostPath, "the CardRush image copy script must refuse, naming why, as its first statement and unconditionally");
+  for (const [, specifier] of selfHost.matchAll(staticImport)) {
+    if (!specifier!.startsWith("node:") && specifier !== "pg") fail(7, selfHostPath, `the CardRush image copy script must import nothing that runs before its refusal: '${specifier}'`);
+  }
 
   const cli = source("apps/wholesale/tools/scrape-cardrush.ts");
   const gateAt = cli.indexOf("if (!CARDRUSH_ACQUISITION_ENABLED)");

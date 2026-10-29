@@ -95,6 +95,8 @@ describe.skipIf(!localUrl)('CardRush collector PostgreSQL integration (explicit 
     expect(summary).toMatchObject({ ran: true, host: 'www.cardrush-op.jp', requested: 4, observed: 4, quarantined: 3, sitemapProducts: 4, robotsDisallowed: 0,
       batch: { inserted: 4, duplicate: false }, crosswalks: { written: 5, unchanged: 0, skipped: 1, refused: 0 } });
     expect(summary.unavailable).toBeUndefined();
+    // This store has no 0145: the batch stands and no listing image is linked.
+    expect(summary.listingImages).toEqual({ written: 0, skipped: 'not-provisioned' });
     const batch = (await state.pool.query('SELECT id::text, source, source_rows, quarantine FROM member_price_batches WHERE ingest_key=$1', [`cardrush:www.cardrush-op.jp:${runAt.toISOString()}`])).rows;
     expect(batch).toHaveLength(1);
     expect(batch[0]).toMatchObject({ source: 'cardrush', source_rows: 4 });
