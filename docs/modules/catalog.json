@@ -158,9 +158,9 @@
       "path": "packages/sku", "group": "packages", "label": "Canonical card identifiers",
       "purpose": "Parse, build and normalize Cambridge card SKUs with shared game, set and rarity vocabulary.",
       "scope": "Identifier syntax and normalization; a valid identifier alone does not prove catalog membership or data rights.",
-      "progress": "Parser, builder, normalization and vocabulary modules plus tests are present. 2026-09-29: shared raw/normalized syntax identity and JSON Schema are consumed by game-specific search and card composition; stored identifiers and printing choices are preserved.",
+      "progress": "Parser, builder, normalization and vocabulary modules plus tests are present. 2026-09-29: shared raw/normalized syntax identity and JSON Schema are consumed by game-specific search and card composition; stored identifiers and printing choices are preserved. 2026-10-29: names.ts adds the draft CTCG-NAMES-v1 reference (card key, CardName records and schema, text form and match key, name choice, and versioned CardRush, TCGplayer and Cardmarket title rules that refuse rather than guess); no endpoint emits the records yet.",
       "next": "Preserve syntax and stored identifiers while introducing separately evidenced printing mappings. Registry declarations do not establish live coverage; workspace code does not establish an npm release.",
-      "evidence": ["packages/sku/src/index.ts", "packages/sku/src/parse.ts", "packages/sku/src/games.ts", "packages/sku/src/__tests__", "packages/sku/src/identity.ts", "packages/sku/src/__tests__/identity.test.ts", "docs/architecture/card-data-contracts.md", "apps/storefront/src/lib/contracts/standards.ts", "docs/plans/tcg-data-platform/README.md"]
+      "evidence": ["packages/sku/src/index.ts", "packages/sku/src/parse.ts", "packages/sku/src/games.ts", "packages/sku/src/__tests__", "packages/sku/src/identity.ts", "packages/sku/src/__tests__/identity.test.ts", "packages/sku/src/names.ts", "packages/sku/src/__tests__/names.test.ts", "docs/methodology/card-names.md", "docs/architecture/card-data-contracts.md", "apps/storefront/src/lib/contracts/standards.ts", "docs/plans/tcg-data-platform/README.md"]
     },
     {
       "path": "packages/stock", "group": "packages", "label": "Stock ledger and reservations",
