@@ -13,6 +13,11 @@ The platform claims to be one platform. Auth tells a different story: there are 
 | 3 | **Wholesale browser** | `wholesaletcgdirect.com` | NextAuth Credentials, bcrypt rounds=10, JWT | `__Secure-authjs.session-token` on `.wholesaletcgdirect.com` | JWT (stateless) | [`apps/wholesale/src/lib/auth.ts`](../../apps/wholesale/src/lib/auth.ts) |
 | 4 | **Wholesale partner API** | `wholesaletcgdirect.com/api/v1/*` | SHA-256 hashed Bearer in `channel_api_keys` | — | DB row, soft-revocable | [`apps/wholesale/src/app/api/v1/auth.ts`](../../apps/wholesale/src/app/api/v1/auth.ts) |
 
+The storefront has since grown two bearer-key realms, agent keys and member
+data keys. They are described in a dated section
+[below](#the-two-storefront-bearer-realms-2026-10-29); the filename keeps
+"four" because other files link to it.
+
 ## The two facts that explain the shape
 
 ### Fact 1 — Admin is a *role* in the storefront's identity layer, not a separate realm
@@ -107,6 +112,56 @@ Three different auth mechanisms means three different attack surfaces. The seven
 **Substrate honesty about who is who.** Realm 1 and 2 sharing the `users` table makes a user's relationship to the platform explicit: there is one identity, and admin is a permission on it, not a different person. Realm 3 (B2B buyer) and Realm 4 (machine partner) being separate tables makes the personhood vs API-key distinction explicit: a human B2B buyer cannot trivially be elevated to API-key status, and vice versa.
 
 **Per-realm hardening.** Admin (highest privilege) gets the strictest gate (double-checked role on every mutation). Wholesale browser (medium) gets bcrypt + JWT + same-origin check. Wholesale API (programmatic) gets per-key rate-limit + soft-revoke + scope enforcement. Storefront consumer (lowest privilege) gets passwordless email links or optional Google/GitHub OAuth, with the same admission boundary.
+
+## The two storefront bearer realms (2026-10-29)
+
+*An agent added this section on 2026-10-29, reading the source on the
+`claude/agent-auth-docs` branch. Yu has not reviewed it. Nothing here was
+observed in production.*
+
+The map above names the four realms of May 2026. The storefront has since
+grown two more. Both are bearer keys, not sessions: an `Authorization: Bearer`
+header whose token is looked up by its SHA-256 hash, with no cookie, no URL
+token and no session fallback. Each realm accepts only its own token shape and
+refuses any other before a database lookup.
+
+| # | Realm | Accepted at | Token and storage | Provisioned at | Lifetime and limits | Code |
+|---|---|---|---|---|---|---|
+| 5 | **Agent key** | `POST /api/mcp` only | `ctcg_agt_` + 22 base62 characters. `agent_keys` keeps the hash and a 12-character prefix | `/account/agents`, by a signed-in account, for an operator-managed agent. Legacy self-serve agents also hold keys; their registration has been paused since 2026-07-12 | No expiry. At most 10 non-archived agents per account and 5 live keys per agent. Per-key minute limits of 30, 120 or 600 by tier; every key is minted on the 30 tier | [`lib/agents/auth.ts`](../../apps/storefront/src/lib/agents/auth.ts), [`app/api/mcp/route.ts`](../../apps/storefront/src/app/api/mcp/route.ts) |
+| 6 | **Member data key** | `GET /api/v1/member-prices`, and the data API's reads (`/api/v1/market/*`, `/api/v1/account/usage`) while they are published | `ctcg_member_` + 43 base64url characters, scope `price-read`. `member_data_keys` keeps the hash and a 19-character prefix | `/account/data`, by a signed-in account | Expires after 90 days. Five active keys on the free plan. The member feed allows 30 requests per minute; the data API's limits follow the account's plan | [`lib/datafeed/member-keys.ts`](../../apps/storefront/src/lib/datafeed/member-keys.ts), [`lib/data-api/bearer.ts`](../../apps/storefront/src/lib/data-api/bearer.ts) |
+
+**Ending a key.** An agent key ends when its operator revokes it at
+`/account/agents`, when its agent is archived (by the operator or by staff at
+`/admin/trust/agents`), or when its holder calls `agent.revoke_key` at
+`/api/mcp` with the key itself. That last path asks for nothing but possession
+of the key, works whatever the agent's registration or status, and ends only
+that key. The gate re-reads the key on every request, so a revocation applies
+from the next call; staff suspension of the agent answers 403 instead. A member
+key ends when its owner revokes it at `/account/data` (revoking twice is safe)
+or when it expires.
+
+**Why they stay separate.** An agent key is an agent acting through a tool
+grant. It resolves to an `agents` row, and that row's registration decides
+which tools the key may call
+([`tool-access.ts`](../../apps/storefront/src/lib/agents/tool-access.ts)). The
+account behind the agent is a link the gate reads, not authority the key
+carries. A member key is a person's own read credential. It resolves to a
+`users` row with one scope and to nothing else. Merging the two would let an
+agent's grant reach a person's price access, or let a person's read key act as
+an agent, and neither is what its holder was given. Possession of either key
+authorises calls; it is not proof of identity. The OpenAPI document names them
+as two schemes, `AgentKey` and `MemberDataKey`.
+
+What the two may share is technique, not identity: an exact parse before any
+lookup, a `WWW-Authenticate` challenge on 401 (both send one), typed refusals
+and rate-limit headers. They share the storefront database and its `users`
+table with realm 1. Both kinds of key are minted only from a signed-in
+storefront session, but neither key signs anyone in, and a session cookie
+authenticates neither route.
+
+**Not decided.** Agent keys never expire and member keys expire after 90 days.
+No record says whether that difference is deliberate. The question is listed
+in [`docs/plans/agent-auth/README.md`](../plans/agent-auth/README.md).
 
 ## Recursion targets
 
