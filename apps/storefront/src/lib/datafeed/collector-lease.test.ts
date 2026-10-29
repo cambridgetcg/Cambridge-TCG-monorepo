@@ -82,6 +82,19 @@ describe('collector run lease', () => {
     await expect(withCollectorLease('tcgplayer', async () => 'never', { runQuery, spacingMs: -1 })).rejects.toThrow('invalid-collector-lease-spacing');
   });
 
+  it('reads a spacing given as a function at release, after the run, so a run can keep the interval it learned', async () => {
+    const runQuery = table();
+    let interval = 10_000;
+    const work = vi.fn(async () => { interval = 25_000; return 'summary'; });
+    expect(await withCollectorLease('tcgplayer', work, { runQuery, spacingMs: () => interval })).toEqual({ ran: true, value: 'summary' });
+    expect(runQuery.mock.calls.map(call => [call[0].split(' ')[0], call[1]![3]])).toEqual([['WITH', undefined], ['UPDATE', 25_000]]);
+    // One past the lease's limit fails the release, so the row expires at its TTL, longer still.
+    runQuery.mockClear();
+    expect(await withCollectorLease('tcgplayer', async () => 'summary', { runQuery, spacingMs: () => 60_001 })).toEqual({ ran: true, value: 'summary' });
+    expect(runQuery.mock.calls.map(call => call[0].split(' ')[0])).toEqual(['WITH']);
+    expect(console.error).toHaveBeenCalledWith('[collector-lease] release failed; the lease will expire', 'tcgplayer', 'Error');
+  });
+
   it('starts no work when refused, and never lets a failed release hide the result', async () => {
     for (const runQuery of [table(false), missing()]) {
       const work = vi.fn();

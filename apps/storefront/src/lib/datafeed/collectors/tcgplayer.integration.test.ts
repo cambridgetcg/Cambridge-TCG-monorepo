@@ -56,6 +56,8 @@ function source(clock: { at: number }, step: number, refuse?: string, answer: (u
     if (url === refuse) return new Response('Too many requests', { status: 429 });
     const given = answer(url);
     if (given !== undefined) return json(given);
+    // No robots.txt on any host, as both data hosts answered on 2026-10-28: no rule, the recorded 10 s.
+    if (url.endsWith('/robots.txt')) return new Response('', { status: 404 });
     const set = /\/priceguide\/set\/(\d+)\/cards\//.exec(url);
     if (set) return json(guides[Number(set[1])]);
     const category = /SetNames\?categoryId=(\d+)&active=true$/.exec(url)?.[1] ?? /ProductTypes\/(\d+)\/$/.exec(url)?.[1];
@@ -64,6 +66,7 @@ function source(clock: { at: number }, step: number, refuse?: string, answer: (u
   return Object.defineProperties(f, { count: { get: () => urls.length }, via_proxy: { value: null }, via_proxy_label: { value: null }, urls: { value: urls } }) as unknown as Fetcher & { urls: string[] };
 }
 const guideUrl = (setId: number, type: number) => `https://infinite-api.tcgplayer.com/priceguide/set/${setId}/cards/?rows=5000&productTypeID=${type}`;
+const ROBOTS = ['https://www.tcgplayer.com/robots.txt', 'https://mpapi.tcgplayer.com/robots.txt', 'https://infinite-api.tcgplayer.com/robots.txt'];
 /** A run that got its lease. */
 async function collect(options: Parameters<typeof collectTcgplayer>[0]) {
   const run = await collectTcgplayer(options);
@@ -109,8 +112,10 @@ describe.skipIf(!localUrl)('TCGplayer collector PostgreSQL integration (explicit
     const clock = { at: Date.parse('2026-10-28T16:00:00.000Z') };
     const fetcher = source(clock, 10_000);
     const run = await collect({ fetcher, now: () => clock.at, lines });
-    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', runAt: '2026-10-28T16:00:00.000Z', requests: 13, setsListed: 9, errors: [] });
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', runAt: '2026-10-28T16:00:00.000Z', requests: 16, setsListed: 9, errors: [] });
     expect(fetcher.urls).toEqual([
+      // robots.txt for every host, read this run, before any data.
+      ...ROBOTS,
       'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true',
       'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=85&active=true',
       'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/',
@@ -163,10 +168,10 @@ describe.skipIf(!localUrl)('TCGplayer collector PostgreSQL integration (explicit
   it('starts the next run with the sets read longest ago, and stops before the budget runs out', async () => {
     await spacingPassed();
     const clock = { at: Date.parse('2026-10-28T17:00:00.000Z') };
-    const fetcher = source(clock, 35_000);
+    const fetcher = source(clock, 24_500);
     const run = await collect({ fetcher, now: () => clock.at, lines });
-    // Seven requests take 245 s of the 270; 25 s is too little to begin another set.
-    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'budget', requests: 7, elapsedMs: 245_000 });
+    // Ten requests (three of them robots.txt) take 245 s of the 270; 25 s is too little to begin another set.
+    expect(run).toMatchObject({ status: 'ok', stoppedBy: 'budget', requests: 10, elapsedMs: 245_000 });
     expect(run.sets.map(set => set.setId)).toEqual([24664, 24537, 23599]);
     // An unchanged mapping is left as it is, not rewritten.
     expect(run.crosswalks).toMatchObject({ setWritten: 0, productWritten: 0, failed: 0 });
@@ -181,8 +186,8 @@ describe.skipIf(!localUrl)('TCGplayer collector PostgreSQL integration (explicit
     const run = await collect({ fetcher, now: () => clock.at, lines });
     // The second run re-read 24664, 24537 and 23599, so 23598 and then 3189
     // are now the stalest. 23598 is written; 3189 is refused and the run ends.
-    expect(run).toMatchObject({ status: 'source-unavailable', stoppedBy: 'source-unavailable', requests: 6, unavailable: { reason: 'http-429', status: 429, url: guideUrl(3189, 110) } });
-    expect(fetcher.urls.slice(2)).toEqual(['https://mpapi.tcgplayer.com/v2/Product/ProductTypes/85/', guideUrl(23598, 143), 'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/', guideUrl(3189, 110)]);
+    expect(run).toMatchObject({ status: 'source-unavailable', stoppedBy: 'source-unavailable', requests: 9, unavailable: { reason: 'http-429', status: 429, url: guideUrl(3189, 110), refused: true } });
+    expect(fetcher.urls.slice(5)).toEqual(['https://mpapi.tcgplayer.com/v2/Product/ProductTypes/85/', guideUrl(23598, 143), 'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/', guideUrl(3189, 110)]);
     expect(run.sets.map(set => set.setId)).toEqual([23598]);
     const after = (await state.pool.query('SELECT count(*)::int AS n FROM member_price_batches')).rows[0].n;
     expect(after - before).toBe(1);
@@ -219,13 +224,13 @@ describe.skipIf(!localUrl)('TCGplayer collector PostgreSQL integration (explicit
     names.results.push({ setNameId: 990001, categoryId: 68, name: 'Synthetic Broken Set', cleanSetName: 'Synthetic Broken Set', urlName: 'synthetic-broken-set', abbreviation: 'ZZ01', releaseDate: '2026-10-01T00:00:00', isSupplemental: false, active: true });
     const answer = (url: string) => url.includes('SetNames?categoryId=68') ? names : url.includes('/set/990001/') ? { count: 0 } : undefined;
     const onePiece = lines.filter(line => line.slug === 'one-piece-card-game');
-    // 85 s a request: this run has budget for that one set only.
+    // 42 s a request: after robots.txt, this run has budget for that one set only.
     await spacingPassed();
     const clockA = { at: Date.parse('2026-10-28T18:40:00.000Z') };
-    const a = source(clockA, 85_000, undefined, answer);
+    const a = source(clockA, 42_000, undefined, answer);
     const first = await collect({ fetcher: a, now: () => clockA.at, lines: onePiece });
     // Never read, so first.
-    expect(a.urls.slice(2)).toEqual([guideUrl(990001, 110)]);
+    expect(a.urls.slice(5)).toEqual([guideUrl(990001, 110)]);
     expect(first.stoppedBy).toBe('budget');
     expect(first.errors).toEqual([{ line: 'one-piece-card-game', setId: 990001, error: 'invalid-tcgplayer-price-guide', recorded: true }]);
     expect(first.sets.map(set => set.setId)).not.toContain(990001);

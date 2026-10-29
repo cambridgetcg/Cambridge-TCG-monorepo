@@ -71,17 +71,42 @@ describe("TCGplayer collector cron", () => {
     network.mockResolvedValue(new Response("Too many requests", { status: 429, headers: { "retry-after": "60" } }));
     const response = await call();
     expect(response.status).toBe(503);
+    // The run's first request is www.tcgplayer.com's robots.txt, read every run.
     expect(await response.json()).toMatchObject({
       ok: false, ran: true, error: { code: "SOURCE_UNAVAILABLE" },
-      run: { status: "source-unavailable", requests: 1, unavailable: { reason: "http-429", status: 429, url: "https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true" } },
+      run: { status: "source-unavailable", requests: 1, unavailable: { reason: "robots-http-429", status: 429, url: "https://www.tcgplayer.com/robots.txt", refused: true } },
     });
     expect(network).toHaveBeenCalledTimes(1);
+    expect(network.mock.calls[0]![0]).toBe("https://www.tcgplayer.com/robots.txt");
     expect(new Headers(network.mock.calls[0]![1]!.headers).get("user-agent")).toContain("permission tcgplayer/2026-10-28.1");
     expect(transaction).not.toHaveBeenCalled();
-    // The lease was taken before the first request and given back after it, keeping the 10 s Crawl-Delay.
-    expect(vi.mocked(query).mock.calls.map(([sql]) => sql.split(" ")[0])).toEqual(["SELECT", "WITH", "SELECT", "UPDATE"]);
+    // The lease was taken before the first request, the hosts' state read under it, the
+    // refusal recorded against the host, and the lease given back keeping the 10 s Crawl-Delay.
+    expect(vi.mocked(query).mock.calls.map(([sql]) => sql.split(" ")[0])).toEqual(["SELECT", "WITH", "SELECT", "INSERT", "UPDATE"]);
     expect(vi.mocked(query).mock.calls[1]![1]![0]).toBe("tcgplayer");
-    expect(vi.mocked(query).mock.calls[3]![1]).toEqual(["tcgplayer", expect.any(String), "request-spacing", 10_000]);
+    expect(vi.mocked(query).mock.calls[2]![0]).toContain("FROM price_collector_hosts");
+    const recorded = JSON.parse(vi.mocked(query).mock.calls[3]![1]![1] as string);
+    expect(recorded).toEqual([expect.objectContaining({ host: "www.tcgplayer.com", consecutiveRefusals: 1, lastRefusalReason: "robots-http-429", suspendedAt: null })]);
+    // Retry-After: 60 is waited out before the next run asks again.
+    expect(Date.parse(recorded[0].notBefore) - Date.parse(recorded[0].lastRefusalAt)).toBe(60_000);
+    expect(vi.mocked(query).mock.calls[4]![1]).toEqual(["tcgplayer", expect.any(String), "request-spacing", 10_000]);
+  });
+
+  it.each([
+    ["backing off", { not_before: "2999-01-01T00:00:00.000Z", suspended_at: null, suspended_reason: null }, 200, { ok: true, ran: false, reason: "host-backing-off", host: "mpapi.tcgplayer.com", notBefore: "2999-01-01T00:00:00.000Z" }],
+    ["suspended", { not_before: "2026-10-29T06:00:00.000Z", suspended_at: "2026-10-29T00:00:00.000Z", suspended_reason: "http-403" }, 503,
+      { ok: false, ran: false, reason: "host-suspended", host: "mpapi.tcgplayer.com", suspendedAt: "2026-10-29T00:00:00.000Z", suspendedReason: "http-403", error: { code: "HOST_SUSPENDED" } }],
+  ] as const)("asks TCGplayer nothing while a host is %s", async (_label, state, status, body) => {
+    process.env.DATA_COLLECT_TCGPLAYER = "on";
+    vi.mocked(query).mockImplementation((async (sql: string, params?: unknown[]) => {
+      if (sql.includes("FROM price_collector_hosts")) return { rows: [{ source: "tcgplayer", host: "mpapi.tcgplayer.com", consecutive_refusals: 3, last_success_at: null, last_refusal_at: "2026-10-29T00:00:00.000Z", last_refusal_reason: "http-403", ...state }], rowCount: 1 };
+      return (leased as unknown as (sql: string, params?: unknown[]) => Promise<unknown>)(sql, params);
+    }) as never);
+    const response = await call();
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject(body);
+    expect(network).not.toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it("answers the budget's timeout cutting a request short as a budget stop, not a 500, and not as success when no set was written", async () => {
