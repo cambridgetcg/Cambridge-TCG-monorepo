@@ -5,7 +5,8 @@
  * form-urlencoded, NOT JSON. Credentials are application-scoped (no
  * per-store credentials needed for read-only catalog + pricing).
  *
- * Cambridge has no written approval for its multi-source use, so token
+ * Cambridge has no written approval for multi-source use of this API (its
+ * page permission does not reach it), so token
  * minting is hard-blocked here as well as at the source reader and app
  * wrappers. Keeping the stop at this lowest exported network primitive means
  * accidental credentials cannot turn into an upstream request.
