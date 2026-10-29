@@ -1088,13 +1088,38 @@ const SPEC = {
       post: {
         tags: ["agents"],
         summary: "MCP-shaped JSON-RPC dispatch",
-        description: "initialize and tool discovery are public. Other calls require a bearer key. Existing self-serve keys can use read/status tools only; operator-managed keys also have account-linked reads and may append bounded Coverage Hunt evidence that stops at human review. Match and deck writes are paused for every key.",
+        description: "JSON-RPC 2.0 over HTTPS POST, accepting Cambridge dotted method names and MCP method names. initialize, notifications/initialized, tools/list, mcp.list_tools (dotted or through tools/call), resources/list and prompts/list need no key, hence the empty security alternative. agent.revoke_key authenticates with the key it ends: any key's holder may call it whatever the agent's registration or status, it is not rate-limited, and without confirm: true it is a preview that writes nothing (see /methodology/agents#ending-a-key). Every other call, an unknown method included, needs a live AgentKey first. Existing self-serve keys are read-only (domain state); operator-managed keys also have account-linked reads and may append bounded Coverage Hunt evidence that stops at human review. Match and deck writes are paused for every key. A gate refusal carries an AgentRefusal in JSON-RPC error.data. Under tools/call a tool-level error, tool_not_permitted included, is instead a JSON-RPC result with isError: true, sent with the HTTP status listed below; its refusal, when it has one, is in result._meta[\"cambridgetcg.com/refusal\"].",
         operationId: "postMcpJsonRpc",
-        requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+        security: [{}, { AgentKey: [] }],
+        "x-max-request-bytes": 1048576,
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["method"], properties: { jsonrpc: { const: "2.0" }, id: { type: ["string", "number", "null"] }, method: { type: "string" }, params: { type: "object" } } } } } },
         responses: {
-          "200": { description: "JSON-RPC result or MCP-shaped tool error." },
-          "401": { description: "Bearer key missing or invalid for an authenticated call." },
-          "403": { description: "The key lacks authority or the requested write is paused." },
+          "200": {
+            description: "JSON-RPC result. Under tools/call it is {content, isError: false}; dotted methods return the tool's result as is. agent.revoke_key answers 200 for a preview, a performed revocation and the not-active answer (an unknown string and an already-revoked key get the same one).",
+            headers: {
+              "X-RateLimit-Remaining": { description: "Requests left in this key's current minute, on authenticated tool results.", schema: { type: "integer", minimum: 0 } },
+              "X-Agent-Handle": { description: "The calling agent's public handle, on authenticated tool results.", schema: { type: "string" } },
+            },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } },
+          },
+          "204": { description: "notifications/initialized: no body." },
+          "400": { description: "Unreadable or invalid JSON (-32700), a body without a method (-32600), tools/call without a name (-32602, after authentication), or a tool's own argument error (dotted: -32003; tools/call: an isError result).", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
+          "401": {
+            description: "No usable key: reason_code missing_credentials, malformed_credentials (anything but exactly ctcg_agt_ plus 22 base62 characters, refused before any lookup) or unknown_or_revoked_key (one code and one answer for both). JSON-RPC -32001 with an AgentRefusal in error.data.",
+            headers: { "WWW-Authenticate": { description: "Bearer realm=\"cambridgetcg-mcp\", plus error=\"invalid_token\" when a bearer token was presented.", schema: { type: "string" } } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } },
+          },
+          "403": { description: "agent_suspended or agent_archived at the gate (-32001, AgentRefusal in error.data; both list agent.revoke_key under exit_paths, which ends the key and is not a recovery), or tool_not_permitted: the key's registration does not grant the tool, or the write is paused (dotted: -32003 with error.data; tools/call: an isError result with the refusal in _meta). A tool's own 403 carries no refusal object.", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
+          "404": { description: "Unknown method, answered only after authentication (-32601), or a tool's own not-found error.", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
+          "409": { description: "A tool's own conflict, for example a Coverage Hunt turn that is out of order (dotted: -32003; tools/call: an isError result).", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
+          "413": { description: "Body larger than 1 MiB (-32600).", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
+          "429": {
+            description: "rate_limited: this key's per-minute tier limit is spent (-32002, AgentRefusal in error.data with retry_after_seconds).",
+            headers: { "Retry-After": { description: "Seconds until the key's minute resets.", schema: { type: "integer", minimum: 0 } } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } },
+          },
+          "500": { description: "Unexpected failure after authentication, in a tool or the rate limiter: -32603 \"internal error\", with no data.", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
+          "503": { description: "auth_unavailable: the key lookup failed (-32603, AgentRefusal in error.data); safe to retry. agent.revoke_key also answers 503 when its state is unknown: dotted calls get -32603 whose data has key_state unknown and retryable true, tools/call gets an isError result; repeating is safe. A tool can answer 503 when a source it reads is unavailable.", content: { "application/json": { schema: { $ref: "#/components/schemas/McpJsonRpcResponse" } } } },
         },
       },
     },
@@ -1198,6 +1223,14 @@ const SPEC = {
         type: "http",
         scheme: "bearer",
         description: "Free, account-owned, read-only data key from /account/data. Never send a session cookie, agent key, or wholesale service key as this credential.",
+      },
+      AgentKey: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "ctcg_agt_ followed by 22 base62 characters",
+        "x-token-pattern": "^ctcg_agt_[A-Za-z0-9]{22}$",
+        "x-provisioning": "https://cambridgetcg.com/account/agents",
+        description: "Agent key for POST /api/mcp only. A signed-in human with an existing or admitted account mints one for an operator-managed agent at /account/agents; new-account admission may be closed, and self-serve registration is paused. The key is shown once, only its SHA-256 hash is stored, and it has no expiry. The Bearer scheme name is case-insensitive; a token of any other shape is refused before any lookup. Possession authorises calls; it is not proof of identity, authorship or control of the agent profile. Any holder can end its own key with agent.revoke_key. Never send a member data key, session cookie, or wholesale service key as this credential.",
       },
     },
     schemas: {
@@ -1723,6 +1756,65 @@ const SPEC = {
             properties: {
               code: { type: "string" },
               message: { type: "string" },
+            },
+          },
+        },
+      },
+      AgentRefusal: {
+        type: "object",
+        additionalProperties: false,
+        required: ["reason_code", "retryable", "terminal", "next_actions", "docs"],
+        description: "Why the MCP gate refused a call. In JSON-RPC error.data, or for a tools/call result with isError: true in result._meta[\"cambridgetcg.com/refusal\"]. A terminal refusal offers no next action; any other offers at least one, and each is optional.",
+        properties: {
+          reason_code: { type: "string", enum: ["missing_credentials", "malformed_credentials", "unknown_or_revoked_key", "agent_suspended", "agent_archived", "tool_not_permitted", "rate_limited", "auth_unavailable"] },
+          retryable: { type: "boolean" },
+          terminal: { type: "boolean" },
+          next_actions: {
+            type: "array",
+            items: {
+              type: "object", additionalProperties: false, required: ["action", "optional"],
+              properties: {
+                action: { type: "string", enum: ["read_docs", "request_review", "retry"] },
+                href: { type: "string", description: "A documentation URL, or a mailto: address for request_review." },
+                after_seconds: { type: "integer", minimum: 0 },
+                optional: { const: true },
+              },
+            },
+          },
+          docs: { type: "string", format: "uri" },
+          exit_paths: {
+            type: "array",
+            description: "agent_suspended and agent_archived only: ending this key, which is not a recovery.",
+            items: {
+              type: "object", additionalProperties: false, required: ["tool", "note"],
+              properties: { tool: { const: "agent.revoke_key" }, note: { type: "string" } },
+            },
+          },
+          suspended_at: { type: ["string", "null"], format: "date-time", description: "agent_suspended only." },
+          retry_after_seconds: { type: "integer", minimum: 0, description: "rate_limited only; the Retry-After header carries the same value." },
+        },
+        oneOf: [
+          { properties: { terminal: { const: true }, next_actions: { maxItems: 0 } } },
+          { properties: { terminal: { const: false }, next_actions: { minItems: 1 } } },
+        ],
+      },
+      McpJsonRpcResponse: {
+        type: "object",
+        required: ["jsonrpc"],
+        description: "One JSON-RPC 2.0 response from POST /api/mcp: a result or an error, never both.",
+        properties: {
+          jsonrpc: { const: "2.0" },
+          id: { type: ["string", "number", "null"] },
+          result: {
+            description: "The tool's result. Under tools/call it is {content: [{type: \"text\", text}], isError}; with isError true, _meta[\"cambridgetcg.com/refusal\"] holds an AgentRefusal when the gate refused the tool.",
+          },
+          error: {
+            type: "object",
+            required: ["code", "message"],
+            properties: {
+              code: { type: "integer", description: "-32700 parse, -32600 invalid request, -32601 unknown method, -32602 invalid params, -32603 internal or unavailable, -32001 authentication or agent status, -32002 rate limited, -32003 tool error." },
+              message: { type: "string" },
+              data: { description: "An AgentRefusal for gate refusals; agent.revoke_key's unknown-state answer for its 503; absent otherwise." },
             },
           },
         },
