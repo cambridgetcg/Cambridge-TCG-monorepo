@@ -9,6 +9,7 @@ import { CARD_DATA_CONTRACT } from "./card-data";
 import { discoveryResources, publicSitemap } from "@/lib/public-discovery";
 import { IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/image-reference";
 import { CARD_NUMBER_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/card-number-image-reference";
+import { SAME_LANGUAGE_IMAGE_REFERENCE_SCHEMA } from "@/lib/cards/same-language-image-reference";
 
 vi.mock("server-only", () => ({}));
 
@@ -110,5 +111,25 @@ describe("public room and card contract discovery", () => {
     expect(card.required ?? []).not.toContain("image_reference");
     expect(spec.components.schemas.ImageReference.properties.relationship).toEqual({ const: "reference" });
     expect(spec.components.schemas.ImageReference.properties.scope).toEqual({ const: "syntax_only" });
+  });
+
+  it("adds the same-language image as one nullable unit, leaving the English fields and ImageReference unchanged", async () => {
+    const spec = await (await getOpenApi()).json();
+    const card = spec.components.schemas.UniversalCard.allOf[1];
+    expect(card.properties.image_same_language.anyOf).toEqual([
+      expect.objectContaining({ type: "object", additionalProperties: false, required: ["url", "attribution", "language", "reference"] }),
+      { type: "null" },
+    ]);
+    expect(card.properties.image_same_language.anyOf[0].properties.reference).toEqual({ $ref: "#/components/schemas/SameLanguageImageReference" });
+    expect(card.required ?? []).not.toContain("image_same_language");
+    expect(card.properties.image_url.description).toBe("Eligible self-hosted English reference image; nullable in normal/saturated density, omitted at sparse density. Carries attribution and image_reference together; never an exact-printing assertion.");
+    expect(spec.components.schemas.ImageReference).toEqual(IMAGE_REFERENCE_SCHEMA);
+    expect(spec.components.schemas.ImageReference.properties.reason).toEqual({ const: "english_base_reference" });
+    expect(spec.components.schemas.SameLanguageImageReference).toEqual(SAME_LANGUAGE_IMAGE_REFERENCE_SCHEMA);
+    const { data } = await getContract().json();
+    expect(data.schemas.same_language_image_reference).toEqual(SAME_LANGUAGE_IMAGE_REFERENCE_SCHEMA);
+    expect(data.images.same_language_reference.example).toMatchObject({ requested_sku: "OP-OP01-001-JP-V11DZ", depicted_sku: "OP-OP01-001-JA", language: "ja", reason: "same_language_base_reference" });
+    expect(data.images.english_base_reference.representation).toContain("A same-language official image travels separately in image_same_language.");
+    expect(PUBLIC_SCHEMAS["SameLanguageImageReference.schema.json"]).toBe(SAME_LANGUAGE_IMAGE_REFERENCE_SCHEMA);
   });
 });

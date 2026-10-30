@@ -7,7 +7,7 @@ import {
 } from "@/lib/wholesale/client";
 import { getFirstPartyReferences, type FirstPartyRef } from "@/lib/prices/first-party";
 import { query } from "@/lib/db";
-import { getEnCardImages, type EnCardImage } from "@/lib/cards/en-card-data";
+import { getOfficialCardImages, type OfficialImageChoice } from "@/lib/cards/en-card-data";
 import { catalogImageUrl } from "@/lib/cards/image-publication";
 
 // GET /api/market/catalog — all cards with spot + P2P data for Cardmarket-style browse
@@ -117,19 +117,21 @@ export async function GET(request: Request) {
     }
   }
 
-  // Official English self-hosted card images (one batch query, per the
-  // grid contract). The publication rule lives entirely in en-card-data.ts:
-  // only publisher 'official_sample' art, self-hosted via s3_key (the stored
-  // source_url is NEVER served — no hotlink), takedown-clear, and always
-  // carrying its copyright line. The returned `url` is already the Cambridge-
-  // hosted URL; cards with no published official image simply aren't in the
-  // map, so their image_url stays whatever db-source gave (today: null).
-  let enImages = new Map<string, EnCardImage>();
+  // Official self-hosted card images (one batch query per lane, per the
+  // grid contract): a Japanese card's own-language image when there is one
+  // (Yu, 2026-10-30), else the English base reference. The publication rule
+  // lives entirely in en-card-data.ts: only publisher 'official_sample' art,
+  // self-hosted via s3_key (the stored source_url is NEVER served — no
+  // hotlink), takedown-clear, and always carrying its copyright line. The
+  // returned `url` is already the Cambridge-hosted URL; cards with no
+  // published official image simply aren't in the map, so their image_url
+  // stays whatever db-source gave (today: null).
+  let officialImages = new Map<string, OfficialImageChoice>();
   if (skus.length > 0) {
     try {
-      enImages = await getEnCardImages(skus);
+      officialImages = await getOfficialCardImages(skus);
     } catch {
-      // EN image enrichment is optional; the catalog renders without it.
+      // Official image enrichment is optional; the catalog renders without it.
     }
   }
 
@@ -177,7 +179,7 @@ export async function GET(request: Request) {
     const marketPrice = bestAsk !== null && (spot === null || bestAsk < spot) ? bestAsk : spot;
     // Official reference metadata travels as a complete unit. The independent
     // catalogue fallback stays available, explicitly without verified metadata.
-    const candidate = enImages.get(item.sku);
+    const candidate = officialImages.get(item.sku);
     const img = candidate?.url && candidate.attribution && candidate.reference ? candidate : null;
 
     return {
@@ -189,7 +191,11 @@ export async function GET(request: Request) {
       rarity: item.rarity,
       image_url: img?.url ?? catalogImages.get(item.sku) ?? catalogImageUrl(item.image_url),
       image_attribution: img?.attribution ?? null,
-      image_reference: img?.reference ?? null,
+      // The English base reference, or the Japanese one, each in its own
+      // field; image_language says which (null for the catalogue fallback).
+      image_reference: img?.language === "en" ? img.reference : null,
+      image_language: img?.language ?? null,
+      image_same_language_reference: img?.language === "ja" ? img.reference : null,
       // Prices — spot_price is now a FIRST-PARTY reference: the last price this
       // card traded for on Cambridge (ref_trades backs it). Null until it has
       // traded here. Never a republished external price.

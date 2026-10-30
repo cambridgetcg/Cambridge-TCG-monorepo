@@ -1,17 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ImageReference } from "@/lib/cards/image-reference";
+import { createSameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
 import { GET } from "./route";
 
 const mocks = vi.hoisted(() => ({
   fetchPrices: vi.fn(), fetchGamesDetailed: vi.fn(), fetchSetsDetailed: vi.fn(),
-  query: vi.fn(), getEnCardImages: vi.fn(), getFirstPartyReferences: vi.fn(),
+  query: vi.fn(), getOfficialCardImages: vi.fn(), getFirstPartyReferences: vi.fn(),
 }));
 vi.mock("@/lib/wholesale/client", () => ({
   fetchPrices: mocks.fetchPrices, fetchGamesDetailed: mocks.fetchGamesDetailed,
   fetchSetsDetailed: mocks.fetchSetsDetailed,
 }));
 vi.mock("@/lib/db", () => ({ query: mocks.query }));
-vi.mock("@/lib/cards/en-card-data", () => ({ getEnCardImages: mocks.getEnCardImages }));
+vi.mock("@/lib/cards/en-card-data", () => ({ getOfficialCardImages: mocks.getOfficialCardImages }));
 vi.mock("@/lib/prices/first-party", () => ({ getFirstPartyReferences: mocks.getFirstPartyReferences }));
 
 const reference: ImageReference = {
@@ -22,7 +23,7 @@ const reference: ImageReference = {
 const catalogUrl = "https://jp-op-photos.s3.us-east-1.amazonaws.com/OP01/001.jpg";
 const official = {
   url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/op/OP01-001.png",
-  attribution: "© Publisher", reference,
+  attribution: "© Publisher", reference, language: "en",
 };
 const item = {
   sku: reference.requested_sku, card_number: "OP01-001", name: "Leader",
@@ -41,24 +42,39 @@ beforeEach(() => {
   mocks.query.mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT sku, image_url") ? [{ sku: item.sku, image_url: catalogUrl }] : [],
   }));
-  mocks.getEnCardImages.mockResolvedValue(new Map());
+  mocks.getOfficialCardImages.mockResolvedValue(new Map());
   mocks.getFirstPartyReferences.mockResolvedValue(new Map());
 });
 
 describe("market catalog image projection", () => {
   it("publishes the complete reference trio instead of the catalog fallback", async () => {
-    mocks.getEnCardImages.mockResolvedValue(new Map([[item.sku, official]]));
+    mocks.getOfficialCardImages.mockResolvedValue(new Map([[item.sku, official]]));
     expect(await readCard()).toMatchObject({
       image_url: official.url, image_attribution: official.attribution, image_reference: reference,
+      image_language: "en", image_same_language_reference: null,
     });
   });
 
+  it("publishes a Japanese card's own-language image with its own reference field, never as image_reference", async () => {
+    const japanese = {
+      url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png",
+      attribution: "©尾田栄一郎／集英社 ©尾田栄一郎／集英社・フジテレビ・東映アニメーション", language: "ja",
+      reference: createSameLanguageImageReference(item.sku, "OP-OP01-001-JA")!,
+    };
+    mocks.getOfficialCardImages.mockResolvedValue(new Map([[item.sku, japanese]]));
+    expect(await readCard()).toMatchObject({
+      image_url: japanese.url, image_attribution: japanese.attribution, image_reference: null,
+      image_language: "ja", image_same_language_reference: japanese.reference,
+    });
+    expect(mocks.getOfficialCardImages).toHaveBeenCalledWith([item.sku]);
+  });
+
   it("preserves catalog-only images with null reference and attribution", async () => {
-    expect(await readCard()).toMatchObject({ image_url: catalogUrl, image_attribution: null, image_reference: null });
+    expect(await readCard()).toMatchObject({ image_url: catalogUrl, image_attribution: null, image_reference: null, image_language: null, image_same_language_reference: null });
   });
 
   it.each(["url", "attribution", "reference"])("keeps the fallback separate when official %s is absent", async (field) => {
-    mocks.getEnCardImages.mockResolvedValue(new Map([[item.sku, { ...official, [field]: null }]]));
+    mocks.getOfficialCardImages.mockResolvedValue(new Map([[item.sku, { ...official, [field]: null }]]));
     expect(await readCard()).toMatchObject({ image_url: catalogUrl, image_attribution: null, image_reference: null });
   });
 
@@ -76,7 +92,7 @@ describe("market catalog image projection", () => {
 
   it("returns null image metadata when both enrichments fail", async () => {
     mocks.query.mockRejectedValue(new Error("fixture unavailable"));
-    mocks.getEnCardImages.mockRejectedValue(new Error("fixture unavailable"));
+    mocks.getOfficialCardImages.mockRejectedValue(new Error("fixture unavailable"));
     expect(await readCard()).toMatchObject({ image_url: null, image_attribution: null, image_reference: null });
   });
 });

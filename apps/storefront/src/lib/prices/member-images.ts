@@ -2,17 +2,20 @@ import 'server-only';
 import { skuIdentity, type SkuIdentity } from '@cambridge-tcg/sku';
 import { query as dbQuery } from '@/lib/db';
 import { cardRushListingImageUrl } from '@cambridge-tcg/data-ingest/cardrush/member-prices';
-import { getEnCardImages, type EnCardImage } from '@/lib/cards/en-card-data';
+import { getOfficialCardImages, type OfficialImageChoice } from '@/lib/cards/en-card-data';
 import type { ImageReference } from '@/lib/cards/image-reference';
 import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, type MemberPriceItem } from './member-feed-types';
 
-/** How the official image relates to its row. The image is always the
- * publisher's English base print: the projector refuses any other row
- * (image-publication.ts), and its reference names the SKU it depicts.
- * - same-printing: an English printing-level row with no variant, so the
- *   depicted SKU is the row's own.
- * - same-language-base-print: an English printing-level row with a variant
- *   (a parallel or reprint), so the art may differ.
+/** How the official image relates to its row. The image is the publisher's
+ * base print in the row's own language when one is published (Japanese,
+ * since Yu's decision of 2026-10-30), else the English base print; the
+ * projectors refuse any other row (image-publication.ts), and the reference
+ * names the SKU it depicts. Relationships are measured against the image's
+ * language:
+ * - same-printing: a printing-level row in the image's language with no
+ *   variant, so the depicted SKU is the row's own.
+ * - same-language-base-print: a printing-level row in the image's language
+ *   with a variant (a parallel or reprint), so the art may differ.
  * - other-language: a printing-level row in another language.
  * - pooled-row: a source-product aggregate (a Cardmarket row), whose price
  *   may pool printings and languages. Its SKU names the card, not a printing
@@ -25,7 +28,7 @@ export type MemberOfficialImageRelationship = 'same-printing' | 'same-language-b
 export type MemberOfficialImage = {
   url: string;
   attribution: string;
-  imageLang: 'en';
+  imageLang: 'en' | 'ja';
   /** The canonical SKU the image depicts, from the projector's reference. */
   depictedSku: string;
   /** The reference's own scope, 'syntax_only': the SKUs match as text, and
@@ -41,11 +44,12 @@ export type MemberOfficialImage = {
 /** Identity images beside /prices rows, so a person or an agent reading the
  * page can check the item against its price (Yu, 2026-10-29). Display only,
  * in two lanes, and a row may have both:
- * - A row with an exact SKU shows the official English base reference
- *   through the existing reader and projector (en-card-data.ts), from
- *   Cambridge's own image host, labelled with how its language and printing
- *   relate to the row's (Yu, 2026-10-30: "sort out the languages and
- *   corresponding images").
+ * - A row with an exact SKU shows its official image through the shared
+ *   readers and projectors (en-card-data.ts), from Cambridge's own image host:
+ *   the same-language base print when one is published (a Japanese row's
+ *   Japanese image), else the English base reference, labelled with how its
+ *   language and printing relate to the row's (Yu, 2026-10-30: "sort out the
+ *   languages and corresponding images").
  * - A CardRush row offers the listing's own image at CardRush's own URL,
  *   credited and linked to the listing (price_source_listing_images, 0145).
  *   Cambridge never copies, mirrors, re-hosts, proxies or caches it, and the
@@ -104,20 +108,20 @@ async function listingImages(ids: readonly string[]): Promise<Map<string, string
   return found;
 }
 
-async function officialImages(skus: readonly string[]): Promise<Map<string, EnCardImage>> {
+async function officialImages(skus: readonly string[], env: Readonly<Record<string, string | undefined>>): Promise<Map<string, OfficialImageChoice>> {
   if (!skus.length) return new Map();
   try {
-    return await getEnCardImages(skus);
+    return await getOfficialCardImages(skus, env);
   } catch (error) {
     console.error('[member-prices] official images unavailable', error instanceof Error ? error.name : 'unknown');
     return new Map();
   }
 }
 
-function officialImage(reference: EnCardImage, printing: SkuIdentity | null, language: string | null): MemberOfficialImage {
-  const shown = { url: reference.url, attribution: reference.attribution, imageLang: 'en' as const, depictedSku: reference.reference.depicted_canonical_sku, scope: reference.reference.scope };
+function officialImage(image: OfficialImageChoice, printing: SkuIdentity | null, language: string | null): MemberOfficialImage {
+  const shown = { url: image.url, attribution: image.attribution, imageLang: image.language, depictedSku: image.reference.depicted_canonical_sku, scope: image.reference.scope };
   if (!printing) return { ...shown, relationship: 'pooled-row', rowLang: language, rowVariant: null };
-  const relationship = printing.lang !== 'en' ? 'other-language' : printing.variant ? 'same-language-base-print' : 'same-printing';
+  const relationship = printing.lang !== image.language ? 'other-language' : printing.variant ? 'same-language-base-print' : 'same-printing';
   return { ...shown, relationship, rowLang: printing.lang, rowVariant: printing.variant };
 }
 
@@ -129,7 +133,7 @@ export async function readMemberPriceImages(items: readonly MemberPriceItem[], e
   const exactSku = (item: MemberPriceItem) => item.mappingStatus === 'exact' && item.sku ? item.sku : null;
   const listings = cardRushListingImagesOn(env) ? [...new Set(rows.filter(item => item.source === 'cardrush').map(item => item.sourceProductId))] : [];
   const skus = [...new Set(rows.map(exactSku).filter((sku): sku is string => sku !== null))];
-  const [linked, official] = await Promise.all([listingImages(listings), officialImages(skus)]);
+  const [linked, official] = await Promise.all([listingImages(listings), officialImages(skus, env)]);
   const byItem = new Map<string, MemberPriceImage>();
   for (const item of rows) {
     const listing = item.source === 'cardrush' ? linked.get(item.sourceProductId) : undefined;

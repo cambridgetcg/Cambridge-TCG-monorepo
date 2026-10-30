@@ -347,6 +347,21 @@ describe("member price rendering", () => {
     for (const attribute of ['data-image-source="official"', 'data-image-lang="en"', `data-row-lang="${official.rowLang}"`, `data-relationship="${official.relationship}"`, 'data-depicted-sku="op-op01-006-en"', 'data-scope="syntax_only"']) expect(img).toContain(attribute);
   });
 
+  it.each([
+    ["a Japanese base row", "op-op01-006-ja", "same-printing", null, "Official image · this printing (Japanese), matched by SKU, not verified"],
+    ["a Japanese parallel", "op-op01-006-ja-p1", "same-language-base-print", "p1", "Official Japanese base print · this row is a parallel, art may differ"],
+  ] as const)("labels a Japanese official image truthfully for %s (%s), with its credit marked Japanese", (_name, sku, relationship, rowVariant, label) => {
+    const credit = "©尾田栄一郎／集英社 ©尾田栄一郎／集英社・フジテレビ・東映アニメーション";
+    const official: Official = { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-JA.png", imageLang: "ja", depictedSku: "op-op01-006-ja", scope: "syntax_only", attribution: credit, relationship, rowLang: "ja", rowVariant };
+    const row = { ...reference, sku };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [row] }} params={new URLSearchParams()} images={imagesFor([[row.id, { official }]])} />);
+    expect(html).toContain(`${label}<span lang="ja"`);
+    expect(html).toContain(credit);
+    expect(html).not.toContain("English");
+    const img = /<img [^>]*>/.exec(html)![0];
+    for (const attribute of ['data-image-source="official"', 'data-image-lang="ja"', 'data-row-lang="ja"', `data-relationship="${relationship}"`, 'data-depicted-sku="op-op01-006-ja"']) expect(img).toContain(attribute);
+  });
+
   it("never tells a source-product aggregate the image is its printing or language", () => {
     const aggregate = { ...item, id: "cardmarket-1", game: "one-piece", sku: "op-op01-006-en", setCode: "op01", mappingStatus: "exact" as const };
     const official: Official = { ...shownOfficial, attribution: "Publisher credit", relationship: "pooled-row", rowLang: null, rowVariant: null };

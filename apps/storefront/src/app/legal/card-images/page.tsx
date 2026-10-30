@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { PageHeader } from "@/lib/ui/PageHeader";
 import { PageLayout } from "@/lib/ui/PageLayout";
+import { OFFICIAL_IMAGE_LANES } from "@/lib/cards/official-image-lanes";
 
 export const metadata = {
   title: "Card images and text — Cambridge TCG",
-  description: "How Cambridge labels English reference images, carries publisher credit and handles the limits of its existing image and text publication rules.",
+  description: "How Cambridge labels official English and Japanese card images, carries publisher credit and handles the limits of its existing image and text publication rules.",
 };
 
 const headingClass = "mb-3 font-display text-xl font-semibold text-ink";
@@ -15,7 +16,7 @@ export default function CardImagesPolicyPage() {
     <PageLayout width="reading">
       <div lang="en">
         <PageHeader title="Card images and text" description="A picture can help identify a card without proving which printing it shows. Publisher credit and image context belong beside it." />
-        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026; the section on linked CardRush listing images was added 29 October 2026, and the note on member price page labels 30 October 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
+        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026; the section on linked CardRush listing images was added 29 October 2026, and the note on member price page labels and the section on official Japanese images 30 October 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
 
         <div className="space-y-8 text-sm leading-7 text-ink-muted">
           <section>
@@ -23,6 +24,17 @@ export default function CardImagesPolicyPage() {
             <p>Our shared English image reader covers recorded official sources for One Piece and Dragon Ball Fusion World. It serves eligible images from a Cambridge host, with publisher credit and a clear takedown state. The publisher source link records provenance; it is not used as the image address.</p>
             <p className="mt-3">An English base image may accompany a card listed in another language or as another variant. We label it as a reference image; member price pages label it instead by how it relates to the row, saying when the row&apos;s language differs or its art may. It does not verify the requested printing, artwork variant, physical condition or authenticity.</p>
             <p className="mt-3">Practice decks request a card number without choosing a printing. Their reference images keep the selected English reprint or parallel identifier and publisher credit. Cards remain playable as text faces when eligible art is unavailable.</p>
+          </section>
+
+          <section>
+            <h2 className={headingClass}>Official Japanese images</h2>
+            <p>On 30 October 2026 the project owner chose to host official Japanese sample images for One Piece and Dragon Ball Fusion World in the same way as the English ones: a copy on a Cambridge host, with the publisher&apos;s Japanese credit line and a clear takedown state. Bandai&apos;s Japanese card lists, like the English ones, ask that their images not be reproduced without permission; this is Cambridge&apos;s own decision, not a permission from Bandai.</p>
+            <p className="mt-3">A Japanese card is shown the base print of the same card in Japanese when one is hosted, labelled by how it relates to the card: the same printing matched by its identifier, never checked against a physical card, or the base print beside a parallel, whose art may differ. Without a hosted Japanese image it is shown the English reference as before. The credit appears as the site prints it:</p>
+            <ul className="mt-3 list-disc pl-5">
+              <li>One Piece: <span lang="ja">{OFFICIAL_IMAGE_LANES.ja.credits.op}</span></li>
+              <li>Dragon Ball Fusion World: <span lang="ja">{OFFICIAL_IMAGE_LANES.ja.credits.dbf}</span></li>
+            </ul>
+            <p className="mt-3">These images appear on Cambridge pages and in the universal card API as one separate field. They are not part of member price data, downloads or the market data API, and they are not offered as a page&apos;s share image. Collecting and hosting them are separate manual steps, each run only with the owner&apos;s word for it.</p>
           </section>
 
           <section>
@@ -50,7 +62,7 @@ export default function CardImagesPolicyPage() {
 
           <section>
             <h2 className={headingClass}>Removal and cached copies</h2>
-            <p>Official-image readers exclude disputed or removed rows on a fresh database read. Previously cached responses and image objects require separate removal or invalidation. A database change does not immediately remove every cached copy or previously issued image URL. Consistent removal across all readers, text and caches remains part of the roadmap.</p>
+            <p>Removal is per card: a request about one card&apos;s image covers its English and Japanese images and every variant, so the same art does not stay up in another language. Official-image readers exclude disputed or removed rows on a fresh database read. Previously cached responses and image objects require separate removal or invalidation. A database change does not immediately remove every cached copy or previously issued image URL. Consistent removal across all readers, text and caches remains part of the roadmap.</p>
           </section>
 
           <section>

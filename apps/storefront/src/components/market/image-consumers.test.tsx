@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { ImageReference } from "@/lib/cards/image-reference";
+import { createSameLanguageImageReference, type SameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
 import type { CatalogCard, CatalogQuery } from "./catalog";
 import MarketBrowser from "./MarketBrowser";
 import CardMarketClient, { type CardIdentitySeed } from "@/app/market/[sku]/CardMarketClient";
@@ -27,7 +28,12 @@ const referenceLabel = "English reference image · printing not verified";
 const catalogLabel = "Catalog image · source and printing unverified";
 const officialUrl = "https://ctcg-card-images.s3.us-east-1.amazonaws.com/op/OP01-001.png";
 const catalogUrl = "https://jp-op-photos.s3.us-east-1.amazonaws.com/OP01/001.jpg";
-const imageFields = { image_url: officialUrl, image_attribution: "© Publisher", image_reference: reference };
+const imageFields = { image_url: officialUrl, image_attribution: "© Publisher", image_reference: reference, image_language: "en" as const, image_same_language_reference: null };
+const jaCredit = "©尾田栄一郎／集英社 ©尾田栄一郎／集英社・フジテレビ・東映アニメーション";
+const jaFields = (requested: string) => ({
+  image_url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png", image_attribution: jaCredit,
+  image_reference: null, image_language: "ja" as const, image_same_language_reference: createSameLanguageImageReference(requested, "OP-OP01-001-JA"),
+});
 const card: CatalogCard & typeof imageFields = {
   sku: reference.requested_sku, card_number: "OP01-001", name: "Leader",
   set_code: "OP01", set_name: "Romance Dawn", rarity: "L", stock: 0,
@@ -42,6 +48,7 @@ const identity: CardIdentitySeed = {
 
 function renderBrowser(view: CatalogQuery["view"], image: {
   image_url: string | null; image_attribution: string | null; image_reference: ImageReference | null;
+  image_language?: "en" | "ja" | null; image_same_language_reference?: SameLanguageImageReference | null;
 }) {
   return renderToStaticMarkup(<MarketBrowser
     initial={{ game: "one-piece", q: "", set: null, sort: "name_asc", page: 1, view }}
@@ -70,6 +77,22 @@ describe.each(["table", "grid"] as const)("market %s image presentation", (view)
     expect(markup).not.toContain(referenceLabel);
   });
 
+  it("labels a Japanese card's own-language image as Japanese, matched by SKU, with its credit marked Japanese", () => {
+    const base = renderBrowser(view, jaFields("OP-OP01-001-JP"));
+    expect(base).toContain('alt="Leader: Official image · this printing (Japanese), matched by SKU, not verified"');
+    expect(base).toContain(`lang="ja"`);
+    expect(base).toContain(jaCredit);
+    expect(base).not.toContain(referenceLabel);
+    const variant = renderBrowser(view, jaFields("OP-OP01-001-JP-V1"));
+    expect(variant).toContain('alt="Leader: Official Japanese base print · art may differ, not verified"');
+  });
+
+  it("treats a payload without the language fields as before", () => {
+    const markup = renderBrowser(view, { image_url: officialUrl, image_attribution: "© Publisher", image_reference: reference });
+    expect(markup).toContain(`alt="Leader: ${referenceLabel}"`);
+    expect(markup).not.toContain('lang="ja"');
+  });
+
   it("does not show stale attribution or image labels without a URL", () => {
     const markup = renderBrowser(view, { ...imageFields, image_url: null });
     expect(markup).not.toContain(referenceLabel);
@@ -87,9 +110,16 @@ describe("market detail image presentation", () => {
     expect(markup).not.toContain(catalogLabel);
   });
 
+  it("renders a seeded Japanese image with its Japanese label and credit", () => {
+    const markup = renderToStaticMarkup(<CardMarketClient sku={identity.sku} identity={{ ...identity, ...jaFields(identity.sku) }} />);
+    expect(markup).toContain('alt="Leader: Official Japanese base print · art may differ, not verified"');
+    expect(markup).toMatch(/<p lang="ja"[^>]*>©尾田栄一郎/);
+    expect(markup).not.toContain(referenceLabel);
+  });
+
   it("keeps catalog fallback visible without an exact-printing or copyright claim", () => {
     const markup = renderToStaticMarkup(<CardMarketClient sku={identity.sku} identity={{
-      ...identity, image_url: catalogUrl, image_attribution: null, image_reference: null,
+      ...identity, image_url: catalogUrl, image_attribution: null, image_reference: null, image_language: null,
     }} />);
     expect(markup).toContain(`src="${catalogUrl}"`);
     expect(markup).toContain(`alt="Leader: ${catalogLabel}"`);
