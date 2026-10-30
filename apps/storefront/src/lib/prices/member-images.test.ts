@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createImageReference } from '@/lib/cards/image-reference';
 import type { MemberPriceItem } from './member-feed-types';
 
 vi.mock('server-only', () => ({}));
@@ -27,23 +28,37 @@ const cardrush = (id: string, product: number, mapped = false): MemberPriceItem 
   granularity: 'printing', currency: 'JPY', underlyingMarket: 'cardrush', metric: 'sell', amount: '123', language: 'ja', permittedUses: ['member-display'],
   ...(mapped ? { sku: 'op-op01-006-ja', setCode: 'op01', mappingStatus: 'exact' as const } : {}),
 });
-const exact: MemberPriceItem = { ...base, id: '9', sku: 'op-op01-006-ja', setCode: 'op01', mappingStatus: 'exact' };
-const official = new Map([['op-op01-006-ja', { url: officialUrl, attribution: '©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD.' }]]);
+// A printing-level row with an exact SKU, as TCGplayer and CardRush write them.
+const exact: MemberPriceItem = {
+  ...base, id: '9', source: 'tcgplayer', sourceProductId: '456', sku: 'op-op01-006-ja', setCode: 'op01', mappingStatus: 'exact', granularity: 'printing',
+  language: 'ja', metric: 'market', currency: 'USD', underlyingMarket: 'tcgplayer', permittedUses: ['member-display'],
+};
+// A Cardmarket product aggregate linked exactly by a reviewed crosswalk: its
+// language is unknown and its price may pool printings and languages.
+const aggregate: MemberPriceItem = { ...base, id: '9', sku: 'op-op01-006-en', setCode: 'op01', mappingStatus: 'exact' };
+const attribution = '©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD.';
+// As the reader answers: every requested SKU maps to the English base row,
+// with the projector's reference naming what the image depicts.
+const reader = async (skus: string[]) => new Map(skus.map(sku => [sku, { url: officialUrl, attribution, reference: createImageReference(sku, 'OP-OP01-006-EN')! }]));
+// The Japanese row's official image: English base art, so the language differs.
+const shown = { url: officialUrl, attribution, imageLang: 'en', depictedSku: 'op-op01-006-en', scope: 'syntax_only' };
+const japanese = { ...shown, relationship: 'other-language', rowLang: 'ja', rowVariant: null };
+const linkedImage = (lang: string | null) => ({ url: listingImage, lang, relationship: 'same-listing' });
 
 beforeEach(() => {
   mocks.query.mockReset();
   mocks.official.mockReset();
   mocks.query.mockResolvedValue({ rows: [{ source_product_id: 'www.cardrush-op.jp/product/15600', image_url: listingImage }], rowCount: 1 });
-  mocks.official.mockResolvedValue(official);
+  mocks.official.mockImplementation(reader);
 });
 
 describe('/prices identity images', () => {
   it('offers a CardRush row its listing image, an exact row the official reference, a mapped CardRush row both, and a row with neither none', async () => {
     const images = await readMemberPriceImages([cardrush('1', 15600, true), cardrush('2', 169), exact, { ...base, id: '4' }]);
-    expect(images.byItem.get('1')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution }, listing: listingImage });
+    expect(images.byItem.get('1')).toEqual({ official: japanese, listing: linkedImage('ja') });
     // A CardRush row with no listing image and no exact SKU shows none.
     expect(images.byItem.has('2')).toBe(false);
-    expect(images.byItem.get('9')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution } });
+    expect(images.byItem.get('9')).toEqual({ official: japanese });
     expect(images.byItem.has('4')).toBe(false);
     expect(images.rowsLookedUp).toBe(4);
     // One bounded lookup per lane: listings by (source, source product), references by SKU.
@@ -56,9 +71,44 @@ describe('/prices identity images', () => {
 
   it('keeps the official reference alone for a mapped CardRush row without a listing image, and the listing alone for an unmapped one', async () => {
     mocks.query.mockResolvedValue({ rows: [], rowCount: 0 });
-    expect((await readMemberPriceImages([cardrush('1', 15600, true)])).byItem.get('1')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution } });
+    expect((await readMemberPriceImages([cardrush('1', 15600, true)])).byItem.get('1')).toEqual({ official: japanese });
     mocks.query.mockResolvedValue({ rows: [{ source_product_id: 'www.cardrush-op.jp/product/15600', image_url: listingImage }], rowCount: 1 });
-    expect((await readMemberPriceImages([cardrush('1', 15600)])).byItem.get('1')).toEqual({ listing: listingImage });
+    expect((await readMemberPriceImages([cardrush('1', 15600)])).byItem.get('1')).toEqual({ listing: linkedImage('ja') });
+  });
+
+  it.each([
+    ['an English base row', 'op-op01-006-en', { relationship: 'same-printing', rowLang: 'en', rowVariant: null }],
+    ['an English parallel', 'op-op01-006-en-p1', { relationship: 'same-language-base-print', rowLang: 'en', rowVariant: 'p1' }],
+    ['an English reprint', 'op-op01-006-en-r1', { relationship: 'same-language-base-print', rowLang: 'en', rowVariant: 'r1' }],
+    ['a Japanese base row', 'op-op01-006-ja', { relationship: 'other-language', rowLang: 'ja', rowVariant: null }],
+    ['a Japanese parallel', 'op-op01-006-ja-p1', { relationship: 'other-language', rowLang: 'ja', rowVariant: 'p1' }],
+    ['a Korean base row', 'op-op01-006-ko', { relationship: 'other-language', rowLang: 'ko', rowVariant: null }],
+  ] as const)('says how the English base image relates to %s (%s)', async (_name, sku, relation) => {
+    // A printing-level row's language is its exact SKU's: here the observation gives none.
+    const images = await readMemberPriceImages([{ ...exact, sku, language: null }]);
+    expect(images.byItem.get('9')).toEqual({ official: { ...shown, ...relation } });
+  });
+
+  it('takes a printing-level row\'s language from its exact SKU, not from a conflicting observation', async () => {
+    mocks.query.mockResolvedValue({ rows: [{ source_product_id: 'www.cardrush-op.jp/product/15600', image_url: listingImage }], rowCount: 1 });
+    const listed = { ...cardrush('1', 15600), sku: 'op-op01-006-en', setCode: 'op01', mappingStatus: 'exact' as const, language: 'ja' };
+    const images = await readMemberPriceImages([{ ...exact, sku: 'op-op01-006-en', language: 'ja' }, listed]);
+    expect(images.byItem.get('9')).toEqual({ official: { ...shown, relationship: 'same-printing', rowLang: 'en', rowVariant: null } });
+    expect(images.byItem.get('1')).toEqual({ official: { ...shown, relationship: 'same-printing', rowLang: 'en', rowVariant: null }, listing: linkedImage('en') });
+  });
+
+  it.each(['op-op01-006-en', 'op-op01-006-ja', 'op-op01-006-en-p1'])('never gives a source-product aggregate its SKU\'s language or printing (%s)', async sku => {
+    const images = await readMemberPriceImages([{ ...aggregate, sku }]);
+    expect(images.byItem.get('9')).toEqual({ official: { ...shown, relationship: 'pooled-row', rowLang: null, rowVariant: null } });
+  });
+
+  it('gives a listing image the row\'s language: the exact SKU\'s, else the observation\'s, else unknown', async () => {
+    mocks.query.mockResolvedValue({ rows: ['15600', '169', '778'].map(id => ({ source_product_id: `www.cardrush-op.jp/product/${id}`, image_url: listingImage })), rowCount: 3 });
+    const english = { ...cardrush('1', 15600), sku: 'op-op01-006-en', setCode: 'op01', mappingStatus: 'exact' as const, language: 'en' };
+    const images = await readMemberPriceImages([english, { ...cardrush('2', 169), language: 'ko' }, { ...cardrush('3', 778), language: null }]);
+    expect(images.byItem.get('1')).toEqual({ official: { ...shown, relationship: 'same-printing', rowLang: 'en', rowVariant: null }, listing: linkedImage('en') });
+    expect(images.byItem.get('2')).toEqual({ listing: linkedImage('ko') });
+    expect(images.byItem.get('3')).toEqual({ listing: linkedImage(null) });
   });
 
   it('rejects a stored URL that is not the listing\'s own host and shape', async () => {
@@ -75,7 +125,7 @@ describe('/prices identity images', () => {
     for (const value of [undefined, '', 'on', 'of']) expect(cardRushListingImagesOn({ CARDRUSH_LISTING_IMAGES: value })).toBe(true);
     const images = await readMemberPriceImages([cardrush('1', 15600, true), cardrush('2', 169)], { CARDRUSH_LISTING_IMAGES: 'off' });
     expect(mocks.query).not.toHaveBeenCalled();
-    expect(images.byItem.get('1')).toEqual({ official: { url: officialUrl, attribution: official.get('op-op01-006-ja')!.attribution } });
+    expect(images.byItem.get('1')).toEqual({ official: japanese });
     expect(images.byItem.has('2')).toBe(false);
   });
 

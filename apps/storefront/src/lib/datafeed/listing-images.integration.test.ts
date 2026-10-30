@@ -33,6 +33,8 @@ const fixtures = new URL('../../../../../packages/data-ingest/src/cardrush/__tes
 const page = (id: number, retrievedAt: string, html?: string) => ({ url: `https://www.cardrush-op.jp/product/${id}`, bytes: html === undefined ? readFileSync(new URL(`cardrush-op-${id}.html`, fixtures)) : new TextEncoder().encode(html), retrievedAt });
 const fixture = (id: number) => readFileSync(new URL(`cardrush-op-${id}.html`, fixtures), 'utf8');
 const hexImage = (name: string) => `https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from(`product/${name}`).toString('hex')}.jpg`;
+// As /prices reads a link back: the listing's own image, in the row's language.
+const shown = (name: string) => ({ url: hexImage(name), lang: 'ja', relationship: 'same-listing' });
 let admin: Pool;
 async function apply(name: string) {
   const client = await state.pool.connect();
@@ -108,8 +110,8 @@ describe.skipIf(!localUrl)('CardRush listing image links PostgreSQL integration 
     // /prices reads it back, bounded by key.
     const images = await readMemberPriceImages([item(15600), item(169), item(778)]);
     expect(Object.fromEntries(images.byItem)).toEqual({
-      15600: { listing: hexImage('SYNTHETIC_15600_B.jpg') },
-      169: { listing: hexImage('SYNTHETIC_169.jpg') },
+      15600: { listing: shown('SYNTHETIC_15600_B.jpg') },
+      169: { listing: shown('SYNTHETIC_169.jpg') },
     });
   });
 
@@ -126,7 +128,7 @@ describe.skipIf(!localUrl)('CardRush listing image links PostgreSQL integration 
     // Deleting the row is the way back: the next read links it again.
     await state.pool.query(`DELETE FROM price_source_listing_images WHERE source_product_id = 'www.cardrush-op.jp/product/169'`);
     expect((await collect('run-5', [page(169, '2026-10-29T11:00:00.000Z', changed)])).links).toEqual({ written: 1 });
-    expect((await readMemberPriceImages([item(169)])).byItem.get('169')).toEqual({ listing: hexImage('SYNTHETIC_169_B.jpg') });
+    expect((await readMemberPriceImages([item(169)])).byItem.get('169')).toEqual({ listing: shown('SYNTHETIC_169_B.jpg') });
   });
 
   it.each([
