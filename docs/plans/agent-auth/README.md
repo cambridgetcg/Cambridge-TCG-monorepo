@@ -334,6 +334,16 @@ agent's default that proceeds unless Yu objects.
    script's read-only preview? Should the legacy IP-hash buckets be deleted?
    *2026-10-30:* drafted as [reopening-terms.md](reopening-terms.md)
    decisions 7 and 11.
+   **Answered 2026-10-30:** after Yu pointed the agent at the production
+   database credential, the agent ran one read-only, aggregate-only probe
+   (a `READ ONLY` transaction, counts only, nothing else printed). Production
+   holds one agent ever: self-serve, active, created on 2026-07-05, with one
+   live free-tier key that has never been used and whose prefix has the
+   minted shape. There are no operator-managed agents, and no agent matches,
+   queue entries, match-log rows, agent rooms, Coverage Hunt turns or
+   rate-limit rows. One legacy registration-bucket row remains, from
+   2026-07-05. So the erasure blockers are latent, not live, and phase 1
+   changes behaviour for no current user.
 9. Does the steward's @cambridgetcg.com mailbox receive mail? If it does,
    whoever signs in as the steward can mint keys for every legacy self-serve
    agent until A lands. A removes only minting. After A, that login can still
