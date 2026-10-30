@@ -164,7 +164,9 @@ describe("bandai-jp keys", () => {
     expect(BANDAI_JP_GAMES.op.credit).toContain("・");
     expect(BANDAI_JP_GAMES.op.credit.normalize("NFKC")).not.toBe(BANDAI_JP_GAMES.op.credit);
     expect(BANDAI_JP_GAMES.dbf.credit).toBe("©バード・スタジオ／集英社 ©バード・スタジオ／集英社・東映アニメーション ©Bandai Namco Entertainment Inc.");
-    expect(BANDAI_JP_GAMES.op.series).toHaveLength(24);
+    expect(BANDAI_JP_GAMES.op.series).toHaveLength(63);
+    expect(BANDAI_JP_GAMES.op.series).toEqual(expect.arrayContaining(["550001", "550036", "550701", "550801", "550901"]));
+    expect(new Set(BANDAI_JP_GAMES.op.series).size).toBe(BANDAI_JP_GAMES.op.series.length);
     expect(BANDAI_JP_GAMES.dbf.series).toHaveLength(27);
   });
 });
@@ -273,6 +275,6 @@ describe("collectBandaiJpImages", () => {
   });
 
   it("refuses a series outside the configured list before any request", async () => {
-    await expect(run(site, [{ game: "op", series: ["550001"] }])).rejects.toThrow("bandai-jp-series-outside-configuration");
+    await expect(run(site, [{ game: "op", series: ["550099"] }])).rejects.toThrow("bandai-jp-series-outside-configuration");
   });
 });

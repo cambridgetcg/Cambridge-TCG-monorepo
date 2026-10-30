@@ -38,8 +38,12 @@ export const BANDAI_JP_GAMES: Record<BandaiJpGameKey, BandaiJpGameConfig> = {
     host: "www.onepiece-cardgame.com",
     dom: "modal-page",
     // Boosters 5501NN (OP-01 … OP-17), extra boosters 5502NN, premium
-    // boosters 5503NN, as the 2026-10-30 series <select> listed them.
-    series: [...range("5501", 1, 17), ...range("5502", 1, 5), ...range("5503", 1, 2)],
+    // boosters 5503NN, starter and ultimate decks 5500NN (ST-01 … ST-36),
+    // the family deck set 550701, limited-product cards 550801 and promotion
+    // cards 550901, as the 2026-10-30 series <select> listed them. The first
+    // live CardRush run (2026-10-30) mapped only starter-deck cards, which
+    // the boosters alone did not cover.
+    series: [...range("5501", 1, 17), ...range("5502", 1, 5), ...range("5503", 1, 2), ...range("5500", 1, 36), "550701", "550801", "550901"],
     series_url: (series_id) =>
       `https://www.onepiece-cardgame.com/cardlist/?series=${encodeURIComponent(series_id)}`,
     image_path: "/images/cardlist/card/",

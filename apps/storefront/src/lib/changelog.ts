@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-10-30 ─────────────────────────────────────────────────────────
   {
+    id: "official-images-japanese-starter-decks",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices, /market (Japanese official images)",
+    summary:
+      "The Japanese official-image lane also covers One Piece starter and ultimate decks (ST-01 to ST-36), the family deck set, limited-product cards and promotion cards, as Bandai's Japanese card list lists them.",
+    detail:
+      "The first Japanese collection read boosters, extra and premium boosters only, while CardRush's first live run mapped starter-deck cards. The new series are collected with the same tool and rules.",
+    related_urls: ["/legal/card-images"],
+  },
+  {
     id: "prices-card-names",
     date: "2026-10-30",
     kind: "ax-surface-shipped",
