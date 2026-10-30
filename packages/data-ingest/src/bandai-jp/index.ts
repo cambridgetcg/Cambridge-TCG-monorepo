@@ -17,7 +17,7 @@ import type { SourceModule, IngestContext, RawRow } from "../types";
 import type { BandaiJpImageBlock, BandaiJpImageRow } from "./types";
 import { normalizeBandaiJpImage } from "./keys";
 
-export { BANDAI_JP_GAMES, BANDAI_JP_POLICY, BANDAI_JP_USER_AGENT, OFFICIAL_MEDIA_ROBOTS_TOKEN } from "./config";
+export { BANDAI_JP_GAMES, BANDAI_JP_POLICY, BANDAI_JP_USER_AGENT, OFFICIAL_MEDIA_ROBOTS_PRODUCT } from "./config";
 export { bandaiJpImageKey, bandaiJpObjectKey, normalizeBandaiJpImage, CARD_NUMBER_RE } from "./keys";
 export { parseBandaiJpPage, parseFusionWorldJpImages, parseOnePieceJpImages } from "./parse";
 export type * from "./types";

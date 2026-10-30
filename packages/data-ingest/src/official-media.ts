@@ -17,7 +17,7 @@
 
 import { pageHead, pageRefusal, readBounded } from "./http";
 import { parseRobots, readRobotsTxt as readRobotsFile, ROBOTS_MAX_BYTES } from "./robots";
-import { BANDAI_JP_USER_AGENT, OFFICIAL_MEDIA_ROBOTS_TOKEN } from "./bandai-jp/config";
+import { BANDAI_JP_USER_AGENT, OFFICIAL_MEDIA_ROBOTS_PRODUCT } from "./bandai-jp/config";
 
 export type OfficialMediaLane = "en" | "ja";
 
@@ -35,7 +35,7 @@ export const OFFICIAL_MEDIA_USER_AGENTS: Readonly<Record<OfficialMediaLane, stri
 
 /** The robots.txt groups that speak to this reader: its product token, and
  * the house name before it (a stricter reading: a group for either binds). */
-export const OFFICIAL_MEDIA_ROBOTS_AGENTS: readonly string[] = [OFFICIAL_MEDIA_ROBOTS_TOKEN, "cambridgetcg"];
+export const OFFICIAL_MEDIA_ROBOTS_AGENTS: readonly string[] = [OFFICIAL_MEDIA_ROBOTS_PRODUCT, "cambridgetcg"];
 
 export const OFFICIAL_MEDIA_MIN_INTERVAL_MS = 2000;
 export const OFFICIAL_MEDIA_TIMEOUT_MS = 30_000;

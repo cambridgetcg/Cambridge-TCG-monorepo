@@ -25,8 +25,8 @@ export const BANDAI_JP_POLICY = "cambridge.official-ja-media/2026-10-30";
 export const BANDAI_JP_USER_AGENT =
   "CambridgeTCG-official-media/1.0 (+https://cambridgetcg.com/legal/card-images; contact@cambridgetcg.com; permission cambridge.official-ja-media/2026-10-30)";
 
-/** The User-Agent's product token, as robots.txt groups name it (lower case). */
-export const OFFICIAL_MEDIA_ROBOTS_TOKEN = "cambridgetcg-official-media";
+/** The User-Agent's product token (RFC 9309), as robots.txt groups name it (lower case). */
+export const OFFICIAL_MEDIA_ROBOTS_PRODUCT = "cambridgetcg-official-media";
 
 const range = (prefix: string, from: number, to: number) =>
   Array.from({ length: to - from + 1 }, (_, i) => `${prefix}${String(from + i).padStart(2, "0")}`);
