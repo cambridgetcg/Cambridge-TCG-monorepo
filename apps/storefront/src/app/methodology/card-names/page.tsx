@@ -64,6 +64,22 @@ export default function CardNamesMethodology() {
         first so that people and agents can check them and build on them.
       </p>
 
+      <p>
+        <Link href="/prices">/prices</Link> shows the vendor name of each
+        CardRush One Piece row, each TCGplayer row and each Cardmarket row from
+        its singles product list under the source&apos;s own title, with its
+        status and source, and the illustrator where the title credits one. The
+        name&apos;s language is the one its text is written in (see each rule
+        below), never the row&apos;s printing language. No name is shown for a
+        title the rule refuses; for a CardRush title with a language marker
+        anywhere in it, since how CardRush writes the name on such a listing
+        has not been seen; for CardRush&apos;s other games, whose titles the
+        rule has not been checked against; for a Cardmarket row that is not
+        from its singles list, such as a booster box; or for a Scryfall row,
+        which has no rule. This is display only: no endpoint, export or
+        download emits name records yet.
+      </p>
+
       <blockquote>
         <strong>Where this lives in code.</strong> The reference implementation
         is <code>packages/sku/src/names.ts</code>, exported from{" "}

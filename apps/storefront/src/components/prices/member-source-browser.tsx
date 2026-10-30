@@ -3,6 +3,7 @@ import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices"
 import { Field, Input, Select } from "@/lib/ui/Input";
 import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, DISPLAY_ONLY_INPUT_PAGES, DISPLAY_ONLY_INPUT_PAGES_END, isDisplayOnlyInput, type MemberPriceItem, type MemberPricePage, type MemberPriceSource } from "@/lib/prices/member-feed-types";
 import type { MemberPriceImage, MemberPriceImages } from "@/lib/prices/member-images";
+import { memberCardName, type MemberCardName } from "@/lib/prices/member-names";
 import { LANGUAGE_NAMES } from "@/lib/cards/image-labels";
 import { memberPriceExportHref, memberPriceHref } from "./member-query";
 
@@ -160,6 +161,22 @@ function ListingImage({ image, item }: { image: NonNullable<MemberPriceImage["li
   );
 }
 
+/** The row's card name under CTCG-NAMES-v1 (memberCardName): the source's
+ * own title with its markers removed by that source's rule, so a vendor
+ * name, shown with its status and never called official. The data
+ * attributes carry the same fields for an agent reading the HTML; the match
+ * key is only ever an attribute. */
+function VendorName({ name }: { name: MemberCardName }) {
+  return (
+    <p className="mt-1 text-xs text-ink-muted" data-name={name.text} data-name-key={name.key} data-name-lang={name.lang} data-name-status={name.status} data-name-rule={name.rule}>
+      Name: <span lang={name.lang} className="text-ink">{name.text}</span>
+      {/* A real separator, so copied text and screen readers keep the name apart from its status. */}
+      {" · "}<span className="text-ink-faint">{`${name.status} · ${SOURCE_NAMES[name.source]}`}</span>
+      {name.illustrator && <span className="block">Illustrator: {name.illustrator}</span>}
+    </p>
+  );
+}
+
 /** `images`: the rows' identity images (readMemberPriceImages); a row with none shows none. */
 export function MemberPriceResults({ page, params, images }: { page: MemberPricePage; params: URLSearchParams; images?: MemberPriceImages }) {
   if (page.status === "unavailable") return (
@@ -175,11 +192,14 @@ export function MemberPriceResults({ page, params, images }: { page: MemberPrice
       {params.has("cursor") && <Link href={memberPriceHref(params)} prefetch={false} className="mt-3 inline-block text-sm text-accent underline underline-offset-4">Back to first page</Link>}
     </div>
   );
+  // A refused title shows no name; the raw title above it stays as the source wrote it.
+  const names = page.items.map((item) => memberCardName(item));
   return (
     <>
       <p className="mb-3 text-xs text-ink-muted">{page.count} observations on this page; {page.total} in this filtered snapshot. {page.complete ? "End of results." : page.nextCursor ? "More results follow." : "More results match than this view shows."}</p>
       <p className="mb-4 text-xs text-ink-muted">Snapshot opened: <ObservationTime value={page.asOf} />. This is a pagination boundary, not source freshness. Source and retrieval times appear on each row.</p>
       {images && page.items.length > images.rowsLookedUp && <p className="mb-4 text-xs text-ink-muted">Images are looked up for the first {images.rowsLookedUp} rows of a page.</p>}
+      {names.some((name) => "text" in name) && <p className="mb-4 text-xs text-ink-muted">A name marked vendor is the source&apos;s own title with its markers removed by that source&apos;s rule, not an official name. Where the rule refuses a title or does not cover the row, no name is shown. <Link href="/methodology/card-names" className="text-accent underline underline-offset-4">How card names are written</Link></p>}
       <div className="overflow-x-auto rounded-lg border border-border-subtle" role="region" aria-label="Source price observations" tabIndex={0}>
         <table className="w-full text-left text-sm">
           <caption className="sr-only">Stored source price observations in native currency. Product-level aggregates are not exact-printing sales.</caption>
@@ -187,8 +207,9 @@ export function MemberPriceResults({ page, params, images }: { page: MemberPrice
             <tr>{["Product", "Source & metric", "Native amount", "Specificity", "Observation times"].map((heading) => <th key={heading} scope="col" className="px-4 py-3 font-medium">{heading}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
-            {page.items.map((item) => {
+            {page.items.map((item, index) => {
               const image = images?.byItem.get(item.id);
+              const name = names[index]!;
               return (
                 <tr key={item.id} className="align-top">
                   <th scope="row" className="min-w-64 px-4 py-4 font-normal">
@@ -196,6 +217,7 @@ export function MemberPriceResults({ page, params, images }: { page: MemberPrice
                       {image?.official && <OfficialImage image={image.official} item={item} />}
                       <div className="min-w-0">
                         <p className="font-medium text-ink">{item.productName ?? "Source product name unknown"}</p>
+                        {"text" in name && <VendorName name={name} />}
                         <p className="mt-1 text-xs text-ink-muted">{item.game}{item.setCode ? ` · ${item.setCode}` : ""}</p>
                         <p className="mt-1 break-all font-mono text-xs text-ink-muted">{item.sku ?? `Source ID: ${item.sourceProductId}`}</p>
                         {image?.official && <p className="mt-2 text-xs text-ink-muted">{officialLabel(image.official).join(" · ")}<span lang={image.official.imageLang === "ja" ? "ja" : undefined} className="block text-ink-faint">{image.official.attribution}</span></p>}

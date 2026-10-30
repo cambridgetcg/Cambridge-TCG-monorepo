@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-10-30 ─────────────────────────────────────────────────────────
   {
+    id: "prices-card-names",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices row can show its CTCG-NAMES-v1 card name beside the raw source title, e.g. お玉 · vendor · CardRush, with any illustrator credit, for people and agents to check the card.",
+    detail:
+      "The name comes from the source's versioned vendor rule and is labelled vendor, never official. Rows whose title the rule refuses, Cardmarket sealed products, and CardRush titles with a language marker show no name. Elements carry data-name, data-name-key, data-name-lang, data-name-status and data-name-rule. Display only: no API or download changes.",
+    related_urls: ["/prices", "/methodology/card-names"],
+  },
+  {
     id: "official-images-japanese-lane",
     date: "2026-10-30",
     kind: "endpoint-modified",
