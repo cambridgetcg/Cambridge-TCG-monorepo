@@ -18,7 +18,7 @@ import { assertPriceObservationValues, PAGE_SOURCE_COLLECTION_START } from '@cam
 import { artifactDigest, CARDRUSH_EVIDENCE_VERSION, MEMBER_PRICE_REVIEW_VERSION, priceUseAllowed, resolvePriceCrosswalk, TCGPLAYER_EVIDENCE_VERSION } from '../../member-prices';
 import { createFetcher } from '../../http';
 import { cardrush } from '../index';
-import { buildSku, SkuBuildError } from '@cambridge-tcg/sku';
+import { buildSku, CARD_NAME_MARKERS, cardRushName, SkuBuildError } from '@cambridge-tcg/sku';
 import { acquireCardRushMemberPrices, cardRushListingImageUrl, cardRushRobotsAllow, compileCardRushRobots, cardRushSourceProductId, CARDRUSH_COLLECTOR_HOSTS, CARDRUSH_CROSSWALK_VERSION, CARDRUSH_MAX_BUDGET_MS, CARDRUSH_PAGE_RATE, CARDRUSH_PRICE_PARSER, CARDRUSH_ROBOTS_AGENTS, parseCardRushMemberPrices, type CardRushPage } from '../member-prices';
 
 vi.mock('../../http', async importOriginal => {
@@ -85,6 +85,90 @@ describe('CardRush product page parsing', () => {
     expect(result.productCrosswalks[0]).toMatchObject({ language: 'en', evidence: 'title:OP01-006 [UC] en' });
     const conflicting = html(15600).replace('お玉(illust:sowsow)', 'お玉(英語版/韓国語版)');
     expect(one(page(15600, conflicting)).quarantine).toEqual([{ sourceProductId: 'www.cardrush-op.jp/product/15600', field: 'language', reason: 'conflicting-language-markers' }]);
+  });
+
+  // Edits: the 15600 excerpt under titles in the shapes English listings
+  // carried in a CardRush product list read on 2026-10-30, where the marker
+  // stands in the trailing group beside the credit and no title had a bare
+  // (英語版). Titles are identifiers; the price stays the excerpt's synthetic one.
+  const titled = (title: string) => page(15600, html(15600).replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`));
+  const id15600 = 'www.cardrush-op.jp/product/15600';
+  const englishExact = [
+    ['ジュラキュール・ミホーク(英語版/illust:Hachi Takashi)【L】{OP14-020}', { sku: 'op-op14-020-en', setCode: 'op14', condition: null }, 'title:OP14-020 [L] en'],
+    ['〔状態A-〕ウタ(英語版/illust:Akiko Sugizono)【R】{OP01-005}', { sku: 'op-op01-005-en', setCode: 'op01', condition: 'A-' }, 'title:OP01-005 [R] en'],
+    ['〔PSA10鑑定済〕ジュラキュール・ミホーク(英語版/illust:Hachi Takashi)【L】{OP14-020}', { sku: 'op-op14-020-en', setCode: 'op14', condition: 'PSA10' }, 'title:OP14-020 [L] en'],
+    // The credit first, which /1 already read as one credit.
+    ['ウタ(illust:Akiko Sugizono/英語版)【R】{OP01-005}', { sku: 'op-op01-005-en', setCode: 'op01', condition: null }, 'title:OP01-005 [R] en'],
+  ] as const;
+  it.each(englishExact)('maps an English listing whose trailing group holds its marker and credit exactly (%s)', (title, fields, evidence) => {
+    const result = one(titled(title));
+    expect(result.quarantine).toEqual([]);
+    expect(result.observations[0]).toMatchObject({ ...fields, mappingStatus: 'exact', language: 'en', finish: null, crosswalkVersion: 'cardrush-title/2' });
+    expect(result.productCrosswalks).toEqual([{ sourceProductId: id15600, finish: null, language: 'en', game: 'one-piece', mappingStatus: 'exact', sku: fields.sku, setCode: fields.setCode, evidence }]);
+  });
+
+  it.each([
+    ['ナミ(パラレル/英語版)【SR】{OP01-016}', 'parallel'],
+    // Sealed, an event's promo, an art style, an unknown token.
+    ['ジュラキュール・ミホーク(未開封/英語版/illust:Hachi Takashi)【L】{OP14-020}', null],
+    ['モンキー・D・ルフィ(英語版/ドルトムント)【L】{ST13-003}', null],
+    ['ナミ(英語版/ドジャース)【SR】{OP01-016}', null],
+    ['ナミ(英語版/漫画絵)【SR】{OP01-016}', null],
+    ['ナミ(英語版/和柄/illust:S-KINOKO)【SR】{OP01-016}', null],
+    ['ナミ(英語版/SOMETHING NEW)【SR】{OP01-016}', null],
+    // At most one marker and one credit, each non-empty, in one half-width group.
+    ['ナミ(英語版/英語版)【SR】{OP01-016}', null],
+    ['ナミ(英語版/illust:S-KINOKO/illust:Anderson)【SR】{OP01-016}', null],
+    ['ナミ(英語版/illust:)【SR】{OP01-016}', null],
+    ['ナミ(英語版/)【SR】{OP01-016}', null],
+    ['ナミ（英語版/illust:S-KINOKO）【SR】{OP01-016}', null],
+    ['ナミ(英語版)(illust:S-KINOKO)(漫画絵)【SR】{OP01-016}', null],
+    // Base rarities and the {SET-NUM} rule are unchanged: a special or a reprint stays ambiguous.
+    ['ナミ(英語版/illust:S-KINOKO)【SP】{OP01-016}', null],
+    ['ウタ(英語版/illust:Akiko Sugizono)【R】{OP01-005[OP05]}', null],
+  ])('keeps an English listing ambiguous when its title may name a variant or another product (%s)', (title, finish) => {
+    const result = one(titled(title));
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0]).toMatchObject({ language: 'en', finish, sku: null, setCode: null, mappingStatus: 'ambiguous' });
+    expect(result.quarantine).toEqual([{ sourceProductId: id15600, reason: 'ambiguous-crosswalk-no-sku-assigned' }]);
+    expect(result.productCrosswalks).toEqual([expect.objectContaining({ language: 'en', mappingStatus: 'ambiguous', sku: null, setCode: null })]);
+  });
+
+  it('lands an English DON!! card unmapped, quarantines conflicting markers, and maps a Japanese title as /1 did', () => {
+    // {-} names no card: no crosswalk and no set, as for any title without an identity.
+    const don = one(titled('ドン!!カード(未開封/英語版/ドジャース)【-】{-}'));
+    expect(don.observations[0]).toMatchObject({ language: 'en', sku: null, setCode: null, mappingStatus: 'unmapped', sourceSetKey: null });
+    expect(don).toMatchObject({ quarantine: [], productCrosswalks: [], setCrosswalks: [] });
+    expect(one(titled('ウタ(英語版/韓国語版/illust:Akiko Sugizono)【R】{OP01-005}'))).toMatchObject({ observations: [], quarantine: [{ sourceProductId: id15600, field: 'language', reason: 'conflicting-language-markers' }] });
+    for (const [title, mapping] of [
+      ['〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}', { mappingStatus: 'exact', sku: 'op-op01-006-ja' }],
+      ['お玉【UC】{OP01-006}', { mappingStatus: 'exact', sku: 'op-op01-006-ja' }],
+      ['ロロノア・ゾロ(パラレル/漫画絵)【L/P】{OP01-001}', { mappingStatus: 'ambiguous', sku: null }],
+      ['お玉(漫画絵/illust:sowsow)【UC】{OP01-006}', { mappingStatus: 'ambiguous', sku: null }],
+    ] as const) expect(one(titled(title)).observations[0]).toMatchObject({ ...mapping, language: 'ja' });
+    // The one shape /2 reads differently: a token after the credit is its own
+    // token, as names-1 splits it, not part of the credit /1 took it for. No
+    // captured title has one; it stays ambiguous rather than guess.
+    for (const title of ['お玉(illust:sowsow/漫画絵)【UC】{OP01-006}', 'お玉(illust:sow/sow)【UC】{OP01-006}']) {
+      expect(one(titled(title)).observations[0]).toMatchObject({ language: 'ja', mappingStatus: 'ambiguous', sku: null });
+    }
+  });
+
+  it('reads the trailing group as CTCG-NAMES-v1 does, and knows the same language markers', () => {
+    // Every title the rule maps exactly is, to cardrush-title/names-1, a name,
+    // its credit and one language marker, after any stated condition.
+    for (const [title] of englishExact) {
+      const name = cardRushName(title);
+      if ('reason' in name) throw new Error(`${title}: ${name.reason}`);
+      expect(name.illustrator).toBeTruthy();
+      expect(name.markers.filter(marker => !/鑑定済$|^状態/.test(marker))).toEqual(['英語版']);
+    }
+    // names-1 copies the collector's marker list; each one maps here, with its language.
+    const languages: Record<string, string> = { 英語版: 'en', 韓国語版: 'ko', 中国語版: 'zh', 簡体字版: 'zh', 繁体字版: 'zh' };
+    expect([...CARD_NAME_MARKERS.cardrush_language].sort()).toEqual(Object.keys(languages).sort());
+    for (const marker of CARD_NAME_MARKERS.cardrush_language) {
+      expect(one(titled(`ウタ(${marker}/illust:Akiko Sugizono)【R】{OP01-005}`)).observations[0]).toMatchObject({ mappingStatus: 'exact', language: languages[marker], sku: `op-op01-005-${languages[marker]}` });
+    }
   });
 
   it('quarantines a page without the structured price; there is no first-yen fallback', () => {

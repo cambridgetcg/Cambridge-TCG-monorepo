@@ -21,7 +21,11 @@ import type { IngestContext } from '../types';
  * the run's host state can wait out its Retry-After (storefront 0146).
  */
 export const CARDRUSH_PRICE_PARSER = 'cardrush-page/1';
-export const CARDRUSH_CROSSWALK_VERSION = 'cardrush-title/1';
+/** /2 (2026-10-30) also reads the trailing group English listings carry,
+ * (英語版/illust:…); /1 read only a bare (英語版) or 【英語版】, so those rows
+ * stayed ambiguous. The collector's crosswalk writes supersede live /1 rows
+ * (crosswalks.ts collectorMaySupersede); stored observations keep /1. */
+export const CARDRUSH_CROSSWALK_VERSION = 'cardrush-title/2';
 /** One bucket per host. burst 1: a fresh bucket never sends two requests within two seconds. */
 export const CARDRUSH_PAGE_RATE = { rps: 0.5, burst: 1 } as const;
 /** No run reads longer than the collector's budget: the cron route's
@@ -117,12 +121,23 @@ const GRADE = /^状態([A-Z][+-]?)$/;
 const GRADED = /^(PSA|BGS|CGC|ARS)\s?(\d{1,2}(?:\.\d)?)鑑定済$/;
 const LANGUAGE_MARKERS: readonly [string, string][] = [['英語版', 'en'], ['韓国語版', 'ko'], ['中国語版', 'zh'], ['簡体字版', 'zh'], ['繁体字版', 'zh']];
 const LANGUAGE_BRACKETS = new RegExp(`[(【](?:${LANGUAGE_MARKERS.map(([marker]) => marker).join('|')})[)】]`, 'g');
+const LANGUAGE_TOKENS: ReadonlySet<string> = new Set(LANGUAGE_MARKERS.map(([marker]) => marker));
 // One Piece base rarities. P, SP, TR, DON and any /P form are promos,
 // specials or parallels whose printing the title does not single out.
 const PLAIN_RARITIES: Partial<Record<GameCode, readonly string[]>> = { op: ['C', 'UC', 'R', 'SR', 'SEC', 'L'] };
-// A plain name carries at most an illustrator credit: any other bracket or
-// parenthetical may name a variant.
-const PLAIN_NAME = /^[^()（）[\]［］【】{}〔〕]+(?:\(illust:[^()]+\))?$/;
+// A plain name ends in at most one half-width (…) group, split at '/' as
+// CTCG-NAMES-v1's cardrush-title/names-1 splits it: at most one language
+// marker and at most one illust:<credit>, as in (英語版/illust:Hachi Takashi).
+// Any other token, bracket or parenthetical may name a variant (パラレル,
+// 漫画絵) or another product (未開封, a promo's event).
+const PLAIN_NAME = /^[^()（）[\]［］【】{}〔〕]+(?:\(([^()]+)\))?$/;
+function plainName(name: string): boolean {
+  const group = PLAIN_NAME.exec(name);
+  if (!group) return false;
+  const tokens = group[1]?.split('/') ?? [];
+  const languages = tokens.filter(token => LANGUAGE_TOKENS.has(token)).length, credits = tokens.filter(token => /^illust:./.test(token)).length;
+  return languages <= 1 && credits <= 1 && languages + credits === tokens.length;
+}
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 const decodeText = (value: string) => value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (match, dec, hex, name) =>
   dec ? String.fromCodePoint(Number(dec)) : hex ? String.fromCodePoint(parseInt(hex, 16)) : ENTITIES[name.toLowerCase()] ?? match);
@@ -198,7 +213,7 @@ export function parseCardRushMemberPrices(pages: readonly CardRushPage[]): Parse
     let crosswalk: CardRushProductCrosswalk | null = null, setCrosswalk: CardRushSetCrosswalk | null = null;
     if (host.crosswalk && identity) {
       const name = title.replace(/^〔[^〕]*〕/, '').replace(LANGUAGE_BRACKETS, '').split('【')[0]!;
-      const plain = !finish && !identity.release && rarity !== null && (PLAIN_RARITIES[host.code] ?? []).includes(rarity) && PLAIN_NAME.test(name);
+      const plain = !finish && !identity.release && rarity !== null && (PLAIN_RARITIES[host.code] ?? []).includes(rarity) && plainName(name);
       const evidence = `title:${identity.set}-${identity.number}${identity.release ? `[${identity.release}]` : ''} [${rarity ?? '-'}]${finish ? ' parallel' : ''}${language !== 'ja' ? ` ${language}` : ''}`;
       // The SKU builder is the one judge of this identity, not a copy of its
       // patterns: a title whose set, number or language it refuses names no
