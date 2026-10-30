@@ -93,7 +93,7 @@ The bulk of *what other people charge for these cards*. Every row is a candidate
 | Public API? | No new access. Existing access is not transferable. |
 | Bulk feed? | Third-party mirrors do not cure the upstream restriction; do not use them without a written chain of rights. |
 | License | Proprietary. Terms prohibit a competing service, combining TCGplayer prices with first/third-party prices, and redistribution/commercialisation without prior written consent. Yu's written permission (2026-10-28) covers page collection, attributed member display and derivation input; raw values are never exported (`internal-only`, `redistribute: false`). |
-| Freshness | Market Price as the page data shows it when read. While scheduled, the collector runs hourly, stalest set first. Module freshness `page_collector` (6 h) is a budget for the collector's latest batch, not for each row. |
+| Freshness | Market Price as the page data shows it when read. While scheduled, the collector runs hourly, the product lines taking turns and each line's stalest set first. Module freshness `page_collector` (6 h) is a budget for the collector's latest batch, not for each row. |
 | Canonical-form effort | **medium** — TCGplayer uses its own `productId` (integer) per printing; SKU mapping requires their `group_id` (set) + product attributes. Worth caching their productId on `card_set_cards`. |
 | Status | **partial** since 2026-10-28 (blocked 2026-07-11 to 2026-10-28). The price-guide collector exists and runs only while `DATA_COLLECT_TCGPLAYER` is `on`; `/api/v1/sources` says whether it is (`member_pricing.collection`). Its runs are `member_price_batches` rows, which `/api/v1/sources/tcgplayer` health and `audit:tributaries` check 9 read. The API reader stays locked (`TCGPLAYER_ACQUISITION_ENABLED = false`). |
 | Update, 2026-10-28 | Written permission recorded for page collection, attributed member display and derivation input; the API reader stays locked. The identified collector landed the same day and the module is `partial` in code: it reads the data the public set price-guide page loads (`infinite-api.tcgplayer.com`, `mpapi.tcgplayer.com`), one request per set at Crawl-Delay 10, and runs only when `DATA_COLLECT_TCGPLAYER` is `on`. The module's public description, `tos_notes` and welcome named no API host and kept those requests apart from the permission until Yu answered. |
@@ -606,7 +606,7 @@ packages/data-ingest/
 | Scryfall | adapter built, never run; no scheduled job | catalog |
 | Pokémon TCG API | adapter built, never run; no scheduled job | catalog |
 | YGOPRODeck | blocked pending written commercial-content permission | none |
-| TCGplayer | price-guide collector, `45 * * * *` in `vercel.json`, stalest sets first; does its work only while `DATA_COLLECT_TCGPLAYER` is `on` | `page_collector` (6 h) for the latest `member_price_batches` row |
+| TCGplayer | price-guide collector, `45 * * * *` in `vercel.json`, product lines in turn, each line's stalest sets first; does its work only while `DATA_COLLECT_TCGPLAYER` is `on` | `page_collector` (6 h) for the latest `member_price_batches` row |
 | Cardmarket | official daily files; One Piece collector, `30 5 * * *` in `vercel.json`; does its work only while `DATA_COLLECT_CARDMARKET` is `on` | `daily_file` (26 h) for the latest `member_price_batches` row, which `/api/v1/sources/cardmarket` and check 9 read |
 | eBay | partial adapter; no observed rows in current coverage | market_signal intent |
 | Bandai JP official images | manual tool only (`ingest-official-ja.mjs`), never scheduled | none |

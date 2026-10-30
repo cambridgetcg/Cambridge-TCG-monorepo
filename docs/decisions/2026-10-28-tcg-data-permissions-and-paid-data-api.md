@@ -18,7 +18,8 @@ every earlier quote is unchanged. Updated again on 2026-10-29 with Yu's words
 on images and the agents' reading of them, and again the same day with three
 agents' calls on collecting politely (TCGplayer's robots.txt read every run,
 per-host backoff and self-suspension, migration 0146) and a pointer to the
-deletion procedure.
+deletion procedure. Updated on 2026-10-30 with the activation and with Yu's
+word that day on TCGplayer's English Pokémon line.
 
 ## Yu's words
 
@@ -221,8 +222,14 @@ plan.").
   pages" covers this is Yu's word since 2026-10-29 ("yes permission allows
   that"); the transport is the agents' call
   ([intake record](../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)).
-  TCGplayer's English Pokémon line (3) is not collected until a probe
-  confirms its category id and row label.
+  TCGplayer's English Pokémon line (3) was not to be collected until a probe
+  confirmed its category id and row label. On 2026-10-30 an agent
+  recommended probing it and switching it on, and Yu answered "lets go for
+  what you recommended". The probe that day confirmed both (category 3, rows
+  labelled `Pokemon`), and the line is switched on in code
+  ([intake record](../methodology/source-intake.md#pokemon-line-3-2026-10-30)):
+  it is collected once that code is deployed, its rows unmapped until a
+  reviewed Pokémon set crosswalk exists.
 - **Cardmarket: One Piece files only.** It is the game with reviewed set
   crosswalks, so its rows can feed derived data, and it is estimated to take 15
   to 30 s of a 270 s run. Its daily files add about 57 MB a day to an append-only

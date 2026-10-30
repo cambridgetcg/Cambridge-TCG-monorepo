@@ -9,14 +9,17 @@ import {
   tcgplayerSetDisallowed, TCGPLAYER_COLLECTOR_HOSTS, TCGPLAYER_CROSSWALK_VERSION, TCGPLAYER_PRICE_GUIDE_PARSER, TCGPLAYER_PRODUCT_LINES, TcgplayerUnavailableError, type TcgplayerRunFetcher, type TcgplayerSet,
 } from '../member-prices';
 
-// Trimmed responses read 2026-10-28; prices in them are synthetic stand-ins.
+// Trimmed responses read 2026-10-28 and 2026-10-30; prices in them are synthetic stand-ins.
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')) as Record<string, unknown> & { result: Record<string, unknown>[] };
 const onePiece = TCGPLAYER_PRODUCT_LINES.find(line => line.slug === 'one-piece-card-game')!;
 const japan = TCGPLAYER_PRODUCT_LINES.find(line => line.slug === 'pokemon-japan')!;
 const magic = TCGPLAYER_PRODUCT_LINES.find(line => line.slug === 'magic')!;
+const yugioh = TCGPLAYER_PRODUCT_LINES.find(line => line.slug === 'yugioh')!;
 const pokemon = TCGPLAYER_PRODUCT_LINES.find(line => line.slug === 'pokemon')!;
 const romanceDawn = parseTcgplayerSets(onePiece, fixture('set-names-68.json')).find(set => set.setId === 3188)!;
 const tripletBeat = parseTcgplayerSets(japan, fixture('set-names-85.json')).find(set => set.setId === 23598)!;
+const phantasmalFlames = parseTcgplayerSets(pokemon, fixture('set-names-3.json')).find(set => set.setId === 24448)!;
+const pflUrl = 'https://infinite-api.tcgplayer.com/priceguide/set/24448/cards/?rows=5000&productTypeID=1';
 const readAt = '2026-10-28T15:00:00.000Z';
 const guideUrl = 'https://infinite-api.tcgplayer.com/priceguide/set/3188/cards/?rows=5000&productTypeID=110';
 const bytes = (body: unknown) => new TextEncoder().encode(JSON.stringify(body));
@@ -116,6 +119,54 @@ describe('TCGplayer price-guide rows', () => {
     for (const row of result.parsed.observations) expect(() => assertPriceObservationValues(row)).not.toThrow();
   });
 
+  describe('the English Pokemon line (3), as its guide read on 2026-10-30', () => {
+    const readPfl = '2026-10-30T17:22:03.952Z';
+    const pfl = (body: unknown = fixture('price-guide-24448-pfl.json'), line = pokemon) =>
+      parseTcgplayerPriceGuide({ line, set: phantasmalFlames, bytes: bytes(body), sourceUrl: pflUrl, retrievedAt: readPfl });
+    const at = (result: ReturnType<typeof pfl>, productId: number, finish: string, condition = 'near-mint') =>
+      result.parsed.observations.find(row => row.sourceProductId === `tcgplayer:${productId}` && row.finish === finish && row.condition === condition);
+
+    it('reads English grades on Normal, Holofoil and Reverse Holofoil printings, every row unmapped', () => {
+      const result = pfl();
+      expect(result.parsed).toMatchObject({ sourceRows: 25, missingPrices: 0, quarantine: [] });
+      expect(result.parsed.observations).toHaveLength(25);
+      expect(new Set(result.parsed.observations.map(row => `${row.game} ${row.language} ${row.mappingStatus} ${row.sku} ${row.setCode} ${row.sourceSetKey}`))).toEqual(new Set(['pokemon en unmapped null null 24448']));
+      // One product, three printings: "Near Mint Reverse Holofoil" is near-mint on the reverse-holofoil finish.
+      expect(['holofoil', 'normal', 'reverse-holofoil'].map(finish => at(result, 662238, finish)?.amount)).toEqual(['0.65', '3.5', '15']);
+      expect(at(result, 662238, 'reverse-holofoil', 'lightly-played')).toMatchObject({ productName: 'Vileplume', granularity: 'printing', metric: 'market', currency: 'USD', sourceUpdatedAt: readPfl, sourceUrl: pflUrl });
+      expect(new Set(result.parsed.observations.map(row => row.condition))).toEqual(new Set(['near-mint', 'lightly-played', 'moderately-played', 'heavily-played', 'damaged']));
+      for (const row of result.parsed.observations) expect(() => assertPriceObservationValues(row)).not.toThrow();
+    });
+
+    it('maps no slash number: 001/094 and 120/094 name no set, so no crosswalk and no guess', () => {
+      const result = pfl();
+      expect(result.setCrosswalk).toBeNull();
+      expect(result.productCrosswalks).toEqual([]);
+      // The plain name and the reprint whose name restates its number stay two products, both unmapped.
+      expect([at(result, 660418, 'normal'), at(result, 662167, 'holofoil')].map(row => [row?.productName, row?.mappingStatus])).toEqual([
+        ["Grimsley's Move", 'unmapped'], ["Grimsley's Move - 120/094", 'unmapped'],
+      ]);
+      // A Code Card is listed as a single with no number: an unmapped observation, as One Piece's DON!! cards are.
+      expect(at(result, 664060, 'normal')).toMatchObject({ productName: 'Code Card - Phantasmal Flames Booster Pack', mappingStatus: 'unmapped', sku: null });
+    });
+
+    it('keeps the two Pokemon lines apart: a Japanese grade or a Pokemon Japan row is refused on the English line, and the reverse', () => {
+      const body = fixture('price-guide-24448-pfl.json');
+      body.result = body.result.map(row => row.productID === 662205 && row.condition === 'Near Mint' ? { ...row, condition: 'Near Mint - Japanese' }
+        : row.productID === 662238 && row.condition === 'Near Mint' ? { ...row, game: 'Pokemon Japan' } : row);
+      const result = pfl(body);
+      expect(result.parsed.observations).toHaveLength(23);
+      expect(result.parsed.quarantine).toEqual([
+        { sourceProductId: 'tcgplayer:662205', field: 'condition', reason: 'unrecognised-condition' },
+        { sourceProductId: 'tcgplayer:662238', field: 'game', reason: 'unexpected-product-line' },
+      ]);
+      // English rows read on the Japanese line are refused, never relabelled.
+      const asJapan = pfl(undefined, japan);
+      expect(asJapan.parsed.observations).toEqual([]);
+      expect(new Set(asJapan.parsed.quarantine.map(entry => entry.reason))).toEqual(new Set(['unexpected-product-line']));
+    });
+  });
+
   it('quarantines duplicates, an incomplete guide and malformed rows', () => {
     const body = fixture('price-guide-3188-op01.json');
     body.result.push({ ...body.result[0]! }, 'not-a-row' as never, { ...body.result[0]!, productID: 0 }, { ...body.result[0]!, printing: 'Foil/Etched' });
@@ -201,24 +252,46 @@ describe('TCGplayer acquisition', () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it('collects only the lines a probe has confirmed: One Piece (68) and Pokemon Japan (85)', () => {
-    expect(TCGPLAYER_PRODUCT_LINES.filter(line => line.collect).map(line => [line.slug, line.categoryId, line.gameLabel])).toEqual([
-      ['one-piece-card-game', 68, 'One Piece Card Game'], ['pokemon-japan', 85, 'Pokemon Japan'],
+  it('collects only the lines a probe has confirmed: One Piece (68), Pokemon (3) and Pokemon Japan (85)', () => {
+    expect(TCGPLAYER_PRODUCT_LINES.filter(line => line.collect).map(line => [line.slug, line.categoryId, line.gameLabel, line.language, line.conditionLanguage])).toEqual([
+      ['one-piece-card-game', 68, 'One Piece Card Game', 'en', null], ['pokemon', 3, 'Pokemon', 'en', null], ['pokemon-japan', 85, 'Pokemon Japan', 'ja', 'Japanese'],
     ]);
   });
 
   it('refuses lines that are listed but not collected, and a set from another line', async () => {
     const fetcher = fakeFetcher([]);
-    expect(magic.collect).toBe(false);
-    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, magic)).rejects.toThrow('tcgplayer-product-line-not-collected');
+    // Categories 1 and 2 come from the legacy map, not a probe.
+    for (const line of [magic, yugioh]) {
+      expect(line.collect).toBe(false);
+      await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, line)).rejects.toThrow('tcgplayer-product-line-not-collected');
+    }
     await expect(readTcgplayerRobots(fetcher, TCGPLAYER_EVIDENCE_VERSION, [onePiece, magic])).rejects.toThrow('tcgplayer-product-line-not-collected');
-    // Category 3's id and row label come from the legacy map, not a probe.
-    expect(pokemon.collect).toBe(false);
-    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, pokemon)).rejects.toThrow('tcgplayer-product-line-not-collected');
-    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { ...pokemon, collect: true })).rejects.toThrow('tcgplayer-product-line-not-collected');
+    // A caller's copy cannot switch a line on, or move a collected one to another category.
+    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { ...magic, collect: true })).rejects.toThrow('tcgplayer-product-line-not-collected');
     await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { ...onePiece, categoryId: 1 })).rejects.toThrow('tcgplayer-product-line-not-collected');
+    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { ...pokemon, categoryId: 85 })).rejects.toThrow('tcgplayer-product-line-not-collected');
     await expect(acquireTcgplayerPriceGuide(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: tripletBeat, productTypeId: 110 })).rejects.toThrow('tcgplayer-set-not-in-line');
+    await expect(acquireTcgplayerPriceGuide(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { line: japan, set: phantasmalFlames, productTypeId: 143 })).rejects.toThrow('tcgplayer-set-not-in-line');
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('reads the Pokemon line\'s sets, its Cards product type (1) and a set guide from the same endpoints', async () => {
+    const fetcher = await opened([json(fixture('set-names-3.json')), json(fixture('product-types-3.json')), json(fixture('price-guide-24448-pfl.json'))], undefined, [pokemon]);
+    const sets = await fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, pokemon);
+    // Kept as listed: no release date (Nintendo Promos), no abbreviation, and a release still to come.
+    expect(sets.map(set => [set.setId, set.abbreviation, set.releaseDate])).toEqual([
+      [604, 'BS', '1999-01-09T00:00:00'], [1423, 'PR', null], [24448, 'PFL', '2025-11-14T00:00:00'], [24529, '', '2026-01-02T00:00:00'], [24831, 'DLR', '2026-11-06T00:00:00'],
+    ]);
+    expect(() => parseTcgplayerSets(japan, fixture('set-names-3.json'))).toThrow('tcgplayer-set-list-category-mismatch');
+    expect(await fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, pokemon)).toBe(1);
+    const result = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: pokemon, set: sets[2]!, productTypeId: 1 });
+    expect(fetcher.urls).toEqual([
+      ...ROBOTS,
+      'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=3&active=true',
+      'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/3/',
+      pflUrl,
+    ]);
+    expect(result.parsed.observations).toHaveLength(25);
   });
 
   it('reads no data through a fetcher this run has not read robots.txt through', async () => {
@@ -355,6 +428,16 @@ describe('TCGplayer robots.txt, read every run', () => {
     expect(fetcher.robots.allows('https://mp-search-api.tcgplayer.com/v1/search')).toBe(false);
     await fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece);
     expect(fetcher.urls.slice(3)).toEqual(['https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true']);
+  });
+
+  it('lets every collected line read what a run reads under the file as read on 2026-10-30', async () => {
+    const read20261030 = 'User-agent: *\nCrawl-Delay: 10\nAllow: /\nDisallow: /content/*/deck/\nDisallow: /content/*/decks/player\nDisallow: /login\nDisallow: /search/articles\nDisallow: /search/decks\nDisallow: /search/*/product?seller=*\nDisallow: /sellers/*/product/*\nSitemap: https://www.tcgplayer.com/sitemap/index.xml\n';
+    const fetcher = await opened([], [text(read20261030), none, none], TCGPLAYER_PRODUCT_LINES.filter(line => line.collect));
+    expect(fetcher.robots).toMatchObject({ hosts: { 'www.tcgplayer.com': 'rules', 'mpapi.tcgplayer.com': 'none', 'infinite-api.tcgplayer.com': 'none' }, intervalMs: 10_000, delayHost: null });
+    expect(tcgplayerSetDisallowed(fetcher, { line: pokemon, set: phantasmalFlames, productTypeId: 1 })).toBeNull();
+    expect(fetcher.robots.allows('https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/price-guides/me02-phantasmal-flames')).toBe(true);
+    expect(fetcher.robots.allows('https://www.tcgplayer.com/search/pokemon/product?seller=x')).toBe(false);
+    expect(fetcher.urls).toEqual(ROBOTS);
   });
 
   it.each([

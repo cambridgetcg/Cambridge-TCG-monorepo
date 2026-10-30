@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-10-30 ─────────────────────────────────────────────────────────
   {
+    id: "tcgplayer-pokemon-line",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (TCGplayer rows), /api/v1/sources/tcgplayer",
+    summary:
+      "TCGplayer's English Pokemon price guides (220 sets) are now collected beside One Piece and Pokemon Japan, and the collector takes product lines in turn so no line starves.",
+    detail:
+      "Display only on /prices, credited to TCGplayer; Pokemon rows stay unmapped until a reviewed Pokemon set crosswalk exists. The request rate is unchanged (TCGplayer's Crawl-delay 10), so the lines share the same hourly budget: One Piece sets are re-read about every 17 h, English Pokemon about every 42 h, Pokemon Japan about every 87 h.",
+    related_urls: ["/api/v1/sources/tcgplayer", "/prices"],
+  },
+  {
     id: "official-images-japanese-starter-decks",
     date: "2026-10-30",
     kind: "endpoint-modified",
