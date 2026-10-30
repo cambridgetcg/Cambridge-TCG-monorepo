@@ -149,9 +149,12 @@ a CardRush listing's own image is linked at CardRush's own URL, never copied.
   ([`cardrush/member-prices.ts`](../../packages/data-ingest/src/cardrush/member-prices.ts))
   keeps the `og:image` a listing's page declares, beside its observations,
   never inside one. `cardRushListingImageUrl` accepts only https on the
-  listing's own host, under that host's directory, `/_/` and the hex of a
-  `product/` path, with no query and at most 512 characters. No request is
-  made for the image.
+  listing's own host, under that host's directory, in one of two shapes:
+  `product/` and one plain file name, the shape a live listing's `og:image`
+  took on 2026-10-30 (migration 0147 widened the table's check to it); or
+  `/_/` and the hex of a `product/` path, the resized copies listing pages
+  show. No query, at most 512 characters, and no request is made for the
+  image.
 - **Stored as a link record.** `price_source_listing_images` (migration 0145)
   holds one row per listing: the URL, the listing URL, first and last
   sighting (forward-only from 2026-10-28) and the digest of the page that
