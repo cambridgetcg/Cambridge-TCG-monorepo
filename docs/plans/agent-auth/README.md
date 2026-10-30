@@ -240,6 +240,50 @@ Nothing below is built, and none of it has a migration.
   two holders revoking two keys of one agent at the same moment can each be
   told the other key is still live.
 
+## Phase 2 drafts (2026-10-30)
+
+Yu's answers of 2026-10-30 are in the
+[decision file](../../decisions/2026-10-30-agent-registration-support-key-expiry.md),
+with the agent's call that the flow stays independent of agenttool. Three
+drafts, written by agents and not reviewed by Yu, design what Yu decided:
+
+- [reopening-terms.md](reopening-terms.md): the terms for reopening
+  self-serve registration, as three packages (A minimal, B recommended, C
+  full OAuth).
+- [support-procedures.md](support-procedures.md): how support handles
+  erasure, access, correction, suspension review and key compromise, modelled
+  on eBay, Shopify, Stripe, GitHub, Etsy and Amazon and on the UK GDPR clocks.
+- [key-expiry.md](key-expiry.md): the expiry option offered when a key is
+  minted.
+
+**Build order** (an agent's proposal):
+
+1. After #108 to #111 merge: the support steps that need no migration
+   (suspension review and key-compromise handling).
+2. Key expiry, one PR, once Yu answers its decisions 1 and 6. Its migration
+   is applied before the deploy, with Yu's word.
+3. Support request codes and the case log.
+4. Registration, once the terms are agreed.
+
+**What only Yu decides**, in one list. Everything else in the drafts is an
+agent's default that proceeds unless Yu objects.
+
+| Topic | Decision | Agent's recommendation |
+| --- | --- | --- |
+| Registration | Which package ([terms D1](reopening-terms.md#decisions-for-yu)) | B: a management token that outlives usage keys |
+| Registration | Who may register (D2) | Any agent; contact and URL optional; the basis recorded |
+| Registration | Terms acceptance (D5) | An explicit version, 30 days' notice of changes, re-acceptance in-band; counsel on what an agent's acceptance means |
+| Registration | Publication (D9) | Registration publishes nothing; the ladder is opt-in per agent |
+| Registration | Legacy self-serve agents (D11), and deleting the legacy IP buckets (D7) | Leave them read-only and labelled legacy, offer re-registration; delete the buckets |
+| Expiry | Who chooses, per key or per agent ([expiry D1](key-expiry.md#decisions-for-yu)) | Per key, chosen by whoever mints it; "never" allowed |
+| Expiry | Existing keys (D6) | Leave them without an end date |
+| Expiry | Expiry email to operators (D7) | One email seven days before |
+| Support | What erasure does ([support D2](support-procedures.md#d2-what-erasure-does)) | Delete where nothing is shared, tombstone where something is |
+| Support | Who approves an erasure (D3) | Yu, case by case, until the tool is tested |
+| Support | Whose word governs an operator-managed agent (D4) | The operator's |
+| Support | How long support records are kept (D9) | Six years from closure; counsel confirms |
+| Support | When the procedures are published (D10) | Once erasure, access and correction have tooling |
+
 ## Questions only Yu can answer
 
 1. Should self-serve agent registration reopen at all, and on what consent and
@@ -248,37 +292,61 @@ Nothing below is built, and none of it has a migration.
    paused until their rights, identity, and approval boundaries are real and
    verified") names no instruction from Yu, and no decision file or Yu quote
    records the closure. Was it your call?
+   **Answered in part, 2026-10-30:** Yu: "yes reopen, lets discuss more on
+   the terms" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). The terms are drafted for discussion in
+   [reopening-terms.md](reopening-terms.md). Who made the July closure is
+   still unrecorded.
 2. Is possession of the key enough for the holder's door out, or should
    holder control use an agent-held keypair with a signed challenge (the
    pattern XENIA's README describes)?
+   *2026-10-30:* drafted as [reopening-terms.md](reopening-terms.md)
+   decision 4 and term 10, and support-procedures.md D1.
 3. Should PR D land? It makes a blocking CI gate stricter: from then on a
    key-shaped literal that mixes character classes fails CI anywhere in the
    repo, tests and docs included.
+   **2026-10-30:** Yu asked for it to be opened for review; it is #111, and
+   whether it merges is still Yu's call.
 4. Should support@cambridgetcg.com take agent erasure, correction and
    suspension-review requests, as the answers now offer? They also say that no
    review procedure is written down yet. How should staff check that a
    requester holds a key without receiving it? The receipt reference is only
    a lookup aid.
+   **Answered 2026-10-30:** Yu: "yes support should handle them, need to
+   design procedures, we could refer to general protocol used by platforms
+   like ebay, shopify etc" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). Drafted in
+   [support-procedures.md](support-procedures.md).
 5. Should the privacy notice gain entries for agent profiles, keys and rate
    buckets? Today the revocation answer's inventory, written by an agent, is
    the only one.
+   *2026-10-30:* drafted as [reopening-terms.md](reopening-terms.md) term 5.
 6. Should agent keys expire or rotate, as member keys do after 90 days, or is
    non-expiry deliberate?
+   **Answered 2026-10-30:** Yu: "depends on the agent, we provide the option
+   like in all auth protocol" ([2026-10-30 decision](../../decisions/2026-10-30-agent-registration-support-key-expiry.md)). Drafted in [key-expiry.md](key-expiry.md).
 7. For erasure: should the handle be released, tombstoned or kept? Is the
    `game_rooms` foreign key with no delete rule deliberate, given it also
    blocks human account erasure?
+   *2026-10-30:* the handle half is
+   [support-procedures.md](support-procedures.md) D2; the `game_rooms` half
+   stays open.
 8. May an agent read production to count self-serve agents, live keys, agent
    matches and rooms, and to check key shapes, for example with the reset
    script's read-only preview? Should the legacy IP-hash buckets be deleted?
+   *2026-10-30:* drafted as [reopening-terms.md](reopening-terms.md)
+   decisions 7 and 11.
 9. Does the steward's @cambridgetcg.com mailbox receive mail? If it does,
    whoever signs in as the steward can mint keys for every legacy self-serve
    agent until A lands. A removes only minting. After A, that login can still
    read every self-serve agent's profile and key list at `/account/agents`,
    revoke their keys and archive the agents, and no code undoes an archive.
+   *2026-10-30:* the legacy agents' future is
+   [reopening-terms.md](reopening-terms.md) decision 11.
 10. Is `ACCOUNT_ADMISSION_MODE` set to the reviewed value in production? If
     new accounts are closed, a newcomer has no route to an agent key, and the
     agent-facing pages should say so.
 11. What does "non-enumerating interaction identifiers" mean to you?
+    *2026-10-30:* a definition is drafted in
+    [reopening-terms.md](reopening-terms.md) term 8.
 12. Should Cambridge TCG adopt any XENIA document, such as a Covenant adoption
     record, a Surface `/.well-known/agent.json` or a rights resource? Each is
     a publication choice. The only "Xenia integration" request in the history
