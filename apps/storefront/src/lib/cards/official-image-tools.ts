@@ -9,7 +9,7 @@
  * - runUpload (scripts/upload-official-images.mjs) copies a reviewed
  *   selection of rows' publisher images to the bucket and records each
  *   object. --apply is the AWS write and the moment of publication: it needs
- *   Yu's word, D6 lifted for that upload, and the AWS profile he names at
+ *   Yu's word, D6 lifted for that upload, and the AWS profile they name at
  *   run time.
  *
  * Inert unless run by a person: both default to dry runs, and neither is
@@ -206,7 +206,7 @@ export async function runIngest(argv: readonly string[], deps: ToolDeps): Promis
 export const UPLOAD_USAGE = [
   "Usage: pnpm --filter cambridgetcg-storefront exec tsx scripts/upload-official-images.mjs --profile <name> --lang ja|en [--limit N] [--apply --expect <count>:<digest>] [--no-ssl | --ca-file <pem>]",
   "The dry run reads card_images (DATABASE_URL, from the environment) and prints the selection and its digest; it fetches nothing and runs no aws.",
-  "--apply is the AWS write and the moment of publication: it needs Yu's word, D6 lifted for this upload, the profile he names, and",
+  "--apply is the AWS write and the moment of publication: it needs Yu's word, D6 lifted for this upload, the profile they name, and",
   "--expect equal to the reviewed dry run. It fetches each publisher image, uploads it with put-object --if-none-match '*', and records it.",
 ].join("\n");
 

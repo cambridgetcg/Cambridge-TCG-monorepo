@@ -103,7 +103,7 @@ holds Yu's decision, not Bandai's permission.
   reads Bandai's Japanese card lists (every run is the collection act, which
   needs Yu's word) and records rows, and `upload-official-images.mjs` copies
   a reviewed selection to the bucket (`--apply` is the upload and needs Yu's
-  word, D6 lifted for it, and the AWS profile he names at run time). Neither
+  word, D6 lifted for it, and the AWS profile they name at run time). Neither
   has run.
 - **Removal is per card**: one statement sets every `official_sample` row of
   the card, every language and variant, to `disputed` or `removed`; the

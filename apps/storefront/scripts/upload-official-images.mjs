@@ -15,7 +15,7 @@
  *
  * --apply IS THE AWS WRITE AND THE MOMENT OF PUBLICATION (the bucket is
  * public-read). It needs Yu's word, D6 lifted for this upload and the AWS
- * profile he names at run time, and --expect equal to the dry run he
+ * profile they name at run time, and --expect equal to the dry run they
  * reviewed. Per row it fetches the publisher image (identified, at least 2 s
  * apart per host, robots.txt honoured), uploads it with
  * put-object --if-none-match '*' (never overwriting) and records it by the

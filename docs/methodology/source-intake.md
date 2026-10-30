@@ -255,7 +255,7 @@ and Fusion World.
 
 **Playbook gate 1, honestly: fails on the sources' own words.** Both footers
 refuse reproduction without permission, and Bandai has granted none. Yu chose
-to self-host anyway, under his 2026-07-13 rationale for English (nominative
+to self-host anyway, under their 2026-07-13 rationale for English (nominative
 use to identify cards for trade, recorded as project history, not a legal
 conclusion). That is Cambridge's decision, not the source's permission; the
 decision record lists it under "where Cambridge falls short".
@@ -302,7 +302,7 @@ card, every language; `OFFICIAL_IMAGES_JA=off` hides the lane;
 `ImageReference` v1 is unchanged.
 
 **Needs Yu:** each collection run, the upload (with D6 lifted for it and the
-AWS profile he names), and the question never asked: API, or pages only?
+AWS profile they name), and the question never asked: API, or pages only?
 
 ---
 

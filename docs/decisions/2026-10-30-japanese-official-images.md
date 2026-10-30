@@ -2,9 +2,9 @@
 
 **Status:** decided 2026-10-30. Self-hosting Japanese official sample images
 (One Piece and Dragon Ball Super Fusion World) with credit and takedown is
-Yu's word, through the option he chose below. Everything under
+Yu's word, through the option they chose below. Everything under
 [The agents' reading](#the-agents-reading) is how agents built that choice;
-Yu overturns any of it by saying so. Two acts stay Yu's, each needing his
+Yu overturns any of it by saying so. Two acts stay Yu's, each needing their
 word for that act: [collection and the upload](#what-still-needs-yus-word).
 Nothing here has run against Bandai, AWS or a production database.
 
@@ -244,7 +244,7 @@ For the playbook's "where Cambridge falls short", said plainly:
 
 - **Gate 1 fails on the sources' own words.** Both Japanese footers refuse
   reproduction without permission, and Bandai has granted none. Yu chose to
-  self-host under his 07-13 rationale for English; that is Cambridge's
+  self-host under their 07-13 rationale for English; that is Cambridge's
   decision, not Bandai's permission. The same reading puts the English lane
   in the same place.
 - **The set is bulk-fetchable.** Object keys are predictable and the bucket is
