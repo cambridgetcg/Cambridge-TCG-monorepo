@@ -4,19 +4,26 @@
  * Agents — admin server actions.
  *
  *   suspendAgent     — flip status to 'suspended' with a reason. Keys
- *                      keep authenticating but matchmaking refuses.
+ *                      stay unrevoked, but the MCP gate refuses them with
+ *                      403 while the agent is suspended (lib/agents/auth.ts);
+ *                      lifting the suspension lets them through again.
  *   unsuspendAgent   — flip back to 'active'.
- *   archiveAgent     — permanent retirement. Revokes all keys.
- *   revokeKey        — single-key revocation by id.
+ *   adminArchiveAgent — permanent retirement. Revokes all keys in the same
+ *                      transaction.
+ *   adminRevokeKey   — single-key revocation by id.
  *
  * Every mutation runs through adminAction() so it auth-checks, logs to
  * admin_actions_log, and revalidates the listing page. The reason is
  * required for suspend (transparency Ring 1 — the operator can see the
  * suspension reason on their /account/agents page).
+ *
+ * Key revocations by staff store a reason starting "admin" so the
+ * operator's key list can show the category ("revoked by Cambridge TCG
+ * staff"); it never shows the reason text itself.
  */
 
 import { adminAction, ActionInputError } from "@/lib/admin/actions";
-import { sfQuery } from "@/lib/admin/db";
+import { sfQuery, storefrontDb } from "@/lib/admin/db";
 
 export interface AgentMutationInput {
   id: string;
@@ -92,26 +99,32 @@ export async function adminArchiveAgent(input: AgentMutationInput) {
       if (!input.reason.trim()) {
         throw new ActionInputError("Reason required to archive an agent.");
       }
-      const r = await sfQuery<{ id: string }>(
-        `UPDATE agents
-            SET status = 'archived',
-                archived_at = NOW(),
-                updated_at = NOW()
-          WHERE id = $1 AND status <> 'archived'
-          RETURNING id::text`,
-        [input.id],
-      );
-      if (r.rows.length === 0) {
-        throw new ActionInputError("Agent not found or already archived.");
-      }
-      // Revoke all live keys.
-      await sfQuery(
-        `UPDATE agent_keys
-            SET revoked_at = NOW(),
-                revoked_reason = $2
-          WHERE agent_id = $1 AND revoked_at IS NULL`,
-        [input.id, `admin archive: ${input.reason.trim()}`],
-      );
+      // One transaction on the admin pool: the status and the key
+      // revocations commit together or not at all. Only `tx` is used
+      // inside; the pool may hold a single connection.
+      const { client } = storefrontDb();
+      await client.begin(async (tx) => {
+        const r = await tx.unsafe(
+          `UPDATE agents
+              SET status = 'archived',
+                  archived_at = NOW(),
+                  updated_at = NOW()
+            WHERE id = $1 AND status <> 'archived'
+            RETURNING id::text`,
+          [input.id],
+        );
+        if (r.length === 0) {
+          throw new ActionInputError("Agent not found or already archived.");
+        }
+        // Revoke all live keys.
+        await tx.unsafe(
+          `UPDATE agent_keys
+              SET revoked_at = NOW(),
+                  revoked_reason = $2
+            WHERE agent_id = $1 AND revoked_at IS NULL`,
+          [input.id, `admin archive: ${input.reason.trim()}`],
+        );
+      });
       return { id: input.id, action: "archive" as const };
     },
   });
@@ -134,7 +147,7 @@ export async function adminRevokeKey(input: { key_id: string; reason: string }) 
                 revoked_reason = $2
           WHERE id = $1 AND revoked_at IS NULL
           RETURNING id::text`,
-        [input.key_id, input.reason.trim()],
+        [input.key_id, `admin revoke: ${input.reason.trim()}`],
       );
       if (r.rows.length === 0) {
         throw new ActionInputError("Key not found or already revoked.");

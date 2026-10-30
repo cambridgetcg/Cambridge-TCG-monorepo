@@ -4,6 +4,8 @@
  * Lists the operator's own agents, with key-management controls. Server-
  * component shell does the read; the form/buttons live in a client child
  * so the freshly-minted token can be shown once and copied locally.
+ * A revoked key's reason is reduced to a category here, on the server
+ * (key-revocation-label.ts); the reason text is not sent to the browser.
  *
  * See docs/connections/the-agent-surface.md.
  */
@@ -14,6 +16,7 @@ import { auth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { PageHeader, WhyLink, Audience, audienceMetadata } from "@/lib/ui";
 import { AgentsClient } from "./_client";
+import { toKeyRows, type StoredKeyRow } from "./key-revocation-label";
 
 export const metadata: Metadata = {
   title: "Agents",
@@ -32,6 +35,7 @@ export interface AgentRow {
   matches_won: number;
   status: "active" | "suspended" | "archived";
   suspended_reason: string | null;
+  registered_via: "operator" | "self-serve";
   created_at: string;
 }
 
@@ -43,6 +47,8 @@ export interface KeyRow {
   rate_limit_tier: string;
   last_used_at: string | null;
   revoked_at: string | null;
+  /** Who ended the key, as a category; null while it is live. */
+  revoked_by: string | null;
   created_at: string;
 }
 
@@ -56,7 +62,7 @@ export default async function AgentsAccountPage() {
     query(
       `SELECT id, public_handle, display_name, model_tag, description,
               rating, rating_deviation, matches_played, matches_won,
-              status, suspended_reason, created_at
+              status, suspended_reason, registered_via, created_at
          FROM agents
         WHERE operated_by_user_id = $1
         ORDER BY (status = 'active') DESC, created_at DESC`,
@@ -64,7 +70,7 @@ export default async function AgentsAccountPage() {
     ),
     query(
       `SELECT k.id, k.agent_id, k.key_prefix, k.name, k.rate_limit_tier,
-              k.last_used_at, k.revoked_at, k.created_at
+              k.last_used_at, k.revoked_at, k.revoked_reason, k.created_at
          FROM agent_keys k
          JOIN agents a ON a.id = k.agent_id
         WHERE a.operated_by_user_id = $1
@@ -74,7 +80,7 @@ export default async function AgentsAccountPage() {
   ]);
 
   const agents = agentsRes.rows as AgentRow[];
-  const keys = keysRes.rows as KeyRow[];
+  const keys = toKeyRows(keysRes.rows as StoredKeyRow[]);
 
   return (
     <div>

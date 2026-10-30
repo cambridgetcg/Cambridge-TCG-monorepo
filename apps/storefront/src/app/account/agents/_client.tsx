@@ -2,13 +2,23 @@
 
 /**
  * Client side of /account/agents. Owns the small bits of state that
- * matter on the client: the freshly-minted token (shown once, then
- * cleared from view on the next render), the create/mint forms, the
- * revoke/archive confirmation flows.
+ * matter on the client: the freshly-minted token, the create/mint forms,
+ * the revoke/archive confirmation flows.
+ *
+ * The token is shown once and lives only in this component's state. The
+ * page never reloads while it is on screen: after create or mint the card
+ * stays until the operator dismisses it, and dismissing refreshes the
+ * server-rendered list (router.refresh()). Revoke and archive involve no
+ * token, so they refresh the list straight away.
+ *
+ * There is room for one token at a time. While the card is up, creating
+ * an agent and minting a key are disabled, so a second token cannot
+ * replace one the operator has not copied yet.
  */
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Actor, Button, Card, ErrorAlert, Field, Input, Textarea } from "@/lib/ui";
 import {
   createAgent,
@@ -37,8 +47,17 @@ export function AgentsClient({
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(agents.length === 0);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  // A token is on screen: nothing may mint another until it is dismissed.
+  const holdingToken = fresh !== null;
+
+  function dismissFresh() {
+    setFresh(null);
+    router.refresh();
+  }
 
   function handleCreate(form: FormData) {
+    if (holdingToken) return;
     setError(null);
     startTransition(async () => {
       const res = await createAgent({
@@ -59,12 +78,11 @@ export function AgentsClient({
         reason: "created",
       });
       setShowCreate(false);
-      // Hard refresh so the server-component list re-renders.
-      window.location.reload();
     });
   }
 
   function handleMint(agentId: string, handle: string) {
+    if (holdingToken) return;
     const name = window.prompt("Name for this key (e.g. 'prod', 'laptop'):", "key");
     if (name === null) return;
     setError(null);
@@ -81,7 +99,6 @@ export function AgentsClient({
         token: res.data.token,
         reason: "minted",
       });
-      window.location.reload();
     });
   }
 
@@ -91,13 +108,14 @@ export function AgentsClient({
     );
     if (!ok) return;
     const reason = window.prompt("Reason (optional):") ?? undefined;
+    setError(null);
     startTransition(async () => {
       const res = await revokeKey({ key_id: keyId, reason });
       if (!res.ok) {
         setError(res.error);
         return;
       }
-      window.location.reload();
+      router.refresh();
     });
   }
 
@@ -106,13 +124,14 @@ export function AgentsClient({
       `Archive agent:${handle}? This revokes all keys and removes the agent from matchmaking. The public handle stays reserved (you cannot re-create with the same handle).`,
     );
     if (!ok) return;
+    setError(null);
     startTransition(async () => {
       const res = await archiveAgent({ agent_id: agentId });
       if (!res.ok) {
         setError(res.error);
         return;
       }
-      window.location.reload();
+      router.refresh();
     });
   }
 
@@ -128,7 +147,8 @@ export function AgentsClient({
                 Copy this key now — you won't see it again
               </h3>
               <button
-                onClick={() => setFresh(null)}
+                type="button"
+                onClick={dismissFresh}
                 className="text-xs text-ink-faint hover:text-ink"
               >
                 dismiss
@@ -144,22 +164,30 @@ export function AgentsClient({
             </pre>
             <p className="text-[11px] text-ink-faint mt-2">
               The first {fresh.key_prefix.length} characters of this token ({fresh.key_prefix}…)
-              are visible in your key list for identification.
+              are visible in your key list for identification. The list below updates when you
+              dismiss this card.
             </p>
           </div>
         </Card>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ink">Your agents</h2>
-        {!showCreate && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="text-xs text-accent hover:text-accent-strong"
-          >
-            + new agent
-          </button>
-        )}
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          {holdingToken && (
+            <p className="text-[11px] text-ink-faint">Copy or dismiss the key above first.</p>
+          )}
+          {!showCreate && (
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="text-xs text-accent hover:text-accent-strong disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={holdingToken}
+            >
+              + new agent
+            </button>
+          )}
+        </div>
       </div>
 
       {showCreate && (
@@ -181,7 +209,7 @@ export function AgentsClient({
               <Textarea name="description" rows={2} maxLength={500} />
             </Field>
             <div className="flex gap-2">
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" disabled={pending || holdingToken}>
                 {pending ? "Creating…" : "Register agent"}
               </Button>
               <button
@@ -200,7 +228,9 @@ export function AgentsClient({
         <Card>
           <div className="p-6 text-center">
             <p className="text-sm text-ink-muted">
-              You haven't registered any agents yet.
+              {holdingToken
+                ? "Your new agent appears in this list when you dismiss the key card above."
+                : "You haven't registered any agents yet."}
             </p>
           </div>
         </Card>
@@ -241,14 +271,20 @@ export function AgentsClient({
                   )}
                 </div>
                 <div className="flex flex-col gap-1 items-end">
-                  {a.status === "active" && (
+                  {a.status === "active" && a.registered_via === "operator" && (
                     <button
+                      type="button"
                       onClick={() => handleMint(a.id, a.public_handle)}
-                      className="text-xs text-accent hover:text-accent-strong"
-                      disabled={pending}
+                      className="text-xs text-accent hover:text-accent-strong disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={pending || holdingToken}
                     >
                       + mint key
                     </button>
+                  )}
+                  {a.status === "active" && a.registered_via !== "operator" && (
+                    <span className="text-[11px] text-ink-faint">
+                      self-serve agent: no new keys
+                    </span>
                   )}
                   {a.status !== "archived" && (
                     <button
@@ -289,7 +325,7 @@ export function AgentsClient({
                           <span className="text-ink-faint ml-2">{k.name}</span>
                           <span className="text-border-strong ml-2">· {k.rate_limit_tier}</span>
                           {k.revoked_at && (
-                            <span className="text-danger ml-2">revoked</span>
+                            <span className="text-danger ml-2">{k.revoked_by ?? "revoked"}</span>
                           )}
                           {!k.revoked_at && k.last_used_at && (
                             <span className="text-ink-faint ml-2">
