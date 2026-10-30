@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-10-30 ─────────────────────────────────────────────────────────
   {
+    id: "cardrush-listing-image-product-path",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows)",
+    summary:
+      "CardRush listing images are recorded again: a live listing's og:image takes the plain /data/<host>/product/<file> form, which the collector and migration 0145 had refused, so the first live run linked no image.",
+    detail:
+      "The validator and the table's CHECK (migration 0147) now accept that form beside the resized /_/<hex> form, with the same limits: https, the listing's own host and directory, one plain file name, an image type. Still a link, never a copy, shown only when the member opens it.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  {
     id: "cardrush-title-rule-2",
     date: "2026-10-30",
     kind: "endpoint-modified",

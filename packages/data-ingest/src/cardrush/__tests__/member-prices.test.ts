@@ -283,13 +283,15 @@ describe('CardRush product page parsing', () => {
     expect(Date.parse(PAGE_SOURCE_COLLECTION_START)).toBeLessThanOrEqual(Date.parse(readAt));
   });
 
-  // The 15600 and 169 excerpts carry a synthetic og:image in the URL form
-  // CardRush listing images take; the other four carry none.
+  // The 15600 and 169 excerpts carry a synthetic og:image, in the two URL
+  // forms CardRush listing images take (169 in the form live og:image tags
+  // used on 2026-10-30); the other four carry none.
   const listingImage = (path: string) => `https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from(path).toString('hex')}.jpg`;
+  const productImage = (file: string) => `https://www.cardrush-op.jp/data/cardrush-op/product/${file}`;
   it('keeps the listing image URL its page declares beside the observations, from the same read, never inside one', () => {
     const result = parseCardRushMemberPrices([169, 778, 15600].map(id => page(id)));
     expect(result.listingImages).toEqual([
-      { sourceProductId: 'www.cardrush-op.jp/product/169', imageUrl: listingImage('product/SYNTHETIC_169.jpg') },
+      { sourceProductId: 'www.cardrush-op.jp/product/169', imageUrl: productImage('SYNTHETIC_169.jpg') },
       { sourceProductId: 'www.cardrush-op.jp/product/15600', imageUrl: listingImage('product/SYNTHETIC_15600.jpg') },
     ]);
     for (const observation of result.observations) expect(JSON.stringify(observation)).not.toMatch(/image|\/data\//i);
@@ -314,6 +316,9 @@ describe('CardRush product page parsing', () => {
     // The Pokémon host's directory has no hyphen (stored URLs, 2026-07-05).
     expect(cardRushListingImageUrl(`https://www.cardrush-pokemon.jp/data/cardrushpokemon/_/${hex}.jpg`, 'www.cardrush-pokemon.jp')).not.toBeNull();
     expect(cardRushListingImageUrl(`https://www.cardrush-db.jp/data/cardrush-db/_/${hex}.webp`, 'www.cardrush-db.jp')).not.toBeNull();
+    // The plain product/ form, as a live listing's og:image declared it on 2026-10-30.
+    for (const file of ['_ST06_16.jpg', 'OP01_006.jpg', 'op01-006.v2.png', 'A.webp']) expect(cardRushListingImageUrl(`https://www.cardrush-op.jp/data/cardrush-op/product/${file}`, 'www.cardrush-op.jp')).toBe(`https://www.cardrush-op.jp/data/cardrush-op/product/${file}`);
+    expect(cardRushListingImageUrl('https://www.cardrush-pokemon.jp/data/cardrushpokemon/product/SV1a_001.jpg', 'www.cardrush-pokemon.jp')).not.toBeNull();
     for (const [value, host] of [
       [`http://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
       [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.jpg?w=160`, 'www.cardrush-op.jp'],
@@ -331,7 +336,15 @@ describe('CardRush product page parsing', () => {
       [`https://cdn.example/data/cardrush-op/_/${hex}.jpg`, 'www.cardrush-op.jp'],
       // Not a product image: the hex must spell a product/ path.
       [`https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from('shop/logo.png').toString('hex')}.png`, 'www.cardrush-op.jp'],
-      [`https://www.cardrush-op.jp/data/cardrush-op/product/OP01_006.jpg`, 'www.cardrush-op.jp'],
+      // The plain form keeps the same limits: one file name, its host's directory, an image type.
+      [`https://www.cardrush-op.jp/data/cardrush-op/product/sub/OP01_006.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/product/.OP01_006.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/product/OP01_006.svg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/product/OP01%20006.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/product/OP01_006.jpg?w=160`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-db/product/OP01_006.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/product/${'a'.repeat(201)}.jpg`, 'www.cardrush-op.jp'],
+      [`https://www.cardrush-op.jp/data/cardrush-op/image/Banner-Box.jpg`, 'www.cardrush-op.jp'],
       [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex.toUpperCase()}.jpg`, 'www.cardrush-op.jp'],
       [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}7.jpg`, 'www.cardrush-op.jp'],
       [`https://www.cardrush-op.jp/data/cardrush-op/_/${hex}.svg`, 'www.cardrush-op.jp'],

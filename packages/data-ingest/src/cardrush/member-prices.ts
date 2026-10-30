@@ -94,16 +94,18 @@ export function cardRushSourceProductId(value: string): string | null {
 
 /** CardRush listing images are linked at CardRush's own URL, never copied
  * (the agents' reading of Yu's words of 2026-10-29, in the decision record).
- * A URL is kept only in the shape of the stored CardRush image URLs recorded
- * in apps/wholesale/src/lib/cardrush-hires-upload.ts (2026-07-05): on the
- * listing's own host, under that host's own directory (cardrush-op,
- * cardrushpokemon, cardrush-db; the other three hosts' directories are not on
- * record, so theirs must match their host's name, with or without the
- * hyphen), then /_/ and the hex of a product/ path. A shop logo or another
- * listing's image would mislead the reader it is shown to, so anything else
- * is no image. */
+ * A URL is kept only on the listing's own host, under that host's own
+ * directory (cardrush-op, cardrushpokemon, cardrush-db; the other three
+ * hosts' directories are not on record, so theirs must match their host's
+ * name, with or without the hyphen), in one of two shapes: product/ and a
+ * plain file name, the shape a live listing's og:image took on 2026-10-30
+ * (/data/cardrush-op/product/_ST06_16.jpg); or /_/ and the hex of a product/
+ * path, the resized copies listing pages show and the stored URLs recorded in
+ * apps/wholesale/src/lib/cardrush-hires-upload.ts (2026-07-05). A shop logo
+ * or another listing's image would mislead the reader it is shown to, so
+ * anything else is no image. */
 export const CARDRUSH_LISTING_IMAGE_MAX_LENGTH = 512;
-const LISTING_IMAGE_PATH = /^\/data\/(cardrush-?[a-z]+)\/_\/70726f647563742f(?:[0-9a-f]{2})+\.(?:jpe?g|png|webp)$/;
+const LISTING_IMAGE_PATH = /^\/data\/(cardrush-?[a-z]+)\/(?:product\/[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}|_\/70726f647563742f(?:[0-9a-f]{2})+)\.(?:jpe?g|png|webp)$/;
 export function cardRushListingImageUrl(value: unknown, host: string): string | null {
   if (typeof value !== 'string' || value.length > CARDRUSH_LISTING_IMAGE_MAX_LENGTH || /[\s?#\\]/.test(value) || !Object.hasOwn(CARDRUSH_COLLECTOR_HOSTS, host)) return null;
   let url: URL;
