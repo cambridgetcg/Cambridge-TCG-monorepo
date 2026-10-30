@@ -292,14 +292,15 @@ describe('TCGplayer lines take turns', () => {
   const LISTS = [68, 3, 85].map(category => `https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=${category}&active=true`);
   const types = (category: number) => `https://mpapi.tcgplayer.com/v2/Product/ProductTypes/${category}/`;
 
-  it('gives every line one set a turn, the line whose next set is stalest first', async () => {
+  it('gives every line one set a turn, the line read least recently first', async () => {
     const clock = { at: Date.parse('2026-10-30T18:45:00.000Z') };
     const fetcher = source(clock, 10_000);
     const run = await collect({ fetcher, now: () => clock.at, runQuery: readBefore as never, lines: collected });
     expect(run).toMatchObject({ status: 'ok', stoppedBy: 'all-sets-read', setsListed: 14, requests: 23, errors: [] });
     expect(fetcher.urls).toEqual([
       ...ROBOTS, ...LISTS,
-      // Round 1: Pokemon's never-read sets are the stalest, newest release first (ME06, due 2026-11-06).
+      // Each round: Pokemon, never read, then One Piece (last read at 1,005) and Pokemon Japan (2,002).
+      // Pokemon's never-read sets go newest release first (ME06, due 2026-11-06).
       types(3), guide(24831, 1), types(68), guide(3188), types(85), guide(23598, 143),
       guide(24529, 1), guide(3189), guide(23599, 143),
       guide(24448, 1), guide(17659), guide(24172, 143),
@@ -352,6 +353,23 @@ describe('TCGplayer lines take turns', () => {
     expect(fetcher.urls.filter(url => url.endsWith('productTypeID=1'))).toEqual([]);
     expect(vi.mocked(writeMemberPriceBatch).mock.calls.map(call => slugOf(Number(call[3]!.ingestKey!.split(':')[1])))).not.toContain('pokemon');
   });
+
+  it('asks a line\'s product types only when a set can follow them in the run', async () => {
+    // Crawl-delay 26 on the site; the stand-in's clock moves 26 s a request. Pokemon's product types
+    // and first set end at 208 s, leaving 62 s: room for a set (46 s) but not for One Piece's product
+    // types and a set (72 s). One Piece and Pokemon Japan pass this run's turn unasked, and are read
+    // first next run; Pokemon's next set takes the time.
+    const clock = { at: 0 };
+    const fetcher = source(clock, 26_000, url => url === ROBOTS[0] ? new Response('User-agent: *\nCrawl-delay: 26\n', { status: 200 }) : undefined);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const pending = collect({ fetcher, now: () => clock.at, runQuery: readBefore as never, lines: collected });
+      await vi.runAllTimersAsync();
+      const run = await pending;
+      expect(run).toMatchObject({ status: 'ok', stoppedBy: 'budget', intervalMs: 26_000, requests: 9, elapsedMs: 234_000 });
+      expect(fetcher.urls).toEqual([...ROBOTS, ...LISTS, types(3), guide(24831, 1), guide(24529, 1)]);
+    } finally { vi.useRealTimers(); }
+  });
 });
 
 describe('tcgplayerTurns at the lines\' listed sizes', () => {
@@ -377,23 +395,43 @@ describe('tcgplayerTurns at the lines\' listed sizes', () => {
     const lastRead = new Map<number, number>();
     candidates.filter(({ line }) => line !== pokemonLine).forEach(({ set }, index) => lastRead.set(set.setId, -30 + Math.floor(index / 18)));
     const reads = new Map<number, number[]>();
+    const spare = { 'one-piece-card-game': 0, pokemon: 0, 'pokemon-japan': 0 } as Record<string, number>;
     for (let run = 0; run < 300; run++) {
       const taken = runOnce(lastRead, 16);
       const share = { 'one-piece-card-game': 0, pokemon: 0, 'pokemon-japan': 0 } as Record<string, number>;
-      for (const setId of taken) { share[lineOf(setId)]!++; lastRead.set(setId, run); reads.set(setId, [...(reads.get(setId) ?? []), run]); }
-      // 16 turns over three lines: 5 each, and the spare one to the line whose next set is stalest.
+      // A run's sets are written one after another, so each has its own time, as inserted_at gives them.
+      taken.forEach((setId, slot) => { share[lineOf(setId)]!++; lastRead.set(setId, run + slot / 100); reads.set(setId, [...(reads.get(setId) ?? []), run]); });
+      // 16 turns over three lines: 5 each, and the spare one to the line read least recently.
       expect(Object.values(share).sort()).toEqual([5, 5, 6]);
+      spare[Object.entries(share).find(([, count]) => count === 6)![0]]!++;
     }
-    // Every Pokemon set was first read within 44 runs (220 / 5), not after the others waited.
-    expect(Math.max(...candidates.filter(({ line }) => line === pokemonLine).map(({ set }) => reads.get(set.setId)![0]!))).toBeLessThanOrEqual(44);
+    // The spare turn passes from line to line.
+    expect(spare).toEqual({ 'one-piece-card-game': 100, pokemon: 100, 'pokemon-japan': 100 });
+    // Every Pokemon set was first read within 42 runs (220 / 5⅓), not after the others waited.
+    expect(Math.max(...candidates.filter(({ line }) => line === pokemonLine).map(({ set }) => reads.get(set.setId)![0]!))).toBeLessThanOrEqual(42);
     // From then on, the longest gap between two readings of one set, in runs (hours).
     const longest = (slug: string) => Math.max(...candidates.filter(({ line }) => line.slug === slug).flatMap(({ set }) => {
       const at = reads.get(set.setId)!.filter(run => run >= 100);
       return at.slice(1).map((run, index) => run - at[index]!);
     }));
-    expect(longest('one-piece-card-game')).toBeLessThanOrEqual(18);
-    expect(longest('pokemon')).toBeLessThanOrEqual(44);
-    expect(longest('pokemon-japan')).toBeLessThanOrEqual(93);
+    expect(longest('one-piece-card-game')).toBeLessThanOrEqual(17);
+    expect(longest('pokemon')).toBeLessThanOrEqual(42);
+    expect(longest('pokemon-japan')).toBeLessThanOrEqual(87);
+  });
+
+  it('passes the turns on from run to run, so a run with fewer turns than lines leaves no line behind another line\'s backlog', () => {
+    // One Piece and Pokemon Japan were read before, Pokemon's 220 sets never; one set a run, as a
+    // Crawl-delay of about 30 s leaves.
+    const lastRead = new Map<number, number>();
+    candidates.filter(({ line }) => line !== pokemonLine).forEach(({ set }, index) => lastRead.set(set.setId, -30 + index / 100));
+    const lines: string[] = [];
+    for (let run = 0; run < 30; run++) {
+      const [setId] = runOnce(lastRead, 1);
+      lastRead.set(setId!, run);
+      lines.push(lineOf(setId!));
+    }
+    // Rounds ordered by each line's stalest set gave all 30 to Pokemon's never-read sets.
+    expect(lines).toEqual(Array(10).fill(['pokemon', 'one-piece-card-game', 'pokemon-japan']).flat());
   });
 
   it('ends once every turn has taken its sets, and yields no line with none left', () => {

@@ -134,7 +134,7 @@ describe("public source projections", () => {
 
       vi.stubEnv("DATA_COLLECT_TCGPLAYER", "on");
       const both = (await (await getSources()).json()).data.sources;
-      expect(both[0].member_pricing.availability_note).toContain("Cambridge collects Cardmarket's One Piece files daily and TCGplayer price guides hourly (stalest sets first), as collection.scheduled shows");
+      expect(both[0].member_pricing.availability_note).toContain("Cambridge collects Cardmarket's One Piece files daily and TCGplayer price guides hourly (product lines in turn, each line's stalest sets first), as collection.scheduled shows");
     } finally {
       vi.unstubAllEnvs();
       mockLastRuns.mockReset();

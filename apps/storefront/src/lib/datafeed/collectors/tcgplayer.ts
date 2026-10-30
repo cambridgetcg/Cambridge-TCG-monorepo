@@ -80,17 +80,22 @@ const released = (date: string | null) => (date ? Date.parse(date) : NaN) || 0;
 export interface TcgplayerTurn { line: TcgplayerProductLine; sets: TcgplayerSet[] }
 
 /** The lines take turns, one set a turn. Each round gives every line with
- * sets left one turn, the line whose next set is the stalest first; within a
- * line, sets go stalest first (never read, then longest ago; newest release
- * first among equals). So a line with many sets, or many never read, has its
- * own share of a run and never another line's. One queue across all lines
- * put every never-read set first: switching on Pokemon's 220 sets would have
- * read nothing else for the first dozen or so runs, as one global queue
- * starved One Piece in the wholesale ingest (price-snapshot-v2.ts,
- * 2026-07-05). The cost is that each line is read through at a pace set by
- * its own size: a run of 16 sets gives each of three lines 5 or 6 (the spare
- * turn goes to the line whose next set is stalest), so a line of n sets is
- * read through in about n/5 runs.
+ * sets left one turn, in one order for the whole run: the line read least
+ * recently first, by its latest reading (a line never read comes first of
+ * all; of two lines last read together, the one whose next set is stalest).
+ * Within a line, sets go stalest first (never read, then longest ago; newest
+ * release first among equals). So a line with many sets, or many never read,
+ * has its own share of a run and never another line's: what decides a line's
+ * place is when it was last read, not how stale its backlog is. A run's
+ * spare turns go to the lines that waited longest, and the next run's to the
+ * others; a run with fewer turns than lines (a long Crawl-delay) gives them
+ * in rotation. One queue across all lines put every never-read set first:
+ * switching on Pokemon's 220 sets would have read nothing else for the first
+ * dozen or so runs, as one global queue starved One Piece in the wholesale
+ * ingest (price-snapshot-v2.ts, 2026-07-05). The cost is that each line is
+ * read through at a pace set by its own size: a run of 16 sets gives each of
+ * three lines 5 or 6, about 5⅓ on average, so a line of n sets is read
+ * through in about 3n/16 runs.
  */
 export function* tcgplayerTurns(candidates: readonly { line: TcgplayerProductLine; set: TcgplayerSet }[], lastRead: ReadonlyMap<number, number>): Generator<TcgplayerTurn> {
   const age = (set: TcgplayerSet) => lastRead.get(set.setId) ?? -Infinity;
@@ -101,9 +106,15 @@ export function* tcgplayerTurns(candidates: readonly { line: TcgplayerProductLin
     turns.set(line.slug, turn);
     turn.sets.push(set);
   }
-  for (const turn of turns.values()) turn.sets.sort(stalest);
+  const latest = new Map<TcgplayerTurn, number>();
+  for (const turn of turns.values()) {
+    turn.sets.sort(stalest);
+    latest.set(turn, turn.sets.reduce((at, set) => Math.max(at, age(set)), -Infinity));
+  }
+  // Two lines never read differ by -Infinity - -Infinity, NaN, which falls through to their next sets.
+  const order = [...turns.values()].sort((a, b) => (latest.get(a)! - latest.get(b)!) || stalest(a.sets[0]!, b.sets[0]!));
   while (true) {
-    const round = [...turns.values()].filter(turn => turn.sets.length).sort((a, b) => stalest(a.sets[0]!, b.sets[0]!));
+    const round = order.filter(turn => turn.sets.length);
     if (!round.length) return;
     for (const turn of round) if (turn.sets.length) yield turn;
   }
@@ -208,6 +219,10 @@ async function readSets(run: TcgplayerRun, options: TcgplayerCollectorOptions & 
       const { line } = turn;
       if (left() < reserve()) { run.stoppedBy = 'budget'; break; }
       if (!productTypes.has(line.slug)) {
+        // A line's product types are asked only when a set can follow them
+        // this run; otherwise the request would buy nothing. The line passes
+        // its turns unread, so next run it comes before the lines read now.
+        if (left() < run.intervalMs + reserve()) { run.stoppedBy = 'budget'; turn.sets.length = 0; continue; }
         try { productTypes.set(line.slug, await fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, line)); }
         catch (error) { if (error instanceof TcgplayerUnavailableError || aborted(error)) throw error; productTypes.set(line.slug, null); run.errors.push({ line: line.slug, error: message(error) }); }
         if (left() < reserve()) { run.stoppedBy = 'budget'; break; }
