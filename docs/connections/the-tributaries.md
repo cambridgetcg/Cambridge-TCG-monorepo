@@ -380,6 +380,16 @@ before collection or publication.
 | Canonical-form effort | **medium** — structured fields help, but product identity still needs canonical SKU matching |
 | Status | **blocked** — adapter retained for inspectability; cron returns 503 before the runner |
 
+### 3.12 Bandai JP official sample images
+
+| Field | Value |
+|-------|-------|
+| Coverage | One Piece and Dragon Ball Super Fusion World — official Japanese sample images, base prints only |
+| URL | `www.onepiece-cardgame.com/cardlist/`, `www.dbs-cardgame.com/fw/jp/cardlist/` |
+| Access | a manual tool only (`apps/storefront/scripts/ingest-official-ja.mjs`), run by a person with Yu's word for each run; no cron and no live reader. Reads list pages for image addresses and card ids, never text |
+| License | publisher-owned; both footers refuse reproduction without permission, and none is granted |
+| Status | **blocked** — Yu chose on 2026-10-30 to self-host these images with the Japanese credit and takedown, as the English ones are ([decision record](../decisions/2026-10-30-japanese-official-images.md)); that is Cambridge's decision, not Bandai's permission. Moves to `partial` only after Yu's word and a first `--apply` |
+
 ---
 
 ## 4. Tournament / play / meta sources
@@ -463,7 +473,7 @@ Cards have a visual identity; the pantry's `image_url` field should always cite 
 | Scryfall images | MTG all | Scryfall API/image policy + WotC rights; no CC claim | planned, value-added free surface only |
 | Pokémon TCG API images | Pokémon all | publisher-derived | planned |
 | YGOPRODeck images | Yu-Gi-Oh all | publisher-derived | planned |
-| Bandai TCG+ official images | One Piece, Digimon, DBF | publisher-owned | blocked; no hotlink, mirror, or display without written permission |
+| Bandai TCG+ official images | One Piece, Digimon, DBF | publisher-owned | blocked; no hotlink, mirror, or display without written permission. The web card lists' official images are a separate lane: English self-hosted under the 2026-07-13 decision ([EN-CARD-DATA](../EN-CARD-DATA.md)); Japanese under the 2026-10-30 decision (§3.12) |
 | eBay listing photos | per-listing | listing-owned | already accessible via eBay APIs |
 | PSA scans | graded cards | PSA-licensed | planned via PSA Registry API |
 | Customer-uploaded photos | per-listing | listing-owned | already in `apps/storefront/.../auctions/[id]/photos/` |
@@ -599,6 +609,7 @@ packages/data-ingest/
 | TCGplayer | price-guide collector, `45 * * * *` in `vercel.json`, stalest sets first; does its work only while `DATA_COLLECT_TCGPLAYER` is `on` | `page_collector` (6 h) for the latest `member_price_batches` row |
 | Cardmarket | official daily files; One Piece collector, `30 5 * * *` in `vercel.json`; does its work only while `DATA_COLLECT_CARDMARKET` is `on` | `daily_file` (26 h) for the latest `member_price_batches` row, which `/api/v1/sources/cardmarket` and check 9 read |
 | eBay | partial adapter; no observed rows in current coverage | market_signal intent |
+| Bandai JP official images | manual tool only (`ingest-official-ja.mjs`), never scheduled | none |
 | Other reserved slots | no module or scheduled job | none |
 
 For every source with a collector (`batchCollected` in `apps/storefront/src/lib/datafeed/collection-flags.ts`: Cardmarket, CardRush, TCGplayer), `/api/v1/sources/[id]` health and `audit:tributaries` check 9 read the newest `member_price_batches` row in the storefront database, not `ingest_run`. Health is `stale` past the freshness budget, `very_stale` past twice it and `never_run` with no batch; check 9 fails on the second and warns on the third. A manual import's batch counts too: health says when the newest batch was written, not who ran it. The other sources' runs are their `ingest_run` rows in the wholesale database.

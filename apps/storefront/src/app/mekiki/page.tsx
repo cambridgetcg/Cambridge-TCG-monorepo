@@ -29,6 +29,7 @@ import { Audience, Benediction, InkRule, audienceMetadata } from "@/lib/ui";
 import { query } from "@/lib/db";
 import { getCardIdentity } from "@/lib/market/catalog-card";
 import { stripIllustAnnotation } from "@/lib/cards/illust-annotation";
+import { imageCreditLang, marketImageLabel } from "@/lib/cards/image-labels";
 import TheEye from "./TheEye";
 
 // The root layout reads cookies, so this route renders per request and the
@@ -88,7 +89,9 @@ interface DailyEye {
   choices: string[];
   imageUrl: string;
   imageAttribution: string | null;
-  imageIsReference: boolean;
+  /** What the picture is (marketImageLabel), said beside it. */
+  imageLabel: string;
+  imageCreditLang: "ja" | undefined;
   setName: string | null;
   origin: { x: number; y: number };
 }
@@ -173,7 +176,8 @@ async function getDailyEye(): Promise<DailyEye | null> {
     choices,
     imageUrl: identity.image_url,
     imageAttribution: identity.image_attribution,
-    imageIsReference: !!identity.image_reference,
+    imageLabel: marketImageLabel(identity),
+    imageCreditLang: imageCreditLang(identity),
     setName: identity.set_name,
     // Crop origin keeps to the middle band of the FRAME (30–70% × 32–62%);
     // the photos are near card-ratio so this usually lands in the art and

@@ -18,7 +18,7 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 // The official lane has its own tests (en-card-data); here it finds nothing.
-vi.mock('@/lib/cards/en-card-data', () => ({ getEnCardImages: state.official }));
+vi.mock('@/lib/cards/en-card-data', () => ({ getOfficialCardImages: state.official }));
 import { writeMemberPriceBatch } from './member-price-writer';
 import { writeCardRushListingImages } from './listing-images';
 import { readMemberPriceImages } from '../prices/member-images';
@@ -33,6 +33,10 @@ const fixtures = new URL('../../../../../packages/data-ingest/src/cardrush/__tes
 const page = (id: number, retrievedAt: string, html?: string) => ({ url: `https://www.cardrush-op.jp/product/${id}`, bytes: html === undefined ? readFileSync(new URL(`cardrush-op-${id}.html`, fixtures)) : new TextEncoder().encode(html), retrievedAt });
 const fixture = (id: number) => readFileSync(new URL(`cardrush-op-${id}.html`, fixtures), 'utf8');
 const hexImage = (name: string) => `https://www.cardrush-op.jp/data/cardrush-op/_/${Buffer.from(`product/${name}`).toString('hex')}.jpg`;
+// 169's excerpt declares its image in the plain product/ form (0147).
+const productImage = (name: string) => `https://www.cardrush-op.jp/data/cardrush-op/product/${name}`;
+// As /prices reads a link back: the listing's own image, in the row's language.
+const shown = (url: string) => ({ url, lang: 'ja', relationship: 'same-listing' });
 let admin: Pool;
 async function apply(name: string) {
   const client = await state.pool.connect();
@@ -85,12 +89,13 @@ describe.skipIf(!localUrl)('CardRush listing image links PostgreSQL integration 
 
   it('records one link per observed listing, then moves a changed URL and its last sighting on', async () => {
     await apply('0145_price_source_listing_images.sql');
+    await apply('0147_listing_image_product_path.sql');
     const first = await collect('run-1', [page(15600, '2026-10-28T15:00:00.000Z'), page(169, '2026-10-28T15:00:02.000Z'), page(778, '2026-10-28T15:00:04.000Z')]);
     expect(first.links).toEqual({ written: 2 });
     const rows = await links();
     expect(rows.map(row => [row.source_product_id, row.image_url, row.listing_url, row.first_seen_at.toISOString(), row.last_seen_at.toISOString(), row.withdrawn_at])).toEqual([
       ['www.cardrush-op.jp/product/15600', hexImage('SYNTHETIC_15600.jpg'), 'https://www.cardrush-op.jp/product/15600', '2026-10-28T15:00:00.000Z', '2026-10-28T15:00:00.000Z', null],
-      ['www.cardrush-op.jp/product/169', hexImage('SYNTHETIC_169.jpg'), 'https://www.cardrush-op.jp/product/169', '2026-10-28T15:00:02.000Z', '2026-10-28T15:00:02.000Z', null],
+      ['www.cardrush-op.jp/product/169', productImage('SYNTHETIC_169.jpg'), 'https://www.cardrush-op.jp/product/169', '2026-10-28T15:00:02.000Z', '2026-10-28T15:00:02.000Z', null],
     ]);
     // Tied to the page read the observation came from.
     const digests = (await state.pool.query(`SELECT o.source_product_id FROM member_price_observations o JOIN price_source_listing_images l
@@ -108,25 +113,25 @@ describe.skipIf(!localUrl)('CardRush listing image links PostgreSQL integration 
     // /prices reads it back, bounded by key.
     const images = await readMemberPriceImages([item(15600), item(169), item(778)]);
     expect(Object.fromEntries(images.byItem)).toEqual({
-      15600: { listing: hexImage('SYNTHETIC_15600_B.jpg') },
-      169: { listing: hexImage('SYNTHETIC_169.jpg') },
+      15600: { listing: shown(hexImage('SYNTHETIC_15600_B.jpg')) },
+      169: { listing: shown(productImage('SYNTHETIC_169.jpg')) },
     });
   });
 
   it('stops linking a withdrawn image, and keeps the withdrawal through later reads', async () => {
     await state.pool.query(`UPDATE price_source_listing_images SET withdrawn_at = now() WHERE source_product_id = 'www.cardrush-op.jp/product/169'`);
     expect((await readMemberPriceImages([item(169)])).byItem.size).toBe(0);
-    const changed = fixture(169).replace(hexImage('SYNTHETIC_169.jpg'), hexImage('SYNTHETIC_169_B.jpg'));
+    const changed = fixture(169).replace(productImage('SYNTHETIC_169.jpg'), productImage('SYNTHETIC_169_B.jpg'));
     expect((await collect('run-4', [page(169, '2026-10-29T10:00:00.000Z', changed)])).links).toEqual({ written: 0 });
     const withdrawn = (await links())[1]!;
-    expect([withdrawn.image_url, withdrawn.withdrawn_at === null]).toEqual([hexImage('SYNTHETIC_169.jpg'), false]);
+    expect([withdrawn.image_url, withdrawn.withdrawn_at === null]).toEqual([productImage('SYNTHETIC_169.jpg'), false]);
     await expect(state.pool.query(`UPDATE price_source_listing_images SET withdrawn_at = NULL WHERE source_product_id = 'www.cardrush-op.jp/product/169'`)).rejects.toThrow(/stays withdrawn/);
     await expect(state.pool.query(`UPDATE price_source_listing_images SET first_seen_at = first_seen_at + interval '1 second'`)).rejects.toThrow(/keeps its listing and first sighting/);
     await expect(state.pool.query(`UPDATE price_source_listing_images SET last_seen_at = first_seen_at`)).rejects.toThrow(/only moves forward/);
     // Deleting the row is the way back: the next read links it again.
     await state.pool.query(`DELETE FROM price_source_listing_images WHERE source_product_id = 'www.cardrush-op.jp/product/169'`);
     expect((await collect('run-5', [page(169, '2026-10-29T11:00:00.000Z', changed)])).links).toEqual({ written: 1 });
-    expect((await readMemberPriceImages([item(169)])).byItem.get('169')).toEqual({ listing: hexImage('SYNTHETIC_169_B.jpg') });
+    expect((await readMemberPriceImages([item(169)])).byItem.get('169')).toEqual({ listing: shown(productImage('SYNTHETIC_169_B.jpg')) });
   });
 
   it.each([

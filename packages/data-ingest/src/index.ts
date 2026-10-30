@@ -263,6 +263,10 @@ export {
   type BandaiEnGameConfig,
   type BandaiEnSeriesOption,
 } from "./bandai-en/types";
+// bandai-jp: the Japanese official sample-image lane's registry entry and pure
+// helpers (Yu, 2026-10-30). Its collection run is a manual tool's alone and
+// is not exported here. Policy: docs/decisions/2026-10-30-japanese-official-images.md.
+export { bandaiJp, BANDAI_JP_GAMES, bandaiJpImageKey } from "./bandai-jp/index";
 export {
   ebay,
   normalizeEbay,

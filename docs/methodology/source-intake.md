@@ -132,8 +132,11 @@ Recorded from [Yu's decision of 2026-10-28](../decisions/2026-10-28-tcg-data-per
 - *Structured price:* one `<p class="selling_price">` holding a figure such as `<span class="figure" id="pricech">9,876円</span>` (tax included), with `<meta property="product:price:amount" content="9876">` and `product:price:currency` `JPY` agreeing (the amounts here are synthetic, as in the fixtures; raw CardRush prices are display-only). The parser requires the figure and cross-checks the meta. Anything else (no figure, a malformed or zero figure, a disagreeing meta) is quarantined. The only other yen amount on any page was free text, which is never read.
 - *Conditions are separate products.* Each page states one price. A stated grade is a title prefix: `〔状態A-〕`, `〔状態C〕`, `〔PSA10鑑定済〕`. No page listed several conditions with prices, and the shop platform's `pConf.variationFlag` was false on every page with a purchase form. A page with several price blocks, or with that flag set, is quarantined until its markup is captured and reviewed.
 - *Titles* read `name(markers)【rarity】{SET-NUM}`, with reprints as `{SET-NUM[RELEASE]}` (e.g. `{OP02-085[OP04]}`) and parallels marked by パラレル or a `/P` rarity. No captured title carried a language marker. Language comes from a marker such as 英語版 and defaults to `ja`.
+- *English listings, read 2026-10-30:* page 1 of a `www.cardrush-op.jp` product list searched for 英語版 (100 titles, read from the list's image alt text) put the marker inside the trailing group, beside the credit or other tokens: `ジュラキュール・ミホーク(英語版/illust:Hachi Takashi)【L】{OP14-020}`, `ドン!!カード(未開封/英語版/ドジャース)【-】{-}`. None had a bare `(英語版)`. The names stay in Japanese. These are list titles: an English listing's product page, whose `<title>` the collector reads, was not captured. 16 of the 100 carry a condition marker the collector does not read (`〔※状態難/PSA10鑑定済〕`, `〔CGC10黒鑑定済〕`), and the collector quarantines a page with such a marker.
 - *Sold out* (在庫なし): the page still states its price and has no purchase form. The listed price is recorded; stock is not part of an observation.
-- *Crosswalk rule `cardrush-title/1`:* exact only for a One Piece page whose title has a plain base rarity (C, UC, R, SR, SEC, L), no parallel or reprint marker, and no parenthetical beyond an illustrator credit; the SKU is `op-<set>-<number>-<lang>`. Parallels, specials (SP), promos and reprints are `ambiguous`: the title does not say which publisher parallel (`p1`, `p2`…) is meant. The other five hosts' titles were not captured (only their robots.txt was in scope), so their rows land `unmapped`, with no crosswalk, until a capture reviews them.
+- *Crosswalk rule `cardrush-title/2` (2026-10-30):* exact only for a One Piece page whose title has a plain base rarity (C, UC, R, SR, SEC, L), no parallel or reprint marker, a language whose SKU names one printing (`ja`, `en`, `ko`), and a plain name. A plain name has no bracket except at most one trailing half-width `(…)` group. A group without a language marker is read as `/1` read it: `(illust:…)` alone, everything after `illust:` taken as the credit. A group with one is split at `/`, without trimming (stricter than `cardrush-title/names-1`, which trims each token), into exactly one language marker (英語版, 韓国語版, 中国語版, 簡体字版, 繁体字版) and at most one `illust:<credit>`, as in `(英語版/illust:Hachi Takashi)`; the credit may hold no other separator the illust grammar knows (`|`, `／`, `）`). The SKU is `op-<set>-<number>-<lang>`, with the language from the marker, `ja` without one. Any other token (パラレル, 漫画絵, 和柄, 未開封, an event name, an unknown) leaves the page `ambiguous`, and conflicting language markers quarantine it. A Chinese listing is `ambiguous` whatever its title: 中国語版 (script unstated), 簡体字版 and 繁体字版 all read as `zh`, and a SKU's language segment cannot say which script a printing is in, so mapping them would give two printings one SKU. Parallels, specials (SP), promos and reprints are `ambiguous`: the title does not say which publisher parallel (`p1`, `p2`…) is meant. The other five hosts' titles were not captured (only their robots.txt was in scope), so their rows land `unmapped`, with no crosswalk, until a capture reviews them.
+  - *`cardrush-title/1` (2026-10-28):* the same, except that a language marker was read only bare, `(英語版)` or `【英語版】`, the only group allowed was `(illust:…)`, and a Chinese listing could map to a `zh` SKU. So no English listing in the 2026-10-30 list could map exactly under `/1`. Read as product-page titles, 19 of its 100 map exactly under `/2`; the rest are DON!! cards and a sealed box with no card number, promos, variants, or pages quarantined for their condition marker. `/2` reads only titles with a language marker differently: a Chinese listing `/1` mapped exactly is `ambiguous`, and so is a credit-first group naming a language beside another token, such as `(illust:A/漫画絵/英語版)`, which `/1` read as one credit. A Japanese title maps as it did, `(illust:A/漫画絵)` and `(illust:A／漫画絵)` included: `/1` takes such a variant for part of the credit, and reading it otherwise would remap live Japanese rows nobody has counted. No captured title has a Chinese marker or either of those shapes; how many live rows do is unknown.
+  - *Moving from `/1` to `/2`:* the crosswalk writer supersedes a live row whose version differs, even when the mapping is the same, and a collector may supersede only its own family's rows (`collectorMaySupersede` in `apps/storefront/src/lib/datafeed/crosswalks.ts`). So when a page is next read, its `/1` product row is superseded once, as is each set's row the first time a `/2` run names that set. A Japanese page gets a `/2` row that differs only in its version. An English listing that `/2` maps exactly gets an exact `/2` row; the others get an `ambiguous` one. A Chinese listing gets an `ambiguous` `/2` row, which for one `/1` mapped exactly is a move from exact: its next reading carries no SKU, and its readings in the derivation's window leave references and premiums, still counting toward set indices through the set key. The `/1` rows stay as history, nothing is deleted, and the live index still allows one row per key. This is accepted rather than avoided: each live row names the rule revision that last decided it, and the cost is one extra row for each page and set, written once. Stored observations keep `/1` and the SKU they were stored with. The member feed shows a listing's latest observation, so an English listing `/2` maps exactly gains its SKU at its next read, and with it the official English base reference where one is published. The market derivation resolves each observation through the live row (by product, finish and language, not by version), so readings stored under `/1` take the English SKU as soon as their listing's row is `/2`. A deployment that ran `/1` again would supersede `/2` rows the same way, since the rule does not order revisions. *Premiums:* once a card's English listing is exact, CardRush has two SKUs for a card it lists in both languages, and method `ctcg.market-derived/v1` leaves that card out of CardRush's premiums (an identity with more than one SKU on a source is ambiguous), so a set near ten cards can lose its CardRush premium row. Cards CardRush lists in one language each pool by card, so a CardRush side can state both `en` and `ja`. The contract discloses both rules and each row states its language basis; a premium kept to one language would be a new method version, not part of `/2`.
 
 **Forward-only.** Only rows collected on or after 2026-10-28 by the identified collector may be inputs. `assertPriceObservationValues` and a migration 0139 CHECK refuse a CardRush or TCGplayer row retrieved before 2026-10-28T00:00:00Z. The roughly 269k CardRush rows in the catalogue database's `price_archive`, gathered before any permission, are not inputs and stay withheld.
 
@@ -239,6 +242,67 @@ Cardmarket's official daily files were reviewed on 2026-09-07 (`member-prices/20
 - *A.2:* unchanged — product-level aggregates, no personal data.
 - *Gate B:* the `SourceMeta` tiers stay (`public-file` / `proprietary` / `redistribute: false` / `partial`). `tos_notes` gains one sentence: "robots.txt (2026-10-28): Content-Signal search=yes, ai-train=no, use=reference, with an EU DSM Art. 4 reservation; Cambridge-derived data from these prices is not CC0 and excludes AI training." The policy gains `derivation: { evidenceVersion: "cardmarket-derivation/2026-10-28.1", evidenceUrl: "repo:docs/decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#cardmarket" }`. Its `evidenceVersion` (`member-prices/2026-09-07.1`) and `evidenceUrl` stay as they are: the free feed matches the release row on both `evidence_version` and `evidence_url`, and stored rows on `evidence_version`, so changing either would hide every stored row.
 - *Gate D:* unchanged, plus derivation input. The free member feed keeps serving Cardmarket rows as today; no paid route returns a Cardmarket value.
+
+---
+
+## Intake record — Bandai JP official sample images, 2026-10-30
+
+Recorded from [Yu's decision of 2026-10-30](../decisions/2026-10-30-japanese-official-images.md)
+("Self-host like English") and the same day's read of both Japanese sites. The
+lane is the Japanese counterpart of the English official images
+([EN-CARD-DATA](../EN-CARD-DATA.md)): images only, base prints only, One Piece
+and Fusion World.
+
+**Playbook gate 1, honestly: fails on the sources' own words.** Both footers
+refuse reproduction without permission, and Bandai has granted none. Yu chose
+to self-host anyway, under their 2026-07-13 rationale for English (nominative
+use to identify cards for trade, recorded as project history, not a legal
+conclusion). That is Cambridge's decision, not the source's permission; the
+decision record lists it under "where Cambridge falls short".
+
+**Gate A — prohibits; answered by Yu's decision, not by a grant.**
+- *A.1:* `www.onepiece-cardgame.com` 「このwebサイトに記載されているすべての画像・テキスト・データの無断転用、転載をお断りします。」
+  ("We refuse unauthorised diversion or reproduction of any images, text or
+  data on this website."); `www.dbs-cardgame.com/fw/jp`
+  「※当サイトに掲載されている画像、文章、データ等の無断使用・複製・転載を禁じます。」
+  ("Unauthorised use, copying or reproduction of images, text, data etc. on
+  this site is prohibited."). No footer links to terms of use. robots.txt
+  answered 404 on both hosts (no rule, no AI-training reservation); the tool
+  reads it every run. **Prohibits.**
+- *A.2:* official card art, card ids and names; no personal data. **Pass.**
+- *A.3:* reading every series is systematic extraction; whether a database
+  right protects it in the UK is not assessed. The footers refuse
+  reproduction whatever the database-right position, so the lane takes
+  images and identifiers only, never text.
+  **Fenced; answered by Yu's decision.**
+
+**Gate B — intention declared** in `packages/data-ingest/src/bandai-jp/index.ts`:
+`access: "scrape"`, `license: "proprietary"`, `redistribute: false`,
+`status: "blocked"`, `freshness: "catalog"`, games `op` and `dbf`, the footers
+quoted in `tos_notes`. `read()` emits one error and yields nothing: no cron
+and no live reader. The status moves to `partial` only after Yu's word and a
+first `--apply`.
+
+**Gate C — tiered.** `scrape` / `proprietary` / `redistribute: false` /
+`blocked`, as `bandai-en`.
+
+**Gate D — blocked module with a manual tool.** Collection runs only through
+`apps/storefront/scripts/ingest-official-ja.mjs`, by a person, with Yu's word
+for that run: identified User-Agent naming
+`cambridge.official-ja-media/2026-10-30`, robots.txt first, at least 2 s per
+host, list pages only, a stop on any refusal or drift, rows written once at
+the end. The bucket copy is a separate act (`upload-official-images.mjs
+--apply`). Display only: on Cambridge pages that print the label and credit
+beside the image, as one universal-card field (`image_same_language`), and in
+the JSON behind the market pages (`/api/market/catalog?images=same-language`);
+never member API, downloads or `/api/v1/market/*`.
+
+**Carried rules:** credit is the footer's own line verbatim; a takedown is per
+card, every language; `OFFICIAL_IMAGES_JA=off` hides the lane;
+`ImageReference` v1 is unchanged.
+
+**Needs Yu:** each collection run, the upload (with D6 lifted for it and the
+AWS profile they name), and the question never asked: API, or pages only?
 
 ---
 

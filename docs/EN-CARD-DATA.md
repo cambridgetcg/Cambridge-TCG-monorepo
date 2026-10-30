@@ -16,6 +16,7 @@ reported here as project history, not as an independent legal conclusion.
 | 2026-07-13, 09:03 −07:00 | `84fb4efe` | Add official structured attributes and attributed effect text to card details and the universal API. This later decision supersedes the earlier document's “text stays withheld” statement. |
 | 2026-07-16 | `3934a13e` | Retain self-hosted catalogue photos as the market's fallback when an official image is absent. This is a separate legacy lane, not evidence that those rows meet the official-image rule. |
 | 2026-07-17 | `35eba7f4` | Extend attributed English effect text to starter/practice surfaces. |
+| 2026-10-30 | [decision record](decisions/2026-10-30-japanese-official-images.md) | Yu chose "Self-host like English" for Japanese official sample images (One Piece and Fusion World): self-hosted with the Japanese credit and takedown, as below. |
 
 The September review found no later reversal in these code lanes. Open-source
 code and specification licences do not cover the publisher's artwork or text.
@@ -62,15 +63,51 @@ this change does not establish consistent publication across every surface.
   remains paused. Old registry wording that all publication is paused predates
   the subsequent read-side decisions; it should not be used to infer that the
   current public readers emit nothing.
-- Separate [manual text ingestion](../apps/storefront/scripts/ingest-bandai-en.mjs)
-  and [image backfill](../apps/storefront/scripts/backfill-card-images-s3.mjs)
-  scripts exist. They can perform network and database writes; they were not
-  run or activated by this review.
+- A separate [manual text ingestion](../apps/storefront/scripts/ingest-bandai-en.mjs)
+  script exists. It can perform network and database writes; it was not run
+  or activated by this review, and no audit pins it.
+- The old [image backfill](../apps/storefront/scripts/backfill-card-images-s3.mjs)
+  refuses to run since 2026-10-30. Official images, English or Japanese,
+  reach the bucket only through
+  [`upload-official-images.mjs`](../apps/storefront/scripts/upload-official-images.mjs)
+  (see Japanese official images, below), whose `--lang en` handles English
+  rows under the same rules.
 
 July commit records describe approximately 8,300 stored image rows, a created
 image bucket and backfill activity. Those are historical reports. This review
 did not inspect production rows, objects, permissions or running jobs and does
 not establish current coverage or backfill health.
+
+## Japanese official images (2026-10-30)
+
+Yu chose to self-host Japanese official sample images as the English ones
+are ([decision record](decisions/2026-10-30-japanese-official-images.md)).
+Both Japanese footers refuse reproduction without permission; Cambridge
+holds Yu's decision, not Bandai's permission.
+
+- **Storage.** `card_images` rows with lang `ja`, source `bandai-jp`, kind
+  `official_sample`, `license_note` `cambridge.official-ja-media/2026-10-30`
+  and the game's Japanese credit line verbatim. Keys are Bandai's own Japanese
+  card ids in the English key's form with `JA` (`OP-OP01-001-JA`,
+  `DBF-FB10-001-JA`); objects are `official/<key>.png|.webp`. Base prints only.
+- **Reading.** [`getSameLanguageImages()`](../apps/storefront/src/lib/cards/en-card-data.ts)
+  gives a Japanese request the base image of the same card in Japanese,
+  through `projectSameLanguageImage`, which also checks the exact credit line,
+  the decision id, the object key and that the publisher file names the same
+  card. `getOfficialCardImages()` picks it before the English reference;
+  `getEnCardData()` carries it as `same_language_image`. The reference is the
+  additive `SameLanguageImageReference`; `ImageReference` v1 is unchanged, and
+  text stays English. `OFFICIAL_IMAGES_JA=off` hides the lane.
+- **Acquisition.** Two manual tools, never scheduled, both dry runs by
+  default: [`ingest-official-ja.mjs`](../apps/storefront/scripts/ingest-official-ja.mjs)
+  reads Bandai's Japanese card lists (every run is the collection act, which
+  needs Yu's word) and records rows, and `upload-official-images.mjs` copies
+  a reviewed selection to the bucket (`--apply` is the upload and needs Yu's
+  word, D6 lifted for it, and the AWS profile they name at run time). Neither
+  has run.
+- **Removal is per card**: one statement sets every `official_sample` row of
+  the card, every language and variant, to `disputed` or `removed`; the
+  decision record has it.
 
 ## Removal and remaining work
 

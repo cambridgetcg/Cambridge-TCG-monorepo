@@ -95,6 +95,79 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-10-30 ─────────────────────────────────────────────────────────
+  {
+    id: "official-images-japanese-starter-decks",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices, /market (Japanese official images)",
+    summary:
+      "The Japanese official-image lane also covers One Piece starter and ultimate decks (ST-01 to ST-36), the family deck set, limited-product cards and promotion cards, as Bandai's Japanese card list lists them.",
+    detail:
+      "The first Japanese collection read boosters, extra and premium boosters only, while CardRush's first live run mapped starter-deck cards. The new series are collected with the same tool and rules.",
+    related_urls: ["/legal/card-images"],
+  },
+  {
+    id: "prices-card-names",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices row can show its CTCG-NAMES-v1 card name beside the raw source title, e.g. お玉 · vendor · CardRush, with any illustrator credit, for people and agents to check the card.",
+    detail:
+      "The name comes from the source's versioned vendor rule and is labelled vendor, never official. Rows whose title the rule refuses, Cardmarket sealed products, and CardRush titles with a language marker show no name. Elements carry data-name, data-name-key, data-name-lang, data-name-status and data-name-rule. Display only: no API or download changes.",
+    related_urls: ["/prices", "/methodology/card-names"],
+  },
+  {
+    id: "official-images-japanese-lane",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/universal/card/[sku] image_same_language, /prices, /market",
+    summary:
+      "A Japanese card can show its own-language official sample image: source bandai-jp, self-hosted with the Japanese credit line and takedown, as Yu chose on 2026-10-30. The universal card gains image_same_language; image_url and image_reference keep their English meaning.",
+    detail:
+      "Built inert: no Japanese image exists until Bandai's Japanese card lists are read and the images uploaded, and each of those acts needs Yu's word. OFFICIAL_IMAGES_JA=off hides the lane. A match is by SKU syntax only, base prints only, and labelled so. Record: docs/decisions/2026-10-30-japanese-official-images.md.",
+    related_urls: ["/legal/card-images", "/prices"],
+  },
+  {
+    id: "cardrush-listing-image-product-path",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows)",
+    summary:
+      "CardRush listing images are recorded again: a live listing's og:image takes the plain /data/<host>/product/<file> form, which the collector and migration 0145 had refused, so the first live run linked no image.",
+    detail:
+      "The validator and the table's CHECK (migration 0147) now accept that form beside the resized /_/<hex> form, with the same limits: https, the listing's own host and directory, one plain file name, an image type. Still a link, never a copy, shown only when the member opens it.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
+  {
+    id: "cardrush-title-rule-2",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows), /api/v1/sources/cardrush",
+    summary:
+      "CardRush title rule cardrush-title/2: an English listing written like ウタ(英語版/illust:…)【R】{OP01-005} now maps exactly to its -en SKU. Japanese titles map exactly as under /1; Chinese listings stay ambiguous, because a zh SKU cannot tell Simplified from Traditional.",
+    detail:
+      "Rows already stored keep crosswalk version cardrush-title/1; a listing's next read writes a /2 row. A card that CardRush lists in both Japanese and English has two SKUs on one source, so it drops out of CardRush's premium rows under the existing method. A bare (簡体字版) row that /1 mapped exact becomes ambiguous at its next read.",
+    related_urls: ["/api/v1/sources/cardrush"],
+  },
+  {
+    id: "prices-image-language",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices identity image now says how its language and printing relate to the row: this printing, an English base print for a parallel, a different language, a pooled source-product row, or the CardRush listing's own image.",
+    detail:
+      "Images carry data-image-source, data-image-lang, data-row-lang, data-relationship, data-scope and, for official images, data-depicted-sku, so an agent reading the page can tell. An official match is by SKU syntax only, and the label says so. The member API, downloads and /api/v1/market/* are unchanged.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
   // ── 2026-10-29 ─────────────────────────────────────────────────────────
   {
     id: "source-collector-hosts",

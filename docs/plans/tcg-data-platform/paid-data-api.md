@@ -220,7 +220,7 @@ has room to write and report.
 | Collector | Route / schedule | Transport | Output |
 | --- | --- | --- | --- |
 | Cardmarket daily | `/api/cron/collect/cardmarket`, `30 5 * * *` | Existing public-file transport and ingest seam, Cambridge's identifying User-Agent. One Piece (18) only ([why](#cardmarket-measured)). Each run also writes the reviewed One Piece set crosswalk seed; an unchanged live row is left as it is. | Existing observations, unmapped to SKUs, with `source_set_key`, plus the set crosswalks |
-| CardRush | `/api/cron/collect/cardrush`, `15 */2 * * *` | `createFetcher` with the identifying User-Agent, one bucket per host at 0.5 rps (burst 1), no retries, no proxy options. Hosts in turn by run time, so each of the six is read every 12 hours. Each run reads the host's robots.txt once, first, through the same bucket: if it disallows product pages (or the sitemap) to this collector or to every crawler, or cannot be read, the run stops as `SOURCE_UNAVAILABLE`, and a listed page it disallows is never requested; a host with no robots.txt (404, 410) sets no rule. Product URLs come from the host sitemap, never-read pages first and then the oldest reading; a quarantined reading counts as read, so sealed products and supplies do not starve the singles. 60 s of the budget is kept for writes, so a run reads about 103 pages ([rhythm](#cardrush-rhythm)). | `sell`, JPY, `printing`. Language comes from the title (default `ja`), finish from parallel markers. Condition is recorded only when the page states a grade. No structured price means quarantine: there is no first-yen fallback. Product and set crosswalks under `cardrush-title/1`, exact only for One Piece plain base rarities; the other five hosts' rows are unmapped. |
+| CardRush | `/api/cron/collect/cardrush`, `15 */2 * * *` | `createFetcher` with the identifying User-Agent, one bucket per host at 0.5 rps (burst 1), no retries, no proxy options. Hosts in turn by run time, so each of the six is read every 12 hours. Each run reads the host's robots.txt once, first, through the same bucket: if it disallows product pages (or the sitemap) to this collector or to every crawler, or cannot be read, the run stops as `SOURCE_UNAVAILABLE`, and a listed page it disallows is never requested; a host with no robots.txt (404, 410) sets no rule. Product URLs come from the host sitemap, never-read pages first and then the oldest reading; a quarantined reading counts as read, so sealed products and supplies do not starve the singles. 60 s of the budget is kept for writes, so a run reads about 103 pages ([rhythm](#cardrush-rhythm)). | `sell`, JPY, `printing`. Language comes from the title (default `ja`), finish from parallel markers. Condition is recorded only when the page states a grade. No structured price means quarantine: there is no first-yen fallback. Product and set crosswalks under `cardrush-title/2`, exact only for One Piece plain base rarities, Japanese or marked in the title's trailing group (`(英語版/illust:…)`), never Chinese (`zh` names no script); the other five hosts' rows are unmapped. |
 | TCGplayer | `/api/cron/collect/tcgplayer`, `45 * * * *` | One bucket for every TCGplayer host at 0.1 rps (burst 1): `www.tcgplayer.com`'s robots.txt asks `Crawl-Delay: 10`, and neither API host serves a robots.txt (404, 2026-10-28). The fetcher ignores any caller rate, refuses a proxy and never retries. The pages are client-rendered, so the collector reads the data the public set price-guide page itself loads, one request per set ([intake record](../../methodology/source-intake.md#intake-record--tcgplayer-us-2026-10-28)); it never reads seller listings, which robots.txt disallows. Each run first reads robots.txt on all three hosts (`www.tcgplayer.com` and the two data hosts), through the same bucket, and reuses no earlier reading. The group naming the collector applies if one exists, otherwise `*`; a host with no robots.txt (404) sets no rule. A file that disallows a path every run reads (the set lists, product types, every set's price-guide data as its request has it, query included, or a line's price-guide pages) refuses the run before any data request, as a refusal. A set whose page or data it disallows is skipped without a request and without a batch, so it starves no other set and leaves nothing in the append-only store; a file that leaves no listed set readable refuses the run, as CardRush's does when it permits no listed page. A failed read (a network error, a 5xx) collects nothing that run. Requests are spaced by the larger of 10 s and the Crawl-delay asked. A Crawl-delay over 60 s refuses the run, and so does a shorter one that leaves the budget no set: with both lines, anything over about 40 s. Lines collected: One Piece (68) and Pokemon Japan (85), whose ids and row labels were read; Pokemon (3) is off until a probe confirms its id and row label, and Magic and Yu-Gi-Oh are off. A set is not begun with under 30 s left, so a run reads about 20 sets. A set whose read or write fails is recorded as read, by an empty batch whose quarantine names the failure, so stalest-first moves on. | `market` (Market Price) per condition × printing, USD. The data has no Listed Median, so none is collected; `lowPrice` and `sales` are not collected. Crosswalks under `tcgplayer-number/1`. |
 
 A host that refuses the identified collector or cannot serve it ends the run
@@ -665,11 +665,16 @@ would only withhold the spread of smaller sets. The reason is on
 **Coverage, stated plainly.** References exist only where CardRush and
 TCGplayer both map the same printing exactly, and a SKU includes its language.
 With today's crosswalks that is rare: CardRush maps Japanese One Piece base
-printings (English only where a title says 英語版), TCGplayer maps English One
-Piece, and TCGplayer's Pokemon Japan rows stay unmapped (slash numbers name no
-set). Premiums can compare CardRush's Japanese and TCGplayer's English One
-Piece printings, since One Piece shares numbering across languages. Indices
-carry most of the value early, Cardmarket's included, through set keys.
+printings and, under `cardrush-title/2`, English ones whose title says 英語版
+(a Chinese listing maps to no SKU, since `zh` names no script); TCGplayer maps
+English One Piece, so an English printing both list can have a reference; and
+TCGplayer's Pokemon Japan rows stay unmapped (slash numbers name no set).
+Premiums compare One Piece cards across CardRush and TCGplayer, since One
+Piece shares numbering across languages. CardRush's side can include English
+listings beside Japanese ones; each row states its languages. A card
+CardRush lists in both languages has two CardRush SKUs and is left out of its
+premiums, so a set near ten cards can lose its CardRush row. Indices carry
+most of the value early, Cardmarket's included, through set keys.
 
 Trends (7, 30 and 90 day change) are computed on read from reference and
 index history (`apps/storefront/src/lib/data-api/trends.ts`).
@@ -953,8 +958,10 @@ choice is Yu's.
 
 ## 9. Activation, in order
 
-Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
-2026-10-29 ([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)).
+Each step is Yu's. Yu answered steps 1 and 2 on 2026-10-29
+([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)),
+and steps 3 to 6 were done on 2026-10-30 on Yu's word
+([done on 2026-10-30](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#done-on-2026-10-30)).
 
 1. **Read the emails against the code. Answered by Yu, 2026-10-29.** The
    permission covers reading the data the public price-guide page loads
@@ -965,13 +972,16 @@ Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
    Yu's request, 2026-10-29** ("reword it"). The wording is an agent's, and
    §7 starts from it.
 3. **Confirm the Vercel plan's limits**: `maxDuration = 300` on the four new
-   cron routes, function memory, and the cron schedules. Not checked here.
+   cron routes, function memory, and the cron schedules. 2026-10-30: the
+   production deployment with them was accepted; memory not checked.
 4. **Apply migrations 0139–0146** to the production storefront database, in
-   order. 0146 gives the collectors their per-host backoff and suspension;
+   order. Applied 2026-10-30 10:14 UTC. 0146 gives the collectors their per-host backoff and suspension;
    apply it before turning a collector on.
 5. **Turn on the collectors one at a time**: `DATA_COLLECT_CARDMARKET`, then
    `DATA_COLLECT_CARDRUSH`, then `DATA_COLLECT_TCGPLAYER`. Each needs steps 3
-   and 4 first:
+   and 4 first. 2026-10-30: all three were turned on together (about 10:24
+   UTC); their schedules still gave each a first run of its own, read as it
+   landed:
    - `DATA_COLLECT_CARDMARKET` also waits for migration 0144, applied with
      the code that reads it ([the free feed's current view](#member-feed-current-view)).
      Before 0144, every free member-feed page ranked every eligible
@@ -990,7 +1000,9 @@ Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
    health. Watch storage ([per collector](#storage-growth)): Cardmarket's One
    Piece files add about 63 MiB a day with 0144's index, and TCGplayer, whose
    every set re-read is a new set of rows, may add more than that.
-6. **Turn on `DATA_DERIVE_MARKET`** after the collectors' first batches. A
+6. **Turn on `DATA_DERIVE_MARKET`** after the collectors' first batches.
+   2026-10-30: turned on with the collectors; its first run (07:00 UTC,
+   31 October) follows all three collectors' first runs. A
    series starts at 100 on its first day with 10 constituents and chains from
    then on, and a date before the latest run can never be derived, so there is
    nothing to backfill. Read each run's `excludedSources` and `skipped`.

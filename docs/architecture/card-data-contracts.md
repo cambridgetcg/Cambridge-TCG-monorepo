@@ -37,7 +37,7 @@ flowchart LR
 | Observation write boundary | `apps/storefront/src/lib/datafeed/member-price-writer.ts` | Apply shared normalized-value checks before a transaction, then require provenance and source/use evidence |
 | Member response projection | `apps/storefront/src/lib/prices/member-feed.ts` | Check core stored monetary/mapping values after source/use filtering |
 | Public discovery | `apps/storefront/src/lib/contracts` | Describe contracts without publishing private observations |
-| Image storage and EN reference lookup | `apps/storefront/src/lib/cards/en-card-data.ts` | Shared official-image checks and reference metadata; independent readers and removal remain separate work |
+| Image storage and official image lookup | `apps/storefront/src/lib/cards/en-card-data.ts`, `official-image-lanes.ts` | Shared official-image checks per language lane (English base reference; Japanese same-language image) and reference metadata; independent readers and removal remain separate work |
 | Standards registry | `apps/storefront/src/lib/contracts/standards.ts` | One registry for `/standards` and `/standards.json`; versions do not imply industry adoption or current coverage |
 | Roadmap snapshot | `apps/storefront/src/content/platform/index.ts` | Shared authored plan for `/roadmap` and `/api/v1/roadmap`; not a runtime capability report |
 
@@ -120,6 +120,17 @@ Starter/practice adds a separate `CardNumberImageReference` schema because an
 encoded deck requests a card number, not a printing SKU. It retains selected
 English reprint/parallel identifiers and credit, sharing the image publication
 checks without changing the existing base-only `ImageReference` shape.
+
+A third shape, `SameLanguageImageReference` (2026-10-30), describes a Japanese
+request's own-language official base image, self-hosted with the Japanese
+credit under [Yu's decision](../decisions/2026-10-30-japanese-official-images.md).
+It is additive: `/spec/v1/SameLanguageImageReference.schema.json`, the card-data
+contract's `images.same_language_reference`, the OpenAPI component and the
+universal card's one new field, `image_same_language`. The English
+`image_url`, `image_attribution` and `image_reference` keep their v1 meaning.
+The lanes are one table (`apps/storefront/src/lib/cards/official-image-lanes.ts`);
+`/standards/card-data`, `lib/manifest.ts` and
+[the tributaries](../connections/the-tributaries.md) §3.12 describe it too.
 
 The [image-reference architecture](card-image-references.md) maps the remaining
 gallery, artist and retained PvP readers, incomplete printing/credit joins and cache

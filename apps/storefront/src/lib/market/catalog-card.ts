@@ -34,6 +34,7 @@ import {
   type CardAttributes,
 } from "@/lib/cards/en-card-data";
 import type { ImageReference } from "@/lib/cards/image-reference";
+import type { SameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
 import { catalogImageUrl } from "@/lib/cards/image-publication";
 
 export interface CatalogIdentity {
@@ -43,12 +44,19 @@ export interface CatalogIdentity {
   set_code: string;
   set_name: string | null;
   rarity: string | null;
-  // Published English reference art takes priority and carries attribution
-  // and its reference relationship together. The retained catalogue fallback
-  // has no verified source/printing claim; its two metadata fields stay null.
+  // Published official art takes priority and carries attribution and its
+  // reference relationship together: a Japanese request's own-language image
+  // first (Yu, 2026-10-30), then the English base reference. The retained
+  // catalogue fallback has no verified source/printing claim; its metadata
+  // fields stay null.
   image_url: string | null;
   image_attribution: string | null;
+  /** The English base reference, when the image is the English one. */
   image_reference: ImageReference | null;
+  /** The official image's language, or null for the catalogue fallback (unknown). */
+  image_language: "en" | "ja" | null;
+  /** The same-language reference, when the image is the Japanese one. */
+  image_same_language_reference: SameLanguageImageReference | null;
   // Official English effect text + structured game facts (same getEnCardData
   // result as the image). `effect_text` carries its own copyright line in
   // `attribution` (render co-located); `attributes` are non-copyrightable
@@ -106,6 +114,8 @@ function rowToIdentity(row: {
     image_url: catalogImageUrl(row.image_url),
     image_attribution: null,
     image_reference: null,
+    image_language: null,
+    image_same_language_reference: null,
     // Same story: effect text + facts are attached from the SAME
     // getEnCardData result in _resolveCardIdentity, not the catalogue row.
     effect_text: null,
@@ -141,10 +151,17 @@ async function _resolveCardIdentity(
     // An incomplete official candidate leaves the catalogue fallback intact;
     // it does not confer a source, printing or rights claim on that fallback.
     const en = await getEnCardData(card.sku);
-    if (en.en_image?.url && en.en_image.attribution && en.en_image.reference) {
+    const sameLanguage = en.same_language_image;
+    if (sameLanguage?.url && sameLanguage.attribution && sameLanguage.reference) {
+      card.image_url = sameLanguage.url;
+      card.image_attribution = sameLanguage.attribution;
+      card.image_language = "ja";
+      card.image_same_language_reference = sameLanguage.reference;
+    } else if (en.en_image?.url && en.en_image.attribution && en.en_image.reference) {
       card.image_url = en.en_image.url;
       card.image_attribution = en.en_image.attribution;
       card.image_reference = en.en_image.reference;
+      card.image_language = "en";
     }
     // Effect text + game facts ride in from the SAME result (no second
     // fetch). Each stays null when unpublished; the effect text carries its
