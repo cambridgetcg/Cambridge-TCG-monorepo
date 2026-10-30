@@ -148,12 +148,14 @@ jobs:
           PRISM_STRIPE_OPERATOR_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
       # The data service's suites: member prices, crosswalks, collectors,
       # their leases and host state, listing-image links, market derivation,
-      # and data-API reads and billing. Each applies the migrations it needs
-      # (0137-0146) into its own schema, so they share this database.
+      # official images, and data-API reads and billing. Each applies the
+      # migrations it needs (0116-0147) into its own schema, so they share
+      # this database.
       - name: Run PostgreSQL member-price, collector, derivation and data-API suites
         run: >-
           pnpm --filter cambridgetcg-storefront exec vitest run
           src/app/api/v1/sources/collector-health.integration.test.ts
+          src/lib/cards/official-images.integration.test.ts
           src/lib/data-api/billing/postgres.integration.test.ts
           src/lib/data-api/data-api.integration.test.ts
           src/lib/data-api/schema.integration.test.ts
