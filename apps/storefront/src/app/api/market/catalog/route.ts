@@ -19,6 +19,9 @@ import { catalogImageUrl } from "@/lib/cards/image-publication";
 // this; a database read must never pass itself off as a live API, and an
 // outage must never render as an empty catalog.
 
+/** The Japanese image lane, off for a request that did not ask for it. */
+const JAPANESE_LANE_OFF = Object.freeze({ OFFICIAL_IMAGES_JA: "off" });
+
 function sourceHeaders(source: WholesaleSource) {
   return { "x-catalog-source": source };
 }
@@ -118,18 +121,27 @@ export async function GET(request: Request) {
   }
 
   // Official self-hosted card images (one batch query per lane, per the
-  // grid contract): a Japanese card's own-language image when there is one
-  // (Yu, 2026-10-30), else the English base reference. The publication rule
-  // lives entirely in en-card-data.ts: only publisher 'official_sample' art,
-  // self-hosted via s3_key (the stored source_url is NEVER served — no
-  // hotlink), takedown-clear, and always carrying its copyright line. The
-  // returned `url` is already the Cambridge-hosted URL; cards with no
-  // published official image simply aren't in the map, so their image_url
-  // stays whatever db-source gave (today: null).
+  // grid contract): with images=same-language, a Japanese card's own-language
+  // image when there is one (Yu, 2026-10-30), else the English base
+  // reference. The publication rule lives entirely in en-card-data.ts: only
+  // publisher 'official_sample' art, self-hosted via s3_key (the stored
+  // source_url is NEVER served — no hotlink), takedown-clear, and always
+  // carrying its copyright line. The returned `url` is already the
+  // Cambridge-hosted URL; cards with no published official image simply
+  // aren't in the map, so their image_url stays whatever db-source gave
+  // (today: null).
+  //
+  // Yu's option was "with credit": only /market's grid and table, which
+  // print the label and the Japanese credit beside the image, ask for the
+  // Japanese lane. Every other caller (the deck builder, the listing,
+  // auction and swap pickers) shows a bare thumbnail with no label or
+  // credit, so for them the lane is off, through the same switch as
+  // OFFICIAL_IMAGES_JA=off, and they keep the English image as before.
+  const sameLanguageImages = url.searchParams.get("images") === "same-language";
   let officialImages = new Map<string, OfficialImageChoice>();
   if (skus.length > 0) {
     try {
-      officialImages = await getOfficialCardImages(skus);
+      officialImages = await getOfficialCardImages(skus, sameLanguageImages ? process.env : JAPANESE_LANE_OFF);
     } catch {
       // Official image enrichment is optional; the catalog renders without it.
     }

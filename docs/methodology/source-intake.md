@@ -271,8 +271,9 @@ decision record lists it under "where Cambridge falls short".
   reads it every run. **Prohibits.**
 - *A.2:* official card art, card ids and names; no personal data. **Pass.**
 - *A.3:* reading every series is systematic extraction; whether a database
-  right protects it in the UK is not assessed. The footers bind by contract
-  either way, so the lane takes images and identifiers only, never text.
+  right protects it in the UK is not assessed. The footers refuse
+  reproduction whatever the database-right position, so the lane takes
+  images and identifiers only, never text.
   **Fenced; answered by Yu's decision.**
 
 **Gate B — intention declared** in `packages/data-ingest/src/bandai-jp/index.ts`:
@@ -291,7 +292,9 @@ for that run: identified User-Agent naming
 `cambridge.official-ja-media/2026-10-30`, robots.txt first, at least 2 s per
 host, list pages only, a stop on any refusal or drift, rows written once at
 the end. The bucket copy is a separate act (`upload-official-images.mjs
---apply`). Display only, on Cambridge pages and as one universal-card field;
+--apply`). Display only: on Cambridge pages that print the label and credit
+beside the image, as one universal-card field (`image_same_language`), and in
+the JSON behind the market pages (`/api/market/catalog?images=same-language`);
 never member API, downloads or `/api/v1/market/*`.
 
 **Carried rules:** credit is the footer's own line verbatim; a takedown is per

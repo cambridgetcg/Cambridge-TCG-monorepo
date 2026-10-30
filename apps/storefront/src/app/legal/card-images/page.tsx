@@ -34,7 +34,7 @@ export default function CardImagesPolicyPage() {
               <li>One Piece: <span lang="ja">{OFFICIAL_IMAGE_LANES.ja.credits.op}</span></li>
               <li>Dragon Ball Fusion World: <span lang="ja">{OFFICIAL_IMAGE_LANES.ja.credits.dbf}</span></li>
             </ul>
-            <p className="mt-3">These images appear on Cambridge pages and in the universal card API as one separate field. They are not part of member price data, downloads or the market data API, and they are not offered as a page&apos;s share image. Collecting and hosting them are separate manual steps, each run only with the owner&apos;s word for it.</p>
+            <p className="mt-3">These images appear on Cambridge pages that print their label and credit beside them, in the universal card API as one separate field, and in the data the market pages load. They are not part of member price data, downloads or the market data API, and they are not offered as a page&apos;s share image. Collecting and hosting them are separate manual steps, each run only with the owner&apos;s word for it.</p>
           </section>
 
           <section>

@@ -30,8 +30,8 @@ const item = {
   set_code: "OP01", set_name: "Romance Dawn", rarity: "L", stock: 0, image_url: null,
 };
 
-async function readCard() {
-  const response = await GET(new Request("https://cambridgetcg.com/api/market/catalog"));
+async function readCard(search = "") {
+  const response = await GET(new Request(`https://cambridgetcg.com/api/market/catalog${search}`));
   expect(response.status).toBe(200);
   return (await response.json()).cards[0];
 }
@@ -55,18 +55,31 @@ describe("market catalog image projection", () => {
     });
   });
 
-  it("publishes a Japanese card's own-language image with its own reference field, never as image_reference", async () => {
-    const japanese = {
-      url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png",
-      attribution: "©尾田栄一郎／集英社 ©尾田栄一郎／集英社・フジテレビ・東映アニメーション", language: "ja",
-      reference: createSameLanguageImageReference(item.sku, "OP-OP01-001-JA")!,
-    };
-    mocks.getOfficialCardImages.mockResolvedValue(new Map([[item.sku, japanese]]));
-    expect(await readCard()).toMatchObject({
+  const japanese = {
+    url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-001-JA.png",
+    attribution: "©尾田栄一郎／集英社 ©尾田栄一郎／集英社・フジテレビ・東映アニメーション", language: "ja",
+    reference: createSameLanguageImageReference(item.sku, "OP-OP01-001-JA")!,
+  };
+  // The reader's own switch, as en-card-data.ts reads it: "off" leaves the English image.
+  const bothLanes = async (skus: string[], env: Record<string, string | undefined>) =>
+    new Map([[skus[0], env.OFFICIAL_IMAGES_JA === "off" ? official : japanese]]);
+
+  it("publishes a Japanese card's own-language image, with its own reference field, to a caller that asks for it", async () => {
+    mocks.getOfficialCardImages.mockImplementation(bothLanes);
+    expect(await readCard("?images=same-language")).toMatchObject({
       image_url: japanese.url, image_attribution: japanese.attribution, image_reference: null,
       image_language: "ja", image_same_language_reference: japanese.reference,
     });
-    expect(mocks.getOfficialCardImages).toHaveBeenCalledWith([item.sku]);
+    expect(mocks.getOfficialCardImages).toHaveBeenCalledWith([item.sku], process.env);
+  });
+
+  it.each(["", "?images=ja", "?images=same-language-please"])("keeps the English image for a caller that did not ask (%s): the Japanese lane is off", async (search) => {
+    mocks.getOfficialCardImages.mockImplementation(bothLanes);
+    expect(await readCard(search)).toMatchObject({
+      image_url: official.url, image_attribution: official.attribution, image_reference: reference,
+      image_language: "en", image_same_language_reference: null,
+    });
+    expect(mocks.getOfficialCardImages).toHaveBeenCalledWith([item.sku], { OFFICIAL_IMAGES_JA: "off" });
   });
 
   it("preserves catalog-only images with null reference and attribution", async () => {

@@ -38,12 +38,13 @@ export const bandaiJp: SourceModule<BandaiJpImageBlock & { retrieved_at: string 
     status: "blocked",
     games: ["op", "dbf"],
     tos_notes:
-      "Footers, read 2026-10-30: www.onepiece-cardgame.com 「このwebサイトに記載されているすべての画像・テキスト・データの無断転用、転載をお断りします。」; www.dbs-cardgame.com/fw/jp 「※当サイトに掲載されている画像、文章、データ等の無断使用・複製・転載を禁じます。」 Both refuse reproduction without permission, and no Bandai permission is recorded. Yu decided on 2026-10-30 to self-host these images with credit and takedown, under his 2026-07-13 rationale for English (docs/decisions/2026-10-30-japanese-official-images.md). robots.txt answered 404 on both hosts; the tool reads it every run, as User-Agent CambridgeTCG-official-media/1.0 naming that decision, at least 2 s apart per host. Reading the lists and the S3 upload each need Yu's word for that run. Display on Cambridge pages only; never in exports or the member API.",
+      "Footers, read 2026-10-30: www.onepiece-cardgame.com 「このwebサイトに記載されているすべての画像・テキスト・データの無断転用、転載をお断りします。」; www.dbs-cardgame.com/fw/jp 「※当サイトに掲載されている画像、文章、データ等の無断使用・複製・転載を禁じます。」 Both refuse reproduction without permission, and no Bandai permission is recorded. Yu decided on 2026-10-30 to self-host these images with credit and takedown, under his 2026-07-13 rationale for English (docs/decisions/2026-10-30-japanese-official-images.md). robots.txt answered 404 on both hosts; the tool reads it every run, as User-Agent CambridgeTCG-official-media/1.0 naming that decision, at least 2 s apart per host. Reading the lists and the S3 upload each need Yu's word for that run. Display on Cambridge pages, the universal card API (image_same_language) and the JSON behind the market pages; never in exports, the member API or /api/v1/market/*.",
     rate_limit: { rps: 0.5, burst: 1 },
     welcome:
       "Bandai, your Japanese card lists show each card's official sample image. " +
       "Under our owner's decision we keep a credited copy of a card's base image on our own host, " +
-      "so a Japanese card on our pages can be seen as it is printed, beside your copyright line. " +
+      "so a Japanese card on our pages can be identified by your official Japanese sample image, beside your copyright line, " +
+      "labelled as not verified against the printed card. " +
       "We read your lists slowly, under our own name, honour your robots.txt, " +
       "and take an image down on request.",
   },

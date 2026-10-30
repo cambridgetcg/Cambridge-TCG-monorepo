@@ -94,7 +94,9 @@ export default function MarketBrowser({
     abortRef.current = controller;
     setLoading(true);
     try {
-      const res = await fetch(`/api/market/catalog?${buildCatalogSearch(q)}`, {
+      // This grid and table print each image's label and credit, so they
+      // ask for a Japanese card's own-language image.
+      const res = await fetch(`/api/market/catalog?${buildCatalogSearch(q, PAGE_SIZE, { sameLanguageImages: true })}`, {
         signal: controller.signal,
       });
       const body = await res.json().catch(() => null);

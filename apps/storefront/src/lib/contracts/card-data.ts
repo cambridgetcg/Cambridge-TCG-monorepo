@@ -38,7 +38,7 @@ export const CARD_DATA_CONTRACT = {
       status: "implemented",
       example: createSameLanguageImageReference("OP-OP01-001-JP-V11DZ", "OP-OP01-001-JA"),
       example_scope: "Illustrative syntax relationship only; no image row, catalog record or provider was queried.",
-      representation: "The universal card carries a Japanese request's own-language official image as one unit, image_same_language: url, attribution (the Japanese credit line), language and reference, or null; sparse density omits it. Market responses carry image_language and image_same_language_reference beside image_url and image_attribution. The English image_url, image_attribution and image_reference keep their v1 meaning.",
+      representation: "The universal card carries a Japanese request's own-language official image as one unit, image_same_language: url, attribution (the Japanese credit line), language and reference, or null; sparse density omits it. Market responses carry image_language and image_same_language_reference beside image_url and image_attribution; the market catalogue gives the Japanese image only to a request with images=same-language. The English image_url, image_attribution and image_reference keep their v1 meaning.",
       compatibility: "Additive. ImageReference v1 keeps reason english_base_reference; SameLanguageImageReference is a separate shape. OFFICIAL_IMAGES_JA=off withholds every same-language image.",
     },
     rights: "Image identity and publication are separate checks. A valid ImageReference, self-hosted URL or attribution does not establish image rights or permission for downstream reuse.",

@@ -48,7 +48,7 @@ export const BANDAI_JP_GAMES: Record<BandaiJpGameKey, BandaiJpGameConfig> = {
     notes:
       "Captured 2026-10-30: ?series=550101 rendered 154 blocks (33 parallels, no _r ids) on one page, " +
       "each block id equal to its image's basename. Images /images/cardlist/card/{CARD_NO}[_pN].png?<cache>. " +
-      "JP and EN parallel numbers differ (OP01-001: JP _p2 is EN _p1), so only base prints are collected.",
+      "JP and EN parallel numbers differ (on OP01-001, -013 and -016 JP lists _p2 where EN lists _p1; whether they show the same art is unchecked), so only base prints are collected.",
   },
   dbf: {
     game: "dbf",

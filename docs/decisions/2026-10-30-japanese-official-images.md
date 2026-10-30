@@ -62,8 +62,9 @@ The footers, quoted with a translation:
 
 No footer links to terms of use, and no bandai.co.jp page was read. Cambridge
 holds no permission from Bandai, in any language. JP and EN One Piece
-parallel numbers differ (OP01-001: JP `_p2` is EN `_p1`); Fusion World FB10's
-file sets are identical.
+parallel numbers differ: on OP01-001, -013 and -016 JP lists `_p2` where EN
+lists `_p1` (whether they show the same art is unchecked); Fusion World
+FB10's file sets are identical.
 
 ## The agents' reading
 
@@ -102,12 +103,20 @@ Japanese image when one exists, labelled "Official image · this printing
 (Japanese), matched by SKU, not verified" (or "Official Japanese base print ·
 … art may differ"), with the credit marked `lang="ja"`; otherwise they behave
 as today. The universal card keeps `image_url`, `image_attribution` and
-`image_reference` English and adds one unit, `image_same_language`. No image
-enters `/api/v1/member-prices`, the exports or `/api/v1/market/*`.
+`image_reference` English and adds one unit, `image_same_language`. The JSON
+behind `/market` (`/api/market/catalog`) carries the Japanese image in
+`image_url` only when asked with `images=same-language`, which only `/market`'s
+grid and table do, because they print the label and credit beside it. The
+other catalogue callers (the deck builder, the listing wizard, the auction
+sell picker and the swap composer) show a bare thumbnail with no label or
+credit, so they keep the English image, as before. No image enters `/api/v1/member-prices`, the exports or
+`/api/v1/market/*`.
 
 **Flagged, not asked.** The rights map's question 4 (API, or pages only?)
-was never put to Yu. The API carries the Japanese image as one field, so a
-"pages only" answer is one removal. The card page's `og:image` is the share
+was never put to Yu. The universal card API carries the Japanese image as
+one field, so a "pages only" answer removes that field; the JSON behind
+`/market` is public because the browser reads it, so it stays with the
+pages. The card page's `og:image` is the share
 card for a Japanese image, because a social platform would fetch and cache it
 without its credit, beyond any takedown; the English `og:image` is unchanged
 (a gap, below). Auction fulfilment no longer copies a Japanese image URL into
@@ -138,9 +147,13 @@ an option for the lead: the Japanese reader could withhold the English
 fallback when the card's Japanese row is disputed or removed.
 
 **The tools.** Two manual scripts, never scheduled, both dry runs by default,
-one at a time (a lockfile and the Postgres session lock `(116, 1)` on one
-client, taken before any request), reading `DATABASE_URL` from the
-environment only, with verified TLS or `--no-ssl` for loopback:
+one at a time, reading `DATABASE_URL` from the
+environment only, with verified TLS or `--no-ssl` for loopback. "One at a
+time" is a per-machine lockfile for every run, plus the Postgres session lock
+`(116, 1)` on one client, taken before any request, for every run that opens
+the database: the ingest's `--apply` and both of the upload's modes. The
+ingest's dry run opens no database, so it holds the lockfile only, and two
+dry runs on different machines can read Bandai at the same time.
 
 - `apps/storefront/scripts/ingest-official-ja.mjs --game op|dbf|all [--series …] [--apply]`
   reads list pages only, never an image or a detail page, under
@@ -179,6 +192,21 @@ query; every `card_images` reader and writer in the repository is named,
 lowercase SQL and `.mjs` scripts included; the tools keep their full-key,
 no-overwrite, named-profile, card-hold and refusal pins; the Japanese parser
 reads no text; and only the scripts reach the tools.
+
+A further tightening, the same day, after review: the no-overwrite and
+named-profile pins first checked the tools file as a whole, so they passed
+while any one call kept the text, and the put-object could lose `--profile`
+(falling back to the CLI's ambient credentials) with the audit still green.
+They now read the AWS calls one by one. The tools reach a process only
+through the one `aws` helper (no other `execFile`, no alias); each call passes
+one literal argument list with no spread; each is `--version`,
+`s3api put-object` or `s3api head-object` and nothing else; each put-object
+carries `"--if-none-match", "*"` once; and each bucket call names
+`"--profile", profile` once. The upload script runs no process but the
+injected one, the ingest script imports no process module, and the tools and
+scripts name no other S3 subcommand (`s3`, `sync`, `mv`, `rm`,
+`copy-object`, `delete-object(s)`, `put-object-acl`, multipart) and no
+`--endpoint-url`.
 
 ## What still needs Yu's word
 
@@ -227,7 +255,15 @@ For the playbook's "where Cambridge falls short", said plainly:
   switch; nor are objects already uploaded.
 - **The English text ingest is unpinned.** `ingest-bandai-en.mjs` reads live
   Bandai pages with a browser-like User-Agent and no robots.txt read, and no
-  audit pins it. An import fence keeps it off `bandai-jp`.
+  audit pins it. An import fence keeps it off the Japanese collection run
+  and the official-media reader, but not off `bandai-jp`'s config: it could
+  still import the Japanese hosts and series from the package and read them
+  under its own User-Agent.
+- **Other catalogue callers show the English image without its credit.** The
+  deck builder, the listing wizard, the auction sell picker and the swap
+  composer render `/api/market/catalog`'s `image_url` as a bare thumbnail,
+  with no credit or label. That predates this work and is unchanged; the
+  Japanese image is kept out of them.
 - **The playbook entry is not written.** The playbook lives in the
   `transparent-data-playbook` repository; editing it is an outward act left
   to Yu or the lead.
