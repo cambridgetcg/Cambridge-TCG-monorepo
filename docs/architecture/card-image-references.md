@@ -127,16 +127,58 @@ a CardRush listing's own image is linked at CardRush's own URL, never copied.
   store without 0145 records none.
 - **Shown on `/prices` only.** [`member-images.ts`](../../apps/storefront/src/lib/prices/member-images.ts)
   looks up the page's first 50 rows. A row with an exact SKU shows the
-  official English base reference through `getEnCardImages`, from
-  Cambridge's own image host, labelled "Official image · English base
-  reference" with its credit. A CardRush row offers its listing image as a
-  plain lazy `<img>` at CardRush's URL (no `next/image`, no proxy), with no
+  official English base print through `getEnCardImages`, from Cambridge's
+  own image host, inline with its credit. A CardRush row offers its listing
+  image behind a "Show CardRush's listing image (this listing)" control, as
+  a plain lazy `<img>` at CardRush's URL (no `next/image`, no proxy), with no
   Referer, credited "Image: CardRush" and linked to the listing, inside a
   closed `<details>`: the member's browser asks CardRush for it only when the
   member opens it, so viewing `/prices` tells CardRush nothing (checked in
   Chromium; other engines not checked). The image URL is in the page's HTML
   either way, so an agent reading the page has it. A mapped CardRush row can
   show both. A row with neither shows no image and no placeholder.
+- **Each image says how its language and printing relate to the row.**
+  Added 2026-10-30, from Yu's words that day ("Lets also sort out the
+  languages and corresponding images (from official samples or
+  cardrush)"). A printing-level row's language is its exact SKU's language
+  segment, else the observation's `language`. The official image is always
+  English and shows the base print its `ImageReference` names
+  (`depicted_canonical_sku`), so its label is one of four:
+  - `same-printing`, an English printing-level row with no variant:
+    "Official image · this printing (English), matched by SKU, not
+    verified". The depicted SKU is the row's own; that is a match of SKU
+    syntax, not a check of the card, so the image is still the syntax-only
+    reference described above, not an exact-printing image.
+  - `same-language-base-print`, an English printing-level row with a
+    variant: "Official English base print · this row is a parallel, art may
+    differ" (or a reprint, or the variant as stored).
+  - `other-language`, a printing-level row in any other language: "Official
+    English image · this row is Japanese (ja): language differs". A
+    parallel in another language says both.
+  - `pooled-row`, a source-product aggregate (a Cardmarket row linked by a
+    reviewed crosswalk): "Official English base print · this row is a
+    source-product aggregate: language and art may differ". Its price may
+    pool printings and languages, so it takes neither from its SKU and keeps
+    its own language (unknown), as its Specificity column says. Only an
+    operator-supplied crosswalk leads here: the scheduled Cardmarket
+    collector supplies none, so its rows carry no SKU.
+
+  The listing image is the listing's own (`same-listing`), so its language
+  and printing are the listing's. Every `<img>` also carries
+  `data-image-source` (`official` or `cardrush-listing`), `data-image-lang`,
+  `data-row-lang` (`unknown` when the row has none), `data-relationship`
+  and, on the official image, `data-depicted-sku` and `data-scope`
+  (`syntax_only`, the reference's own scope), so an agent reading the HTML
+  need not parse the label. Language names cover the codes the SKU
+  registry lists; any other code shows as itself, and `zh` is only
+  "Chinese" because the SKU does not say which script.
+
+  Only the display changed: the reader, the projector and the v1
+  `ImageReference` (still `relationship: "reference"`,
+  `reason: "english_base_reference"`) are as they were. No official image
+  in another language exists to show: there is no source or reader for one,
+  and no decision records one, so a Japanese row shows English art labelled
+  as such.
 - **Never in the API or downloads.** The member item, its CSV and NDJSON,
   and `/api/v1/market/*` carry no image field; a test pins that.
 - **One switch, for the display.** `CARDRUSH_LISTING_IMAGES=off` stops

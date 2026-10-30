@@ -108,6 +108,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
       "Rows already stored keep crosswalk version cardrush-title/1; a listing's next read writes a /2 row. A card that CardRush lists in both Japanese and English has two SKUs on one source, so it drops out of CardRush's premium rows under the existing method. A bare (簡体字版) row that /1 mapped exact becomes ambiguous at its next read.",
     related_urls: ["/api/v1/sources/cardrush"],
   },
+  {
+    id: "prices-image-language",
+    date: "2026-10-30",
+    kind: "ax-surface-shipped",
+    impact: "additive",
+    surface: "/prices",
+    summary:
+      "Each /prices identity image now says how its language and printing relate to the row: this printing, an English base print for a parallel, a different language, a pooled source-product row, or the CardRush listing's own image.",
+    detail:
+      "Images carry data-image-source, data-image-lang, data-row-lang, data-relationship, data-scope and, for official images, data-depicted-sku, so an agent reading the page can tell. An official match is by SKU syntax only, and the label says so. The member API, downloads and /api/v1/market/* are unchanged.",
+    related_urls: ["/prices", "/legal/card-images"],
+  },
   // ── 2026-10-29 ─────────────────────────────────────────────────────────
   {
     id: "source-collector-hosts",

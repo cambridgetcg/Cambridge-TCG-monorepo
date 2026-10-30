@@ -15,13 +15,13 @@ export default function CardImagesPolicyPage() {
     <PageLayout width="reading">
       <div lang="en">
         <PageHeader title="Card images and text" description="A picture can help identify a card without proving which printing it shows. Publisher credit and image context belong beside it." />
-        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026; the section on linked CardRush listing images was added 29 October 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
+        <p className="mb-8 text-sm text-ink-faint">Implementation reviewed 29 September 2026; the section on linked CardRush listing images was added 29 October 2026, and the note on member price page labels 30 October 2026. This records existing project decisions; it is not a new legal review or reuse licence.</p>
 
         <div className="space-y-8 text-sm leading-7 text-ink-muted">
           <section>
             <h2 className={headingClass}>Official English references</h2>
             <p>Our shared English image reader covers recorded official sources for One Piece and Dragon Ball Fusion World. It serves eligible images from a Cambridge host, with publisher credit and a clear takedown state. The publisher source link records provenance; it is not used as the image address.</p>
-            <p className="mt-3">An English base image may accompany a card listed in another language or as another variant. We label it as a reference image. It does not verify the requested printing, artwork variant, physical condition or authenticity.</p>
+            <p className="mt-3">An English base image may accompany a card listed in another language or as another variant. We label it as a reference image; member price pages label it instead by how it relates to the row, saying when the row&apos;s language differs or its art may. It does not verify the requested printing, artwork variant, physical condition or authenticity.</p>
             <p className="mt-3">Practice decks request a card number without choosing a printing. Their reference images keep the selected English reprint or parallel identifier and publisher credit. Cards remain playable as text faces when eligible art is unavailable.</p>
           </section>
 
