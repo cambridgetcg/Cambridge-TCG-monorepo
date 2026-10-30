@@ -121,6 +121,9 @@ function publicCase(state: CoverageHuntCase, viewerAgentId?: string) {
 function toToolError(error: unknown): never {
   if (error instanceof ToolError) throw error;
   if (error instanceof CoverageHuntError) {
+    // The key was revoked before this contribution's write transaction
+    // could lock it; nothing was written.
+    if (error.code === "key_revoked") throw new ToolError(error.message, 403);
     const status =
       error.code === "daily_limit"
         ? 429
@@ -251,6 +254,7 @@ export async function coverageHuntContribute(
       result = await persistCoverageHuntScoutTurn({
         candidate,
         actor: asHuntActor(actor),
+        actor_key_id: actor.keyId,
         client_request_id: params.client_request_id,
         submission: params.submission as CoverageHuntSubmission,
       });
@@ -260,6 +264,7 @@ export async function coverageHuntContribute(
       result = await persistCoverageHuntTurn({
         case_id: found.id,
         actor: asHuntActor(actor),
+        actor_key_id: actor.keyId,
         client_request_id: params.client_request_id,
         submission: params.submission as CoverageHuntSubmission,
       });

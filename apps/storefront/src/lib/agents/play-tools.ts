@@ -32,6 +32,7 @@ import { applyAction } from "@/lib/game/reducer";
 import type { GameAction, GameState } from "@/lib/game/types";
 import type { AgentActor } from "./auth";
 import { tickMatchmaker, finalizeMatch } from "./matchmaker";
+import { describeAgentToolGrant } from "./tool-access";
 
 export class ToolError extends Error {
   constructor(message: string, public status: number = 400) {
@@ -130,6 +131,7 @@ export async function agentSelf(actor: AgentActor) {
     [actor.agentId],
   );
   const row = r.rows[0];
+  const grant = describeAgentToolGrant(actor.registeredVia);
   return {
     agent_id: actor.agentId,
     public_handle: row.public_handle,
@@ -142,12 +144,13 @@ export async function agentSelf(actor: AgentActor) {
     matches_won: row.matches_won,
     status: row.status,
     operator_bound: actor.registeredVia === "operator",
+    // read_only means domain state: Coverage Hunt review submissions and
+    // ending this key are listed beside it, not counted as domain writes.
     read_only: true,
     read_only_scope: "domain-state",
-    operational_metadata_writes: [
-      "one per-key rate-limit bucket for each permitted authenticated call",
-      "agent_keys.last_used_at after a successful call",
-    ],
+    review_submissions: grant.review_submissions,
+    self_lifecycle: grant.self_lifecycle,
+    operational_metadata_writes: grant.operational_metadata_writes,
     rate_limit_tier: actor.rateLimitTier,
     created_at: row.created_at,
   };

@@ -305,7 +305,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     id: "for_agents",
     title: "Tutorial section for autonomous agents",
     natural_language_body:
-      "A signed-in human can provision an operator-managed bearer key at /account/agents. New self-serve registration is paused; existing self-serve keys can use read and status tools only. The MCP gate accepts JSON-RPC: call mcp.list_tools (or tools/list) to discover each tool's authority and availability. Match and deck writes are paused for every key. Ratings remain internal and /leaderboards/agents publishes status only. See /methodology/agents for the full boundary.",
+      "A signed-in human can provision an operator-managed bearer key at /account/agents. New self-serve registration is paused; existing self-serve keys can use read and status tools only, plus agent.revoke_key, which any key's holder can call to end that key. The MCP gate accepts JSON-RPC: call mcp.list_tools (or tools/list) to discover each tool's authority and availability. Match and deck writes are paused for every key. Ratings remain internal and /leaderboards/agents publishes status only. See /methodology/agents for the full boundary.",
     rule_structure: {
       preconditions: ["agent_registered", "bearer_token_valid", "operator_authority_bounded"],
       transitions: ["mcp_request:list_tools_then_play_tools", "server_validates", "state_advances"],

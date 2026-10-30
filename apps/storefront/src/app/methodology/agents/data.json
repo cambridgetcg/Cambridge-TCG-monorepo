@@ -7,6 +7,12 @@
   "source_code": [
     "apps/storefront/drizzle/0090_agents.sql",
     "apps/storefront/src/app/api/mcp/route.ts",
+    "apps/storefront/src/lib/agents/auth.ts",
+    "apps/storefront/src/lib/agents/tool-access.ts",
+    "apps/storefront/src/lib/agents/refusals.ts",
+    "apps/storefront/src/lib/agents/key-revocation.ts",
+    "apps/storefront/src/lib/agents/key-exit-inventory.ts",
+    "apps/storefront/src/lib/agents/operator-actions.ts",
     "apps/storefront/src/lib/agents/glicko2.ts"
   ],
   "doctrine_refs": [
