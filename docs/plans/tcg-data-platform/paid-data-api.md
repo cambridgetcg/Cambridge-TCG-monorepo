@@ -953,8 +953,10 @@ choice is Yu's.
 
 ## 9. Activation, in order
 
-Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
-2026-10-29 ([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)).
+Each step is Yu's. Yu answered steps 1 and 2 on 2026-10-29
+([decision record](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#yus-answers-2026-10-29)),
+and steps 3 to 6 were done on 2026-10-30 on Yu's word
+([done on 2026-10-30](../../decisions/2026-10-28-tcg-data-permissions-and-paid-data-api.md#done-on-2026-10-30)).
 
 1. **Read the emails against the code. Answered by Yu, 2026-10-29.** The
    permission covers reading the data the public price-guide page loads
@@ -965,13 +967,16 @@ Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
    Yu's request, 2026-10-29** ("reword it"). The wording is an agent's, and
    §7 starts from it.
 3. **Confirm the Vercel plan's limits**: `maxDuration = 300` on the four new
-   cron routes, function memory, and the cron schedules. Not checked here.
+   cron routes, function memory, and the cron schedules. 2026-10-30: the
+   production deployment with them was accepted; memory not checked.
 4. **Apply migrations 0139–0146** to the production storefront database, in
-   order. 0146 gives the collectors their per-host backoff and suspension;
+   order. Applied 2026-10-30 10:14 UTC. 0146 gives the collectors their per-host backoff and suspension;
    apply it before turning a collector on.
 5. **Turn on the collectors one at a time**: `DATA_COLLECT_CARDMARKET`, then
    `DATA_COLLECT_CARDRUSH`, then `DATA_COLLECT_TCGPLAYER`. Each needs steps 3
-   and 4 first:
+   and 4 first. 2026-10-30: all three were turned on together (about 10:24
+   UTC); their schedules still gave each a first run of its own, read as it
+   landed:
    - `DATA_COLLECT_CARDMARKET` also waits for migration 0144, applied with
      the code that reads it ([the free feed's current view](#member-feed-current-view)).
      Before 0144, every free member-feed page ranked every eligible
@@ -990,7 +995,9 @@ Each step is Yu's; none was taken by this work. Yu answered steps 1 and 2 on
    health. Watch storage ([per collector](#storage-growth)): Cardmarket's One
    Piece files add about 63 MiB a day with 0144's index, and TCGplayer, whose
    every set re-read is a new set of rows, may add more than that.
-6. **Turn on `DATA_DERIVE_MARKET`** after the collectors' first batches. A
+6. **Turn on `DATA_DERIVE_MARKET`** after the collectors' first batches.
+   2026-10-30: turned on with the collectors; its first run (07:00 UTC,
+   31 October) follows all three collectors' first runs. A
    series starts at 100 on its first day with 10 constituents and chains from
    then on, and a date before the latest run can never be derived, so there is
    nothing to backfill. Read each run's `excludedSources` and `skipped`.
