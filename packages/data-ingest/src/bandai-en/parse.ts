@@ -47,6 +47,18 @@
  * map it — skip it here, per policy. The `getInfo remarks` "Notes" row
  * (errata links, site chrome) is likewise not rules text and is never
  * captured.
+ *
+ * ── The Japanese cardlist (bandai-jp, image addresses only) ──────────
+ *
+ * www.onepiece-cardgame.com serves the same "modal-page" DOM (OP-01
+ * capture, 2026-10-30: 154 blocks, 33 parallels). `parseModalImageBlocks`
+ * reads its identifiers and image address and nothing else. Two
+ * differences from the English page, neither read by it:
+ * - Each block's Q&A (`<dd class="cardFaqWrap">`) nests
+ *   `<dl class="cardFaqDataCol">`, so the lazy BLOCK_RE ends at that inner
+ *   `</dl>`. The image comes before the Q&A in every captured block, so an
+ *   image-only read is unaffected; `parseCardlistPage` is not used there.
+ * - The cost heading is ライフ/コスト and the attribute has no `<i>` label.
  */
 
 import type {
@@ -193,6 +205,58 @@ export function parseCardlistPage(
   }
 
   return cards;
+}
+
+/** One "modal-page" block's identifiers and image address. */
+export interface ModalImageBlock {
+  /** Block id verbatim, e.g. "OP01-001" or "OP01-001_p2". */
+  card_id: string;
+  /** The block id without its `_pN`/`_rN` suffix. */
+  card_number: string;
+  /** "p2", "r1", or null for the base print. */
+  parallel: string | null;
+  /** The info row's first span (the printed card number), trimmed, or null. */
+  info_number: string | null;
+  name: string;
+  rarity: string | null;
+  category: string | null;
+  /** Absolute image URL with its cache query, or null. */
+  image_url: string | null;
+}
+
+/**
+ * Identifiers and image address from every "modal-page" block, for an
+ * image-only reader (bandai-jp). Uses the same landmarks as
+ * `parseCardlistPage` and reads no rules text, stats or rulings.
+ */
+export function parseModalImageBlocks(html: string, page_url: string): ModalImageBlock[] {
+  const blocks: ModalImageBlock[] = [];
+  for (const m of html.matchAll(BLOCK_RE)) {
+    const [, card_id, block] = m;
+    const idMatch = card_id.match(CARD_ID_RE);
+    const info = block.match(INFO_RE);
+    const nameMatch = block.match(NAME_RE);
+    const imgMatch = block.match(IMAGE_RE);
+    let image_url: string | null = null;
+    if (imgMatch) {
+      try {
+        image_url = new URL(decodeEntities(imgMatch[1]), page_url).href;
+      } catch {
+        image_url = null;
+      }
+    }
+    blocks.push({
+      card_id,
+      card_number: idMatch ? idMatch[1] : card_id,
+      parallel: idMatch ? idMatch[2] : null,
+      info_number: info ? cleanText(info[1]) : null,
+      name: nameMatch ? cleanText(nameMatch[1]) : "",
+      rarity: info ? nullIfDash(cleanText(info[2])) : null,
+      category: info ? nullIfDash(cleanText(info[3])) : null,
+      image_url,
+    });
+  }
+  return blocks;
 }
 
 /**
