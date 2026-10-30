@@ -237,7 +237,7 @@ describe.skipIf(!localUrl)('CardRush cardrush-title/1 to /2 on a store with 0137
     state.pool = new Pool({ connectionString: localUrl, options: `-c search_path=${productionSchema}`, max: 8 });
     await state.pool.query('CREATE TABLE users (id uuid PRIMARY KEY)');
     for (const name of ['0137_member_price_observations.sql', '0138_member_data_keys.sql', '0139_widen_price_sources.sql', '0140_price_source_crosswalks.sql', '0141_market_derived.sql',
-      '0142_data_api_plans.sql', '0143_price_collector_leases.sql', '0144_member_price_latest.sql', '0145_price_source_listing_images.sql', '0146_price_collector_hosts.sql']) await apply(name);
+      '0142_data_api_plans.sql', '0143_price_collector_leases.sql', '0144_member_price_latest.sql', '0145_price_source_listing_images.sql', '0146_price_collector_hosts.sql', '0147_listing_image_product_path.sql']) await apply(name);
     // What /1 stored a day earlier: the Japanese page exact, the English one
     // ambiguous (its slash group failed /1's plain-name check), the Chinese one
     // exact to a zh SKU, and their crosswalks.
