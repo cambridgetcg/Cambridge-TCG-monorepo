@@ -263,10 +263,43 @@ plan.").
   off, those routes answer 404 before a key is looked up, so nothing is
   counted, and OpenAPI does not list them.
 
+## Done on 2026-10-30
+
+Yu, 2026-10-29: "Go for the migration before collection and all sensible
+actions." Recorded by an agent (Claude Code session 8ef55b5e); times UTC.
+
+- **Database credential.** The storefront database password had been rotated
+  since June, and Vercel held it as a Sensitive value that cannot be read
+  back. Yu reset the RDS master password of `cambridgetcg-storefront` to one
+  an agent generated in-process (never printed), and the storefront's and
+  the admin app's database settings were updated to it and redeployed. The
+  admin app's copy had been stale too. Where the credential is kept is
+  recorded privately, not here. Database calls failed from about 10:09:30
+  to 10:13.
+- **Migrations 0139–0146** applied in order at 10:14:20–10:14:42, after a
+  read-only snapshot. The plan showed exactly those eight files pending.
+  Afterwards: no pending migrations; CardRush and TCGplayer release rows
+  display-only with derivation on; Cardmarket derivation on; the guards,
+  the display-only and forward-only constraints present; `member_price_latest`
+  backfilled (74,600 of 74,600 rows).
+- **Vercel limits.** Not checked directly. Production deployments carrying
+  the hourly crons and `maxDuration = 300` were accepted, which the plan
+  would refuse if it did not allow them. Function memory was not checked.
+- **Collectors and derivation.** `DATA_COLLECT_CARDMARKET`,
+  `DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER` and `DATA_DERIVE_MARKET`
+  were set to `on` together at about 10:21 and deployed at about 10:24. The
+  plan's §9 says one at a time; the schedules still give each a first run of
+  its own (TCGplayer 10:45, CardRush 12:15, Cardmarket 05:30 on 31 October),
+  and derivation's first run (07:00, 31 October) follows all three. TCGplayer's
+  first run read 17 sets and wrote 1,308 rows, with all three hosts served.
+- **Still off:** `DATA_API_READS`, `DATA_API_PLANS_PUBLISHED`,
+  `DATA_API_CHECKOUT_INTAKE`.
+
 ## What still needs Yu's hand
 
 In order, as the plan's [activation list](../plans/tcg-data-platform/paid-data-api.md#9-activation-in-order)
-gives them. None was done by this work. The list's first two steps, the
+gives them. Steps 3 to 6 were done on 2026-10-30 ([above](#done-on-2026-10-30));
+the rest were not done by this work. The list's first two steps, the
 emails against the code (the TCGplayer scope and the limits) and the third
 DATA_RIGHTS line, were answered by Yu on 2026-10-29
 ([above](#yus-answers-2026-10-29)).
