@@ -5,7 +5,11 @@ vi.mock('server-only', () => ({}));
 import { memberCardName } from './member-names';
 
 // Titles are the source fixtures' identifiers, as packages/sku/src/__tests__/names.test.ts uses them. No prices are read.
-const row = (source: MemberPriceItem['source'], productName: string | null, language: string | null = null) => ({ source, productName, language });
+// The catalogue URLs are the Cardmarket collector's product lists (cardmarket/member-prices.ts).
+const SINGLES = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_18.json';
+const NONSINGLES = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_nonsingles_18.json';
+const row = (source: MemberPriceItem['source'], productName: string | null, language: string | null = null, extra: Partial<MemberPriceItem> = {}) => (
+  { source, productName, language, game: 'one-piece', catalogSourceUrl: source === 'cardmarket' ? SINGLES : null, ...extra });
 
 describe('/prices vendor names', () => {
   it.each([
@@ -52,8 +56,23 @@ describe('/prices vendor names', () => {
     expect(memberCardName(row('scryfall', 'Black Lotus', 'en'))).toEqual({ reason: 'no_rule' });
   });
 
-  it("refuses a CardRush title with a language marker: how CardRush writes the name there has not been seen", () => {
-    expect(memberCardName(row('cardrush', 'ナミ(英語版)【SR】{OP01-016}', 'en'))).toEqual({ reason: 'language_unseen' });
-    expect(memberCardName(row('cardrush', 'ナミ【英語版】【SR】{OP01-016}', 'en'))).toEqual({ reason: 'language_unseen' });
+  it.each([
+    'ナミ(英語版)【SR】{OP01-016}', 'ナミ【英語版】【SR】{OP01-016}',
+    // The collector reads a language marker anywhere in a title (title.includes), not only where names-1 removes one.
+    'ナミ【SR/英語版】{OP01-016}', 'Nami【SR/英語版】{OP01-016}', 'Nami【SR】{OP01-016} 英語版', 'ナミ【SR】{OP01-016}英語版', 'ナミ【SR】{OP01-016}(韓国語版)',
+  ])("refuses the CardRush title %s, which has a language marker: how CardRush writes the name there has not been seen", (title) => {
+    expect(memberCardName(row('cardrush', title, 'en'))).toEqual({ reason: 'language_unseen' });
+  });
+
+  it.each(['pokemon', 'dragon-ball', 'digimon', 'vanguard', 'battle-spirits'])("refuses a CardRush %s row: names-1 has been checked against One Piece titles only", (game) => {
+    expect(memberCardName(row('cardrush', '〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}', 'ja', { game }))).toEqual({ reason: 'grammar_unreviewed' });
+  });
+
+  it("names only a Cardmarket row from the singles product list, never a sealed product or a row with no catalogue", () => {
+    expect(memberCardName(row('cardmarket', 'Fixture Booster Box', null, { catalogSourceUrl: NONSINGLES }))).toEqual({ reason: 'not_a_single' });
+    expect(memberCardName(row('cardmarket', 'Roronoa Zoro (OP01-001)', null, { catalogSourceUrl: NONSINGLES }))).toEqual({ reason: 'not_a_single' });
+    expect(memberCardName(row('cardmarket', 'Roronoa Zoro (OP01-001)', null, { catalogSourceUrl: null }))).toEqual({ reason: 'not_a_single' });
+    expect(memberCardName(row('cardmarket', 'Roronoa Zoro (OP01-001)', null, { catalogSourceUrl: `${SINGLES}.bak` }))).toEqual({ reason: 'not_a_single' });
+    expect(memberCardName(row('cardmarket', 'Fixture Leader (OP01-001)'))).toMatchObject({ text: 'Fixture Leader', rule: 'cardmarket-product/names-1' });
   });
 });

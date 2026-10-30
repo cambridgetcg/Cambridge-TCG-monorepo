@@ -170,7 +170,8 @@ function VendorName({ name }: { name: MemberCardName }) {
   return (
     <p className="mt-1 text-xs text-ink-muted" data-name={name.text} data-name-key={name.key} data-name-lang={name.lang} data-name-status={name.status} data-name-rule={name.rule}>
       Name: <span lang={name.lang} className="text-ink">{name.text}</span>
-      <span className="ml-2 text-ink-faint">{`${name.status} · ${SOURCE_NAMES[name.source]}`}</span>
+      {/* A real separator, so copied text and screen readers keep the name apart from its status. */}
+      {" · "}<span className="text-ink-faint">{`${name.status} · ${SOURCE_NAMES[name.source]}`}</span>
       {name.illustrator && <span className="block">Illustrator: {name.illustrator}</span>}
     </p>
   );
@@ -198,7 +199,7 @@ export function MemberPriceResults({ page, params, images }: { page: MemberPrice
       <p className="mb-3 text-xs text-ink-muted">{page.count} observations on this page; {page.total} in this filtered snapshot. {page.complete ? "End of results." : page.nextCursor ? "More results follow." : "More results match than this view shows."}</p>
       <p className="mb-4 text-xs text-ink-muted">Snapshot opened: <ObservationTime value={page.asOf} />. This is a pagination boundary, not source freshness. Source and retrieval times appear on each row.</p>
       {images && page.items.length > images.rowsLookedUp && <p className="mb-4 text-xs text-ink-muted">Images are looked up for the first {images.rowsLookedUp} rows of a page.</p>}
-      {names.some((name) => "text" in name) && <p className="mb-4 text-xs text-ink-muted">A name marked vendor is the source&apos;s own title with its markers removed by that source&apos;s rule, not an official name. Where the rule refuses a title, no name is shown. <Link href="/methodology/card-names" className="text-accent underline underline-offset-4">How card names are written</Link></p>}
+      {names.some((name) => "text" in name) && <p className="mb-4 text-xs text-ink-muted">A name marked vendor is the source&apos;s own title with its markers removed by that source&apos;s rule, not an official name. Where the rule refuses a title or does not cover the row, no name is shown. <Link href="/methodology/card-names" className="text-accent underline underline-offset-4">How card names are written</Link></p>}
       <div className="overflow-x-auto rounded-lg border border-border-subtle" role="region" aria-label="Source price observations" tabIndex={0}>
         <table className="w-full text-left text-sm">
           <caption className="sr-only">Stored source price observations in native currency. Product-level aggregates are not exact-printing sales.</caption>

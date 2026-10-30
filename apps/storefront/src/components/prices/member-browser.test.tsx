@@ -411,15 +411,18 @@ describe("member price rendering", () => {
   // Titles are the source fixtures' identifiers, as packages/sku/src/__tests__/names.test.ts uses them.
   const nameOf = (html: string) => /<p [^>]*data-name="[^>]*>[\s\S]*?<\/p>/.exec(html)?.[0];
   const titleOf = (title: string) => `<p class="font-medium text-ink">${title}</p>`;
+  // A cardrush-op.jp row is One Piece, the only CardRush game whose titles names-1 was checked against.
+  const onePiece = { ...listing, game: "one-piece" };
+  const productList = (kind: "singles" | "nonsingles") => `https://downloads.s3.cardmarket.com/productCatalog/productList/products_${kind}_18.json`;
 
   it("shows a CardRush row's vendor name under its raw title, with its status, its illustrator and attributes for agents", () => {
-    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing] }} params={new URLSearchParams()} />);
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [onePiece] }} params={new URLSearchParams()} />);
     const name = nameOf(html)!;
     // The raw title stays exactly as the source wrote it, with the name directly under it.
     expect(html).toContain(titleOf("〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}") + name);
     for (const attribute of ['data-name="お玉"', 'data-name-key="お玉"', 'data-name-lang="ja"', 'data-name-status="vendor"', 'data-name-rule="cardrush-title/names-1"']) expect(name).toContain(attribute);
-    expect(name).toContain('Name: <span lang="ja" class="text-ink">お玉</span>');
-    expect(name).toContain("vendor · CardRush");
+    // Text separates the name from its status, so copied text never reads お玉vendor.
+    expect(name).toContain('Name: <span lang="ja" class="text-ink">お玉</span> · <span class="text-ink-faint">vendor · CardRush</span>');
     expect(name).toContain("Illustrator: sowsow");
     expect(name).not.toMatch(/official/i);
     expect(html).toContain("A name marked vendor is the source&#x27;s own title");
@@ -430,17 +433,29 @@ describe("member price rendering", () => {
     const row = { ...reference, productName: "Roronoa Zoro (001) (Parallel)", language: "ja" };
     const name = nameOf(renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [row] }} params={new URLSearchParams()} />))!;
     for (const attribute of ['data-name="Roronoa Zoro"', 'data-name-key="roronoazoro"', 'data-name-lang="en"', 'data-name-status="vendor"', 'data-name-rule="tcgplayer-product/names-1"']) expect(name).toContain(attribute);
-    expect(name).toContain('Name: <span lang="en" class="text-ink">Roronoa Zoro</span>');
-    expect(name).toContain("vendor · TCGplayer");
+    expect(name).toContain('Name: <span lang="en" class="text-ink">Roronoa Zoro</span> · <span class="text-ink-faint">vendor · TCGplayer</span>');
     expect(name).not.toContain("Illustrator");
     expect(name).not.toMatch(/official/i);
   });
 
-  it("shows nothing extra for a refused title, a row without a title or a Scryfall row, and keeps each raw title", () => {
+  it("names a Cardmarket single from its singles product list", () => {
+    const row = { ...item, game: "one-piece", productName: "Fixture Leader (OP01-001)", catalogSourceUrl: productList("singles") };
+    const name = nameOf(renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [row] }} params={new URLSearchParams()} />))!;
+    for (const attribute of ['data-name="Fixture Leader"', 'data-name-lang="en"', 'data-name-rule="cardmarket-product/names-1"']) expect(name).toContain(attribute);
+    expect(name).toContain("vendor · Cardmarket");
+  });
+
+  it("shows nothing extra for a refused title, a row the rule does not cover, a row without a title or a Scryfall row, and keeps each raw title", () => {
     const refused = [
-      { ...listing, id: "cardrush-refused", productName: "ロロノア・ゾロ(パラレル/SP仕様)【L/P】{OP01-001}" },
-      { ...listing, id: "cardrush-english", productName: "ナミ(英語版)【SR】{OP01-016}", language: "en" },
-      { ...item, id: "cardmarket-refused", productName: "Roronoa Zoro (Parallel)" },
+      { ...onePiece, id: "cardrush-refused", productName: "ロロノア・ゾロ(パラレル/SP仕様)【L/P】{OP01-001}" },
+      { ...onePiece, id: "cardrush-english", productName: "ナミ(英語版)【SR】{OP01-016}", language: "en" },
+      // A language marker after the name region: the collector reads it anywhere in the title.
+      { ...onePiece, id: "cardrush-english-tail", productName: "ナミ【SR/英語版】{OP01-016}", language: "en" },
+      // The same title from a CardRush game names-1 was not checked against.
+      { ...listing, id: "cardrush-pokemon", game: "pokemon", sourceUrl: "https://www.cardrush-pokemon.jp/product/15600" },
+      { ...item, id: "cardmarket-refused", productName: "Roronoa Zoro (Parallel)", catalogSourceUrl: productList("singles") },
+      // The Cardmarket collector integration fixture's sealed product, from the nonsingles list.
+      { ...item, id: "cardmarket-sealed", productName: "Fixture Booster Box", catalogSourceUrl: productList("nonsingles") },
       { ...item, id: "no-title", productName: null },
       { ...item, id: "scryfall", source: "scryfall" as const, underlyingMarket: "tcgplayer" as const, productName: "Black Lotus", permittedUses: ["member-display" as const] },
     ];
@@ -448,9 +463,9 @@ describe("member price rendering", () => {
     expect(html).not.toContain("data-name");
     expect(html).not.toContain("Name:");
     expect(html).not.toContain("A name marked vendor");
-    for (const title of ["ロロノア・ゾロ(パラレル/SP仕様)【L/P】{OP01-001}", "ナミ(英語版)【SR】{OP01-016}", "Roronoa Zoro (Parallel)", "Source product name unknown", "Black Lotus"]) expect(html).toContain(titleOf(title));
+    for (const title of ["ロロノア・ゾロ(パラレル/SP仕様)【L/P】{OP01-001}", "ナミ(英語版)【SR】{OP01-016}", "ナミ【SR/英語版】{OP01-016}", "〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}", "Roronoa Zoro (Parallel)", "Fixture Booster Box", "Source product name unknown", "Black Lotus"]) expect(html).toContain(titleOf(title));
     // Beside a named row, a refused one still shows none.
-    const mixed = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing, ...refused] }} params={new URLSearchParams()} />);
+    const mixed = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [onePiece, ...refused] }} params={new URLSearchParams()} />);
     expect(mixed.match(/data-name="/g)).toHaveLength(1);
     expect(mixed.match(/A name marked vendor/g)).toHaveLength(1);
   });

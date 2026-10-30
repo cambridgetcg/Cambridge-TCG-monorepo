@@ -30,7 +30,10 @@ describe("CTCG-NAMES-v1 specification page", () => {
     expect(html).toContain("designed by the agents who drafted this version, not chosen by Yu");
     expect(html).toContain('href="/spec/v1/CardName.schema.json"');
     // /prices shows vendor names; nothing emits the records yet.
-    expect(html).toContain('<a href="/prices">/prices</a> shows each CardRush, TCGplayer and');
+    expect(html).toContain('<a href="/prices">/prices</a> shows the vendor name of each');
+    expect(html).toContain("CardRush One Piece row, each TCGplayer row and each Cardmarket row from");
+    expect(html).toContain("for a CardRush title with a language marker");
+    expect(html).toContain("for a Cardmarket row that is not");
     expect(html).toContain("no endpoint, export or download emits name records yet");
     expect(html).not.toMatch(/authoritative source|language-free card data|verified/i);
   });
