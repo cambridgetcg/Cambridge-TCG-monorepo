@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GAMES } from "@cambridge-tcg/sku";
 import type { MemberPriceItem, MemberPricePage } from "@/lib/prices/member-feed-types";
 import type { MemberPriceImage } from "@/lib/prices/member-images";
 import { DISPLAY_ONLY_INPUT_PAGES_END, MemberPriceQueryError } from "@/lib/prices/member-feed-types";
@@ -111,7 +112,7 @@ describe("member price server gate", () => {
     renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
     expect(mocks.images).not.toHaveBeenCalled();
     mocks.read.mockResolvedValue(page);
-    mocks.images.mockResolvedValue({ byItem: new Map([[item.id, { official: { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit" } }]]), rowsLookedUp: 1 });
+    mocks.images.mockResolvedValue({ byItem: new Map([[item.id, { official: { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit", imageLang: "en", depictedSku: "op-op01-006-en", relationship: "other-language", rowLang: "ja", rowVariant: null } }]]), rowsLookedUp: 1 });
     const html = renderToStaticMarkup(await MemberPriceBrowser({ search: {} }));
     expect(html).toContain('src="https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png"');
     expect(html).toContain("Publisher credit");
@@ -277,33 +278,45 @@ describe("member price rendering", () => {
     productName: "〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}", currency: "JPY" as const, underlyingMarket: "cardrush" as const, amount: "123", granularity: "printing" as const, permittedUses: ["member-display" as const] };
   const reference = { ...item, id: "cardmarket-1", sku: "op-op01-006-ja", mappingStatus: "exact" as const };
   const imagesFor = (entries: [string, MemberPriceImage][], rowsLookedUp = entries.length) => ({ byItem: new Map(entries), rowsLookedUp });
+  const linked = (lang: string | null = "ja") => ({ url: listingUrl, lang, relationship: "same-listing" as const });
+  const officialFor = (relationship: NonNullable<MemberPriceImage["official"]>["relationship"], rowLang: string, rowVariant: string | null = null, attribution = "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD.") => ({
+    url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution, imageLang: "en" as const, depictedSku: "op-op01-006-en", relationship, rowLang, rowVariant,
+  });
 
   it("offers a CardRush listing image at CardRush's own URL only behind a closed details element, lazily, fixed-size and credited to the listing", () => {
-    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { listing: listingUrl }]])} />);
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [listing] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { listing: linked() }]])} />);
     // Closed and lazy: the member's browser asks CardRush only when the member opens it.
     const details = /<details[^>]*>[\s\S]*?<\/details>/.exec(html)![0];
     expect(details).not.toMatch(/<details[^>]*\bopen\b/);
-    expect(details).toContain("Show CardRush&#x27;s listing image");
+    expect(details).toContain("Show CardRush&#x27;s listing image (this listing)");
     expect(details).toContain("Loads from CardRush, which then sees your IP address.");
     const img = /<img [^>]*>/.exec(details)![0];
     expect(img).toContain(`src="${listingUrl}"`);
     for (const attribute of ['loading="lazy"', 'decoding="async"', 'width="56"', 'height="78"', 'referrerPolicy="no-referrer"', 'alt="〔状態C〕お玉(illust:sowsow)【UC】{OP01-006}: CardRush listing image"']) expect(img).toContain(attribute);
+    // For an agent reading the HTML: the listing's own image, in the listing's language.
+    for (const attribute of ['data-image-source="cardrush-listing"', 'data-image-lang="ja"', 'data-row-lang="ja"', 'data-relationship="same-listing"']) expect(img).toContain(attribute);
+    expect(img).not.toContain("data-depicted-sku");
     // A plain img: never next/image, its optimiser or any other proxy.
     expect(html).not.toContain("/_next/image");
     expect(html).not.toContain("srcSet");
     expect(html).not.toContain("srcset");
     expect(html).toContain('<a href="https://www.cardrush-op.jp/product/15600" target="_blank" rel="noopener noreferrer" class="text-accent underline underline-offset-4">Image: CardRush</a>');
     expect(html).not.toContain("Official image");
+    expect(html).not.toContain('data-image-source="official"');
   });
 
-  it("labels an official image as an English base reference with its credit, and shows nothing for a row without one", () => {
-    const official = { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "©Eiichiro Oda/Shueisha, Toei Animation ©BANDAI CO., LTD." };
+  it("gives a listing image of unknown language no language", () => {
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [{ ...listing, language: null }] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { listing: linked(null) }]])} />);
+    const img = /<img [^>]*>/.exec(html)![0];
+    for (const attribute of ['data-image-lang="unknown"', 'data-row-lang="unknown"', 'data-relationship="same-listing"']) expect(img).toContain(attribute);
+  });
+
+  it("labels an official image with its credit, and shows nothing for a row without one", () => {
+    const official = officialFor("other-language", "ja");
     const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [reference, item] }} params={new URLSearchParams()} images={imagesFor([[reference.id, { official }]], 2)} />);
     expect(html.match(/<img /g)).toHaveLength(1);
     expect(html).toContain(`src="${official.url}"`);
-    expect(html).toContain("Official image · English base reference");
     expect(html).toContain(official.attribution);
-    expect(html).toContain("official English base reference image, printing not verified");
     expect(html).not.toContain("Image: CardRush");
     // No images at all: no img and no placeholder that implies one.
     const none = renderToStaticMarkup(<MemberPriceResults page={page} params={new URLSearchParams()} images={imagesFor([], 1)} />);
@@ -312,15 +325,46 @@ describe("member price rendering", () => {
     expect(renderToStaticMarkup(<MemberPriceResults page={page} params={new URLSearchParams()} />)).not.toContain("<img");
   });
 
+  it.each([
+    ["an English base row", "op-op01-006-en", officialFor("same-printing", "en"), "Official image · this printing (English)", "Official image; this printing (English), matched by SKU, not verified"],
+    ["an English parallel", "op-op01-006-en-p1", officialFor("same-language-base-print", "en", "p1"), "Official English base print · this row is a parallel, art may differ", "Official English base print; this row is a parallel, art may differ"],
+    ["an English reprint", "op-op01-006-en-r1", officialFor("same-language-base-print", "en", "r1"), "Official English base print · this row is a reprint, art may differ", "Official English base print; this row is a reprint, art may differ"],
+    ["a Japanese row", "op-op01-006-ja", officialFor("other-language", "ja"), "Official English image · this row is Japanese (ja): language differs", "Official English image; this row is Japanese (ja): language differs"],
+    ["a Japanese parallel", "op-op01-006-ja-p1", officialFor("other-language", "ja", "p1"), "Official English base print · this row is Japanese (ja), a parallel: language differs, art may differ", "Official English base print; this row is Japanese (ja), a parallel: language differs, art may differ"],
+    ["a code the registry does not know", "op-op01-006-xx", officialFor("other-language", "xx"), "Official English image · this row is in language xx: language differs", "Official English image; this row is in language xx: language differs"],
+  ] as const)("says plainly how the official image relates to %s (%s), in its label, alt text and data attributes", (_name, sku, official, label, alt) => {
+    const row = { ...reference, sku };
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [row] }} params={new URLSearchParams()} images={imagesFor([[row.id, { official }]])} />);
+    expect(html).toContain(`${label}<span`);
+    expect(html).not.toContain("English base reference");
+    const img = /<img [^>]*>/.exec(html)![0];
+    expect(img).toContain(`alt="Example product: ${alt}"`);
+    for (const attribute of ['data-image-source="official"', 'data-image-lang="en"', `data-row-lang="${official.rowLang}"`, `data-relationship="${official.relationship}"`, 'data-depicted-sku="op-op01-006-en"']) expect(img).toContain(attribute);
+  });
+
+  it("names every language the SKU registry knows", () => {
+    const codes = [...new Set(Object.values(GAMES).flatMap(game => game.languages))].filter(code => code !== "en");
+    expect(codes).toContain("ja");
+    for (const code of codes) {
+      const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [reference] }} params={new URLSearchParams()} images={imagesFor([[reference.id, { official: officialFor("other-language", code) }]])} />);
+      expect(html, code).toMatch(new RegExp(`this row is [A-Z][a-z]+ \\(${code}\\): language differs`));
+    }
+  });
+
   it("shows a mapped CardRush row its official reference inline and its listing image behind the member's click", () => {
-    const official = { url: "https://ctcg-card-images.s3.us-east-1.amazonaws.com/official/OP-OP01-006-EN.png", attribution: "Publisher credit" };
-    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [{ ...listing, sku: "op-op01-006-ja", mappingStatus: "exact" as const }] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { official, listing: listingUrl }]])} />);
+    const official = officialFor("other-language", "ja", null, "Publisher credit");
+    const html = renderToStaticMarkup(<MemberPriceResults page={{ ...page, items: [{ ...listing, sku: "op-op01-006-ja", mappingStatus: "exact" as const }] }} params={new URLSearchParams()} images={imagesFor([[listing.id, { official, listing: linked() }]])} />);
     const details = /<details[^>]*>[\s\S]*?<\/details>/.exec(html)![0];
     // The official image sits outside the details element; the CardRush one inside it.
     expect(html.replace(details, "")).toContain(`src="${official.url}"`);
     expect(html.replace(details, "")).not.toContain(listingUrl);
     expect(details).toContain(`src="${listingUrl}"`);
-    expect(html).toContain("Official image · English base reference");
+    expect(html).toContain("Official English image · this row is Japanese (ja): language differs");
+    // Each image says its own source and relationship; only the official one names a depicted SKU.
+    const [inline, behind] = [...html.matchAll(/<img [^>]*>/g)].map(match => match[0]);
+    for (const attribute of ['data-image-source="official"', 'data-relationship="other-language"', 'data-depicted-sku="op-op01-006-en"']) expect(inline).toContain(attribute);
+    for (const attribute of ['data-image-source="cardrush-listing"', 'data-relationship="same-listing"']) expect(behind).toContain(attribute);
+    expect(behind).not.toContain("data-depicted-sku");
   });
 
   it("says when a page has more rows than were looked up for images", () => {

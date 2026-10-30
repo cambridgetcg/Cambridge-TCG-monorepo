@@ -1,15 +1,29 @@
 import 'server-only';
+import { skuIdentity } from '@cambridge-tcg/sku';
 import { query as dbQuery } from '@/lib/db';
 import { cardRushListingImageUrl } from '@cambridge-tcg/data-ingest/cardrush/member-prices';
-import { getEnCardImages } from '@/lib/cards/en-card-data';
+import { getEnCardImages, type EnCardImage } from '@/lib/cards/en-card-data';
 import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, type MemberPriceItem } from './member-feed-types';
+
+/** How the official image relates to its row. The image is always the
+ * publisher's English base print: the projector refuses any other row
+ * (image-publication.ts), and its reference names the SKU it depicts.
+ * - same-printing: an English row with no variant, so the depicted SKU is
+ *   the row's own.
+ * - same-language-base-print: an English row with a variant (a parallel or
+ *   reprint), so the art may differ.
+ * - other-language: a row in another language.
+ * All three are matched by SKU syntax; none verifies the physical card. */
+export type MemberOfficialImageRelationship = 'same-printing' | 'same-language-base-print' | 'other-language';
 
 /** Identity images beside /prices rows, so a person or an agent reading the
  * page can check the item against its price (Yu, 2026-10-29). Display only,
  * in two lanes, and a row may have both:
  * - A row with an exact SKU shows the official English base reference
- *   through the existing reader and projector (en-card-data.ts), labelled
- *   as a reference, from Cambridge's own image host.
+ *   through the existing reader and projector (en-card-data.ts), from
+ *   Cambridge's own image host, labelled with how its language and printing
+ *   relate to the row's (Yu, 2026-10-30: "sort out the languages and
+ *   corresponding images").
  * - A CardRush row offers the listing's own image at CardRush's own URL,
  *   credited and linked to the listing (price_source_listing_images, 0145).
  *   Cambridge never copies, mirrors, re-hosts, proxies or caches it, and the
@@ -22,9 +36,20 @@ import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, type MemberPriceItem } from './member-fe
  * unchanged.
  */
 export interface MemberPriceImage {
-  official?: { url: string; attribution: string };
-  /** The CardRush listing's own image URL. */
-  listing?: string;
+  official?: {
+    url: string;
+    attribution: string;
+    imageLang: 'en';
+    /** The canonical SKU the image depicts, from the projector's reference. */
+    depictedSku: string;
+    relationship: MemberOfficialImageRelationship;
+    /** The row's language and variant, from its exact SKU. */
+    rowLang: string;
+    rowVariant: string | null;
+  };
+  /** The CardRush listing's own image, so its language and printing are the
+   * listing's: `lang` is the row's language, or null when unknown. */
+  listing?: { url: string; lang: string | null; relationship: 'same-listing' };
 }
 export interface MemberPriceImages {
   /** By item id. */
@@ -67,7 +92,7 @@ async function listingImages(ids: readonly string[]): Promise<Map<string, string
   return found;
 }
 
-async function officialImages(skus: readonly string[]): Promise<Map<string, { url: string; attribution: string }>> {
+async function officialImages(skus: readonly string[]): Promise<Map<string, EnCardImage>> {
   if (!skus.length) return new Map();
   try {
     return await getEnCardImages(skus);
@@ -90,11 +115,19 @@ export async function readMemberPriceImages(items: readonly MemberPriceItem[], e
   for (const item of rows) {
     const listing = item.source === 'cardrush' ? linked.get(item.sourceProductId) : undefined;
     const sku = exactSku(item);
-    const reference = sku ? official.get(sku) : undefined;
+    // The row's language: its exact SKU's, else the observation's own.
+    const identity = sku ? skuIdentity(sku) : null;
+    const reference = sku && identity ? official.get(sku) : undefined;
     if (!listing && !reference) continue;
+    const lang = identity ? identity.lang : item.language;
     byItem.set(item.id, {
-      ...(reference ? { official: { url: reference.url, attribution: reference.attribution } } : {}),
-      ...(listing ? { listing } : {}),
+      ...(reference && identity ? { official: {
+        url: reference.url, attribution: reference.attribution, imageLang: 'en' as const,
+        depictedSku: reference.reference.depicted_canonical_sku,
+        relationship: identity.lang !== 'en' ? 'other-language' as const : identity.variant ? 'same-language-base-print' as const : 'same-printing' as const,
+        rowLang: identity.lang, rowVariant: identity.variant,
+      } } : {}),
+      ...(listing ? { listing: { url: listing, lang, relationship: 'same-listing' as const } } : {}),
     });
   }
   return { byItem, rowsLookedUp: rows.length };

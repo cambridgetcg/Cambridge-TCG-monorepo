@@ -83,18 +83,46 @@ function ObservationTime({ value }: { value: string | null }) {
   return value ? <time dateTime={value}>{value}</time> : <>Unknown</>;
 }
 
-/** A row's official English base reference, small and fixed-size, from
- * Cambridge's own image host, for checking the item. */
+// Names for the language codes the SKU registry knows (GAMES[*].languages in
+// @cambridge-tcg/sku); any other code shows as the code alone. A zh SKU does
+// not say which script, so it is only "Chinese".
+const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
+  en: "English", ja: "Japanese", zh: "Chinese", ko: "Korean", fr: "French",
+  de: "German", es: "Spanish", it: "Italian", pt: "Portuguese", ru: "Russian",
+};
+const languageOf = (code: string) => Object.hasOwn(LANGUAGE_NAMES, code) ? `${LANGUAGE_NAMES[code]} (${code})` : `in language ${code}`;
+// pN and rN are the publisher's parallel and reprint suffixes; any other variant is named as stored.
+const variantOf = (variant: string | null) => variant === null ? "another printing" : /^p\d+$/.test(variant) ? "a parallel" : /^r\d+$/.test(variant) ? "a reprint" : `a variant (${variant})`;
+
+/** What the official image is, then how it relates to the row: plainly, so
+ * a member never takes English base art for the row's own printing. */
+function officialLabel(image: NonNullable<MemberPriceImage["official"]>): [string, string] {
+  if (image.relationship === "same-printing") return ["Official image", `this printing (${LANGUAGE_NAMES[image.imageLang]})`];
+  if (image.relationship === "same-language-base-print") return ["Official English base print", `this row is ${variantOf(image.rowVariant)}, art may differ`];
+  return image.rowVariant === null
+    ? ["Official English image", `this row is ${languageOf(image.rowLang)}: language differs`]
+    : ["Official English base print", `this row is ${languageOf(image.rowLang)}, ${variantOf(image.rowVariant)}: language differs, art may differ`];
+}
+
+/** A row's official English base print, small and fixed-size, from
+ * Cambridge's own image host, for checking the item. The data attributes say
+ * the same as the label, for an agent reading the HTML. */
 function OfficialImage({ image, item }: { image: NonNullable<MemberPriceImage["official"]>; item: MemberPriceItem }) {
+  const [what, relation] = officialLabel(image);
   return (
     // eslint-disable-next-line @next/next/no-img-element -- the projector's URL as served, never re-optimised
     <img
       src={image.url}
-      alt={`${item.productName ?? item.sourceProductId}: official English base reference image, printing not verified`}
+      alt={`${item.productName ?? item.sourceProductId}: ${what}; ${relation}${image.relationship === "same-printing" ? ", matched by SKU, not verified" : ""}`}
       width={56}
       height={78}
       loading="lazy"
       decoding="async"
+      data-image-source="official"
+      data-image-lang={image.imageLang}
+      data-row-lang={image.rowLang}
+      data-relationship={image.relationship}
+      data-depicted-sku={image.depictedSku}
       className="h-[78px] w-14 shrink-0 rounded border border-border-subtle bg-surface-subtle object-contain"
     />
   );
@@ -106,20 +134,24 @@ function OfficialImage({ image, item }: { image: NonNullable<MemberPriceImage["o
  * CardRush for it only when the member opens it (checked in Chromium: a lazy
  * image in a closed details element is not fetched). The request sends no
  * Referer, so CardRush is not told which member page asked. */
-function ListingImage({ url, item }: { url: string; item: MemberPriceItem }) {
+function ListingImage({ image, item }: { image: NonNullable<MemberPriceImage["listing"]>; item: MemberPriceItem }) {
   return (
     <details className="mt-2 text-xs">
-      <summary className="cursor-pointer text-accent">Show CardRush&apos;s listing image</summary>
+      <summary className="cursor-pointer text-accent">Show CardRush&apos;s listing image (this listing)</summary>
       <p className="mt-1 text-ink-muted">Loads from CardRush, which then sees your IP address.</p>
       {/* eslint-disable-next-line @next/next/no-img-element -- linked at the source's own URL, never optimised or proxied */}
       <img
-        src={url}
+        src={image.url}
         alt={`${item.productName ?? item.sourceProductId}: CardRush listing image`}
         width={56}
         height={78}
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
+        data-image-source="cardrush-listing"
+        data-image-lang={image.lang ?? "unknown"}
+        data-row-lang={image.lang ?? "unknown"}
+        data-relationship={image.relationship}
         className="mt-2 h-[78px] w-14 rounded border border-border-subtle bg-surface-subtle object-contain"
       />
       <p className="mt-1"><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-4">Image: CardRush</a></p>
@@ -165,8 +197,8 @@ export function MemberPriceResults({ page, params, images }: { page: MemberPrice
                         <p className="font-medium text-ink">{item.productName ?? "Source product name unknown"}</p>
                         <p className="mt-1 text-xs text-ink-muted">{item.game}{item.setCode ? ` · ${item.setCode}` : ""}</p>
                         <p className="mt-1 break-all font-mono text-xs text-ink-muted">{item.sku ?? `Source ID: ${item.sourceProductId}`}</p>
-                        {image?.official && <p className="mt-2 text-xs text-ink-muted">Official image · English base reference<span className="block text-ink-faint">{image.official.attribution}</span></p>}
-                        {image?.listing && <ListingImage url={image.listing} item={item} />}
+                        {image?.official && <p className="mt-2 text-xs text-ink-muted">{officialLabel(image.official).join(" · ")}<span className="block text-ink-faint">{image.official.attribution}</span></p>}
+                        {image?.listing && <ListingImage image={image.listing} item={item} />}
                       </div>
                     </div>
                   </th>
