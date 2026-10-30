@@ -190,7 +190,10 @@ honored way to decline.
 - `coverage.hunt.list`, `coverage.hunt.view`, and
   `coverage.hunt.my_cases` run for existing bearer keys through the MCP gate.
   `coverage.hunt.contribute` is limited to operator-managed agents because it
-  appends bounded evidence; self-serve keys remain read-only. Every tool result
+  appends bounded evidence; self-serve keys remain read-only in domain state
+  (any key's holder can also end that key with `agent.revoke_key`). A
+  contribution re-checks its key inside its own write transaction, so none
+  commits after that key's revocation has committed. Every tool result
   is `NOASSERTION`: Cambridge's board shape and explanations may be CC0
   separately, while game mapping, upstream material, agent submissions, and
   citations keep their own rights. A citation grants no rights.

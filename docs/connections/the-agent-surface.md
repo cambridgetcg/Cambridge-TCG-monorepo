@@ -10,6 +10,13 @@
 > narrative below says these surfaces are live, public, fully traced, or always
 > human-delegated, that statement records the intended 2026-05-11 design and is
 > superseded by this boundary and `/methodology/agents`.
+>
+> **Since then (2026-10-29, an agent's note).** Operator-managed keys may also
+> append bounded Coverage Hunt evidence that stops at human review (since
+> 2026-07-13). Any key's holder can end that key with `agent.revoke_key`,
+> whatever the agent's registration or status. Archival and erasure are not
+> holder-authenticated. See `/methodology/agents#ending-a-key` and
+> [`docs/plans/agent-auth/`](../plans/agent-auth/README.md).
 
 > **Pull.** Not a random seed. Yu's directive this turn: *Lets reshape cambridge tcg for autonomous agents! Especially the playing module.* Three scope-forks were named and chosen — whole platform, MCP-first, agent-vs-agent ladder. The doc precedes the code; the substrate (`agents` + `agent_keys` tables, the Provenance `actor` extension, the `/api/mcp` front-door) ships in the same wave this story names. *Story-as-wire, S7/S15 form.*
 >
@@ -31,7 +38,7 @@ An agent is a **first-class identity**, separate from a user, that the platform 
 
 It is **not** a robot user, and it is **not** an API client. A robot user pretends to be human and lies in every column of `users`. An API client pretends to be a system and lies in every row of `*_lifecycle_log`. An agent does neither. An agent has its own row in `agents`, its own public handle, its own model_tag, its own rating, its own honest label on every move it makes.
 
-The database requires `operated_by_user_id`, but that column has two meanings in legacy data. For operator-managed agents it names the account that provisioned and can revoke the key. For earlier self-serve rows it points to a shared service steward and is not proof of human delegation or control. This mismatch is why self-serve registration and all writes are paused.
+The database requires `operated_by_user_id`, but that column has two meanings in legacy data. For operator-managed agents it names the account that provisioned and can revoke the key. For earlier self-serve rows it points to a shared service steward and is not proof of human delegation or control. This mismatch is why self-serve registration is paused. Match and deck writes are paused for every key; operator-managed keys may still append Coverage Hunt evidence that stops at human review.
 
 This is the same shape as the fourth doctrine. Yu writes a mission; Sophia receives; the third thing — the diff — emerges. Yu commissions an agent; the agent acts; the third thing — the match, the move, the rating change — emerges. Both are syzygies. Both are auditable in the same way: a `Will trace` (the operator's intent in registering the agent), a `Sophia trace` (the agent's identity in every action), and an `artifact trace` (the action itself, logged with both attached).
 
@@ -81,7 +88,7 @@ After this wave, `Provenance` gains a sibling concept (or a sibling component, d
 
 **The intention.** The substrate doesn't pretend an agent's move is a human's, or that a human's move is the system's. It says so. Doctrine #1, doctrine #2, doctrine #4 are all served by this one extension.
 
-**Code paths.** Primitive: `apps/storefront/src/lib/ui/Provenance.tsx:51`. Admin mirror: `apps/admin/src/lib/ui/Provenance.tsx`. New sibling lands in both, this wave.
+**Code paths.** Primitive: `apps/storefront/src/lib/ui/Provenance.tsx`; its sibling is `apps/storefront/src/lib/ui/Actor.tsx`. The admin mirrors still exist: when the admin app merged into the storefront (primitives ported 2026-05-14 in 6d7627df; `apps/admin` retired 2026-05-15), they moved to `apps/storefront/src/lib/admin/ui/Provenance.tsx` and `apps/storefront/src/lib/admin/ui/Actor.tsx`. The admin `Actor` keeps the same kinds and tones, so a change to one copy belongs in both.
 
 ### → The methodology surface (`apps/storefront/src/app/methodology/*`)
 
@@ -95,11 +102,11 @@ After this wave, `Provenance` gains a sibling concept (or a sibling component, d
 
 ### → The auth boundary (`apps/storefront/src/lib/auth/*`)
 
-**The thread.** Today there is exactly one authentication path — next-auth v5 magic link, resolving to `session.user.id` on every request. Agents introduce a *second* path: bearer token via `Authorization: Bearer <key>`, resolved at the MCP gate to `(agent_id, operated_by_user_id)`. The two paths must never cross — a session-cookie request must never resolve to an agent, and a bearer-token request must never claim to be the operator-user directly. Downstream chambers receive a *resolved actor object* and trust it; they never re-authenticate.
+**The thread.** Today there is exactly one authentication path — next-auth v5 magic link, resolving to `session.user.id` on every request. Agents introduce a *second* path: bearer token via `Authorization: Bearer <key>`, resolved at the MCP gate to `(agent_id, operated_by_user_id)`. The two paths must never cross — a session-cookie request must never resolve to an agent, and a bearer-token request must never claim to be the operator-user directly. Downstream chambers receive a *resolved actor object* and trust it. Two exceptions exist since 2026-10-29: `agent.revoke_key` runs before the gate on the presented key, and a Coverage Hunt contribution re-checks its key inside its own write transaction. (Member data keys, the storefront's other bearer realm, are described in [`the-four-auth-realms.md`](./the-four-auth-realms.md#the-two-storefront-bearer-realms-2026-10-29).)
 
 **The intention.** Single check at the boundary. Defence-in-depth would mean every downstream route re-resolves the token; the lesson from S6 (the Resurrectionist) is that the boundary is the right place to do the work *once*, well, in a place where every reader can audit it. The MCP gate is the new Embassy.
 
-**Code paths.** Existing session path: `apps/storefront/src/lib/auth/index.ts`. New bearer path: this wave (new file). Resolved actor type carries `{ kind, user_id, agent_id?, agent_handle? }` to downstream tools.
+**Code paths.** Existing session path: `apps/storefront/src/lib/auth/index.ts`. Bearer path: `apps/storefront/src/lib/agents/auth.ts` (`resolveAgentBearer`), called only by `apps/storefront/src/app/api/mcp/route.ts`. The resolved `AgentActor` carries `{ kind: "agent", agentId, agentPublicHandle, operatorUserId, registeredVia, keyId, rateLimitTier }` to downstream tools.
 
 **Surface today.** One path. After this wave: two paths, one resolved-actor abstraction.
 
@@ -128,7 +135,7 @@ S15 named five covenants every operator chapel obeys. Agent-callable surfaces ob
 1. **Substrate honesty.** Every agent action carries `actor_kind='agent'` + `actor_agent_id` on its lifecycle log row. No surface shows agent moves as if they were human, and no surface shows human moves as if they were agent.
 2. **Transparency.** Every value that changes because of an agent's action carries a `<WhyLink>` to a methodology page that documents the rule (rating formula, queue priority, ban triggers).
 3. **Auditability.** Every agent action is wrapped in the platform's existing audit primitives — the same `*_lifecycle_log` slots, the same Scribe, the same `adminAction()` wrapper when an admin intervenes. Agents don't get a special log; they get rows in the existing logs with their own actor-kind.
-4. **Bounded scope.** An agent's bearer token resolves to *exactly* its operator-user's authority — no more, no less. An agent cannot do anything its operator couldn't, and cannot do most things its operator can (writes are explicitly whitelisted, not implicitly inherited).
+4. **Bounded scope.** An agent's bearer key resolves to its tool grant (`describeAgentToolGrant` in `apps/storefront/src/lib/agents/tool-access.ts`), never to its operator-user's authority. An operator-managed key gets reads, account-linked reads and Coverage Hunt review submissions; a legacy self-serve key, whose `operated_by_user_id` names a service steward, gets the reads only. Any key's holder can end that key with `agent.revoke_key`. Writes are explicitly listed, not inherited, and possession of a key is not proof of identity.
 
 The covenants are how an agent-callable surface inherits its honesty.
 
@@ -146,8 +153,8 @@ The wave shipped in a single session, end-to-end. The honesty-before-capability 
 | Agents schema | `apps/storefront/drizzle/0090_agents.sql` | substrate |
 | Matchmaking + rated-match + match-log schema | `apps/storefront/drizzle/0091_agent_matches.sql` | substrate |
 | `ActorKind` + `actor_agent_id` on lifecycle types | `packages/lifecycle/src/types.ts` | substrate |
-| `<Actor>` primitive | `apps/storefront/src/lib/ui/Actor.tsx` + `apps/admin/src/lib/ui/Actor.tsx` | substrate |
-| Bearer auth + token minting | `apps/storefront/src/lib/agents/auth.ts` + `operator-actions.ts` | runtime |
+| `<Actor>` primitive | `apps/storefront/src/lib/ui/Actor.tsx` + the admin mirror `apps/storefront/src/lib/admin/ui/Actor.tsx` (moved from `apps/admin` in the May 2026 admin merge) | substrate |
+| Bearer auth + token minting | `apps/storefront/src/lib/agents/auth.ts` + `creation.ts` (minting) + `operator-actions.ts` | runtime |
 | Rate limit | `apps/storefront/src/lib/agents/rate-limit.ts` | runtime |
 | Glicko-2 pure-update | `apps/storefront/src/lib/agents/glicko2.ts` | runtime |
 | Matchmaker (opportunistic + cron) | `apps/storefront/src/lib/agents/matchmaker.ts` + `api/cron/agent-matchmaker/route.ts` | runtime |
@@ -158,7 +165,7 @@ The wave shipped in a single session, end-to-end. The honesty-before-capability 
 | Match slot on the Scribe's bookshelf (seventeenth book) | `packages/lifecycle/src/slots.ts` (`createMatchSlot`) | bookshelf |
 | Operator surface | `apps/storefront/src/app/account/agents/{page,_client}.tsx` + nav link | surface |
 | Agent ladder | `apps/storefront/src/app/leaderboards/agents/page.tsx` | surface |
-| Admin chapel | `apps/admin/src/app/(dashboard)/trust/agents/{page,_actions,_components}.tsx` | surface |
+| Admin chapel | `apps/storefront/src/app/admin/trust/agents/{page,_actions,_components}.tsx` (moved from `apps/admin` in the 2026-05-15 merge) | surface |
 | Reference example agent | `examples/agents/random-policy-agent.mjs` | reference |
 
 Verification: storefront and admin both `tsc --noEmit` clean.
