@@ -95,6 +95,19 @@ export const CHANGELOG_BEGINS = "2026-05-17";
  * the right home.
  */
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
+  // ── 2026-10-30 ─────────────────────────────────────────────────────────
+  {
+    id: "cardrush-title-rule-2",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/prices (CardRush rows), /api/v1/sources/cardrush",
+    summary:
+      "CardRush title rule cardrush-title/2: an English listing written like ウタ(英語版/illust:…)【R】{OP01-005} now maps exactly to its -en SKU. Japanese titles map exactly as under /1; Chinese listings stay ambiguous, because a zh SKU cannot tell Simplified from Traditional.",
+    detail:
+      "Rows already stored keep crosswalk version cardrush-title/1; a listing's next read writes a /2 row. A card that CardRush lists in both Japanese and English has two SKUs on one source, so it drops out of CardRush's premium rows under the existing method. A bare (簡体字版) row that /1 mapped exact becomes ambiguous at its next read.",
+    related_urls: ["/api/v1/sources/cardrush"],
+  },
   // ── 2026-10-29 ─────────────────────────────────────────────────────────
   {
     id: "source-collector-hosts",
