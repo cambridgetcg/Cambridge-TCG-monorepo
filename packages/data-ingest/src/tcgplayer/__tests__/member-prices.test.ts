@@ -5,8 +5,8 @@ import { artifactDigest, CARDRUSH_EVIDENCE_VERSION, MEMBER_PRICE_REVIEW_VERSION,
 import { createFetcher, type Fetcher } from '../../http';
 import { tcgplayer } from '../index';
 import {
-  acquireTcgplayerPriceGuide, createTcgplayerFetcher, fetchTcgplayerCardsProductType, fetchTcgplayerSets, parseTcgplayerPriceGuide, parseTcgplayerSets,
-  TCGPLAYER_CROSSWALK_VERSION, TCGPLAYER_PRICE_GUIDE_PARSER, TCGPLAYER_PRODUCT_LINES, TcgplayerUnavailableError, type TcgplayerSet,
+  acquireTcgplayerPriceGuide, createTcgplayerFetcher, fetchTcgplayerCardsProductType, fetchTcgplayerSets, parseTcgplayerPriceGuide, parseTcgplayerSets, readTcgplayerRobots,
+  tcgplayerSetDisallowed, TCGPLAYER_COLLECTOR_HOSTS, TCGPLAYER_CROSSWALK_VERSION, TCGPLAYER_PRICE_GUIDE_PARSER, TCGPLAYER_PRODUCT_LINES, TcgplayerUnavailableError, type TcgplayerRunFetcher, type TcgplayerSet,
 } from '../member-prices';
 
 // Trimmed responses read 2026-10-28; prices in them are synthetic stand-ins.
@@ -37,6 +37,17 @@ function fakeFetcher(responses: (() => Response)[]): Fetcher & { urls: string[];
   return Object.assign(f, { urls, inits, count: 0, via_proxy: null, via_proxy_label: null }) as unknown as Fetcher & { urls: string[]; inits: (RequestInit | undefined)[] };
 }
 const json = (body: unknown, status = 200) => () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
+const ROBOTS = TCGPLAYER_COLLECTOR_HOSTS.map(host => `https://${host}/robots.txt`);
+/** No robots.txt (404), as both data hosts answered on 2026-10-28. */
+const none = () => new Response('', { status: 404 });
+const text = (body: string, status = 200) => () => new Response(body, { status, headers: { 'content-type': 'text/plain' } });
+/** A run's fetcher over the fake: robots.txt for the three hosts first (none by default), then `responses`. */
+async function opened(responses: (() => Response)[], robots: (() => Response)[] = [none, none, none], lines = [onePiece]) {
+  const fetcher = fakeFetcher([...robots, ...responses]);
+  return Object.assign(await readTcgplayerRobots(fetcher, TCGPLAYER_EVIDENCE_VERSION, lines), { urls: fetcher.urls, inits: fetcher.inits });
+}
+/** Not a run's fetcher: robots.txt was never read through it. */
+const unread = (fetcher: Fetcher) => fetcher as TcgplayerRunFetcher;
 
 describe('TCGplayer price-guide rows', () => {
   it('reads Market Price per printing and condition, with source time the instant of reading', () => {
@@ -183,9 +194,10 @@ describe('TCGplayer acquisition', () => {
 
   it.each([MEMBER_PRICE_REVIEW_VERSION, CARDRUSH_EVIDENCE_VERSION, '', 'tcgplayer/2026-10-28.2'])('refuses every request without the permission evidence (%j)', async version => {
     const fetcher = fakeFetcher([]);
-    await expect(fetchTcgplayerSets(fetcher, version, onePiece)).rejects.toThrow('tcgplayer-collection-evidence-required');
-    await expect(fetchTcgplayerCardsProductType(fetcher, version, onePiece)).rejects.toThrow('tcgplayer-collection-evidence-required');
-    await expect(acquireTcgplayerPriceGuide(fetcher, version, { line: onePiece, set: romanceDawn, productTypeId: 110 })).rejects.toThrow('tcgplayer-collection-evidence-required');
+    await expect(readTcgplayerRobots(fetcher, version, [onePiece])).rejects.toThrow('tcgplayer-collection-evidence-required');
+    await expect(fetchTcgplayerSets(unread(fetcher), version, onePiece)).rejects.toThrow('tcgplayer-collection-evidence-required');
+    await expect(fetchTcgplayerCardsProductType(unread(fetcher), version, onePiece)).rejects.toThrow('tcgplayer-collection-evidence-required');
+    await expect(acquireTcgplayerPriceGuide(unread(fetcher), version, { line: onePiece, set: romanceDawn, productTypeId: 110 })).rejects.toThrow('tcgplayer-collection-evidence-required');
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -198,30 +210,39 @@ describe('TCGplayer acquisition', () => {
   it('refuses lines that are listed but not collected, and a set from another line', async () => {
     const fetcher = fakeFetcher([]);
     expect(magic.collect).toBe(false);
-    await expect(fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, magic)).rejects.toThrow('tcgplayer-product-line-not-collected');
+    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, magic)).rejects.toThrow('tcgplayer-product-line-not-collected');
+    await expect(readTcgplayerRobots(fetcher, TCGPLAYER_EVIDENCE_VERSION, [onePiece, magic])).rejects.toThrow('tcgplayer-product-line-not-collected');
     // Category 3's id and row label come from the legacy map, not a probe.
     expect(pokemon.collect).toBe(false);
-    await expect(fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, pokemon)).rejects.toThrow('tcgplayer-product-line-not-collected');
-    await expect(fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, { ...pokemon, collect: true })).rejects.toThrow('tcgplayer-product-line-not-collected');
-    await expect(fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, { ...onePiece, categoryId: 1 })).rejects.toThrow('tcgplayer-product-line-not-collected');
-    await expect(acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: tripletBeat, productTypeId: 110 })).rejects.toThrow('tcgplayer-set-not-in-line');
+    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, pokemon)).rejects.toThrow('tcgplayer-product-line-not-collected');
+    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { ...pokemon, collect: true })).rejects.toThrow('tcgplayer-product-line-not-collected');
+    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { ...onePiece, categoryId: 1 })).rejects.toThrow('tcgplayer-product-line-not-collected');
+    await expect(acquireTcgplayerPriceGuide(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: tripletBeat, productTypeId: 110 })).rejects.toThrow('tcgplayer-set-not-in-line');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('reads no data through a fetcher this run has not read robots.txt through', async () => {
+    const fetcher = fakeFetcher([json(fixture('set-names-68.json'))]);
+    await expect(fetchTcgplayerSets(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, onePiece)).rejects.toThrow('tcgplayer-robots-not-read');
+    await expect(acquireTcgplayerPriceGuide(unread(fetcher), TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: romanceDawn, productTypeId: 110 })).rejects.toThrow('tcgplayer-robots-not-read');
     expect(fetcher).not.toHaveBeenCalled();
   });
 
   it('reads set lists, the Cards product type and one set guide from the endpoints the page uses', async () => {
     const guide = fixture('price-guide-3188-op01.json');
-    const fetcher = fakeFetcher([json(fixture('set-names-68.json')), json(fixture('product-types-68.json')), json(guide)]);
+    const fetcher = await opened([json(fixture('set-names-68.json')), json(fixture('product-types-68.json')), json(guide)]);
     const sets = await fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece);
     expect(sets.map(set => [set.setId, set.abbreviation])).toEqual([[3188, 'OP01'], [3189, 'ST-01'], [17659, 'ST-01 PRE'], [17675, 'OP-PR'], [24537, 'OP14-EB04'], [24664, 'OP16']]);
     expect(await fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece)).toBe(110);
     const result = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: sets[0]!, productTypeId: 110 });
     expect(fetcher.urls).toEqual([
+      ...ROBOTS,
       'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true',
       'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/',
       guideUrl,
     ]);
     // Never followed: a redirect (a sign-in, a challenge) fails the request and ends the run as SOURCE_UNAVAILABLE.
-    expect(fetcher.inits.map(init => init?.redirect)).toEqual(['error', 'error', 'error']);
+    expect(fetcher.inits.map(init => init?.redirect)).toEqual(['manual', 'manual', 'manual', 'error', 'error', 'error']);
     expect(result.parsed.observations).toHaveLength(12);
     expect(result.parsed.observations[0]!.artifactSha256).toBe(artifactDigest(bytes(guide)));
     expect(Date.parse(result.parsed.observations[0]!.retrievedAt)).toBeGreaterThanOrEqual(Date.parse('2026-10-28T00:00:00Z'));
@@ -233,23 +254,33 @@ describe('TCGplayer acquisition', () => {
   });
 
   it.each([
-    [() => new Response('Too many', { status: 429, headers: { 'retry-after': '1' } }), 'http-429'],
-    [() => new Response('Forbidden', { status: 403 }), 'http-403'],
-    [() => new Response('Unavailable', { status: 503 }), 'http-503'],
-    [() => new Response('<html>Verify you are human</html>', { status: 200, headers: { 'content-type': 'text/html' } }), 'non-json-response'],
-    [() => new Response('<html>captcha</html>', { status: 200, headers: { 'content-type': 'application/json' } }), 'non-json-response'],
-    [() => { throw new TypeError('fetch failed: redirect mode is set to error'); }, 'network-or-redirect'],
-  ] as const)('reports SOURCE_UNAVAILABLE on a refusal (%#) and retries nothing', async (response, reason) => {
+    // Counted as the host refusing the collector (http.ts hostRefusal), with its Retry-After as sent.
+    [() => new Response('Too many', { status: 429, headers: { 'retry-after': '1' } }), 'http-429', { status: 429, retryAfter: '1' }],
+    [() => new Response('Too many', { status: 429 }), 'http-429', { status: 429, retryAfter: null }],
+    [() => new Response('Forbidden', { status: 403 }), 'http-403', { status: 403, retryAfter: null }],
+    [() => new Response('Back later', { status: 503, headers: { 'retry-after': 'Thu, 29 Oct 2026 18:00:00 GMT' } }), 'http-503', { status: 503, retryAfter: 'Thu, 29 Oct 2026 18:00:00 GMT' }],
+    // Unavailable, but not a refusal of this collector.
+    [() => new Response('Unavailable', { status: 503 }), 'http-503', null],
+    [() => new Response('Unauthorized', { status: 401 }), 'http-401', null],
+    [() => new Response('<html>Verify you are human</html>', { status: 200, headers: { 'content-type': 'text/html' } }), 'non-json-response', null],
+    [() => new Response('<html>captcha</html>', { status: 200, headers: { 'content-type': 'application/json' } }), 'non-json-response', null],
+    [() => { throw new TypeError('fetch failed: redirect mode is set to error'); }, 'network-or-redirect', null],
+  ] as const)('reports SOURCE_UNAVAILABLE on a refusal (%#) and retries nothing', async (response, reason, refused) => {
+    // The bucket's clock and timers only: its 10 s between requests pass at once.
+    vi.useFakeTimers({ now: Date.parse(readAt), toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     const calls: string[] = [];
-    const fetcher = createTcgplayerFetcher({ fetch: (async (url: string) => { calls.push(url); return response(); }) as unknown as typeof fetch });
-    const failure = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: romanceDawn, productTypeId: 110 }).catch(error => error);
+    const robots = readTcgplayerRobots(createTcgplayerFetcher({ fetch: (async (url: string) => { calls.push(url); return url.endsWith('/robots.txt') ? none() : response(); }) as unknown as typeof fetch }), TCGPLAYER_EVIDENCE_VERSION, [onePiece]);
+    await vi.advanceTimersByTimeAsync(20_000);
+    const pending = acquireTcgplayerPriceGuide(await robots, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: romanceDawn, productTypeId: 110 }).catch(error => error);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const failure = await pending;
     expect(failure).toBeInstanceOf(TcgplayerUnavailableError);
-    expect(failure).toMatchObject({ code: 'SOURCE_UNAVAILABLE', reason, url: guideUrl });
-    expect(calls).toEqual([guideUrl]);
+    expect(failure).toMatchObject({ code: 'SOURCE_UNAVAILABLE', reason, url: guideUrl, refused });
+    expect(calls).toEqual([...ROBOTS, guideUrl]);
   });
 
   it('treats a missing set as that set\'s failure, not the source\'s', async () => {
-    const fetcher = fakeFetcher([() => new Response('', { status: 404 })]);
+    const fetcher = await opened([() => new Response('', { status: 404 })]);
     const failure = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: romanceDawn, productTypeId: 110 }).catch(error => error);
     expect(failure).not.toBeInstanceOf(TcgplayerUnavailableError);
     expect(String(failure)).toContain('tcgplayer-http-404');
@@ -259,12 +290,16 @@ describe('TCGplayer acquisition', () => {
     // Only the clock and timers the bucket uses; response bodies still stream.
     vi.useFakeTimers({ now: Date.parse(readAt), toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     const seen: { url: string; at: number; init: RequestInit & { dispatcher?: unknown } }[] = [];
-    const fetcher = createTcgplayerFetcher({
+    const base = createTcgplayerFetcher({
       rate_limit: { rps: 100, burst: 100 },
-      fetch: (async (url: string, init: RequestInit) => { seen.push({ url, at: Date.now(), init }); return json(fixture('product-types-68.json'))(); }) as unknown as typeof fetch,
+      fetch: (async (url: string, init: RequestInit) => { seen.push({ url, at: Date.now(), init }); return url.endsWith('/robots.txt') ? none() : json(fixture('product-types-68.json'))(); }) as unknown as typeof fetch,
     });
+    expect(base.via_proxy).toBeNull();
+    expect(base.via_proxy_label).toBeNull();
+    const robots = readTcgplayerRobots(base, TCGPLAYER_EVIDENCE_VERSION, [onePiece]);
+    await vi.advanceTimersByTimeAsync(20_000);
+    const fetcher = await robots;
     expect(fetcher.via_proxy).toBeNull();
-    expect(fetcher.via_proxy_label).toBeNull();
     const reads = Promise.all([
       fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece),
       fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece),
@@ -272,10 +307,12 @@ describe('TCGplayer acquisition', () => {
     ]);
     await vi.advanceTimersByTimeAsync(30_000);
     await reads;
-    expect(seen.map(call => call.at - seen[0]!.at)).toEqual([0, 10_000, 20_000]);
+    // robots.txt for the three hosts, then the reads: the same bucket, 10 s apart.
+    expect(seen.map(call => call.at - seen[0]!.at)).toEqual([0, 10_000, 20_000, 30_000, 40_000, 50_000]);
+    expect(seen.slice(0, 3).map(call => call.url)).toEqual(ROBOTS);
     // The collector's own reads reach fetch with redirects refused.
-    expect(seen.slice(0, 2).map(call => call.init.redirect)).toEqual(['error', 'error']);
-    expect(fetcher.count).toBe(3);
+    expect(seen.slice(3, 5).map(call => call.init.redirect)).toEqual(['error', 'error']);
+    expect(fetcher.count).toBe(6);
     for (const { init } of seen) {
       const agent = new Headers(init.headers).get('user-agent')!;
       expect(agent).toContain('cambridgetcg.com');
@@ -288,7 +325,136 @@ describe('TCGplayer acquisition', () => {
 
   it('refuses a fetcher that routes through a proxy', async () => {
     const proxied = createFetcher({ fetch: vi.fn() as unknown as typeof fetch }, tcgplayer.meta, { proxy_url: 'http://user:pass@brd.superproxy.io:33335' });
-    await expect(fetchTcgplayerCardsProductType(proxied, TCGPLAYER_EVIDENCE_VERSION, onePiece)).rejects.toThrow('tcgplayer-proxied-fetcher-refused');
+    await expect(readTcgplayerRobots(proxied, TCGPLAYER_EVIDENCE_VERSION, [onePiece])).rejects.toThrow('tcgplayer-proxied-fetcher-refused');
+    await expect(fetchTcgplayerCardsProductType(unread(proxied), TCGPLAYER_EVIDENCE_VERSION, onePiece)).rejects.toThrow('tcgplayer-proxied-fetcher-refused');
     expect(proxied.count).toBe(0);
+  });
+});
+
+describe('TCGplayer robots.txt, read every run', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  // The file as recorded on 2026-10-28, and variants of it.
+  const recorded = 'User-agent: *\nCrawl-Delay: 10\nAllow: /\nDisallow: /search/*/product?seller=*\nDisallow: /sellers/*/product/*\n';
+  // Every set's price-guide data as robots.txt is asked about it before any data.
+  const anySetGuide = 'https://infinite-api.tcgplayer.com/priceguide/set/0/cards/?rows=5000&productTypeID=0';
+  const refusal = async (robots: (() => Response)[], lines = [onePiece]) => {
+    const fetcher = fakeFetcher(robots);
+    const failure = await readTcgplayerRobots(fetcher, TCGPLAYER_EVIDENCE_VERSION, lines).catch(error => error);
+    return { failure, urls: fetcher.urls };
+  };
+
+  it('reads all three hosts\' robots.txt first, identified and unredirected, before any data; none (404) sets no rule', async () => {
+    const fetcher = await opened([json(fixture('set-names-68.json'))], [text(recorded), none, none]);
+    expect(fetcher.urls).toEqual(['https://www.tcgplayer.com/robots.txt', 'https://mpapi.tcgplayer.com/robots.txt', 'https://infinite-api.tcgplayer.com/robots.txt']);
+    expect(fetcher.inits.map(init => [init?.redirect, new Headers(init?.headers).get('accept')])).toEqual(Array(3).fill(['manual', 'text/plain']));
+    expect(fetcher.robots).toMatchObject({ hosts: { 'www.tcgplayer.com': 'rules', 'mpapi.tcgplayer.com': 'none', 'infinite-api.tcgplayer.com': 'none' }, intervalMs: 10_000 });
+    expect(fetcher.robots.allows(guideUrl)).toBe(true);
+    expect(fetcher.robots.allows('https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/romance-dawn')).toBe(true);
+    // Seller listings stay disallowed, and a host the run did not read allows nothing.
+    expect(fetcher.robots.allows('https://www.tcgplayer.com/sellers/x/product/1')).toBe(false);
+    expect(fetcher.robots.allows('https://mp-search-api.tcgplayer.com/v1/search')).toBe(false);
+    await fetchTcgplayerSets(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece);
+    expect(fetcher.urls.slice(3)).toEqual(['https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true']);
+  });
+
+  it.each([
+    ['the price-guide pages, for every crawler', [text('User-agent: *\nDisallow: /categories/\n'), none, none], 'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/'],
+    ['the set lists', [none, text('User-agent: *\nDisallow: /v2/Catalog/\n'), none], 'https://mpapi.tcgplayer.com/v2/Catalog/SetNames?categoryId=68&active=true'],
+    ['the product types, by query-free path', [none, text('User-agent: *\nDisallow: /v2/Product/\n'), none], 'https://mpapi.tcgplayer.com/v2/Product/ProductTypes/68/'],
+    ['the guides', [none, none, text('User-agent: *\nDisallow: /priceguide\n')], anySetGuide],
+    // Every set's data has a query and a /cards/ path: a rule for either reaches each one.
+    ['every URL with a query', [none, none, text('User-agent: *\nDisallow: /*?\n')], anySetGuide],
+    ['every set\'s cards', [none, none, text('User-agent: *\nDisallow: /priceguide/set/*/cards\n')], anySetGuide],
+    ['the guide query', [none, none, text('User-agent: *\nDisallow: /*?rows=\n')], anySetGuide],
+    ['everything, to this collector by name', [text('User-agent: tcgplayer-collector\nDisallow: /\n\nUser-agent: *\nAllow: /\n'), none, none], 'https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/'],
+  ] as const)('refuses the run before any data when robots.txt disallows %s, recorded as a refusal', async (_label, robots, url) => {
+    const { failure, urls } = await refusal([...robots]);
+    expect(failure).toBeInstanceOf(TcgplayerUnavailableError);
+    expect(failure).toMatchObject({ reason: 'robots-disallows-collector', status: null, url, refused: { status: null, retryAfter: null } });
+    expect(urls).toEqual(ROBOTS);
+  });
+
+  it('applies the group naming this collector when one exists, otherwise every crawler\'s', async () => {
+    // Named and allowed: the * group's disallow does not apply to it (RFC 9309).
+    const named = await opened([], [text('User-agent: cambridgetcg\nAllow: /\n\nUser-agent: *\nDisallow: /\n'), none, none]);
+    expect(named.robots.allows('https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/romance-dawn')).toBe(true);
+    // Its product token with a version is the same name.
+    const versioned = await refusal([text('User-agent: cambridgetcg.com/1.0\nDisallow: /categories/\n'), none, none]);
+    expect(versioned.failure).toMatchObject({ reason: 'robots-disallows-collector' });
+    // Another crawler's group is not ours.
+    const other = await opened([], [text('User-agent: GPTBot\nDisallow: /\n'), none, none]);
+    expect(other.robots.allows(guideUrl)).toBe(true);
+  });
+
+  it('names a set whose page or data robots.txt disallows, and never requests it', async () => {
+    const fetcher = await opened([], [text('User-agent: *\nDisallow: /categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/romance-dawn\n'), none, text('User-agent: *\nDisallow: /priceguide/set/3189/\n')]);
+    const starter = parseTcgplayerSets(onePiece, fixture('set-names-68.json')).find(set => set.setId === 3189)!;
+    const azure = parseTcgplayerSets(onePiece, fixture('set-names-68.json')).find(set => set.setId === 24537)!;
+    expect(tcgplayerSetDisallowed(fetcher, { line: onePiece, set: romanceDawn, productTypeId: 110 })).toBe('https://www.tcgplayer.com/categories/trading-and-collectible-card-games/one-piece-card-game/price-guides/romance-dawn');
+    expect(tcgplayerSetDisallowed(fetcher, { line: onePiece, set: starter, productTypeId: 110 })).toBe('https://infinite-api.tcgplayer.com/priceguide/set/3189/cards/?rows=5000&productTypeID=110');
+    expect(tcgplayerSetDisallowed(fetcher, { line: onePiece, set: azure, productTypeId: 110 })).toBeNull();
+    const page = await acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: romanceDawn, productTypeId: 110 }).catch(error => error);
+    expect(page).not.toBeInstanceOf(TcgplayerUnavailableError);
+    expect(String(page)).toContain('tcgplayer-robots-disallows-set');
+    await expect(acquireTcgplayerPriceGuide(fetcher, TCGPLAYER_EVIDENCE_VERSION, { line: onePiece, set: starter, productTypeId: 110 })).rejects.toThrow('tcgplayer-robots-disallows-set');
+    expect(() => tcgplayerSetDisallowed(unread(fakeFetcher([])), { line: onePiece, set: romanceDawn, productTypeId: 110 })).toThrow('tcgplayer-robots-not-read');
+    expect(fetcher.urls).toEqual(ROBOTS);
+  });
+
+  it.each([
+    ['a 5xx', () => new Response('error', { status: 500 }), 'robots-http-500', null],
+    ['a 503 with no Retry-After', () => new Response('down', { status: 503 }), 'robots-http-503', null],
+    ['a network failure', () => { throw new TypeError('fetch failed'); }, 'robots-fetch-error', null],
+    ['a redirect, not followed', () => new Response(null, { status: 301, headers: { location: 'https://cdn.example/robots.txt' } }), 'robots-http-301', null],
+    ['a file too large to read', () => new Response('#'.repeat(512 * 1024 + 1), { status: 200 }), 'robots-too-large', null],
+    ['a 403', () => new Response('denied', { status: 403 }), 'robots-http-403', { status: 403, retryAfter: null }],
+    ['a 429 with Retry-After', () => new Response('slow down', { status: 429, headers: { 'retry-after': '120' } }), 'robots-http-429', { status: 429, retryAfter: '120' }],
+    ['a 503 with Retry-After', () => new Response('down', { status: 503, headers: { 'retry-after': '3600' } }), 'robots-http-503', { status: 503, retryAfter: '3600' }],
+    ['a challenge', () => new Response('', { status: 403, headers: { 'cf-mitigated': 'challenge' } }), 'robots-challenge-challenge', { status: 403, retryAfter: null }],
+  ] as const)('collects nothing when a robots.txt read fails or is refused (%s), counting only refusals', async (_label, response, reason, refused) => {
+    for (const position of [0, 1, 2]) {
+      const robots: (() => Response)[] = [none, none, none].slice(0, position);
+      const { failure, urls } = await refusal([...robots, response]);
+      expect(failure).toBeInstanceOf(TcgplayerUnavailableError);
+      expect(failure).toMatchObject({ reason, url: ROBOTS[position], refused });
+      // Nothing after the failed read: no other host's robots.txt, no data.
+      expect(urls).toEqual(ROBOTS.slice(0, position + 1));
+    }
+  });
+
+  it('keeps the larger of 10 s and the Crawl-delay robots.txt asks, between every request on every host', async () => {
+    vi.useFakeTimers({ now: Date.parse(readAt), toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const seen: number[] = [];
+    const answers: Record<string, () => Response> = {
+      'https://www.tcgplayer.com/robots.txt': text('User-agent: *\nCrawl-delay: 15\n'),
+      'https://mpapi.tcgplayer.com/robots.txt': none,
+      'https://infinite-api.tcgplayer.com/robots.txt': none,
+    };
+    const base = createTcgplayerFetcher({ fetch: (async (url: string) => { seen.push(Date.now()); return (answers[url] ?? json(fixture('product-types-68.json')))(); }) as unknown as typeof fetch });
+    const robots = readTcgplayerRobots(base, TCGPLAYER_EVIDENCE_VERSION, [onePiece]);
+    await vi.advanceTimersByTimeAsync(30_000);
+    const fetcher = await robots;
+    expect(fetcher.robots.intervalMs).toBe(15_000);
+    const reads = Promise.all([fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece), fetchTcgplayerCardsProductType(fetcher, TCGPLAYER_EVIDENCE_VERSION, onePiece)]);
+    await vi.advanceTimersByTimeAsync(30_000);
+    await reads;
+    expect(fetcher.robots.delayHost).toBe('www.tcgplayer.com');
+    const gaps = seen.slice(1).map((at, index) => at - seen[index]!);
+    // www.tcgplayer.com's own robots.txt came at once; every request after it waited its 15 s.
+    expect(gaps.length).toBe(4);
+    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(15_000);
+  });
+
+  it('keeps 10 s when the Crawl-delay asks less, prefers the named group\'s delay, and refuses one over 60 s', async () => {
+    expect((await opened([], [text('User-agent: *\nCrawl-delay: 2\n'), none, none])).robots).toMatchObject({ intervalMs: 10_000, delayHost: null });
+    vi.useFakeTimers({ now: Date.parse(readAt), toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const named = opened([], [text('User-agent: tcgplayer-collector\nCrawl-delay: 12\nAllow: /\n\nUser-agent: *\nCrawl-delay: 30\n'), none, none]);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect((await named).robots.intervalMs).toBe(12_000);
+    vi.useRealTimers();
+    expect((await opened([], [text('User-agent: *\nCrawl-delay: soon\n'), none, none])).robots.intervalMs).toBe(10_000);
+    const { failure, urls } = await refusal([text('User-agent: *\nCrawl-delay: 61\n')]);
+    expect(failure).toMatchObject({ reason: 'robots-crawl-delay-too-long', url: ROBOTS[0], refused: { status: null, retryAfter: null } });
+    expect(urls).toEqual(ROBOTS.slice(0, 1));
   });
 });

@@ -8,7 +8,11 @@
  * A source with a collector (Cardmarket, CardRush, TCGplayer) takes its
  * health from the member_price_batches rows written for it, not from the
  * legacy ingest_run: CardRush's and TCGplayer's legacy paths stay locked,
- * and Cardmarket's files never ran through it (../collector-health.ts).
+ * and Cardmarket's files never ran through it (../collector-health.ts). Its
+ * collector.hosts lists every host the collector reads, with its refusal
+ * state (price_collector_hosts, migration 0146): a host refused on every
+ * recent run, or suspended, makes the source failing even while another host
+ * of it collects.
  */
 
 import type { NextRequest, NextResponse } from "next/server";
@@ -22,7 +26,10 @@ import {
 } from "@/lib/wholesale/client";
 import { repoDocRef } from "@/lib/repository";
 import { batchCollected, collectionFlag, collectionOn } from "@/lib/datafeed/collection-flags";
-import { deriveCollectorHealth, readLatestCollectorBatch, type CollectorBatch } from "../collector-health";
+import {
+  deriveCollectorHealth, deriveHostHealth, readCollectorHostStates, readLatestCollectorBatch, withHostHealth,
+  type CollectorBatch, type CollectorHostHealth,
+} from "../collector-health";
 
 const VALID_WINDOWS = ["1h", "24h", "7d", "30d", "90d"] as const;
 type Window = (typeof VALID_WINDOWS)[number];
@@ -126,6 +133,11 @@ interface SourceDetailBody {
     reason?: string;
     latest_batch: CollectorBatch | null;
     collection: { flag: string | null; scheduled: boolean };
+    /** Whether price_collector_hosts could be read; hosts list every host the
+     * collector reads either way, as `unknown` when it could not. */
+    hosts_available: boolean;
+    hosts_reason?: string;
+    hosts: CollectorHostHealth[];
   } | null;
   /** Legacy wholesale ingest_run only; a page collector's runs are its batches. */
   last_run: PublicRunRow | null;
@@ -168,10 +180,11 @@ export async function GET(
   const is_planned_only = mod === undefined;
 
   const collected = batchCollected(id);
-  const [lastRuns, runHistory, batches] = await Promise.all([
+  const [lastRuns, runHistory, batches, hostStates] = await Promise.all([
     fetchSourceLastRuns(),
     fetchSourceRunHistory({ source: id, window, limit: 50 }),
     collected ? readLatestCollectorBatch(id) : Promise.resolve(null),
+    collected ? readCollectorHostStates() : Promise.resolve(null),
   ]);
 
   const ingest_runs_available = lastRuns !== null;
@@ -202,8 +215,9 @@ export async function GET(
 
   // FRESHNESS itself, not a copy, so a key added there is known here.
   const freshness_seconds = meta && Object.hasOwn(FRESHNESS, meta.freshness) ? FRESHNESS[meta.freshness] : 0;
+  const hosts = collected && hostStates ? deriveHostHealth(id, hostStates, freshness_seconds) : null;
   const { health, reason } = batches
-    ? deriveCollectorHealth(batches, freshness_seconds)
+    ? withHostHealth(deriveCollectorHealth(batches, freshness_seconds), hosts?.hosts ?? [])
     : deriveHealth({
         last_run: last_run_internal,
         freshness_seconds,
@@ -227,6 +241,9 @@ export async function GET(
           ...(batches.available ? {} : { reason: batches.reason }),
           latest_batch: batches.available ? batches.latest : null,
           collection: { flag, scheduled: flag !== null && collected && collectionOn(id) },
+          hosts_available: hosts?.hosts_available ?? false,
+          ...(hosts?.hosts_reason ? { hosts_reason: hosts.hosts_reason } : {}),
+          hosts: hosts?.hosts ?? [],
         }
       : null,
     last_run: last_run_internal ? publicRun(last_run_internal) : null,
@@ -251,6 +268,7 @@ export async function GET(
 
   const operationalDataIncluded = ingest_runs_available || run_history_available;
   const batchesIncluded = batches?.available === true;
+  const hostsIncluded = hosts?.hosts_available === true;
 
   return jsonResponse({
     data,
@@ -259,11 +277,13 @@ export async function GET(
       "ctcg-derived",
       ...(operationalDataIncluded ? ["wholesale-rds.ingest_run"] : []),
       ...(batchesIncluded ? ["storefront-rds.member_price_batches"] : []),
+      ...(hostsIncluded ? ["storefront-rds.price_collector_hosts"] : []),
     ],
     source_license: [
       "proprietary",
       ...(operationalDataIncluded ? ["internal-only"] : []),
       ...(batchesIncluded ? ["internal-only"] : []),
+      ...(hostsIncluded ? ["internal-only"] : []),
     ],
     license: "NOASSERTION",
     freshness: "status",
@@ -272,8 +292,9 @@ export async function GET(
       "Quarantine reasons, rows, payload keys, and payload bytes are not fetched or returned.",
       ...(batches
         ? [
-            "Health counts a batch as fresh only if it recorded observations. A run that fails before writing any batch leaves none, so such a collector reads as stale or never_run, not as failing.",
+            "Health counts a batch as fresh only if it recorded observations. A run that fails before writing any batch leaves none, so such a collector reads as stale or never_run, not as failing, unless a host refused it: a host refused on its last two runs or more, or suspended, makes the source failing, and a host not served within its own budget makes a healthy source stale (collector.hosts).",
             "How many observations a batch holds is not read: latest_batch.observed says only whether it recorded any.",
+            "A host's refusals are Cambridge's own codes (http-429, robots-disallows-collector); no upstream response text is stored or returned.",
           ]
         : []),
     ],

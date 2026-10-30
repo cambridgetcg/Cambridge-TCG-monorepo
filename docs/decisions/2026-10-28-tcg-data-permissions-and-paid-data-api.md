@@ -15,7 +15,10 @@ of "What this changes" and put the question to Yu. Yu's words and the table
 below are unchanged. Updated again on 2026-10-29 with Yu's answers to four
 more questions; the answered items left "What still needs Yu's hand", and
 every earlier quote is unchanged. Updated again on 2026-10-29 with Yu's words
-on images and the agents' reading of them.
+on images and the agents' reading of them, and again the same day with three
+agents' calls on collecting politely (TCGplayer's robots.txt read every run,
+per-host backoff and self-suspension, migration 0146) and a pointer to the
+deletion procedure.
 
 ## Yu's words
 
@@ -161,7 +164,15 @@ plan.").
   reports `SOURCE_UNAVAILABLE` rather than being routed around. A CardRush
   run reads the host's robots.txt first and stops if it disallows product
   pages (or the sitemap) to this collector or to every crawler, or cannot be
-  read; a host with no robots.txt (404, 410) sets no rule. One run at a time (collector leases,
+  read; a host with no robots.txt (404, 410) sets no rule. *Since 2026-10-29* a
+  TCGplayer run reads robots.txt first on all three hosts it reads, under its
+  own rule: the group naming the collector if one does, otherwise `*` (RFC
+  9309). A disallowed path every run reads refuses the run, a disallowed set
+  is skipped, and a file that leaves no listed set refuses the run. It keeps
+  the larger of 10 s and the Crawl-delay asked, and a host that refuses (a 403, a 429, a
+  503 with Retry-After, a challenge, robots.txt disallowing the collector) is
+  left alone until its Retry-After or 6 hours, and suspends itself after three
+  refused runs in a row until a person clears it (migration 0146). One run at a time (collector leases,
   migration 0143: one per CardRush host, one for all TCGplayer hosts, one
   for Cardmarket), so a duplicate delivery never doubles the rate. The legacy collection paths (wholesale
   crons, the `scrape-cardrush` CLI, stock checks and image copies) stay
@@ -262,13 +273,15 @@ DATA_RIGHTS line, were answered by Yu on 2026-10-29
 
 - **Vercel limits.** Confirm the plan allows the new cron routes'
   `maxDuration = 300`, their memory and their schedules. Not checked.
-- **Migrations 0139–0145** on the production storefront database. This uses a
+- **Migrations 0139–0146** on the production storefront database. This uses a
   database credential the work was not given. The collectors refuse to run
   without 0143's lease table. 0144 (added 2026-10-29) bounds the free member
   feed's current view; without it the feed reads as it did before. 0145
   (added 2026-10-29) holds the CardRush listing image links; without it the
   CardRush collector records none (each run that writes a batch logs one
-  line), and `/prices` shows official references only.
+  line), and `/prices` shows official references only. 0146 (added
+  2026-10-29) keeps each collector's per-host backoff and suspension; without
+  it the collectors run with neither.
 - **Turning on each collector** (`DATA_COLLECT_CARDMARKET`,
   `DATA_COLLECT_CARDRUSH`, `DATA_COLLECT_TCGPLAYER`) **and the derivation job**
   (`DATA_DERIVE_MARKET`). `DATA_COLLECT_CARDMARKET` waits for migration
@@ -311,3 +324,6 @@ Each source keeps its own revocation switch: `revoked_at`, `member_display`
 and `derivation` on its `member_price_source_releases` row. Derived rows carry
 their contributing sources, so revoking a source's derivation hides every
 derived row it contributed to on the next read. The rows are not rewritten.
+When a source asks for its data to be deleted, rather than no longer used, the
+procedure is [price-data-deletion.md](../operations/price-data-deletion.md);
+the guarded path it needs is designed there and not yet built.

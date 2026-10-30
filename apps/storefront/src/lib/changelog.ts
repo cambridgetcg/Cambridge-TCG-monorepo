@@ -109,6 +109,18 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     related_urls: ["/api/mcp", "/methodology/agents", "/.well-known/mcp-config.json"],
   },
   {
+    id: "source-collector-hosts",
+    date: "2026-10-29",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/sources, /api/v1/sources/[id] collector.hosts",
+    summary:
+      "Collected sources gain collector.hosts[]: each host's state (ok, refused, failing, stale, suspended, never_run, unknown), last success and refusal, not_before and suspension. A failing or suspended host makes its source failing.",
+    detail:
+      "The collectors now honour a Retry-After as long as the host asks (capped at 7 days), suspend themselves at a host after three refused runs in a row until a person clears it, and TCGplayer reads robots.txt on every run. Cardmarket's user-agent names its permission. This needs migration 0146; until then hosts[] is empty and the collectors behave as before. Existing health fields and vocabulary are unchanged.",
+    related_urls: ["/api/v1/sources/cardrush", "/api/v1/sources/tcgplayer", "/api/v1/sources/cardmarket"],
+  },
+  {
     id: "repository-visibility-public",
     date: "2026-10-29",
     kind: "well-known-modified",
