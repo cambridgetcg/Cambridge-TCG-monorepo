@@ -559,7 +559,11 @@ function auditTcgplayerAcquisition(): void {
 // fixed (lang, source) pair read by its own function with its own projector;
 // the lane table must equal the copy below, which is the reviewed one; every
 // card_images reader and writer in the repository is named; and the manual
-// tools keep their refusal, identification and full-key pins.
+// tools keep their refusal, identification and full-key pins. A further
+// tightening the same day reads the tools' AWS calls one by one instead of
+// the file as a whole: each is a reviewed shape, the only write is
+// put-object with --if-none-match "*", and each bucket call names the run's
+// profile once.
 
 /** The reviewed lane table. A change to official-image-lanes.ts fails here
  * until this copy is changed with it. */
@@ -624,6 +628,60 @@ function templateLiterals(body: string): string[] {
     i += 1;
   }
   return out;
+}
+
+/** The body with comments and string text blanked to spaces (same length,
+ * newlines kept), template ${…} expressions kept as code, so a position in
+ * it is a position in the body and only code is left to match. */
+function codeOnly(body: string): string {
+  const out = body.split("");
+  const blank = (from: number, to: number) => { for (let k = from; k < to && k < out.length; k += 1) if (out[k] !== "\n") out[k] = " "; };
+  const scan = (start: number, untilBrace: boolean): number => {
+    let i = start, depth = 0;
+    while (i < body.length) {
+      const c = body[i], next = body[i + 1];
+      if (c === "/" && next === "/") { const end = body.indexOf("\n", i); const stop = end < 0 ? body.length : end; blank(i, stop); i = stop; continue; }
+      if (c === "/" && next === "*") { const end = body.indexOf("*/", i + 2); const stop = end < 0 ? body.length : end + 2; blank(i, stop); i = stop; continue; }
+      if (c === '"' || c === "'") {
+        let j = i + 1;
+        while (j < body.length && body[j] !== c && body[j] !== "\n") j += body[j] === "\\" ? 2 : 1;
+        blank(i + 1, j); i = j + 1; continue;
+      }
+      if (c === "`") {
+        let j = i + 1, from = j;
+        while (j < body.length && body[j] !== "`") {
+          if (body[j] === "\\") { j += 2; continue; }
+          if (body[j] === "$" && body[j + 1] === "{") { blank(from, j); j = scan(j + 2, true) + 1; from = j; continue; }
+          j += 1;
+        }
+        blank(from, j); i = j + 1; continue;
+      }
+      if (c === "{") depth += 1;
+      if (c === "}") { if (untilBrace && depth === 0) return i; depth -= 1; }
+      i += 1;
+    }
+    return i;
+  };
+  scan(0, false);
+  return out.join("");
+}
+
+/** Each `aws(` call's argument text, from `(` to its matching `)`, and
+ * whether it is one array literal. Brackets are matched in code only. */
+function awsCalls(body: string): { args: string; literal: boolean }[] {
+  const code = codeOnly(body);
+  const calls: { args: string; literal: boolean }[] = [];
+  for (const match of code.matchAll(/\baws\s*\(/g)) {
+    const open = match.index! + match[0].length - 1;
+    let depth = 0, close = open;
+    for (let i = open; i < code.length; i += 1) {
+      if ("([{".includes(code[i]!)) depth += 1;
+      else if (")]}".includes(code[i]!) && --depth === 0) { close = i; break; }
+    }
+    const args = body.slice(open + 1, close).trim().replace(/,\s*$/, "");
+    calls.push({ args: args.replace(/\s+/g, " "), literal: /^\[[^]*\]$/.test(args) && codeOnly(args).indexOf("]") === args.length - 1 });
+  }
+  return calls;
 }
 
 /** Every source file under the roots that may hold a card_images query or an
@@ -761,13 +819,42 @@ function auditOfficialImageTools(): void {
     if (/\bupdate\s+card_images\b/i.test(literal) && !literal.includes("WHERE sku = $1 AND lang = $2 AND kind = $3 AND source = $4 AND s3_key IS NULL AND takedown_status = 'clear'")) fail(7, OFFICIAL_IMAGE_TOOLS, "every card_images update must be keyed by the full primary key, on a clear row with no object yet");
     if (/\bfor\s+update\b/i.test(literal) && !literal.includes("WHERE sku = $1 AND lang = $2 AND kind = $3 AND source = $4 FOR UPDATE NOWAIT")) fail(7, OFFICIAL_IMAGE_TOOLS, "every row lock must be by the full primary key, NOWAIT");
   }
-  requireText(7, UPLOAD_OFFICIAL_IMAGES, source(UPLOAD_OFFICIAL_IMAGES), "shell: false", "the AWS CLI must run without a shell");
+  // Call by call, a further tightening of the guard swap: a file-wide pin
+  // still passes when one call keeps the text and another drops it. The
+  // tools reach a process only through the one aws helper; each call passes
+  // one literal argument list of a reviewed shape; the only write is
+  // put-object with --if-none-match "*"; and each call that reaches the
+  // bucket names the run's profile, once.
+  requireText(7, OFFICIAL_IMAGE_TOOLS, tools, 'const aws = (args: readonly string[]) => deps.execFile("aws", args, { shell: false, timeout: 120_000, env });', "the tools must reach the AWS CLI only through the one aws helper, without a shell");
+  const toolCode = codeOnly(tools);
+  if ((toolCode.match(/\bexecFile\b/g) ?? []).length !== 2) fail(7, OFFICIAL_IMAGE_TOOLS, "execFile may appear only in ToolDeps and the one aws helper");
+  if ((toolCode.match(/\baws\b(?!-)/g) ?? []).length !== (toolCode.match(/\baws\s*\(/g) ?? []).length + 1) fail(7, OFFICIAL_IMAGE_TOOLS, "the aws helper may only be called, never passed on or renamed");
+  const awsArgs = awsCalls(tools);
+  for (const { args, literal } of awsArgs) {
+    const shape = args.slice(0, 60);
+    const once = (text: string) => args.split(text).length === 2;
+    if (!literal || codeOnly(args).includes("...")) fail(7, OFFICIAL_IMAGE_TOOLS, `every aws call must pass one literal argument list, not '${shape}'`);
+    else if (args === '["--version"]') continue;
+    else if (args.startsWith('["s3api", "put-object",')) {
+      if (!once('"--if-none-match", "*"') || !once('"--if-none-match"')) fail(7, OFFICIAL_IMAGE_TOOLS, 'every put-object must carry "--if-none-match", "*", once');
+      if (!once('"--profile", profile') || !once('"--profile"')) fail(7, OFFICIAL_IMAGE_TOOLS, "every put-object must name the run's profile, once");
+    } else if (args.startsWith('["s3api", "head-object",')) {
+      if (!once('"--profile", profile') || !once('"--profile"')) fail(7, OFFICIAL_IMAGE_TOOLS, "every head-object must name the run's profile, once");
+    } else fail(7, OFFICIAL_IMAGE_TOOLS, `aws call '${shape}' is not a reviewed shape (--version, s3api put-object, s3api head-object)`);
+  }
+  if (!awsArgs.some(({ args }) => args.startsWith('["s3api", "put-object",'))) fail(7, OFFICIAL_IMAGE_TOOLS, "the upload's put-object must stay in the tools, where these pins read it");
+  // The scripts inject the process call and make none of their own.
+  const upload = source(UPLOAD_OFFICIAL_IMAGES);
+  requireText(7, UPLOAD_OFFICIAL_IMAGES, upload, "execFile: (file, args, options) => execFileAsync(file, [...args], { shell: false,", "the upload script's one process call must pass the tools' arguments through, without a shell");
+  if ((codeOnly(upload).match(/\bexecFileAsync\s*\(/g) ?? []).length !== 1) fail(7, UPLOAD_OFFICIAL_IMAGES, "the upload script may run a process only through the injected execFile");
+  forbidText(7, INGEST_OFFICIAL_JA, source(INGEST_OFFICIAL_JA), "child_process", "the ingest runs no other program");
+  requireText(7, UPLOAD_OFFICIAL_IMAGES, upload, "shell: false", "the AWS CLI must run without a shell");
   for (const path of [INGEST_OFFICIAL_JA, UPLOAD_OFFICIAL_IMAGES]) {
     requireText(7, path, source(path), "process.env.DATABASE_URL", "the database URL comes from the environment only");
   }
   for (const path of [OFFICIAL_IMAGE_TOOLS, INGEST_OFFICIAL_JA, UPLOAD_OFFICIAL_IMAGES]) {
     const body = source(path);
-    for (const forbidden of ['"cp"', "s3 cp", "--acl", "shell: true", "execSync", "exec(", "spawn(", "dotenv", "--env-file", ".env.local", ".env.production", "prod.env"]) {
+    for (const forbidden of ['"cp"', "s3 cp", '"s3"', '"sync"', '"mv"', '"rm"', '"copy-object"', '"delete-object"', '"delete-objects"', '"put-object-acl"', '"upload-part"', '"create-multipart-upload"', "--endpoint-url", "--acl", "shell: true", "execSync", "exec(", "spawn(", "dotenv", "--env-file", ".env.local", ".env.production", "prod.env"]) {
       forbidText(7, path, body, forbidden, `the official-image tools must not contain '${forbidden}'`);
     }
     if (/["'/]\.env\b/.test(body)) fail(7, path, "the official-image tools must not read an env file");
