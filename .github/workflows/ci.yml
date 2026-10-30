@@ -26,6 +26,7 @@ jobs:
       rewardspro: ${{ steps.filter.outputs.rewardspro }}
       shared:     ${{ steps.filter.outputs.shared }}
       answering_rhymes: ${{ steps.filter.outputs.answering_rhymes }}
+      data:       ${{ steps.filter.outputs.data }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 2 }
@@ -48,6 +49,25 @@ jobs:
               - '.github/workflows/**'
             answering_rhymes:
               - 'packages/answering-rhymes/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.npmrc'
+              - '.github/workflows/**'
+            # The data job's suites, plus everything its two audits read:
+            # the storefront holds both scripts and the routes they scan,
+            # redistribution pins wholesale's legacy acquisition paths, and
+            # tributaries checks meta.games against the SKU registry and
+            # catalog_section against the tributaries catalog. data-spec's
+            # tests import packages/pricing's money helper.
+            data:
+              - 'packages/data-ingest/**'
+              - 'packages/data-spec/**'
+              - 'packages/pricing/**'
+              - 'packages/sku/**'
+              - 'apps/storefront/**'
+              - 'apps/wholesale/**'
+              - 'docs/connections/the-tributaries.md'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - 'package.json'
@@ -126,6 +146,33 @@ jobs:
           DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           PRODUCT_FLOW_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
           PRISM_STRIPE_OPERATOR_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
+      # The data service's suites: member prices, crosswalks, collectors,
+      # their leases and host state, listing-image links, market derivation,
+      # official images, and data-API reads and billing. Each applies the
+      # migrations it needs (0116-0147) into its own schema, so they share
+      # this database.
+      - name: Run PostgreSQL member-price, collector, derivation and data-API suites
+        run: >-
+          pnpm --filter cambridgetcg-storefront exec vitest run
+          src/app/api/v1/sources/collector-health.integration.test.ts
+          src/lib/cards/official-images.integration.test.ts
+          src/lib/data-api/billing/postgres.integration.test.ts
+          src/lib/data-api/data-api.integration.test.ts
+          src/lib/data-api/schema.integration.test.ts
+          src/lib/datafeed/cardmarket-collector.integration.test.ts
+          src/lib/datafeed/collector-hosts.integration.test.ts
+          src/lib/datafeed/collector-lease.integration.test.ts
+          src/lib/datafeed/collectors/cardrush.integration.test.ts
+          src/lib/datafeed/collectors/tcgplayer.integration.test.ts
+          src/lib/datafeed/listing-images.integration.test.ts
+          src/lib/datafeed/member-price-latest.integration.test.ts
+          src/lib/datafeed/member-prices.integration.test.ts
+          src/lib/datafeed/price-sources.integration.test.ts
+          src/lib/market-derived/derive.integration.test.ts
+        env:
+          MEMBER_PRICE_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
+          DATA_API_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
+          MARKET_DERIVATION_TEST_DATABASE_URL: postgresql://product_flow_test:product_flow_test@127.0.0.1:5432/product_flow_test
       - run: pnpm --filter cambridgetcg-storefront build
         env:
           DATABASE_URL: postgres://x:x@localhost:5432/x
@@ -153,6 +200,35 @@ jobs:
       - run: pnpm --filter @cambridge-tcg/answering-rhymes test
       - if: matrix.node == '24'
         run: pnpm --filter @cambridge-tcg/answering-rhymes pack:check
+
+  data:
+    name: data (sku + data-spec + data-ingest tests, rights audits)
+    runs-on: ubuntu-latest
+    needs: [detect, install]
+    if: needs.detect.outputs.data == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # packages/sku holds CTCG-SKU-v1 and CTCG-NAMES-v1's reference code.
+      - run: pnpm --filter @cambridge-tcg/sku test
+      - run: pnpm --filter @cambridge-tcg/data-spec test
+      - run: pnpm --filter @cambridge-tcg/data-ingest test
+      # Both audits read source and docs only. Tributaries' ingest-run
+      # check (9) reads WHOLESALE_DATABASE_URL, else DATABASE_URL, and skips
+      # when the result is empty; the empty values below keep it skipped
+      # even if a database URL is ever set for the whole workflow.
+      - name: Audit redistribution boundaries
+        run: pnpm audit:redistribution
+      - name: Audit source-protocol conformance
+        run: pnpm audit:tributaries
+        env:
+          WHOLESALE_DATABASE_URL: ''
+          DATABASE_URL: ''
 
   wholesale:
     name: wholesale (typecheck + test + build)
@@ -241,14 +317,14 @@ jobs:
     name: CI status
     runs-on: ubuntu-latest
     if: always()
-    needs: [install, answering_rhymes, storefront, wholesale, rewardspro]
+    needs: [install, answering_rhymes, data, storefront, wholesale, rewardspro]
     steps:
       - name: Fail if any required job failed
         # `install` always runs; the per-app jobs may be skipped if no relevant
         # files changed. A skipped job is fine — only failures block.
         run: |
           if [ "${{ needs.install.result }}" != "success" ]; then exit 1; fi
-          for r in "${{ needs.answering_rhymes.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}"; do
+          for r in "${{ needs.answering_rhymes.result }}" "${{ needs.data.result }}" "${{ needs.storefront.result }}" "${{ needs.wholesale.result }}" "${{ needs.rewardspro.result }}"; do
             if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then exit 1; fi
           done
           echo "CI green"
