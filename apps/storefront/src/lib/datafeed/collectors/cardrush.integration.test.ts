@@ -204,21 +204,26 @@ describe.skipIf(!localUrl)('CardRush collector PostgreSQL integration (explicit 
 });
 
 // Production's shape when cardrush-title/2 ships: 0137 to 0146 applied, and
-// rows the collector wrote under /1. Product 15601 is an edit of the 15600
-// excerpt: an English listing's title in the shape a CardRush product list
-// showed on 2026-10-30, and its own synthetic og:image. Its price stays the
-// excerpt's synthetic one.
-const ENGLISH = 15601;
-const englishHtml = () => pageHtml(15600).toString('utf8')
-  .replace(/<title>[^<]*<\/title>/, '<title>〔状態A-〕ウタ(英語版/illust:Akiko Sugizono)【R】{OP01-005}</title>')
-  .replace(Buffer.from('product/SYNTHETIC_15600.jpg').toString('hex'), Buffer.from(`product/SYNTHETIC_${ENGLISH}.jpg`).toString('hex'));
+// rows the collector wrote under /1. Products 15601 and 15602 are edits of
+// the 15600 excerpt, each with its own synthetic og:image: an English
+// listing's title in the shape a CardRush product list showed on 2026-10-30,
+// and a Chinese listing's in the bare shape /1 mapped exactly (no Chinese
+// title was captured). Their price stays the excerpt's synthetic one.
+const ENGLISH = 15601, CHINESE = 15602;
+const editedHtml = (id: number, title: string) => pageHtml(15600).toString('utf8')
+  .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+  .replace(Buffer.from('product/SYNTHETIC_15600.jpg').toString('hex'), Buffer.from(`product/SYNTHETIC_${id}.jpg`).toString('hex'));
+const edited: Record<number, string> = {
+  [ENGLISH]: editedHtml(ENGLISH, '〔状態A-〕ウタ(英語版/illust:Akiko Sugizono)【R】{OP01-005}'),
+  [CHINESE]: editedHtml(CHINESE, 'ウタ(簡体字版)【R】{OP01-005}'),
+};
 const productionSchema = `cardrush_title2_test_${randomUUID().replaceAll('-', '')}`;
-const productionSitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${[15600, ENGLISH].map(id => `<url><loc>${url(id)}</loc></url>`).join('')}</urlset>`;
+const productionSitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${[15600, ENGLISH, CHINESE].map(id => `<url><loc>${url(id)}</loc></url>`).join('')}</urlset>`;
 const productionFetch = (async (target: string) => {
   if (target === 'https://www.cardrush-op.jp/robots.txt') return new Response(robots, { status: 200, headers: { 'content-type': 'text/plain' } });
   if (target === 'https://www.cardrush-op.jp/sitemap.xml') return new Response(productionSitemap, { status: 200, headers: { 'content-type': 'text/xml; charset=UTF-8' } });
   const id = Number(target.split('/').pop());
-  return new Response(id === ENGLISH ? englishHtml() : pageHtml(id), { status: 200, headers: { 'content-type': 'text/html; charset=UTF-8' } });
+  return new Response(edited[id] ?? pageHtml(id), { status: 200, headers: { 'content-type': 'text/html; charset=UTF-8' } });
 }) as unknown as typeof globalThis.fetch;
 
 describe.skipIf(!localUrl)('CardRush cardrush-title/1 to /2 on a store with 0137 to 0146 (explicit loopback DB only)', () => {
@@ -234,14 +239,17 @@ describe.skipIf(!localUrl)('CardRush cardrush-title/1 to /2 on a store with 0137
     for (const name of ['0137_member_price_observations.sql', '0138_member_data_keys.sql', '0139_widen_price_sources.sql', '0140_price_source_crosswalks.sql', '0141_market_derived.sql',
       '0142_data_api_plans.sql', '0143_price_collector_leases.sql', '0144_member_price_latest.sql', '0145_price_source_listing_images.sql', '0146_price_collector_hosts.sql']) await apply(name);
     // What /1 stored a day earlier: the Japanese page exact, the English one
-    // ambiguous (its slash group failed /1's plain-name check), and their crosswalks.
-    const parsed = parseCardRushMemberPrices([page(15600, readAt), { url: url(ENGLISH), bytes: new TextEncoder().encode(englishHtml()), retrievedAt: readAt }]);
+    // ambiguous (its slash group failed /1's plain-name check), the Chinese one
+    // exact to a zh SKU, and their crosswalks.
+    const parsed = parseCardRushMemberPrices([page(15600, readAt), ...[ENGLISH, CHINESE].map(id => ({ url: url(id), bytes: new TextEncoder().encode(edited[id]), retrievedAt: readAt }))]);
+    const asStoredUnder1 = { en: { sku: null, setCode: null, mappingStatus: 'ambiguous' as const }, zh: { sku: 'op-op01-005-zh', setCode: 'op01', mappingStatus: 'exact' as const } };
     await writeMemberPriceBatch('cardrush', { ...strip(parsed),
-      observations: parsed.observations.map(row => ({ ...row, crosswalkVersion: 'cardrush-title/1', ...(row.language === 'en' ? { sku: null, setCode: null, mappingStatus: 'ambiguous' as const } : {}) })),
+      observations: parsed.observations.map(row => ({ ...row, crosswalkVersion: 'cardrush-title/1', ...asStoredUnder1[row.language as keyof typeof asStoredUnder1] })),
       quarantine: [{ sourceProductId: `www.cardrush-op.jp/product/${ENGLISH}`, reason: 'ambiguous-crosswalk-no-sku-assigned' }] }, undefined, { ingestKey: 'cardrush:www.cardrush-op.jp:title-1-run' });
     const v1Links = { source: 'cardrush' as const, game: 'one-piece', crosswalkVersion: 'cardrush-title/1' };
     await writeProductCrosswalk({ ...v1Links, sourceProductId: 'www.cardrush-op.jp/product/15600', finish: null, language: 'ja', mappingStatus: 'exact', sku: 'op-op01-006-ja', setCode: 'op01', evidence: 'title:OP01-006 [UC]' }, undefined, { collector: true });
     await writeProductCrosswalk({ ...v1Links, sourceProductId: `www.cardrush-op.jp/product/${ENGLISH}`, finish: null, language: 'en', mappingStatus: 'ambiguous', sku: null, setCode: null, evidence: 'title:OP01-005 [R] en' }, undefined, { collector: true });
+    await writeProductCrosswalk({ ...v1Links, sourceProductId: `www.cardrush-op.jp/product/${CHINESE}`, finish: null, language: 'zh', mappingStatus: 'exact', sku: 'op-op01-005-zh', setCode: 'op01', evidence: 'title:OP01-005 [R] zh' }, undefined, { collector: true });
     await writeSetCrosswalk({ ...v1Links, sourceSetKey: 'OP01', setCode: 'op01', evidence: 'title-set:OP01' }, undefined, { collector: true });
   });
   afterAll(async () => {
@@ -249,10 +257,10 @@ describe.skipIf(!localUrl)('CardRush cardrush-title/1 to /2 on a store with 0137
     if (owner) { await owner.query(`DROP SCHEMA IF EXISTS ${productionSchema} CASCADE`); await owner.end(); }
   });
 
-  it('supersedes each /1 row once, keeping its history: the Japanese mapping unchanged, the English one exact', async () => {
+  it('supersedes each /1 row once, keeping its history: the Japanese mapping unchanged, the English one exact, the Chinese one ambiguous', async () => {
     const summary = await collectCardRush({ runAt, context: { fetch: productionFetch } });
-    expect(summary).toMatchObject({ ran: true, requested: 2, observed: 2, quarantined: 0, batch: { inserted: 2, duplicate: false },
-      crosswalks: { written: 3, unchanged: 0, skipped: 0, refused: 0 }, listingImages: { written: 2 }, hostState: { recorded: 1 } });
+    expect(summary).toMatchObject({ ran: true, requested: 3, observed: 3, quarantined: 1, batch: { inserted: 3, duplicate: false },
+      crosswalks: { written: 4, unchanged: 0, skipped: 0, refused: 0 }, listingImages: { written: 3 }, hostState: { recorded: 1 } });
     // Nothing is deleted or edited but superseded_at: each /1 row stands, superseded once, beside one live /2 row.
     expect((await state.pool.query(`SELECT source_product_id, language, mapping_status, sku, evidence, crosswalk_version, superseded_at IS NOT NULL AS superseded
       FROM price_source_crosswalks ORDER BY source_product_id, id`)).rows).toEqual([
@@ -260,6 +268,9 @@ describe.skipIf(!localUrl)('CardRush cardrush-title/1 to /2 on a store with 0137
       { source_product_id: 'www.cardrush-op.jp/product/15600', language: 'ja', mapping_status: 'exact', sku: 'op-op01-006-ja', evidence: 'title:OP01-006 [UC]', crosswalk_version: 'cardrush-title/2', superseded: false },
       { source_product_id: `www.cardrush-op.jp/product/${ENGLISH}`, language: 'en', mapping_status: 'ambiguous', sku: null, evidence: 'title:OP01-005 [R] en', crosswalk_version: 'cardrush-title/1', superseded: true },
       { source_product_id: `www.cardrush-op.jp/product/${ENGLISH}`, language: 'en', mapping_status: 'exact', sku: 'op-op01-005-en', evidence: 'title:OP01-005 [R] en', crosswalk_version: 'cardrush-title/2', superseded: false },
+      // zh names no script: the exact /1 row gives way to an ambiguous one.
+      { source_product_id: `www.cardrush-op.jp/product/${CHINESE}`, language: 'zh', mapping_status: 'exact', sku: 'op-op01-005-zh', evidence: 'title:OP01-005 [R] zh', crosswalk_version: 'cardrush-title/1', superseded: true },
+      { source_product_id: `www.cardrush-op.jp/product/${CHINESE}`, language: 'zh', mapping_status: 'ambiguous', sku: null, evidence: 'title:OP01-005 [R] zh', crosswalk_version: 'cardrush-title/2', superseded: false },
     ]);
     expect((await state.pool.query(`SELECT source_set_key, set_code, crosswalk_version, superseded_at IS NOT NULL AS superseded FROM price_source_set_crosswalks ORDER BY id`)).rows).toEqual([
       { source_set_key: 'OP01', set_code: 'op01', crosswalk_version: 'cardrush-title/1', superseded: true },
@@ -267,29 +278,38 @@ describe.skipIf(!localUrl)('CardRush cardrush-title/1 to /2 on a store with 0137
     ]);
     // Stored observations keep the version and mapping they were written under;
     // the new readings carry /2, and the feed's latest row per key moves to them.
-    expect((await state.pool.query(`SELECT source_product_id, sku, mapping_status, crosswalk_version, condition FROM member_price_observations ORDER BY id`)).rows).toEqual([
+    expect((await state.pool.query(`SELECT source_product_id, sku, mapping_status, crosswalk_version, condition FROM member_price_observations ORDER BY crosswalk_version, source_product_id`)).rows).toEqual([
       { source_product_id: 'www.cardrush-op.jp/product/15600', sku: 'op-op01-006-ja', mapping_status: 'exact', crosswalk_version: 'cardrush-title/1', condition: 'C' },
       { source_product_id: `www.cardrush-op.jp/product/${ENGLISH}`, sku: null, mapping_status: 'ambiguous', crosswalk_version: 'cardrush-title/1', condition: 'A-' },
+      { source_product_id: `www.cardrush-op.jp/product/${CHINESE}`, sku: 'op-op01-005-zh', mapping_status: 'exact', crosswalk_version: 'cardrush-title/1', condition: null },
       { source_product_id: 'www.cardrush-op.jp/product/15600', sku: 'op-op01-006-ja', mapping_status: 'exact', crosswalk_version: 'cardrush-title/2', condition: 'C' },
       { source_product_id: `www.cardrush-op.jp/product/${ENGLISH}`, sku: 'op-op01-005-en', mapping_status: 'exact', crosswalk_version: 'cardrush-title/2', condition: 'A-' },
+      { source_product_id: `www.cardrush-op.jp/product/${CHINESE}`, sku: null, mapping_status: 'ambiguous', crosswalk_version: 'cardrush-title/2', condition: null },
     ]);
     expect((await state.pool.query(`SELECT l.source_product_id, o.crosswalk_version AS latest, o.sku, p.crosswalk_version AS previous
       FROM member_price_latest l JOIN member_price_observations o ON o.id = l.observation_id JOIN member_price_observations p ON p.id = l.previous_observation_id
       ORDER BY l.source_product_id`)).rows).toEqual([
       { source_product_id: 'www.cardrush-op.jp/product/15600', latest: 'cardrush-title/2', sku: 'op-op01-006-ja', previous: 'cardrush-title/1' },
       { source_product_id: `www.cardrush-op.jp/product/${ENGLISH}`, latest: 'cardrush-title/2', sku: 'op-op01-005-en', previous: 'cardrush-title/1' },
+      { source_product_id: `www.cardrush-op.jp/product/${CHINESE}`, latest: 'cardrush-title/2', sku: null, previous: 'cardrush-title/1' },
     ]);
     // The live row decides, whatever version an observation was stored under:
-    // the rule the derivation shares (resolveLiveCrosswalk) now places the English product.
-    expect(await resolveCrosswalkSkus([{ source: 'cardrush', sourceProductId: `www.cardrush-op.jp/product/${ENGLISH}`, finish: null, language: 'en', game: 'one-piece' }]))
-      .toEqual([expect.objectContaining({ sku: 'op-op01-005-en', setCode: 'op01', mappingStatus: 'exact', crosswalkVersion: 'cardrush-title/2' })]);
+    // the rule the derivation shares (resolveLiveCrosswalk) now places the
+    // English product, and no longer the Chinese one, /1 readings included.
+    expect(await resolveCrosswalkSkus([
+      { source: 'cardrush', sourceProductId: `www.cardrush-op.jp/product/${ENGLISH}`, finish: null, language: 'en', game: 'one-piece' },
+      { source: 'cardrush', sourceProductId: `www.cardrush-op.jp/product/${CHINESE}`, finish: null, language: 'zh', game: 'one-piece' },
+    ])).toEqual([
+      expect.objectContaining({ sku: 'op-op01-005-en', setCode: 'op01', mappingStatus: 'exact', crosswalkVersion: 'cardrush-title/2' }),
+      expect.objectContaining({ sku: null, mappingStatus: 'ambiguous', crosswalkVersion: 'cardrush-title/2' }),
+    ]);
   }, 60_000);
 
   it('does not flap: the next /2 run leaves its own rows in place', async () => {
     await spacingPassed();
     const summary = await collectCardRush({ runAt: new Date(runAt.getTime() + 60_000), context: { fetch: productionFetch } });
-    expect(summary).toMatchObject({ ran: true, batch: { inserted: 2, duplicate: false }, crosswalks: { written: 0, unchanged: 3, skipped: 0, refused: 0 } });
-    expect((await state.pool.query(`SELECT count(*)::int AS n FROM price_source_crosswalks`)).rows[0].n).toBe(4);
+    expect(summary).toMatchObject({ ran: true, batch: { inserted: 3, duplicate: false }, crosswalks: { written: 0, unchanged: 4, skipped: 0, refused: 0 } });
+    expect((await state.pool.query(`SELECT count(*)::int AS n FROM price_source_crosswalks`)).rows[0].n).toBe(6);
     expect((await state.pool.query(`SELECT count(*)::int AS n FROM price_source_set_crosswalks`)).rows[0].n).toBe(2);
   }, 60_000);
 });

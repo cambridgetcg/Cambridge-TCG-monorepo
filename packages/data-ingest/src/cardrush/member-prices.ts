@@ -23,8 +23,10 @@ import type { IngestContext } from '../types';
 export const CARDRUSH_PRICE_PARSER = 'cardrush-page/1';
 /** /2 (2026-10-30) also reads the trailing group English listings carry,
  * (英語版/illust:…); /1 read only a bare (英語版) or 【英語版】, so those rows
- * stayed ambiguous. The collector's crosswalk writes supersede live /1 rows
- * (crosswalks.ts collectorMaySupersede); stored observations keep /1. */
+ * stayed ambiguous. A group without a language marker reads as under /1. A
+ * Chinese listing, which /1 could map to a zh SKU, is ambiguous under /2.
+ * The collector's crosswalk writes supersede live /1 rows (crosswalks.ts
+ * collectorMaySupersede); stored observations keep /1. */
 export const CARDRUSH_CROSSWALK_VERSION = 'cardrush-title/2';
 /** One bucket per host. burst 1: a fresh bucket never sends two requests within two seconds. */
 export const CARDRUSH_PAGE_RATE = { rps: 0.5, burst: 1 } as const;
@@ -119,24 +121,37 @@ const OG_IMAGE = /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["
 // grading marker such as 〔PSA10鑑定済〕. No marker means no stated condition.
 const GRADE = /^状態([A-Z][+-]?)$/;
 const GRADED = /^(PSA|BGS|CGC|ARS)\s?(\d{1,2}(?:\.\d)?)鑑定済$/;
-const LANGUAGE_MARKERS: readonly [string, string][] = [['英語版', 'en'], ['韓国語版', 'ko'], ['中国語版', 'zh'], ['簡体字版', 'zh'], ['繁体字版', 'zh']];
-const LANGUAGE_BRACKETS = new RegExp(`[(【](?:${LANGUAGE_MARKERS.map(([marker]) => marker).join('|')})[)】]`, 'g');
-const LANGUAGE_TOKENS: ReadonlySet<string> = new Set(LANGUAGE_MARKERS.map(([marker]) => marker));
+/** The title markers a listing's language is read from. names-1
+ * (CARD_NAME_MARKERS.cardrush_language in @cambridge-tcg/sku) keeps a copy. */
+export const CARDRUSH_LANGUAGE_MARKERS: readonly (readonly [string, string])[] = [['英語版', 'en'], ['韓国語版', 'ko'], ['中国語版', 'zh'], ['簡体字版', 'zh'], ['繁体字版', 'zh']];
+const LANGUAGE_BRACKETS = new RegExp(`[(【](?:${CARDRUSH_LANGUAGE_MARKERS.map(([marker]) => marker).join('|')})[)】]`, 'g');
+const LANGUAGE_TOKENS: ReadonlySet<string> = new Set(CARDRUSH_LANGUAGE_MARKERS.map(([marker]) => marker));
+// The languages whose SKU names one printing. 中国語版 (script unstated),
+// 簡体字版 and 繁体字版 all read as zh, and a SKU's language segment cannot
+// say which script it is (sku games.ts records none for op), so a Chinese
+// listing stays ambiguous rather than share one SKU with another script.
+const SKU_LANGUAGES: ReadonlySet<string> = new Set(['ja', 'en', 'ko']);
 // One Piece base rarities. P, SP, TR, DON and any /P form are promos,
 // specials or parallels whose printing the title does not single out.
 const PLAIN_RARITIES: Partial<Record<GameCode, readonly string[]>> = { op: ['C', 'UC', 'R', 'SR', 'SEC', 'L'] };
-// A plain name ends in at most one half-width (…) group, split at '/' as
-// CTCG-NAMES-v1's cardrush-title/names-1 splits it: at most one language
-// marker and at most one illust:<credit>, as in (英語版/illust:Hachi Takashi).
-// Any other token, bracket or parenthetical may name a variant (パラレル,
-// 漫画絵) or another product (未開封, a promo's event).
+// A plain name ends in at most one half-width (…) group. A group without a
+// language marker is read as /1 read it: illust:<credit> alone, everything
+// after illust: taken as the credit. A group with one is split at '/', with
+// no trimming (stricter than names-1, which trims each token): one language
+// marker and at most one illust:<credit>, as in (英語版/illust:Hachi Takashi),
+// the credit holding no other separator the illust grammar knows (| ／ ）;
+// cards/illust-annotation.ts). Any other token, bracket or parenthetical may
+// name a variant (パラレル, 漫画絵) or another product (未開封, a promo's event).
 const PLAIN_NAME = /^[^()（）[\]［］【】{}〔〕]+(?:\(([^()]+)\))?$/;
+const PLAIN_NAME_1 = /^[^()（）[\]［］【】{}〔〕]+(?:\(illust:[^()]+\))?$/;
 function plainName(name: string): boolean {
   const group = PLAIN_NAME.exec(name);
   if (!group) return false;
   const tokens = group[1]?.split('/') ?? [];
-  const languages = tokens.filter(token => LANGUAGE_TOKENS.has(token)).length, credits = tokens.filter(token => /^illust:./.test(token)).length;
-  return languages <= 1 && credits <= 1 && languages + credits === tokens.length;
+  const languages = tokens.filter(token => LANGUAGE_TOKENS.has(token)).length;
+  if (!languages) return PLAIN_NAME_1.test(name);
+  const credits = tokens.filter(token => /^illust:[^|）／]+$/.test(token)).length;
+  return languages === 1 && credits <= 1 && languages + credits === tokens.length;
 }
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 const decodeText = (value: string) => value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (match, dec, hex, name) =>
@@ -200,7 +215,7 @@ export function parseCardRushMemberPrices(pages: readonly CardRushPage[]): Parse
       condition = grade ? grade[1]! : graded ? `${graded[1]}${graded[2]}` : null;
       if (!condition) { result.quarantine.push({ sourceProductId: id, field: 'condition', reason: 'unrecognised-condition-marker' }); continue; }
     }
-    const languages = new Set(LANGUAGE_MARKERS.filter(([marker]) => title.includes(marker)).map(([, language]) => language));
+    const languages = new Set(CARDRUSH_LANGUAGE_MARKERS.filter(([marker]) => title.includes(marker)).map(([, language]) => language));
     if (languages.size > 1) { result.quarantine.push({ sourceProductId: id, field: 'language', reason: 'conflicting-language-markers' }); continue; }
     const language = [...languages][0] ?? 'ja';
     const parallel = classifyCardRushSignal({ url: page.url, name: title, rarity, game: host.code, cardNumber: identity?.number ?? null })
@@ -213,7 +228,7 @@ export function parseCardRushMemberPrices(pages: readonly CardRushPage[]): Parse
     let crosswalk: CardRushProductCrosswalk | null = null, setCrosswalk: CardRushSetCrosswalk | null = null;
     if (host.crosswalk && identity) {
       const name = title.replace(/^〔[^〕]*〕/, '').replace(LANGUAGE_BRACKETS, '').split('【')[0]!;
-      const plain = !finish && !identity.release && rarity !== null && (PLAIN_RARITIES[host.code] ?? []).includes(rarity) && plainName(name);
+      const plain = !finish && !identity.release && SKU_LANGUAGES.has(language) && rarity !== null && (PLAIN_RARITIES[host.code] ?? []).includes(rarity) && plainName(name);
       const evidence = `title:${identity.set}-${identity.number}${identity.release ? `[${identity.release}]` : ''} [${rarity ?? '-'}]${finish ? ' parallel' : ''}${language !== 'ja' ? ` ${language}` : ''}`;
       // The SKU builder is the one judge of this identity, not a copy of its
       // patterns: a title whose set, number or language it refuses names no
