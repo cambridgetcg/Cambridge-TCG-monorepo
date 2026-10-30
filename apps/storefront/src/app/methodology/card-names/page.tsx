@@ -64,6 +64,18 @@ export default function CardNamesMethodology() {
         first so that people and agents can check them and build on them.
       </p>
 
+      <p>
+        <Link href="/prices">/prices</Link> shows each CardRush, TCGplayer and
+        Cardmarket row&apos;s vendor name under the source&apos;s own title, with
+        its status and source, and the illustrator where the title credits one.
+        The name&apos;s language is the one its text is written in (see each
+        rule below), never the row&apos;s printing language. A title the rule
+        refuses shows no name, and so does a CardRush title with a language
+        marker, since how CardRush writes the name on such a listing has not
+        been seen; Scryfall rows have no rule. This is display only: no
+        endpoint, export or download emits name records yet.
+      </p>
+
       <blockquote>
         <strong>Where this lives in code.</strong> The reference implementation
         is <code>packages/sku/src/names.ts</code>, exported from{" "}
