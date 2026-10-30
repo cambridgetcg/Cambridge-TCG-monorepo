@@ -667,7 +667,7 @@ export const MANIFEST: Manifest = {
         host: "wholesale", path: "/api/v1/schema", methods: ["GET"],
         modalities: ["json"], auth: "public", provenance: "static",
         cosmology_axes: [], since: "2026-05-11" },
-      { id: "storefront.universal.card", description: "Public math-encoded card with hashes, ratios, ISO-epoch and typed graph edges. Legacy catalog prices and images remain withheld. Normal/saturated density can add eligible self-hosted English reference images with attribution and syntax-only image_reference, plus independently attributed effect text and structured card details. Sparse density omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. Density param: sparse | normal | saturated.",
+      { id: "storefront.universal.card", description: "Public math-encoded card with hashes, ratios, ISO-epoch and typed graph edges. Legacy catalog prices and images remain withheld. Normal/saturated density can add eligible self-hosted English reference images with attribution and syntax-only image_reference, a Japanese request's own-language official image in image_same_language, plus independently attributed effect text and structured card details. Sparse density omits those media fields. No exact-printing or reuse permission is established; aggregate rights remain NOASSERTION. Density param: sparse | normal | saturated.",
         host: "storefront", path: "/api/v1/universal/card/[sku]", methods: ["GET"],
         modalities: ["math", "json"], auth: "public", provenance: "computed",
         cosmology_axes: ["value", "identity"], methodology_url: "/methodology/universal-representation",

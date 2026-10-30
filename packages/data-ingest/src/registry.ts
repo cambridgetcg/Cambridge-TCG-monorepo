@@ -18,6 +18,7 @@ import { tcgcollector } from "./tcgcollector/index";
 import { cardmarket } from "./cardmarket/index";
 import { ebay } from "./ebay/index";
 import { bandaiEn } from "./bandai-en/index";
+import { bandaiJp } from "./bandai-jp/index";
 import { vinted } from "./vinted/index";
 
 /**
@@ -49,6 +50,7 @@ export const SOURCES: Record<SourceId, SourceModule<any, any> | undefined> = {
   cardmarket,                // partial — official daily files; One Piece collector flag-gated (DATA_COLLECT_CARDMARKET); OAuth closed
   ebay,                      // partial (Browse API only; Marketplace Insights gated)
   "bandai-en": bandaiEn,     // blocked live reader; fixture parser preserved; permission undocumented
+  "bandai-jp": bandaiJp,     // blocked — manual tool only (ingest-official-ja.mjs), no cron, no live reader
   vinted,                    // blocked (ToS + UK GDPR; consented first-party normalizer ready) — the honest block
   // ── unregistered (no module yet — slot reserved) ──
   cardtrader: undefined,

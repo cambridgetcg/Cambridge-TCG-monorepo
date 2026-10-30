@@ -18,7 +18,7 @@ vi.mock('@/lib/db', () => ({
   },
 }));
 // The official lane has its own tests (en-card-data); here it finds nothing.
-vi.mock('@/lib/cards/en-card-data', () => ({ getEnCardImages: state.official }));
+vi.mock('@/lib/cards/en-card-data', () => ({ getOfficialCardImages: state.official }));
 import { writeMemberPriceBatch } from './member-price-writer';
 import { writeCardRushListingImages } from './listing-images';
 import { readMemberPriceImages } from '../prices/member-images';

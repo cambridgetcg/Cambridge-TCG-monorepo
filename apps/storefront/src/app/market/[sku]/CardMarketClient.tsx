@@ -25,6 +25,8 @@ import type { CatalogIdentity } from "@/lib/market/catalog-card";
 import { stripIllustAnnotation } from "@/lib/cards/illust-annotation";
 import type { EnCardText, CardAttributes } from "@/lib/cards/en-card-data";
 import type { ImageReference } from "@/lib/cards/image-reference";
+import type { SameLanguageImageReference } from "@/lib/cards/same-language-image-reference";
+import { imageCreditLang, marketImageLabel } from "@/lib/cards/image-labels";
 import { ListingsPanel, type TrustLimits } from "./ListingsPanel";
 import { tradeLimitWarning } from "./offer-guidance";
 
@@ -45,6 +47,8 @@ export interface CardIdentitySeed extends CatalogIdentity {
 type MarketView = UnifiedMarketView & {
   image_attribution: string | null;
   image_reference: ImageReference | null;
+  image_language: "en" | "ja" | null;
+  image_same_language_reference: SameLanguageImageReference | null;
   effect_text: EnCardText | null;
   attributes: CardAttributes | null;
 };
@@ -492,6 +496,8 @@ export default function CardMarketClient({
     image_url: identity.image_url,
     image_attribution: identity.image_attribution,
     image_reference: identity.image_reference,
+    image_language: identity.image_language ?? null,
+    image_same_language_reference: identity.image_same_language_reference ?? null,
     effect_text: identity.effect_text,
     attributes: identity.attributes,
     rarity: identity.rarity,
@@ -600,6 +606,8 @@ export default function CardMarketClient({
         image_url: identity.image_url,
         image_attribution: identity.image_attribution,
         image_reference: identity.image_reference,
+        image_language: identity.image_language ?? null,
+        image_same_language_reference: identity.image_same_language_reference ?? null,
         // Effect text + game facts are official substrate, not on the live
         // view — keep them strictly from the server identity (same reason as
         // the image pair) so the copyright-lined text can't be dropped.
@@ -828,15 +836,15 @@ export default function CardMarketClient({
                 <div className="wardrobe-panel p-2">
                   <img
                     src={book.image_url}
-                    alt={`${book.card_name || sku}: ${book.image_reference ? "English reference image · printing not verified" : "Catalog image · source and printing unverified"}`}
+                    alt={`${book.card_name || sku}: ${marketImageLabel(book)}`}
                     className="w-full rounded"
                   />
                   <p className="mt-2 px-0.5 text-xs leading-snug text-ink-muted">
-                    {book.image_reference ? "English reference image · printing not verified" : "Catalog image · source and printing unverified"}
+                    {marketImageLabel(book)}
                   </p>
                   {/* Copyright stays co-located with the image and its status. */}
                   {book.image_attribution && (
-                    <p className="mt-1.5 px-0.5 text-[10px] leading-snug text-ink-faint">
+                    <p lang={imageCreditLang(book)} className="mt-1.5 px-0.5 text-[10px] leading-snug text-ink-faint">
                       {book.image_attribution}
                     </p>
                   )}

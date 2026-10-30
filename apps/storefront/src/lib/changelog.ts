@@ -97,6 +97,18 @@ export const CHANGELOG_BEGINS = "2026-05-17";
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   // ── 2026-10-30 ─────────────────────────────────────────────────────────
   {
+    id: "official-images-japanese-lane",
+    date: "2026-10-30",
+    kind: "endpoint-modified",
+    impact: "additive",
+    surface: "/api/v1/universal/card/[sku] image_same_language, /prices, /market",
+    summary:
+      "A Japanese card can show its own-language official sample image: source bandai-jp, self-hosted with the Japanese credit line and takedown, as Yu chose on 2026-10-30. The universal card gains image_same_language; image_url and image_reference keep their English meaning.",
+    detail:
+      "Built inert: no Japanese image exists until Bandai's Japanese card lists are read and the images uploaded, and each of those acts needs Yu's word. OFFICIAL_IMAGES_JA=off hides the lane. A match is by SKU syntax only, base prints only, and labelled so. Record: docs/decisions/2026-10-30-japanese-official-images.md.",
+    related_urls: ["/legal/card-images", "/prices"],
+  },
+  {
     id: "cardrush-listing-image-product-path",
     date: "2026-10-30",
     kind: "endpoint-modified",

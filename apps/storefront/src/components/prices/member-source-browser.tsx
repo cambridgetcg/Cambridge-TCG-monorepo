@@ -3,6 +3,7 @@ import { MEMBER_PRICE_POLICIES } from "@cambridge-tcg/data-ingest/member-prices"
 import { Field, Input, Select } from "@/lib/ui/Input";
 import { DISPLAY_ONLY_INPUT_PAGE_LIMIT, DISPLAY_ONLY_INPUT_PAGES, DISPLAY_ONLY_INPUT_PAGES_END, isDisplayOnlyInput, type MemberPriceItem, type MemberPricePage, type MemberPriceSource } from "@/lib/prices/member-feed-types";
 import type { MemberPriceImage, MemberPriceImages } from "@/lib/prices/member-images";
+import { LANGUAGE_NAMES } from "@/lib/cards/image-labels";
 import { memberPriceExportHref, memberPriceHref } from "./member-query";
 
 const METRICS = ["avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil", "usd", "usd_foil", "usd_etched", "eur", "eur_foil", "sell", "market", "listed-median"];
@@ -83,30 +84,27 @@ function ObservationTime({ value }: { value: string | null }) {
   return value ? <time dateTime={value}>{value}</time> : <>Unknown</>;
 }
 
-// Names for the language codes the SKU registry knows (GAMES[*].languages in
-// @cambridge-tcg/sku); any other code shows as the code alone. A zh SKU does
-// not say which script, so it is only "Chinese".
-const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
-  en: "English", ja: "Japanese", zh: "Chinese", ko: "Korean", fr: "French",
-  de: "German", es: "Spanish", it: "Italian", pt: "Portuguese", ru: "Russian",
-};
+// Language names are shared with the market labels (image-labels.ts); any
+// other code shows as the code alone.
 const languageOf = (code: string) => Object.hasOwn(LANGUAGE_NAMES, code) ? `${LANGUAGE_NAMES[code]} (${code})` : `in language ${code}`;
 // pN and rN are the publisher's parallel and reprint suffixes; any other variant is named as stored.
 const variantOf = (variant: string | null) => variant === null ? "another printing" : /^p\d+$/.test(variant) ? "a parallel" : /^r\d+$/.test(variant) ? "a reprint" : `a variant (${variant})`;
 
 /** What the official image is, then how it relates to the row: plainly, so
- * a member never takes English base art for the row's own printing. Even a
- * matching SKU is syntax only (the reference's scope), so it says so. */
+ * a member never takes base art, or art in another language, for the row's
+ * own printing. Even a matching SKU is syntax only (the reference's scope),
+ * so it says so. The image's language is named in every case. */
 function officialLabel(image: NonNullable<MemberPriceImage["official"]>): [string, string] {
-  if (image.relationship === "pooled-row") return ["Official English base print", "this row is a source-product aggregate: language and art may differ"];
-  if (image.relationship === "same-printing") return ["Official image", `this printing (${LANGUAGE_NAMES[image.imageLang]}), matched by SKU, not verified`];
-  if (image.relationship === "same-language-base-print") return ["Official English base print", `this row is ${variantOf(image.rowVariant)}, art may differ`];
+  const imageLanguage = LANGUAGE_NAMES[image.imageLang];
+  if (image.relationship === "pooled-row") return [`Official ${imageLanguage} base print`, "this row is a source-product aggregate: language and art may differ"];
+  if (image.relationship === "same-printing") return ["Official image", `this printing (${imageLanguage}), matched by SKU, not verified`];
+  if (image.relationship === "same-language-base-print") return [`Official ${imageLanguage} base print`, `this row is ${variantOf(image.rowVariant)}, art may differ`];
   return image.rowVariant === null
-    ? ["Official English image", `this row is ${languageOf(image.rowLang)}: language differs`]
-    : ["Official English base print", `this row is ${languageOf(image.rowLang)}, ${variantOf(image.rowVariant)}: language differs, art may differ`];
+    ? [`Official ${imageLanguage} image`, `this row is ${languageOf(image.rowLang)}: language differs`]
+    : [`Official ${imageLanguage} base print`, `this row is ${languageOf(image.rowLang)}, ${variantOf(image.rowVariant)}: language differs, art may differ`];
 }
 
-/** A row's official English base print, small and fixed-size, from
+/** A row's official base print, small and fixed-size, from
  * Cambridge's own image host, for checking the item. The data attributes say
  * the same as the label, for an agent reading the HTML. */
 function OfficialImage({ image, item }: { image: NonNullable<MemberPriceImage["official"]>; item: MemberPriceItem }) {
@@ -200,7 +198,7 @@ export function MemberPriceResults({ page, params, images }: { page: MemberPrice
                         <p className="font-medium text-ink">{item.productName ?? "Source product name unknown"}</p>
                         <p className="mt-1 text-xs text-ink-muted">{item.game}{item.setCode ? ` · ${item.setCode}` : ""}</p>
                         <p className="mt-1 break-all font-mono text-xs text-ink-muted">{item.sku ?? `Source ID: ${item.sourceProductId}`}</p>
-                        {image?.official && <p className="mt-2 text-xs text-ink-muted">{officialLabel(image.official).join(" · ")}<span className="block text-ink-faint">{image.official.attribution}</span></p>}
+                        {image?.official && <p className="mt-2 text-xs text-ink-muted">{officialLabel(image.official).join(" · ")}<span lang={image.official.imageLang === "ja" ? "ja" : undefined} className="block text-ink-faint">{image.official.attribution}</span></p>}
                         {image?.listing && <ListingImage image={image.listing} item={item} />}
                       </div>
                     </div>

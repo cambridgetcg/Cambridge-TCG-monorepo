@@ -38,6 +38,7 @@ export type SourceId =
   | "edhrec"
   | "bandai-tcg"
   | "bandai-en"
+  | "bandai-jp"
   | "psa-registry"
   | "beckett-registry"
   | "shopify"

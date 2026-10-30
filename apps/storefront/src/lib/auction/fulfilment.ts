@@ -199,7 +199,11 @@ export async function buyerConfirmReceived(
       sku,
       cardName: identity?.card_name ?? ar.title ?? undefined,
       setCode: identity?.set_code ?? undefined,
-      imageUrl: identity?.image_url ?? undefined,
+      // A stored URL outlives a takedown and the Japanese lane's switch, so a
+      // Japanese official image is never copied into a portfolio row
+      // (docs/decisions/2026-10-30-japanese-official-images.md). The English
+      // URL is stored as before: a gap recorded there.
+      imageUrl: identity && identity.image_language !== "ja" ? identity.image_url ?? undefined : undefined,
       quantity: 1,
       pricePaidGbp: winningPrice,
       acquisitionSource: "auction",

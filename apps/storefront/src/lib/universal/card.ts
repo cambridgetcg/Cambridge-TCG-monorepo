@@ -180,6 +180,9 @@ export async function buildUniversalCard(
   // together; this projection does not publish catalog-photo fallbacks or prices.
   const en = await getEnCardData(row.sku);
   const image = en.en_image?.url && en.en_image.attribution && en.en_image.reference ? en.en_image : null;
+  // A Japanese request's own-language image travels as its own unit (Yu,
+  // 2026-10-30), so the v1 trio above keeps its published English meaning.
+  const sameLanguage = en.same_language_image?.url && en.same_language_image.attribution && en.same_language_image.reference ? en.same_language_image : null;
 
   const fullDocument: Record<string, unknown> = {
     "@encoding": "cambridge-tcg/universal/v1",
@@ -286,6 +289,12 @@ export async function buildUniversalCard(
     image_url: image?.url ?? null,
     image_attribution: image?.attribution ?? null,
     image_reference: image?.reference ?? null,
+    // The same-language official image, as one unit: URL, Japanese credit,
+    // language and its SameLanguageImageReference, or null. Additive; the
+    // English trio above is unchanged by it.
+    image_same_language: sameLanguage
+      ? { url: sameLanguage.url, attribution: sameLanguage.attribution, language: sameLanguage.language, reference: sameLanguage.reference }
+      : null,
 
     // ── Official EN card details (published under the same recorded rule as the
     // image; see @/lib/cards/en-card-data). Structured game facts are published
@@ -311,7 +320,7 @@ export async function buildUniversalCard(
       : null,
     publication_boundary: {
       price: "withheld_pending_field_level_source_rights",
-      image: image
+      image: image || sameLanguage
         ? "cleared_official_sample_self_hosted_attributed"
         : "withheld_pending_field_level_source_rights",
       text: en.effect_text
@@ -342,8 +351,8 @@ export async function buildUniversalCard(
       price: price ? { magnitude: price.magnitude, currency_token: price.currency_token } : null,
       in_set: inSet ? { target_hash: inSet.target_hash } : null,
       of_game: ofGame ? { target_hash: ofGame.target_hash } : null,
-      // image_url + image_attribution + image_reference — and likewise
-      // `attributes` + `effect` —
+      // image_url + image_attribution + image_reference, image_same_language,
+      // and likewise `attributes` + `effect` —
       // are intentionally elided at sparse density (they are heavy; sparse is
       // the minimal projection). Each is only ever dropped as a unit (the effect
       // carries its attribution inside itself), so the co-location invariant —

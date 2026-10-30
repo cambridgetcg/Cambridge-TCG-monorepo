@@ -1,4 +1,19 @@
-// backfill-card-images-s3 — self-host the official publisher images.
+// backfill-card-images-s3 — REFUSED since 2026-10-30. It stops before it
+// reads credentials, the database or the network, and has no switch to turn
+// back on. Official images reach the bucket only through
+// upload-official-images.mjs (docs/decisions/2026-10-30-japanese-official-images.md),
+// because this script, run beside Japanese rows, would:
+//   - select every official_sample row with no s3_key, with no language,
+//     source or takedown filter (disputed and removed rows included);
+//   - record with UPDATE … WHERE sku=$2, not the primary key
+//     (sku, lang, kind, source), pointing every row sharing a sku at one object;
+//   - upload with ambient AWS credentials, not a named profile;
+//   - overwrite existing objects (aws s3 cp);
+//   - fetch five images at once with no spacing, robots.txt or stop on refusal.
+// The redistribution audit pins the refusal. What the script did, below, is
+// kept as history.
+//
+// Was: self-host the official publisher images.
 //
 // Policy: public readers must NEVER hotlink publisher source_urls. So we
 // download each official_sample image once, upload it to the Cambridge-
@@ -8,13 +23,16 @@
 //
 //   DATABASE_URL=... node apps/storefront/scripts/backfill-card-images-s3.mjs
 //
-// Requires the `aws` CLI (creds in env/config) + network to the publisher CDN.
+// Required the `aws` CLI (creds in env/config) + network to the publisher CDN.
 
 import pg from "pg";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+console.error("Official images upload only through upload-official-images.mjs: docs/decisions/2026-10-30-japanese-official-images.md.");
+process.exit(1);
 
 const BUCKET = "ctcg-card-images";
 const CONCURRENCY = 5;
