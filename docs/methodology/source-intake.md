@@ -306,6 +306,39 @@ AWS profile they name), and the question never asked: API, or pages only?
 
 ---
 
+## Intake record — PriceCharting (Pokémon), 2026-10-30
+
+**Yu's words, 2026-10-30, verbatim:** "Lets use pricecharting data too, for
+pokemon if cardrush is blocking. they just say scrape if can."
+
+**What was read** (7 requests under `CambridgeTCG-research/1.0`, 6–22 s
+apart, no images):
+
+- Every HTML path, `robots.txt` and the terms page included, answered
+  **403 with a Cloudflare managed challenge** ("Just a moment…",
+  `cf-mitigated: challenge`). An honest, self-identifying client cannot read
+  the pages, the robots rules or the terms. Getting past the challenge would
+  mean disguising the client, which this intake never does.
+- The token endpoints answered without a challenge: `/api/product` asks for
+  an access token, and `/price-guide/download-custom` says the token is
+  unknown. Both are paid. By the published terms, which were seen only as
+  search-engine summaries and not read verbatim, API and CSV data are for
+  internal use, and showing the prices to others needs express written
+  permission. That matches the earlier reading above.
+
+**Gate result:** blocked. "Scrape if can" is not met while every page
+challenges the collector, and the record does not yet say who said it, when
+or in what form. Nothing is built and nothing collects.
+
+**What would open it (an agent's reading):** PriceCharting lets the
+identified collector through, `robots.txt` included, and confirms in writing
+the pages it may read, display on Cambridge's member pages with credit, and
+input to derived data (never API or download, never images). Or it names an
+API/CSV plan that covers showing the prices. Yu holds the conversation; an
+agent drafted the request.
+
+---
+
 ## What this framework unlocks next (same gate, cleaner sources)
 
 Ranked by legal cleanliness × UK relevance:
